@@ -31,6 +31,7 @@ type fleetHealthView struct {
 	Totals    fleetHealthCompany   `json:"totals"`
 }
 
+// pp:data-source local
 func newNovelFleetHealthCmd(flags *rootFlags) *cobra.Command {
 	var dbPath string
 	var problemsOnly bool
@@ -49,8 +50,11 @@ Reads only the local SQLite mirror — run `+"`veeam-cli sync`"+` first. Use
   veeam-cli fleet-health
   veeam-cli fleet-health --problems-only
   veeam-cli fleet-health --agent --select companies.company,companies.failed,companies.agents_offline`, "\n"),
-		Annotations: map[string]string{"mcp:read-only": "true"},
+		Annotations: map[string]string{"mcp:read-only": "true", "pp:data-source": "local"},
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := validateDataSourceStrategy(flags, "local"); err != nil {
+				return err
+			}
 			if dryRunOK(flags) {
 				return nil
 			}
@@ -63,7 +67,10 @@ Reads only the local SQLite mirror — run `+"`veeam-cli sync`"+` first. Use
 				defer db.Close()
 			}
 
-			names := veeamCompanyNames(ctx, db)
+			names, err := veeamCompanyNames(ctx, db)
+			if err != nil {
+				return err
+			}
 			buckets := map[string]*fleetHealthCompany{}
 			order := []string{}
 			get := func(uid string) *fleetHealthCompany {
@@ -81,18 +88,12 @@ Reads only the local SQLite mirror — run `+"`veeam-cli sync`"+` first. Use
 				get(uid).Company = name
 			}
 
-			jobs, _ := veeamLoad(ctx, db,
-				"infrastructure-backup-servers-jobs",
-				"infrastructure-backup-agents-jobs",
-				"infrastructure-backup-agents-windows-jobs",
-				"infrastructure-backup-agents-linux-jobs",
-				"infrastructure-backup-agents-mac-jobs",
-			)
+			jobs, err := veeamLoad(ctx, db, veeamPathServerJobs, veeamPathAgentJobs)
+			if err != nil {
+				return err
+			}
 			for _, j := range jobs {
-				org := vstr(j, "organizationUid")
-				if org == "" {
-					org = vstr(j, "mappedOrganizationUid")
-				}
+				org := veeamOrgOf(j)
 				b := get(org)
 				b.JobsTotal++
 				switch veeamJobHealth(vstr(j, "status")) {
@@ -109,12 +110,10 @@ Reads only the local SQLite mirror — run `+"`veeam-cli sync`"+` first. Use
 				}
 			}
 
-			agents, _ := veeamLoad(ctx, db,
-				"infrastructure-backup-agents",
-				"infrastructure-backup-agents-windows",
-				"infrastructure-backup-agents-linux",
-				"infrastructure-backup-agents-mac",
-			)
+			agents, err := veeamLoad(ctx, db, veeamPathAgents)
+			if err != nil {
+				return err
+			}
 			for _, a := range agents {
 				b := get(vstr(a, "organizationUid"))
 				if veeamAgentOnline(vstr(a, "status")) {
@@ -124,8 +123,14 @@ Reads only the local SQLite mirror — run `+"`veeam-cli sync`"+` first. Use
 				}
 			}
 
-			alarms, _ := veeamLoad(ctx, db, "alarms")
+			alarms, err := veeamLoad(ctx, db, veeamPathActiveAlarms)
+			if err != nil {
+				return err
+			}
 			for _, al := range alarms {
+				if !veeamAlarmActive(al) {
+					continue
+				}
 				b := get(vstr(al, "object.organizationUid"))
 				b.ActiveAlarms++
 				if veeamSeverityRank(vstr(al, "lastActivation.status")) == 0 {

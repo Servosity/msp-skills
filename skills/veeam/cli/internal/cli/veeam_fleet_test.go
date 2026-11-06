@@ -8,17 +8,19 @@ import (
 )
 
 func TestVeeamJobHealth(t *testing.T) {
+	// Documented enums: BackupServerJob.status and BackupAgentJob.status in spec.json.
 	cases := map[string]string{
-		"Success":       "success",
-		"success":       "success",
-		"Warning":       "warning",
-		"Failed":        "failed",
-		"Error":         "failed",
-		"Running":       "running",
-		"Working":       "running",
-		"Queued":        "running",
-		"":              "unknown",
-		"SomethingElse": "other",
+		"Success":     "success",
+		"Warning":     "warning",
+		"Failed":      "failed",
+		"Running":     "running",
+		"Starting":    "running",
+		"Stopping":    "running",
+		"WaitingTape": "running",
+		"Idle":        "other",
+		"None":        "other",
+		"Unknown":     "other",
+		"":            "unknown",
 	}
 	for in, want := range cases {
 		if got := veeamJobHealth(in); got != want {
@@ -28,13 +30,13 @@ func TestVeeamJobHealth(t *testing.T) {
 }
 
 func TestVeeamAgentOnline(t *testing.T) {
+	// BackupAgent.status is Unknown, Active or NotRunning. "NotRunning" contains
+	// "running" and was once read as online.
 	cases := map[string]bool{
-		"Online":       true,
-		"online":       true,
-		"Healthy":      true,
-		"Offline":      false,
-		"Inaccessible": false,
-		"":             false,
+		"Active":     true,
+		"NotRunning": false,
+		"Unknown":    false,
+		"":           false,
 	}
 	for in, want := range cases {
 		if got := veeamAgentOnline(in); got != want {

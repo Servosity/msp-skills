@@ -1,12 +1,5 @@
 # Veeam MCP - install for every agent that speaks MCP
 
-> **Security note (until this connector is reprinted).** Do not run HTTP mode
-> (`--transport http`), not even on localhost. This build has no password,
-> listens on every network interface, and predates the browser-rebinding guard,
-> so a web page you open can reach it. The MCP tools can also make changes with
-> your credentials. Use the default stdio transport. If you set up a tunnel for
-> a remote agent, shut it down. A fix is on the way.
-
 This page wires the Veeam MCP server into any MCP client. If you use Claude
 Code, Codex CLI, or Cowork, install the Skill instead (see [README.md](./README.md)) -
 it's simpler. Everyone else: pick your agent below.
@@ -46,7 +39,13 @@ Add (or merge with your existing `mcpServers` block):
       "command": "veeam-mcp",
       "env": {
         "VEEAM_BASE_URL": "<your-veeam_base_url>",
-        "VEEAM_TOKEN": "<your-veeam_token>"
+        "VEEAM_TOKEN": "<your-veeam_token>",
+        "VEEAM_MCP_READ_ONLY": "",
+        "VEEAM_NO_LOCAL_DATA": "",
+        "VEEAM_MCP_HTTP_TOKEN": "",
+        "VEEAM_MCP_UPLOAD_ROOT": "",
+        "VEEAM_USER_AGENT": "",
+        "PRINTING_PRESS_CLIENT_PROFILE": ""
       }
     }
   }
@@ -75,7 +74,7 @@ GitHub Copilot supports MCP in **Agent mode** (GA since VS Code 1.102, July 2025
 Two gotchas trip people up: the config file is `mcp.json` (not `settings.json`), and
 the root key is **`servers`** (not `mcpServers` like Claude).
 
-Create `.mcp.json` in your workspace (or open the Command Palette > **MCP: Open User
+Create `.vscode/mcp.json` in your workspace (or open the Command Palette > **MCP: Open User
 Configuration**) and add:
 
 ```json
@@ -86,7 +85,13 @@ Configuration**) and add:
       "command": "veeam-mcp",
       "env": {
         "VEEAM_BASE_URL": "<your-veeam_base_url>",
-        "VEEAM_TOKEN": "<your-veeam_token>"
+        "VEEAM_TOKEN": "<your-veeam_token>",
+        "VEEAM_MCP_READ_ONLY": "",
+        "VEEAM_NO_LOCAL_DATA": "",
+        "VEEAM_MCP_HTTP_TOKEN": "",
+        "VEEAM_MCP_UPLOAD_ROOT": "",
+        "VEEAM_USER_AGENT": "",
+        "PRINTING_PRESS_CLIENT_PROFILE": ""
       }
     }
   }
@@ -108,7 +113,13 @@ Claude Desktop:
       "command": "veeam-mcp",
       "env": {
         "VEEAM_BASE_URL": "<your-veeam_base_url>",
-        "VEEAM_TOKEN": "<your-veeam_token>"
+        "VEEAM_TOKEN": "<your-veeam_token>",
+        "VEEAM_MCP_READ_ONLY": "",
+        "VEEAM_NO_LOCAL_DATA": "",
+        "VEEAM_MCP_HTTP_TOKEN": "",
+        "VEEAM_MCP_UPLOAD_ROOT": "",
+        "VEEAM_USER_AGENT": "",
+        "PRINTING_PRESS_CLIENT_PROFILE": ""
       }
     }
   }
@@ -120,24 +131,33 @@ web** is remote-only - see the remote section below.)
 
 ---
 
-# Remote agents (paused until this connector is reprinted)
+# Remote agents
 
 **Not supported by msp-skills yet.** ChatGPT on the web, Microsoft 365 Copilot /
 Copilot Studio and the Gemini app reach MCP servers at a web address, not programs
-on your machine, so they would need `veeam-mcp` running in HTTP mode. Do not run
-HTTP mode with this build (see the security note at the top of this page), and do
-not put this server behind a tunnel or reverse proxy. If your team works in one of
-those apps, a
+on your machine, so they would need `veeam-mcp` hosted in HTTP mode. If your team
+works in one of those apps, a
 [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick)
 is the better pick; check that your AI app is on the gateway's setup list. The
 ChatGPT desktop app is different: it runs `veeam-mcp` locally (see above).
 
-The HTTP-mode launch command is kept below for reference. It is commented out on
-purpose, so pasting it does nothing:
+For reference, keep stdio (the default) for every local agent above. HTTP mode
+serves `http://127.0.0.1:7777/mcp` by default and refuses to start until
+`VEEAM_MCP_HTTP_TOKEN` is set to 32 or more characters; every request must send
+`Authorization: Bearer <token>`, and any address other than loopback also needs
+`--tls-cert` and `--tls-key`. **Treat the token like a password** - whoever holds
+it can call every tool with your Veeam credentials.
+
+The launch command, for reference:
 
 ```bash
-# VEEAM_BASE_URL=<value> VEEAM_TOKEN=<value> veeam-mcp --transport http
+export VEEAM_MCP_HTTP_TOKEN="$(openssl rand -hex 32)"
+VEEAM_BASE_URL=<value> VEEAM_TOKEN=<value> veeam-mcp --transport http --addr <host>:7777 --tls-cert <cert.pem> --tls-key <key.pem>
 ```
+
+The endpoint is `https://<host>:7777/mcp`: the server answers Streamable HTTP at
+`/mcp` and returns 404 at the bare root, and it rejects any request without
+`Authorization: Bearer <token>`.
 
 ---
 

@@ -40,6 +40,42 @@
           "description": "Bearer token for the VSPC REST API (POST /token with your portal credentials).",
           "isRequired": true,
           "isSecret": true
+        },
+        {
+          "name": "VEEAM_MCP_READ_ONLY",
+          "description": "Set to 1 for a read-only server: the API execute tool, sync, import, export and the learning-store writers are hidden, so only reads reach Veeam. Leave blank for the full tool set.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "VEEAM_NO_LOCAL_DATA",
+          "description": "Optional. Set to 1 to keep no local copy of Veeam data: reads go to the API, the response cache is off, nothing new is written to the local store, and sync is refused.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "VEEAM_MCP_HTTP_TOKEN",
+          "description": "Bearer token that veeam-mcp --transport http requires from every HTTP client (Authorization: Bearer, 32 characters or more). Leave blank for the default stdio transport, which Claude Desktop uses and which never reads it.",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "VEEAM_MCP_UPLOAD_ROOT",
+          "description": "Optional. Leave blank: a file sent through an MCP upload must then be base64 file content. Set it to a folder only to let MCP uploads name files inside that folder; no path outside it can be read.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "VEEAM_USER_AGENT",
+          "description": "Overrides the User-Agent the CLI sends on Veeam requests. Leave blank to use the CLI's own built-in User-Agent.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "PRINTING_PRESS_CLIENT_PROFILE",
+          "description": "Only for tenant-gated multi-client deployments: binds the MCP server to an existing Printing Press client profile. Leave blank for a single-tenant install.",
+          "isRequired": false,
+          "isSecret": true
         }
       ]
     }
