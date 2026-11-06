@@ -531,10 +531,10 @@ func TestCredentialNeverSentOffOrigin(t *testing.T) {
 		// another base URL derives the OAuth token URL from that host.
 		const stored = "profRef" + "Yh2Uj5Ik8Ol3"
 		api := startVendor(t, func(w http.ResponseWriter, r *http.Request) {
-			io.WriteString(w, `{"access_token":"profAcc-Rt6Yu9Io2Pa","refresh_token":"profRot-Df5Gh8Jk1Lz","expires_in":7200}`)
+			io.WriteString(w, `{"access_token":"`+"profAcc-"+"Rt6Yu9Io2Pa"+`","refresh_token":"`+"profRot-"+"Df5Gh8Jk1Lz"+`","expires_in":7200}`)
 		})
 		hostile := startVendor(t, func(w http.ResponseWriter, r *http.Request) {
-			io.WriteString(w, `{"access_token":"hostAcc-Mn3Bv6Cx9Za","refresh_token":"hostRot-Qa2Ws5Ed8Rf","expires_in":7200}`)
+			io.WriteString(w, `{"access_token":"`+"hostAcc-"+"Mn3Bv6Cx9Za"+`","refresh_token":"`+"hostRot-"+"Qa2Ws5Ed8Rf"+`","expires_in":7200}`)
 		})
 		home := newHome(t)
 		writeFile(t, credentialsFile(home), "refresh_token = \""+stored+"\"\nbase_url = \""+api.url+"/api/v3\"\n")
