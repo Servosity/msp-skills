@@ -184,6 +184,18 @@
      "TestDownloadSubmitRerunGuardHoldsAcrossProcesses"
     ]
    }
+  },
+  {
+   "id": "WIN-FLAKY-MIRRORED-DESTRUCTIVE-WALL-CLOCK",
+   "kind": "flaky",
+   "slugs": [
+    "*"
+   ],
+   "tests": [
+    "TestMirroredDestructiveCommandRefusesWithoutYes"
+   ],
+   "why": "Press template test (internal/mcp/cobratree/shellout_test.go, DO NOT EDIT) judges a hang by wall clock: the refusal must return within 2.5 s. Loaded Windows runners cross it with no hang: nerdio #577 (2.4 s, rerun passed) and action1 #598 (2.57 s, run 42181653631), 2026-11-05/06. Every connector inherits the test, so the entry applies to all of them.",
+   "fix": "In the press template, detect a hang with a deadline on the call (action1's hand-fix destructive-call-hang-by-deadline) instead of elapsed wall time; reprints then carry it and this entry is removed."
   }
  ]
 }
