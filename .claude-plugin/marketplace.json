@@ -43,7 +43,7 @@
       "name": "action1",
       "source": "./skills/action1",
       "description": "Every Action1 endpoint, plus the fleet-wide patch and vulnerability views the org-siloed API cannot give you.",
-      "version": "0.1.10",
+      "version": "0.1.11",
       "category": "rmm",
       "tags": [
         "action1",
