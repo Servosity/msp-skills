@@ -370,6 +370,156 @@
      "not_contains": "\"error\": err.Error(),"
     }
    ]
+  },
+  {
+   "id": "novels-read-documented-paths",
+   "class": "correctness",
+   "summary": "The seven local-mirror reports name the documented VSPC list path and resolve it to the sync partition through the generated syncResourcePath, failing when no partition fetches it",
+   "why": "Press 4.35.1 renamed sync partitions (\"alarms\" now syncs /alarms/templates, active alarms are \"alarms-active\", agent jobs are \"infrastructure\"), so a report that read partition names would have reported alarm templates as active alarms. veeamLoad(ctx, db, paths...) resolves each documented path via veeamSyncNames, fails when nothing fetches it, propagates store read errors and de-duplicates on instanceUid. Hand files: a reprint that restores the published 0.1.7 novels brings the defect back. TestNovelPathsResolveToSyncPartitions fails on a renamed partition.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/veeam_fleet.go",
+     "contains": "func veeamSyncNames(path string) []string {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/veeam_fleet.go",
+     "contains": "veeamPathActiveAlarms     = \"/alarms/active\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_health.go",
+     "not_contains": "veeamLoad(ctx, db, \"alarms\")"
+    },
+    {
+     "file": "cli/internal/cli/since.go",
+     "not_contains": "veeamLoad(ctx, db, \"alarms\")"
+    },
+    {
+     "file": "cli/internal/cli/alarms_triage.go",
+     "not_contains": "veeamLoad(ctx, db, \"alarms\")"
+    },
+    {
+     "file": "cli/internal/cli/company_overview.go",
+     "not_contains": "veeamLoad(ctx, db, \"alarms\")"
+    },
+    {
+     "file": "cli/internal/cli/veeam_fleet_cmd_test.go",
+     "contains": "func TestNovelPathsResolveToSyncPartitions(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "novels-read-documented-shapes",
+   "class": "correctness",
+   "summary": "The reports read the documented VSPC shapes: tenant is mappedOrganizationUid for server jobs, only Active agents are online, job health maps the documented enums (WaitingRepository included), license points sum servers[].workloads[].usedUnits where unitType is Points, Resolved alarms are not active, alarms group on tenant/template/object UIDs",
+   "why": "The published 0.1.7 novels counted per-OS agent lists twice, read NotRunning as online, read an undocumented top-level usedPoints (always 0), attributed jobs to the server owner, counted Resolved alarms, claimed a first_seen no synced field supports, and merged distinct alarm objects that share a display name. Print review rounds 1 and 2 (failing-first tests in veeam_review_r1_test.go and veeam_review_r2_test.go).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/veeam_fleet.go",
+     "contains": "func veeamUsedPoints(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/veeam_fleet.go",
+     "contains": "return strings.TrimSpace(status) == \"Active\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/veeam_fleet.go",
+     "contains": "func veeamOrgOf(m veeamRow) string {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/veeam_fleet.go",
+     "contains": "\"WaitingRepository\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/license_usage.go",
+     "not_contains": "vnum(r, \"usedPoints\")"
+    },
+    {
+     "file": "cli/internal/cli/alarms_triage.go",
+     "not_contains": "first_seen"
+    },
+    {
+     "file": "cli/internal/cli/alarms_triage.go",
+     "contains": "key := strings.ToLower(orgUID + \"|\" + sev + \"|\" + templateUID + \"|\" + objectUID)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/veeam_review_r1_test.go",
+     "contains": "func TestJobsAttributeToTheAssignedTenant(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/veeam_review_r2_test.go",
+     "contains": "func TestAlarmsTriageKeepsDistinctObjectsApart(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "novels-fail-closed-on-partial-mirror",
+   "class": "correctness",
+   "summary": "The reports refuse a missing mirror and any partition with no sync record or an unfinished last sync, instead of reporting a partial mirror as the whole fleet",
+   "why": "A partial mirror reported as a whole one reads as a healthy fleet. veeamOpenStoreRead errors on a missing mirror; veeamLoad refuses a partition with no sync_state row or last_attempt_complete != 1. Consequence: press verify (mock, never syncs) scores the novels' EXEC leg FAIL by design. TestNovelsRefuseAnIncompleteMirror.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/veeam_fleet.go",
+     "contains": "func veeamSyncComplete(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/veeam_review_r1_test.go",
+     "contains": "func TestNovelsRefuseAnIncompleteMirror(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "mcp-read-only-docs-match-tool-list",
+   "class": "docs",
+   "summary": "SKILL.md and guide.md describe VEEAM_MCP_READ_ONLY=1 as the binary behaves: only tools marked read-only stay; the execute tool, sync, import, export and the learn-store writers are removed",
+   "why": "The press 4.35.1 SKILL.md/guide.md text says local-write learn-store tools stay and the raw execute tool refuses state-changing calls, but tools/list under VEEAM_MCP_READ_ONLY=1 lists 21 tools with no veeam_execute, sync, import, export, teach, learnings_confirm or workflow_archive (34 without it). Both files are re-vendored on every onboard --resume.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "SKILL.md",
+     "contains": "`VEEAM_MCP_READ_ONLY=1` keeps only the tools marked read-only",
+     "min_count": 1
+    },
+    {
+     "file": "SKILL.md",
+     "not_contains": "local-write commands that only touch the CLI's own learn store stay"
+    },
+    {
+     "file": "guide.md",
+     "contains": "and the server keeps only the tools marked read-only",
+     "min_count": 1
+    },
+    {
+     "file": "guide.md",
+     "not_contains": "Commands marked local-write, which write only this CLI's own learn store, stay available."
+    }
+   ]
   }
  ],
  "retired": [
