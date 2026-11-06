@@ -146,7 +146,7 @@ OpenClaw isn't generally available yet; the frontmatter wiring is pre-shipped an
 Set the credentials the CLI needs (from your Autotask portal):
 
 ```bash
-AUTOTASK_PSA_API_INTEGRATION_CODE=<value> AUTOTASK_PSA_SECRET=<value> AUTOTASK_PSA_USER_NAME=<value> autotask-cli doctor
+AUTOTASK_API_INTEGRATION_CODE=<value> AUTOTASK_PSA_SECRET=<value> AUTOTASK_PSA_USER_NAME=<value> autotask-cli doctor
 ```
 
 `doctor` confirms the credentials work before you run anything that touches data. It exits 0 even when the credential is rejected, so scripts should add `--fail-on error`.
@@ -210,7 +210,7 @@ Your data stays on **your machine**. The CLI and MCP server are local binaries. 
 
 ### What credentials do I need?
 
-An **API-only user** created in your own Autotask instance, which gives you a `UserName` and `Secret`, plus the tracking **Integration Code** from your integration vendor record. Set `AUTOTASK_PSA_USER_NAME`, `AUTOTASK_PSA_SECRET`, and `AUTOTASK_PSA_API_INTEGRATION_CODE` in your environment. The API user's security level is the real permission boundary - scope it to exactly what you want the AI to reach.
+An **API-only user** created in your own Autotask instance, which gives you a `UserName` and `Secret`, plus the tracking **Integration Code** from your integration vendor record. Set `AUTOTASK_PSA_USER_NAME`, `AUTOTASK_PSA_SECRET`, and `AUTOTASK_API_INTEGRATION_CODE` in your environment. The API user's security level is the real permission boundary - scope it to exactly what you want the AI to reach.
 
 ### Do I have to figure out my Autotask zone URL?
 
@@ -237,6 +237,17 @@ Free. Apache-2.0 licensed. You pay only for whichever AI agent you use (Claude, 
 | Destructive / config | `autotask-cli time-entries delete-entity`, `autotask-cli service-calls delete-entity "1234"`, `autotask-cli contact-groups delete-entity "1234"` | Human-in-the-loop only |
 
 The strongest control is the **scope you grant the Autotask credentials** - the CLI can only do what the credentials are permitted to do. Full details, including how to lock it down, are in [governance.md](./governance.md).
+
+## Credential safety
+
+- The three Autotask headers (`ApiIntegrationCode`, `UserName`, `Secret`) and every API request go only to the scheme, host and port of the configured base URL (`AUTOTASK_BASE_URL`, or the zone URL `autotask-cli zone` saved). A redirect to any other host is refused, so the credentials never reach it. `zone` asks only `webservices.autotask.net` and saves only an `https://webservicesN.autotask.net/atservicesrest` zone URL.
+- Any output line or JSON document, file write, local store row or MCP result that would repeat a credential this program holds (`AUTOTASK_API_INTEGRATION_CODE`, `AUTOTASK_PSA_SECRET`, `AUTOTASK_MCP_HTTP_TOKEN`, the stored integration code, or one in `config.toml`) is withheld whole, in any encoding, and "[credkit: withheld from stdout: it carried a credential this program holds]" appears in its place (naming stderr, mcp, file, sqlite, child process or outbound request where that is the sink). A credential-named field in a response (a webhook `secretKey`, a client portal user's `password`, an integration vendor's `secret`) is replaced by `[withheld]`, so the rest of the record stays readable. Responses are never cached on disk.
+- The integration code and the Secret are the credentials this program holds. The API user name (`AUTOTASK_PSA_USER_NAME`, sent as `UserName`) is the account's login name and is not treated as a secret: an answer that repeats it or its email domain (Resources, Contacts) prints and syncs as it comes.
+- Only `credentials.toml` (mode 0600) holds a credential; `auth set-token` reads the integration code from stdin, never from an argument.
+- `--dry-run` sends nothing. Over MCP, a tool that changes something (in Autotask, or this CLI's saved zone) returns a preview and acts only with `confirm: true`, and a tool argument can never name a file to read or write.
+- A `--stdin` body is held as a credential, whole and line by line: a preview of it (`--dry-run`) and an answer that repeats part of it are withheld, while a write still sends it. `feedback` takes its note as an argument, not from stdin.
+- `config.toml` never keeps the userinfo or query of `base_url`; they stay in `AUTOTASK_BASE_URL`.
+- While any credential is configured, `agent-context` (one large JSON document) prints only the withheld notice; run it with no credential configured (for example a fresh `AUTOTASK_HOME` and the credential variables unset) to read it.
 
 ## Status
 

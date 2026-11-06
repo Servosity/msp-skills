@@ -41,7 +41,10 @@ func newNovelWorkloadCmd(flags *rootFlags) *cobra.Command {
 			if err != nil {
 				return apiErr(err)
 			}
-			tasks, _ := listEntity(db, "tasks")
+			tasks, err := listEntity(db, "tasks")
+			if err != nil {
+				return apiErr(err)
+			}
 
 			type load struct {
 				ResourceID  string  `json:"resourceID"`
@@ -72,7 +75,7 @@ func newNovelWorkloadCmd(flags *rootFlags) *cobra.Command {
 				}
 			}
 			for _, tk := range tasks {
-				if pct, ok := numAt(tk, "percentComplete"); ok && pct >= 100 {
+				if isTaskDone(tk) {
 					continue
 				}
 				l := get(strAt(tk, "assignedResourceID", "assignedResourceId"))

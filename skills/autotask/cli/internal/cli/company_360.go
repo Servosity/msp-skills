@@ -55,9 +55,15 @@ Use this command for the full current snapshot of an account. For what CHANGED o
 				hintIfStale(cmd, db, "tickets", flags.maxAge)
 			}
 
+			// A read the store refuses (a partial sync) fails the report: it is
+			// never read as "no records" (class incomplete-snapshot-read-as-complete).
+			var readErr error
 			matchCompany := func(resourceType string, keys ...string) []map[string]any {
 				recs, err := listEntity(db, resourceType)
 				if err != nil {
+					if readErr == nil {
+						readErr = err
+					}
 					return nil
 				}
 				var out []map[string]any
@@ -82,13 +88,18 @@ Use this command for the full current snapshot of an account. For what CHANGED o
 			opps := matchCompany("opportunities", "companyID", "companyId")
 
 			var companyName string
-			if companies, err := listEntity(db, "companies"); err == nil {
-				for _, c := range companies {
-					if strAt(c, "id") == companyID {
-						companyName = strAt(c, "companyName")
-						break
-					}
+			companies, err := listEntity(db, "companies")
+			if err != nil && readErr == nil {
+				readErr = err
+			}
+			for _, c := range companies {
+				if strAt(c, "id") == companyID {
+					companyName = strAt(c, "companyName")
+					break
 				}
+			}
+			if readErr != nil {
+				return apiErr(readErr)
 			}
 
 			out := map[string]any{

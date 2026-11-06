@@ -47,7 +47,10 @@ func newNovelDataGapsCmd(flags *rootFlags) *cobra.Command {
 			}
 
 			// Build the referenced-ID sets once.
-			companies, _ := listEntity(db, "companies")
+			companies, err := listEntity(db, "companies")
+			if err != nil {
+				return apiErr(err)
+			}
 			companyIDs := map[string]bool{}
 			for _, c := range companies {
 				if id := strAt(c, "id"); id != "" {

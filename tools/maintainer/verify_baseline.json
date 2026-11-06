@@ -22,12 +22,6 @@
    "read-only",
    "local-data"
   ],
-  "autotask": [
-   "mcp-http",
-   "write-gating",
-   "read-only",
-   "local-data"
-  ],
   "auvik": [
    "mcp-http",
    "read-only",

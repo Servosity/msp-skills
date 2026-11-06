@@ -72,9 +72,18 @@ Use this command for what CHANGED on an account since a point in time. Do NOT us
 			if err != nil {
 				return apiErr(err)
 			}
-			opps, _ := listEntity(db, "opportunities")
-			contracts, _ := listEntity(db, "contracts")
-			blocks, _ := listEntity(db, "contract-blocks")
+			opps, err := listEntity(db, "opportunities")
+			if err != nil {
+				return apiErr(err)
+			}
+			contracts, err := listEntity(db, "contracts")
+			if err != nil {
+				return apiErr(err)
+			}
+			blocks, err := listEntity(db, "contract-blocks")
+			if err != nil {
+				return apiErr(err)
+			}
 
 			type ticketRow struct {
 				ID           int64  `json:"id"`
@@ -97,14 +106,14 @@ Use this command for what CHANGED on an account since a point in time. Do NOT us
 					ID:           id,
 					Title:        strAt(t, "title"),
 					Status:       strAt(t, "status"),
-					Created:      strAt(t, "createDate", "createdDate"),
-					LastActivity: strAt(t, "lastActivityDate", "lastActivityDateTime"),
+					Created:      strAt(t, "createDate"),
+					LastActivity: strAt(t, "lastActivityDate"),
 				}
-				if created, ok := timeAt(t, "createDate", "createdDate"); ok && !created.Before(cutoff) {
+				if created, ok := timeAt(t, "createDate"); ok && !created.Before(cutoff) {
 					newTickets = append(newTickets, row)
 					continue
 				}
-				if la, ok := timeAt(t, "lastActivityDate", "lastActivityDateTime"); ok && !la.Before(cutoff) {
+				if la, ok := timeAt(t, "lastActivityDate"); ok && !la.Before(cutoff) {
 					touchedTickets = append(touchedTickets, row)
 				}
 			}
@@ -121,7 +130,7 @@ Use this command for what CHANGED on an account since a point in time. Do NOT us
 				if strAt(o, "companyID", "companyId") != companyID {
 					continue
 				}
-				la, ok := timeAt(o, "lastActivityDate", "lastActivityDateTime", "createDate")
+				la, ok := timeAt(o, "lastActivity", "createDate") // OpportunityModel: lastActivity
 				if !ok || la.Before(cutoff) {
 					continue
 				}

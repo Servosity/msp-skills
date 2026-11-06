@@ -189,7 +189,7 @@
       "category": "PSA",
       "display_name": "Autotask PSA",
       "tagline": "Triage tickets, surface unbilled time, and project retainer burn by asking.",
-      "cli_hash": "sha256:d38c62044a6ebdadc8b90b338e28235c063aefb5d6e267b61d73daed9a5b7f3a",
+      "cli_hash": "sha256:766008066e3d7fc70c3a388891ba171a47f202f9abdf561185595c4930392250",
       "template_version": 3,
       "version": "0.1.9",
       "cli_hash_at_release": "sha256:91ca48c3c47904d750169a994095d2207214080bfa28f0cfcd4004868f7b2d80",
