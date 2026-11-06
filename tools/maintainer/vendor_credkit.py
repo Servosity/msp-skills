@@ -24,9 +24,18 @@ so every adopter carries the same bytes and the security gate's reviewed,
 content-bound entries for that file (security_suppressions.json) hold for all
 of them; a copy that is neither the template nor that form is refused.
 
+--slug also writes the connector's constants table (the kit's consttable.go):
+credkit_constants.go, in the package that registers the kit's SQL driver (or,
+with no store, the one with the Declarations literal). It runs the kit's
+cmd/constgen inside the connector, with the connector's Go and
+golang.org/x/text, over its public text and every SQL statement its source
+carries, so a process reads their verdict instead of decoding them again.
+--refresh-hash rewrites the kit's constsource.go after an edit to the kit
+(the hash a table is built for); --slug refuses a stale one.
+
 --check fails when any connector's internal/credkit/ differs from the kit by
 one byte, lacks a kit file, or carries a file the kit does not have, and names
-the file.
+the file; and when a constants table was built for another kit.
 """
 
 from __future__ import annotations
@@ -34,7 +43,9 @@ from __future__ import annotations
 import argparse
 import collections
 import contextlib
+import hashlib
 import io
+import os
 import re
 import shutil
 import subprocess
@@ -51,6 +62,102 @@ KIT_MODULES = ("golang.org/x/text", "github.com/mark3labs/mcp-go", "golang.org/x
 def kit_files(kit: Path) -> dict[str, bytes]:
     """The vendored set: every non-test .go file of the kit package."""
     return {p.name: p.read_bytes() for p in sorted(kit.glob("*.go")) if not p.name.endswith("_test.go")}
+
+
+HASH_FILE = "constsource.go"
+CONST_FILE = "credkit_constants.go"
+_HASH_RE = re.compile(r'(?m)^const kitSourceHash = "([0-9a-f]*)"$')
+
+
+def kit_source_hash(kit: Path) -> str:
+    """What constsource.go must say: the SHA-256 over every other non-test
+    .go file of the kit in name order, each its name, a NUL, its bytes, a NUL."""
+    h = hashlib.sha256()
+    for p in sorted(kit.glob("*.go")):
+        if p.name.endswith("_test.go") or p.name == HASH_FILE:
+            continue
+        h.update(p.name.encode() + b"\0" + p.read_bytes() + b"\0")
+    return h.hexdigest()
+
+
+def stated_hash(kit: Path) -> str | None:
+    f = kit / HASH_FILE
+    m = _HASH_RE.search(f.read_text()) if f.is_file() else None
+    return m.group(1) if m else None
+
+
+def refresh_hash(root: Path, out=print) -> int:
+    kit = root / KIT_REL
+    f = kit / HASH_FILE
+    if stated_hash(kit) is None:
+        out(f"vendor_credkit: {(KIT_REL / HASH_FILE).as_posix()} has no kitSourceHash line")
+        return 1
+    f.write_text(_HASH_RE.sub(f'const kitSourceHash = "{kit_source_hash(kit)}"', f.read_text(), count=1))
+    out(f"kitSourceHash is {kit_source_hash(kit)}")
+    return 0
+
+
+def constants_dir(cli: Path) -> Path | None:
+    """The package a connector's constants table goes in: the one that
+    registers the kit's SQL driver, else the one with the Declarations
+    literal. None when there is no single such package."""
+    for marker in ("credkit.SQLDriver(", "credkit.Declarations{"):
+        dirs = {p.parent for p in (cli / "internal").rglob("*.go")
+                if not p.name.endswith("_test.go") and VENDOR_REL.as_posix() not in p.relative_to(cli).as_posix()
+                and marker in p.read_text(encoding="utf-8", errors="replace")}
+        if len(dirs) == 1:
+            return dirs.pop()
+        if dirs:
+            return None
+    return None
+
+
+def go_toolchain(gomod: str) -> str | None:
+    """The Go a connector's CI and release build with: go.mod's toolchain
+    line, else its go line (setup-go's go-version-file)."""
+    m = re.search(r"(?m)^toolchain\s+(go\S+)", gomod) or re.search(r"(?m)^go\s+(\S+)", gomod)
+    if not m:
+        return None
+    return m.group(1) if m.group(1).startswith("go") else "go" + m.group(1)
+
+
+def write_constants(root: Path, cli: Path, module: str, out=print, run=subprocess.run) -> int:
+    """Build the connector's constants table with the kit's cmd/constgen, run
+    inside the connector (its own Go and golang.org/x/text)."""
+    d = constants_dir(cli)
+    if d is None:
+        return 0
+    pm = re.search(r"(?m)^package\s+(\w+)", next(p for p in sorted(d.glob("*.go")) if not p.name.endswith("_test.go")).read_text())
+    gen = cli / "internal" / "credkitconstgen"
+    src = (root / KIT_REL / "cmd/constgen/main.go").read_text()
+    if src.count('\t"credkit"\n') != 1:
+        out("vendor_credkit: cmd/constgen/main.go does not import the kit as \"credkit\"")
+        return 1
+    env = dict(os.environ)
+    tc = go_toolchain((cli / "go.mod").read_text())
+    if tc:
+        env["GOTOOLCHAIN"] = tc
+    try:
+        gen.mkdir()
+        (gen / "main.go").write_text(src.replace('\t"credkit"\n', f'\t"{module}/{VENDOR_REL.as_posix()}"\n'))
+        r = run(["go", "run", "./internal/credkitconstgen", "-root", ".", "-pkg", pm.group(1),
+                 "-kit", f"{module}/{VENDOR_REL.as_posix()}"], cwd=cli, capture_output=True, text=True, env=env)
+    finally:
+        shutil.rmtree(gen, ignore_errors=True)
+    if r.returncode != 0:
+        out(f"vendor_credkit: building the constants table failed:\n{r.stderr.strip()}")
+        return 1
+    (d / CONST_FILE).write_text(r.stdout)
+    out(f"wrote {(d / CONST_FILE).relative_to(root)}")
+    return 0
+
+
+def constants_drift(root: Path) -> list[str]:
+    """Every constants table built for another kit than this one."""
+    want = stated_hash(root / KIT_REL)
+    return [f"{p.relative_to(root)} was built for another kit: re-run vendor_credkit.py --slug {p.relative_to(root).parts[1]}"
+            for p in sorted(root.glob(f"skills/*/cli/internal/**/{CONST_FILE}"))
+            if f"credkit-constants 1\\n{want} " not in p.read_text()]
 
 
 def carriers(root: Path) -> list[Path]:
@@ -91,7 +198,7 @@ def check(root: Path, out=print) -> int:
             out(f"{KIT_REL.as_posix()} is missing while connectors carry the kit")
             return 1
         return 0
-    problems = drift(root)
+    problems = drift(root) + constants_drift(root)
     for p in problems:
         out(p)
     if problems:
@@ -201,6 +308,10 @@ def vendor(root: Path, slug: str, out=print, run=subprocess.run) -> int:
     if not (cli / "go.mod").is_file():
         out(f"vendor_credkit: {cli.relative_to(root)}/go.mod not found")
         return 1
+    stated = stated_hash(root / KIT_REL)
+    if stated is not None and stated != kit_source_hash(root / KIT_REL):
+        out(f"vendor_credkit: {(KIT_REL / HASH_FILE).as_posix()} is stale; run vendor_credkit.py --refresh-hash")
+        return 1
     want = kit_files(root / KIT_REL)
     dest = cli / VENDOR_REL
     dest.mkdir(parents=True, exist_ok=True)
@@ -233,6 +344,9 @@ def vendor(root: Path, slug: str, out=print, run=subprocess.run) -> int:
     if r.returncode != 0:
         out(f"vendor_credkit: go vet ./{VENDOR_REL.as_posix()}/ failed:\n{r.stderr.strip()}")
         return 1
+    if stated is not None:
+        module = re.search(r"(?m)^module\s+(\S+)", (cli / "go.mod").read_text()).group(1)
+        return write_constants(root, cli, module, out, run)
     return 0
 
 
@@ -315,6 +429,19 @@ def self_test() -> int:
         expect([c for c in calls if c[0][:2] == ["go", "get"]] == [], "a connector with both modules gets no go get")
         expect(check(root, out=lambda *_: None) == 0, "a fresh copy passes --check")
 
+        (kit / HASH_FILE).write_text('package credkit\n\nconst kitSourceHash = "00"\n')
+        expect(vendor(root, "one", out=lambda *_: None, run=fake_run) == 1, "a stale kitSourceHash refuses --slug")
+        expect(refresh_hash(root, out=lambda *_: None) == 0 and stated_hash(kit) == kit_source_hash(kit)
+               and vendor(root, "one", out=lambda *_: None, run=fake_run) == 0, "--refresh-hash makes it current")
+        table = root / "skills/one/cli/internal/credsql" / CONST_FILE
+        table.parent.mkdir(parents=True)
+        table.write_text('const constantsTable = "credkit-constants 1\\n' + "0" * 64 + ' go1.26.10 v0.42.0\\n"\n')
+        expect(check(root, out=lambda *_: None) == 1, "a constants table built for another kit fails --check")
+        table.write_text('const constantsTable = "credkit-constants 1\\n' + kit_source_hash(kit) + ' go1.26.10 v0.42.0\\n"\n')
+        expect(check(root, out=lambda *_: None) == 0, "a constants table built for this kit passes --check")
+        shutil.rmtree(table.parent)
+        (kit / HASH_FILE).unlink()
+
         calls.clear()
         vendor(root, "bare", out=lambda *_: None, run=fake_run)
         gets = [c[0][2] for c in calls if c[0][:2] == ["go", "get"]]
@@ -389,9 +516,12 @@ def main() -> int:
     g.add_argument("--slug", help="vendor the kit into skills/<slug>/cli/internal/credkit")
     g.add_argument("--check", action="store_true", help="fail when any connector copy differs from the kit")
     g.add_argument("--self-test", action="store_true")
+    g.add_argument("--refresh-hash", action="store_true", help="rewrite the kit's constsource.go after an edit to the kit")
     a = ap.parse_args()
     if a.self_test:
         return self_test()
+    if a.refresh_hash:
+        return refresh_hash(ROOT)
     if a.check:
         return check(ROOT)
     return vendor(ROOT, a.slug)
