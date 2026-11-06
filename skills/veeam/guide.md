@@ -2,13 +2,106 @@
 
 **Every Veeam Service Provider Console endpoint as a typed command, plus a local multi-tenant mirror, cross-company rollups, and drift detection no per-instance Veeam tool offers.**
 
-Drive the full VSPC v3 REST surface  -  companies, backup servers, jobs, backup agents, protected workloads, alarms, licensing, and billing  -  from one CLI built for AI agents. A local SQLite mirror powers offline search and cross-tenant commands the web console can't: fleet-health, stale-backups, at-risk, alarms-triage, license-usage, company-overview, and since (drift).
+Drive the full VSPC v3 REST surface  -  companies, backup servers, jobs, backup agents, protected workloads, alarms, licensing, and billing  -  from one agent-native CLI. A local SQLite mirror powers offline search and cross-tenant commands the web console can't: fleet-health, stale-backups, at-risk, alarms-triage, license-usage, company-overview, and since (drift).
 
 ## Install
 
-For the short install path see [README.md](./README.md). For wiring the MCP
-server into every agent (Claude Desktop, ChatGPT, Codex, and more), see
-[mcp-install.md](./mcp-install.md). This file is the command reference.
+This CLI ships as a Claude Code Skill and MCP server in [Servosity/msp-skills](https://github.com/Servosity/msp-skills). The installer downloads the `veeam-cli` and `veeam-mcp` binaries into `~/.local/bin` (macOS / Linux) or `%LOCALAPPDATA%\Programs\msp-skills` (Windows). It does not register the skill with your agent and writes no MCP client config - see [mcp-install.md](./mcp-install.md) for that wire-up.
+
+1. macOS / Linux:
+   ```bash
+   bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/veeam/install.sh)
+   ```
+2. Windows (PowerShell):
+   ```powershell
+   iwr -useb https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/veeam/install.ps1 | iex
+   ```
+3. Verify: `veeam-cli --version`
+4. Ensure `~/.local/bin` (macOS / Linux) or `%LOCALAPPDATA%\Programs\msp-skills` (Windows) is on `$PATH`.
+
+If `--version` reports "command not found" after install, the install step did not put the binary on `$PATH`. Do not proceed until verification succeeds.
+
+### Pre-built binary
+
+Download a pre-built binary for your platform from the [latest release](https://github.com/Servosity/msp-skills/releases?q=veeam). On macOS, clear the Gatekeeper quarantine: `xattr -d com.apple.quarantine <binary>`. On Unix, mark it executable: `chmod +x <binary>`.
+
+<!-- pp-hermes-install-anchor -->
+## Install for Hermes
+
+From the Hermes CLI:
+
+```bash
+hermes skills install Servosity/msp-skills/skills/veeam --force
+```
+
+Inside a Hermes chat session:
+
+```bash
+/skills install Servosity/msp-skills/skills/veeam --force
+```
+
+Hermes [speaks MCP natively](https://hermes-agent.nousresearch.com), so it can also use the `veeam-mcp` server directly - same install path, same environment variables. Restart the Hermes session or gateway if the newly installed skill is not visible immediately.
+
+## Install for OpenClaw
+
+Tell your OpenClaw agent (copy this):
+
+> Install the veeam skill from https://github.com/Servosity/msp-skills/tree/main/skills/veeam. The skill defines how its required CLI (`veeam-cli`) can be installed via the `openclaw:` frontmatter block.
+
+OpenClaw isn't generally available yet; the frontmatter wiring is pre-shipped and will activate the moment OpenClaw launches.
+
+## Use with Claude Desktop
+
+This CLI ships an [MCPB](https://github.com/modelcontextprotocol/mcpb) bundle  -  Claude Desktop's standard format for one-click MCP extension installs (no JSON config required).
+
+To install:
+
+1. Download the `.mcpb` for your platform from the [latest release](https://github.com/Servosity/msp-skills/releases?q=veeam).
+2. Double-click the `.mcpb` file. Claude Desktop opens and walks you through the install.
+3. Fill in `VEEAM_TOKEN` when Claude Desktop prompts you.
+
+Requires Claude Desktop 1.0.0 or later. Pre-built bundles ship for macOS Apple Silicon (`darwin-arm64`) and Windows (`amd64`, `arm64`); for other platforms, use the manual config below.
+
+<details>
+<summary>Manual JSON config (advanced)</summary>
+
+If you can't use the MCPB bundle (older Claude Desktop, unsupported platform), install the MCP binary and configure it manually.
+
+
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/veeam/install.sh)          # macOS / Linux
+```
+```powershell
+iwr -useb https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/veeam/install.ps1 | iex            # Windows
+```
+
+Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS, `%APPDATA%\Claude\claude_desktop_config.json` on Windows):
+
+```json
+{
+  "mcpServers": {
+    "veeam": {
+      "command": "veeam-mcp",
+      "env": {
+        "VEEAM_TOKEN": "<your-key>"
+      }
+    }
+  }
+}
+```
+
+</details>
+
+### Remote MCP over HTTP
+
+`veeam-mcp --transport http` (or `PP_MCP_TRANSPORT=http`) serves streamable HTTP at `http://127.0.0.1:7777/mcp`. It refuses to start until `VEEAM_MCP_HTTP_TOKEN` is set to at least 32 characters, and every request must send `Authorization: Bearer <token>`. The command below prints 64 hex characters and meets that minimum. Plain HTTP is allowed only on a loopback `--addr`; any other bind, including `:7777` (every interface), also needs `--tls-cert` and `--tls-key`. Requests with no `Origin` header are accepted, as are loopback origins (`localhost`, `127.0.0.1`, or `[::1]`, any port). Any other `Origin` is refused unless it is listed in `VEEAM_MCP_HTTP_ALLOWED_ORIGINS`, a comma-separated list of `scheme://host[:port]` values with no path. That list is not a CORS policy; the server does not emit CORS headers.
+
+```bash
+export VEEAM_MCP_HTTP_TOKEN="$(openssl rand -hex 32)"
+veeam-mcp --transport http
+```
+
+Set `VEEAM_MCP_READ_ONLY=1` (exactly `1`) to drop mirrored commands that are not marked read-only and make the raw execute tool refuse state-changing calls. Commands marked local-write, which write only this CLI's own learn store, stay available.
 
 ## Authentication
 
@@ -33,15 +126,13 @@ veeam-cli stale-backups --days 3
 
 ## Unique Features
 
-These capabilities aren't available in any other tool for this API.
-
 ### Cross-tenant rollups that compound
 - **`fleet-health`**  -  One-pane cross-company backup health: jobs by last status, agents online/offline, and active alarms per tenant.
 
   _The MSP morning-coffee command: reach for it to see every tenant's backup posture in one shot before triaging._
 
   ```bash
-  veeam-cli fleet-health --agent --select companies.company,companies.failed,companies.agents_offline
+  veeam-cli fleet-health --agent
   ```
 - **`stale-backups`**  -  Every backup job and agent job whose last successful run is older than N days, across all tenants, sorted by staleness.
 
@@ -66,7 +157,7 @@ These capabilities aren't available in any other tool for this API.
   ```bash
   veeam-cli at-risk --rpo 24h --agent
   ```
-- **`alarms-triage`**  -  Active alarms grouped by company and severity with first-seen / last-seen from local history, deduped for fleet-wide triage.
+- **`alarms-triage`**  -  Active alarms grouped by company and severity with the latest activation and repeat count, deduped for fleet-wide triage.
 
   _Cuts a noisy multi-tenant alarm feed down to the handful of distinct problems worth acting on._
 
@@ -87,11 +178,10 @@ These capabilities aren't available in any other tool for this API.
   _Billing-relevant: spot tenants approaching their license ceiling before overage, in one command._
 
   ```bash
-  veeam-cli license-usage --agent --select organizations.organization,organizations.used_points,organizations.delta
+  veeam-cli license-usage --agent
   ```
 
 ## Recipes
-
 
 ### Fleet backup posture for an agent
 
@@ -136,6 +226,81 @@ A single-tenant 360 assembled from the local mirror instead of six console tabs.
 ## Usage
 
 Run `veeam-cli --help` for the full command reference and flag list.
+
+## Paths & environment variables
+
+This CLI separates local files into four path kinds:
+
+| Kind | Contents |
+|------|----------|
+| `config` | User-editable settings such as `config.toml` and saved profiles |
+| `data` | Durable local data: `credentials.toml`, `data.db`, cookies, browser-session proof files, and other auth sidecars |
+| `state` | Runtime state such as persisted queries, jobs, and `teach.log` |
+| `cache` | Regenerable HTTP/cache files |
+
+Each kind resolves independently. The ladder is:
+
+1. Per-kind env var: `VEEAM_CONFIG_DIR`, `VEEAM_DATA_DIR`, `VEEAM_STATE_DIR`, or `VEEAM_CACHE_DIR`
+2. `--home <dir>` for this invocation
+3. `VEEAM_HOME` for a flat relocated root
+4. XDG env vars: `XDG_CONFIG_HOME`, `XDG_DATA_HOME`, `XDG_STATE_HOME`, `XDG_CACHE_HOME`
+5. Platform defaults matching existing installs
+
+For containers and agent sandboxes, prefer a single relocated root:
+
+```bash
+export VEEAM_HOME=/srv/veeam
+veeam-cli doctor
+```
+
+On Windows (PowerShell):
+
+```powershell
+$env:VEEAM_HOME = "C:\ProgramData\veeam"
+veeam-cli doctor
+```
+
+Under `VEEAM_HOME=/srv/veeam`, the four dirs resolve to `/srv/veeam/config`, `/srv/veeam/data`, `/srv/veeam/state`, and `/srv/veeam/cache`.
+
+On Windows, set the same variable in PowerShell:
+
+```powershell
+$env:VEEAM_HOME = "C:\srv\veeam"
+veeam-cli doctor
+```
+
+Under `$env:VEEAM_HOME = "C:\srv\veeam"`, the four dirs resolve to `C:\srv\veeam\config`, `C:\srv\veeam\data`, `C:\srv\veeam\state`, and `C:\srv\veeam\cache`.
+
+MCP servers do not receive CLI flags from the host. Put relocation in the host `env` block:
+
+```json
+{
+  "mcpServers": {
+    "veeam": {
+      "command": "veeam-mcp",
+      "env": {
+        "VEEAM_HOME": "/srv/veeam"
+      }
+    }
+  }
+}
+```
+
+Precedence matters in fleets: an ambient per-kind variable such as `VEEAM_DATA_DIR` overrides an explicit `--home` for that kind. Use `VEEAM_HOME` or the per-kind variables for durable fleet relocation; treat `--home` as the weaker per-invocation lever.
+
+Relocation is one-way. Unsetting `VEEAM_HOME` does not move files back to platform defaults, and `doctor` cannot find credentials left under a former root. Move the files manually before unsetting relocation variables.
+
+Existing installs keep working because the platform-default rung matches the legacy layout. On the first auth write, stored secrets leave `config.toml` and are consolidated into `credentials.toml` under the data directory. Run `veeam-cli doctor --fail-on warn` to check path and credential-location warnings in automation.
+
+### Local data
+
+Reads are saved locally by default: in `--data-source auto` mode every successful read is also written to the SQLite store (`data.db`, or `data-<hash>.db` per credential) in the data directory. GET responses are cached for five minutes under `http/` in the cache directory. Credentials live in `credentials.toml` in the data directory. The learn journal lives under `learn/` in the state directory. `veeam-cli doctor` prints the resolved paths, every store file, and the response-cache size.
+
+None of it is encrypted. New files are created owner-only; beyond that the data relies on OS account permissions and full-disk encryption (FileVault, BitLocker, LUKS).
+
+- **Erase it:** `veeam-cli local-data purge` lists the store files, response cache, and learn journal it would delete; add `--yes` to delete them, or `--only store|cache|journal` to narrow it. Config and credentials are kept.
+- **Run without a local copy:** set `VEEAM_NO_LOCAL_DATA=1`. Reads go to the API (`--data-source live`; `--data-source local` still reads an existing store), the response cache is off (`--no-cache`), nothing new is written to the store, and `sync` and `workflow archive` refuse to run. Set it in an MCP host's `env` block and every command the server runs inherits it.
+- **Choose the read source without flags:** `VEEAM_DATA_SOURCE=auto|live|local` sets the `--data-source` default; an explicit flag wins.
 
 ## Commands
 
@@ -1223,6 +1388,67 @@ Manage veeam service provider about
 - **`veeam-cli veeam-service-provider-about`** - Returns general information about the currently installed version of Veeam Service Provider Console.
 
 
+### alarms-triage
+
+
+- **`veeam-cli alarms-triage`** - Active alarms grouped by company and severity with the latest activation and repeat count, deduped for fleet-wide triage.
+
+
+### at-risk
+
+
+- **`veeam-cli at-risk`** - Protected workloads whose latest restore point is older than the RPO threshold (or missing entirely)  -  the data that would be lost on failure today.
+
+
+### company-overview
+
+
+- **`veeam-cli company-overview`** - Single-tenant 360: backup servers, job status breakdown, agents, active alarms, protected workloads, and license usage assembled from the local store.
+
+
+### fleet-health
+
+
+- **`veeam-cli fleet-health`** - One-pane cross-company backup health: jobs by last status, agents online/offline, and active alarms per tenant.
+
+
+### license-usage
+
+
+- **`veeam-cli license-usage`** - Per-organization license consumption (used points) with the delta since the previous run.
+
+
+### since
+
+
+- **`veeam-cli since`** - What changed across the fleet inside a time window: backup jobs that failed or warned, alarms that fired, and agents that newly activated.
+
+
+### stale-backups
+
+
+- **`veeam-cli stale-backups`** - Every backup job and agent job whose last successful run is older than N days, across all tenants, sorted by staleness.
+
+
+
+
+### Self-learning loop
+
+This CLI caches per-question discovery so repeat queries skip the walk and structurally similar queries get answered via entity substitution. The loop also self-captures: every invocation is journaled locally, and failed-flag corrections plus fresh teaches surface as candidates on the next `recall` for confirm/reject judgment. Agents call `recall` before discovery and fire `teach &` after answering. See the `## Automatic learning` section in `SKILL.md` for the full protocol.
+
+- **`veeam-cli recall <query>`** - Look up cached resources for a query before running discovery
+- **`veeam-cli teach`** - Record a query -> resource mapping (silent on success, safe to background with `&`)
+- **`veeam-cli learnings list`** - Inspect taught rows
+- **`veeam-cli learnings forget <query>`** - Undo a teach
+- **`veeam-cli learnings candidates`** - List auto-captured candidates awaiting confirm/reject
+- **`veeam-cli learnings stats`** - Local loop metrics: recall hit rate, teach-to-reuse, playbook resolution, candidate counts
+- **`veeam-cli teach-pattern`** - Install a query/resource template up front
+- **`veeam-cli teach-lookup`** - Add an entity mapping (e.g. country code, team alias) for pattern substitution
+
+Pass `--no-learn` or set `VEEAM_NO_LEARN=true` to disable the loop for deterministic flows.
+
+The local store's schema version stamp is one-way: once this version of `veeam-cli` opens the database, older binaries refuse it with a version error  -  upgrade the binary rather than downgrading.
+
 ## Output Formats
 
 ```bash
@@ -1231,9 +1457,8 @@ veeam-cli alarms get
 
 # JSON for scripting and agents
 veeam-cli alarms get --json
-
 # Filter to specific fields
-veeam-cli alarms get --json --select id,name,status
+veeam-cli alarms get --json --select category,instanceUid,internalId
 
 # Dry run  -  show the request without sending
 veeam-cli alarms get --dry-run
@@ -1242,21 +1467,23 @@ veeam-cli alarms get --dry-run
 veeam-cli alarms get --agent
 ```
 
+`--csv` prefixes a leading `'` on cells and header keys that start with `=`, `+`, `-`, `@`, a tab, or a line break (including fullwidth `＝＋－＠`) so a spreadsheet does not run them as formulas. Plain signed numbers such as `-5` and `+2.5e3` are left unchanged.
+
 ## Agent Usage
 
 This CLI is designed for AI agent consumption:
 
 - **Non-interactive** - never prompts, every input is a flag
 - **Pipeable** - `--json` output to stdout, errors to stderr
-- **Filterable** - `--select id,name` returns only fields you need
+- **Filterable** - `--select <field>[,<field>...]` returns only fields you need
 - **Previewable** - `--dry-run` shows the request without sending
-- **Explicit retries** - add `--idempotent` to create retries and `--ignore-missing` to delete retries when a no-op success is acceptable
-- **Confirmable** - `--yes` for explicit confirmation of destructive actions
+- **Explicit retries** - add `--idempotent` to create retries and add `--ignore-missing` to delete retries when a no-op success is acceptable
+- **Explicit confirmation** - `--agent` does not imply `--yes`; pass `--yes` separately only after the target, arguments, and side effects are clear
 - **Piped input** - write commands can accept structured input when their help lists `--stdin`
 - **Offline-friendly** - sync/search commands can use the local SQLite store when available
 - **Agent-safe by default** - no colors or formatting unless `--human-friendly` is set
 
-Exit codes: `0` success, `2` usage error, `3` not found, `4` auth error, `5` API error, `7` rate limited, `10` config error.
+Exit codes: `0` success, `2` usage error, `3` not found, `4` auth error, `5` API error, `6` partial failure, `7` rate limited, `10` config error.
 
 ## Health Check
 
@@ -1268,9 +1495,11 @@ Verifies configuration, credentials, and connectivity to the API.
 
 ## Configuration
 
-Config file: `~/.config/veeam-cli/config.toml`
+Run `veeam-cli doctor` to see the resolved config, data, state, and cache directories. The platform-default config path is `~/.config/veeam-service-provider-pp-cli/config.toml` on macOS/Linux and `%USERPROFILE%\.config\veeam-cli\config.toml` on Windows; `--home`, `VEEAM_HOME`, and per-kind env vars can relocate it.
 
 Static request headers can be configured under `headers`; per-command header overrides take precedence.
+
+`--ca-cert`, `VEEAM_CA_CERT`, or `ca_cert` adds a PEM CA bundle to the system trust roots. `--tls-server-name`, `VEEAM_TLS_SERVER_NAME`, or `tls_server_name` is the name checked against the certificate when the dialed address does not match it. Precedence is flag, then environment, then the config file. A config file other users can change does not supply these settings. Certificate verification failures are not retried.
 
 Environment variables:
 
@@ -1293,7 +1522,7 @@ If you use agentcookie to sync secrets across machines, this CLI auto-adopts age
 ### API-specific
 - **401 Unauthorized on every call**  -  The Bearer token expired (~1h lifetime). Re-mint via POST /token and reset VEEAM_TOKEN.
 - **Connection refused or TLS errors**  -  Confirm VEEAM_BASE_URL points at the console host on port 1280 with the /api/v3 suffix, and that the cert is trusted or the host reachable.
-- **Cross-tenant commands return nothing**  -  Run `veeam-cli sync` first  -  fleet-health, stale-backups, and since read the local mirror, not the live API.
+- **A cross-tenant command stops with 'has never been synced' or 'did not finish'**  -  Run a full `veeam-cli sync`: fleet-health, stale-backups, at-risk, alarms-triage, license-usage, company-overview and since read the local mirror and refuse a missing or partial one rather than report it as healthy.
 - **403 on an operation a regular user can't perform**  -  VSPC scopes by role (Portal Administrator vs. Reseller vs. Company). Use a token whose role admits the endpoint.
 
 ## Sources & Inspiration

@@ -1,4 +1,4 @@
-// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
 
 package cli
 
@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"path/filepath"
+	"slices"
 	"testing"
 	"time"
 
@@ -15,8 +16,11 @@ import (
 )
 
 // seedFleetStore writes a small multi-tenant fixture into a fresh temp store
-// and returns the db path. Alpha Corp is unhealthy (a failed + stale job, an
-// offline agent, an error alarm, an at-risk workload); Beta LLC is mostly fine.
+// and returns the db path. Records carry the documented response shapes
+// (spec.json list items) and go in through UpsertBatch under the partition
+// sync uses for each documented path, so the sync key and partition names are
+// exercised too. Alpha Corp is unhealthy (a failed + stale job, an agent that
+// is NotRunning, an error alarm, an at-risk workload); Beta LLC is mostly fine.
 func seedFleetStore(t *testing.T) string {
 	t.Helper()
 	dbPath := filepath.Join(t.TempDir(), "veeam-test.db")
@@ -25,59 +29,99 @@ func seedFleetStore(t *testing.T) string {
 		t.Fatalf("open store: %v", err)
 	}
 	defer db.Close()
+	markNovelPartitionsSynced(t, db)
 
 	now := time.Now()
 	iso := func(d time.Duration) string { return now.Add(-d).UTC().Format(time.RFC3339) }
-	put := func(rtype, id string, obj map[string]any) {
-		b, _ := json.Marshal(obj)
-		if err := db.Upsert(rtype, id, b); err != nil {
-			t.Fatalf("upsert %s/%s: %v", rtype, id, err)
+	put := func(path string, objs ...map[string]any) { seedPath(t, db, path, objs...) }
+
+	put(veeamPathCompanies,
+		map[string]any{"instanceUid": "org-a", "name": "Alpha Corp", "status": "Active"},
+		map[string]any{"instanceUid": "org-b", "name": "Beta LLC", "status": "Active"})
+
+	// Two jobs share the name "Nightly" in different tenants: keyed on
+	// instanceUid they stay two rows (keyed on name they collapsed into one).
+	put(veeamPathServerJobs,
+		map[string]any{"instanceUid": "j1", "name": "Alpha-DB", "organizationUid": "org-a",
+			"status": "Failed", "lastRun": iso(5 * 24 * time.Hour), "isEnabled": true,
+			"backupServerUid": "bs1", "failureMessage": "repository unreachable"},
+		map[string]any{"instanceUid": "j2", "name": "Nightly", "organizationUid": "org-a",
+			"status": "Success", "lastRun": iso(time.Hour), "isEnabled": true, "backupServerUid": "bs1"},
+		map[string]any{"instanceUid": "j3", "name": "Nightly", "organizationUid": "org-b",
+			"status": "Warning", "lastRun": iso(2 * time.Hour), "isEnabled": true, "backupServerUid": "bs2"})
+
+	put(veeamPathAgents,
+		map[string]any{"instanceUid": "a1", "name": "alpha-ws1", "organizationUid": "org-a", "status": "Active"},
+		map[string]any{"instanceUid": "a2", "name": "alpha-ws2", "organizationUid": "org-a", "status": "NotRunning", "activationTime": iso(3 * time.Hour)},
+		map[string]any{"instanceUid": "a3", "name": "beta-ws1", "organizationUid": "org-b", "status": "Active"})
+	// The per-OS list repeats an agent without status or organizationUid
+	// (WindowsBackupAgent in spec.json); it must not count again.
+	put("/infrastructure/backupAgents/windows", map[string]any{"instanceUid": "a1", "name": "alpha-ws1"})
+
+	put(veeamPathAlarmTemplates,
+		map[string]any{"instanceUid": "tpl-cpu", "name": "High CPU"},
+		map[string]any{"instanceUid": "tpl-disk", "name": "Low space"})
+	put(veeamPathActiveAlarms,
+		map[string]any{"instanceUid": "al1", "alarmTemplateUid": "tpl-cpu", "repeatCount": float64(3),
+			"object":         map[string]any{"organizationUid": "org-a", "objectName": "alpha-srv"},
+			"lastActivation": map[string]any{"status": "Error", "time": iso(time.Hour), "message": "CPU > 95%"}},
+		map[string]any{"instanceUid": "al2", "alarmTemplateUid": "tpl-disk",
+			"object":         map[string]any{"organizationUid": "org-b", "objectName": "beta-srv"},
+			"lastActivation": map[string]any{"status": "Warning", "time": iso(2 * time.Hour), "message": "disk 80%"}})
+
+	put(veeamPathWorkloadsServer,
+		map[string]any{"instanceUid": "w1", "name": "srv01", "organizationUid": "org-a", "latestRestorePointDate": iso(5 * 24 * time.Hour)},
+		map[string]any{"instanceUid": "w2", "name": "srv02", "organizationUid": "org-a", "latestRestorePointDate": iso(time.Hour)})
+
+	put(veeamPathLicenseUsage, licenseUsageItem("org-a", 100, 20), licenseUsageItem("org-b", 45))
+	return dbPath
+}
+
+// licenseUsageItem is an OrganizationLicenseUsage item (spec.json): points live
+// in servers[].workloads[].usedUnits; an Instances workload is not points.
+func licenseUsageItem(org string, points ...float64) map[string]any {
+	workloads := []any{map[string]any{"unitType": "Instances", "usedUnits": float64(7)}}
+	for _, p := range points {
+		workloads = append(workloads, map[string]any{"unitType": "Points", "usedUnits": p})
+	}
+	return map[string]any{"organizationUid": org, "organizationType": "Company",
+		"servers": []any{map[string]any{"serverType": "BackupAndReplication", "workloads": workloads}}}
+}
+
+// veeamNovelPaths is every documented list path the novels read.
+var veeamNovelPaths = []string{veeamPathCompanies, veeamPathProviderCompanies, veeamPathServerJobs,
+	veeamPathBackupServers, veeamPathAgentJobs, veeamPathAgents, veeamPathActiveAlarms, veeamPathAlarmTemplates,
+	veeamPathWorkloadsServer, veeamPathWorkloadsConsole, veeamPathLicenseUsage}
+
+// markNovelPartitionsSynced records a completed sync for every novel
+// partition, as a full `sync` run leaves it.
+func markNovelPartitionsSynced(t *testing.T, db *store.Store) {
+	t.Helper()
+	for _, p := range veeamNovelPaths {
+		for _, name := range veeamSyncNames(p) {
+			if err := db.SaveSyncState(name, "", 0); err != nil {
+				t.Fatal(err)
+			}
 		}
 	}
+}
 
-	put("organizations-companies", "org-a", map[string]any{"instanceUid": "org-a", "name": "Alpha Corp", "status": "Active"})
-	put("organizations-companies", "org-b", map[string]any{"instanceUid": "org-b", "name": "Beta LLC", "status": "Active"})
-
-	put("infrastructure-backup-servers-jobs", "j1", map[string]any{
-		"instanceUid": "j1", "name": "Alpha-DB", "organizationUid": "org-a",
-		"status": "Failed", "lastRun": iso(5 * 24 * time.Hour), "isEnabled": true,
-		"backupServerUid": "bs1", "failureMessage": "repository unreachable",
-	})
-	put("infrastructure-backup-servers-jobs", "j2", map[string]any{
-		"instanceUid": "j2", "name": "Alpha-VM", "organizationUid": "org-a",
-		"status": "Success", "lastRun": iso(time.Hour), "isEnabled": true, "backupServerUid": "bs1",
-	})
-	put("infrastructure-backup-servers-jobs", "j3", map[string]any{
-		"instanceUid": "j3", "name": "Beta-Files", "organizationUid": "org-b",
-		"status": "Warning", "lastRun": iso(2 * time.Hour), "isEnabled": true, "backupServerUid": "bs2",
-	})
-
-	put("infrastructure-backup-agents", "a1", map[string]any{"instanceUid": "a1", "name": "alpha-ws1", "organizationUid": "org-a", "status": "Online"})
-	put("infrastructure-backup-agents", "a2", map[string]any{"instanceUid": "a2", "name": "alpha-ws2", "organizationUid": "org-a", "status": "Offline", "activationTime": iso(3 * time.Hour)})
-	put("infrastructure-backup-agents", "a3", map[string]any{"instanceUid": "a3", "name": "beta-ws1", "organizationUid": "org-b", "status": "Online"})
-
-	put("alarms", "al1", map[string]any{
-		"instanceUid": "al1", "name": "High CPU", "repeatCount": float64(3),
-		"object":         map[string]any{"organizationUid": "org-a", "objectName": "alpha-srv"},
-		"lastActivation": map[string]any{"status": "Error", "time": iso(time.Hour), "message": "CPU > 95%"},
-	})
-	put("alarms", "al2", map[string]any{
-		"instanceUid": "al2", "name": "Low space",
-		"object":         map[string]any{"organizationUid": "org-b", "objectName": "beta-srv"},
-		"lastActivation": map[string]any{"status": "Warning", "time": iso(2 * time.Hour), "message": "disk 80%"},
-	})
-
-	put("protected-workloads-computers-managed-by-backup-server", "w1", map[string]any{
-		"instanceUid": "w1", "name": "srv01", "organizationUid": "org-a", "latestRestorePointDate": iso(5 * 24 * time.Hour),
-	})
-	put("protected-workloads-computers-managed-by-backup-server", "w2", map[string]any{
-		"instanceUid": "w2", "name": "srv02", "organizationUid": "org-a", "latestRestorePointDate": iso(time.Hour),
-	})
-
-	put("licensing-usage-organizations", "u1", map[string]any{"organizationUid": "org-a", "organizationName": "Alpha Corp", "usedPoints": float64(120)})
-	put("licensing-usage-organizations", "u2", map[string]any{"organizationUid": "org-b", "organizationName": "Beta LLC", "usedPoints": float64(45)})
-
-	return dbPath
+// seedPath stores objs the way sync does for a documented list path.
+func seedPath(t *testing.T, db *store.Store, path string, objs ...map[string]any) {
+	t.Helper()
+	names := veeamSyncNames(path)
+	if len(names) != 1 {
+		t.Fatalf("%s syncs into %v, want exactly one partition", path, names)
+	}
+	items := make([]json.RawMessage, 0, len(objs))
+	for _, o := range objs {
+		b, _ := json.Marshal(o)
+		items = append(items, b)
+	}
+	stored, skipped, err := db.UpsertBatch(names[0], items)
+	if err != nil || stored != len(items) || skipped != 0 {
+		t.Fatalf("seed %s (%s): stored=%d skipped=%d err=%v", path, names[0], stored, skipped, err)
+	}
 }
 
 func runNovelJSON(t *testing.T, cmd *cobra.Command, args ...string) map[string]any {
@@ -207,10 +251,7 @@ func TestLicenseUsageDelta(t *testing.T) {
 	if err != nil {
 		t.Fatalf("reopen: %v", err)
 	}
-	b, _ := json.Marshal(map[string]any{"organizationUid": "org-a", "organizationName": "Alpha Corp", "usedPoints": float64(150)})
-	if err := s.Upsert("licensing-usage-organizations", "u1", b); err != nil {
-		t.Fatalf("bump: %v", err)
-	}
+	seedPath(t, s, veeamPathLicenseUsage, licenseUsageItem("org-a", 100, 50))
 	s.Close()
 	v := runNovelJSON(t, newNovelLicenseUsageCmd(&rootFlags{asJSON: true}), "--db", db, "--no-snapshot")
 	for _, o := range arr(v, "organizations") {
@@ -278,5 +319,38 @@ func TestSinceCommand(t *testing.T) {
 	}
 	if !sawAlarm {
 		t.Error("fired alarm High CPU must appear as a since event")
+	}
+}
+
+// TestNovelPathsResolveToSyncPartitions fails when a regeneration stops
+// syncing a documented path the novels read, or splits it across partitions.
+func TestNovelPathsResolveToSyncPartitions(t *testing.T) {
+	for _, p := range veeamNovelPaths {
+		names := veeamSyncNames(p)
+		if len(names) != 1 {
+			t.Errorf("%s syncs into %v, want exactly one partition", p, names)
+			continue
+		}
+		if !slices.Contains(defaultSyncResources(), names[0]) {
+			t.Errorf("%s (%s) is not in the default sync set; `sync` would leave the novels empty", p, names[0])
+		}
+	}
+}
+
+// TestSyncKeepsSameNamedRecordsApart pins the instanceUid sync key: two jobs
+// named "Nightly" in different tenants are two rows.
+func TestSyncKeepsSameNamedRecordsApart(t *testing.T) {
+	dbPath := seedFleetStore(t)
+	db, err := store.OpenReadOnly(dbPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	var n int
+	if err := db.DB().QueryRow(`SELECT COUNT(*) FROM resources WHERE resource_type = ?`, veeamSyncNames(veeamPathServerJobs)[0]).Scan(&n); err != nil {
+		t.Fatal(err)
+	}
+	if n != 3 {
+		t.Errorf("server jobs stored = %d, want 3 (same-named jobs collapsed)", n)
 	}
 }

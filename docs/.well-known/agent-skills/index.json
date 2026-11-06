@@ -697,9 +697,9 @@
     {
       "name": "veeam",
       "type": "skill-md",
-      "description": "Use when the user asks to check Veeam backup health across customers, find failing or stale backup jobs, surface workloads past their RPO, triage VSPC alarms, or report per-tenant license usage from a Veeam Service Provider Console. Syncs every tenant into a local SQLite mirror so it answers multi-tenant backup questions the per-tenant console can't. Trigger phrases: `check Veeam backup health`, `which Veeam jobs are failing`, `stale Veeam backups across customers`, `Veeam alarms triage`, `Veeam license usage by company`, `use veeam`, `run veeam`.",
+      "description": "Every Veeam Service Provider Console endpoint as a typed command, plus a local multi-tenant mirror, cross-company rollups, and drift detection no per-instance Veeam tool offers. Trigger phrases: `check Veeam backup health`, `which Veeam jobs are failing`, `stale Veeam backups across customers`, `Veeam alarms triage`, `Veeam license usage by company`, `what changed in Veeam since yesterday`, `use veeam`, `run veeam`.",
       "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/veeam/SKILL.md",
-      "digest": "sha256:e934b185a99746772c7721273143306dc9b6645dd9a5312999572707d1e5e593"
+      "digest": "sha256:954321e66d18ada95c0e747a492467476618217cc666042e6b1eb5d682d77187"
     },
     {
       "name": "vsphere",

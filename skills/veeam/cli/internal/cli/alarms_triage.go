@@ -1,4 +1,4 @@
-// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
 
 package cli
 
@@ -12,13 +12,12 @@ import (
 )
 
 type triagedAlarm struct {
-	Company   string `json:"company"`
-	Severity  string `json:"severity"`
-	Alarm     string `json:"alarm"`
-	Object    string `json:"object,omitempty"`
-	Count     int    `json:"count"`
-	FirstSeen string `json:"first_seen,omitempty"`
-	LastSeen  string `json:"last_seen,omitempty"`
+	Company  string `json:"company"`
+	Severity string `json:"severity"`
+	Alarm    string `json:"alarm"`
+	Object   string `json:"object,omitempty"`
+	Count    int    `json:"count"`
+	LastSeen string `json:"last_seen,omitempty"`
 }
 
 type alarmsTriageView struct {
@@ -26,26 +25,31 @@ type alarmsTriageView struct {
 	Count  int            `json:"count"`
 }
 
+// pp:data-source local
 func newNovelAlarmsTriageCmd(flags *rootFlags) *cobra.Command {
 	var flagSeverity, dbPath string
 	var limit int
 
 	cmd := &cobra.Command{
 		Use:   "alarms-triage",
-		Short: "Active alarms grouped by company and severity with first-seen / last-seen, deduped for fleet-wide triage.",
+		Short: "Active alarms grouped by company and severity with the latest activation and repeat count, deduped for fleet-wide triage.",
 		Long: strings.Trim(`
 Collapse the fleet's active alarms into distinct problems: group by company,
 severity, and alarm, aggregating repeat activations into one row with a count
-and first/last activation times. Filter to a single severity with --severity
-(Error, Warning, Info).
+and the latest activation time. Resolved alarms are left out unless
+--severity Resolved asks for them. Filter to a single severity with --severity
+(Error, Warning, Info, Acknowledged, Resolved).
 
 Reads only the local SQLite mirror — run `+"`veeam-cli sync`"+` first.`, "\n"),
 		Example: strings.Trim(`
   veeam-cli alarms-triage
   veeam-cli alarms-triage --severity Error
   veeam-cli alarms-triage --severity Error --agent`, "\n"),
-		Annotations: map[string]string{"mcp:read-only": "true"},
+		Annotations: map[string]string{"mcp:read-only": "true", "pp:data-source": "local"},
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := validateDataSourceStrategy(flags, "local"); err != nil {
+				return err
+			}
 			if dryRunOK(flags) {
 				return nil
 			}
@@ -59,13 +63,22 @@ Reads only the local SQLite mirror — run `+"`veeam-cli sync`"+` first.`, "\n")
 			}
 
 			wantSev := strings.ToLower(strings.TrimSpace(flagSeverity))
-			names := veeamCompanyNames(ctx, db)
-			alarms, _ := veeamLoad(ctx, db, "alarms")
+			names, err := veeamCompanyNames(ctx, db)
+			if err != nil {
+				return err
+			}
+			alarmNames, err := veeamAlarmNames(ctx, db)
+			if err != nil {
+				return err
+			}
+			alarms, err := veeamLoad(ctx, db, veeamPathActiveAlarms)
+			if err != nil {
+				return err
+			}
 
 			type agg struct {
-				row   triagedAlarm
-				first time.Time
-				last  time.Time
+				row  triagedAlarm
+				last time.Time
 			}
 			groups := map[string]*agg{}
 			order := []string{}
@@ -75,10 +88,22 @@ Reads only the local SQLite mirror — run `+"`veeam-cli sync`"+` first.`, "\n")
 				if wantSev != "" && strings.ToLower(sev) != wantSev {
 					continue
 				}
-				company := veeamCompanyLabel(names, vstr(al, "object.organizationUid"))
-				alarmName := firstNonEmpty(vstr(al, "name"), vstr(al, "alarmTemplateUid"), "(alarm)")
+				if wantSev != "resolved" && !veeamAlarmActive(al) {
+					continue
+				}
+				orgUID := vstr(al, "object.organizationUid")
+				company := veeamCompanyLabel(names, orgUID)
+				alarmName := firstNonEmpty(alarmNames[strings.ToLower(vstr(al, "alarmTemplateUid"))], vstr(al, "alarmTemplateUid"), "(alarm)")
 				object := firstNonEmpty(vstr(al, "object.objectName"), vstr(al, "object.computerName"), vstr(al, "object.type"))
-				key := strings.ToLower(company + "|" + sev + "|" + alarmName + "|" + object)
+				if computer := vstr(al, "object.computerName"); computer != "" && computer != object {
+					object += " on " + computer
+				}
+				// Group on UIDs, never display names (company, alarm and object
+				// names are not unique): tenant, template and affected object.
+				// An alarm whose object has no UID stays its own group.
+				objectUID := firstNonEmpty(vstr(al, "object.instanceUid"), vstr(al, "object.objectUid"), vstr(al, "instanceUid"))
+				templateUID := firstNonEmpty(vstr(al, "alarmTemplateUid"), alarmName)
+				key := strings.ToLower(orgUID + "|" + sev + "|" + templateUID + "|" + objectUID)
 				g, ok := groups[key]
 				if !ok {
 					g = &agg{row: triagedAlarm{Company: company, Severity: sev, Alarm: alarmName, Object: object}}
@@ -95,18 +120,12 @@ Reads only the local SQLite mirror — run `+"`veeam-cli sync`"+` first.`, "\n")
 					if g.last.IsZero() || t.After(g.last) {
 						g.last = t
 					}
-					if g.first.IsZero() || t.Before(g.first) {
-						g.first = t
-					}
 				}
 			}
 
 			out := make([]triagedAlarm, 0, len(order))
 			for _, key := range order {
 				g := groups[key]
-				if !g.first.IsZero() {
-					g.row.FirstSeen = g.first.UTC().Format(time.RFC3339)
-				}
 				if !g.last.IsZero() {
 					g.row.LastSeen = g.last.UTC().Format(time.RFC3339)
 				}

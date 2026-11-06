@@ -6,7 +6,7 @@
 <!-- media:start -->
 <p align="center">
   <a href="https://msp-skills.compoundingteams.com/skills/veeam/">
-    <img src="../../docs/assets/video/veeam/animated-og.gif" alt="Veeam VSPC demo - animated preview" width="600">
+    <img src="../../docs/assets/video/veeam/animated-og.gif" alt="Veeam demo - animated preview" width="600">
   </a>
 </p>
 <p align="center"><sub>▶ <a href="https://msp-skills.compoundingteams.com/skills/veeam/">Watch the 30-second demo</a> - demo data is simulated; every command shown exists in the real CLI.</sub></p>

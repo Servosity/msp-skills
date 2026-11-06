@@ -1,4 +1,4 @@
-// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
 
 package cli
 
@@ -25,6 +25,7 @@ type sinceView struct {
 	Count  int          `json:"count"`
 }
 
+// pp:data-source local
 func newNovelSinceCmd(flags *rootFlags) *cobra.Command {
 	var dbPath string
 	var limit int
@@ -43,9 +44,12 @@ Reads only the local SQLite mirror — run `+"`veeam-cli sync`"+` first.`, "\n")
   veeam-cli since 24h
   veeam-cli since 3d
   veeam-cli since 12h --agent`, "\n"),
-		Annotations: map[string]string{"mcp:read-only": "true"},
+		Annotations: map[string]string{"mcp:read-only": "true", "pp:data-source": "local"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := validateDataSourceStrategy(flags, "local"); err != nil {
+				return err
+			}
 			if dryRunOK(flags) {
 				return nil
 			}
@@ -67,7 +71,10 @@ Reads only the local SQLite mirror — run `+"`veeam-cli sync`"+` first.`, "\n")
 				defer db.Close()
 			}
 
-			names := veeamCompanyNames(ctx, db)
+			names, err := veeamCompanyNames(ctx, db)
+			if err != nil {
+				return err
+			}
 			now := time.Now()
 			cutoff := now.Add(-window)
 			events := make([]fleetEvent, 0)
@@ -76,15 +83,12 @@ Reads only the local SQLite mirror — run `+"`veeam-cli sync`"+` first.`, "\n")
 				return ok && !t.Before(cutoff) && !t.After(now.Add(time.Minute))
 			}
 
-			jobs, _ := veeamLoad(ctx, db,
-				"infrastructure-backup-servers-jobs",
-				"infrastructure-backup-agents-jobs",
-				"infrastructure-backup-agents-windows-jobs",
-				"infrastructure-backup-agents-linux-jobs",
-				"infrastructure-backup-agents-mac-jobs",
-			)
+			jobs, err := veeamLoad(ctx, db, veeamPathServerJobs, veeamPathAgentJobs)
+			if err != nil {
+				return err
+			}
 			for _, j := range jobs {
-				last, ok := vtime(j, "lastRun")
+				last, ok := veeamJobEnded(j)
 				if !inWindow(last, ok) {
 					continue
 				}
@@ -92,10 +96,7 @@ Reads only the local SQLite mirror — run `+"`veeam-cli sync`"+` first.`, "\n")
 				if health != "failed" && health != "warning" {
 					continue
 				}
-				org := vstr(j, "organizationUid")
-				if org == "" {
-					org = vstr(j, "mappedOrganizationUid")
-				}
+				org := veeamOrgOf(j)
 				events = append(events, fleetEvent{
 					Time:    last.UTC().Format(time.RFC3339),
 					Kind:    "job-" + health,
@@ -105,7 +106,14 @@ Reads only the local SQLite mirror — run `+"`veeam-cli sync`"+` first.`, "\n")
 				})
 			}
 
-			alarms, _ := veeamLoad(ctx, db, "alarms")
+			alarmNames, err := veeamAlarmNames(ctx, db)
+			if err != nil {
+				return err
+			}
+			alarms, err := veeamLoad(ctx, db, veeamPathActiveAlarms)
+			if err != nil {
+				return err
+			}
 			for _, al := range alarms {
 				t, ok := vtime(al, "lastActivation.time")
 				if !inWindow(t, ok) {
@@ -115,17 +123,15 @@ Reads only the local SQLite mirror — run `+"`veeam-cli sync`"+` first.`, "\n")
 					Time:    t.UTC().Format(time.RFC3339),
 					Kind:    "alarm-" + strings.ToLower(firstNonEmpty(vstr(al, "lastActivation.status"), "fired")),
 					Company: veeamCompanyLabel(names, vstr(al, "object.organizationUid")),
-					Name:    firstNonEmpty(vstr(al, "name"), vstr(al, "alarmTemplateUid")),
+					Name:    firstNonEmpty(alarmNames[strings.ToLower(vstr(al, "alarmTemplateUid"))], vstr(al, "alarmTemplateUid")),
 					Detail:  vstr(al, "lastActivation.message"),
 				})
 			}
 
-			agents, _ := veeamLoad(ctx, db,
-				"infrastructure-backup-agents",
-				"infrastructure-backup-agents-windows",
-				"infrastructure-backup-agents-linux",
-				"infrastructure-backup-agents-mac",
-			)
+			agents, err := veeamLoad(ctx, db, veeamPathAgents)
+			if err != nil {
+				return err
+			}
 			for _, a := range agents {
 				t, ok := vtime(a, "activationTime")
 				if !inWindow(t, ok) {
