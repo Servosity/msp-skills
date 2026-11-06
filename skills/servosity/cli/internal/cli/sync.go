@@ -45,6 +45,9 @@ type syncResult struct {
 	Warn             error
 	IntegrityFailure bool
 	Duration         time.Duration
+	// Hand-fix (handfixes.json sync-json-only-bounded): the warning means rows
+	// are missing because of what the response body was, so --strict fails on it.
+	BodyRefused bool
 }
 
 const syncWatermarkOverlap = time.Second
@@ -144,6 +147,10 @@ Resource scoping:
 			}
 			// Hand-fix (handfixes.json secret-family-never-persisted).
 			if err := refuseMFASecretSync(resources); err != nil {
+				return usageErr(err)
+			}
+			// Hand-fix (handfixes.json sync-json-only-bounded).
+			if err := refuseBinaryEndpointSync(resources); err != nil {
 				return usageErr(err)
 			}
 
@@ -272,6 +279,8 @@ Resource scoping:
 			var warnCount int
 			var successCount int
 			var failedResources []string
+			var warnedResources []string
+			var refusedResources []string
 			var criticalFailedResources []string
 			var firstErr error
 			var firstPlaceholderErr error
@@ -298,6 +307,10 @@ Resource scoping:
 					}
 					totalSynced += res.Count
 					warnCount++
+					warnedResources = append(warnedResources, res.Resource)
+					if res.BodyRefused {
+						refusedResources = append(refusedResources, res.Resource)
+					}
 				} else {
 					if humanFriendly {
 						fmt.Fprintf(os.Stderr, "  %s: %d synced (done)\n", res.Resource, res.Count)
@@ -311,15 +324,16 @@ Resource scoping:
 			totalResources := successCount + warnCount + errCount
 			if humanFriendly {
 				if warnCount > 0 {
-					fmt.Fprintf(os.Stderr, "Sync complete: %d records across %d resources (%d warned, %.1fs)\n",
-						totalSynced, totalResources, warnCount, elapsed.Seconds())
+					sort.Strings(warnedResources)
+					fmt.Fprintf(os.Stderr, "Sync complete: %d records across %d resources (%d warned: %s, %.1fs)\n",
+						totalSynced, totalResources, warnCount, strings.Join(warnedResources, ", "), elapsed.Seconds())
 				} else {
 					fmt.Fprintf(os.Stderr, "Sync complete: %d records across %d resources (%.1fs)\n",
 						totalSynced, totalResources, elapsed.Seconds())
 				}
 			} else {
-				fmt.Fprintf(syncEventWriter, `{"event":"sync_summary","total_records":%d,"resources":%d,"success":%d,"warned":%d,"errored":%d,"duration_ms":%d}`+"\n",
-					totalSynced, totalResources, successCount, warnCount, errCount, elapsed.Milliseconds())
+				fmt.Fprintf(syncEventWriter, `{"event":"sync_summary","total_records":%d,"resources":%d,"success":%d,"warned":%d,"errored":%d,"duration_ms":%d%s}`+"\n",
+					totalSynced, totalResources, successCount, warnCount, errCount, elapsed.Milliseconds(), syncWarnedSummaryField(warnedResources))
 			}
 
 			// Lookup refresh (learn loop): derive entity_lookups rows under
@@ -347,6 +361,9 @@ Resource scoping:
 			}
 			if strict && errCount > 0 {
 				return errors.New(describeFailedResources(errCount, failedResources))
+			}
+			if strict && len(refusedResources) > 0 {
+				return errors.New(describeResourceFailure(len(refusedResources), "resource(s) refused for their response body;", refusedResources))
 			}
 			if criticalErrCount > 0 {
 				return errors.New(describeCriticalFailedResources(criticalErrCount, criticalFailedResources))
@@ -376,6 +393,9 @@ Resource scoping:
 					"warned":        warnCount,
 					"errored":       errCount,
 					"duration_ms":   elapsed.Milliseconds(),
+				}
+				if len(warnedResources) > 0 {
+					summary["warned_resources"] = warnedResources
 				}
 				// The dry-run walk already produced this preview. Stamp the
 				// envelope marker on it instead of replacing the summary.
@@ -419,6 +439,8 @@ func syncResource(ctx context.Context, c interface {
 	if syncEvents == nil {
 		syncEvents = io.Discard
 	}
+	// Hand-fix (handfixes.json sync-json-only-bounded).
+	ctx = client.WithJSONOnlyResponses(ctx)
 
 	if !humanFriendly {
 		fmt.Fprintf(syncEvents, `{"event":"sync_start","resource":"%s"}`+"\n", resource)
@@ -624,6 +646,13 @@ func syncResource(ctx context.Context, c interface {
 
 		data, err := syncGet(ctx, c, resource, "", path, params)
 		if err != nil {
+			// Hand-fix (handfixes.json sync-json-only-bounded).
+			if reason, ok := syncBodyRefusalReason(err); ok {
+				if !humanFriendly {
+					fmt.Fprintln(syncEvents, syncWarningJSON(resource, "", 0, reason, err.Error()))
+				}
+				return syncResult{Resource: resource, Count: totalCount, Warn: fmt.Errorf("skipped %s: %w", resource, err), BodyRefused: true, Duration: time.Since(started)}
+			}
 			if w, ok := isSyncAccessWarning(err); ok {
 				if !humanFriendly {
 					fmt.Fprintln(syncEvents, syncWarningJSON(resource, "", w.Status, w.Reason, w.Message))
@@ -2654,7 +2683,6 @@ func defaultSyncResources() []string {
 		"current-user-notifications",
 		"current-user-profile",
 		"current-user-verified-mfa",
-		"download",
 		"dr-backups",
 		"fully_managed_companies",
 		"issues",
@@ -2702,7 +2730,6 @@ func knownSyncResourceNames() []string {
 		"current-user-profile",
 		"current-user-start-mfa",
 		"current-user-verified-mfa",
-		"download",
 		"dr-backups",
 		"fully_managed_companies",
 		"issues",
@@ -2768,7 +2795,6 @@ func syncResourcePath(resource string) (string, error) {
 		"current-user-profile":          "/current-user/profile/",
 		"current-user-start-mfa":        "/current-user/start-mfa/",
 		"current-user-verified-mfa":     "/current-user/verified-mfa/",
-		"download":                      "/download/servosity-one-windows/",
 		"dr-backups":                    "/dr-backups/",
 		"fully_managed_companies":       "/companies/fully-managed-ng/",
 		"issues":                        "/issues/",

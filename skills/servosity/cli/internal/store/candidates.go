@@ -11,6 +11,8 @@ import (
 	"fmt"
 	"strings"
 	"time"
+
+	"servosity-msp-pp-cli/internal/credkit"
 )
 
 // This file owns the learn_candidates lifecycle: auto-captured
@@ -106,6 +108,8 @@ type ListCandidatesFilter struct {
 // Each call counts. Flag-correction derivation replays a journal batch
 // when the file cursor does not advance; that path uses
 // CommitFlagCorrections so the same batch does not bump twice.
+// Hand-fix (handfixes.json journal-credential-hardening): operator text that repeats a credential
+// this program holds is refused before it is stored.
 func (s *Store) DeriveCandidate(class, payload, signature, queryFamily, commandPath string) (CandidateRow, bool, error) {
 	if err := validateDerivedCandidate(class, payload, signature); err != nil {
 		return CandidateRow{}, false, err
@@ -224,8 +228,12 @@ func (s *Store) CommitFlagCorrections(items []FlagCorrectionSighting, batchStart
 		return FlagCorrectionCommit{Applied: false, Resume: stored}, nil
 	}
 
+	// Hand-fix (handfixes.json credkit-wiring): a sighting that repeats a held credential is
+	// withheld by the kit's driver before it runs, and the batch still commits.
 	for _, item := range items {
-		if _, err := execDerivedCandidate(tx, item.Class, item.Payload, item.Signature, item.QueryFamily, item.CommandPath); err != nil {
+		if _, err := execDerivedCandidate(tx, item.Class, item.Payload, item.Signature, item.QueryFamily, item.CommandPath); errors.Is(err, credkit.ErrWithheld) {
+			continue
+		} else if err != nil {
 			return FlagCorrectionCommit{}, fmt.Errorf("commit flag corrections: %w", err)
 		}
 	}

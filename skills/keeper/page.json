@@ -1,0 +1,100 @@
+{
+  "outcome_intro": "See every client's Keeper 2FA coverage, weak and reused passwords, BreachWatch exposure, inactive users and seats in one run, then ask what changed since last quarter. Keeper Security + your AI reads through your own Commander Service Mode host and stores each run locally. It is read-only, and it has no path to a vault record.",
+  "instead_of_say": [
+    {
+      "instead": "Open the Keeper console for each managed company and note who still has 2FA off",
+      "say": "Which clients have users without 2FA, admins first?",
+      "cli": "keeper-cli users risk --kind no-2fa --agent"
+    },
+    {
+      "instead": "Rebuild last quarter's password-health spreadsheet by hand and compare it to this one",
+      "say": "What changed in Keeper posture since the last run?",
+      "cli": "keeper-cli posture diff --agent"
+    },
+    {
+      "instead": "Search client by client to find which company a departing user belongs to",
+      "say": "Which client is jane@example.com in, and when did they last log in?",
+      "cli": "keeper-cli users find jane@example.com --agent"
+    }
+  ],
+  "pain_points": [
+    "Password health and 2FA are read per tenant, so a QBR across a book of clients means repeating the same look client by client. A 2026 review for MSPs describes the weak and reused password view as \"per tenant\".",
+    "Keeper's own reports do not answer \"what changed since last quarter\" across clients without someone keeping the earlier numbers; Keeper's MSP best practices recommend change and activity reports plus alerts, and advanced reporting is an add-on on some plans."
+  ],
+  "outcomes": [
+    {
+      "question": "How is every client doing on 2FA, weak passwords and BreachWatch?",
+      "command": "keeper-cli posture report --days 90 --agent"
+    },
+    {
+      "question": "Which clients have users without 2FA, admins first?",
+      "command": "keeper-cli users risk --kind no-2fa --agent"
+    },
+    {
+      "question": "What changed since the last posture run, by client and by user?",
+      "command": "keeper-cli posture diff --agent"
+    },
+    {
+      "question": "Which invites went stale, and who is inactive or locked?",
+      "command": "keeper-cli users hygiene --kind invited,inactive --agent"
+    },
+    {
+      "question": "Which managed company does this user belong to?",
+      "command": "keeper-cli users find jane@example.com --agent"
+    },
+    {
+      "question": "How many seats does each client have allocated and active?",
+      "command": "keeper-cli companies list --agent"
+    }
+  ],
+  "different_vs_wrappers": "Most password-manager integrations, and an MCP server that only forwards each tool call, answer about one tenant now. This skill stores each cross-client posture run locally, so \"what changed\" and \"who has no 2FA anywhere\" are one offline query, and every command it can send is on a short fixed read-only allowlist it prints with keeper-cli allowlist.",
+  "different_vs_vendor": "The Keeper Admin Console and MSP Console stay your place to change users, roles and seats; this skill adds cross-client posture history in the AI agent you already use, and complements the console rather than replacing it.",
+  "faqs": [
+    {
+      "q": "Does this work with ChatGPT?",
+      "a": "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so it needs the Keeper Security MCP server's token-protected HTTP mode hosted over HTTPS. Step-by-step in the install guide."
+    },
+    {
+      "q": "Do I need to know how to code?",
+      "a": "No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once."
+    },
+    {
+      "q": "Is my Keeper Security data safe?",
+      "a": "Your data stays on your machine and your own Service Mode host. Typed reads are printed and not saved; only posture report saves metrics and per-user facts to a local store. The skill cannot read a vault record, and a response shaped like record content is refused whole."
+    },
+    {
+      "q": "Can this read passwords from a client's vault?",
+      "a": "No. It can send only the admin and MSP reports listed by keeper-cli allowlist, each with fixed read-only flags. Set the same list on your Service Mode key with service-create -c, so Service Mode refuses anything else too."
+    },
+    {
+      "q": "What do I need from Keeper?",
+      "a": "Keeper Commander running in Service Mode on a host you control, over TLS (service-create with -crtf and -crtp), and its API key. The CLI refuses plain http on every host, localhost included. A private certificate is trusted with KEEPER_CA_CERT."
+    },
+    {
+      "q": "Do I need a Keeper MSP account?",
+      "a": "The cross-client commands need one. An account that is not an MSP is reported as its own enterprise, one company in the same format."
+    },
+    {
+      "q": "What does it cost?",
+      "a": "Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use."
+    }
+  ],
+  "governance_summary": "The skill reads Keeper admin and MSP reports: companies, seats, users, roles, teams, 2FA, password-health scores, BreachWatch summaries and audit events. It cannot change anything in Keeper and cannot read a vault record. The only things it writes are local: posture runs, learnings and profiles. Let an agent read freely, and keep a human on the credential commands.",
+  "safety_tiers": [
+    {
+      "tier": "Read",
+      "examples": "companies list, users list, users risk, users hygiene, posture diff, posture runs, events list, billing report, security-audit report, audit-trail events",
+      "policy": "Allow"
+    },
+    {
+      "tier": "Local write (this machine only)",
+      "examples": "posture report (reads Keeper, saves the run locally), teach, playbook amend, learnings forget, profile save, local-data purge",
+      "policy": "Allow in the CLI; through MCP only posture_report is a tool, and it needs confirm set to true"
+    },
+    {
+      "tier": "Credential",
+      "examples": "auth set-token, auth logout",
+      "policy": "Human-in-the-loop only"
+    }
+  ]
+}

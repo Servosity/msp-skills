@@ -71,7 +71,7 @@
       ],
       "representativeQueries": [
         "Which resources have no backup protection at all?",
-        "Which protected resources have a stale backup (silent failures)?",
+        "Which protected resources are not getting backed up (silent failures)?",
         "Is the whole fleet green this morning, or who failed?",
         "What is one tenant's full backup posture for a QBR or ticket?",
         "Am I over- or under-licensed on Afi seats?"
@@ -205,7 +205,7 @@
       "displayName": "AWS",
       "type": "text/markdown; profile=\"urn:air:agent-skills\"",
       "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/aws-billing/SKILL.md",
-      "description": "Get a non-expert from zero to a plain-English, waste-flagged AWS bill breakdown - per-account, month-over-month, with dollar-ranked waste - and cache it locally so you don't pay per Cost Explorer call. Trigger phrases: `what's my aws bill`, `break down my aws costs`, `why did my aws bill go up`, `find aws waste`, `which account is driving my aws spend`, `post my aws bill to slack`, `set up aws billing access`, `use aws-billing`, `run aws-billing-cli`.",
+      "description": "Get a non-expert from zero to a Slack-delivered, plain-English, waste-flagged AWS bill breakdown, and cache it so you don't pay per Cost Explorer call. Trigger phrases: `what's my aws bill`, `break down my aws costs`, `why did my aws bill go up`, `find aws waste`, `which account is driving my aws spend`, `post my aws bill to slack`, `set up aws billing access`, `use aws-billing`, `run aws-billing-cli`.",
       "tags": [
         "Billing"
       ],
@@ -421,6 +421,46 @@
       }
     },
     {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:cloudally",
+      "displayName": "CloudAlly",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/cloudally/SKILL.md",
+      "description": "See every CloudAlly customer's backup status, tasks and billing, and run backups and recovery jobs, from one CLI and MCP server.",
+      "tags": [
+        "Backup/DR"
+      ],
+      "representativeQueries": [
+        "Which mailboxes across all my CloudAlly customers have not backed up in two days, or failed? (It reads the synced feed: run cloudally-cli sync --resources distributoraccounts-backup-statuses first.)",
+        "What backups does this mailbox have for December?",
+        "Which backup would each mailbox on this task be restored from for December 31st?",
+        "Plan, then restore every mailbox on the task to October 1st.",
+        "Plan, then archive every mailbox as it stood on December 31st in the customer's own timezone."
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/cloudally.md"
+      }
+    },
+    {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:comet-backup",
+      "displayName": "Comet Backup",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/comet-backup/SKILL.md",
+      "description": "Fleet-wide backup health, failure triage and usage reports for every tenant on your Comet Server, plus the admin API calls an MSP uses day to day. Trigger phrases: `which comet backups failed last night`, `comet backup health across all tenants`, `comet storage usage per customer`, `find offline comet devices`, `re-run failed comet backups`, `use comet-backup`, `run comet-backup`.",
+      "tags": [
+        "Backup/DR"
+      ],
+      "representativeQueries": [
+        "Which protected items failed, are overdue or never backed up, across every tenant?",
+        "Why did backups fail in the last 24 hours, with the first error lines from each job log?",
+        "Which tenants are at or above 80 percent of a storage, device or Microsoft 365 quota?",
+        "Which offline devices have not finished a job in a week and still own protected items?",
+        "Which devices run a Comet client version that differs from the server?"
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/comet-backup.md"
+      }
+    },
+    {
       "identifier": "urn:air:msp-skills.compoundingteams.com:skills:connect-tool",
       "displayName": "connect-tool",
       "type": "text/markdown; profile=\"urn:air:agent-skills\"",
@@ -478,7 +518,7 @@
       "displayName": "ConnectWise Control",
       "type": "text/markdown; profile=\"urn:air:agent-skills\"",
       "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/connectwise-control/SKILL.md",
-      "description": "Use when the user asks to list, search, or inspect ConnectWise Control (ScreenConnect) remote-support and access sessions, run a command on a guest machine, rename or tag sessions, manage instance users, or read the audit log. Turns the ScreenConnect instance surface into typed commands with an offline SQLite mirror. Trigger phrases: `list connectwise control sessions`, `screenconnect session detail`, `run command on a screenconnect guest`, `connectwise control audit log`, `use connectwise control`, `run connectwise-control-cli`.",
+      "description": "Manage ConnectWise Control (ScreenConnect) sessions, users and the audit log from one CLI. Trigger phrases: `list connectwise control sessions`, `screenconnect session detail`, `stale screenconnect agents`, `connectwise control user access review`, `connectwise control audit log`, `use connectwise control`, `run connectwise-control-cli`.",
       "tags": [
         "Remote Access"
       ],
@@ -653,6 +693,26 @@
       }
     },
     {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:datto-saas",
+      "displayName": "Datto SaaS Protection",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/datto-saas/SKILL.md",
+      "description": "Fleet-wide Datto SaaS Protection answers - unprotected seats, failing backups, exit inventories - from a local mirror in one ask.",
+      "tags": [
+        "Backup/DR"
+      ],
+      "representativeQueries": [
+        "Which seats across every client are unprotected, newest first?",
+        "Where does Datto's seatsUsed disagree with billable and Active seats, per client?",
+        "Which clients rank worst on backup coverage and short backup windows?",
+        "How many seats does each client have, by seat type and state?",
+        "Give me one seat table for the whole fleet with each client's domains and subscription ids."
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/datto-saas.md"
+      }
+    },
+    {
       "identifier": "urn:air:msp-skills.compoundingteams.com:skills:dnsfilter",
       "displayName": "DNSFilter",
       "type": "text/markdown; profile=\"urn:air:agent-skills\"",
@@ -673,6 +733,26 @@
       }
     },
     {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:domain-cert-tracker",
+      "displayName": "Domain and Certificate Tracker",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/domain-cert-tracker/SKILL.md",
+      "description": "Track every client's domain expiries, registrar locks, DNS drift and certificates from one local inventory, no vendor login.",
+      "tags": [
+        "Monitoring"
+      ],
+      "representativeQueries": [
+        "What expires within 30 days, lost its lock or changed, per client?",
+        "Which hosts still serve an old certificate after a newer one was logged?",
+        "Which new certificates came from an issuer the domain's CAA does not permit, or a first-ever issuer?",
+        "Which hostnames have certificates in CT but are not in the client's inventory?",
+        "What changed since the agent last looked, once per event, for ticketing?"
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/domain-cert-tracker.md"
+      }
+    },
+    {
       "identifier": "urn:air:msp-skills.compoundingteams.com:skills:domotz",
       "displayName": "Domotz",
       "type": "text/markdown; profile=\"urn:air:agent-skills\"",
@@ -690,6 +770,46 @@
       ],
       "metadata": {
         "page": "https://msp-skills.compoundingteams.com/skills/domotz.md"
+      }
+    },
+    {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:dropsuite",
+      "displayName": "Dropsuite",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/dropsuite/SKILL.md",
+      "description": "Every Dropsuite (NinjaOne SaaS Backup) read, plus fleet-wide backup health, coverage gaps and billing reconciliation from one reseller credential. Trigger phrases: `check dropsuite backups`, `which clients have failing saas backups`, `unprotected mailboxes in ninjaone saas backup`, `reconcile dropsuite seats with billing`, `use dropsuite`, `run dropsuite`.",
+      "tags": [
+        "Backup/DR"
+      ],
+      "representativeQueries": [
+        "What is failing, stuck or stale across every client right now?",
+        "Which tenant mailboxes are not added to backup, with coverage percent per client?",
+        "Which clients are over-allocated against my PSA invoice, or suspended but still holding seats?",
+        "Which deactivated or deleted mailboxes still hold storage, and which invitations were never accepted?",
+        "Which client owns this email address, and are its mailbox and OneDrive backed up?"
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/dropsuite.md"
+      }
+    },
+    {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:eset-protect",
+      "displayName": "ESET PROTECT",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/eset-protect/SKILL.md",
+      "description": "Devices, detections, incidents and response actions across every ESET PROTECT client.",
+      "tags": [
+        "Security"
+      ],
+      "representativeQueries": [
+        "Which customers have devices that need attention, are muted or stopped checking in?",
+        "What should my techs work first this morning, detections and open incidents together?",
+        "Which customers and devices are exposed to this CVE, and is a patch available?",
+        "Give me one customer's quarter: device health, detections, incidents, top CVEs and patches",
+        "Which devices have not checked in for two weeks, most stale first?"
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/eset-protect.md"
       }
     },
     {
@@ -906,6 +1026,26 @@
       }
     },
     {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:jamf-pro",
+      "displayName": "Jamf Pro",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/jamf-pro/SKILL.md",
+      "description": "Every client's Jamf Pro in one CLI: register each instance once, then find devices, check posture and patch status, and audit policies across all of them. Trigger phrases: `which client has this Mac`, `jamf posture across clients`, `macs not checked in`, `patch status in jamf`, `broken jamf policies`, `use jamf-pro`, `run jamf-pro`.",
+      "tags": [
+        "MDM"
+      ],
+      "representativeQueries": [
+        "Which client has this Mac, iPad or iPhone, by serial, name, username or email?",
+        "Which clients have stale check-ins, Macs below a macOS floor, FileVault off or the firewall off?",
+        "Which patch titles are behind latest, and which clients have failed managed OS updates?",
+        "A vendor advisory landed: which clients and computers have this app below the fixed version?",
+        "Which policies are disabled, can never run, have no scope, or point at a missing script or package?"
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/jamf-pro.md"
+      }
+    },
+    {
       "identifier": "urn:air:msp-skills.compoundingteams.com:skills:jira-service-management",
       "displayName": "Jira Service Management",
       "type": "text/markdown; profile=\"urn:air:agent-skills\"",
@@ -963,6 +1103,26 @@
       ],
       "metadata": {
         "page": "https://msp-skills.compoundingteams.com/skills/kaseya-vsa.md"
+      }
+    },
+    {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:keeper",
+      "displayName": "Keeper Admin and MSP Console",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/keeper/SKILL.md",
+      "description": "Audit Keeper MSP posture across every managed company: 2FA, admins, licences and changes, never a vault secret.",
+      "tags": [
+        "Security"
+      ],
+      "representativeQueries": [
+        "How is every client doing on 2FA, weak passwords and BreachWatch?",
+        "Which clients have users without 2FA, admins first?",
+        "What changed since the last posture run, by client and by user?",
+        "Which invites went stale, and who is inactive or locked?",
+        "Which managed company does this user belong to?"
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/keeper.md"
       }
     },
     {
@@ -1349,7 +1509,7 @@
       ],
       "representativeQueries": [
         "Who owes us money, bucketed 0-30 / 31-60 / 61-90 / 90+?",
-        "What do we owe vendors, and when is it due?",
+        "What do we owe vendors, and how overdue is it?",
         "Which overdue invoices should I chase first?",
         "Where does our cash stand across accounts, AR, and AP?",
         "What net cash movement is scheduled over the next 4 weeks?"
@@ -1403,7 +1563,7 @@
       "displayName": "Rewst",
       "type": "text/markdown; profile=\"urn:air:agent-skills\"",
       "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/rewst/SKILL.md",
-      "description": "Use when the user asks to check Rewst automation health, find failed or dormant workflows, report automation ROI/time-saved, compare config drift between client orgs, or check integration-pack coverage across tenants. Turns Rewst's GraphQL-only gateway into typed commands and adds cross-org rollups the web app makes you assemble one client at a time. Trigger phrases: `check rewst automation health`, `rewst failed workflows`, `how much time did rewst save`, `rewst config drift between orgs`, `which rewst orgs are missing a pack`, `use rewst`, `run rewst`.",
+      "description": "Every Rewst entity as a typed command, plus fleet health, ROI, drift and coverage rollups. Trigger phrases: `check rewst automation health`, `rewst failed workflows`, `how much time did rewst save`, `rewst config drift between orgs`, `which rewst orgs are missing a pack`, `use rewst`, `run rewst`.",
       "tags": [
         "Automation"
       ],
@@ -1799,6 +1959,26 @@
       }
     },
     {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:threecx",
+      "displayName": "3CX",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/threecx/SKILL.md",
+      "description": "Check trunk, licence, version and backup health across every client's 3CX phone system at once.",
+      "tags": [
+        "Other"
+      ],
+      "representativeQueries": [
+        "Which client phone systems are failing or warning, and why?",
+        "Which trunks are offline, misconfigured or in an unknown state across every client?",
+        "Whose licence or maintenance expires in the next 60 days?",
+        "Which PBXes are behind the newest 3CX build in our fleet or have updates pending?",
+        "Which clients have no backup in the last two days?"
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/threecx.md"
+      }
+    },
+    {
       "identifier": "urn:air:msp-skills.compoundingteams.com:skills:unifi-network",
       "displayName": "UniFi Network",
       "type": "text/markdown; profile=\"urn:air:agent-skills\"",
@@ -1839,6 +2019,26 @@
       }
     },
     {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:vsphere",
+      "displayName": "VMware vSphere",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/vsphere/SKILL.md",
+      "description": "Find every VMware migration blocker, stale snapshot and per-core licence cost in vCenter, read-only, from one prompt.",
+      "tags": [
+        "Other"
+      ],
+      "representativeQueries": [
+        "Which VMs are blocked from migrating, and what is blocking each one?",
+        "Which snapshots are older than a week, and how much delta disk does each of those VMs carry?",
+        "How many licensable cores does this vCenter have under the 16-core-per-CPU minimum?",
+        "How much vCPU, RAM and storage does the Proxmox target need?",
+        "Which Proxmox VE settings does this VM map to?"
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/vsphere.md"
+      }
+    },
+    {
       "identifier": "urn:air:msp-skills.compoundingteams.com:skills:warranty",
       "displayName": "Device Warranty",
       "type": "text/markdown; profile=\"urn:air:agent-skills\"",
@@ -1876,6 +2076,26 @@
       ],
       "metadata": {
         "page": "https://msp-skills.compoundingteams.com/skills/watchguard.md"
+      }
+    },
+    {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:windows-server",
+      "displayName": "Windows Server",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/windows-server/SKILL.md",
+      "description": "Check every Windows server's health, disks, services, updates and certificates by asking.",
+      "tags": [
+        "Monitoring"
+      ],
+      "representativeQueries": [
+        "Which of my servers need attention today, and why?",
+        "Which automatic services are stopped, and which Service Control Manager event explains each stop?",
+        "Which System and Application errors are new on a server compared with its own last 7 days?",
+        "Who added or removed a local Administrators member this week, and when?",
+        "What changed in roles, shares, local admins, certificates and updates since the last snapshot?"
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/windows-server.md"
       }
     },
     {
@@ -1936,6 +2156,26 @@
       ],
       "metadata": {
         "page": "https://msp-skills.compoundingteams.com/skills/zammad.md"
+      }
+    },
+    {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:zoom-phone",
+      "displayName": "Zoom Phone",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/zoom-phone/SKILL.md",
+      "description": "Audit E911, call routing and desk phones across every client Zoom Phone account from your terminal.",
+      "tags": [
+        "Telephony"
+      ],
+      "representativeQueries": [
+        "Which users, common areas and sites have a missing or unverified emergency address?",
+        "Which phone numbers are unassigned, pending, or still held by an inactive user?",
+        "Which desk phones are offline, unassigned or on drifted firmware, by site?",
+        "Which external callers missed us this week and have not been called back?",
+        "Which IVR keys point at nothing, and which call queues have nobody to answer?"
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/zoom-phone.md"
       }
     }
   ]

@@ -1,0 +1,134 @@
+{
+  "manifest_version": "0.3",
+  "name": "threecx-mcp",
+  "display_name": "3CX",
+  "version": "0.1.0",
+  "description": "Run every client's 3CX phone system from one CLI: trunk, version, licence and backup health across the whole fleet, plus the full Configuration API on any single PBX.",
+  "author": {
+    "name": "Servosity Inc."
+  },
+  "license": "Apache-2.0",
+  "server": {
+    "type": "binary",
+    "entry_point": "bin/threecx-mcp",
+    "mcp_config": {
+      "command": "${__dirname}/bin/threecx-mcp",
+      "args": [],
+      "env": {
+        "THREECX_CLIENT_ID": "${user_config.threecx_client_id}",
+        "THREECX_CLIENT_SECRET": "${user_config.threecx_client_secret}",
+        "THREECX_FQDN": "${user_config.threecx_fqdn}",
+        "THREECX_BASE_URL": "${user_config.threecx_base_url}",
+        "THREECX_TOKEN_URL": "${user_config.threecx_token_url}",
+        "THREECX_OAUTH_SCOPE": "${user_config.threecx_oauth_scope}",
+        "THREECX_FLEET_DIR": "${user_config.threecx_fleet_dir}",
+        "THREECX_PBX": "${user_config.threecx_pbx}",
+        "THREECX_MCP_READ_ONLY": "${user_config.threecx_mcp_read_only}",
+        "THREECX_NO_LOCAL_DATA": "${user_config.threecx_no_local_data}",
+        "THREECX_MCP_HTTP_TOKEN": "${user_config.threecx_mcp_http_token}",
+        "THREECX_USER_AGENT": "${user_config.threecx_user_agent}"
+      }
+    }
+  },
+  "user_config": {
+    "threecx_client_id": {
+      "type": "string",
+      "title": "THREECX_CLIENT_ID",
+      "description": "Sets THREECX_CLIENT_ID for the 3CX MCP server. Get a credential from https://www.3cx.com/docs/configuration-rest-api/.",
+      "sensitive": true,
+      "required": true
+    },
+    "threecx_client_secret": {
+      "type": "string",
+      "title": "THREECX_CLIENT_SECRET",
+      "description": "Sets THREECX_CLIENT_SECRET for the 3CX MCP server. Get a credential from https://www.3cx.com/docs/configuration-rest-api/.",
+      "sensitive": true,
+      "required": true
+    },
+    "threecx_fqdn": {
+      "type": "string",
+      "title": "THREECX_FQDN",
+      "description": "Host name of the 3CX phone system (for example pbx.example.com), the {fqdn} in https://{fqdn}/xapi/v1.",
+      "required": true,
+      "sensitive": false
+    },
+    "threecx_base_url": {
+      "type": "string",
+      "title": "3CX API base URL",
+      "description": "Optional. Full XAPI base URL. Leave blank: the CLI builds https://<THREECX_FQDN>/xapi/v1. Set it only to point at a different host or port.",
+      "required": false,
+      "sensitive": false
+    },
+    "threecx_token_url": {
+      "type": "string",
+      "title": "OAuth2 token URL",
+      "description": "Optional. Token endpoint the client-credentials exchange posts to. Leave blank: the CLI uses the phone system's own /connect/token. It must be on the same host as the API.",
+      "required": false,
+      "sensitive": false
+    },
+    "threecx_oauth_scope": {
+      "type": "string",
+      "title": "OAuth2 scope",
+      "description": "Optional. Scope sent with the client-credentials exchange. Leave blank to send none.",
+      "required": false,
+      "sensitive": false
+    },
+    "threecx_fleet_dir": {
+      "type": "string",
+      "title": "Fleet registry directory",
+      "description": "Optional. Absolute path of the directory holding the registry of client phone systems used by the fleet commands. Leave blank to use the CLI's config directory.",
+      "required": false,
+      "sensitive": false
+    },
+    "threecx_pbx": {
+      "type": "string",
+      "title": "Phone system to use",
+      "description": "Optional. Name of one phone system registered with fleet add; the server then uses that PBX's host, client ID and secret variable (the same as --pbx). Leave blank to use THREECX_FQDN and the credentials above.",
+      "required": false,
+      "sensitive": false
+    },
+    "threecx_mcp_read_only": {
+      "type": "string",
+      "title": "Read-only MCP mode",
+      "description": "Optional. Set to exactly 1 to expose only read-only tools and refuse any state-changing execute call.",
+      "required": false,
+      "sensitive": false
+    },
+    "threecx_no_local_data": {
+      "type": "string",
+      "title": "Run without a local copy",
+      "description": "Optional. Set to 1 to keep no local copy of API responses: reads go to the API and the response cache is off.",
+      "required": false,
+      "sensitive": false
+    },
+    "threecx_mcp_http_token": {
+      "type": "string",
+      "title": "MCP HTTP transport bearer token",
+      "description": "Required only when running the MCP server with --transport http (a remote/hosted deployment). Callers must send a matching Authorization: Bearer header. Not needed for the default local stdio transport that Claude Desktop uses.",
+      "required": false,
+      "sensitive": true
+    },
+    "threecx_user_agent": {
+      "type": "string",
+      "title": "User-Agent header",
+      "description": "Optional. Overrides the User-Agent the CLI sends on 3CX requests. Leave blank to use the CLI's own built-in User-Agent.",
+      "required": false,
+      "sensitive": false
+    }
+  },
+  "compatibility": {
+    "claude_desktop": ">=1.0.0",
+    "platforms": [
+      "darwin",
+      "linux",
+      "win32"
+    ]
+  },
+  "printing_press_version": "4.34.2",
+  "press_provenance": {
+    "printing_press_version": "4.34.2",
+    "generated_at": "2026-10-27T23:19:27.607578Z",
+    "spec_checksum": "sha256:70b55cfae1047bbeae8f9c37f90e2fdf03e5d6f600e7c106488c8fc00cee564b",
+    "spec_format": "openapi3"
+  }
+}

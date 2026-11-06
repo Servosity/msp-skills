@@ -55,7 +55,7 @@ Big install base, but an honest heads-up: Gemini CLI runs the local binary you j
 
 > **Claude Desktop bundle:** the `.mcpb` launches on macOS (Intel and Apple Silicon), Windows x64 and Linux x64. Every tool shells out to the companion `connectwise-control-cli`. Releases cut from 2026-09-18 on ship that CLI inside the bundle; older bundles contain only the MCP server, so if yours lacks the companion, run the Path A or Path B installer below first (or set `CONNECTWISE_CONTROL_CLI_PATH` to an existing binary). Details: [#331](https://github.com/Servosity/msp-skills/issues/331).
 
-[**Download ConnectWise MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/connectwise-control-v0.1.8/connectwise-control-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every ConnectWise release on the [releases page](https://github.com/servosity/msp-skills/releases?q=connectwise-control).)
+[**Download ConnectWise MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/connectwise-control-v0.1.10/connectwise-control-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every ConnectWise release on the [releases page](https://github.com/servosity/msp-skills/releases?q=connectwise-control).)
 
 Prefer the Claude Code plugin? Add the marketplace once, then install - works immediately, no directory listing required:
 
@@ -230,10 +230,10 @@ The key fact: some commands **act on a real remote machine**. Running a command 
 
 | Tier | Examples | Recommended agent policy |
 | --- | --- | --- |
-| Read | `sessions list`/`get-detail`, `session-groups`, `security get-configuration`, `audit get-info`/`query-log`, `search` | Allow |
+| Read | `sessions list`/`get-detail`, `session-groups`, `security get-configuration`, `audit get-info`/`query-log`, `search`, `sessions stale`, `security access-review` | Allow |
 | Write (session metadata) | `sessions update-name`, `sessions update-custom-property` | Preview with `--dry-run`, then a reviewed write |
 | Session and host control | `sessions run-command` (runs a real command on a guest), `sessions add-event-to` (control events like wake) | Human-in-the-loop, explicit confirmation |
-| Access grant | `sessions get-access-token` (one-time token/URL granting remote access) | Human-in-the-loop only |
+| Access grant | `sessions get-access-token` (one-time token/URL granting remote access; the token and join URL are withheld from every output, and over MCP it acts only with `confirm: true`) | Human-in-the-loop only |
 | Admin and identity | `security save-user`, `security delete-user` | Operator-only |
 
 The strongest control is the **scope you grant the ConnectWise Control instance login** - the CLI can only do what that user is permitted to do. Full details, including how to lock it down, are in [governance.md](./governance.md).

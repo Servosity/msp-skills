@@ -11,23 +11,23 @@ import (
 
 // fleetInventoryQuery assembles a single asset row per device across the fleet.
 // IP/MAC are not present in the device-list payload (use 'agent device get' for
-// those); vendor/model/type/os/serial come from the device's user_data, type,
-// os, and details objects.
-const fleetInventoryQuery = `
+// those); every field is read through fleetDeviceFields (vendor and model: the
+// user's custom value, else the detected one).
+var fleetInventoryQuery = `
 SELECT
   COALESCE(NULLIF(a.display_name, ''), d.agent_id)        AS site,
   d.agent_id                                              AS agent_id,
   d.id                                                    AS device_id,
-  json_extract(d.data, '$.display_name')                 AS display_name,
-  json_extract(d.data, '$.type.label')                   AS type,
-  json_extract(d.data, '$.user_data.vendor')             AS vendor,
-  json_extract(d.data, '$.user_data.model')              AS model,
-  json_extract(d.data, '$.os.name')                      AS os,
-  json_extract(d.data, '$.details.serial')               AS serial,
-  json_extract(d.data, '$.importance')                   AS importance,
-  json_extract(d.data, '$.status')                       AS status,
-  json_extract(d.data, '$.first_seen_on')                AS first_seen_on
-FROM "device" d
+  ` + deviceField("d", "display_name") + `  AS display_name,
+  ` + deviceField("d", "type") + `          AS type,
+  ` + deviceField("d", "vendor") + `        AS vendor,
+  ` + deviceField("d", "model") + `         AS model,
+  ` + deviceField("d", "os") + `            AS os,
+  ` + deviceField("d", "serial") + `        AS serial,
+  ` + deviceField("d", "importance") + `    AS importance,
+  ` + deviceField("d", "status") + `        AS status,
+  ` + deviceField("d", "first_seen_on") + ` AS first_seen_on
+FROM ` + fleetDeviceSource + ` d
 LEFT JOIN "agent" a ON a.id = d.agent_id
 ORDER BY site, type, display_name`
 
@@ -47,7 +47,7 @@ func newNovelFleetInventoryCmd(flags *rootFlags) *cobra.Command {
 			if dryRunOK(flags) {
 				return nil
 			}
-			db, err := novelOpenStoreChecked(cmd, flags, dbPath, "device")
+			db, err := novelOpenStoreChecked(cmd, flags, dbPath, "agent_device", "agent", "agent_device")
 			if err != nil {
 				return err
 			}

@@ -76,25 +76,31 @@ type novelQuoteItem struct {
 	Cost      float64 `json:"cost"`
 	Markup    float64 `json:"markup"`
 	Quantity  float64 `json:"quantity"`
+	// HasQuantity and HasMarkup record that the line carried the number
+	// (QuoteItemResponseDto requires both, and 0 is a value): an explicit 0
+	// is never read as "absent" (Codex r1 4.34.2 review class
+	// documented-zero-read-as-missing).
+	HasQuantity bool `json:"-"`
+	HasMarkup   bool `json:"-"`
 }
 
-// effectiveQuantity treats a zero quantity as one unit so single-item lines
-// without an explicit quantity still contribute their price to value sums.
+// effectiveQuantity is the line's quantity, 0 included; only a line that
+// carries no quantity at all counts as one unit.
 func (i novelQuoteItem) effectiveQuantity() float64 {
-	if i.Quantity == 0 {
-		return 1
+	if i.HasQuantity || i.Quantity != 0 {
+		return i.Quantity
 	}
-	return i.Quantity
+	return 1
 }
 
-// effectiveMarkup prefers the explicit markup field and falls back to the
-// computed price-over-cost percentage when markup is absent but both price
-// and cost are known.
+// effectiveMarkup is the line's markup, 0 included; only when the line
+// carries no markup is it computed from price over cost (cost known; a price
+// of 0 is a -100% markup).
 func (i novelQuoteItem) effectiveMarkup() (float64, bool) {
-	if i.Markup != 0 {
+	if i.HasMarkup || i.Markup != 0 {
 		return i.Markup, true
 	}
-	if i.Cost > 0 && i.Price > 0 {
+	if i.Cost > 0 {
 		return (i.Price - i.Cost) / i.Cost * 100, true
 	}
 	return 0, false
@@ -229,15 +235,19 @@ func parseNovelQuote(raw json.RawMessage) novelQuote {
 	}
 	for _, itemRaw := range gArray(m, "items") {
 		im := decodeObj(itemRaw)
+		markup, hasMarkup := gnumOK(im, "markup")
+		quantity, hasQuantity := gnumOK(im, "quantity")
 		q.Items = append(q.Items, novelQuoteItem{
-			ID:        gstr(im, "id"),
-			Name:      gstr(im, "name"),
-			MPN:       gstr(im, "mpn"),
-			ProductID: firstNonEmpty(gobjID(im, "product"), gstr(im, "product")),
-			Price:     gnum(im, "price"),
-			Cost:      gnum(im, "cost"),
-			Markup:    gnum(im, "markup"),
-			Quantity:  gnum(im, "quantity"),
+			ID:          gstr(im, "id"),
+			Name:        gstr(im, "name"),
+			MPN:         gstr(im, "mpn"),
+			ProductID:   firstNonEmpty(gobjID(im, "product"), gstr(im, "product")),
+			Price:       gnum(im, "price"),
+			Cost:        gnum(im, "cost"),
+			Markup:      markup,
+			Quantity:    quantity,
+			HasMarkup:   hasMarkup,
+			HasQuantity: hasQuantity,
 		})
 	}
 	return q
@@ -277,6 +287,11 @@ type novelProduct struct {
 	Cost   float64 `json:"cost"`
 	Markup float64 `json:"markup"`
 	MSRP   float64 `json:"msrp"`
+	// HasPrice and HasCost: ProductResponseDto does not require price or
+	// cost, so an absent one is unknown, never 0 (documented-zero-read-as-missing,
+	// the mirror case: absent read as zero).
+	HasPrice bool `json:"-"`
+	HasCost  bool `json:"-"`
 }
 
 // productKey mirrors novelQuoteItem.productKey so quoted line items and
@@ -294,15 +309,19 @@ func (p novelProduct) productKeys() []string {
 
 func parseNovelProduct(raw json.RawMessage) novelProduct {
 	m := decodeObj(raw)
+	_, hasPrice := gnumOK(m, "price")
+	_, hasCost := gnumOK(m, "cost")
 	return novelProduct{
-		ID:     gstr(m, "id"),
-		Name:   gstr(m, "name"),
-		MPN:    gstr(m, "mpn"),
-		Vendor: firstNonEmpty(gobjName(m, "vendor"), gstr(m, "vendor")),
-		Price:  gnum(m, "price"),
-		Cost:   gnum(m, "cost"),
-		Markup: gnum(m, "markup"),
-		MSRP:   gnum(m, "msrp"),
+		HasPrice: hasPrice,
+		HasCost:  hasCost,
+		ID:       gstr(m, "id"),
+		Name:     gstr(m, "name"),
+		MPN:      gstr(m, "mpn"),
+		Vendor:   firstNonEmpty(gobjName(m, "vendor"), gstr(m, "vendor")),
+		Price:    gnum(m, "price"),
+		Cost:     gnum(m, "cost"),
+		Markup:   gnum(m, "markup"),
+		MSRP:     gnum(m, "msrp"),
 	}
 }
 
@@ -350,9 +369,26 @@ type novelOpportunity struct {
 	OneTimeProfit  float64
 	MonthlyChurn   float64
 	SalesCycleDays float64
-	ClosedAt       time.Time
-	CreatedAt      time.Time
-	StageUpdatedAt time.Time
+	// HasSalesCycleDays: the deal carried salesCycleDurationDays (a same-day
+	// close is 0 days, a value; Codex r1 4.34.2 review class
+	// documented-zero-read-as-missing).
+	HasSalesCycleDays bool
+	ClosedAt          time.Time
+	CreatedAt         time.Time
+	StageUpdatedAt    time.Time
+}
+
+// documentedFraction reads a value documented as a 0-1 fraction
+// (OpportunityResponseDto.probability: spec.json UpsertOpportunityDto
+// probability "Probability (0-1)", minimum 0, maximum 1). A value outside
+// that range is not guessed at (Codex r1 4.34.2 review class
+// documented-fraction-read-as-percent: the forecast divided it by 100, so a
+// documented 0.5 weighed 0.005): ok is false and callers leave it out.
+func documentedFraction(v float64) (float64, bool) {
+	if v >= 0 && v <= 1 {
+		return v, true
+	}
+	return 0, false
 }
 
 // isWon / isLost classify a closed opportunity from its status label. The API
@@ -375,24 +411,26 @@ func (o novelOpportunity) isClosed() bool {
 
 func parseNovelOpportunity(raw json.RawMessage) novelOpportunity {
 	m := decodeObj(raw)
+	_, hasCycle := gnumOK(m, "salesCycleDurationDays")
 	return novelOpportunity{
-		ID:             gstr(m, "id"),
-		Name:           gstr(m, "name"),
-		Company:        firstNonEmpty(gobjName(m, "company"), gstr(m, "company")),
-		Owner:          firstNonEmpty(gobjName(m, "owner"), gstr(m, "owner"), gstr(m, "ownerId")),
-		Stage:          firstNonEmpty(gobjName(m, "pipelineStage"), gstr(m, "pipelineStageDisplayValue"), gstr(m, "pipelineStage"), gstr(m, "pipelineStageId")),
-		Category:       firstNonEmpty(gobjName(m, "category"), gstr(m, "categoryDisplayValue"), gstr(m, "category"), gstr(m, "categoryId")),
-		Status:         statusLabel(m["statusId"], gstr(m, "statusId")),
-		Probability:    gnum(m, "probability"),
-		MonthlyRevenue: gnum(m, "monthlyRevenue"),
-		MonthlyProfit:  gnum(m, "monthlyProfit"),
-		OnetimeRevenue: gnum(m, "onetimeRevenue"),
-		OneTimeProfit:  gnum(m, "oneTimeProfit"),
-		MonthlyChurn:   gnum(m, "monthlyChurn"),
-		SalesCycleDays: gnum(m, "salesCycleDurationDays"),
-		ClosedAt:       parseSBTime(gstr(m, "closedAt")),
-		CreatedAt:      parseSBTime(gstr(m, "createdAt")),
-		StageUpdatedAt: parseSBTime(gstr(m, "stageUpdatedAt")),
+		HasSalesCycleDays: hasCycle,
+		ID:                gstr(m, "id"),
+		Name:              gstr(m, "name"),
+		Company:           firstNonEmpty(gobjName(m, "company"), gstr(m, "company")),
+		Owner:             firstNonEmpty(gobjName(m, "owner"), gstr(m, "owner"), gstr(m, "ownerId")),
+		Stage:             firstNonEmpty(gobjName(m, "pipelineStage"), gstr(m, "pipelineStageDisplayValue"), gstr(m, "pipelineStage"), gstr(m, "pipelineStageId")),
+		Category:          firstNonEmpty(gobjName(m, "category"), gstr(m, "categoryDisplayValue"), gstr(m, "category"), gstr(m, "categoryId")),
+		Status:            statusLabel(m["statusId"], gstr(m, "statusId")),
+		Probability:       gnum(m, "probability"),
+		MonthlyRevenue:    gnum(m, "monthlyRevenue"),
+		MonthlyProfit:     gnum(m, "monthlyProfit"),
+		OnetimeRevenue:    gnum(m, "onetimeRevenue"),
+		OneTimeProfit:     gnum(m, "oneTimeProfit"),
+		MonthlyChurn:      gnum(m, "monthlyChurn"),
+		SalesCycleDays:    gnum(m, "salesCycleDurationDays"),
+		ClosedAt:          parseSBTime(gstr(m, "closedAt")),
+		CreatedAt:         parseSBTime(gstr(m, "createdAt")),
+		StageUpdatedAt:    parseSBTime(gstr(m, "stageUpdatedAt")),
 	}
 }
 
@@ -424,6 +462,8 @@ type novelPricingBookProduct struct {
 	ProductID string  `json:"productId"`
 	Price     float64 `json:"price"`
 	Cost      float64 `json:"cost"`
+	HasPrice  bool    `json:"-"`
+	HasCost   bool    `json:"-"`
 }
 
 type novelPricingBook struct {
@@ -440,10 +480,14 @@ func parseNovelPricingBook(raw json.RawMessage) novelPricingBook {
 	}
 	for _, pRaw := range gArray(m, "products") {
 		pm := decodeObj(pRaw)
+		price, hasPrice := gnumOK(pm, "price")
+		cost, hasCost := gnumOK(pm, "cost")
 		b.Products = append(b.Products, novelPricingBookProduct{
 			ProductID: firstNonEmpty(gstr(pm, "productId"), gobjID(pm, "product")),
-			Price:     gnum(pm, "price"),
-			Cost:      gnum(pm, "cost"),
+			Price:     price,
+			Cost:      cost,
+			HasPrice:  hasPrice,
+			HasCost:   hasCost,
 		})
 	}
 	return b

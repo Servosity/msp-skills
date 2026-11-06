@@ -77,11 +77,11 @@ Do NOT use this command for the flat installations-only sync; use 'sync' instead
 				opts.Progress = cmd.ErrOrStderr()
 			}
 
-			sum, err := syncer.Run(cmd.Context(), c, db, opts)
+			sum, err := syncer.Run(cmd.Context(), c, syncer.StoreSink{Store: db}, opts)
 			if err != nil {
 				// Emit the partial summary so callers can see how far it got.
 				_ = printJSONFiltered(cmd.OutOrStdout(), sum, flags)
-				return classifyAPIError(err, flags)
+				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}
 			for _, w := range sum.Warnings {
 				fmt.Fprintf(cmd.ErrOrStderr(), "warning: %s\n", w)

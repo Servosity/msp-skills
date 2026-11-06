@@ -1,0 +1,284 @@
+{
+ "sites": [
+  {
+   "file": "cmd/crowdstrike-mcp/tls_key_hold.go",
+   "func": "holdTLSKey",
+   "what": "os.DirFS",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the MCP HTTP server's own --tls-key file, read only to hold its key material with credkit.Hold before the server serves; the TLS listener reads it itself; not a config or token store Declarations.Files parses"
+  },
+  {
+   "file": "internal/cli/crowdstrike_guard.go",
+   "func": "installPins",
+   "what": "call:dynamic",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the origin pin and the dry-run refusal sit above cliutil.OutboundGuard(next), which is credkit.Transport, so the guard judges each request as really sent (TestEveryHTTPClientIsGuarded, TestGuardWrapsTheTransport)"
+  },
+  {
+   "file": "internal/cli/crowdstrike_guard.go",
+   "func": "installPins",
+   "what": "convert:crowdstrike-pp-cli/internal/cli.dryRunTripper.RoundTrip",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the origin pin and the dry-run refusal sit above cliutil.OutboundGuard(next), which is credkit.Transport, so the guard judges each request as really sent (TestEveryHTTPClientIsGuarded, TestGuardWrapsTheTransport)"
+  },
+  {
+   "file": "internal/cli/crowdstrike_guard.go",
+   "func": "installPins",
+   "what": "convert:crowdstrike-pp-cli/internal/cli.originPinTripper.RoundTrip",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the origin pin and the dry-run refusal sit above cliutil.OutboundGuard(next), which is credkit.Transport, so the guard judges each request as really sent (TestEveryHTTPClientIsGuarded, TestGuardWrapsTheTransport)"
+  },
+  {
+   "file": "internal/cli/crowdstrike_guard.go",
+   "func": "installPins",
+   "what": "net/http.Client.Transport",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the origin pin and the dry-run refusal sit above cliutil.OutboundGuard(next), which is credkit.Transport, so the guard judges each request as really sent (TestEveryHTTPClientIsGuarded, TestGuardWrapsTheTransport)"
+  },
+  {
+   "file": "internal/cli/crowdstrike_guard.go",
+   "func": "installPins",
+   "what": "net/http.DefaultTransport",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "a nil transport's default, handed straight to cliutil.OutboundGuard (credkit.Transport) on the next line, under the origin pin"
+  },
+  {
+   "file": "internal/cli/crowdstrike_guard.go",
+   "func": "originPinTripper.RoundTrip",
+   "what": "net/http.RoundTripper.RoundTrip",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the origin pin and the dry-run refusal sit above cliutil.OutboundGuard(next), which is credkit.Transport, so the guard judges each request as really sent (TestEveryHTTPClientIsGuarded, TestGuardWrapsTheTransport)"
+  },
+  {
+   "file": "internal/cli/fleet_search.go",
+   "func": "newNovelFleetSearchCmd",
+   "what": "fmt.Fprintf",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs only from a command's RunE, after Start; the checker reaches it through credentialFiles, which builds the command tree to parse flags and runs none of it"
+  },
+  {
+   "file": "internal/cli/fleet_store.go",
+   "func": "hintIfFleetStale",
+   "what": "fmt.Fprintf",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs only from a command's RunE, after Start; the checker reaches it through credentialFiles, which builds the command tree to parse flags and runs none of it"
+  },
+  {
+   "file": "internal/cli/fleet_store.go",
+   "func": "hintIfFleetUnsynced",
+   "what": "fmt.Fprintf",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "runs only from a command's RunE, after Start; the checker reaches it through credentialFiles, which builds the command tree to parse flags and runs none of it"
+  },
+  {
+   "file": "internal/cli/fleet_store.go",
+   "func": "loadFleetEntitiesFrom",
+   "what": "database/sql.DB.QueryContext",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "runs only from a command's RunE, after Start; the checker reaches it through credentialFiles, which builds the command tree to parse flags and runs none of it"
+  },
+  {
+   "file": "internal/cli/fleet_store.go",
+   "func": "loadFleetSnapshots",
+   "what": "database/sql.DB.QueryContext",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs only from a command's RunE, after Start; the checker reaches it through credentialFiles, which builds the command tree to parse flags and runs none of it"
+  },
+  {
+   "file": "internal/cli/fleet_store.go",
+   "func": "openFleetStore",
+   "what": "database/sql.DB.ExecContext",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs only from a command's RunE, after Start; the checker reaches it through credentialFiles, which builds the command tree to parse flags and runs none of it"
+  },
+  {
+   "file": "internal/cli/fleet_store.go",
+   "func": "ensureFleetOwnerColumn",
+   "what": "database/sql.DB.QueryRowContext",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs only from a command's RunE, after Start; the checker reaches it through credentialFiles, which builds the command tree to parse flags and runs none of it"
+  },
+  {
+   "file": "internal/cli/fleet_store.go",
+   "func": "ensureFleetOwnerColumn",
+   "what": "database/sql.DB.ExecContext",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs only from a command's RunE, after Start; the checker reaches it through credentialFiles, which builds the command tree to parse flags and runs none of it"
+  },
+  {
+   "file": "internal/cli/fleet_store.go",
+   "func": "writeFleetEntities",
+   "what": "database/sql.DB.BeginTx",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs only from a command's RunE, after Start; the checker reaches it through credentialFiles, which builds the command tree to parse flags and runs none of it"
+  },
+  {
+   "file": "internal/cli/fleet_store.go",
+   "func": "writeFleetSnapshots",
+   "what": "database/sql.DB.BeginTx",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs only from a command's RunE, after Start; the checker reaches it through credentialFiles, which builds the command tree to parse flags and runs none of it"
+  },
+  {
+   "file": "internal/cli/fleet_store.go",
+   "func": "fleetLegacyRowsNote",
+   "what": "database/sql.DB.QueryRowContext",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs only from a command's RunE, after Start; the checker reaches it through credentialFiles, which builds the command tree to parse flags and runs none of it"
+  },
+  {
+   "file": "internal/cli/fleet_sync.go",
+   "func": "emitFleetSyncPlan",
+   "what": "fmt.Fprintf",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs only from a command's RunE, after Start; the checker reaches it through credentialFiles, which builds the command tree to parse flags and runs none of it"
+  },
+  {
+   "file": "internal/cli/fleet_sync.go",
+   "func": "emitFleetSyncPlan",
+   "what": "writer:io.Writer",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs only from a command's RunE, after Start; the checker reaches it through credentialFiles, which builds the command tree to parse flags and runs none of it"
+  },
+  {
+   "file": "internal/cli/fleet_sync.go",
+   "func": "fleetCIDsNotListed",
+   "what": "database/sql.DB.QueryContext",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs only from a command's RunE, after Start; the checker reaches it through credentialFiles, which builds the command tree to parse flags and runs none of it"
+  },
+  {
+   "file": "internal/cli/fleet_sync.go",
+   "func": "fleetClientForCID",
+   "what": "net/http.Client.Transport",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the member_cid mint client: its transport is set to the plain client's, then guardTokenClient installs the origin pin over cliutil.OutboundGuard (credkit.Transport) before any request (TestEveryHTTPClientIsGuarded)"
+  },
+  {
+   "file": "internal/cli/fleet_sync.go",
+   "func": "fleetClientForCID",
+   "what": "net/http.Client{}",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the member_cid mint client: its transport is set to the plain client's, then guardTokenClient installs the origin pin over cliutil.OutboundGuard (credkit.Transport) before any request (TestEveryHTTPClientIsGuarded)"
+  },
+  {
+   "file": "internal/cli/fleet_sync.go",
+   "func": "mintMemberCIDToken",
+   "what": "net/http.Client.Do",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs only from a command's RunE, after Start; the checker reaches it through credentialFiles, which builds the command tree to parse flags and runs none of it"
+  },
+  {
+   "file": "internal/cli/fleet_sync.go",
+   "func": "mintMemberCIDToken",
+   "what": "net/http.NewRequestWithContext",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "sent only by httpClient, the member_cid mint client fleetClientForCID builds: the origin pin over cliutil.OutboundGuard (credkit.Transport)"
+  },
+  {
+   "file": "internal/cli/fleet_sync.go",
+   "func": "runFleetSync",
+   "what": "fmt.Fprintf",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "runs only from a command's RunE, after Start; the checker reaches it through credentialFiles, which builds the command tree to parse flags and runs none of it"
+  },
+  {
+   "file": "internal/cli/fleet_sync.go",
+   "func": "runFleetSync",
+   "what": "writer:io.Writer",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs only from a command's RunE, after Start; the checker reaches it through credentialFiles, which builds the command tree to parse flags and runs none of it"
+  },
+  {
+   "file": "internal/cli/fleet_tenants.go",
+   "func": "newNovelFleetTenantsCmd",
+   "what": "os.ReadFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the operator's --expected file, a list of child CIDs to compare; not a credential file"
+  },
+  {
+   "file": "internal/config/crowdstrike_persist.go",
+   "func": "warnLeftOut",
+   "what": "fmt.Fprintf",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs only from a config save inside a command, after Start; the checker reaches it through credentialFiles, which builds the command tree to parse flags and saves nothing"
+  },
+  {
+   "file": "internal/credsql/credsql.go",
+   "func": "applyLengthLimit",
+   "what": "database/sql.DB.Conn",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs only from a command's RunE, after Start; the checker reaches it through credentialFiles, which builds the command tree to parse flags and runs none of it"
+  },
+  {
+   "file": "internal/credsql/credsql.go",
+   "func": "applyLengthLimit",
+   "what": "database/sql.OpenDB",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "a connection the kit's inner driver just opened, lent to set its length limit before the kit hands it to database/sql; no program value passes"
+  },
+  {
+   "file": "internal/credwire/declarations.go",
+   "func": "holdConfigURLs",
+   "what": "os.File.Close",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the files Declarations.Files names, read again inside Start only to hold what their base_url and token_url carry with credkit.HoldURL (holdConfigURLs); Start reads and holds each itself, and nothing is written"
+  },
+  {
+   "file": "internal/credwire/declarations.go",
+   "func": "holdConfigURLs",
+   "what": "os.File.Stat",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the files Declarations.Files names, read again inside Start only to hold what their base_url and token_url carry with credkit.HoldURL (holdConfigURLs); Start reads and holds each itself, and nothing is written"
+  },
+  {
+   "file": "internal/credwire/declarations.go",
+   "func": "holdConfigURLs",
+   "what": "os.Open",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the files Declarations.Files names, read again inside Start only to hold what their base_url and token_url carry with credkit.HoldURL (holdConfigURLs); Start reads and holds each itself, and nothing is written"
+  },
+  {
+   "file": "internal/credwire/declarations.go",
+   "func": "holdConfigURLs",
+   "what": "writer:*os.File",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the files Declarations.Files names, read again inside Start only to hold what their base_url and token_url carry with credkit.HoldURL (holdConfigURLs); Start reads and holds each itself, and nothing is written"
+  }
+ ]
+}

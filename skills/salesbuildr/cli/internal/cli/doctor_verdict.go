@@ -48,31 +48,7 @@ const doctorBaseURLEnv = "SALESBUILDR_BASE_URL"
 // other way.
 const doctorShippedBaseURL = "https://{tenant}.salesbuildr.com/public-api"
 
-// doctorInfoKeys are report entries rendered without a status indicator:
-// paths, versions, and the free-text hints that tell an operator how to get a
-// credential. They are NOT health checks.
-//
-// doctorExitForFailOn used to scan every value in the report for the substrings
-// "error", "missing", "invalid" and "unreachable". That made --fail-on=error
-// trip on a perfectly healthy connector whose auth hint happened to contain the
-// word "missing", or whose suggested read command was named something like
-// `errors list`. Excluding the informational keys keeps --fail-on keyed to the
-// checks and nothing else.
-var doctorInfoKeys = map[string]bool{
-	"config_path":       true,
-	"base_url":          true,
-	"auth_source":       true,
-	"version":           true,
-	"auth_hint":         true,
-	"auth_key_url":      true,
-	"auth_instructions": true,
-	"agentcookie":       true,
-	"db_path":           true,
-}
-
-func doctorIsInfoKey(key string) bool { return doctorInfoKeys[key] }
-
-// doctorBaseURLIsPlaceholder reports whether base is still the value this
+// doctorBaseURLIsShippedPlaceholder reports whether base is still the value this
 // connector shipped with rather than the operator's own instance.
 //
 // Two shapes ship today: an unresolved template ("https://{tenant}.example/api")
@@ -81,7 +57,7 @@ func doctorIsInfoKey(key string) bool { return doctorInfoKeys[key] }
 // several placeholder hosts resolve through live wildcard DNS and answer real
 // HTTP, so dialling one produces a confident green verdict against a host the
 // operator has never heard of.
-func doctorBaseURLIsPlaceholder(base string) bool {
+func doctorBaseURLIsShippedPlaceholder(base string) bool {
 	if base == "" {
 		return false // "not configured" is a separate, already-handled state
 	}
@@ -269,4 +245,27 @@ func doctorUnexpectedStatus(status int, path string, report map[string]any) {
 		return
 	}
 	report["credentials"] = fmt.Sprintf("WARN not verified (HTTP %d from %s) - the endpoint did not confirm the credential.", status, path)
+}
+
+// doctorShippedTemplateBaseURL is the base URL this print ships, and
+// doctorTemplateDefaults the value config.Load gives each of its template
+// variables when the operator sets nothing (internal/config/config.go).
+// Resolved together they are the shipped placeholder of a templated base
+// URL: no braces are left, so doctorBaseURLIsPlaceholder cannot see it, and
+// the host can look real or answer through wildcard DNS.
+// Hand-fix (handfixes.json doctor-verdict-tracks-reality).
+const doctorShippedTemplateBaseURL = "https://{tenant}.salesbuildr.com/public-api"
+
+var doctorTemplateDefaults = map[string]string{
+	"tenant": "your-tenant",
+}
+
+// doctorBaseURLIsShippedTemplate reports whether base is the shipped
+// templated base URL with every template variable still at its default.
+func doctorBaseURLIsShippedTemplate(base string) bool {
+	shipped := client.ResolvedBaseURL(doctorShippedTemplateBaseURL, doctorTemplateDefaults)
+	if shipped == "" || strings.ContainsAny(shipped, "{}") {
+		return false
+	}
+	return strings.EqualFold(strings.TrimRight(strings.TrimSpace(base), "/"), strings.TrimRight(shipped, "/"))
 }

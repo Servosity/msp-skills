@@ -4,6 +4,27 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.1.8] - 2026-11-06
+
+### Security
+- **The CLI and the MCP server run on the shared credential kit.** Any output, file, local-store write, MCP result, child process or request that would repeat a credential this program holds, in any encoding the kit reads, is replaced whole by `[credkit: withheld from <sink>: it carried a credential this program holds]`. That now covers a key nested in a compressed stream with bytes around it. A program that lost part of its standard output exits 74, and a key that also occurs in ordinary text is refused at startup with exit 78.
+
+### Changed
+- **Rebuilt on CLI Printing Press 4.34.2 (was 4.24.0).** See [GHSA-jh26-vhqh-692c](https://github.com/advisories/GHSA-jh26-vhqh-692c) for why the press was upgraded.
+- **The MCP server has a token-protected HTTP mode for remote agents.** `pagerduty-mcp --transport http` refuses to start until `PAGERDUTY_MCP_HTTP_TOKEN` (32 characters or more) is set, rejects any request without that bearer token, serves `http://127.0.0.1:7777/mcp` by default and needs `--tls-cert` and `--tls-key` for any other address.
+- **Every MCP tool that changes PagerDuty data previews first.** It returns what it would send and sends nothing until the call carries `confirm: true`.
+- New install settings on every channel: `PAGERDUTY_MCP_READ_ONLY`, `PAGERDUTY_NO_LOCAL_DATA`, `PAGERDUTY_MCP_HTTP_TOKEN`, `PAGERDUTY_USER_AGENT` and `PRINTING_PRESS_CLIENT_PROFILE`.
+- Six more commands for `external_data` cache variables on event orchestrations.
+
+### Fixed
+- **`sync` now fills the tables the offline commands read.** `oncall who`, `oncall hours`, `pulse`, `insights`, `audit` and `incidents timeline` answered "nothing synced" after a default sync, because no rows were stored for services, escalation policies, schedules, on-calls, incidents, log entries or change events.
+- A complete `sync` removes on-call entries PagerDuty no longer returns for the current window, and keeps history and future shifts. A sync that was narrowed, paged by hand (`--param offset` or `limit`), resumed after a failure or cut short removes nothing.
+- `oncall who` scopes resolve to IDs once: every scope flag narrows the result together, an ID wins over a name that reads like one, a name shared by several things answers for all of them, and every simultaneous next responder is listed.
+- `oncall hours` counts each hour of a user's overlapping shifts once.
+- `incidents timeline` shows what each entry says happened: the note, event details, the changes in a custom field update, the assignees and the notified user.
+- `export` and `--all` read every page.
+- A pasted `Token token=<key>` is sent as is instead of being wrapped twice.
+
 ## [0.1.7] - 2026-10-23
 
 ### Security

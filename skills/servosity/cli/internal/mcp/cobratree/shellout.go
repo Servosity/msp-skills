@@ -18,6 +18,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"servosity-msp-pp-cli/internal/cliutil"
+	"servosity-msp-pp-cli/internal/credkit"
 	"servosity-msp-pp-cli/internal/mcp/bound"
 )
 
@@ -477,7 +478,16 @@ func ToolResultFromCLIFailure(result CLICommandResult, err error) *mcplib.CallTo
 // machine-readable channel. Hint and warning stderr lines are returned
 // separately on success so they cannot corrupt JSON results.
 func RunCLICommand(ctx context.Context, binPath string, args []string) (CLICommandResult, error) {
+	// Hand-fix (handfixes.json credkit-wiring): the kit starts no child with a credential in its
+	// argv or environment, so the environment's token reaches the CLI on its stdin.
+	token := cliutil.EnvOverride("SERVOSITY_MSP_TOKEN")
+	if token != "" {
+		args = append([]string{cliutil.CredentialStdinFlag}, args...)
+	}
 	cmd := exec.CommandContext(ctx, binPath, args...) // #nosec G204 -- trusted companion CLI path, args pre-tokenized.
+	if token != "" {
+		cmd.Stdin = strings.NewReader(token + "\n")
+	}
 	// os.Getenv returns the first duplicate, so an inherited marker has to
 	// be replaced. A nil Env would inherit the parent and could not force it.
 	cmd.Env = mcpChildEnviron()
@@ -485,7 +495,7 @@ func RunCLICommand(ctx context.Context, binPath string, args []string) (CLIComma
 	stderr := newCappedCapture()
 	cmd.Stdout = stdout
 	cmd.Stderr = stderr
-	err := cmd.Run()
+	err := credkit.RunCommand(cmd) // Hand-fix (handfixes.json credkit-wiring)
 	stdoutText := stdout.String()
 	result := CLICommandResult{
 		Stdout:      stdoutText,
@@ -509,7 +519,7 @@ func mcpChildEnviron() []string {
 	base := os.Environ()
 	env := make([]string, 0, len(base)+1)
 	for _, entry := range base {
-		if strings.HasPrefix(entry, prefix) {
+		if strings.HasPrefix(entry, prefix) || cliutil.IsSecretEnvEntry(entry) { // Hand-fix (handfixes.json credkit-wiring)
 			continue
 		}
 		env = append(env, entry)

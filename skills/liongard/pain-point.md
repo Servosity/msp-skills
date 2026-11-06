@@ -35,8 +35,8 @@ cross-client questions from there:
   typed exit code for cron.
 - **`liongard-cli launchpoints stale --older-than 7d`** and
   **`liongard-cli agents offline`** - catch the silent decay before a QBR does.
-- **`liongard-cli metrics pivot "MFA Enabled Count" --csv`** - one metric across
-  every system, report-ready, in a single command.
+- **`liongard-cli metrics pivot "MFA Enabled Count" --csv`** - every system one
+  metric covers, report-ready, in a single command.
 - **`liongard-cli inspectors coverage`** - which environments are still missing
   an inspector, biggest gap first.
 

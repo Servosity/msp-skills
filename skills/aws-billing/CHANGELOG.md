@@ -4,6 +4,21 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.1.9] - 2026-11-06
+
+### Changed
+- **Default reads verify the AWS account first.** With `--data-source auto` (the default), a read calls sts:GetCallerIdentity before it trusts the local store, so the store never answers for a different account than the credentials in use. Offline reads need `--data-source local`.
+- **Re-sync after upgrading.** Rows synced by 0.1.8 carry unscoped IDs and are never read by this version: run `sync` again.
+- A custom CA bundle (`AWS_CA_BUNDLE`, or `ca_bundle` in the AWS config) is refused with an error; unset it.
+- A container credential endpoint that needs an authorization token over plain HTTP (EKS Pod Identity, or ECS with `AWS_CONTAINER_AUTHORIZATION_TOKEN`) is refused instead of being sent the token.
+- A `credential_process` program's stderr is not shown while the AWS SDK retrieves credentials, so a prompt it prints there is not visible.
+- EC2 instance-metadata (instance role) credentials are not used; on EC2 use a profile, SSO or environment keys.
+- `waste` (every subcommand), `report` and `ask` answer from a stored inventory scan only for the one region a live read scans (`--region`, `AWS_REGION`, `AWS_DEFAULT_REGION`, the profile's region, else us-east-1); a stored scan of another region never answers. With `--data-source local` and no complete scan of that region stored, the read is an error naming the region to sync.
+
+### Security
+- Every credential that signs an AWS request is held before the request is sent, whatever produced it: in an assume-role chain the source profile's credentials (a `credential_process`, static keys, SSO or another role) sign the STS call, and an STS error that quotes their access key ID is now withheld. A request to an AWS endpoint whose `Authorization` header is not a SigV4 signature is refused.
+- The CLI and the MCP server now use the shared credential kit (the same implementation of the repository's credential-leak contract every kit-wired connector uses) in place of this connector's own masking. Every AWS credential the program can read is held from startup, and every credential the AWS SDK retrieves is held as it arrives. Every output, file, local-store row, MCP message, helper program and request is checked, not only errors: a unit that would carry a held credential, in any encoding, is withheld whole and replaced with "[credkit: withheld from <where>: it carried a credential this program holds]".
+
 ## [0.1.8] - 2026-10-23
 
 ### Changed

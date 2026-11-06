@@ -20,20 +20,24 @@ package cli
 import (
 	"os"
 	"strings"
+
+	"immybot-pp-cli/internal/cliutil"
 )
 
 func init() { applyDerivedOAuthScope() }
 
 // applyDerivedOAuthScope sets IMMYBOT_OAUTH_SCOPE from the configured instance
 // when the operator has not set it. It is a no-op when the scope is already
-// set or when neither the base URL nor the subdomain is known.
+// set or when neither the base URL nor the subdomain is known. Every read goes
+// through cliutil.EnvOverride, like config.Load: a .mcpb host leaves an
+// unresolved ${user_config.<key>} for a blank field, and that is "unset".
 func applyDerivedOAuthScope() {
-	if strings.TrimSpace(os.Getenv("IMMYBOT_OAUTH_SCOPE")) != "" {
+	if strings.TrimSpace(cliutil.EnvOverride("IMMYBOT_OAUTH_SCOPE")) != "" {
 		return
 	}
-	base := strings.TrimSpace(os.Getenv("IMMYBOT_BASE_URL"))
+	base := strings.TrimSpace(cliutil.EnvOverride("IMMYBOT_BASE_URL"))
 	if base == "" {
-		sub := strings.TrimSpace(os.Getenv("IMMYBOT_SUBDOMAIN"))
+		sub := strings.TrimSpace(cliutil.EnvOverride("IMMYBOT_SUBDOMAIN"))
 		if sub == "" || sub == "your-instance" {
 			return
 		}

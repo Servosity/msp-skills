@@ -1,0 +1,246 @@
+{
+  "api_name": "datto-saas",
+  "base_url": "https://api.datto.com/v1",
+  "description": "Every Datto SaaS Protection (Backupify) client in one local database: seat audits, protection gaps, backup health ranking, exit inventories and plan-first bulk seat changes.",
+  "mcp_ready": "full",
+  "http_transport": "standard",
+  "mcp": {
+    "endpoint_tools": "hidden",
+    "orchestration": "code"
+  },
+  "auth": {
+    "type": "api_key",
+    "header": "Authorization",
+    "format": "Basic {DATTO_SAAS_PUBLIC_KEY}:{DATTO_SAAS_SECRET_KEY}",
+    "env_vars": [
+      "DATTO_SAAS_PUBLIC_KEY",
+      "DATTO_SAAS_SECRET_KEY"
+    ],
+    "env_var_specs": [
+      {
+        "name": "DATTO_SAAS_PUBLIC_KEY",
+        "kind": "per_call",
+        "required": true,
+        "sensitive": true,
+        "inferred": true
+      },
+      {
+        "name": "DATTO_SAAS_SECRET_KEY",
+        "kind": "per_call",
+        "required": true,
+        "sensitive": true,
+        "inferred": true
+      }
+    ],
+    "key_url": "https://portal.dattobackup.com/integrations/api"
+  },
+  "required_headers": [],
+  "tools": [
+    {
+      "name": "activity_log_list",
+      "description": "List Datto platform activity log entries, filtered by client, user, target or time window. Entries are ordered by date; the direction is not documented. Wire format: GET /v1/report/activity-log with optional clientName, since, sinceUnits, target, targetType, user, _page and _perPage; the response is a pagination plus items envelope. Optional: clientName, since, sinceUnits (plus 5 more). Returns array of ActivityLogEntry.",
+      "method": "GET",
+      "path": "/report/activity-log",
+      "params": [
+        {
+          "name": "clientName",
+          "type": "string",
+          "location": "query",
+          "description": "Client name for a partial or prefix match."
+        },
+        {
+          "name": "since",
+          "type": "string",
+          "location": "query",
+          "description": "Window to return logs for. Sources disagree on the format: S3 sends a number of sinceUnits (for example 7 with sinceUnits=days), S6 (Logiphys tools.go) sends an ISO 8601 date. Passed through unchanged."
+        },
+        {
+          "name": "sinceUnits",
+          "type": "string",
+          "location": "query",
+          "description": "Units for since."
+        },
+        {
+          "name": "target",
+          "type": "string",
+          "location": "query",
+          "description": "Comma-separated targetType:targetId tuples, e.g. bcdr-device:DC1234DC1234."
+        },
+        {
+          "name": "targetType",
+          "type": "string",
+          "location": "query",
+          "description": "Target type to filter on, e.g. bcdr-device."
+        },
+        {
+          "name": "user",
+          "type": "string",
+          "location": "query",
+          "description": "User name for a partial or prefix match."
+        },
+        {
+          "name": "_page",
+          "type": "int",
+          "location": "query",
+          "description": "Page number."
+        },
+        {
+          "name": "_perPage",
+          "type": "int",
+          "location": "query",
+          "description": "Items per page."
+        }
+      ]
+    },
+    {
+      "name": "applications_list",
+      "description": "Show one customer's backup report: used bytes, backup history per suite and app, and optional remote IDs per seat type. The remote IDs and per-seat-type counts are returned with includeRemoteID=1. Wire format: GET /v1/saas/{saasCustomerId}/applications?daysUntil=N\u0026includeRemoteID=0|1; the response is a pagination plus items envelope. Required: saasCustomerId. Optional: daysUntil, includeRemoteID. Returns array of ApplicationReport.",
+      "method": "GET",
+      "path": "/saas/{saasCustomerId}/applications",
+      "params": [
+        {
+          "name": "saasCustomerId",
+          "type": "int",
+          "location": "path",
+          "description": "SaaS Protection customer ID, from the domains list.",
+          "required": true
+        },
+        {
+          "name": "daysUntil",
+          "type": "int",
+          "location": "query",
+          "description": "Day window for the report. Sources disagree on its meaning: S2 and S3 describe it as days until the report is generated, S5 treats it as days of backup history. S2 says the API defaults to 10 and, as of 2024-02, returns data up to 30."
+        },
+        {
+          "name": "includeRemoteID",
+          "type": "int",
+          "location": "query",
+          "description": "Include remote IDs per seat type, 0 = no, 1 = yes."
+        }
+      ]
+    },
+    {
+      "name": "backup_stats_get-detailed",
+      "description": "Show detailed backup statistics for one SaaS customer. Wire format: GET /v1/saas/{saasCustomerId}/detailedBackupStats with no query parameters; returns one JSON object whose shape is not publicly documented, so every field is optional. Required: saasCustomerId.",
+      "method": "GET",
+      "path": "/saas/{saasCustomerId}/detailedBackupStats",
+      "params": [
+        {
+          "name": "saasCustomerId",
+          "type": "int",
+          "location": "path",
+          "description": "SaaS Protection customer ID, from the domains list.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "domains_list",
+      "description": "List every protected Microsoft 365 tenant and Google Workspace domain, with its saasCustomerId and subscription id. One row per domain; a customer with several domains appears once per domain. Wire format: GET /v1/saas/domains with no query parameters; the response is a bare JSON array of domain objects. Returns array of Domain.",
+      "method": "GET",
+      "path": "/saas/domains",
+      "params": []
+    },
+    {
+      "name": "seats_bulk-change",
+      "description": "License, pause, or unlicense up to 100 seats of one subscription in one call. This is a write that changes which seats are protected and billed. Wire format: PUT /v1/saas/{saasCustomerId}/{externalSubscriptionId}/bulkSeatChange with JSON body {'seat_type': 'User', 'action_type': 'License', 'ids': ['\u003cremoteId\u003e']}. Take saasCustomerId and externalSubscriptionId from the domains list and ids from the seats list remoteId. Google Workspace tenants must be on Seat Management 2.0. Never replayed automatically, because a 5xx may already have been applied. Required: saasCustomerId, externalSubscriptionId, action_type, ids, seat_type. Returns array of BulkSeatChangeResult.",
+      "method": "PUT",
+      "path": "/saas/{saasCustomerId}/{externalSubscriptionId}/bulkSeatChange",
+      "params": [
+        {
+          "name": "saasCustomerId",
+          "type": "int",
+          "location": "path",
+          "description": "SaaS Protection customer ID, from the domains list.",
+          "required": true
+        },
+        {
+          "name": "externalSubscriptionId",
+          "type": "string",
+          "location": "path",
+          "description": "Subscription key from the domains list, e.g. Classic:Office365:654321.",
+          "required": true
+        },
+        {
+          "name": "action_type",
+          "type": "string",
+          "location": "body",
+          "description": "License protects the seat (billable), Pause keeps existing backups but stops new ones, Unlicense stops protecting the seat.",
+          "required": true
+        },
+        {
+          "name": "ids",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Remote (live M365 or Google) object IDs, the seats endpoint remoteId values. At most 100: Datto recommends that batch size (S1) and this CLI enforces it locally (as S5 does); a server-side limit is not documented.",
+          "required": true
+        },
+        {
+          "name": "seat_type",
+          "type": "string",
+          "location": "body",
+          "description": "Seat type. M365: User, SharedMailbox, Site, TeamSite, Team. Google: User, SharedDrive.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "seats_list",
+      "description": "List the seats of one SaaS customer with seat type, state, billable flag, date added and remoteId. Wire format: GET /v1/saas/{saasCustomerId}/seats with an optional seatType query; the response is a bare JSON array of seats. Required: saasCustomerId. Optional: seatType. Returns array of Seat.",
+      "method": "GET",
+      "path": "/saas/{saasCustomerId}/seats",
+      "params": [
+        {
+          "name": "saasCustomerId",
+          "type": "int",
+          "location": "path",
+          "description": "SaaS Protection customer ID, from the domains list.",
+          "required": true
+        },
+        {
+          "name": "seatType",
+          "type": "string",
+          "location": "query",
+          "description": "Case-sensitive seat type filter: User, SharedMailbox, SharedDrive, Site, TeamSite or Team. Several types may be passed comma-separated, e.g. User,Site."
+        }
+      ]
+    }
+  ],
+  "novel_features": [
+    {
+      "name": "Bulk change planner",
+      "command": "seats bulk-plan",
+      "description": "Turn a seat selection into ready-to-run License, Pause or Unlicense batches, grouped by subscription and seat type and capped at 100 ids, without sending anything."
+    },
+    {
+      "name": "Billing reconciliation",
+      "command": "seats reconcile",
+      "description": "See, per client, where Datto's seatsUsed disagrees with billable and Active seats before you invoice."
+    },
+    {
+      "name": "Protection gaps",
+      "command": "seats gaps",
+      "description": "List seats across all clients that are Unprotected (Paused too with --include-paused), newest first, with each seat's remoteId for a License plan."
+    },
+    {
+      "name": "Backup health ranking",
+      "command": "backup-health",
+      "description": "Rank clients worst first by backup coverage, then consecutive short backup windows and perfect-backup rate."
+    },
+    {
+      "name": "Exit inventory",
+      "command": "exit-inventory",
+      "description": "Build one manifest for a client leaving SaaS Protection: domains, subscription ids, retention, every seat with remoteId, storage, last backups and a blockers checklist."
+    },
+    {
+      "name": "Seat roster",
+      "command": "seats roster",
+      "description": "Every synced seat across all clients in one table, joined with its customer's domains, product types and subscription ids; --csv for a fleet-wide export."
+    },
+    {
+      "name": "Seat summary",
+      "command": "seats summary",
+      "description": "Seat counts per client and seat type, split by Active, Paused, Archived and Unprotected state and the billable flag."
+    }
+  ]
+}

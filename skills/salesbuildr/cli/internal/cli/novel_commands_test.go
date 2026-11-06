@@ -44,9 +44,9 @@ func seedNovelStore(t *testing.T) string {
 		{"product", "p2", `{"id":"p2","name":"Switch","mpn":"SW-20","price":200,"cost":100,"markup":100,"msrp":250}`},
 		{"product", "p3", `{"id":"p3","name":"Backup Agent","mpn":"BA-1","price":50,"cost":10,"markup":400,"msrp":60,"externalIdentifier":"AT-77"}`},
 		{"pricing-book", "pb1", `{"id":"pb1","name":"Acme Book","products":[{"productId":"p1","price":950,"cost":900},{"productId":"p2","price":200,"cost":100}]}`},
-		{"opportunity", "o1", fmt.Sprintf(`{"id":"o1","name":"Won deal","company":{"name":"Acme Managed IT"},"owner":{"name":"Marcus"},"pipelineStage":{"name":"Closed"},"statusId":"won","closedAt":%q,"salesCycleDurationDays":20,"probability":100,"monthlyRevenue":100,"externalIdentifier":"AT-1"}`, fresh)},
+		{"opportunity", "o1", fmt.Sprintf(`{"id":"o1","name":"Won deal","company":{"name":"Acme Managed IT"},"owner":{"name":"Marcus"},"pipelineStage":{"name":"Closed"},"statusId":"won","closedAt":%q,"salesCycleDurationDays":20,"probability":1,"monthlyRevenue":100,"externalIdentifier":"AT-1"}`, fresh)},
 		{"opportunity", "o2", fmt.Sprintf(`{"id":"o2","name":"Lost deal","company":{"name":"Beta Corp"},"owner":{"name":"Marcus"},"pipelineStage":{"name":"Closed"},"statusId":"lost","closedAt":%q,"salesCycleDurationDays":40}`, fresh)},
-		{"opportunity", "o3", fmt.Sprintf(`{"id":"o3","name":"Open deal","company":{"name":"Acme Managed IT"},"owner":{"name":"Priya"},"pipelineStage":{"name":"Proposal"},"statusId":"open","probability":50,"monthlyRevenue":1000,"monthlyProfit":400,"onetimeRevenue":2000,"monthlyChurn":10,"stageUpdatedAt":%q}`, old)},
+		{"opportunity", "o3", fmt.Sprintf(`{"id":"o3","name":"Open deal","company":{"name":"Acme Managed IT"},"owner":{"name":"Priya"},"pipelineStage":{"name":"Proposal"},"statusId":"open","probability":0.5,"monthlyRevenue":1000,"monthlyProfit":400,"onetimeRevenue":2000,"monthlyChurn":10,"stageUpdatedAt":%q}`, old)},
 		{"company", "c1", `{"id":"c1","name":"Acme Managed IT","externalIdentifier":"AT-100"}`},
 		{"company", "c2", `{"id":"c2","name":"Beta Corp"}`},
 		{"contact", "ct1", `{"id":"ct1","firstName":"Jane","lastName":"Doe","externalIdentifier":"AT-CT-1"}`},
@@ -205,7 +205,7 @@ func TestMrrForecastWeightsOpenPipelineOnly(t *testing.T) {
 	if report["openOpportunities"].(float64) != 1 {
 		t.Fatalf("expected 1 open opportunity, got %v", report["openOpportunities"])
 	}
-	// o3: 1000 * 0.5 = 500 weighted; churn 10% → 450 adjusted.
+	// o3: 1000 * 0.5 (probability is a documented 0-1 fraction) = 500 weighted; churn 10% → 450 adjusted.
 	if mrr := report["weightedMrr"].(float64); mrr != 500 {
 		t.Fatalf("expected weighted MRR 500, got %v", mrr)
 	}

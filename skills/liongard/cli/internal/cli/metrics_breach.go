@@ -25,8 +25,13 @@ func newNovelMetricsBreachCmd(flags *rootFlags) *cobra.Command {
 		Long: `Threshold scan across the estate. Pivots a metric across the systems it covers
 (from the locally synced store) and returns only the systems whose evaluated
 numeric value satisfies --op against --value. Operators: gt, ge, lt, le, eq, ne.
-Systems with no numeric value for the metric are excluded. Run
-'liongard-cli sync' first.`,
+A system whose value is not a number is excluded and counted. Run
+'liongard-cli sync' first.
+
+The scan refuses when a covered system has no evaluated value in the local
+store, instead of reporting it as not breaching. Liongard evaluates metric
+values per system (GET /metrics/bulk, 'liongard-cli metrics evaluation'); the
+synced metric definitions do not carry them.`,
 		Example: strings.Trim(`
   # Systems whose patch age exceeds 30 days
   liongard-cli metrics breach "Patch Age Days" --op gt --value 30 --agent
@@ -68,13 +73,28 @@ Systems with no numeric value for the metric are excluded. Run
 			if err != nil {
 				return err
 			}
-			breaches := make([]metricRow, 0)
-			anyNumericValue := false
+			// A covered system with no evaluated value could be breaching:
+			// counting it as "not breaching" is a wrong zero (Codex r2 class
+			// incomplete-snapshot-read-as-complete), so refuse.
+			unevaluated := 0
 			for _, r := range rows {
-				if r.NumericValue == nil {
+				if r.SystemID != "" && !r.HasValue {
+					unevaluated++
+				}
+			}
+			if unevaluated > 0 {
+				return fmt.Errorf("%w of metric values: %d of the %d covered system(s) have no evaluated value for %q in the local store, so the threshold cannot be checked; Liongard evaluates metric values per system (GET /metrics/bulk, 'liongard-cli metrics evaluation') and the synced metric definitions do not carry them", errIncompleteSnapshot, unevaluated, countCoveredSystems(rows), name)
+			}
+			breaches := make([]metricRow, 0)
+			nonNumeric := 0
+			for _, r := range rows {
+				if r.SystemID == "" {
 					continue
 				}
-				anyNumericValue = true
+				if r.NumericValue == nil {
+					nonNumeric++
+					continue
+				}
 				if compareMetric(*r.NumericValue, op, threshold) {
 					breaches = append(breaches, r)
 				}
@@ -86,11 +106,12 @@ Systems with no numeric value for the metric are excluded. Run
 				"matched_definitions": matched,
 				"breach_count":        len(breaches),
 				"breaches":            breaches,
+				"non_numeric_systems": nonNumeric,
 			}
 			if matched == 0 {
-				result["note"] = "No metric definition matched; check the name or run 'liongard-cli sync'."
-			} else if !anyNumericValue {
-				result["note"] = "Matched metric definitions but no evaluated numeric values are present in the synced data; cannot evaluate the threshold. Sync metric evaluations to populate values."
+				result["note"] = "No metric definition matched; check the name with 'liongard-cli metrics pivot' or 'liongard-cli metrics metrics'."
+			} else if countCoveredSystems(rows) == 0 {
+				result["note"] = "The matched metric definitions cover no synced system (no system carries their inspector and environment)."
 			}
 			return printJSONFiltered(cmd.OutOrStdout(), result, flags)
 		},
@@ -98,4 +119,16 @@ Systems with no numeric value for the metric are excluded. Run
 	cmd.Flags().StringVar(&flagOp, "op", "gt", "Comparison operator: gt, ge, lt, le, eq, ne")
 	cmd.Flags().StringVar(&flagValue, "value", "", "Numeric threshold to compare each system's metric value against (required)")
 	return cmd
+}
+
+// countCoveredSystems counts pivot rows that name a system (a definition
+// that covers no synced system has a row with no system).
+func countCoveredSystems(rows []metricRow) int {
+	n := 0
+	for _, r := range rows {
+		if r.SystemID != "" {
+			n++
+		}
+	}
+	return n
 }

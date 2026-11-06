@@ -81,7 +81,7 @@
     },
     {
       "q": "What credentials do I need?",
-      "a": "An API-only user created in your own Autotask instance, which gives you a UserName and Secret, plus the tracking Integration Code from your integration vendor record. Set AUTOTASK_PSA_USER_NAME, AUTOTASK_PSA_SECRET, and AUTOTASK_PSA_API_INTEGRATION_CODE in your environment. The API user's security level is the real permission boundary - scope it to exactly what you want the AI to reach."
+      "a": "An API-only user created in your own Autotask instance, which gives you a UserName and Secret, plus the tracking Integration Code from your integration vendor record. Set AUTOTASK_PSA_USER_NAME, AUTOTASK_PSA_SECRET, and AUTOTASK_API_INTEGRATION_CODE in your environment. The API user's security level is the real permission boundary - scope it to exactly what you want the AI to reach."
     },
     {
       "q": "Do I have to figure out my Autotask zone URL?",
@@ -100,7 +100,7 @@
       "a": "Same product. Autotask PSA is now branded Datto Autotask PSA under Kaseya; this skill targets the Autotask REST API, which both names refer to. It does not cover Datto RMM - that is a separate product with a separate API."
     }
   ],
-  "governance_summary": "The skill drives the autotask-cli and autotask-mcp binaries, authenticating with an Autotask API user's credentials read from the environment (AUTOTASK_PSA_USER_NAME, AUTOTASK_PSA_SECRET, AUTOTASK_PSA_API_INTEGRATION_CODE) - never logged and never sent anywhere except your own Autotask zone. Read commands (the cross-entity views, search, picklist) can change nothing. Writes are not gated by default: --dry-run is an opt-in preview flag, so the recommended policy is an agent-level rule - preview with --dry-run, show the exact command, get approval, then run the write. Keep the delete commands and any security-level administration human-only. The strongest control is the security level on the API user you create.",
+  "governance_summary": "The skill drives the autotask-cli and autotask-mcp binaries, authenticating with an Autotask API user's credentials read from the environment (AUTOTASK_PSA_USER_NAME, AUTOTASK_PSA_SECRET, AUTOTASK_API_INTEGRATION_CODE) - never logged and never sent anywhere except your own Autotask zone. Read commands (the cross-entity views, search, picklist) can change nothing. Writes are not gated by default: --dry-run is an opt-in preview flag, so the recommended policy is an agent-level rule - preview with --dry-run, show the exact command, get approval, then run the write. Keep the delete commands and any security-level administration human-only. The strongest control is the security level on the API user you create.",
   "safety_tiers": [
     {
       "tier": "Read",

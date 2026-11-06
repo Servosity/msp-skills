@@ -102,6 +102,15 @@ func jx(path string) string {
 	return "COALESCE(CAST(json_extract(data,'$." + path + "') AS TEXT),'')"
 }
 
+// ja is jx for a JSON:API attribute (attributes.<name>). The member name is
+// passed bare so a dotted literal such as "attributes.email" never reads as a
+// hostname to the press's novel-host gate (dogfood, press 4.34).
+func ja(name string) string {
+	return jx(jsonAPIAttributes + name)
+}
+
+const jsonAPIAttributes = "attributes."
+
 // ---- typed rows ----
 
 type monitorRow struct {
@@ -120,10 +129,13 @@ type monitorRow struct {
 }
 
 func loadMonitors(ctx context.Context, s *store.Store) ([]monitorRow, error) {
+	if err := requireFinishedSync(s, "monitors"); err != nil { // betterstack handfix: novels-refuse-a-partial-store
+		return nil, err
+	}
 	q := fmt.Sprintf(`SELECT %s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s FROM resources WHERE resource_type='monitors'`,
-		jx("id"), jx("attributes.pronounceable_name"), jx("attributes.url"), jx("attributes.monitor_type"),
-		jx("attributes.status"), jx("attributes.paused"), jx("attributes.policy_id"), jx("attributes.monitor_group_id"),
-		jx("attributes.email"), jx("attributes.sms"), jx("attributes.call"), jx("attributes.push"))
+		jx("id"), ja("pronounceable_name"), ja("url"), ja("monitor_type"),
+		ja("status"), ja("paused"), ja("policy_id"), ja("monitor_group_id"),
+		ja("email"), ja("sms"), ja("call"), ja("push"))
 	recs, err := queryTextRows(ctx, s, q, 12)
 	if err != nil {
 		return nil, err
@@ -149,8 +161,11 @@ type heartbeatRow struct {
 }
 
 func loadHeartbeats(ctx context.Context, s *store.Store) ([]heartbeatRow, error) {
+	if err := requireFinishedSync(s, "heartbeats"); err != nil { // betterstack handfix: novels-refuse-a-partial-store
+		return nil, err
+	}
 	q := fmt.Sprintf(`SELECT %s,%s,%s,%s,%s,%s FROM resources WHERE resource_type='heartbeats'`,
-		jx("id"), jx("attributes.name"), jx("attributes.status"), jx("attributes.period"), jx("attributes.grace"), jx("attributes.paused"))
+		jx("id"), ja("name"), ja("status"), ja("period"), ja("grace"), ja("paused"))
 	recs, err := queryTextRows(ctx, s, q, 6)
 	if err != nil {
 		return nil, err
@@ -174,21 +189,47 @@ type incidentRow struct {
 	AcknowledgedAt string `json:"acknowledged_at"`
 	ResolvedAt     string `json:"resolved_at"`
 	Source         string `json:"source"`
+	// MonitorID and HeartbeatID are the incident's typed source (Codex r1,
+	// betterstack 4.34.2 reprint, class heartbeat-incidents-omitted): an
+	// incident belongs to a monitor or a heartbeat (spec.yaml
+	// types.Incident.fields monitor_id and heartbeat_id; the API also links it
+	// under relationships.monitor / relationships.heartbeat), and every join of
+	// incidents to a source reads these, never Source.
+	MonitorID   string `json:"-"`
+	HeartbeatID string `json:"-"`
+}
+
+// incidentSourceID is the one reader of an incident's source of a kind
+// (monitor or heartbeat): the JSON:API relationship id, then the attribute.
+func incidentSourceID(kind string) string {
+	return "COALESCE(" +
+		"NULLIF(CAST(json_extract(data,'$.relationships." + kind + ".data.id') AS TEXT),'')," +
+		"NULLIF(CAST(json_extract(data,'$.attributes." + kind + "_id') AS TEXT),'')," +
+		"'')"
 }
 
 func loadIncidents(ctx context.Context, s *store.Store) ([]incidentRow, error) {
+	if err := requireFinishedSync(s, "incidents"); err != nil { // betterstack handfix: novels-refuse-a-partial-store
+		return nil, err
+	}
 	// Source is the monitored resource: prefer the JSON:API relationship id,
-	// then any monitor_id attribute, then the monitored url/name.
+	// then any monitor_id attribute, then the monitored url/name. A heartbeat's
+	// incident is keyed "heartbeat:<id>" before the url/name fallback (Codex r1,
+	// betterstack 4.34.2 reprint, class heartbeat-incidents-omitted: flapping
+	// and mttr --by-monitor keyed it by name, so two heartbeats of one name
+	// were counted as one source).
 	source := "COALESCE(" +
 		"NULLIF(CAST(json_extract(data,'$.relationships.monitor.data.id') AS TEXT),'')," +
 		"NULLIF(CAST(json_extract(data,'$.attributes.monitor_id') AS TEXT),'')," +
+		"NULLIF('heartbeat:'||" + incidentSourceID("heartbeat") + ",'heartbeat:')," +
 		"NULLIF(CAST(json_extract(data,'$.attributes.url') AS TEXT),'')," +
 		"NULLIF(CAST(json_extract(data,'$.attributes.name') AS TEXT),'')," +
 		"'unknown')"
-	q := fmt.Sprintf(`SELECT %s,%s,%s,%s,%s,%s,%s,%s FROM resources WHERE resource_type='incidents'`,
-		jx("id"), jx("attributes.name"), jx("attributes.url"), jx("attributes.status"),
-		jx("attributes.started_at"), jx("attributes.acknowledged_at"), jx("attributes.resolved_at"), source)
-	recs, err := queryTextRows(ctx, s, q, 8)
+	q := fmt.Sprintf(`SELECT %s,%s,%s,%s,%s,%s,%s,%s,%s,%s FROM resources WHERE resource_type='incidents'`,
+		jx("id"), ja("name"), ja("url"), ja("status"),
+		ja("started_at"), ja("acknowledged_at"), ja("resolved_at"), source,
+		incidentSourceID("monitor"), incidentSourceID("heartbeat"))
+	recs, err := queryTextRows(ctx, s, q, 10)
 	if err != nil {
 		return nil, err
 	}
@@ -197,6 +238,7 @@ func loadIncidents(ctx context.Context, s *store.Store) ([]incidentRow, error) {
 		out = append(out, incidentRow{
 			ID: r[0], Name: r[1], URL: r[2], Status: r[3],
 			StartedAt: r[4], AcknowledgedAt: r[5], ResolvedAt: r[6], Source: r[7],
+			MonitorID: r[8], HeartbeatID: r[9],
 		})
 	}
 	return out, nil
@@ -210,10 +252,13 @@ type onCallRow struct {
 }
 
 func loadOnCalls(ctx context.Context, s *store.Store) ([]onCallRow, error) {
+	if err := requireFinishedSync(s, "on-calls"); err != nil { // betterstack handfix: novels-refuse-a-partial-store
+		return nil, err
+	}
 	// on_call_users is an array under attributes; count it, falling back to 0.
 	userCount := "COALESCE(json_array_length(json_extract(data,'$.attributes.on_call_users')),0)"
 	q := fmt.Sprintf(`SELECT %s,%s,%s,%s FROM resources WHERE resource_type='on-calls'`,
-		jx("id"), jx("attributes.name"), jx("attributes.default_calendar"), userCount)
+		jx("id"), ja("name"), ja("default_calendar"), userCount)
 	recs, err := queryTextRows(ctx, s, q, 4)
 	if err != nil {
 		return nil, err

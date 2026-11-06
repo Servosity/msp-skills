@@ -370,6 +370,8 @@ type UpsertLearningInput struct {
 // refreshes last_observed_at. Source on the existing row is preserved;
 // only confidence + last_observed_at update on re-teach. Returns the
 // row's ID and a bool indicating whether the row was newly inserted.
+// Hand-fix (handfixes.json journal-credential-hardening): operator text that repeats a credential
+// this program holds is refused before it is stored.
 func (s *Store) UpsertLearning(ctx context.Context, in UpsertLearningInput) (int64, bool, error) {
 	if strings.TrimSpace(in.ResourceID) == "" {
 		return 0, false, fmt.Errorf("upsert learning: resource_id is required")

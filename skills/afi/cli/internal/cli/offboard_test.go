@@ -11,6 +11,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"afi-pp-cli/internal/client"
 )
 
 // offboardServer fakes the four Afi endpoints the offboard sequence touches.
@@ -60,6 +62,14 @@ func (s *offboardServer) handler() http.Handler {
 
 func runOffboard(t *testing.T, srvURL string, args ...string) (string, error) {
 	t.Helper()
+	// In-process tests run no credkit.Start, so the kit's transport (the one
+	// client hook, credkit_client.go) would refuse the key to this loopback
+	// fake. Offboard's own sequence is under test here; the kit's routing is
+	// proven on the built binaries (internal/credwire). The response cache stays
+	// off, as kitClient leaves it.
+	saved := clientHooks
+	clientHooks = []func(*client.Client) error{func(c *client.Client) error { c.NoCache = true; return nil }}
+	t.Cleanup(func() { clientHooks = saved })
 	t.Setenv("AFI_BASE_URL", srvURL)
 	t.Setenv("AFI_API_KEY", "appkey-test")
 	t.Setenv("AFI_CONFIG", filepath.Join(t.TempDir(), "config.toml"))
@@ -113,21 +123,45 @@ func TestOffboardRefusesWithoutArchive(t *testing.T) {
 	}
 }
 
-func TestOffboardRefusesStaleArchive(t *testing.T) {
+// Codex r1 (afi review) class archive-creation-read-as-backup-time: a
+// backup is appended to the resource's existing archive (spec.json v1Archive
+// is a backup sequence), so a finished final-backup task is the proof, not a
+// newly created archive.
+func TestOffboardAcceptsABackupAppendedToAnExistingArchive(t *testing.T) {
 	srv := &offboardServer{
 		protections: `{"items":[{"id":"prot1","resource_id":"res1","policy_id":"pol1","job_id":"job1"}],"next_page_token":""}`,
 		taskStatus:  "done",
-		archiveAt:   time.Now().UTC().Add(-24 * time.Hour).Format(time.RFC3339), // predates the backup
+		archiveAt:   time.Now().UTC().Add(-24 * time.Hour).Format(time.RFC3339), // the sequence the backup extended
 	}
 	ts := httptest.NewServer(srv.handler())
 	defer ts.Close()
 
-	_, err := runOffboard(t, ts.URL, "res1", "--tenant", "ten1", "--poll-interval", "10ms")
-	if err == nil || !strings.Contains(err.Error(), "REFUSING") {
-		t.Fatalf("expected stale-archive refusal, got %v", err)
+	out, err := runOffboard(t, ts.URL, "res1", "--tenant", "ten1", "--poll-interval", "10ms")
+	if err != nil {
+		t.Fatalf("a finished final backup into the existing archive was refused: %v\n%s", err, out)
+	}
+	if !srv.unprotected {
+		t.Fatal("unprotect was not called after the final backup task finished")
+	}
+}
+
+// A task that ends with warnings (a documented terminal status) is not a
+// verified backup: refused at once, not after the wait budget.
+func TestOffboardWarningsTaskBlocks(t *testing.T) {
+	srv := &offboardServer{
+		protections: `{"items":[{"id":"prot1","resource_id":"res1","policy_id":"pol1","job_id":"job1"}],"next_page_token":""}`,
+		taskStatus:  "warnings",
+		archiveAt:   time.Now().UTC().Format(time.RFC3339),
+	}
+	ts := httptest.NewServer(srv.handler())
+	defer ts.Close()
+
+	_, err := runOffboard(t, ts.URL, "res1", "--tenant", "ten1", "--poll-interval", "10ms", "--timeout-wait", "2s")
+	if err == nil || !strings.Contains(err.Error(), "completed with warnings") {
+		t.Fatalf("expected a refusal naming the warnings, got %v", err)
 	}
 	if srv.unprotected {
-		t.Fatal("unprotect must NOT be called when the archive predates the final backup")
+		t.Fatal("unprotect must NOT be called after a backup that completed with warnings")
 	}
 }
 
@@ -195,17 +229,15 @@ func TestOffboardNoProtection(t *testing.T) {
 	}
 }
 
-func TestOffboardNoTaskIDPollsArchives(t *testing.T) {
-	// Trigger returns no task_id; a fresh archive appears — offboard should
-	// poll archives and proceed (not claim a fallback it doesn't do).
+func TestOffboardNoTaskIDRefuses(t *testing.T) {
+	// The trigger returned no task_id (spec.json v1TriggerJobResult always
+	// carries one): nothing can confirm the final backup finished, and a new
+	// archive is no proof either (backups extend the existing one).
 	srv := &offboardServer{
 		protections: `{"items":[{"id":"prot1","resource_id":"res1","policy_id":"pol1","job_id":"job1"}],"next_page_token":""}`,
 		taskStatus:  "done",
 		archiveAt:   time.Now().UTC().Add(30 * time.Second).Format(time.RFC3339),
 	}
-	ts := httptest.NewServer(srv.handler())
-	defer ts.Close()
-	// Override the trigger handler response via a wrapper mux.
 	wrapped := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/api/v1/tenants/ten1/jobs/job1/trigger" {
 			fmt.Fprint(w, `{}`) // no task_id
@@ -215,22 +247,12 @@ func TestOffboardNoTaskIDPollsArchives(t *testing.T) {
 	}))
 	defer wrapped.Close()
 
-	out, err := runOffboard(t, wrapped.URL, "res1", "--tenant", "ten1", "--poll-interval", "10ms")
-	if err != nil {
-		t.Fatalf("offboard with no task_id: %v\n%s", err, out)
+	_, err := runOffboard(t, wrapped.URL, "res1", "--tenant", "ten1", "--poll-interval", "10ms")
+	if err == nil || !strings.Contains(err.Error(), "NOT unprotecting") {
+		t.Fatalf("expected a refusal without a task handle, got %v", err)
 	}
-	view := decodeView[offboardView](t, out)
-	if !view.Unprotected {
-		t.Errorf("fresh archive via polling should allow unprotect: %s", out)
-	}
-	sawWaitArchive := false
-	for _, s := range view.Steps {
-		if s.Step == "wait-archive" && s.Status == "ok" {
-			sawWaitArchive = true
-		}
-	}
-	if !sawWaitArchive {
-		t.Errorf("expected wait-archive ok step: %s", out)
+	if srv.unprotected {
+		t.Fatal("unprotect must NOT be called when the final backup cannot be confirmed")
 	}
 }
 

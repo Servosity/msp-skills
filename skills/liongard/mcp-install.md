@@ -1,12 +1,5 @@
 # Liongard MCP - install for every agent that speaks MCP
 
-> **Security note (until this connector is reprinted).** Do not run HTTP mode
-> (`--transport http`), not even on localhost. This build has no password,
-> listens on every network interface, and predates the browser-rebinding guard,
-> so a web page you open can reach it. The MCP tools can also make changes with
-> your credentials. Use the default stdio transport. If you set up a tunnel for
-> a remote agent, shut it down. A fix is on the way.
-
 This page wires the Liongard MCP server into any MCP client. If you use Claude
 Code, Codex CLI, or Cowork, install the Skill instead (see [README.md](./README.md)) -
 it's simpler. Everyone else: pick your agent below.
@@ -25,24 +18,6 @@ and `liongard-mcp` on your PATH. `liongard-mcp` is what the agents talk to.
 ```bash
 liongard-mcp --help
 ```
-
-## Two ways to authenticate
-
-Liongard's `X-ROAR-API-KEY` header is base64 of `accessKeyId:accessKeySecret`. Supply
-it **either** way, never both:
-
-- **A - pre-encoded key.** Set `LIONGARD_API_KEY` to the base64 value and leave
-  `LIONGARD_ACCESS_KEY_ID` / `LIONGARD_ACCESS_KEY_SECRET` empty.
-- **B - ID + secret.** Set `LIONGARD_ACCESS_KEY_ID` and `LIONGARD_ACCESS_KEY_SECRET`
-  to the two strings Liongard hands you and leave `LIONGARD_API_KEY` empty; the server
-  encodes them for you.
-
-`LIONGARD_API_KEY` **wins whenever it is non-empty** - including when it still holds a
-placeholder like `<your-liongard_api_key>`. If you are using shape B, clear that field
-in the config blocks below or the ID/secret pair is ignored and every call returns 401.
-
-Every config block below lists all five variables so you can see the full shape. Fill
-in the ones for your chosen shape and leave the others as empty strings.
 
 ---
 
@@ -63,11 +38,17 @@ Add (or merge with your existing `mcpServers` block):
     "liongard": {
       "command": "liongard-mcp",
       "env": {
-        "LIONGARD_ACCESS_KEY_ID": "",
-        "LIONGARD_ACCESS_KEY_SECRET": "",
+        "LIONGARD_ACCESS_KEY_ID": "<your-liongard_access_key_id>",
+        "LIONGARD_ACCESS_KEY_SECRET": "<your-liongard_access_key_secret>",
         "LIONGARD_API_KEY": "<your-liongard_api_key>",
-        "LIONGARD_BASE_URL": "",
-        "LIONGARD_INSTANCE": "<your-liongard_instance>"
+        "LIONGARD_BASE_URL": "<your-liongard_base_url>",
+        "LIONGARD_ENDPOINTS_SESSION_TOKEN_AUTH": "<your-liongard_endpoints_session_token_auth>",
+        "LIONGARD_INSTANCE": "<your-liongard_instance>",
+        "LIONGARD_MCP_READ_ONLY": "<your-liongard_mcp_read_only>",
+        "LIONGARD_NO_LOCAL_DATA": "<your-liongard_no_local_data>",
+        "LIONGARD_MCP_HTTP_TOKEN": "<your-liongard_mcp_http_token>",
+        "LIONGARD_USER_AGENT": "<your-liongard_user_agent>",
+        "PRINTING_PRESS_CLIENT_PROFILE": "<your-printing_press_client_profile>"
       }
     }
   }
@@ -96,7 +77,7 @@ GitHub Copilot supports MCP in **Agent mode** (GA since VS Code 1.102, July 2025
 Two gotchas trip people up: the config file is `mcp.json` (not `settings.json`), and
 the root key is **`servers`** (not `mcpServers` like Claude).
 
-Create `.mcp.json` in your workspace (or open the Command Palette > **MCP: Open User
+Create `.vscode/mcp.json` in your workspace (or open the Command Palette > **MCP: Open User
 Configuration**) and add:
 
 ```json
@@ -106,11 +87,17 @@ Configuration**) and add:
       "type": "stdio",
       "command": "liongard-mcp",
       "env": {
-        "LIONGARD_ACCESS_KEY_ID": "",
-        "LIONGARD_ACCESS_KEY_SECRET": "",
+        "LIONGARD_ACCESS_KEY_ID": "<your-liongard_access_key_id>",
+        "LIONGARD_ACCESS_KEY_SECRET": "<your-liongard_access_key_secret>",
         "LIONGARD_API_KEY": "<your-liongard_api_key>",
-        "LIONGARD_BASE_URL": "",
-        "LIONGARD_INSTANCE": "<your-liongard_instance>"
+        "LIONGARD_BASE_URL": "<your-liongard_base_url>",
+        "LIONGARD_ENDPOINTS_SESSION_TOKEN_AUTH": "<your-liongard_endpoints_session_token_auth>",
+        "LIONGARD_INSTANCE": "<your-liongard_instance>",
+        "LIONGARD_MCP_READ_ONLY": "<your-liongard_mcp_read_only>",
+        "LIONGARD_NO_LOCAL_DATA": "<your-liongard_no_local_data>",
+        "LIONGARD_MCP_HTTP_TOKEN": "<your-liongard_mcp_http_token>",
+        "LIONGARD_USER_AGENT": "<your-liongard_user_agent>",
+        "PRINTING_PRESS_CLIENT_PROFILE": "<your-printing_press_client_profile>"
       }
     }
   }
@@ -131,11 +118,17 @@ Claude Desktop:
     "liongard": {
       "command": "liongard-mcp",
       "env": {
-        "LIONGARD_ACCESS_KEY_ID": "",
-        "LIONGARD_ACCESS_KEY_SECRET": "",
+        "LIONGARD_ACCESS_KEY_ID": "<your-liongard_access_key_id>",
+        "LIONGARD_ACCESS_KEY_SECRET": "<your-liongard_access_key_secret>",
         "LIONGARD_API_KEY": "<your-liongard_api_key>",
-        "LIONGARD_BASE_URL": "",
-        "LIONGARD_INSTANCE": "<your-liongard_instance>"
+        "LIONGARD_BASE_URL": "<your-liongard_base_url>",
+        "LIONGARD_ENDPOINTS_SESSION_TOKEN_AUTH": "<your-liongard_endpoints_session_token_auth>",
+        "LIONGARD_INSTANCE": "<your-liongard_instance>",
+        "LIONGARD_MCP_READ_ONLY": "<your-liongard_mcp_read_only>",
+        "LIONGARD_NO_LOCAL_DATA": "<your-liongard_no_local_data>",
+        "LIONGARD_MCP_HTTP_TOKEN": "<your-liongard_mcp_http_token>",
+        "LIONGARD_USER_AGENT": "<your-liongard_user_agent>",
+        "PRINTING_PRESS_CLIENT_PROFILE": "<your-printing_press_client_profile>"
       }
     }
   }
@@ -147,30 +140,63 @@ web** is remote-only - see the remote section below.)
 
 ---
 
-# Remote agents (paused until this connector is reprinted)
+# Remote agents (host the binary over HTTPS first)
 
 **Not supported by msp-skills yet.** ChatGPT on the web, Microsoft 365 Copilot /
 Copilot Studio and the Gemini app reach MCP servers at a web address, not programs
-on your machine, so they would need `liongard-mcp` running in HTTP mode. Do not
-run HTTP mode with this build (see the security note at the top of this page), and
-do not put this server behind a tunnel or reverse proxy. If your team works in one
+on your machine, so they would need `liongard-mcp` running in HTTP mode, hosted
+by you over HTTPS. If your team works in one
 of those apps, a
 [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick)
 is the better pick; check that your AI app is on the gateway's setup list. The
 ChatGPT desktop app is different: it runs `liongard-mcp` locally (see above).
 
-The HTTP-mode launch command is kept below for reference. It is commented out on
-purpose, so pasting it does nothing:
+Remote agents need `liongard-mcp` reachable over **HTTPS** with a bearer token. Keep
+stdio (the default) for every local agent. HTTP mode serves
+`http://127.0.0.1:7777/mcp` by default and refuses to start until `LIONGARD_MCP_HTTP_TOKEN` is
+set; every request must send `Authorization: Bearer <token>`. Any address other
+than loopback also needs TLS:
 
 ```bash
-# A - pre-encoded key. Leave the ID/secret pair unset.
-# LIONGARD_API_KEY=<value> LIONGARD_BASE_URL=<value> LIONGARD_INSTANCE=<value> liongard-mcp --transport http
+export LIONGARD_MCP_HTTP_TOKEN="$(openssl rand -hex 32)"
+LIONGARD_ACCESS_KEY_ID=<value> LIONGARD_ACCESS_KEY_SECRET=<value> LIONGARD_API_KEY=<value> LIONGARD_BASE_URL=<value> LIONGARD_ENDPOINTS_SESSION_TOKEN_AUTH=<value> LIONGARD_INSTANCE=<value> LIONGARD_MCP_READ_ONLY=<value> LIONGARD_NO_LOCAL_DATA=<value> LIONGARD_MCP_HTTP_TOKEN=<value> LIONGARD_USER_AGENT=<value> PRINTING_PRESS_CLIENT_PROFILE=<value> liongard-mcp --transport http --addr <host>:7777 --tls-cert <cert.pem> --tls-key <key.pem>
 ```
 
-```bash
-# B - ID + secret. Leave LIONGARD_API_KEY unset, or it wins and this pair is ignored.
-# LIONGARD_ACCESS_KEY_ID=<value> LIONGARD_ACCESS_KEY_SECRET=<value> LIONGARD_BASE_URL=<value> LIONGARD_INSTANCE=<value> liongard-mcp --transport http
-```
+The endpoint is `https://<host>:7777/mcp`: the server answers Streamable HTTP at
+`/mcp` and returns 404 at the bare root. The server rejects any request without
+`Authorization: Bearer <token>`, so a remote agent works only if its connector
+settings can send that header; check yours first. **Treat the token like a password** -
+whoever holds it can call every tool with your Liongard credentials.
+
+## Microsoft 365 Copilot / Copilot Studio
+
+**Honest heads-up:** there is no local path. Microsoft 365 Copilot, Copilot Studio,
+and Security Copilot all consume MCP over **remote Streamable-HTTP only** - the local
+`liongard-mcp` you installed is not enough on its own. You also need a **Copilot Studio
+license** and a **tenant admin** to enable it. This is a build-and-host task, not a
+self-serve install.
+
+Once `liongard-mcp` is hosted over HTTPS (above), the lowest-code route:
+
+1. In **Copilot Studio**, open your agent > **Tools** > **Add a tool** > **Model
+   Context Protocol**.
+2. Enter a **Server name**, the **Server URL** (your HTTPS endpoint), and auth.
+   The server needs `Authorization: Bearer <token>` on every request, so this
+   works only if the auth option you pick sends it. Copilot Studio builds the Power
+   Platform connector behind the scenes; generative orchestration must be **on**.
+3. Publish the agent into Microsoft 365 Copilot.
+
+Alternative (dev-ish): build a **declarative agent** with the Microsoft 365 Agents
+Toolkit in VS Code (**Add an Action > Start with an MCP Server**, point at the remote
+URL), then sideload - requires admin-enabled Custom App Upload + Copilot Access.
+
+Microsoft docs: https://learn.microsoft.com/en-us/microsoft-copilot-studio/agent-extend-action-mcp
+
+## Gemini app / web (Google)
+
+Point Gemini's connector at your hosted HTTPS
+endpoint, if it can send the bearer token. For a local, no-hosting path on Google, use
+**Gemini CLI** (above) instead.
 
 ---
 

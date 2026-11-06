@@ -1,6 +1,6 @@
 # Abnormal Security CLI
 
-**The full Abnormal Security REST API as an agent-ready CLI  -  with a local threat store, ranked SOC triage, and one-shot reporting no SOAR pack offers.**
+**The full Abnormal Security REST API as an agent-native CLI  -  with a local threat store, ranked SOC triage, and one-shot reporting no SOAR pack offers.**
 
 Every threat, case, vendor, employee, and dashboard operation from Abnormal's official API, plus a synced SQLite store that powers a ranked `triage` queue, joined `employee-risk` and `vendor-risk` investigation views, blocking `remediate-watch` confirmation, and a consolidated `report-snapshot` for client reporting. The incumbent integrations live inside SOAR and SIEM platforms; this runs in your terminal and your agents.
 
@@ -60,9 +60,7 @@ To install:
 2. Double-click the `.mcpb` file. Claude Desktop opens and walks you through the install.
 3. Fill in `ABNORMAL_API_TOKEN` when Claude Desktop prompts you.
 
-Requires Claude Desktop 1.0.0 or later. A bundle carries the five platform binaries the builder downloads - macOS (`darwin-arm64`, `darwin-amd64`), Linux (`linux-arm64`, `linux-amd64`) and Windows (`windows-amd64`). Windows on ARM is released as a standalone binary but is not bundled, so use the manual config below there.
-
-> **Claude Desktop bundle:** the `.mcpb` launches on macOS (Intel and Apple Silicon), Windows x64 and Linux x64. Every tool shells out to the companion `abnormal-cli`. Releases cut from 2026-09-18 on ship that CLI inside the bundle; older bundles contain only the MCP server, so if yours lacks the companion, run the installer above first (or set `ABNORMAL_CLI_PATH` to an existing binary). Details: [#331](https://github.com/Servosity/msp-skills/issues/331).
+Requires Claude Desktop 1.0.0 or later. Pre-built bundles ship for macOS Apple Silicon (`darwin-arm64`) and Windows (`amd64`, `arm64`); for other platforms, use the manual config below.
 
 <details>
 <summary>Manual JSON config (advanced)</summary>
@@ -77,7 +75,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/sk
 iwr -useb https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/abnormal/install.ps1 | iex            # Windows
 ```
 
-Add to your Claude Desktop config (`%APPDATA%\Claude\claude_desktop_config.json` on Windows, `~/Library/Application Support/Claude/claude_desktop_config.json` on macOS):
+Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS, `%APPDATA%\Claude\claude_desktop_config.json` on Windows):
 
 ```json
 {
@@ -94,9 +92,20 @@ Add to your Claude Desktop config (`%APPDATA%\Claude\claude_desktop_config.json`
 
 </details>
 
+### Remote MCP over HTTP
+
+`abnormal-mcp --transport http` (or `PP_MCP_TRANSPORT=http`) serves streamable HTTP at `http://127.0.0.1:7777/mcp`. It refuses to start until `ABNORMAL_MCP_HTTP_TOKEN` is set to at least 32 characters, and every request must send `Authorization: Bearer <token>`. The command below prints 64 hex characters and meets that minimum. Plain HTTP is allowed only on a loopback `--addr`; any other bind, including `:7777` (every interface), also needs `--tls-cert` and `--tls-key`. Requests with no `Origin` header are accepted, as are loopback origins (`localhost`, `127.0.0.1`, or `[::1]`, any port). Any other `Origin` is refused unless it is listed in `ABNORMAL_MCP_HTTP_ALLOWED_ORIGINS`, a comma-separated list of `scheme://host[:port]` values with no path. That list is not a CORS policy; the server does not emit CORS headers.
+
+```bash
+export ABNORMAL_MCP_HTTP_TOKEN="$(openssl rand -hex 32)"
+abnormal-mcp --transport http
+```
+
+Set `ABNORMAL_MCP_READ_ONLY=1` (exactly `1`) to drop mirrored commands that are not marked read-only and make the raw execute tool refuse state-changing calls. Commands marked local-write, which write only this CLI's own learn store, stay available.
+
 ## Authentication
 
-Mint a REST API token in the Abnormal portal under Settings → Integrations → Abnormal REST API, then export it as `ABNORMAL_API_TOKEN`. Abnormal enforces IP allowlisting on the integration: add your egress IP in the same portal screen or every call returns 403. EU tenants must point the CLI at the EU host: `export ABNORMAL_BASE_URL=https://eu.rest.abnormalsecurity.com/v1`. You can also store the token with `abnormal-cli auth set-token <token>` and inspect it with `abnormal-cli auth status`.
+Mint a REST API token in the Abnormal portal under Settings → Integrations → Abnormal REST API, then export it as `ABNORMAL_API_TOKEN`. Abnormal enforces IP allowlisting on the integration: add your egress IP in the same portal screen or every call returns 403. EU tenants must point the CLI at the EU host: `export ABNORMAL_BASE_URL=https://eu.rest.abnormalsecurity.com/v1`. You can also store the token by piping it to `abnormal-cli auth set-token` (it reads stdin, never an argument) and check it with the auth status command.
 
 ## Quick Start
 
@@ -120,8 +129,6 @@ abnormal-cli report-snapshot --since 30d
 
 ## Unique Features
 
-These capabilities aren't available in any other tool for this API.
-
 ### SOC triage that compounds
 - **`triage`**  -  Surface the newest, highest-severity, still-unremediated threats first so an analyst starts the shift on what actually matters.
 
@@ -135,7 +142,7 @@ These capabilities aren't available in any other tool for this API.
   _Use this when a remediation must be confirmed done, not just submitted  -  exit code 0 means the action completed._
 
   ```bash
-  abnormal-cli remediate-watch "threat" 184712ab-6d8b-47b3-89d7-a314efef23ff --timeout 5m
+  abnormal-cli remediate-watch threat 184712ab-6d8b-47b3-89d7-a314efef23ff --timeout 5m
   ```
 
 ### Reporting and onboarding
@@ -167,11 +174,10 @@ These capabilities aren't available in any other tool for this API.
   _Use this when a vendor's emails look suspicious to see their whole relationship and case history at once._
 
   ```bash
-  abnormal-cli vendor-risk acme-supplies.com --agent
+  abnormal-cli vendor-risk supplier.example.com --agent
   ```
 
 ## Recipes
-
 
 ### Morning triage
 
@@ -184,7 +190,7 @@ Ranked unremediated threats from the local store, narrowed to the three fields a
 ### Remediate and confirm
 
 ```bash
-abnormal-cli remediate-watch "threat" 184712ab-6d8b-47b3-89d7-a314efef23ff --timeout 5m
+abnormal-cli remediate-watch threat 184712ab-6d8b-47b3-89d7-a314efef23ff --timeout 5m
 ```
 
 Submits the remediation and blocks until Abnormal reports a terminal action state  -  exit 0 means confirmed done.
@@ -208,7 +214,7 @@ The dashboard aggregations consolidated into CSV for pasting straight into a cli
 ### Vendor compromise check
 
 ```bash
-abnormal-cli vendor-risk acme-supplies.com --agent
+abnormal-cli vendor-risk supplier.example.com --agent
 ```
 
 Vendor details, recent activity, and open vendor cases joined into one investigation view.
@@ -216,6 +222,81 @@ Vendor details, recent activity, and open vendor cases joined into one investiga
 ## Usage
 
 Run `abnormal-cli --help` for the full command reference and flag list.
+
+## Paths & environment variables
+
+This CLI separates local files into four path kinds:
+
+| Kind | Contents |
+|------|----------|
+| `config` | User-editable settings such as `config.toml` and saved profiles |
+| `data` | Durable local data: `credentials.toml`, `data.db`, cookies, browser-session proof files, and other auth sidecars |
+| `state` | Runtime state such as persisted queries, jobs, and `teach.log` |
+| `cache` | Regenerable HTTP/cache files |
+
+Each kind resolves independently. The ladder is:
+
+1. Per-kind env var: `ABNORMAL_CONFIG_DIR`, `ABNORMAL_DATA_DIR`, `ABNORMAL_STATE_DIR`, or `ABNORMAL_CACHE_DIR`
+2. `--home <dir>` for this invocation
+3. `ABNORMAL_HOME` for a flat relocated root
+4. XDG env vars: `XDG_CONFIG_HOME`, `XDG_DATA_HOME`, `XDG_STATE_HOME`, `XDG_CACHE_HOME`
+5. Platform defaults matching existing installs
+
+For containers and agent sandboxes, prefer a single relocated root:
+
+```bash
+export ABNORMAL_HOME=/srv/abnormal
+abnormal-cli doctor
+```
+
+On Windows (PowerShell):
+
+```powershell
+$env:ABNORMAL_HOME = "C:\ProgramData\abnormal"
+abnormal-cli doctor
+```
+
+Under `ABNORMAL_HOME=/srv/abnormal`, the four dirs resolve to `/srv/abnormal/config`, `/srv/abnormal/data`, `/srv/abnormal/state`, and `/srv/abnormal/cache`.
+
+On Windows, set the same variable in PowerShell:
+
+```powershell
+$env:ABNORMAL_HOME = "C:\srv\abnormal"
+abnormal-cli doctor
+```
+
+Under `$env:ABNORMAL_HOME = "C:\srv\abnormal"`, the four dirs resolve to `C:\srv\abnormal\config`, `C:\srv\abnormal\data`, `C:\srv\abnormal\state`, and `C:\srv\abnormal\cache`.
+
+MCP servers do not receive CLI flags from the host. Put relocation in the host `env` block:
+
+```json
+{
+  "mcpServers": {
+    "abnormal": {
+      "command": "abnormal-mcp",
+      "env": {
+        "ABNORMAL_HOME": "/srv/abnormal"
+      }
+    }
+  }
+}
+```
+
+Precedence matters in fleets: an ambient per-kind variable such as `ABNORMAL_DATA_DIR` overrides an explicit `--home` for that kind. Use `ABNORMAL_HOME` or the per-kind variables for durable fleet relocation; treat `--home` as the weaker per-invocation lever.
+
+Relocation is one-way. Unsetting `ABNORMAL_HOME` does not move files back to platform defaults, and `doctor` cannot find credentials left under a former root. Move the files manually before unsetting relocation variables.
+
+Existing installs keep working because the platform-default rung matches the legacy layout. On the first auth write, stored secrets leave `config.toml` and are consolidated into `credentials.toml` under the data directory. Run `abnormal-cli doctor --fail-on warn` to check path and credential-location warnings in automation.
+
+### Local data
+
+Reads are saved locally by default: in `--data-source auto` mode every successful read is also written to the SQLite store (`data.db`, or `data-<hash>.db` per credential) in the data directory. GET responses are never cached on disk. Credentials live in `credentials.toml` in the data directory. The learn journal lives under `learn/` in the state directory. `abnormal-cli doctor` prints the resolved paths, every store file, and the response-cache size.
+
+None of it is encrypted. New files are created owner-only; beyond that the data relies on OS account permissions and full-disk encryption (FileVault, BitLocker, LUKS).
+
+- **Erase it:** `abnormal-cli local-data purge` lists the store files, response cache, and learn journal it would delete; add `--yes` to delete them, or `--only store|cache|journal` to narrow it. Config and credentials are kept.
+- **Run without a local copy:** set `ABNORMAL_NO_LOCAL_DATA=1`. Reads go to the API (`--data-source live`; `--data-source local` still reads an existing store), the response cache is off (`--no-cache`), nothing new is written to the store, and `sync` and `workflow archive` refuse to run. Set it in an MCP host's `env` block and every command the server runs inherits it.
+- **Choose the read source without flags:** `ABNORMAL_DATA_SOURCE=auto|live|local` sets the `--data-source` default; an explicit flag wins.
 
 ## Commands
 
@@ -446,6 +527,61 @@ API to manage Vendorbase and threats from Vendors
 - **`abnormal-cli vendors`** - Get a list of vendors your organization has interacted with
 
 
+### employee-risk
+
+
+- **`abnormal-cli employee-risk`** - One account-takeover risk picture per employee: profile, Genome identity analysis, 30-day login pattern, and open cases naming them.
+
+
+### remediate-watch
+
+
+- **`abnormal-cli remediate-watch`** - Remediate a threat or case and block until Abnormal reports the action reached a terminal state, with a typed exit code and receipt.
+
+
+### report-snapshot
+
+
+- **`abnormal-cli report-snapshot`** - Pull the key dashboard aggregations  -  attacks seen, attacks stopped, impersonation breakdowns, trending attacks  -  into one client-ready table or CSV.
+
+
+### smoke
+
+
+- **`abnormal-cli smoke`** - Verify token, base URL (US/EU), and IP allowlist reachability using Abnormal's vendor-supplied test payloads  -  without touching real tenant data.
+
+
+### triage
+
+
+- **`abnormal-cli triage`** - Surface the newest, highest-severity, still-unremediated threats first so an analyst starts the shift on what actually matters.
+
+
+### vendor-risk
+
+
+- **`abnormal-cli vendor-risk`** - One vendor-email-compromise picture per vendor: details, recent activity, and open vendor cases.
+
+
+
+
+### Self-learning loop
+
+This CLI caches per-question discovery so repeat queries skip the walk and structurally similar queries get answered via entity substitution. The loop also self-captures: every invocation is journaled locally, and failed-flag corrections plus fresh teaches surface as candidates on the next `recall` for confirm/reject judgment. Agents call `recall` before discovery and fire `teach &` after answering. See the `## Automatic learning` section in `SKILL.md` for the full protocol.
+
+- **`abnormal-cli recall <query>`** - Look up cached resources for a query before running discovery
+- **`abnormal-cli teach`** - Record a query -> resource mapping (silent on success, safe to background with `&`)
+- **`abnormal-cli learnings list`** - Inspect taught rows
+- **`abnormal-cli learnings forget <query>`** - Undo a teach
+- **`abnormal-cli learnings candidates`** - List auto-captured candidates awaiting confirm/reject
+- **`abnormal-cli learnings stats`** - Local loop metrics: recall hit rate, teach-to-reuse, playbook resolution, candidate counts
+- **`abnormal-cli teach-pattern`** - Install a query/resource template up front
+- **`abnormal-cli teach-lookup`** - Add an entity mapping (e.g. country code, team alias) for pattern substitution
+
+Pass `--no-learn` or set `ABNORMAL_NO_LEARN=true` to disable the loop for deterministic flows.
+
+The local store's schema version stamp is one-way: once this version of `abnormal-cli` opens the database, older binaries refuse it with a version error  -  upgrade the binary rather than downgrading.
+
 ## Output Formats
 
 ```bash
@@ -454,9 +590,8 @@ abnormal-cli abuse-mailbox
 
 # JSON for scripting and agents
 abnormal-cli abuse-mailbox --json
-
 # Filter to specific fields
-abnormal-cli abuse-mailbox --json --select id,name,status
+abnormal-cli abuse-mailbox --json --select abx_message_id,not_analyzed_reason,recipient
 
 # Dry run  -  show the request without sending
 abnormal-cli abuse-mailbox --dry-run
@@ -465,21 +600,23 @@ abnormal-cli abuse-mailbox --dry-run
 abnormal-cli abuse-mailbox --agent
 ```
 
+`--csv` prefixes a leading `'` on cells and header keys that start with `=`, `+`, `-`, `@`, a tab, or a line break (including fullwidth `＝＋－＠`) so a spreadsheet does not run them as formulas. Plain signed numbers such as `-5` and `+2.5e3` are left unchanged.
+
 ## Agent Usage
 
 This CLI is designed for AI agent consumption:
 
 - **Non-interactive** - never prompts, every input is a flag
 - **Pipeable** - `--json` output to stdout, errors to stderr
-- **Filterable** - `--select id,name` returns only fields you need
+- **Filterable** - `--select <field>[,<field>...]` returns only fields you need
 - **Previewable** - `--dry-run` shows the request without sending
 - **Explicit retries** - add `--idempotent` to create retries when a no-op success is acceptable
-- **Confirmable** - `--yes` for explicit confirmation of destructive actions
+- **Explicit confirmation** - `--agent` does not imply `--yes`; pass `--yes` separately only after the target, arguments, and side effects are clear
 - **Piped input** - write commands can accept structured input when their help lists `--stdin`
 - **Offline-friendly** - sync/search commands can use the local SQLite store when available
 - **Agent-safe by default** - no colors or formatting unless `--human-friendly` is set
 
-Exit codes: `0` success, `2` usage error, `3` not found, `4` auth error, `5` API error, `7` rate limited, `10` config error.
+Exit codes: `0` success, `2` usage error, `3` not found, `4` auth error, `5` API error, `6` partial failure, `7` rate limited, `10` config error.
 
 ## Health Check
 
@@ -491,9 +628,11 @@ Verifies configuration, credentials, and connectivity to the API.
 
 ## Configuration
 
-Config file: `~/.config/abnormal-cli/config.toml`
+Run `abnormal-cli doctor` to see the resolved config, data, state, and cache directories. The platform-default config path is `~/.config/abnormal-cli/config.toml` on macOS/Linux and `%USERPROFILE%\.config\abnormal-cli\config.toml` on Windows; `--home`, `ABNORMAL_HOME`, and per-kind env vars can relocate it.
 
 Static request headers can be configured under `headers`; per-command header overrides take precedence.
+
+`--ca-cert`, `ABNORMAL_CA_CERT`, or `ca_cert` adds a PEM CA bundle to the system trust roots. `--tls-server-name`, `ABNORMAL_TLS_SERVER_NAME`, or `tls_server_name` is the name checked against the certificate when the dialed address does not match it. Precedence is flag, then environment, then the config file. A config file other users can change does not supply these settings. Certificate verification failures are not retried.
 
 Environment variables:
 
@@ -504,6 +643,14 @@ Environment variables:
 ### agentcookie (optional)
 
 If you use agentcookie to sync secrets across machines, this CLI auto-adopts agentcookie-managed credentials with no extra setup. When the daemon writes to this CLI's config, `abnormal-cli doctor` reports `agentcookie: detected` and `auth-status` labels the source as `agentcookie`. Skip this section if you don't use agentcookie - the CLI works the same as any other.
+
+## Credential safety
+
+- The `Authorization: Bearer` token and every API request go only to the scheme, host and port of the configured base URL (`https://api.abnormalplatform.com/v1`, or `ABNORMAL_BASE_URL` for the EU host). A redirect to any other host is refused, so the token never reaches it.
+- Nothing the CLI or the MCP server prints, writes to a file or to the local store, or sends to a host other than the configured one can carry `ABNORMAL_API_TOKEN`, the stored or config-file token, or `ABNORMAL_MCP_HTTP_TOKEN`, in any encoding. The shared credential kit withholds the whole message, file write, store row or request, and prints "[credkit: withheld from <where>: it carried a credential this program holds]" in its place. Responses are never cached on disk.
+- A `--stdin` request body is held as a credential too, whole and line by line. A `--dry-run` preview of it is withheld, and so is an answer that repeats part of it (that write still happens). `feedback --stdin` is refused for the same reason: pass the note as an argument.
+- Credentials are stored only in `credentials.toml` and `config.toml`, both written mode 0600; `auth set-token` reads the token from stdin, never from an argument.
+- `--dry-run` sends nothing. Over MCP, a tool that changes something in Abnormal (`abnormal_execute`, `remediate_watch`, `import`) returns a preview and sends only with `confirm: true`, and a tool argument can never name a file to read or write.
 
 ## Troubleshooting
 **Authentication errors (exit code 4)**

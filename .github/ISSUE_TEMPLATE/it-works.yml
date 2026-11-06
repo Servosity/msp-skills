@@ -43,6 +43,8 @@ body:
         - cisco-duo
         - cisco-meraki
         - cisco-umbrella
+        - cloudally
+        - comet-backup
         - connectsecure
         - connectwise-automate
         - connectwise-control
@@ -54,8 +56,12 @@ body:
         - datagate
         - datto-bcdr
         - datto-rmm
+        - datto-saas
         - dnsfilter
+        - domain-cert-tracker
         - domotz
+        - dropsuite
+        - eset-protect
         - exchange-online
         - fortinet
         - google-workspace
@@ -66,9 +72,11 @@ body:
         - huntress
         - immybot
         - itglue
+        - jamf-pro
         - jira-service-management
         - kaseya-bms
         - kaseya-vsa
+        - keeper
         - knowbe4
         - levelio
         - liongard
@@ -110,13 +118,17 @@ body:
         - td-synnex
         - threatdown
         - threatlocker
+        - threecx
         - unifi-network
         - veeam
+        - vsphere
         - warranty
         - watchguard
+        - windows-server
         - wordpress
         - xero
         - zammad
+        - zoom-phone
         - other / not listed
     validations:
       required: true

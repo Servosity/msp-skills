@@ -1,7 +1,9 @@
 .PHONY: build test lint install clean
 
+BIN_EXT := $(if $(filter windows,$(shell go env GOOS)),.exe,)
+
 build:
-	go build -o bin/nerdio-cli ./cmd/nerdio-cli
+	go build -trimpath -o bin/nerdio-cli$(BIN_EXT) ./cmd/nerdio-cli
 
 test:
 	go test ./...
@@ -16,7 +18,7 @@ clean:
 	rm -rf bin/
 
 build-mcp:
-	go build -o bin/nerdio-mcp ./cmd/nerdio-mcp
+	go build -trimpath -o bin/nerdio-mcp$(BIN_EXT) ./cmd/nerdio-mcp
 
 install-mcp:
 	go install ./cmd/nerdio-mcp

@@ -61,7 +61,7 @@ func TestBuildOncallWho(t *testing.T) {
 	var res pdOncallWhoResult
 	res.Current = []pdOncallEntry{}
 	res.Next = []pdOncallEntry{}
-	buildOncallWho(oncalls, "EP1", "", fixedNow, &res)
+	buildOncallWho(oncalls, [][]string{{"EP1"}}, nil, fixedNow, &res)
 	if len(res.Current) != 2 {
 		t.Fatalf("current=%d, want 2 (Alice lvl1, Carol lvl2)", len(res.Current))
 	}

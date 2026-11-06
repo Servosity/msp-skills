@@ -1,0 +1,2026 @@
+{
+  "api_name": "abnormal",
+  "base_url": "https://api.abnormalplatform.com/v1",
+  "description": "The full Abnormal Security REST API as an agent-native CLI — with a local threat store, ranked SOC triage, and one-shot reporting no SOAR pack offers.",
+  "mcp_ready": "full",
+  "http_transport": "standard",
+  "mcp": {
+    "endpoint_tools": "hidden",
+    "orchestration": "code"
+  },
+  "auth": {
+    "type": "bearer_token",
+    "header": "Authorization",
+    "env_vars": [
+      "ABNORMAL_API_TOKEN"
+    ],
+    "env_var_specs": [
+      {
+        "name": "ABNORMAL_API_TOKEN",
+        "kind": "per_call",
+        "required": true,
+        "sensitive": true,
+        "inferred": true
+      }
+    ],
+    "key_url": "https://portal.abnormalsecurity.com/home/settings/integrations"
+  },
+  "required_headers": [],
+  "tools": [
+    {
+      "name": "abuse-mailbox_not-analyzed-retrieve",
+      "description": "Get a list of messages submitted to AI Security Mailbox (formerly known as Abuse Mailbox) that were not analyzed. Optional: start, end. Returns array of AbuseMailboxUnanalyzedMessage.",
+      "method": "GET",
+      "path": "/abuse_mailbox/not_analyzed",
+      "params": [
+        {
+          "name": "start",
+          "type": "string",
+          "location": "query",
+          "description": "The start of the datetime range, as an RFC 3339 timestamp, to fetch unanalyzed messages from. Defaults to 90 days before end."
+        },
+        {
+          "name": "end",
+          "type": "string",
+          "location": "query",
+          "description": "The end of the datetime range, as an RFC 3339 timestamp, to fetch unanalyzed messages from. Defaults to the current time."
+        }
+      ]
+    },
+    {
+      "name": "abusecampaigns_retrieve",
+      "description": "Get a list of campaigns submitted to AI Security Mailbox (formerly known as Abuse Mailbox). Optional: filter, sender, recipient (plus 7 more). Returns the PaginatedAbuseCampaings.",
+      "method": "GET",
+      "path": "/abusecampaigns",
+      "params": [
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "query",
+          "description": "Value must be of the format `filter={FILTER KEY} gte YYYY-MM-DDTHH:MM:SSZ lte YYYY-MM-DDTHH:MM:SSZ`. A `{FILTER KEY}` must be specified, and currently the keys `lastReportedTime` and `receivedTime` are supported for `/abusecampaigns`. At least one of `gte`/`lte` must be specified, with a datetime string following the `YYYY-MM-DDTHH:MM:SSZ` format. `lastReportedTime` defaults to the last 24h if unspecified. Do note that provided filter time is in UTC."
+        },
+        {
+          "name": "sender",
+          "type": "string",
+          "location": "query",
+          "description": "Filters threats based on the name or email address of the sender"
+        },
+        {
+          "name": "recipient",
+          "type": "string",
+          "location": "query",
+          "description": "Filters threats based on the name or email address of the recipient"
+        },
+        {
+          "name": "subject",
+          "type": "string",
+          "location": "query",
+          "description": "Filters threats based on the email subject"
+        },
+        {
+          "name": "reporter",
+          "type": "string",
+          "location": "query",
+          "description": "Filters threats based on the reporter name or email address"
+        },
+        {
+          "name": "attackType",
+          "type": "string",
+          "location": "query",
+          "description": "Filters threats based on the type of attack"
+        },
+        {
+          "name": "threatType",
+          "type": "string",
+          "location": "query",
+          "description": "Filters threats based on the type of threat"
+        },
+        {
+          "name": "pageSize",
+          "type": "int",
+          "location": "query",
+          "description": "Number of abuse campaigns shown on each page. Each page of data will have at most pageSize abuse campaign IDs."
+        },
+        {
+          "name": "pageNumber",
+          "type": "int",
+          "location": "query",
+          "description": "1-indexed page number to get a particular page of abuse campaigns. Has no effect if filter is not specified."
+        },
+        {
+          "name": "mock-data",
+          "type": "string",
+          "location": "header",
+          "description": "Returns test data if set to `True`"
+        }
+      ]
+    },
+    {
+      "name": "abusecampaigns_retrieve-2",
+      "description": "Get details of an abuse campaign. Required: campaign_id. Optional: mock-data (default: False). Returns the AbuseCampaignDetails.",
+      "method": "GET",
+      "path": "/abusecampaigns/{campaign_id}",
+      "params": [
+        {
+          "name": "campaign_id",
+          "type": "string",
+          "location": "path",
+          "description": "A UUID representing the abuse campaign id (e.g. 4c4a7a5e-1b2d-4f0a-9a43-6a0e5b7c2d11)",
+          "required": true
+        },
+        {
+          "name": "mock-data",
+          "type": "string",
+          "location": "header",
+          "description": "Returns test data if set to `True`"
+        }
+      ]
+    },
+    {
+      "name": "aggregations_attack-frequency-retrieve",
+      "description": "Retrieve the frequency of specific attack types for a given period. Optional: filter, source (default: all). Returns array of AttackFrequency.",
+      "method": "GET",
+      "path": "/aggregations/attack_frequency",
+      "params": [
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "query",
+          "description": "Value must be of the format `filter={FILTER KEY} gte YYYY-MM-DDTHH:MM:SSZ lte YYYY-MM-DDTHH:MM:SSZ`. A `{FILTER KEY}` must be specified, and currently the only keys that are supported for `/attack_frequency` are `receivedTime`. At least 1 of `gte`/`lte` must be specified, with a datetime string following the `YYYY-MM-DDTHH:MM:SSZ` format. If this parameter is omitted, the last 7 days of data will be returned."
+        },
+        {
+          "name": "source",
+          "type": "string",
+          "location": "query",
+          "description": "Filters attacks by frequency based on the source of detection."
+        }
+      ]
+    },
+    {
+      "name": "aggregations_attack-stopped-retrieve",
+      "description": "Retrieve aggregated counts of distinct attack types that were successfully stopped, including current and previous periods. Optional: filter, source (default: all). Returns array of AttackStopped.",
+      "method": "GET",
+      "path": "/aggregations/attack_stopped",
+      "params": [
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "query",
+          "description": "Value must be of the format `filter={FILTER KEY} gte YYYY-MM-DDTHH:MM:SSZ lte YYYY-MM-DDTHH:MM:SSZ`. A `{FILTER KEY}` must be specified, and currently the only keys that are supported for `/attack_stopped` are `receivedTime`. At least 1 of `gte`/`lte` must be specified, with a datetime string following the `YYYY-MM-DDTHH:MM:SSZ` format. If this parameter is omitted, the last 7 days of data will be returned."
+        },
+        {
+          "name": "source",
+          "type": "string",
+          "location": "query",
+          "description": "Filters attacks stopped based on the source of detection."
+        }
+      ]
+    },
+    {
+      "name": "aggregations_attack-strategy-breakdown-retrieve",
+      "description": "Retrieve the breakdown of attacks based on their strategy. Optional: filter, source (default: all). Returns array of AttackStrategyBreakdown.",
+      "method": "GET",
+      "path": "/aggregations/attack_strategy_breakdown",
+      "params": [
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "query",
+          "description": "Value must be of the format `filter={FILTER KEY} gte YYYY-MM-DDTHH:MM:SSZ lte YYYY-MM-DDTHH:MM:SSZ`. A `{FILTER KEY}` must be specified, and currently the only keys that are supported for `/attack_strategy_breakdown` are `receivedTime`. At least 1 of `gte`/`lte` must be specified, with a datetime string following the `YYYY-MM-DDTHH:MM:SSZ` format. If this parameter is omitted, the last 7 days of data will be returned."
+        },
+        {
+          "name": "source",
+          "type": "string",
+          "location": "query",
+          "description": "Filters attack strategy breakdown based on the source of detection."
+        }
+      ]
+    },
+    {
+      "name": "aggregations_attack-vector-breakdown-retrieve",
+      "description": "Retrieve the breakdown of attacks based on their vectors. Optional: filter, source (default: all). Returns array of AttackVectorBreakdown.",
+      "method": "GET",
+      "path": "/aggregations/attack_vector_breakdown",
+      "params": [
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "query",
+          "description": "Value must be of the format `filter={FILTER KEY} gte YYYY-MM-DDTHH:MM:SSZ lte YYYY-MM-DDTHH:MM:SSZ`. A `{FILTER KEY}` must be specified, and currently the only keys that are supported for `/attack_vector_breakdown` are `receivedTime`. At least 1 of `gte`/`lte` must be specified, with a datetime string following the `YYYY-MM-DDTHH:MM:SSZ` format. If this parameter is omitted, the last 7 days of data will be returned."
+        },
+        {
+          "name": "source",
+          "type": "string",
+          "location": "query",
+          "description": "Filters attack vector breakdown based on the source of detection."
+        }
+      ]
+    },
+    {
+      "name": "aggregations_attacker-origin-retrieve",
+      "description": "Retrieve the origin countries of attackers for a given period. Optional: filter, source (default: all). Returns array of AttackerOrigin.",
+      "method": "GET",
+      "path": "/aggregations/attacker_origin",
+      "params": [
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "query",
+          "description": "Value must be of the format `filter={FILTER KEY} gte YYYY-MM-DDTHH:MM:SSZ lte YYYY-MM-DDTHH:MM:SSZ`. A `{FILTER KEY}` must be specified, and currently the only keys that are supported for `/attacker_origin` are `receivedTime`. At least 1 of `gte`/`lte` must be specified, with a datetime string following the `YYYY-MM-DDTHH:MM:SSZ` format. If this parameter is omitted, the last 7 days of data will be returned."
+        },
+        {
+          "name": "source",
+          "type": "string",
+          "location": "query",
+          "description": "Filters attacker origins based on the source of detection."
+        }
+      ]
+    },
+    {
+      "name": "aggregations_dashboard-summary-retrieve",
+      "description": "Retrieve an aggregated summary of multiple security data points for the dashboard. Optional: filter, source (default: all). Returns array of DashboardSummary.",
+      "method": "GET",
+      "path": "/aggregations/dashboard_summary",
+      "params": [
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "query",
+          "description": "Value must be of the format `filter={FILTER KEY} gte YYYY-MM-DDTHH:MM:SSZ lte YYYY-MM-DDTHH:MM:SSZ`. A `{FILTER KEY}` must be specified, and currently the only keys that are supported for `/dashboard_summary` are `receivedTime`. At least 1 of `gte`/`lte` must be specified, with a datetime string following the `YYYY-MM-DDTHH:MM:SSZ` format. If this parameter is omitted, the last 7 days of data will be returned."
+        },
+        {
+          "name": "source",
+          "type": "string",
+          "location": "query",
+          "description": "Filters the dashboard summary based on the source of detection."
+        }
+      ]
+    },
+    {
+      "name": "aggregations_most-impersonated-employee-non-vip-retrieve",
+      "description": "Retrieve the most impersonated non-VIP employees for a specified period. Optional: filter, source (default: all). Returns array of MostImpersonatedEmployeeNonVip.",
+      "method": "GET",
+      "path": "/aggregations/most_impersonated_employee_non_vip",
+      "params": [
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "query",
+          "description": "Value must be of the format `filter={FILTER KEY} gte YYYY-MM-DDTHH:MM:SSZ lte YYYY-MM-DDTHH:MM:SSZ`. A `{FILTER KEY}` must be specified, and currently the only keys that are supported for `/most_impersonated_employee_non_vip` are `receivedTime`. At least 1 of `gte`/`lte` must be specified, with a datetime string following the `YYYY-MM-DDTHH:MM:SSZ` format. If this parameter is omitted, the last 7 days of data will be returned."
+        },
+        {
+          "name": "source",
+          "type": "string",
+          "location": "query",
+          "description": "Filters impersonated non-VIP employees based on the source of detection."
+        }
+      ]
+    },
+    {
+      "name": "aggregations_most-impersonated-employee-retrieve",
+      "description": "Retrieve the most impersonated employees for a specified period. Optional: filter, source (default: all). Returns array of MostImpersonatedEmployee.",
+      "method": "GET",
+      "path": "/aggregations/most_impersonated_employee",
+      "params": [
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "query",
+          "description": "Value must be of the format `filter={FILTER KEY} gte YYYY-MM-DDTHH:MM:SSZ lte YYYY-MM-DDTHH:MM:SSZ`. A `{FILTER KEY}` must be specified, and currently the only keys that are supported for `/most_impersonated_employee` are `receivedTime`. At least 1 of `gte`/`lte` must be specified, with a datetime string following the `YYYY-MM-DDTHH:MM:SSZ` format. If this parameter is omitted, the last 7 days of data will be returned."
+        },
+        {
+          "name": "source",
+          "type": "string",
+          "location": "query",
+          "description": "Filters impersonated employees based on the source of detection."
+        }
+      ]
+    },
+    {
+      "name": "aggregations_most-impersonated-employee-vip-retrieve",
+      "description": "Retrieve the most impersonated VIP employees for a specified period. Optional: filter, source (default: all). Returns array of MostImpersonatedEmployeeVip.",
+      "method": "GET",
+      "path": "/aggregations/most_impersonated_employee_vip",
+      "params": [
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "query",
+          "description": "Value must be of the format `filter={FILTER KEY} gte YYYY-MM-DDTHH:MM:SSZ lte YYYY-MM-DDTHH:MM:SSZ`. A `{FILTER KEY}` must be specified, and currently the only keys that are supported for `/most_impersonated_employee_vip` are `receivedTime`. At least 1 of `gte`/`lte` must be specified, with a datetime string following the `YYYY-MM-DDTHH:MM:SSZ` format. If this parameter is omitted, the last 7 days of data will be returned."
+        },
+        {
+          "name": "source",
+          "type": "string",
+          "location": "query",
+          "description": "Filters impersonated VIP employees based on the source of detection."
+        }
+      ]
+    },
+    {
+      "name": "aggregations_most-impersonated-vendor-retrieve",
+      "description": "Retrieve a list of the most impersonated vendors in attacks. Optional: filter, source (default: all). Returns array of MostImpersonatedVendor.",
+      "method": "GET",
+      "path": "/aggregations/most_impersonated_vendor",
+      "params": [
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "query",
+          "description": "Value must be of the format `filter={FILTER KEY} gte YYYY-MM-DDTHH:MM:SSZ lte YYYY-MM-DDTHH:MM:SSZ`. A `{FILTER KEY}` must be specified, and currently the only keys that are supported for `/most_impersonated_vendor` are `receivedTime`. At least 1 of `gte`/`lte` must be specified, with a datetime string following the `YYYY-MM-DDTHH:MM:SSZ` format. If this parameter is omitted, the last 7 days of data will be returned."
+        },
+        {
+          "name": "source",
+          "type": "string",
+          "location": "query",
+          "description": "Filters the most impersonated vendor data based on the source of detection."
+        }
+      ]
+    },
+    {
+      "name": "aggregations_recipient-employees-non-vip-retrieve",
+      "description": "Retrieve a list of the non-VIP employees who were recipients of attacks, based on their job titles. Optional: filter, source (default: all). Returns array of RecipientEmployeeNonVip.",
+      "method": "GET",
+      "path": "/aggregations/recipient_employees_non_vip",
+      "params": [
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "query",
+          "description": "Value must be of the format `filter={FILTER KEY} gte YYYY-MM-DDTHH:MM:SSZ lte YYYY-MM-DDTHH:MM:SSZ`. A `{FILTER KEY}` must be specified, and currently the only keys that are supported for `/recipient_employees_non_vip` are `receivedTime`. At least 1 of `gte`/`lte` must be specified, with a datetime string following the `YYYY-MM-DDTHH:MM:SSZ` format. If this parameter is omitted, the last 7 days of data will be returned."
+        },
+        {
+          "name": "source",
+          "type": "string",
+          "location": "query",
+          "description": "Filters the recipient non-VIP employees data based on the source of detection."
+        }
+      ]
+    },
+    {
+      "name": "aggregations_recipient-employees-retrieve",
+      "description": "Retrieve a list of the employees who were recipients of attacks, based on their job titles. Optional: filter, source (default: all). Returns array of RecipientEmployee.",
+      "method": "GET",
+      "path": "/aggregations/recipient_employees",
+      "params": [
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "query",
+          "description": "Value must be of the format `filter={FILTER KEY} gte YYYY-MM-DDTHH:MM:SSZ lte YYYY-MM-DDTHH:MM:SSZ`. A `{FILTER KEY}` must be specified, and currently the only keys that are supported for `/recipient_employees` are `receivedTime`. At least 1 of `gte`/`lte` must be specified, with a datetime string following the `YYYY-MM-DDTHH:MM:SSZ` format. If this parameter is omitted, the last 7 days of data will be returned."
+        },
+        {
+          "name": "source",
+          "type": "string",
+          "location": "query",
+          "description": "Filters the recipient employees data based on the source of detection."
+        }
+      ]
+    },
+    {
+      "name": "aggregations_recipient-employees-vip-retrieve",
+      "description": "Retrieve a list of the VIP employees who were recipients of attacks, based on their job titles. Optional: filter, source (default: all). Returns array of RecipientEmployeeVip.",
+      "method": "GET",
+      "path": "/aggregations/recipient_employees_vip",
+      "params": [
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "query",
+          "description": "Value must be of the format `filter={FILTER KEY} gte YYYY-MM-DDTHH:MM:SSZ lte YYYY-MM-DDTHH:MM:SSZ`. A `{FILTER KEY}` must be specified, and currently the only keys that are supported for `/recipient_employees_vip` are `receivedTime`. At least 1 of `gte`/`lte` must be specified, with a datetime string following the `YYYY-MM-DDTHH:MM:SSZ` format. If this parameter is omitted, the last 7 days of data will be returned."
+        },
+        {
+          "name": "source",
+          "type": "string",
+          "location": "query",
+          "description": "Filters the recipient VIP employees data based on the source of detection."
+        }
+      ]
+    },
+    {
+      "name": "aggregations_sender-impersonation-breakdown-retrieve",
+      "description": "Retrieve a breakdown of attacks based on sender impersonation. Optional: filter, source (default: all). Returns array of SenderImpersonationBreakdown.",
+      "method": "GET",
+      "path": "/aggregations/sender_impersonation_breakdown",
+      "params": [
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "query",
+          "description": "Value must be of the format `filter={FILTER KEY} gte YYYY-MM-DDTHH:MM:SSZ lte YYYY-MM-DDTHH:MM:SSZ`. A `{FILTER KEY}` must be specified, and currently the only keys that are supported for `/sender_impersonation_breakdown` are `receivedTime`. At least 1 of `gte`/`lte` must be specified, with a datetime string following the `YYYY-MM-DDTHH:MM:SSZ` format. If this parameter is omitted, the last 7 days of data will be returned."
+        },
+        {
+          "name": "source",
+          "type": "string",
+          "location": "query",
+          "description": "Filters sender impersonation breakdown based on the source of detection."
+        }
+      ]
+    },
+    {
+      "name": "aggregations_trending-attacks-retrieve",
+      "description": "Retrieve the list of trending attacks for a specified period. Optional: filter, source (default: all). Returns array of TrendingAttacks.",
+      "method": "GET",
+      "path": "/aggregations/trending_attacks",
+      "params": [
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "query",
+          "description": "Value must be of the format `filter={FILTER KEY} gte YYYY-MM-DDTHH:MM:SSZ lte YYYY-MM-DDTHH:MM:SSZ`. A `{FILTER KEY}` must be specified, and currently the only keys that are supported for `/trending_attacks` are `receivedTime`. At least 1 of `gte`/`lte` must be specified, with a datetime string following the `YYYY-MM-DDTHH:MM:SSZ` format. If this parameter is omitted, the last 7 days of data will be returned."
+        },
+        {
+          "name": "source",
+          "type": "string",
+          "location": "query",
+          "description": "Filters trending attacks based on the source of detection."
+        }
+      ]
+    },
+    {
+      "name": "api_resources_resources-actions-create",
+      "description": "Execute a specific action on a resource (refresh or validate). Returns 202 Accepted with action ID for tracking. Required: resource_id, action.",
+      "method": "POST",
+      "path": "/resources/{resource_id}/actions",
+      "params": [
+        {
+          "name": "resource_id",
+          "type": "string",
+          "location": "path",
+          "description": "Unique identifier for the resource (e.g. res_42)",
+          "required": true
+        },
+        {
+          "name": "action",
+          "type": "string",
+          "location": "body",
+          "description": "Action",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "api_resources_resources-create-create",
+      "description": "Create a new resource with the specified name and optional description. Returns 201 Created with resource ID. Required: name. Optional: description.",
+      "method": "POST",
+      "path": "/resources/create",
+      "params": [
+        {
+          "name": "description",
+          "type": "string",
+          "location": "body",
+          "description": "Optional description of the resource"
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Name of the resource",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "api_resources_resources-retrieve",
+      "description": "Retrieve a paginated list of resources with optional filtering using pageSize and pageNumber query parameters. Optional: pageSize, pageNumber. Returns the ListResourcesResponse.",
+      "method": "GET",
+      "path": "/resources",
+      "params": [
+        {
+          "name": "pageSize",
+          "type": "int",
+          "location": "query",
+          "description": "Number of results to return per page (default: 20, max: 100)"
+        },
+        {
+          "name": "pageNumber",
+          "type": "int",
+          "location": "query",
+          "description": "Page number to retrieve (1-indexed, default: 1)"
+        }
+      ]
+    },
+    {
+      "name": "api_resources_resources-retrieve-2",
+      "description": "Retrieve detailed information about a specific resource by its UUID. Required: resource_id. Returns the GetResourceResponse.",
+      "method": "GET",
+      "path": "/resources/{resource_id}",
+      "params": [
+        {
+          "name": "resource_id",
+          "type": "string",
+          "location": "path",
+          "description": "Unique identifier for the resource (e.g. res_42)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "api_resources_resources-update-partial-update",
+      "description": "Partially update an existing resource's fields (PATCH). Provide only the fields that need updating. Required: resource_id. Optional: description. Returns the updated UpdateResourceResponse.",
+      "method": "PATCH",
+      "path": "/resources/{resource_id}/update",
+      "params": [
+        {
+          "name": "resource_id",
+          "type": "string",
+          "location": "path",
+          "description": "Unique identifier for the resource (e.g. res_42)",
+          "required": true
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "location": "body",
+          "description": "Updated description (can be empty string to clear)"
+        }
+      ]
+    },
+    {
+      "name": "auditlogs_retrieve",
+      "description": "Gets a list of Audit Logs for Portal. Optional: mock-data (default: False), filter, action (plus 5 more). Returns the AuditLogResponse.",
+      "method": "GET",
+      "path": "/auditlogs",
+      "params": [
+        {
+          "name": "mock-data",
+          "type": "string",
+          "location": "header",
+          "description": "Returns test data if set to `True`"
+        },
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "query",
+          "description": "Value must be of the format `filter={FILTER KEY} gte YYYY-MM-DDTHH:MM:SSZ lte YYYY-MM-DDTHH:MM:SSZ`. A `{FILTER KEY}` must be specified, and currently the only key that are supported for `/auditlogs` is `timestamp`. At least 1 of `gte`/`lte` must be specified, with a datetime string following the `YYYY-MM-DDTHH:MM:SSZ format`. We limit the results returned to the last 90 days and will default to that if no filter is supplied."
+        },
+        {
+          "name": "action",
+          "type": "string",
+          "location": "query",
+          "description": "Filters audit logs based on the action(s) taken. Accepts \u003e= 1 options in a space-delimited string. Example: `view_message_content`"
+        },
+        {
+          "name": "category",
+          "type": "string",
+          "location": "query",
+          "description": "Filters audit logs based on their category(ies).Accepts \u003e= 1 options in a space-delimited string. Example: `abuse_mailbox threat_log`"
+        },
+        {
+          "name": "status",
+          "type": "string",
+          "location": "query",
+          "description": "Filters audit logs based on their status"
+        },
+        {
+          "name": "sourceIp",
+          "type": "string",
+          "location": "query",
+          "description": "Filters audit logs based on their source IP address"
+        },
+        {
+          "name": "pageSize",
+          "type": "int",
+          "location": "query",
+          "description": "Number of audit logs that are on each page. Each page of data will have at most pageSize audit logs."
+        },
+        {
+          "name": "pageNumber",
+          "type": "int",
+          "location": "query",
+          "description": "1-indexed page number to get a particular page of audit logs."
+        }
+      ]
+    },
+    {
+      "name": "cases_create",
+      "description": "Account Takeover license is required to call this endpoint. Use this to update the status of an abnormal case. The action field is contains the new case status. Required: case_id, action. Optional: mock-data (default: False). Returns the new PostCaseResponse.",
+      "method": "POST",
+      "path": "/cases/{case_id}",
+      "params": [
+        {
+          "name": "case_id",
+          "type": "string",
+          "location": "path",
+          "description": "A string representing the case (e.g. 1234)",
+          "required": true
+        },
+        {
+          "name": "mock-data",
+          "type": "string",
+          "location": "header",
+          "description": "Returns test data if set to `True`"
+        },
+        {
+          "name": "action",
+          "type": "string",
+          "location": "body",
+          "description": "Action",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "cases_retrieve",
+      "description": "Get a list of Abnormal cases identified by Abnormal Security. Optional: filter, pageSize (default: 100), pageNumber (default: 1) (plus 1 more). Returns the PaginatedCases.",
+      "method": "GET",
+      "path": "/cases",
+      "params": [
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "query",
+          "description": "Value must be of the format `filter={FILTER KEY} gte YYYY-MM-DDTHH:MM:SSZ lte YYYY-MM-DDTHH:MM:SSZ`. A `{FILTER KEY}` must be specified, and currently the only key that is supported for `/cases` is `lastModifiedTime`. At least 1 of `gte`/`lte` must be specified, with a datetime string following the `YYYY-MM-DDTHH:MM:SSZ` format."
+        },
+        {
+          "name": "pageSize",
+          "type": "int",
+          "location": "query",
+          "description": "Number of cases that are on each page. Each page of data will have at most pageSize threats. Has no effect if filter is not specified."
+        },
+        {
+          "name": "pageNumber",
+          "type": "int",
+          "location": "query",
+          "description": "1-indexed page number to get a particular page of cases. Has no effect if filter is not specified."
+        },
+        {
+          "name": "mock-data",
+          "type": "string",
+          "location": "header",
+          "description": "Returns test data if set to `True`"
+        }
+      ]
+    },
+    {
+      "name": "cases_retrieve-2",
+      "description": "Account Takeover license is required to call this endpoint. Required: case_id. Optional: mock-data (default: False). Returns the AbnormalCaseDetails.",
+      "method": "GET",
+      "path": "/cases/{case_id}",
+      "params": [
+        {
+          "name": "case_id",
+          "type": "string",
+          "location": "path",
+          "description": "A string representing the case (e.g. 1234)",
+          "required": true
+        },
+        {
+          "name": "mock-data",
+          "type": "string",
+          "location": "header",
+          "description": "Returns test data if set to `True`"
+        }
+      ]
+    },
+    {
+      "name": "cases_actions_cases-retrieve",
+      "description": "Account Takeover license is required to call this endpoint. Required: case_id, action_id. Optional: mock-data (default: False). Returns the ActionStatus.",
+      "method": "GET",
+      "path": "/cases/{case_id}/actions/{action_id}",
+      "params": [
+        {
+          "name": "case_id",
+          "type": "string",
+          "location": "path",
+          "description": "A string representing the case (e.g. 1234)",
+          "required": true
+        },
+        {
+          "name": "action_id",
+          "type": "string",
+          "location": "path",
+          "description": "A UUID representing the action id for a case (e.g. 61e76395-40d3-4d78-b6a8-8b17634d0f5b)",
+          "required": true
+        },
+        {
+          "name": "mock-data",
+          "type": "string",
+          "location": "header",
+          "description": "Returns test data if set to `True`"
+        }
+      ]
+    },
+    {
+      "name": "cases_analysis_cases-retrieve",
+      "description": "Account Takeover license is required to call this endpoint. Required: case_id. Optional: mock-data (default: False). Returns the CaseAnalysis.",
+      "method": "GET",
+      "path": "/cases/{case_id}/analysis",
+      "params": [
+        {
+          "name": "case_id",
+          "type": "string",
+          "location": "path",
+          "description": "A string representing the case (e.g. 1234)",
+          "required": true
+        },
+        {
+          "name": "mock-data",
+          "type": "string",
+          "location": "header",
+          "description": "Returns test data if set to `True`"
+        }
+      ]
+    },
+    {
+      "name": "detection360_reports-create",
+      "description": "Use this to report a detection misclassification judgement by Abnormal Security. We use this data to improve our models, and also give customers transparency into the frequency of misclassifications. Optional: mock-data (default: False).",
+      "method": "POST",
+      "path": "/detection360/reports",
+      "params": [
+        {
+          "name": "mock-data",
+          "type": "string",
+          "location": "header",
+          "description": "Returns test data if set to `True`"
+        }
+      ]
+    },
+    {
+      "name": "detection360_reports-retrieve",
+      "description": "Get a list of Detection 360 reports that you have submitted and view corresponding details for each case, including report summaries, statuses, message analyses, and more. Required: inquiry_type. Optional: start, end, status. Returns array of Detection360Case.",
+      "method": "GET",
+      "path": "/detection360/reports",
+      "params": [
+        {
+          "name": "inquiry_type",
+          "type": "string",
+          "location": "query",
+          "description": "Whether to fetch missed attacks or false positives.",
+          "required": true
+        },
+        {
+          "name": "start",
+          "type": "string",
+          "location": "query",
+          "description": "The start of the datetime range, as an RFC 3339 timestamp, to fetch Detection 360 cases from. Defaults to 30 days before end."
+        },
+        {
+          "name": "end",
+          "type": "string",
+          "location": "query",
+          "description": "The end of the datetime range, as an RFC 3339 timestamp, to fetch Detection 360 cases from. Defaults to the current time."
+        },
+        {
+          "name": "status",
+          "type": "array",
+          "location": "query",
+          "description": "Only Detection 360 cases with these statuses will be retrieved. Defaults to all statuses."
+        }
+      ]
+    },
+    {
+      "name": "email_search_search-activities-retrieve",
+      "description": "List activity logs for search and remediation operations. Optionally filter by tenant_ids query parameter (e.g., ?tenant_ids=123\u0026tenant_ids=456). If tenant_ids is not provided, all authorized tenants are included. The tenant_ids must be a subset of the tenants authorized by the bearer token. Optional: tenant_ids, pageNumber, pageSize (plus 1 more). Returns array of ActivityLogEntry.",
+      "method": "GET",
+      "path": "/search/activities",
+      "params": [
+        {
+          "name": "tenant_ids",
+          "type": "string",
+          "location": "query",
+          "description": "Comma-separated list of tenant IDs to filter activities (e.g., '123,456' or '789'). If not provided, all authorized tenants are included."
+        },
+        {
+          "name": "pageNumber",
+          "type": "int",
+          "location": "query",
+          "description": "Page number for pagination (default: 1)"
+        },
+        {
+          "name": "pageSize",
+          "type": "int",
+          "location": "query",
+          "description": "Number of results per page (default: 100, max: 1000)"
+        },
+        {
+          "name": "action",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by remediation action (e.g., delete, move_to_inbox)"
+        }
+      ]
+    },
+    {
+      "name": "email_search_search-activities-status-retrieve",
+      "description": "Get detailed status of a specific activity including remediation results. Authorization is automatically determined by the bearer token - if the activity belongs to any tenant authorized by your token, you will be able to access it. The activity_log_id is returned in the response from the remediation endpoint. Required: activity_log_id. Returns the ActivityStatusResponse.",
+      "method": "GET",
+      "path": "/search/activities/{activity_log_id}/status",
+      "params": [
+        {
+          "name": "activity_log_id",
+          "type": "int",
+          "location": "path",
+          "description": "The activity log ID returned from the remediation request (use 'activity_log_id' field from remediation response) (e.g. 98765)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "email_search_search-create",
+      "description": "Search for email messages across Abnormal and Quarantine sources. Optionally filter by tenant_ids in the request body. If tenant_ids is not provided, all authorized tenants are searched. The tenant_ids must be a subset of the tenants authorized by the bearer token. **Key Filter Fields:** - `body_link`: Filter by URLs found in the email body (e.g., phishing links, suspicious domains) - `judgement`: Filter by threat classification. Values: 'attack' (confirmed threats), 'borderline' (suspicious but not confirmed), 'spam' (unwanted bulk email), 'graymail' (legitimate bulk email), 'safe' (benign messages) - `judgement_source`: Filter by detection source. Values: 'ABNORMAL_SYSTEM' (flagged by Abnormal's own detection), 'CUSTOMER_AI_MODEL' (flagged by a customer-defined Custom AI Model). Only supported for `source=abnormal` (not quarantine). Required: filters, source. Optional: pageNumber, pageSize, tenant_ids. Returns the new SearchResponse.",
+      "method": "POST",
+      "path": "/search",
+      "params": [
+        {
+          "name": "pageNumber",
+          "type": "int",
+          "location": "query",
+          "description": "Page number for pagination (default: 1)"
+        },
+        {
+          "name": "pageSize",
+          "type": "int",
+          "location": "query",
+          "description": "Number of results per page (default: 100, max: 1000)"
+        },
+        {
+          "name": "filters-attachment-md5-hash",
+          "wire_name": "filters.attachment_md5_hash",
+          "type": "string",
+          "location": "body",
+          "description": "Attachment md5 hash"
+        },
+        {
+          "name": "filters-attachment-name",
+          "wire_name": "filters.attachment_name",
+          "type": "string",
+          "location": "body",
+          "description": "Attachment name"
+        },
+        {
+          "name": "filters-body-link",
+          "wire_name": "filters.body_link",
+          "type": "string",
+          "location": "body",
+          "description": "Body link"
+        },
+        {
+          "name": "filters-end-time",
+          "wire_name": "filters.end_time",
+          "type": "string",
+          "location": "body",
+          "description": "End time in ISO 8601 format",
+          "required": true
+        },
+        {
+          "name": "filters-internet-message-id",
+          "wire_name": "filters.internet_message_id",
+          "type": "string",
+          "location": "body",
+          "description": "Internet message id"
+        },
+        {
+          "name": "filters-judgement",
+          "wire_name": "filters.judgement",
+          "type": "string",
+          "location": "body",
+          "description": "Judgement"
+        },
+        {
+          "name": "filters-judgement-source",
+          "wire_name": "filters.judgement_source",
+          "type": "string",
+          "location": "body",
+          "description": "Judgement source"
+        },
+        {
+          "name": "filters-judgement-source-model-ids",
+          "wire_name": "filters.judgement_source_model_ids",
+          "type": "string",
+          "location": "body",
+          "description": "Judgement source model ids"
+        },
+        {
+          "name": "filters-judgement-source-model-versions",
+          "wire_name": "filters.judgement_source_model_versions",
+          "type": "string",
+          "location": "body",
+          "description": "Judgement source model versions"
+        },
+        {
+          "name": "filters-recipient-email",
+          "wire_name": "filters.recipient_email",
+          "type": "string",
+          "location": "body",
+          "description": "Recipient email"
+        },
+        {
+          "name": "filters-recipient-name",
+          "wire_name": "filters.recipient_name",
+          "type": "string",
+          "location": "body",
+          "description": "Recipient name"
+        },
+        {
+          "name": "filters-sender-email",
+          "wire_name": "filters.sender_email",
+          "type": "string",
+          "location": "body",
+          "description": "Sender email"
+        },
+        {
+          "name": "filters-sender-ip",
+          "wire_name": "filters.sender_ip",
+          "type": "string",
+          "location": "body",
+          "description": "Sender ip"
+        },
+        {
+          "name": "filters-sender-name",
+          "wire_name": "filters.sender_name",
+          "type": "string",
+          "location": "body",
+          "description": "Sender name"
+        },
+        {
+          "name": "filters-start-time",
+          "wire_name": "filters.start_time",
+          "type": "string",
+          "location": "body",
+          "description": "Start time in ISO 8601 format",
+          "required": true
+        },
+        {
+          "name": "filters-subject",
+          "wire_name": "filters.subject",
+          "type": "string",
+          "location": "body",
+          "description": "Subject"
+        },
+        {
+          "name": "filters-use-recipient-regex",
+          "wire_name": "filters.use_recipient_regex",
+          "type": "bool",
+          "location": "body",
+          "description": "Use recipient regex"
+        },
+        {
+          "name": "filters-use-sender-regex",
+          "wire_name": "filters.use_sender_regex",
+          "type": "bool",
+          "location": "body",
+          "description": "Use sender regex"
+        },
+        {
+          "name": "source",
+          "type": "string",
+          "location": "body",
+          "description": "Source",
+          "required": true
+        },
+        {
+          "name": "tenant_ids",
+          "type": "string",
+          "location": "body",
+          "description": "Optional list of tenant IDs to filter the search. If not provided, all authorized tenants are included."
+        }
+      ]
+    },
+    {
+      "name": "email_search_search-messages-attachments-download-retrieve",
+      "description": "Download an email attachment for a given message. Required: message_id, attachment_name, tenant_id, raw_message_id, native_user_id, recipient_mailbox.",
+      "method": "GET",
+      "path": "/search/messages/attachments/download",
+      "params": [
+        {
+          "name": "message_id",
+          "type": "int",
+          "location": "query",
+          "description": "Message ID",
+          "required": true
+        },
+        {
+          "name": "attachment_name",
+          "type": "string",
+          "location": "query",
+          "description": "Name of the attachment to download",
+          "required": true
+        },
+        {
+          "name": "tenant_id",
+          "type": "int",
+          "location": "query",
+          "description": "Tenant ID",
+          "required": true
+        },
+        {
+          "name": "raw_message_id",
+          "type": "string",
+          "location": "query",
+          "description": "Raw message ID from cloud provider",
+          "required": true
+        },
+        {
+          "name": "native_user_id",
+          "type": "string",
+          "location": "query",
+          "description": "Native user ID from cloud provider",
+          "required": true
+        },
+        {
+          "name": "recipient_mailbox",
+          "type": "string",
+          "location": "query",
+          "description": "Recipient mailbox email address",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "email_search_search-messages-eml-retrieve",
+      "description": "Download the EML file for a specific message by cloud_message_id. Returns the EML file content as message/rfc822 format. For quarantine messages, provide both 'quarantineIdentity' and 'recipientMailbox' query parameters. Required: message_id. Optional: quarantineIdentity, recipientMailbox.",
+      "method": "GET",
+      "path": "/search/messages/{message_id}/eml",
+      "params": [
+        {
+          "name": "message_id",
+          "type": "string",
+          "location": "path",
+          "description": "The cloud_message_id from the Search API response (format: 'abx:CloudMessage:...'). Use the 'cloud_message_id' field from the search results (e.g. abx:CloudMessage:4551618356913732076)",
+          "required": true
+        },
+        {
+          "name": "quarantineIdentity",
+          "type": "string",
+          "location": "query",
+          "description": "Quarantine identity for quarantined messages. Required along with 'recipientMailbox' to download quarantine messages from S3 cache."
+        },
+        {
+          "name": "recipientMailbox",
+          "type": "string",
+          "location": "query",
+          "description": "Recipient mailbox email address for quarantined messages. Required along with 'quarantineIdentity' to download quarantine messages from S3 cache."
+        }
+      ]
+    },
+    {
+      "name": "email_search_search-remediate-create",
+      "description": "Remediate email messages by deleting, moving, or submitting them for review. Returns an `activity_log_id` that can be polled via the **Get Activity Status** endpoint. --- ## Two modes of operation **Specific messages** (`remediate_all=false`): Provide a `messages` list. Each entry must include `tenant_id`, `raw_message_id`, `mailbox_name`, `native_user_id`, `subject`, `sender`, and `received_time`. The response returns an `activity_log_id`; poll **Get Activity Status** to retrieve per-message results. **Bulk / remediate-all** (`remediate_all=true`): Provide `search_filters` instead of `messages`. All messages matching the filters are remediated asynchronously. The response returns an `activity_log_id`; poll **Get Activity Status** to track progress. --- ## Actions | `action` | Description | |---|---| | `delete` | Move messages to the provider's deleted items / recoverable items folder | | `move_to_inbox` | Move messages to a specified folder (requires `target_folder`) | To attach a Detection 360 case to a remediation, set `submit_d360_case: true` alongside any `action` above. --- ## Valid action / remediation_reason combinations | `action` | Allowed `remediation_reason` values | |---|---| | `delete` | `false_negative`, `unsolicited`, `other`, `groups_remediation` | | `move_to_inbox` | `quarantine_release`, `other`, `false_negative` | --- ## Validation rules - `search_filters` is **required** when `remediate_all=true`. - `messages` is **required** when `remediate_all=false`. - `target_folder` is **required** when `action=move_to_inbox`. - `remediation_reason=quarantine_release` is only valid when `source=quarantine`. - `search_filters.start_time` must be strictly before `search_filters.end_time`. - `use_sender_regex=true` in `search_filters` requires `sender_email` to be set. - `use_recipient_regex=true` in `search_filters` requires `recipient_email` to be set. - `submit_d360_case=true` requires `remediation_reason=false_negative`. Detection 360 only supports missed-attack inquiries today; other reasons are rejected at the API boundary. - `submit_d360_case=true` with `remediate_all=true` requires `search_filters.subject` to be set. - `submit_d360_case=true` with `messages` requires `abnormal_message_uuid` on every message. --- ## Tenant filtering Optionally provide `tenant_ids` to restrict remediation to a subset of tenants. If omitted, all tenants authorized by the bearer token are included. `tenant_ids` must be a subset of the tenants authorized by the bearer token. Required: action, remediation_reason, source. Optional: messages, remediate_all (default: false), search_filters (plus 3 more).",
+      "method": "POST",
+      "path": "/search/remediate",
+      "params": [
+        {
+          "name": "action",
+          "type": "string",
+          "location": "body",
+          "description": "Action",
+          "required": true
+        },
+        {
+          "name": "messages",
+          "type": "string",
+          "location": "body",
+          "description": "Messages"
+        },
+        {
+          "name": "remediate_all",
+          "type": "bool",
+          "location": "body",
+          "description": "Remediate all"
+        },
+        {
+          "name": "remediation_reason",
+          "type": "string",
+          "location": "body",
+          "description": "Remediation reason",
+          "required": true
+        },
+        {
+          "name": "search_filters",
+          "type": "string",
+          "location": "body",
+          "description": "Search filters"
+        },
+        {
+          "name": "source",
+          "type": "string",
+          "location": "body",
+          "description": "Source",
+          "required": true
+        },
+        {
+          "name": "submit_d360_case",
+          "type": "bool",
+          "location": "body",
+          "description": "Submit d360 case"
+        },
+        {
+          "name": "target_folder",
+          "type": "string",
+          "location": "body",
+          "description": "Target folder for move actions"
+        },
+        {
+          "name": "tenant_ids",
+          "type": "string",
+          "location": "body",
+          "description": "Optional list of tenant IDs to filter remediation. If not provided, all authorized tenants are included."
+        }
+      ]
+    },
+    {
+      "name": "employee_retrieve",
+      "description": "Get employee information. Required: email_address. Optional: mock-data (default: False). Returns the EmployeeDetails.",
+      "method": "GET",
+      "path": "/employee/{email_address}",
+      "params": [
+        {
+          "name": "mock-data",
+          "type": "string",
+          "location": "header",
+          "description": "Returns test data if set to `True`"
+        },
+        {
+          "name": "email_address",
+          "type": "string",
+          "location": "path",
+          "description": "Email address of the employee you want to retrieve data for (e.g. vip@example.com)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "employee_identity_employee-retrieve",
+      "description": "Get employee identity analysis (Genome) data. Required: email_address. Optional: mock-data (default: False). Returns array of EmployeeGenomeDetails.",
+      "method": "GET",
+      "path": "/employee/{email_address}/identity",
+      "params": [
+        {
+          "name": "mock-data",
+          "type": "string",
+          "location": "header",
+          "description": "Returns test data if set to `True`"
+        },
+        {
+          "name": "email_address",
+          "type": "string",
+          "location": "path",
+          "description": "Email address of the employee you want to retrieve data for (e.g. vip@example.com)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "employee_logins_employee-retrieve",
+      "description": "Get employee login information for last 30 days in csv format. Required: email_address. Optional: mock-data (default: False).",
+      "method": "GET",
+      "path": "/employee/{email_address}/logins",
+      "params": [
+        {
+          "name": "email_address",
+          "type": "string",
+          "location": "path",
+          "description": "Email address of the employee you want to retrieve data for (e.g. vip@example.com)",
+          "required": true
+        },
+        {
+          "name": "mock-data",
+          "type": "string",
+          "location": "header",
+          "description": "Returns test data if set to `True`"
+        }
+      ],
+      "header_overrides": [
+        {
+          "name": "Accept",
+          "value": "text/csv"
+        }
+      ]
+    },
+    {
+      "name": "messages_attachment_messages-download-retrieve",
+      "description": "Download the attachment in an email as a file. Required: message_id, attachment_name. Optional: mock-data (default: False).",
+      "method": "GET",
+      "path": "/messages/{message_id}/attachment/{attachment_name}/download",
+      "params": [
+        {
+          "name": "message_id",
+          "type": "float",
+          "location": "path",
+          "description": "The ABX Message Id of a message (e.g. 4551618356913732076)",
+          "required": true
+        },
+        {
+          "name": "attachment_name",
+          "type": "string",
+          "location": "path",
+          "description": "The attachment name of an attachment belonging to an email message (e.g. invoice.pdf)",
+          "required": true
+        },
+        {
+          "name": "mock-data",
+          "type": "string",
+          "location": "header",
+          "description": "Returns test data if set to `True`"
+        }
+      ],
+      "header_overrides": [
+        {
+          "name": "Accept",
+          "value": "application/octet-stream"
+        }
+      ]
+    },
+    {
+      "name": "messages_attachment_messages-retrieve",
+      "description": "Get details of an attachment in an email message. Required: message_id, attachment_name. Optional: mock-data (default: False). Returns the SoarAttachmentSignalsStruct.",
+      "method": "GET",
+      "path": "/messages/{message_id}/attachment/{attachment_name}",
+      "params": [
+        {
+          "name": "message_id",
+          "type": "float",
+          "location": "path",
+          "description": "The ABX Message Id of a message (e.g. 4551618356913732076)",
+          "required": true
+        },
+        {
+          "name": "attachment_name",
+          "type": "string",
+          "location": "path",
+          "description": "The attachment name of an attachment belonging to an email message (e.g. invoice.pdf)",
+          "required": true
+        },
+        {
+          "name": "mock-data",
+          "type": "string",
+          "location": "header",
+          "description": "Returns test data if set to `True`"
+        }
+      ]
+    },
+    {
+      "name": "messages_download_messages-retrieve",
+      "description": "Download the message contents in plaintext in the EML format. For security reasons, this API endpoint is disabled by default. Please talk to your customer specialist to get it enabled. Required: message_id.",
+      "method": "GET",
+      "path": "/messages/{message_id}/download",
+      "params": [
+        {
+          "name": "message_id",
+          "type": "float",
+          "location": "path",
+          "description": "The ABX Message Id of a message (e.g. 4551618356913732076)",
+          "required": true
+        }
+      ],
+      "header_overrides": [
+        {
+          "name": "Accept",
+          "value": "message/rfc822"
+        }
+      ]
+    },
+    {
+      "name": "messages_remediation-history_messages-retrieve",
+      "description": "Get details of the remediation history for a threat log message. Required: message_id. Returns the RemediationHistory.",
+      "method": "GET",
+      "path": "/messages/{message_id}/remediation_history",
+      "params": [
+        {
+          "name": "message_id",
+          "type": "float",
+          "location": "path",
+          "description": "The ABX Message Id of a message (e.g. 4551618356913732076)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "roles_retrieve",
+      "description": "Fetch all roles for an account from RBAC system. This endpoint retrieves a union of both account-specific roles and global (Abnormal-defined) roles for the authenticated account from the RBAC service. Optional: mock-data (default: False). Returns array of RoleSwagger.",
+      "method": "GET",
+      "path": "/roles",
+      "params": [
+        {
+          "name": "mock-data",
+          "type": "string",
+          "location": "header",
+          "description": "Returns test data if set to `True`"
+        }
+      ]
+    },
+    {
+      "name": "security-settings_retrieve",
+      "description": "Fetch security settings for an account. This endpoint retrieves security settings including session timeout configuration (inactivity timeout and max session time). Optional: mock-data (default: False). Returns the SecuritySettingsResponse.",
+      "method": "GET",
+      "path": "/security-settings",
+      "params": [
+        {
+          "name": "mock-data",
+          "type": "string",
+          "location": "header",
+          "description": "Returns test data if set to `True`"
+        }
+      ]
+    },
+    {
+      "name": "soar_tokens-retrieve",
+      "description": "Fetch all API tokens for the authenticated customer from the Go Token Management Service. This endpoint retrieves tokens with response format containing: - token_id: UUID of the token - name: Token name - version: Token version (v1 or v2) - status: Token status (active, expired, revoked) - created_at: ISO 8601 creation timestamp - expires_at: ISO 8601 expiration timestamp - permissions: List of permission strings (scope). Optional: mock-data (default: False), limit, offset (plus 2 more). Returns array of TokenSwagger.",
+      "method": "GET",
+      "path": "/soar/tokens",
+      "params": [
+        {
+          "name": "mock-data",
+          "type": "string",
+          "location": "header",
+          "description": "Returns test data if set to `True`"
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Maximum number of tokens to return (1-200, default 50)"
+        },
+        {
+          "name": "offset",
+          "type": "int",
+          "location": "query",
+          "description": "Pagination offset (default 0)"
+        },
+        {
+          "name": "show_all",
+          "type": "bool",
+          "location": "query",
+          "description": "Include expired/revoked tokens (default false)"
+        },
+        {
+          "name": "sort_by",
+          "type": "string",
+          "location": "query",
+          "description": "Sort field: created_at, -created_at, expires_at, -expires_at"
+        }
+      ]
+    },
+    {
+      "name": "spm-v2_posture-catalog-retrieve",
+      "description": "Get posture catalog containing all available abnormal supported postures. Optional: mock-data (default: False), pageSize (default: 100), pageNumber (default: 1). Returns array of PostureItem.",
+      "method": "GET",
+      "path": "/spm-v2/posture-catalog",
+      "params": [
+        {
+          "name": "mock-data",
+          "type": "string",
+          "location": "header",
+          "description": "Returns test data if set to `True`"
+        },
+        {
+          "name": "pageSize",
+          "type": "int",
+          "location": "query",
+          "description": "Number of items on each page."
+        },
+        {
+          "name": "pageNumber",
+          "type": "int",
+          "location": "query",
+          "description": "1-indexed page number to get a particular page of items. Has no effect if filter is not specified."
+        }
+      ]
+    },
+    {
+      "name": "spm-v2_postures-query-create",
+      "description": "Get a list of all tenant postures. Optional: mock-data (default: False), pageSize (default: 100), pageNumber (default: 1) (plus 7 more). Returns array of PostureListItem.",
+      "method": "POST",
+      "path": "/spm-v2/postures/query",
+      "params": [
+        {
+          "name": "mock-data",
+          "type": "string",
+          "location": "header",
+          "description": "Returns test data if set to `True`"
+        },
+        {
+          "name": "pageSize",
+          "type": "int",
+          "location": "query",
+          "description": "Number of items on each page."
+        },
+        {
+          "name": "pageNumber",
+          "type": "int",
+          "location": "query",
+          "description": "1-indexed page number to get a particular page of items. Has no effect if filter is not specified."
+        },
+        {
+          "name": "benchmarks",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Filter by security benchmarks"
+        },
+        {
+          "name": "last-evaluated-at-from-date",
+          "wire_name": "last_evaluated_at.from_date",
+          "type": "string",
+          "location": "body",
+          "description": "Start date for the range filter"
+        },
+        {
+          "name": "last-evaluated-at-to-date",
+          "wire_name": "last_evaluated_at.to_date",
+          "type": "string",
+          "location": "body",
+          "description": "End date for the range filter"
+        },
+        {
+          "name": "platform_type",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Filter by platform types"
+        },
+        {
+          "name": "posture_area",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Filter by posture areas"
+        },
+        {
+          "name": "posture_types",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Filter by posture types"
+        },
+        {
+          "name": "risk_levels",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Filter by risk levels"
+        },
+        {
+          "name": "statuses",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Filter by compliance statuses"
+        }
+      ]
+    },
+    {
+      "name": "spm-v2_postures-retrieve",
+      "description": "Get detailed information about a specific security posture evaluation. Required: posture_id. Optional: mock-data (default: False). Returns the PostureDetail.",
+      "method": "GET",
+      "path": "/spm-v2/postures/{posture_id}",
+      "params": [
+        {
+          "name": "posture_id",
+          "type": "int",
+          "location": "path",
+          "description": "Posture ID (e.g. 101)",
+          "required": true
+        },
+        {
+          "name": "mock-data",
+          "type": "string",
+          "location": "header",
+          "description": "Returns test data if set to `True`"
+        }
+      ]
+    },
+    {
+      "name": "spm-v2_postures-timeline-retrieve",
+      "description": "Get timeline of events for a specific security posture. Required: posture_id. Optional: mock-data (default: False), pageSize (default: 100), pageNumber (default: 1). Returns array of TimelineEntry.",
+      "method": "GET",
+      "path": "/spm-v2/postures/{posture_id}/timeline",
+      "params": [
+        {
+          "name": "posture_id",
+          "type": "int",
+          "location": "path",
+          "description": "Posture ID (e.g. 101)",
+          "required": true
+        },
+        {
+          "name": "mock-data",
+          "type": "string",
+          "location": "header",
+          "description": "Returns test data if set to `True`"
+        },
+        {
+          "name": "pageSize",
+          "type": "int",
+          "location": "query",
+          "description": "Number of items on each page."
+        },
+        {
+          "name": "pageNumber",
+          "type": "int",
+          "location": "query",
+          "description": "1-indexed page number to get a particular page of items. Has no effect if filter is not specified."
+        }
+      ]
+    },
+    {
+      "name": "spm-v2_reports-summary-retrieve",
+      "description": "Get summary report for all postures. Optional: mock-data (default: False). Returns array of Section.",
+      "method": "GET",
+      "path": "/spm-v2/reports/summary",
+      "params": [
+        {
+          "name": "mock-data",
+          "type": "string",
+          "location": "header",
+          "description": "Returns test data if set to `True`"
+        }
+      ]
+    },
+    {
+      "name": "spm-v2_workflow-logs-raw-json-retrieve",
+      "description": "Get raw JSON for a workflow log. Required: workflow_log_id, log_id. Optional: mock-data (default: False). Returns the WorkflowLogRawJson.",
+      "method": "GET",
+      "path": "/spm-v2/workflow-logs/{workflow_log_id}/raw-json",
+      "params": [
+        {
+          "name": "workflow_log_id",
+          "type": "int",
+          "location": "path",
+          "description": "Workflow log ID (e.g. 2024)",
+          "required": true
+        },
+        {
+          "name": "log_id",
+          "wire_name": "workflow_log_id",
+          "type": "int",
+          "location": "query",
+          "description": "Workflow log ID, sent as the workflow_log_id query parameter; pass the same ID as the path (e.g. 2024)",
+          "required": true
+        },
+        {
+          "name": "mock-data",
+          "type": "string",
+          "location": "header",
+          "description": "Returns test data if set to `True`"
+        }
+      ]
+    },
+    {
+      "name": "threats_create",
+      "description": "Use this to remediate or unremediate a threat. If the request is found to be something which can be processed, the server will return a '202 Accept' with an actionId and status URL in the response. This can be used to check the status of the request. Required: threat_id, action. Optional: mock-data (default: False). Returns the new PostThreatResponse.",
+      "method": "POST",
+      "path": "/threats/{threat_id}",
+      "params": [
+        {
+          "name": "threat_id",
+          "type": "string",
+          "location": "path",
+          "description": "A UUID representing the threat (e.g. 184712ab-6d8b-47b3-89d7-a314efef23ff)",
+          "required": true
+        },
+        {
+          "name": "mock-data",
+          "type": "string",
+          "location": "header",
+          "description": "Returns test data if set to `True`"
+        },
+        {
+          "name": "action",
+          "type": "string",
+          "location": "body",
+          "description": "Action",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "threats_retrieve",
+      "description": "Get a list of threats. Optional: filter, pageSize (default: 100), pageNumber (default: 1) (plus 10 more). Returns the PaginatedThreats.",
+      "method": "GET",
+      "path": "/threats",
+      "params": [
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "query",
+          "description": "Value must be of the format `filter={FILTER KEY} gte YYYY-MM-DDTHH:MM:SSZ lte YYYY-MM-DDTHH:MM:SSZ`. A `{FILTER KEY}` must be specified, and currently the keys that are supported for `/threats` are `receivedTime` and `latestTimeRemediated`. At least 1 of `gte`/`lte` must be specified, with a datetime string following the `YYYY-MM-DDTHH:MM:SSZ format`."
+        },
+        {
+          "name": "pageSize",
+          "type": "int",
+          "location": "query",
+          "description": "Number of threats on each page. Each page of data will have at most pageSize threats. Has no effect if filter is not specified."
+        },
+        {
+          "name": "pageNumber",
+          "type": "int",
+          "location": "query",
+          "description": "1-indexed page number to get a particular page of threats. Has no effect if filter is not specified."
+        },
+        {
+          "name": "mock-data",
+          "type": "string",
+          "location": "header",
+          "description": "Returns test data if set to `True`"
+        },
+        {
+          "name": "source",
+          "type": "string",
+          "location": "query",
+          "description": "Filters threats based on the source of detection. 'all' returns threats from all sources, 'spam' returns only spam threats, 'attacks' returns only attack threats, and 'borderline' returns only borderline threats."
+        },
+        {
+          "name": "sender",
+          "type": "string",
+          "location": "query",
+          "description": "Filters threats based on the name or email address of the sender"
+        },
+        {
+          "name": "recipient",
+          "type": "string",
+          "location": "query",
+          "description": "Filters threats based on the name or email address of the recipient"
+        },
+        {
+          "name": "subject",
+          "type": "string",
+          "location": "query",
+          "description": "Filters threats based on the email subject"
+        },
+        {
+          "name": "topic",
+          "type": "string",
+          "location": "query",
+          "description": "Filters threats based on the topic of email contents"
+        },
+        {
+          "name": "attackType",
+          "type": "string",
+          "location": "query",
+          "description": "Filters threats based on the type of attack"
+        },
+        {
+          "name": "attackVector",
+          "type": "string",
+          "location": "query",
+          "description": "Filters threats based on the attack vector"
+        },
+        {
+          "name": "attackStrategy",
+          "type": "string",
+          "location": "query",
+          "description": "Filters threats based on the attack strategy"
+        },
+        {
+          "name": "impersonatedParty",
+          "type": "string",
+          "location": "query",
+          "description": "Filters threats based on the impersonated party"
+        }
+      ]
+    },
+    {
+      "name": "threats_retrieve-2",
+      "description": "Get details of a threat. Required: threat_id. Optional: pageSize (default: 100), pageNumber (default: 1), mock-data (default: False). Returns the ThreatDetails.",
+      "method": "GET",
+      "path": "/threats/{threat_id}",
+      "params": [
+        {
+          "name": "pageSize",
+          "type": "int",
+          "location": "query",
+          "description": "Number of messages corresponding to threat in each page. Each page of data will have at most pageSize message. Total results returned cannot exceed 2000 due to database limitations"
+        },
+        {
+          "name": "pageNumber",
+          "type": "int",
+          "location": "query",
+          "description": "1-indexed page number to get a particular page of threat messages. Currently ignored, only 10 results for `messages` will show. Supported will be added in a future version. Total results returned cannot exceed 2000 due to database limitations"
+        },
+        {
+          "name": "threat_id",
+          "type": "string",
+          "location": "path",
+          "description": "A UUID representing the threat (e.g. 184712ab-6d8b-47b3-89d7-a314efef23ff)",
+          "required": true
+        },
+        {
+          "name": "mock-data",
+          "type": "string",
+          "location": "header",
+          "description": "Returns test data if set to `True`"
+        }
+      ]
+    },
+    {
+      "name": "threats_actions_threats-retrieve",
+      "description": "Check the status of an action requested on a threat. Required: threat_id, action_id. Optional: mock-data (default: False). Returns the ActionStatus.",
+      "method": "GET",
+      "path": "/threats/{threat_id}/actions/{action_id}",
+      "params": [
+        {
+          "name": "threat_id",
+          "type": "string",
+          "location": "path",
+          "description": "A UUID representing the threat (e.g. 184712ab-6d8b-47b3-89d7-a314efef23ff)",
+          "required": true
+        },
+        {
+          "name": "action_id",
+          "type": "string",
+          "location": "path",
+          "description": "A UUID representing the action id for a threat (e.g. 61e76395-40d3-4d78-b6a8-8b17634d0f5b)",
+          "required": true
+        },
+        {
+          "name": "mock-data",
+          "type": "string",
+          "location": "header",
+          "description": "Returns test data if set to `True`"
+        }
+      ]
+    },
+    {
+      "name": "threats_attachments_threats-retrieve",
+      "description": "Get attachment details of a threat campaign. Required: threat_id. Optional: mock-data (default: False). Returns the ThreatAttachmentsResponse.",
+      "method": "GET",
+      "path": "/threats/{threat_id}/attachments",
+      "params": [
+        {
+          "name": "threat_id",
+          "type": "string",
+          "location": "path",
+          "description": "A UUID representing the threat (e.g. 184712ab-6d8b-47b3-89d7-a314efef23ff)",
+          "required": true
+        },
+        {
+          "name": "mock-data",
+          "type": "string",
+          "location": "header",
+          "description": "Returns test data if set to `True`"
+        }
+      ]
+    },
+    {
+      "name": "threats_links_threats-retrieve",
+      "description": "Get information of links in a threat campagin. Required: threat_id. Optional: mock-data (default: False). Returns the ThreatLinksResponse.",
+      "method": "GET",
+      "path": "/threats/{threat_id}/links",
+      "params": [
+        {
+          "name": "threat_id",
+          "type": "string",
+          "location": "path",
+          "description": "A UUID representing the threat (e.g. 184712ab-6d8b-47b3-89d7-a314efef23ff)",
+          "required": true
+        },
+        {
+          "name": "mock-data",
+          "type": "string",
+          "location": "header",
+          "description": "Returns test data if set to `True`"
+        }
+      ]
+    },
+    {
+      "name": "threats-export_csv-retrieve",
+      "description": "Download data from Threat Log in .csv format. Optional: format, filter, mock-data (default: False) (plus 2 more).",
+      "method": "GET",
+      "path": "/threats_export/csv",
+      "params": [
+        {
+          "name": "format",
+          "type": "string",
+          "location": "query",
+          "description": "Format"
+        },
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "query",
+          "description": "Max time range is 14 days. If only one of the gte or lte filters are specified, the time range defaults to 1 day within the specified filter. If neither of the gte or lte filters are specified, the time range defaults to the previous date to the current date."
+        },
+        {
+          "name": "mock-data",
+          "type": "string",
+          "location": "header",
+          "description": "Returns test data if set to `True`"
+        },
+        {
+          "name": "source",
+          "type": "string",
+          "location": "query",
+          "description": "Filters threats based on the source of detection. 'all' returns threats from all sources, 'spam' returns only spam threats, 'attacks' returns only attack threats, and 'borderline' returns only borderline threats."
+        },
+        {
+          "name": "Accept",
+          "type": "string",
+          "location": "header",
+          "description": "Controls the response format. Use 'text/csv' to receive data in CSV format, or 'application/json' for JSON format (default)."
+        }
+      ],
+      "header_overrides": [
+        {
+          "name": "Accept",
+          "value": "text/csv"
+        }
+      ]
+    },
+    {
+      "name": "url-rewrite_clicked-events-retrieve",
+      "description": "Retrieve paginated click and clickthrough events for URL rewrites. Supports filtering by Unix time range, user email, and event type. Returns events where users clicked on rewritten URLs in email messages. Optional: limit, start, end (plus 3 more).",
+      "method": "GET",
+      "path": "/url-rewrite/clicked-events",
+      "params": [
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Number of results to return per page (default: 20, max: 100)"
+        },
+        {
+          "name": "start",
+          "type": "int",
+          "location": "query",
+          "description": "Start time of the time range to filter by (Unix timestamp)"
+        },
+        {
+          "name": "end",
+          "type": "int",
+          "location": "query",
+          "description": "End time of the time range to filter by (Unix timestamp)"
+        },
+        {
+          "name": "recipient",
+          "type": "string",
+          "location": "query",
+          "description": "Email address recipient of the email message to filter by"
+        },
+        {
+          "name": "event_type",
+          "type": "string",
+          "location": "query",
+          "description": "Event type to filter by (Click/Clickthrough)"
+        },
+        {
+          "name": "offset",
+          "type": "string",
+          "location": "query",
+          "description": "Offset to use for pagination"
+        }
+      ]
+    },
+    {
+      "name": "users_retrieve",
+      "description": "Retrieves users for an account from the RBAC user management system. Optional: mock-data (default: False). Returns array of UserSwagger.",
+      "method": "GET",
+      "path": "/users",
+      "params": [
+        {
+          "name": "mock-data",
+          "type": "string",
+          "location": "header",
+          "description": "Returns test data if set to `True`"
+        }
+      ]
+    },
+    {
+      "name": "vendor-cases_retrieve",
+      "description": "Get a list of vendor cases. Optional: filter, pageSize (default: 100), pageNumber (default: 1) (plus 1 more). Returns the PaginatedVendorCases.",
+      "method": "GET",
+      "path": "/vendor-cases",
+      "params": [
+        {
+          "name": "filter",
+          "type": "string",
+          "location": "query",
+          "description": "Value must be of the format `filter={FILTER KEY} gte YYYY-MM-DDTHH:MM:SSZ lte YYYY-MM-DDTHH:MM:SSZ`. A `{FILTER KEY}` must be specified, and currently the only keys that are supported for `/vendor-cases` are `firstObservedTime` and `lastModifiedTime`. At least 1 of `gte`/`lte` must be specified, with a datetime string following the `YYYY-MM-DDTHH:MM:SSZ format`."
+        },
+        {
+          "name": "pageSize",
+          "type": "int",
+          "location": "query",
+          "description": "Number of vendor cases that are on each page. Each page of data will have at most pageSize vendor cases. Has no effect if filter is not specified."
+        },
+        {
+          "name": "pageNumber",
+          "type": "int",
+          "location": "query",
+          "description": "1-indexed page number to get a particular page of vendor cases. Has no effect if filter is not specified."
+        },
+        {
+          "name": "mock-data",
+          "type": "string",
+          "location": "header",
+          "description": "Returns test data if set to `True`"
+        }
+      ]
+    },
+    {
+      "name": "vendor-cases_retrieve-2",
+      "description": "Get details of a vendor case. Required: case_id. Optional: mock-data (default: False). Returns the VendorCaseDetails.",
+      "method": "GET",
+      "path": "/vendor-cases/{case_id}",
+      "params": [
+        {
+          "name": "case_id",
+          "type": "string",
+          "location": "path",
+          "description": "The vendor case to query (e.g. 1234)",
+          "required": true
+        },
+        {
+          "name": "mock-data",
+          "type": "string",
+          "location": "header",
+          "description": "Returns test data if set to `True`"
+        }
+      ]
+    },
+    {
+      "name": "vendors_retrieve",
+      "description": "Get a list of vendors your organization has interacted with. Optional: pageSize (default: 100), pageNumber (default: 1), mock-data (default: False). Returns the PaginatedVendors.",
+      "method": "GET",
+      "path": "/vendors",
+      "params": [
+        {
+          "name": "pageSize",
+          "type": "int",
+          "location": "query",
+          "description": "Number of vendors that are on each page. Each page of data will have at most pageSize threats. Has no effect if filter is not specified."
+        },
+        {
+          "name": "pageNumber",
+          "type": "int",
+          "location": "query",
+          "description": "1-indexed page number to get a particular page of vendors. Has no effect if filter is not specified."
+        },
+        {
+          "name": "mock-data",
+          "type": "string",
+          "location": "header",
+          "description": "Returns test data if set to `True`"
+        }
+      ]
+    },
+    {
+      "name": "vendors_activity_vendors-retrieve",
+      "description": "Get activity of a vendor your organization has interacted with. Required: vendor_domain. Optional: mock-data (default: False). Returns array of VendorActivityEvent.",
+      "method": "GET",
+      "path": "/vendors/{vendor_domain}/activity",
+      "params": [
+        {
+          "name": "vendor_domain",
+          "type": "string",
+          "location": "path",
+          "description": "The vendor domain to query (e.g. supplier.example.com)",
+          "required": true
+        },
+        {
+          "name": "mock-data",
+          "type": "string",
+          "location": "header",
+          "description": "Returns test data if set to `True`"
+        }
+      ]
+    },
+    {
+      "name": "vendors_details_vendors-retrieve",
+      "description": "Get details of a vendor your organization has interacted with. Required: vendor_domain. Optional: mock-data (default: False). Returns the VendorDetail.",
+      "method": "GET",
+      "path": "/vendors/{vendor_domain}/details",
+      "params": [
+        {
+          "name": "vendor_domain",
+          "type": "string",
+          "location": "path",
+          "description": "The vendor domain to query (e.g. supplier.example.com)",
+          "required": true
+        },
+        {
+          "name": "mock-data",
+          "type": "string",
+          "location": "header",
+          "description": "Returns test data if set to `True`"
+        }
+      ]
+    }
+  ],
+  "novel_features": [
+    {
+      "name": "Morning triage queue",
+      "command": "triage",
+      "description": "Surface the newest, highest-severity, still-unremediated threats first so an analyst starts the shift on what actually matters."
+    },
+    {
+      "name": "Fire-and-confirm remediation",
+      "command": "remediate-watch",
+      "description": "Remediate a threat or case and block until Abnormal reports the action reached a terminal state, with a typed exit code and receipt."
+    },
+    {
+      "name": "Weekly reporting snapshot",
+      "command": "report-snapshot",
+      "description": "Pull the key dashboard aggregations — attacks seen, attacks stopped, impersonation breakdowns, trending attacks — into one client-ready table or CSV."
+    },
+    {
+      "name": "Employee risk profile",
+      "command": "employee-risk",
+      "description": "One account-takeover risk picture per employee: profile, Genome identity analysis, 30-day login pattern, and open cases naming them."
+    },
+    {
+      "name": "Vendor risk profile",
+      "command": "vendor-risk",
+      "description": "One vendor-email-compromise picture per vendor: details, recent activity, and open vendor cases."
+    },
+    {
+      "name": "Mock-data smoke test",
+      "command": "smoke",
+      "description": "Verify token, base URL (US/EU), and IP allowlist reachability using Abnormal's vendor-supplied test payloads — without touching real tenant data."
+    }
+  ]
+}

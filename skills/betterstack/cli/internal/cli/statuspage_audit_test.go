@@ -29,7 +29,7 @@ func TestAuditPagesLocal(t *testing.T) {
 			name:  "non-operational page with a matching open incident is consistent",
 			pages: []statusPageRow{{ID: "1", CompanyName: "Acme", AggregateState: "downtime"}},
 			incidents: []incidentRow{
-				{ID: "i1", Source: "m1", StartedAt: "2026-06-06T00:00:00Z"},
+				{ID: "i1", Source: "m1", MonitorID: "m1", StartedAt: "2026-06-06T00:00:00Z"},
 			},
 			wantLen: 0,
 		},
@@ -50,8 +50,12 @@ func TestAuditPageResources(t *testing.T) {
 		"m1": {ID: "m1", Name: "api"},
 		"m2": {ID: "m2", Name: "web", Paused: true},
 	}
-	open := map[string][]incidentRow{
-		"m1": {{ID: "i1", Source: "m1"}},
+	open := indexOpenIncidents([]incidentRow{
+		{ID: "i1", Source: "m1", MonitorID: "m1"},
+		{ID: "i2", Source: "backup job", HeartbeatID: "hb2"},
+	})
+	heartbeats := func() (map[string]heartbeatRow, error) {
+		return map[string]heartbeatRow{"hb2": {ID: "hb2", Name: "backup"}, "hb3": {ID: "hb3", Name: "report", Paused: true}}, nil
 	}
 	tests := []struct {
 		name     string
@@ -78,14 +82,37 @@ func TestAuditPageResources(t *testing.T) {
 			wantKind: "warning",
 		},
 		{
-			name:    "non-monitor resources are skipped",
-			entries: []pageResourceEntry{{ID: "r1", PublicName: "HB", Type: "Heartbeat", ResourceID: "hb1"}},
+			// Codex r1 (betterstack 4.34.2 reprint) class heartbeat-incidents-omitted:
+			// heartbeat entries were skipped.
+			name:     "operational page with open incident on a listed heartbeat is drift",
+			entries:  []pageResourceEntry{{ID: "r1", PublicName: "Backups", Type: "Heartbeat", ResourceID: "hb2"}},
+			wantLen:  1,
+			wantKind: "drift",
+		},
+		{
+			name:     "resource pointing at a missing heartbeat is a warning",
+			entries:  []pageResourceEntry{{ID: "r1", PublicName: "HB", Type: "Heartbeat", ResourceID: "hb1"}},
+			wantLen:  1,
+			wantKind: "warning",
+		},
+		{
+			name:     "paused heartbeat on a page is a warning",
+			entries:  []pageResourceEntry{{ID: "r1", PublicName: "Report", Type: "Heartbeat", ResourceID: "hb3"}},
+			wantLen:  1,
+			wantKind: "warning",
+		},
+		{
+			name:    "resources that are neither monitors nor heartbeats are skipped",
+			entries: []pageResourceEntry{{ID: "r1", PublicName: "Hook", Type: "WebhookIntegration", ResourceID: "w1"}},
 			wantLen: 0,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := auditPageResources(page, tt.entries, monitors, open)
+			got, err := auditPageResources(page, tt.entries, monitors, heartbeats, open)
+			if err != nil {
+				t.Fatal(err)
+			}
 			if len(got) != tt.wantLen {
 				t.Fatalf("findings = %d, want %d", len(got), tt.wantLen)
 			}

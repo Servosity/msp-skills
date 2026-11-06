@@ -1,0 +1,21 @@
+{
+  "name": "zoom-phone",
+  "version": "0.1.1",
+  "description": "Every Zoom Phone admin operation plus E911, routing and footprint audits, across every client account.",
+  "author": {
+    "name": "Servosity",
+    "url": "https://www.servosity.com"
+  },
+  "homepage": "https://github.com/servosity/msp-skills/tree/main/skills/zoom-phone",
+  "repository": "https://github.com/servosity/msp-skills",
+  "license": "Apache-2.0",
+  "keywords": [
+    "zoom-phone",
+    "zoom",
+    "telephony",
+    "msp",
+    "mcp",
+    "claude-code",
+    "claude-mcp"
+  ]
+}

@@ -58,12 +58,10 @@ Do not use this CLI for:
 
 ## Unique Capabilities
 
-These capabilities aren't available in any other tool for this API.
-
 ### Local state that compounds
-- **`session-triage`** - Group last night's failed maintenance actions by root cause instead of reading the same error on forty machines.
+- **`session-triage`** - Group the last window's failed maintenance actions by normalized root cause instead of reading the same error on forty machines.
 
-  _Reach for this first after any maintenance window: it turns N red machines into the handful of distinct problems actually worth a ticket._
+  _Reach for this first after any maintenance window: it turns N red machines into the handful of distinct problems worth a ticket._
 
   ```bash
   immybot-cli session-triage --since 24h --agent
@@ -75,9 +73,9 @@ These capabilities aren't available in any other tool for this API.
   ```bash
   immybot-cli version-spread "Google Chrome" --min-version 140 --agent
   ```
-- **`fleet-diff`** - What actually changed between two syncs: computers added or removed, software versions moved, assignments modified. Requires a local baseline: run `fleet-diff --snapshot` after a sync to record one (there is no updated-since cursor in the API), then compare with `--since`.
+- **`fleet-diff`** - What changed between two syncs: computers added or removed, software versions moved, assignments modified. Record a baseline with --snapshot after a sync, then compare with --since.
 
-  _Use this to answer "what changed since last night" without diffing two exports by hand._
+  _Use this to answer what changed since last night without diffing two exports by hand._
 
   ```bash
   immybot-cli fleet-diff --since 24h --agent
@@ -89,21 +87,42 @@ These capabilities aren't available in any other tool for this API.
   ```bash
   immybot-cli onboarding-stalled --older-than 3d --agent
   ```
+- **`drift`** - Per-tenant compliance posture across every software title, ranked by how far installed versions trail the newest version seen in the fleet.
+
+  _Use this for a whole-tenant compliance posture; use version-spread for one title._
+
+  ```bash
+  immybot-cli drift --tenant Contoso --agent
+  ```
+- **`computer-dossier`** - Identity, tenant, installed software and recent maintenance history for one computer, assembled from the local mirror in one pass.
+
+  _One call before touching a machine a client is asking about._
+
+  ```bash
+  immybot-cli computer-dossier 4821 --agent
+  ```
 
 ### Deployment resolution
 - **`assignment-explain`** - Show every target assignment that resolves onto one computer, which scope matched, and which rules are shadowed.
 
-  _Use this for any "why didn't this machine get X" question; it answers what a computer receives and why, which no single endpoint does._
+  _Use this for any why-didn't-this-machine-get-X question._
 
   ```bash
   immybot-cli assignment-explain 4821 --agent
   ```
-- **`script-blast-radius`** - Every maintenance task, software package, and computer that a script reaches before you edit it.
+- **`script-blast-radius`** - Every maintenance task, software package and computer that a script reaches before you edit it.
 
   _Run this before editing any shared script; it is the only way to see downstream reach across tenants._
 
   ```bash
   immybot-cli script-blast-radius 312 --agent
+  ```
+- **`deployment-health`** - Historical success rate per deployment, including ones that never worked.
+
+  _Find the deployments that have never once succeeded before a client asks why the software is missing._
+
+  ```bash
+  immybot-cli deployment-health --only-failing --agent
   ```
 
 ### Integration hygiene
@@ -114,6 +133,20 @@ These capabilities aren't available in any other tool for this API.
   ```bash
   immybot-cli psa-reconcile --provider 7 --agent
   ```
+- **`schedule-orphans`** - Maintenance schedules whose target, tenant or target type no longer exists, plus disabled schedules, from the local mirror.
+
+  _A schedule pointing at a deleted target still looks configured: this lists every one so a missed maintenance window is caught before a client notices._
+
+  ```bash
+  immybot-cli schedule-orphans --agent
+  ```
+- **`provider-link-health`** - Every RMM or PSA provider link that is disabled, unhealthy or reporting a sync failure, with the failure messages ImmyBot recorded.
+
+  _A broken provider link silently stops agent and client syncing; this is the check to run when computers stop appearing._
+
+  ```bash
+  immybot-cli provider-link-health --agent
+  ```
 
 ## Command Reference
 
@@ -121,8 +154,8 @@ These capabilities aren't available in any other tool for this API.
 
 - `immybot-cli access create-delete-azure-tenant-auth-details` - Create delete azure tenant auth details
 - `immybot-cli access create-request` - Create request
-- `immybot-cli access create-update-azure-tenant-auth-details` - Create update azure tenant auth details
-- `immybot-cli access get-get-azure-tenant-auth-details-by-azure-tenant-principal-id` - Get get azure tenant auth details by azure tenant principal id
+- `immybot-cli access create-update-azure-tenant-auth-details` - Create update azure tenant auth details (echoes the tenant's app registration secret back: CLI only, never cached or stored, never offered over MCP)
+- `immybot-cli access get-get-azure-tenant-auth-details-by-azure-tenant-principal-id` - Get get azure tenant auth details by azure tenant principal id (returns the tenant's app registration secret, shown as a withheld notice: CLI only, never cached or stored, never offered over MCP)
 - `immybot-cli access get-get-ip-addresses` - Get get ip addresses
 - `immybot-cli access get-me-permissions-by-permission-type-tenants` - Get me permissions by permission type tenants
 - `immybot-cli access list` - List
@@ -702,6 +735,80 @@ These capabilities aren't available in any other tool for this API.
 - `immybot-cli webhooks get-by-id` - Get by id
 
 
+**assignment-explain**
+
+
+- `immybot-cli assignment-explain` - Show every target assignment that resolves onto one computer, which scope matched, and which rules are shadowed.
+
+
+**computer-dossier**
+
+
+- `immybot-cli computer-dossier` - Identity, tenant, installed software and recent maintenance history for one computer, assembled from the local mirror in one pass.
+
+
+**deployment-health**
+
+
+- `immybot-cli deployment-health` - Historical success rate per deployment, including ones that never worked.
+
+
+**drift**
+
+
+- `immybot-cli drift` - Per-tenant compliance posture across every software title, ranked by how far installed versions trail the newest version seen in the fleet.
+
+
+**fleet-diff**
+
+
+- `immybot-cli fleet-diff` - What changed between two syncs: computers added or removed, software versions moved, assignments modified. Record a baseline with --snapshot after a sync, then compare with --since.
+
+
+**onboarding-stalled**
+
+
+- `immybot-cli onboarding-stalled` - Computers stuck waiting to onboard, bucketed by age and annotated with whether onboarding was ever attempted.
+
+
+**provider-link-health**
+
+
+- `immybot-cli provider-link-health` - Every RMM or PSA provider link that is disabled, unhealthy or reporting a sync failure, with the failure messages ImmyBot recorded.
+
+
+**psa-reconcile**
+
+
+- `immybot-cli psa-reconcile` - Diff the ImmyBot roster against a linked PSA or RMM asset roster to find unlinked computers and orphaned assets.
+
+
+**schedule-orphans**
+
+
+- `immybot-cli schedule-orphans` - Maintenance schedules whose target, tenant or target type no longer exists, plus disabled schedules, from the local mirror.
+
+
+**script-blast-radius**
+
+
+- `immybot-cli script-blast-radius` - Every maintenance task, software package and computer that a script reaches before you edit it.
+
+
+**session-triage**
+
+
+- `immybot-cli session-triage` - Group the last window's failed maintenance actions by normalized root cause instead of reading the same error on forty machines.
+
+
+**version-spread**
+
+
+- `immybot-cli version-spread` - Semver-ordered distribution of one software title across every tenant, flagging everything below a floor.
+
+
+
+
 ### Finding the right command
 
 When you know what you want to do but not which command does it, ask the CLI directly:
@@ -710,7 +817,7 @@ When you know what you want to do but not which command does it, ask the CLI dir
 immybot-cli which "<capability in your own words>"
 ```
 
-`which` resolves a natural-language capability query to the best matching command from this CLI's curated feature index. Exit code `0` means at least one match; exit code `2` means no confident match - fall back to `--help` or use a narrower query.
+`which` resolves a natural-language capability query to the best matching command from this CLI's curated feature index. Exit code `0` means at least one match; exit code `2` means no confident match - fall back to `--help` or use a narrower query. `--json` (and other machine formats) keep that exit-2 contract and write `{"matches":[]}` on stdout so agents can inspect the envelope without treating a miss as success.
 
 ## Recipes
 
@@ -756,13 +863,20 @@ Buckets the onboarding queue by age and shows whether an onboarding session was 
 
 ## Auth Setup
 
-ImmyBot authenticates through Microsoft Entra ID rather than an ImmyBot-issued key. Register an app in Entra ID, create a client secret, then in ImmyBot go to Show More > People > New and paste the Enterprise Application's object ID into the AD External ID field, promoting that person to an admin user. The CLI then needs four values: IMMYBOT_SUBDOMAIN (your instance name without .immy.bot), IMMYBOT_TENANT_ID, IMMYBOT_CLIENT_ID, and IMMYBOT_CLIENT_SECRET. The client-credentials token is minted against login.microsoftonline.com and cached automatically; the API scope is derived from your instance URL, and IMMYBOT_OAUTH_SCOPE overrides it if your tenant exposes a different App ID URI.
+ImmyBot authenticates through Microsoft Entra ID rather than an ImmyBot-issued key. Register an app in Entra ID, create a client secret, then in ImmyBot go to Show More > People > New and paste the Enterprise Application's object ID into the AD External ID field, promoting that person to an admin user. The CLI then needs four values: IMMYBOT_SUBDOMAIN (your instance name without .immy.bot), IMMYBOT_TENANT_ID, IMMYBOT_CLIENT_ID and IMMYBOT_CLIENT_SECRET. The client-credentials token is minted against login.microsoftonline.com and cached automatically; the API scope is derived from your instance URL, and IMMYBOT_OAUTH_SCOPE overrides it if your tenant exposes a different App ID URI.
 
 Run `immybot-cli doctor` to verify setup.
 
 ## Agent Mode
 
 Add `--agent` to any command. Expands to: `--json --compact --no-input --no-color`.
+
+Global format flags share one contract on promoted, novel, sync, and `--deliver` paths:
+
+- `--json` - one JSON document on stdout (sync progress events go to stderr)
+- `--compact` - keep identity/status/timestamp fields; does not change the document vs stream shape
+- `--csv` / `--plain` - tabular rows (collection envelopes unwrap to the row array). `--csv` prefixes `'` on a cell or header key that starts with `=`, `+`, `-`, `@`, tab, CR, or LF (fullwidth `＝＋－＠` too) so a spreadsheet does not run it as a formula; a plain signed number such as `-5` or `+2.5e3` is unchanged.
+- `--quiet` - one identity value per row, no envelope
 
 - **Pipeable** - JSON on stdout, errors on stderr
 - **Filterable** - `--select` keeps a subset of fields. Dotted paths descend into nested structures; arrays traverse element-wise. Critical for keeping context small on verbose APIs:
@@ -816,17 +930,27 @@ Agents should treat the CLI's path resolver as part of the runtime contract:
 
 Fleet precedence: an inherited per-kind env var overrides an explicit `--home` for that kind. Use `IMMYBOT_HOME` or per-kind vars as durable fleet levers, and use `--home` only for a single invocation. Relocation is not reversible by unsetting env vars; move files manually before clearing `IMMYBOT_HOME`, or `doctor` will not find credentials left under the former root.
 
+Local data is unencrypted and relies on OS account permissions plus disk encryption. Reads in the default `--data-source auto` mode are written to the SQLite store; GET responses are cached for five minutes under the cache dir. The exception is the two `access` auth-details commands, whose responses carry the tenant's app registration secret: they print to the terminal that asked and are never cached or stored. `local-data purge` previews what it would erase (store files, response cache, learn journal) and deletes only with `--yes`; it is not exposed over MCP. `IMMYBOT_NO_LOCAL_DATA=1` disables the response cache and store writes, turns `auto` reads into live reads, and blocks `sync` and `workflow archive`; `--data-source local` still reads an existing store, and `IMMYBOT_DATA_SOURCE` sets the `--data-source` default.
+
 ## Automatic learning
 
 This CLI ships a self-capturing learning loop. The CLI does its own bookkeeping: every invocation is journaled locally, a failed flag followed by a corrected retry auto-derives a `flag_alias` candidate, and a `teach` on a query family without a playbook auto-synthesizes a `playbook_candidate` from the session's journal. Your job is judgment only: `recall` first, act on surfaced candidates, `teach` the final answer, `playbook amend` when you observe a correction. You never record failures by hand.
 
 ### Step 1: `recall` before any discovery
 
-Before list/search/drill commands on a new user question, run:
+Before list/search/drill commands on a new user question, pass the question as an argv or MCP tool argument to `recall --agent`. Do not interpolate user-controlled text into a shell command line.
+
+Quoted `recall "<question>"` breaks on an apostrophe, which is ordinary English. A quoted heredoc breaks when a body line equals the delimiter, and that delimiter is published in these docs. Write the question with a non-shell file-writing tool, then read it back as data:
 
 ```bash
-immybot-cli recall "<user's question>" --agent
+# Write the question verbatim with your file-writing tool (no shell involved).
+# Command substitution on a file only ever yields data - the shell never
+# parses the file's bytes as syntax.
+QUERY=$(cat /path/to/question.txt)
+immybot-cli recall "$QUERY" --agent
 ```
+
+Prefer MCP: pass the question as the tool's query argument. `"$QUERY"` after a file read is argv-safe; putting the question itself in the command text is not.
 
 The response envelope:
 
@@ -930,10 +1054,11 @@ Graceful degradation: if `learnings confirm` is an unknown command, you are driv
 
 ### Step 4: `teach &` after finalizing your response - always
 
-Teaching is unconditional. After resolving a query the store could not answer, background-teach the final resource mapping - no call-count threshold, no judging whether it was "worth" learning. The teach is the anchor of the loop: it triggers playbook synthesis for a family without a playbook, and same-referent phrasings fold into one family so near-duplicate teaches do not fragment the store. Fire it after assembling your user-facing response but BEFORE emitting it, with a shell `&` so the call returns immediately:
+Teaching is unconditional. After resolving a query the store could not answer, background-teach the final resource mapping - no call-count threshold, no judging whether it was "worth" learning. The teach is the anchor of the loop: it triggers playbook synthesis for a family without a playbook, and same-referent phrasings fold into one family so near-duplicate teaches do not fragment the store. Fire it after assembling your user-facing response but BEFORE emitting it, with a shell `&` so the call returns immediately. Pass the query the same way as recall - argv/MCP, or file-then-`$QUERY`. Do not splice the question into the command text:
 
 ```bash
-immybot-cli teach --query "<user's question>" --resource-type <type> --resource <id1> --resource <id2>
+QUERY=$(cat /path/to/question.txt)
+immybot-cli teach --query "$QUERY" --resource-type <type> --resource <id1> --resource <id2>
 # (append shell `&` to background it)
 ```
 
@@ -947,16 +1072,18 @@ You do not need to decide whether a session "deserves" a playbook: a teach on a 
 
 ```bash
 # Common case: record both the resource learning AND the playbook in one call.
+QUERY=$(cat /path/to/question.txt)
 immybot-cli teach \
-  --query "<user's question>" \
+  --query "$QUERY" \
   --resource <id> \
   --playbook-file ~/playbooks/<shape>.json \
   --playbook-notes-file ~/playbooks/<shape>-notes.md
 # (append shell `&` to background it)
 
 # Alternate: playbook-only (no resource to record alongside).
+QUERY=$(cat /path/to/question.txt)
 immybot-cli teach-playbook \
-  --query "<user's question>" \
+  --query "$QUERY" \
   --playbook-file ~/playbooks/<shape>.json \
   --notes-file ~/playbooks/<shape>-notes.md
 ```
@@ -967,12 +1094,14 @@ When you DO find a playbook on a future recall, treat it as ground truth: replay
 
 ### Step 6: `playbook amend &` when your debug response identifies a correction
 
-If your debug-protocol response identifies a concrete correction the notes or playbook should know - a workaround, an undocumented endpoint shape, a stale field name, observed schema drift, an empty-payload fallback - fire `playbook amend` BEFORE emitting your user-facing response. Same fire-and-forget posture as `teach`.
+If your debug-protocol response identifies a concrete correction the notes or playbook should know - a workaround, an undocumented endpoint shape, a stale field name, observed schema drift, an empty-payload fallback - fire `playbook amend` BEFORE emitting your user-facing response. Same fire-and-forget posture as `teach`. Pass the query and note as argv/MCP arguments, or write each with a non-shell file tool and read them back (`QUERY=$(cat ...)`, `NOTE=$(cat ...)`). Do not interpolate either string into the command text:
 
 ```bash
+QUERY=$(cat /path/to/question.txt)
+NOTE=$(cat /path/to/note.txt)
 immybot-cli playbook amend \
-  --query "<exact recall query string>" \
-  --add-note "<your concrete correction>"
+  --query "$QUERY" \
+  --add-note "$NOTE"
 # (append shell `&` to background it)
 ```
 
@@ -1029,10 +1158,10 @@ Every command accepts `--deliver <sink>`. The output goes to the named sink in a
 | Sink | Effect |
 |------|--------|
 | `stdout` | Default; write to stdout only |
-| `file:<path>` | Atomically write output to `<path>` (tmp + rename) |
-| `webhook:<url>` | POST the output body to the URL (`application/json` or `application/x-ndjson` when `--compact`) |
+| `file:<path>` | Atomically write output to `<path>` as a private 0600 file (exclusive randomly named temp in the destination directory, then rename; a planted symlink is not followed). Binary-response commands write decoded payload bytes (not the base64 JSON envelope) and print a small JSON receipt on stdout; `--json`/`--csv` do not refuse when this sink is set. |
+| `webhook:<url>` | POST the output body to the URL (`application/json`). Redirects are not followed; a 3xx response fails the delivery and the body is not sent to the `Location`. |
 
-Unknown schemes are refused with a structured error naming the supported set. Webhook failures return non-zero and log the URL + HTTP status on stderr.
+Unknown schemes are refused with a structured error naming the supported set. Webhook failures, including redirects, return non-zero and log the URL and HTTP status on stderr.
 
 ## Named Profiles
 
@@ -1060,6 +1189,8 @@ For endpoints that submit long-running work, the generator detects the submit-th
 
 Use async submission without `--wait` when you want to fire-and-forget; use `--wait` when you want one command to return the finished artifact.
 
+If `--wait` times out or polling fails after the job was accepted, the command exits `8` and prints the job ID plus a recovery command that fetches the result. The job may still be running and may already be billed, so run the recovery command instead of resubmitting.
+
 ## Exit Codes
 
 | Code | Meaning |
@@ -1069,7 +1200,9 @@ Use async submission without `--wait` when you want to fire-and-forget; use `--w
 | 3 | Resource not found |
 | 4 | Authentication required |
 | 5 | API error (upstream issue) |
+| 6 | Partial failure |
 | 7 | Rate limited (wait and retry) |
+| 8 | Async job submitted but not finished (run the printed recovery command; do not resubmit) |
 | 10 | Config error |
 
 ## Argument Parsing
@@ -1082,13 +1215,14 @@ Parse `$ARGUMENTS`:
 
 ## MCP Server Installation
 
-Install the MCP binary from this CLI's published public-library entry or pre-built release, then register it:
+1. Install the MCP binary (run the install script from the Prerequisites section, or see [mcp-install.md](./mcp-install.md) for per-agent wire-up).
+2. Register with Claude Code:
+   ```bash
+   claude mcp add immybot-mcp -- immybot-mcp
+   ```
+3. Verify: `claude mcp list`
 
-```bash
-claude mcp add immybot-mcp -- immybot-mcp
-```
-
-Verify: `claude mcp list`
+For a remote host, `immybot-mcp --transport http` requires `IMMYBOT_MCP_HTTP_TOKEN` (callers send `Authorization: Bearer <token>`), serves `http://127.0.0.1:7777/mcp` by default, and needs `--tls-cert`/`--tls-key` for any non-loopback `--addr`. `IMMYBOT_MCP_READ_ONLY=1` lists only read-only tools: mirrored commands not marked read-only are dropped (the learn-store tools included), the execute and sync tools are removed, and the raw read tool refuses state-changing calls.
 
 ## Direct Use
 

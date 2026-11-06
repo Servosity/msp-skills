@@ -60,9 +60,7 @@ To install:
 2. Double-click the `.mcpb` file. Claude Desktop opens and walks you through the install.
 3. Fill in `KNOWBE4_API_KEY` when Claude Desktop prompts you.
 
-Requires Claude Desktop 1.0.0 or later. A bundle carries the five platform binaries the builder downloads - macOS (`darwin-arm64`, `darwin-amd64`), Linux (`linux-arm64`, `linux-amd64`) and Windows (`windows-amd64`). Windows on ARM is released as a standalone binary but is not bundled, so use the manual config below there.
-
-> **Claude Desktop bundle:** the `.mcpb` launches on macOS (Intel and Apple Silicon), Windows x64 and Linux x64. Every tool shells out to the companion `knowbe4-cli`. Releases cut from 2026-09-18 on ship that CLI inside the bundle; older bundles contain only the MCP server, so if yours lacks the companion, run the installer above first (or set `KNOWBE4_CLI_PATH` to an existing binary). Details: [#331](https://github.com/Servosity/msp-skills/issues/331).
+Requires Claude Desktop 1.0.0 or later. Pre-built bundles ship for macOS Apple Silicon (`darwin-arm64`) and Windows (`amd64`, `arm64`); for other platforms, use the manual config below.
 
 <details>
 <summary>Manual JSON config (advanced)</summary>
@@ -77,7 +75,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/sk
 iwr -useb https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/knowbe4/install.ps1 | iex            # Windows
 ```
 
-Add to your Claude Desktop config (`%APPDATA%\Claude\claude_desktop_config.json` on Windows, `~/Library/Application Support/Claude/claude_desktop_config.json` on macOS):
+Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS, `%APPDATA%\Claude\claude_desktop_config.json` on Windows):
 
 ```json
 {
@@ -94,6 +92,17 @@ Add to your Claude Desktop config (`%APPDATA%\Claude\claude_desktop_config.json`
 ```
 
 </details>
+
+### Remote MCP over HTTP
+
+`knowbe4-mcp --transport http` (or `PP_MCP_TRANSPORT=http`) serves streamable HTTP at `http://127.0.0.1:7777/mcp`. It refuses to start until `KNOWBE4_MCP_HTTP_TOKEN` is set to at least 32 characters, and every request must send `Authorization: Bearer <token>`. The command below prints 64 hex characters and meets that minimum. Plain HTTP is allowed only on a loopback `--addr`; any other bind, including `:7777` (every interface), also needs `--tls-cert` and `--tls-key`. Requests with no `Origin` header are accepted, as are loopback origins (`localhost`, `127.0.0.1`, or `[::1]`, any port). Any other `Origin` is refused unless it is listed in `KNOWBE4_MCP_HTTP_ALLOWED_ORIGINS`, a comma-separated list of `scheme://host[:port]` values with no path. That list is not a CORS policy; the server does not emit CORS headers.
+
+```bash
+export KNOWBE4_MCP_HTTP_TOKEN="$(openssl rand -hex 32)"
+knowbe4-mcp --transport http
+```
+
+Set `KNOWBE4_MCP_READ_ONLY=1` (exactly `1`) to drop mirrored commands that are not marked read-only and make the raw execute tool refuse state-changing calls. Commands marked local-write, which write only this CLI's own learn store, stay available.
 
 ## Authentication
 
@@ -123,8 +132,6 @@ knowbe4-cli qbr --since 90d --format md
 ```
 
 ## Unique Features
-
-These capabilities aren't available in any other tool for this API.
 
 ### Phishing behavior intelligence
 - **`repeat-clickers`**  -  Surface users who clicked the bait in two or more distinct phishing security tests within a window  -  your hardest-to-train humans.
@@ -208,7 +215,6 @@ These capabilities aren't available in any other tool for this API.
 
 ## Recipes
 
-
 ### Sync then hunt repeat clickers
 
 ```bash
@@ -268,6 +274,81 @@ Per-table sync freshness plus input-readiness for every cross-entity command - n
 ## Usage
 
 Run `knowbe4-cli --help` for the full command reference and flag list.
+
+## Paths & environment variables
+
+This CLI separates local files into four path kinds:
+
+| Kind | Contents |
+|------|----------|
+| `config` | User-editable settings such as `config.toml` and saved profiles |
+| `data` | Durable local data: `credentials.toml`, `data.db`, cookies, browser-session proof files, and other auth sidecars |
+| `state` | Runtime state such as persisted queries, jobs, and `teach.log` |
+| `cache` | Regenerable HTTP/cache files |
+
+Each kind resolves independently. The ladder is:
+
+1. Per-kind env var: `KNOWBE4_CONFIG_DIR`, `KNOWBE4_DATA_DIR`, `KNOWBE4_STATE_DIR`, or `KNOWBE4_CACHE_DIR`
+2. `--home <dir>` for this invocation
+3. `KNOWBE4_HOME` for a flat relocated root
+4. XDG env vars: `XDG_CONFIG_HOME`, `XDG_DATA_HOME`, `XDG_STATE_HOME`, `XDG_CACHE_HOME`
+5. Platform defaults matching existing installs
+
+For containers and agent sandboxes, prefer a single relocated root:
+
+```bash
+export KNOWBE4_HOME=/srv/knowbe4
+knowbe4-cli doctor
+```
+
+On Windows (PowerShell):
+
+```powershell
+$env:KNOWBE4_HOME = "C:\ProgramData\knowbe4"
+knowbe4-cli doctor
+```
+
+Under `KNOWBE4_HOME=/srv/knowbe4`, the four dirs resolve to `/srv/knowbe4/config`, `/srv/knowbe4/data`, `/srv/knowbe4/state`, and `/srv/knowbe4/cache`.
+
+On Windows, set the same variable in PowerShell:
+
+```powershell
+$env:KNOWBE4_HOME = "C:\srv\knowbe4"
+knowbe4-cli doctor
+```
+
+Under `$env:KNOWBE4_HOME = "C:\srv\knowbe4"`, the four dirs resolve to `C:\srv\knowbe4\config`, `C:\srv\knowbe4\data`, `C:\srv\knowbe4\state`, and `C:\srv\knowbe4\cache`.
+
+MCP servers do not receive CLI flags from the host. Put relocation in the host `env` block:
+
+```json
+{
+  "mcpServers": {
+    "knowbe4": {
+      "command": "knowbe4-mcp",
+      "env": {
+        "KNOWBE4_HOME": "/srv/knowbe4"
+      }
+    }
+  }
+}
+```
+
+Precedence matters in fleets: an ambient per-kind variable such as `KNOWBE4_DATA_DIR` overrides an explicit `--home` for that kind. Use `KNOWBE4_HOME` or the per-kind variables for durable fleet relocation; treat `--home` as the weaker per-invocation lever.
+
+Relocation is one-way. Unsetting `KNOWBE4_HOME` does not move files back to platform defaults, and `doctor` cannot find credentials left under a former root. Move the files manually before unsetting relocation variables.
+
+Existing installs keep working because the platform-default rung matches the legacy layout. On the first auth write, stored secrets leave `config.toml` and are consolidated into `credentials.toml` under the data directory. Run `knowbe4-cli doctor --fail-on warn` to check path and credential-location warnings in automation.
+
+### Local data
+
+Reads are saved locally by default: in `--data-source auto` mode every successful read is also written to the SQLite store (`data.db`, or `data-<hash>.db` per credential) in the data directory. GET responses are never cached on disk. Credentials live in `credentials.toml` in the data directory. The learn journal lives under `learn/` in the state directory. `knowbe4-cli doctor` prints the resolved paths, every store file, and the response-cache size.
+
+None of it is encrypted. New files are created owner-only; beyond that the data relies on OS account permissions and full-disk encryption (FileVault, BitLocker, LUKS).
+
+- **Erase it:** `knowbe4-cli local-data purge` lists the store files, response cache, and learn journal it would delete; add `--yes` to delete them, or `--only store|cache|journal` to narrow it. Config and credentials are kept.
+- **Run without a local copy:** set `KNOWBE4_NO_LOCAL_DATA=1`. Reads go to the API (`--data-source live`; `--data-source local` still reads an existing store), the response cache is off (`--no-cache`), nothing new is written to the store, and `sync` and `workflow archive` refuse to run. Set it in an MCP host's `env` block and every command the server runs inherits it.
+- **Choose the read source without flags:** `KNOWBE4_DATA_SOURCE=auto|live|local` sets the `--data-source` default; an explicit flag wins.
 
 ## Commands
 
@@ -341,6 +422,85 @@ Users in the KnowBe4 console  -  phish-prone percentage, current risk score, gro
 - **`knowbe4-cli users risk-score-history`** - Get a user's risk-score history time series
 
 
+### coverage-gaps
+
+
+- **`knowbe4-cli coverage-gaps`** - Find active users enrolled in zero phishing campaigns or zero training campaigns  -  the people your program silently misses.
+
+
+### freshness
+
+
+- **`knowbe4-cli freshness`** - See per-table sync freshness and whether the cross-entity commands have the data they need - before trusting a clicker hunt.
+
+
+### group-risk-contribution
+
+
+- **`knowbe4-cli group-risk-contribution`** - Attribute account-level risk movement to the specific groups (departments) driving it up or down.
+
+
+### phish-prone-trend
+
+
+- **`knowbe4-cli phish-prone-trend`** - Plot a group's phish-prone percentage across sequential phishing tests to show whether training is actually working.
+
+
+### qbr
+
+
+- **`knowbe4-cli qbr`** - One command that assembles the full quarterly review: risk trend, phish-prone trend, training completion, and the top-risk humans.
+
+
+### repeat-clickers
+
+
+- **`knowbe4-cli repeat-clickers`** - Surface users who clicked the bait in two or more distinct phishing security tests within a window  -  your hardest-to-train humans.
+
+
+### report-rate
+
+
+- **`knowbe4-cli report-rate`** - Rank users and groups by how often they report simulated phish versus falling for them - surfacing who never uses the Phish Alert Button.
+
+
+### risk-drift
+
+
+- **`knowbe4-cli risk-drift`** - Rank users and groups by how much their risk score worsened (or improved) between a prior snapshot and now.
+
+
+### risk-leaderboard
+
+
+- **`knowbe4-cli risk-leaderboard`** - Highest-risk users ranked, each enriched with click history, report rate, and overdue-training context.
+
+
+### untrained-clickers
+
+
+- **`knowbe4-cli untrained-clickers`** - Anti-join: users who clicked a phish but have no Passed training enrollment to show for it.
+
+
+
+
+### Self-learning loop
+
+This CLI caches per-question discovery so repeat queries skip the walk and structurally similar queries get answered via entity substitution. The loop also self-captures: every invocation is journaled locally, and failed-flag corrections plus fresh teaches surface as candidates on the next `recall` for confirm/reject judgment. Agents call `recall` before discovery and fire `teach &` after answering. See the `## Automatic learning` section in `SKILL.md` for the full protocol.
+
+- **`knowbe4-cli recall <query>`** - Look up cached resources for a query before running discovery
+- **`knowbe4-cli teach`** - Record a query -> resource mapping (silent on success, safe to background with `&`)
+- **`knowbe4-cli learnings list`** - Inspect taught rows
+- **`knowbe4-cli learnings forget <query>`** - Undo a teach
+- **`knowbe4-cli learnings candidates`** - List auto-captured candidates awaiting confirm/reject
+- **`knowbe4-cli learnings stats`** - Local loop metrics: recall hit rate, teach-to-reuse, playbook resolution, candidate counts
+- **`knowbe4-cli teach-pattern`** - Install a query/resource template up front
+- **`knowbe4-cli teach-lookup`** - Add an entity mapping (e.g. country code, team alias) for pattern substitution
+
+Pass `--no-learn` or set `KNOWBE4_NO_LEARN=true` to disable the loop for deterministic flows.
+
+The local store's schema version stamp is one-way: once this version of `knowbe4-cli` opens the database, older binaries refuse it with a version error  -  upgrade the binary rather than downgrading.
+
 ## Output Formats
 
 ```bash
@@ -349,9 +509,8 @@ knowbe4-cli groups list
 
 # JSON for scripting and agents
 knowbe4-cli groups list --json
-
 # Filter to specific fields
-knowbe4-cli groups list --json --select id,name,status
+knowbe4-cli groups list --json --select id,name,group_type
 
 # Dry run  -  show the request without sending
 knowbe4-cli groups list --dry-run
@@ -360,13 +519,15 @@ knowbe4-cli groups list --dry-run
 knowbe4-cli groups list --agent
 ```
 
+`--csv` prefixes a leading `'` on cells and header keys that start with `=`, `+`, `-`, `@`, a tab, or a line break (including fullwidth `＝＋－＠`) so a spreadsheet does not run them as formulas. Plain signed numbers such as `-5` and `+2.5e3` are left unchanged.
+
 ## Agent Usage
 
 This CLI is designed for AI agent consumption:
 
 - **Non-interactive** - never prompts, every input is a flag
 - **Pipeable** - `--json` output to stdout, errors to stderr
-- **Filterable** - `--select id,name` returns only fields you need
+- **Filterable** - `--select <field>[,<field>...]` returns only fields you need
 - **Previewable** - `--dry-run` shows the request without sending
 - **Read-only by default** - this CLI does not create, update, delete, publish, send, or mutate remote resources
 - **Offline-friendly** - sync/search commands can use the local SQLite store when available
@@ -393,9 +554,11 @@ Verifies configuration, credentials, and connectivity to the API.
 
 ## Configuration
 
-Config file: `~/.config/knowbe4-cli/config.toml`
+Run `knowbe4-cli doctor` to see the resolved config, data, state, and cache directories. The platform-default config path is `~/.config/knowbe4-cli/config.toml` on macOS/Linux and `%USERPROFILE%\.config\knowbe4-cli\config.toml` on Windows; `--home`, `KNOWBE4_HOME`, and per-kind env vars can relocate it.
 
 Static request headers can be configured under `headers`; per-command header overrides take precedence.
+
+`--ca-cert`, `KNOWBE4_CA_CERT`, or `ca_cert` adds a PEM CA bundle to the system trust roots. `--tls-server-name`, `KNOWBE4_TLS_SERVER_NAME`, or `tls_server_name` is the name checked against the certificate when the dialed address does not match it. Precedence is flag, then environment, then the config file. A config file other users can change does not supply these settings. Certificate verification failures are not retried.
 
 Environment variables:
 
@@ -407,6 +570,14 @@ Environment variables:
 ### agentcookie (optional)
 
 If you use agentcookie to sync secrets across machines, this CLI auto-adopts agentcookie-managed credentials with no extra setup. When the daemon writes to this CLI's config, `knowbe4-cli doctor` reports `agentcookie: detected` and `auth-status` labels the source as `agentcookie`. Skip this section if you don't use agentcookie - the CLI works the same as any other.
+
+## Credential safety
+
+- The Reporting API key (`Authorization: Bearer <KNOWBE4_API_KEY>`) and every Reporting API request go only to the scheme, host and port of the configured base URL (`https://<region>.api.knowbe4.com/v1` built from `KNOWBE4_REGION`, default `us`, or `KNOWBE4_BASE_URL`). A redirect to any other host is refused, so the key never reaches it, and a region that is not a single host-name label is refused before anything is sent.
+- The User Event API key (`KNOWBE4_USER_EVENT_API_KEY`, used only by the `events` commands) goes only to the User Event API host for your region (`https://api.events.knowbe4.com`, or `https://api-<region>.events.knowbe4.com`; `KNOWBE4_USER_EVENT_BASE_URL` overrides it), with the same redirect refusal. Neither key is ever sent to the other API.
+- Both programs hold every credential they know from the first byte of output: both keys, the MCP HTTP token, and the credentials in `config.toml`, `credentials.toml` and the run profiles. Any output that would carry one of them, in any encoding, is replaced whole by a notice naming where it was going, for example "[credkit: withheld from stdout: it carried a credential this program holds]" (the sink is stdout, stderr, mcp, file, sqlite, outbound request or child process). A request that would carry a held credential to a host it does not belong to, over plain http, or across a redirect to another host is refused before it is sent. Responses are never cached on disk.
+- Only `credentials.toml` (mode 0600) holds a credential; `auth set-token` reads the key from stdin, never from an argument.
+- `--dry-run` sends nothing. Over MCP, `events_create` and `events_delete` (the only commands that change KnowBe4 data) return a preview and send only with `confirm: true`, and a tool argument can never name a file to read or write.
 
 ## Troubleshooting
 **Authentication errors (exit code 4)**
@@ -420,7 +591,7 @@ If you use agentcookie to sync secrets across machines, this CLI auto-adopts age
 - **401 Unauthorized on every call**  -  KNOWBE4_API_KEY is missing or is a non-Reporting key. Generate a Reporting API key in KSAT Account Settings -> API and re-export it.
 - **403 Forbidden / feature not enabled**  -  The Reporting API requires a Platinum, Diamond, or SAT Foundations/Advanced subscription. Confirm your tier with your KnowBe4 admin.
 - **Calls hit the wrong server or return no data**  -  Set KNOWBE4_REGION to match your console host (us, eu, ca, uk, de). The default is us.
-- **Transcendence commands return empty results**  -  Run `knowbe4-cli sync` first  -  repeat-clickers, untrained-clickers, and risk-leaderboard read the local store, including a hand-built per-PST recipient sync.
+- **Transcendence commands return empty results**  -  Run `knowbe4-cli sync` first (with phishing-tests, users or groups in scope): besides the tables it walks every synced phishing test's recipients into the store and takes a risk snapshot, and it fails if every recipient fetch failed. risk-drift and group-risk-contribution compare snapshots, so they need syncs on two different days. `knowbe4-cli freshness` shows what each command has to work with.
 - **events commands fail with 401**  -  The User Event API uses a separate key. Export KNOWBE4_USER_EVENT_API_KEY (User Event API Management Console -> API key).
 
 ## Sources & Inspiration

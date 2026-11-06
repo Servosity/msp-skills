@@ -1,0 +1,255 @@
+{
+  "api_name": "windows-server",
+  "base_url": "https://winrm.invalid",
+  "description": "Agentless Windows Server health checks over WinRM: one verdict per server, a diffable inventory, and no arbitrary PowerShell.",
+  "mcp_ready": "full",
+  "http_transport": "standard",
+  "auth": {
+    "type": "api_key",
+    "header": "Authorization",
+    "format": "Basic {WINDOWS_SERVER_USERNAME}:{WINDOWS_SERVER_PASSWORD}",
+    "env_vars": [
+      "WINDOWS_SERVER_USERNAME",
+      "WINDOWS_SERVER_PASSWORD"
+    ],
+    "env_var_specs": [
+      {
+        "name": "WINDOWS_SERVER_USERNAME",
+        "kind": "per_call",
+        "required": true,
+        "sensitive": false,
+        "description": "WinRM account name (a local or domain account in the server's Administrators group)"
+      },
+      {
+        "name": "WINDOWS_SERVER_PASSWORD",
+        "kind": "per_call",
+        "required": true,
+        "sensitive": true,
+        "description": "Password for the WinRM account"
+      }
+    ]
+  },
+  "required_headers": [],
+  "tools": [
+    {
+      "name": "certificates_list",
+      "description": "List certificates in a LocalMachine certificate store with expiry and days left. Optional: store (default: My), expiring_days. Returns array of Certificate.",
+      "method": "GET",
+      "path": "/certificates",
+      "params": [
+        {
+          "name": "store",
+          "type": "string",
+          "location": "query",
+          "description": "LocalMachine store to read (e.g. My)"
+        },
+        {
+          "name": "expiring_days",
+          "type": "int",
+          "location": "query",
+          "description": "Only certificates expiring within this many days, 1 to 3650 (e.g. 30)"
+        }
+      ]
+    },
+    {
+      "name": "defender_get",
+      "description": "Read whether Defender real-time protection is on and how old its signatures are. Returns the Defender.",
+      "method": "GET",
+      "path": "/defender",
+      "params": []
+    },
+    {
+      "name": "eventlog_list-event-log",
+      "description": "List recent critical, error and warning events from the System or Application log. Optional: log (default: System), hours (default: 24), level (default: warning) (plus 1 more). Returns array of EventRecord.",
+      "method": "GET",
+      "path": "/eventlog",
+      "params": [
+        {
+          "name": "log",
+          "type": "string",
+          "location": "query",
+          "description": "Event log to read (e.g. System)"
+        },
+        {
+          "name": "hours",
+          "type": "int",
+          "location": "query",
+          "description": "How many hours back to read, 1 to 720 (e.g. 24)"
+        },
+        {
+          "name": "level",
+          "type": "string",
+          "location": "query",
+          "description": "Lowest severity to include (e.g. warning)"
+        },
+        {
+          "name": "max",
+          "type": "int",
+          "location": "query",
+          "description": "Most events to return, 1 to 2000 (e.g. 200)"
+        }
+      ]
+    },
+    {
+      "name": "features_list",
+      "description": "List installed Windows Server roles, role services and features. Returns array of Feature.",
+      "method": "GET",
+      "path": "/features",
+      "params": []
+    },
+    {
+      "name": "hyperv_vms_list",
+      "description": "List Hyper-V virtual machines with state, uptime, checkpoints and replication health. Returns array of HypervVm.",
+      "method": "GET",
+      "path": "/hyperv-vms",
+      "params": []
+    },
+    {
+      "name": "installed_updates_list",
+      "description": "List installed Windows updates (hotfixes) with install date. Returns array of InstalledUpdate.",
+      "method": "GET",
+      "path": "/installed-updates",
+      "params": []
+    },
+    {
+      "name": "local_admins_list",
+      "description": "List the direct members of the local Administrators group with their SIDs. Returns array of LocalAdmin.",
+      "method": "GET",
+      "path": "/local-admins",
+      "params": []
+    },
+    {
+      "name": "pending_updates_list",
+      "description": "List software updates the Windows Update Agent finds applicable but not installed. Returns array of PendingUpdate.",
+      "method": "GET",
+      "path": "/pending-updates",
+      "params": []
+    },
+    {
+      "name": "scheduled_tasks_list",
+      "description": "List scheduled tasks with state, last run time and last result code. Optional: failed, include_microsoft (default: false). Returns array of ScheduledTask.",
+      "method": "GET",
+      "path": "/scheduled-tasks",
+      "params": [
+        {
+          "name": "failed",
+          "type": "bool",
+          "location": "query",
+          "description": "Only tasks whose last run returned a failure code (e.g. true)"
+        },
+        {
+          "name": "include_microsoft",
+          "type": "bool",
+          "location": "query",
+          "description": "Include the built-in tasks under Microsoft (e.g. false)"
+        }
+      ]
+    },
+    {
+      "name": "services_get",
+      "description": "Read one Windows service by its service name. Required: name. Returns the Service.",
+      "method": "GET",
+      "path": "/services/{name}",
+      "params": [
+        {
+          "name": "name",
+          "type": "string",
+          "location": "path",
+          "description": "Service name, not display name (e.g. Spooler)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "services_list",
+      "description": "List Windows services with state, start mode and service account. Optional: stopped_automatic, state, start_mode. Returns array of Service.",
+      "method": "GET",
+      "path": "/services",
+      "params": [
+        {
+          "name": "stopped_automatic",
+          "type": "bool",
+          "location": "query",
+          "description": "Only automatic-start services that are not running (e.g. true)"
+        },
+        {
+          "name": "state",
+          "type": "string",
+          "location": "query",
+          "description": "Only services in this state (e.g. Stopped)"
+        },
+        {
+          "name": "start_mode",
+          "type": "string",
+          "location": "query",
+          "description": "Only services with this start mode (e.g. Auto)"
+        }
+      ]
+    },
+    {
+      "name": "shares_list",
+      "description": "List SMB shares with path and whether each is an administrative share. Returns array of Share.",
+      "method": "GET",
+      "path": "/shares",
+      "params": []
+    },
+    {
+      "name": "system_get",
+      "description": "Read the server's operating system, last boot time, uptime and whether a reboot is pending. Returns the System.",
+      "method": "GET",
+      "path": "/system",
+      "params": []
+    },
+    {
+      "name": "time_sync_get",
+      "description": "Read the Windows Time service state, time source, stratum and last successful sync. Returns the TimeSync.",
+      "method": "GET",
+      "path": "/time-sync",
+      "params": []
+    },
+    {
+      "name": "volumes_list",
+      "description": "List fixed-disk volumes with size, free space and percent free. Returns array of Volume.",
+      "method": "GET",
+      "path": "/volumes",
+      "params": []
+    }
+  ],
+  "novel_features": [
+    {
+      "name": "Confirm-gated service restart and start",
+      "command": "services restart",
+      "description": "Restart one running service with services restart, or start a stopped automatic one with services start; each previews first and returns the service state before and after."
+    },
+    {
+      "name": "Fleet health verdict",
+      "command": "health",
+      "description": "One ok, warn, crit or unknown verdict per server, with the reason for every failing check and how long it has been failing."
+    },
+    {
+      "name": "Inventory snapshot and diff",
+      "command": "inventory diff",
+      "description": "What changed in roles, features, shares, local administrators, certificates, installed updates and VMs between the two newest inventory snapshot runs."
+    },
+    {
+      "name": "Why is it down",
+      "command": "services down",
+      "description": "Stopped automatic services on every server, each paired with the Service Control Manager event that explains the stop."
+    },
+    {
+      "name": "Who changed local admins",
+      "command": "local-admins changes",
+      "description": "Who added or removed each local Administrators member, when, and whether they are still a member."
+    },
+    {
+      "name": "Health change feed",
+      "command": "events list",
+      "description": "Poll health-state changes between health runs with a sequence cursor."
+    },
+    {
+      "name": "New errors on a server",
+      "command": "eventlog new",
+      "description": "System and Application errors and warnings whose source and event ID are new on a server compared with its own history."
+    }
+  ]
+}

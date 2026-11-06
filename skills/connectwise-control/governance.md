@@ -31,7 +31,7 @@ a human for any session/host control, access grant, or user-management command.
 
 | Tier | What it does | Examples | Recommended agent policy |
 | --- | --- | --- | --- |
-| **Read** | Lists and inspects sessions, groups, users, and the audit log. No change. | `sessions list`, `sessions get-detail`, `session-groups`, `security get-configuration`, `audit get-info`, `audit query-log`, `search` | Allow |
+| **Read** | Lists and inspects sessions, groups, users, and the audit log. No change. | `sessions list`, `sessions get-detail`, `session-groups`, `security get-configuration`, `audit get-info`, `audit query-log`, `search`, `sessions stale`, `security access-review` (and the MCP intent `quarterly_user_access_review`) | Allow |
 | **Write (session metadata)** | Changes a session's name or custom properties. No effect on the remote machine. | `sessions update-name`, `sessions update-custom-property` | Preview with `--dry-run`, then an approved write |
 | **Session and host control** | Acts on a real guest machine - remote code execution and control events. | `sessions run-command` (runs a real command on the guest endpoint), `sessions add-event-to` (queues control events such as Wake-on-LAN) | Human-in-the-loop, explicit confirmation |
 | **Access grant** | Issues a token that grants remote access to a session. | `sessions get-access-token` (one-time join token / URL) | Human-in-the-loop only |

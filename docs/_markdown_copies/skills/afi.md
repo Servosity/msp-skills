@@ -23,8 +23,8 @@ New to the term? An **MCP server** is the same thing ChatGPT calls an app or con
 Your agent runs: `afi-cli coverage-gaps --agent`
 
 **Instead of** Tab through every tenant's task history hunting for the nightly backups that quietly stopped landing.
-**just ask:** *"Show me protected resources whose newest backup is older than 48 hours."*
-Your agent runs: `afi-cli backup-stale --max-age 48h --agent`
+**just ask:** *"Which protected resources have stopped getting backed up?"*
+Your agent runs: `afi-cli backup-stale --agent`
 
 **Instead of** Stitch two portal screens into a spreadsheet to compare licenses purchased against seats actually protected.
 **just ask:** *"Where am I over- or under-provisioned on Afi licenses?"*
@@ -41,7 +41,7 @@ Demo data is simulated. Every command shown exists in the real CLI.
 | Question your MSP keeps asking | Command your agent runs |
 | --- | --- |
 | Which resources have no backup protection at all? | `afi-cli coverage-gaps --agent` |
-| Which protected resources have a stale backup (silent failures)? | `afi-cli backup-stale --max-age 48h --agent` |
+| Which protected resources are not getting backed up (silent failures)? | `afi-cli backup-stale --agent` |
 | Is the whole fleet green this morning, or who failed? | `afi-cli fleet-health --failed-only --agent` |
 | What is one tenant's full backup posture for a QBR or ticket? | `afi-cli tenant-scorecard <tenant-id> --agent` |
 | Am I over- or under-licensed on Afi seats? | `afi-cli reconcile-licenses --agent` |
@@ -116,7 +116,7 @@ Yes, by design - and the exceptions are ones you switch on yourself. The CLI, th
 
 ### Does this work with ChatGPT?
 
-Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way afi-mcp runs, and shares MCP configuration with Codex: add afi-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote (HTTP) server, and this connector's HTTP mode is paused until it is reprinted; the security note at the top of the install guide explains why. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
+Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way afi-mcp runs, and shares MCP configuration with Codex: add afi-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote (HTTP) server, which msp-skills does not support yet. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
 
 ### Do I need to know how to code?
 
@@ -124,7 +124,7 @@ No. Paste one sentence into Claude Code or Codex and your agent does the install
 
 ### Is my Afi data safe?
 
-Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills.
+Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, credentials are never bundled or transmitted by MSP Skills, and the key goes only to the Afi API host.
 
 ### What does it cost?
 
@@ -144,7 +144,7 @@ No. Restores, exports, and policy editing still happen in the Afi portal - the p
 
 ## More Backup/DR connectors
 
-Run more than one Backup/DR tool, or comparing options? These connectors work the same way: [Acronis Cyber Protect Cloud](https://msp-skills.compoundingteams.com/skills/acronis.md) · [Axcient x360Recover](https://msp-skills.compoundingteams.com/skills/axcient.md) · [Backup Radar](https://msp-skills.compoundingteams.com/skills/backup-radar.md) · [Cove Data Protection](https://msp-skills.compoundingteams.com/skills/cove.md) · [Datto BCDR](https://msp-skills.compoundingteams.com/skills/datto-bcdr.md) · [Proxmox](https://msp-skills.compoundingteams.com/skills/proxmox.md) · [Servosity](https://msp-skills.compoundingteams.com/skills/servosity.md) · [SkyKick](https://msp-skills.compoundingteams.com/skills/skykick.md) · [Synology](https://msp-skills.compoundingteams.com/skills/synology.md) · [Veeam](https://msp-skills.compoundingteams.com/skills/veeam.md)
+Run more than one Backup/DR tool, or comparing options? These connectors work the same way: [Acronis Cyber Protect Cloud](https://msp-skills.compoundingteams.com/skills/acronis.md) · [Axcient x360Recover](https://msp-skills.compoundingteams.com/skills/axcient.md) · [Backup Radar](https://msp-skills.compoundingteams.com/skills/backup-radar.md) · [CloudAlly](https://msp-skills.compoundingteams.com/skills/cloudally.md) · [Comet Backup](https://msp-skills.compoundingteams.com/skills/comet-backup.md) · [Cove Data Protection](https://msp-skills.compoundingteams.com/skills/cove.md) · [Datto BCDR](https://msp-skills.compoundingteams.com/skills/datto-bcdr.md) · [Datto SaaS Protection](https://msp-skills.compoundingteams.com/skills/datto-saas.md) · [Dropsuite](https://msp-skills.compoundingteams.com/skills/dropsuite.md) · [Proxmox](https://msp-skills.compoundingteams.com/skills/proxmox.md) · [Servosity](https://msp-skills.compoundingteams.com/skills/servosity.md) · [SkyKick](https://msp-skills.compoundingteams.com/skills/skykick.md) · [Synology](https://msp-skills.compoundingteams.com/skills/synology.md) · [Veeam](https://msp-skills.compoundingteams.com/skills/veeam.md)
 
 ## Status
 

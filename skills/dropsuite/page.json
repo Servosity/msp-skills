@@ -1,0 +1,110 @@
+{
+  "outcome_intro": "Selling Dropsuite backup to a book of clients? Ask your AI \"what is failing or stale across my clients,\" \"which users are not backed up yet,\" or \"do my seat counts match what I invoice\" and get one answer instead of opening each organization in the partner portal. One reseller credential resolves every client's token, and health snapshots plus a restore-test ledger build dated evidence the API does not keep.",
+  "instead_of_say": [
+    {
+      "instead": "Opening each client organization in the Dropsuite partner portal every morning and scanning mailboxes, OneDrives, SharePoint sites and Teams for a failed or stuck backup",
+      "say": "What is failing, stuck or stale across all my Dropsuite clients?",
+      "cli": "dropsuite-cli health --stale-after 48h --failing --agent"
+    },
+    {
+      "instead": "Comparing each client's Microsoft 365 user list with the mailboxes added to backup, one tenant at a time, to find the new hire nobody added",
+      "say": "Which users exist in my clients' tenants but are not backed up?",
+      "cli": "dropsuite-cli coverage --agent"
+    },
+    {
+      "instead": "Copying seat counters out of the portal client by client into a spreadsheet next to the PSA invoice at month end",
+      "say": "Do my Dropsuite seat counts match what I bill each client?",
+      "cli": "dropsuite-cli billing --invoice psa-seats.csv --flagged-only --agent"
+    }
+  ],
+  "pain_points": [
+    "A backup that silently stops is the one nobody notices. An r/msp thread, \"Office365 backup alternative to Dropsuite\" (December 2021), describes a client whose backups were disabled and went undiscovered for over three months. The portal shows one organization at a time, so a morning check across a whole book of clients is a click-through, and the gap shows up at restore time.",
+    "Dropsuite's API is organized per organization: backup data, tenants and retention policies each take that organization's own token, while only the organization list takes the reseller token. Any cross-client question, such as coverage, seats or one user's protection, means collecting every client's token first.",
+    "Proof of protection is asked for after the fact. A cyber-insurance form, an audit or a QBR wants dated evidence of coverage, recent backups and restore testing, and the API answers only the current state."
+  ],
+  "outcomes": [
+    {
+      "question": "What is failing, stuck or stale across every client right now?",
+      "command": "dropsuite-cli health --stale-after 48h --failing --agent"
+    },
+    {
+      "question": "Which tenant mailboxes are not added to backup, with coverage percent per client?",
+      "command": "dropsuite-cli coverage --agent"
+    },
+    {
+      "question": "Which clients are over-allocated against my PSA invoice, or suspended but still holding seats?",
+      "command": "dropsuite-cli billing --invoice psa-seats.csv --flagged-only --agent"
+    },
+    {
+      "question": "Which deactivated or deleted mailboxes still hold storage, and which invitations were never accepted?",
+      "command": "dropsuite-cli hygiene --older-than 30d --agent"
+    },
+    {
+      "question": "Which client owns this email address, and are its mailbox and OneDrive backed up?",
+      "command": "dropsuite-cli locate jane@example.com --agent"
+    },
+    {
+      "question": "Give me dated proof of protection for one client for an insurer or QBR",
+      "command": "dropsuite-cli evidence --org 26561-14 --window 90d --markdown"
+    },
+    {
+      "question": "What changed since last week: objects that left backup or backups that stopped advancing?",
+      "command": "dropsuite-cli drift --since 7d --agent"
+    },
+    {
+      "question": "Which clients are due a restore test?",
+      "command": "dropsuite-cli restore-test due --every 90d --pick --agent"
+    }
+  ],
+  "different_vs_wrappers": "A plain Dropsuite API wrapper answers one endpoint for one organization per call, so a fleet question turns into the AI listing organizations, fetching each one's token and walking every workload list on its own. health, coverage, billing, hygiene and locate do that walk in one command from your reseller credential and say which organizations they could not read. Health runs are saved locally, so drift and evidence can answer what changed and what was true on a date, which the API does not keep.",
+  "different_vs_vendor": "It complements the Dropsuite partner portal rather than replacing it: restores, backup settings and onboarding stay there, while this skill brings cross-client health, coverage, seat reconciliation and dated evidence to whichever AI agent you already use. The CLI only reads; the one exception is minting a portal sign-in link, which it does only when you ask.",
+  "faqs": [
+    {
+      "q": "Does this work with ChatGPT?",
+      "a": "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so it needs the Dropsuite (NinjaOne) MCP server's token-protected HTTP mode hosted over HTTPS. Step-by-step in the install guide."
+    },
+    {
+      "q": "Do I need to know how to code?",
+      "a": "No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once."
+    },
+    {
+      "q": "Is my Dropsuite data safe?",
+      "a": "Your data stays on your machine. The CLI, MCP server and the local store are local, and the AI sees query results, not raw bulk data. Requests go only to your configured Dropsuite API host, and the reseller tokens and every organization token the CLI reads are withheld from all output, files and the local store. Responses are never cached on disk."
+    },
+    {
+      "q": "What does it cost?",
+      "a": "Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use."
+    },
+    {
+      "q": "Which Dropsuite credentials do I need?",
+      "a": "The two values from Settings > API Settings in the Dropsuite partner portal: the Reseller Token (DROPSUITE_RESELLER_TOKEN, sent as X-Reseller-Token) and your reseller Authentication Token (DROPSUITE_ACCESS_TOKEN, sent as X-Access-Token). You do not collect each client's token: --org, or DROPSUITE_ORG for the MCP server, resolves it from the organization list. If your partner API is not on dropsuite.us, set DROPSUITE_HOST."
+    },
+    {
+      "q": "Can the AI change backups or restore data?",
+      "a": "No. Every command reads, and restore-test record only writes to a local ledger on your machine. The exception is a portal sign-in link: portal get-login-link, organizations get-support-sso-link, locate --sso-link and evidence --with-sso-link mint one, and a new organization link invalidates the previous one. Over MCP those calls return a preview and mint only when the agent repeats the call with confirm: true. For an agent that should only read, set DROPSUITE_MCP_READ_ONLY=1: the sign-in link tools are removed."
+    }
+  ],
+  "governance_summary": "The skill reads backup status, coverage, seats and organization settings for every client your reseller credential can see, and keeps health snapshots and a restore-test ledger on your machine. It cannot change a backup or run a restore. The one sensitive action is minting a portal sign-in link, which is credential tier: let an agent read freely, and keep a human on sign-in links.",
+  "safety_tiers": [
+    {
+      "tier": "Read",
+      "examples": "health, coverage, billing, hygiene, locate, drift, evidence, organizations list, accounts list, onedrives, sharepoint-sites, teams",
+      "policy": "Allow"
+    },
+    {
+      "tier": "Local records",
+      "examples": "restore-test record, sync, export, profile save, teach (all on your machine; nothing is sent to Dropsuite)",
+      "policy": "Allow; review what an agent records"
+    },
+    {
+      "tier": "Credential",
+      "examples": "portal get-login-link, organizations get-support-sso-link, locate --sso-link, evidence --with-sso-link, auth set-token",
+      "policy": "Human-in-the-loop only"
+    },
+    {
+      "tier": "Destructive (local)",
+      "examples": "local-data purge (needs --yes), learnings forget, auth logout",
+      "policy": "Human-in-the-loop only"
+    }
+  ]
+}

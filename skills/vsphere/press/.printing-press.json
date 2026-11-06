@@ -1,0 +1,128 @@
+{
+  "schema_version": 2,
+  "generated_at": "2026-10-28T04:05:33.799033Z",
+  "printing_press_version": "4.34.2",
+  "api_name": "vsphere",
+  "display_name": "VMware vSphere",
+  "cli_name": "vsphere-pp-cli",
+  "creator": {
+    "handle": "DamienStevens",
+    "name": "Damien Stevens"
+  },
+  "owner": "damienstevens",
+  "printer": "DamienStevens",
+  "printer_name": "Damien Stevens",
+  "spec_path": "spec.yaml",
+  "spec_format": "openapi3",
+  "spec_source": "official",
+  "spec_checksum": "sha256:cd726b76852c8d251ca73d4922dbc1b7eb1ff677af0de6bcc7036fdf25a9bea5",
+  "run_id": "20261027-220729-4e780d61",
+  "category": "cloud",
+  "description": "Read-only vCenter inventory for migration planning: blockers, snapshots, per-core licence exposure and Proxmox mapping, as JSON an agent can use.",
+  "mcp_binary": "vsphere-pp-mcp",
+  "mcp_tool_count": 44,
+  "mcp_public_tool_count": 1,
+  "mcp_ready": "full",
+  "api_version": "8.0.2",
+  "auth_type": "api_key",
+  "auth_preference": "vsphereLogin",
+  "auth_env_vars": [
+    "VSPHERE_USERNAME",
+    "VSPHERE_PASSWORD"
+  ],
+  "auth_env_var_specs": [
+    {
+      "name": "VSPHERE_USERNAME",
+      "kind": "per_call",
+      "required": true,
+      "sensitive": false,
+      "description": "vCenter SSO user, e.g. readonly@vsphere.local. A Read-Only role is enough."
+    },
+    {
+      "name": "VSPHERE_PASSWORD",
+      "kind": "per_call",
+      "required": true,
+      "sensitive": true,
+      "description": "Password for VSPHERE_USERNAME."
+    }
+  ],
+  "novel_features": [
+    {
+      "name": "Migration blockers",
+      "command": "migration blockers",
+      "description": "One verdict per VM (blocked, review, ready, or unknown when a check could not run) with reason codes: snapshots, vCenter's consolidation-needed flag, delta chains without snapshots, attached ISOs, VMware Tools missing or stopped, PVSCSI controllers, NVMe disks, EFI firmware and VMXNET NICs."
+    },
+    {
+      "name": "Snapshots audit",
+      "command": "snapshots audit",
+      "description": "Every snapshot in the vCenter as a row with age, tree depth and quiesced flag, plus per-VM delta-disk and snapshot-file totals and the VMs vCenter says need consolidation."
+    },
+    {
+      "name": "Licence exposure",
+      "command": "licence exposure",
+      "description": "Licensable cores per host, cluster and vCenter under Broadcom's 16-cores-per-CPU minimum, next to current licence editions and usage with keys masked."
+    },
+    {
+      "name": "Migration capacity",
+      "command": "migration capacity",
+      "description": "Per-cluster sizing totals: VMs, vCPU, vRAM, physical cores and RAM with overcommit ratios, and provisioned versus committed versus guest-used storage, each with the count of items it covers."
+    },
+    {
+      "name": "Proxmox map",
+      "command": "migration proxmox-map",
+      "description": "Each VM's sizing, firmware, disks, NICs and guest OS beside the Proxmox VE qm settings they map to (bios, efidisk0, ostype, sockets, cores, memory, scsihw, netN with model and MAC, disk slots, boot order, smbios1), following Proxmox's own VMware importer."
+    },
+    {
+      "name": "RVTools CSV export",
+      "command": "rvtools export",
+      "description": "Writes the RVTools CSV tabs that AWS Transform and other assessment tools read (vInfo, vCPU, vMemory, vDisk, vPartition, vNetwork, vTools, vHost, vSource, plus vSnapshot) from macOS or Linux; without --out it prints them as JSON."
+    }
+  ],
+  "novel_features_built": [
+    {
+      "name": "Migration blockers",
+      "command": "migration blockers",
+      "description": "One verdict per VM (blocked, review, ready, or unknown when a check could not run) with reason codes: snapshots, vCenter's consolidation-needed flag, delta chains without snapshots, attached ISOs, VMware Tools missing or stopped, PVSCSI controllers, NVMe disks, EFI firmware and VMXNET NICs."
+    },
+    {
+      "name": "Snapshots audit",
+      "command": "snapshots audit",
+      "description": "Every snapshot in the vCenter as a row with age, tree depth and quiesced flag, plus per-VM delta-disk and snapshot-file totals and the VMs vCenter says need consolidation."
+    },
+    {
+      "name": "Licence exposure",
+      "command": "licence exposure",
+      "description": "Licensable cores per host, cluster and vCenter under Broadcom's 16-cores-per-CPU minimum, next to current licence editions and usage with keys masked."
+    },
+    {
+      "name": "Migration capacity",
+      "command": "migration capacity",
+      "description": "Per-cluster sizing totals: VMs, vCPU, vRAM, physical cores and RAM with overcommit ratios, and provisioned versus committed versus guest-used storage, each with the count of items it covers."
+    },
+    {
+      "name": "Proxmox map",
+      "command": "migration proxmox-map",
+      "description": "Each VM's sizing, firmware, disks, NICs and guest OS beside the Proxmox VE qm settings they map to (bios, efidisk0, ostype, sockets, cores, memory, scsihw, netN with model and MAC, disk slots, boot order, smbios1), following Proxmox's own VMware importer."
+    },
+    {
+      "name": "RVTools CSV export",
+      "command": "rvtools export",
+      "description": "Writes the RVTools CSV tabs that AWS Transform and other assessment tools read (vInfo, vCPU, vMemory, vDisk, vPartition, vNetwork, vTools, vHost, vSource, plus vSnapshot) from macOS or Linux; without --out it prints them as JSON."
+    }
+  ],
+  "verify": {
+    "mode": "mock",
+    "pass_rate": 100,
+    "passed": 79,
+    "total": 79,
+    "data_pipeline": true,
+    "verdict": "PASS"
+  },
+  "scorecard": {
+    "steinberger": {
+      "percentage": 90,
+      "grade": "A",
+      "total": 90
+    }
+  }
+}

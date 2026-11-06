@@ -24,8 +24,9 @@ type usageDriver struct {
 }
 
 type usageDriversView struct {
-	Since   string        `json:"since,omitempty"`
-	Drivers []usageDriver `json:"drivers"`
+	Since    string        `json:"since,omitempty"`
+	Currency string        `json:"currency,omitempty"`
+	Drivers  []usageDriver `json:"drivers"`
 }
 
 // lineItem mirrors one element of a movement's line_items JSON array. Each
@@ -46,6 +47,12 @@ type lineItem struct {
 // newNovelUsageDriversCmd attributes expansion vs contraction MRR to the
 // individual components/products that drove it, by unrolling each stored
 // movement's line_items breakdown. It reads only the local movement log.
+//
+// Each line item's MRRMovement carries its own category (spec.json:
+// new_business, ...); it is classified by the one movement classifier
+// (revenue.Bucket) and only the expansion and contraction buckets count, so
+// a signup, churn or reactivation is never expansion or contraction (Codex r1,
+// maxio 4.34.2 reprint, class movement-category-ignored).
 func newNovelUsageDriversCmd(flags *rootFlags) *cobra.Command {
 	var flagSince, dbPath string
 	var limit int
@@ -70,10 +77,11 @@ func newNovelUsageDriversCmd(flags *rootFlags) *cobra.Command {
 				return err
 			}
 			defer st.Close()
+			currency, money := revenueMoney(cmd.Context(), db)
 
 			if has, _ := revenue.HasMovements(cmd.Context(), db); !has {
 				hintRunMrrSync(cmd.ErrOrStderr())
-				return emitRevenue(cmd, flags, usageDriversView{Since: cutoff, Drivers: []usageDriver{}}, func(w io.Writer) {
+				return emitRevenue(cmd, flags, usageDriversView{Since: cutoff, Currency: currency, Drivers: []usageDriver{}}, func(w io.Writer) {
 					fmt.Fprintln(w, "No MRR movements stored yet.")
 				})
 			}
@@ -91,6 +99,7 @@ func newNovelUsageDriversCmd(flags *rootFlags) *cobra.Command {
 				return fmt.Errorf("querying movement line items: %w", qerr)
 			}
 			defer rows.Close()
+			warnIfMovementsIncomplete(cmd.Context(), db, cmd.ErrOrStderr())
 
 			type agg struct {
 				expansion, contraction int64
@@ -116,27 +125,31 @@ func newNovelUsageDriversCmd(flags *rootFlags) *cobra.Command {
 					if name == "" {
 						continue
 					}
-					a := byName[name]
-					if a == nil {
-						a = &agg{}
-						byName[name] = a
-						order = append(order, name)
-					}
 					hadMovement := false
 					for _, mv := range it.MRRMovements {
 						cents := int64(math.Round(mv.Amount))
 						if cents == 0 {
 							continue
 						}
+						bucket := revenue.Bucket(mv.Category, cents)
+						if bucket != revenue.BucketExpansion && bucket != revenue.BucketContraction {
+							continue // new business, churn, reactivation, import: not a usage driver
+						}
+						a := byName[name]
+						if a == nil {
+							a = &agg{}
+							byName[name] = a
+							order = append(order, name)
+						}
 						hadMovement = true
-						if cents > 0 {
+						if bucket == revenue.BucketExpansion {
 							a.expansion += cents
 						} else {
 							a.contraction += cents
 						}
 					}
 					if hadMovement {
-						a.count++
+						byName[name].count++
 					}
 				}
 			}
@@ -163,7 +176,7 @@ func newNovelUsageDriversCmd(flags *rootFlags) *cobra.Command {
 				drivers = drivers[:limit]
 			}
 
-			view := usageDriversView{Since: cutoff, Drivers: drivers}
+			view := usageDriversView{Since: cutoff, Currency: currency, Drivers: drivers}
 			if view.Drivers == nil {
 				view.Drivers = []usageDriver{}
 			}
@@ -172,8 +185,8 @@ func newNovelUsageDriversCmd(flags *rootFlags) *cobra.Command {
 				fmt.Fprintf(w, "%-34s %12s %12s %12s %6s\n", "component", "expansion", "contraction", "net", "moves")
 				for _, d := range view.Drivers {
 					fmt.Fprintf(w, "%-34s %12s %12s %12s %6d\n", truncate(d.Component, 34),
-						revenue.Cents(d.ExpansionCents), revenue.Cents(d.ContractionCent),
-						revenue.Cents(d.NetCents), d.MovementCount)
+						money(d.ExpansionCents), money(d.ContractionCent),
+						money(d.NetCents), d.MovementCount)
 				}
 			})
 		},

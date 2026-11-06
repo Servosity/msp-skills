@@ -4,6 +4,25 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.1.10] - 2026-11-05
+
+### Fixed
+- The connectwise-control-v0.1.9 tag never became a release: the release security gate stopped it on GO-2026-6911, an advisory against an mcp-go package (`client/transport`) this connector does not link. The gate now checks the packages an advisory names (#602). 0.1.10 carries every change listed under 0.1.9; 0.1.9 has no release.
+
+## [0.1.9] - 2026-11-05
+
+### Security
+- **With no instance configured, nothing is sent.** The built-in base URL, `https://your-instance.screenconnect.com`, is a placeholder on ConnectWise's public cloud domain, and with `CONNECTWISE_CONTROL_BASE_URL` unset the CLI and the MCP server sent the HTTP Basic credentials there. A request to that host, in any spelling and from any source (the built-in default, the environment, a config file or a profile), is now refused before anything is sent, with an error that names `CONNECTWISE_CONTROL_BASE_URL` and `base_url` in `config.toml`. `auth set-credentials` no longer saves the placeholder as the base URL, and the `.mcpb` and MCP registry install forms no longer pre-fill it.
+- Rebuilt on CLI Printing Press 4.34.2 ([GHSA-jh26-vhqh-692c](https://github.com/advisories/GHSA-jh26-vhqh-692c)) with mcp-go v0.57.0. The MCP server's HTTP mode refuses to start until `CONNECTWISE_CONTROL_MCP_HTTP_TOKEN` is set (32 characters or more), listens on `127.0.0.1:7777` by default, and needs `--tls-cert` and `--tls-key` on any other address. `CONNECTWISE_CONTROL_MCP_HTTP_TOKEN`, `CONNECTWISE_CONTROL_MCP_READ_ONLY` and `CONNECTWISE_CONTROL_NO_LOCAL_DATA` are now declared on every install channel.
+- `sessions get-access-token` is a write: over MCP it returns a preview and issues a token only with `confirm: true`. The token and the join URL that carries it are withheld from every output.
+- The HTTP Basic credentials go only to the host in `CONNECTWISE_CONTROL_BASE_URL`; a redirect to another host is refused. Responses are not cached on disk.
+- `--dry-run` writes no local file on `auth set-credentials`, `auth logout`, `export -o` and `profile delete`.
+- Credentials are handled by the shared msp-skills credential kit: every output, file, local-store write, MCP result and outbound request that would carry a credential this program holds is withheld whole (a `[credkit: withheld from ...]` notice), and a credentialed request goes only over https to the configured instance.
+
+### Added
+- `sessions stale`: every session whose guest last connected more than `--days` ago, oldest first. Sessions with no connection on record, or a timestamp that cannot be read, are listed separately.
+- `security access-review`: every instance user with their security groups and findings (disabled, password expired, no security group). A field the instance did not report is listed as unknown, never read as false. Also available to agents as the read-only MCP tool `quarterly_user_access_review`.
+
 ## [0.1.8] - 2026-10-23
 
 ### Changed

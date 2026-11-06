@@ -141,7 +141,7 @@ acknowledge_not_an_attack (--action is required for cases).`, "\n"),
 			start := time.Now()
 			data, _, err := c.Post(cmd.Context(), managePath, map[string]string{"action": action})
 			if err != nil {
-				return classifyAPIError(fmt.Errorf("submitting %s action on %s %s: %w", action, target, id, err), flags)
+				return classifyAPIError(cmd.OutOrStdout(), fmt.Errorf("submitting %s action on %s %s: %w", action, target, id, err), flags)
 			}
 			actionID, err := parseActionReceipt(data)
 			if err != nil {
@@ -165,7 +165,7 @@ acknowledge_not_an_attack (--action is required for cases).`, "\n"),
 				if err != nil {
 					view.ElapsedMS = time.Since(start).Milliseconds()
 					_ = printJSONFiltered(cmd.OutOrStdout(), view, flags)
-					return classifyAPIError(fmt.Errorf("polling action status: %w", err), flags)
+					return classifyAPIError(cmd.OutOrStdout(), fmt.Errorf("polling action status: %w", err), flags)
 				}
 				var st struct {
 					Status      string `json:"status"`

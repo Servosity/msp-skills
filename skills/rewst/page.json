@@ -1,5 +1,5 @@
 {
-  "outcome_intro": "Ask your AI \"is automation healthy for this client?\" or \"which workflows failed overnight?\" and get an answer across every tenant. Rewst's only surface is a GraphQL gateway with no first-party CLI. This skill turns every entity into a typed command and adds cross-org rollups - execution health, failure triage, ROI, dormant workflows, config drift, and pack coverage - the web app makes you assemble one client at a time.",
+  "outcome_intro": "Ask your AI \"is automation healthy for this client?\" or \"which workflows failed overnight?\" and get an answer across every tenant. Rewst's only surface is a GraphQL gateway with no first-party CLI. This skill adds cross-org rollups - execution health, failure triage, ROI, dormant workflows, config drift, and pack coverage - the web app makes you assemble one client at a time.",
   "instead_of_say": [
     {
       "instead": "Opening the Rewst web app per client to check whether last night's automations succeeded or failed",
@@ -48,12 +48,12 @@
       "command": "rewst-cli coverage --parent <orgId> --pack microsoft --agent"
     }
   ],
-  "different_vs_wrappers": "Most Rewst integrations just forward a GraphQL query and hand back raw nodes. This skill turns the whole schema into typed commands, syncs the syncable entities into a local SQLite mirror for offline search, and adds cross-org rollups - health, failures, ROI, drift, coverage - queried live across organizations, that Rewst's gateway has no single endpoint for. Your AI sees the answer, not a page of GraphQL JSON.",
+  "different_vs_wrappers": "Most Rewst integrations just forward a GraphQL query and hand back raw nodes. This skill adds cross-org rollups - health, failures, ROI, dormant workflows, drift, coverage and the org directory - that send real GraphQL queries live across organizations, which Rewst's gateway has no single endpoint for. A refused, errored or incomplete Rewst answer is a failure, never empty data. In this build the typed entity commands are generated as REST-shaped calls the gateway refuses; the rollups and doctor are what reach Rewst. Your AI sees the answer, not a page of GraphQL JSON.",
   "different_vs_vendor": "Rewst's web app is built to design and run automation one tenant at a time. This complements it by answering the cross-tenant operational questions - which clients are failing, where automation went dormant, which orgs drift - from the terminal or your agent, without replacing the workflow designer.",
   "faqs": [
     {
       "q": "Does this work with ChatGPT?",
-      "a": "Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way rewst-mcp runs, and shares MCP configuration with Codex: add rewst-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote (HTTP) server, and this connector's HTTP mode is paused until it is reprinted; the security note at the top of the install guide explains why. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list."
+      "a": "Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way rewst-mcp runs, and shares MCP configuration with Codex: add rewst-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote server. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list."
     },
     {
       "q": "Do I need to know how to code?",
@@ -61,7 +61,7 @@
     },
     {
       "q": "Is my Rewst data safe?",
-      "a": "Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills."
+      "a": "Your data stays on your machine. The CLI and MCP server are local binaries. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills."
     },
     {
       "q": "What does it cost?",
@@ -69,18 +69,18 @@
     },
     {
       "q": "Is Rewst's API REST or GraphQL?",
-      "a": "GraphQL-only. This CLI maps the schema to typed commands and includes an api command that exposes every endpoint by interface name for full schema coverage, so you don't hand-write GraphQL for common operations. EU/AU regions set REWST_BASE_URL; the US default is api.rewst.io."
+      "a": "GraphQL-only. The rollups (orgs, health, failures, dormant, roi, drift, coverage) and doctor send real GraphQL queries, so you don't hand-write GraphQL for those questions. The typed entity commands in this build are generated as REST-shaped calls the gateway refuses. EU/AU regions set REWST_BASE_URL; the US default is api.rewst.io."
     },
     {
       "q": "Can it build or run workflows?",
-      "a": "It reads and manages Rewst entities (workflows, triggers, variables, packs); it does not visually author workflow graphs - use the Rewst designer for that. Creating or updating triggers and workflows is gated human-in-the-loop, since those changes affect automation running on live customer tenants."
+      "a": "No. It reads workflow health, failures, time saved, drift and pack coverage; it does not author workflow graphs - use the Rewst designer for that. The typed create and update commands for triggers and workflows are refused by the gateway in this build, and the safety tiers still treat them as human-in-the-loop, since those changes affect automation running on live customer tenants."
     },
     {
       "q": "Does it work across all my client organizations?",
       "a": "Yes. The rollups (health, failures, drift, coverage) are multi-org by design and take an --org or --parent id; coverage scans a parent org's managed sub-orgs."
     }
   ],
-  "governance_summary": "The skill is read-first: the six cross-org rollups (health, failures, dormant, roi, drift, coverage) plus get/list/search are read-only and safe to let an agent run. Creating or updating workflows, triggers, packs, and org-variables arms or alters automation that runs on live customer tenants - those are gated human-in-the-loop, as are organization/user admin and saving an API token. The Rewst API token's own permissions are the outer limit on anything the agent can do.",
+  "governance_summary": "The skill is read-first: the seven GraphQL rollups (orgs, health, failures, dormant, roi, drift, coverage) plus get/list/search are read-only and safe to let an agent run. Creating or updating workflows, triggers, packs, and org-variables arms or alters automation that runs on live customer tenants - those are gated human-in-the-loop, as are organization/user admin and saving an API token. The Rewst API token's own permissions are the outer limit on anything the agent can do.",
   "safety_tiers": [
     {
       "tier": "Read",

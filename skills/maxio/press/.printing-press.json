@@ -1,0 +1,207 @@
+{
+  "schema_version": 2,
+  "generated_at": "2026-10-29T23:41:08.31788Z",
+  "printing_press_version": "4.34.2",
+  "api_name": "maxio",
+  "display_name": "Maxio",
+  "cli_name": "maxio-pp-cli",
+  "creator": {
+    "handle": "DamienStevens",
+    "name": "Damien Stevens"
+  },
+  "owner": "damienstevens",
+  "printer": "DamienStevens",
+  "printer_name": "Damien Stevens",
+  "spec_path": "spec.json",
+  "spec_format": "openapi3",
+  "spec_source": "official",
+  "spec_checksum": "sha256:1dd23f7773e46b70b70c2b3515d380fded436a65586810482b2423a460f2313a",
+  "run_id": "20261029-160520-d5173e75",
+  "category": "payments",
+  "description": "Open, local revenue-intelligence CLI for Maxio Advanced Billing — MRR waterfalls, retention, and per-client history computed offline from a SQLite mirror, so the trended history survives even though the live API returns only point-in-time figures.",
+  "mcp_binary": "maxio-pp-mcp",
+  "mcp_tool_count": 238,
+  "mcp_ready": "full",
+  "api_version": "1.0",
+  "auth_type": "api_key",
+  "auth_preference": "BasicAuth",
+  "auth_env_vars": [
+    "MAXIO_API_KEY"
+  ],
+  "endpoint_template_vars": [
+    "site"
+  ],
+  "endpoint_template_var_defaults": {
+    "site": "subdomain"
+  },
+  "auth_key_url": "https://app.chargify.com/signup/maxio-billing-sandbox",
+  "novel_features": [
+    {
+      "name": "MRR waterfall",
+      "command": "mrr waterfall",
+      "description": "See MRR move month over month, broken into New, Expansion, Contraction, Churn, and Reactivation — plus ARR and growth rate."
+    },
+    {
+      "name": "Per-client recurring revenue",
+      "command": "mrr client",
+      "description": "Normalized MRR for one customer or the whole book, with the history the live API has no endpoint for."
+    },
+    {
+      "name": "Retention metrics",
+      "command": "retention",
+      "description": "Net and gross revenue retention, logo churn, revenue churn, and quick ratio over any window."
+    },
+    {
+      "name": "Cohort retention curves",
+      "command": "cohort",
+      "description": "Revenue and logo retention by signup-month cohort across N periods."
+    },
+    {
+      "name": "Revenue triage",
+      "command": "triage",
+      "description": "A ranked list of accounts that need attention: past-due, large upcoming renewals, and high-value concentration."
+    },
+    {
+      "name": "Normalized-vs-billed reconcile",
+      "command": "reconcile",
+      "description": "Per-customer gaps between normalized MRR and the amounts actually invoiced, with the deltas flagged."
+    },
+    {
+      "name": "Usage expansion drivers",
+      "command": "usage-drivers",
+      "description": "Which metered/usage components drove expansion versus contraction MRR, ranked."
+    },
+    {
+      "name": "Current MRR",
+      "command": "mrr now",
+      "description": "Current MRR + ARR + growth vs the prior snapshot."
+    },
+    {
+      "name": "MRR snapshot sync",
+      "command": "mrr sync",
+      "description": "Snapshot current MRR and backfill movement history into the local store."
+    },
+    {
+      "name": "ARPA and price-vs-volume",
+      "command": "arpa",
+      "description": "ARPA/ARPU, MRR percentiles, and price-vs-volume decomposition of MRR change."
+    },
+    {
+      "name": "Churn breakdown",
+      "command": "churn",
+      "description": "Logo and revenue churn per period, voluntary vs involuntary, by reason code."
+    },
+    {
+      "name": "Customer concentration",
+      "command": "concentration",
+      "description": "Customer concentration: share of ARR held by the top 1 / 5 / 10 customers."
+    },
+    {
+      "name": "New customers",
+      "command": "new-customers",
+      "description": "New logos acquired per period (first-activation month) plus the new MRR they brought."
+    },
+    {
+      "name": "Upcoming renewals",
+      "command": "renewals",
+      "description": "Active subscriptions renewing within the next N days (default 90), with MRR at risk."
+    },
+    {
+      "name": "Revenue mix",
+      "command": "revenue-mix",
+      "description": "Recurring vs usage vs services split of the latest month's billed line items."
+    }
+  ],
+  "novel_features_built": [
+    {
+      "name": "MRR waterfall",
+      "command": "mrr waterfall",
+      "description": "See MRR move month over month, broken into New, Expansion, Contraction, Churn, and Reactivation — plus ARR and growth rate."
+    },
+    {
+      "name": "Per-client recurring revenue",
+      "command": "mrr client",
+      "description": "Normalized MRR for one customer or the whole book, with the history the live API has no endpoint for."
+    },
+    {
+      "name": "Retention metrics",
+      "command": "retention",
+      "description": "Net and gross revenue retention, logo churn, revenue churn, and quick ratio over any window."
+    },
+    {
+      "name": "Cohort retention curves",
+      "command": "cohort",
+      "description": "Revenue and logo retention by signup-month cohort across N periods."
+    },
+    {
+      "name": "Revenue triage",
+      "command": "triage",
+      "description": "A ranked list of accounts that need attention: past-due, large upcoming renewals, and high-value concentration."
+    },
+    {
+      "name": "Normalized-vs-billed reconcile",
+      "command": "reconcile",
+      "description": "Per-customer gaps between normalized MRR and the amounts actually invoiced, with the deltas flagged."
+    },
+    {
+      "name": "Usage expansion drivers",
+      "command": "usage-drivers",
+      "description": "Which metered/usage components drove expansion versus contraction MRR, ranked."
+    },
+    {
+      "name": "Current MRR",
+      "command": "mrr now",
+      "description": "Current MRR + ARR + growth vs the prior snapshot."
+    },
+    {
+      "name": "MRR snapshot sync",
+      "command": "mrr sync",
+      "description": "Snapshot current MRR and backfill movement history into the local store."
+    },
+    {
+      "name": "ARPA and price-vs-volume",
+      "command": "arpa",
+      "description": "ARPA/ARPU, MRR percentiles, and price-vs-volume decomposition of MRR change."
+    },
+    {
+      "name": "Churn breakdown",
+      "command": "churn",
+      "description": "Logo and revenue churn per period, voluntary vs involuntary, by reason code."
+    },
+    {
+      "name": "Customer concentration",
+      "command": "concentration",
+      "description": "Customer concentration: share of ARR held by the top 1 / 5 / 10 customers."
+    },
+    {
+      "name": "New customers",
+      "command": "new-customers",
+      "description": "New logos acquired per period (first-activation month) plus the new MRR they brought."
+    },
+    {
+      "name": "Upcoming renewals",
+      "command": "renewals",
+      "description": "Active subscriptions renewing within the next N days (default 90), with MRR at risk."
+    },
+    {
+      "name": "Revenue mix",
+      "command": "revenue-mix",
+      "description": "Recurring vs usage vs services split of the latest month's billed line items."
+    }
+  ],
+  "verify": {
+    "mode": "mock",
+    "pass_rate": 100,
+    "passed": 274,
+    "total": 274,
+    "data_pipeline": true,
+    "verdict": "PASS"
+  },
+  "scorecard": {
+    "steinberger": {
+      "percentage": 92,
+      "grade": "A",
+      "total": 92
+    }
+  }
+}

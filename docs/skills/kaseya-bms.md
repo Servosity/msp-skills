@@ -20,7 +20,7 @@ faqs:
   - q: "What does it cost?"
     a: "Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use."
   - q: "Will this hit my Kaseya BMS API rate limits?"
-    a: "Rarely. BMS allows 1,500 requests per hour per endpoint. Reads default to the local SQLite mirror (--data-source auto), so day-to-day questions cost zero API calls; you only spend the budget when you sync or query live."
+    a: "Rarely. BMS allows 500 requests per hour per endpoint. Reads default to the local SQLite mirror (--data-source auto), so day-to-day questions cost zero API calls; you only spend the budget when you sync or query live."
   - q: "Do I need to be a Kaseya customer, and how do I authenticate?"
     a: "Yes - you need a Kaseya BMS tenant and an API user. The skill authenticates as that user with 'kaseya-bms-cli auth login' (your BMS username, password, and tenant name), and can only do what that user is permitted to do. You can also paste a pre-minted JWT via KASEYA_BMS_TOKEN."
   - q: "Will this replace my Kaseya BMS portal?"
@@ -88,14 +88,14 @@ Full command reference at [github.com/servosity/msp-skills/blob/main/skills/kase
 
 ## What makes this one different
 
-Most Kaseya BMS integrations proxy each question into a live API call against the 1,500-per-hour-per-endpoint limit - fine for one record, but it falls over the moment you ask a fleet-wide or month-end question. This skill syncs the tenant into a local SQLite mirror with full-text search, so aggregate questions - queue health, contract burn, unbilled hours, weighted pipeline - are answered by one local join: instant, offline, and the agent sees the answer, not the raw data.
+Most Kaseya BMS integrations proxy each question into a live API call against the 500-per-hour-per-endpoint limit - fine for one record, but it falls over the moment you ask a fleet-wide or month-end question. This skill syncs the tenant into a local SQLite mirror with full-text search, so aggregate questions - queue health, contract burn, unbilled hours, weighted pipeline - are answered by one local join: instant, offline, and the agent sees the answer, not the raw data.
 
 The BMS console and its reports are built for clicking through one screen at a time; this skill answers the cross-entity questions the grid won't compute - per-contract burn, unbilled hours by account, weighted pipeline with slipped-deal flags - from your terminal or your AI agent, and complements the portal rather than replacing it.
 
 ## The pain this closes
 
 - MSPs on r/msp and MSPGeek repeatedly call BMS reporting the weak spot: the questions you ask every morning - queue backlog, aging tickets, who's overloaded - mean exporting grids to Excel and pivoting them by hand.
-- Month-end billing is the other recurring complaint: pulling approved-but-unbilled time per client out of BMS for the invoice run is a manual export-and-reconcile chore, and the API's 1,500-requests-per-hour-per-endpoint limit punishes any tool that asks the question live every time.
+- Month-end billing is the other recurring complaint: pulling approved-but-unbilled time per client out of BMS for the invoice run is a manual export-and-reconcile chore, and the API's 500-requests-per-hour-per-endpoint limit punishes any tool that asks the question live every time.
 
 ## Install
 
@@ -165,7 +165,7 @@ Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
 
 ### Will this hit my Kaseya BMS API rate limits?
 
-Rarely. BMS allows 1,500 requests per hour per endpoint. Reads default to the local SQLite mirror (--data-source auto), so day-to-day questions cost zero API calls; you only spend the budget when you sync or query live.
+Rarely. BMS allows 500 requests per hour per endpoint. Reads default to the local SQLite mirror (--data-source auto), so day-to-day questions cost zero API calls; you only spend the budget when you sync or query live.
 
 ### Do I need to be a Kaseya customer, and how do I authenticate?
 

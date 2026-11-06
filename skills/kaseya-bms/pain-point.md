@@ -11,7 +11,7 @@ escalation - aren't a click away. They're an export to Excel and a pivot table.
 Month-end is the other recurring complaint. Pulling approved-but-unbilled time per
 client out of BMS so you can actually invoice it is a manual export-and-reconcile
 chore, and the same goes for seeing how much of a prepaid contract a client has
-burned before the renewal conversation. Meanwhile the BMS API caps you at 1,500
+burned before the renewal conversation. Meanwhile the BMS API caps you at 500
 requests per hour per endpoint, so any tool that re-asks the question live every
 time runs out of budget exactly when you need fleet-wide numbers at QBR time.
 

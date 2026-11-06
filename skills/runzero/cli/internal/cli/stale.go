@@ -47,7 +47,10 @@ or retire. Reads the local store; run 'inventory sync' first.`, "\n"),
 			if err != nil {
 				return err
 			}
-			return flags.printJSON(cmd, rows)
+			if err := flags.printJSON(cmd, rows); err != nil {
+				return err
+			}
+			return inventoryReadComplete(cmd, flags, st, "assets")
 		},
 	}
 	cmd.Flags().IntVar(&flagDays, "days", 30, "Flag assets not seen in at least this many days")

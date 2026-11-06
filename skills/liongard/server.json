@@ -3,7 +3,7 @@
   "name": "io.github.Servosity/liongard-mcp",
   "title": "Liongard MCP",
   "description": "Liongard config visibility: sync your estate offline, then drift-check and search it from one CLI.",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "icons": [
     {
       "src": "https://raw.githubusercontent.com/servosity/msp-skills/main/docs/assets/social/liongard/liongard-512x512.png",
@@ -21,8 +21,8 @@
   "packages": [
     {
       "registryType": "mcpb",
-      "identifier": "https://github.com/servosity/msp-skills/releases/download/liongard-v0.1.7/liongard-mcp.mcpb",
-      "version": "0.1.7",
+      "identifier": "https://github.com/servosity/msp-skills/releases/download/liongard-v0.1.8/liongard-mcp.mcpb",
+      "version": "0.1.8",
       "fileSha256": "PLACEHOLDER_SHA256_FILLED_BY_CI",
       "transport": {
         "type": "stdio"
@@ -53,11 +53,47 @@
           "isSecret": false
         },
         {
+          "name": "LIONGARD_ENDPOINTS_SESSION_TOKEN_AUTH",
+          "description": "Optional Liongard session token (from `authentication log-in`), sent as X-Auth-Token only to the endpoints that accept a session token (verify-token, access-key create). Leave blank to use the access key.",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
           "name": "LIONGARD_INSTANCE",
           "description": "Your Liongard subdomain (the 'acme' in acme.app.liongard.com); builds the API URL.",
           "isRequired": true,
           "isSecret": false,
           "default": "example"
+        },
+        {
+          "name": "LIONGARD_MCP_HTTP_TOKEN",
+          "description": "Required only when running the MCP server with --transport http. Not needed for the default local stdio transport.",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "LIONGARD_MCP_READ_ONLY",
+          "description": "Optional. Set to exactly 1 to expose only read-only tools and refuse any state-changing execute call.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "LIONGARD_NO_LOCAL_DATA",
+          "description": "Optional. Set to 1 to keep no local copy of API responses: reads go to the API and the response cache is off.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "LIONGARD_USER_AGENT",
+          "description": "Overrides the User-Agent the CLI sends on Liongard requests. Leave blank to use the CLI's own built-in User-Agent.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "PRINTING_PRESS_CLIENT_PROFILE",
+          "description": "Optional: binds the MCP server to an existing tenant-gated Printing Press client profile. Leave unset for a single-tenant install.",
+          "isRequired": false,
+          "isSecret": true
         }
       ]
     }

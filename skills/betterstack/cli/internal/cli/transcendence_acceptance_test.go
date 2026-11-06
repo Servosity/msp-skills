@@ -96,6 +96,11 @@ func seedAcceptanceStore(t *testing.T) string {
 	must(t, s.Upsert("on-calls", "2", elem("2", "on_call", map[string]any{
 		"name": "Secondary", "default_calendar": false, "on_call_users": []any{},
 	}, nil)))
+	// A finished sync of every resource: the novels refuse rows no finished
+	// sync backs (betterstack handfix novels-refuse-a-partial-store).
+	for _, r := range defaultSyncResources() {
+		must(t, s.SaveSyncState(r, "", 0))
+	}
 
 	if err := s.Close(); err != nil {
 		t.Fatalf("close store: %v", err)

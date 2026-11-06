@@ -25,6 +25,8 @@ Preconditions:
 
 - Feature 1 passed, or the run placed the built binaries in the scratch HOME.
 - `manifest.json` names a base-URL or host variable (otherwise ERROR: the fake vendor cannot stand in).
+- Or the connector is declared in verify.py's `WINRM_CONNECTORS` (its vendor is
+  WS-Management, not HTTP). The declaration is never inferred.
 
 - **Initialize.** Run `verify.py run --slug <slug> --features 2`. The session
   sends `initialize` (protocol `2024-11-05`, the handshake from
@@ -39,6 +41,16 @@ Preconditions:
   Otherwise it calls typed read-only tools, up to ten, until one reaches the
   vendor. Required params get inert placeholders. `read-attempts.json` pairs
   each call with the vendor requests it caused.
+- **WinRM connectors.** For a declared slug the harness starts a loopback
+  WS-Management stub over TLS and writes a scratch config (mode 600, in the
+  scratch HOME, selected by the declared config variable) with one
+  `[[servers]]` entry for it, `auth = "basic"` and `cert_sha256` pinned to
+  the stub's certificate. Base-URL variables stay unset. It calls the
+  declared read tools. The stub answers 401 unless Basic auth carries the
+  manifest's stand-in account, and serves its volume row (carrying a
+  per-run marker) only to a script whose bootstrap pins its SHA-256.
+  PASS needs an answer without error that carries the marker;
+  `winrm-requests.jsonl` logs each action. Anything less is FAIL.
 - **Proof.** PASS names the tool, the endpoint, the request line and the auth
   scheme the fake vendor saw (`auth=Bearer`, `auth=Basic`).
 

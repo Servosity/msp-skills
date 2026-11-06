@@ -317,6 +317,11 @@
       "reason": "exchange-online ONLY (deliberately NOT the fleet-wide `cli/go.mod` form, same posture as the kaseya-vsa and riverside-fm entries): GO-2026-5932 is the never-fixed x/crypto/openpgp advisory: its OSV range is a single {\"introduced\": \"0\"} event with no `fixed` event, so no version bump clears it. It gates here only because exchange-online is a brand-new connector, so every module in its go.mod is pr_new, and golang.org/x/net v0.62.0, the only release that fixes GO-2026-6860 and GO-2026-6866, requires golang.org/x/crypto v0.58.0. The advisory is scoped by ecosystem_specific.imports to golang.org/x/crypto/openpgp and its subpackages, and this connector builds none of them: `go list -deps ./...` returns 0 openpgp packages on linux, darwin and windows; the only x/crypto packages in the binary are chacha20, chacha20poly1305, cryptobyte(+asn1), hkdf, sha3 and the internal alias/poly1305 helpers. x/crypto arrives via TLS: `go mod why -m golang.org/x/crypto` resolves internal/client -> github.com/refraction-networking/utls -> golang.org/x/crypto/chacha20poly1305. Vetted 2026-11-04."
     },
     {
+      "file": "skills/salesbuildr/cli/go.mod",
+      "rule": "GO-2026-6911",
+      "reason": "salesbuildr ONLY (deliberately NOT the fleet-wide `cli/go.mod` form, same posture as the kaseya-vsa, exchange-online and riverside-fm entries): GO-2026-6911 (published 2026-11-05) is an advisory on github.com/mark3labs/mcp-go with a single {\"introduced\": \"0\"} event and no `fixed` event, so no version bump clears it. It gates here because the salesbuildr reprint on press 4.34.2 moves mcp-go from v0.47.0 to v0.57.0 (pr_new) and mcp-go is a direct import. The advisory is scoped by ecosystem_specific.imports to github.com/mark3labs/mcp-go/client/transport (NewStreamableHTTP and the StreamableHTTP methods: the MCP HTTP CLIENT following a redirect with its headers). salesbuildr is an MCP server and builds no mcp-go client package: `GOOS=linux|darwin|windows go list -deps ./...` returns 0 packages under mcp-go/client; the only mcp-go packages in the binary are mcp, server and tracing. govulncheck agrees it is unreachable: \"Your code is affected by 0 vulnerabilities... 0 vulnerabilities in packages you import and 1 vulnerability in modules you require.\" Vetted 2026-11-05."
+    },
+    {
       "file": "skills/riverside-fm/cli/go.mod",
       "rule": "GO-2026-5932",
       "reason": "riverside-fm ONLY (deliberately NOT the fleet-wide `cli/go.mod` form): the next connector that pulls github.com/enetx/surf must still get a human look. GO-2026-5932 is the one advisory on this module that no version bump can clear - its OSV affected range is a single {\"introduced\": \"0\"} event with NO `fixed` event, and govulncheck prints `Fixed in: N/A`. The two advisories that DID have a fix (GO-2026-6354 / GO-2026-6355, x/crypto/ssh DoS) were fixed, not suppressed, by raising the module to v0.56.0 in the riverside-fm PR. The advisory is scoped by ecosystem_specific.imports to golang.org/x/crypto/openpgp and its six subpackages, and this connector builds none of them: `go list -deps ./...` returns 0 openpgp packages, and the only x/crypto packages in the binary are chacha20, chacha20poly1305, cryptobyte(+asn1), hkdf, sha3 and the internal alias/poly1305 helpers - all TLS and hash primitives. x/crypto is indirect-only and arrives via TLS: `go mod why -m golang.org/x/crypto` resolves internal/client -> github.com/enetx/surf -> github.com/refraction-networking/utls -> golang.org/x/crypto/chacha20poly1305. govulncheck agrees it is unreachable: \"Your code is affected by 0 vulnerabilities... 0 vulnerabilities in packages you import and 1 vulnerability in modules you require.\" It gates only because riverside-fm is a brand-new connector, so every module in its go.mod is `pr_new` in check_security_gate.py. The same never-fixed advisory already rides two shipped connectors under the identical import chain and with zero openpgp packages - axcient and connectwise-control, both at x/crypto v0.53.0 - where it has never gated because their go.mod was not diff-introduced. Vetted 2026-09-06."
@@ -1355,6 +1360,52 @@
       "file": "skills/vsphere/cli/internal/client/vsphere_session.go",
       "rule": "G402",
       "reason": "Annotation-hidden finding (the inline #nosec G402 at the pinned config). vsphere only. This is certificate PINNING, which is stricter than chain verification, not a disabled check. pinnedTLSConfig is installed only when VSPHERE_TLS_FINGERPRINT (environment only, never a config file) holds at least one well-formed SHA-256 fingerprint; ParsePins rejects a malformed or empty setting as an error instead of falling back. Only then does it set InsecureSkipVerify, together with a VerifyConnection callback that runs on every handshake, resumed ones included, and accepts only a leaf certificate whose SHA-256 is pinned (vCenter usually serves a self-signed VMCA certificate). With no pin the transport keeps Go's normal chain and hostname verification."
+    },
+    {
+      "file": "skills/maxio/cli/internal/cli/resource_paths.go",
+      "rule": "G101",
+      "reason": "maxio (generated, press 4.34.2). gosec G101 LOW-confidence false-positive on the generated resourceReadPaths / resourceDetailPaths / resourceWritePaths maps (resource name -> Maxio Advanced Billing API endpoint PATH). Keys and paths such as 'chargify-js-keys-json' -> '/chargify_js_keys.json' and 'one-time-tokens' -> '/one_time_tokens/{chargify_token}.json' carry credential-ish substrings; every value is a URL path template, not credential material. The 4.34.2 render moved these maps out of sync.go (whose maxio G101 entry covers the 4.24 shape). Same class as the cisco-duo / connectsecure / cipp / rootly / halopsa resource_paths.go entries. Repo-relative (scoped to maxio only)."
+    },
+    {
+      "file": "skills/watchguard/cli/internal/cliutil/creds_perms_unix.go",
+      "rule": "G115",
+      "bind": "decl",
+      "sha256": [
+        "sha256:ba5b7307221acae36fd84ca89c0de2d80f6a122badffbeaebef908000b88e8be",
+        "sha256:8b017713ba88e73ec54cee2c66a934e3bd3db8164a53a3d0ef528b82daf89610"
+      ],
+      "press": "4.35.1",
+      "reason": "watchguard, press 4.35.1 reprint, reviewed 2026-11-06. uint32(os.Geteuid()), twice: the POSIX effective uid is a non-negative uid_t, compared for equality with the file or directory owner. Same declarations (same digests) as the reviewed google-workspace and riverside-fm entries."
+    },
+    {
+      "file": "skills/watchguard/cli/internal/cli/deliver_spacefast.go",
+      "rule": "G703",
+      "bind": "decl",
+      "sha256": [
+        "sha256:991de2fbb979c2c73f3873850ad79e0ce83f8f06ceaaa3f0481f23c06bc9b7f1"
+      ],
+      "press": "4.35.1",
+      "reason": "watchguard, press 4.35.1 reprint, reviewed 2026-11-06. loadSpacefastDelivery reads this program's own delivery record: the directory is the CLI's state dir and the file name is the hex of a SHA-256 of the delivery key, so no input picks a path outside that directory. Same declaration (same digest) as the reviewed google-workspace and riverside-fm entries."
+    },
+    {
+      "file": "skills/watchguard/cli/internal/cli/deliver_spacefast.go",
+      "rule": "G304",
+      "bind": "decl",
+      "sha256": [
+        "sha256:991de2fbb979c2c73f3873850ad79e0ce83f8f06ceaaa3f0481f23c06bc9b7f1"
+      ],
+      "press": "4.35.1",
+      "reason": "watchguard, press 4.35.1 reprint, reviewed 2026-11-06. Same read as the G703 entry: the CLI's own Spacefast delivery record, state dir plus a SHA-256 hex file name."
+    },
+    {
+      "file": "skills/watchguard/cli/internal/credwire/declarations.go",
+      "rule": "G703",
+      "bind": "decl",
+      "sha256": [
+        "sha256:1f40ff4349cff21f9eb839bc8fbfe80e3578616316906868d8377c9b4235be9e"
+      ],
+      "press": "4.35.1",
+      "reason": "watchguard, press 4.35.1 reprint, reviewed 2026-11-06. credential kit wiring (hand-written). readRegular opens and reads a credential source the program reads anyway (its config, credential store, profiles.json), named by the operator's own --config, --home or environment, so Start can hold every credential in it before anything prints. It refuses anything but a regular file, caps the read at 8 MiB and never writes. The MCP server refuses --config and --home."
     }
   ],
   "bound": [
@@ -1774,6 +1825,16 @@
       "reason": "abnormal's copy of the press's claimLegacyUnscopedDB (press 4.34.2 reprint), reviewed 2026-11-04, byte-identical to apple-business's reviewed copy (same declaration digest). It differs from the template only in writing the owner marker through the credential kit. The marker path is the CLI's own data directory plus .owner, never a user or MCP argument."
     },
     {
+      "file": "skills/runzero/cli/internal/cli/helpers.go",
+      "rule": "G304",
+      "bind": "decl",
+      "sha256": [
+        "sha256:62ee24e2c14754be389c41795461475ec6aa23ec17308bd3166bf8610b765949"
+      ],
+      "press": "4.34.2",
+      "reason": "runzero's copy of the press's claimLegacyUnscopedDB (press 4.34.2 reprint), reviewed 2026-11-05, byte-identical to abnormal's and apple-business's reviewed copies (same declaration digest). It differs from the template only in writing the owner marker through the credential kit. The marker path is the CLI's own data directory, not an input."
+    },
+    {
       "file": "skills/prtg/cli/internal/fleet/runner.go",
       "rule": "G204",
       "bind": "decl",
@@ -2128,6 +2189,36 @@
       "reason": "press 4.35.1 template, google-workspace reprint, reviewed 2026-11-04. Same read as the G703 entry: the CLI's own Spacefast delivery record, state dir plus a SHA-256 hex file name."
     },
     {
+      "file": "skills/sonicwall/cli/internal/cliutil/creds_perms_unix.go",
+      "rule": "G115",
+      "bind": "file",
+      "sha256": [
+        "sha256:6f983a466c07f91137f3b91e649c494c3db7743a7608242f4e03b7720245fbea"
+      ],
+      "press": "4.35.1",
+      "reason": "press 4.35.1 template, sonicwall reprint, reviewed 2026-11-06 (same bound hash as the google-workspace entry). uint32(os.Geteuid()), twice (verifyUnixPrivateFile, verifyUnixCredentialDir): the POSIX effective uid is a non-negative uid_t, compared for equality with the file or directory owner. Same code the 4.34.0 fleet entry accepts; the file is !windows."
+    },
+    {
+      "file": "skills/sonicwall/cli/internal/cli/deliver_spacefast.go",
+      "rule": "G703",
+      "bind": "decl",
+      "sha256": [
+        "sha256:991de2fbb979c2c73f3873850ad79e0ce83f8f06ceaaa3f0481f23c06bc9b7f1"
+      ],
+      "press": "4.35.1",
+      "reason": "press 4.35.1 template, sonicwall reprint, reviewed 2026-11-06 (same bound hash as the google-workspace entry). loadSpacefastDelivery reads this program's own delivery record: the directory is the CLI's state dir and the file name is the hex of a SHA-256 of the delivery key, so no input picks a path outside that directory. --deliver is refused over MCP (check_mcp_file_flags PASS)."
+    },
+    {
+      "file": "skills/sonicwall/cli/internal/cli/deliver_spacefast.go",
+      "rule": "G304",
+      "bind": "decl",
+      "sha256": [
+        "sha256:991de2fbb979c2c73f3873850ad79e0ce83f8f06ceaaa3f0481f23c06bc9b7f1"
+      ],
+      "press": "4.35.1",
+      "reason": "press 4.35.1 template, sonicwall reprint, reviewed 2026-11-06 (same bound hash as the google-workspace entry). Same read as the G703 entry: the CLI's own Spacefast delivery record, state dir plus a SHA-256 hex file name."
+    },
+    {
       "file": "skills/google-workspace/cli/internal/credwire/declarations.go",
       "rule": "G703",
       "bind": "decl",
@@ -2234,6 +2325,407 @@
         "sha256:5579588dd2552a7fb6eedaaf241604d65c92185a83b933fc72c57e9f00a6dc1a"
       ],
       "reason": "appdirect only, same reviewed declaration as the zammad entry. Declaration repairJournalSegmentTail: the press template's journal tail repair, reading a segment path this package derives from its own state dir (the template's annotation is kept); its one write goes through credkit.AppendFile (credkit-wiring in skills/appdirect/handfixes.json)."
+    },
+    {
+      "file": "skills/jamf-pro/cli/internal/fleet/runner.go",
+      "rule": "G204",
+      "bind": "decl",
+      "sha256": [
+        "sha256:fbd5acdcb0b096f85b18a185f04df52e66d075c722bc6736228fe702159f5d41"
+      ],
+      "press": "4.34.2",
+      "reason": "jamf-pro fleet runner: re-executes only this CLI (os.Executable) once per registered instance; argv is built from fixed literals plus API paths validated as plain Jamf Pro or Classic API paths; the instance is a registry-validated name; the child environment is an allowlist and carries only that instance's secret; no shell."
+    },
+    {
+      "file": "skills/jamf-pro/cli/internal/fleet/runner.go",
+      "rule": "msp-exec-nonliteral-command",
+      "bind": "decl",
+      "sha256": [
+        "sha256:fbd5acdcb0b096f85b18a185f04df52e66d075c722bc6736228fe702159f5d41"
+      ],
+      "press": "4.34.2",
+      "reason": "jamf-pro fleet runner: re-executes only this CLI (os.Executable) once per registered instance; argv is built from fixed literals plus API paths validated as plain Jamf Pro or Classic API paths; the instance is a registry-validated name; the child environment is an allowlist and carries only that instance's secret; no shell."
+    },
+    {
+      "file": "skills/jamf-pro/cli/internal/fleet/runner.go",
+      "rule": "exec-nonliteral-cmd",
+      "bind": "file",
+      "sha256": [
+        "sha256:808cb6db09da5cd274499789884601fb9480f35d753c032ff8dab7c1d6710fb3"
+      ],
+      "press": "4.34.2",
+      "reason": "jamf-pro fleet runner: re-executes only this CLI (os.Executable) once per registered instance; argv is built from fixed literals plus API paths validated as plain Jamf Pro or Classic API paths; the instance is a registry-validated name; the child environment is an allowlist and carries only that instance's secret; no shell."
+    },
+    {
+      "file": "skills/jamf-pro/cli/internal/cli/sync.go",
+      "rule": "G101",
+      "bind": "decl",
+      "press": "4.34.2",
+      "reason": "press 4.34.2 template: a map of endpoint paths such as /api/v1/api-integrations, and G101 reads the words in those keys as hard-coded credentials. No value in these maps is a secret.",
+      "sha256": [
+        "sha256:0b8725769df85e795cc71c21225e5e1daca0a8914317db34b0a7387e736f54f0"
+      ]
+    },
+    {
+      "file": "skills/jamf-pro/cli/internal/cli/resource_paths.go",
+      "rule": "G101",
+      "bind": "decl",
+      "press": "4.34.2",
+      "reason": "press 4.34.2 template: a map of endpoint paths such as /api/v1/api-integrations, and G101 reads the words in those keys as hard-coded credentials. No value in these maps is a secret.",
+      "sha256": [
+        "sha256:24edf317bcc457a800f0f0e55ecb88af5e159897d80f1300717badf99b7fd517",
+        "sha256:6e0094d55f63437174d7bbffcc66d078a42632edbfcb07be7ddf2ddbc9c9e888",
+        "sha256:c84d79f7cee392d0d137bde80b41dafde5a570d878f5eb06a2ade207eafe1464"
+      ]
+    },
+    {
+      "file": "skills/riverside-fm/cli/internal/cli/auth.go",
+      "rule": "G124",
+      "bind": "decl",
+      "sha256": [
+        "sha256:1dfc5bf96f7944413c4fb20e557d3610559ea29b4c681b54094f1ac5e38be635",
+        "sha256:03b81eeb3ac6e790cfac8e218bd83cf357f69f8c4e725920d7a0d9a899a35fcf"
+      ],
+      "press": "4.35.1",
+      "reason": "riverside-fm, press 4.35.1 reprint, reviewed 2026-11-05. Client-side cookie values parsed from the operator's own cookie file or header for this CLI's jar, never a Set-Cookie this program serves. The kit refuses a held cookie over plain http or to another origin."
+    },
+    {
+      "file": "skills/riverside-fm/cli/internal/cli/auth.go",
+      "rule": "G304",
+      "bind": "decl",
+      "sha256": [
+        "sha256:03b81eeb3ac6e790cfac8e218bd83cf357f69f8c4e725920d7a0d9a899a35fcf",
+        "sha256:a71f2c4d4b0cb0fb00709dacef1968bb808e518bbc543b376c03bfb60ca7cf12",
+        "sha256:ffa6eef9393c28e2701589dd94185f3dbaa53f8b5b733ea3e0b05d63e6ac3154"
+      ],
+      "press": "4.35.1",
+      "reason": "riverside-fm, press 4.35.1 reprint, reviewed 2026-11-05. Local browser login, CLI only: reads Chrome's Preferences and profile files from the operator's own Chrome directory, copies them into a private temp dir (0600), and reads the file the operator named with --cookies-file. Nothing it reads is shown; the kit holds the values. The auth commands are not MCP tools."
+    },
+    {
+      "file": "skills/riverside-fm/cli/internal/cli/deliver_spacefast.go",
+      "rule": "G304",
+      "bind": "decl",
+      "sha256": [
+        "sha256:991de2fbb979c2c73f3873850ad79e0ce83f8f06ceaaa3f0481f23c06bc9b7f1"
+      ],
+      "press": "4.35.1",
+      "reason": "riverside-fm, press 4.35.1 reprint, reviewed 2026-11-05. Same read as the G703 entry: the CLI's own Spacefast delivery record, state dir plus a SHA-256 hex file name."
+    },
+    {
+      "file": "skills/riverside-fm/cli/internal/cli/deliver_spacefast.go",
+      "rule": "G703",
+      "bind": "decl",
+      "sha256": [
+        "sha256:991de2fbb979c2c73f3873850ad79e0ce83f8f06ceaaa3f0481f23c06bc9b7f1"
+      ],
+      "press": "4.35.1",
+      "reason": "riverside-fm, press 4.35.1 reprint, reviewed 2026-11-05. loadSpacefastDelivery reads this program's own delivery record: the directory is the CLI's state dir and the file name is the hex of a SHA-256 of the delivery key, so no input picks a path outside that directory. --deliver is refused over MCP (check_mcp_file_flags PASS)."
+    },
+    {
+      "file": "skills/riverside-fm/cli/internal/cli/helpers.go",
+      "rule": "G304",
+      "bind": "decl",
+      "sha256": [
+        "sha256:80e410000e3ea42f4727ba724fbe4b93829216699732767b4567078f81a6cb87"
+      ],
+      "press": "4.35.1",
+      "reason": "riverside-fm, press 4.35.1 reprint, reviewed 2026-11-05. Press template claimLegacyUnscopedDB: reads this CLI's own data.db.owner marker beside its store under the data directory; no command input picks the path. Re-bound 2026-11-06 for #620's Windows hand-fix (handfixes.json temp-handle-closed-before-kit-write): the temp handle now closes before credkit.WriteFile writes the marker, replacing a direct temp.Write; both flagged reads of markerPath are unchanged."
+    },
+    {
+      "file": "skills/riverside-fm/cli/internal/client/chrome.go",
+      "rule": "G402",
+      "bind": "decl",
+      "sha256": [
+        "sha256:248575bdf938f8ecd41a519a9a0aa3814ce41f47b4076232bde8c46e82f31447"
+      ],
+      "press": "4.35.1",
+      "reason": "riverside-fm, press 4.35.1 reprint, reviewed 2026-11-05. browser-chrome transport to an https proxy. InsecureSkipVerify takes trust.insecure, true only when the operator sets --insecure, RIVERSIDE_FM_SKIP_TLS_VERIFY or skip_tls_verify in their own config; the MCP bridge refuses --insecure. The default verifies against the system or --ca-cert pool. Same code the 4.34.0 fleet entry accepts, plus the kit outbound guard."
+    },
+    {
+      "file": "skills/riverside-fm/cli/internal/client/cookiejar.go",
+      "rule": "G124",
+      "bind": "decl",
+      "sha256": [
+        "sha256:0fb36d50105a867c95255f992a35db316f93ee45727366271d0c62baf2e24846",
+        "sha256:802ff4d26e3aab4490ddc4ee4844a2e05074d31ff11c29967f4f926c1d0845b8"
+      ],
+      "press": "4.35.1",
+      "reason": "riverside-fm, press 4.35.1 reprint, reviewed 2026-11-05. Client-side cookie values going into this CLI's own jar, never a Set-Cookie this program serves. Secure, HttpOnly and SameSite are server-response attributes; the persisted Secure bit is kept, and the kit refuses a held cookie over plain http or to another origin (TestHeldCredentialRefusedOffOriginAndOverPlainHTTP)."
+    },
+    {
+      "file": "skills/riverside-fm/cli/internal/client/cookiejar.go",
+      "rule": "G304",
+      "bind": "decl",
+      "sha256": [
+        "sha256:55068dca4c3f544fcc77bfff8d7790def79451cba74a7dd83ebcea6b0f55390d"
+      ],
+      "press": "4.35.1",
+      "reason": "riverside-fm, press 4.35.1 reprint, reviewed 2026-11-05. mergeAndWriteCookieRows reads this CLI's own cookies.json under its data directory; the path comes from cookieJarPath, no command input names it."
+    },
+    {
+      "file": "skills/riverside-fm/cli/internal/cliutil/creds_perms_unix.go",
+      "rule": "G115",
+      "bind": "decl",
+      "sha256": [
+        "sha256:ba5b7307221acae36fd84ca89c0de2d80f6a122badffbeaebef908000b88e8be",
+        "sha256:8b017713ba88e73ec54cee2c66a934e3bd3db8164a53a3d0ef528b82daf89610"
+      ],
+      "press": "4.35.1",
+      "reason": "riverside-fm, press 4.35.1 reprint, reviewed 2026-11-05. uint32(os.Geteuid()), twice: the POSIX effective uid is a non-negative uid_t, compared for equality with the file or directory owner. Same code the 4.34.0 fleet entry accepts; the file is !windows."
+    },
+    {
+      "file": "skills/riverside-fm/cli/internal/credwire/declarations.go",
+      "rule": "G703",
+      "bind": "decl",
+      "sha256": [
+        "sha256:2c15a40d0fa25edea1301f55e1678da0c7eb5fd02bec80c02ef18c01b57b40e1"
+      ],
+      "press": "4.35.1",
+      "reason": "riverside-fm, press 4.35.1 reprint, reviewed 2026-11-05. credential kit wiring (hand-written). readRegular stats and reads a credential source the program reads anyway (its config, credentials.toml, cookie jar), named by the operator's own --config, --home or environment, so Start can hold every credential in it before anything prints. It refuses anything but a regular file and never writes. The MCP server refuses --config and --home."
+    },
+    {
+      "file": "skills/blumira/cli/internal/cliutil/creds_perms_unix.go",
+      "rule": "G115",
+      "bind": "decl",
+      "sha256": [
+        "sha256:8b017713ba88e73ec54cee2c66a934e3bd3db8164a53a3d0ef528b82daf89610",
+        "sha256:ba5b7307221acae36fd84ca89c0de2d80f6a122badffbeaebef908000b88e8be"
+      ],
+      "press": "4.35.1",
+      "reason": "blumira, press 4.35.1 reprint, reviewed 2026-11-06 (same declaration digest as the entry for skills/riverside-fm/cli/internal/cliutil/creds_perms_unix.go). uint32(os.Geteuid()), twice: the POSIX effective uid is a non-negative uid_t, compared for equality with the file or directory owner. Same code the 4.34.0 fleet entry accepts; the file is !windows."
+    },
+    {
+      "file": "skills/blumira/cli/internal/cli/deliver_spacefast.go",
+      "rule": "G703",
+      "bind": "decl",
+      "sha256": [
+        "sha256:991de2fbb979c2c73f3873850ad79e0ce83f8f06ceaaa3f0481f23c06bc9b7f1"
+      ],
+      "press": "4.35.1",
+      "reason": "blumira, press 4.35.1 reprint, reviewed 2026-11-06 (same declaration digest as the entry for skills/google-workspace/cli/internal/cli/deliver_spacefast.go). loadSpacefastDelivery reads this program's own delivery record: the directory is the CLI's state dir and the file name is the hex of a SHA-256 of the delivery key, so no input picks a path outside that directory. --deliver is refused over MCP (check_mcp_file_flags PASS)."
+    },
+    {
+      "file": "skills/blumira/cli/internal/cli/deliver_spacefast.go",
+      "rule": "G304",
+      "bind": "decl",
+      "sha256": [
+        "sha256:991de2fbb979c2c73f3873850ad79e0ce83f8f06ceaaa3f0481f23c06bc9b7f1"
+      ],
+      "press": "4.35.1",
+      "reason": "blumira, press 4.35.1 reprint, reviewed 2026-11-06 (same declaration digest as the entry for skills/google-workspace/cli/internal/cli/deliver_spacefast.go). Same read as the G703 entry: the CLI's own Spacefast delivery record, state dir plus a SHA-256 hex file name."
+    },
+    {
+      "file": "skills/blumira/cli/internal/cli/helpers.go",
+      "rule": "G304",
+      "bind": "decl",
+      "sha256": [
+        "sha256:62ee24e2c14754be389c41795461475ec6aa23ec17308bd3166bf8610b765949"
+      ],
+      "press": "4.35.1",
+      "reason": "blumira, press 4.35.1 reprint, reviewed 2026-11-06 (same declaration digest as the entry for skills/apple-business/cli/internal/cli/helpers.go). claimLegacyUnscopedDB with the credential kit edit (the owner-marker write goes through credkit.WriteFile, handfixes.json credkit-wiring), byte-identical to the declaration bound for sibling kit adopters. Both flagged reads open markerPath (<data.db>.owner) next to the CLI's own store in its resolved data directory, derived from defaultDBPathInDir; no MCP, API or tenant input reaches the path."
+    },
+    {
+      "file": "skills/cork/cli/internal/cliutil/creds_perms_unix.go",
+      "rule": "G115",
+      "bind": "file",
+      "sha256": [
+        "sha256:6f983a466c07f91137f3b91e649c494c3db7743a7608242f4e03b7720245fbea"
+      ],
+      "press": "4.35.1",
+      "reason": "press 4.35.1 template, cork reprint, reviewed 2026-11-06, byte-identical to google-workspace's reviewed copy (same file digest). uint32(os.Geteuid()), twice (verifyUnixPrivateFile, verifyUnixCredentialDir): the POSIX effective uid is a non-negative uid_t, compared for equality with the file or directory owner. The file is !windows."
+    },
+    {
+      "file": "skills/cork/cli/internal/cli/deliver_spacefast.go",
+      "rule": "G703",
+      "bind": "decl",
+      "sha256": [
+        "sha256:991de2fbb979c2c73f3873850ad79e0ce83f8f06ceaaa3f0481f23c06bc9b7f1"
+      ],
+      "press": "4.35.1",
+      "reason": "press 4.35.1 template, cork reprint, reviewed 2026-11-06, byte-identical to google-workspace's reviewed declaration (same digest). loadSpacefastDelivery reads this program's own delivery record: the directory is the CLI's state dir and the file name is the hex of a SHA-256 of the delivery key, so no input picks a path outside that directory."
+    },
+    {
+      "file": "skills/cork/cli/internal/cli/deliver_spacefast.go",
+      "rule": "G304",
+      "bind": "decl",
+      "sha256": [
+        "sha256:991de2fbb979c2c73f3873850ad79e0ce83f8f06ceaaa3f0481f23c06bc9b7f1"
+      ],
+      "press": "4.35.1",
+      "reason": "press 4.35.1 template, cork reprint, reviewed 2026-11-06. Same read as the G703 entry: the CLI's own Spacefast delivery record, state dir plus a SHA-256 hex file name."
+    },
+    {
+      "file": "skills/cork/cli/internal/credwire/declarations.go",
+      "rule": "G703",
+      "bind": "decl",
+      "sha256": [
+        "sha256:2c15a40d0fa25edea1301f55e1678da0c7eb5fd02bec80c02ef18c01b57b40e1"
+      ],
+      "press": "4.35.1",
+      "reason": "cork credential kit wiring (hand-written), reviewed 2026-11-06, byte-identical to google-workspace's and riverside-fm's reviewed readRegular (same digest). It stats and reads a credential source the program reads anyway (its config, credentials.toml, profiles.json), named by the operator's own --config, --home or environment, so Start can hold every credential in it before anything prints. It refuses anything but a regular file and never writes. The MCP server refuses --config and --home."
+    },
+    {
+      "file": "skills/cork/cli/internal/cli/helpers.go",
+      "rule": "G304",
+      "bind": "decl",
+      "sha256": [
+        "sha256:62ee24e2c14754be389c41795461475ec6aa23ec17308bd3166bf8610b765949"
+      ],
+      "press": "4.35.1",
+      "reason": "cork's copy of the press's claimLegacyUnscopedDB (press 4.35.1 reprint), reviewed 2026-11-06, byte-identical to abnormal's and apple-business's reviewed copies (same declaration digest). It differs from the template only in writing the owner marker through the credential kit. The marker path is the CLI's own data directory plus .owner, never a user or MCP argument."
+    },
+    {
+      "file": "skills/connectwise-automate/cli/internal/cliutil/creds_perms_unix.go",
+      "rule": "G115",
+      "bind": "decl",
+      "sha256": [
+        "sha256:ba5b7307221acae36fd84ca89c0de2d80f6a122badffbeaebef908000b88e8be",
+        "sha256:8b017713ba88e73ec54cee2c66a934e3bd3db8164a53a3d0ef528b82daf89610"
+      ],
+      "press": "4.35.1",
+      "reason": "connectwise-automate, press 4.35.1 reprint, reviewed 2026-11-06 (Codex round 1 APPROVED). uint32(os.Geteuid()), twice: the POSIX effective uid is a non-negative uid_t, compared for equality with the file or directory owner. Same code the 4.34.0 fleet entry accepts; the file is !windows."
+    },
+    {
+      "file": "skills/connectwise-automate/cli/internal/cli/deliver_spacefast.go",
+      "rule": "G703",
+      "bind": "decl",
+      "sha256": [
+        "sha256:991de2fbb979c2c73f3873850ad79e0ce83f8f06ceaaa3f0481f23c06bc9b7f1"
+      ],
+      "press": "4.35.1",
+      "reason": "connectwise-automate, press 4.35.1 reprint, reviewed 2026-11-06 (Codex round 1 APPROVED). loadSpacefastDelivery reads this program's own delivery record: the directory is the CLI's state dir and the file name is the hex of a SHA-256 of the delivery key, so no input picks a path outside that directory. --deliver is refused over MCP (check_mcp_file_flags PASS)."
+    },
+    {
+      "file": "skills/connectwise-automate/cli/internal/learn/journal.go",
+      "rule": "G304",
+      "bind": "decl",
+      "sha256": [
+        "sha256:8f56894aa61e40dd44668976cf4b7479104c33707d8d4dfadc502b9b56174390"
+      ],
+      "press": "4.35.1",
+      "reason": "connectwise-automate, press 4.35.1 reprint, reviewed 2026-11-06 (Codex round 1 APPROVED). repairJournalSegmentTail opens this CLI's own learn-journal segment under its state directory (path from the journal's own directory listing); no command input names it. Appends go through credkit.AppendFile."
+    },
+    {
+      "file": "skills/connectwise-automate/cli/internal/cliutil/filelock.go",
+      "rule": "G304",
+      "bind": "decl",
+      "sha256": [
+        "sha256:acc7d3e879d0661575189bcc97c3ab6e024876ba015d44c174c5b6929bcc5f9b"
+      ],
+      "press": "4.35.1",
+      "reason": "connectwise-automate, press 4.35.1 reprint, reviewed 2026-11-06 (Codex round 1 APPROVED). openLockFile opens the lock file beside a CLI state-dir log (the journal or teach log); the path comes from the CLI's own state directory, no command input names it."
+    },
+    {
+      "file": "skills/connectwise-automate/cli/internal/cli/helpers.go",
+      "rule": "G304",
+      "bind": "decl",
+      "sha256": [
+        "sha256:62ee24e2c14754be389c41795461475ec6aa23ec17308bd3166bf8610b765949"
+      ],
+      "press": "4.35.1",
+      "reason": "connectwise-automate, press 4.35.1 reprint, reviewed 2026-11-06 (Codex round 1 APPROVED). Press template claimLegacyUnscopedDB: reads this CLI's own data.db.owner marker beside its store under the data directory; no command input picks the path. The marker write goes through credkit.WriteFile."
+    },
+    {
+      "file": "skills/connectwise-automate/cli/internal/cli/deliver_spacefast.go",
+      "rule": "G304",
+      "bind": "decl",
+      "sha256": [
+        "sha256:991de2fbb979c2c73f3873850ad79e0ce83f8f06ceaaa3f0481f23c06bc9b7f1"
+      ],
+      "press": "4.35.1",
+      "reason": "connectwise-automate, press 4.35.1 reprint, reviewed 2026-11-06 (Codex round 1 APPROVED). Same read as the G703 entry: the CLI's own Spacefast delivery record, state dir plus a SHA-256 hex file name."
+    },
+    {
+      "file": "skills/connectwise-automate/cli/internal/credwire/declarations.go",
+      "rule": "G703",
+      "bind": "decl",
+      "sha256": [
+        "sha256:2c15a40d0fa25edea1301f55e1678da0c7eb5fd02bec80c02ef18c01b57b40e1"
+      ],
+      "press": "4.35.1",
+      "reason": "connectwise-automate, press 4.35.1 reprint, reviewed 2026-11-06 (Codex round 1 APPROVED). credential kit wiring (hand-written). readRegular stats and reads a credential source the program reads anyway (its config, credential store, profiles.json), named by the operator's own --config, --home or environment, so Start can hold every credential in it before anything prints. It refuses anything but a regular file and never writes. The MCP server refuses --config and --home."
+    },
+    {
+      "file": "skills/tactical-rmm/cli/internal/cliutil/creds_perms_unix.go",
+      "rule": "G115",
+      "bind": "decl",
+      "sha256": [
+        "sha256:ba5b7307221acae36fd84ca89c0de2d80f6a122badffbeaebef908000b88e8be",
+        "sha256:8b017713ba88e73ec54cee2c66a934e3bd3db8164a53a3d0ef528b82daf89610"
+      ],
+      "press": "4.35.1",
+      "reason": "tactical-rmm, press 4.35.1 security reprint, reviewed 2026-11-06. Press template: uint32(os.Geteuid()), twice: the POSIX effective uid is a non-negative 32-bit value, so the conversion cannot overflow; it compares the credential file's owner with the running user. Same declarations as riverside-fm and google-workspace."
+    },
+    {
+      "file": "skills/tactical-rmm/cli/internal/cli/deliver_spacefast.go",
+      "rule": "G703",
+      "bind": "decl",
+      "sha256": [
+        "sha256:991de2fbb979c2c73f3873850ad79e0ce83f8f06ceaaa3f0481f23c06bc9b7f1"
+      ],
+      "press": "4.35.1",
+      "reason": "tactical-rmm, press 4.35.1 security reprint, reviewed 2026-11-06. Press template loadSpacefastDelivery reads this program's own delivery record under its state directory; the name is a digest of the sink, not a path from input. --deliver is a refused root flag over MCP. Same declaration digest as riverside-fm and google-workspace."
+    },
+    {
+      "file": "skills/tactical-rmm/cli/internal/cli/deliver_spacefast.go",
+      "rule": "G304",
+      "bind": "decl",
+      "sha256": [
+        "sha256:991de2fbb979c2c73f3873850ad79e0ce83f8f06ceaaa3f0481f23c06bc9b7f1"
+      ],
+      "press": "4.35.1",
+      "reason": "tactical-rmm, press 4.35.1 security reprint, reviewed 2026-11-06. Same read as the G703 entry: the CLI's own Spacefast delivery record under its state directory."
+    },
+    {
+      "file": "skills/tactical-rmm/cli/internal/cli/helpers.go",
+      "rule": "G304",
+      "bind": "decl",
+      "sha256": [
+        "sha256:62ee24e2c14754be389c41795461475ec6aa23ec17308bd3166bf8610b765949"
+      ],
+      "press": "4.35.1",
+      "reason": "tactical-rmm, press 4.35.1 security reprint, reviewed 2026-11-06. Press template claimLegacyUnscopedDB: reads this CLI's own data.db.owner marker beside its store under the data directory; no command input picks the path. The credential kit wiring writes the marker with credkit.WriteFile after the temp handle is closed (handfixes.json credkit-wiring); both flagged reads of markerPath are template code."
+    },
+    {
+      "file": "skills/tactical-rmm/cli/internal/credwire/declarations.go",
+      "rule": "G703",
+      "bind": "decl",
+      "sha256": [
+        "sha256:2c15a40d0fa25edea1301f55e1678da0c7eb5fd02bec80c02ef18c01b57b40e1"
+      ],
+      "press": "4.35.1",
+      "reason": "tactical-rmm, press 4.35.1 security reprint, reviewed 2026-11-06. Credential kit wiring (hand-written). readRegular stats and reads a credential source this program reads anyway (config, credential store, profiles.json), only when it is a regular file; the paths come from the program's own directories or the --config/--home the user typed. Same declaration digest as riverside-fm and google-workspace."
+    },
+    {
+      "file": "skills/connectwise-rmm/cli/internal/cliutil/creds_perms_unix.go",
+      "rule": "G115",
+      "bind": "decl",
+      "sha256": [
+        "sha256:8b017713ba88e73ec54cee2c66a934e3bd3db8164a53a3d0ef528b82daf89610",
+        "sha256:ba5b7307221acae36fd84ca89c0de2d80f6a122badffbeaebef908000b88e8be"
+      ],
+      "press": "4.35.1",
+      "reason": "connectwise-rmm, press 4.35.1 reprint, reviewed 2026-11-06 (same declaration digest as the blumira entry for this file). uint32(os.Geteuid()), twice: the POSIX effective uid is a non-negative uid_t, compared for equality with the file or directory owner. Same code the 4.34.0 fleet entry accepts; the file is !windows."
+    },
+    {
+      "file": "skills/connectwise-rmm/cli/internal/cli/deliver_spacefast.go",
+      "rule": "G703",
+      "bind": "decl",
+      "sha256": [
+        "sha256:991de2fbb979c2c73f3873850ad79e0ce83f8f06ceaaa3f0481f23c06bc9b7f1"
+      ],
+      "press": "4.35.1",
+      "reason": "connectwise-rmm, press 4.35.1 reprint, reviewed 2026-11-06 (same declaration digest as the blumira entry for this file). loadSpacefastDelivery reads this program's own delivery record: the directory is the CLI's state dir and the file name is the hex of a SHA-256 of the delivery key, so no input picks a path outside that directory. --deliver is refused over MCP (check_mcp_file_flags PASS)."
+    },
+    {
+      "file": "skills/connectwise-rmm/cli/internal/cli/deliver_spacefast.go",
+      "rule": "G304",
+      "bind": "decl",
+      "sha256": [
+        "sha256:991de2fbb979c2c73f3873850ad79e0ce83f8f06ceaaa3f0481f23c06bc9b7f1"
+      ],
+      "press": "4.35.1",
+      "reason": "connectwise-rmm, press 4.35.1 reprint, reviewed 2026-11-06 (same declaration digest as the blumira entry for this file). Same read as the G703 entry: the CLI's own Spacefast delivery record, state dir plus a SHA-256 hex file name."
     }
   ]
 }

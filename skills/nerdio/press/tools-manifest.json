@@ -3219,5 +3219,37 @@
         }
       ]
     }
+  ],
+  "novel_features": [
+    {
+      "name": "Job poll-to-terminal",
+      "command": "job wait",
+      "description": "Wait for any NMM async job to finish - polls until Completed/Failed/Cancelled and exits with a typed code reflecting the outcome."
+    },
+    {
+      "name": "Fleet autoscale audit",
+      "command": "fleet autoscale-audit",
+      "description": "See every host pool across all customer accounts whose autoscale is disabled or diverges from your baseline - the Monday cost-control sweep as one command."
+    },
+    {
+      "name": "Fleet host estate",
+      "command": "fleet host-estate",
+      "description": "One table of every session host across all customer accounts with pool, account, and power state - the weekend power-sweep view."
+    },
+    {
+      "name": "Fleet billing rollup",
+      "command": "fleet billing-rollup",
+      "description": "Per-account billed/paid/unpaid/usage rollup for a billing period, joined to account names - PSA-reconciliation-ready without Excel."
+    },
+    {
+      "name": "Scripted-action fan-run",
+      "command": "scripted-actions fan-run",
+      "description": "Execute one scripted action across many customer accounts, collect every returned job ID, and optionally wait for all of them to finish."
+    },
+    {
+      "name": "Usage drift detector",
+      "command": "usages drift",
+      "description": "Flag customer accounts whose consumption grew or shrank beyond a threshold between two periods."
+    }
   ]
 }

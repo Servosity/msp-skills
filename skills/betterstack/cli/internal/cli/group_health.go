@@ -29,7 +29,7 @@ type groupHealthRow struct {
 // Ungrouped members aggregate under the synthetic "(ungrouped)" row of their
 // kind so totals always reconcile with the flat resource lists.
 func buildGroupHealth(monitorGroups, heartbeatGroups []groupRow, monitors []monitorRow, heartbeats []heartbeatRow, hbGroupIDs map[string]string, incidents []incidentRow) []groupHealthRow {
-	openBySource := openIncidentsBySource(incidents)
+	idx := indexOpenIncidents(incidents)
 
 	mg := make(map[string]*groupHealthRow)
 	for _, g := range monitorGroups {
@@ -54,7 +54,7 @@ func buildGroupHealth(monitorGroups, heartbeatGroups []groupRow, monitors []moni
 		default:
 			row.Up++
 		}
-		row.OpenIncidents += len(openBySource[m.ID])
+		row.OpenIncidents += len(idx.byMonitor[m.ID])
 	}
 
 	hg := make(map[string]*groupHealthRow)
@@ -80,6 +80,7 @@ func buildGroupHealth(monitorGroups, heartbeatGroups []groupRow, monitors []moni
 		default:
 			row.Up++
 		}
+		row.OpenIncidents += len(idx.byHeartbeat[h.ID]) // heartbeat-incidents-omitted
 	}
 
 	out := make([]groupHealthRow, 0, len(mg)+len(hg)+2)

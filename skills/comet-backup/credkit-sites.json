@@ -1,0 +1,557 @@
+{
+ "config_types": [],
+ "sites": [
+  {
+   "file": "internal/cli/changes.go",
+   "func": "newNovelChangesCmd",
+   "what": "fmt.Fprintf",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "runs only inside a command RunE, after credkit.Start; Declarations.Files builds the command tree to read flags and runs no command"
+  },
+  {
+   "file": "internal/cli/changes.go",
+   "func": "newNovelChangesCmd",
+   "what": "fmt.Fprintln",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs only inside a command RunE, after credkit.Start; Declarations.Files builds the command tree to read flags and runs no command"
+  },
+  {
+   "file": "internal/cli/changes.go",
+   "func": "newNovelChangesCmd",
+   "what": "writer:io.Writer",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs only inside a command RunE, after credkit.Start; Declarations.Files builds the command tree to read flags and runs no command"
+  },
+  {
+   "file": "internal/cli/changes.go",
+   "func": "printChanges",
+   "what": "fmt.Fprintln",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs only inside a command RunE, after credkit.Start; Declarations.Files builds the command tree to read flags and runs no command"
+  },
+  {
+   "file": "internal/cli/changes.go",
+   "func": "printChanges",
+   "what": "writer:io.Writer",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "runs only inside a command RunE, after credkit.Start; Declarations.Files builds the command tree to read flags and runs no command"
+  },
+  {
+   "file": "internal/cli/comet_fleet.go",
+   "func": "fleetError",
+   "what": "writer:io.Writer",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs only inside a command RunE, after credkit.Start; Declarations.Files builds the command tree to read flags and runs no command"
+  },
+  {
+   "file": "internal/cli/comet_guard.go",
+   "func": "guardClient",
+   "what": "call:dynamic",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "client hook list; every hook is guardClient, in this package"
+  },
+  {
+   "file": "internal/cli/comet_guard.go",
+   "func": "guardClient",
+   "what": "convert:comet-backup-pp-cli/internal/cli.originPinTripper.RoundTrip",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "wraps the kit transport under the origin pin; requests still pass credkit.Transport"
+  },
+  {
+   "file": "internal/cli/comet_guard.go",
+   "func": "guardClient",
+   "what": "convert:comet-backup-pp-cli/internal/cli.responseHoldTripper.RoundTrip",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "wraps the kit transport under the origin pin; requests still pass credkit.Transport"
+  },
+  {
+   "file": "internal/cli/comet_guard.go",
+   "func": "guardClient",
+   "what": "net/http.Client.Transport",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the kit is inside: next is client.OutboundGuard(...), which is credkit.Transport; the origin pin and redactor wrap it"
+  },
+  {
+   "file": "internal/cli/comet_guard.go",
+   "func": "originPinTripper.RoundTrip",
+   "what": "net/http.RoundTripper.RoundTrip",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "next is the kit transport built in guardClient"
+  },
+  {
+   "file": "internal/cli/comet_guard.go",
+   "func": "responseHoldTripper.RoundTrip",
+   "what": "net/http.RoundTripper.RoundTrip",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "next is the kit transport built in guardClient"
+  },
+  {
+   "file": "internal/cli/comet_guard.go",
+   "func": "sendOffHost",
+   "what": "net/http.Client.Do",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs only inside a command RunE, after credkit.Start; Declarations.Files builds the command tree to read flags and runs no command"
+  },
+  {
+   "file": "internal/cli/comet_stdin_hold.go",
+   "func": "holdStdinBody",
+   "what": "os.File.Close",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs only inside a command RunE, after credkit.Start; Declarations.Files builds the command tree to read flags and runs no command"
+  },
+  {
+   "file": "internal/cli/comet_stdin_hold.go",
+   "func": "holdStdinBody",
+   "what": "os.File.Write",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs only inside a command RunE, after credkit.Start; Declarations.Files builds the command tree to read flags and runs no command"
+  },
+  {
+   "file": "internal/cli/comet_stdin_hold.go",
+   "func": "holdStdinBody",
+   "what": "writer:*os.File",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs only inside a command RunE, after credkit.Start; Declarations.Files builds the command tree to read flags and runs no command"
+  },
+  {
+   "file": "internal/cli/devices_outdated.go",
+   "func": "newNovelDevicesOutdatedCmd",
+   "what": "fmt.Fprintf",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs only inside a command RunE, after credkit.Start; Declarations.Files builds the command tree to read flags and runs no command"
+  },
+  {
+   "file": "internal/cli/devices_outdated.go",
+   "func": "newNovelDevicesOutdatedCmd",
+   "what": "writer:io.Writer",
+   "count": 3,
+   "kind": "exempt",
+   "reason": "runs only inside a command RunE, after credkit.Start; Declarations.Files builds the command tree to read flags and runs no command"
+  },
+  {
+   "file": "internal/cli/devices_stale.go",
+   "func": "newNovelDevicesStaleCmd",
+   "what": "fmt.Fprintf",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs only inside a command RunE, after credkit.Start; Declarations.Files builds the command tree to read flags and runs no command"
+  },
+  {
+   "file": "internal/cli/devices_stale.go",
+   "func": "newNovelDevicesStaleCmd",
+   "what": "writer:io.Writer",
+   "count": 3,
+   "kind": "exempt",
+   "reason": "runs only inside a command RunE, after credkit.Start; Declarations.Files builds the command tree to read flags and runs no command"
+  },
+  {
+   "file": "internal/cli/health.go",
+   "func": "newNovelHealthCmd",
+   "what": "fmt.Fprintln",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs only inside a command RunE, after credkit.Start; Declarations.Files builds the command tree to read flags and runs no command"
+  },
+  {
+   "file": "internal/cli/health.go",
+   "func": "newNovelHealthCmd",
+   "what": "writer:io.Writer",
+   "count": 3,
+   "kind": "exempt",
+   "reason": "runs only inside a command RunE, after credkit.Start; Declarations.Files builds the command tree to read flags and runs no command"
+  },
+  {
+   "file": "internal/cli/rerun_failed.go",
+   "func": "newNovelRerunFailedCmd",
+   "what": "fmt.Fprintf",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "runs only inside a command RunE, after credkit.Start; Declarations.Files builds the command tree to read flags and runs no command"
+  },
+  {
+   "file": "internal/cli/rerun_failed.go",
+   "func": "newNovelRerunFailedCmd",
+   "what": "fmt.Fprintln",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs only inside a command RunE, after credkit.Start; Declarations.Files builds the command tree to read flags and runs no command"
+  },
+  {
+   "file": "internal/cli/rerun_failed.go",
+   "func": "newNovelRerunFailedCmd",
+   "what": "writer:io.Writer",
+   "count": 4,
+   "kind": "exempt",
+   "reason": "runs only inside a command RunE, after credkit.Start; Declarations.Files builds the command tree to read flags and runs no command"
+  },
+  {
+   "file": "internal/cli/snapshot.go",
+   "func": "loadSnapshots",
+   "what": "database/sql.DB.QueryRowContext",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "runs only inside a command RunE, after credkit.Start; Declarations.Files builds the command tree to read flags and runs no command"
+  },
+  {
+   "file": "internal/cli/snapshot.go",
+   "func": "newNovelSnapshotCmd",
+   "what": "fmt.Fprintf",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs only inside a command RunE, after credkit.Start; Declarations.Files builds the command tree to read flags and runs no command"
+  },
+  {
+   "file": "internal/cli/snapshot.go",
+   "func": "newNovelSnapshotCmd",
+   "what": "writer:io.Writer",
+   "count": 3,
+   "kind": "exempt",
+   "reason": "runs only inside a command RunE, after credkit.Start; Declarations.Files builds the command tree to read flags and runs no command"
+  },
+  {
+   "file": "internal/cli/snapshot.go",
+   "func": "saveSnapshot",
+   "what": "database/sql.DB.BeginTx",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs only inside a command RunE, after credkit.Start; Declarations.Files builds the command tree to read flags and runs no command"
+  },
+  {
+   "file": "internal/cli/triage.go",
+   "func": "newNovelTriageCmd",
+   "what": "fmt.Fprintf",
+   "count": 3,
+   "kind": "exempt",
+   "reason": "runs only inside a command RunE, after credkit.Start; Declarations.Files builds the command tree to read flags and runs no command"
+  },
+  {
+   "file": "internal/cli/triage.go",
+   "func": "newNovelTriageCmd",
+   "what": "writer:io.Writer",
+   "count": 3,
+   "kind": "exempt",
+   "reason": "runs only inside a command RunE, after credkit.Start; Declarations.Files builds the command tree to read flags and runs no command"
+  },
+  {
+   "file": "internal/cli/usage.go",
+   "func": "newNovelUsageCmd",
+   "what": "fmt.Fprintln",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs only inside a command RunE, after credkit.Start; Declarations.Files builds the command tree to read flags and runs no command"
+  },
+  {
+   "file": "internal/cli/usage.go",
+   "func": "newNovelUsageCmd",
+   "what": "writer:io.Writer",
+   "count": 3,
+   "kind": "exempt",
+   "reason": "runs only inside a command RunE, after credkit.Start; Declarations.Files builds the command tree to read flags and runs no command"
+  },
+  {
+   "file": "internal/cliutil/comet_dispatch_lock_unix.go",
+   "func": "openDispatchLockFile",
+   "what": "golang.org/x/sys/unix.Openat",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "opens the dispatch lock file; it holds no content"
+  },
+  {
+   "file": "internal/cliutil/comet_dispatch_lock_unix.go",
+   "func": "openDispatchLockFile",
+   "what": "os.File.Close",
+   "count": 3,
+   "kind": "exempt",
+   "reason": "runs only inside a command RunE, after credkit.Start; Declarations.Files builds the command tree to read flags and runs no command"
+  },
+  {
+   "file": "internal/cliutil/comet_dispatch_lock_unix.go",
+   "func": "openDispatchLockFile",
+   "what": "os.File.Fd",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs only inside a command RunE, after credkit.Start; Declarations.Files builds the command tree to read flags and runs no command"
+  },
+  {
+   "file": "internal/cliutil/comet_dispatch_lock_unix.go",
+   "func": "openDispatchLockFile",
+   "what": "os.File.Stat",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs only inside a command RunE, after credkit.Start; Declarations.Files builds the command tree to read flags and runs no command"
+  },
+  {
+   "file": "internal/cliutil/comet_dispatch_lock_unix.go",
+   "func": "openDispatchLockFile",
+   "what": "os.NewFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "wraps the lock file descriptor; nothing is written to it"
+  },
+  {
+   "file": "internal/cliutil/comet_dispatch_lock_unix.go",
+   "func": "openPrivateLockDir",
+   "what": "os.File.Close",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs only inside a command RunE, after credkit.Start; Declarations.Files builds the command tree to read flags and runs no command"
+  },
+  {
+   "file": "internal/cliutil/comet_dispatch_lock_unix.go",
+   "func": "openPrivateLockDir",
+   "what": "os.OpenFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "opens a directory or lock file with O_RDONLY; no credential file and no content"
+  },
+  {
+   "file": "internal/cliutil/comet_dispatch_lock_unix.go",
+   "func": "openPrivateLockDir",
+   "what": "writer:*os.File",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs only inside a command RunE, after credkit.Start; Declarations.Files builds the command tree to read flags and runs no command"
+  },
+  {
+   "file": "internal/cliutil/comet_dispatch_lock_unix.go",
+   "func": "tryDispatchLockIn",
+   "what": "os.File.Close",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "runs only inside a command RunE, after credkit.Start; Declarations.Files builds the command tree to read flags and runs no command"
+  },
+  {
+   "file": "internal/cliutil/comet_dispatch_lock_unix.go",
+   "func": "tryDispatchLockIn",
+   "what": "os.File.Name",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "runs only inside a command RunE, after credkit.Start; Declarations.Files builds the command tree to read flags and runs no command"
+  },
+  {
+   "file": "internal/cliutil/comet_dispatch_lock_unix.go",
+   "func": "tryDispatchLockIn",
+   "what": "writer:*os.File",
+   "count": 3,
+   "kind": "exempt",
+   "reason": "runs only inside a command RunE, after credkit.Start; Declarations.Files builds the command tree to read flags and runs no command"
+  },
+  {
+   "file": "internal/cliutil/comet_dispatch_lock_unix.go",
+   "func": "verifyPrivateLockDir",
+   "what": "os.File.Stat",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs only inside a command RunE, after credkit.Start; Declarations.Files builds the command tree to read flags and runs no command"
+  },
+  {
+   "file": "internal/cliutil/comet_dispatch_lock_unix.go",
+   "func": "verifyPrivateLockDir",
+   "what": "writer:*os.File",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs only inside a command RunE, after credkit.Start; Declarations.Files builds the command tree to read flags and runs no command"
+  },
+  {
+   "file": "internal/cliutil/comet_dispatch_lock_windows.go",
+   "func": "checkDispatchLockOwner",
+   "what": "golang.org/x/sys/windows.GetSecurityInfo",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the Windows dispatch lock: a named mutex keyed on this account's SID; it writes no file and carries no credential"
+  },
+  {
+   "file": "internal/cliutil/comet_dispatch_lock_windows.go",
+   "func": "checkDispatchLockOwner",
+   "what": "golang.org/x/sys/windows.SECURITY_DESCRIPTOR.Owner",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the Windows dispatch lock: a named mutex keyed on this account's SID; it writes no file and carries no credential"
+  },
+  {
+   "file": "internal/cliutil/comet_dispatch_lock_windows.go",
+   "func": "checkDispatchLockOwner",
+   "what": "golang.org/x/sys/windows.SID.Equals",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the Windows dispatch lock: a named mutex keyed on this account's SID; it writes no file and carries no credential"
+  },
+  {
+   "file": "internal/cliutil/comet_dispatch_lock_windows.go",
+   "func": "checkDispatchLockOwner",
+   "what": "golang.org/x/sys/windows.SID.IsWellKnown",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "the Windows dispatch lock: a named mutex keyed on this account's SID; it writes no file and carries no credential"
+  },
+  {
+   "file": "internal/cliutil/comet_dispatch_lock_windows.go",
+   "func": "checkDispatchLockOwner",
+   "what": "golang.org/x/sys/windows.SID.String",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the Windows dispatch lock: a named mutex keyed on this account's SID; it writes no file and carries no credential"
+  },
+  {
+   "file": "internal/cliutil/comet_dispatch_lock_windows.go",
+   "func": "tryOSDispatchLock",
+   "what": "golang.org/x/sys/windows.CloseHandle",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the Windows dispatch lock: a named mutex keyed on this account's SID; it writes no file and carries no credential"
+  },
+  {
+   "file": "internal/cliutil/comet_dispatch_lock_windows.go",
+   "func": "tryOSDispatchLock",
+   "what": "golang.org/x/sys/windows.CreateMutexEx",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the Windows dispatch lock: a named mutex keyed on this account's SID; it writes no file and carries no credential"
+  },
+  {
+   "file": "internal/cliutil/comet_dispatch_lock_windows.go",
+   "func": "tryOSDispatchLock",
+   "what": "golang.org/x/sys/windows.OpenCurrentProcessToken",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the Windows dispatch lock: a named mutex keyed on this account's SID; it writes no file and carries no credential"
+  },
+  {
+   "file": "internal/cliutil/comet_dispatch_lock_windows.go",
+   "func": "tryOSDispatchLock",
+   "what": "golang.org/x/sys/windows.ReleaseMutex",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the Windows dispatch lock: a named mutex keyed on this account's SID; it writes no file and carries no credential"
+  },
+  {
+   "file": "internal/cliutil/comet_dispatch_lock_windows.go",
+   "func": "tryOSDispatchLock",
+   "what": "golang.org/x/sys/windows.SID.String",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the Windows dispatch lock: a named mutex keyed on this account's SID; it writes no file and carries no credential"
+  },
+  {
+   "file": "internal/cliutil/comet_dispatch_lock_windows.go",
+   "func": "tryOSDispatchLock",
+   "what": "golang.org/x/sys/windows.Token.Close",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the Windows dispatch lock: a named mutex keyed on this account's SID; it writes no file and carries no credential"
+  },
+  {
+   "file": "internal/cliutil/comet_dispatch_lock_windows.go",
+   "func": "tryOSDispatchLock",
+   "what": "golang.org/x/sys/windows.Token.GetTokenUser",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the Windows dispatch lock: a named mutex keyed on this account's SID; it writes no file and carries no credential"
+  },
+  {
+   "file": "internal/cliutil/comet_dispatch_lock_windows.go",
+   "func": "tryOSDispatchLock",
+   "what": "golang.org/x/sys/windows.UTF16PtrFromString",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the Windows dispatch lock: a named mutex keyed on this account's SID; it writes no file and carries no credential"
+  },
+  {
+   "file": "internal/cliutil/comet_dispatch_lock_windows.go",
+   "func": "tryOSDispatchLock",
+   "what": "golang.org/x/sys/windows.WaitForSingleObject",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the Windows dispatch lock: a named mutex keyed on this account's SID; it writes no file and carries no credential"
+  },
+  {
+   "file": "internal/credsql/credsql.go",
+   "func": "applyLengthLimit",
+   "what": "database/sql.DB.Conn",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs only inside a command RunE, after credkit.Start; Declarations.Files builds the command tree to read flags and runs no command"
+  },
+  {
+   "file": "internal/credsql/credsql.go",
+   "func": "applyLengthLimit",
+   "what": "database/sql.OpenDB",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "runs only inside a command RunE, after credkit.Start; Declarations.Files builds the command tree to read flags and runs no command"
+  },
+  {
+   "file": "internal/cliutil/comet_dispatch_lock.go",
+   "func": "RecordDispatchIntent",
+   "what": "os.File.Close",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "an empty dispatch record whose name is a hash: it has no content and carries no credential"
+  },
+  {
+   "file": "internal/cliutil/comet_dispatch_lock.go",
+   "func": "RecordDispatchIntent",
+   "what": "os.OpenFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "an empty dispatch record whose name is a hash: it has no content and carries no credential"
+  },
+  {
+   "file": "internal/cliutil/comet_dispatch_lock_unix.go",
+   "func": "dispatchIntentDir",
+   "what": "os.File.Close",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "an empty dispatch record whose name is a hash: it has no content and carries no credential"
+  },
+  {
+   "file": "internal/cliutil/comet_dispatch_lock_windows.go",
+   "func": "dispatchIntentDir",
+   "what": "golang.org/x/sys/windows.OpenCurrentProcessToken",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "finds this account's profile directory from its token for the dispatch record; it writes nothing and carries no credential"
+  },
+  {
+   "file": "internal/cliutil/comet_dispatch_lock_windows.go",
+   "func": "dispatchIntentDir",
+   "what": "golang.org/x/sys/windows.Token.Close",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "finds this account's profile directory from its token for the dispatch record; it writes nothing and carries no credential"
+  },
+  {
+   "file": "internal/cliutil/comet_dispatch_lock_windows.go",
+   "func": "dispatchIntentDir",
+   "what": "golang.org/x/sys/windows.Token.GetUserProfileDirectory",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "finds this account's profile directory from its token for the dispatch record; it writes nothing and carries no credential"
+  },
+  {
+   "file": "internal/credwire/declarations.go",
+   "func": "holdProfileStore",
+   "what": "os.ReadFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the run profile store, read only to hold its values before anything prints"
+  }
+ ]
+}

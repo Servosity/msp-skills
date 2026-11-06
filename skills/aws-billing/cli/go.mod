@@ -5,6 +5,7 @@ go 1.26.10
 require (
 	github.com/pelletier/go-toml/v2 v2.2.4
 	github.com/spf13/cobra v1.9.1
+	github.com/spf13/pflag v1.0.6
 )
 
 require modernc.org/sqlite v1.37.0
@@ -12,6 +13,8 @@ require modernc.org/sqlite v1.37.0
 require (
 	github.com/aws/aws-sdk-go-v2 v1.41.8
 	github.com/aws/aws-sdk-go-v2/config v1.32.19
+	github.com/aws/aws-sdk-go-v2/credentials v1.19.18
+	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.18.24
 	github.com/aws/aws-sdk-go-v2/service/cloudwatch v1.57.1
 	github.com/aws/aws-sdk-go-v2/service/costexplorer v1.63.9
 	github.com/aws/aws-sdk-go-v2/service/ec2 v1.304.1
@@ -19,15 +22,12 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.102.1
 	github.com/aws/aws-sdk-go-v2/service/sts v1.42.2
 	github.com/aws/smithy-go v1.25.1
-	github.com/mark3labs/mcp-go v0.47.0
-	github.com/spf13/pflag v1.0.6
-	github.com/stretchr/testify v1.9.0
+	github.com/mark3labs/mcp-go v0.57.0
+	github.com/stretchr/testify v1.11.1
 )
 
 require (
 	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.7.10 // indirect
-	github.com/aws/aws-sdk-go-v2/credentials v1.19.18 // indirect
-	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.18.24 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/configsources v1.4.24 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.7.24 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/v4a v1.4.25 // indirect
@@ -47,12 +47,23 @@ require (
 	github.com/ncruces/go-strftime v0.1.9 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
+	github.com/santhosh-tekuri/jsonschema/v6 v6.0.2 // indirect
 	github.com/spf13/cast v1.7.1 // indirect
 	github.com/yosida95/uritemplate/v3 v3.0.2 // indirect
 	golang.org/x/exp v0.0.0-20250305212735-054e65f0b394 // indirect
-	golang.org/x/sys v0.46.0 // indirect
+	golang.org/x/text v0.42.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	modernc.org/libc v1.62.1 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.9.1 // indirect
 )
+
+// x/sys is a DIRECT dependency even without auth: filelock_windows.go
+// imports golang.org/x/sys/windows, and darwin_acl_darwin.go imports
+// golang.org/x/sys/unix. Emitted as a direct require (no // indirect) so a
+// Windows or darwin cross-compile of a freshly generated bundle succeeds
+// without a manual `go mod tidy`. The version matches the transitive floor.
+// NOTE (go mod tidy GOOS caveat): both imports are build-tagged, so tidy
+// under GOOS=linux re-marks this // indirect when auth is absent; under
+// GOOS=windows or GOOS=darwin it stays direct.
+require golang.org/x/sys v0.46.0

