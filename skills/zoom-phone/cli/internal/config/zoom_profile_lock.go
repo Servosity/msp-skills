@@ -285,7 +285,9 @@ func ZoomAcquireProfileLock(configPath string) (func(), error) {
 	}
 	locked := make(chan error, 1)
 	done := make(chan struct{})
+	exited := make(chan struct{})
 	go func() {
+		defer close(exited)
 		err := cliutil.WithFileLock(lockBase, func() error {
 			locked <- nil
 			<-done
@@ -301,8 +303,16 @@ func ZoomAcquireProfileLock(configPath string) (func(), error) {
 	if err := <-locked; err != nil {
 		return nil, err
 	}
+	// The release returns only once the goroutine has unlocked and closed the
+	// lock file: an open handle under <accounts>/.locks makes Windows refuse
+	// to rename or remove the accounts directory (Access is denied).
 	var once sync.Once
-	return func() { once.Do(func() { close(done) }) }, nil
+	return func() {
+		once.Do(func() {
+			close(done)
+			<-exited
+		})
+	}, nil
 }
 
 // ZoomLockProfileForSave locks the profile for an automatic token save and
