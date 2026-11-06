@@ -807,7 +807,7 @@
       "name": "rewst",
       "source": "./skills/rewst",
       "description": "Operate and monitor Rewst RPA across every client org from the terminal or your AI agent: workflow execution health, failure triage, automation ROI, dormant-workflow cleanup, cross-org config drift, and integration-pack coverage - the multi-tenant answers the web console makes you assemble one org at a time.",
-      "version": "0.1.7",
+      "version": "0.1.8",
       "category": "automation",
       "tags": [
         "rewst",
@@ -1592,7 +1592,7 @@
       "name": "zoom-phone",
       "source": "./skills/zoom-phone",
       "description": "Every Zoom Phone admin operation plus E911, routing and footprint audits, across every client account.",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "category": "telephony",
       "tags": [
         "zoom-phone",

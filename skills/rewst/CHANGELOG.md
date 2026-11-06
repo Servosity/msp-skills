@@ -4,7 +4,7 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
-## [0.1.8] - unreleased
+## [0.1.8] - 2026-11-06
 
 ### Security
 - **Rebuilt on CLI Printing Press 4.34.2** ([GHSA-jh26-vhqh-692c](https://github.com/Servosity/msp-skills/security/advisories/GHSA-jh26-vhqh-692c)). The MCP server's HTTP mode now requires a bearer token (`REWST_MCP_HTTP_TOKEN`), serves `http://127.0.0.1:7777/mcp` by default and needs TLS on any other address; mcp-go is v0.57.0. Every MCP tool that changes something returns a preview and sends only with `confirm: true`.
