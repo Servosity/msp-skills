@@ -42,6 +42,11 @@ require a human for anything below the line.
   not in the binary's defaults.
 - **Never let an agent run Credential, Destructive, or Admin tier commands
   unattended.** Treat them like a production database drop: human, reviewed, logged.
+- **Remote agents need the HTTP mode's token.** `pagerduty-mcp --transport http`
+  refuses to start until `PAGERDUTY_MCP_HTTP_TOKEN` is set, rejects any request
+  without that bearer token, listens on `127.0.0.1:7777` by default, and needs
+  TLS for any other address. Whoever holds that token can call every tool with
+  your PagerDuty credentials.
 - **Rotate the credential if it is ever exposed** (for example after bridging the
   MCP server to a public endpoint for ChatGPT - see mcp-install.md).
 
