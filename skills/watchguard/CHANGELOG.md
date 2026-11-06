@@ -9,6 +9,8 @@ All notable changes to this skill are documented here. Format follows
 ### Security
 - Rebuilt on CLI Printing Press 4.35.1 ([GHSA-jh26-vhqh-692c](https://github.com/advisories/GHSA-jh26-vhqh-692c)). The MCP server's HTTP mode refuses to start until `WATCHGUARD_MCP_HTTP_TOKEN` is set (32 characters or more), serves `http://127.0.0.1:7777/mcp` by default, and needs `--tls-cert` and `--tls-key` on any other address. `watchguard_execute` previews every state-changing call until `confirm` is the JSON boolean `true`. `WATCHGUARD_NO_LOCAL_DATA` is now declared on every install channel next to `WATCHGUARD_MCP_HTTP_TOKEN` and `WATCHGUARD_MCP_READ_ONLY`.
 - A managed account's scoped token is sent only to the origin it was minted for, and a scoped token request refuses a plaintext (non-loopback `http://`) token URL.
+- The CLI and MCP server now run on the shared credential kit: every credential the program holds (the Access ID, API password and API key, the minted and per-account bearer tokens, saved profile values) is withheld from terminal output, files, the local store, the learn journal and MCP results, and is sent only to the configured WatchGuard Cloud API over https. `auth login --dry-run` no longer prints the Access ID.
+- Saved credentials pinned to an IPv6 link-local address are used only on the same zone: an address whose zone differs only in case is a different host.
 
 ### Added
 - `local-data purge` previews, then (with `--yes`) erases the local store, response cache and learn journal. `WATCHGUARD_NO_LOCAL_DATA=1` runs with no local copy: reads go to the API and `sync` is blocked.
