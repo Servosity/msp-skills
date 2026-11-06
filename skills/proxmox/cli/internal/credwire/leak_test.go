@@ -267,11 +267,11 @@ func mcpCall(t *testing.T, bin string, env []string, calls ...string) string {
 	return out.String() + stderr.String()
 }
 
-// Fixture token secrets: UUIDs written in two pieces, so no 8-character piece
+// Fixture token secrets: UUIDs written in pieces, so no 8-character piece
 // of one occurs in ordinary output.
 const (
-	pveSecret = "0f3c9a51-8d2e-" + "4b7a-9c61-5e2d8f4a7b13"
-	pbsSecret = "7d1e4c2a-5b9f-" + "4e8d-a3c6-2f8b1d9e0a74"
+	pveSecret = "0f3c9a51" + "-8d2e-" + "4b7a-9c61-5e2d8f4a7b13"
+	pbsSecret = "7d1e4c2a" + "-5b9f-" + "4e8d-a3c6-2f8b1d9e0a74"
 	pveToken  = "root@pam!monitor=" + pveSecret
 	pbsToken  = "backup@pbs!audit:" + pbsSecret
 )
