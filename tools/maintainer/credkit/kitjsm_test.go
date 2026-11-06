@@ -4,6 +4,7 @@ package credkit
 
 import (
 	"encoding/base64"
+	"net/http"
 	"net/url"
 	"testing"
 	"unicode/utf8"
@@ -75,7 +76,7 @@ func TestKitJSMEveryPasswordPieceOfThePairHeld(t *testing.T) {
 	for _, user := range []string{
 		"tech@acmemsp.com", "abcdefg", "abcdefgh", "", "u",
 		"jos\u00e9@caf\u00e9.example", "jose\u0301\u0301@cafe\u0301.ex\u0301", "\ufb03\ufb03\ufb03\ufb03\ufb03\ufb03\ufb03\ufb03",
-		"ADMINISTRATOR@VSPHERE.LOCAL", "xxxe\u0301abcde", "xxxe\u0301\u0301bcde", "\u00c5ngstr\u00f6m\u212b\u212b\u212b\u212b",
+		"ADMINISTRATOR@VSPHERE.LOCAL", "tech@acme.\ufb01nance", "xxxxe\u0301abcd", "tech@\ufb03\ufb03\ufb03\ufb03\ufb03\ufb03", "ab\ufb01cdefgh", "xxxe\u0301abcde", "xxxe\u0301\u0301bcde", "\u00c5ngstr\u00f6m\u212b\u212b\u212b\u212b",
 	} {
 		for _, pass := range []string{"jsmtok-Pr0beEm4il9z", "pw-12345", "p:w:9876543210"} {
 			holdBasic(t, jsmUser, user, pass)
@@ -127,5 +128,53 @@ func TestKitJSMProbeAnswer(t *testing.T) {
 	}
 	if !leaks(ans[:len(ans)-3] + ` jsmtok-Pr0beEm4il9z"}]}`) {
 		t.Error("the probe's answer carrying the token is not withheld")
+	}
+}
+
+// Codex r1: a cut whose user side normalizes longer (a ligature) must not
+// hold a piece that lies wholly inside the user.
+func TestKitJSMLigatureUserSiteLink(t *testing.T) {
+	holdBasic(t, jsmUser, "tech@acme.\ufb01nance", "jsmtok-Pr0beEm4il9z")
+	for _, u := range []string{"https://acme.finance/", "acme.\ufb01nance", "tech@acme.finance"} {
+		if leaks(u) {
+			t.Errorf("ordinary output withheld: %q", u)
+		}
+	}
+	if !leaks("finance:jsmt") || !leaks("jsmtok-Pr0beEm4il9z") {
+		t.Error("the password side of a ligature user's pair is not withheld")
+	}
+}
+
+// Codex r1: a part that is public text while running is not held (contract
+// 2), so the pair is then held whole, as before, and the password stays caught.
+func TestKitJSMPublicTextSideKeepsThePair(t *testing.T) {
+	holdBasic(t, jsmUser, "alice-credkit", " withheld from stdout")
+	if !leaks(" withheld from stdout") {
+		t.Errorf("a password whose part is public text is not withheld: %q", heldValues())
+	}
+}
+
+// Codex r1 (P2): a binding already held for the raw pair is still inherited
+// by the parts of a Basic header carrying it.
+func TestKitJSMPairBindingInherited(t *testing.T) {
+	const user, pass = "tech@acmemsp.com", "jsmtok-Pr0beEm4il9z"
+	resetForTest(Declarations{
+		Identifiers: []Identifier{{Source: "basic-user", Reason: "the account's email"}},
+		Origins:     []Origin{{Source: "minted:pair", Allowed: []string{"https://a.example"}}},
+	})
+	Hold("minted:pair", user+":"+pass)
+	auth := "Basic " + base64.StdEncoding.EncodeToString([]byte(user+":"+pass))
+	reg.Lock()
+	holdHeaderLocked(http.Header{"Authorization": {auth}})
+	reg.Unlock()
+	u, _ := url.Parse("https://a.example/")
+	o, _ := originOf(u)
+	if m, unknown := originMatcher(o, false); unknown || m != nil && m.check([]byte(auth)) != clean {
+		t.Error("the Basic header was refused at the origin its pair is bound to")
+	}
+	u, _ = url.Parse("https://b.example/")
+	o, _ = originOf(u)
+	if m, unknown := originMatcher(o, false); !unknown && (m == nil || m.check([]byte(auth)) == clean) {
+		t.Error("the Basic header may go to an origin its pair is not bound to")
 	}
 }

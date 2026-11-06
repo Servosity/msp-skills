@@ -10,6 +10,7 @@ package credkit
 // sources is bound to both sources' origins.
 
 import (
+	"bytes"
 	"encoding/base64"
 	"fmt"
 	"net/url"
@@ -203,6 +204,7 @@ func holdAllowedLocked(source Source, extra []string, values ...string) {
 		return
 	}
 	var parts []string
+	var pairs []string // a Basic pair held only in part: its binding is still inherited
 	part := func(v string) {
 		if v != "" && !slices.Contains(parts, v) {
 			parts = append(parts, v)
@@ -232,11 +234,15 @@ func holdAllowedLocked(source Source, extra []string, values ...string) {
 				if pair, ok := decodeBasic(rest); ok {
 					user, pass, _ := strings.Cut(pair, ":")
 					part(pass)
-					if exemptLocked("basic-user") {
-						part(secretSide(pair, len(user), pass))
-					} else {
+					switch side := secretSide(pair, len(user), pass); {
+					case !exemptLocked("basic-user"):
 						part(pair)
 						part(user)
+					case side != pair && (reg.startup || !inPublicText(side)):
+						part(side)
+						pairs = append(pairs, pair)
+					default:
+						part(pair)
 					}
 				}
 			}
@@ -252,7 +258,7 @@ func holdAllowedLocked(source Source, extra []string, values ...string) {
 	// sources bind to both).
 	var inherited []string
 	if !declared {
-		for _, p := range parts {
+		for _, p := range slices.Concat(parts, pairs) {
 			if e := reg.vals[p]; e != nil {
 				inherited = append(inherited, e.allowed...)
 			}
@@ -290,23 +296,33 @@ func holdAllowedLocked(source Source, extra []string, values ...string) {
 
 // secretSide is the part of a Basic pair (user ":" pass, the user declared an
 // Identifier) whose 8-character pieces are the pair's pieces that overlap the
-// password: the colon and the password with at least pieceLen-2 characters of
-// the user in front, as written and as normalized (KF-JSM-1). A piece inside
-// the user (its email domain, "acmemsp.") is the Identifier's, not a
-// credential's: an answer naming the domain is ordinary output. The cut
-// falls between two ASCII bytes, where normalizing cannot join the two sides.
-// The pair stays whole when it is not valid UTF-8 (contract 2 then counts it
-// by bytes) and when the password is under pieceLen characters ("key:x": the
+// password (KF-JSM-1): the colon and the password with the fewest characters
+// of the user in front that still give every such piece, at least 6 as
+// written and 6 normalized. A piece inside the user (its email domain,
+// "acmemsp.") is the Identifier's, not a credential's: an answer naming the
+// domain is ordinary output. The cut is taken only where the part, normalized,
+// ends the normalized pair, so its pieces are pieces of the pair: never more
+// than the whole pair holds. It is the pair, held whole as before, when no cut
+// does that, when the pair is not valid UTF-8 (contract 2 then counts it by
+// bytes) and when the password is under pieceLen characters ("key:x": the
 // user half is the secret by its shape).
+// ponytail: one normalize per candidate cut, capped at 4*pieceLen user
+// characters (then the pair, whole); a user is a short account name.
 func secretSide(pair string, userLen int, pass string) string {
 	if !utf8.ValidString(pair) || utf8.RuneCountInString(pass) < pieceLen {
 		return pair
 	}
-	ascii := func(i int) bool { return pair[i] < utf8.RuneSelf }
+	n, np := normalize([]byte(pair)), normalize([]byte(pair[userLen:]))
 	for i := userLen; i > 0; i-- {
-		head := pair[i:userLen]
-		if ascii(i-1) && ascii(i) && utf8.RuneCountInString(head) >= pieceLen-2 &&
-			utf8.RuneCount(normalize([]byte(head))) >= pieceLen-2 {
+		if !utf8.RuneStart(pair[i]) {
+			continue
+		}
+		raw := utf8.RuneCountInString(pair[i:userLen])
+		if raw > 4*pieceLen {
+			break
+		}
+		ns := normalize([]byte(pair[i:]))
+		if raw >= pieceLen-2 && utf8.RuneCount(ns)-utf8.RuneCount(np) >= pieceLen-2 && bytes.HasSuffix(n, ns) && bytes.HasSuffix(ns, np) {
 			return pair[i:]
 		}
 	}
