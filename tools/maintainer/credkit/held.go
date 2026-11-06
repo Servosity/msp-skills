@@ -10,7 +10,6 @@ package credkit
 // sources is bound to both sources' origins.
 
 import (
-	"bytes"
 	"encoding/base64"
 	"fmt"
 	"net/url"
@@ -19,12 +18,15 @@ import (
 	"strings"
 	"sync"
 	"unicode"
-	"unicode/utf8"
 )
 
 type heldEntry struct {
 	allowed []string // Origin.Allowed entries, unioned over every source that held it
 	src     Source   // the first source that held it
+	// userCut: a Basic pair held only as one whose user is an Identifier
+	// (basic-user, KF-JSM-1): its pieces lying wholly inside "user:" are
+	// not held (userCuts). Held whole from anywhere else, it is held whole.
+	userCut bool
 }
 
 // heldMu is reg's lock. When the held set changed while it was held,
@@ -204,12 +206,13 @@ func holdAllowedLocked(source Source, extra []string, values ...string) {
 		return
 	}
 	var parts []string
-	var pairs []string // a Basic pair held only in part: its binding is still inherited
-	part := func(v string) {
+	whole := map[string]bool{} // every part but a pair held with its user cut
+	add := func(v string) {
 		if v != "" && !slices.Contains(parts, v) {
 			parts = append(parts, v)
 		}
 	}
+	part := func(v string) { add(v); whole[v] = true }
 	for _, v := range values {
 		part(v)
 		t := strings.TrimFunc(v, unicode.IsSpace)
@@ -217,8 +220,8 @@ func holdAllowedLocked(source Source, extra []string, values ...string) {
 		// A scheme word in front ("Bearer x", "Basic x") is not the secret:
 		// the rest is held on its own as well, each auth parameter's value,
 		// and a Basic credential's decoded pair and both of its parts
-		// (contract 1); with basic-user an Identifier, the user and the pair's
-		// pieces inside it are not held (secretSide).
+		// (contract 1); with basic-user an Identifier, the user is not held
+		// and neither is any piece of the pair lying wholly inside "user:".
 		if m := schemeRE.FindStringSubmatch(t); m != nil {
 			rest := strings.TrimFunc(m[2], unicode.IsSpace)
 			part(rest)
@@ -234,15 +237,11 @@ func holdAllowedLocked(source Source, extra []string, values ...string) {
 				if pair, ok := decodeBasic(rest); ok {
 					user, pass, _ := strings.Cut(pair, ":")
 					part(pass)
-					switch side := secretSide(pair, len(user), pass); {
-					case !exemptLocked("basic-user"):
+					if exemptLocked("basic-user") {
+						add(pair)
+					} else {
 						part(pair)
 						part(user)
-					case side != pair && (reg.startup || !inPublicText(side)):
-						part(side)
-						pairs = append(pairs, pair)
-					default:
-						part(pair)
 					}
 				}
 			}
@@ -258,13 +257,13 @@ func holdAllowedLocked(source Source, extra []string, values ...string) {
 	// sources bind to both).
 	var inherited []string
 	if !declared {
-		for _, p := range slices.Concat(parts, pairs) {
+		for _, p := range parts {
 			if e := reg.vals[p]; e != nil {
 				inherited = append(inherited, e.allowed...)
 			}
 		}
 	}
-	add := func(e *heldEntry, origins []string) {
+	bind := func(e *heldEntry, origins []string) {
 		for _, a := range origins {
 			if !slices.Contains(e.allowed, a) {
 				e.allowed = append(e.allowed, a)
@@ -282,80 +281,22 @@ func holdAllowedLocked(source Source, extra []string, values ...string) {
 			e = &heldEntry{src: source}
 			reg.vals[p] = e
 			reg.gen++
-			add(e, base)
+			e.userCut = !whole[p]
+			bind(e, base)
 			if !declared {
-				add(e, inherited)
+				bind(e, inherited)
 			}
 			continue
 		}
+		if e.userCut && whole[p] {
+			e.userCut = false
+			reg.gen++
+		}
 		if declared {
-			add(e, base)
+			bind(e, base)
 		}
 	}
 }
-
-// secretSide is the part of a Basic pair (user ":" pass, the user declared an
-// Identifier) whose pieces are the pair's pieces that overlap the password
-// (KF-JSM-1): the colon and the password with the fewest characters of the
-// user in front that a matcher of its own proves still withholds every 8-
-// character piece of the pair overlapping the password, as written and
-// normalized. A piece inside the user (its email
-// domain, "acmemsp.") is the Identifier's, not a credential's: an answer
-// naming the domain is ordinary output. A cut is taken only where the part,
-// normalized, ends the normalized pair, so it never holds more than the whole
-// pair. It is the pair, held whole as before, when no cut does that, when the
-// pair is not valid UTF-8 (contract 2 then counts it by bytes) and when the
-// password is under pieceLen characters ("key:x": the user half is the secret
-// by its shape).
-// ponytail: a matcher per candidate cut, capped at 4*pieceLen user
-// characters (then the pair, whole) and memoized per pair (sides, at most
-// 256); a user is a short account name and a program holds few credentials.
-func secretSide(pair string, userLen int, pass string) string {
-	if !utf8.ValidString(pair) || utf8.RuneCountInString(pass) < pieceLen {
-		return pair
-	}
-	if side, ok := sides.m[pair]; ok {
-		return side
-	}
-	side := pair
-	n, np := normalize([]byte(pair)), normalize([]byte(pair[userLen:]))
-	if bytes.HasSuffix(n, np) {
-		var units [][]byte // every piece of the pair that overlaps the password
-		rs, ns := charStarts([]byte(pair)), charStarts(n)
-		for _, f := range []struct {
-			b     []byte
-			cs    []int
-			colon int
-		}{{[]byte(pair), rs, utf8.RuneCountInString(pair[:userLen])}, {n, ns, len(ns) - 1 - utf8.RuneCount(np)}} {
-			for i := max(0, f.colon-pieceLen+2); i+pieceLen < len(f.cs); i++ {
-				units = append(units, f.b[f.cs[i]:f.cs[i+pieceLen]])
-			}
-		}
-		for i := userLen; i > 0; i-- {
-			if !utf8.RuneStart(pair[i]) {
-				continue
-			}
-			if utf8.RuneCountInString(pair[i:userLen]) > 4*pieceLen {
-				break
-			}
-			if !bytes.HasSuffix(n, normalize([]byte(pair[i:]))) {
-				continue
-			}
-			m := newMatcher([]string{pair[i:]})
-			if !slices.ContainsFunc(units, func(u []byte) bool { return m == nil || m.check(u) == clean }) {
-				side = pair[i:]
-				break
-			}
-		}
-	}
-	if len(sides.m) < 256 {
-		sides.m[pair] = side
-	}
-	return side
-}
-
-// sides memoizes secretSide; reg's lock guards it.
-var sides = struct{ m map[string]string }{m: map[string]string{}}
 
 // decodeBasic decodes a Basic credential in any base64 alphabet, padded or
 // not, to its "user:password" pair. The pair is kept as bytes when it is not
@@ -403,7 +344,7 @@ func currentMatcher() (*matcher, bool) {
 		for v := range reg.vals {
 			vals = append(vals, v)
 		}
-		reg.m = newMatcher(vals)
+		reg.m = buildMatcher(vals, userCutsLocked(), false, false)
 		reg.mgen = reg.gen
 	}
 	return reg.m, false
@@ -439,9 +380,20 @@ func originMatcher(o origin, strict bool) (*matcher, bool) {
 			vals = append(vals, v)
 		}
 	}
-	m := newRequestMatcher(vals)
+	m := buildMatcher(vals, userCutsLocked(), true, false)
 	reg.origins[key] = m
 	return m, false
+}
+
+// userCutsLocked is every held pair with its user cut.
+func userCutsLocked() map[string]bool {
+	out := map[string]bool{}
+	for v, e := range reg.vals {
+		if e.userCut {
+			out[v] = true
+		}
+	}
+	return out
 }
 
 func allowedAt(allowed []string, o origin, base *origin) bool {
