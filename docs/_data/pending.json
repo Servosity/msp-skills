@@ -14,10 +14,10 @@
     "released_hash": "sha256:76468ea93751d4ef32e216bec0519f7c10cf82204265bdcb17f03e7b1f969a12"
   },
   "action1": {
-    "state": "up-to-date",
+    "state": "binary-pending",
     "version": "0.1.10",
     "latest_tag": "action1-v0.1.10",
-    "current_hash": "sha256:21cffbd6b2c5a562e304f06c6b0566b028af43c5c3553b60bd42f7f8a869f9e9",
+    "current_hash": "sha256:af8714bb0f0e13a34c8dbb92a59806175df4ada0e7726f2ca74849210664c93f",
     "released_hash": "sha256:21cffbd6b2c5a562e304f06c6b0566b028af43c5c3553b60bd42f7f8a869f9e9"
   },
   "afi": {
