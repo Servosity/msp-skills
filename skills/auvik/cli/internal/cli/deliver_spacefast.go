@@ -136,7 +136,9 @@ func rememberSpacefastDelivery(stateKey string, d spacefastDelivery) error {
 	if err != nil {
 		return err
 	}
-	return writeDownloadUnder(dir, name, data)
+	// Hand-fix (handfixes.json credkit-wiring): the record keeps an anonymous page key, a credential source the
+	// next update reads; like the credential store it is written outside the kit.
+	return cliutil.AtomicWriteCredentialFile(filepath.Join(dir, name), data, 0o600, 0o700)
 }
 
 // deliverSpacefast publishes body as a page and prints where it went.
@@ -175,6 +177,8 @@ func deliverSpacefast(target string, body []byte) error {
 		payload["spaceId"] = prior.SpaceID
 		if token == "" {
 			bearer = prior.Key
+			// Hand-fix (handfixes.json credkit-wiring): the page key is a credential bound to Spacefast's API.
+			cliutil.Hold("minted:spacefast-page-key", prior.Key)
 		}
 	} else {
 		payload["space"] = map[string]any{"slug": t.Name, "title": spacefastTitle(t.Name)}
@@ -339,6 +343,7 @@ func spacefastPublish(api, bearer string, payload map[string]any, files map[stri
 		CheckRedirect: func(*http.Request, []*http.Request) error {
 			return http.ErrUseLastResponse
 		},
+		Transport: cliutil.OutboundGuard(nil), // Hand-fix (handfixes.json credkit-wiring)
 	}
 	resp, err := httpClient.Do(req)
 	if err != nil {

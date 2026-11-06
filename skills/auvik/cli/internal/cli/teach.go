@@ -30,6 +30,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"auvik-pp-cli/internal/cliutil"
+	"auvik-pp-cli/internal/credkit"
 	"auvik-pp-cli/internal/learn"
 	"auvik-pp-cli/internal/learn/entities"
 	"auvik-pp-cli/internal/learn/lookups"
@@ -125,7 +126,7 @@ func writeTeachErrLog(line string) {
 	}
 	_ = cliutil.WithFileLock(p, func() error {
 		rotateLogIfNeeded(p, learningsAuditMaxBytes)
-		f, err := os.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
+		f, err := credkit.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600) // Hand-fix (handfixes.json credkit-wiring)
 		if err != nil {
 			return err
 		}
@@ -148,7 +149,7 @@ func appendLearningsAudit(entry map[string]any) error {
 	}
 	return cliutil.WithFileLock(p, func() error {
 		rotateLogIfNeeded(p, learningsAuditMaxBytes)
-		f, err := os.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
+		f, err := credkit.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600) // Hand-fix (handfixes.json credkit-wiring)
 		if err != nil {
 			return err
 		}
@@ -206,9 +207,9 @@ func scrubLogFile(path, rawQuery, queryHash string) error {
 		return nil
 	}
 	if len(kept) == 0 {
-		return os.WriteFile(path, nil, 0o600)
+		return credkit.WriteFile(path, nil, 0o600) // Hand-fix (handfixes.json credkit-wiring)
 	}
-	return os.WriteFile(path, []byte(strings.Join(kept, "\n")+"\n"), 0o600)
+	return credkit.WriteFile(path, []byte(strings.Join(kept, "\n")+"\n"), 0o600) // Hand-fix (handfixes.json credkit-wiring)
 }
 
 func logLineMatchesQuery(line, rawQuery, queryHash string) bool {

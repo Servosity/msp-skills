@@ -16,6 +16,7 @@ import (
 	"strings"
 
 	"auvik-pp-cli/internal/cliutil"
+	"auvik-pp-cli/internal/credkit"
 	"auvik-pp-cli/internal/mcp/bound"
 	mcplib "github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
@@ -494,7 +495,7 @@ func RunCLICommand(ctx context.Context, binPath string, args []string) (CLIComma
 	stderr := newCappedCapture()
 	cmd.Stdout = stdout
 	cmd.Stderr = stderr
-	err := cmd.Run()
+	err := credkit.RunCommand(cmd) // Hand-fix (handfixes.json credkit-wiring)
 	stdoutText := stdout.String()
 	result := CLICommandResult{
 		Stdout:      stdoutText,
