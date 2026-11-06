@@ -152,6 +152,10 @@ dnsfilter:
   vendor: "DNSFilter"
   example_command: "Why is this site blocked for Acme?"
 
+domain-cert-tracker:
+  vendor: "Domains & Certs"
+  example_command: "Which client certificates expire this month?"
+
 domotz:
   vendor: "Domotz"
   example_command: "Which client sites have devices down?"
@@ -408,6 +412,10 @@ threatlocker:
   vendor: "ThreatLocker"
   example_command: "What approvals are pending everywhere?"
 
+threecx:
+  vendor: "3CX"
+  example_command: "Which client has a 3CX trunk down?"
+
 unifi-network:
   vendor: "UniFi Network"
   example_command: "What changed on this UniFi site?"
@@ -427,6 +435,10 @@ warranty:
 watchguard:
   vendor: "WatchGuard"
   example_command: "Which customer needs attention first?"
+
+windows-server:
+  vendor: "Windows Server"
+  example_command: "Which of my servers need attention today?"
 
 wordpress:
   vendor: "WordPress"

@@ -1,0 +1,108 @@
+{
+  "outcome_intro": "Ask your AI \"what expires, lost its lock or changed across my clients' domains this month?\" and get one answer per client: registration expiry and transfer lock from RDAP, every unexpired certificate logged in Certificate Transparency, the certificate each host really serves, and DNS drift. It needs no account or credential: every source is public, and the inventory and history stay on your machine.",
+  "instead_of_say": [
+    {
+      "instead": "Keeping a spreadsheet of client domains and certificate expiry dates and checking it by hand before each renewal",
+      "say": "What expires in the next 30 days across all my clients, and did any domain lose its transfer lock?",
+      "cli": "domain-cert-tracker-cli report --days 30 --agent"
+    },
+    {
+      "instead": "Finding out an ACME renewal never reached the server when the client's site starts showing a certificate warning",
+      "say": "Which hosts are still serving an old certificate after a newer one was issued?",
+      "cli": "domain-cert-tracker-cli renewals --agent"
+    },
+    {
+      "instead": "Searching crt.sh one domain at a time to spot a certificate nobody on the team ordered",
+      "say": "Did any client get a certificate from a CA their CAA record does not allow, or from a new issuer?",
+      "cli": "domain-cert-tracker-cli issuers audit --days 7 --agent"
+    }
+  ],
+  "pain_points": [
+    "Certificate lifetimes are shrinking under CA/Browser Forum ballot SC-081v3: 200 days from March 2026, 100 days from March 2027 and 47 days from March 2029. Renewal becomes a monthly automated job, and each automation can fail without telling anyone.",
+    "Domains and certificates for dozens of clients sit across many registrars and CAs, so the expiry list usually lives in a spreadsheet or a calendar that someone has to keep current by hand.",
+    "A renewed certificate that never reached the web server looks fine in the CA's portal until the old one expires and the client calls.",
+    "MSPs on r/msp still ask for a free SSL expiration tracker that makes sense, because single-lookup tools answer one domain at a time and keep no per-client history."
+  ],
+  "outcomes": [
+    {
+      "question": "What expires within 30 days, lost its lock or changed, per client?",
+      "command": "domain-cert-tracker-cli report --days 30 --agent"
+    },
+    {
+      "question": "Which hosts still serve an old certificate after a newer one was logged?",
+      "command": "domain-cert-tracker-cli renewals --agent"
+    },
+    {
+      "question": "Which new certificates came from an issuer the domain's CAA does not permit, or a first-ever issuer?",
+      "command": "domain-cert-tracker-cli issuers audit --days 7 --agent"
+    },
+    {
+      "question": "Which hostnames have certificates in CT but are not in the client's inventory?",
+      "command": "domain-cert-tracker-cli hosts discover --agent"
+    },
+    {
+      "question": "What changed since the agent last looked, once per event, for ticketing?",
+      "command": "domain-cert-tracker-cli events list --since 0 --agent"
+    },
+    {
+      "question": "What certificate does this host serve right now, and when does it expire?",
+      "command": "domain-cert-tracker-cli tls probe www.example.com --agent"
+    },
+    {
+      "question": "What are a domain's registrar, expiry date and lock statuses?",
+      "command": "domain-cert-tracker-cli domain example.com --json"
+    }
+  ],
+  "different_vs_wrappers": "This connector keeps a per-client inventory and a local history: sweep checks RDAP, Certificate Transparency, live TLS and DNS for every client domain and host, records each result, and raises typed change events, so report, renewals and issuers audit answer from the store without a network call. Single-lookup tools such as openrdap, crt-mcp or ssl-watch answer one domain or one host at a time and keep no client grouping or history.",
+  "different_vs_vendor": "There is no single vendor here: registries publish RDAP, crt.sh indexes the public Certificate Transparency logs, and your hosts serve TLS. Registrar and CA portals each show their own slice for one account; this joins all of them per client and works with no account at any of them.",
+  "faqs": [
+    {
+      "q": "Does this work with ChatGPT?",
+      "a": "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so it needs the domain-cert-tracker MCP server's token-protected HTTP mode hosted over HTTPS. Step-by-step in the install guide."
+    },
+    {
+      "q": "Do I need to know how to code?",
+      "a": "No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. There are no credentials to enter."
+    },
+    {
+      "q": "Do I need an account or API key?",
+      "a": "No. RDAP, crt.sh and DNS are public, and TLS probes connect to your clients' own public hosts. There is nothing to sign up for and no credential to store."
+    },
+    {
+      "q": "Is my client data safe?",
+      "a": "The client inventory and sweep history stay in a local SQLite store under your user account. Lookups send only the domain or host being checked to the public service that answers for it. HTTP lookups and TLS probes connect only to public addresses on port 443 unless you allow another port on the command line (the one exception is a server you name yourself in DOMAIN_CERT_TRACKER_BASE_URL); DNS checks use the resolver your operating system is configured with."
+    },
+    {
+      "q": "Will it hit rate limits?",
+      "a": "sweep sends each RDAP lookup straight to the registry that answers for the domain (through the IANA bootstrap file), runs at most 4 checks in parallel, and downloads at most 50 new certificates per sweep from crt.sh to read their full name lists. A crt.sh answer cut off at its 10,000-row limit is a failed check. A failed check is listed as unverified and never replaces the last good result."
+    },
+    {
+      "q": "What does it cost?",
+      "a": "Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use."
+    }
+  ],
+  "auth_note": "There is nothing to authenticate: every source is public. Verify the install with `domain-cert-tracker-cli doctor`.",
+  "governance_summary": "It reads public RDAP, Certificate Transparency, DNS and TLS and never changes anything at a registrar, CA, DNS provider or client server. Its only writes are to its own local store: the client inventory (clients set, clients import, clients remove) and sweep history. Let agents run reads and sweeps; changing or removing inventory needs an explicit confirm, and purging the local store is for a human.",
+  "safety_tiers": [
+    {
+      "tier": "Read",
+      "examples": "report, renewals, issuers audit, hosts discover, events list, clients list, domain, tls probe, dns check, certificates",
+      "policy": "Allow"
+    },
+    {
+      "tier": "Write (routine, local store only)",
+      "examples": "sweep",
+      "policy": "Allow; it records only this tool's own sweep history"
+    },
+    {
+      "tier": "Write (inventory, local store only)",
+      "examples": "clients set (previews unless --yes or confirm: true), clients import (command line only)",
+      "policy": "Allow after confirm; adds to the inventory every sweep checks"
+    },
+    {
+      "tier": "Destructive (local store only)",
+      "examples": "clients remove (previews unless --yes or confirm: true; a whole client only with --whole-client), local-data purge (dry run unless --yes)",
+      "policy": "Human-in-the-loop only"
+    }
+  ]
+}

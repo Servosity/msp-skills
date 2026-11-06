@@ -4,6 +4,25 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.1.8] - 2026-11-06
+
+### Security
+- **Rebuilt on CLI Printing Press 4.34.2** (advisory [GHSA-jh26-vhqh-692c](https://github.com/Servosity/msp-skills/security/advisories/GHSA-jh26-vhqh-692c)). The MCP server's HTTP mode now listens on `127.0.0.1` by default, refuses to start until `KNOWBE4_MCP_HTTP_TOKEN` is set, requires `Authorization: Bearer <token>` on every request, needs TLS for any non-loopback address, and refuses browser origins it does not list. mcp-go is v0.57.0.
+- **One shared credential kit guards every output.** The CLI and the MCP server now hold every credential they know from startup (environment, config file, the 0600 credentials store, run profiles, the command line) and withhold any output, file, local-store row or MCP result that would repeat one, in any encoding. Each key goes only to its own API: the Reporting key to the Reporting API host, the User Event key to the User Event API host, never over plain http and never across a redirect to another host.
+- **MCP writes need confirmation.** `events_create` and `events_delete` return a preview and send only when the call carries `confirm: true`. `KNOWBE4_MCP_READ_ONLY=1` hides them, and every install config in mcp-install.md presets it.
+
+### Fixed
+- `untrained-clickers`, `coverage-gaps` and the other cross-test reports now count a collection as complete only after its own sync finished; one cached detail row no longer reads as "nobody else has it", and an unsynced collection is reported as not synced instead of zero.
+- The phishing-recipient and risk-snapshot tables are filled by `sync`, so the recipient and risk reports answer after a real sync.
+- `qbr` and the risk reports read the newer of two local readings (an `account info` read after the last sync wins).
+- `doctor` names `KNOWBE4_REGION` and `KNOWBE4_BASE_URL` when it is using the default US host.
+
+### Removed
+- `import`: the KnowBe4 Reporting API is read-only, so the bulk import command (which posted to read-only resources) is gone.
+
+### Added
+- `KNOWBE4_USER_EVENT_BASE_URL` overrides the User Event API host; `KNOWBE4_NO_LOCAL_DATA=1` runs with no local copy of API responses.
+
 ## [0.1.7] - 2026-10-23
 
 ### Security

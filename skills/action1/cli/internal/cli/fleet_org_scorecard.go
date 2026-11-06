@@ -19,6 +19,9 @@ type orgScorecardRow struct {
 	KEVCVEs        int    `json:"kev_cves"`
 	StaleEndpoints int    `json:"stale_endpoints"`
 	RebootPending  int    `json:"reboot_pending"`
+	// PostureUnknown counts endpoints with no missing_updates summary: their
+	// missing updates are not in the totals (unknown, not zero).
+	PostureUnknown int `json:"endpoints_posture_unknown"`
 }
 
 // pp:data-source local
@@ -64,7 +67,7 @@ Do NOT use it for per-endpoint ranking; use 'fleet patch-posture' or
 			// but emit at most one hint: an unsynced-store hint on endpoints
 			// covers vulnerabilities too, so only fall through to the second
 			// resource when endpoints is already synced.
-			if !hintIfUnsynced(cmd, db, "endpoints") && !hintIfStale(cmd, db, "endpoints", flags.maxAge) {
+			if !hintIfUnsynced(cmd, db, "endpoints_managed") && !hintIfStale(cmd, db, "endpoints_managed", flags.maxAge) {
 				if !hintIfUnsynced(cmd, db, "vulnerabilities") {
 					hintIfStale(cmd, db, "vulnerabilities", flags.maxAge)
 				}
@@ -74,7 +77,7 @@ Do NOT use it for per-endpoint ranking; use 'fleet patch-posture' or
 			if err != nil {
 				return err
 			}
-			endpoints, err := fleetLoadAll(cmd.Context(), db, "endpoints")
+			endpoints, err := fleetLoadAll(cmd.Context(), db, "endpoints_managed")
 			if err != nil {
 				return err
 			}
@@ -107,16 +110,16 @@ Do NOT use it for per-endpoint ranking; use 'fleet patch-posture' or
 			for _, e := range endpoints {
 				r := rowFor(fleetOrgID(e))
 				r.Endpoints++
-				if mu := fleetNested(e, "missing_updates"); mu != nil {
-					c, _ := fleetNum(mu["critical"])
-					o, _ := fleetNum(mu["other"])
-					r.MissingCrit += int(c)
-					r.MissingOther += int(o)
+				if c, o, known := fleetCounts(e, "missing_updates"); known {
+					r.MissingCrit += c
+					r.MissingOther += o
+				} else {
+					r.PostureUnknown++
 				}
 				if fleetBoolish(fleetField(e, "reboot_required")) {
 					r.RebootPending++
 				}
-				if t, ok := fleetParseTime(fleetStrField(e, "last_seen")); ok && now.Sub(t) >= staleCutoff {
+				if t, known, unreadable := fleetLastSeen(e); unreadable || (known && now.Sub(t) >= staleCutoff) {
 					r.StaleEndpoints++
 				}
 			}
@@ -143,12 +146,12 @@ Do NOT use it for per-endpoint ranking; use 'fleet patch-posture' or
 				return rows[i].StaleEndpoints > rows[j].StaleEndpoints
 			})
 
-			header := []string{"ORG", "NAME", "ENDPOINTS", "CRIT_UPDATES", "OTHER_UPDATES", "CVES", "KEV", "STALE", "REBOOT"}
+			header := []string{"ORG", "NAME", "ENDPOINTS", "CRIT_UPDATES", "OTHER_UPDATES", "CVES", "KEV", "STALE", "REBOOT", "POSTURE_UNKNOWN"}
 			matrix := make([][]string, 0, len(rows))
 			for _, r := range rows {
 				matrix = append(matrix, []string{r.OrganizationID, r.Name,
 					fleetItoa(float64(r.Endpoints)), fleetItoa(float64(r.MissingCrit)), fleetItoa(float64(r.MissingOther)),
-					fleetItoa(float64(r.OpenCVEs)), fleetItoa(float64(r.KEVCVEs)), fleetItoa(float64(r.StaleEndpoints)), fleetItoa(float64(r.RebootPending))})
+					fleetItoa(float64(r.OpenCVEs)), fleetItoa(float64(r.KEVCVEs)), fleetItoa(float64(r.StaleEndpoints)), fleetItoa(float64(r.RebootPending)), fleetItoa(float64(r.PostureUnknown))})
 			}
 			return fleetEmit(cmd, flags, rows, header, matrix)
 		},

@@ -42,8 +42,8 @@
     {
       "name": "action1",
       "source": "./skills/action1",
-      "description": "Every Action1 endpoint, plus fleet-wide patch and vulnerability views across all your organizations.",
-      "version": "0.1.10",
+      "description": "Every Action1 endpoint, plus the fleet-wide patch and vulnerability views the org-siloed API cannot give you.",
+      "version": "0.1.11",
       "category": "rmm",
       "tags": [
         "action1",
@@ -545,7 +545,7 @@
       "name": "knowbe4",
       "source": "./skills/knowbe4",
       "description": "Every KnowBe4 KMSAT reporting feature, plus a local SQLite store for the questions the console cannot answer.",
-      "version": "0.1.7",
+      "version": "0.1.8",
       "category": "security",
       "tags": [
         "knowbe4",
@@ -867,7 +867,7 @@
       "name": "runzero",
       "source": "./skills/runzero",
       "description": "Every runZero query, plus a local SQLite copy of your whole attack surface that diffs over time, joins assets to vulnerabilities offline, and costs zero API quota to re-slice.",
-      "version": "0.1.7",
+      "version": "0.1.8",
       "category": "security",
       "tags": [
         "runzero",
@@ -882,7 +882,7 @@
       "name": "salesbuildr",
       "source": "./skills/salesbuildr",
       "description": "Every Salesbuildr resource as a scriptable command, plus offline margin and pipeline analytics.",
-      "version": "0.1.7",
+      "version": "0.1.8",
       "category": "crm",
       "tags": [
         "salesbuildr",
@@ -1630,6 +1630,53 @@
         "comet-backup",
         "comet backup",
         "backup-dr",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
+    },
+    {
+      "name": "domain-cert-tracker",
+      "source": "./skills/domain-cert-tracker",
+      "description": "Every client's domains and certificates in one inventory: what expires, unlocks or changes.",
+      "version": "0.1.0",
+      "category": "monitoring",
+      "tags": [
+        "domain-cert-tracker",
+        "servosity",
+        "monitoring",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
+    },
+    {
+      "name": "threecx",
+      "source": "./skills/threecx",
+      "description": "Run every client's 3CX phone system from one CLI: trunk, version, licence and backup health across the whole fleet, plus the full Configuration API on any single PBX.",
+      "version": "0.1.0",
+      "category": "msp",
+      "tags": [
+        "threecx",
+        "3cx",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
+    },
+    {
+      "name": "windows-server",
+      "source": "./skills/windows-server",
+      "description": "Agentless Windows Server health checks over WinRM: one verdict per server, a diffable inventory, and no arbitrary PowerShell.",
+      "version": "0.1.0",
+      "category": "monitoring",
+      "tags": [
+        "windows-server",
+        "windows server",
+        "monitoring",
         "msp",
         "mcp",
         "claude-code",

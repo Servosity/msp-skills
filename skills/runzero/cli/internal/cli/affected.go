@@ -49,7 +49,10 @@ both work. Reads the local store; run 'inventory sync' first.`, "\n"),
 			if err != nil {
 				return err
 			}
-			return flags.printJSON(cmd, rows)
+			if err := flags.printJSON(cmd, rows); err != nil {
+				return err
+			}
+			return inventoryReadComplete(cmd, flags, st, "vulnerabilities", "assets", "services")
 		},
 	}
 	cmd.Flags().StringVar(&dbPath, "db", "", "Database path (default: ~/.local/share/runzero-cli/data.db)")

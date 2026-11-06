@@ -16,25 +16,18 @@ Every Salesbuildr resource as a scriptable command, plus offline margin and pipe
 
 ## Works with your agent
 
-> **Security note (until this connector is reprinted).** Do not run HTTP mode
-> (`--transport http`), not even on localhost. This build has no password,
-> listens on every network interface, and predates the browser-rebinding guard,
-> so a web page you open can reach it. The MCP tools can also make changes with
-> your credentials. Use the default stdio transport. If you set up a tunnel for
-> a remote agent, shut it down. A fix is on the way.
-
 The six agents MSP owners actually use (self-serve, works today):
 
 | Your AI agent | How to install the Salesbuildr skill |
 | --- | --- |
 | **Claude Desktop** | Run installer, then **Settings > Extensions** to register `salesbuildr-mcp` (no JSON editing). |
-| **ChatGPT** (desktop app) | Run installer, then add `salesbuildr-mcp` in **Settings > MCP servers** as a local (STDIO) server. ChatGPT on the web is not supported yet. |
+| **ChatGPT** (desktop app) | Run installer, then add `salesbuildr-mcp` in **Settings > MCP servers** as a local (STDIO) server. ChatGPT on the web needs a self-hosted HTTPS server ([mcp-install.md](./mcp-install.md)). |
 | **Codex CLI** | Paste the install prompt below. |
 | **Claude Code** | Paste the install prompt below. |
 | **Claude Cowork** | Paste the install prompt below. |
 | **GitHub Copilot** (VS Code) | Run installer, add `salesbuildr-mcp` to `mcp.json` under the `servers` key, then pick **Agent** mode. |
 
-The ChatGPT desktop app runs `salesbuildr-mcp` locally and shares MCP configuration with Codex ([OpenAI](https://learn.chatgpt.com/docs/extend/mcp)). ChatGPT on the web needs a remote (HTTP) server, and this connector's HTTP mode is paused until it is reprinted (see the security note in [mcp-install.md](./mcp-install.md)), so msp-skills does not support it yet. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
+The ChatGPT desktop app runs `salesbuildr-mcp` locally and shares MCP configuration with Codex ([OpenAI](https://learn.chatgpt.com/docs/extend/mcp)). ChatGPT on the web needs a remote server: host `salesbuildr-mcp` over HTTPS with `SALESBUILDR_MCP_HTTP_TOKEN` set, and check that your ChatGPT connector can send that bearer token ([mcp-install.md](./mcp-install.md), Remote agents). If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
 
 ### Also for the Microsoft and Google stacks
 
@@ -55,7 +48,7 @@ Big install base, but an honest heads-up: Gemini CLI runs the local binary you j
 
 > **Claude Desktop bundle:** the `.mcpb` launches on macOS (Intel and Apple Silicon), Windows x64 and Linux x64. Every tool shells out to the companion `salesbuildr-cli`. Releases cut from 2026-09-18 on ship that CLI inside the bundle; older bundles contain only the MCP server, so if yours lacks the companion, run the Path A or Path B installer below first (or set `SALESBUILDR_CLI_PATH` to an existing binary). Details: [#331](https://github.com/Servosity/msp-skills/issues/331).
 
-[**Download Salesbuildr MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/salesbuildr-v0.1.7/salesbuildr-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every Salesbuildr release on the [releases page](https://github.com/servosity/msp-skills/releases?q=salesbuildr).)
+[**Download Salesbuildr MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/salesbuildr-v0.1.8/salesbuildr-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every Salesbuildr release on the [releases page](https://github.com/servosity/msp-skills/releases?q=salesbuildr).)
 
 Prefer the Claude Code plugin? Add the marketplace once, then install - works immediately, no directory listing required:
 
@@ -149,6 +142,12 @@ Set the credentials the CLI needs (from your Salesbuildr portal):
 SALESBUILDR_API_KEY=<value> SALESBUILDR_TENANT=<value> salesbuildr-cli doctor
 ```
 
+PowerShell:
+
+```powershell
+$env:SALESBUILDR_API_KEY = "<value>"; $env:SALESBUILDR_TENANT = "<value>"; salesbuildr-cli doctor
+```
+
 `doctor` confirms the credentials work before you run anything that touches data. It exits 0 even when the credential is rejected, so scripts should add `--fail-on error`.
 
 
@@ -191,7 +190,7 @@ See [pain-point.md](./pain-point.md) for the longer narrative.
 
 ### Does this work with ChatGPT?
 
-Yes, in the **ChatGPT desktop app**. It runs MCP servers locally (STDIO), the way `salesbuildr-mcp` runs, and shares MCP configuration with Codex ([OpenAI](https://learn.chatgpt.com/docs/extend/mcp)): add `salesbuildr-mcp` under **Settings > MCP servers** as a STDIO server, or add it once to Codex's `~/.codex/config.toml`. **ChatGPT on the web** is not supported by msp-skills yet: it needs a remote (HTTP) server, and this connector's HTTP mode is paused until it is reprinted; the security note in [mcp-install.md](./mcp-install.md) explains why. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
+Yes, in the **ChatGPT desktop app**. It runs MCP servers locally (STDIO), the way `salesbuildr-mcp` runs, and shares MCP configuration with Codex ([OpenAI](https://learn.chatgpt.com/docs/extend/mcp)): add `salesbuildr-mcp` under **Settings > MCP servers** as a STDIO server, or add it once to Codex's `~/.codex/config.toml`. **ChatGPT on the web** needs a remote server: you host `salesbuildr-mcp` over HTTPS with `SALESBUILDR_MCP_HTTP_TOKEN` set, and it works only if your ChatGPT connector can send that bearer token ([mcp-install.md](./mcp-install.md), Remote agents). If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
 
 ### Does this work with Codex, Cursor, Windsurf, Cline, Copilot, or Gemini?
 
@@ -203,7 +202,7 @@ No. The recommended install is to paste one sentence into Claude Code or Codex -
 
 ### Is my Salesbuildr data safe?
 
-Your data stays on **your machine**. The CLI and MCP server are local binaries. The SQLite mirror sits in a directory under your user account. The AI agent only sees what the CLI returns - typically a query result, not raw bulk data. Credentials are read from your environment or your agent's config; never bundled into this repo or transmitted anywhere by MSP Skills.
+Your data stays on **your machine**. The CLI and MCP server are local binaries. The SQLite mirror sits in a directory under your user account. The AI agent only sees what the CLI returns - typically a query result, not raw bulk data. Credentials are read from your environment or your agent's config, or from `credentials.toml` (mode 0600) if you run `auth set-token`; never bundled into this repo or transmitted anywhere by MSP Skills, and the key goes only to your Salesbuildr API host.
 
 ### Will this hammer my Salesbuildr API rate limits?
 
@@ -226,6 +225,13 @@ Free. Apache-2.0 licensed. You pay only for whichever AI agent you use (Claude, 
 | Destructive / config | the 6 delete commands (`company`/`contact`/`product public-delete*`), plus the local credential commands (`auth set-token`, `auth setup`, `auth logout`) | Human-in-the-loop only |
 
 The strongest control is the **scope you grant the Salesbuildr credentials** - the CLI can only do what the credentials are permitted to do. Full details, including how to lock it down, are in [governance.md](./governance.md).
+
+## Credential safety
+
+- The `api-key` header and every API request go only to the scheme, host and port of the API base URL: `https://<SALESBUILDR_TENANT>.salesbuildr.com/public-api`, or `SALESBUILDR_BASE_URL` when set. A redirect to any other host is refused, so the key never reaches it. `SALESBUILDR_TENANT` must be one subdomain label (`acme` for `https://acme.salesbuildr.com`); any other value, or the placeholder `your-tenant`, refuses every request.
+- Any output, file, local store write or MCP result that would carry `SALESBUILDR_API_KEY`, the stored key, an `--integration-key` value, or a credential field from a response (`password`, `otp`, `pin`, `passcode`, `integrationKey`), in any encoding, is withheld whole: the program prints "[credkit: withheld from stdout: it carried a credential this program holds]" (naming the sink) in its place. Responses are never cached on disk.
+- Only `credentials.toml` (mode 0600) holds a credential; `auth set-token` reads the key from stdin, never from an argument.
+- `--dry-run` sends nothing. Over MCP, every call that creates, changes or deletes Salesbuildr data (`salesbuildr_execute`, `import`) returns a preview and sends only with `confirm: true`, and a tool argument can never name a file to read or write.
 
 ## Status
 

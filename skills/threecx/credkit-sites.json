@@ -1,0 +1,231 @@
+{
+ "sites": [
+  {
+   "file": "internal/cli/threecx_auth_dryrun.go",
+   "func": "init",
+   "what": "writer:io.Writer",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs inside a command's RunE, after Start; the checker reaches it through the command registered at init"
+  },
+  {
+   "file": "internal/cli/threecx_fleet_common.go",
+   "func": "decodeInto",
+   "what": "reflect",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "reads a row struct's field tags to name the columns of an empty result"
+  },
+  {
+   "file": "internal/cli/threecx_fleet_common.go",
+   "func": "rowJSONFields",
+   "what": "reflect",
+   "count": 11,
+   "kind": "exempt",
+   "reason": "reads a row struct's field tags to name the columns of an empty result"
+  },
+  {
+   "file": "internal/cli/threecx_fleet_registry.go",
+   "func": "listRow",
+   "what": "os.Getenv",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reads the secret variable a fleet registry entry names; the name is operator data and holdPBXSecrets holds its value in Start",
+   "names": []
+  },
+  {
+   "file": "internal/cli/threecx_fleet_registry.go",
+   "func": "newFleetAddCmd",
+   "what": "os.Getenv",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reads the secret variable a fleet registry entry names; the name is operator data and holdPBXSecrets holds its value in Start",
+   "names": []
+  },
+  {
+   "file": "internal/cli/threecx_guard.go",
+   "func": "guardClient",
+   "what": "call:dynamic",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "client.OutboundGuard is credkit.Transport, a function variable the origin pin wraps"
+  },
+  {
+   "file": "internal/cli/threecx_guard.go",
+   "func": "guardClient",
+   "what": "convert:threecx-pp-cli/internal/cli.originPinTripper.RoundTrip",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "a tripper of this file between the origin pin and credkit.Transport; it refuses or holds, it never sends another way"
+  },
+  {
+   "file": "internal/cli/threecx_guard.go",
+   "func": "guardClient",
+   "what": "net/http.Client.Transport",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the origin pin around credkit.Transport (client.OutboundGuard): it narrows where a request may go, and every send still passes the kit"
+  },
+  {
+   "file": "internal/cli/threecx_guard.go",
+   "func": "guardTokenClient",
+   "what": "call:dynamic",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "client.OutboundGuard is credkit.Transport, a function variable the origin pin wraps"
+  },
+  {
+   "file": "internal/cli/threecx_guard.go",
+   "func": "guardTokenClient",
+   "what": "convert:threecx-pp-cli/internal/cli.originPinTripper.RoundTrip",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "a tripper of this file between the origin pin and credkit.Transport; it refuses or holds, it never sends another way"
+  },
+  {
+   "file": "internal/cli/threecx_guard.go",
+   "func": "guardTokenClient",
+   "what": "net/http.Client.Transport",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the origin pin around credkit.Transport (client.OutboundGuard): it narrows where a request may go, and every send still passes the kit"
+  },
+  {
+   "file": "internal/cli/threecx_guard.go",
+   "func": "originPinTripper.RoundTrip",
+   "what": "net/http.RoundTripper.RoundTrip",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "calls the next tripper of the chain, which ends in credkit.Transport (client.OutboundGuard)"
+  },
+  {
+   "file": "internal/cli/threecx_guard.go",
+   "func": "responseHoldTripper.RoundTrip",
+   "what": "net/http.RoundTripper.RoundTrip",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "calls the next tripper of the chain, which ends in credkit.Transport (client.OutboundGuard)"
+  },
+  {
+   "file": "internal/cli/threecx_guard.go",
+   "func": "sendOrRefuse",
+   "what": "convert:threecx-pp-cli/internal/cli.dryRunTripper.RoundTrip",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "a tripper of this file between the origin pin and credkit.Transport; it refuses or holds, it never sends another way"
+  },
+  {
+   "file": "internal/cli/threecx_guard.go",
+   "func": "sendOrRefuse",
+   "what": "convert:threecx-pp-cli/internal/cli.responseHoldTripper.RoundTrip",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "a tripper of this file between the origin pin and credkit.Transport; it refuses or holds, it never sends another way"
+  },
+  {
+   "file": "internal/cli/threecx_pbx_select.go",
+   "func": "ApplyMCPPBXSelection",
+   "what": "os.LookupEnv",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "THREECX_PBX selection: reads the entry's named secret, or walks the environment to scrub it; holdPBXSecrets holds the values in Start",
+   "names": [
+    "THREECX_MCP_HTTP_TOKEN",
+    "THREECX_MCP_HTTP_ALLOWED_ORIGINS",
+    "THREECX_CLI_PATH"
+   ]
+  },
+  {
+   "file": "internal/cli/threecx_pbx_select.go",
+   "func": "applyPBXSelection",
+   "what": "os.Environ",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "THREECX_PBX selection: reads the entry's named secret, or walks the environment to scrub it; holdPBXSecrets holds the values in Start",
+   "names": []
+  },
+  {
+   "file": "internal/cli/threecx_pbx_select.go",
+   "func": "applyPBXSelection",
+   "what": "os.Getenv",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "THREECX_PBX selection: reads the entry's named secret, or walks the environment to scrub it; holdPBXSecrets holds the values in Start",
+   "names": []
+  },
+  {
+   "file": "internal/cli/threecx_stdin_hold.go",
+   "func": "holdStdinBody",
+   "what": "os.File.Close",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs in the root pre-run, after Start; it reads the body the kit already re-piped and hands the same bytes on to this process's stdin"
+  },
+  {
+   "file": "internal/cli/threecx_stdin_hold.go",
+   "func": "holdStdinBody",
+   "what": "os.File.Write",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs in the root pre-run, after Start; it reads the body the kit already re-piped and hands the same bytes on to this process's stdin"
+  },
+  {
+   "file": "internal/cli/threecx_stdin_hold.go",
+   "func": "holdStdinBody",
+   "what": "writer:*os.File",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs in the root pre-run, after Start; it reads the body the kit already re-piped and hands the same bytes on to this process's stdin"
+  },
+  {
+   "file": "internal/credsql/credsql.go",
+   "func": "applyLengthLimit",
+   "what": "database/sql.DB.Conn",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "wraps a connection credkit.SQLDriver already wrapped, only to set the SQLite length limit; runs no query and outputs nothing"
+  },
+  {
+   "file": "internal/credsql/credsql.go",
+   "func": "applyLengthLimit",
+   "what": "database/sql.OpenDB",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "wraps a connection credkit.SQLDriver already wrapped, only to set the SQLite length limit; runs no query and outputs nothing"
+  },
+  {
+   "file": "internal/credwire/declarations.go",
+   "func": "holdPBXSecrets",
+   "what": "os.Environ",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "holdPBXSecrets walks the environment for THREECX_*_CLIENT_SECRET and each registered PBX's <env_prefix>_CLIENT_SECRET, to hold them in Start",
+   "names": []
+  },
+  {
+   "file": "internal/fleet/history.go",
+   "func": "LoadHistory",
+   "what": "os.ReadFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "fleet-history.json: this program's own verdicts per phone system, written through the kit, with no credential field"
+  },
+  {
+   "file": "internal/fleet/registry.go",
+   "func": "Load",
+   "what": "os.ReadFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the fleet registry: host names, DN numbers and the NAME of each secret's variable, never a secret"
+  },
+  {
+   "file": "internal/fleet/runner.go",
+   "func": "Runner.Fetch",
+   "what": "os.Environ",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "fleet.Scrub filters this process's environment for one PBX's child; the kit hands that PBX's secret over and holds it",
+   "names": []
+  }
+ ]
+}

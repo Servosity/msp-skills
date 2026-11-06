@@ -713,6 +713,26 @@
       }
     },
     {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:domain-cert-tracker",
+      "displayName": "Domain and Certificate Tracker",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/domain-cert-tracker/SKILL.md",
+      "description": "Track every client's domain expiries, registrar locks, DNS drift and certificates from one local inventory, no vendor login.",
+      "tags": [
+        "Monitoring"
+      ],
+      "representativeQueries": [
+        "What expires within 30 days, lost its lock or changed, per client?",
+        "Which hosts still serve an old certificate after a newer one was logged?",
+        "Which new certificates came from an issuer the domain's CAA does not permit, or a first-ever issuer?",
+        "Which hostnames have certificates in CT but are not in the client's inventory?",
+        "What changed since the agent last looked, once per event, for ticketing?"
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/domain-cert-tracker.md"
+      }
+    },
+    {
       "identifier": "urn:air:msp-skills.compoundingteams.com:skills:domotz",
       "displayName": "Domotz",
       "type": "text/markdown; profile=\"urn:air:agent-skills\"",
@@ -1899,6 +1919,26 @@
       }
     },
     {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:threecx",
+      "displayName": "3CX",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/threecx/SKILL.md",
+      "description": "Check trunk, licence, version and backup health across every client's 3CX phone system at once.",
+      "tags": [
+        "Other"
+      ],
+      "representativeQueries": [
+        "Which client phone systems are failing or warning, and why?",
+        "Which trunks are offline, misconfigured or in an unknown state across every client?",
+        "Whose licence or maintenance expires in the next 60 days?",
+        "Which PBXes are behind the newest 3CX build in our fleet or have updates pending?",
+        "Which clients have no backup in the last two days?"
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/threecx.md"
+      }
+    },
+    {
       "identifier": "urn:air:msp-skills.compoundingteams.com:skills:unifi-network",
       "displayName": "UniFi Network",
       "type": "text/markdown; profile=\"urn:air:agent-skills\"",
@@ -1996,6 +2036,26 @@
       ],
       "metadata": {
         "page": "https://msp-skills.compoundingteams.com/skills/watchguard.md"
+      }
+    },
+    {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:windows-server",
+      "displayName": "Windows Server",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/windows-server/SKILL.md",
+      "description": "Check every Windows server's health, disks, services, updates and certificates by asking.",
+      "tags": [
+        "Monitoring"
+      ],
+      "representativeQueries": [
+        "Which of my servers need attention today, and why?",
+        "Which automatic services are stopped, and which Service Control Manager event explains each stop?",
+        "Which System and Application errors are new on a server compared with its own last 7 days?",
+        "Who added or removed a local Administrators member this week, and when?",
+        "What changed in roles, shares, local admins, certificates and updates since the last snapshot?"
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/windows-server.md"
       }
     },
     {

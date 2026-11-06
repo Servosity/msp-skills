@@ -1,5 +1,5 @@
 {
-  "count": 102,
+  "count": 105,
   "connectors": [
     {
       "slug": "abnormal",
@@ -455,6 +455,19 @@
       "verified_version": null,
       "verified_code": null,
       "url": "/skills/dnsfilter/"
+    },
+    {
+      "slug": "domain-cert-tracker",
+      "display_name": "Domain and Certificate Tracker",
+      "tagline": "Track every client's domain expiries, registrar locks, DNS drift and certificates from one local inventory, no vendor login.",
+      "category": "Monitoring",
+      "verification": "awaiting",
+      "verified_by": null,
+      "source": null,
+      "issue_url": null,
+      "verified_version": null,
+      "verified_code": null,
+      "url": "/skills/domain-cert-tracker/"
     },
     {
       "slug": "domotz",
@@ -1211,6 +1224,19 @@
       "url": "/skills/threatlocker/"
     },
     {
+      "slug": "threecx",
+      "display_name": "3CX",
+      "tagline": "Check trunk, licence, version and backup health across every client's 3CX phone system at once.",
+      "category": "Other",
+      "verification": "awaiting",
+      "verified_by": null,
+      "source": null,
+      "issue_url": null,
+      "verified_version": null,
+      "verified_code": null,
+      "url": "/skills/threecx/"
+    },
+    {
       "slug": "unifi-network",
       "display_name": "UniFi Network",
       "tagline": "Audit UniFi devices, firewall policy, and overnight config drift on a self-hosted gateway from your terminal.",
@@ -1274,6 +1300,19 @@
       "verified_version": null,
       "verified_code": null,
       "url": "/skills/watchguard/"
+    },
+    {
+      "slug": "windows-server",
+      "display_name": "Windows Server",
+      "tagline": "Check every Windows server's health, disks, services, updates and certificates by asking.",
+      "category": "Monitoring",
+      "verification": "awaiting",
+      "verified_by": null,
+      "source": null,
+      "issue_url": null,
+      "verified_version": null,
+      "verified_code": null,
+      "url": "/skills/windows-server/"
     },
     {
       "slug": "wordpress",

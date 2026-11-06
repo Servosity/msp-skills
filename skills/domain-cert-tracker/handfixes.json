@@ -1,0 +1,1738 @@
+{
+ "slug": "domain-cert-tracker",
+ "doc": "docs/reprint-survival.md",
+ "_comment": "Connector-specific edits a cli-printing-press reprint must NOT clobber. check_handfixes.py asserts every marker below is still present (and every banned anti-pattern still absent) and fails CI if a reprint dropped one.",
+ "handfixes": [
+  {
+   "id": "netguard-outbound-policy",
+   "class": "network-reach",
+   "status": "active",
+   "summary": "internal/netguard is the one outbound policy for every HTTP lookup and TLS probe: public addresses only (loopback, private, link-local, CGNAT, metadata, unique-local and NAT64-wrapped forms refused), port 443 unless the command line allows another, no proxy, redirects re-checked.",
+   "why": "No MCP argument may reach a non-public address or a non-443 port (publish brief network-reach rule). A reprint that drops this file reopens SSRF from MCP tool arguments.",
+   "spec_encode_followup": "press 4.34.2 has no generator input for this connector-specific code; keep it as a hand-fix.",
+   "asserts": [
+    {
+     "file": "cli/internal/netguard/netguard.go",
+     "contains": "deniedPrefixes",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/netguard/netguard.go",
+     "contains": "100.64.0.0/10",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/netguard/netguard.go",
+     "contains": "169.254.0.0/16",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/netguard/netguard.go",
+     "contains": "fc00::/7",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/netguard/netguard.go",
+     "contains": "64:ff9b::/96",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/netguard/netguard.go",
+     "contains": "func (g *Guard) ResolvePublic",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/netguard/netguard.go",
+     "contains": "Proxy:                 nil",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/netguard/netguard.go",
+     "contains": "func (g *Guard) CheckRedirect",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/netguard/netguard.go",
+     "contains": "if a.Is6() && !globalUnicast6.Contains(a) {",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "tracker-client-hook-and-mcp-refusals",
+   "class": "network-reach",
+   "status": "active",
+   "summary": "tracker_common.go installs netguard on every generated client (CLI and MCP) through registerClientHook, refuses --allow-port and clients import under MCP, and makes NO_LOCAL_DATA refuse sweep like sync. The one exception is the exact origin of the client's configured base URL (env, config file or --base-url; the MCP server blocks --base-url, --config, --profile and --home). The exception is the operator's origin, only for a client whose base URL has that origin; under MCP (server process marked by cmd/domain-cert-tracker-mcp/operator_origin.go, or a mirrored child) only DOMAIN_CERT_TRACKER_BASE_URL counts, never a config-file base_url.",
+   "why": "The generated client otherwise dials any host the RDAP bootstrap or an argument names; MCP callers must not open ports or read host files.",
+   "spec_encode_followup": "press 4.34.2 has no generator input for this connector-specific code; keep it as a hand-fix.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/tracker_common.go",
+     "contains": "registerClientHook(func(c *client.Client) error {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/tracker_common.go",
+     "contains": "func refuseUnderMCP(what string) error {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/tracker_common.go",
+     "contains": "localDataWriterCommands[\"sweep\"] = true",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/tracker_common.go",
+     "contains": "func trackerClientGuard(baseURL string) *netguard.Guard {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/netguard/netguard.go",
+     "contains": "func (g *Guard) WithOperatorOrigin(raw string) (*Guard, error) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/tracker_common.go",
+     "contains": "trackerClientGuard(c.BaseURL).Install(c.HTTPClient)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/tracker_common.go",
+     "contains": "if env == \"\" || urlOrigin(env) == \"\" || urlOrigin(env) != urlOrigin(baseURL) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/tracker_common.go",
+     "contains": "if env == \"\" && !mcpServerProcess && !cliutil.IsMCPChildEnv() {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/domain-cert-tracker-mcp/operator_origin.go",
+     "contains": "func init() { cli.MarkMCPServer() }",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "tracker-novel-engine",
+   "class": "novel-feature",
+   "status": "active",
+   "summary": "Hand-written internal/tracker package: RDAP bootstrap routing, crt.sh search and truncation check, TLS probe, DNS/CAA climber, sweep diff and events, and the report, renewals, issuers audit and hosts discover analyses.",
+   "why": "The whole product is novel code over a composite of public protocols; nothing in the spec generates it.",
+   "spec_encode_followup": "press 4.34.2 has no generator input for this connector-specific code; keep it as a hand-fix.",
+   "asserts": [
+    {
+     "file": "cli/internal/tracker/sweep.go",
+     "contains": "func RunSweep(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/tracker/analyze.go",
+     "contains": "func Renewals(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/tracker/analyze.go",
+     "contains": "func AuditIssuers(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/tracker/analyze.go",
+     "contains": "func DiscoverHosts(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/tracker/ct.go",
+     "contains": "CrtShResultLimit = 10000",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/tracker/ct.go",
+     "contains": "ErrCTTruncated",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/tracker/rdap.go",
+     "contains": "func (o DomainObs) LockKnown",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/tracker/rdap.go",
+     "contains": "StatusNotListed",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/tracker/dns.go",
+     "contains": "func CAAForNames",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/tracker/dns.go",
+     "contains": "func RelevantCAA",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/tracker/analyze.go",
+     "contains": "func judgeCAA",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/tracker/analyze.go",
+     "contains": "func firstSighting",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/tracker/analyze.go",
+     "contains": "read, ok, err := latest(ctx, st, KindCT, t.Value)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/tracker/ct.go",
+     "contains": "q.Set(\"match\", \"ILIKE\")",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/tracker/ct.go",
+     "contains": "!strings.Contains(c.CommonName, \"@\")",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/tracker/rdap.go",
+     "contains": "\"transferprohibited\", \"locked\":",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/tracker/r3_review_test.go",
+     "contains": "func TestCTSearchAsksForSubdomainsOfAHyphenatedDomain(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "tracker-store-tables",
+   "class": "novel-feature",
+   "status": "active",
+   "summary": "internal/store/tracker.go holds the tracker_* tables, vendor_events (seq cursor, unique event_id) and tracker_cert_names; extras.go appends the tracker migrations.",
+   "why": "The generated store has no inventory, observation or event tables for this connector.",
+   "spec_encode_followup": "press 4.34.2 has no generator input for this connector-specific code; keep it as a hand-fix.",
+   "asserts": [
+    {
+     "file": "cli/internal/store/extras.go",
+     "contains": "migrations = append(migrations, trackerMigrations...)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/tracker.go",
+     "contains": "func (s *Store) ObservationTime",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/tracker.go",
+     "contains": "CREATE TABLE IF NOT EXISTS tracker_cert_names (",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "novel-commands-registered",
+   "class": "novel-feature",
+   "status": "active",
+   "summary": "Novel commands (clients, sweep, report, renewals, issuers audit, hosts discover, events list, tls probe, dns check) replace the stubs; root.go adds clients and events with literal AddCommand lines and names the product in Short/Long.",
+   "why": "The dogfood walker ignores addNovelCommandIfAbsent at the root; the generated Short names the API, not the product.",
+   "spec_encode_followup": "press 4.34.2 has no generator input for this connector-specific code; keep it as a hand-fix.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "rootCmd.AddCommand(newNovelClientsCmd(flags))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "rootCmd.AddCommand(newNovelEventsCmd(flags))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "Domain and Certificate Tracker CLI",
+     "min_count": 2,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/events.go",
+     "contains": "cmd.AddCommand(newNovelEventsListCmd(flags))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/clients.go",
+     "contains": "\"pp:live-happy-path\": \"true\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sweep.go",
+     "contains": "\"pp:live-happy-path\": \"true\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/renewals.go",
+     "contains": "printJSONFilteredKeep",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/issuers_audit.go",
+     "contains": "printJSONFilteredKeep",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "store-hints-name-sweep",
+   "class": "docs",
+   "status": "active",
+   "summary": "Store hints tell users to run sweep, not `sync --resources certificates` (crt.sh needs a domain, so that sync cannot work). A later review found sweep fills only the tracker_* tables, so the local-read errors and the MCP empty-store step now say that, and the sync hints are off (syncHintCommand empty).",
+   "why": "Template hint names an unrunnable command for this connector.",
+   "spec_encode_followup": "press 4.34.2 has no generator input for this connector-specific code; keep it as a hand-fix.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "not_contains": "sync --resources certificates"
+    },
+    {
+     "file": "cli/internal/cli/data_source.go",
+     "not_contains": "sync --resources certificates"
+    },
+    {
+     "file": "cli/internal/cli/search.go",
+     "not_contains": "sync --resources certificates"
+    },
+    {
+     "file": "cli/internal/cli/sync_hint.go",
+     "not_contains": "sync --resources certificates"
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "not_contains": "sync --resources certificates"
+    },
+    {
+     "file": "cli/internal/cli/sync_hint.go",
+     "contains": "const syncHintCommand = \"\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync_hint.go",
+     "contains": "const localReadHint =",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/data_source.go",
+     "contains": "not found in local store: %s\", requestedType, id, localReadHint",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "The resources table is empty, and sweep does not fill it",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "mcp-no-host-file-recipe-intent",
+   "class": "mcp-host-file",
+   "status": "active",
+   "summary": "No MCP recipe intent: research.json carries no host-file recipe, so internal/mcp/intents.go is not emitted and tools.go has no RegisterIntents call (clients import stays command line only).",
+   "why": "A `clients import <file>` recipe would be lifted into an MCP intent that reads a host file from a tool argument.",
+   "spec_encode_followup": "press 4.34.2 has no generator input for this connector-specific code; keep it as a hand-fix.",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "not_contains": "RegisterIntents"
+    }
+   ]
+  },
+  {
+   "id": "local-data-purge-dry-run-action",
+   "class": "output-fidelity",
+   "status": "active",
+   "summary": "local-data purge dry-run JSON names its action.",
+   "why": "Live dogfood json_fidelity; template defect to file against the press.",
+   "spec_encode_followup": "press 4.34.2 has no generator input for this connector-specific code; keep it as a hand-fix.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/local_data.go",
+     "contains": "out[\"action\"] = \"local-data purge\"",
+     "min_count": 1,
+     "code_only": false
+    }
+   ]
+  },
+  {
+   "id": "certificates-example-no-hidden-output",
+   "class": "docs",
+   "status": "active",
+   "summary": "promoted certificates Example omits the hidden --output flag (always json).",
+   "why": "Mirrors the spec x-pp-example until the next render.",
+   "spec_encode_followup": "press 4.34.2 has no generator input for this connector-specific code; keep it as a hand-fix.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/promoted_certificates.go",
+     "contains": "certificates --domain example.com --exclude expired",
+     "min_count": 1,
+     "code_only": false
+    }
+   ]
+  },
+  {
+   "id": "clients-remove-blank-selector",
+   "class": "write-scope",
+   "status": "active",
+   "summary": "clients remove refuses a --domain or --host selector that parses to nothing instead of widening to the whole client.",
+   "why": "A blank selector after confirm deleted the whole client.",
+   "spec_encode_followup": "press 4.34.2 has no generator input for this connector-specific code; keep it as a hand-fix.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/tracker_cli_test.go",
+     "contains": "func TestClientsRemoveBlankSelectorDoesNotWiden(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/clients.go",
+     "contains": "if !whole && len(targets) == 0 {",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "dns-message-length-guard",
+   "class": "bounds",
+   "status": "active",
+   "summary": "DNS exchange refuses a query over 65535 bytes before the uint16 length conversion.",
+   "why": "G115: the TCP length prefix is two bytes.",
+   "spec_encode_followup": "press 4.34.2 has no generator input for this connector-specific code; keep it as a hand-fix.",
+   "asserts": [
+    {
+     "file": "cli/internal/tracker/dns.go",
+     "contains": "if size > math.MaxUint16 {",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "x-net-direct-dependency",
+   "class": "dependency",
+   "status": "active",
+   "summary": "golang.org/x/net is a direct dependency (dnsmessage, idna, publicsuffix).",
+   "why": "The tracker package imports it directly.",
+   "spec_encode_followup": "press 4.34.2 has no generator input for this connector-specific code; keep it as a hand-fix.",
+   "asserts": [
+    {
+     "file": "cli/go.mod",
+     "contains": "golang.org/x/net v0.",
+     "min_count": 1,
+     "code_only": false
+    }
+   ]
+  },
+  {
+   "id": "renewal-age-earliest-successor",
+   "class": "renewal-age",
+   "status": "active",
+   "summary": "Renewals measures the deploy grace over every newer same-CA certificate from this tool's own first sighting of the earliest one; a newer issuance never restarts the clock (judgeDeploy), and undatable or post-probe successors fail closed.",
+   "why": "Codex print round 2 P1: the newest successor reset the grace and hid an older undeployed one.",
+   "spec_encode_followup": "press 4.34.2 has no generator input for this connector-specific code; keep it as a hand-fix.",
+   "asserts": [
+    {
+     "file": "cli/internal/tracker/analyze.go",
+     "contains": "func judgeDeploy(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/tracker/review_r2_test.go",
+     "contains": "func TestR2RenewalsOldestUndeployedSuccessorCounts(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "certificate-identity-whole-issuer-dn",
+   "class": "certificate-identity",
+   "status": "active",
+   "summary": "One identity rule (SameCertificate): the issuer DN's full folded attribute set, serial and validity; anything unreadable never matches.",
+   "why": "Codex print round 2 P1: two intermediates of one CA sharing serial and validity were treated as one certificate.",
+   "spec_encode_followup": "press 4.34.2 has no generator input for this connector-specific code; keep it as a hand-fix.",
+   "asserts": [
+    {
+     "file": "cli/internal/tracker/ct.go",
+     "contains": "func SameCertificate(a, b CertRef) bool {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/tracker/ct.go",
+     "contains": "func sameIssuerOrg(a, b string) bool {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/tracker/review_r2_test.go",
+     "contains": "func TestR2CertKeyDistinguishesIntermediates(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "caa-policy-full-san-list",
+   "class": "caa-policy",
+   "status": "active",
+   "summary": "Sweep downloads each recent certificate from crt.sh (?d=<id>, guarded, capped) for its full SAN list; issuers audit counts a certificate routine only when its names came from the certificate and CAA was read for every name (names_partial / caa_unverified otherwise).",
+   "why": "Codex print round 2 P1: crt.sh name_value lists only the names matching the query, so a parent wildcard was missed in the CAA audit.",
+   "spec_encode_followup": "press 4.34.2 has no generator input for this connector-specific code; keep it as a hand-fix.",
+   "asserts": [
+    {
+     "file": "cli/internal/tracker/certnames.go",
+     "contains": "func newCertNamer(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/tracker/analyze.go",
+     "contains": "func (v caaVerdict) complete() bool",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/tracker/analyze.go",
+     "contains": "IssuerNamesPartial  = \"names_partial\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/tracker/review_r2_test.go",
+     "contains": "func TestR2IssuerAuditNamesFromCrtShAreNotTheFullSANList(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/tracker.go",
+     "contains": "WHERE crt_id IN (SELECT value FROM json_each(?))",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "tls-probe-verifies-in-handshake",
+   "class": "tls-verify",
+   "status": "active",
+   "summary": "The TLS probe never disables certificate verification: a chain that fails verification is read from tls.CertificateVerificationError and still reported; minimum TLS 1.2.",
+   "why": "Security gate P1 (G402 / msp-insecure-skip-verify) on InsecureSkipVerify; fixed rather than suppressed.",
+   "spec_encode_followup": "press 4.34.2 has no generator input for this connector-specific code; keep it as a hand-fix.",
+   "asserts": [
+    {
+     "file": "cli/internal/tracker/tlsprobe.go",
+     "not_contains": "InsecureSkipVerify"
+    },
+    {
+     "file": "cli/internal/tracker/tlsprobe.go",
+     "contains": "errors.As(err, &cve)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/tracker/tlsprobe.go",
+     "contains": "MinVersion: tls.VersionTLS12,",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "mcp-context-renewals-identity",
+   "class": "docs",
+   "status": "active",
+   "summary": "The MCP context says renewals matches the served issuer, serial and validity against CT, not the serial alone.",
+   "why": "Generated research text predates the certificate-identity fix.",
+   "spec_encode_followup": "press 4.34.2 has no generator input for this connector-specific code; keep it as a hand-fix.",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "not_contains": "The served serial it records is what the renewals join compares"
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "The served issuer, serial and validity it records are what the renewals join matches against CT history.",
+     "min_count": 2,
+     "code_only": false
+    }
+   ]
+  },
+  {
+   "id": "days-window-at-least-one",
+   "class": "wrong-result",
+   "summary": "--days/--window under one day is refused instead of silently becoming the 30-day default; the RDAP bootstrap is loaded once under a lock so concurrent sweep lookups do not race.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/tracker_common.go",
+     "contains": "if days < 1 {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/tracker/rdap.go",
+     "contains": "func (r *RDAP) registry(ctx context.Context) (*Bootstrap, error) {",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "doctor-rdap-help-probe",
+   "class": "doctor-truth",
+   "summary": "doctor has no credential to verify, so its API and credential rows come from an RDAP /help probe: healthy only on a non-empty JSON object with no error key (RFC 9083 6) and, when present, a non-empty rdapConformance array of non-empty strings (RFC 9083 4.1); negative on null, arrays, HTML, 404 or 401.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "report[\"api\"], report[\"credentials\"] = rdapDoctorVerdict(cmd.Context(), c)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/tracker_doctor.go",
+     "contains": "body, err := c.GetNoCache(ctx, \"/help\", nil)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/tracker_doctor.go",
+     "contains": "if v == nil || strings.TrimSpace(*v) == \"\" {",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "caa-critical-unknown-property",
+   "class": "caa-policy",
+   "summary": "A CAA set carrying an issuer-critical property this audit does not interpret (RFC 8659 4.1) makes the certificate caa_unverified, never routine.",
+   "asserts": [
+    {
+     "file": "cli/internal/tracker/analyze.go",
+     "contains": "if tag := criticalUnknownCAA(nc.CAA); tag != \"\" {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/tracker/caa_critical_test.go",
+     "contains": "func TestIssuerAuditUnknownCriticalCAAPropertyIsNotRoutine",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "clients-set-confirm",
+   "class": "write-confirm",
+   "summary": "clients set previews and exits 2 unless --yes (CLI) or confirm: true (MCP), like clients remove.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/clients.go",
+     "contains": "not saved: pass --yes (or confirm: true over MCP) to change the inventory",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/clients_set_confirm_test.go",
+     "contains": "func TestClientsSetNeedsConfirm",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "journal-credential-hardening",
+   "class": "secret-persisted",
+   "status": "active",
+   "summary": "The learn journal keeps no text the operator typed in place of a declared name: the DOMAIN_CERT_TRACKER_LEARN_SESSION override is stored as \"o:\" plus the same 64-bit SHA-256 hash (hashHarnessSession) the harness session ids get under \"h:\", so a session still groups; argv_shape (JournalArgvShape) records only flag names the invoked command declares under exactly the typed name, every other name as the \"<undeclared>\" placeholder (redacted), and nothing after \"--\" (root.go passes isDeclaredFlag, resolved against the executed command and its parents); failed_flag is never kept as typed (\"--<undeclared>:\" plus the typed name's hash when Cobra matched it to a declared flag, so two typos stay two candidates; otherwise dropped); teach.log's missing --query lines record argument counts. An entry that repeats a credential the program holds (a recall operand persisted as query_family or unresolved_entities) is withheld at the file sink by the shared credential kit (credkit-wiring), which replaced this entry's own funnel check. journal_credential_hardening_test.go drives each typed-text path with a credential and fails if it reaches any file under the sandboxed home; internal/credwire's TestKitLearningLogsNeverPersistCredential proves a held recall operand and teach --notes never reach a file.",
+   "why": "Press 4.34 (learn/journal.go.tmpl) returns the override raw from JournalSessionKey, so a credential set there is written to journal-*.jsonl on every command, version included; it records every typed flag name, so a credential typed as a flag name (or after --) becomes an argv_shape key and the failed_flag; teach.log records the raw arguments of a teach with no --query. These are typed text the program never holds as a credential, so the kit cannot withhold them; the hashing and placeholders stay. TestJournalCredentialHardening failed on the unfixed code. Known limits: a guessable override or typed name can be confirmed by hashing guesses; entries an older build wrote stay until the 14-day retention deletes their segment. A reprint that drops these edits fails these asserts and the test.",
+   "spec_encode_followup": "Press-side: learn/journal.go.tmpl should hash the LEARN_SESSION override as it hashes harness ids, JournalArgvShape should take the invoked command's declared-flag lookup and record any other name as a placeholder, stopping at \"--\", the failed flag should be an opaque identity, and teach.log should not echo raw arguments.",
+   "asserts": [
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "func hashHarnessSession(v string) string {\n\tsum := sha256.Sum256([]byte(v))\n\treturn hex.EncodeToString(sum[:8])\n}",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "return \"o:\" + hashHarnessSession(v)\n\t}",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "not_contains": "journalSessionEnvVar)); v != \"\" {\n\t\treturn v\n"
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "const journalUndeclaredFlag = \"<undeclared>\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "func JournalArgvShape(args []string, isBoolFlag, isDeclared func(name string) bool) map[string]string {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "if tok == \"--\" {\n\t\t\tbreak\n\t\t}\n\t\tif !strings.HasPrefix(tok, \"-\") || tok == \"-\" {\n\t\t\tcontinue\n\t\t}",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "if isDeclared == nil || !isDeclared(name) {\n\t\t\tshape[journalUndeclaredFlag] = journalClassRedacted\n\t\t\tcontinue\n\t\t}\n\t\tswitch {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "if entry.FailedFlag != \"\" && entry.SuggestedFlag != \"\" {\n\t\tentry.FailedFlag = \"--\" + journalUndeclaredFlag + \":\" + hashHarnessSession(entry.FailedFlag)\n\t} else {\n\t\tentry.FailedFlag = \"\"\n\t}",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "lookupFlag := func(name string) *pflag.Flag {\n\t\tf := target.Flags().Lookup(name)\n\t\tif f == nil {\n\t\t\tf = target.InheritedFlags().Lookup(name)\n\t\t}\n\t\tif f == nil && len(name) == 1 {\n\t\t\tf = target.Flags().ShorthandLookup(name)\n\t\t}\n\t\treturn f\n\t}",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "isDeclaredFlag := func(name string) bool {\n\t\tf := lookupFlag(name)\n\t\treturn f != nil && (f.Name == name || f.Shorthand == name)\n\t}",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "learn.JournalArgvShape(os.Args[1:], isBoolFlag, isDeclaredFlag)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "not_contains": "learn.JournalArgvShape(os.Args[1:], isBoolFlag)"
+    },
+    {
+     "file": "cli/internal/cli/teach.go",
+     "contains": "writeTeachErrLog(fmt.Sprintf(\"teach: missing --query (%d args, %d resources)\", len(args), len(resources)))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/teach.go",
+     "not_contains": "args=%v"
+    },
+    {
+     "file": "cli/internal/cli/teach_playbook.go",
+     "contains": "writeTeachErrLog(fmt.Sprintf(\"playbook amend: missing --query (%d args)\", len(args)))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/teach_playbook.go",
+     "not_contains": "args=%v"
+    },
+    {
+     "file": "cli/internal/learn/journal_credential_hardening_test.go",
+     "contains": "func TestJournalCredentialHardening(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "credentials-base-origin-only",
+   "class": "secret-sent-off-host",
+   "summary": "The configured auth_header and custom headers are sent only to base_url's own origin (scheme, host, port): requests to the per-operation servers (crt.sh, IANA) and redirect hops off the origin (rdap.org redirects to registry servers) carry neither.",
+   "asserts": [
+    {
+     "file": "cli/internal/client/credential_origin.go",
+     "contains": "func credentialOrigin(target, base string) bool",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/credential_origin.go",
+     "contains": "func (c *Client) dropOffOriginCredentials(req *http.Request)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "sendCredentials := credentialOrigin(targetURL, c.BaseURL)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "if c.Config != nil && sendCredentials {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "c.dropOffOriginCredentials(req)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "if !redirectLeavesOrigin(req.URL, via) && credentialOrigin(req.URL.String(), c.BaseURL) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/tracker_credential_origin_test.go",
+     "contains": "func TestCredentialsStayOnBaseOrigin",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "mcp-write-confirm",
+   "class": "write-safety",
+   "summary": "Every command the MCP server mirrors as a write gets a --confirm flag (the MCP confirm: true argument); under MCP it previews and exits 2 until confirm is true. The command line is unchanged. Installed last in newRootCmd so every write in the tree is covered. A preview touches no store: the root hook skips the seed for an unconfirmed MCP write and clients remove previews through a read handle.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "requireMCPConfirmOnWrites(rootCmd)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/mcp_confirm.go",
+     "contains": "func requireMCPConfirmOnWrites(root *cobra.Command) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/write_confirm_test.go",
+     "contains": "func TestEveryMCPWriteToolTakesConfirm",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/mcp_confirm_test.go",
+     "contains": "func TestTeachPlaybookUnderMCPNeedsConfirm",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "commandMayWriteStore(cmd) && !mcpWriteUnconfirmed(cmd)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/mcp_confirm.go",
+     "contains": "func mcpWriteUnconfirmed(c *cobra.Command) bool {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/clients.go",
+     "contains": "open := openTrackerRead",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/mcp_confirm_test.go",
+     "contains": "func TestUnconfirmedMCPWritesLeaveNoStore(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "sweep-observation-own-check-time",
+   "class": "wrong-result",
+   "summary": "Each sweep observation carries the time its own check finished, not the time the slowest check in the sweep finished, so a TLS probe inside the deploy grace is not judged against a later CT check's clock.",
+   "asserts": [
+    {
+     "file": "cli/internal/tracker/sweep.go",
+     "contains": "ObservedAt: o.at.UTC().Format(time.RFC3339Nano)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/tracker/sweep_check_clock_test.go",
+     "contains": "func TestSweepStampsEachObservationWithItsOwnCheckTime",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "credkit-wiring",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "The shared credential kit (tools/maintainer/credkit, vendored at cli/internal/credkit) is wired by hand: internal/credwire/declarations.go holds the one credkit.Declarations literal (SecretEnv DOMAIN_CERT_TRACKER_MCP_HTTP_TOKEN; Files = the config file config.Load reads, every --config and --home value found with credkit.FlagValues and resolved with config.ReadPaths (handfixes credkit-startup-config-argv); ConfigFields auth_header; BaseURL base_url / DOMAIN_CERT_TRACKER_BASE_URL / https://rdap.org; every credential bound to the base_url origin, the MCP bearer to none); internal/credsql registers the one credkit-sqlite driver (handfixes credkit-sqlite-every-handle). credkit.Start is the first statement of both mains and credkit.Exit ends them. Every sink is routed: the generated client's sends (outboundGuard at doInternal's one Do, around the netguard-guarded transport), the tracker fetchers (netguard.HTTPClient), feedback, deliver and probe clients through credkit.Transport; the response cache, journal, teach logs, learnings, feedback, export, downloads, profiles, receipts and AtomicWritePrivateFile through credkit file writes; every SQLite handle through the credkit-sqlite driver, the MCP read-only open included; MCP tools through credkit.MCPTools, stdio through MCPIn/MCPOut, HTTP through MCPHTTP, which writes every response the HTTP server serves, the bearer, Origin and body-limit refusals included (handfixes credkit-mcphttp-outermost); the MCP CLI shell-out and dsmemberutil through credkit.RunCommand; terminal checks through credkit.Terminal. Kept outside the kit, by judgment: lock files and the empty SQLite journal file (constant bytes), the random fingerprint key, the journal's torn-tail newline repair, and os.Rename of a file the kit just wrote.",
+   "why": "Codex publish pass 2 round 1 found four credential P1s the connector's own funnel did not close: a 200 body echoing auth_header printed and cached, a decoded [headers] value echoed in a 400 body, a config parse diagnostic carrying an overflowing auth_header in doctor --json and the legacy-config warning, and recall/teach persisting a credential to the journal and learnings. The kit holds every startup credential before any output and checks every sink at the unit level, so these close by construction. internal/credwire/credkit_leak_test.go builds both binaries and drives each P1 (and startup ordering) with the reviewer's input; all five failed on the unwired tree. A reprint regenerates the mains, client.go, store.go and the other generated sink files and drops these routes silently (the build stays green); these asserts and the leak tests fail if it does.",
+   "spec_encode_followup": "Press-side: the generator should emit the credkit wiring (Start/Exit in each main, credkit.Transport on every client, credkit file writes, the credkit SQLite driver, MCPTools/MCPIn/MCPOut/MCPHTTP, RunCommand) from a per-connector declarations file, so a reprint keeps it by construction.",
+   "asserts": [
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "var Declarations = credkit.Declarations{",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "SecretEnv:    []string{\"DOMAIN_CERT_TRACKER_MCP_HTTP_TOKEN\"},",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "{Source: \"*\", Allowed: []string{\"base_url\"}},",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/domain-cert-tracker-cli/main.go",
+     "contains": "credkit.Start(credwire.Declarations)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/domain-cert-tracker-cli/main.go",
+     "contains": "credkit.Exit(code)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/domain-cert-tracker-cli/main.go",
+     "not_contains": "os.Exit("
+    },
+    {
+     "file": "cli/cmd/domain-cert-tracker-mcp/main.go",
+     "contains": "credkit.Start(credwire.Declarations)\n\tcredkit.Exit(run())",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/domain-cert-tracker-mcp/main.go",
+     "contains": "server.WithToolHandlerMiddleware(credkit.MCPTools),",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/domain-cert-tracker-mcp/main.go",
+     "contains": "server.NewStdioServer(s).Listen(ctx, credkit.MCPIn(os.Stdin), credkit.MCPOut())",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/domain-cert-tracker-mcp/main.go",
+     "not_contains": "server.ServeStdio("
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "var outboundGuard = credkit.Transport",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "sendClient.Transport = outboundGuard(httpClient.Transport)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "resp, err := sendClient.Do(req)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "_ = credkit.WriteFile(cacheFile, []byte(data), 0o600)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "_ = credkit.WriteFile(cacheFile+\".platform.json\", data, 0o600)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/netguard/netguard.go",
+     "contains": "Transport: credkit.Transport(g.Transport())",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "err := credkit.RunCommand(cmd)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/darwin_acl_darwin.go",
+     "contains": "err := credkit.RunCommand(cmd)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "return credkit.Terminal(f)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cache/cache.go",
+     "contains": "_ = credkit.WriteFile(s.path(key), []byte(value), 0o600)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/feedback.go",
+     "contains": "credkit.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/feedback.go",
+     "contains": "client := &http.Client{Timeout: 15 * time.Second, Transport: credkit.Transport(nil)}",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deliver.go",
+     "contains": "if err := credkit.WriteFile(tmp, body, 0o600); err != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deliver.go",
+     "contains": "Transport: credkit.Transport(nil),",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/export.go",
+     "contains": "credkit.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/teach.go",
+     "contains": "credkit.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/teach.go",
+     "contains": "credkit.WriteFile(path, ",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/profile.go",
+     "contains": "credkit.WriteFile(tmp, data, 0o600)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "credkit.AppendFile(p, append(line, '\\n'), 0o600)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/teach_log.go",
+     "contains": "credkit.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/paths.go",
+     "contains": "credkit.WriteFile(tmpPath, data, fileMode)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/probe.go",
+     "contains": "client = &http.Client{Timeout: defaultProbeTimeout, Transport: credkit.Transport(nil)}",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/platform/profile.go",
+     "contains": "credkit.WriteFile(tmpName, data, 0o600)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/credkit_leak_test.go",
+     "contains": "func TestKitSuccessBodyCredentialNeverShownOrCached(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/credkit_leak_test.go",
+     "contains": "func TestKitParsedHeaderCredentialNeverShown(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/credkit_leak_test.go",
+     "contains": "func TestKitConfigParseErrorNeverShowsCredential(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/credkit_leak_test.go",
+     "contains": "func TestKitLearningLogsNeverPersistCredential(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/credkit_leak_test.go",
+     "contains": "func TestKitStartupOutputNeverShowsMalformedConfigCredential(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/credkit_leak_test.go",
+     "contains": "func TestFeedbackEndpointCredentialNeverShown(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "credkit-sqlite-every-handle",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "Every SQLite handle the program opens goes through credkit.SQLDriver: internal/credsql (hand-written) registers the one driver, credsql.Driver, as modernc.org/sqlite behind the kit, and every sql.Open in store.go and platform/migration.go names it, store.OpenReadOnly included. The MCP sql tool's 4 MiB value cap, which used sqlite.Limit on modernc's own connection and so kept OpenReadOnly on the bare driver, is now a DSN parameter (_length_limit) that a connection hook on the inner driver applies to each connection as it opens, before the kit wraps it; store.OpenReadOnlyValueCapped and openMCPReadOnlyStore(path, maxValueBytes) carry it. The read-only open forces its first connection with \"select 1\" (the statement modernc's Ping runs), since the kit's connection does not forward Ping and the immutable=1 fallback depends on that first open failing.",
+   "why": "Codex publish pass 2 round 2 (P1, sqlite-sink): store.OpenReadOnly used the bare \"sqlite\" driver, so MCP sql {\"query\":\"SELECT 'lowercasecredential123' AS sample\"} with that auth_header ran the credential-bearing statement unchecked; only the row was withheld afterwards at the MCP sink. Contract sections 2 and 5 make the statement text and bound values a sink of their own, reads included. internal/store/credkit_sql_test.go checks every store opener refuses a held credential in statement text and bound values and walks the module so no sql.Open, sql.Register, sql.OpenDB or modernc driver/connection call bypasses the kit outside internal/credsql; internal/credsql/credsql_test.go proves the cap applies to every connection and a bad cap refuses the open; internal/credwire/sqlsink_leak_test.go drives the reviewer's input through the real binaries. All failed on the unfixed tree. A reprint regenerates store.go, migration.go and tools.go and would restore the bare driver and sqlite.Limit silently.",
+   "spec_encode_followup": "Press-side: generate store, migration and MCP sql opens against one kit-wrapped driver name, and express the MCP sql value cap as a connection-open setting rather than sqlite.Limit on a held connection.",
+   "asserts": [
+    {
+     "file": "cli/internal/credsql/credsql.go",
+     "contains": "sql.Register(Driver, credkit.SQLDriver(cappedSQLite()))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credsql/credsql.go",
+     "contains": "d.RegisterConnectionHook(applyLengthLimit)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "sql.Open(credsql.Driver, dsn)",
+     "min_count": 3,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "sql.Open(credsql.Driver, \"file:\"+filepath.ToSlash(dbPath)+\"?mode=ro&_pragma=busy_timeout(1000)&_pragma=mmap_size(0)\")",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "func OpenReadOnlyValueCapped(dbPath string, maxValueBytes int) (*Store, error) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "dsn += \"&\" + credsql.LengthLimitParam + \"=\" + strconv.Itoa(maxValueBytes)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "if _, err := db.ExecContext(ctx, \"select 1\"); err != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "not_contains": "sql.Open(\"sqlite\""
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "not_contains": "SQLiteDriver,"
+    },
+    {
+     "file": "cli/internal/platform/migration.go",
+     "contains": "sql.Open(credsql.Driver, ",
+     "min_count": 4,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/platform/migration.go",
+     "not_contains": "sql.Open(\"sqlite\""
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "db, err := store.OpenReadOnlyValueCapped(path, maxValueBytes)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "openMCPReadOnlyStore(path, mcpSQLMaxValueBytes)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "not_contains": "sqlite.Limit("
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "not_contains": "sqlite.Driver"
+    },
+    {
+     "file": "cli/internal/store/credkit_sql_test.go",
+     "contains": "func TestEveryStoreOpenChecksStatementsThroughTheKit(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/credkit_sql_test.go",
+     "contains": "func TestNoSQLiteHandleBypassesTheKit(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credsql/credsql_test.go",
+     "contains": "func TestLengthLimitAppliesToEveryConnection(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credsql/credsql_test.go",
+     "contains": "func TestBadLengthLimitRefusesTheOpen(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/sqlsink_leak_test.go",
+     "contains": "func TestKitMCPSQLStatementWithheldAtSQLite(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "credkit-mcphttp-outermost",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "credkit.MCPHTTP writes every response the MCP HTTP server serves. main.go passes the bare streamable server to requireBearerAuthWithOrigins (the security gate's rule), and requireBearerAuthWithLimits is: a preflight that writes nothing (mcpHTTPPreflight: Origin and bearer verdicts, and for an authenticated body a bounded, deadline-limited read into memory), then credkit.MCPHTTP around a gate that writes the refusal (403, 401 with WWW-Authenticate, 413, 408, 400) through the kit's writer, else the MCP handler. A refused request reaches the kit as a clone with no header, trailer or body, so nothing a caller sends without the bearer (a charset, a coding, a broken body) can mark the kit's acquisition unknown and silence the server; a request expecting 100-continue keeps its body unread for the kit's own 417. The old hijacking rejectMCPHTTPRequest is gone: the kit takes the connection over and closes it.",
+   "why": "Codex publish pass 2 round 2 (P1, mcp-http-response-order): MCPHTTP wrapped only the inner handler, so the bearer, Origin and body-limit refusals answered outside it; with DOMAIN_CERT_TRACKER_MCP_HTTP_TOKEN=aaaaaaaaunauthorizedbbbbbbbbbbbbb a GET /mcp without Authorization got \"unauthorized\\n\", a 12-character piece of the held token. internal/credwire/mcphttp_leak_test.go drives each refusal (no bearer with the reviewer's token and a mixed one, a foreign Origin, a declared oversized body, an unreadable chunked body) through the real binary, each with a token carrying the refusal's text, and checks a refused request cannot silence the server for the next authenticated initialize. The refusal cases failed on the unfixed tree. main.go is generated; a reprint restores the outer refusals silently.",
+   "spec_encode_followup": "Press-side: generate the MCP HTTP auth wrapper so its refusals are written by the inner, kit-wrapped handler and only a write-free preflight runs before credkit.MCPHTTP.",
+   "asserts": [
+    {
+     "file": "cli/cmd/domain-cert-tracker-mcp/main.go",
+     "contains": "requireBearerAuthWithOrigins(token, allowedOrigins, inner)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/domain-cert-tracker-mcp/main.go",
+     "contains": "kit := credkit.MCPHTTP(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/domain-cert-tracker-mcp/main.go",
+     "contains": "ref, refused := mcpHTTPPreflight(r, http.NewResponseController(w), expected, allowed, maxBytes, readTimeout)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/domain-cert-tracker-mcp/main.go",
+     "contains": "r.Header = http.Header{}",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/domain-cert-tracker-mcp/main.go",
+     "contains": "r.Body = http.NoBody",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/domain-cert-tracker-mcp/main.go",
+     "contains": "kit.ServeHTTP(w, r)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/domain-cert-tracker-mcp/main.go",
+     "contains": "if r.Body == nil || r.Body == http.NoBody || mcpHTTPExpectsContinue(r) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/domain-cert-tracker-mcp/main.go",
+     "not_contains": "rejectMCPHTTPRequest"
+    },
+    {
+     "file": "cli/cmd/domain-cert-tracker-mcp/main.go",
+     "not_contains": "credkit.MCPHTTP(inner)"
+    },
+    {
+     "file": "cli/cmd/domain-cert-tracker-mcp/main.go",
+     "not_contains": ".Hijack()"
+    },
+    {
+     "file": "cli/internal/credwire/mcphttp_leak_test.go",
+     "contains": "func TestKitMCPHTTPRefusalsPassTheKit(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/mcphttp_leak_test.go",
+     "contains": "func TestKitMCPHTTPRefusalsLeaveTheServerAnswering(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "credkit-startup-config-argv",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "The kit's startup discovery (Declarations.Files, credentialFiles in internal/credwire/declarations.go, hand-written) names every config file the command line could mean: each --config and --home value found with credkit.FlagValues (check_mcp_file_flags refuses any other argv scan reaching a file, and credkit_verify counts a command-tree build here as code running before Start), resolved with config.ReadPaths (internal/config/credkit_paths.go, hand-written), which uses Load's own resolveConfigPath and legacy fallback under the same SetHomeOverride the program applies. The kit itself takes the base URL from the last --config; without one, from the first file named here, so the last --home comes first and the default file is named only with neither flag.",
+   "why": "Codex publish pass 2 round 2 (P1, startup-config-discovery): the hand scanner took the last --home token, so for `--home /tmp/real teach --notes --home=/tmp/fake --query <credential> ...` (Cobra gives --home=/tmp/fake to --notes) it held /tmp/fake's config, left the real auth_header unheld, and teach persisted it to /tmp/real/state/learnings.jsonl and the store. internal/credwire/argv_files_test.go checks the parse against flag values that look like flags, last-wins, unparseable argv, unknown commands and the MCP server's argv, and drives the reviewer's command through the real binary; both failed on the unfixed tree.",
+   "spec_encode_followup": "Press-side: generate the declarations' Files from what the CLI resolves (or expose a resolved-config-path hook), never a hand argv scan.",
+   "asserts": [
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "configs := credkit.FlagValues(args, \"--config\")",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "homes := credkit.FlagValues(args, \"--home\")",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "files, err := config.ReadPaths(configPath)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "not_contains": "lastFlagValue"
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "not_contains": "cli.RootCmd"
+    },
+    {
+     "file": "cli/internal/config/credkit_paths.go",
+     "contains": "path, explicit, err := resolveConfigPath(configPath)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/credkit_paths.go",
+     "contains": "legacy, err := LegacyConfigPath()",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/argv_files_test.go",
+     "contains": "func TestCredentialFilesNamesEveryCandidate(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/argv_files_test.go",
+     "contains": "func TestKitStartupConfigDiscoveryHonoursFlagValues(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "not_contains": "certainFlagValue"
+    }
+   ]
+  },
+  {
+   "id": "config-reads-held-before-parse",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "Every read of the connector's config file, at startup or later (the MCP server reloads it with config.Load(\"\") on every tool call), holds its values with the credential kit before the file is parsed: config.go's parseConfigData, the one parse every Load path and readConfigFile go through, first calls holdConfigFile (internal/config/credkit_hold.go, hand-written). A file that does not parse goes to credkit.HoldBody whole (the kit holds every token of bytes that are no document); a parsed file has each decoded leaf held (config:<key>, header:<name> for [headers], config:<section>.<key>), and every base URL goes through credkit.HoldURL. base_url, ca_cert and tls_server_name (config.NotCredentials) are left unheld as plain strings; internal/credwire declares exactly those keys as config: Identifiers, and a test keeps the two lists equal.",
+   "why": "Codex publish pass 2 round 2 (P1, config-reload-hold): the MCP server started with auth_header = \"oldcredential999\", the file was rewritten to auth_header = 123456789012345678901234567890, and the per-call reload's TOML overflow diagnostic carried the unheld number to the client: the kit's startup capture never sees a file written later. internal/config/hold_test.go checks each construct is held after Load (and that the non-credential keys are not); internal/credwire/reload_leak_test.go drives the reviewer's sequence through the real MCP binary. Both failed on the unfixed tree. A reprint regenerates config.go and drops the call silently.",
+   "spec_encode_followup": "Press-side: generate a pre-parse hold hook in the config loader (or route every config read through the kit), so runtime reloads are held by construction.",
+   "asserts": [
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "holdConfigFile(data)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/credkit_hold.go",
+     "contains": "var NotCredentials = []string{\"base_url\", \"ca_cert\", \"tls_server_name\"}",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "{Source: \"config:base_url\", Reason:",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/hold_test.go",
+     "contains": "func TestConfigReadHoldsEveryValueBeforeParse(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/hold_test.go",
+     "contains": "func TestConfigReadLeavesNonCredentialKeysUnheld(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/reload_leak_test.go",
+     "contains": "func TestKitMCPConfigReloadHoldsBeforeParse(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/identifiers_test.go",
+     "contains": "func TestIdentifiersMatchConfigNotCredentials(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/credkit_leak_test.go",
+     "contains": "func TestBaseURLCredentialsHeldInAnyShape(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/credkit_hold.go",
+     "contains": "if toml.Unmarshal(data, &tree) != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/credkit_hold.go",
+     "contains": "credkit.HoldBody(data)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/credkit_hold.go",
+     "contains": "func HoldBaseURL(raw string) { credkit.HoldURL(\"userinfo\", raw) }",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/credkit_hold.go",
+     "not_contains": "func scanConfigValues"
+    }
+   ]
+  },
+  {
+   "id": "renewal-probe-order",
+   "class": "renewal-age",
+   "status": "active",
+   "summary": "Every ordering of checks is by the time each check ran (observed_at, parsed in Go: RFC3339Nano text does not sort), never by sweep id, since sweeps overlap and a sweep's checks finish in any order. judgeDeploy treats a successor first sighted after the last probe's own time as unprobed (tls_unverified), keeping the grace rule (from the later of first sighting and not_before) and any-failure-wins. store.LatestObservation picks the check that ran last (ties and undated rows by sweep id); RunSweep's diff baseline is LatestObservationBefore (the check that ran last before this one, from any other sweep; a same-instant or undated check counts only from an earlier sweep); AddCTCerts moves a certificate's first_seen_sweep to an overlapping sweep whose CT check ran strictly earlier (keepEarliestCTSighting; an undated side changes nothing); LatestSweep is the sweep that finished last.",
+   "why": "Codex publish pass 2 round 2 (P1, renewal-probe-order): with one sweep --only ct,tls, TLS finished at 11:59:50 serving crt.sh 30003024773 and CT finished at 12:00:10 first returning its successor 30003111654 (certwatch_db fnc/web_apis.fnc rows in the fixture); judgeDeploy compared sweep ids, found them equal and said ok although no probe ran after the sighting. The same by-id ordering picked the latest probe, the first sighting, the sweep diff baseline and the report's last sweep. internal/tracker/probe_order_test.go drives each with overlapping or same-sweep checks; all five failed on the unfixed tree.",
+   "asserts": [
+    {
+     "file": "cli/internal/tracker/analyze.go",
+     "contains": "case perr != nil || seenAt.After(probedAt):",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/tracker/analyze.go",
+     "not_contains": "r.FirstSeenSweep > probe.SweepID"
+    },
+    {
+     "file": "cli/internal/tracker/sweep.go",
+     "contains": "prev, hadPrev, err := st.LatestObservationBefore(ctx, o.s.kind, o.s.key, o.at, sweepID, true)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/tracker.go",
+     "contains": "func (s *Store) latestObservation(ctx context.Context, kind, subject string, okOnly bool, keep func(sweep int64, at time.Time, dated bool) bool) (Observation, bool, error) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/tracker.go",
+     "contains": "if err := keepEarliestCTSighting(ctx, tx, sweepID, r); err != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/tracker.go",
+     "not_contains": "ORDER BY sweep_id DESC"
+    },
+    {
+     "file": "cli/internal/store/tracker.go",
+     "not_contains": "ORDER BY id DESC"
+    },
+    {
+     "file": "cli/internal/tracker/probe_order_test.go",
+     "contains": "func TestRenewalsProbeBeforeSightingInSameSweepIsUnverified(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/tracker/probe_order_test.go",
+     "contains": "func TestRenewalsLatestProbeIsTheOneThatRanLast(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/tracker/probe_order_test.go",
+     "contains": "func TestRenewalsFirstSightingIsTheEarliestCTCheck(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/tracker/probe_order_test.go",
+     "contains": "func TestSweepDiffBaselineIsTheCheckThatRanLastBefore(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/tracker/probe_order_test.go",
+     "contains": "func TestLatestSweepIsTheOneThatFinishedLast(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "run-profile-allow-list",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "profiles.json is a credential source held by name and URL, not a kit credential file (the kit would hold every string in nested JSON, so a saved --limit 7 would withhold every later output). internal/credwire credentialFiles calls config.HoldProfileStoreIn at startup for each candidate config dir and the legacy store; loadProfileStore (internal/cli/profile.go, generated) holds the store again before parsing and drops every value whose flag no command declares or whose name is credential-like, so profile show, use and every run see only the allow-list. credentialLikeRunProfileFlag delegates to config.CredentialLikeName, the one name rule. The store is held with credkit.HoldBody (#519); a URL in a non-credential flag is free text under contract section 1 and is not scanned.",
+   "why": "A run profile can carry a webhook URL, free text or a hand-edited credential-named key; profile show printed them whole.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/profile.go",
+     "contains": "config.HoldProfileStore(data)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/profile.go",
+     "contains": "func runProfileValueAllowed(flag string) bool {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/profile.go",
+     "contains": "if !runProfileValueAllowed(flag) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/profile.go",
+     "contains": "return config.CredentialLikeName(name)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/credkit_hold.go",
+     "contains": "func HoldProfileStore(data []byte) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "config.HoldProfileStoreIn(dir)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/credkit_leak_test.go",
+     "contains": "func TestRunProfileStoreHeldAtStartup(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/credkit_hold.go",
+     "contains": "func HoldProfileStore(data []byte) { credkit.HoldBody(data) }",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/profile.go",
+     "not_contains": "URLCredentials"
+    }
+   ]
+  },
+  {
+   "id": "deliver-url-shown-host-only",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "A --deliver webhook URL and a feedback endpoint are shown only as scheme and host (shownTarget and shownURL in internal/cli/deliver.go, used by root.go's dry-run and failure lines and feedback.go's output). A failed send reads in the program's own words (sendCause), a response only by numeric status, and a bad --deliver value is not echoed. The URL itself still goes to the operator's webhook or endpoint.",
+   "why": "Many webhooks authenticate by URL, which is no declared credential source, so the kit cannot hold it without refusing the send. Allow-listing what any message may say about it closes every print site.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/deliver.go",
+     "contains": "func shownTarget(sink DeliverSink) string {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deliver.go",
+     "contains": "func sendCause(err error) error {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deliver.go",
+     "not_contains": "URL, got %q"
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "shownTarget(flags.deliverSink)",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/feedback.go",
+     "contains": "sendCause(err)",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/credkit_leak_test.go",
+     "contains": "func TestDeliverURLNeverShownWhole(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deliver.go",
+     "not_contains": "resp.Header.Get(\"Location\")"
+    },
+    {
+     "file": "cli/internal/cli/deliver.go",
+     "not_contains": "resp.Status,"
+    },
+    {
+     "file": "cli/internal/credwire/credkit_leak_test.go",
+     "contains": "func TestDeliverDiagnosticsShowNoServerText(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "renewal-shorter-lived-replacement",
+   "class": "wrong-result",
+   "status": "active",
+   "summary": "internal/tracker/analyze.go replaces(): a certificate issued after the served one is its replacement when it expires later or, being shorter-lived, is still valid. A shorter-lived successor counts only once overdue: within its grace it is no evidence the host was renewed, so issuance_stalled stands.",
+   "why": "RFC 8555 section 7.4 lets an order ask for its notAfter, and crt.sh returns the real bounds; requiring a later notAfter dropped such a replacement and renewals called the host ok.",
+   "asserts": [
+    {
+     "file": "cli/internal/tracker/analyze.go",
+     "contains": "func replaces(rb, ra, nb, na, now time.Time) bool {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/tracker/review_r2_test.go",
+     "contains": "func TestRenewalsShorterLivedReplacementIsASuccessor(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/tracker/analyze.go",
+     "contains": "case extends || v.status == RenewalDeployStalled:",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/tracker/review_r2_test.go",
+     "contains": "func TestRenewalsShorterLivedDoesNotHideIssuanceStalled(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  }
+ ]
+}

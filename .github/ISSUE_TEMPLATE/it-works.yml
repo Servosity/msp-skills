@@ -57,6 +57,7 @@ body:
         - datto-bcdr
         - datto-rmm
         - dnsfilter
+        - domain-cert-tracker
         - domotz
         - dropsuite
         - exchange-online
@@ -115,11 +116,13 @@ body:
         - td-synnex
         - threatdown
         - threatlocker
+        - threecx
         - unifi-network
         - veeam
         - vsphere
         - warranty
         - watchguard
+        - windows-server
         - wordpress
         - xero
         - zammad

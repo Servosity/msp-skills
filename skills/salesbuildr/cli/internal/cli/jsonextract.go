@@ -36,20 +36,30 @@ func gstr(m map[string]any, key string) string {
 // gnum returns a numeric field. Accepts JSON numbers and numeric strings
 // ("1.91"), which Salesbuildr occasionally uses for money fields.
 func gnum(m map[string]any, key string) float64 {
+	f, _ := gnumOK(m, key)
+	return f
+}
+
+// gnumOK is gnum plus whether the field carried a number at all, so a
+// documented 0 (quantity 0, markup 0, a 0-day sales cycle) is told apart from
+// an absent or null field (Codex r1 4.34.2 review class
+// documented-zero-read-as-missing). The one parser every novel reads numbers
+// with.
+func gnumOK(m map[string]any, key string) (float64, bool) {
 	v, ok := m[key]
 	if !ok || v == nil {
-		return 0
+		return 0, false
 	}
 	switch t := v.(type) {
 	case float64:
-		return t
+		return t, true
 	case string:
 		f, err := strconv.ParseFloat(strings.TrimSpace(t), 64)
 		if err == nil {
-			return f
+			return f, true
 		}
 	}
-	return 0
+	return 0, false
 }
 
 // gobjName extracts the "name" (then "displayValue") of a nested object field.

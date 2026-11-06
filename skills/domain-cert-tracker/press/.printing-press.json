@@ -1,0 +1,137 @@
+{
+  "schema_version": 2,
+  "generated_at": "2026-10-28T07:13:56.149255Z",
+  "printing_press_version": "4.34.2",
+  "api_name": "domain-cert-tracker",
+  "display_name": "Domain and Certificate Tracker",
+  "cli_name": "domain-cert-tracker-pp-cli",
+  "creator": {
+    "handle": "DamienStevens",
+    "name": "Damien Stevens"
+  },
+  "owner": "damienstevens",
+  "printer": "DamienStevens",
+  "printer_name": "Damien Stevens",
+  "spec_path": "spec.yaml",
+  "spec_format": "openapi3",
+  "spec_source": "docs",
+  "spec_checksum": "sha256:aaa1117e1c4d8107aebffd24ad419e1b0c8d935b992a4c15b604b2bf82eee453",
+  "run_id": "20261028-010753-51a4bfbc",
+  "category": "monitoring",
+  "description": "Every client's domains and certificates in one inventory: what expires, unlocks or changes.",
+  "mcp_binary": "domain-cert-tracker-pp-mcp",
+  "mcp_tool_count": 6,
+  "mcp_public_tool_count": 6,
+  "mcp_ready": "full",
+  "api_version": "1.0.0",
+  "auth_type": "none",
+  "novel_features": [
+    {
+      "name": "Client inventory",
+      "command": "clients list",
+      "description": "Keep each client's domains and hosts in one local inventory that every sweep and report walks."
+    },
+    {
+      "name": "Report",
+      "command": "report",
+      "description": "See, per client, what expires within N days, which registrations are not transfer-locked, new CT certificates and DNS drift, plus what the last sweep could not check."
+    },
+    {
+      "name": "Events feed",
+      "command": "events list",
+      "description": "Read typed events from each sweep diff (domain.expiring, cert.expiring, ct.new_cert, dns.changed, registrar.unlocked) after a cursor."
+    },
+    {
+      "name": "Sweep",
+      "command": "sweep",
+      "description": "Check every inventoried domain's registration, new CT certificates and DNS, and every inventoried host's live TLS certificate, in one run; then store the results and diff them against the last run."
+    },
+    {
+      "name": "TLS probe",
+      "command": "tls probe",
+      "description": "Handshake with a live host and get its chain, expiry, SANs, key, issuer, hostname match and OCSP must-staple as JSON."
+    },
+    {
+      "name": "Stalled renewals",
+      "command": "renewals",
+      "description": "Find hosts still serving an old certificate after a newer one was logged, or past their renewal point with no successor in CT."
+    },
+    {
+      "name": "DNS check",
+      "command": "dns check",
+      "description": "Get NS, MX, SPF, DMARC, CAA and DNSSEC for a domain as one JSON document through the system resolver."
+    },
+    {
+      "name": "Issuer anomalies",
+      "command": "issuers audit",
+      "description": "Separate certificates from issuers a domain's CAA does not permit, or a first-ever issuer, from routine renewals."
+    },
+    {
+      "name": "Unwatched hosts",
+      "command": "hosts discover",
+      "description": "List hostnames that have certificates in CT for a client's domains but are not in that client's inventory."
+    }
+  ],
+  "novel_features_built": [
+    {
+      "name": "Client inventory",
+      "command": "clients list",
+      "description": "Keep each client's domains and hosts in one local inventory that every sweep and report walks."
+    },
+    {
+      "name": "Report",
+      "command": "report",
+      "description": "See, per client, what expires within N days, which registrations are not transfer-locked, new CT certificates and DNS drift, plus what the last sweep could not check."
+    },
+    {
+      "name": "Events feed",
+      "command": "events list",
+      "description": "Read typed events from each sweep diff (domain.expiring, cert.expiring, ct.new_cert, dns.changed, registrar.unlocked) after a cursor."
+    },
+    {
+      "name": "Sweep",
+      "command": "sweep",
+      "description": "Check every inventoried domain's registration, new CT certificates and DNS, and every inventoried host's live TLS certificate, in one run; then store the results and diff them against the last run."
+    },
+    {
+      "name": "TLS probe",
+      "command": "tls probe",
+      "description": "Handshake with a live host and get its chain, expiry, SANs, key, issuer, hostname match and OCSP must-staple as JSON."
+    },
+    {
+      "name": "Stalled renewals",
+      "command": "renewals",
+      "description": "Find hosts still serving an old certificate after a newer one was logged, or past their renewal point with no successor in CT."
+    },
+    {
+      "name": "DNS check",
+      "command": "dns check",
+      "description": "Get NS, MX, SPF, DMARC, CAA and DNSSEC for a domain as one JSON document through the system resolver."
+    },
+    {
+      "name": "Issuer anomalies",
+      "command": "issuers audit",
+      "description": "Separate certificates from issuers a domain's CAA does not permit, or a first-ever issuer, from routine renewals."
+    },
+    {
+      "name": "Unwatched hosts",
+      "command": "hosts discover",
+      "description": "List hostnames that have certificates in CT for a client's domains but are not in that client's inventory."
+    }
+  ],
+  "verify": {
+    "mode": "mock",
+    "pass_rate": 100,
+    "passed": 43,
+    "total": 43,
+    "data_pipeline": true,
+    "verdict": "PASS"
+  },
+  "scorecard": {
+    "steinberger": {
+      "percentage": 87,
+      "grade": "A",
+      "total": 87
+    }
+  }
+}

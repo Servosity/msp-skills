@@ -20,7 +20,7 @@
       "type": "skill-md",
       "description": "Every Action1 endpoint, plus the fleet-wide patch and vulnerability views the org-siloed API cannot give you. Trigger phrases: `action1 patch posture`, `which endpoints are missing patches`, `triage action1 vulnerabilities`, `find stale action1 agents`, `action1 fleet view across organizations`, `use action1`, `run action1-cli`.",
       "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/action1/SKILL.md",
-      "digest": "sha256:78f554bf8e5952d64cc7468f74fc84263412eccc7ef9811b56b6afd134a33f79"
+      "digest": "sha256:cf620d76a43e91af1d0a71978bcef54dc42ed87108ec63c50d7340c1c7c5521d"
     },
     {
       "name": "afi",
@@ -254,6 +254,13 @@
       "digest": "sha256:29677391eba043513241da85b1a43e376fa3c92479bd24808d8103c20e869ac8"
     },
     {
+      "name": "domain-cert-tracker",
+      "type": "skill-md",
+      "description": "Every client's domains and certificates in one inventory: what expires, unlocks or changes. Trigger phrases: `which client domains expire this month`, `check the certificate on this host`, `did any client domain lose its registrar lock`, `new certificates for our clients' domains`, `check SPF DMARC and CAA for a domain`, `use domain-cert-tracker`, `run domain-cert-tracker`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/domain-cert-tracker/SKILL.md",
+      "digest": "sha256:40af54d06202282110caab12d1d4a921a8ba2e1f8a7ce8d3a4e1517d155d001a"
+    },
+    {
       "name": "domotz",
       "type": "skill-md",
       "description": "Every Domotz endpoint, plus a local SQLite fleet mirror that answers cross-site questions. Trigger phrases: `which domotz sites are down`, `list offline devices across all sites`, `export domotz device inventory`, `check fleet health in domotz`, `find new devices on the network`, `use domotz`, `run domotz-cli`.",
@@ -384,7 +391,7 @@
       "type": "skill-md",
       "description": "Every KnowBe4 KMSAT reporting feature, plus a local SQLite store for the questions the console cannot answer. Trigger phrases: `who keeps clicking phishing in knowbe4`, `knowbe4 repeat clickers`, `knowbe4 risk leaderboard`, `who failed phishing but never trained`, `knowbe4 training coverage gaps`, `build a knowbe4 qbr`, `use knowbe4`, `run knowbe4-cli`.",
       "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/knowbe4/SKILL.md",
-      "digest": "sha256:a52339febf17162331e5e8ea59c146924bf8fd8bcdb67036f08fd1fc38752280"
+      "digest": "sha256:4d744ecd6922bf86ddb5ea2bbfec50250f312e1b151b540f5583fb40145b53c3"
     },
     {
       "name": "levelio",
@@ -468,7 +475,7 @@
       "type": "skill-md",
       "description": "Every PagerDuty incident, on-call and service operation from the terminal, plus a local SQLite mirror that answers cross-entity questions - MTTA/MTTR, on-call coverage gaps, responder load - that neither the API nor the web UI can. Trigger phrases: `who is on call for this service`, `show me the open pagerduty incidents`, `what's the mttr for this service`, `acknowledge the pagerduty incident`, `which services have no on-call coverage`, `use pagerduty`, `run pagerduty-cli`.",
       "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/pagerduty/SKILL.md",
-      "digest": "sha256:d2bf2caeaf354f4e46bfce6278e0b2e4b43f0d41d212f0adadfcdcf3f9bb070f"
+      "digest": "sha256:d350d19819252a7e590a70ac8827ed5f48df75c90f22cb45b6a8e22fbb9b706d"
     },
     {
       "name": "pandadoc",
@@ -566,7 +573,7 @@
       "type": "skill-md",
       "description": "Every runZero query, plus a local SQLite copy of your whole attack surface that diffs over time, joins assets to vulnerabilities offline, and costs zero API quota to re-slice. Trigger phrases: `list runzero assets`, `triage my runzero exposure`, `what changed on my attack surface`, `which assets are affected by this CVE`, `find stale assets in runzero`, `use runzero`, `run runzero-cli`.",
       "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/runzero/SKILL.md",
-      "digest": "sha256:6f7e072855d8ff410760d5a85f21bcf0b72403aeb3a723b929ae6d4d2440ab1a"
+      "digest": "sha256:0f20edd574bbc761b58374fc31b1fa67f69b19dc4fdc0c3310f6c4a9363f1a07"
     },
     {
       "name": "saas-alerts",
@@ -580,7 +587,7 @@
       "type": "skill-md",
       "description": "Every Salesbuildr resource as a scriptable command, plus offline margin and pipeline analytics. Trigger phrases: `salesbuildr stale quotes`, `check quote margins`, `salesbuildr pipeline velocity`, `sync salesbuildr catalog`, `company whitespace salesbuildr`, `use salesbuildr`, `run salesbuildr`.",
       "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/salesbuildr/SKILL.md",
-      "digest": "sha256:1c7c2946d0194797970cb47ec026ac25a1b4627a762c5665262ba14a218613d1"
+      "digest": "sha256:1ef353182a5542187f59c6eebbdb648c6832802d68bd9d3218191a237419ef3a"
     },
     {
       "name": "sentinelone",
@@ -674,6 +681,13 @@
       "digest": "sha256:64c5f2fdf31bd8d513800a6041c44cfa24673d72632955f06becae51ad0f8d77"
     },
     {
+      "name": "threecx",
+      "type": "skill-md",
+      "description": "Run every client's 3CX phone system from one CLI: trunk, version, licence and backup health across the whole fleet, plus the full Configuration API on any single PBX. Trigger phrases: `check all our 3CX phone systems`, `which client has a 3CX trunk down`, `3CX licence renewals this quarter`, `which PBXes are behind on 3CX updates`, `are 3CX backups running for every client`, `find broken 3CX call routing`, `what changed on our phone systems overnight`, `use threecx`, `run threecx`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/threecx/SKILL.md",
+      "digest": "sha256:65ba7e5e453a752723754565aebe36ed80fb8f0e8fe67988a8ad84fe6dafdecf"
+    },
+    {
       "name": "unifi-network",
       "type": "skill-md",
       "description": "Use when the user asks to audit a UniFi Network gateway: list adopted devices and connected clients, review firewall policies, ACL rules, VLANs and WiFi broadcasts, see what changed in site config since the last check, spot hardware that just joined the network, or check switch port and PoE headroom. Wraps the local UniFi Network integration API on a self-hosted UniFi OS gateway - not the Site Manager cloud API, UniFi Protect, or UniFi Access - plus a local SQLite mirror that answers change-over-time questions the live API cannot. Trigger phrases: `audit my unifi network`, `what changed on my unifi site`, `list unifi devices`, `which clients are on my unifi network`, `check unifi firewall rules`, `unifi port audit`, `who just joined the network`, `use unifi-network-cli`, `run unifi-network-cli`.",
@@ -707,6 +721,13 @@
       "description": "Use when the user asks which WatchGuard Cloud customer needs attention first, which Fireboxes are offline or behind on firmware, which endpoints are unprotected, isolated or waiting on a reboot across customers, which ThreatSync incidents are untouched, who is exposed to a CVE, whether license allocations match the Fireboxes that report in, or to wait for a Firebox deployment to finish; also to run any WatchGuard Cloud API call (Firebox, FireCloud, Endpoint Security, ThreatSync, NDR, AuthPoint, accounts, operators, allocations). Trigger phrases: `which fireboxes are offline`, `which customers have unprotected endpoints`, `who is exposed to this CVE`, `threatsync incident queue`, `fireboxes behind on firmware`, `wait for the firebox deployment`, `watchguard license allocation`, `use watchguard`, `run watchguard-cli`.",
       "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/watchguard/SKILL.md",
       "digest": "sha256:6c743bcfbe6ed412d05b3162a6d7633b40801f1f162c8a61796eb0b0e96072ec"
+    },
+    {
+      "name": "windows-server",
+      "type": "skill-md",
+      "description": "Agentless Windows Server health checks over WinRM: one verdict per server, a diffable inventory, and no arbitrary PowerShell. Trigger phrases: `is the file server healthy`, `why is this service stopped on the server`, `who added a local admin on the server`, `what changed on our windows servers this week`, `check expiring certificates on the server`, `use windows-server`, `run windows-server`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/windows-server/SKILL.md",
+      "digest": "sha256:33930c1632946b234b2f4a6ffc011668a989ba0ceb00d5825d161485ed00c534"
     },
     {
       "name": "wordpress",

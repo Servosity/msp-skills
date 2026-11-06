@@ -116,7 +116,7 @@ Yes, by design - and the exceptions are ones you switch on yourself. The CLI, th
 
 ### Does this work with ChatGPT?
 
-Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way action1-mcp runs, and shares MCP configuration with Codex: add action1-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote (HTTP) server, and this connector's HTTP mode is paused until it is reprinted; the security note at the top of the install guide explains why. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
+Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way action1-mcp runs, and shares MCP configuration with Codex: add action1-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote server. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
 
 ### Do I need to know how to code?
 
@@ -132,7 +132,7 @@ Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
 
 ### Which Action1 region and credentials do I need?
 
-An API client (Client ID + Client Secret) from your Action1 console's API Credentials page, plus ACTION1_REGION set to us, eu, or au to match your console URL. The CLI mints and refreshes the bearer token for you. Scope the client to read-only permissions if you only need reporting.
+An API client (Client ID + Client Secret) from your Action1 console's API Credentials page, plus ACTION1_BASE_URL set to your data center (the US host is the default; EU is https://app.eu.action1.com/api/3.0, Australia https://app.au.action1.com/api/3.0). The CLI mints and refreshes the bearer token for you. Scope the client to read-only permissions if you only need reporting.
 
 ### Does this replace the Action1 console?
 

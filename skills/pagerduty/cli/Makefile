@@ -1,7 +1,9 @@
 .PHONY: build test lint install clean
 
+BIN_EXT := $(if $(filter windows,$(shell go env GOOS)),.exe,)
+
 build:
-	go build -o bin/pagerduty-cli ./cmd/pagerduty-cli
+	go build -trimpath -o bin/pagerduty-cli$(BIN_EXT) ./cmd/pagerduty-cli
 
 test:
 	go test ./...
@@ -16,7 +18,7 @@ clean:
 	rm -rf bin/
 
 build-mcp:
-	go build -o bin/pagerduty-mcp ./cmd/pagerduty-mcp
+	go build -trimpath -o bin/pagerduty-mcp$(BIN_EXT) ./cmd/pagerduty-mcp
 
 install-mcp:
 	go install ./cmd/pagerduty-mcp
