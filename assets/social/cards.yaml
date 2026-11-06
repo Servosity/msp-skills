@@ -99,6 +99,10 @@ cloudally:
   vendor: "CloudAlly"
   example_command: "Which customers have a failing backup?"
 
+comet-backup:
+  vendor: "Comet Backup"
+  example_command: "Which Comet backups failed last night?"
+
 connect-tool:
   subtitle: "Claude Code Skill - no MCP server to install"
   vendor: "connect-tool"  # matches docs/skills/connect-tool.md

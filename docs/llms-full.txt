@@ -894,6 +894,40 @@ A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already us
 
 Governance: This connector can restore into live customer mailboxes, create download jobs and, through CloudAlly's own API, delete backup tasks and their data, so it is not read-only. restore submit, download submit and download start print their plan and stop until --yes is passed (over MCP they only preview), and a restore or download guard in the state directory refuses to send the same restore or create the same archive twice; the generated recovery restore and delete commands send immediately and are human-only. Download jobs are only ever EXPORT jobs, and CLOUDALLY_MCP_READ_ONLY=1 limits an MCP agent to reads. The company login (auth login) reaches one customer; the partner login reaches all of them.
 
+### Comet Backup (Backup/DR)
+
+Page: [Comet Backup](https://msp-skills.compoundingteams.com/skills/comet-backup.md)
+Verification: Awaiting live verification
+Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/comet-backup/install.sh)
+
+Ask which Comet backups failed or went quiet last night and get every protected item across every tenant on your Comet Server in one list, with the error lines that explain each failure. Comet's console and emailed reports answer one customer at a time; this skill reads the whole server, reports per-tenant storage against quota, and keeps a local snapshot history so you can see what changed since yesterday.
+
+Outcomes (question -> command your AI agent runs):
+- Which protected items failed, are overdue or never backed up, across every tenant? -> comet-backup-cli health --state failed,overdue,never --json
+- Why did backups fail in the last 24 hours, with the first error lines from each job log? -> comet-backup-cli triage --window 24h --json
+- Which tenants are at or above 80 percent of a storage, device or Microsoft 365 quota? -> comet-backup-cli usage --over 80 --json
+- Which offline devices have not finished a job in a week and still own protected items? -> comet-backup-cli devices stale --older-than 7d --billable-only --json
+- Which devices run a Comet client version that differs from the server? -> comet-backup-cli devices outdated --json
+- Which backup problems opened or resolved since the previous snapshot? -> comet-backup-cli changes --only health --json
+
+FAQ:
+Q: Does this work with ChatGPT?
+A: Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so it needs the Comet Backup MCP server's token-protected HTTP mode hosted over HTTPS. Step-by-step in the install guide.
+Q: Do I need to know how to code?
+A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
+Q: Is my Comet Backup data safe?
+A: Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills.
+Q: What does it cost?
+A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
+Q: What Comet account does it need?
+A: A Comet Server admin account. Set COMET_BACKUP_SERVER to your server's host and port (or COMET_BACKUP_BASE_URL to its full URL), then COMET_BACKUP_USERNAME and COMET_BACKUP_PASSWORD. Comet recommends a dedicated API admin with a long random password and no 2FA; for an admin that requires 2FA, start a session with Comet's session-start API and set COMET_BACKUP_SESSION_KEY instead. Personal API tokens are not supported yet. On Comet-Hosted servers, create an Additional User with a local password.
+Q: Does it work with self-hosted and Comet-Hosted servers?
+A: Yes. Each MSP runs one Comet Server, self-hosted or Comet-Hosted, holding all of its tenants; the skill talks only to the server you name and refuses a redirect to any other host.
+Q: Can it run backups or restores?
+A: It can ask an online device to run a backup or a restore through Comet's live-connection API, but those are writes on a customer endpoint: preview them with --dry-run and keep them human-approved. The MCP server sends a write only when the call carries confirm: true. rerun-failed only prints its plan unless you add --yes.
+
+Governance: Most commands only read: fleet health, failure triage, usage, device lists, job history and server status. Seven reads return credential material (password hashes, TOTP keys, storage keys); the CLI redacts those fields and the MCP server runs them only with confirm: true. Writes reach your tenants and their devices (run a backup or restore, uninstall, delete a user), so preview them with --dry-run and keep a human in the loop.
+
 ### connect-tool (Meta)
 
 Page: [connect-tool](https://msp-skills.compoundingteams.com/skills/connect-tool.md)

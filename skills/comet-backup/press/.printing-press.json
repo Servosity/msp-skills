@@ -1,0 +1,163 @@
+{
+  "schema_version": 2,
+  "generated_at": "2026-10-28T04:40:42.387881Z",
+  "printing_press_version": "4.34.2",
+  "api_name": "comet-backup",
+  "display_name": "Comet Backup",
+  "cli_name": "comet-backup-pp-cli",
+  "creator": {
+    "handle": "DamienStevens",
+    "name": "Damien Stevens"
+  },
+  "owner": "damienstevens",
+  "printer": "DamienStevens",
+  "printer_name": "Damien Stevens",
+  "spec_path": "spec.yaml",
+  "spec_format": "openapi3",
+  "spec_source": "community",
+  "spec_checksum": "sha256:cd531b56412e128f499cf36c09aa3a16c4b23814185cf9da1fc5948e0e091262",
+  "run_id": "20261027-224115-5d000488",
+  "category": "monitoring",
+  "description": "Fleet-wide backup health, failure triage and usage reports for every tenant on your Comet Server, plus the admin API calls an MSP uses day to day.",
+  "mcp_binary": "comet-backup-pp-mcp",
+  "mcp_tool_count": 61,
+  "mcp_ready": "full",
+  "api_version": "26.8",
+  "auth_type": "api_key",
+  "auth_preference": "cometAdmin",
+  "auth_env_vars": [
+    "COMET_BACKUP_PASSWORD",
+    "COMET_BACKUP_USERNAME",
+    "COMET_BACKUP_SESSION_KEY"
+  ],
+  "auth_env_var_specs": [
+    {
+      "name": "COMET_BACKUP_PASSWORD",
+      "kind": "per_call",
+      "required": true,
+      "sensitive": true,
+      "description": "Admin account password (sent as AuthType=Password). Set COMET_BACKUP_SESSION_KEY instead to use a session key."
+    },
+    {
+      "name": "COMET_BACKUP_USERNAME",
+      "kind": "per_call",
+      "required": true,
+      "sensitive": false,
+      "description": "Admin account name (form field Username)."
+    },
+    {
+      "name": "COMET_BACKUP_SESSION_KEY",
+      "kind": "per_call",
+      "required": false,
+      "sensitive": true,
+      "description": "Admin session key from AdminAccountSessionStart (sent as AuthType=SessionKey). Takes precedence over the password when set."
+    }
+  ],
+  "endpoint_template_vars": [
+    "server"
+  ],
+  "endpoint_template_env_overrides": {
+    "server": "COMET_BACKUP_SERVER"
+  },
+  "auth_key_url": "https://docs.cometbackup.com/latest/api/api-methods",
+  "auth_title": "Comet admin account",
+  "novel_features": [
+    {
+      "name": "Fleet backup health",
+      "command": "health",
+      "description": "See the backup state of every protected item across every tenant in one list, including items that quietly stopped running."
+    },
+    {
+      "name": "Failure triage with error lines",
+      "command": "triage",
+      "description": "Find out why backups failed: the failed and stuck jobs in a time window (warnings with --include-warnings), with the first error lines from each job log."
+    },
+    {
+      "name": "Per-tenant usage report",
+      "command": "usage",
+      "description": "Get per-tenant storage against quota, billable devices, booster engines, Microsoft 365 accounts and VM guests; these are the server's own counts, not an invoice."
+    },
+    {
+      "name": "Stale and offline devices",
+      "command": "devices stale",
+      "description": "Find offline devices: registered devices not connected now, ranked by how long since their last backup, flagged when they still carry billable protected items."
+    },
+    {
+      "name": "Changes between snapshots",
+      "command": "changes",
+      "description": "Compare the two newest local snapshots: problems opened or resolved, devices and protected items added or removed, storage growth. Run snapshot twice first."
+    },
+    {
+      "name": "Re-run failed backups",
+      "command": "rerun-failed",
+      "description": "Plan and, with --yes, re-run failed scheduled backups on devices that are online now; quota, cancelled, already-running, custom-job and offline-device failures are skipped."
+    },
+    {
+      "name": "Outdated client versions",
+      "command": "devices outdated",
+      "description": "List devices whose Comet client version differs from the server version, with the connection id an online device needs for devices update-software."
+    },
+    {
+      "name": "Fleet snapshot",
+      "command": "snapshot",
+      "description": "Capture the current fleet into a local SQLite store so changes can compare runs."
+    }
+  ],
+  "novel_features_built": [
+    {
+      "name": "Fleet backup health",
+      "command": "health",
+      "description": "See the backup state of every protected item across every tenant in one list, including items that quietly stopped running."
+    },
+    {
+      "name": "Failure triage with error lines",
+      "command": "triage",
+      "description": "Find out why backups failed: the failed and stuck jobs in a time window (warnings with --include-warnings), with the first error lines from each job log."
+    },
+    {
+      "name": "Per-tenant usage report",
+      "command": "usage",
+      "description": "Get per-tenant storage against quota, billable devices, booster engines, Microsoft 365 accounts and VM guests; these are the server's own counts, not an invoice."
+    },
+    {
+      "name": "Stale and offline devices",
+      "command": "devices stale",
+      "description": "Find offline devices: registered devices not connected now, ranked by how long since their last backup, flagged when they still carry billable protected items."
+    },
+    {
+      "name": "Changes between snapshots",
+      "command": "changes",
+      "description": "Compare the two newest local snapshots: problems opened or resolved, devices and protected items added or removed, storage growth. Run snapshot twice first."
+    },
+    {
+      "name": "Re-run failed backups",
+      "command": "rerun-failed",
+      "description": "Plan and, with --yes, re-run failed scheduled backups on devices that are online now; quota, cancelled, already-running, custom-job and offline-device failures are skipped."
+    },
+    {
+      "name": "Outdated client versions",
+      "command": "devices outdated",
+      "description": "List devices whose Comet client version differs from the server version, with the connection id an online device needs for devices update-software."
+    },
+    {
+      "name": "Fleet snapshot",
+      "command": "snapshot",
+      "description": "Capture the current fleet into a local SQLite store so changes can compare runs."
+    }
+  ],
+  "verify": {
+    "mode": "mock",
+    "pass_rate": 100,
+    "passed": 42,
+    "total": 42,
+    "data_pipeline": true,
+    "verdict": "PASS"
+  },
+  "scorecard": {
+    "steinberger": {
+      "percentage": 85,
+      "grade": "A",
+      "total": 85
+    }
+  }
+}
