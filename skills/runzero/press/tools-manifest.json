@@ -35,7 +35,7 @@
     },
     {
       "name": "account_create-credential",
-      "description": "Create a new credential. Optional: acl, cidrs, global (plus 3 more). Returns array of string.",
+      "description": "Create a new credential. Optional: acl, cidrs, global (plus 3 more). Returns the updated Credential.",
       "method": "PUT",
       "path": "/account/credentials",
       "params": [
@@ -114,7 +114,7 @@
           "name": "customIntegrationId",
           "type": "string",
           "location": "path",
-          "description": "UUID of the custom integration",
+          "description": "UUID of the custom integration (e.g. e77602e0-3fb8-4734-aef9-fbc6fdcb0fa8)",
           "required": true
         },
         {
@@ -340,7 +340,7 @@
           "name": "org_id",
           "type": "string",
           "location": "path",
-          "description": "UUID of the organization to create an export token for",
+          "description": "UUID of the organization to create an export token for (e.g. e77602e0-3fb8-4734-aef9-fbc6fdcb0fa8)",
           "required": true
         },
         {
@@ -509,7 +509,7 @@
           "name": "ownership_type_id",
           "type": "string",
           "location": "path",
-          "description": "UUID of the asset ownership type",
+          "description": "UUID of the asset ownership type (e.g. e77602e0-3fb8-4734-aef9-fbc6fdcb0fa8)",
           "required": true
         }
       ]
@@ -531,7 +531,7 @@
           "name": "customIntegrationId",
           "type": "string",
           "location": "path",
-          "description": "UUID of the custom integration",
+          "description": "UUID of the custom integration (e.g. e77602e0-3fb8-4734-aef9-fbc6fdcb0fa8)",
           "required": true
         }
       ]
@@ -546,14 +546,14 @@
           "name": "org_id",
           "type": "string",
           "location": "path",
-          "description": "UUID of the organization to retrieve",
+          "description": "UUID of the organization to retrieve (e.g. e77602e0-3fb8-4734-aef9-fbc6fdcb0fa8)",
           "required": true
         },
         {
           "name": "key_id",
           "type": "string",
           "location": "path",
-          "description": "UUID of the export token ID to remove",
+          "description": "UUID of the export token ID to remove (e.g. e77602e0-3fb8-4734-aef9-fbc6fdcb0fa8)",
           "required": true
         }
       ]
@@ -568,7 +568,7 @@
           "name": "org_id",
           "type": "string",
           "location": "path",
-          "description": "UUID of the organization to retrieve",
+          "description": "UUID of the organization to retrieve (e.g. e77602e0-3fb8-4734-aef9-fbc6fdcb0fa8)",
           "required": true
         }
       ]
@@ -677,7 +677,7 @@
     },
     {
       "name": "account_get-credential",
-      "description": "Get credential details. Required: credential_id. Returns array of string.",
+      "description": "Get credential details. Required: credential_id. Returns the Credential.",
       "method": "GET",
       "path": "/account/credentials/{credential_id}",
       "params": [
@@ -685,7 +685,7 @@
           "name": "credential_id",
           "type": "string",
           "location": "path",
-          "description": "UUID of the credential to retrieve",
+          "description": "UUID of the credential to retrieve (e.g. e77602e0-3fb8-4734-aef9-fbc6fdcb0fa8)",
           "required": true
         }
       ]
@@ -714,7 +714,7 @@
           "name": "customIntegrationId",
           "type": "string",
           "location": "path",
-          "description": "UUID of the custom integration",
+          "description": "UUID of the custom integration (e.g. e77602e0-3fb8-4734-aef9-fbc6fdcb0fa8)",
           "required": true
         }
       ]
@@ -736,7 +736,7 @@
           "name": "group_id",
           "type": "string",
           "location": "path",
-          "description": "UUID of the group",
+          "description": "UUID of the group (e.g. e77602e0-3fb8-4734-aef9-fbc6fdcb0fa8)",
           "required": true
         }
       ]
@@ -751,7 +751,7 @@
           "name": "group_mapping_id",
           "type": "string",
           "location": "path",
-          "description": "UUID of the SSO group mapping",
+          "description": "UUID of the SSO group mapping (e.g. e77602e0-3fb8-4734-aef9-fbc6fdcb0fa8)",
           "required": true
         }
       ]
@@ -780,7 +780,7 @@
           "name": "key_id",
           "type": "string",
           "location": "path",
-          "description": "UUID of the key to retrieve",
+          "description": "UUID of the key to retrieve (e.g. e77602e0-3fb8-4734-aef9-fbc6fdcb0fa8)",
           "required": true
         }
       ]
@@ -809,7 +809,7 @@
           "name": "org_id",
           "type": "string",
           "location": "path",
-          "description": "UUID of the organization to retrieve",
+          "description": "UUID of the organization to retrieve (e.g. e77602e0-3fb8-4734-aef9-fbc6fdcb0fa8)",
           "required": true
         }
       ]
@@ -824,14 +824,14 @@
           "name": "org_id",
           "type": "string",
           "location": "path",
-          "description": "UUID of the organization to retrieve",
+          "description": "UUID of the organization to retrieve (e.g. e77602e0-3fb8-4734-aef9-fbc6fdcb0fa8)",
           "required": true
         },
         {
           "name": "key_id",
           "type": "string",
           "location": "path",
-          "description": "UUID of the export token ID to retrieve",
+          "description": "UUID of the export token ID to retrieve (e.g. e77602e0-3fb8-4734-aef9-fbc6fdcb0fa8)",
           "required": true
         }
       ]
@@ -846,7 +846,7 @@
           "name": "org_id",
           "type": "string",
           "location": "path",
-          "description": "UUID of the organization to retrieve export tokens for",
+          "description": "UUID of the organization to retrieve export tokens for (e.g. e77602e0-3fb8-4734-aef9-fbc6fdcb0fa8)",
           "required": true
         }
       ]
@@ -875,7 +875,7 @@
           "name": "scan_template_id",
           "type": "string",
           "location": "path",
-          "description": "UUID of the scan template to retrieve",
+          "description": "UUID of the scan template to retrieve (e.g. e77602e0-3fb8-4734-aef9-fbc6fdcb0fa8)",
           "required": true
         }
       ]
@@ -932,7 +932,7 @@
           "name": "user_id",
           "type": "string",
           "location": "path",
-          "description": "UUID of the user to retrieve",
+          "description": "UUID of the user to retrieve (e.g. e77602e0-3fb8-4734-aef9-fbc6fdcb0fa8)",
           "required": true
         }
       ]
@@ -954,7 +954,7 @@
           "name": "credential_id",
           "type": "string",
           "location": "path",
-          "description": "UUID of the credential to delete",
+          "description": "UUID of the credential to delete (e.g. e77602e0-3fb8-4734-aef9-fbc6fdcb0fa8)",
           "required": true
         }
       ]
@@ -969,7 +969,7 @@
           "name": "group_id",
           "type": "string",
           "location": "path",
-          "description": "UUID of the group",
+          "description": "UUID of the group (e.g. e77602e0-3fb8-4734-aef9-fbc6fdcb0fa8)",
           "required": true
         }
       ]
@@ -984,7 +984,7 @@
           "name": "group_mapping_id",
           "type": "string",
           "location": "path",
-          "description": "UUID of the SSO group mapping",
+          "description": "UUID of the SSO group mapping (e.g. e77602e0-3fb8-4734-aef9-fbc6fdcb0fa8)",
           "required": true
         }
       ]
@@ -999,7 +999,7 @@
           "name": "key_id",
           "type": "string",
           "location": "path",
-          "description": "UUID of the key to retrieve",
+          "description": "UUID of the key to retrieve (e.g. e77602e0-3fb8-4734-aef9-fbc6fdcb0fa8)",
           "required": true
         }
       ]
@@ -1014,7 +1014,7 @@
           "name": "org_id",
           "type": "string",
           "location": "path",
-          "description": "UUID of the organization to retrieve",
+          "description": "UUID of the organization to retrieve (e.g. e77602e0-3fb8-4734-aef9-fbc6fdcb0fa8)",
           "required": true
         }
       ]
@@ -1029,7 +1029,7 @@
           "name": "scan_template_id",
           "type": "string",
           "location": "path",
-          "description": "UUID of the scan template to remove",
+          "description": "UUID of the scan template to remove (e.g. e77602e0-3fb8-4734-aef9-fbc6fdcb0fa8)",
           "required": true
         }
       ]
@@ -1044,7 +1044,7 @@
           "name": "user_id",
           "type": "string",
           "location": "path",
-          "description": "UUID of the user to delete",
+          "description": "UUID of the user to delete (e.g. e77602e0-3fb8-4734-aef9-fbc6fdcb0fa8)",
           "required": true
         }
       ]
@@ -1059,7 +1059,7 @@
           "name": "user_id",
           "type": "string",
           "location": "path",
-          "description": "UUID of the user to retrieve",
+          "description": "UUID of the user to retrieve (e.g. e77602e0-3fb8-4734-aef9-fbc6fdcb0fa8)",
           "required": true
         }
       ]
@@ -1074,7 +1074,7 @@
           "name": "user_id",
           "type": "string",
           "location": "path",
-          "description": "UUID of the user to retrieve",
+          "description": "UUID of the user to retrieve (e.g. e77602e0-3fb8-4734-aef9-fbc6fdcb0fa8)",
           "required": true
         }
       ]
@@ -1089,7 +1089,7 @@
           "name": "user_id",
           "type": "string",
           "location": "path",
-          "description": "UUID of the user to retrieve",
+          "description": "UUID of the user to retrieve (e.g. e77602e0-3fb8-4734-aef9-fbc6fdcb0fa8)",
           "required": true
         }
       ]
@@ -1133,7 +1133,7 @@
           "name": "key_id",
           "type": "string",
           "location": "path",
-          "description": "UUID of the key to retrieve",
+          "description": "UUID of the key to retrieve (e.g. e77602e0-3fb8-4734-aef9-fbc6fdcb0fa8)",
           "required": true
         }
       ]
@@ -1148,14 +1148,14 @@
           "name": "org_id",
           "type": "string",
           "location": "path",
-          "description": "UUID of the organization to retrieve",
+          "description": "UUID of the organization to retrieve (e.g. e77602e0-3fb8-4734-aef9-fbc6fdcb0fa8)",
           "required": true
         },
         {
           "name": "key_id",
           "type": "string",
           "location": "path",
-          "description": "UUID of the export token ID to rotate",
+          "description": "UUID of the export token ID to rotate (e.g. e77602e0-3fb8-4734-aef9-fbc6fdcb0fa8)",
           "required": true
         }
       ]
@@ -1170,7 +1170,7 @@
           "name": "org_id",
           "type": "string",
           "location": "path",
-          "description": "UUID of the organization to retrieve",
+          "description": "UUID of the organization to retrieve (e.g. e77602e0-3fb8-4734-aef9-fbc6fdcb0fa8)",
           "required": true
         }
       ]
@@ -1185,7 +1185,7 @@
           "name": "ownership_type_id",
           "type": "string",
           "location": "path",
-          "description": "UUID of the asset ownership type",
+          "description": "UUID of the asset ownership type (e.g. e77602e0-3fb8-4734-aef9-fbc6fdcb0fa8)",
           "required": true
         },
         {
@@ -1232,7 +1232,7 @@
           "name": "customIntegrationId",
           "type": "string",
           "location": "path",
-          "description": "UUID of the custom integration",
+          "description": "UUID of the custom integration (e.g. e77602e0-3fb8-4734-aef9-fbc6fdcb0fa8)",
           "required": true
         },
         {
@@ -1375,7 +1375,7 @@
           "name": "org_id",
           "type": "string",
           "location": "path",
-          "description": "UUID of the organization to retrieve",
+          "description": "UUID of the organization to retrieve (e.g. e77602e0-3fb8-4734-aef9-fbc6fdcb0fa8)",
           "required": true
         },
         {
@@ -1678,7 +1678,7 @@
           "name": "user_id",
           "type": "string",
           "location": "path",
-          "description": "UUID of the user to retrieve",
+          "description": "UUID of the user to retrieve (e.g. e77602e0-3fb8-4734-aef9-fbc6fdcb0fa8)",
           "required": true
         },
         {
@@ -1737,7 +1737,7 @@
           "name": "custom_integration_id",
           "type": "string",
           "location": "path",
-          "description": "UUID of the custom integration",
+          "description": "UUID of the custom integration (e.g. e77602e0-3fb8-4734-aef9-fbc6fdcb0fa8)",
           "required": true
         },
         {
@@ -1807,7 +1807,7 @@
           "name": "site_id",
           "type": "string",
           "location": "path",
-          "description": "UUID or name of the site to scan",
+          "description": "UUID or name of the site to scan (e.g. e77602e0-3fb8-4734-aef9-fbc6fdcb0fa8)",
           "required": true
         },
         {
@@ -1865,7 +1865,7 @@
           "name": "site_id",
           "type": "string",
           "location": "path",
-          "description": "UUID or name of the site to scan",
+          "description": "UUID or name of the site to scan (e.g. e77602e0-3fb8-4734-aef9-fbc6fdcb0fa8)",
           "required": true
         },
         {
@@ -2256,7 +2256,7 @@
           "name": "agent_id",
           "type": "string",
           "location": "path",
-          "description": "UUID of the agent",
+          "description": "UUID of the agent (e.g. e77602e0-3fb8-4734-aef9-fbc6fdcb0fa8)",
           "required": true
         }
       ]
@@ -2291,7 +2291,7 @@
           "name": "asset_id",
           "type": "string",
           "location": "path",
-          "description": "UUID of the asset to retrieve",
+          "description": "UUID of the asset to retrieve (e.g. e77602e0-3fb8-4734-aef9-fbc6fdcb0fa8)",
           "required": true
         }
       ]
@@ -2332,7 +2332,7 @@
           "name": "customIntegrationId",
           "type": "string",
           "location": "path",
-          "description": "UUID of the custom integration",
+          "description": "UUID of the custom integration (e.g. e77602e0-3fb8-4734-aef9-fbc6fdcb0fa8)",
           "required": true
         }
       ]
@@ -2360,7 +2360,7 @@
           "name": "explorer_id",
           "type": "string",
           "location": "path",
-          "description": "UUID of the explorer",
+          "description": "UUID of the explorer (e.g. e77602e0-3fb8-4734-aef9-fbc6fdcb0fa8)",
           "required": true
         }
       ]
@@ -2395,7 +2395,7 @@
           "name": "hosted_zone_id",
           "type": "string",
           "location": "path",
-          "description": "UUID of the hosted zone",
+          "description": "UUID of the hosted zone (e.g. e77602e0-3fb8-4734-aef9-fbc6fdcb0fa8)",
           "required": true
         }
       ]
@@ -2458,7 +2458,7 @@
           "name": "service_id",
           "type": "string",
           "location": "path",
-          "description": "UUID of the service to retrieve",
+          "description": "UUID of the service to retrieve (e.g. e77602e0-3fb8-4734-aef9-fbc6fdcb0fa8)",
           "required": true
         }
       ]
@@ -2499,7 +2499,7 @@
           "name": "site_id",
           "type": "string",
           "location": "path",
-          "description": "UUID or name of the site",
+          "description": "UUID or name of the site (e.g. e77602e0-3fb8-4734-aef9-fbc6fdcb0fa8)",
           "required": true
         }
       ]
@@ -2534,7 +2534,7 @@
           "name": "task_id",
           "type": "string",
           "location": "path",
-          "description": "UUID of the task to retrieve",
+          "description": "UUID of the task to retrieve (e.g. e77602e0-3fb8-4734-aef9-fbc6fdcb0fa8)",
           "required": true
         }
       ]
@@ -2555,7 +2555,7 @@
           "name": "task_id",
           "type": "string",
           "location": "path",
-          "description": "UUID of the task",
+          "description": "UUID of the task (e.g. e77602e0-3fb8-4734-aef9-fbc6fdcb0fa8)",
           "required": true
         }
       ]
@@ -2576,7 +2576,7 @@
           "name": "task_id",
           "type": "string",
           "location": "path",
-          "description": "UUID of the task",
+          "description": "UUID of the task (e.g. e77602e0-3fb8-4734-aef9-fbc6fdcb0fa8)",
           "required": true
         }
       ]
@@ -2597,7 +2597,7 @@
           "name": "task_id",
           "type": "string",
           "location": "path",
-          "description": "UUID of the task",
+          "description": "UUID of the task (e.g. e77602e0-3fb8-4734-aef9-fbc6fdcb0fa8)",
           "required": true
         }
       ]
@@ -2644,7 +2644,7 @@
           "name": "wireless_id",
           "type": "string",
           "location": "path",
-          "description": "UUID of the wireless LAN to retrieve",
+          "description": "UUID of the wireless LAN to retrieve (e.g. e77602e0-3fb8-4734-aef9-fbc6fdcb0fa8)",
           "required": true
         }
       ]
@@ -2685,7 +2685,7 @@
           "name": "task_id",
           "type": "string",
           "location": "path",
-          "description": "UUID of the task to hide",
+          "description": "UUID of the task to hide (e.g. e77602e0-3fb8-4734-aef9-fbc6fdcb0fa8)",
           "required": true
         }
       ]
@@ -2706,7 +2706,7 @@
           "name": "site_id",
           "type": "string",
           "location": "path",
-          "description": "UUID or name of the site to import Nessus scan data into",
+          "description": "UUID or name of the site to import Nessus scan data into (e.g. e77602e0-3fb8-4734-aef9-fbc6fdcb0fa8)",
           "required": true
         }
       ]
@@ -2727,7 +2727,7 @@
           "name": "site_id",
           "type": "string",
           "location": "path",
-          "description": "UUID or name of the site to import packet capture into",
+          "description": "UUID or name of the site to import packet capture into (e.g. e77602e0-3fb8-4734-aef9-fbc6fdcb0fa8)",
           "required": true
         }
       ]
@@ -2748,7 +2748,7 @@
           "name": "site_id",
           "type": "string",
           "location": "path",
-          "description": "UUID or name of the site to import scan data into",
+          "description": "UUID or name of the site to import scan data into (e.g. e77602e0-3fb8-4734-aef9-fbc6fdcb0fa8)",
           "required": true
         }
       ]
@@ -2790,7 +2790,7 @@
           "name": "agent_id",
           "type": "string",
           "location": "path",
-          "description": "UUID of the agent to remove",
+          "description": "UUID of the agent to remove (e.g. e77602e0-3fb8-4734-aef9-fbc6fdcb0fa8)",
           "required": true
         }
       ]
@@ -2811,7 +2811,7 @@
           "name": "asset_id",
           "type": "string",
           "location": "path",
-          "description": "UUID of the asset to remove",
+          "description": "UUID of the asset to remove (e.g. e77602e0-3fb8-4734-aef9-fbc6fdcb0fa8)",
           "required": true
         }
       ]
@@ -2826,14 +2826,14 @@
           "name": "asset_id",
           "type": "string",
           "location": "path",
-          "description": "UUID of the asset to update",
+          "description": "UUID of the asset to update (e.g. e77602e0-3fb8-4734-aef9-fbc6fdcb0fa8)",
           "required": true
         },
         {
           "name": "source_id",
           "type": "string",
           "location": "path",
-          "description": "UUID of the source",
+          "description": "UUID of the source (e.g. e77602e0-3fb8-4734-aef9-fbc6fdcb0fa8)",
           "required": true
         }
       ]
@@ -2869,14 +2869,14 @@
           "name": "asset_id",
           "type": "string",
           "location": "path",
-          "description": "UUID of the asset to update",
+          "description": "UUID of the asset to update (e.g. e77602e0-3fb8-4734-aef9-fbc6fdcb0fa8)",
           "required": true
         },
         {
           "name": "custom_integration_id",
           "type": "string",
           "location": "path",
-          "description": "UUID of the custom integration",
+          "description": "UUID of the custom integration (e.g. e77602e0-3fb8-4734-aef9-fbc6fdcb0fa8)",
           "required": true
         }
       ]
@@ -2897,7 +2897,7 @@
           "name": "explorer_id",
           "type": "string",
           "location": "path",
-          "description": "UUID of the explorer to remove",
+          "description": "UUID of the explorer to remove (e.g. e77602e0-3fb8-4734-aef9-fbc6fdcb0fa8)",
           "required": true
         }
       ]
@@ -2932,7 +2932,7 @@
           "name": "service_id",
           "type": "string",
           "location": "path",
-          "description": "UUID of the service to remove",
+          "description": "UUID of the service to remove (e.g. e77602e0-3fb8-4734-aef9-fbc6fdcb0fa8)",
           "required": true
         }
       ]
@@ -2953,7 +2953,7 @@
           "name": "site_id",
           "type": "string",
           "location": "path",
-          "description": "UUID or name of the site to remove",
+          "description": "UUID or name of the site to remove (e.g. e77602e0-3fb8-4734-aef9-fbc6fdcb0fa8)",
           "required": true
         }
       ]
@@ -2974,7 +2974,7 @@
           "name": "wireless_id",
           "type": "string",
           "location": "path",
-          "description": "UUID of the wireless LAN to remove",
+          "description": "UUID of the wireless LAN to remove (e.g. e77602e0-3fb8-4734-aef9-fbc6fdcb0fa8)",
           "required": true
         }
       ]
@@ -3009,7 +3009,7 @@
           "name": "task_id",
           "type": "string",
           "location": "path",
-          "description": "UUID of the task to stop",
+          "description": "UUID of the task to stop (e.g. e77602e0-3fb8-4734-aef9-fbc6fdcb0fa8)",
           "required": true
         }
       ]
@@ -3030,7 +3030,7 @@
           "name": "agent_id",
           "type": "string",
           "location": "path",
-          "description": "UUID of the agent to update",
+          "description": "UUID of the agent to update (e.g. e77602e0-3fb8-4734-aef9-fbc6fdcb0fa8)",
           "required": true
         },
         {
@@ -3064,7 +3064,7 @@
           "name": "asset_id",
           "type": "string",
           "location": "path",
-          "description": "UUID of the asset to update",
+          "description": "UUID of the asset to update (e.g. e77602e0-3fb8-4734-aef9-fbc6fdcb0fa8)",
           "required": true
         },
         {
@@ -3092,7 +3092,7 @@
           "name": "asset_id",
           "type": "string",
           "location": "path",
-          "description": "UUID of the asset to update",
+          "description": "UUID of the asset to update (e.g. e77602e0-3fb8-4734-aef9-fbc6fdcb0fa8)",
           "required": true
         },
         {
@@ -3120,7 +3120,7 @@
           "name": "asset_id",
           "type": "string",
           "location": "path",
-          "description": "UUID of the asset to update",
+          "description": "UUID of the asset to update (e.g. e77602e0-3fb8-4734-aef9-fbc6fdcb0fa8)",
           "required": true
         },
         {
@@ -3147,7 +3147,7 @@
           "name": "asset_id",
           "type": "string",
           "location": "path",
-          "description": "UUID of the asset to update",
+          "description": "UUID of the asset to update (e.g. e77602e0-3fb8-4734-aef9-fbc6fdcb0fa8)",
           "required": true
         },
         {
@@ -3259,7 +3259,7 @@
           "name": "explorer_id",
           "type": "string",
           "location": "path",
-          "description": "UUID of the explorer to update",
+          "description": "UUID of the explorer to update (e.g. e77602e0-3fb8-4734-aef9-fbc6fdcb0fa8)",
           "required": true
         },
         {
@@ -3367,7 +3367,7 @@
           "name": "site_id",
           "type": "string",
           "location": "path",
-          "description": "UUID or name of the site to update",
+          "description": "UUID or name of the site to update (e.g. e77602e0-3fb8-4734-aef9-fbc6fdcb0fa8)",
           "required": true
         },
         {
@@ -3419,7 +3419,7 @@
           "name": "task_id",
           "type": "string",
           "location": "path",
-          "description": "UUID of the task to update",
+          "description": "UUID of the task to update (e.g. e77602e0-3fb8-4734-aef9-fbc6fdcb0fa8)",
           "required": true
         },
         {
@@ -3620,7 +3620,7 @@
           "name": "agent_id",
           "type": "string",
           "location": "path",
-          "description": "UUID of the agent to update",
+          "description": "UUID of the agent to update (e.g. e77602e0-3fb8-4734-aef9-fbc6fdcb0fa8)",
           "required": true
         }
       ]
@@ -3641,7 +3641,7 @@
           "name": "explorer_id",
           "type": "string",
           "location": "path",
-          "description": "UUID of the explorer to update",
+          "description": "UUID of the explorer to update (e.g. e77602e0-3fb8-4734-aef9-fbc6fdcb0fa8)",
           "required": true
         }
       ]
@@ -4370,7 +4370,7 @@
     },
     {
       "name": "runzero-export_splunk-asset-sync-created-json",
-      "description": "Exports the asset inventory in a sync-friendly manner using created_at as a checkpoint. Requires the Splunk entitlement. Optional: _oid, search, fields (plus 1 more). Returns array of Asset.",
+      "description": "Exports the asset inventory in a sync-friendly manner using created_at as a checkpoint. Requires the Splunk entitlement. Optional: _oid, search, fields (plus 1 more). Returns the AssetsWithCheckpoint.",
       "method": "GET",
       "path": "/export/org/assets/sync/created/assets.json",
       "params": [
@@ -4402,7 +4402,7 @@
     },
     {
       "name": "runzero-export_splunk-asset-sync-updated-json",
-      "description": "Exports the asset inventory in a sync-friendly manner using updated_at as a checkpoint. Requires the Splunk entitlement. Optional: _oid, search, fields (plus 1 more). Returns array of Asset.",
+      "description": "Exports the asset inventory in a sync-friendly manner using updated_at as a checkpoint. Requires the Splunk entitlement. Optional: _oid, search, fields (plus 1 more). Returns the AssetsWithCheckpoint.",
       "method": "GET",
       "path": "/export/org/assets/sync/updated/assets.json",
       "params": [
@@ -4682,7 +4682,7 @@
           "name": "orgID",
           "type": "string",
           "location": "path",
-          "description": "The ID of the organization to import the assets into",
+          "description": "The ID of the organization to import the assets into (e.g. e77602e0-3fb8-4734-aef9-fbc6fdcb0fa8)",
           "required": true
         },
         {
@@ -4714,6 +4714,53 @@
           "required": true
         }
       ]
+    }
+  ],
+  "novel_features": [
+    {
+      "name": "Attack-surface diff over time",
+      "command": "diff",
+      "description": "Show which assets, services, ports, and software appeared or disappeared between two local syncs."
+    },
+    {
+      "name": "Exposure triage (criticality x vulnerability)",
+      "command": "triage",
+      "description": "Rank assets by criticality joined to their exposed services and high-severity vulnerability findings."
+    },
+    {
+      "name": "CVE-to-fleet blast radius",
+      "command": "affected",
+      "description": "Given a CVE, list every affected asset with its services and criticality."
+    },
+    {
+      "name": "Software/version fleet rollup",
+      "command": "software rollup",
+      "description": "Group installed software by product and version with a count of assets running each."
+    },
+    {
+      "name": "Stale / EOL / unowned asset hygiene",
+      "command": "stale",
+      "description": "Bucket assets by last-seen age, end-of-life OS, and missing tag/owner — emitting IDs ready to pipe into the bulk commands."
+    },
+    {
+      "name": "Service exposure by subnet",
+      "command": "exposure-map",
+      "description": "Roll up which protocols and ports are exposed across a CIDR, asset-counted per service."
+    },
+    {
+      "name": "Scan-watch (kick + follow to completion)",
+      "command": "scan-watch",
+      "description": "Start a scan on a site and follow the task to completion in one command, with a typed exit code on the result."
+    },
+    {
+      "name": "Exposure delta since last sync",
+      "command": "exposure-delta",
+      "description": "List services and ports that became newly exposed or newly vulnerable since the last sync, ranked by asset criticality."
+    },
+    {
+      "name": "Certificate-expiry / weak-crypto watch",
+      "command": "certs-expiring",
+      "description": "List TLS certificates expiring within a window or using weak crypto, joined to the asset and service presenting them."
     }
   ]
 }

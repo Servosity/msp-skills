@@ -3,6 +3,7 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -31,6 +32,34 @@ func openInvStore(cmd *cobra.Command, dbPath string) (*store.Store, error) {
 		return nil, fmt.Errorf("ensuring inventory schema: %w", err)
 	}
 	return st, nil
+}
+
+// inventoryReadComplete runs after a result read from the local inventory is
+// printed (runzero handfix r1-incomplete-inventory-partial-failure): every
+// entity the result read that the store does not hold completely
+// (inventory.Coverage: never synced, its latest sync failed, or synced under
+// different --search filters) is named, and the command exits 6 (partial
+// failure) so neither an operator nor an agent reads the result as the whole
+// surface. --allow-partial-failure keeps exit 0 with a warning on stderr. The
+// press's verifier and dogfood harnesses run without an inventory sync; they
+// get the warning only.
+func inventoryReadComplete(cmd *cobra.Command, flags *rootFlags, st *store.Store, entities ...string) error {
+	problems := inventory.Coverage(cmd.Context(), st.DB(), entities...)
+	if len(problems) == 0 {
+		// One --search filter across them: the result covers only what it
+		// matched, and says so (runzero handfix r1-compare-same-scope; the
+		// MCP mirror carries warning lines into the tool result).
+		if sc := inventory.FilteredScope(cmd.Context(), st.DB(), entities...); sc != "" {
+			fmt.Fprintf(cmd.ErrOrStderr(), "warning: %s were synced under --search %q; this result covers only what that filter matched\n", strings.Join(entities, ", "), sc)
+		}
+		return nil
+	}
+	msg := "incomplete local inventory: " + strings.Join(problems, "; ") + " (run 'runzero-cli inventory sync')"
+	if flags.allowPartialFailure || cliutil.IsVerifyEnv() || cliutil.IsDogfoodEnv() {
+		fmt.Fprintln(cmd.ErrOrStderr(), "warning: "+msg)
+		return nil
+	}
+	return partialFailureErr(errors.New(msg))
 }
 
 // newInventoryCmd is the parent for the local-store data layer that powers the
@@ -89,7 +118,10 @@ nested records. Reads the local store; run 'inventory sync' first.`, "\n"),
 			if err != nil {
 				return err
 			}
-			return flags.printJSON(cmd, rows)
+			if err := flags.printJSON(cmd, rows); err != nil {
+				return err
+			}
+			return inventoryReadComplete(cmd, flags, st, strings.ToLower(strings.TrimSpace(args[0])))
 		},
 	}
 	cmd.Flags().IntVar(&limit, "limit", 50, "Maximum rows to return")
@@ -116,7 +148,9 @@ export access (Export ET, Organization OT, or Account CT key).`, "\n"),
 
   # Sync only assets and services, filtered by a runZero query
   runzero-cli inventory sync --only assets,services --search 'alive:t'`, "\n"),
-		Annotations: map[string]string{"mcp:read-only": "true"},
+		// It reads the API and writes only this CLI's own store (runzero
+		// handfix inventory-sync-local-write; it was marked read-only).
+		Annotations: map[string]string{"mcp:local-write": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if dryRunOK(flags) {
 				return nil
@@ -143,7 +177,27 @@ export access (Export ET, Organization OT, or Account CT key).`, "\n"),
 			if err != nil {
 				return err
 			}
-			return flags.printJSON(cmd, res)
+			if err := flags.printJSON(cmd, res); err != nil {
+				return err
+			}
+			// An export runZero refused (the spec's documented 403) or that
+			// failed is a partial sync, not a successful one (runzero handfix
+			// r1-incomplete-inventory-partial-failure).
+			if len(res.Errors) > 0 {
+				failed := make([]string, 0, len(res.Errors))
+				for _, e := range inventory.Entities {
+					if _, ok := res.Errors[e]; ok {
+						failed = append(failed, e)
+					}
+				}
+				msg := fmt.Sprintf("inventory sync incomplete: %s not refreshed (see errors)", strings.Join(failed, ", "))
+				if flags.allowPartialFailure {
+					fmt.Fprintln(cmd.ErrOrStderr(), "warning: "+msg)
+					return nil
+				}
+				return partialFailureErr(errors.New(msg))
+			}
+			return nil
 		},
 	}
 	cmd.Flags().StringVar(&dbPath, "db", "", "Database path (default: ~/.local/share/runzero-cli/data.db)")

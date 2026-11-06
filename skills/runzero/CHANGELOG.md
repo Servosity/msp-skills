@@ -4,6 +4,25 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.1.8] - unreleased
+
+### Security
+- Rebuilt on CLI Printing Press 4.34.2 with mcp-go v0.57.0 and golang.org/x/text v0.42.0 (advisory [GHSA-jh26-vhqh-692c](https://github.com/advisories/GHSA-jh26-vhqh-692c)). MCP HTTP mode (`runzero-mcp --transport http`) now refuses to start until `RUNZERO_MCP_HTTP_TOKEN` is set to 32 or more characters, answers 401 to a request without `Authorization: Bearer <token>` and 403 to a browser origin it does not allow, listens on `127.0.0.1:7777` by default, and needs `--tls-cert` and `--tls-key` for any other address.
+- The CLI and the MCP server now use the fleet's shared credential kit. A credential a runZero response carries (an API key's token from `account get-keys`, an organization's export and download tokens, a minted access token, a client secret) prints as `[credential withheld]`, and the rest of the record prints. Any other output, file, local store row or MCP result that would repeat the API key or one of those credentials, in any encoding, is replaced whole by `[credkit: withheld from <sink>: it carried a credential this program holds]`. The key is sent only to the configured base URL, only over https, and never across a redirect to another host. Responses are no longer cached on disk.
+- `auth set-token` reads the key from standard input (`printf '%s' "$KEY" | runzero-cli auth set-token`); it no longer takes the key as an argument.
+- Over MCP, every tool that changes runZero data returns a preview and sends only with `confirm: true`. This now includes the token mint `account get-apitoken` through `runzero_execute`; `runzero_read` refuses it.
+
+### Fixed
+- `import org` is refused. It posted each record to runZero's bulk clear-owners action (POST `/org/assets/bulk/clearOwners`), using the record as the asset filter; `import` now targets only `account` (asset ownership types), and `runzero-import` keeps the asset import.
+- `sync` and the `--all` exports no longer stop after the first page: an organization with more than 100 assets, services or findings kept only the first 100.
+- The local inventory reads each entity at its latest refresh: a remediated finding, a removed service or an asset no longer in the current snapshot stops reading as current, and `affected`, `exposure-map`, `exposure-delta` and `certs-expiring` no longer show a deleted asset's old name, address or criticality.
+- `diff` and `exposure-delta` compare presence at the two runs, only under the same `--search` filter, and report `stale_entities` and `no_baseline_entities`; an entity's first refresh has no baseline, so a partial sync no longer lists unchanged findings or software as new. `exposure-map` counts assets, not addresses.
+
+### Changed
+- `inventory sync` with a failed export, and every analysis command or `inventory list` over an incomplete local copy (an entity never synced, whose last sync failed or did not finish, or synced under another `--search` filter), prints its result and exits 6. `--allow-partial-failure` gives exit 0 with a warning. `inventory status` counts the current snapshot and adds `stored_rows` and `incomplete`.
+- `inventory sync` is an MCP local write. Sync partition names follow press 4.34.2.
+- `config.toml` keeps the base URL as configured, a password or token in it included; the file is mode 0600. `feedback --stdin` is refused (pass the note as an argument), and a feedback note that repeats a held credential is stored as the kit's notice. `--dry-run` masks a credential-named parameter (`password`, `api_key`, `client_secret`). A response larger than 64 MiB is withheld (the kit cannot check it whole). Over MCP, a configuration the CLI refuses is reported on the first tool call instead of at startup.
+
 ## [0.1.7] - 2026-10-23
 
 ### Fixed
