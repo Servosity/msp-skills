@@ -162,17 +162,6 @@
      "TestCaptureMembershipIsPerWalkNotPerSecond"
     ]
    }
-  },
-  {
-   "id": "WIN-FLAKY-ACCOUNTS-DIR-RENAME",
-   "kind": "flaky",
-   "why": "Subtest accounts_dir_itself_is_a_symlink renames .config/zoom-phone-cli/accounts to plant a symlink; Windows refused the rename with Access is denied on two runs of PR #599 (attempt 2 and run 42133348026), and it passed on others. Likely a handle still open under accounts/ when the rename runs.",
-   "fix": "Find the handle still open under accounts/ when the rename runs (a candidate: releasing the profile lock signals a goroutine without waiting for it to close its handle) and close it before the rename; then remove this entry.",
-   "failures": {
-    "zoom-phone": [
-     "TestAcctStorageTreeRefusesLinks"
-    ]
-   }
   }
  ]
 }

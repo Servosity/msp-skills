@@ -4,6 +4,11 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.1.1] - unreleased
+
+### Fixed
+- Windows: finishing with a saved account's profile lock now closes the lock file before the command carries on, so the accounts folder can be renamed or removed straight afterwards instead of failing with "Access is denied".
+
 ## [0.1.0] - 2026-11-06
 
 ### Added

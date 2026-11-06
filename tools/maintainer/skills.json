@@ -2577,7 +2577,7 @@
       "display_name": "Zoom Phone",
       "tagline": "Audit E911, call routing and desk phones across every client Zoom Phone account from your terminal.",
       "has_video": true,
-      "cli_hash": "sha256:c92fbf99b821a2efeac9390e2390f1e5270e33d397e75e4f9168e88f545f8254",
+      "cli_hash": "sha256:c5f0bbbfe5c335cbffc60c0ecc0a3819b63ef4948ce1f689c76d93fef17a9934",
       "template_version": 3,
       "version": "0.1.0",
       "cli_hash_at_release": "sha256:c92fbf99b821a2efeac9390e2390f1e5270e33d397e75e4f9168e88f545f8254",
