@@ -538,8 +538,8 @@
   {
    "id": "credkit-wiring",
    "class": "credential-kit",
-   "summary": "The shared credential kit (tools/maintainer/credkit, vendored at cli/internal/credkit) is wired by hand: internal/credwire/declarations.go holds the one credkit.Declarations literal, both mains start with credkit.Start(credwire.Declarations) and end with credkit.Exit, every HTTP client (API, --deliver webhook and Spacefast, feedback, probe) goes through credkit.Transport, every SQLite handle through the credkit.SQLDriver internal/credsql registers, every program file write through the kit, child processes through credkit.RunCommand, and the MCP stdio and HTTP servers through credkit.MCPTools, MCPIn, MCPOut and MCPHTTP. The credential store, config and the Spacefast delivery record are sources, written outside the kit (cliutil.AtomicWriteCredentialFile). VSPC response fields that carry a third-party credential (stored Linux keys and passphrases, generated RSA keys and TOTP secrets, new API key logins and the rest, by wire name) are declared ResponseFields, so they are held as they arrive.",
-   "why": "One contract, one matcher and one set of sinks replace the connector's own layer: secret-echo-decoded-funnel is retired, replaced by the shared credential kit (the press 4.35.1 reprint dropped its files; not a `retired` record because check_handfixes.py accepts only registry-backed retirements and fleet_handfixes.json delegates that id to apply_secret_funnel.py). Classes closed, each by a built-binary test seen failing first on the pre-kit build (.review/seen/kit-fail.log): an API error that echoes VEEAM_TOKEN, a piece of it, base64 or URL-encoded (TestAPIErrorEchoOfTokenIsWithheld, CLI, --agent and MCP); credential response fields reaching stdout, the MCP result and the response cache (TestResponseCredentialFieldsWithheld) and the SQLite store on sync (TestSyncNeverStoresACredentialField); an unconfirmed MCP veeam_execute preview that echoed the password param (TestMCPExecutePreviewWithholdsPassword); --password, --private-key, --passphrase and --api-key held before the flag parser, and the credential fields inside a JSON-valued flag such as --credentials held one by one (credwire.HoldJSONArguments, right after Start), so no --dry-run preview prints them (TestCLICredentialFlagsHeld); a profile value under a credential flag held at startup (TestProfileCredentialValueHeldAtStartup); a held credential refused to another origin and over plain http (TestHeldCredentialRefusedOffOriginAndOverPlainHTTP); SPACEFAST_TOKEN and VEEAM_MCP_HTTP_TOKEN held (TestSinkTokensHeld); the learn journal and the feedback ledger never record a held credential (TestJournalNeverRecordsAHeldCredential, TestFeedbackStdinIsRecorded). A malformed config's token stays held at startup (TestMalformedConfigCredentialHeldAtStartup, a guard: the press already passed it). In-process tests never run Start, so cliutil.OutboundGuard, Hold and HoldBody are variables the seams swap (credkit_seam_test.go in cli, mcp, client). The MCP sql value cap moved from sqlite.Limit on a held connection to the _length_limit DSN parameter, and the read-only store runs select 1 because the kit's connection does not forward Ping.",
+   "summary": "The shared credential kit (tools/maintainer/credkit, vendored at cli/internal/credkit) is wired by hand: internal/credwire/declarations.go holds the one credkit.Declarations literal, both mains start with credkit.Start(credwire.Declarations) and end with credkit.Exit, every HTTP client (API, --deliver webhook and Spacefast, feedback, probe) goes through credkit.Transport, every SQLite handle through the credkit.SQLDriver internal/credsql registers, every program file write through the kit, child processes through credkit.RunCommand, and the MCP stdio and HTTP servers through credkit.MCPTools, MCPIn, MCPOut and MCPHTTP. The credential store, config and the Spacefast delivery record are sources, written outside the kit (cliutil.AtomicWriteCredentialFile). VSPC response fields that carry a third-party credential (stored Linux keys and passphrases, generated RSA keys and TOTP secrets, new API key logins and the rest, by wire name) are declared ResponseFields, so they are held as they arrive, except password, rootPassword and sshPrivateKey: VSPC answers those with a masked placeholder (a run of U+2022, *, U+FFFD), which the kit would hold, so cliutil.HoldMaskedResponseFields holds every value under them but a mask (cliutil.IsCredentialMask) at the one point every API response body passes after the kit transport and before any sink (client doInternal, its XML conversion, and the Spacefast deliver client), and withholds a body it cannot read as JSON that names one of them; cliutil.HoldMaskedResponseHeaders does the same for the final response's headers and trailers and, from CheckRedirect (redirectGuard), for every redirect response.",
+   "why": "One contract, one matcher and one set of sinks replace the connector's own layer: secret-echo-decoded-funnel is retired, replaced by the shared credential kit (the press 4.35.1 reprint dropped its files; not a `retired` record because check_handfixes.py accepts only registry-backed retirements and fleet_handfixes.json delegates that id to apply_secret_funnel.py). Classes closed, each by a built-binary test seen failing first on the pre-kit build (.review/seen/kit-fail.log): an API error that echoes VEEAM_TOKEN, a piece of it, base64 or URL-encoded (TestAPIErrorEchoOfTokenIsWithheld, CLI, --agent and MCP); credential response fields reaching stdout, the MCP result and the response cache (TestResponseCredentialFieldsWithheld) and the SQLite store on sync (TestSyncNeverStoresACredentialField); an unconfirmed MCP veeam_execute preview that echoed the password param (TestMCPExecutePreviewWithholdsPassword); --password, --private-key, --passphrase and --api-key held before the flag parser, and the credential fields inside a JSON-valued flag such as --credentials held one by one (credwire.HoldJSONArguments, right after Start), so no --dry-run preview prints them (TestCLICredentialFlagsHeld); a profile value under a credential flag held at startup (TestProfileCredentialValueHeldAtStartup); a held credential refused to another origin and over plain http (TestHeldCredentialRefusedOffOriginAndOverPlainHTTP); SPACEFAST_TOKEN and VEEAM_MCP_HTTP_TOKEN held (TestSinkTokensHeld); the learn journal and the feedback ledger never record a held credential (TestJournalNeverRecordsAHeldCredential, TestFeedbackStdinIsRecorded). A malformed config's token stays held at startup (TestMalformedConfigCredentialHeldAtStartup, a guard: the press already passed it). In-process tests never run Start, so cliutil.OutboundGuard, Hold and HoldBody are variables the seams swap (credkit_seam_test.go in cli, mcp, client). The MCP sql value cap moved from sqlite.Limit on a held connection to the _length_limit DSN parameter, and the read-only store runs select 1 because the kit's connection does not forward Ping. The three masked names were held in connector code once a built-binary test showed the declared mask breaking ordinary use (.review/seen/mask-fail.log): with VSPC's documented \"password\": \"\u2022\u2022\u2022\u2022\u2022\u2022\" a plain sync exited non-zero, the agent-jobs partition was withheld through a kit matcher false positive and fleet-health refused, and every backup policy, discovery rule and guest OS credential read printed the withhold notice (TestMaskedPasswordPlaceholderIsNotHeld). A real value under those names (GET /infrastructure/managementAgents/{uid}/credentials, a duplicate or escaped key, a number, a nested value, a body that is not JSON, a refused redirect's Location query, a response header pair) is still held before any sink (TestRealValueUnderMaskedFieldNamesHeld, revert-proven by removing the body hold, the non-JSON withhold and the header hold in turn); the mask function is unit-tested (TestIsCredentialMask, TestHoldMaskedResponseFieldsJSON, TestHoldMaskedResponseFieldsNotJSON, TestHoldMaskedResponseHeaders).",
    "status": "active",
    "spec_encode_followup": "Press-side: generate the kit wiring, the Declarations literal and one kit-wrapped SQLite driver name.",
    "asserts": [
@@ -937,6 +937,111 @@
     {
      "file": "cli/internal/credwire/leak_test.go",
      "contains": "func TestSinkTokensHeld(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credkit_masked.go",
+     "contains": "var MaskedResponseFields = []string{\"password\", \"rootPassword\", \"sshPrivateKey\"}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credkit_masked.go",
+     "contains": "func IsCredentialMask(v string) bool {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credkit_masked.go",
+     "contains": "if unicode.IsLetter(first) || unicode.IsNumber(first) || unicode.IsMark(first) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credkit_masked.go",
+     "contains": "func HoldMaskedResponseFields(body []byte, contentType string) bool {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credkit_masked.go",
+     "contains": "if !(utf8.Valid(written) && IsCredentialMask(t)) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credkit_masked.go",
+     "contains": "Hold(\"response:\"+under, t, string(written))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credkit_masked.go",
+     "contains": "Hold(\"response:\"+under, t.String())",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credkit_masked.go",
+     "contains": "return !namesMaskedField(body, wide)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "if !cliutil.HoldMaskedResponseFields(respBody, resp.Header.Get(\"Content-Type\")) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "if !cliutil.HoldMaskedResponseFields(converted, \"application/json\") {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deliver_spacefast.go",
+     "contains": "if !cliutil.HoldMaskedResponseFields(raw, resp.Header.Get(\"Content-Type\")) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "ResponseFields: []string{\n\t\t\"passphrase\", \"privateKey\", \"privateKeyContent\",\n\t\t\"secretKey\",",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/mask_test.go",
+     "contains": "func TestMaskedPasswordPlaceholderIsNotHeld(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/mask_test.go",
+     "contains": "func TestRealValueUnderMaskedFieldNamesHeld(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credkit_masked_test.go",
+     "contains": "func TestIsCredentialMask(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credkit_masked_test.go",
+     "contains": "func TestHoldMaskedResponseFieldsNotJSON(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credkit_masked.go",
+     "contains": "func HoldMaskedResponseHeaders(h http.Header) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "cliutil.HoldMaskedResponseHeaders(resp.Header)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "cliutil.HoldMaskedResponseHeaders(resp.Trailer)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "cliutil.HoldMaskedResponseHeaders(req.Response.Header)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credkit_masked_test.go",
+     "contains": "func TestHoldMaskedResponseHeaders(t *testing.T) {",
      "code_only": true
     }
    ]

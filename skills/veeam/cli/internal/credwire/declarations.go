@@ -108,8 +108,29 @@ var Declarations = credkit.Declarations{
 	// Response fields that carry a credential, by wire name. parameters is
 	// UserLogin's (the only schema with it): VSPC returns a new API key login's
 	// key there.
+	//
+	// password, rootPassword and sshPrivateKey are left out on purpose and held
+	// in connector code instead (cliutil.MaskedResponseFields). VSPC reads a
+	// stored credential back as a masked placeholder under exactly these names
+	// ("password": "••••••", "******", a run of U+FFFD: the backup policy,
+	// discovery rule, guest OS credential and notification responses of the
+	// VSPC 3.6.2 OpenAPI document), and the kit holds every value of a
+	// declared field, the mask included. A held mask withheld each unit that
+	// carried it and, through the matcher, units that did not (the default
+	// sync's agent-jobs INSERT), so a plain sync failed. A real secret still
+	// comes back under them (GET /infrastructure/managementAgents/{uid}/
+	// credentials), so cliutil.HoldMaskedResponseFields holds every value under
+	// these names but a mask, at the one point every API response body passes
+	// after this transport and before any sink: internal/client doInternal and
+	// the Spacefast deliver client. A body it cannot read as JSON that names
+	// one of them is withheld whole. cliutil.HoldMaskedResponseHeaders holds
+	// them in the headers and trailers of the final response and of every
+	// redirect response (client redirectGuard), as the kit does for a declared
+	// field. The probe, feedback and webhook clients never read a body into a
+	// sink, and print no header but the webhook Location's scheme and host.
+	// Request-side, CredentialFields and MCPArguments keep all three.
 	ResponseFields: []string{
-		"password", "passphrase", "privateKey", "privateKeyContent", "rootPassword", "sshPrivateKey",
+		"passphrase", "privateKey", "privateKeyContent",
 		"secretKey", "secret", "secretUrl", "parameters", "hashedPassword", "jsonConfiguration",
 		"applicationCertificate", "applicationCertificatePassword", "applicationSecret",
 		"clientSecret", "accessToken", "refreshToken", "access_token", "refresh_token", "mfa_token",

@@ -351,6 +351,11 @@ func spacefastPublish(api, bearer string, payload map[string]any, files map[stri
 	}
 	defer resp.Body.Close()
 	raw, _ := io.ReadAll(io.LimitReader(resp.Body, 4<<20))
+	// Hand-fix (handfixes.json credkit-wiring): the response fields the
+	// connector holds outside the kit's declaration, as the API client does.
+	if !cliutil.HoldMaskedResponseFields(raw, resp.Header.Get("Content-Type")) {
+		return nil, fmt.Errorf("Spacefast returned %s: %w", resp.Status, cliutil.ErrMaskedFieldUnread)
+	}
 	if resp.StatusCode >= 300 {
 		var problem struct {
 			Title  string `json:"title"`

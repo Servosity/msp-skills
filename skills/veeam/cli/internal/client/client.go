@@ -594,6 +594,12 @@ func redirectGuard(req *http.Request, via []*http.Request) error {
 	if req == nil {
 		return ErrRedirectUnsupportedScheme
 	}
+	// Hand-fix (handfixes.json credkit-wiring): the redirect response's
+	// headers are held for the masked credential fields before its Location,
+	// this hop's URL, can reach a refusal's error text.
+	if req.Response != nil {
+		cliutil.HoldMaskedResponseHeaders(req.Response.Header)
+	}
 	if err := redirectDestinationRefused(req.URL, via); err != nil {
 		return err
 	}
@@ -2618,6 +2624,18 @@ func (c *Client) doInternal(ctx context.Context, method, path string, params map
 		if err != nil {
 			return nil, 0, fmt.Errorf("decoding response: %w", err)
 		}
+		// Hand-fix (handfixes.json credkit-wiring): the credential fields VSPC
+		// answers with a mask are held here, every value but the mask, before
+		// anything reads the body or a header (credwire.Declarations explains).
+		// A body that cannot be read for them is withheld whole.
+		cliutil.HoldMaskedResponseHeaders(resp.Header)
+		cliutil.HoldMaskedResponseHeaders(resp.Trailer)
+		if !cliutil.HoldMaskedResponseFields(respBody, resp.Header.Get("Content-Type")) {
+			if resp.StatusCode < 400 {
+				return nil, resp.StatusCode, fmt.Errorf("%s %s: %w", method, c.displayURL(path, authHeader), cliutil.ErrMaskedFieldUnread)
+			}
+			respBody = []byte(cliutil.ErrMaskedFieldUnread.Error())
+		}
 
 		// Pace to the server-advertised budget when it ships rate-limit
 		// headers (every response, success or 429). This takes priority over
@@ -2648,7 +2666,13 @@ func (c *Client) doInternal(ctx context.Context, method, path string, params map
 			// per-request signal so mixed XML/JSON specs normalize only the XML
 			// endpoint's success body. A decode failure returns the raw bytes.
 			if isXMLRequest(req.Header.Get("Accept")) && isXMLResponseContentType(resp.Header.Get("Content-Type")) {
-				return cliutil.XMLToJSON(json.RawMessage(respBody)), resp.StatusCode, nil
+				converted := cliutil.XMLToJSON(json.RawMessage(respBody))
+				// Hand-fix (handfixes.json credkit-wiring): an XML element's
+				// value becomes a field of the JSON the program reads.
+				if !cliutil.HoldMaskedResponseFields(converted, "application/json") {
+					return nil, resp.StatusCode, fmt.Errorf("%s %s: %w", method, c.displayURL(path, authHeader), cliutil.ErrMaskedFieldUnread)
+				}
+				return converted, resp.StatusCode, nil
 			}
 			if !htmlResponse {
 				if summary, ok := summarizeHTMLDocument(respBody); ok {
