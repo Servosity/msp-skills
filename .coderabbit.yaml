@@ -6174,7 +6174,7 @@ reviews:
     - "!skills/veeam/cli/internal/cli/root_test*.go"
     - "!skills/veeam/cli/internal/cli/search*.go"
     - "!skills/veeam/cli/internal/cli/subscription*.go"
-    - "!skills/veeam/cli/internal/cli/sync*.go"
+    - "!skills/veeam/cli/internal/cli/sync_hint*.go"
     - "!skills/veeam/cli/internal/cli/tail*.go"
     - "!skills/veeam/cli/internal/cli/teach*.go"
     - "!skills/veeam/cli/internal/cli/users*.go"

@@ -245,12 +245,6 @@
    "read-only",
    "local-data"
   ],
-  "veeam": [
-   "mcp-http",
-   "write-gating",
-   "read-only",
-   "local-data"
-  ],
   "watchguard": [
    "write-gating",
    "read-only",
