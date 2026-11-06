@@ -91,7 +91,7 @@
       "category": "Backup/DR",
       "display_name": "Afi",
       "tagline": "Answer fleet-wide Afi backup coverage, staleness, and licensing questions from one local store.",
-      "cli_hash": "sha256:03150a8b133891e79c555f8f134cc24992ccb10b1490dc6b34f0c0b2d614bc6e",
+      "cli_hash": "sha256:b12adf457b152c7556a18d0f570e3f63f1d7707dd4a3d0ed617ff6774c984502",
       "template_version": 3,
       "version": "0.1.8",
       "cli_hash_at_release": "sha256:4aa85880c521b0469e454721927ac643f6b142fbb5aec773361166617a728bc6",
@@ -1390,7 +1390,7 @@
       "first_party": false,
       "category": "Billing",
       "display_name": "Maxio",
-      "cli_hash": "sha256:9dfdf4a73b00bd7517e63a746ccf0076dfde084266243447b6a9f38cbdb7d201",
+      "cli_hash": "sha256:1554739697e63aa1a2e01a844d33bf29e042346aca2ab7da012436bf0dc629a2",
       "template_version": 3,
       "version": "0.1.7",
       "cli_hash_at_release": "sha256:216772fb4739193a7f0de6ad762a09c317a143d629d2f24285017029996e51b1",
@@ -2372,6 +2372,29 @@
         "issue_url": null
       }
     },
+    "vsphere": {
+      "system": "VMware vCenter Server and vSphere (ESXi hosts, clusters, VMs, datastores and snapshots)",
+      "status": "beta",
+      "cli_binary": "vsphere-cli",
+      "mcp_binary": "vsphere-mcp",
+      "vendor": "VMware",
+      "vendor_trademark_owner": "Broadcom Inc",
+      "first_party": false,
+      "category": "Other",
+      "display_name": "VMware vSphere",
+      "tagline": "Find every VMware migration blocker, stale snapshot and per-core licence cost in vCenter, read-only, from one prompt.",
+      "has_video": true,
+      "cli_hash": "sha256:9cab95c5b6886e29d29471e6ae71830d16c5b72a38928c58063b5c1eb1f699e9",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": null,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
+    },
     "warranty": {
       "system": "Dell, Lenovo and Apple device warranty lookups",
       "status": "beta",
@@ -2513,7 +2536,7 @@
       "cli_hash": "sha256:c92fbf99b821a2efeac9390e2390f1e5270e33d397e75e4f9168e88f545f8254",
       "template_version": 3,
       "version": "0.1.0",
-      "cli_hash_at_release": null,
+      "cli_hash_at_release": "sha256:c92fbf99b821a2efeac9390e2390f1e5270e33d397e75e4f9168e88f545f8254",
       "live_verified": {
         "status": "awaiting",
         "date": null,

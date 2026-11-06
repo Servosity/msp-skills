@@ -26,6 +26,7 @@ type coverageGapsView struct {
 	TotalResources   int               `json:"total_resources"`
 	UnprotectedCount int               `json:"unprotected_count"`
 	Note             string            `json:"note,omitempty"`
+	Incomplete       []string          `json:"incomplete,omitempty"`
 }
 
 func newNovelCoverageGapsCmd(flags *rootFlags) *cobra.Command {
@@ -143,6 +144,9 @@ Do NOT use this command for the all-tenants health rollup; use 'fleet-health' in
 				view.Note = "every matching resource has at least one protection"
 			} else if truncated {
 				view.Note = fmt.Sprintf("output capped at --limit=%d; more gaps may exist", flagLimit)
+			}
+			if err := withFleetGaps(cmd.Context(), db, csvSet(flagTenant), &view.Incomplete, &view.Note); err != nil {
+				return err
 			}
 			return printJSONFiltered(cmd.OutOrStdout(), view, flags)
 		},

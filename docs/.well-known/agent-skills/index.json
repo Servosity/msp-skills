@@ -27,7 +27,7 @@
       "type": "skill-md",
       "description": "The first CLI for Afi SaaS backup - full public-API coverage plus the fleet-wide coverage, staleness, and offboarding answers the rate-limited API can't serve live. Trigger phrases: `check afi backup coverage`, `which mailboxes aren't backed up in afi`, `afi fleet health`, `offboard a user from afi backup`, `afi backup stale check`, `use afi`, `run afi-cli`.",
       "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/afi/SKILL.md",
-      "digest": "sha256:07a09c49e04fe2f704f2f5b2d9392cb5a7955e47fe8455df77d92af05e3e8938"
+      "digest": "sha256:c4a9490aed27034a069421dc8991b19305f9c23b0f2ed61c9c90263c3c0bf0ff"
     },
     {
       "name": "appdirect",
@@ -391,7 +391,7 @@
       "type": "skill-md",
       "description": "Open, local revenue-intelligence CLI for Maxio Advanced Billing - MRR waterfalls, retention, and per-client history computed offline from a SQLite mirror, so the trended history survives even though the live API returns only point-in-time figures. Trigger phrases: `what's our MRR`, `show the MRR waterfall`, `recurring revenue for this customer`, `net revenue retention this year`, `what revenue needs attention`, `use maxio`, `run maxio`.",
       "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/maxio/SKILL.md",
-      "digest": "sha256:5e07069313b462676a164776589f1285fc194943214d22101b00c54080b39fdd"
+      "digest": "sha256:d6cc8b1786b3ad06fe7e4184da698f514f1742a93191526d283d2a2e94cbe4a8"
     },
     {
       "name": "microsoft-graph",
@@ -672,6 +672,13 @@
       "description": "Use when the user asks to check Veeam backup health across customers, find failing or stale backup jobs, surface workloads past their RPO, triage VSPC alarms, or report per-tenant license usage from a Veeam Service Provider Console. Syncs every tenant into a local SQLite mirror so it answers multi-tenant backup questions the per-tenant console can't. Trigger phrases: `check Veeam backup health`, `which Veeam jobs are failing`, `stale Veeam backups across customers`, `Veeam alarms triage`, `Veeam license usage by company`, `use veeam`, `run veeam`.",
       "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/veeam/SKILL.md",
       "digest": "sha256:e934b185a99746772c7721273143306dc9b6645dd9a5312999572707d1e5e593"
+    },
+    {
+      "name": "vsphere",
+      "type": "skill-md",
+      "description": "Read-only vCenter inventory for migration planning: blockers, snapshots, per-core licence exposure and Proxmox mapping, as JSON an agent can use. Trigger phrases: `inventory our vcenter`, `what blocks the vmware migration`, `how many cores will broadcom charge us`, `find old vmware snapshots`, `export rvtools from vcenter`, `use vsphere`, `run vsphere-cli`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/vsphere/SKILL.md",
+      "digest": "sha256:63105574aa4f24db496ed2b25ebd7e984ef1f6597c50d24f9596ac0a09d26f83"
     },
     {
       "name": "warranty",

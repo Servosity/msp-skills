@@ -1,0 +1,77 @@
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
+
+package vsphereblackbox
+
+// Class output-before-chokepoint (Codex r2, fixed after the stop rule): a
+// configuration or credential file's values reach diagnostics whether the file
+// is used or refused, and a URL that does not parse is printed as written. A
+// password inside any of them must never print: every file value is held when
+// its bytes are read, and the chokepoint redacts the password of any URL it
+// sees, held or not.
+
+import (
+	"os"
+	"os/exec"
+	"path/filepath"
+	"runtime"
+	"strings"
+	"testing"
+)
+
+func cleanEnv(home string, extra ...string) []string {
+	return append([]string{
+		"PATH=" + os.Getenv("PATH"), "HOME=" + home, "USERPROFILE=" + home,
+		"XDG_CONFIG_HOME=" + filepath.Join(home, ".config"), "XDG_DATA_HOME=" + filepath.Join(home, ".local", "share"),
+		"XDG_STATE_HOME=" + filepath.Join(home, ".local", "state"), "XDG_CACHE_HOME=" + filepath.Join(home, ".cache"),
+		"APPDATA=" + filepath.Join(home, "AppData", "Roaming"), "LOCALAPPDATA=" + filepath.Join(home, "AppData", "Local"),
+	}, extra...)
+}
+
+func runWith(t *testing.T, env []string, args ...string) string {
+	t.Helper()
+	cmd := exec.Command(bbCLI, args...)
+	cmd.Env, cmd.Dir = env, strings.TrimPrefix(env[1], "HOME=")
+	out, err := cmd.CombinedOutput()
+	if _, isExit := err.(*exec.ExitError); err != nil && !isExit {
+		t.Fatalf("%v: %v", args, err)
+	}
+	return string(out)
+}
+
+func TestConfigSourcesNeverPrintTheirCredentials(t *testing.T) {
+	t.Parallel()
+	const storePw, loosePw, slashPw = "StorePassw0rd1x", "OnlyUrlPw-Q7r9x", "Sl4sh/Passw0rd"
+	var out strings.Builder
+	// A global credential store recorded for one vCenter (its base_url carries
+	// the password) and refused for a config that names another.
+	h1 := t.TempDir()
+	runWith(t, cleanEnv(h1, "VSPHERE_BASE_URL=https://ro:"+storePw+"@vc.example.com"), "auth", "set-credentials", "ro@vsphere.local", storePw)
+	other := filepath.Join(h1, "other")
+	_ = os.MkdirAll(other, 0o700)
+	_ = os.WriteFile(filepath.Join(other, "config.toml"), []byte("base_url = \"https://other.example.com\"\n"), 0o600)
+	refused := runWith(t, cleanEnv(h1, "VSPHERE_CONFIG="+filepath.Join(other, "config.toml")), "version")
+	if !strings.Contains(refused, withheldNotice) {
+		t.Fatalf("the refused-store case did not run (no refusal printed):\n%s", refused)
+	}
+	out.WriteString(refused)
+	// Loose config files whose base_url does not parse, one with a raw "/" in
+	// the password.
+	for i, u := range []string{"https://ro:" + loosePw + "@other.example.com:bad/", "https://ro:" + slashPw + "@other.example.com/api"} {
+		h := t.TempDir()
+		p := filepath.Join(h, "loose.toml")
+		_ = os.WriteFile(p, []byte("base_url = \""+u+"\"\n"), 0o644)
+		if runtime.GOOS != "windows" { // Windows has no group/other bits: the config is read, not refused
+			_ = os.Chmod(p, 0o644)
+		}
+		got := runWith(t, cleanEnv(h, "VSPHERE_CONFIG="+p, "VSPHERE_USERNAME=ro@vsphere.local", "VSPHERE_PASSWORD=EnvPassw0rd2x"), "version") // gitleaks:allow
+		if i == 0 && runtime.GOOS != "windows" && !strings.Contains(got, "refused") && !strings.Contains(got, withheldNotice) {
+			t.Fatalf("the loose-config case did not run (no refusal printed):\n%s", got)
+		}
+		out.WriteString(got)
+	}
+	for _, pw := range []string{storePw, loosePw, slashPw, "Passw0rd"} {
+		if strings.Contains(out.String(), pw) {
+			t.Errorf("output repeats the file password %q:\n%s", pw, out.String())
+		}
+	}
+}

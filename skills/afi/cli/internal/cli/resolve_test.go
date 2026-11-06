@@ -104,3 +104,18 @@ func TestResolveMissingArg(t *testing.T) {
 		t.Fatal("expected usage error when identifier missing")
 	}
 }
+
+// --kind filters before --limit (Codex r1 afi review P2): a limit of one must
+// not spend itself on a row of another kind.
+func TestResolveKindFiltersBeforeLimit(t *testing.T) {
+	db, path := newTestStore(t)
+	seed(t, db, "resources", "res9", `{"id":"res9","tenant_id":"ten9","name":"Contoso Shared","kind":"office_teamdrive"}`)
+	seed(t, db, "tenants", "ten9", `{"id":"ten9","name":"Contoso","kind":"o365"}`)
+	out, err := runNovel(t, newNovelResolveCmd, "Contoso", "--kind", "o365", "--limit", "1", "--db", path)
+	if err != nil {
+		t.Fatalf("resolve: %v", err)
+	}
+	if view := decodeView[resolveView](t, out); len(view.Matches) != 1 || view.Matches[0].ID != "ten9" {
+		t.Errorf("--kind o365 --limit 1 should find the tenant: %s", out)
+	}
+}

@@ -19,45 +19,83 @@
         "MAXIO_BASE_URL": "${user_config.maxio_base_url}",
         "MAXIO_PASSWORD": "${user_config.maxio_password}",
         "MAXIO_SITE": "${user_config.maxio_site}",
-        "MAXIO_USERNAME": "${user_config.maxio_username}"
+        "MAXIO_USERNAME": "${user_config.maxio_username}",
+        "MAXIO_MCP_READ_ONLY": "${user_config.maxio_mcp_read_only}",
+        "MAXIO_NO_LOCAL_DATA": "${user_config.maxio_no_local_data}",
+        "MAXIO_MCP_HTTP_TOKEN": "${user_config.maxio_mcp_http_token}",
+        "MAXIO_USER_AGENT": "${user_config.maxio_user_agent}",
+        "PRINTING_PRESS_CLIENT_PROFILE": "${user_config.printing_press_client_profile}"
       }
     }
   },
   "user_config": {
-    "maxio_password": {
-      "type": "string",
-      "title": "MAXIO_PASSWORD",
-      "description": "Sets MAXIO_PASSWORD for the Maxio MCP server. Get a credential from https://app.chargify.com/signup/maxio-billing-sandbox.",
-      "sensitive": true,
-      "required": true
-    },
-    "maxio_site": {
-      "type": "string",
-      "title": "MAXIO_SITE",
-      "description": "Sets MAXIO_SITE for the endpoint template variable {site}.",
-      "default": "subdomain",
-      "required": true,
-      "sensitive": true
-    },
-    "maxio_username": {
-      "type": "string",
-      "title": "MAXIO_USERNAME",
-      "description": "Sets MAXIO_USERNAME for the Maxio MCP server. Get a credential from https://app.chargify.com/signup/maxio-billing-sandbox.",
-      "sensitive": true,
-      "required": true
-    },
     "maxio_api_key": {
       "type": "string",
       "title": "Maxio API key",
-      "description": "Single-secret Maxio credential, sent as the HTTP Basic username with the constant 'x' as the password. Use this or the MAXIO_USERNAME + MAXIO_PASSWORD pair.",
+      "description": "Your Maxio Advanced Billing API key (Config > Integrations > API Keys). Sent only to your site's Maxio host as the HTTP Basic username with the constant password x.",
       "sensitive": true,
-      "required": false
+      "required": true
     },
     "maxio_base_url": {
       "type": "string",
       "title": "Maxio API base URL",
       "description": "Full API base URL. Leave blank: the CLI builds it from MAXIO_SITE. Set it only to point at a different host.",
       "required": false
+    },
+    "maxio_password": {
+      "type": "string",
+      "title": "MAXIO_PASSWORD (legacy)",
+      "description": "Earlier versions' Basic password; Maxio API keys always use x. Leave blank.",
+      "sensitive": true,
+      "required": false
+    },
+    "maxio_site": {
+      "type": "string",
+      "title": "Maxio site",
+      "description": "Your Advanced Billing subdomain: acme for acme.chargify.com.",
+      "required": true
+    },
+    "maxio_username": {
+      "type": "string",
+      "title": "MAXIO_USERNAME (legacy)",
+      "description": "Earlier versions' form of the API key. Leave blank when MAXIO_API_KEY is set (it wins).",
+      "sensitive": true,
+      "required": false
+    },
+    "maxio_mcp_read_only": {
+      "type": "string",
+      "title": "Read-only MCP mode",
+      "description": "Optional. Set to exactly 1 to expose only read-only tools and refuse any non-GET execute call. Leave blank to expose every tool; a call that changes Maxio still needs confirm set to true.",
+      "required": false,
+      "sensitive": false
+    },
+    "maxio_no_local_data": {
+      "type": "string",
+      "title": "Run without a local copy",
+      "description": "Optional. Set to 1 to keep no local copy of API responses: reads go to the API, nothing is written to the local store, and sync and the revenue commands that read it refuse to run. Leave blank to keep the local store.",
+      "required": false,
+      "sensitive": false
+    },
+    "maxio_mcp_http_token": {
+      "type": "string",
+      "title": "MCP HTTP transport bearer token",
+      "description": "Required only when running the MCP server with --transport http. Callers must send a matching Authorization: Bearer header. Not needed for the default stdio transport.",
+      "required": false,
+      "sensitive": true
+    },
+    "maxio_user_agent": {
+      "type": "string",
+      "title": "User-Agent header",
+      "description": "Overrides the User-Agent the CLI sends on Maxio requests. Leave blank to use the CLI's own built-in User-Agent.",
+      "required": false,
+      "sensitive": false
+    },
+    "printing_press_client_profile": {
+      "type": "string",
+      "title": "Client profile (optional)",
+      "description": "Only for tenant-gated multi-client deployments: binds the MCP server to an existing Printing Press client profile. Leave blank for a single-tenant install.",
+      "required": false,
+      "sensitive": true
     }
   },
   "compatibility": {
@@ -68,11 +106,11 @@
       "win32"
     ]
   },
-  "printing_press_version": "4.24.0",
+  "printing_press_version": "4.34.2",
   "press_provenance": {
-    "printing_press_version": "4.24.0",
-    "generated_at": "2026-06-09T16:04:18.35368Z",
-    "spec_checksum": "sha256:1b7db748cf69f91f6155ab6724c29f3901a1816d2221bb693d5a57935ef629e1",
+    "printing_press_version": "4.34.2",
+    "generated_at": "2026-10-29T23:41:08.31788Z",
+    "spec_checksum": "sha256:1dd23f7773e46b70b70c2b3515d380fded436a65586810482b2423a460f2313a",
     "spec_format": "openapi3"
   }
 }

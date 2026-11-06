@@ -1,5 +1,5 @@
 {
-  "count": 99,
+  "count": 100,
   "connectors": [
     {
       "slug": "abnormal",
@@ -1209,6 +1209,19 @@
       "verified_version": null,
       "verified_code": null,
       "url": "/skills/veeam/"
+    },
+    {
+      "slug": "vsphere",
+      "display_name": "VMware vSphere",
+      "tagline": "Find every VMware migration blocker, stale snapshot and per-core licence cost in vCenter, read-only, from one prompt.",
+      "category": "Other",
+      "verification": "awaiting",
+      "verified_by": null,
+      "source": null,
+      "issue_url": null,
+      "verified_version": null,
+      "verified_code": null,
+      "url": "/skills/vsphere/"
     },
     {
       "slug": "warranty",

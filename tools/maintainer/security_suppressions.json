@@ -2244,6 +2244,58 @@
         "sha256:5579588dd2552a7fb6eedaaf241604d65c92185a83b933fc72c57e9f00a6dc1a"
       ],
       "reason": "appdirect only, same reviewed declaration as the zammad entry. Declaration repairJournalSegmentTail: the press template's journal tail repair, reading a segment path this package derives from its own state dir (the template's annotation is kept); its one write goes through credkit.AppendFile (credkit-wiring in skills/appdirect/handfixes.json)."
+    },
+    {
+      "file": "skills/jamf-pro/cli/internal/fleet/runner.go",
+      "rule": "G204",
+      "bind": "decl",
+      "sha256": [
+        "sha256:fbd5acdcb0b096f85b18a185f04df52e66d075c722bc6736228fe702159f5d41"
+      ],
+      "press": "4.34.2",
+      "reason": "jamf-pro fleet runner: re-executes only this CLI (os.Executable) once per registered instance; argv is built from fixed literals plus API paths validated as plain Jamf Pro or Classic API paths; the instance is a registry-validated name; the child environment is an allowlist and carries only that instance's secret; no shell."
+    },
+    {
+      "file": "skills/jamf-pro/cli/internal/fleet/runner.go",
+      "rule": "msp-exec-nonliteral-command",
+      "bind": "decl",
+      "sha256": [
+        "sha256:fbd5acdcb0b096f85b18a185f04df52e66d075c722bc6736228fe702159f5d41"
+      ],
+      "press": "4.34.2",
+      "reason": "jamf-pro fleet runner: re-executes only this CLI (os.Executable) once per registered instance; argv is built from fixed literals plus API paths validated as plain Jamf Pro or Classic API paths; the instance is a registry-validated name; the child environment is an allowlist and carries only that instance's secret; no shell."
+    },
+    {
+      "file": "skills/jamf-pro/cli/internal/fleet/runner.go",
+      "rule": "exec-nonliteral-cmd",
+      "bind": "file",
+      "sha256": [
+        "sha256:808cb6db09da5cd274499789884601fb9480f35d753c032ff8dab7c1d6710fb3"
+      ],
+      "press": "4.34.2",
+      "reason": "jamf-pro fleet runner: re-executes only this CLI (os.Executable) once per registered instance; argv is built from fixed literals plus API paths validated as plain Jamf Pro or Classic API paths; the instance is a registry-validated name; the child environment is an allowlist and carries only that instance's secret; no shell."
+    },
+    {
+      "file": "skills/jamf-pro/cli/internal/cli/sync.go",
+      "rule": "G101",
+      "bind": "decl",
+      "press": "4.34.2",
+      "reason": "press 4.34.2 template: a map of endpoint paths such as /api/v1/api-integrations, and G101 reads the words in those keys as hard-coded credentials. No value in these maps is a secret.",
+      "sha256": [
+        "sha256:0b8725769df85e795cc71c21225e5e1daca0a8914317db34b0a7387e736f54f0"
+      ]
+    },
+    {
+      "file": "skills/jamf-pro/cli/internal/cli/resource_paths.go",
+      "rule": "G101",
+      "bind": "decl",
+      "press": "4.34.2",
+      "reason": "press 4.34.2 template: a map of endpoint paths such as /api/v1/api-integrations, and G101 reads the words in those keys as hard-coded credentials. No value in these maps is a secret.",
+      "sha256": [
+        "sha256:24edf317bcc457a800f0f0e55ecb88af5e159897d80f1300717badf99b7fd517",
+        "sha256:6e0094d55f63437174d7bbffcc66d078a42632edbfcb07be7ddf2ddbc9c9e888",
+        "sha256:c84d79f7cee392d0d137bde80b41dafde5a570d878f5eb06a2ade207eafe1464"
+      ]
     }
   ]
 }

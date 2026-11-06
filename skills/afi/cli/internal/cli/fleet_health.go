@@ -37,6 +37,7 @@ type fleetHealthView struct {
 	TotalFailed   int64            `json:"total_failed"`
 	TotalExceeded int              `json:"total_quotas_exceeded"`
 	Note          string           `json:"note,omitempty"`
+	Incomplete    []string         `json:"incomplete,omitempty"`
 }
 
 func newNovelFleetHealthCmd(flags *rootFlags) *cobra.Command {
@@ -283,6 +284,9 @@ Do NOT use this command for one tenant's deep posture card; use 'tenant-scorecar
 			}
 			if staleCount > 0 {
 				fmt.Fprintf(cmd.ErrOrStderr(), "warning: %d tenant task snapshots are older than --since=%s; run 'afi-cli fleet-sync' to refresh\n", staleCount, flagSince)
+			}
+			if err := withFleetGaps(cmd.Context(), db, csvSet(flagTenants), &view.Incomplete, &view.Note); err != nil {
+				return err
 			}
 			return printJSONFiltered(cmd.OutOrStdout(), view, flags)
 		},

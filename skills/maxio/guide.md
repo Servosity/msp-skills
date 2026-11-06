@@ -58,11 +58,9 @@ To install:
 
 1. Download the `.mcpb` for your platform from the [latest release](https://github.com/Servosity/msp-skills/releases?q=maxio).
 2. Double-click the `.mcpb` file. Claude Desktop opens and walks you through the install.
-3. Fill in `MAXIO_USERNAME` when Claude Desktop prompts you.
+3. Fill in `MAXIO_API_KEY` when Claude Desktop prompts you.
 
-Requires Claude Desktop 1.0.0 or later. A bundle carries the five platform binaries the builder downloads - macOS (`darwin-arm64`, `darwin-amd64`), Linux (`linux-arm64`, `linux-amd64`) and Windows (`windows-amd64`). Windows on ARM is released as a standalone binary but is not bundled, so use the manual config below there.
-
-> **Claude Desktop bundle:** the `.mcpb` launches on macOS (Intel and Apple Silicon), Windows x64 and Linux x64. Every tool shells out to the companion `maxio-cli`. Releases cut from 2026-09-18 on ship that CLI inside the bundle; older bundles contain only the MCP server, so if yours lacks the companion, run the installer above first (or set `MAXIO_CLI_PATH` to an existing binary). Details: [#331](https://github.com/Servosity/msp-skills/issues/331).
+Requires Claude Desktop 1.0.0 or later. Pre-built bundles ship for macOS Apple Silicon (`darwin-arm64`) and Windows (`amd64`, `arm64`); for other platforms, use the manual config below.
 
 <details>
 <summary>Manual JSON config (advanced)</summary>
@@ -77,7 +75,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/sk
 iwr -useb https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/maxio/install.ps1 | iex            # Windows
 ```
 
-Add to your Claude Desktop config (`%APPDATA%\Claude\claude_desktop_config.json` on Windows, `~/Library/Application Support/Claude/claude_desktop_config.json` on macOS):
+Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS, `%APPDATA%\Claude\claude_desktop_config.json` on Windows):
 
 ```json
 {
@@ -86,7 +84,7 @@ Add to your Claude Desktop config (`%APPDATA%\Claude\claude_desktop_config.json`
       "command": "maxio-mcp",
       "env": {
         "MAXIO_SITE": "<site>",
-        "MAXIO_USERNAME": "<your-key>"
+        "MAXIO_API_KEY": "<your-key>"
       }
     }
   }
@@ -95,9 +93,20 @@ Add to your Claude Desktop config (`%APPDATA%\Claude\claude_desktop_config.json`
 
 </details>
 
+### Remote MCP over HTTP
+
+`maxio-mcp --transport http` (or `PP_MCP_TRANSPORT=http`) serves streamable HTTP at `http://127.0.0.1:7777/mcp`. It refuses to start until `MAXIO_MCP_HTTP_TOKEN` is set to at least 32 characters, and every request must send `Authorization: Bearer <token>`. The command below prints 64 hex characters and meets that minimum. Plain HTTP is allowed only on a loopback `--addr`; any other bind, including `:7777` (every interface), also needs `--tls-cert` and `--tls-key`. Requests with no `Origin` header are accepted, as are loopback origins (`localhost`, `127.0.0.1`, or `[::1]`, any port). Any other `Origin` is refused unless it is listed in `MAXIO_MCP_HTTP_ALLOWED_ORIGINS`, a comma-separated list of `scheme://host[:port]` values with no path. That list is not a CORS policy; the server does not emit CORS headers.
+
+```bash
+export MAXIO_MCP_HTTP_TOKEN="$(openssl rand -hex 32)"
+maxio-mcp --transport http
+```
+
+Set `MAXIO_MCP_READ_ONLY=1` (exactly `1`) to drop mirrored commands that are not marked read-only and make the raw execute tool refuse state-changing calls. Commands marked local-write, which write only this CLI's own learn store, stay available.
+
 ## Authentication
 
-Maxio Advanced Billing uses HTTP Basic authentication. Set three environment variables: MAXIO_USERNAME, MAXIO_PASSWORD, and MAXIO_SITE (your subdomain, e.g. acme for acme.chargify.com). For Advanced Billing API-key access, MAXIO_USERNAME is your API key (Config -> Integrations -> API Keys) and MAXIO_PASSWORD is the literal value 'x'. Read commands are safe to run by default; mutating commands execute when you invoke them (some prompt for confirmation interactively, which --agent/--yes skips), so preview with --dry-run and approve writes per your agent policy.
+Maxio Advanced Billing uses HTTP Basic authentication: your API key (Config -> Integrations -> API Keys) is the username and the password is the literal x, which the CLI supplies. Set MAXIO_API_KEY to your API key and MAXIO_SITE to your subdomain (acme for acme.chargify.com). The MAXIO_USERNAME (the key) and MAXIO_PASSWORD (x) pair from earlier versions still works; MAXIO_API_KEY wins when both are set. Read commands are safe to run by default; mutating commands execute when you invoke them (some prompt for confirmation interactively, which --agent/--yes skips), so preview with --dry-run and approve writes per your agent policy.
 
 ## Quick Start
 
@@ -126,8 +135,6 @@ maxio-cli retention --since 2025-01-01
 ```
 
 ## Unique Features
-
-These capabilities aren't available in any other tool for this API.
 
 ### History the live API can't reconstruct
 - **`mrr waterfall`**  -  See MRR move month over month, broken into New, Expansion, Contraction, Churn, and Reactivation  -  plus ARR and growth rate.
@@ -158,6 +165,20 @@ These capabilities aren't available in any other tool for this API.
   ```bash
   maxio-cli cohort --by signup-month --periods 12 --agent
   ```
+- **`mrr now`**  -  Current MRR + ARR + growth vs the prior snapshot.
+
+  _Use this for the one-line answer to 'what is our MRR right now and is it growing'._
+
+  ```bash
+  maxio-cli mrr now --json
+  ```
+- **`mrr sync`**  -  Snapshot current MRR and backfill movement history into the local store.
+
+  _Run it alongside sync so the revenue commands have snapshots and movements to compute on._
+
+  ```bash
+  maxio-cli mrr sync
+  ```
 
 ### Agent-native revenue ops
 - **`triage`**  -  A ranked list of accounts that need attention: past-due, large upcoming renewals, and high-value concentration.
@@ -181,9 +202,50 @@ These capabilities aren't available in any other tool for this API.
   ```bash
   maxio-cli usage-drivers --since 2026-01-01 --limit 20 --agent
   ```
+- **`arpa`**  -  ARPA/ARPU, MRR percentiles, and price-vs-volume decomposition of MRR change.
+
+  _Pick this when the question is whether revenue moved because of price or because of customer count._
+
+  ```bash
+  maxio-cli arpa --json
+  ```
+- **`churn`**  -  Logo and revenue churn per period, voluntary vs involuntary, by reason code.
+
+  _Use this to see who churned, why, and how much recurring revenue left with them._
+
+  ```bash
+  maxio-cli churn --since 2026-01-01 --json
+  ```
+- **`concentration`**  -  Customer concentration: share of ARR held by the top 1 / 5 / 10 customers.
+
+  _Reach for this when the question is how dependent revenue is on a handful of accounts._
+
+  ```bash
+  maxio-cli concentration --limit 20 --json
+  ```
+- **`new-customers`**  -  New logos acquired per period (first-activation month) plus the new MRR they brought.
+
+  _Use this to answer how many new accounts were won per month and what they added._
+
+  ```bash
+  maxio-cli new-customers --since 2026-01-01 --json
+  ```
+- **`renewals`**  -  Active subscriptions renewing within the next N days (default 90), with MRR at risk.
+
+  _Pick this to see which renewals are coming up and how much recurring revenue rides on them._
+
+  ```bash
+  maxio-cli renewals --within 30 --json
+  ```
+- **`revenue-mix`**  -  Recurring vs usage vs services split of the latest month's billed line items.
+
+  _Use this when the question is how much of billed revenue is recurring versus usage or services._
+
+  ```bash
+  maxio-cli revenue-mix --month 2026-05 --json
+  ```
 
 ## Recipes
-
 
 ### Board-prep MRR movement
 
@@ -220,6 +282,81 @@ Per-customer gaps between normalized MRR and what was actually invoiced for that
 ## Usage
 
 Run `maxio-cli --help` for the full command reference and flag list.
+
+## Paths & environment variables
+
+This CLI separates local files into four path kinds:
+
+| Kind | Contents |
+|------|----------|
+| `config` | User-editable settings such as `config.toml` and saved profiles |
+| `data` | Durable local data: `credentials.toml`, `data.db`, cookies, browser-session proof files, and other auth sidecars |
+| `state` | Runtime state such as persisted queries, jobs, and `teach.log` |
+| `cache` | Regenerable HTTP/cache files |
+
+Each kind resolves independently. The ladder is:
+
+1. Per-kind env var: `MAXIO_CONFIG_DIR`, `MAXIO_DATA_DIR`, `MAXIO_STATE_DIR`, or `MAXIO_CACHE_DIR`
+2. `--home <dir>` for this invocation
+3. `MAXIO_HOME` for a flat relocated root
+4. XDG env vars: `XDG_CONFIG_HOME`, `XDG_DATA_HOME`, `XDG_STATE_HOME`, `XDG_CACHE_HOME`
+5. Platform defaults matching existing installs
+
+For containers and agent sandboxes, prefer a single relocated root:
+
+```bash
+export MAXIO_HOME=/srv/maxio
+maxio-cli doctor
+```
+
+On Windows (PowerShell):
+
+```powershell
+$env:MAXIO_HOME = "C:\ProgramData\maxio"
+maxio-cli doctor
+```
+
+Under `MAXIO_HOME=/srv/maxio`, the four dirs resolve to `/srv/maxio/config`, `/srv/maxio/data`, `/srv/maxio/state`, and `/srv/maxio/cache`.
+
+On Windows, set the same variable in PowerShell:
+
+```powershell
+$env:MAXIO_HOME = "C:\srv\maxio"
+maxio-cli doctor
+```
+
+Under `$env:MAXIO_HOME = "C:\srv\maxio"`, the four dirs resolve to `C:\srv\maxio\config`, `C:\srv\maxio\data`, `C:\srv\maxio\state`, and `C:\srv\maxio\cache`.
+
+MCP servers do not receive CLI flags from the host. Put relocation in the host `env` block:
+
+```json
+{
+  "mcpServers": {
+    "maxio": {
+      "command": "maxio-mcp",
+      "env": {
+        "MAXIO_HOME": "/srv/maxio"
+      }
+    }
+  }
+}
+```
+
+Precedence matters in fleets: an ambient per-kind variable such as `MAXIO_DATA_DIR` overrides an explicit `--home` for that kind. Use `MAXIO_HOME` or the per-kind variables for durable fleet relocation; treat `--home` as the weaker per-invocation lever.
+
+Relocation is one-way. Unsetting `MAXIO_HOME` does not move files back to platform defaults, and `doctor` cannot find credentials left under a former root. Move the files manually before unsetting relocation variables.
+
+Existing installs keep working because the platform-default rung matches the legacy layout. On the first auth write, stored secrets leave `config.toml` and are consolidated into `credentials.toml` under the data directory. Run `maxio-cli doctor --fail-on warn` to check path and credential-location warnings in automation.
+
+### Local data
+
+Reads are saved locally by default: in `--data-source auto` mode every successful read is also written to the SQLite store (`data.db`, or `data-<hash>.db` per credential) in the data directory. GET responses are never cached on disk. Credentials live in `credentials.toml` in the data directory. The learn journal lives under `learn/` in the state directory. `maxio-cli doctor` prints the resolved paths, every store file, and the response-cache size.
+
+None of it is encrypted. New files are created owner-only; beyond that the data relies on OS account permissions and full-disk encryption (FileVault, BitLocker, LUKS).
+
+- **Erase it:** `maxio-cli local-data purge` lists the store files, response cache, and learn journal it would delete; add `--yes` to delete them, or `--only store|cache|journal` to narrow it. Config and credentials are kept.
+- **Run without a local copy:** set `MAXIO_NO_LOCAL_DATA=1`. Reads go to the API (`--data-source live`; `--data-source local` still reads an existing store), the response cache is off (`--no-cache`), nothing new is written to the store, and `sync` and `workflow archive` refuse to run. Set it in an MCP host's `env` block and every command the server runs inherits it.
+- **Choose the read source without flags:** `MAXIO_DATA_SOURCE=auto|live|local` sets the `--data-source` default; an explicit flag wins.
 
 ## Commands
 
@@ -465,13 +602,13 @@ The following keys are no longer supported.
 + `zferral_revenue_post_success` - (Specific to the deprecated Zferral integration)
 
 ## Event Key
-The event type is identified by the key property. You can check supported keys in the Event Key reference.
+The event type is identified by the key property. You can check supported keys here.
 
 ## Event Specific Data
 
 Different event types may include additional data in `event_specific_data` property.
 While some events share the same schema for `event_specific_data`, others may not include it at all.
-For precise mappings from key to event_specific_data, refer to the Event reference.
+For precise mappings from key to event_specific_data, refer to Event.
 
 ### Example
 Here’s an example event for the `subscription_product_change` event:
@@ -1179,24 +1316,122 @@ Manage webhooks json
 - **`maxio-cli webhooks-json`** - Retrieves a list of webhooks.  You can pass query parameters if you want to filter webhooks. See the Webhooks documentation for more information.
 
 
+### arpa
+
+
+- **`maxio-cli arpa`** - ARPA/ARPU, MRR percentiles, and price-vs-volume decomposition of MRR change.
+
+
+### churn
+
+
+- **`maxio-cli churn`** - Logo and revenue churn per period, voluntary vs involuntary, by reason code.
+
+
+### cohort
+
+
+- **`maxio-cli cohort`** - Revenue and logo retention by signup-month cohort across N periods.
+
+
+### concentration
+
+
+- **`maxio-cli concentration`** - Customer concentration: share of ARR held by the top 1 / 5 / 10 customers.
+
+
+### mrr
+
+
+- **`maxio-cli mrr waterfall`** - See MRR move month over month, broken into New, Expansion, Contraction, Churn, and Reactivation  -  plus ARR and growth rate.
+
+- **`maxio-cli mrr client`** - Normalized MRR for one customer or the whole book, with the history the live API has no endpoint for.
+
+- **`maxio-cli mrr now`** - Current MRR + ARR + growth vs the prior snapshot.
+
+- **`maxio-cli mrr sync`** - Snapshot current MRR and backfill movement history into the local store.
+
+
+### new-customers
+
+
+- **`maxio-cli new-customers`** - New logos acquired per period (first-activation month) plus the new MRR they brought.
+
+
+### reconcile
+
+
+- **`maxio-cli reconcile`** - Per-customer gaps between normalized MRR and the amounts actually invoiced, with the deltas flagged.
+
+
+### renewals
+
+
+- **`maxio-cli renewals`** - Active subscriptions renewing within the next N days (default 90), with MRR at risk.
+
+
+### retention
+
+
+- **`maxio-cli retention`** - Net and gross revenue retention, logo churn, revenue churn, and quick ratio over any window.
+
+
+### revenue-mix
+
+
+- **`maxio-cli revenue-mix`** - Recurring vs usage vs services split of the latest month's billed line items.
+
+
+### triage
+
+
+- **`maxio-cli triage`** - A ranked list of accounts that need attention: past-due, large upcoming renewals, and high-value concentration.
+
+
+### usage-drivers
+
+
+- **`maxio-cli usage-drivers`** - Which metered/usage components drove expansion versus contraction MRR, ranked.
+
+
+
+
+### Self-learning loop
+
+This CLI caches per-question discovery so repeat queries skip the walk and structurally similar queries get answered via entity substitution. The loop also self-captures: every invocation is journaled locally, and failed-flag corrections plus fresh teaches surface as candidates on the next `recall` for confirm/reject judgment. Agents call `recall` before discovery and fire `teach &` after answering. See the `## Automatic learning` section in `SKILL.md` for the full protocol.
+
+- **`maxio-cli recall <query>`** - Look up cached resources for a query before running discovery
+- **`maxio-cli teach`** - Record a query -> resource mapping (silent on success, safe to background with `&`)
+- **`maxio-cli learnings list`** - Inspect taught rows
+- **`maxio-cli learnings forget <query>`** - Undo a teach
+- **`maxio-cli learnings candidates`** - List auto-captured candidates awaiting confirm/reject
+- **`maxio-cli learnings stats`** - Local loop metrics: recall hit rate, teach-to-reuse, playbook resolution, candidate counts
+- **`maxio-cli teach-pattern`** - Install a query/resource template up front
+- **`maxio-cli teach-lookup`** - Add an entity mapping (e.g. country code, team alias) for pattern substitution
+
+Pass `--no-learn` or set `MAXIO_NO_LEARN=true` to disable the loop for deterministic flows.
+
+The local store's schema version stamp is one-way: once this version of `maxio-cli` opens the database, older binaries refuse it with a version error  -  upgrade the binary rather than downgrading.
+
 ## Output Formats
 
 ```bash
 # Human-readable table (default in terminal, JSON when piped)
-maxio-cli api-exports export-invoices
+maxio-cli api-exports list-exported-invoices mock-value
 
 # JSON for scripting and agents
-maxio-cli api-exports export-invoices --json
-
+maxio-cli api-exports list-exported-invoices mock-value --json
 # Filter to specific fields
-maxio-cli api-exports export-invoices --json --select id,name,status
+maxio-cli api-exports list-exported-invoices mock-value --json --select avatax_details,billing_address,collection_method
 
 # Dry run  -  show the request without sending
-maxio-cli api-exports export-invoices --dry-run
+maxio-cli api-exports list-exported-invoices mock-value --dry-run
 
 # Agent mode  -  JSON + compact + no prompts in one flag
-maxio-cli api-exports export-invoices --agent
+maxio-cli api-exports list-exported-invoices mock-value --agent
 ```
+
+`--csv` prefixes a leading `'` on cells and header keys that start with `=`, `+`, `-`, `@`, a tab, or a line break (including fullwidth `＝＋－＠`) so a spreadsheet does not run them as formulas. Plain signed numbers such as `-5` and `+2.5e3` are left unchanged.
 
 ## Agent Usage
 
@@ -1204,15 +1439,15 @@ This CLI is designed for AI agent consumption:
 
 - **Non-interactive** - never prompts, every input is a flag
 - **Pipeable** - `--json` output to stdout, errors to stderr
-- **Filterable** - `--select id,name` returns only fields you need
+- **Filterable** - `--select <field>[,<field>...]` returns only fields you need
 - **Previewable** - `--dry-run` shows the request without sending
-- **Explicit retries** - add `--idempotent` to create retries and `--ignore-missing` to delete retries when a no-op success is acceptable
-- **Confirmable** - `--yes` for explicit confirmation of destructive actions
+- **Explicit retries** - add `--idempotent` to create retries and add `--ignore-missing` to delete retries when a no-op success is acceptable
+- **Explicit confirmation** - `--agent` does not imply `--yes`; pass `--yes` separately only after the target, arguments, and side effects are clear
 - **Piped input** - write commands can accept structured input when their help lists `--stdin`
 - **Offline-friendly** - sync/search commands can use the local SQLite store when available
 - **Agent-safe by default** - no colors or formatting unless `--human-friendly` is set
 
-Exit codes: `0` success, `2` usage error, `3` not found, `4` auth error, `5` API error, `7` rate limited, `10` config error.
+Exit codes: `0` success, `2` usage error, `3` not found, `4` auth error, `5` API error, `6` partial failure, `7` rate limited, `10` config error.
 
 ## Runtime Endpoint
 
@@ -1233,33 +1468,43 @@ Verifies configuration, credentials, and connectivity to the API.
 
 ## Configuration
 
-Config file: `~/.config/maxio-cli/config.toml`
+Run `maxio-cli doctor` to see the resolved config, data, state, and cache directories. The platform-default config path is `~/.config/maxio-cli/config.toml` on macOS/Linux and `%USERPROFILE%\.config\maxio-cli\config.toml` on Windows; `--home`, `MAXIO_HOME`, and per-kind env vars can relocate it.
 
 Static request headers can be configured under `headers`; per-command header overrides take precedence.
+
+`--ca-cert`, `MAXIO_CA_CERT`, or `ca_cert` adds a PEM CA bundle to the system trust roots. `--tls-server-name`, `MAXIO_TLS_SERVER_NAME`, or `tls_server_name` is the name checked against the certificate when the dialed address does not match it. Precedence is flag, then environment, then the config file. A config file other users can change does not supply these settings. Certificate verification failures are not retried.
 
 Environment variables:
 
 | Name | Kind | Required | Description |
 | --- | --- | --- | --- |
 | `MAXIO_SITE` | endpoint | Yes |  |
-| `MAXIO_USERNAME` | per_call | Yes |  |
-| `MAXIO_PASSWORD` | per_call | Yes | Set to your API credential. |
+| `MAXIO_API_KEY` | per_call | Yes | Set to your API credential. |
 
 ### agentcookie (optional)
 
 If you use agentcookie to sync secrets across machines, this CLI auto-adopts agentcookie-managed credentials with no extra setup. When the daemon writes to this CLI's config, `maxio-cli doctor` reports `agentcookie: detected` and `auth-status` labels the source as `agentcookie`. Skip this section if you don't use agentcookie - the CLI works the same as any other.
 
+## Credential safety
+
+- The API key travels only as HTTP Basic (`<key>:x`) and only to the scheme, host and port of the configured base URL (`https://<site>.chargify.com` built from `MAXIO_SITE`, or `MAXIO_BASE_URL`). The one other host is Maxio's Events-Based Billing ingestion endpoint, `https://events.chargify.com/<the same site>/events/...`, used by `events record` and `bulk-record-events`. A redirect to any other host, a plain http address and a site that is not a single host-name label are all refused, so the key never reaches them. `MAXIO_SITE` has no default: with it unset, a command names the variable and sends nothing.
+- A response's card, bank and token fields (a vault token, a self-service page token, a webhook signature, a Maxio.js `chargify_token`) are replaced with `[redacted]` as the response arrives, so ordinary lists still work and none of those values reach the output or the local store.
+- Any other output, file or MCP result that would repeat `MAXIO_API_KEY`, the stored key, or a credential you typed (a card number or CVV, a bank account number or IBAN, a `chargify_token`, a payment nonce) is withheld as a whole and prints `[credkit: withheld from <where>: it carried a credential this program holds]` in its place, including in the common encodings.
+- Responses are never cached on disk: every command reads the API's current answer.
+- A saved key lives only in `credentials.toml`, or in a `config.toml` you put it in, and both are kept at mode 0600. `auth set-token` reads the key from stdin, never from an argument.
+- `--dry-run` sends nothing. Over MCP, `maxio_execute` (every Maxio endpoint that changes something) and `import` return a preview and send only with `confirm: true`, and a tool argument can never name a file to read or write.
+
 ## Troubleshooting
 **Authentication errors (exit code 4)**
 - Run `maxio-cli doctor` to check credentials
-- Verify the environment variable is set: `echo $MAXIO_USERNAME`
+- Verify the environment variable is set: `echo $MAXIO_API_KEY`
 **Not found errors (exit code 3)**
 - Check the resource ID is correct
 - Run the `list` command to see available items
 
 ### API-specific
 - **mrr/retention/cohort commands return empty or thin history**  -  Run sync first; historic depth accrues from each sync's snapshot. First sync backfills from the live movement endpoint.
-- **401 Unauthorized**  -  Check MAXIO_USERNAME is your Advanced Billing API key, MAXIO_PASSWORD is set (the literal 'x' for API-key access), and MAXIO_SITE is the bare subdomain (no .chargify.com).
+- **401 Unauthorized**  -  Check MAXIO_API_KEY is your Advanced Billing API key and MAXIO_SITE is the bare subdomain (no .chargify.com).
 - **403 on mrr/mrr_movements/subscriptions_mrr endpoints**  -  The Insights/Analytics add-on is not enabled on the site; the local-compute mrr commands still work off synced data.
 - **rate limited (429)**  -  The client backs off and retries; lower sync concurrency or sync fewer --resources at once if it persists.
 
