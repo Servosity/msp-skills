@@ -1,7 +1,7 @@
 ---
 layout: default
 title: "TD SYNNEX StreamOne ION MCP Server - Free, Open Source, Runs Locally | MSP Skills"
-description: "The StreamOne ION v3 reseller API (customers, catalog, orders, subscriptions, carts, reports), plus a local licence book for renewals, margin and cross-distributor true-up."
+description: "Every StreamOne ION reseller API, plus a local licence book for renewals, margin and cross-distributor true-up."
 permalink: /skills/td-synnex/
 skill_name: "TD SYNNEX StreamOne ION MCP"
 image: /assets/social/td-synnex/wide-1200x630.png
@@ -12,7 +12,7 @@ faqs:
   - q: "Is the TD SYNNEX StreamOne ION MCP server safe for client data?"
     a: "Yes, by design - and the exceptions are ones you switch on yourself. The CLI, the MCP server, and any local data mirror run on your own machine, and nothing is sent to MSP Skills or any third party unless you ask for it. Three paths can move data off the machine, all opt-in: `--deliver webhook:<url>` posts a command's output to a URL you name; `TD_SYNNEX_FEEDBACK_AUTO_SEND=true` posts feedback you typed to the URL in `TD_SYNNEX_FEEDBACK_ENDPOINT` (with no endpoint set, `feedback` only writes a local file); `--transport http` opens a local MCP listener you then choose whether to expose. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page."
   - q: "Does this work with ChatGPT?"
-    a: "Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way td-synnex-mcp runs, and shares MCP configuration with Codex: add td-synnex-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote (HTTP) server, and this connector's HTTP mode is paused until it is reprinted; the security note at the top of the install guide explains why. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list."
+    a: "Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way td-synnex-mcp runs, and shares MCP configuration with Codex: add td-synnex-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote server. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list."
   - q: "Do I need to know how to code?"
     a: "No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You paste your ION refresh token once."
   - q: "Is my TD SYNNEX data safe?"
@@ -24,7 +24,7 @@ faqs:
   - q: "Will this hit my ION API limits?"
     a: "subscriptions renewals, subscriptions changes, margin, position export, position trueup, orders stuck and customers show answer from the local store. When the store is stale they first refresh the first page (about 100 rows) of each resource, so with a larger book run td-synnex-cli sync before whole-book answers; add --data-source local (or set TD_SYNNEX_NO_AUTO_REFRESH=1) to never call the API from them. Live calls respect the --rate-limit throttle."
   - q: "Can it change subscriptions or place orders?"
-    a: "Yes, and that is why the safety model matters. subscriptions set previews the UPDATE order and places it only with --confirm. Other writes (carts checkout, customer-orders create-order and cancel-order, customers create and update) send as soon as they run; preview them with --dry-run first. Keep orders, cancellations and suspensions human-approved."
+    a: "Yes, and that is why the safety model matters. subscriptions set previews the UPDATE order and places it only with --confirm. Other writes (carts checkout, customer-orders create-order and cancel-order, customers create and update) send as soon as they run; preview them with --dry-run first. Over MCP, every tool that can change ION previews and sends only when the agent repeats the call with confirm set to true. Keep orders, cancellations and suspensions human-approved."
   - q: "Are the margin numbers exact?"
     a: "Not yet proven. margin, subscriptions renewals, position export and customers show use the price and cost ION reports for each subscription and do not multiply them by seats (an amount ION does not send is reported as unknown, never as 0), and no MSP has yet confirmed the connector against a live ION tenant. Check one multi-seat subscription against the ION portal before you rely on the totals."
   - q: "Can I run the Pax8 or PSA true-up from Claude Desktop or ChatGPT?"
@@ -142,7 +142,7 @@ After install, authenticate once with your TD SYNNEX StreamOne ION credentials, 
 | Orders and spend | td-synnex-cli subscriptions set (seats, renewal setting, friendly name; places an order only with --confirm); td-synnex-cli carts checkout; td-synnex-cli customer-orders create-order; td-synnex-cli cloud-providers provision-customer; td-synnex-cli cloud-providers link-customer; td-synnex-cli products enable; td-synnex-cli products disable; td-synnex-cli programs batch-update-product | Human-in-the-loop only |
 | Destructive / credential | td-synnex-cli subscriptions set --status suspended or deleted; td-synnex-cli subscriptions set --renewal cancel_at_renewal (or its alias auto-off); td-synnex-cli customer-orders cancel-order; td-synnex-cli carts delete; td-synnex-cli cart-items delete; td-synnex-cli reports delete; td-synnex-cli auth mint, auth set-token and auth logout (credential changes) | Human-in-the-loop only, explicit confirmation |
 
-The skill drives td-synnex-cli and td-synnex-mcp with an ION access token minted from your refresh token and kept in a private credentials file, or read from TD_SYNNEX_ACCESS_TOKEN; tokens are never printed unless you ask and are sent only to the ION API (ion.tdsynnex.com unless you override TD_SYNNEX_BASE_URL). The licence-book commands and every list and get read change nothing. Writes are not gated by default except subscriptions set, which needs --confirm: treat ordering, checkout, cancellation, suspension and deletion as human-only, and set TD_SYNNEX_MCP_READ_ONLY=1 to keep the MCP server to reads. The strongest control is the ION user whose OAuth credentials you issue. Full details in [governance.md](https://github.com/servosity/msp-skills/blob/main/skills/td-synnex/governance.md).
+The skill drives td-synnex-cli and td-synnex-mcp with an ION access token minted from your refresh token and kept in a private credentials file, or read from TD_SYNNEX_ACCESS_TOKEN; tokens are never printed unless you ask and are sent only to the ION API (ion.tdsynnex.com unless you override TD_SYNNEX_BASE_URL). The licence-book commands and every list and get read change nothing. CLI writes are not gated by default except subscriptions set, which needs --confirm; over MCP every write previews and sends only with confirm set to true: treat ordering, checkout, cancellation, suspension and deletion as human-only, and set TD_SYNNEX_MCP_READ_ONLY=1 to keep the MCP server to reads. The strongest control is the ION user whose OAuth credentials you issue. Full details in [governance.md](https://github.com/servosity/msp-skills/blob/main/skills/td-synnex/governance.md).
 
 ## Frequently asked questions
 
@@ -156,7 +156,7 @@ Yes, by design - and the exceptions are ones you switch on yourself. The CLI, th
 
 ### Does this work with ChatGPT?
 
-Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way td-synnex-mcp runs, and shares MCP configuration with Codex: add td-synnex-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote (HTTP) server, and this connector's HTTP mode is paused until it is reprinted; the security note at the top of the install guide explains why. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
+Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way td-synnex-mcp runs, and shares MCP configuration with Codex: add td-synnex-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote server. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
 
 ### Do I need to know how to code?
 
@@ -180,7 +180,7 @@ subscriptions renewals, subscriptions changes, margin, position export, position
 
 ### Can it change subscriptions or place orders?
 
-Yes, and that is why the safety model matters. subscriptions set previews the UPDATE order and places it only with --confirm. Other writes (carts checkout, customer-orders create-order and cancel-order, customers create and update) send as soon as they run; preview them with --dry-run first. Keep orders, cancellations and suspensions human-approved.
+Yes, and that is why the safety model matters. subscriptions set previews the UPDATE order and places it only with --confirm. Other writes (carts checkout, customer-orders create-order and cancel-order, customers create and update) send as soon as they run; preview them with --dry-run first. Over MCP, every tool that can change ION previews and sends only when the agent repeats the call with confirm set to true. Keep orders, cancellations and suspensions human-approved.
 
 ### Are the margin numbers exact?
 

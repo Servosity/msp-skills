@@ -662,9 +662,9 @@
     {
       "name": "td-synnex",
       "type": "skill-md",
-      "description": "The StreamOne ION v3 reseller API (customers, catalog, orders, subscriptions, carts, reports), plus a local licence book for renewals, margin and cross-distributor true-up. Trigger phrases: `what TD SYNNEX subscriptions renew this month`, `change seats on a StreamOne ION subscription`, `true up licences across TD SYNNEX and Pax8`, `which ION orders are stuck on hold`, `use td-synnex`, `run td-synnex`.",
+      "description": "Use when the user asks about TD SYNNEX StreamOne ION (the ION reseller marketplace for Microsoft 365, Azure and security licences): subscriptions renewing soon or with auto-renew off, margin per customer or SKU, seat true-up against Pax8, Sherweb or PSA exports, stuck or failed orders, recent seat and renewal changes, one customer's full picture, or changing seats, renewal settings or status on an ION subscription. Trigger phrases: `what TD SYNNEX subscriptions renew this month`, `which ION customers am I losing money on`, `change seats on a StreamOne ION subscription`, `true up licences across TD SYNNEX and Pax8`, `which ION orders are stuck on hold`, `use td-synnex`, `run td-synnex`.",
       "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/td-synnex/SKILL.md",
-      "digest": "sha256:8fffe86184bcf9b1c5f5d32136ad630be56caa1ecf35f688901ca252f4c389f1"
+      "digest": "sha256:66ee94367c84574d95c8f87b895b3b6d1cf765e59a377c20f76c97fe46bf1299"
     },
     {
       "name": "threatdown",

@@ -1920,7 +1920,7 @@
       "first_party": false,
       "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/td-synnex/install.sh)",
       "install_mcp_doc": "skills/td-synnex/mcp-install.md",
-      "description": "The StreamOne ION v3 reseller API (customers, catalog, orders, subscriptions, carts, reports), plus a local licence book for renewals, margin and cross-distributor true-up.",
+      "description": "Every StreamOne ION reseller API, plus a local licence book for renewals, margin and cross-distributor true-up.",
       "verification": "awaiting",
       "category": "Billing",
       "tagline": "Track StreamOne ION subscriptions, renewals and margin per customer, and true up licence counts across distributors."
