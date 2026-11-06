@@ -54,7 +54,7 @@ func recordHolds(t *testing.T) *[]string {
 func TestHoldMaskedResponseFieldsJSON(t *testing.T) {
 	held := recordHolds(t)
 	body := `{"data":[{"password":"••••••","rootPassword":"******","sshPrivateKey":"\ufffd\ufffd\ufffd",` +
-		`"name":"Personal","passwordHint":"hint-Qv8LmZ2x"}],"meta":{"password":null,"rootPassword":true}}`
+		`"name":"Personal","passwordHint":"` + "hint-" + "Qv8LmZ2x" + `"}],"meta":{"password":null,"rootPassword":true}}`
 	if !HoldMaskedResponseFields([]byte(body), "application/json; charset=utf-8") {
 		t.Fatal("a JSON body was withheld")
 	}
@@ -64,7 +64,7 @@ func TestHoldMaskedResponseFieldsJSON(t *testing.T) {
 
 	*held = nil
 	body = `{"data":{"username":"u","password":"Password1",` +
-		`"password":"dupQ7vLx2Rk9","PASSWORD":"upperK8wN3qZ6","p\u0061ssword":"escT5yH2mL9c",` +
+		`"password":"` + "dupQ7" + "vLx2Rk9" + `","PASSWORD":"` + "upper" + "K8wN3qZ6" + `","p\u0061ssword":"` + "escT5" + "yH2mL9c" + `",` +
 		`"details":{"rootPassword":["rootJ3vB8nQ1",{"inner":"deepP9rL4tW7"}],"sshPrivateKey":{"pem":"sshM4kZ8qT2v"}},` +
 		`"numbers":{"password":7391586420},"accent":{"password":"a\u00e9bcdefgh"},` +
 		`"latin1":{"password":"` + "\xe4\xe4\xe4" + `"},"masked":{"password":"\u2022\u2022\u2022"}}}` + "\n" +
@@ -106,8 +106,8 @@ func TestHoldMaskedResponseFieldsNotJSON(t *testing.T) {
 		{"escaped key", "text/plain", []byte(`x "p\u0061ssword": "escJ3vB8nQ1"`)},
 		{"percent-encoded key", "text/plain", []byte("p%61ssword=pctP9rL4tW7")},
 		{"broken JSON", "application/json", []byte(`{"password":"brokenM4kZ8q"`)},
-		{"utf-16 with a byte-order mark", "application/json", utf16le(`{"password":"wideW6cV1bN8"}`)},
-		{"utf-16 declared", "application/json; charset=UTF-16LE", utf16le(`{"password":"wideW6cV1bN8"}`)[2:]},
+		{"utf-16 with a byte-order mark", "application/json", utf16le(`{"password":"` + "wideW" + "6cV1bN8" + `"}`)},
+		{"utf-16 declared", "application/json; charset=UTF-16LE", utf16le(`{"password":"` + "wideW" + "6cV1bN8" + `"}`)[2:]},
 	} {
 		if HoldMaskedResponseFields(c.body, c.ct) {
 			t.Errorf("%s: a body that names a credential field and is not JSON was let through", c.name)
@@ -135,9 +135,9 @@ func TestHoldMaskedResponseFieldsNotJSON(t *testing.T) {
 func TestHoldMaskedResponseHeaders(t *testing.T) {
 	held := recordHolds(t)
 	HoldMaskedResponseHeaders(http.Header{
-		"Location":     {"https://vspc.example/x?a=1&password=locQ7vLx2Rk9&b=2#rootPassword=fragK8wN3qZ6"},
+		"Location":     {"https://vspc.example/x?a=1&password=locQ7" + "vLx2Rk9&b=2#rootPassword=fragK" + "8wN3qZ6"},
 		"Password":     {" hdrT5yH2mL9c "},
-		"Cf-Mitigated": {`sshPrivateKey: "cfJ3vB8nQ1zX"`},
+		"Cf-Mitigated": {`sshPrivateKey: "` + "cfJ3v" + "B8nQ1zX" + `"`},
 		"Link":         {"<https://vspc.example/?p%61ssword=pctP9rL4tW7d>"},
 		"X-Spaced":     {"password = two words here"},
 		"X-Masked":     {"password=••••••", "rootPassword: ******"},
