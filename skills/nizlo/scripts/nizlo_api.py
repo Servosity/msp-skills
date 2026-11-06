@@ -442,9 +442,50 @@ def selfcheck() -> None:
         globals()["open_request"] = original_open_request
     assert seen["authorization"] == f"Bearer {secret}"
     assert seen["timeout"] == "30"
+
+    class InvalidUtf8Response(Response):
+        """Return bytes that cannot be decoded as UTF-8."""
+
+        def read(self) -> bytes:
+            return b"\xff"
+
+    def fake_invalid_utf8(request: Request, timeout: int) -> InvalidUtf8Response:
+        return InvalidUtf8Response()
+
+    globals()["open_request"] = fake_invalid_utf8
+    try:
+        try:
+            request_json(base + "dashboard/summary", secret)
+        except ClientError as exc:
+            assert str(exc) == "Nizlo API returned a non-JSON response"
+        else:
+            raise AssertionError("invalid UTF-8 escaped the controlled error path")
+    finally:
+        globals()["open_request"] = original_open_request
+
+    class InterruptedResponse(Response):
+        """Simulate a connection failure while reading the response body."""
+
+        def read(self) -> bytes:
+            raise ConnectionResetError("connection reset during self-check")
+
+    def fake_interrupted_read(request: Request, timeout: int) -> InterruptedResponse:
+        return InterruptedResponse()
+
+    globals()["open_request"] = fake_interrupted_read
+    try:
+        try:
+            request_json(base + "dashboard/summary", secret)
+        except ClientError as exc:
+            assert str(exc).startswith("Nizlo API response was interrupted:")
+        else:
+            raise AssertionError("read interruption escaped the controlled error path")
+    finally:
+        globals()["open_request"] = original_open_request
     print(
         "nizlo_api.py selfcheck OK "
-        "(offline, HTTPS routes + bearer header + redaction + stale report)"
+        "(offline, HTTPS routes + bearer header + controlled errors + "
+        "redaction + stale report)"
     )
 
 
