@@ -57,7 +57,10 @@ Use this command for retainer/block-hour run-out projection and over-threshold f
 			if err != nil {
 				return apiErr(err)
 			}
-			entries, _ := listEntity(db, "time-entries")
+			entries, err := listEntity(db, "time-entries")
+			if err != nil {
+				return apiErr(err)
+			}
 
 			type retainer struct {
 				ContractID      string  `json:"contractID"`
@@ -99,7 +102,7 @@ Use this command for retainer/block-hour run-out projection and over-threshold f
 				if !ok || worked.Before(windowStart) {
 					continue
 				}
-				h, _ := numAt(e, "hoursWorked", "hoursToBill", "hours")
+				h, _ := numAt(e, "hoursWorked", "hoursToBill")
 				recentHours[cid] += h
 			}
 

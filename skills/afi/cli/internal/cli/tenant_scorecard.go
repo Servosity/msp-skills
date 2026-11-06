@@ -44,6 +44,7 @@ type tenantScorecardView struct {
 	QuotasExceeded    []string         `json:"quotas_exceeded"`
 	SyncedAt          string           `json:"synced_at,omitempty"`
 	Note              string           `json:"note,omitempty"`
+	Incomplete        []string         `json:"incomplete,omitempty"`
 }
 
 func newNovelTenantScorecardCmd(flags *rootFlags) *cobra.Command {
@@ -108,6 +109,9 @@ Do NOT use this command for the all-tenants rollup; use 'fleet-health' instead.`
 			switch {
 			case err == sql.ErrNoRows:
 				view.Note = "tenant not found in the local store; run 'afi-cli fleet-sync' or check the ID with 'afi-cli resolve'"
+				if err := withFleetGaps(cmd.Context(), db, map[string]bool{tid: true}, &view.Incomplete, &view.Note); err != nil {
+					return err
+				}
 				return printJSONFiltered(cmd.OutOrStdout(), view, flags)
 			case err != nil:
 				return fmt.Errorf("querying tenant: %w", err)
@@ -209,6 +213,9 @@ Do NOT use this command for the all-tenants rollup; use 'fleet-health' instead.`
 				return fmt.Errorf("querying task snapshot: %w", err)
 			}
 
+			if err := withFleetGaps(cmd.Context(), db, map[string]bool{tid: true}, &view.Incomplete, &view.Note); err != nil {
+				return err
+			}
 			return printJSONFiltered(cmd.OutOrStdout(), view, flags)
 		},
 	}

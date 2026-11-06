@@ -1,0 +1,7 @@
+{
+ "schema": 1,
+ "withheld": {
+  "spec.yaml": "flagged by gitleaks",
+  "tools-manifest.json": "flagged by gitleaks"
+ }
+}

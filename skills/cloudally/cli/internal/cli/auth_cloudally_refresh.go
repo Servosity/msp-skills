@@ -85,6 +85,30 @@ func cloudallyRefreshHook(c *client.Client) error {
 	}
 	defer cloudallyRefreshRunning.Store(false)
 
+	oldToken, oldRefresh := cfg.AccessToken, cfg.RefreshToken
+	// A refresh token that does not belong to the active access token would
+	// swap the credential to another session (and user) in the middle of a
+	// run that may already hold the old credential's local store open. The
+	// pair is known to belong together only when the auth record describes
+	// both tokens.
+	actx, status, _ := readAuthContext()
+	binding := bindingFor(cfg)
+	known := status == authContextOK && actx.pairKnown(binding, oldToken, oldRefresh)
+	if !known {
+		if status == authContextOK && actx.accessKnown(binding, oldToken) {
+			return authErr(fmt.Errorf("not refreshing the CloudAlly token: the stored refresh token does not belong to the signed-in session recorded in %s; %s", authContextFileName, cloudallyLoginHint))
+		}
+		// An access token from CLOUDALLY_ACCESS_TOKEN is used as given: the
+		// stored refresh token (and the stored expiry this hook read)
+		// belong to whatever session is stored, not to it.
+		if env := strings.TrimSpace(cliutil.EnvOverride("CLOUDALLY_ACCESS_TOKEN")); env != "" && env == strings.TrimSpace(oldToken) {
+			return nil
+		}
+	}
+	principal := ""
+	if known {
+		principal = actx.refreshPrincipal(binding, oldToken, oldRefresh)
+	}
 	accessToken, refreshToken, expiry, refreshExpiry, err := cloudallyRefreshTokens(c.BaseURL, cfg.ClientID, cfg.ClientSecret, cfg.RefreshToken)
 	if err != nil {
 		return err
@@ -92,15 +116,32 @@ func cloudallyRefreshHook(c *client.Client) error {
 	if err := cfg.SaveTokens(cfg.ClientID, cfg.ClientSecret, accessToken, refreshToken, expiry); err != nil {
 		return authErr(fmt.Errorf("saving refreshed CloudAlly token: %w; %s", err, cloudallyLoginHint))
 	}
-	if actx, ok := loadAuthContext(); ok && actx.Scope == authScopePartner {
-		actx.PartnerAccessToken = accessToken
-		actx.PartnerRefreshToken = refreshToken
-		actx.PartnerTokenExpiry = expiry
-		if !refreshExpiry.IsZero() {
-			actx.RefreshExpiresAt = refreshExpiry
+	// The auth record follows the rotation only when it described the
+	// credential that was just replaced. One describing anything else (a
+	// different config, an environment token, another session's refresh
+	// token) is left exactly as it is: neither its binding nor its kept
+	// partner session may take this token.
+	if known {
+		if isPartnerPrincipal(principal) {
+			actx.stashPartner(binding, accessToken, refreshToken, expiry, principal)
+			if !refreshExpiry.IsZero() {
+				actx.RefreshExpiresAt = refreshExpiry
+			}
 		}
-		// Sidecar persistence is best effort; the primary credential is saved.
-		_ = saveAuthContext(actx)
+		actx.bindTo(binding, accessToken, refreshToken, principal)
+		// The new token is already saved. Carrying on with a record that
+		// still describes the old one would leave every later run unable to
+		// find this user's local store, so the command stops here instead.
+		if err := saveAuthContext(actx); err != nil {
+			return configErr(fmt.Errorf("the CloudAlly token was refreshed and saved, but %s could not be updated: %w; local restore history stays unavailable until you run `cloudally-cli auth login` again", authContextFileName, err))
+		}
+	}
+	if principal == "" {
+		// The root command chose this run's local store for the credential
+		// that was just replaced. Nothing names the new token's user, so the
+		// rest of the run must not write into that store: re-derive the
+		// scope from the new credential.
+		setDefaultDBScopeIdentity(cfg.StoreScopeCredential(), cfg.StoreScopeLegacyCredential(), cfg.BaseURL)
 	}
 	return nil
 }

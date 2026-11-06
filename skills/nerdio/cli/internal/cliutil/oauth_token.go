@@ -60,7 +60,7 @@ func oauthTokenSameOrigin(target, origin *url.URL) bool {
 	// Hostname and port are compared separately so an IPv6 address plus
 	// non-default port cannot collide with a different IPv6 address whose
 	// last hextet looks like that port (host:port concatenation would).
-	// Hand-wired (handfixes.json: token-request-stays-on-origin): hosts compare
+	// Hand-fix (handfixes.json token-request-stays-on-origin): hosts compare
 	// the way the network resolves them, not with Unicode case folding.
 	if !oauthTokenSameHost(target.Hostname(), origin.Hostname()) {
 		return false
@@ -68,11 +68,11 @@ func oauthTokenSameOrigin(target, origin *url.URL) bool {
 	return oauthTokenCanonicalPort(target) == oauthTokenCanonicalPort(origin)
 }
 
-// oauthTokenSameHost reports whether two URL hostnames name the same host. An
-// IP literal must be the same address, IPv6 zone included and compared exactly
-// (interface names are case-sensitive on Linux, so fe80::1%lan0 and
-// fe80::1%LAN0 can be different peers). A DNS name matches case-insensitively
-// in ASCII only; a name with any non-ASCII byte must match exactly.
+// oauthTokenSameHost compares two URL hostnames the way the network resolves
+// them. An IP literal must be the same address, IPv6 zone included (Linux
+// interface names are case-sensitive). A DNS name folds ASCII case only;
+// strings.EqualFold also folds Unicode (the Kelvin sign equals k), which no
+// resolver does. Hand-fix (handfixes.json token-request-stays-on-origin).
 func oauthTokenSameHost(a, b string) bool {
 	ipA, errA := netip.ParseAddr(a)
 	ipB, errB := netip.ParseAddr(b)

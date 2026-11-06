@@ -60,9 +60,7 @@ To install:
 2. Double-click the `.mcpb` file. Claude Desktop opens and walks you through the install.
 3. Fill in `AUTOTASK_API_INTEGRATION_CODE` when Claude Desktop prompts you.
 
-Requires Claude Desktop 1.0.0 or later. A bundle carries the five platform binaries the builder downloads - macOS (`darwin-arm64`, `darwin-amd64`), Linux (`linux-arm64`, `linux-amd64`) and Windows (`windows-amd64`). Windows on ARM is released as a standalone binary but is not bundled, so use the manual config below there.
-
-> **Claude Desktop bundle:** the `.mcpb` launches on macOS (Intel and Apple Silicon), Windows x64 and Linux x64. Every tool shells out to the companion `autotask-cli`. Releases cut from 2026-09-18 on ship that CLI inside the bundle; older bundles contain only the MCP server, so if yours lacks the companion, run the installer above first (or set `AUTOTASK_CLI_PATH` to an existing binary). Details: [#331](https://github.com/Servosity/msp-skills/issues/331).
+Requires Claude Desktop 1.0.0 or later. Pre-built bundles ship for macOS Apple Silicon (`darwin-arm64`) and Windows (`amd64`, `arm64`); for other platforms, use the manual config below.
 
 <details>
 <summary>Manual JSON config (advanced)</summary>
@@ -77,7 +75,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/sk
 iwr -useb https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/autotask/install.ps1 | iex            # Windows
 ```
 
-Add to your Claude Desktop config (`%APPDATA%\Claude\claude_desktop_config.json` on Windows, `~/Library/Application Support/Claude/claude_desktop_config.json` on macOS):
+Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS, `%APPDATA%\Claude\claude_desktop_config.json` on Windows):
 
 ```json
 {
@@ -94,9 +92,20 @@ Add to your Claude Desktop config (`%APPDATA%\Claude\claude_desktop_config.json`
 
 </details>
 
+### Remote MCP over HTTP
+
+`autotask-mcp --transport http` (or `PP_MCP_TRANSPORT=http`) serves streamable HTTP at `http://127.0.0.1:7777/mcp`. It refuses to start until `AUTOTASK_MCP_HTTP_TOKEN` is set to at least 32 characters, and every request must send `Authorization: Bearer <token>`. The command below prints 64 hex characters and meets that minimum. Plain HTTP is allowed only on a loopback `--addr`; any other bind, including `:7777` (every interface), also needs `--tls-cert` and `--tls-key`. Requests with no `Origin` header are accepted, as are loopback origins (`localhost`, `127.0.0.1`, or `[::1]`, any port). Any other `Origin` is refused unless it is listed in `AUTOTASK_MCP_HTTP_ALLOWED_ORIGINS`, a comma-separated list of `scheme://host[:port]` values with no path. That list is not a CORS policy; the server does not emit CORS headers.
+
+```bash
+export AUTOTASK_MCP_HTTP_TOKEN="$(openssl rand -hex 32)"
+autotask-mcp --transport http
+```
+
+Set `AUTOTASK_MCP_READ_ONLY=1` (exactly `1`) to drop mirrored commands that are not marked read-only and make the raw execute tool refuse state-changing calls. Commands marked local-write, which write only this CLI's own learn store, stay available.
+
 ## Authentication
 
-Autotask uses three headers on every call: ApiIntegrationCode, UserName, and Secret (set AUTOTASK_PSA_API_INTEGRATION_CODE, AUTOTASK_PSA_USER_NAME, AUTOTASK_PSA_SECRET). Your tenant lives in a numbered zone; run `autotask-cli zone --user <api-user-email>` once to discover and cache the zone base URL (or set AUTOTASK_ZONE_URL).
+Autotask uses three headers on every call: ApiIntegrationCode, UserName, and Secret (set AUTOTASK_API_INTEGRATION_CODE, AUTOTASK_PSA_USER_NAME, AUTOTASK_PSA_SECRET). Your tenant lives in a numbered zone; run `autotask-cli zone --user <api-user-email>` once to discover and cache the zone base URL (or set AUTOTASK_BASE_URL).
 
 ## Quick Start
 
@@ -119,8 +128,6 @@ autotask-cli triage --agent
 ```
 
 ## Unique Features
-
-These capabilities aren't available in any other tool for this API.
 
 ### Service-desk intelligence
 - **`ticket-aging`**  -  Bucket open tickets by age so you see how stale the service desk is at a glance.
@@ -167,7 +174,7 @@ These capabilities aren't available in any other tool for this API.
   ```
 
 ### Money and contracts
-- **`unbilled`**  -  Surface approved time entries that haven't been invoiced yet  -  money on the table.
+- **`unbilled`**  -  Surface billable time entries not yet approved and posted for billing  -  money on the table.
 
   _Use for billing reconciliation and revenue recovery._
 
@@ -181,7 +188,7 @@ These capabilities aren't available in any other tool for this API.
   ```bash
   autotask-cli contract-burn --agent
   ```
-- **`reconcile`**  -  One month-end table: approved time vs invoiced, contract blocks consumed vs purchased, and the money left on the table.
+- **`reconcile`**  -  One month-end table: billable time not yet approved and posted, contract blocks consumed vs purchased, and the money left on the table.
 
   _Reach for this when an agent needs the full billing-close picture, not just unbilled hours._
 
@@ -232,11 +239,10 @@ These capabilities aren't available in any other tool for this API.
   _Use to translate Autotask integer IDs before building filters; use the entity's query-field-definitions command to list all fields._
 
   ```bash
-  autotask-cli picklist Tickets status --agent
+  autotask-cli picklist TimeEntries timeEntryType --agent
   ```
 
 ## Recipes
-
 
 ### Morning dispatch
 
@@ -273,14 +279,89 @@ One company's tickets, contacts, contracts, config items, and opportunities.
 ### Offline search
 
 ```bash
-autotask-cli search "vpn outage"
+autotask-cli search "vpn outage" --type tickets
 ```
 
-Full-text search across synced tickets and companies with no API call.
+Full-text search across synced tickets with no API call.
 
 ## Usage
 
 Run `autotask-cli --help` for the full command reference and flag list.
+
+## Paths & environment variables
+
+This CLI separates local files into four path kinds:
+
+| Kind | Contents |
+|------|----------|
+| `config` | User-editable settings such as `config.toml` and saved profiles |
+| `data` | Durable local data: `credentials.toml`, `data.db`, cookies, browser-session proof files, and other auth sidecars |
+| `state` | Runtime state such as persisted queries, jobs, and `teach.log` |
+| `cache` | Regenerable HTTP/cache files |
+
+Each kind resolves independently. The ladder is:
+
+1. Per-kind env var: `AUTOTASK_CONFIG_DIR`, `AUTOTASK_DATA_DIR`, `AUTOTASK_STATE_DIR`, or `AUTOTASK_CACHE_DIR`
+2. `--home <dir>` for this invocation
+3. `AUTOTASK_HOME` for a flat relocated root
+4. XDG env vars: `XDG_CONFIG_HOME`, `XDG_DATA_HOME`, `XDG_STATE_HOME`, `XDG_CACHE_HOME`
+5. Platform defaults matching existing installs
+
+For containers and agent sandboxes, prefer a single relocated root:
+
+```bash
+export AUTOTASK_HOME=/srv/autotask
+autotask-cli doctor
+```
+
+On Windows (PowerShell):
+
+```powershell
+$env:AUTOTASK_HOME = "C:\ProgramData\autotask"
+autotask-cli doctor
+```
+
+Under `AUTOTASK_HOME=/srv/autotask`, the four dirs resolve to `/srv/autotask/config`, `/srv/autotask/data`, `/srv/autotask/state`, and `/srv/autotask/cache`.
+
+On Windows, set the same variable in PowerShell:
+
+```powershell
+$env:AUTOTASK_HOME = "C:\srv\autotask"
+autotask-cli doctor
+```
+
+Under `$env:AUTOTASK_HOME = "C:\srv\autotask"`, the four dirs resolve to `C:\srv\autotask\config`, `C:\srv\autotask\data`, `C:\srv\autotask\state`, and `C:\srv\autotask\cache`.
+
+MCP servers do not receive CLI flags from the host. Put relocation in the host `env` block:
+
+```json
+{
+  "mcpServers": {
+    "autotask": {
+      "command": "autotask-mcp",
+      "env": {
+        "AUTOTASK_HOME": "/srv/autotask"
+      }
+    }
+  }
+}
+```
+
+Precedence matters in fleets: an ambient per-kind variable such as `AUTOTASK_DATA_DIR` overrides an explicit `--home` for that kind. Use `AUTOTASK_HOME` or the per-kind variables for durable fleet relocation; treat `--home` as the weaker per-invocation lever.
+
+Relocation is one-way. Unsetting `AUTOTASK_HOME` does not move files back to platform defaults, and `doctor` cannot find credentials left under a former root. Move the files manually before unsetting relocation variables.
+
+Existing installs keep working because the platform-default rung matches the legacy layout. On the first auth write, stored secrets leave `config.toml` and are consolidated into `credentials.toml` under the data directory. Run `autotask-cli doctor --fail-on warn` to check path and credential-location warnings in automation.
+
+### Local data
+
+Reads are saved locally by default: in `--data-source auto` mode every successful read is also written to the SQLite store (`data.db`, or `data-<hash>.db` per credential) in the data directory. GET responses are never cached on disk. Credentials live in `credentials.toml` in the data directory. The learn journal lives under `learn/` in the state directory. `autotask-cli doctor` prints the resolved paths, every store file, and the response-cache size.
+
+None of it is encrypted. New files are created owner-only; beyond that the data relies on OS account permissions and full-disk encryption (FileVault, BitLocker, LUKS).
+
+- **Erase it:** `autotask-cli local-data purge` lists the store files, response cache, and learn journal it would delete; add `--yes` to delete them, or `--only store|cache|journal` to narrow it. Config and credentials are kept.
+- **Run without a local copy:** set `AUTOTASK_NO_LOCAL_DATA=1`. Reads go to the API (`--data-source live`; `--data-source local` still reads an existing store), the response cache is off (`--no-cache`), nothing new is written to the store, and `sync` and `workflow archive` refuse to run. Set it in an MCP host's `env` block and every command the server runs inherits it.
+- **Choose the read source without flags:** `AUTOTASK_DATA_SOURCE=auto|live|local` sets the `--data-source` default; an explicit flag wins.
 
 ## Commands
 
@@ -923,6 +1004,115 @@ Manage time entries
 - **`autotask-cli time-entries url-parameter-query-count`** - Url parameter query count
 
 
+### account-brief
+
+
+- **`autotask-cli account-brief`** - What changed on one account since a point in time  -  new tickets, contract burn movement, opportunities, stale items.
+
+
+### company-360
+
+
+- **`autotask-cli company-360`** - One view of a company's tickets, contacts, contracts, config items, and opportunities.
+
+
+### contract-burn
+
+
+- **`autotask-cli contract-burn`** - Show how much of each contract's hours/blocks are consumed versus purchased.
+
+
+### data-gaps
+
+
+- **`autotask-cli data-gaps`** - Find tickets with no contract, time entries with no ticket, contacts and config items with no company.
+
+
+### picklist
+
+
+- **`autotask-cli picklist`** - Print the label-to-ID map for any picklist field (status, priority, queue) from cached field metadata.
+
+
+### project-health
+
+
+- **`autotask-cli project-health`** - Flag projects with overdue tasks or past end dates.
+
+
+### reconcile
+
+
+- **`autotask-cli reconcile`** - One month-end table: billable time not yet approved and posted, contract blocks consumed vs purchased, and the money left on the table.
+
+
+### retainer
+
+
+- **`autotask-cli retainer`** - Block-hour contracts ranked by percent consumed, with projected run-out dates from recent burn rate.
+
+
+### since
+
+
+- **`autotask-cli since`** - See what changed across tickets in the last N hours or days.
+
+
+### sla-breaches
+
+
+- **`autotask-cli sla-breaches`** - List open tickets past their due date or overdue for first response.
+
+
+### stale
+
+
+- **`autotask-cli stale`** - Find tickets or projects with no activity in N days.
+
+
+### ticket-aging
+
+
+- **`autotask-cli ticket-aging`** - Bucket open tickets by age so you see how stale the service desk is at a glance.
+
+
+### triage
+
+
+- **`autotask-cli triage`** - Rank open unassigned tickets by priority and age into a workable queue.
+
+
+### unbilled
+
+
+- **`autotask-cli unbilled`** - Surface billable time entries not yet approved and posted for billing  -  money on the table.
+
+
+### workload
+
+
+- **`autotask-cli workload`** - See which technicians are overloaded by open ticket and task hours before you assign more.
+
+
+
+
+### Self-learning loop
+
+This CLI caches per-question discovery so repeat queries skip the walk and structurally similar queries get answered via entity substitution. The loop also self-captures: every invocation is journaled locally, and failed-flag corrections plus fresh teaches surface as candidates on the next `recall` for confirm/reject judgment. Agents call `recall` before discovery and fire `teach &` after answering. See the `## Automatic learning` section in `SKILL.md` for the full protocol.
+
+- **`autotask-cli recall <query>`** - Look up cached resources for a query before running discovery
+- **`autotask-cli teach`** - Record a query -> resource mapping (silent on success, safe to background with `&`)
+- **`autotask-cli learnings list`** - Inspect taught rows
+- **`autotask-cli learnings forget <query>`** - Undo a teach
+- **`autotask-cli learnings candidates`** - List auto-captured candidates awaiting confirm/reject
+- **`autotask-cli learnings stats`** - Local loop metrics: recall hit rate, teach-to-reuse, playbook resolution, candidate counts
+- **`autotask-cli teach-pattern`** - Install a query/resource template up front
+- **`autotask-cli teach-lookup`** - Add an entity mapping (e.g. country code, team alias) for pattern substitution
+
+Pass `--no-learn` or set `AUTOTASK_NO_LEARN=true` to disable the loop for deterministic flows.
+
+The local store's schema version stamp is one-way: once this version of `autotask-cli` opens the database, older binaries refuse it with a version error  -  upgrade the binary rather than downgrading.
+
 ## Output Formats
 
 ```bash
@@ -931,9 +1121,8 @@ autotask-cli appointments query
 
 # JSON for scripting and agents
 autotask-cli appointments query --json
-
 # Filter to specific fields
-autotask-cli appointments query --json --select id,name,status
+autotask-cli appointments query --json --select createDateTime,creatorResourceID,description
 
 # Dry run  -  show the request without sending
 autotask-cli appointments query --dry-run
@@ -942,21 +1131,23 @@ autotask-cli appointments query --dry-run
 autotask-cli appointments query --agent
 ```
 
+`--csv` prefixes a leading `'` on cells and header keys that start with `=`, `+`, `-`, `@`, a tab, or a line break (including fullwidth `＝＋－＠`) so a spreadsheet does not run them as formulas. Plain signed numbers such as `-5` and `+2.5e3` are left unchanged.
+
 ## Agent Usage
 
 This CLI is designed for AI agent consumption:
 
 - **Non-interactive** - never prompts, every input is a flag
 - **Pipeable** - `--json` output to stdout, errors to stderr
-- **Filterable** - `--select id,name` returns only fields you need
+- **Filterable** - `--select <field>[,<field>...]` returns only fields you need
 - **Previewable** - `--dry-run` shows the request without sending
-- **Explicit retries** - add `--idempotent` to create retries and `--ignore-missing` to delete retries when a no-op success is acceptable
-- **Confirmable** - `--yes` for explicit confirmation of destructive actions
+- **Explicit retries** - add `--idempotent` to create retries and add `--ignore-missing` to delete retries when a no-op success is acceptable
+- **Explicit confirmation** - `--agent` does not imply `--yes`; pass `--yes` separately only after the target, arguments, and side effects are clear
 - **Piped input** - write commands can accept structured input when their help lists `--stdin`
 - **Offline-friendly** - sync/search commands can use the local SQLite store when available
 - **Agent-safe by default** - no colors or formatting unless `--human-friendly` is set
 
-Exit codes: `0` success, `2` usage error, `3` not found, `4` auth error, `5` API error, `7` rate limited, `10` config error.
+Exit codes: `0` success, `2` usage error, `3` not found, `4` auth error, `5` API error, `6` partial failure, `7` rate limited, `10` config error.
 
 ## Health Check
 
@@ -968,19 +1159,31 @@ Verifies configuration, credentials, and connectivity to the API.
 
 ## Configuration
 
-Config file: `~/.config/autotask-cli/config.toml`
+Run `autotask-cli doctor` to see the resolved config, data, state, and cache directories. The platform-default config path is `~/.config/autotask-cli/config.toml` on macOS/Linux and `%USERPROFILE%\.config\autotask-cli\config.toml` on Windows; `--home`, `AUTOTASK_HOME`, and per-kind env vars can relocate it.
 
 Static request headers can be configured under `headers`; per-command header overrides take precedence.
+
+`--ca-cert`, `AUTOTASK_CA_CERT`, or `ca_cert` adds a PEM CA bundle to the system trust roots. `--tls-server-name`, `AUTOTASK_TLS_SERVER_NAME`, or `tls_server_name` is the name checked against the certificate when the dialed address does not match it. Precedence is flag, then environment, then the config file. A config file other users can change does not supply these settings. Certificate verification failures are not retried.
 
 Environment variables:
 
 | Name | Kind | Required | Description |
 | --- | --- | --- | --- |
-| `AUTOTASK_API_INTEGRATION_CODE` | per_call | Yes | Set to your API credential. |
+| `AUTOTASK_API_INTEGRATION_CODE` | per_call | Yes | The tracking identifier (Integration Code) of your integration vendor record; sent as the `ApiIntegrationCode` header. |
+| `AUTOTASK_PSA_USER_NAME` | per_call | Yes | The API-only user's username; sent as the `UserName` header. |
+| `AUTOTASK_PSA_SECRET` | per_call | Yes | The API-only user's secret; sent as the `Secret` header. |
+| `AUTOTASK_BASE_URL` | config | No | Your zone's REST base, e.g. `https://webservices5.autotask.net/atservicesrest/V1.0`; `zone` discovers and saves it. |
 
 ### agentcookie (optional)
 
 If you use agentcookie to sync secrets across machines, this CLI auto-adopts agentcookie-managed credentials with no extra setup. When the daemon writes to this CLI's config, `autotask-cli doctor` reports `agentcookie: detected` and `auth-status` labels the source as `agentcookie`. Skip this section if you don't use agentcookie - the CLI works the same as any other.
+
+## Credential safety
+
+- The three Autotask headers (`ApiIntegrationCode`, `UserName`, `Secret`) and every API request go only to the scheme, host and port of the configured base URL (`AUTOTASK_BASE_URL`, default `https://webservices5.autotask.net/atservicesrest/V1.0`). A redirect to any other host is refused, so the credentials never reach it. `zone` asks only `webservices.autotask.net` and saves only an `https://webservicesN.autotask.net/atservicesrest` zone URL.
+- Any output, file or MCP result that would repeat `AUTOTASK_API_INTEGRATION_CODE`, `AUTOTASK_PSA_USER_NAME`, `AUTOTASK_PSA_SECRET`, the stored integration code, or a credential-named value from a response (a webhook `secretKey`, a client portal user's `password`) prints "[text withheld: it repeated a secret value this program holds]" in its place, in any encoding. Responses are never cached on disk, and credential-named fields are dropped before anything reaches the local store.
+- Only `credentials.toml` (mode 0600) holds a credential; `auth set-token` reads the integration code from stdin, never from an argument.
+- `--dry-run` sends nothing. Over MCP, a tool that changes something (in Autotask, or this CLI's saved zone) returns a preview and acts only with `confirm: true`, and a tool argument can never name a file to read or write.
 
 ## Troubleshooting
 **Authentication errors (exit code 4)**
@@ -991,8 +1194,8 @@ If you use agentcookie to sync secrets across machines, this CLI auto-adopts age
 - Run the `list` command to see available items
 
 ### API-specific
-- **401 / unauthorized on every call**  -  Confirm all three of AUTOTASK_PSA_API_INTEGRATION_CODE, AUTOTASK_PSA_USER_NAME, AUTOTASK_PSA_SECRET are set  -  Autotask requires all three headers.
-- **404 or wrong-zone errors**  -  Run `autotask-cli zone --user <api-user-email>` to discover the correct webservicesN base, or set AUTOTASK_ZONE_URL.
+- **401 / unauthorized on every call**  -  Confirm all three of AUTOTASK_API_INTEGRATION_CODE, AUTOTASK_PSA_USER_NAME, AUTOTASK_PSA_SECRET are set  -  Autotask requires all three headers.
+- **404 or wrong-zone errors**  -  Run `autotask-cli zone --user <api-user-email>` to discover the correct webservicesN base, or set AUTOTASK_BASE_URL.
 - **query returns nothing**  -  Autotask listing is a filtered query; run `autotask-cli sync` first, or pass a filter  -  an empty filter returns zero rows by design.
 - **hit API request threshold (HTTP 429 / exit 7)**  -  Autotask enforces an hourly request budget per integration; narrow the sync with --resources and --max-pages and retry after the window resets.
 

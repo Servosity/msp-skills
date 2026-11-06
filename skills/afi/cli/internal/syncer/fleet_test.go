@@ -59,6 +59,34 @@ func (f *fakeSink) SaveSyncState(resourceType, _ string, count int) error {
 	return nil
 }
 
+func (f *fakeSink) Prune(resourceType, scopeField, scopeValue string, keep []string) error {
+	kept := map[string]bool{}
+	for _, id := range keep {
+		kept[id] = true
+	}
+	for id, obj := range f.rows[resourceType] {
+		if scopeField != "" && obj[scopeField] != scopeValue {
+			continue
+		}
+		if !kept[id] {
+			delete(f.rows[resourceType], id)
+		}
+	}
+	return nil
+}
+
+func (f *fakeSink) ScopeValues(resourceType, scopeField string) ([]string, error) {
+	seen := map[string]bool{}
+	var out []string
+	for _, obj := range f.rows[resourceType] {
+		if v, ok := obj[scopeField].(string); ok && !seen[v] {
+			seen[v] = true
+			out = append(out, v)
+		}
+	}
+	return out, nil
+}
+
 func fixedNow() time.Time {
 	return time.Date(2026, 6, 6, 12, 0, 0, 0, time.UTC)
 }

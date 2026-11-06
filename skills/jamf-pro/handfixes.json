@@ -1,0 +1,866 @@
+{
+ "slug": "jamf-pro",
+ "doc": "docs/reprint-survival.md",
+ "_comment": "Connector-specific edits to GENERATED files that a cli-printing-press reprint must NOT clobber. First print press 4.33.5; first release on press 4.34.2. Credential-less: no vendor tenant; behaviour proven against mocks and in-process fakes built from Jamf's public API reference.",
+ "handfixes": [
+  {
+   "id": "zero-based-pages",
+   "summary": "Jamf Pro API pages are 0-based: the --all walker and export start at page 0",
+   "why": "Jamf documents `page` with default 0 (spec components.parameters.page). The press's page paginator is 1-based: the --all walker (helpers.go) asked for page 1 first, and export (resource_paths.go resourcePageParams) sent page+1, so both skipped the first page (records 0-99): on a collection of up to 100 records export wrote 0 records. Sync seeds page 0 natively from 4.34.2 (seedSyncPageCursor, initialCursor \"0\"). Test: TestExportReadsEveryZeroBasedPage (seen failing on the raw 4.34.2 render, export-seen-failing.log).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "current = \"0\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/resource_paths.go",
+     "contains": "params[config.cursorParam] = strconv.Itoa(page)\n",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/resource_paths.go",
+     "not_contains": "params[config.cursorParam] = strconv.Itoa(page + 1)"
+    }
+   ]
+  },
+  {
+   "id": "client-credentials-form-body",
+   "summary": "Client credentials go in the token request's form body (client_id, client_secret), never HTTP Basic; a persisted pair is only one passed as flags",
+   "why": "Jamf's token endpoint (POST /api/v1/oauth/token, schema OAuthTokenRequest) reads client_id and client_secret from the form; RFC 6749 2.3 allows one client authentication method per request. Env-sourced secrets are never written to credentials.toml (client.go SaveTokens with the config pair; auth.go persists only a flag-passed pair).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "\"client_secret\": {clientSecret},",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "not_contains": "req.SetBasicAuth(clientID, clientSecret)"
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "c.Config.SaveTokens(c.Config.ClientID, c.Config.ClientSecret, tokenResp.AccessToken, \"\", expiry)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "if clientIDFromFlag && clientSecretFromFlag {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "one-identity",
+   "summary": "Every credential decision is made against one identity (internal/jamfauth): the minting pair, the MCP server's startup identity, auth login's transport, saved-token bindings and the store scope",
+   "why": "Prior print, 24 Codex rounds: a client built from a config, an MCP server, auth login and sync --path-context could each act as another server or client than the one checked. Hand files internal/jamfauth, internal/cli/jamf_token_auth.go and jamf_store_scope.go; these asserts are the generated-file call sites. Re-anchored for 4.34.2: auth login mints through jamfLoginClient(flags, cfg, clientID), which wraps the generated OAuth client so the TLS flags and dial guard stay.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "return jamfauth.Pair(cfg)",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/jamf-pro-mcp/main.go",
+     "contains": "if err := cli.EstablishMCPIdentity(); err != nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "tokenHTTP, err := jamfLoginClient(flags, cfg, clientID)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "bindSavedCredentials(cfg, tok.AccessToken, clientID, persistID, persistSecret)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "bindSavedCredentials(cfg, token, pairID(cfg), \"\", \"\")",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "return filepath.Join(dir, \"data-\"+scopeHash+\".db\")",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "setDefaultDBScopeIdentity(\"refused\\nconfig: \"+err.Error(), \"\", \"\")",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "--path-context server is not supported",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools_test.go",
+     "contains": "a credential-scoped store must not adopt the unscoped data.db",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "walk-integrity",
+   "summary": "A Jamf walk must return every record exactly once: totalCount tracked on every page; short, overshooting, repeating or changed walks fail the resource and never prune; a resumed walk is finished but never pruned",
+   "why": "Prior print: the generic walkers returned overlapping or short Jamf walks as complete, and reconcile pruned rows a partial walk had not seen. 4.34.2 warns on every unfinished walk and fails a run that only warned; a walk resumed from a saved cursor reads the rest of the collection by design, so it gets reason resumed_walk, exempt from that warning (TestSyncStuckAndResumedWalks capped-then-resumed was seen failing on the graft).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "lastReportedTotal, totalChanged, totalSeen := 0, false, false",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "jamfPartial := (existingCursor != \"\" && existingCursor != \"0\") || capExitHit",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "outcome.reason = \"resumed_walk\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "outcome.reason != \"max_pages_cap\" && outcome.reason != \"resumed_walk\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "return syncResult{Resource: resource, Count: cachedCount, Err: jamfIntegrityErr, IntegrityFailure: true, Duration: time.Since(started)}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "if n, perr := strconv.Atoi(params[\"page-size\"]); perr == nil && n > 0 {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "if err := jamfCheckWalk(path, allItems, jamfTotals); err != nil {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "mcp-recipe-argv",
+   "summary": "A recipe intent runs only its own command: broken_policies_across_clients runs fleet policy-hygiene (no slug parameter), and every recipe's argv must resolve to the recipe's command",
+   "why": "The press's recipe lifter read `fleet policy-hygiene --agent` as `fleet <slug> --agent`, so a tool argument chose the fleet subcommand (slug=exec ran fleet exec). Static subcommand, slug refused by name; runRecipeCommand (hand file internal/mcp/jamf_recipe_guard.go) refuses any argv that resolves to another command. The two generated slug tests asserted the defect and were rewritten. Tests: TestRecipeToolArgumentsNeverChooseTheCommand (seen failing on the raw render, recipe-seen-failing.log), black-box TestMCPArgumentNeverBecomesAFlag.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/intents.go",
+     "contains": "out, err := runRecipeCommand(ctx, recipePath, args)",
+     "code_only": true,
+     "min_count": 3
+    },
+    {
+     "file": "cli/internal/mcp/intents.go",
+     "contains": "args = appendRecipeStatic(args, \"policy-hygiene\", &recipeEnd)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/intents.go",
+     "not_contains": "mcplib.WithString(\"slug\""
+    },
+    {
+     "file": "cli/internal/mcp/jamf_recipe_guard.go",
+     "contains": "cmd.CommandPath() != strings.Join(want, \" \")",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "no-response-cache",
+   "class": "credential-in-files",
+   "summary": "The on-disk HTTP response cache is off for every API client",
+   "why": "Raw Jamf bodies (and an echoed credential) must not sit in cache files. c.NoCache = true in the identity hook (jamf_token_auth.go). Proven by the black-box file scan.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/jamf_token_auth.go",
+     "contains": "c.NoCache = true",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "store-never-keeps-secrets",
+   "class": "credential-in-files",
+   "summary": "Every store write passes mergeIncomingResourceData, where the one rule redacts credential-named fields; a held value in any statement is the kit's (credkit-sqlite-every-handle). Numbers, booleans and null are kept, except under a credential name.",
+   "why": "A local store is a file a credential must not sit in. Tests: internal/jamfblackbox TestNoCredentialInAnyWrittenFile and TestOneRuleOnEveryOutputPath scan the store after a sync.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "return withoutStoredSecrets(s.mergeIncomingResourceDataRaw(tx, resourceType, id, incoming))",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "response-credentials-held",
+   "class": "secret-echo",
+   "summary": "Every 2xx JSON response has the one rule applied whole in the identity transport, before any command reads it: credentials are held and redacted there, so no command that splits a body by line or by record can separate a label from its value. The client secret a token request sends and the token it mints are held too.",
+   "why": "Codex review of the print (round 2): an export split a multi-line response into lines and a Device PIN record lost its label. Tests: internal/jamfblackbox TestCredentialRecordAcrossLinesInAnExport, TestOneRuleOnEveryOutputPath.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/jamf_token_auth.go",
+     "contains": "holdResponseCredentials(resp)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/jamf_token_auth.go",
+     "contains": "raw = cliutil.RedactJSONBody(raw)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/jamf_token_auth.go",
+     "contains": "cliutil.Hold(\"minted:access_token\", tok.AccessToken)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/jamf_token_auth.go",
+     "contains": "cliutil.Hold(\"field:client_secret\", secret)",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "dry-run-sends-nothing",
+   "summary": "A client built under --dry-run refuses every request at its transport, auth login's included, and auth set-token under --dry-run saves nothing",
+   "why": "Generated commands such as export -o and auth login ignore --dry-run; an MCP preview runs commands under --dry-run, so it must send nothing whatever the command does. Test TestDryRunSendsNothing.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/jamf_token_auth.go",
+     "contains": "t.dryRun = c.DryRun",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/jamf_token_auth.go",
+     "contains": "dryRun: flags.dryRun}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "--dry-run: the token was not saved",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "mcp-mirror-write-confirm",
+   "summary": "A mirrored command that can change Jamf Pro state (import) previews under --dry-run and runs only with confirm set to boolean true; jamf-pro_execute has the same contract natively",
+   "why": "(every MCP write previews and sends only with confirm: true).go). Tests: TestRegisteredMirroredWritesNeedConfirm, black-box TestMCPWriteNeedsConfirm.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "cobratree.RequireConfirmForMirroredWrites(s, cli.RootCmd(), cobratree.CachedSiblingCLIPath)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/jamf_confirm.go",
+     "not_contains": "\"learnings forget\": true"
+    },
+    {
+     "file": "cli/internal/jamfblackbox/round4_test.go",
+     "contains": "func TestMCPLearningsForgetNeedsConfirm(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/jamf_confirm.go",
+     "contains": "var previewForcedFlags = []string{\"dry-run\"}",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "fleet-child-tls-trust",
+   "summary": "Fleet children keep JAMF_PRO_CA_CERT and JAMF_PRO_TLS_SERVER_NAME",
+   "why": "Press 4.34.2 added the CA-bundle and TLS-name settings; the fleet's environment allowlist (written for 4.33.5) dropped them, so fan-out could not reach an on-prem instance behind a private CA. They are trust settings (a path and a name), never secrets. Proven by the black-box fleet runs (https test server trusted only through JAMF_PRO_CA_CERT).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/fleet/runner.go",
+     "contains": "\"JAMF_PRO_CA_CERT\": true, \"JAMF_PRO_TLS_SERVER_NAME\": true,",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "one-rule-everywhere",
+   "class": "secret-echo",
+   "summary": "The one credential rule fleet output applies (credential-named fields of any JSON type, name/value records, opaque documents by digest, credentials inside strings, encoded strings and XML, credential-named XML containers) is applied on every path that shows or keeps data: the identity transport, every generated formatter (JSON, table, cards, CSV, plain, quiet) and --select, MCP endpoint results and previews, non-JSON documents and bare JSON strings (judged whole, withheld when they carry a credential), and the local store",
+   "why": "Codex review of the print, rounds 1 and 2: generic output, MCP results and the store applied only a subset of the rule; a bare JSON string escaped the document check; a credential-named XML container hid its descendants, and a value found in XML was not held. Tests: internal/jamfblackbox TestOneRuleOnEveryOutputPath, TestScalarDownloadIsJudgedWhole, TestXMLContainerProtectsItsDescendants, TestCredentialFoundInXMLIsHeld; internal/cli TestEveryFormatterAppliesTheOneRule; internal/cliutil TestRedactText*.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "data = shownData(data)",
+     "code_only": true,
+     "min_count": 5
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "func filterFieldsChecked(data json.RawMessage, fields string) (json.RawMessage, error) {\n\tdata = shownData(data)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "data = json.RawMessage(cliutil.RedactText(string(data)))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "text, previewErr := bound.JSON(cliutil.ShownValue(preview))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/jamf_token_auth.go",
+     "contains": "(!json.Valid(t) || (t[0] != '{' && t[0] != '[')) && cliutil.DocumentCarriesCredential(raw)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "items = shownRows(items)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/jamf_output_cli.go",
+     "contains": "return json.RawMessage(cliutil.RedactText(string(data)))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/jamf_secrets.go",
+     "contains": "cliutil.RedactShown(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/jamf_redact.go",
+     "contains": "redactXML(s, seen, depth) != s",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/jamf_secrets.go",
+     "not_contains": "func RedactSecretFields("
+    },
+    {
+     "file": "cli/internal/jamfblackbox/onerule_test.go",
+     "contains": "func TestOneRuleOnEveryOutputPath(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/jamf_shown_test.go",
+     "contains": "func TestEveryFormatterAppliesTheOneRule(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/jamf_redact.go",
+     "contains": "found := xmlContainerValues(s, seen)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/jamf_redact.go",
+     "contains": "holdFound(inner)",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "credkit-wiring",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "The shared credential kit (tools/maintainer/credkit, vendored at cli/internal/credkit) is wired by hand. internal/credwire/declarations.go holds the one Declarations literal; each main starts with credkit.Start and ends with credkit.Exit; every client, feedback, webhook and probe request goes through credkit.Transport; every file write except the connector's own 0600 credential store and config file goes through the kit (cliutil.AtomicWriteCredentialFile is that declared exemption); stdout and stderr are the kit's pipes; fleet children run under credkit.RunCommand; MCP stdio uses MCPIn, MCPOut and MCPTools.",
+   "why": "One contract, one matcher and one set of sinks for every connector: a matcher fix reaches this connector by vendoring. In-process tests have no Start, so client.OutboundGuard and cliutil.Hold are seams (credkit_seam_test.go); the built binaries are the proof (internal/jamfblackbox kit_test.go, writers_test.go).",
+   "spec_encode_followup": "Press-side: generate the kit wiring (Start/Exit in each main, credkit.Transport on every client, credkit file writes, the credkit SQLite driver, MCPTools/MCPIn/MCPOut/MCPHTTP, RunCommand) from a per-connector declarations file, so a reprint keeps it by construction.",
+   "asserts": [
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "var KitDeclarations = credkit.Declarations{",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "\"JAMF_PRO_MCP_HTTP_TOKEN\",",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/jamf-pro-cli/main.go",
+     "contains": "credkit.Start(credwire.KitDeclarations)",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/jamf-pro-cli/main.go",
+     "contains": "credkit.Exit(code)",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/jamf-pro-mcp/main.go",
+     "contains": "credkit.Start(credwire.KitDeclarations)",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/jamf-pro-mcp/main.go",
+     "contains": "credkit.Exit(run())",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/jamf-pro-mcp/main.go",
+     "contains": "server.WithToolHandlerMiddleware(credkit.MCPTools)",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/jamf-pro-mcp/main.go",
+     "contains": "credkit.MCPIn(os.Stdin), credkit.MCPOut()",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "var OutboundGuard = credkit.Transport",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/jamf_token_auth.go",
+     "contains": "t.next = client.OutboundGuard(c.HTTPClient.Transport)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/jamf_token_auth.go",
+     "contains": "next := client.OutboundGuard(hc.Transport)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deliver.go",
+     "contains": "credkit.WriteFile(tmp, body, 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/export.go",
+     "contains": "func openExportOutput(path string) (*credkit.Writer, error) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "credkit.AppendFile(p, append(line, '\\n'), 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/fleet/runner.go",
+     "contains": "credkit.RunCommand(cmd)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/feedback.go",
+     "contains": "Transport: credkit.Transport(nil)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "credkit.WriteFile(path, data, 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "cli.HoldProfileStores()",
+     "code_only": true,
+     "min_count": 2
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "func asPinned(p fleet.Instance, home string, fn func()) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "credkit-sqlite-every-handle",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "Every SQLite handle goes through credkit.SQLDriver: internal/credsql registers the one driver and every sql.Open in store.go and platform/migration.go names it, the read-only opener included.",
+   "why": "A statement's text and bound values are a sink of their own, reads included, so a read-only handle on the bare driver would run a statement carrying a credential and withhold only the row afterwards.",
+   "spec_encode_followup": "Press-side: generate store, migration and MCP sql opens against one kit-wrapped driver name, and express the MCP sql value cap as a connection-open setting.",
+   "asserts": [
+    {
+     "file": "cli/internal/credsql/credsql.go",
+     "contains": "sql.Register(Driver, credkit.SQLDriver(cappedSQLite()))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "sql.Open(credsql.Driver, dsn)",
+     "code_only": true,
+     "min_count": 3
+    },
+    {
+     "file": "cli/internal/platform/migration.go",
+     "contains": "sql.Open(credsql.Driver, targetPath)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "not_contains": "sql.Open(\"sqlite\""
+    },
+    {
+     "file": "cli/internal/platform/migration.go",
+     "not_contains": "sql.Open(\"sqlite\""
+    }
+   ]
+  },
+  {
+   "id": "credkit-mcphttp-outermost",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "credkit.MCPHTTP writes every response the MCP HTTP server serves, refusals included: a write-free preflight runs first, then credkit.MCPHTTP around a gate that answers the Origin, bearer and body-limit verdicts.",
+   "why": "With the kit wrapping only the inner handler a refusal answered outside it: a token holding the word unauthorized made a GET /mcp without Authorization return a piece of the held token. Tests: internal/jamfblackbox mcphttp_test.go.",
+   "spec_encode_followup": "Press-side: generate the MCP HTTP auth wrapper so its refusals are written by the kit-wrapped handler and only a write-free preflight runs before credkit.MCPHTTP.",
+   "asserts": [
+    {
+     "file": "cli/cmd/jamf-pro-mcp/main.go",
+     "contains": "requireBearerAuthWithOrigins(token, allowedOrigins, inner)",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/jamf-pro-mcp/main.go",
+     "contains": "kit := credkit.MCPHTTP(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/jamf-pro-mcp/main.go",
+     "contains": "kit.ServeHTTP(w, r)",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "config-reads-held-before-parse",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "Every read of the config file and the credential store, at startup or later, holds every value in it before parsing: config.go and cliutil's credentials read call cliutil.HoldConfigFile. The MCP server reloads config on every tool call, so a startup capture alone would miss a file rewritten later.",
+   "why": "A TOML diagnostic on a malformed or rewritten file can quote a value. Tests: internal/jamfblackbox TestStartupHeldBeforeAMalformedConfig, TestMCPConfigRewrittenWhileRunningIsHeldBeforeParse.",
+   "spec_encode_followup": "Press-side: generate a pre-parse hold hook in the config loader.",
+   "asserts": [
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "cliutil.HoldConfigFile(data)",
+     "code_only": true,
+     "min_count": 2
+    },
+    {
+     "file": "cli/internal/cliutil/credentials.go",
+     "contains": "HoldConfigFile(data)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credkit_hold.go",
+     "contains": "Hold(credkit.Source(source), v)",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "stdin-body-never-quoted",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "A --stdin request body that does not parse is refused with fixed text in the root pre-run, before a generated command's JSON parser can quote a byte of it.",
+   "why": "encoding/json's syntax error quotes the offending byte. A body such as a password written bare printed its first character. Test: internal/jamfblackbox TestStdinBodyHeldWhole.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "refuseMalformedStdinBody(cmd)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/jamf_output_cli.go",
+     "contains": "the --stdin body is not valid JSON",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "xml-template-is-not-html",
+   "status": "active",
+   "summary": "A response labelled XML is treated as an HTML page only if it starts as one, so a documented template holding scriptContentsMac or title comes back.",
+   "why": "computer-extension-attributes get-download returns a documented XML template; the HTML sniff matched <scriptContentsMac> as <script and refused it. Test: internal/jamfblackbox TestXMLTemplateIsNotAnHTMLPage.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/jamf_token_auth.go",
+     "contains": "looksLikeHTMLPage(raw, ct)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/jamf_token_auth.go",
+     "contains": "strings.HasPrefix(contentType, \"application/xml\")",
+     "code_only": true
+    }
+   ],
+   "class": "functional"
+  },
+  {
+   "id": "doctor-report-is-own-text",
+   "class": "credential-output",
+   "why": "doctor --json is this program's own status text. Judging its \"credentials\" row as a credential held the verdict, and the kit then withheld the whole report, so the command every guide names printed only a notice. The kit still withholds anything that repeats a held credential.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "printOwnReport(cmd.OutOrStdout(), report, flags)"
+    },
+    {
+     "file": "cli/internal/cli/jamf_output_cli.go",
+     "contains": "if ownReport {"
+    }
+   ],
+   "summary": "doctor --json prints its report as written: its status rows are this program's text, so the credential rule does not judge them, and the kit still withholds any repeat of a held credential.",
+   "status": "active"
+  },
+  {
+   "id": "example-ids-pass-gitleaks",
+   "class": "build-gate",
+   "why": "The press renders random UUIDs into pp:happy-args and pp:example-args, and gitleaks reads client-management-ids=<uuid> as an API key. A reprint renders new ones and the gitleaks row fails, so generated examples keep a low-entropy placeholder.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/mdm_blank-push.go",
+     "contains": "client-management-ids=00000000-0000-0000-0000-000000000001"
+    },
+    {
+     "file": "cli/internal/cli/local_admin_password_get-accounts.go",
+     "contains": "clientManagementId=00000000-0000-0000-0000-000000000001"
+    }
+   ],
+   "summary": "Generated example arguments carry a placeholder UUID, not a random one, so gitleaks passes on a reprint.",
+   "status": "active"
+  },
+  {
+   "id": "doctor-verdict-tracks-reality",
+   "status": "active",
+   "class": "doctor-truth",
+   "summary": "doctor probes GET /api/v1/jamf-pro-version with the real credential (a client ID and secret it mints from count), refuses the shipped https://{server} placeholder naming JAMF_PRO_SERVER and JAMF_PRO_BASE_URL, and reads a 404 as a wrong base URL.",
+   "why": "doctor is the command every guide names. It called any HTTP response to GET / reachable and never probed the credential, so a 401 on every call read healthy. Without the mint-aware check it told an operator who set both variables that auth was not configured. Port of the fleet's hand-fix; test internal/cli/doctor_verdict_test.go and tools/maintainer/check_doctor_truth.py.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "func doctorProbeCredentials(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "const doctorShippedBaseURL = \"https://{server}\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "const doctorPreferredProbePath = \"/api/v1/jamf-pro-version\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorProbeCredentials(cmd.Context(), c, cmd.Root(), \"jamf-pro-cli\", report)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "configured, authSource := doctorAuthConfigured(cfg)",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "mcp-upload-content-only",
+   "status": "active",
+   "class": "mcp-file-read",
+   "summary": "An MCP multipart file argument is always base64 content. No setting makes the server open a path from a tool argument.",
+   "why": "A host file read from an MCP argument is out of bounds for this connector, confined or not. Test internal/mcp/upload_content_only_test.go.",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "a filesystem path is not accepted",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/upload_content_only_test.go",
+     "contains": "func TestMCPUploadIsContentNeverAPath(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "run-profile-never-picks-instance",
+   "status": "active",
+   "class": "one-identity",
+   "summary": "A run profile holding an instance is refused before anything is sent, and profile save never stores one.",
+   "why": "The instance is pinned before a profile loads, so the run would act on a client other than the one the profile names. Test internal/jamfblackbox/round1_test.go.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/profile.go",
+     "contains": "which a profile cannot choose",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/jamfblackbox/round1_test.go",
+     "contains": "func TestRunProfileCannotChooseTheInstance(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "env-urls-not-saved",
+   "status": "active",
+   "class": "store-never-keeps-secrets",
+   "summary": "JAMF_PRO_BASE_URL, JAMF_PRO_TOKEN_URL and JAMF_PRO_SERVER are never saved to config.toml, and credentials.toml records its issuing URL without a password or query.",
+   "why": "A URL from the environment can carry a credential, and an ordinary mint saved it to disk. Tests TestEnvironmentURLCredentialsStayOffDisk and TestEnvironmentServerIsNotSavedOverTheFile in internal/jamfblackbox/round1_test.go.",
+   "asserts": [
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "out.BaseURL = c.fileConfig.BaseURL",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "out.TemplateVars = cloneStringMap(c.fileConfig.TemplateVars)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "BaseURL:             issuedForURL(c.BaseURL),",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/jamfblackbox/round1_test.go",
+     "contains": "func TestEnvironmentURLCredentialsStayOffDisk(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "untrusted-config-routing",
+   "status": "active",
+   "class": "credential-routing",
+   "summary": "A config file refused for its mode bits chooses no route: its [template_vars] server is dropped on read, no save writes its base_url or server back, and credentials.toml is bound to the server the run used.",
+   "why": "A world-writable config naming a server routed the environment's client secret there, directly or after a save rewrote it owner-only. Tests in internal/config/jamf_untrusted_routing_test.go.",
+   "asserts": [
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "c.looseRoutingDefault = defaultBase",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "out.BaseURL = c.looseRoutingDefault",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "creds.BaseURL = issuedForURL(c.BaseURL)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/jamf_untrusted_routing_test.go",
+     "contains": "func TestLooseConfigRoutingNotRepublishedBySave(",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "export-walk-integrity",
+   "status": "active",
+   "class": "wrong-or-missing-data",
+   "summary": "export fails when it read a different number of records than the pages' totalCount reported, or the total changed mid-walk, instead of exiting 0 with records missing; a --limit cap passes. A repeated record id, or an empty first page under a positive total, fails too.",
+   "why": "A page walk that ended short (records removed between pages, or an empty page) printed a partial export with exit 0. Test TestExportShortOfTotalCountFails in internal/jamfblackbox/round4_test.go.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/export.go",
+     "contains": "walk.page(data, items)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/export.go",
+     "contains": "if err := walk.check(resource, count, limit > 0 && count >= limit); err != nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/jamf_export_walk.go",
+     "contains": "func (w *jamfExportWalk) check(",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "fleet-secrets-one-declared-variable",
+   "summary": "Every registered instance's client secret comes from the one declared JAMF_PRO_FLEET_SECRETS variable (name=secret entries); the parent-to-child identity variable is the internal PP_JAMF_PRO_IDENTITY; the kit's Declarations var is KitDeclarations",
+   "why": "The manifest env schema gate (check_env_schema.py) must resolve every environment read to a name declared on all three install channels. A per-instance JAMF_PRO_SECRET_<NAME> variable is operator data and resolves to no name, so each read failed the gate, and the .mcpb bundle had no way to supply it. One declared variable (the prtg fleet-keys pattern) is read only by its literal name, every channel declares it, and a fleet or pinned child gets its own entry and no other. The instance's --secret-env flag and registry secret_env field are gone with it. Generated help text (root.go, which.go, tools.go) follows the novel-feature description in press/.printing-press.json, so a reprint regenerates the same wording.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/fleet/secrets.go",
+     "contains": "const EntriesEnv = \"JAMF_PRO_FLEET_SECRETS\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/fleet/runner.go",
+     "contains": "cmd.Env = append(cmd.Env, EntriesEnv+\"=\"+SecretsFor(p.Name, secret))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/jamfauth/identity.go",
+     "contains": "IdentityEnv = \"PP_JAMF_PRO_IDENTITY\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "\"JAMF_PRO_FLEET_SECRETS\",",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "(server and API client id; its secret goes in JAMF_PRO_FLEET_SECRETS)"
+    },
+    {
+     "file": "cli/internal/cli/which.go",
+     "contains": "(server and API client id; its secret goes in JAMF_PRO_FLEET_SECRETS)"
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "(server and API client id; its secret goes in JAMF_PRO_FLEET_SECRETS)"
+    }
+   ]
+  },
+  {
+   "id": "token-url-follows-base-url",
+   "summary": "config.go no longer reads JAMF_PRO_TOKEN_URL: a JAMF_PRO_BASE_URL override sets the token endpoint to that server's own /api/v1/oauth/token",
+   "why": "jamfauth.CheckMint posts credentials only to the server's own /api/v1/oauth/token, so the press's JAMF_PRO_TOKEN_URL override could only ever be refused or repeat the default. Read, it had to be declared on every install channel (check_env_schema.py), and the verify gate and class harness then point it at a fake token path the binary must refuse, so no tool call reached the fake vendor. Deriving the endpoint from the base URL keeps every test and pinned instance on the one accepted URL; a config.toml token_url is still read and still checked.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "cfg.TokenURL = u.Scheme + \"://\" + u.Host + \"/api/v1/oauth/token\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "not_contains": "cliutil.EnvOverride(\"JAMF_PRO_TOKEN_URL\")"
+    }
+   ]
+  }
+ ]
+}

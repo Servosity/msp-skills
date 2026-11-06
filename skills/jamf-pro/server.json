@@ -1,0 +1,112 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.Servosity/jamf-pro-mcp",
+  "title": "Jamf Pro MCP",
+  "description": "Every client's Jamf Pro in one CLI: find devices, check posture and patch status, audit policies.",
+  "version": "0.1.0",
+  "icons": [
+    {
+      "src": "https://raw.githubusercontent.com/servosity/msp-skills/main/docs/assets/social/jamf-pro/jamf-pro-512x512.png",
+      "mimeType": "image/png",
+      "sizes": [
+        "512x512"
+      ]
+    }
+  ],
+  "repository": {
+    "url": "https://github.com/servosity/msp-skills",
+    "source": "github",
+    "subfolder": "skills/jamf-pro"
+  },
+  "packages": [
+    {
+      "registryType": "mcpb",
+      "identifier": "https://github.com/servosity/msp-skills/releases/download/jamf-pro-v0.1.0/jamf-pro-mcp.mcpb",
+      "version": "0.1.0",
+      "fileSha256": "PLACEHOLDER_SHA256_FILLED_BY_CI",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "JAMF_PRO_CLIENT_ID",
+          "description": "The client ID of a Jamf Pro API client (Settings > System > API roles and clients).",
+          "isRequired": true,
+          "isSecret": true
+        },
+        {
+          "name": "JAMF_PRO_CLIENT_SECRET",
+          "description": "The client secret of that Jamf Pro API client.",
+          "isRequired": true,
+          "isSecret": true
+        },
+        {
+          "name": "JAMF_PRO_SERVER",
+          "description": "Your Jamf Pro server host, for example acme.jamfcloud.com.",
+          "isRequired": true,
+          "isSecret": false
+        },
+        {
+          "name": "JAMF_PRO_MCP_READ_ONLY",
+          "description": "Optional. Set to exactly 1 to expose only read-only tools and refuse any state-changing execute call.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "JAMF_PRO_NO_LOCAL_DATA",
+          "description": "Optional. Set to 1 to keep no local copy of API responses: reads go to the API and the response cache is off.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "JAMF_PRO_MCP_HTTP_TOKEN",
+          "description": "Required only when running the MCP server with --transport http. Not needed for the default local stdio transport.",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "JAMF_PRO_BASE_URL",
+          "description": "Optional. Overrides the API base URL; leave blank to use your Jamf Pro server.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "JAMF_PRO_OAUTH_SCOPE",
+          "description": "Optional. Scope sent when requesting a token; leave blank unless your API client needs one.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "JAMF_PRO_FLEET_DIR",
+          "description": "Optional. Folder holding the registry of client instances; leave blank for the default.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "JAMF_PRO_FLEET_SECRETS",
+          "description": "Optional. name=secret pairs (comma-separated) for instances registered with instance add; used by the fleet tools and an instance pin.",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "JAMF_PRO_INSTANCE",
+          "description": "Optional. Name of a registered instance to point every single-server tool at.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "JAMF_PRO_USER_AGENT",
+          "description": "Optional. Overrides the User-Agent header sent to Jamf Pro; leave blank for the default.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "PRINTING_PRESS_CLIENT_PROFILE",
+          "description": "Optional: binds the MCP server to an existing tenant-gated Printing Press client profile. Leave unset for a single-tenant install.",
+          "isRequired": false,
+          "isSecret": true
+        }
+      ]
+    }
+  ]
+}

@@ -195,6 +195,10 @@ No. Apple Business Manager decides which MDM server a device enrolls with; this 
 Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
 
 
+## More MDM connectors
+
+Run more than one MDM tool, or comparing options? These connectors work the same way: [Jamf Pro](/skills/jamf-pro/)
+
 ## Status
 
 Beta. Validated against the Apple Business API surface and being validated with MSPs running it live against their own production tenants in our weekly **[Build Sessions](https://compoundingteams.com/build-sessions)**.

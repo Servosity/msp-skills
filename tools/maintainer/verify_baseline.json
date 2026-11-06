@@ -10,18 +10,7 @@
    "read-only",
    "local-data"
   ],
-  "afi": [
-   "mcp-http",
-   "read-only",
-   "local-data"
-  ],
   "atera": [
-   "mcp-http",
-   "write-gating",
-   "read-only",
-   "local-data"
-  ],
-  "autotask": [
    "mcp-http",
    "write-gating",
    "read-only",
@@ -145,12 +134,6 @@
    "read-only",
    "local-data"
   ],
-  "maxio": [
-   "mcp-http",
-   "write-gating",
-   "read-only",
-   "local-data"
-  ],
   "microsoft-graph": [
    "mcp-http",
    "read-only",
@@ -158,12 +141,6 @@
   ],
   "n-central": [
    "mcp-http",
-   "read-only",
-   "local-data"
-  ],
-  "nerdio": [
-   "mcp-http",
-   "write-gating",
    "read-only",
    "local-data"
   ],
@@ -205,12 +182,6 @@
    "local-data"
   ],
   "resourceguru": [
-   "mcp-http",
-   "write-gating",
-   "read-only",
-   "local-data"
-  ],
-  "rewst": [
    "mcp-http",
    "write-gating",
    "read-only",

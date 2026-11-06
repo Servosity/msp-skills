@@ -257,3 +257,23 @@ func TestZoomProfileLockPath(t *testing.T) {
 		t.Fatal("symlinked .locks accepted")
 	}
 }
+
+// The release must not return while the lock file is still locked and open:
+// on Windows that handle under <accounts>/.locks blocks renaming or removing
+// the accounts directory (Access is denied). A try-lock right after release
+// must win every time; before the fix it raced the unlocking goroutine.
+func TestZoomProfileLockReleaseWaitsForUnlock(t *testing.T) {
+	path := zoomLockTestProfile(t, "C1", "A1")
+	lockBase := ZoomProfileLockPath(path)
+	for i := 0; i < 200; i++ {
+		release, err := ZoomAcquireProfileLock(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		release()
+		got, err := cliutil.TryWithFileLock(lockBase, func() error { return nil })
+		if err != nil || !got {
+			t.Fatalf("iteration %d: lock still held after release (got=%v err=%v)", i, got, err)
+		}
+	}
+}

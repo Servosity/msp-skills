@@ -4,6 +4,27 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.1.8] - 2026-11-06
+
+### Security
+- **Rebuilt on CLI Printing Press 4.34.2** ([GHSA-jh26-vhqh-692c](https://github.com/Servosity/msp-skills/security/advisories/GHSA-jh26-vhqh-692c)). The MCP server's HTTP mode now requires a bearer token (`REWST_MCP_HTTP_TOKEN`), serves `http://127.0.0.1:7777/mcp` by default and needs TLS on any other address; mcp-go is v0.57.0. Every MCP tool that changes something returns a preview and sends only with `confirm: true`.
+- **Credential handling now uses the shared msp-skills credential kit.** One holder registers every credential before anything prints (the environment, the config file, the 0600 credential store, saved profiles, `--stdin` bodies, and credentials inside Rewst answers such as an API client's secret), one filter covers every output (terminal, `--json`/`--agent`, files, the local store, MCP results), and the token is sent only to the configured Rewst API origin. Not held yet: the value of an org variable whose category is `secret`, because the kit holds a response field by name and `value` is also the name of every ordinary variable's value. Treat `org-variables` output as sensitive.
+
+### Added
+- **`orgs`**: the token's own organization and every organization it manages (id, name, managing org, enabled), sorted by name: the ids the other rollups take.
+
+### Fixed
+- **`doctor` checks the token with one real GraphQL read** and tells a working token from a rejected one or a wrong region URL; Rewst's default US host is no longer read as a placeholder.
+- **A Rewst answer that carries GraphQL `errors` is a failure, never empty data**, with an exit code that matches the error (authorization, forbidden, bad request).
+- **The rollups never read missing data as zero.** A null field inside a row (for example a workflow's `secondsSaved`, an execution's `status`, an organization's `id`), a null list element, or a pack with neither a name nor a ref is reported as an error instead of zero savings, a healthy run or a dropped org. Workflow names, which Rewst can leave empty, are shown as `null`.
+- `coverage` and `dormant` say when a scan stopped at its `--limit`; `drift` reads every page and fails when either org cannot be read.
+
+### Removed
+- `tail`: it requested a path the Rewst GraphQL gateway does not serve.
+
+### Known limitation
+- The typed entity commands (`organizations`, `workflows`, `org-variables` and the rest, and `sync`) are generated as REST-shaped calls the Rewst GraphQL gateway refuses, as in 0.1.7. Use `orgs`, `health`, `failures`, `roi`, `dormant`, `drift`, `coverage` and `doctor`.
+
 ## [0.1.7] - 2026-10-23
 
 ### Changed

@@ -58,7 +58,7 @@
       "name": "afi",
       "source": "./skills/afi",
       "description": "The first CLI for Afi SaaS backup \u2014 full public-API coverage plus the fleet-wide coverage, staleness, and offboarding answers the rate-limited API can't serve live.",
-      "version": "0.1.8",
+      "version": "0.1.9",
       "category": "backup-dr",
       "tags": [
         "afi",
@@ -103,7 +103,7 @@
       "name": "autotask",
       "source": "./skills/autotask",
       "description": "Every Autotask entity at the command line, plus a local SQLite mirror that answers ticket-aging, workload, unbilled-time, and account-360 questions no other Autotask tool can.",
-      "version": "0.1.9",
+      "version": "0.1.10",
       "category": "psa",
       "tags": [
         "autotask",
@@ -261,7 +261,7 @@
       "name": "connectwise-control",
       "source": "./skills/connectwise-control",
       "description": "Manage ConnectWise Control (ScreenConnect) remote support and access sessions from the terminal or your AI agent: list and inspect sessions across groups, run commands on guest machines, rename and tag sessions, manage instance users, and query the audit log - the whole instance from one CLI.",
-      "version": "0.1.9",
+      "version": "0.1.10",
       "category": "remote-access",
       "tags": [
         "connectwise-control",
@@ -529,7 +529,7 @@
       "name": "kaseya-bms",
       "source": "./skills/kaseya-bms",
       "description": "The first dedicated CLI and MCP server for Kaseya BMS - the full PSA surface plus offline sync, full-text search, and the queue, contract-burn, and unbilled-revenue analytics the web grid can't compute.",
-      "version": "0.1.8",
+      "version": "0.1.9",
       "category": "psa",
       "tags": [
         "kaseya-bms",
@@ -590,8 +590,8 @@
     {
       "name": "maxio",
       "source": "./skills/maxio",
-      "description": "The first open, local revenue-intelligence CLI for Maxio Advanced Billing  -  MRR waterfalls, retention, and per-client history computed offline from a SQLite mirror that outlives Maxio's deprecated Insights API.",
-      "version": "0.1.7",
+      "description": "Open, local revenue-intelligence CLI for Maxio Advanced Billing \u2014 MRR waterfalls, retention, and per-client history computed offline from a SQLite mirror, so the trended history survives even though the live API returns only point-in-time figures.",
+      "version": "0.1.8",
       "category": "billing",
       "tags": [
         "maxio",
@@ -807,7 +807,7 @@
       "name": "rewst",
       "source": "./skills/rewst",
       "description": "Operate and monitor Rewst RPA across every client org from the terminal or your AI agent: workflow execution health, failure triage, automation ROI, dormant-workflow cleanup, cross-org config drift, and integration-pack coverage - the multi-tenant answers the web console makes you assemble one org at a time.",
-      "version": "0.1.7",
+      "version": "0.1.8",
       "category": "automation",
       "tags": [
         "rewst",
@@ -1543,10 +1543,25 @@
       ]
     },
     {
+      "name": "vsphere",
+      "source": "./skills/vsphere",
+      "description": "Read-only vCenter inventory for migration planning: blockers, snapshots, per-core licence exposure and Proxmox mapping, as JSON an agent can use.",
+      "version": "0.1.0",
+      "category": "msp",
+      "tags": [
+        "vsphere",
+        "vmware",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
+    },
+    {
       "name": "cloudally",
       "source": "./skills/cloudally",
       "description": "See every CloudAlly customer's backup status, tasks and billing, and run backups and recovery jobs, from one CLI and MCP server.",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "category": "backup-dr",
       "tags": [
         "cloudally",
@@ -1577,12 +1592,44 @@
       "name": "zoom-phone",
       "source": "./skills/zoom-phone",
       "description": "Every Zoom Phone admin operation plus E911, routing and footprint audits, across every client account.",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "category": "telephony",
       "tags": [
         "zoom-phone",
         "zoom",
         "telephony",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
+    },
+    {
+      "name": "jamf-pro",
+      "source": "./skills/jamf-pro",
+      "description": "Every client's Jamf Pro in one CLI: register each instance once, then find devices, check posture and patch status, and audit policies across all of them.",
+      "version": "0.1.0",
+      "category": "mdm",
+      "tags": [
+        "jamf-pro",
+        "jamf",
+        "mdm",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
+    },
+    {
+      "name": "comet-backup",
+      "source": "./skills/comet-backup",
+      "description": "Fleet-wide backup health, failure triage and usage reports for every tenant on your Comet Server, plus the admin API calls an MSP uses day to day.",
+      "version": "0.1.0",
+      "category": "backup-dr",
+      "tags": [
+        "comet-backup",
+        "comet backup",
+        "backup-dr",
         "msp",
         "mcp",
         "claude-code",

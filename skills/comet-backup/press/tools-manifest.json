@@ -1,0 +1,1163 @@
+{
+  "api_name": "comet-backup",
+  "base_url": "https://{server}",
+  "description": "Fleet-wide backup health, failure triage and usage reports for every tenant on your Comet Server, plus the admin API calls an MSP uses day to day.",
+  "mcp_ready": "full",
+  "http_transport": "standard",
+  "mcp": {
+    "endpoint_tools": "hidden",
+    "orchestration": "code"
+  },
+  "auth": {
+    "type": "api_key",
+    "header": "X-Comet-Admin-Password",
+    "in": "header",
+    "env_vars": [
+      "COMET_BACKUP_PASSWORD",
+      "COMET_BACKUP_USERNAME",
+      "COMET_BACKUP_SESSION_KEY"
+    ],
+    "env_var_specs": [
+      {
+        "name": "COMET_BACKUP_PASSWORD",
+        "kind": "per_call",
+        "required": true,
+        "sensitive": true,
+        "description": "Admin account password (sent as AuthType=Password). Set COMET_BACKUP_SESSION_KEY instead to use a session key."
+      },
+      {
+        "name": "COMET_BACKUP_USERNAME",
+        "kind": "per_call",
+        "required": true,
+        "sensitive": false,
+        "description": "Admin account name (form field Username)."
+      },
+      {
+        "name": "COMET_BACKUP_SESSION_KEY",
+        "kind": "per_call",
+        "required": false,
+        "sensitive": true,
+        "description": "Admin session key from AdminAccountSessionStart (sent as AuthType=SessionKey). Takes precedence over the password when set."
+      }
+    ],
+    "key_url": "https://docs.cometbackup.com/latest/api/api-methods"
+  },
+  "required_headers": [],
+  "tools": [
+    {
+      "name": "backup_jobs_abandon",
+      "description": "Mark a running job as abandoned. This will change the status of a running job to abandoned. This is intended to be used on jobs which are definitely no longer running but are stuck in the running state; it will not attempt to cancel the job. If the job is detected to still be running after being marked as abandoned, it will be revived. This API requires the Auth Role to be enabled. Wire format: POST /api/v1/admin/job/abandon with an application/x-www-form-urlencoded body. The CLI adds the admin credential fields (Username, AuthType, Password or SessionKey) to the body itself. Requires Comet Server 23.9.0 or later. Source: https://docs.cometbackup.com/latest/api/api-methods#adminjobabandon-mark-a-running-job-as-abandoned. Required: JobID, TargetUser. Returns the new CometApiresponseMessage.",
+      "method": "POST",
+      "path": "/api/v1/admin/job/abandon",
+      "params": [
+        {
+          "name": "JobID",
+          "type": "string",
+          "location": "body",
+          "description": "Job ID",
+          "required": true
+        },
+        {
+          "name": "TargetUser",
+          "type": "string",
+          "location": "body",
+          "description": "Username",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "backup_jobs_all",
+      "description": "Get jobs (All). The jobs are returned in an unspecified order. This API requires the Auth Role to be enabled. Wire format: POST /api/v1/admin/get-jobs-all with an application/x-www-form-urlencoded body. The CLI adds the admin credential fields (Username, AuthType, Password or SessionKey) to the body itself. Requires Comet Server 17.2.0 or later. Source: https://docs.cometbackup.com/latest/api/api-methods#admingetjobsall-get-jobs-all. Returns array of BackupJobDetail.",
+      "method": "POST",
+      "path": "/api/v1/admin/get-jobs-all",
+      "params": []
+    },
+    {
+      "name": "backup_jobs_cancel",
+      "description": "Cancel a running job. A request is sent to the live-connected device, asking it to cancel the operation. This may fail if there is no live-connection. Only jobs from Comet 18.3.5 or newer can be cancelled. A job can only be cancelled if it has a non-empty CancellationID field in its properties. If the device is running Comet 21.9.5 or later, this API will wait up to ten seconds for a confirmation from the client. This API requires the Auth Role to be enabled. Wire format: POST /api/v1/admin/job/cancel with an application/x-www-form-urlencoded body. The CLI adds the admin credential fields (Username, AuthType, Password or SessionKey) to the body itself. Requires Comet Server 18.3.5 or later. Source: https://docs.cometbackup.com/latest/api/api-methods#adminjobcancel-cancel-a-running-job. Required: JobID, TargetUser. Returns the new CometApiresponseMessage.",
+      "method": "POST",
+      "path": "/api/v1/admin/job/cancel",
+      "params": [
+        {
+          "name": "JobID",
+          "type": "string",
+          "location": "body",
+          "description": "Job ID",
+          "required": true
+        },
+        {
+          "name": "TargetUser",
+          "type": "string",
+          "location": "body",
+          "description": "Username",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "backup_jobs_count",
+      "description": "Count jobs (for custom search). This API requires the Auth Role to be enabled. Wire format: POST /api/v1/admin/count-jobs-for-custom-search with an application/x-www-form-urlencoded body. The CLI adds the admin credential fields (Username, AuthType, Password or SessionKey) to the body itself. Requires Comet Server 22.12.2 or later. Source: https://docs.cometbackup.com/latest/api/api-methods#admincountjobsforcustomsearch-count-jobs-for-custom-search. Required: Query. Returns the new CountJobsResponse.",
+      "method": "POST",
+      "path": "/api/v1/admin/count-jobs-for-custom-search",
+      "params": [
+        {
+          "name": "Query",
+          "type": "string",
+          "location": "body",
+          "description": "JSON-encoded SearchClause",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "backup_jobs_for-user",
+      "description": "Get jobs (for user). The jobs are returned in an unspecified order. This API requires the Auth Role to be enabled. Wire format: POST /api/v1/admin/get-jobs-for-user with an application/x-www-form-urlencoded body. The CLI adds the admin credential fields (Username, AuthType, Password or SessionKey) to the body itself. Requires Comet Server 17.2.0 or later. Source: https://docs.cometbackup.com/latest/api/api-methods#admingetjobsforuser-get-jobs-for-user. Required: TargetUser. Returns array of BackupJobDetail.",
+      "method": "POST",
+      "path": "/api/v1/admin/get-jobs-for-user",
+      "params": [
+        {
+          "name": "TargetUser",
+          "type": "string",
+          "location": "body",
+          "description": "Selected username (\u003e= 17.2.0)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "backup_jobs_get",
+      "description": "Get properties of a single job. This API requires the Auth Role to be enabled. Wire format: POST /api/v1/admin/get-job-properties with an application/x-www-form-urlencoded body. The CLI adds the admin credential fields (Username, AuthType, Password or SessionKey) to the body itself. Requires Comet Server 17.2.0 or later. Source: https://docs.cometbackup.com/latest/api/api-methods#admingetjobproperties-get-properties-of-a-single-job. Required: JobID. Returns the new BackupJobDetail.",
+      "method": "POST",
+      "path": "/api/v1/admin/get-job-properties",
+      "params": [
+        {
+          "name": "JobID",
+          "type": "string",
+          "location": "body",
+          "description": "Selected job ID (\u003e= 17.2.0)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "backup_jobs_log",
+      "description": "Get the report log entries for a single job, in plaintext format. This API requires the Auth Role to be enabled. Wire format: POST /api/v1/admin/get-job-log with an application/x-www-form-urlencoded body. The CLI adds the admin credential fields (Username, AuthType, Password or SessionKey) to the body itself. Requires Comet Server 17.2.0 or later. Source: https://docs.cometbackup.com/latest/api/api-methods#admingetjoblog-get-the-report-log-entries-for-a-single-job-in-plaintext-format. Required: JobID.",
+      "method": "POST",
+      "path": "/api/v1/admin/get-job-log",
+      "params": [
+        {
+          "name": "JobID",
+          "type": "string",
+          "location": "body",
+          "description": "Selected job ID (\u003e= 17.2.0)",
+          "required": true
+        }
+      ],
+      "header_overrides": [
+        {
+          "name": "Accept",
+          "value": "text/plain"
+        }
+      ]
+    },
+    {
+      "name": "backup_jobs_log-entries",
+      "description": "Get the report log entries for a single job. This API requires the Auth Role to be enabled. Wire format: POST /api/v1/admin/get-job-log-entries with an application/x-www-form-urlencoded body. The CLI adds the admin credential fields (Username, AuthType, Password or SessionKey) to the body itself. Requires Comet Server 20.6.8 or later. Source: https://docs.cometbackup.com/latest/api/api-methods#admingetjoblogentries-get-the-report-log-entries-for-a-single-job. Required: JobID. Optional: MessageContains, MinSeverity. Returns array of JobEntry.",
+      "method": "POST",
+      "path": "/api/v1/admin/get-job-log-entries",
+      "params": [
+        {
+          "name": "JobID",
+          "type": "string",
+          "location": "body",
+          "description": "Selected job ID",
+          "required": true
+        },
+        {
+          "name": "MessageContains",
+          "type": "string",
+          "location": "body",
+          "description": "Return only job log entries that contain exact string (\u003e= 23.3.1)"
+        },
+        {
+          "name": "MinSeverity",
+          "type": "string",
+          "location": "body",
+          "description": "Return only job log entries with equal or higher severity (\u003e= 23.3.1)"
+        }
+      ]
+    },
+    {
+      "name": "backup_jobs_query",
+      "description": "Get jobs (for custom search). The jobs are returned in an unspecified order. This API requires the Auth Role to be enabled. Wire format: POST /api/v1/admin/get-jobs-for-custom-search with an application/x-www-form-urlencoded body. The CLI adds the admin credential fields (Username, AuthType, Password or SessionKey) to the body itself. Requires Comet Server 18.9.2 or later. Source: https://docs.cometbackup.com/latest/api/api-methods#admingetjobsforcustomsearch-get-jobs-for-custom-search. Required: Query. Returns array of BackupJobDetail.",
+      "method": "POST",
+      "path": "/api/v1/admin/get-jobs-for-custom-search",
+      "params": [
+        {
+          "name": "Query",
+          "type": "string",
+          "location": "body",
+          "description": "JSON-encoded SearchClause",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "backup_jobs_range",
+      "description": "Get jobs (for date range). The jobs are returned in an unspecified order. If the Start parameter is later than End, they will be swapped. This API will return all jobs that either started or ended within the supplied range. Incomplete jobs have an end time of 0. You can use this API to find only incomplete jobs by setting both Start and End to 0. Prior to Comet Server 22.6.0, additional Incomplete jobs may have been returned if you specified non-zero arguments for both Start and End. This API requires the Auth Role to be enabled. Wire format: POST /api/v1/admin/get-jobs-for-date-range with an application/x-www-form-urlencoded body. The CLI adds the admin credential fields (Username, AuthType, Password or SessionKey) to the body itself. Requires Comet Server 17.6.8 or later. Source: https://docs.cometbackup.com/latest/api/api-methods#admingetjobsfordaterange-get-jobs-for-date-range. Required: End, Start. Returns array of BackupJobDetail.",
+      "method": "POST",
+      "path": "/api/v1/admin/get-jobs-for-date-range",
+      "params": [
+        {
+          "name": "End",
+          "type": "int",
+          "location": "body",
+          "description": "Timestamp (Unix)",
+          "required": true
+        },
+        {
+          "name": "Start",
+          "type": "int",
+          "location": "body",
+          "description": "Timestamp (Unix)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "backup_jobs_recent",
+      "description": "Get jobs (Recent and incomplete). The jobs are returned in an unspecified order. This API requires the Auth Role to be enabled. Wire format: POST /api/v1/admin/get-jobs-recent with an application/x-www-form-urlencoded body. The CLI adds the admin credential fields (Username, AuthType, Password or SessionKey) to the body itself. Requires Comet Server 17.2.0 or later. Source: https://docs.cometbackup.com/latest/api/api-methods#admingetjobsrecent-get-jobs-recent-and-incomplete. Returns array of BackupJobDetail.",
+      "method": "POST",
+      "path": "/api/v1/admin/get-jobs-recent",
+      "params": []
+    },
+    {
+      "name": "constellation_last-report",
+      "description": "Get Constellation bucket usage report (cached). This API requires the Constellation Role to be enabled. Wire format: POST /api/v1/admin/constellation/last-report with an application/x-www-form-urlencoded body. The CLI adds the admin credential fields (Username, AuthType, Password or SessionKey) to the body itself. Requires Comet Server 17.2.0 or later. Source: https://docs.cometbackup.com/latest/api/api-methods#adminconstellationlastreport-get-constellation-bucket-usage-report-cached. Returns the new ConstellationCheckReport.",
+      "method": "POST",
+      "path": "/api/v1/admin/constellation/last-report",
+      "params": []
+    },
+    {
+      "name": "constellation_status",
+      "description": "Get Constellation status. This API requires the Constellation Role to be enabled. Wire format: POST /api/v1/admin/constellation/status with an application/x-www-form-urlencoded body. The CLI adds the admin credential fields (Username, AuthType, Password or SessionKey) to the body itself. Requires Comet Server 17.2.0 or later. Source: https://docs.cometbackup.com/latest/api/api-methods#adminconstellationstatus-get-constellation-status. Returns the new ConstellationStatusApiresponse.",
+      "method": "POST",
+      "path": "/api/v1/admin/constellation/status",
+      "params": []
+    },
+    {
+      "name": "devices_apply-retention",
+      "description": "Instruct a live connected device to apply retention rules now. This API requires the Auth Role to be enabled. Wire format: POST /api/v1/admin/dispatcher/apply-retention-rules with an application/x-www-form-urlencoded body. The CLI adds the admin credential fields (Username, AuthType, Password or SessionKey) to the body itself. Requires Comet Server 17.6.9 or later. Source: https://docs.cometbackup.com/latest/api/api-methods#admindispatcherapplyretentionrules-instruct-a-live-connected-device-to-apply-retention-rules-now. Required: Destination, TargetID. Returns the new CometApiresponseMessage.",
+      "method": "POST",
+      "path": "/api/v1/admin/dispatcher/apply-retention-rules",
+      "params": [
+        {
+          "name": "Destination",
+          "type": "string",
+          "location": "body",
+          "description": "The Storage Vault GUID",
+          "required": true
+        },
+        {
+          "name": "TargetID",
+          "type": "string",
+          "location": "body",
+          "description": "The live connection GUID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "devices_browse-snapshot",
+      "description": "Request a list of stored objects inside an existing backup job. The remote device must have given consent for an MSP to browse their files. To service this request, the remote device must connect to the Storage Vault and load index data. There may be a small delay. If the remote device is running Comet 20.12.0 or later, the necessary index data is cached when this API is first called, for 15 minutes after the last repeated call. This can improve performance for interactively browsing an entire tree of stored objects. This API requires the Auth Role to be enabled. Wire format: POST /api/v1/admin/dispatcher/request-stored-objects with an application/x-www-form-urlencoded body. The CLI adds the admin credential fields (Username, AuthType, Password or SessionKey) to the body itself. Requires Comet Server 19.3.0 or later. Source: https://docs.cometbackup.com/latest/api/api-methods#admindispatcherrequeststoredobjects-request-a-list-of-stored-objects-inside-an-existing-backup-job. Required: Destination, SnapshotID, TargetID. Optional: Options, TreeID. Returns the new DispatcherStoredObjectsResponse.",
+      "method": "POST",
+      "path": "/api/v1/admin/dispatcher/request-stored-objects",
+      "params": [
+        {
+          "name": "Destination",
+          "type": "string",
+          "location": "body",
+          "description": "The Storage Vault ID",
+          "required": true
+        },
+        {
+          "name": "Options",
+          "type": "string",
+          "location": "body",
+          "description": "Request a list of stored objects in vmdk file (\u003e= 21.12.5). JSON-encoded VMDKSnapshotViewOptions"
+        },
+        {
+          "name": "SnapshotID",
+          "type": "string",
+          "location": "body",
+          "description": "The selected backup job snapshot",
+          "required": true
+        },
+        {
+          "name": "TargetID",
+          "type": "string",
+          "location": "body",
+          "description": "The live connection GUID",
+          "required": true
+        },
+        {
+          "name": "TreeID",
+          "type": "string",
+          "location": "body",
+          "description": "Browse objects inside subdirectory of backup snapshot. If it is for VMDK single file restore, it should be the disk image's subtree ID."
+        }
+      ]
+    },
+    {
+      "name": "devices_deep-verify",
+      "description": "Instruct a live connected device to deeply verify Storage Vault content. This API requires the Auth Role to be enabled. Wire format: POST /api/v1/admin/dispatcher/deepverify-storage-vault with an application/x-www-form-urlencoded body. The CLI adds the admin credential fields (Username, AuthType, Password or SessionKey) to the body itself. Requires Comet Server 18.8.2 or later. Source: https://docs.cometbackup.com/latest/api/api-methods#admindispatcherdeepverifystoragevault-instruct-a-live-connected-device-to-deeply-verify-storage-vault-content. Required: Destination, TargetID. Returns the new CometApiresponseMessage.",
+      "method": "POST",
+      "path": "/api/v1/admin/dispatcher/deepverify-storage-vault",
+      "params": [
+        {
+          "name": "Destination",
+          "type": "string",
+          "location": "body",
+          "description": "The Storage Vault GUID",
+          "required": true
+        },
+        {
+          "name": "TargetID",
+          "type": "string",
+          "location": "body",
+          "description": "The live connection GUID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "devices_disconnect",
+      "description": "Disconnect a live connected device. The device will almost certainly attempt to reconnect. This API requires the Auth Role to be enabled. Wire format: POST /api/v1/admin/dispatcher/drop-connection with an application/x-www-form-urlencoded body. The CLI adds the admin credential fields (Username, AuthType, Password or SessionKey) to the body itself. Requires Comet Server 17.2.0 or later. Source: https://docs.cometbackup.com/latest/api/api-methods#admindispatcherdropconnection-disconnect-a-live-connected-device. Required: TargetID. Returns the new CometApiresponseMessage.",
+      "method": "POST",
+      "path": "/api/v1/admin/dispatcher/drop-connection",
+      "params": [
+        {
+          "name": "TargetID",
+          "type": "string",
+          "location": "body",
+          "description": "The live connection GUID (\u003e= 17.2.0)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "devices_kill",
+      "description": "Instruct a live connected device to disconnect. The device will terminate its live-connection process and will not reconnect. This API requires the Auth Role to be enabled. Wire format: POST /api/v1/admin/dispatcher/kill-process with an application/x-www-form-urlencoded body. The CLI adds the admin credential fields (Username, AuthType, Password or SessionKey) to the body itself. Requires Comet Server 17.2.0 or later. Source: https://docs.cometbackup.com/latest/api/api-methods#admindispatcherkillprocess-instruct-a-live-connected-device-to-disconnect. Required: TargetID. Returns the new CometApiresponseMessage.",
+      "method": "POST",
+      "path": "/api/v1/admin/dispatcher/kill-process",
+      "params": [
+        {
+          "name": "TargetID",
+          "type": "string",
+          "location": "body",
+          "description": "The live connection GUID (\u003e= 17.2.0)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "devices_lobby",
+      "description": "List live connected devices in lobby mode. This API requires the Auth Role to be enabled. Wire format: POST /api/v1/admin/installation/list-active with an application/x-www-form-urlencoded body. The CLI adds the admin credential fields (Username, AuthType, Password or SessionKey) to the body itself. Requires Comet Server 23.9.0 or later. Source: https://docs.cometbackup.com/latest/api/api-methods#admininstallationlistactive-list-live-connected-devices-in-lobby-mode. Returns the new DevicesLobbyResponse.",
+      "method": "POST",
+      "path": "/api/v1/admin/installation/list-active",
+      "params": []
+    },
+    {
+      "name": "devices_online",
+      "description": "List live connected devices. This API requires the Auth Role to be enabled. Wire format: POST /api/v1/admin/dispatcher/list-active with an application/x-www-form-urlencoded body. The CLI adds the admin credential fields (Username, AuthType, Password or SessionKey) to the body itself. Requires Comet Server 17.2.0 or later. Source: https://docs.cometbackup.com/latest/api/api-methods#admindispatcherlistactive-list-live-connected-devices. Optional: UserNameFilter. Returns the new DevicesOnlineResponse.",
+      "method": "POST",
+      "path": "/api/v1/admin/dispatcher/list-active",
+      "params": [
+        {
+          "name": "UserNameFilter",
+          "type": "string",
+          "location": "body",
+          "description": "User name filter string (\u003e= 22.6.5)"
+        }
+      ]
+    },
+    {
+      "name": "devices_refetch-profile",
+      "description": "Instruct a live connected device to refresh their profile. This API requires the Auth Role to be enabled. Wire format: POST /api/v1/admin/dispatcher/refetch-profile with an application/x-www-form-urlencoded body. The CLI adds the admin credential fields (Username, AuthType, Password or SessionKey) to the body itself. Requires Comet Server 17.2.0 or later. Source: https://docs.cometbackup.com/latest/api/api-methods#admindispatcherrefetchprofile-instruct-a-live-connected-device-to-refresh-their-profile. Required: TargetID. Returns the new CometApiresponseMessage.",
+      "method": "POST",
+      "path": "/api/v1/admin/dispatcher/refetch-profile",
+      "params": [
+        {
+          "name": "TargetID",
+          "type": "string",
+          "location": "body",
+          "description": "The live connection GUID (\u003e= 17.2.0)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "devices_reindex",
+      "description": "Instruct a live connected device to rebuild Storage Vault indexes now. This API requires the Auth Role to be enabled. Wire format: POST /api/v1/admin/dispatcher/reindex-storage-vault with an application/x-www-form-urlencoded body. The CLI adds the admin credential fields (Username, AuthType, Password or SessionKey) to the body itself. Requires Comet Server 18.6.9 or later. Source: https://docs.cometbackup.com/latest/api/api-methods#admindispatcherreindexstoragevault-instruct-a-live-connected-device-to-rebuild-storage-vault-indexes-now. Required: Destination, TargetID. Returns the new CometApiresponseMessage.",
+      "method": "POST",
+      "path": "/api/v1/admin/dispatcher/reindex-storage-vault",
+      "params": [
+        {
+          "name": "Destination",
+          "type": "string",
+          "location": "body",
+          "description": "The Storage Vault GUID",
+          "required": true
+        },
+        {
+          "name": "TargetID",
+          "type": "string",
+          "location": "body",
+          "description": "The live connection GUID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "devices_run-backup",
+      "description": "Instruct a live connected device to run a scheduled backup. This API requires the Auth Role to be enabled. Wire format: POST /api/v1/admin/dispatcher/run-backup with an application/x-www-form-urlencoded body. The CLI adds the admin credential fields (Username, AuthType, Password or SessionKey) to the body itself. Requires Comet Server 17.2.0 or later. Source: https://docs.cometbackup.com/latest/api/api-methods#admindispatcherrunbackup-instruct-a-live-connected-device-to-run-a-scheduled-backup. Required: BackupRule, TargetID. Returns the new DispatchWithJobIdresponse.",
+      "method": "POST",
+      "path": "/api/v1/admin/dispatcher/run-backup",
+      "params": [
+        {
+          "name": "BackupRule",
+          "type": "string",
+          "location": "body",
+          "description": "The schedule GUID",
+          "required": true
+        },
+        {
+          "name": "TargetID",
+          "type": "string",
+          "location": "body",
+          "description": "The live connection GUID (\u003e= 17.2.0)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "devices_run-backup-custom",
+      "description": "Instruct a live connected device to run a backup. This API requires the Auth Role to be enabled. Wire format: POST /api/v1/admin/dispatcher/run-backup-custom with an application/x-www-form-urlencoded body. The CLI adds the admin credential fields (Username, AuthType, Password or SessionKey) to the body itself. Requires Comet Server 17.2.0 or later. Source: https://docs.cometbackup.com/latest/api/api-methods#admindispatcherrunbackupcustom-instruct-a-live-connected-device-to-run-a-backup. Required: Destination, Source, TargetID. Optional: Options. Returns the new DispatchWithJobIdresponse.",
+      "method": "POST",
+      "path": "/api/v1/admin/dispatcher/run-backup-custom",
+      "params": [
+        {
+          "name": "Destination",
+          "type": "string",
+          "location": "body",
+          "description": "The Storage Vault GUID (\u003e= 17.2.0)",
+          "required": true
+        },
+        {
+          "name": "Options",
+          "type": "string",
+          "location": "body",
+          "description": "Extra job parameters (\u003e= 19.3.6). JSON-encoded BackupJobAdvancedOptions"
+        },
+        {
+          "name": "Source",
+          "type": "string",
+          "location": "body",
+          "description": "The Protected Item GUID (\u003e= 17.2.0)",
+          "required": true
+        },
+        {
+          "name": "TargetID",
+          "type": "string",
+          "location": "body",
+          "description": "The live connection GUID (\u003e= 17.2.0)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "devices_run-restore",
+      "description": "Instruct a live connected device to perform a local restore. This API requires the Auth Role to be enabled. Wire format: POST /api/v1/admin/dispatcher/run-restore with an application/x-www-form-urlencoded body. The CLI adds the admin credential fields (Username, AuthType, Password or SessionKey) to the body itself. Requires Comet Server 17.9.3 or later. Source: https://docs.cometbackup.com/latest/api/api-methods#admindispatcherrunrestore-instruct-a-live-connected-device-to-perform-a-local-restore. Required: Destination, Path, Source, TargetID. Optional: Paths, Snapshot. Returns the new DispatchWithJobIdresponse.",
+      "method": "POST",
+      "path": "/api/v1/admin/dispatcher/run-restore",
+      "params": [
+        {
+          "name": "Destination",
+          "type": "string",
+          "location": "body",
+          "description": "The Storage Vault ID",
+          "required": true
+        },
+        {
+          "name": "Path",
+          "type": "string",
+          "location": "body",
+          "description": "The local path to restore to",
+          "required": true
+        },
+        {
+          "name": "Paths",
+          "type": "string",
+          "location": "body",
+          "description": "If present, restore these paths only. Otherwise, restore all data (\u003e= 19.3.0). JSON-encoded List\u003cstring\u003e"
+        },
+        {
+          "name": "Snapshot",
+          "type": "string",
+          "location": "body",
+          "description": "If present, restore a specific snapshot. Otherwise, restore the latest snapshot for the selected Protected Item + Storage Vault pair"
+        },
+        {
+          "name": "Source",
+          "type": "string",
+          "location": "body",
+          "description": "The Protected Item ID",
+          "required": true
+        },
+        {
+          "name": "TargetID",
+          "type": "string",
+          "location": "body",
+          "description": "The live connection GUID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "devices_uninstall",
+      "description": "Instruct a live connected device to self-uninstall the software. This API requires the Auth Role to be enabled. Wire format: POST /api/v1/admin/dispatcher/uninstall-software with an application/x-www-form-urlencoded body. The CLI adds the admin credential fields (Username, AuthType, Password or SessionKey) to the body itself. Requires Comet Server 20.3.5 or later. Source: https://docs.cometbackup.com/latest/api/api-methods#admindispatcheruninstallsoftware-instruct-a-live-connected-device-to-self-uninstall-the-software. Required: RemoveConfigFile, TargetID. Returns the new CometApiresponseMessage.",
+      "method": "POST",
+      "path": "/api/v1/admin/dispatcher/uninstall-software",
+      "params": [
+        {
+          "name": "RemoveConfigFile",
+          "type": "bool",
+          "location": "body",
+          "description": "Determine if the config.dat file will be deleted at the same time",
+          "required": true
+        },
+        {
+          "name": "TargetID",
+          "type": "string",
+          "location": "body",
+          "description": "The live connection GUID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "devices_unlock",
+      "description": "Instruct a live connected device to remove lock files from a Storage Vault. Misuse can cause data loss! This API requires the Auth Role to be enabled. Wire format: POST /api/v1/admin/dispatcher/unlock with an application/x-www-form-urlencoded body. The CLI adds the admin credential fields (Username, AuthType, Password or SessionKey) to the body itself. Requires Comet Server 17.9.4 or later. Source: https://docs.cometbackup.com/latest/api/api-methods#admindispatcherunlock-instruct-a-live-connected-device-to-remove-lock-files-from-a-storage-vault. Required: Destination, TargetID. Optional: AllowUnsafe. Returns the new CometApiresponseMessage.",
+      "method": "POST",
+      "path": "/api/v1/admin/dispatcher/unlock",
+      "params": [
+        {
+          "name": "AllowUnsafe",
+          "type": "bool",
+          "location": "body",
+          "description": "Allow legacy Storage Vault unlocking, which is unsafe in some cases. (\u003e= 25.3.0)"
+        },
+        {
+          "name": "Destination",
+          "type": "string",
+          "location": "body",
+          "description": "The Storage Vault GUID",
+          "required": true
+        },
+        {
+          "name": "TargetID",
+          "type": "string",
+          "location": "body",
+          "description": "The live connection GUID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "devices_update-software",
+      "description": "Instruct a live connected device to download a software update. This API requires the Auth Role to be enabled. This API requires the Software Build Role to be enabled. Wire format: POST /api/v1/admin/dispatcher/update-software with an application/x-www-form-urlencoded body. The CLI adds the admin credential fields (Username, AuthType, Password or SessionKey) to the body itself. Requires Comet Server 17.2.0 or later. Source: https://docs.cometbackup.com/latest/api/api-methods#admindispatcherupdatesoftware-instruct-a-live-connected-device-to-download-a-software-update. Required: TargetID. Optional: SelfAddress. Returns the new CometApiresponseMessage.",
+      "method": "POST",
+      "path": "/api/v1/admin/dispatcher/update-software",
+      "params": [
+        {
+          "name": "SelfAddress",
+          "type": "string",
+          "location": "body",
+          "description": "The external URL of this server, used to resolve conflicts (\u003e= 19.3.11)"
+        },
+        {
+          "name": "TargetID",
+          "type": "string",
+          "location": "body",
+          "description": "The live connection GUID (\u003e= 17.2.0)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "devices_vault-snapshots",
+      "description": "Request a list of Storage Vault snapshots from a live connected device. This API requires the Auth Role to be enabled. Wire format: POST /api/v1/admin/dispatcher/request-vault-snapshots with an application/x-www-form-urlencoded body. The CLI adds the admin credential fields (Username, AuthType, Password or SessionKey) to the body itself. Requires Comet Server 18.9.1 or later. Source: https://docs.cometbackup.com/latest/api/api-methods#admindispatcherrequestvaultsnapshots-request-a-list-of-storage-vault-snapshots-from-a-live-connected-device. Required: Destination, TargetID. Returns the new DispatcherVaultSnapshotsResponse.",
+      "method": "POST",
+      "path": "/api/v1/admin/dispatcher/request-vault-snapshots",
+      "params": [
+        {
+          "name": "Destination",
+          "type": "string",
+          "location": "body",
+          "description": "The Storage Vault ID",
+          "required": true
+        },
+        {
+          "name": "TargetID",
+          "type": "string",
+          "location": "body",
+          "description": "The live connection GUID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "organizations_list",
+      "description": "List Organizations. This API is only available for top-level administrator accounts, not for Tenant administrator accounts. Wire format: POST /api/v1/admin/organization/list with an application/x-www-form-urlencoded body. The CLI adds the admin credential fields (Username, AuthType, Password or SessionKey) to the body itself. Requires Comet Server 20.9.0 or later. Source: https://docs.cometbackup.com/latest/api/api-methods#adminorganizationlist-list-organizations. Returns the new OrganizationsListResponse.",
+      "method": "POST",
+      "path": "/api/v1/admin/organization/list",
+      "params": []
+    },
+    {
+      "name": "policies_get",
+      "description": "Retrieve a single policy object. A hash is also returned, to allow atomic modification operations. This API requires the Auth Role to be enabled. Wire format: POST /api/v1/admin/policies/get with an application/x-www-form-urlencoded body. The CLI adds the admin credential fields (Username, AuthType, Password or SessionKey) to the body itself. Requires Comet Server 18.3.10 or later. Source: https://docs.cometbackup.com/latest/api/api-methods#adminpoliciesget-retrieve-a-single-policy-object. Required: PolicyID. Returns the new GetGroupPolicyResponse.",
+      "method": "POST",
+      "path": "/api/v1/admin/policies/get",
+      "params": [
+        {
+          "name": "PolicyID",
+          "type": "string",
+          "location": "body",
+          "description": "The policy ID to retrieve",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "policies_list",
+      "description": "List all policy object names. For the top-level organization, the API result includes all policies for all organizations, unless the TargetOrganization parameter is present. This API requires the Auth Role to be enabled. Wire format: POST /api/v1/admin/policies/list with an application/x-www-form-urlencoded body. The CLI adds the admin credential fields (Username, AuthType, Password or SessionKey) to the body itself. Requires Comet Server 18.3.10 or later. Source: https://docs.cometbackup.com/latest/api/api-methods#adminpolicieslist-list-all-policy-object-names. Optional: TargetOrganization. Returns the new PoliciesListResponse.",
+      "method": "POST",
+      "path": "/api/v1/admin/policies/list",
+      "params": [
+        {
+          "name": "TargetOrganization",
+          "type": "string",
+          "location": "body",
+          "description": "If present, list the policies belonging to another organization. Only allowed for administrator accounts in the top-level organization. (\u003e= 22.5.0)"
+        }
+      ]
+    },
+    {
+      "name": "policies_list-full",
+      "description": "Get all policy objects. For the top-level organization, the API result includes all policies for all organizations, unless the TargetOrganization parameter is present. This API requires the Auth Role to be enabled. Wire format: POST /api/v1/admin/policies/list-full with an application/x-www-form-urlencoded body. The CLI adds the admin credential fields (Username, AuthType, Password or SessionKey) to the body itself. Requires Comet Server 18.3.10 or later. Source: https://docs.cometbackup.com/latest/api/api-methods#adminpolicieslistfull-get-all-policy-objects. Optional: TargetOrganization. Returns the new PoliciesListFullResponse.",
+      "method": "POST",
+      "path": "/api/v1/admin/policies/list-full",
+      "params": [
+        {
+          "name": "TargetOrganization",
+          "type": "string",
+          "location": "body",
+          "description": "If present, list the policies belonging to another organization. Only allowed for administrator accounts in the top-level organization. (\u003e= 22.5.0)"
+        }
+      ]
+    },
+    {
+      "name": "protected_items_get",
+      "description": "Get a Protected Item with its backup rules. This API requires the Auth Role to be enabled. Wire format: POST /api/v1/admin/get-protected-item-with-backup-rules with an application/x-www-form-urlencoded body. The CLI adds the admin credential fields (Username, AuthType, Password or SessionKey) to the body itself. Requires Comet Server 25.9.5 or later. Source: https://docs.cometbackup.com/latest/api/api-methods#admingetprotecteditemwithbackuprules-get-a-protected-item-with-its-backup-rules. Required: SourceID, TargetUser. Returns the new ProtectedItemWithBackupRulesResponse.",
+      "method": "POST",
+      "path": "/api/v1/admin/get-protected-item-with-backup-rules",
+      "params": [
+        {
+          "name": "SourceID",
+          "type": "string",
+          "location": "body",
+          "description": "Selected Protected Item GUID",
+          "required": true
+        },
+        {
+          "name": "TargetUser",
+          "type": "string",
+          "location": "body",
+          "description": "Selected account username",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "quotas_get",
+      "description": "Get properties for a shared storage quota. This API requires the Auth Role to be enabled. Wire format: POST /api/v1/admin/squota/get-with-hash with an application/x-www-form-urlencoded body. The CLI adds the admin credential fields (Username, AuthType, Password or SessionKey) to the body itself. Requires Comet Server 25.9.8 or later. Source: https://docs.cometbackup.com/latest/api/api-methods#adminsquotagetwithhash-get-properties-for-a-shared-storage-quota. Required: SharedStorageQuotaID. Returns the new GetSharedStorageQuotaResponse.",
+      "method": "POST",
+      "path": "/api/v1/admin/squota/get-with-hash",
+      "params": [
+        {
+          "name": "SharedStorageQuotaID",
+          "type": "string",
+          "location": "body",
+          "description": "Shared storage quota id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "quotas_list",
+      "description": "List available shared storage quota objects. This API requires the Auth Role to be enabled. Wire format: POST /api/v1/admin/squota/list-all with an application/x-www-form-urlencoded body. The CLI adds the admin credential fields (Username, AuthType, Password or SessionKey) to the body itself. Requires Comet Server 25.9.8 or later. Source: https://docs.cometbackup.com/latest/api/api-methods#adminsquotalistall-list-available-shared-storage-quota-objects. Returns the new ListSharedStorageQuotaResponse.",
+      "method": "POST",
+      "path": "/api/v1/admin/squota/list-all",
+      "params": []
+    },
+    {
+      "name": "server_log-days",
+      "description": "Get log files. This API is only available for top-level administrator accounts, not for Tenant administrator accounts. Wire format: POST /api/v1/admin/meta/list-available-log-days with an application/x-www-form-urlencoded body. The CLI adds the admin credential fields (Username, AuthType, Password or SessionKey) to the body itself. Requires Comet Server 17.2.0 or later. Source: https://docs.cometbackup.com/latest/api/api-methods#adminmetalistavailablelogdays-get-log-files. Returns array of int.",
+      "method": "POST",
+      "path": "/api/v1/admin/meta/list-available-log-days",
+      "params": []
+    },
+    {
+      "name": "server_logs",
+      "description": "Get log file content. On non-Windows platforms, log content uses LF line endings. On Windows, Comet changed from LF to CRLF line endings in 18.3.2. This API does not automatically convert line endings; around the 18.3.2 timeframe, log content may even contain mixed line-endings. This API is only available for top-level administrator accounts, not for Tenant administrator accounts. Wire format: POST /api/v1/admin/meta/read-logs with an application/x-www-form-urlencoded body. The CLI adds the admin credential fields (Username, AuthType, Password or SessionKey) to the body itself. Requires Comet Server 17.2.0 or later. Source: https://docs.cometbackup.com/latest/api/api-methods#adminmetareadlogs-get-log-file-content. Required: Log.",
+      "method": "POST",
+      "path": "/api/v1/admin/meta/read-logs",
+      "params": [
+        {
+          "name": "Log",
+          "type": "int",
+          "location": "body",
+          "description": "A log day, selected from the options returned by the Get Log Files API (\u003e= 17.2.0)",
+          "required": true
+        }
+      ],
+      "header_overrides": [
+        {
+          "name": "Accept",
+          "value": "text/plain"
+        }
+      ]
+    },
+    {
+      "name": "server_news",
+      "description": "Get News entries (Admin). This API requires the Auth Role to be enabled. Wire format: POST /api/v1/admin/news/get-all with an application/x-www-form-urlencoded body. The CLI adds the admin credential fields (Username, AuthType, Password or SessionKey) to the body itself. Requires Comet Server 17.2.0 or later. Source: https://docs.cometbackup.com/latest/api/api-methods#adminnewsgetall-get-news-entries-admin. Returns the new ServerNewsResponse.",
+      "method": "POST",
+      "path": "/api/v1/admin/news/get-all",
+      "params": []
+    },
+    {
+      "name": "server_replication",
+      "description": "Get Replication status. This API is only available for top-level administrator accounts, not for Tenant administrator accounts. Wire format: POST /api/v1/admin/replication/state with an application/x-www-form-urlencoded body. The CLI adds the admin credential fields (Username, AuthType, Password or SessionKey) to the body itself. Requires Comet Server 17.2.0 or later. Source: https://docs.cometbackup.com/latest/api/api-methods#adminreplicationstate-get-replication-status. Returns array of ReplicatorStateApiresponse.",
+      "method": "POST",
+      "path": "/api/v1/admin/replication/state",
+      "params": []
+    },
+    {
+      "name": "server_stats",
+      "description": "Get Comet Server historical statistics. The returned key-value map is not necessarily ordered. Client-side code should sort the result before display. Wire format: POST /api/v1/admin/meta/stats with an application/x-www-form-urlencoded body. The CLI adds the admin credential fields (Username, AuthType, Password or SessionKey) to the body itself. Requires Comet Server 18.6.2 or later. Source: https://docs.cometbackup.com/latest/api/api-methods#adminmetastats-get-comet-server-historical-statistics. Required: Simple. Returns the new ServerStatsResponse.",
+      "method": "POST",
+      "path": "/api/v1/admin/meta/stats",
+      "params": [
+        {
+          "name": "Simple",
+          "type": "bool",
+          "location": "body",
+          "description": "Remove redundant statistics (\u003e= 18.9.1)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "server_update-campaign",
+      "description": "Get current campaign status. This API is only available for top-level administrator accounts, not for Tenant administrator accounts. This API requires the Software Build Role to be enabled. This API requires the Auth Role to be enabled. Wire format: POST /api/v1/admin/update-campaign/status with an application/x-www-form-urlencoded body. The CLI adds the admin credential fields (Username, AuthType, Password or SessionKey) to the body itself. Requires Comet Server 17.9.6 or later. Source: https://docs.cometbackup.com/latest/api/api-methods#adminupdatecampaignstatus-get-current-campaign-status. Returns the new UpdateCampaignStatus.",
+      "method": "POST",
+      "path": "/api/v1/admin/update-campaign/status",
+      "params": []
+    },
+    {
+      "name": "server_update-news",
+      "description": "Get software update news from the software provider. Wire format: POST /api/v1/admin/meta/software-update-news with an application/x-www-form-urlencoded body. The CLI adds the admin credential fields (Username, AuthType, Password or SessionKey) to the body itself. Requires Comet Server 18.3.7 or later. Source: https://docs.cometbackup.com/latest/api/api-methods#adminmetasoftwareupdatenews-get-software-update-news-from-the-software-provider. Returns the new SoftwareUpdateNewsResponse.",
+      "method": "POST",
+      "path": "/api/v1/admin/meta/software-update-news",
+      "params": []
+    },
+    {
+      "name": "server_version",
+      "description": "Get server properties. Retrieve the version number and basic properties about the server. Wire format: POST /api/v1/admin/meta/version with an application/x-www-form-urlencoded body. The CLI adds the admin credential fields (Username, AuthType, Password or SessionKey) to the body itself. Requires Comet Server 17.2.0 or later. Source: https://docs.cometbackup.com/latest/api/api-methods#adminmetaversion-get-server-properties. Returns the new ServerMetaVersionInfo.",
+      "method": "POST",
+      "path": "/api/v1/admin/meta/version",
+      "params": []
+    },
+    {
+      "name": "storage_bucket",
+      "description": "Retrieve properties for a single bucket. This API can also be used to refresh the size measurement for a single bucket by passing a valid AfterTimestamp parameter. This API requires the Storage Role to be enabled. Wire format: POST /api/v1/admin/storage/bucket-properties with an application/x-www-form-urlencoded body. The CLI adds the admin credential fields (Username, AuthType, Password or SessionKey) to the body itself. Requires Comet Server 20.9.4 or later. Source: https://docs.cometbackup.com/latest/api/api-methods#adminstoragebucketproperties-retrieve-properties-for-a-single-bucket. Required: BucketID. Optional: AfterTimestamp. Returns the new BucketProperties.",
+      "method": "POST",
+      "path": "/api/v1/admin/storage/bucket-properties",
+      "params": [
+        {
+          "name": "AfterTimestamp",
+          "type": "int",
+          "location": "body",
+          "description": "Allow a stale size measurement if it is at least as new as the supplied Unix timestamp. Timestamps in the future may produce a result clamped down to the Comet Server's current time. If not present, the size measurement may be arbitrarily stale."
+        },
+        {
+          "name": "BucketID",
+          "type": "string",
+          "location": "body",
+          "description": "Bucket ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "storage_buckets",
+      "description": "List all buckets. This API requires the Storage Role to be enabled. Wire format: POST /api/v1/admin/storage/list-buckets with an application/x-www-form-urlencoded body. The CLI adds the admin credential fields (Username, AuthType, Password or SessionKey) to the body itself. Requires Comet Server 17.2.0 or later. Source: https://docs.cometbackup.com/latest/api/api-methods#adminstoragelistbuckets-list-all-buckets. Returns the new StorageBucketsResponse.",
+      "method": "POST",
+      "path": "/api/v1/admin/storage/list-buckets",
+      "params": []
+    },
+    {
+      "name": "storage_free-space",
+      "description": "Retrieve available space metrics. Access to this API may be prevented on a per-administrator basis. This API requires the Storage Role to be enabled. This API is only available for top-level administrator accounts, not for Tenant administrator accounts. Wire format: POST /api/v1/admin/storage/free-space with an application/x-www-form-urlencoded body. The CLI adds the admin credential fields (Username, AuthType, Password or SessionKey) to the body itself. Requires Comet Server 19.12.4 or later. Source: https://docs.cometbackup.com/latest/api/api-methods#adminstoragefreespace-retrieve-available-space-metrics. Optional: BucketID. Returns the new StorageFreeSpaceInfo.",
+      "method": "POST",
+      "path": "/api/v1/admin/storage/free-space",
+      "params": [
+        {
+          "name": "BucketID",
+          "type": "string",
+          "location": "body",
+          "description": "(This parameter is not used)"
+        }
+      ]
+    },
+    {
+      "name": "storage_request-vault",
+      "description": "Request a new Storage Vault on behalf of a user. This action does not respect the 'Prevent creating new Storage Vaults (via Request)' policy setting. New Storage Vaults can be requested regardless of the policy setting. Prior to Comet 19.8.0, the response type was CometAPIResponseMessage (i.e. no DestinationID field in response). The StorageProvider must exist for the target user account's organization. This API requires the Auth Role to be enabled. Wire format: POST /api/v1/admin/request-storage-vault with an application/x-www-form-urlencoded body. The CLI adds the admin credential fields (Username, AuthType, Password or SessionKey) to the body itself. Requires Comet Server 18.6.2 or later. Source: https://docs.cometbackup.com/latest/api/api-methods#adminrequeststoragevault-request-a-new-storage-vault-on-behalf-of-a-user. Required: StorageProvider, TargetUser. Optional: DeviceID, ProfileHash, SelfAddress. Returns the new RequestStorageVaultResponseMessage.",
+      "method": "POST",
+      "path": "/api/v1/admin/request-storage-vault",
+      "params": [
+        {
+          "name": "DeviceID",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the device to be added as a associated device of the Storage Vault (\u003e= 24.12.0)"
+        },
+        {
+          "name": "ProfileHash",
+          "type": "string",
+          "location": "body",
+          "description": "The profile hash of the user profile (\u003e= 25.3.2)"
+        },
+        {
+          "name": "SelfAddress",
+          "type": "string",
+          "location": "body",
+          "description": "The external URL for this server. Used to resolve conflicts"
+        },
+        {
+          "name": "StorageProvider",
+          "type": "string",
+          "location": "body",
+          "description": "ID for the storage template destination",
+          "required": true
+        },
+        {
+          "name": "TargetUser",
+          "type": "string",
+          "location": "body",
+          "description": "The user to receive the new Storage Vault",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "storage_vault-providers",
+      "description": "Get the available options for Requesting a Storage Vault. This API requires the Auth Role to be enabled. Wire format: POST /api/v1/admin/request-storage-vault-providers with an application/x-www-form-urlencoded body. The CLI adds the admin credential fields (Username, AuthType, Password or SessionKey) to the body itself. Requires Comet Server 18.6.2 or later. Source: https://docs.cometbackup.com/latest/api/api-methods#adminrequeststoragevaultproviders-get-the-available-options-for-requesting-a-storage-vault. Optional: TargetOrganization. Returns the new StorageVaultProvidersResponse.",
+      "method": "POST",
+      "path": "/api/v1/admin/request-storage-vault-providers",
+      "params": [
+        {
+          "name": "TargetOrganization",
+          "type": "string",
+          "location": "body",
+          "description": "If present, list the storage template options belonging to another organization. Only allowed for administrator accounts in the top-level organization. (\u003e= 22.5.0)"
+        }
+      ]
+    },
+    {
+      "name": "user_groups_get",
+      "description": "Retrieve a single user group object. This API requires the Auth Role to be enabled. Wire format: POST /api/v1/admin/user-groups/get with an application/x-www-form-urlencoded body. The CLI adds the admin credential fields (Username, AuthType, Password or SessionKey) to the body itself. Requires Comet Server 24.12.0 or later. Source: https://docs.cometbackup.com/latest/api/api-methods#adminusergroupsget-retrieve-a-single-user-group-object. Required: GroupID. Optional: IncludeUsers. Returns the new GetUserGroupWithUsersResponse.",
+      "method": "POST",
+      "path": "/api/v1/admin/user-groups/get",
+      "params": [
+        {
+          "name": "GroupID",
+          "type": "string",
+          "location": "body",
+          "description": "The user group ID to retrieve",
+          "required": true
+        },
+        {
+          "name": "IncludeUsers",
+          "type": "bool",
+          "location": "body",
+          "description": "If present, includes the users array in the response."
+        }
+      ]
+    },
+    {
+      "name": "user_groups_list",
+      "description": "List all user group names. For the top-level organization, the API result includes all user groups for all organizations, unless the TargetOrganization parameter is present. This API requires the Auth Role to be enabled. Wire format: POST /api/v1/admin/user-groups/list with an application/x-www-form-urlencoded body. The CLI adds the admin credential fields (Username, AuthType, Password or SessionKey) to the body itself. Requires Comet Server 24.12.0 or later. Source: https://docs.cometbackup.com/latest/api/api-methods#adminusergroupslist-list-all-user-group-names. Optional: TargetOrganization. Returns the new UserGroupsListResponse.",
+      "method": "POST",
+      "path": "/api/v1/admin/user-groups/list",
+      "params": [
+        {
+          "name": "TargetOrganization",
+          "type": "string",
+          "location": "body",
+          "description": "If present, list the user groups belonging to another organization. Only allowed for administrator accounts in the top-level organization."
+        }
+      ]
+    },
+    {
+      "name": "user_groups_list-full",
+      "description": "Get all user group objects. For the top-level organization, the API result includes all user groups for all organizations, unless the TargetOrganization parameter is present. This API requires the Auth Role to be enabled. Wire format: POST /api/v1/admin/user-groups/list-full with an application/x-www-form-urlencoded body. The CLI adds the admin credential fields (Username, AuthType, Password or SessionKey) to the body itself. Requires Comet Server 24.12.0 or later. Source: https://docs.cometbackup.com/latest/api/api-methods#adminusergroupslistfull-get-all-user-group-objects. Optional: TargetOrganization. Returns the new UserGroupsListFullResponse.",
+      "method": "POST",
+      "path": "/api/v1/admin/user-groups/list-full",
+      "params": [
+        {
+          "name": "TargetOrganization",
+          "type": "string",
+          "location": "body",
+          "description": "If present, list the user groups belonging to the specified organization. Only allowed for administrator accounts in the top-level organization."
+        }
+      ]
+    },
+    {
+      "name": "users_add",
+      "description": "Add a new user account. This API requires the Auth Role to be enabled. Wire format: POST /api/v1/admin/add-user with an application/x-www-form-urlencoded body. The CLI adds the admin credential fields (Username, AuthType, Password or SessionKey) to the body itself. Requires Comet Server 17.2.0 or later. Source: https://docs.cometbackup.com/latest/api/api-methods#adminadduser-add-a-new-user-account. Required: TargetPassword, TargetUser. Optional: RequirePasswordChange, StoreRecoveryCode, TargetOrganization. Returns the new CometApiresponseMessage.",
+      "method": "POST",
+      "path": "/api/v1/admin/add-user",
+      "params": [
+        {
+          "name": "RequirePasswordChange",
+          "type": "int",
+          "location": "body",
+          "description": "If set to 1, require to reset password at the first login for the generated user (\u003e= 20.3.4)"
+        },
+        {
+          "name": "StoreRecoveryCode",
+          "type": "int",
+          "location": "body",
+          "description": "If set to 1, store and keep a password recovery code for the generated user (\u003e= 18.3.9)"
+        },
+        {
+          "name": "TargetOrganization",
+          "type": "string",
+          "location": "body",
+          "description": "If present, create the user account on behalf of another organization. Only allowed for administrator accounts in the top-level organization. (\u003e= 22.5.0)"
+        },
+        {
+          "name": "TargetPassword",
+          "type": "string",
+          "location": "body",
+          "description": "New account password (\u003e= 17.2.0)",
+          "required": true
+        },
+        {
+          "name": "TargetUser",
+          "type": "string",
+          "location": "body",
+          "description": "New account username (\u003e= 17.2.0)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "users_delete",
+      "description": "Delete user account. This does not remove any storage buckets. Unused storage buckets will be cleaned up by the Constellation Role. Any stored data can not be decrypted without the user profile. Misuse can cause data loss! This also allows to uninstall software from active devices under the user account This also removes all job history for the user account. This API requires the Auth Role to be enabled. Wire format: POST /api/v1/admin/delete-user with an application/x-www-form-urlencoded body. The CLI adds the admin credential fields (Username, AuthType, Password or SessionKey) to the body itself. Requires Comet Server 17.2.0 or later. Source: https://docs.cometbackup.com/latest/api/api-methods#admindeleteuser-delete-user-account. Required: TargetUser. Optional: UninstallConfig. Returns the new CometApiresponseMessage.",
+      "method": "POST",
+      "path": "/api/v1/admin/delete-user",
+      "params": [
+        {
+          "name": "TargetUser",
+          "type": "string",
+          "location": "body",
+          "description": "Selected account username (\u003e= 17.2.0)",
+          "required": true
+        },
+        {
+          "name": "UninstallConfig",
+          "type": "string",
+          "location": "body",
+          "description": "Uninstall software configuration (\u003e= 20.3.5). JSON-encoded UninstallConfig"
+        }
+      ]
+    },
+    {
+      "name": "users_disable-totp",
+      "description": "Disable user account 2FA(TOTP) authentication. This API requires the Auth Role to be enabled. Wire format: POST /api/v1/admin/disable-user-totp with an application/x-www-form-urlencoded body. The CLI adds the admin credential fields (Username, AuthType, Password or SessionKey) to the body itself. Requires Comet Server 20.6.0 or later. Source: https://docs.cometbackup.com/latest/api/api-methods#admindisableusertotp-disable-user-account-2fa-totp-authentication. Required: TargetUser. Returns the new CometApiresponseMessage.",
+      "method": "POST",
+      "path": "/api/v1/admin/disable-user-totp",
+      "params": [
+        {
+          "name": "TargetUser",
+          "type": "string",
+          "location": "body",
+          "description": "Selected account username",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "users_get",
+      "description": "Get user account profile. This API requires the Auth Role to be enabled. Wire format: POST /api/v1/admin/get-user-profile with an application/x-www-form-urlencoded body. The CLI adds the admin credential fields (Username, AuthType, Password or SessionKey) to the body itself. Requires Comet Server 17.2.0 or later. The response contains credential material (account password hash, TOTP key, recovery code, and Storage Vault access credentials). Treat the output as secret. Source: https://docs.cometbackup.com/latest/api/api-methods#admingetuserprofile-get-user-account-profile. Required: TargetUser. Returns the new UserProfileConfig.",
+      "method": "POST",
+      "path": "/api/v1/admin/get-user-profile",
+      "params": [
+        {
+          "name": "TargetUser",
+          "type": "string",
+          "location": "body",
+          "description": "Selected account username (\u003e= 17.2.0)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "users_list",
+      "description": "List all user accounts. This API requires the Auth Role to be enabled. Wire format: POST /api/v1/admin/list-users with an application/x-www-form-urlencoded body. The CLI adds the admin credential fields (Username, AuthType, Password or SessionKey) to the body itself. Requires Comet Server 17.2.0 or later. Source: https://docs.cometbackup.com/latest/api/api-methods#adminlistusers-list-all-user-accounts. Returns array of string.",
+      "method": "POST",
+      "path": "/api/v1/admin/list-users",
+      "params": []
+    },
+    {
+      "name": "users_list-full",
+      "description": "List all user account profiles. This API requires the Auth Role to be enabled. Wire format: POST /api/v1/admin/list-users-full with an application/x-www-form-urlencoded body. The CLI adds the admin credential fields (Username, AuthType, Password or SessionKey) to the body itself. Requires Comet Server 17.2.0 or later. The response contains credential material (account password hash, TOTP key, recovery code, and Storage Vault access credentials). Treat the output as secret. Source: https://docs.cometbackup.com/latest/api/api-methods#adminlistusersfull-list-all-user-account-profiles. Returns the new UsersListFullResponse.",
+      "method": "POST",
+      "path": "/api/v1/admin/list-users-full",
+      "params": []
+    },
+    {
+      "name": "users_reset-password",
+      "description": "Reset user account password. The user account must have a recovery code present. A new replacement recovery code will be generated automatically. This API requires the Auth Role to be enabled. Wire format: POST /api/v1/admin/reset-user-password with an application/x-www-form-urlencoded body. The CLI adds the admin credential fields (Username, AuthType, Password or SessionKey) to the body itself. Requires Comet Server 18.3.9 or later. Source: https://docs.cometbackup.com/latest/api/api-methods#adminresetuserpassword-reset-user-account-password. Required: NewPassword, TargetUser. Optional: OldPassword. Returns the new CometApiresponseMessage.",
+      "method": "POST",
+      "path": "/api/v1/admin/reset-user-password",
+      "params": [
+        {
+          "name": "NewPassword",
+          "type": "string",
+          "location": "body",
+          "description": "New account password",
+          "required": true
+        },
+        {
+          "name": "OldPassword",
+          "type": "string",
+          "location": "body",
+          "description": "Old account password. Required if no recovery code is present for the user account. (\u003e= 20.3.2)"
+        },
+        {
+          "name": "TargetUser",
+          "type": "string",
+          "location": "body",
+          "description": "Selected account username",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "users_revoke-device",
+      "description": "Revoke device from user account. It's possible to simply remove the Device section from the user's profile, however, using this dedicated API will also gracefully handle live connections. This API requires the Auth Role to be enabled. Wire format: POST /api/v1/admin/revoke-device with an application/x-www-form-urlencoded body. The CLI adds the admin credential fields (Username, AuthType, Password or SessionKey) to the body itself. Requires Comet Server 17.9.1 or later. Source: https://docs.cometbackup.com/latest/api/api-methods#adminrevokedevice-revoke-device-from-user-account. Required: TargetDevice, TargetUser. Returns the new CometApiresponseMessage.",
+      "method": "POST",
+      "path": "/api/v1/admin/revoke-device",
+      "params": [
+        {
+          "name": "TargetDevice",
+          "type": "string",
+          "location": "body",
+          "description": "Selected Device ID",
+          "required": true
+        },
+        {
+          "name": "TargetUser",
+          "type": "string",
+          "location": "body",
+          "description": "Selected account username",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "users_set-profile",
+      "description": "Modify user account profile. This API requires the Auth Role to be enabled. Wire format: POST /api/v1/admin/set-user-profile with an application/x-www-form-urlencoded body. The CLI adds the admin credential fields (Username, AuthType, Password or SessionKey) to the body itself. Requires Comet Server 17.2.0 or later. Source: https://docs.cometbackup.com/latest/api/api-methods#adminsetuserprofile-modify-user-account-profile. Required: ProfileData, TargetUser. Optional: AdminOptions. Returns the new CometApiresponseMessage.",
+      "method": "POST",
+      "path": "/api/v1/admin/set-user-profile",
+      "params": [
+        {
+          "name": "AdminOptions",
+          "type": "string",
+          "location": "body",
+          "description": "Instructions for modifying user profile (\u003e= 24.12.5). JSON-encoded AdminOptions"
+        },
+        {
+          "name": "ProfileData",
+          "type": "string",
+          "location": "body",
+          "description": "Modified user profile (\u003e= 17.2.0). JSON-encoded UserProfileConfig",
+          "required": true
+        },
+        {
+          "name": "TargetUser",
+          "type": "string",
+          "location": "body",
+          "description": "Selected account username (\u003e= 17.2.0)",
+          "required": true
+        }
+      ]
+    }
+  ],
+  "novel_features": [
+    {
+      "name": "Fleet backup health",
+      "command": "health",
+      "description": "See the backup state of every protected item across every tenant in one list, including items that quietly stopped running."
+    },
+    {
+      "name": "Failure triage with error lines",
+      "command": "triage",
+      "description": "Find out why backups failed: the failed and stuck jobs in a time window (warnings with --include-warnings), with the first error lines from each job log."
+    },
+    {
+      "name": "Per-tenant usage report",
+      "command": "usage",
+      "description": "Get per-tenant storage against quota, billable devices, booster engines, Microsoft 365 accounts and VM guests; these are the server's own counts, not an invoice."
+    },
+    {
+      "name": "Stale and offline devices",
+      "command": "devices stale",
+      "description": "Find offline devices: registered devices not connected now, ranked by how long since their last backup, flagged when they still carry billable protected items."
+    },
+    {
+      "name": "Changes between snapshots",
+      "command": "changes",
+      "description": "Compare the two newest local snapshots: problems opened or resolved, devices and protected items added or removed, storage growth. Run snapshot twice first."
+    },
+    {
+      "name": "Re-run failed backups",
+      "command": "rerun-failed",
+      "description": "Plan and, with --yes, re-run failed scheduled backups on devices that are online now; quota, cancelled, already-running, custom-job and offline-device failures are skipped."
+    },
+    {
+      "name": "Outdated client versions",
+      "command": "devices outdated",
+      "description": "List devices whose Comet client version differs from the server version, with the connection id an online device needs for devices update-software."
+    },
+    {
+      "name": "Fleet snapshot",
+      "command": "snapshot",
+      "description": "Capture the current fleet into a local SQLite store so changes can compare runs."
+    }
+  ]
+}

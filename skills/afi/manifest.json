@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "afi-mcp",
   "display_name": "Afi",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "description": "The first CLI for Afi SaaS backup \u2014 full public-API coverage plus the fleet-wide coverage, staleness, and offboarding answers the rate-limited API can't serve live.",
   "author": {
     "name": "Servosity Inc."
@@ -16,7 +16,12 @@
       "args": [],
       "env": {
         "AFI_API_KEY": "${user_config.afi_api_key}",
-        "AFI_BASE_URL": "${user_config.afi_base_url}"
+        "AFI_BASE_URL": "${user_config.afi_base_url}",
+        "AFI_MCP_READ_ONLY": "${user_config.afi_mcp_read_only}",
+        "AFI_NO_LOCAL_DATA": "${user_config.afi_no_local_data}",
+        "AFI_USER_AGENT": "${user_config.afi_user_agent}",
+        "AFI_MCP_HTTP_TOKEN": "${user_config.afi_mcp_http_token}",
+        "PRINTING_PRESS_CLIENT_PROFILE": "${user_config.printing_press_client_profile}"
       }
     }
   },
@@ -34,6 +39,37 @@
       "description": "Base URL for the Afi API. Leave the prefilled default unless your account uses a different regional or self-hosted host.",
       "required": false,
       "default": "https://papi.afi.ai"
+    },
+    "afi_mcp_read_only": {
+      "type": "string",
+      "title": "Read-only mode",
+      "description": "Set to 1 to make the MCP server refuse every write to Afi: only read tools are callable. Leave blank to allow writes (each MCP write still previews first and sends only when called again with confirm set to true).",
+      "required": false
+    },
+    "afi_no_local_data": {
+      "type": "string",
+      "title": "Run without a local copy",
+      "description": "Optional. Set to 1 to keep no local copy of API responses: reads go to the API and sync refuses to run. Leave blank to keep the local store.",
+      "required": false
+    },
+    "afi_user_agent": {
+      "type": "string",
+      "title": "User-Agent header",
+      "description": "Overrides the User-Agent the CLI sends on Afi requests. Leave blank to use the CLI's built-in User-Agent.",
+      "required": false
+    },
+    "afi_mcp_http_token": {
+      "type": "string",
+      "title": "MCP HTTP transport bearer token",
+      "description": "Required only when running the MCP server with --transport http (a remote or hosted deployment); at least 32 characters. Callers must send a matching Authorization: Bearer header. Not needed for the default local stdio transport that Claude Desktop uses.",
+      "required": false,
+      "sensitive": true
+    },
+    "printing_press_client_profile": {
+      "type": "string",
+      "title": "Client profile",
+      "description": "Binds this MCP server to one tenant-gated client profile. Leave blank to use the profile configured as default_client_profile.",
+      "required": false
     }
   },
   "compatibility": {
@@ -44,11 +80,11 @@
       "win32"
     ]
   },
-  "printing_press_version": "4.24.0",
+  "printing_press_version": "4.34.2",
   "press_provenance": {
-    "printing_press_version": "4.24.0",
-    "generated_at": "2026-06-13T03:09:33.121891Z",
-    "spec_checksum": "sha256:541bb3167f54ecd4197bb821bc9252b11f15527af1f5400e4117723151ec6cca",
+    "printing_press_version": "4.34.2",
+    "generated_at": "2026-10-29T02:44:24.553066Z",
+    "spec_checksum": "sha256:37bd76edfba99edccd037b9cde5b8536a789ed8f4fcdab1b748f40436e5f28bb",
     "spec_format": "openapi3"
   }
 }

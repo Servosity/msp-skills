@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "rewst-mcp",
   "display_name": "Rewst",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "description": "Operate and monitor Rewst RPA across every client org from the terminal or your AI agent: workflow execution health, failure triage, automation ROI, dormant-workflow cleanup, cross-org config drift, and integration-pack coverage - the multi-tenant answers the web console makes you assemble one org at a time.",
   "author": {
     "name": "Servosity Inc."
@@ -16,7 +16,12 @@
       "args": [],
       "env": {
         "REWST_BASE_URL": "${user_config.rewst_base_url}",
-        "REWST_API_TOKEN": "${user_config.rewst_api_token}"
+        "REWST_API_TOKEN": "${user_config.rewst_api_token}",
+        "REWST_MCP_HTTP_TOKEN": "${user_config.rewst_mcp_http_token}",
+        "REWST_MCP_READ_ONLY": "${user_config.rewst_mcp_read_only}",
+        "REWST_NO_LOCAL_DATA": "${user_config.rewst_no_local_data}",
+        "REWST_USER_AGENT": "${user_config.rewst_user_agent}",
+        "PRINTING_PRESS_CLIENT_PROFILE": "${user_config.printing_press_client_profile}"
       }
     }
   },
@@ -34,6 +39,41 @@
       "description": "Rewst API token from an API client you create in the Rewst console (sent as a bearer token).",
       "sensitive": true,
       "required": true
+    },
+    "rewst_mcp_http_token": {
+      "type": "string",
+      "title": "MCP HTTP transport bearer token",
+      "description": "Required only when running the MCP server with --transport http. Callers must send a matching Authorization: Bearer header. Not needed for the default local stdio transport that Claude Desktop uses.",
+      "required": false,
+      "sensitive": true
+    },
+    "rewst_mcp_read_only": {
+      "type": "string",
+      "title": "Read-only MCP mode",
+      "description": "Optional. Set to exactly 1 to expose only read-only tools and refuse any state-changing call. Leave blank to keep every tool available.",
+      "required": false,
+      "sensitive": false
+    },
+    "rewst_no_local_data": {
+      "type": "string",
+      "title": "Run without a local copy",
+      "description": "Optional. Set to 1 to keep no local copy of API responses: reads go to the API and the local store is off. Leave blank to keep the local store.",
+      "required": false,
+      "sensitive": false
+    },
+    "rewst_user_agent": {
+      "type": "string",
+      "title": "User-Agent header",
+      "description": "Overrides the User-Agent the CLI sends on Rewst requests. Leave blank to use the CLI's own built-in User-Agent.",
+      "required": false,
+      "sensitive": false
+    },
+    "printing_press_client_profile": {
+      "type": "string",
+      "title": "Client profile (optional)",
+      "description": "Only for tenant-gated multi-client deployments: binds the MCP server to an existing Printing Press client profile. Leave blank for a single-tenant install.",
+      "required": false,
+      "sensitive": true
     }
   },
   "compatibility": {
@@ -44,11 +84,11 @@
       "win32"
     ]
   },
-  "printing_press_version": "4.24.0",
+  "printing_press_version": "4.34.2",
   "press_provenance": {
-    "printing_press_version": "4.24.0",
-    "generated_at": "2026-06-13T03:15:28.12714Z",
-    "spec_checksum": null,
-    "spec_format": null
+    "printing_press_version": "4.34.2",
+    "generated_at": "2026-10-30T15:09:18.314373Z",
+    "spec_checksum": "sha256:26ed615e816fb6a295bb22fcd778aa0f4e0478f87a508753821ded590be7c534",
+    "spec_format": "graphql"
   }
 }

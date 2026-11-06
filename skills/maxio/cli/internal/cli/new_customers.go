@@ -20,9 +20,10 @@ type newCustomersPeriod struct {
 }
 
 type newCustomersView struct {
-	Since   string               `json:"since,omitempty"`
-	Periods []newCustomersPeriod `json:"periods"`
-	Note    string               `json:"note,omitempty"`
+	Since    string               `json:"since,omitempty"`
+	Currency string               `json:"currency,omitempty"`
+	Periods  []newCustomersPeriod `json:"periods"`
+	Note     string               `json:"note,omitempty"`
 }
 
 // pp:data-source local
@@ -54,6 +55,7 @@ func newNovelNewCustomersCmd(flags *rootFlags) *cobra.Command {
 				return err
 			}
 			defer st.Close()
+			currency, money := revenueMoney(cmd.Context(), db)
 
 			// New logos = customers whose earliest subscription activation falls
 			// in the period. MIN(activated_at) per customer avoids counting a
@@ -96,6 +98,7 @@ func newNovelNewCustomersCmd(flags *rootFlags) *cobra.Command {
 			}
 
 			// New MRR from the movement log (new bucket).
+			warnIfMovementsIncomplete(cmd.Context(), db, cmd.ErrOrStderr())
 			if has, _ := revenue.HasMovements(cmd.Context(), db); has {
 				mvRows, mverr := db.QueryContext(cmd.Context(), `
 					SELECT substr(ts,1,7) AS period, COALESCE(SUM(amount_cents),0)
@@ -117,7 +120,7 @@ func newNovelNewCustomersCmd(flags *rootFlags) *cobra.Command {
 			}
 
 			sort.Strings(order)
-			view := newCustomersView{Since: cutoff, Periods: make([]newCustomersPeriod, 0, len(order))}
+			view := newCustomersView{Since: cutoff, Currency: currency, Periods: make([]newCustomersPeriod, 0, len(order))}
 			for _, key := range order {
 				p := byPeriod[key]
 				if p.NewCustomers > 0 {
@@ -130,7 +133,7 @@ func newNovelNewCustomersCmd(flags *rootFlags) *cobra.Command {
 			return emitRevenue(cmd, flags, view, func(w io.Writer) {
 				fmt.Fprintf(w, "%-9s %14s %16s %16s\n", "period", "new_customers", "new_mrr", "avg_new_mrr")
 				for _, p := range view.Periods {
-					fmt.Fprintf(w, "%-9s %14d %16s %16s\n", p.Period, p.NewCustomers, revenue.Cents(p.NewMRRCents), revenue.Cents(p.AvgNewMRRCents))
+					fmt.Fprintf(w, "%-9s %14d %16s %16s\n", p.Period, p.NewCustomers, money(p.NewMRRCents), money(p.AvgNewMRRCents))
 				}
 			})
 		},

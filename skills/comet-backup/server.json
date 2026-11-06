@@ -1,0 +1,94 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.Servosity/comet-backup-mcp",
+  "title": "Comet Backup MCP",
+  "description": "Fleet-wide backup health, failure triage and usage reports for every tenant on your Comet Server",
+  "version": "0.1.0",
+  "icons": [
+    {
+      "src": "https://raw.githubusercontent.com/servosity/msp-skills/main/docs/assets/social/comet-backup/comet-backup-512x512.png",
+      "mimeType": "image/png",
+      "sizes": [
+        "512x512"
+      ]
+    }
+  ],
+  "repository": {
+    "url": "https://github.com/servosity/msp-skills",
+    "source": "github",
+    "subfolder": "skills/comet-backup"
+  },
+  "packages": [
+    {
+      "registryType": "mcpb",
+      "identifier": "https://github.com/servosity/msp-skills/releases/download/comet-backup-v0.1.0/comet-backup-mcp.mcpb",
+      "version": "0.1.0",
+      "fileSha256": "PLACEHOLDER_SHA256_FILLED_BY_CI",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "COMET_BACKUP_PASSWORD",
+          "description": "Set the COMET_BACKUP_PASSWORD credential for the Comet Backup MCP server.",
+          "isRequired": true,
+          "isSecret": true
+        },
+        {
+          "name": "COMET_BACKUP_SERVER",
+          "description": "Set the COMET_BACKUP_SERVER credential for the Comet Backup MCP server.",
+          "isRequired": true,
+          "isSecret": false
+        },
+        {
+          "name": "COMET_BACKUP_SESSION_KEY",
+          "description": "Set the COMET_BACKUP_SESSION_KEY credential for the Comet Backup MCP server.",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "COMET_BACKUP_USERNAME",
+          "description": "Set the COMET_BACKUP_USERNAME credential for the Comet Backup MCP server.",
+          "isRequired": true,
+          "isSecret": false
+        },
+        {
+          "name": "COMET_BACKUP_BASE_URL",
+          "description": "Optional. Full https URL of your Comet Server (for example https://10.0.0.5:8060). Overrides COMET_BACKUP_SERVER when set.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "PRINTING_PRESS_CLIENT_PROFILE",
+          "description": "Optional. Binds the MCP server to one saved client profile.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "COMET_BACKUP_MCP_READ_ONLY",
+          "description": "Optional. Set to exactly 1 to expose only read-only tools and refuse any state-changing execute call.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "COMET_BACKUP_NO_LOCAL_DATA",
+          "description": "Optional. Set to 1 to keep no local copy of API responses: reads go to the API and nothing is written to the local store.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "COMET_BACKUP_USER_AGENT",
+          "description": "Optional. Overrides the User-Agent the CLI sends to your Comet Server.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "COMET_BACKUP_MCP_HTTP_TOKEN",
+          "description": "Required only when running the MCP server with --transport http. Not needed for the default local stdio transport.",
+          "isRequired": false,
+          "isSecret": true
+        }
+      ]
+    }
+  ]
+}

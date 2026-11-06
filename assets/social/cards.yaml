@@ -99,6 +99,10 @@ cloudally:
   vendor: "CloudAlly"
   example_command: "Which customers have a failing backup?"
 
+comet-backup:
+  vendor: "Comet Backup"
+  example_command: "Which Comet backups failed last night?"
+
 connect-tool:
   subtitle: "Claude Code Skill - no MCP server to install"
   vendor: "connect-tool"  # matches docs/skills/connect-tool.md
@@ -209,6 +213,10 @@ immybot:
 itglue:
   vendor: "IT Glue"
   example_command: "Which clients are under-documented?"
+
+jamf-pro:
+  vendor: "Jamf Pro"
+  example_command: "Which clients have FileVault off?"
 
 jira-service-management:
   vendor: "Jira Service Mgmt"
@@ -407,6 +415,10 @@ unifi-network:
 veeam:
   vendor: "Veeam"
   example_command: "Which customers have failing backups?"
+
+vsphere:
+  vendor: "VMware vSphere"
+  example_command: "Which of our VMs are blocked from leaving VMware?"
 
 warranty:
   vendor: "Device Warranty"

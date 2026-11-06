@@ -961,6 +961,10 @@ jobs:
         # failures whose fixes live elsewhere (a real bug in generated code, or
         # a test that assumes Unix). Those still run in the next step and are
         # reported there; a failure NOT in the ledger fails this row.
+        # -timeout 20m: the black-box packages that run the built binary take
+        # 6 to 8 minutes on this runner (kaseya-bms 465 s, crowdstrike 386 s)
+        # and action1's crossed go test's default 10-minute package limit at
+        # 604 s. The job's own 45-minute cap still bounds a real hang.
         working-directory: ${{ matrix.skill.dir }}
         env:
           SLUG: ${{ matrix.skill.name }}
@@ -970,9 +974,9 @@ jobs:
           known="${known%$'\r'}"
           if [ -n "$known" ]; then
             echo "Recorded known Windows failures for $SLUG run in the next step, not here: $known"
-            go test -skip "$known" ./...
+            go test -timeout 20m -skip "$known" ./...
           else
-            go test ./...
+            go test -timeout 20m ./...
           fi
 
       - name: Known Windows failures (run and reported, never gating)
@@ -990,7 +994,7 @@ jobs:
           fi
           # GitHub runs bash with -e: capture the expected failure explicitly.
           status=0
-          go test -count=1 -v -run "$known" ./... > "$RUNNER_TEMP/known.log" 2>&1 || status=$?
+          go test -count=1 -timeout 20m -v -run "$known" ./... > "$RUNNER_TEMP/known.log" 2>&1 || status=$?
           ran="$(grep -cE '^=== RUN +Test[^/]*$' "$RUNNER_TEMP/known.log" || true)"
           failed="$(grep -cE '^--- FAIL: ' "$RUNNER_TEMP/known.log" || true)"
           if [ "$ran" -eq 0 ] && [ "$status" -eq 0 ]; then
