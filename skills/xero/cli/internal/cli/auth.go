@@ -27,6 +27,7 @@ import (
 	"xero-pp-cli/internal/client"
 	"xero-pp-cli/internal/cliutil"
 	"xero-pp-cli/internal/config"
+	"xero-pp-cli/internal/credkit"
 )
 
 func newAuthCmd(flags *rootFlags) *cobra.Command {
@@ -96,7 +97,7 @@ func openSetupURL(url string) error {
 	default:
 		return fmt.Errorf("unsupported OS: %s", runtime.GOOS)
 	}
-	return c.Start()
+	return credkit.StartCommand(c) // Hand-fix (handfixes.json credkit-wiring)
 }
 
 func newAuthLoginCmd(flags *rootFlags) *cobra.Command {
@@ -176,6 +177,9 @@ func runOAuthLogin(cmd *cobra.Command, flags *rootFlags, clientID, clientSecret 
 		if err != nil {
 			return err
 		}
+		// Hand-fix (handfixes.json credkit-wiring): the PKCE verifier proves this
+		// login at the token endpoint; it is held from the moment it exists.
+		cliutil.Hold("minted:pkce-verifier", codeVerifier)
 	}
 
 	authURL := ""
@@ -267,6 +271,9 @@ func runOAuthLogin(cmd *cobra.Command, flags *rootFlags, clientID, clientSecret 
 	var code string
 	select {
 	case code = <-codeCh:
+		// Hand-fix (handfixes.json credkit-wiring): the authorization code is
+		// held before the token exchange can echo it.
+		cliutil.Hold("minted:auth-code", code)
 	case err := <-errCh:
 		return err
 	case <-time.After(2 * time.Minute):
@@ -389,6 +396,9 @@ func resolveOAuthCredentials(cmd *cobra.Command, flags *rootFlags, cfg *config.C
 		clientSecret, err = promptOAuthCredential(cmd, reader, "OAuth2 Client Secret (press Enter if not required)")
 		if err != nil {
 			return "", "", err
+		}
+		if clientSecret != "" {
+			cliutil.Hold("stdin", clientSecret) // Hand-fix (handfixes.json credkit-wiring): a secret typed at the prompt is held as soon as it is read
 		}
 	}
 	return clientID, clientSecret, nil
@@ -614,7 +624,7 @@ func openBrowser(url string) {
 	default:
 		return
 	}
-	cmd.Start()
+	_ = credkit.StartCommand(cmd) // Hand-fix (handfixes.json credkit-wiring)
 }
 
 // refuseUnderNoConfigWrite (issue #270): XERO_NO_CONFIG_WRITE makes the

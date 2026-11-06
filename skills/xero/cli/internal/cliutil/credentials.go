@@ -384,7 +384,7 @@ func SaveCredentials(creds *Credentials) error {
 	if err != nil {
 		return fmt.Errorf("marshaling credentials: %w", err)
 	}
-	if err := AtomicWritePrivateFile(path, data, 0o600, 0o700); err != nil {
+	if err := AtomicWriteCredentialFile(path, data, 0o600, 0o700); err != nil { // Hand-fix (handfixes.json credkit-wiring): the credential store is a source, written outside the kit
 		return err
 	}
 	real, err := filepath.EvalSymlinks(path)

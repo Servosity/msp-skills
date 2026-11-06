@@ -1,0 +1,172 @@
+{
+ "sites": [
+  {
+   "file": "internal/cli/aging.go",
+   "func": "newNovelAgingCmd",
+   "what": "writer:io.Writer",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "runs inside the command's RunE, which cobra calls from cli.Execute after credkit.Start; the checker counts it before Start only because internal/mcp's package-level recipeCommandRoot = cli.RootCmd references the tree builder, and building the tree runs no RunE"
+  },
+  {
+   "file": "internal/cli/bank_recon.go",
+   "func": "newNovelBankReconCmd",
+   "what": "fmt.Fprintf",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs inside the command's RunE, which cobra calls from cli.Execute after credkit.Start; the checker counts it before Start only because internal/mcp's package-level recipeCommandRoot = cli.RootCmd references the tree builder, and building the tree runs no RunE"
+  },
+  {
+   "file": "internal/cli/bank_recon.go",
+   "func": "newNovelBankReconCmd",
+   "what": "writer:io.Writer",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "runs inside the command's RunE, which cobra calls from cli.Execute after credkit.Start; the checker counts it before Start only because internal/mcp's package-level recipeCommandRoot = cli.RootCmd references the tree builder, and building the tree runs no RunE"
+  },
+  {
+   "file": "internal/cli/exposure.go",
+   "func": "newNovelExposureCmd",
+   "what": "writer:io.Writer",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "runs inside the command's RunE, which cobra calls from cli.Execute after credkit.Start; the checker counts it before Start only because internal/mcp's package-level recipeCommandRoot = cli.RootCmd references the tree builder, and building the tree runs no RunE"
+  },
+  {
+   "file": "internal/cli/ledger.go",
+   "func": "newNovelLedgerCmd",
+   "what": "fmt.Fprintf",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs inside the command's RunE, which cobra calls from cli.Execute after credkit.Start; the checker counts it before Start only because internal/mcp's package-level recipeCommandRoot = cli.RootCmd references the tree builder, and building the tree runs no RunE"
+  },
+  {
+   "file": "internal/cli/ledger.go",
+   "func": "newNovelLedgerCmd",
+   "what": "writer:io.Writer",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "runs inside the command's RunE, which cobra calls from cli.Execute after credkit.Start; the checker counts it before Start only because internal/mcp's package-level recipeCommandRoot = cli.RootCmd references the tree builder, and building the tree runs no RunE"
+  },
+  {
+   "file": "internal/cli/reconcile.go",
+   "func": "newNovelReconcileCmd",
+   "what": "fmt.Fprintf",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs inside the command's RunE, which cobra calls from cli.Execute after credkit.Start; the checker counts it before Start only because internal/mcp's package-level recipeCommandRoot = cli.RootCmd references the tree builder, and building the tree runs no RunE"
+  },
+  {
+   "file": "internal/cli/reconcile.go",
+   "func": "newNovelReconcileCmd",
+   "what": "writer:io.Writer",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "runs inside the command's RunE, which cobra calls from cli.Execute after credkit.Start; the checker counts it before Start only because internal/mcp's package-level recipeCommandRoot = cli.RootCmd references the tree builder, and building the tree runs no RunE"
+  },
+  {
+   "file": "internal/cli/since.go",
+   "func": "newNovelSinceCmd",
+   "what": "fmt.Fprintf",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs inside the command's RunE, which cobra calls from cli.Execute after credkit.Start; the checker counts it before Start only because internal/mcp's package-level recipeCommandRoot = cli.RootCmd references the tree builder, and building the tree runs no RunE"
+  },
+  {
+   "file": "internal/cli/since.go",
+   "func": "newNovelSinceCmd",
+   "what": "writer:io.Writer",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "runs inside the command's RunE, which cobra calls from cli.Execute after credkit.Start; the checker counts it before Start only because internal/mcp's package-level recipeCommandRoot = cli.RootCmd references the tree builder, and building the tree runs no RunE"
+  },
+  {
+   "file": "internal/cli/snapshot.go",
+   "func": "newNovelSnapshotCmd",
+   "what": "fmt.Fprintf",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs inside the command's RunE, which cobra calls from cli.Execute after credkit.Start; the checker counts it before Start only because internal/mcp's package-level recipeCommandRoot = cli.RootCmd references the tree builder, and building the tree runs no RunE"
+  },
+  {
+   "file": "internal/cli/snapshot.go",
+   "func": "newNovelSnapshotCmd",
+   "what": "writer:io.Writer",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "runs inside the command's RunE, which cobra calls from cli.Execute after credkit.Start; the checker counts it before Start only because internal/mcp's package-level recipeCommandRoot = cli.RootCmd references the tree builder, and building the tree runs no RunE"
+  },
+  {
+   "file": "internal/cli/tie_out.go",
+   "func": "newNovelTieOutCmd",
+   "what": "fmt.Fprintf",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "runs inside the command's RunE, which cobra calls from cli.Execute after credkit.Start; the checker counts it before Start only because internal/mcp's package-level recipeCommandRoot = cli.RootCmd references the tree builder, and building the tree runs no RunE"
+  },
+  {
+   "file": "internal/cli/tie_out.go",
+   "func": "newNovelTieOutCmd",
+   "what": "writer:io.Writer",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "runs inside the command's RunE, which cobra calls from cli.Execute after credkit.Start; the checker counts it before Start only because internal/mcp's package-level recipeCommandRoot = cli.RootCmd references the tree builder, and building the tree runs no RunE"
+  },
+  {
+   "file": "internal/credsql/credsql.go",
+   "func": "applyLengthLimit",
+   "what": "database/sql.DB.Conn",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "lends a connection already opened through credkit.SQLDriver to set SQLITE_LIMIT_LENGTH: it runs no statement and writes no value, and the hook only runs when a store opens, after Start"
+  },
+  {
+   "file": "internal/credsql/credsql.go",
+   "func": "applyLengthLimit",
+   "what": "database/sql.OpenDB",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "lends a connection already opened through credkit.SQLDriver to set SQLITE_LIMIT_LENGTH: it runs no statement and writes no value, and the hook only runs when a store opens, after Start"
+  },
+  {
+   "file": "internal/credwire/declarations.go",
+   "func": "compactStdinBody",
+   "what": "os.File.Close",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "closes that pipe's write end, which ends the body; no output"
+  },
+  {
+   "file": "internal/credwire/declarations.go",
+   "func": "compactStdinBody",
+   "what": "os.File.Stat",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reads stdin's mode inside Start's Files hook, before anything prints; it writes nothing"
+  },
+  {
+   "file": "internal/credwire/declarations.go",
+   "func": "compactStdinBody",
+   "what": "os.File.Write",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the write end of a pipe that refills os.Stdin with the same body, compacted: an input to this process that the kit holds next, not an output"
+  },
+  {
+   "file": "internal/credwire/declarations.go",
+   "func": "compactStdinBody",
+   "what": "writer:*os.File",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "os.Stdin read with io.ReadAll inside Start's Files hook, so the kit then holds the body from the new pipe; nothing is written to it"
+  },
+  {
+   "file": "internal/credwire/declarations.go",
+   "func": "readRegular",
+   "what": "os.ReadFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reads only the credential sources credentialFiles names, inside Start, and the bytes go only to credkit.HoldBody"
+  }
+ ]
+}
