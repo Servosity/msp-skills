@@ -136,7 +136,7 @@ Outcomes (question -> command your AI agent runs):
 
 FAQ:
 Q: Does this work with ChatGPT?
-A: Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way action1-mcp runs, and shares MCP configuration with Codex: add action1-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote (HTTP) server, and this connector's HTTP mode is paused until it is reprinted; the security note at the top of the install guide explains why. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
+A: Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way action1-mcp runs, and shares MCP configuration with Codex: add action1-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote server. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
 Q: Do I need to know how to code?
 A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
 Q: Is my Action1 data safe?
@@ -144,7 +144,7 @@ A: Your data stays on your machine. The CLI, MCP server, and the local mirror ar
 Q: What does it cost?
 A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
 Q: Which Action1 region and credentials do I need?
-A: An API client (Client ID + Client Secret) from your Action1 console's API Credentials page, plus ACTION1_REGION set to us, eu, or au to match your console URL. The CLI mints and refreshes the bearer token for you. Scope the client to read-only permissions if you only need reporting.
+A: An API client (Client ID + Client Secret) from your Action1 console's API Credentials page, plus ACTION1_BASE_URL set to your data center (the US host is the default; EU is https://app.eu.action1.com/api/3.0, Australia https://app.au.action1.com/api/3.0). The CLI mints and refreshes the bearer token for you. Scope the client to read-only permissions if you only need reporting.
 Q: Does this replace the Action1 console?
 A: No. The console stays your place to configure automations and approve patches interactively. This skill answers the cross-organization questions the console shows one org at a time - fleet patch posture, CVE blast-radius, per-client scorecards - and lets your AI agent run them.
 
@@ -2068,17 +2068,17 @@ Outcomes (question -> command your AI agent runs):
 
 FAQ:
 Q: Does this work with ChatGPT?
-A: Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way knowbe4-mcp runs, and shares MCP configuration with Codex: add knowbe4-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote (HTTP) server, and this connector's HTTP mode is paused until it is reprinted; the security note at the top of the install guide explains why. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
+A: Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way knowbe4-mcp runs, and shares MCP configuration with Codex: add knowbe4-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote (HTTP) server, which msp-skills does not support yet. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
 Q: Do I need to know how to code?
 A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
 Q: Is my KnowBe4 data safe?
-A: Your data stays on your machine. The CLI, MCP server, and the local mirror are all local, and the bundled MCP server exposes read-only reporting tools only. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills.
+A: Your data stays on your machine. The CLI, MCP server, and the local mirror are all local, and the only MCP tools that change KnowBe4 data (pushing or removing a custom risk event) preview first and send only when confirmed. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills.
 Q: What does it cost?
 A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
 Q: Does this replace the KnowBe4 console or need a special partner API?
 A: Neither. It uses your standard KMSAT Reporting API key (Account Settings - API - enable Reporting API) and your region (us, eu, ca, uk, or de). It reads what your account already exposes and adds the cross-client rollups the console doesn't. The one write path that needs extra setup is pushing custom risk events, which uses a separate, opt-in User Event API key.
 
-Governance: The skill reads your KnowBe4 reporting data - accounts, users, groups, phishing tests, training, risk scores - and can sync it to a local SQLite mirror; all of that is read-only and safe to let an agent run, and the bundled MCP server exposes only those read tools. The only write paths are CLI-only: pushing or deleting custom risk events on a user's timeline (a separate, opt-in User Event API key) and bulk import. Keep those human-reviewed and preview them with --dry-run first.
+Governance: The skill reads your KnowBe4 reporting data - accounts, users, groups, phishing tests, training, risk scores - and can sync it to a local SQLite mirror; all of that is read-only and safe to let an agent run, The only writes push or delete a custom risk event on a user's timeline (a separate, opt-in User Event API key): on the CLI preview them with --dry-run, and over MCP they return a preview and send only with confirm: true (KNOWBE4_MCP_READ_ONLY=1 removes them). Keep those human-reviewed.
 
 ### Level (RMM)
 
@@ -3075,11 +3075,11 @@ Outcomes (question -> command your AI agent runs):
 
 FAQ:
 Q: Does this work with ChatGPT?
-A: Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way salesbuildr-mcp runs, and shares MCP configuration with Codex: add salesbuildr-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote (HTTP) server, and this connector's HTTP mode is paused until it is reprinted; the security note at the top of the install guide explains why. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
+A: Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way salesbuildr-mcp runs, and shares MCP configuration with Codex: add salesbuildr-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web needs a remote server: you host salesbuildr-mcp over HTTPS with SALESBUILDR_MCP_HTTP_TOKEN set, and it works only if your ChatGPT connector can send that bearer token (see the install guide). If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
 Q: Do I need to know how to code?
 A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
 Q: Is my Salesbuildr data safe?
-A: Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills.
+A: Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, credentials are never bundled or transmitted by MSP Skills, and the key goes only to your Salesbuildr API host.
 Q: What does it cost?
 A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
 Q: Will this hammer my Salesbuildr API rate limits?
@@ -3815,6 +3815,41 @@ Q: Has it been tested against a live WatchGuard Cloud account?
 A: Not yet. Every command was built from WatchGuard's published OpenAPI specifications and tested against a local mock of those APIs, not a real account. If you run it against your own WatchGuard Cloud account, tell us what worked or broke on the GitHub issue tracker or at a Build Session; a real MSP run is what earns the live-verified badge.
 
 Governance: The skill is read-first: the cross-customer reports, sync, search and nearly every list and get command only read. The exceptions are the reads whose output carries a secret (BOVPN tunnels, Firebox certificates, networks, users, content filtering and the activation keys from activations), which belong with the credential commands; the response cache never stores them and the local mirror drops them (a software license key in an allocation row is replaced by a one-way fingerprint; Firebox serial numbers are kept). Every write sends immediately with no confirmation prompt, so preview with --dry-run and keep endpoint actions, deployments and deletes human-in-the-loop. The read-only Access ID is the outer limit for a reporting agent.
+
+### Windows Server (Monitoring)
+
+Page: [Windows Server](https://msp-skills.compoundingteams.com/skills/windows-server.md)
+Verification: Awaiting live verification
+Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/windows-server/install.sh)
+
+Ask your AI "which of my Windows servers need attention today, and why?" and get one ok, warn, crit or unknown verdict per server: pending reboot, low disks, stopped automatic services, System log errors, patch age, pending updates, expiring certificates, Defender, time sync and failed scheduled tasks. It connects over WinRM with HTTPS, runs only fixed read scripts, and changes nothing except a service you confirm.
+
+Outcomes (question -> command your AI agent runs):
+- Which of my servers need attention today, and why? -> windows-server-cli health --agent
+- Which automatic services are stopped, and which Service Control Manager event explains each stop? -> windows-server-cli services down --agent
+- Which System and Application errors are new on a server compared with its own last 7 days? -> windows-server-cli eventlog new --window 24h --baseline 7d --agent
+- Who added or removed a local Administrators member this week, and when? -> windows-server-cli local-admins changes --hours 168 --agent
+- What changed in roles, shares, local admins, certificates and updates since the last snapshot? -> windows-server-cli inventory diff --agent
+- Which volumes are low on free space? -> windows-server-cli volumes --agent --select server,drive_letter,size_bytes,percent_free
+- Which scheduled tasks failed their last run? -> windows-server-cli scheduled-tasks --failed --agent
+
+FAQ:
+Q: Does this work with ChatGPT?
+A: Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so it needs the Windows Server MCP server's token-protected HTTP mode hosted over HTTPS. Step-by-step in the install guide.
+Q: Do I need to know how to code?
+A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
+Q: Is my Windows Server data safe?
+A: Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills.
+Q: What does it cost?
+A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
+Q: Do I need to install an agent on each server?
+A: No. It uses WinRM over HTTPS (port 5986), which is built into Windows Server. Enable an HTTPS listener and give the CLI a local or domain account in the server's Administrators group. Nothing is installed on the server.
+Q: Can the AI run its own PowerShell on my client's server?
+A: No. Every command runs one fixed script that ships inside the binary and is checked by hash before it runs. Arguments such as a service name are validated against a strict pattern and passed as typed data, never pasted into script text.
+Q: What does it change on a server?
+A: Only two things, and only after a preview: restarting one service, or starting one stopped automatic service. Over MCP the change runs only with confirm: true; on the CLI only with --yes.
+
+Governance: It reads server state over WinRM with fixed scripts and writes nothing to the server except two service actions: restart a service, or start a stopped automatic one, each previewed first and sent only with --yes (CLI) or confirm: true (MCP). Locally it writes the server list's stored passwords (0600 store), the health and inventory history, and the agent learning store. Keep agents on reads; have a human approve every service action.
 
 ### WordPress (Marketing)
 

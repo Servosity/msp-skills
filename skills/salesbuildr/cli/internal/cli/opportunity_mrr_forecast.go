@@ -30,7 +30,10 @@ type forecastReport struct {
 	WeightedMonthlyGP  float64       `json:"weightedMonthlyProfit"`
 	WeightedOneTimeRev float64       `json:"weightedOneTimeRevenue"`
 	Top                []forecastOpp `json:"top"`
-	Note               string        `json:"note,omitempty"`
+	// ProbabilityOutOfRange counts open deals whose probability is outside
+	// the documented 0-1 range; they are left out of every weighted total.
+	ProbabilityOutOfRange int    `json:"probabilityOutOfRange"`
+	Note                  string `json:"note,omitempty"`
 }
 
 // newNovelOpportunityMrrForecastCmd implements the "opportunity mrr-forecast"
@@ -45,7 +48,9 @@ func newNovelOpportunityMrrForecastCmd(flags *rootFlags) *cobra.Command {
 		Short: "Weight open-pipeline monthly revenue and profit by probability, churn-adjusted",
 		Long: "Sums probability-weighted monthlyRevenue and monthlyProfit across every open opportunity in\n" +
 			"the local store, discounting by each deal's monthlyChurn. One-time revenue is weighted\n" +
-			"separately. The API exposes per-deal fields, never the forecast. Run `sync` first.",
+			"separately. probability is read as the documented 0-1 fraction; a deal outside that range is\n" +
+			"counted in probabilityOutOfRange and left out of the totals. The API exposes per-deal fields,\n" +
+			"never the forecast. Run `sync` first.",
 		Example: "  salesbuildr-cli opportunity mrr-forecast\n" +
 			"  salesbuildr-cli opportunity mrr-forecast --limit 5 --agent",
 		Annotations: map[string]string{"mcp:read-only": "true"},
@@ -70,11 +75,13 @@ func newNovelOpportunityMrrForecastCmd(flags *rootFlags) *cobra.Command {
 					continue
 				}
 				report.OpenOpportunities++
-				p := o.Probability / 100
-				if p < 0 {
-					p = 0
-				} else if p > 1 {
-					p = 1
+				// probability is documented as a 0-1 fraction (spec.json
+				// UpsertOpportunityDto.probability); outside that range it is
+				// counted and left out, never rescaled by guess.
+				p, ok := documentedFraction(o.Probability)
+				if !ok {
+					report.ProbabilityOutOfRange++
+					continue
 				}
 				churn := o.MonthlyChurn / 100
 				if churn < 0 {
@@ -113,6 +120,8 @@ func newNovelOpportunityMrrForecastCmd(flags *rootFlags) *cobra.Command {
 				report.Note = "no opportunities in local store — run `salesbuildr-cli sync` first"
 			} else if report.OpenOpportunities == 0 {
 				report.Note = "no open opportunities — the forecast covers open pipeline only"
+			} else if report.ProbabilityOutOfRange > 0 {
+				report.Note = fmt.Sprintf("%d open deal(s) have a probability outside the documented 0-1 range and are left out of the weighted totals", report.ProbabilityOutOfRange)
 			}
 
 			w := cmd.OutOrStdout()
@@ -128,11 +137,14 @@ func newNovelOpportunityMrrForecastCmd(flags *rootFlags) *cobra.Command {
 			fmt.Fprintf(w, "  churn-adjusted MRR:      %.2f\n", report.ChurnAdjustedMRR)
 			fmt.Fprintf(w, "  weighted monthly profit: %.2f\n", report.WeightedMonthlyGP)
 			fmt.Fprintf(w, "  weighted one-time rev:   %.2f\n\n", report.WeightedOneTimeRev)
+			if report.ProbabilityOutOfRange > 0 {
+				fmt.Fprintf(w, "%s\n\n", report.Note)
+			}
 			tw := newTabWriter(w)
 			fmt.Fprintln(tw, "DEAL\tCOMPANY\tSTAGE\tPROB%\tMRR\tWEIGHTED")
 			for _, f := range report.Top {
 				fmt.Fprintf(tw, "%s\t%s\t%s\t%.0f\t%.2f\t%.2f\n",
-					truncate(firstNonEmpty(f.Name, f.ID), 28), truncate(f.Company, 22), truncate(f.Stage, 18), f.Probability, f.MonthlyRevenue, f.WeightedMRR)
+					truncate(firstNonEmpty(f.Name, f.ID), 28), truncate(f.Company, 22), truncate(f.Stage, 18), f.Probability*100, f.MonthlyRevenue, f.WeightedMRR)
 			}
 			return tw.Flush()
 		},

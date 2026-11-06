@@ -1,0 +1,1 @@
+{"ok":true,"data":[{"name":"ADMIN$","path":"C:\\Windows","description":"Remote Admin","special":true,"current_users":0,"encrypt_data":false},{"name":"C$","path":"C:\\","description":"Default share","special":true,"current_users":0,"encrypt_data":false},{"name":"IPC$","path":"","description":"Remote IPC","special":true,"current_users":0,"encrypt_data":false}]}

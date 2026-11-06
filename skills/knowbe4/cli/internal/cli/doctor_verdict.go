@@ -30,6 +30,8 @@ import (
 
 	"github.com/spf13/cobra"
 	"knowbe4-pp-cli/internal/client"
+	"knowbe4-pp-cli/internal/cliutil"
+	"knowbe4-pp-cli/internal/config"
 )
 
 // doctorBaseURLEnv is the environment variable that points this connector at
@@ -48,31 +50,7 @@ const doctorBaseURLEnv = "KNOWBE4_BASE_URL"
 // other way.
 const doctorShippedBaseURL = "https://{region}.api.knowbe4.com/v1"
 
-// doctorInfoKeys are report entries rendered without a status indicator:
-// paths, versions, and the free-text hints that tell an operator how to get a
-// credential. They are NOT health checks.
-//
-// doctorExitForFailOn used to scan every value in the report for the substrings
-// "error", "missing", "invalid" and "unreachable". That made --fail-on=error
-// trip on a perfectly healthy connector whose auth hint happened to contain the
-// word "missing", or whose suggested read command was named something like
-// `errors list`. Excluding the informational keys keeps --fail-on keyed to the
-// checks and nothing else.
-var doctorInfoKeys = map[string]bool{
-	"config_path":       true,
-	"base_url":          true,
-	"auth_source":       true,
-	"version":           true,
-	"auth_hint":         true,
-	"auth_key_url":      true,
-	"auth_instructions": true,
-	"agentcookie":       true,
-	"db_path":           true,
-}
-
-func doctorIsInfoKey(key string) bool { return doctorInfoKeys[key] }
-
-// doctorBaseURLIsPlaceholder reports whether base is still the value this
+// doctorBaseURLIsShippedPlaceholder reports whether base is still the value this
 // connector shipped with rather than the operator's own instance.
 //
 // Two shapes ship today: an unresolved template ("https://{tenant}.example/api")
@@ -81,7 +59,7 @@ func doctorIsInfoKey(key string) bool { return doctorInfoKeys[key] }
 // several placeholder hosts resolve through live wildcard DNS and answer real
 // HTTP, so dialling one produces a confident green verdict against a host the
 // operator has never heard of.
-func doctorBaseURLIsPlaceholder(base string) bool {
+func doctorBaseURLIsShippedPlaceholder(base string) bool {
 	if base == "" {
 		return false // "not configured" is a separate, already-handled state
 	}
@@ -269,4 +247,46 @@ func doctorUnexpectedStatus(status int, path string, report map[string]any) {
 		return
 	}
 	report["credentials"] = fmt.Sprintf("WARN not verified (HTTP %d from %s) - the endpoint did not confirm the credential.", status, path)
+}
+
+// doctorShippedTemplateBaseURL is the base URL this print ships, and
+// doctorTemplateDefaults the value config.Load gives each of its template
+// variables when the operator sets nothing (internal/config/config.go).
+// Resolved together they are the shipped placeholder of a templated base
+// URL: no braces are left, so doctorBaseURLIsPlaceholder cannot see it, and
+// the host can look real or answer through wildcard DNS.
+// Hand-fix (handfixes.json doctor-verdict-tracks-reality).
+const doctorShippedTemplateBaseURL = "https://{region}.api.knowbe4.com/v1"
+
+var doctorTemplateDefaults = map[string]string{} // knowbe4 handfix: doctor-default-region-is-real
+
+// doctorBaseURLIsShippedTemplate reports whether base is the shipped
+// templated base URL with every template variable still at its default.
+func doctorBaseURLIsShippedTemplate(base string) bool {
+	shipped := client.ResolvedBaseURL(doctorShippedTemplateBaseURL, doctorTemplateDefaults)
+	if shipped == "" || strings.ContainsAny(shipped, "{}") {
+		return false
+	}
+	return strings.EqualFold(strings.TrimRight(strings.TrimSpace(base), "/"), strings.TrimRight(shipped, "/"))
+}
+
+// doctorNoteDefaultRegion marks the api row when the operator set neither
+// KNOWBE4_REGION nor KNOWBE4_BASE_URL. The US host it falls back to is a real
+// KnowBe4 API, so doctor still probes it, but a tenant on another server (eu,
+// ca, uk, de) gets a 401 there, and the row has to name the setting that
+// fixes it instead of reading as a healthy API.
+// Hand-fix (handfixes.json doctor-default-region-is-real).
+func doctorNoteDefaultRegion(cfg *config.Config, base string, report map[string]any) {
+	if cfg == nil || strings.TrimSpace(cfg.BaseURL) != doctorShippedTemplateBaseURL {
+		return
+	}
+	if strings.TrimSpace(cliutil.EnvOverride("KNOWBE4_REGION")) != "" {
+		return
+	}
+	us := client.ResolvedBaseURL(doctorShippedTemplateBaseURL, map[string]string{"region": "us"})
+	if !strings.EqualFold(strings.TrimRight(strings.TrimSpace(base), "/"), strings.TrimRight(us, "/")) {
+		return
+	}
+	api, _ := report["api"].(string)
+	report["api"] = "INFO using the default US host " + us + " (set KNOWBE4_REGION or " + doctorBaseURLEnv + " if your tenant is on another KnowBe4 server): " + api
 }

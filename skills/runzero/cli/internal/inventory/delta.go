@@ -50,18 +50,25 @@ type ExposureDeltaResult struct {
 	NewServices  []DeltaService `json:"new_services"`
 	NewVulns     []DeltaVuln    `json:"new_vulnerabilities"`
 	SyncRunCount int64          `json:"sync_run_count"`
-	// StaleEntities names entity tables whose newest rows predate the latest
-	// sync run (e.g. after 'inventory sync --only assets'). An empty delta
-	// for a stale entity means "not re-synced", not "nothing changed".
+	// StaleEntities names entities the latest sync run did not refresh (e.g.
+	// after 'inventory sync --only assets'): their delta compares the runs
+	// that did refresh them, so it is as of their latest refresh.
 	StaleEntities []string `json:"stale_entities,omitempty"`
+	// NoBaselineEntities names entities whose latest refresh has no earlier
+	// refresh under the same --search filter to compare with; their delta is
+	// empty (runzero handfix r1-compare-same-scope).
+	NoBaselineEntities []string `json:"no_baseline_entities,omitempty"`
 }
 
-// ExposureDelta reports services that first appeared after the baseline run
-// and vulnerabilities first detected after the baseline run, each joined to
-// their asset and ordered by asset criticality (highest first). since picks
-// the baseline as the most recent run at/before now-since; zero compares the
-// two most recent runs. With fewer than two sync runs the result is empty —
-// run 'inventory sync' at least twice to establish a baseline.
+// ExposureDelta reports services and vulnerabilities present at their
+// entity's latest refresh and absent at its baseline, each joined to its asset
+// and ordered by asset criticality (highest first). Each entity is compared
+// across its own refreshes under the same --search filter, by presence at the
+// two runs, as Diff does (runzero handfix r1-presence-per-refresh: a service
+// closed and reopened is newly exposed). since picks the baseline as the most
+// recent such refresh at/before now-since; zero compares the two most recent.
+// With fewer than two sync runs the result is empty: run 'inventory sync' at
+// least twice to establish a baseline.
 func ExposureDelta(ctx context.Context, db *sql.DB, since time.Duration) (*ExposureDeltaResult, error) {
 	res := &ExposureDeltaResult{NewServices: []DeltaService{}, NewVulns: []DeltaVuln{}}
 	var runCount sql.NullInt64
@@ -76,59 +83,101 @@ func ExposureDelta(ctx context.Context, db *sql.DB, since time.Duration) (*Expos
 	res.BaselineRun = baseline
 	res.LatestRun = latest
 
-	// Surface entities that were not part of the latest sync run (partial
-	// 'inventory sync --only ...'): their delta below would be silently
-	// empty even when the live surface changed.
-	for _, probe := range []struct{ entity, table string }{
-		{"services", "inv_services"},
-		{"vulnerabilities", "inv_vulnerabilities"},
-		{"assets", "inv_assets"},
-	} {
-		var maxRun sql.NullInt64
-		if err := db.QueryRowContext(ctx, `SELECT MAX(last_run) FROM `+probe.table).Scan(&maxRun); err == nil && maxRun.Valid && maxRun.Int64 < latest {
-			res.StaleEntities = append(res.StaleEntities, probe.entity)
+	// Name the entities the latest sync run did not refresh: their delta
+	// is as of their own latest refresh.
+	for _, entity := range []string{"services", "vulnerabilities", "assets"} {
+		if cur := currentRun(ctx, db, entity); cur < latest {
+			res.StaleEntities = append(res.StaleEntities, entity)
 		}
 	}
 
-	svcRows, err := db.QueryContext(ctx, `
+	// Each row joins its asset only in the current asset snapshot (runzero
+	// handfix r2-current-asset-snapshot-joins); Coverage names the rest.
+	ra := currentRun(ctx, db, "assets")
+
+	// newRows binds the window for rows of entity present at its latest
+	// refresh and not at its baseline, for the constant queries below: the
+	// row's last_run (L), a first_run floor (F), and the run its presence is
+	// checked at (P, 0 = no presence check). ok false when the entity has
+	// nothing comparable.
+	newRows := func(entity string) (l, f, p int64, ok bool) {
+		c := entityComparison(ctx, db, entity, since)
+		if !c.recorded {
+			// A store no run of this build wrote: the global runs.
+			return latest, baseline, 0, true
+		}
+		if c.noBaseline {
+			res.NoBaselineEntities = append(res.NoBaselineEntities, entity)
+		}
+		if c.latest == 0 || c.noBaseline {
+			return 0, 0, 0, false
+		}
+		if c.baseline == 0 {
+			if !rowsBefore(ctx, db, entity, c.latest) {
+				// Its first refresh, and nothing older to compare with: no
+				// baseline, not every row new (runzero handfix
+				// r2-first-refresh-has-no-baseline).
+				res.NoBaselineEntities = append(res.NoBaselineEntities, entity)
+				return 0, 0, 0, false
+			}
+			// Its first recorded refresh over rows an older build wrote:
+			// the rows first seen in it are new.
+			return c.latest, c.latest - 1, 0, true
+		}
+		if !presenceRecorded(ctx, db, entity, c.baseline) {
+			// The baseline has no presence history (an older build wrote
+			// it): rows first seen after it are new (runzero handfix
+			// r2-presence-history-per-run).
+			return c.latest, c.baseline, 0, true
+		}
+		return c.latest, 0, c.baseline, true
+	}
+
+	if l, f, p, ok := newRows("services"); ok {
+		svcRows, err := db.QueryContext(ctx, `
 		SELECT s.id, COALESCE(s.asset_id,''), COALESCE(a.name,''), COALESCE(s.address, a.address, ''),
 			COALESCE(a.criticality,''), COALESCE(a.external,0),
 			COALESCE(s.transport,''), COALESCE(s.port,0), COALESCE(s.protocol,''), COALESCE(s.product,'')
 		FROM inv_services s
-		LEFT JOIN inv_assets a ON a.id = s.asset_id
-		WHERE s.first_run > ? AND s.last_run = ?
-		ORDER BY COALESCE(a.criticality_rank,0) DESC, COALESCE(a.external,0) DESC, s.port ASC`, baseline, latest)
-	if err == nil {
-		for svcRows.Next() {
-			var id string
-			var d DeltaService
-			var ext int64
-			if svcRows.Scan(&id, &d.AssetID, &d.AssetName, &d.Address, &d.Criticality, &ext, &d.Transport, &d.Port, &d.Protocol, &d.Product) == nil {
-				d.External = ext != 0
-				res.NewServices = append(res.NewServices, d)
+		LEFT JOIN inv_assets a ON a.id = s.asset_id AND a.last_run = ?
+		WHERE s.last_run = ? AND s.first_run > ?
+			AND NOT EXISTS (SELECT 1 FROM inv_presence pr WHERE pr.entity = 'services' AND pr.id = s.id AND pr.first_run <= ? AND pr.last_run >= ?)
+		ORDER BY COALESCE(a.criticality_rank,0) DESC, COALESCE(a.external,0) DESC, s.port ASC`, ra, l, f, p, p)
+		if err == nil {
+			for svcRows.Next() {
+				var id string
+				var d DeltaService
+				var ext int64
+				if svcRows.Scan(&id, &d.AssetID, &d.AssetName, &d.Address, &d.Criticality, &ext, &d.Transport, &d.Port, &d.Protocol, &d.Product) == nil {
+					d.External = ext != 0
+					res.NewServices = append(res.NewServices, d)
+				}
 			}
+			_ = svcRows.Close()
 		}
-		_ = svcRows.Close()
 	}
 
-	vulnRows, err := db.QueryContext(ctx, `
+	if l, f, p, ok := newRows("vulnerabilities"); ok {
+		vulnRows, err := db.QueryContext(ctx, `
 		SELECT COALESCE(v.asset_id,''), COALESCE(a.name,''), COALESCE(a.address,''),
 			COALESCE(a.criticality,''), COALESCE(a.external,0),
 			COALESCE(v.cve,''), COALESCE(v.name,''), COALESCE(v.severity,''), COALESCE(v.cvss,0)
 		FROM inv_vulnerabilities v
-		LEFT JOIN inv_assets a ON a.id = v.asset_id
-		WHERE v.first_run > ? AND v.last_run = ?
-		ORDER BY COALESCE(a.criticality_rank,0) DESC, COALESCE(v.severity_rank,0) DESC, v.cvss DESC`, baseline, latest)
-	if err == nil {
-		for vulnRows.Next() {
-			var d DeltaVuln
-			var ext int64
-			if vulnRows.Scan(&d.AssetID, &d.AssetName, &d.Address, &d.Criticality, &ext, &d.CVE, &d.Name, &d.Severity, &d.CVSS) == nil {
-				d.External = ext != 0
-				res.NewVulns = append(res.NewVulns, d)
+		LEFT JOIN inv_assets a ON a.id = v.asset_id AND a.last_run = ?
+		WHERE v.last_run = ? AND v.first_run > ?
+			AND NOT EXISTS (SELECT 1 FROM inv_presence pr WHERE pr.entity = 'vulnerabilities' AND pr.id = v.id AND pr.first_run <= ? AND pr.last_run >= ?)
+		ORDER BY COALESCE(a.criticality_rank,0) DESC, COALESCE(v.severity_rank,0) DESC, v.cvss DESC`, ra, l, f, p, p)
+		if err == nil {
+			for vulnRows.Next() {
+				var d DeltaVuln
+				var ext int64
+				if vulnRows.Scan(&d.AssetID, &d.AssetName, &d.Address, &d.Criticality, &ext, &d.CVE, &d.Name, &d.Severity, &d.CVSS) == nil {
+					d.External = ext != 0
+					res.NewVulns = append(res.NewVulns, d)
+				}
 			}
+			_ = vulnRows.Close()
 		}
-		_ = vulnRows.Close()
 	}
 	return res, nil
 }
@@ -153,25 +202,27 @@ type CertRow struct {
 	Criticality string `json:"criticality,omitempty"`
 }
 
-// CertsExpiring lists certificates from the latest sync that are already
+// CertsExpiring lists certificates of the current snapshot that are already
 // expired or expire within the next `days` days, plus (with weakOnly) only
 // those that are self-signed or carry a weak signature algorithm (MD5/SHA-1,
 // detected from the raw cert JSON when present). Rows join to the presenting
-// asset and order by asset criticality, then soonest expiry.
+// asset in the current asset snapshot (runzero handfix
+// r2-current-asset-snapshot-joins) and order by asset criticality, then
+// soonest expiry.
 func CertsExpiring(ctx context.Context, db *sql.DB, days int, weakOnly bool) ([]CertRow, error) {
 	if days <= 0 {
 		days = 30
 	}
-	cutoff := time.Now().Add(time.Duration(days) * 24 * time.Hour).Unix()
-	now := time.Now().Unix()
+	cutoff := clock().Add(time.Duration(days) * 24 * time.Hour).Unix()
+	now := clock().Unix()
 	rows, err := db.QueryContext(ctx, `
 		SELECT c.id, COALESCE(c.subject,''), COALESCE(c.issuer,''), COALESCE(c.not_after,0),
 			COALESCE(c.self_signed,0), COALESCE(c.data,''),
 			COALESCE(c.asset_id,''), COALESCE(a.name,''), COALESCE(a.address,''), COALESCE(a.criticality,'')
 		FROM inv_certificates c
-		LEFT JOIN inv_assets a ON a.id = c.asset_id
-		WHERE c.last_run = (SELECT MAX(last_run) FROM inv_certificates)
-		ORDER BY COALESCE(a.criticality_rank,0) DESC, c.not_after ASC`)
+		LEFT JOIN inv_assets a ON a.id = c.asset_id AND a.last_run = ?
+		WHERE c.last_run = ?
+		ORDER BY COALESCE(a.criticality_rank,0) DESC, c.not_after ASC`, currentRun(ctx, db, "assets"), currentRun(ctx, db, "certificates"))
 	if err != nil {
 		return []CertRow{}, nil // empty/absent store: degrade gracefully
 	}
