@@ -1,0 +1,388 @@
+{
+ "sites": [
+  {
+   "file": "internal/cli/blind_spots.go",
+   "func": "newNovelBlindSpotsCmd",
+   "what": "fmt.Fprintf",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "output from a command's RunE, after Start, so the kit's output layer checks it: the checker reaches it only through a closure an init function registers (registerNovelCommand in nsm_get.go and nsm_login.go, registerClientHook in sonicwall_nsm_envelope.go) or the press template's mcp/intents.go initializer (recipeCommandRoot = cli.RootCmd), and both run only once Execute builds the command tree"
+  },
+  {
+   "file": "internal/cli/blind_spots.go",
+   "func": "newNovelBlindSpotsCmd",
+   "what": "fmt.Fprintln",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "output from a command's RunE, after Start, so the kit's output layer checks it: the checker reaches it only through a closure an init function registers (registerNovelCommand in nsm_get.go and nsm_login.go, registerClientHook in sonicwall_nsm_envelope.go) or the press template's mcp/intents.go initializer (recipeCommandRoot = cli.RootCmd), and both run only once Execute builds the command tree"
+  },
+  {
+   "file": "internal/cli/blind_spots.go",
+   "func": "newNovelBlindSpotsCmd",
+   "what": "writer:io.Writer",
+   "count": 7,
+   "kind": "exempt",
+   "reason": "output from a command's RunE, after Start, so the kit's output layer checks it: the checker reaches it only through a closure an init function registers (registerNovelCommand in nsm_get.go and nsm_login.go, registerClientHook in sonicwall_nsm_envelope.go) or the press template's mcp/intents.go initializer (recipeCommandRoot = cli.RootCmd), and both run only once Execute builds the command tree"
+  },
+  {
+   "file": "internal/cli/exposure.go",
+   "func": "newNovelExposureCmd",
+   "what": "fmt.Fprintf",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "output from a command's RunE, after Start, so the kit's output layer checks it: the checker reaches it only through a closure an init function registers (registerNovelCommand in nsm_get.go and nsm_login.go, registerClientHook in sonicwall_nsm_envelope.go) or the press template's mcp/intents.go initializer (recipeCommandRoot = cli.RootCmd), and both run only once Execute builds the command tree"
+  },
+  {
+   "file": "internal/cli/exposure.go",
+   "func": "newNovelExposureCmd",
+   "what": "fmt.Fprintln",
+   "count": 4,
+   "kind": "exempt",
+   "reason": "output from a command's RunE, after Start, so the kit's output layer checks it: the checker reaches it only through a closure an init function registers (registerNovelCommand in nsm_get.go and nsm_login.go, registerClientHook in sonicwall_nsm_envelope.go) or the press template's mcp/intents.go initializer (recipeCommandRoot = cli.RootCmd), and both run only once Execute builds the command tree"
+  },
+  {
+   "file": "internal/cli/exposure.go",
+   "func": "newNovelExposureCmd",
+   "what": "writer:io.Writer",
+   "count": 9,
+   "kind": "exempt",
+   "reason": "output from a command's RunE, after Start, so the kit's output layer checks it: the checker reaches it only through a closure an init function registers (registerNovelCommand in nsm_get.go and nsm_login.go, registerClientHook in sonicwall_nsm_envelope.go) or the press template's mcp/intents.go initializer (recipeCommandRoot = cli.RootCmd), and both run only once Execute builds the command tree"
+  },
+  {
+   "file": "internal/cli/firmware_drift.go",
+   "func": "newNovelFirmwareDriftCmd",
+   "what": "fmt.Fprintln",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "output from a command's RunE, after Start, so the kit's output layer checks it: the checker reaches it only through a closure an init function registers (registerNovelCommand in nsm_get.go and nsm_login.go, registerClientHook in sonicwall_nsm_envelope.go) or the press template's mcp/intents.go initializer (recipeCommandRoot = cli.RootCmd), and both run only once Execute builds the command tree"
+  },
+  {
+   "file": "internal/cli/firmware_drift.go",
+   "func": "newNovelFirmwareDriftCmd",
+   "what": "writer:io.Writer",
+   "count": 6,
+   "kind": "exempt",
+   "reason": "output from a command's RunE, after Start, so the kit's output layer checks it: the checker reaches it only through a closure an init function registers (registerNovelCommand in nsm_get.go and nsm_login.go, registerClientHook in sonicwall_nsm_envelope.go) or the press template's mcp/intents.go initializer (recipeCommandRoot = cli.RootCmd), and both run only once Execute builds the command tree"
+  },
+  {
+   "file": "internal/cli/licenses_renewals.go",
+   "func": "newNovelLicensesRenewalsCmd",
+   "what": "fmt.Fprintf",
+   "count": 3,
+   "kind": "exempt",
+   "reason": "output from a command's RunE, after Start, so the kit's output layer checks it: the checker reaches it only through a closure an init function registers (registerNovelCommand in nsm_get.go and nsm_login.go, registerClientHook in sonicwall_nsm_envelope.go) or the press template's mcp/intents.go initializer (recipeCommandRoot = cli.RootCmd), and both run only once Execute builds the command tree"
+  },
+  {
+   "file": "internal/cli/licenses_renewals.go",
+   "func": "newNovelLicensesRenewalsCmd",
+   "what": "writer:io.Writer",
+   "count": 6,
+   "kind": "exempt",
+   "reason": "output from a command's RunE, after Start, so the kit's output layer checks it: the checker reaches it only through a closure an init function registers (registerNovelCommand in nsm_get.go and nsm_login.go, registerClientHook in sonicwall_nsm_envelope.go) or the press template's mcp/intents.go initializer (recipeCommandRoot = cli.RootCmd), and both run only once Execute builds the command tree"
+  },
+  {
+   "file": "internal/cli/mfa_audit.go",
+   "func": "newNovelMfaAuditCmd",
+   "what": "fmt.Fprintf",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "output from a command's RunE, after Start, so the kit's output layer checks it: the checker reaches it only through a closure an init function registers (registerNovelCommand in nsm_get.go and nsm_login.go, registerClientHook in sonicwall_nsm_envelope.go) or the press template's mcp/intents.go initializer (recipeCommandRoot = cli.RootCmd), and both run only once Execute builds the command tree"
+  },
+  {
+   "file": "internal/cli/mfa_audit.go",
+   "func": "newNovelMfaAuditCmd",
+   "what": "fmt.Fprintln",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "output from a command's RunE, after Start, so the kit's output layer checks it: the checker reaches it only through a closure an init function registers (registerNovelCommand in nsm_get.go and nsm_login.go, registerClientHook in sonicwall_nsm_envelope.go) or the press template's mcp/intents.go initializer (recipeCommandRoot = cli.RootCmd), and both run only once Execute builds the command tree"
+  },
+  {
+   "file": "internal/cli/mfa_audit.go",
+   "func": "newNovelMfaAuditCmd",
+   "what": "writer:io.Writer",
+   "count": 6,
+   "kind": "exempt",
+   "reason": "output from a command's RunE, after Start, so the kit's output layer checks it: the checker reaches it only through a closure an init function registers (registerNovelCommand in nsm_get.go and nsm_login.go, registerClientHook in sonicwall_nsm_envelope.go) or the press template's mcp/intents.go initializer (recipeCommandRoot = cli.RootCmd), and both run only once Execute builds the command tree"
+  },
+  {
+   "file": "internal/cli/nsm_get.go",
+   "func": "newNsmGetCmd",
+   "what": "writer:io.Writer",
+   "count": 3,
+   "kind": "exempt",
+   "reason": "output from a command's RunE, after Start, so the kit's output layer checks it: the checker reaches it only through a closure an init function registers (registerNovelCommand in nsm_get.go and nsm_login.go, registerClientHook in sonicwall_nsm_envelope.go) or the press template's mcp/intents.go initializer (recipeCommandRoot = cli.RootCmd), and both run only once Execute builds the command tree"
+  },
+  {
+   "file": "internal/cli/nsm_login.go",
+   "func": "newNsmLoginCmd",
+   "what": "fmt.Fprintf",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "output from a command's RunE, after Start, so the kit's output layer checks it: the checker reaches it only through a closure an init function registers (registerNovelCommand in nsm_get.go and nsm_login.go, registerClientHook in sonicwall_nsm_envelope.go) or the press template's mcp/intents.go initializer (recipeCommandRoot = cli.RootCmd), and both run only once Execute builds the command tree"
+  },
+  {
+   "file": "internal/cli/nsm_login.go",
+   "func": "newNsmLoginCmd",
+   "what": "fmt.Fprintln",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "output from a command's RunE, after Start, so the kit's output layer checks it: the checker reaches it only through a closure an init function registers (registerNovelCommand in nsm_get.go and nsm_login.go, registerClientHook in sonicwall_nsm_envelope.go) or the press template's mcp/intents.go initializer (recipeCommandRoot = cli.RootCmd), and both run only once Execute builds the command tree"
+  },
+  {
+   "file": "internal/cli/nsm_login.go",
+   "func": "newNsmLoginCmd",
+   "what": "writer:io.Writer",
+   "count": 6,
+   "kind": "exempt",
+   "reason": "output from a command's RunE, after Start, so the kit's output layer checks it: the checker reaches it only through a closure an init function registers (registerNovelCommand in nsm_get.go and nsm_login.go, registerClientHook in sonicwall_nsm_envelope.go) or the press template's mcp/intents.go initializer (recipeCommandRoot = cli.RootCmd), and both run only once Execute builds the command tree"
+  },
+  {
+   "file": "internal/cli/posture.go",
+   "func": "newNovelPostureCmd",
+   "what": "fmt.Fprintf",
+   "count": 3,
+   "kind": "exempt",
+   "reason": "output from a command's RunE, after Start, so the kit's output layer checks it: the checker reaches it only through a closure an init function registers (registerNovelCommand in nsm_get.go and nsm_login.go, registerClientHook in sonicwall_nsm_envelope.go) or the press template's mcp/intents.go initializer (recipeCommandRoot = cli.RootCmd), and both run only once Execute builds the command tree"
+  },
+  {
+   "file": "internal/cli/posture.go",
+   "func": "newNovelPostureCmd",
+   "what": "fmt.Fprintln",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "output from a command's RunE, after Start, so the kit's output layer checks it: the checker reaches it only through a closure an init function registers (registerNovelCommand in nsm_get.go and nsm_login.go, registerClientHook in sonicwall_nsm_envelope.go) or the press template's mcp/intents.go initializer (recipeCommandRoot = cli.RootCmd), and both run only once Execute builds the command tree"
+  },
+  {
+   "file": "internal/cli/posture.go",
+   "func": "newNovelPostureCmd",
+   "what": "writer:io.Writer",
+   "count": 6,
+   "kind": "exempt",
+   "reason": "output from a command's RunE, after Start, so the kit's output layer checks it: the checker reaches it only through a closure an init function registers (registerNovelCommand in nsm_get.go and nsm_login.go, registerClientHook in sonicwall_nsm_envelope.go) or the press template's mcp/intents.go initializer (recipeCommandRoot = cli.RootCmd), and both run only once Execute builds the command tree"
+  },
+  {
+   "file": "internal/cli/posture_changes.go",
+   "func": "newNovelPostureChangesCmd",
+   "what": "fmt.Fprintf",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "output from a command's RunE, after Start, so the kit's output layer checks it: the checker reaches it only through a closure an init function registers (registerNovelCommand in nsm_get.go and nsm_login.go, registerClientHook in sonicwall_nsm_envelope.go) or the press template's mcp/intents.go initializer (recipeCommandRoot = cli.RootCmd), and both run only once Execute builds the command tree"
+  },
+  {
+   "file": "internal/cli/posture_changes.go",
+   "func": "newNovelPostureChangesCmd",
+   "what": "fmt.Fprintln",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "output from a command's RunE, after Start, so the kit's output layer checks it: the checker reaches it only through a closure an init function registers (registerNovelCommand in nsm_get.go and nsm_login.go, registerClientHook in sonicwall_nsm_envelope.go) or the press template's mcp/intents.go initializer (recipeCommandRoot = cli.RootCmd), and both run only once Execute builds the command tree"
+  },
+  {
+   "file": "internal/cli/posture_changes.go",
+   "func": "newNovelPostureChangesCmd",
+   "what": "writer:io.Writer",
+   "count": 4,
+   "kind": "exempt",
+   "reason": "output from a command's RunE, after Start, so the kit's output layer checks it: the checker reaches it only through a closure an init function registers (registerNovelCommand in nsm_get.go and nsm_login.go, registerClientHook in sonicwall_nsm_envelope.go) or the press template's mcp/intents.go initializer (recipeCommandRoot = cli.RootCmd), and both run only once Execute builds the command tree"
+  },
+  {
+   "file": "internal/cli/sonicwall_fleet.go",
+   "func": "classifyReadError",
+   "what": "writer:io.Writer",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "output from a command's RunE, after Start, so the kit's output layer checks it: the checker reaches it only through a closure an init function registers (registerNovelCommand in nsm_get.go and nsm_login.go, registerClientHook in sonicwall_nsm_envelope.go) or the press template's mcp/intents.go initializer (recipeCommandRoot = cli.RootCmd), and both run only once Execute builds the command tree"
+  },
+  {
+   "file": "internal/cli/sonicwall_fleet.go",
+   "func": "noFirewallsErr",
+   "what": "writer:io.Writer",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "output from a command's RunE, after Start, so the kit's output layer checks it: the checker reaches it only through a closure an init function registers (registerNovelCommand in nsm_get.go and nsm_login.go, registerClientHook in sonicwall_nsm_envelope.go) or the press template's mcp/intents.go initializer (recipeCommandRoot = cli.RootCmd), and both run only once Execute builds the command tree"
+  },
+  {
+   "file": "internal/cli/sonicwall_fleet.go",
+   "func": "printOrderedTable",
+   "what": "fmt.Fprintln",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "output from a command's RunE, after Start, so the kit's output layer checks it: the checker reaches it only through a closure an init function registers (registerNovelCommand in nsm_get.go and nsm_login.go, registerClientHook in sonicwall_nsm_envelope.go) or the press template's mcp/intents.go initializer (recipeCommandRoot = cli.RootCmd), and both run only once Execute builds the command tree"
+  },
+  {
+   "file": "internal/cli/sonicwall_fleet.go",
+   "func": "printOrderedTable",
+   "what": "text/tabwriter.Writer.Flush",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "output from a command's RunE, after Start, so the kit's output layer checks it: the checker reaches it only through a closure an init function registers (registerNovelCommand in nsm_get.go and nsm_login.go, registerClientHook in sonicwall_nsm_envelope.go) or the press template's mcp/intents.go initializer (recipeCommandRoot = cli.RootCmd), and both run only once Execute builds the command tree"
+  },
+  {
+   "file": "internal/cli/sonicwall_fleet.go",
+   "func": "printOrderedTable",
+   "what": "writer:io.Writer",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "output from a command's RunE, after Start, so the kit's output layer checks it: the checker reaches it only through a closure an init function registers (registerNovelCommand in nsm_get.go and nsm_login.go, registerClientHook in sonicwall_nsm_envelope.go) or the press template's mcp/intents.go initializer (recipeCommandRoot = cli.RootCmd), and both run only once Execute builds the command tree"
+  },
+  {
+   "file": "internal/cli/sonicwall_nsm_envelope.go",
+   "func": "init",
+   "what": "convert:sonicwall-pp-cli/internal/cli.nsmEnvelopeTransport.RoundTrip",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the envelope and redaction transports wrap the API client's transport, which client.New and NewPlainHTTPClient set to guardTransport (credkit.Transport through cliutil.OutboundGuard) before ApplyClientHooks runs; they rewrite responses only and send every request through that guarded base"
+  },
+  {
+   "file": "internal/cli/sonicwall_nsm_envelope.go",
+   "func": "init",
+   "what": "convert:sonicwall-pp-cli/internal/cli.sonicOSRedactTransport.RoundTrip",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the envelope and redaction transports wrap the API client's transport, which client.New and NewPlainHTTPClient set to guardTransport (credkit.Transport through cliutil.OutboundGuard) before ApplyClientHooks runs; they rewrite responses only and send every request through that guarded base"
+  },
+  {
+   "file": "internal/cli/sonicwall_nsm_envelope.go",
+   "func": "init",
+   "what": "net/http.Client.Transport",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the envelope and redaction transports wrap the API client's transport, which client.New and NewPlainHTTPClient set to guardTransport (credkit.Transport through cliutil.OutboundGuard) before ApplyClientHooks runs; they rewrite responses only and send every request through that guarded base"
+  },
+  {
+   "file": "internal/cli/sonicwall_nsm_envelope.go",
+   "func": "init",
+   "what": "net/http.DefaultTransport",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the fallback for a client with no transport, which never runs: guardHTTPClient gives every API client a transport and client.New wraps it in guardTransport (credkit.Transport through cliutil.OutboundGuard) before ApplyClientHooks runs"
+  },
+  {
+   "file": "internal/cli/sonicwall_nsm_envelope.go",
+   "func": "nsmEnvelopeTransport.RoundTrip",
+   "what": "net/http.RoundTripper.RoundTrip",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "sends through base, the API client's guarded transport (guardTransport: credkit.Transport through cliutil.OutboundGuard); this transport only rewrites the response"
+  },
+  {
+   "file": "internal/cli/sonicwall_secret_redact.go",
+   "func": "sonicOSRedactTransport.RoundTrip",
+   "what": "net/http.RoundTripper.RoundTrip",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "sends through base, the API client's guarded transport (guardTransport: credkit.Transport through cliutil.OutboundGuard); this transport only rewrites the response"
+  },
+  {
+   "file": "internal/cli/sonicwall_snapshots.go",
+   "func": "loadPostureRuns",
+   "what": "database/sql.DB.QueryContext",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "a query on the local store, which store.OpenWithContext opened through credsql.Driver (credkit.SQLDriver), so the kit's SQL layer checks it; it runs from posture's and posture changes' RunE after Start, reached by the checker only through the init-registered command closures and the mcp/intents.go initializer"
+  },
+  {
+   "file": "internal/cli/sonicwall_snapshots.go",
+   "func": "loadPostureRuns",
+   "what": "database/sql.DB.QueryRowContext",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "a query on the local store, which store.OpenWithContext opened through credsql.Driver (credkit.SQLDriver), so the kit's SQL layer checks it; it runs from posture's and posture changes' RunE after Start, reached by the checker only through the init-registered command closures and the mcp/intents.go initializer"
+  },
+  {
+   "file": "internal/cli/sonicwall_snapshots.go",
+   "func": "loadPostureSnapshot",
+   "what": "database/sql.DB.QueryContext",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "a query on the local store, which store.OpenWithContext opened through credsql.Driver (credkit.SQLDriver), so the kit's SQL layer checks it; it runs from posture's and posture changes' RunE after Start, reached by the checker only through the init-registered command closures and the mcp/intents.go initializer"
+  },
+  {
+   "file": "internal/cli/sonicwall_snapshots.go",
+   "func": "savePostureSnapshot",
+   "what": "database/sql.DB.BeginTx",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "a query on the local store, which store.OpenWithContext opened through credsql.Driver (credkit.SQLDriver), so the kit's SQL layer checks it; it runs from posture's and posture changes' RunE after Start, reached by the checker only through the init-registered command closures and the mcp/intents.go initializer"
+  },
+  {
+   "file": "internal/cli/sonicwall_snapshots.go",
+   "func": "savePostureSnapshot",
+   "what": "database/sql.DB.ExecContext",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "a query on the local store, which store.OpenWithContext opened through credsql.Driver (credkit.SQLDriver), so the kit's SQL layer checks it; it runs from posture's and posture changes' RunE after Start, reached by the checker only through the init-registered command closures and the mcp/intents.go initializer"
+  },
+  {
+   "file": "internal/cli/sonicwall_snapshots.go",
+   "func": "savePostureSnapshot",
+   "what": "database/sql.DB.QueryRowContext",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "a query on the local store, which store.OpenWithContext opened through credsql.Driver (credkit.SQLDriver), so the kit's SQL layer checks it; it runs from posture's and posture changes' RunE after Start, reached by the checker only through the init-registered command closures and the mcp/intents.go initializer"
+  },
+  {
+   "file": "internal/config/sonicwall_config.go",
+   "func": "Config.LoadNSMLogin",
+   "what": "os.ReadFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reads the nsm-login tenant record (tenant name, serial, region and a SHA-256 fingerprint of the token), never a credential; SaveNSMLogin writes it through credkit.WriteFile"
+  },
+  {
+   "file": "internal/credsql/credsql.go",
+   "func": "applyLengthLimit",
+   "what": "database/sql.DB.Conn",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "lends a connection already opened through credkit.SQLDriver to set SQLITE_LIMIT_LENGTH: it runs no statement and writes no value, and the hook only runs when a store opens, after Start"
+  },
+  {
+   "file": "internal/credsql/credsql.go",
+   "func": "applyLengthLimit",
+   "what": "database/sql.OpenDB",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "lends a connection already opened through credkit.SQLDriver to set SQLITE_LIMIT_LENGTH: it runs no statement and writes no value, and the hook only runs when a store opens, after Start"
+  },
+  {
+   "file": "internal/credwire/declarations.go",
+   "func": "compactStdinBody",
+   "what": "os.File.Close",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "closes that pipe's write end, which ends the body; no output"
+  },
+  {
+   "file": "internal/credwire/declarations.go",
+   "func": "compactStdinBody",
+   "what": "os.File.Stat",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reads stdin's mode inside Start's Files hook, before anything prints; it writes nothing"
+  },
+  {
+   "file": "internal/credwire/declarations.go",
+   "func": "compactStdinBody",
+   "what": "os.File.Write",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the write end of a pipe that refills os.Stdin with the same body, compacted: an input to this process that the kit holds next, not an output"
+  },
+  {
+   "file": "internal/credwire/declarations.go",
+   "func": "compactStdinBody",
+   "what": "writer:*os.File",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "os.Stdin read with io.ReadAll inside Start's Files hook, so the kit then holds the body from the new pipe; nothing is written to it"
+  },
+  {
+   "file": "internal/credwire/declarations.go",
+   "func": "readRegular",
+   "what": "os.ReadFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reads only the profiles.json stores holdProfileStores names, inside Start's Files hook, and the bytes go only to credkit.HoldBody"
+  }
+ ]
+}
