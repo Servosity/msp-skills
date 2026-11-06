@@ -1,0 +1,21 @@
+{
+  "name": "domain-cert-tracker",
+  "version": "0.1.0",
+  "description": "Every client's domains and certificates in one inventory: what expires, unlocks or changes.",
+  "author": {
+    "name": "Servosity",
+    "url": "https://www.servosity.com"
+  },
+  "homepage": "https://github.com/servosity/msp-skills/tree/main/skills/domain-cert-tracker",
+  "repository": "https://github.com/servosity/msp-skills",
+  "license": "Apache-2.0",
+  "keywords": [
+    "domain-cert-tracker",
+    "servosity",
+    "monitoring",
+    "msp",
+    "mcp",
+    "claude-code",
+    "claude-mcp"
+  ]
+}

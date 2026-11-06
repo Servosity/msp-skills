@@ -1635,6 +1635,37 @@
         "claude-code",
         "claude-mcp"
       ]
+    },
+    {
+      "name": "domain-cert-tracker",
+      "source": "./skills/domain-cert-tracker",
+      "description": "Every client's domains and certificates in one inventory: what expires, unlocks or changes.",
+      "version": "0.1.0",
+      "category": "monitoring",
+      "tags": [
+        "domain-cert-tracker",
+        "servosity",
+        "monitoring",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
+    },
+    {
+      "name": "threecx",
+      "source": "./skills/threecx",
+      "description": "Run every client's 3CX phone system from one CLI: trunk, version, licence and backup health across the whole fleet, plus the full Configuration API on any single PBX.",
+      "version": "0.1.0",
+      "category": "msp",
+      "tags": [
+        "threecx",
+        "3cx",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
     }
   ]
 }

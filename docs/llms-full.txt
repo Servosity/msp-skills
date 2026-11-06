@@ -1371,6 +1371,39 @@ A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already us
 
 Governance: The skill authenticates with a DNSFilter API token you create, and it can do whatever that token can do in the dashboard. Every troubleshooting and fleet view (why-blocked, unblocks triage, agents drift, agents stale, lists where, policy-audit) and the ordinary lists and gets are read-only and safe to let an agent run. allow previews by default; it and every policy, allow-list, block-list, scheduled-policy and unblock-decision change, and every change to which policy or bypass domains a site, MAC address or roaming client uses, need a human to approve the exact command, because one allow opens the site for every site and roaming client on that policy. Reads that return a secret (site secret keys in the networks lists, API key tokens, the roaming client uninstall PIN) and everything that creates, rotates or revokes a credential are human-only, as are deletes, roaming client uninstalls, billing, seat and distributor changes. The MCP server's generic execute tool can call any endpoint, so set DNSFILTER_MCP_READ_ONLY=1 for an agent that should only read.
 
+### Domain and Certificate Tracker (Monitoring)
+
+Page: [Domain and Certificate Tracker](https://msp-skills.compoundingteams.com/skills/domain-cert-tracker.md)
+Verification: Awaiting live verification
+Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/domain-cert-tracker/install.sh)
+
+Ask your AI "what expires, lost its lock or changed across my clients' domains this month?" and get one answer per client: registration expiry and transfer lock from RDAP, every unexpired certificate logged in Certificate Transparency, the certificate each host really serves, and DNS drift. It needs no account or credential: every source is public, and the inventory and history stay on your machine.
+
+Outcomes (question -> command your AI agent runs):
+- What expires within 30 days, lost its lock or changed, per client? -> domain-cert-tracker-cli report --days 30 --agent
+- Which hosts still serve an old certificate after a newer one was logged? -> domain-cert-tracker-cli renewals --agent
+- Which new certificates came from an issuer the domain's CAA does not permit, or a first-ever issuer? -> domain-cert-tracker-cli issuers audit --days 7 --agent
+- Which hostnames have certificates in CT but are not in the client's inventory? -> domain-cert-tracker-cli hosts discover --agent
+- What changed since the agent last looked, once per event, for ticketing? -> domain-cert-tracker-cli events list --since 0 --agent
+- What certificate does this host serve right now, and when does it expire? -> domain-cert-tracker-cli tls probe www.example.com --agent
+- What are a domain's registrar, expiry date and lock statuses? -> domain-cert-tracker-cli domain example.com --json
+
+FAQ:
+Q: Does this work with ChatGPT?
+A: Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so it needs the domain-cert-tracker MCP server's token-protected HTTP mode hosted over HTTPS. Step-by-step in the install guide.
+Q: Do I need to know how to code?
+A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. There are no credentials to enter.
+Q: Do I need an account or API key?
+A: No. RDAP, crt.sh and DNS are public, and TLS probes connect to your clients' own public hosts. There is nothing to sign up for and no credential to store.
+Q: Is my client data safe?
+A: The client inventory and sweep history stay in a local SQLite store under your user account. Lookups send only the domain or host being checked to the public service that answers for it. HTTP lookups and TLS probes connect only to public addresses on port 443 unless you allow another port on the command line (the one exception is a server you name yourself in DOMAIN_CERT_TRACKER_BASE_URL); DNS checks use the resolver your operating system is configured with.
+Q: Will it hit rate limits?
+A: sweep sends each RDAP lookup straight to the registry that answers for the domain (through the IANA bootstrap file), runs at most 4 checks in parallel, and downloads at most 50 new certificates per sweep from crt.sh to read their full name lists. A crt.sh answer cut off at its 10,000-row limit is a failed check. A failed check is listed as unverified and never replaces the last good result.
+Q: What does it cost?
+A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
+
+Governance: It reads public RDAP, Certificate Transparency, DNS and TLS and never changes anything at a registrar, CA, DNS provider or client server. Its only writes are to its own local store: the client inventory (clients set, clients import, clients remove) and sweep history. Let agents run reads and sweeps; changing or removing inventory needs an explicit confirm, and purging the local store is for a human.
+
 ### Domotz (Network Monitoring)
 
 Page: [Domotz](https://msp-skills.compoundingteams.com/skills/domotz.md)
@@ -3568,6 +3601,38 @@ Q: Does it replace the ThreatLocker Portal?
 A: No. The Portal stays best for authoring policies and the interactive approve/deny workflow. This skill adds cross-tenant queries and scriptable writes to your AI agent so you stop logging into each tenant to answer book-wide questions.
 
 Governance: The skill drives the threatlocker-cli and threatlocker-mcp binaries, authenticating with a THREATLOCKER_API_KEY read from the environment, never logged and never sent anywhere except the ThreatLocker API. Read commands (approvals triage, audit drift, audit export, audit retention-check, devices health, applications hunt, search) change nothing. Writes are not gated by default: --dry-run is an opt-in preview flag, so the recommended policy is an agent-level rule, preview with --dry-run, show the exact command, get approval, then run the write. Keep computers delete and policies delete human-only. The strongest control is the scope of the API key you mint in the Portal.
+
+### 3CX (Other)
+
+Page: [3CX](https://msp-skills.compoundingteams.com/skills/threecx.md)
+Verification: Awaiting live verification
+Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/threecx/install.sh)
+
+Ask which client's 3CX phone system needs you today and get one ranked answer across every PBX you manage: trunks down, builds behind, licences and maintenance running out, backups gone stale. Each PBX keeps its own API credential, nothing is cached between runs, and the full 3CX Configuration API stays one command away on any single system.
+
+Outcomes (question -> command your AI agent runs):
+- Which client phone systems are failing or warning, and why? -> threecx-cli fleet health --agent
+- Which trunks are offline, misconfigured or in an unknown state across every client? -> threecx-cli fleet trunks --offline --agent
+- Whose licence or maintenance expires in the next 60 days? -> threecx-cli fleet licences --within 60d --agent
+- Which PBXes are behind the newest 3CX build in our fleet or have updates pending? -> threecx-cli fleet versions --behind --agent
+- Which clients have no backup in the last two days? -> threecx-cli fleet backups --stale 48h --problems --agent
+- What changed on our phone systems since yesterday? -> threecx-cli fleet changes --since 24h --agent
+
+FAQ:
+Q: Does this work with ChatGPT?
+A: Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so it needs the 3CX MCP server's token-protected HTTP mode hosted over HTTPS. Step-by-step in the install guide.
+Q: Do I need to know how to code?
+A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
+Q: Is my 3CX data safe?
+A: Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills.
+Q: What does it cost?
+A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
+Q: Does it change anything on my clients' phone systems?
+A: The fleet commands only read. The single-PBX commands cover the whole Configuration API, including writes such as restarting services or rebooting phones; in the MCP server every write returns a preview until the agent sends confirm: true, and on the CLI you preview any write with --dry-run first. MCP read-only mode (THREECX_MCP_READ_ONLY) removes the write tools entirely.
+Q: Which 3CX versions and licences does this need?
+A: 3CX V20 or later with the Configuration API, which 3CX documents as needing an 8SC or higher licence. On each PBX, create an API client under Admin Console > Integrations > API with Configuration API access; its client ID is the DN number shown there and the API key is shown once. A PBX on a lower edition reports an error in its own row instead of stopping the whole fleet run.
+
+Governance: The fleet commands and every GET command only read. Writes (setting changes, user edits), phone-system control (service restarts, phone reboots, firmware pushes, updates, backup restores), credential commands (API keys, tokens, provisioning links) and deletes or purges are separate tiers that should need a human. Scope each PBX's API client to the department and role your workflow needs.
 
 ### UniFi Network (Network Monitoring)
 

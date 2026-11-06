@@ -254,6 +254,13 @@
       "digest": "sha256:29677391eba043513241da85b1a43e376fa3c92479bd24808d8103c20e869ac8"
     },
     {
+      "name": "domain-cert-tracker",
+      "type": "skill-md",
+      "description": "Every client's domains and certificates in one inventory: what expires, unlocks or changes. Trigger phrases: `which client domains expire this month`, `check the certificate on this host`, `did any client domain lose its registrar lock`, `new certificates for our clients' domains`, `check SPF DMARC and CAA for a domain`, `use domain-cert-tracker`, `run domain-cert-tracker`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/domain-cert-tracker/SKILL.md",
+      "digest": "sha256:40af54d06202282110caab12d1d4a921a8ba2e1f8a7ce8d3a4e1517d155d001a"
+    },
+    {
       "name": "domotz",
       "type": "skill-md",
       "description": "Every Domotz endpoint, plus a local SQLite fleet mirror that answers cross-site questions. Trigger phrases: `which domotz sites are down`, `list offline devices across all sites`, `export domotz device inventory`, `check fleet health in domotz`, `find new devices on the network`, `use domotz`, `run domotz-cli`.",
@@ -672,6 +679,13 @@
       "description": "Every ThreatLocker Portal API feature, plus the write operations the read-only tools lack and a cross-tenant offline store no other ThreatLocker tool has. Trigger phrases: `triage threatlocker approvals`, `approve this hash across all tenants`, `export the threatlocker audit log`, `which threatlocker agents are offline`, `why is threatlocker returning 401`, `use threatlocker`, `run threatlocker`.",
       "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/threatlocker/SKILL.md",
       "digest": "sha256:64c5f2fdf31bd8d513800a6041c44cfa24673d72632955f06becae51ad0f8d77"
+    },
+    {
+      "name": "threecx",
+      "type": "skill-md",
+      "description": "Run every client's 3CX phone system from one CLI: trunk, version, licence and backup health across the whole fleet, plus the full Configuration API on any single PBX. Trigger phrases: `check all our 3CX phone systems`, `which client has a 3CX trunk down`, `3CX licence renewals this quarter`, `which PBXes are behind on 3CX updates`, `are 3CX backups running for every client`, `find broken 3CX call routing`, `what changed on our phone systems overnight`, `use threecx`, `run threecx`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/threecx/SKILL.md",
+      "digest": "sha256:65ba7e5e453a752723754565aebe36ed80fb8f0e8fe67988a8ad84fe6dafdecf"
     },
     {
       "name": "unifi-network",

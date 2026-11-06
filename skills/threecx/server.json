@@ -1,0 +1,106 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.Servosity/threecx-mcp",
+  "title": "3CX MCP",
+  "description": "3CX for MSPs: trunk, licence, version and backup health across every client phone system.",
+  "version": "0.1.0",
+  "icons": [
+    {
+      "src": "https://raw.githubusercontent.com/servosity/msp-skills/main/docs/assets/social/threecx/threecx-512x512.png",
+      "mimeType": "image/png",
+      "sizes": [
+        "512x512"
+      ]
+    }
+  ],
+  "repository": {
+    "url": "https://github.com/servosity/msp-skills",
+    "source": "github",
+    "subfolder": "skills/threecx"
+  },
+  "packages": [
+    {
+      "registryType": "mcpb",
+      "identifier": "https://github.com/servosity/msp-skills/releases/download/threecx-v0.1.0/threecx-mcp.mcpb",
+      "version": "0.1.0",
+      "fileSha256": "PLACEHOLDER_SHA256_FILLED_BY_CI",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "THREECX_CLIENT_ID",
+          "description": "Set the THREECX_CLIENT_ID credential for the 3CX MCP server.",
+          "isRequired": true,
+          "isSecret": true
+        },
+        {
+          "name": "THREECX_CLIENT_SECRET",
+          "description": "Set the THREECX_CLIENT_SECRET credential for the 3CX MCP server.",
+          "isRequired": true,
+          "isSecret": true
+        },
+        {
+          "name": "THREECX_FQDN",
+          "description": "Host name of the 3CX phone system (for example pbx.example.com), the {fqdn} in https://{fqdn}/xapi/v1.",
+          "isRequired": true,
+          "isSecret": false
+        },
+        {
+          "name": "THREECX_BASE_URL",
+          "description": "Optional. Full XAPI base URL. Leave blank: the CLI builds https://<THREECX_FQDN>/xapi/v1. Set it only to point at a different host or port.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "THREECX_TOKEN_URL",
+          "description": "Optional. Token endpoint the client-credentials exchange posts to. Leave blank: the CLI uses the phone system's own /connect/token. It must be on the same host as the API.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "THREECX_OAUTH_SCOPE",
+          "description": "Optional. Scope sent with the client-credentials exchange. Leave blank to send none.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "THREECX_FLEET_DIR",
+          "description": "Optional. Absolute path of the directory holding the registry of client phone systems used by the fleet commands. Leave blank to use the CLI's config directory.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "THREECX_PBX",
+          "description": "Optional. Name of one phone system registered with fleet add; the server then uses that PBX's host, client ID and secret variable (the same as --pbx). Leave blank to use THREECX_FQDN and the credentials above.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "THREECX_MCP_READ_ONLY",
+          "description": "Optional. Set to exactly 1 to expose only read-only tools and refuse any state-changing execute call.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "THREECX_NO_LOCAL_DATA",
+          "description": "Optional. Set to 1 to keep no local copy of API responses: reads go to the API and the response cache is off.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "THREECX_MCP_HTTP_TOKEN",
+          "description": "Required only when running the MCP server with --transport http (a remote/hosted deployment). Callers must send a matching Authorization: Bearer header. Not needed for the default local stdio transport that Claude Desktop uses.",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "THREECX_USER_AGENT",
+          "description": "Optional. Overrides the User-Agent the CLI sends on 3CX requests. Leave blank to use the CLI's own built-in User-Agent.",
+          "isRequired": false,
+          "isSecret": false
+        }
+      ]
+    }
+  ]
+}
