@@ -18,6 +18,7 @@ import (
 	"strings"
 	"sync"
 	"unicode"
+	"unicode/utf8"
 )
 
 type heldEntry struct {
@@ -214,7 +215,8 @@ func holdAllowedLocked(source Source, extra []string, values ...string) {
 		// A scheme word in front ("Bearer x", "Basic x") is not the secret:
 		// the rest is held on its own as well, each auth parameter's value,
 		// and a Basic credential's decoded pair and both of its parts
-		// (contract 1).
+		// (contract 1); with basic-user an Identifier, the user and the pair's
+		// pieces inside it are not held (secretSide).
 		if m := schemeRE.FindStringSubmatch(t); m != nil {
 			rest := strings.TrimFunc(m[2], unicode.IsSpace)
 			part(rest)
@@ -228,10 +230,12 @@ func holdAllowedLocked(source Source, extra []string, values ...string) {
 			}
 			if strings.EqualFold(m[1], "basic") {
 				if pair, ok := decodeBasic(rest); ok {
-					part(pair)
 					user, pass, _ := strings.Cut(pair, ":")
 					part(pass)
-					if !exemptLocked("basic-user") {
+					if exemptLocked("basic-user") {
+						part(secretSide(pair, len(user), pass))
+					} else {
+						part(pair)
 						part(user)
 					}
 				}
@@ -282,6 +286,31 @@ func holdAllowedLocked(source Source, extra []string, values ...string) {
 			add(e, base)
 		}
 	}
+}
+
+// secretSide is the part of a Basic pair (user ":" pass, the user declared an
+// Identifier) whose 8-character pieces are the pair's pieces that overlap the
+// password: the colon and the password with at least pieceLen-2 characters of
+// the user in front, as written and as normalized (KF-JSM-1). A piece inside
+// the user (its email domain, "acmemsp.") is the Identifier's, not a
+// credential's: an answer naming the domain is ordinary output. The cut
+// falls between two ASCII bytes, where normalizing cannot join the two sides.
+// The pair stays whole when it is not valid UTF-8 (contract 2 then counts it
+// by bytes) and when the password is under pieceLen characters ("key:x": the
+// user half is the secret by its shape).
+func secretSide(pair string, userLen int, pass string) string {
+	if !utf8.ValidString(pair) || utf8.RuneCountInString(pass) < pieceLen {
+		return pair
+	}
+	ascii := func(i int) bool { return pair[i] < utf8.RuneSelf }
+	for i := userLen; i > 0; i-- {
+		head := pair[i:userLen]
+		if ascii(i-1) && ascii(i) && utf8.RuneCountInString(head) >= pieceLen-2 &&
+			utf8.RuneCount(normalize([]byte(head))) >= pieceLen-2 {
+			return pair[i:]
+		}
+	}
+	return pair
 }
 
 // decodeBasic decodes a Basic credential in any base64 alphabet, padded or
