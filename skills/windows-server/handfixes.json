@@ -1,0 +1,1236 @@
+{
+ "slug": "windows-server",
+ "doc": "docs/reprint-survival.md",
+ "_comment": "Connector-specific edits a cli-printing-press reprint must NOT clobber. check_handfixes.py asserts every marker below is still present (and every banned anti-pattern still absent) and fails CI if a reprint dropped one.",
+ "handfixes": [
+  {
+   "id": "winrm-transport",
+   "summary": "Hand-written WS-Management client (internal/winrm) and the virtual transport that maps every generated command and MCP tool on https://winrm.invalid to a fixed script on the configured server.",
+   "why": "Windows Server has no HTTP API; the press renders an HTTP client only. HTTPS 5986 by default, plain HTTP only with the CLI flag --allow-http (refused under MCP), TLS 1.2+, verification always on (system roots, ca_file, or a SHA-256 pin checked in VerifyPeerCertificate and again in VerifyConnection, with session tickets off so a resumed session cannot skip the pin), no proxy, no redirects, host and port from config only. A reprint regenerates none of this; losing it leaves a CLI that talks to nothing.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/winrm/winrm.go",
+     "contains": "Proxy:                 nil,",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/winrm/winrm.go",
+     "contains": "CheckRedirect: func(*http.Request, []*http.Request) error {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/winrm/winrm.go",
+     "contains": "tc := &tls.Config{MinVersion: tls.VersionTLS12",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/winrm/winrm.go",
+     "contains": "tc.VerifyPeerCertificate = func(raw [][]byte, _ [][]*x509.Certificate) error {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/winrm/winrm.go",
+     "contains": "tc.VerifyConnection = func(cs tls.ConnectionState) error {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/winrm/winrm.go",
+     "contains": "tc.SessionTicketsDisabled = true",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/winrm/winrm.go",
+     "contains": "c.limit.OnRateLimit()",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/winsrv_transport.go",
+     "contains": "const VirtualHost = \"winrm.invalid\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/winrm/winrm_test.go",
+     "contains": "func TestRedirectIsRefusedAndCredentialStays(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/winrm/winrm_test.go",
+     "contains": "func TestPinMismatchFailsHandshake(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/winrm/winrm_test.go",
+     "contains": "func TestPinnedConfigChecksEveryConnection(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/winrm/winrm_test.go",
+     "contains": "func TestThrottlingIsATypedRateLimitError(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/winsrv_cli_test.go",
+     "contains": "func TestAllowHTTPRefusedUnderMCP(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/winsrv_cli_test.go",
+     "contains": "func TestVirtualTransportRefusesOtherHosts(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/winrm/winrm.go",
+     "contains": "Basic auth over plain HTTP sends the password in clear text",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/winsrv_transport.go",
+     "contains": "c.HTTPClient.Timeout = 0",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/winsrv_cli_test.go",
+     "contains": "func TestVirtualTransportDoesNotCutScriptBudgets(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/winsrv_cli_test.go",
+     "contains": "func TestExplicitTimeoutReachesTypedReads(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/winrm/winrm.go",
+     "contains": "rt = ntlmssp.Negotiator{RoundTripper: heldLeg{tr: tr}}",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/winrm/winrm.go",
+     "contains": "holdRequestHeader(req.Header)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/winrm/winrm.go",
+     "contains": "holdSetCookies(t.resp.Trailer)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/kit_e2e_test.go",
+     "contains": "func TestKitWinRMCookiesNeverReachTheReader(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "fixed-scripts",
+   "summary": "21 fixed PowerShell scripts embedded as constant text; arguments validated in Go and again in PowerShell, sent as base64 JSON in WSPP_ARGS; one constant hash-pinned bootstrap per script runs WSPP_SCRIPT only when its SHA-256 matches.",
+   "why": "No arbitrary PowerShell in v1: no input may change the script that runs. WinRS refuses command lines over 8191 characters and does not decode XML character references in environment values (found live), so the script travels in WSPP_SCRIPT behind a hash check and the arguments travel base64 encoded.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/winsrv/scripts.go",
+     "contains": "const ScriptEnv = \"WSPP_SCRIPT\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/winsrv/scripts.go",
+     "contains": "func CommandLine(name string) (exe string, argv []string, script string, err error) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/winsrv/scripts/prelude.ps1",
+     "contains": "[Convert]::FromBase64String($env:WSPP_ARGS)",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/winsrv/winsrv_test.go",
+     "contains": "func TestEveryArgumentRefusesInjection(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/winsrv/winsrv_test.go",
+     "contains": "func TestPowerShellSideRefusesHostileArguments(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/winsrv/winsrv_test.go",
+     "contains": "func TestBootstrapRefusesAnyOtherScript(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/winsrv/winsrv_test.go",
+     "contains": "func TestCommandLineIsConstantAndBounded(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/winsrv/winsrv_test.go",
+     "contains": "func TestLabFixtures(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/winsrv/rows.go",
+     "contains": "\"services\":          {key: field(\"name\"), post: servicePost},",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/winsrv/rows.go",
+     "contains": "oneOf(\"state\", state, ServiceStates...)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/winsrv/winsrv_test.go",
+     "contains": "func TestServiceStateFilterUsesOneVocabulary(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "server-profiles",
+   "summary": "[[servers]] profiles in the config (name, host, port, auth, username, ca_file or cert_sha256), --server takes a configured name only, per-server credentials in a 0600 store via servers login (stdin only).",
+   "why": "The host a credential goes to must come from config only: no CLI or MCP argument may name a host, port or URL. A config other users can change is refused when it lists servers.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/winsrv/profiles.go",
+     "contains": "func LoadProfiles(path string) ([]Profile, error) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/winsrv_common.go",
+     "contains": "func serversFromConfig(cfg *config.Config, name string, all bool) ([]winsrv.Profile, map[string]error, error) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/servers.go",
+     "contains": "func newServersListCmd(flags *rootFlags) *cobra.Command {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/winsrv_cli_test.go",
+     "contains": "func TestServerFlagNeverTakesAHost(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/winsrv/profiles.go",
+     "contains": "func CredentialKey(p Profile) string {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/winsrv_cli_test.go",
+     "contains": "func TestStoredCredentialIsBoundToItsHost(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/winsrv/profiles.go",
+     "contains": "func CredentialPrefix(configFile, name string) string {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "if data, err = withServers(c.Path, data); err != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/keep_servers.go",
+     "contains": "func withServers(path string, data []byte) ([]byte, error) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/kit_e2e_test.go",
+     "contains": "func TestAuthSaveKeepsTheServers(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "health-events",
+   "summary": "health (one verdict per server from 11 checks), inventory snapshot/diff, eventlog new, services down, local-admins changes, and zammad-shape vendor_events behind events list; their store tables are appended to the generated migrations.",
+   "why": "The press renders these novel commands as stubs; a reprint regenerates the stubs over the implementations. The migrations append in the generated store.go is an inline body edit regen-merge does not keep.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/store/extras.go",
+     "contains": "migrations = append(migrations, vendorEventsMigrations...)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/extras.go",
+     "contains": "migrations = append(migrations, winsrvMigrations...)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/health.go",
+     "contains": "func recordHealth(ctx context.Context, db *store.Store, res *healthResult, checks []winsrv.Check, now time.Time) error {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/services_down.go",
+     "contains": "func latestSCMEvent(events []winsrv.Row, s winsrv.Row) winsrv.Row {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/local_admins_changes.go",
+     "contains": "func adminChangeRows(server string, res winsrv.Row) []winsrv.Row {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/eventlog_new.go",
+     "contains": "func newGroups(server string, res winsrv.Row) []winsrv.Row {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/inventory_diff.go",
+     "contains": "func diffServer(ctx context.Context, db *store.Store, server string) (winsrv.Row, error) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/inventory_snapshot.go",
+     "contains": "func newInventorySnapshotCmd(flags *rootFlags) *cobra.Command {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/events_list.go",
+     "contains": "db.VendorEventsSince(cmd.Context(), since, eventType, limit)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/winsrv_cli_test.go",
+     "contains": "func TestHealthWritesEventsOnChange(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/winsrv_common.go",
+     "contains": "config.StoreScopeIdentity = func(c *config.Config) string {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/winsrv_cli_test.go",
+     "contains": "func TestRotatingThePasswordKeepsTheStore(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/winsrv/health.go",
+     "contains": "func Unreachable(err error) Gathered {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/winsrv_cli_test.go",
+     "contains": "func TestFanOutExitsNonZeroWhenNoServerAnswered(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/winsrv_cli_test.go",
+     "contains": "func TestNoLocalDataRecordsNothing(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/health.go",
+     "contains": "\"pp:live-happy-path\": \"true\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/winsrv/health.go",
+     "contains": "\tif serviceFailed(r) {\n\t\treturn true\n\t}\n\tif Bool(r[\"trigger_start\"]) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/winsrv/health.go",
+     "contains": "for _, r := range keyed {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/winsrv/health.go",
+     "contains": "{\"eventlog_critical\", \"eventlog\", map[string]any{\"log\": \"System\", \"hours\": 24, \"levels\": []int{1}, \"max\": 500}},",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/winsrv/health.go",
+     "contains": "{\"eventlog_errors\", \"eventlog\", map[string]any{\"log\": \"System\", \"hours\": 24, \"levels\": []int{2}, \"max\": 500}},",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/services_down.go",
+     "contains": "s[\"reason\"] = quietStopReason(s, days, capped)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/local_admins_changes.go",
+     "contains": "if winsrv.Bool(res[\"capped\"]) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/winsrv/scripts/local_admin_changes.ps1",
+     "contains": "*[EventData[Data[@Name='TargetSid']='S-1-5-32-544']]",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/winsrv/scripts/local_admin_changes.ps1",
+     "contains": "capped = ($events.Count -ge $cap)",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/winsrv/scripts/scm_events.ps1",
+     "contains": "-MaxEvents $max -ErrorAction Stop",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/winsrv/winsrv_test.go",
+     "contains": "func TestFailureExitCodeWinsOverStartupMetadata(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/winsrv/winsrv_test.go",
+     "contains": "func TestEveryPrivateKeyCertificateCounts(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/winsrv/winsrv_test.go",
+     "contains": "func TestCappedEventReadsNeverHideAFinding(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/winsrv/winsrv_test.go",
+     "contains": "func TestAdminChangesFilterBeforeTheCap(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/winsrv_cli_test.go",
+     "contains": "func TestCappedReadsNeverReadAsComplete(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "service-actions",
+   "summary": "services restart and services start: preview unless --yes (CLI) or confirm: true (MCP); refuse WinRM and its dependencies; start only a stopped automatic service.",
+   "why": "The only commands that change a server. A reprint regenerates the stub without the confirm gate or the refusals.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/services_restart.go",
+     "contains": "func newServiceActionCmd(flags *rootFlags, cmd *cobra.Command, action string) *cobra.Command {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/services_restart.go",
+     "contains": "Use: \"restart <service-name>\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/services_restart.go",
+     "contains": "Use: \"start <service-name>\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/winsrv/scripts/lib_service_action.ps1",
+     "contains": "'the service is not stopped'",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/winsrv_cli_test.go",
+     "contains": "func TestServiceActionNeedsConfirmation(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/winsrv/winsrv_test.go",
+     "contains": "func TestMutatingScriptNeedsConfirmation(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/services_restart.go",
+     "contains": "cmd.Annotations[\"pp:happy-args\"] = \"service-name=W32Time;--yes\"",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "agent-compaction",
+   "summary": "--agent compaction keeps the frequency rule instead of schema-aware gravity names; four dead generated helpers removed.",
+   "why": "Found live: schema-aware compaction kept only gravity-named fields and dropped drive_letter, size_bytes and percent_free from volumes. The dead helpers fail the scorecard Dead Code row.",
+   "status": "active",
+   "spec_encode_followup": "Press-side: schema-aware compaction should keep measurement fields, not only gravity names.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "// Hand-fix (handfixes.json agent-compaction)",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "schemaAware := false",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "not_contains": "func hasChangedLocalFlags("
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "not_contains": "func requiredInputWaived("
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "not_contains": "func retainCLIQueryParams("
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "not_contains": "func retainExplicitQueryParams("
+    }
+   ]
+  },
+  {
+   "id": "mcp-context-archetype",
+   "summary": "The MCP context tool's archetype is pinned to infrastructure and the message/channel insights removed.",
+   "why": "The press scores the archetype from resource-name keywords and breaks a three-way tie by Go map order, so two renders of the same spec differ (one render said communication and added Message search and Channel health).",
+   "status": "active",
+   "spec_encode_followup": "Press-side: break archetype score ties deterministically.",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "// Hand-fix (handfixes.json mcp-context-archetype)",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "\"archetype\":   \"infrastructure\",",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "not_contains": "Message search"
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "not_contains": "Channel health"
+    }
+   ]
+  },
+  {
+   "id": "local-data-purge-action",
+   "summary": "local-data purge's dry-run JSON names its action (\"action\": \"local-data purge\").",
+   "why": "Live dogfood fails a --dry-run --json payload without a non-empty action (\"empty dry-run action\"). Same fix as cove and synology.",
+   "status": "active",
+   "spec_encode_followup": "Press-side: emit action in the local-data purge dry-run payload.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/local_data.go",
+     "contains": "\"dry_run\": !apply, \"action\": \"local-data purge\"",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "doctor-virtual-reachability",
+   "summary": "doctor never calls the virtual host reachable: a hook (doctorReachabilityHook, added to the generated doctor.go) lets the hand-written wiring report the configured servers and point at health, and doctorAuthConfiguredHook counts per-server credentials from servers login as configured auth.",
+   "why": "The generated doctor GETs / and reads any HTTP answer as \"reachable\". This CLI's base URL https://winrm.invalid is answered in process by the virtual transport, so doctor printed \"OK API: reachable (HTTP 400 at /)\" with no server configured and no network contacted (false-GREEN, found by the polish output review). With only per-server credentials, doctor said auth not configured and env vars missing, and --fail-on error exited 1 on a working setup (false-RED). A reprint that drops the hook brings the false-GREEN back.",
+   "status": "active",
+   "spec_encode_followup": "Press-side: doctor should skip its GET / reachability probe (or defer to a print hook) when a registered client hook answers the base URL in process, and doctorBaseURLIsPlaceholder could treat the RFC 2606 .invalid TLD as not network-reachable.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "var doctorReachabilityHook func(cfg *config.Config) (api, credentials string, ok bool)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "} else if api, credentials, ok := doctorReachabilityState(cfg); ok {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/winsrv_common.go",
+     "contains": "doctorReachabilityHook = winsrvDoctorReachability",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/winsrv_common.go",
+     "contains": "doctorAuthConfiguredHook = winsrvDoctorAuthConfigured",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/winsrv_cli_test.go",
+     "contains": "func TestDoctorNeverCallsTheVirtualHostReachable(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/winsrv_cli_test.go",
+     "contains": "func TestDoctorCountsPerServerCredentials(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "delayed-start-window",
+   "class": "novel-wrong-result",
+   "summary": "health and services down do not count a delayed automatic service that the Service Control Manager has not started since boot (exit code 1077) as stopped while the uptime read in the same run is under delayedStartWindow (10 minutes). One shared predicate (winsrv.NotStartedYet, used inside winsrv.ServiceDown(r, Boot)) serves both; health reads the uptime from the system probe it already runs and names those services as not started yet with status ok; services down reads the fixed system script only when a row could depend on it (winsrv.NeedsBoot). Unknown uptime (system read failed, absent, not a number, negative), a failure exit code, a service that is not delayed, and any uptime of 10 minutes or more still count as stopped.",
+   "why": "Found live on the lab: health about two minutes after a start flagged DPS, MSDTC, UALSVC and UsoSvc (Automatic (Delayed Start), exit 1077) as stopped automatic services; minutes later only the steady-state stops remained. Delayed start fires about 120 s after the last automatic service starts (AutoStartDelay default) and runs serially at low priority. health.go and services_down.go are hand-written, but a reprint that regenerates the services down stub or reverts ServiceDown would bring the false warn back with tests green on old fixtures.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/winsrv/health.go",
+     "contains": "const delayedStartWindow = 10 * time.Minute",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/winsrv/health.go",
+     "contains": "return ok && code == 1077 && b.Known && b.UptimeSeconds < delayedStartWindow.Seconds()",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/winsrv/health.go",
+     "contains": "return !NotStartedYet(r, b)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/winsrv/health.go",
+     "contains": "g.eval(\"services\", \"services\", func(rows []Row) (string, string) { return checkServices(rows, g.boot()) }),",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/services_down.go",
+     "contains": "boot = winsrv.BootOf(sys)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/services_down.go",
+     "contains": "if winsrv.ServiceDown(s, boot) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/winsrv/winsrv_test.go",
+     "contains": "func TestDelayedStartWindow(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/winsrv_cli_test.go",
+     "contains": "func TestServicesDownWaitsOutTheDelayedStart(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/winsrv/winsrv_test.go",
+     "contains": "func TestCleanlyStoppedDelayedServiceCounts(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "not-found-hint",
+   "class": "help-text-truth",
+   "summary": "The generated HTTP 404 hint in classifyAPIErrorOnly (helpers.go) no longer says \"Run the 'list' command\", which does not exist in this CLI. A role_absent 404 (hyperv-vms, defender on a server without the role) says the role or product is not installed and points at 'windows-server-cli health' (n/a) and 'windows-server-cli features'; any other 404 (services get with an unknown name) points at 'windows-server-cli services list'.",
+   "why": "Seen on the lab: hyperv-vms and defender on a server without the role printed a hint naming a nonexistent 'list' command (false instructions to an agent). helpers.go is generated (DO NOT EDIT), so a reprint restores the press's generic hint. The test walks the real cobra tree, so a hint naming any command that does not resolve fails.",
+   "status": "active",
+   "spec_encode_followup": "Press-side: the 404 hint should name a command that exists in the printed CLI, or none.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "// Hand-fix (handfixes.json not-found-hint)",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "if strings.Contains(msg, \": role_absent: \") {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "not_contains": "Run the 'list' command to see available items"
+    },
+    {
+     "file": "cli/internal/cli/winsrv_cli_test.go",
+     "contains": "func TestNotFoundHintNamesOnlyRealCommands(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "journal-credential-hardening",
+   "class": "secret-persisted",
+   "status": "active",
+   "summary": "The learn journal keeps no text the operator typed in place of a declared name, and no file stores operator-named text that repeats a credential the program holds; the fleet tool tools/maintainer/apply_journal_hardening.py's canonical edits, applied by hand because the tool refuses this press shape (appendPlaybookNotesTx carries an ingress parameter; the adapted site refuses family, marker and ingress). The <PREFIX>_LEARN_SESSION override is stored as \"o:\" plus the same 64-bit SHA-256 hash the harness session ids get under \"h:\"; argv_shape records only flag names the invoked command declares under exactly the typed name, every other name as the \"<undeclared>\" placeholder (redacted), and nothing after \"--\"; failed_flag is never kept as typed (\"--<undeclared>:\" plus the typed name's hash when Cobra matched it to a declared flag, otherwise dropped); teach.log's missing --query lines record argument counts. Each operator-named write passes the shared credential kit (credkit-wiring), which withholds a record that repeats a held credential, in every view it decodes, before it is written: profiles.json, the journal, teach.log, learnings.jsonl and feedback.jsonl through credkit.WriteFile and AppendFile, and the learn tables (learnings, playbooks, candidates, recall misses, entity aliases, patterns) through the kit's SQLite driver. journal_credential_hardening_test.go drives each path and fails if a credential reaches any file under the test home.",
+   "why": "Press 4.34.0 and 4.34.2 (learn/journal.go.tmpl) return the override raw from JournalSessionKey, so a credential set there is written to journal-*.jsonl on every command, version included, and record every typed flag name, so a credential typed as a flag name (or after --) becomes an argv_shape key and the failed_flag; teach.log records the raw arguments of a teach with no --query; and a credential given as a profile name or description, a recall or teach query or operand, or feedback is stored as typed. Known limits: a guessable override or typed name can be confirmed by hashing guesses; entries an older build wrote stay until the 14-day retention deletes their segment; operator-named text that repeats no credential the process holds is a name and is kept. A reprint that drops these edits fails these asserts and TestJournalCredentialHardening; re-apply the tool's SITES text by hand (the tool refuses this shape until it learns the ingress parameter). The per-site RefuseHeld checks and journal_held_sink_test.go were replaced by the shared credential kit: TestJournalCredentialHardening now holds its credential through the kit and still fails if one reaches any file under the test home.",
+   "spec_encode_followup": "Press-side: learn/journal.go.tmpl should hash the LEARN_SESSION override as it hashes harness ids, and JournalArgvShape should take the invoked command's declared-flag lookup and record any other name as a placeholder, stopping at \"--\"; the failed flag should be an opaque identity; teach.log should not echo raw arguments; and every template that stores operator-named text should refuse one that repeats a held credential.",
+   "asserts": [
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "\t\treturn \"o:\" + hashHarnessSession(v)\n\t}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "const journalUndeclaredFlag = \"<undeclared>\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "func JournalArgvShape(args []string, isBoolFlag, isDeclared func(name string) bool) map[string]string {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "\t\tif tok == \"--\" {\n\t\t\tbreak\n\t\t}\n\t\tif !strings.HasPrefix(tok, \"-\") || tok == \"-\" {\n\t\t\tcontinue\n\t\t}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "\t\tif isDeclared == nil || !isDeclared(name) {\n\t\t\tshape[journalUndeclaredFlag] = journalClassRedacted\n\t\t\tcontinue\n\t\t}\n\t\tswitch {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "\tif entry.FailedFlag != \"\" && entry.SuggestedFlag != \"\" {\n\t\tentry.FailedFlag = \"--\" + journalUndeclaredFlag + \":\" + hashHarnessSession(entry.FailedFlag)\n\t} else {\n\t\tentry.FailedFlag = \"\"\n\t}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "\tlookupFlag := func(name string) *pflag.Flag {\n\t\tf := target.Flags().Lookup(name)\n\t\tif f == nil {\n\t\t\tf = target.InheritedFlags().Lookup(name)\n\t\t}\n\t\tif f == nil && len(name) == 1 {\n\t\t\tf = target.Flags().ShorthandLookup(name)\n\t\t}\n\t\treturn f\n\t}\n\tisBoolFlag := func(name string) bool {\n\t\tf := lookupFlag(name)\n\t\treturn f != nil && f.Value.Type() == \"bool\"\n\t}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "\tisDeclaredFlag := func(name string) bool {\n\t\tf := lookupFlag(name)\n\t\treturn f != nil && (f.Name == name || f.Shorthand == name)\n\t}\n\tlearn.JournalInvocation(learn.JournalEntry{\n\t\tCmd:           journalVerbChain(rootCmd, executed),\n\t\tArgvShape:     learn.JournalArgvShape(os.Args[1:], isBoolFlag, isDeclaredFlag),",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/teach.go",
+     "contains": "writeTeachErrLog(fmt.Sprintf(\"teach: missing --query (%d args, %d resources)\", len(args), len(resources)))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/teach_playbook.go",
+     "contains": "writeTeachErrLog(fmt.Sprintf(\"playbook amend: missing --query (%d args)\", len(args)))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "func hashHarnessSession(v string) string {\n\tsum := sha256.Sum256([]byte(v))\n\treturn hex.EncodeToString(sum[:8])\n}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "not_contains": "journalSessionEnvVar)); v != \"\" {\n\t\treturn v\n"
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "not_contains": "learn.JournalArgvShape(os.Args[1:], isBoolFlag)"
+    },
+    {
+     "file": "cli/internal/cli/teach.go",
+     "not_contains": "args=%v"
+    },
+    {
+     "file": "cli/internal/cli/teach_playbook.go",
+     "not_contains": "args=%v"
+    },
+    {
+     "file": "cli/internal/learn/journal_credential_hardening_test.go",
+     "contains": "func TestJournalCredentialHardening(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal_credential_hardening_test.go",
+     "contains": "func TestJournalHardeningStartupOverride(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal_credential_hardening_test.go",
+     "contains": "func TestJournalFailedFlagIdentity(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "credkit.AppendFile(p, append(line, '\\n'), 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/teach_log.go",
+     "contains": "credkit.AppendFile(p, append(line, '\\n'), 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/teach.go",
+     "contains": "credkit.AppendFile(p, []byte(fmt.Sprintf(\"%s %s\\n\", ts, line)), 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal_credential_hardening_test.go",
+     "contains": "credkit.Hold(\"minted:test\"",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "credkit-wiring",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "The shared credential kit is wired by hand: internal/cli/credkit_wiring.go carries the one credkit.Declarations literal, credkit.Start is the first statement of both mains and credkit.Exit ends them, and every sink (stdout and stderr, files, SQLite through internal/kitsql, MCP, the virtual transport and every other HTTP client, child processes, terminal checks) passes the kit. The WinRM leg and the 0600 credential store and config writes stay outside it, as credkit-sites.json records.",
+   "why": "The connector's own funnel (secret_funnel*.go, the result and tool-error funnels, the store sink driver, RefuseHeld at each persist point) closed one shape per review and the next review found the next: a code list of a piece of the password, the password in another case, a server named after a piece of its password. The kit holds every part of every credential at startup and checks every sink, so the shape stops mattering (TestKitPerCharacterCodesNeverReachTheReader and TestKitStoreNeverHoldsTheServerPassword, both seen failing on fdd3f3a03). A reprint rewrites the generated sinks and mains: these asserts make that fail instead of silently dropping the routing.",
+   "replaces": [
+    {
+     "id": "secret-echo-decoded-funnel",
+     "reason": "replaced by the shared credential kit"
+    },
+    {
+     "id": "funnel-code-encodings",
+     "reason": "replaced by the shared credential kit"
+    },
+    {
+     "id": "credential-holder",
+     "reason": "replaced by the shared credential kit"
+    },
+    {
+     "id": "store-write-chokepoint",
+     "reason": "replaced by the shared credential kit"
+    }
+   ],
+   "asserts": [
+    {
+     "file": "cli/internal/cli/credkit_wiring.go",
+     "contains": "var Declarations = credkit.Declarations{",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/credkit_wiring.go",
+     "contains": "Files: credentialFiles,",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/credkit_wiring.go",
+     "contains": "func credentialFiles(args []string) []string {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/credkit_wiring.go",
+     "contains": "credkit.FlagValues(args, \"--config\")",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/credkit_wiring.go",
+     "contains": "credkit.FlagValues(args, \"--home\")",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/credkit_wiring.go",
+     "contains": "winsrv.ServerCredentialsPath(creds)",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/windows-server-cli/main.go",
+     "contains": "credkit.Start(cli.Declarations)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/windows-server-cli/main.go",
+     "contains": "credkit.Exit(code)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/windows-server-mcp/main.go",
+     "contains": "credkit.Start(cli.Declarations)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/windows-server-mcp/main.go",
+     "contains": "server.WithToolHandlerMiddleware(credkit.MCPTools),",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/windows-server-mcp/main.go",
+     "contains": "credkit.MCPIn(os.Stdin), credkit.MCPOut()",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/windows-server-mcp/main.go",
+     "contains": "credkit.MCPHTTP(server.NewStreamableHTTPServer(s))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/windows-server-mcp/main.go",
+     "contains": "credkit.MCPHTTP(http.HandlerFunc(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/windows-server-mcp/main.go",
+     "contains": "credkit.Exit(0)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/kitsql/kitsql.go",
+     "contains": "sql.Register(Driver, credkit.SQLDriver(&sqlite.Driver{}))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "sql.Open(kitsql.Driver, dsn)",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "openReadOnlyWithDriver(ctx, kitsql.Driver, dbPath)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "db.QueryRowContext(ctx, \"SELECT count(*) FROM sqlite_master\").Scan(&tables)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/candidates.go",
+     "contains": "errors.Is(err, credkit.ErrWithheld)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/platform/migration.go",
+     "contains": "sql.Open(kitsql.Driver, targetPath)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/winsrv_transport.go",
+     "contains": "c.HTTPClient.Transport = credkit.Transport(t)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "Transport: credkit.Transport(tr)}",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "c.Transport = credkit.Transport(cloned)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "credkit.WriteFile(cacheFile, []byte(data), 0o600)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "credkit.WriteFile(cacheFile+\".platform.json\", data, 0o600)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cache/cache.go",
+     "contains": "credkit.WriteFile(s.path(key), []byte(value), 0o600)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/feedback.go",
+     "contains": "Transport: credkit.Transport(nil)}",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/feedback.go",
+     "contains": "credkit.AppendFile(p, append(line, '\\n'), 0o600)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deliver.go",
+     "contains": "Transport: credkit.Transport(nil),",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deliver.go",
+     "contains": "credkit.NewWriter(f, credkit.SinkFile).Write(body)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/export.go",
+     "contains": "credkit.NewWriter(f, credkit.SinkFile)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/profile.go",
+     "contains": "credkit.WriteFile(tmp, data, 0o600)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/teach.go",
+     "contains": "credkit.AppendFile(p, append(line, '\\n'), 0o600)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/teach.go",
+     "contains": "credkit.AppendFile(p, []byte(fmt.Sprintf(\"%s %s\\n\", ts, line)), 0o600)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/teach.go",
+     "contains": "credkit.WriteFile(path, []byte(strings.Join(kept, \"\\n\")+\"\\n\"), 0o600)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "return credkit.Terminal(f)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/servers.go",
+     "contains": "credkit.Hold(\"stdin\", password)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/winsrv_common.go",
+     "contains": "credkit.Hold(\"minted:set-credentials\", args[1:]...)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/winsrv_common.go",
+     "contains": "holdPasswordArg(c)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "credkit.AppendFile(p, append(line, '\\n'), 0o600)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "credkit.AppendFile(p, []byte{'\\n'}, 0o600)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "credkit.WriteFile(tmp, data, 0o600)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/teach_log.go",
+     "contains": "credkit.AppendFile(p, append(line, '\\n'), 0o600)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/platform/profile.go",
+     "contains": "credkit.NewWriter(tmp, credkit.SinkFile).Write(data)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/probe.go",
+     "contains": "Transport: credkit.Transport(nil)}",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "credkit.RunCommand(cmd)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "cmd.Env = mcpChildEnviron()",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "openMCPStoreWith(path, store.OpenReadOnlyRaw)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/kit_e2e_test.go",
+     "contains": "func TestKitPerCharacterCodesNeverReachTheReader(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/kit_e2e_test.go",
+     "contains": "func TestKitStoreNeverHoldsTheServerPassword(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/kit_e2e_test.go",
+     "contains": "func TestKitMalformedConfigValueNeverInStartupOutput(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "not_contains": "err := cmd.Run()"
+    },
+    {
+     "file": "cli/internal/cli/deliver.go",
+     "not_contains": "if _, err := f.Write(body); err != nil {"
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "holdConfigCredentials(cfg)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/credkit_hold.go",
+     "contains": "func holdConfigCredentials(c *Config) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/winsrv/profiles.go",
+     "contains": "credkit.Hold(\"config:password\", c.Password)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/winrm/winrm.go",
+     "contains": "credkit.Hold(\"config:password\", auth.Password)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/profile.go",
+     "contains": "credkit.HoldURL(\"config:base-url\", v)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/kit_e2e_test.go",
+     "contains": "func TestKitPasswordSavedWhileMCPRunsIsHeld(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  }
+ ]
+}

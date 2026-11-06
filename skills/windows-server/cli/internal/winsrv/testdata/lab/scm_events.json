@@ -1,0 +1,1 @@
+{"ok":true,"data":[{"event_id":7023,"record_id":152848,"time_created":"2026-10-28T06:57:42.6640710Z","service_key":"netprofm","params":["netprofm","%%21"],"message":"The netprofm service terminated with the following error: \r\nThe device is not ready."}]}
