@@ -723,6 +723,13 @@
       "digest": "sha256:6c743bcfbe6ed412d05b3162a6d7633b40801f1f162c8a61796eb0b0e96072ec"
     },
     {
+      "name": "windows-server",
+      "type": "skill-md",
+      "description": "Agentless Windows Server health checks over WinRM: one verdict per server, a diffable inventory, and no arbitrary PowerShell. Trigger phrases: `is the file server healthy`, `why is this service stopped on the server`, `who added a local admin on the server`, `what changed on our windows servers this week`, `check expiring certificates on the server`, `use windows-server`, `run windows-server`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/windows-server/SKILL.md",
+      "digest": "sha256:33930c1632946b234b2f4a6ffc011668a989ba0ceb00d5825d161485ed00c534"
+    },
+    {
       "name": "wordpress",
       "type": "skill-md",
       "description": "Use when the user asks to publish, update, search, or clean up WordPress pages, posts, or media from the terminal or an AI agent - drives the WordPress REST API and keeps a local SQLite mirror for offline full-text search. Trigger phrases: `publish a wordpress page`, `create a wordpress post`, `list draft pages`, `upload media to wordpress`, `search my wordpress site`, `use wordpress`, `run wordpress`.",

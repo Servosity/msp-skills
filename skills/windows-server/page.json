@@ -1,0 +1,114 @@
+{
+  "outcome_intro": "Ask your AI \"which of my Windows servers need attention today, and why?\" and get one ok, warn, crit or unknown verdict per server: pending reboot, low disks, stopped automatic services, System log errors, patch age, pending updates, expiring certificates, Defender, time sync and failed scheduled tasks. It connects over WinRM with HTTPS, runs only fixed read scripts, and changes nothing except a service you confirm.",
+  "instead_of_say": [
+    {
+      "instead": "Opening an RDP session on each client server every morning to check disks, services, Event Viewer and Windows Update",
+      "say": "Which of my Windows servers need attention today, and why?",
+      "cli": "windows-server-cli health --agent"
+    },
+    {
+      "instead": "Scrolling Event Viewer on a down ticket to work out why a service stopped before restarting it",
+      "say": "Which automatic services are stopped on fs01, and what stopped them?",
+      "cli": "windows-server-cli services down --server fs01 --agent"
+    },
+    {
+      "instead": "Finding out a certificate expired when the client calls because their site or VPN stopped working",
+      "say": "Which certificates on the default server expire in the next 30 days?",
+      "cli": "windows-server-cli certificates --expiring-days 30 --agent"
+    }
+  ],
+  "pain_points": [
+    "Daily server checks are still a manual round on many MSP desks: \"monitor critical server services\" daily, then disk space and Event Viewer's application, security and system logs weekly, as the Active Directory Pro Windows Server maintenance checklist lays it out, one server at a time.",
+    "When something breaks, the first hour goes to working out what changed: a new local administrator, a removed role, a service that stopped, or an error that has never fired on that server before."
+  ],
+  "outcomes": [
+    {
+      "question": "Which of my servers need attention today, and why?",
+      "command": "windows-server-cli health --agent"
+    },
+    {
+      "question": "Which automatic services are stopped, and which Service Control Manager event explains each stop?",
+      "command": "windows-server-cli services down --agent"
+    },
+    {
+      "question": "Which System and Application errors are new on a server compared with its own last 7 days?",
+      "command": "windows-server-cli eventlog new --window 24h --baseline 7d --agent"
+    },
+    {
+      "question": "Who added or removed a local Administrators member this week, and when?",
+      "command": "windows-server-cli local-admins changes --hours 168 --agent"
+    },
+    {
+      "question": "What changed in roles, shares, local admins, certificates and updates since the last snapshot?",
+      "command": "windows-server-cli inventory diff --agent"
+    },
+    {
+      "question": "Which volumes are low on free space?",
+      "command": "windows-server-cli volumes --agent --select server,drive_letter,size_bytes,percent_free"
+    },
+    {
+      "question": "Which scheduled tasks failed their last run?",
+      "command": "windows-server-cli scheduled-tasks --failed --agent"
+    }
+  ],
+  "different_vs_wrappers": "Most Windows MCP servers and scripts give the agent a PowerShell prompt on the server. This one cannot run arbitrary script: every command is one of a fixed set of hash-pinned read scripts with typed, validated arguments, the server comes from your config by name (never from the agent), and certificate verification is always on. Its compound commands roll every check into one verdict per server and diff inventory between runs.",
+  "different_vs_vendor": "Windows Server has no built-in AI assistant for MSPs, and Windows Admin Center shows one server at a time. This adds a verdict across every server in your config, the reason behind each stopped service, change history between runs, and it complements whatever RMM agent you already run.",
+  "faqs": [
+    {
+      "q": "Does this work with ChatGPT?",
+      "a": "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so it needs the Windows Server MCP server's token-protected HTTP mode hosted over HTTPS. Step-by-step in the install guide."
+    },
+    {
+      "q": "Do I need to know how to code?",
+      "a": "No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once."
+    },
+    {
+      "q": "Is my Windows Server data safe?",
+      "a": "Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills."
+    },
+    {
+      "q": "What does it cost?",
+      "a": "Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use."
+    },
+    {
+      "q": "Do I need to install an agent on each server?",
+      "a": "No. It uses WinRM over HTTPS (port 5986), which is built into Windows Server. Enable an HTTPS listener and give the CLI a local or domain account in the server's Administrators group. Nothing is installed on the server."
+    },
+    {
+      "q": "Can the AI run its own PowerShell on my client's server?",
+      "a": "No. Every command runs one fixed script that ships inside the binary and is checked by hash before it runs. Arguments such as a service name are validated against a strict pattern and passed as typed data, never pasted into script text."
+    },
+    {
+      "q": "What does it change on a server?",
+      "a": "Only two things, and only after a preview: restarting one service, or starting one stopped automatic service. Over MCP the change runs only with confirm: true; on the CLI only with --yes."
+    }
+  ],
+  "governance_summary": "It reads server state over WinRM with fixed scripts and writes nothing to the server except two service actions: restart a service, or start a stopped automatic one, each previewed first and sent only with --yes (CLI) or confirm: true (MCP). Locally it writes the server list's stored passwords (0600 store), the health and inventory history, and the agent learning store. Keep agents on reads; have a human approve every service action.",
+  "safety_tiers": [
+    {
+      "tier": "Read (server)",
+      "examples": "health, system, volumes, services list, services get, services down, eventlog, eventlog new, installed-updates, pending-updates, features, local-admins, local-admins changes, shares, scheduled-tasks, certificates, defender, time-sync, hyperv-vms",
+      "policy": "Allow"
+    },
+    {
+      "tier": "Read (local)",
+      "examples": "events list, inventory diff, servers list, search, analytics",
+      "policy": "Allow"
+    },
+    {
+      "tier": "Write (local only)",
+      "examples": "inventory snapshot, health (records history), sync, local-data purge (preview unless --yes)",
+      "policy": "Allow; review local-data purge"
+    },
+    {
+      "tier": "Credential",
+      "examples": "servers login, servers logout, auth set-credentials, auth logout",
+      "policy": "Human-in-the-loop only"
+    },
+    {
+      "tier": "Server action (changes a customer server)",
+      "examples": "services restart, services start",
+      "policy": "Human-in-the-loop only: read the preview, then run with --yes or confirm: true"
+    }
+  ]
+}
