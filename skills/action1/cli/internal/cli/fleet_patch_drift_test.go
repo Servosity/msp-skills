@@ -45,7 +45,7 @@ func TestFleetPatchDriftBaselineThenDiff(t *testing.T) {
 	}
 	var sawRemediated bool
 	for _, c := range second.Changes {
-		if c.EndpointID == "ep-1" && c.Status == "remediated" && c.Delta == -19 {
+		if c.EndpointID == "ep-1" && c.Status == "remediated" && c.Delta != nil && *c.Delta == -19 {
 			sawRemediated = true
 		}
 	}
@@ -61,7 +61,7 @@ func updateEndpointMissing(t *testing.T, db *store.Store, id string, critical, o
 		"missing_updates": map[string]any{"critical": critical, "other": other},
 	}
 	raw, _ := json.Marshal(obj)
-	if err := db.Upsert("endpoints", id, raw); err != nil {
+	if err := db.Upsert("endpoints_managed", id, raw); err != nil {
 		t.Fatalf("update endpoint: %v", err)
 	}
 }

@@ -49,9 +49,9 @@ organization) before this command.`,
 				return err
 			}
 			defer db.Close()
-			maybeEmitSyncHints(cmd, db, "automation_instances", flags.maxAge)
+			maybeEmitSyncHints(cmd, db, "automations_instances", flags.maxAge)
 
-			instances, err := fleetLoadAll(cmd.Context(), db, "automation_instances")
+			instances, err := fleetLoadAll(cmd.Context(), db, "automations_instances")
 			if err != nil {
 				return err
 			}
