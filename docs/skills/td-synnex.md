@@ -1,7 +1,7 @@
 ---
 layout: default
 title: "TD SYNNEX StreamOne ION MCP Server - Free, Open Source, Runs Locally | MSP Skills"
-description: "Every StreamOne ION reseller API, plus a local licence book for renewals, margin and cross-distributor true-up."
+description: "The StreamOne ION v3 reseller API (customers, catalog, orders, subscriptions, carts, reports), plus a local licence book for renewals, margin and cross-distributor true-up."
 permalink: /skills/td-synnex/
 skill_name: "TD SYNNEX StreamOne ION MCP"
 image: /assets/social/td-synnex/wide-1200x630.png

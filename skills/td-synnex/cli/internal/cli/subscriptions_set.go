@@ -1,4 +1,4 @@
-// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
 // Hand-written: change seats, renewal, status, tier or friendly name on one subscription
 // by building the documented UPDATE order (docs.streamone.cloud#update-order-*).
 // pp:data-source live
@@ -253,7 +253,10 @@ func newSubscriptionsSetCmd(flags *rootFlags) *cobra.Command {
 			return printJSONFiltered(cmd.OutOrStdout(), map[string]any{"placed": true, "order": order}, flags)
 		},
 	}
-	cmd.Flags().Var(seatsFlag, "seats", "New licence count (a whole number)")
+	// Declared as an int flag (so help, the MCP schema and verify-skill see a
+	// plain int), then parsed by decimalInt: 012 is twelve, not octal ten.
+	cmd.Flags().IntVar(&ch.Seats, "seats", 0, "New licence count (a whole number)")
+	cmd.Flags().Lookup("seats").Value = seatsFlag
 	cmd.Flags().StringVar(&ch.Renewal, "renewal", "", "Renewal setting: auto_on, cancel_at_renewal or renew_to_est (auto-on and auto-off are accepted aliases; auto-off cancels at renewal)")
 	cmd.Flags().StringVar(&ch.Status, "status", "", "Status change: suspended, active or deleted")
 	cmd.Flags().StringVar(&ch.FriendlyName, "friendly-name", "", "New friendly name for the subscription")

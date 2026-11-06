@@ -1,4 +1,4 @@
-// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
 // Hand-written: shared local-store model for the StreamOne ION novel commands.
 
 package cli
@@ -729,9 +729,29 @@ func loadIONBook(ctx context.Context, db *store.Store, resources ...string) (*io
 	return b, nil
 }
 
-// openIONBook resolves the DB path, emits the missing-mirror and sync hints,
-// and loads the book. A nil book with nil error means "no local mirror":
-// callers print an empty result.
+// ionUnprovenResources names the resources, of those a book command reads,
+// whose local rows are not a proven-complete list: no sync_state row, or a
+// latest sync attempt that did not reach a proven end of pagination
+// (sync_state.last_attempt_complete is not 1; the generated MCP store status
+// reads the same proof). Any error reading the proof counts as unproven, so
+// an old store without the column, a missing table or a closed handle all
+// refuse instead of answering.
+func ionUnprovenResources(ctx context.Context, db *store.Store, resources []string) []string {
+	var out []string
+	for _, r := range resources {
+		var complete int
+		err := db.DB().QueryRowContext(ctx, `SELECT last_attempt_complete FROM sync_state WHERE resource_type = ?`, r).Scan(&complete)
+		if err != nil || complete != 1 {
+			out = append(out, r)
+		}
+	}
+	return out
+}
+
+// openIONBook resolves the DB path, emits the sync hints, and loads the book.
+// It answers only from a store whose every resource the command reads was
+// walked to a proven end: a missing store or a partial list is an error
+// naming the sync that completes it, never an empty or partial result.
 func openIONBook(cmd *cobra.Command, flags *rootFlags, dbPath string, resources ...string) (*ionBook, func(), error) {
 	explicitDB := dbPath != ""
 	if explicitDBFlag(cmd) && strings.TrimSpace(dbPath) == "" {
@@ -751,13 +771,25 @@ func openIONBook(cmd *cobra.Command, flags *rootFlags, dbPath string, resources 
 		}
 		flags.freshnessMeta = map[string]any{"decision": decision, "db": dbPath, "reason": "--db selects a store the freshness check does not cover"}
 	}
+	syncHint := "td-synnex-cli sync --resources " + strings.Join(resources, ",")
+	if explicitDB {
+		syncHint += " --db " + dbPath
+	}
 	if os.IsNotExist(statErr) {
-		fmt.Fprintf(cmd.ErrOrStderr(), "no local mirror at %s\nrun: td-synnex-cli sync --resources %s --db %s\n", dbPath, strings.Join(resources, ","), dbPath)
-		return nil, func() {}, nil
+		// Nothing synced is not a proven-empty book: an empty list here would
+		// read as "no renewals / no stuck orders / no seats" (Codex round 1 of
+		// reprint 4.35.1, P1 incomplete read reported as complete).
+		return nil, func() {}, configErr(fmt.Errorf("no local mirror at %s, so no complete %s to answer from; run: %s", dbPath, strings.Join(resources, ", "), syncHint))
 	}
 	db, err := store.OpenReadOnlyContext(cmd.Context(), dbPath)
 	if err != nil {
 		return nil, func() {}, configErr(fmt.Errorf("opening local store: %w", err))
+	}
+	if unproven := ionUnprovenResources(cmd.Context(), db, resources); len(unproven) > 0 {
+		_ = db.Close() // read-only handle
+		return nil, func() {}, configErr(fmt.Errorf("local %s not proven complete: the latest sync did not reach the end of the list "+
+			"(an auto-refresh fetches one page, and --latest-only, --max-pages or an interrupted walk stop early), so totals and lists "+
+			"would leave records out; run: %s", strings.Join(unproven, ", "), syncHint))
 	}
 	if len(resources) > 0 && !hintIfUnsynced(cmd, db, resources[0]) {
 		hintIfStale(cmd, db, resources[0], flags.maxAge) // ponytail: the primary resource stands in for the set

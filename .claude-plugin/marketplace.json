@@ -1325,7 +1325,7 @@
     {
       "name": "td-synnex",
       "source": "./skills/td-synnex",
-      "description": "Every StreamOne ION reseller API, plus a local licence book for renewals, margin and cross-distributor true-up.",
+      "description": "The StreamOne ION v3 reseller API (customers, catalog, orders, subscriptions, carts, reports), plus a local licence book for renewals, margin and cross-distributor true-up.",
       "version": "0.1.2",
       "category": "billing",
       "tags": [

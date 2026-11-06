@@ -1,4 +1,4 @@
-// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
 // Hand-written: let account-scoped endpoint commands omit the <accountId>
 // positional when TD_SYNNEX_ACCOUNT_ID (or the config file) supplies it.
 // A reseller has one account ID, and every account path carries it.

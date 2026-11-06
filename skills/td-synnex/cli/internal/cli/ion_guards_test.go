@@ -1,4 +1,4 @@
-// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
 // Hand-written: tests for ion_mcp_file_flags.go and explicitDBFlag (ion_book.go).
 
 package cli
@@ -12,6 +12,7 @@ import (
 	"net/url"
 	"runtime"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"td-synnex-pp-cli/internal/client"
@@ -138,13 +139,22 @@ func TestDeliverWebhookRefusesPlainHTTP(t *testing.T) {
 
 // TestDeliverWebhookRefusesRedirectToPlainHTTP: an allowed URL that redirects
 // to plain http off loopback must not receive the body (Codex round 6, P1).
+// Press 4.35.1 never follows a webhook redirect (the 3xx is returned as an
+// error), which covers this natively; the test pins that no redirect target,
+// plain http or not, ever receives the body.
 func TestDeliverWebhookRefusesRedirectToPlainHTTP(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		http.Redirect(w, r, "http://10.255.255.1/in", http.StatusTemporaryRedirect)
-	}))
-	defer srv.Close()
-	if err := deliverWebhook(srv.URL, []byte(`{"access_token":"x"}`), false); err == nil || !strings.Contains(err.Error(), "refusing webhook redirect") {
-		t.Fatalf("redirect to plain http was followed: %v", err)
+	var followed atomic.Int32
+	target := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { followed.Add(1) }))
+	defer target.Close()
+	for _, loc := range []string{"http://10.255.255.1/in", target.URL + "/in"} {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			http.Redirect(w, r, loc, http.StatusTemporaryRedirect)
+		}))
+		err := deliverWebhook(srv.URL, []byte(`{"access_token":"x"}`), false)
+		srv.Close()
+		if err == nil || !strings.Contains(err.Error(), "redirects are not followed") || followed.Load() != 0 {
+			t.Fatalf("redirect to %s was followed: err=%v hits=%d", loc, err, followed.Load())
+		}
 	}
 }
 

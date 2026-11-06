@@ -1,4 +1,4 @@
-// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
 // Hand-written: behavior tests for the StreamOne ION novel-command logic.
 
 package cli
@@ -1062,7 +1062,8 @@ func TestFreshnessMetaDoesNotCertifyAnotherDB(t *testing.T) {
 	cmd.SetErr(io.Discard)
 	book, closeDB, err := openIONBook(cmd, flags, filepath.Join(home, "missing.db"), "subscriptions")
 	defer closeDB()
-	if err != nil || book != nil {
+	// A missing store is refused, never an empty book (Codex round 1 of reprint 4.35.1).
+	if err == nil || book != nil {
 		t.Fatalf("missing --db store: book=%v err=%v", book, err)
 	}
 	m, _ := flags.freshnessMeta.(map[string]any)
