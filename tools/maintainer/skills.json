@@ -1495,7 +1495,7 @@
     },
     "maxio": {
       "system": "Maxio Advanced Billing - subscription revenue, MRR, and retention intelligence",
-      "status": "beta",
+      "status": "live-verified",
       "cli_binary": "maxio-cli",
       "mcp_binary": "maxio-mcp",
       "vendor": "Maxio",
@@ -1509,10 +1509,15 @@
       "cli_hash_at_release": "sha256:1554739697e63aa1a2e01a844d33bf29e042346aca2ab7da012436bf0dc629a2",
       "has_video": true,
       "live_verified": {
-        "status": "awaiting",
-        "date": null,
-        "source": null,
-        "evidence": null
+        "status": "live-verified",
+        "date": "2026-11-06",
+        "source": "self",
+        "evidence": "Damien: verified live (reported 2026-11-06)",
+        "verified_by": "Servosity (maintainer)",
+        "issue_url": null,
+        "verified_version": "0.1.8",
+        "verified_cli_hash": "sha256:1554739697e63aa1a2e01a844d33bf29e042346aca2ab7da012436bf0dc629a2",
+        "verified_basis": "latest-release-at-flip"
       }
     },
     "microsoft-graph": {
@@ -2149,7 +2154,7 @@
     },
     "servosity": {
       "system": "Servosity backup and DR: fleet attention, stale backups, QBR reports, restores, billing",
-      "status": "beta",
+      "status": "live-verified",
       "cli_binary": "servosity-cli",
       "mcp_binary": "servosity-mcp",
       "vendor": "Servosity",
@@ -2164,7 +2169,18 @@
       "install_auth_hint": "Then authenticate with `SERVOSITY_MSP_TOKEN=<your-partner-token> servosity-cli doctor`",
       "category": "Backup/DR",
       "tagline": "Fleet attention, stale backups, QBR reports, and restore watch for every client by asking.",
-      "display_name": "Servosity"
+      "display_name": "Servosity",
+      "live_verified": {
+        "status": "live-verified",
+        "date": "2026-11-06",
+        "source": "self",
+        "evidence": "Damien: verified live against the Servosity partner tenant (first 2026-06-05; the badge was lost in reprint #248 on 2026-08-17 and restored 2026-11-06)",
+        "verified_by": "Servosity (maintainer)",
+        "issue_url": null,
+        "verified_version": "0.6.13",
+        "verified_cli_hash": "sha256:f9a5e91a13c03b5378e5be14262760669cf3df75ac1583fa07afa456f9fc5950",
+        "verified_basis": "latest-release-at-flip"
+      }
     },
     "sherweb": {
       "system": "Sherweb cloud marketplace billing, subscriptions, customers, and margin across Microsoft CSP and cloud services",
