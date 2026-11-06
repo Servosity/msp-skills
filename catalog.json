@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-11-05",
+  "generated_at": "2026-11-06",
   "skills": [
     {
       "name": "msp-skills-concierge",
@@ -1151,7 +1151,7 @@
       "skill_path": "skills/maxio",
       "cli_binary": "maxio-cli",
       "mcp_binary": "maxio-mcp",
-      "version": "0.1.7",
+      "version": "0.1.8",
       "printing_press_version": "4.34.2",
       "license": "Apache-2.0",
       "vendor": "Maxio",

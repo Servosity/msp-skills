@@ -147,10 +147,10 @@
     "released_hash": "sha256:f609611867481a1b8db77893f7c87a2cb87a753b3bae90cfba069deef4c0b913"
   },
   "cloudally": {
-    "state": "up-to-date",
+    "state": "binary-pending",
     "version": "0.1.0",
     "latest_tag": "cloudally-v0.1.0",
-    "current_hash": "sha256:20966c685624bfc657a30ce99cea344da2b0cbfac423e944767e2b72aeaa264a",
+    "current_hash": "sha256:b94da090756d70bd178b4121aec08076f2e3ac87750e625d3b1a08f274dba0c8",
     "released_hash": "sha256:20966c685624bfc657a30ce99cea344da2b0cbfac423e944767e2b72aeaa264a"
   },
   "connect-tool": {
@@ -385,11 +385,11 @@
     "released_hash": "sha256:2116baa46d0e0c97200a2f6b3790a41a9e8e8af72b1fc7a081167c68f8b455d1"
   },
   "maxio": {
-    "state": "binary-pending",
-    "version": "0.1.7",
+    "state": "version-pending",
+    "version": "0.1.8",
     "latest_tag": "maxio-v0.1.7",
     "current_hash": "sha256:1554739697e63aa1a2e01a844d33bf29e042346aca2ab7da012436bf0dc629a2",
-    "released_hash": "sha256:216772fb4739193a7f0de6ad762a09c317a143d629d2f24285017029996e51b1"
+    "released_hash": "sha256:1554739697e63aa1a2e01a844d33bf29e042346aca2ab7da012436bf0dc629a2"
   },
   "microsoft-graph": {
     "state": "up-to-date",
