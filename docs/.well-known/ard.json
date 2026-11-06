@@ -441,6 +441,26 @@
       }
     },
     {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:comet-backup",
+      "displayName": "Comet Backup",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/comet-backup/SKILL.md",
+      "description": "Fleet-wide backup health, failure triage and usage reports for every tenant on your Comet Server, plus the admin API calls an MSP uses day to day. Trigger phrases: `which comet backups failed last night`, `comet backup health across all tenants`, `comet storage usage per customer`, `find offline comet devices`, `re-run failed comet backups`, `use comet-backup`, `run comet-backup`.",
+      "tags": [
+        "Backup/DR"
+      ],
+      "representativeQueries": [
+        "Which protected items failed, are overdue or never backed up, across every tenant?",
+        "Why did backups fail in the last 24 hours, with the first error lines from each job log?",
+        "Which tenants are at or above 80 percent of a storage, device or Microsoft 365 quota?",
+        "Which offline devices have not finished a job in a week and still own protected items?",
+        "Which devices run a Comet client version that differs from the server?"
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/comet-backup.md"
+      }
+    },
+    {
       "identifier": "urn:air:msp-skills.compoundingteams.com:skills:connect-tool",
       "displayName": "connect-tool",
       "type": "text/markdown; profile=\"urn:air:agent-skills\"",

@@ -555,6 +555,28 @@
       },
       "install_auth_hint": "Then set your CloudAlly API key pair (`CLOUDALLY_CLIENT_ID`, `CLOUDALLY_CLIENT_SECRET`; partner portal > Integrations > REST API), run `cloudally-cli auth login --partner` (or `auth login` for one company), and check `cloudally-cli doctor`"
     },
+    "comet-backup": {
+      "system": "White-label backup: users, devices, jobs, policies, and storage across every tenant on an MSP's Comet server",
+      "status": "beta",
+      "cli_binary": "comet-backup-cli",
+      "mcp_binary": "comet-backup-mcp",
+      "vendor": "Comet Backup",
+      "vendor_trademark_owner": "Comet Licensing Ltd",
+      "first_party": false,
+      "category": "Backup/DR",
+      "display_name": "Comet Backup",
+      "has_video": true,
+      "cli_hash": "sha256:5cf0d2ffd1c268867f0a123ae914f1fd92f496e2d2b8b3a14c15426e7ab60a45",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": null,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
+    },
     "connect-tool": {
       "system": "Authentication setup for any CLI, MCP server, or Skill, driven through your own logged-in Chrome. Windows and macOS",
       "status": "beta",
