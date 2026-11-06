@@ -4,7 +4,7 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
-## [0.1.10] - unreleased
+## [0.1.10] - 2026-11-05
 
 ### Changed
 - **Rebuilt on CLI Printing Press 4.34.2** ([GHSA-jh26-vhqh-692c](https://github.com/advisories/GHSA-jh26-vhqh-692c)). HTTP mode (`autotask-mcp --transport http`) now refuses to start without `AUTOTASK_MCP_HTTP_TOKEN`, answers only requests that send `Authorization: Bearer <token>`, binds `127.0.0.1` by default and needs TLS for any other address. New optional switches: `AUTOTASK_MCP_READ_ONLY=1` (expose only read-only tools) and `AUTOTASK_NO_LOCAL_DATA=1` (keep no local copy).

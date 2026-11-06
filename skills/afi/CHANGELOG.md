@@ -4,7 +4,7 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
-## [0.1.9] - unreleased
+## [0.1.9] - 2026-11-05
 
 ### Changed
 - Rebuilt on the current press. The MCP server's HTTP mode now listens on localhost by default, refuses to start without `AFI_MCP_HTTP_TOKEN`, and needs TLS for any other address; every MCP write previews first and sends only with `confirm: true`; `AFI_MCP_READ_ONLY=1` refuses writes; `AFI_NO_LOCAL_DATA=1` keeps no local copy; `local-data purge` erases what is stored.
