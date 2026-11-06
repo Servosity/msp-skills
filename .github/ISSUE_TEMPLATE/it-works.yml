@@ -122,6 +122,7 @@ body:
         - vsphere
         - warranty
         - watchguard
+        - windows-server
         - wordpress
         - xero
         - zammad

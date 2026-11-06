@@ -1,0 +1,82 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.Servosity/windows-server-mcp",
+  "title": "Windows Server MCP",
+  "description": "Agentless Windows Server health checks over WinRM: one verdict per server, a diffable inventory",
+  "version": "0.1.0",
+  "icons": [
+    {
+      "src": "https://raw.githubusercontent.com/servosity/msp-skills/main/docs/assets/social/windows-server/windows-server-512x512.png",
+      "mimeType": "image/png",
+      "sizes": [
+        "512x512"
+      ]
+    }
+  ],
+  "repository": {
+    "url": "https://github.com/servosity/msp-skills",
+    "source": "github",
+    "subfolder": "skills/windows-server"
+  },
+  "packages": [
+    {
+      "registryType": "mcpb",
+      "identifier": "https://github.com/servosity/msp-skills/releases/download/windows-server-v0.1.0/windows-server-mcp.mcpb",
+      "version": "0.1.0",
+      "fileSha256": "PLACEHOLDER_SHA256_FILLED_BY_CI",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "WINDOWS_SERVER_PASSWORD",
+          "description": "Password for the WinRM account shared by servers that have no password stored with servers login.",
+          "isRequired": true,
+          "isSecret": true
+        },
+        {
+          "name": "WINDOWS_SERVER_USERNAME",
+          "description": "WinRM account name (a local or domain account in the server's Administrators group).",
+          "isRequired": true,
+          "isSecret": true
+        },
+        {
+          "name": "WINDOWS_SERVER_MCP_READ_ONLY",
+          "description": "Optional. Set to exactly 1 to offer only tools that change nothing: services restart, services start, health and inventory snapshot are removed. Leave blank to keep every tool available.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "WINDOWS_SERVER_NO_LOCAL_DATA",
+          "description": "Optional. Set to 1 to keep no local store: health prints verdicts without recording history or events, and inventory snapshot is refused. Leave blank to keep the local store.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "WINDOWS_SERVER_MCP_HTTP_TOKEN",
+          "description": "Required only when running the MCP server with --transport http (a remote/hosted deployment). Callers must send a matching Authorization: Bearer header. Not needed for the default local stdio transport that Claude Desktop uses.",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "WINDOWS_SERVER_BASE_URL",
+          "description": "Leave blank. The CLI's internal request surface is the fixed https://winrm.invalid; any other value is refused. Servers come only from the config file's [[servers]] entries.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "WINDOWS_SERVER_USER_AGENT",
+          "description": "Optional. Overrides the User-Agent the CLI sends on WinRM requests. Leave blank to use the CLI's own built-in User-Agent.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "PRINTING_PRESS_CLIENT_PROFILE",
+          "description": "Only for tenant-gated multi-client deployments: binds the MCP server to an existing Printing Press client profile. Leave blank for a single-tenant install.",
+          "isRequired": false,
+          "isSecret": true
+        }
+      ]
+    }
+  ]
+}
