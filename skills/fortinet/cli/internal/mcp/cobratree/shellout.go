@@ -8,6 +8,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"fortinet-pp-cli/internal/credkit"
 	"os"
 	"os/exec"
 	"regexp"
@@ -494,7 +495,7 @@ func RunCLICommand(ctx context.Context, binPath string, args []string) (CLIComma
 	stderr := newCappedCapture()
 	cmd.Stdout = stdout
 	cmd.Stderr = stderr
-	err := cmd.Run()
+	err := credkit.RunCommand(cmd) // Hand-fix (handfixes.json credkit-wiring)
 	stdoutText := stdout.String()
 	result := CLICommandResult{
 		Stdout:      stdoutText,

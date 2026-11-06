@@ -257,7 +257,7 @@
     },
     {
      "file": "cli/internal/cli/fortinet_secrets.go",
-     "contains": "if tr, ok := next.(*http.Transport); ok && tr.ResponseHeaderTimeout == 0 {",
+     "contains": "c.TuneTransport(func(tr *http.Transport) {\n\t\tif tr.ResponseHeaderTimeout == 0 {",
      "code_only": true
     },
     {
@@ -1129,13 +1129,13 @@
   {
    "id": "fgtcloud-token-cache-rename-retry",
    "class": "windows-credential-rename",
-   "summary": "The FortiGate Cloud token cache is written through cliutil.AtomicWritePrivateFile (0600 temp file renamed into place, with the Windows rename retry) instead of its own temp-file rename",
+   "summary": "The FortiGate Cloud token cache is written through cliutil.AtomicWriteCredentialFile (0600 temp file renamed into place, with the Windows rename retry) instead of its own temp-file rename. On the 4.35.1 kit adoption the writer moved from AtomicWritePrivateFile to AtomicWriteCredentialFile (same atomicWritePrivate rename retry), because the cache is a credential source the kit holds at startup (credkit-wiring)",
    "why": "writeCache published the cached access and refresh token with a bare os.Rename. On Windows that rename fails with 'Access is denied' while another run holds the cache open, and saveCache then deletes the cache, refresh token included, so two runs refreshing at once forced a fresh login. The shared writer carries the press's bounded retry (12 attempts, about 0.45 s at most, Windows access-denied and sharing violation only). TestWriteCacheConcurrentWritersAndReaders runs 4 writers and a reader for 25 rounds on the cache path.",
    "status": "active",
    "asserts": [
     {
      "file": "cli/internal/fgtcloud/client.go",
-     "contains": "return cliutil.AtomicWritePrivateFile(path, b, 0o600, 0o700)",
+     "contains": "return cliutil.AtomicWriteCredentialFile(path, b, 0o600, 0o700)",
      "min_count": 1,
      "code_only": true
     },
@@ -1302,6 +1302,385 @@
     {
      "file": "page.json",
      "not_contains": "connects only to remote"
+    }
+   ]
+  },
+  {
+   "id": "credkit-wiring",
+   "class": "credential-kit",
+   "summary": "The shared credential kit (tools/maintainer/credkit, vendored at cli/internal/credkit) is wired by hand: internal/credwire/declarations.go holds the one credkit.Declarations literal, both mains start with credkit.Start(credwire.Declarations) and end with credkit.Exit, the FortiGate API, FortiGate Cloud, --deliver webhook and Spacefast, feedback and probe clients go through credkit.Transport, every SQLite handle through the credkit.SQLDriver internal/credsql registers, every program file write (fleet backups included) through the kit, child processes through credkit.StartCommand / RunCommand, and the MCP stdio and HTTP servers through credkit.MCPTools, MCPIn, MCPOut and MCPHTTP. The credential store, config, the FortiGate Cloud token cache and the Spacefast delivery record are sources, written outside the kit (cliutil.AtomicWriteCredentialFile) and held at the next start. Fleet device tokens and the FortiManager key go to operator-configured URLs no build-time kit origin can list: they are held (minted:device-token, env:FORTINET_FMG_API_KEY) and bound to no kit origin, and their clients send outside credkit.Transport with their own pinning (credkit-sites.json).",
+   "why": "One contract, one matcher and one set of sinks replace the connector's own layer (the 4.35.1 reprint had already dropped the secret-echo funnel files). Classes closed, each by a test seen failing first on the pre-kit build: a FortiOS error that echoes part of the API token (TestAPIErrorEchoOfTokenIsWithheld, CLI, --agent and MCP); a FortiManager JSON-RPC status that echoes FORTINET_FMG_API_KEY (TestFMGStatusEchoOfKeyIsWithheld, CLI and MCP); the FortiGate Cloud token cache held at startup (TestCloudTokenCacheHeldAtStartup) and written outside the kit (TestTokenCacheIsWrittenOutsideTheKit); a fleet device's token_file token held and still sent to its own device (TestDeviceTokenEchoIsWithheldAndSentOnlyToItsDevice). In-process tests never run Start, so cliutil.OutboundGuard, Hold and HoldBody are variables the test mains swap (root_test.go, credkit_seam_test.go). The MCP sql value cap moved from sqlite.Limit on a held connection to the _length_limit DSN parameter, and openReadOnlySQLite runs select 1 because the kit's connection does not forward Ping. client.TuneTransport reaches the base transport inside the guard for --insecure and the fleet header timeout.",
+   "status": "active",
+   "spec_encode_followup": "Press-side: generate the kit wiring, the Declarations literal and one kit-wrapped SQLite driver name; a kit API that binds a held value to an origin chosen at run time would let the fleet and FortiManager clients send through credkit.Transport.",
+   "asserts": [
+    {
+     "file": "cli/cmd/fortinet-cli/main.go",
+     "contains": "credkit.Start(credwire.Declarations)",
+     "min_count": 1
+    },
+    {
+     "file": "cli/cmd/fortinet-cli/main.go",
+     "contains": "credkit.Exit(code)",
+     "min_count": 1
+    },
+    {
+     "file": "cli/cmd/fortinet-mcp/main.go",
+     "contains": "credkit.Start(credwire.Declarations)",
+     "min_count": 1
+    },
+    {
+     "file": "cli/cmd/fortinet-mcp/main.go",
+     "contains": "credkit.Exit(run())",
+     "min_count": 1
+    },
+    {
+     "file": "cli/cmd/fortinet-mcp/main.go",
+     "contains": "server.WithToolHandlerMiddleware(credkit.MCPTools),",
+     "min_count": 1
+    },
+    {
+     "file": "cli/cmd/fortinet-mcp/main.go",
+     "contains": "credkit.MCPIn(os.Stdin), credkit.MCPOut()",
+     "min_count": 1
+    },
+    {
+     "file": "cli/cmd/fortinet-mcp/main.go",
+     "contains": "kit := credkit.MCPHTTP(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {",
+     "min_count": 1
+    },
+    {
+     "file": "cli/cmd/fortinet-mcp/main.go",
+     "contains": "kit.ServeHTTP(w, r)",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "var Declarations = credkit.Declarations{",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "Files:         credentialFiles,",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "{Source: \"minted:device-token\", Allowed: nil},",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "{Source: \"env:FORTINET_FMG_API_KEY\", Allowed: nil},",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "{Source: \"minted:fgtcloud-access\", Allowed:",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "fgtcloud.HoldCache(p)",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/credsql/credsql.go",
+     "contains": "sql.Register(Driver, credkit.SQLDriver(cappedSQLite()))",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cliutil/credkit_guard.go",
+     "contains": "var OutboundGuard = credkit.Transport",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "return guardedTransport{RoundTripper: cliutil.OutboundGuard(tr), inner: tr}",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "httpClient.Transport = guardTransport(tr)",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "c.Transport = guardTransport(tr)",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "clone.Transport = guardTransport(tr)",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "_ = credkit.WriteFile(cacheFile, []byte(data), 0o600)",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/client/fortinet_kit_transport.go",
+     "contains": "func (c *Client) TuneTransport(f func(*http.Transport)) bool {",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/client/fortinet_kit_transport.go",
+     "contains": "func (c *Client) SendOutsideKit() {",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/fortinet_fleet.go",
+     "contains": "cliutil.Hold(\"minted:device-token\", v)",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/fortinet_fleet.go",
+     "contains": "c.SendOutsideKit()",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/fortinet_fleet.go",
+     "contains": "credkit.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/fortinet_tls.go",
+     "contains": "c.TuneTransport(func(tr *http.Transport) {",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/fortinet_secrets.go",
+     "contains": "c.TuneTransport(func(tr *http.Transport) {",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/fgtcloud/client.go",
+     "contains": "Transport: cliutil.OutboundGuard(nil)",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/fgtcloud/client.go",
+     "contains": "return cliutil.AtomicWriteCredentialFile(path, b, 0o600, 0o700)",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/fgtcloud/client.go",
+     "contains": "cliutil.Hold(\"minted:fgtcloud-access\", t.AccessToken)",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/fgtcloud/client.go",
+     "contains": "cliutil.Hold(\"minted:fgtcloud-refresh\", t.RefreshToken)",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/fgtcloud/client.go",
+     "contains": "func HoldCache(path string) {",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/fortinet_cloud.go",
+     "contains": "cache := fgtcloud.CachePath()",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "return credkit.StartCommand(c)",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/deliver.go",
+     "contains": "resp, err := cliutil.OutboundGuard(nil).RoundTrip(req)",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/deliver.go",
+     "contains": "credkit.WriteFile(tmp, body, 0o600)",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/deliver_spacefast.go",
+     "contains": "cliutil.Hold(\"minted:spacefast-page-key\", prior.Key)",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/deliver_spacefast.go",
+     "contains": "Transport: cliutil.OutboundGuard(nil),",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/deliver_spacefast.go",
+     "contains": "return cliutil.AtomicWriteCredentialFile(filepath.Join(dir, name), data, 0o600, 0o700)",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/feedback.go",
+     "contains": "Transport: credkit.Transport(nil)}",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/feedback.go",
+     "contains": "credkit.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cliutil/probe.go",
+     "contains": "Transport: credkit.Transport(nil)}",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "credkit.AppendFile(p, append(line, '\\n'), 0o600)",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/learn/teach_log.go",
+     "contains": "credkit.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/teach.go",
+     "contains": "credkit.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/export.go",
+     "contains": "outKit = credkit.NewWriter(f, credkit.SinkFile)",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/profile.go",
+     "contains": "credkit.WriteFile(tmp, data, 0o600)",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cache/cache.go",
+     "contains": "credkit.WriteFile(s.path(key), []byte(value), 0o600)",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/platform/profile.go",
+     "contains": "credkit.WriteFile(tmpName, data, 0o600)",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/platform/ratelimit.go",
+     "contains": "credkit.WriteFile(path, []byte(strconv.FormatInt(time.Now().UnixNano(), 10)), 0o600)",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/platform/migration.go",
+     "contains": "sql.Open(credsql.Driver,",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "sql.Open(credsql.Driver,",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "func OpenReadOnlyValueCapped(dbPath string, maxValueBytes int) (*Store, error) {",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "db.ExecContext(ctx, \"select 1\")",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "openMCPReadOnlyStore(path, mcpSQLMaxValueBytes)",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "err := credkit.RunCommand(cmd)",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cliutil/darwin_acl_darwin.go",
+     "contains": "credkit.RunCommand(cmd)",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "cliutil.Hold(\"stdin\", token)",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "return credkit.Terminal(f)",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cliutil/paths.go",
+     "contains": "func AtomicWriteCredentialFile(path string, data []byte, fileMode, dirMode os.FileMode) error {",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cliutil/paths.go",
+     "contains": "credkit.WriteFile(tmpPath, data, fileMode)",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cliutil/credentials.go",
+     "contains": "AtomicWriteCredentialFile(path, data, 0o600, 0o700)",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "cliutil.AtomicWriteCredentialFile(c.Path, data, 0o600, 0o700)",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/root_test.go",
+     "contains": "cliutil.OutboundGuard = func(rt http.RoundTripper) http.RoundTripper {",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/mcp/credkit_seam_test.go",
+     "contains": "cliutil.OutboundGuard = func(rt http.RoundTripper) http.RoundTripper {",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/fgtcloud/credkit_seam_test.go",
+     "contains": "cliutil.OutboundGuard = func(rt http.RoundTripper) http.RoundTripper {",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/fgtcloud/cache_store_test.go",
+     "contains": "func TestTokenCacheIsWrittenOutsideTheKit(t *testing.T) {",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestAPIErrorEchoOfTokenIsWithheld(t *testing.T) {",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestFMGStatusEchoOfKeyIsWithheld(t *testing.T) {",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestCloudTokenCacheHeldAtStartup(t *testing.T) {",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestDeviceTokenEchoIsWithheldAndSentOnlyToItsDevice(t *testing.T) {",
+     "min_count": 1
+    },
+    {
+     "file": "cli/cmd/fortinet-mcp/main.go",
+     "not_contains": "server.ServeStdio(s)"
+    },
+    {
+     "file": "cli/internal/fortimgr/client.go",
+     "contains": "CheckRedirect: refuseRedirect",
+     "min_count": 1
     }
    ]
   }

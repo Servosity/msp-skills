@@ -12,6 +12,7 @@ import (
 
 	"fortinet-pp-cli/internal/cliutil"
 	"fortinet-pp-cli/internal/config"
+	"fortinet-pp-cli/internal/credkit"
 	"github.com/spf13/cobra"
 )
 
@@ -80,7 +81,7 @@ func openSetupURL(url string) error {
 	default:
 		return fmt.Errorf("unsupported OS: %s", runtime.GOOS)
 	}
-	return c.Start()
+	return credkit.StartCommand(c) // Hand-fix (handfixes.json credkit-wiring)
 }
 
 func newAuthStatusCmd(flags *rootFlags) *cobra.Command {

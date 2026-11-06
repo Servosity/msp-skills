@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
-	"path/filepath"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -22,10 +21,7 @@ func newCloudClient(flags *rootFlags) (*fgtcloud.Client, error) {
 	if err != nil {
 		return nil, configErr(err)
 	}
-	cache := ""
-	if dir, err := cliutil.StateDir(); err == nil {
-		cache = filepath.Join(dir, "fortigate-cloud-token.json")
-	}
+	cache := fgtcloud.CachePath()
 	c, err := fgtcloud.New(base, cliutil.EnvOverride("FORTINET_CLOUD_API_USER"), cliutil.EnvOverride("FORTINET_CLOUD_API_PASSWORD"),
 		cliutil.EnvOverride("FORTINET_CLOUD_ACCOUNT_ID"), cache, flags.timeout)
 	if err != nil {

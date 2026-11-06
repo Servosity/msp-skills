@@ -114,7 +114,8 @@ func New(baseURL, user, password, accountID, cachePath string, timeout time.Dura
 	return &Client{
 		BaseURL: strings.TrimRight(baseURL, "/"), TokenURL: DefaultTokenURL,
 		User: strings.TrimSpace(user), Password: password, AccountID: strings.TrimSpace(accountID), CachePath: cachePath,
-		HTTP: &http.Client{Timeout: timeout, CheckRedirect: refuseRedirect}, limiter: cliutil.NewAdaptiveLimiter(5),
+		HTTP: &http.Client{Timeout: timeout, CheckRedirect: refuseRedirect, Transport: cliutil.OutboundGuard(nil)}, limiter: // Hand-fix (handfixes.json credkit-wiring): the FortiCloud hosts are fixed, so every request goes through the kit
+		cliutil.NewAdaptiveLimiter(5),
 	}, nil
 }
 
@@ -138,6 +139,7 @@ func (c *Client) loadCache() *cachedToken {
 	if json.Unmarshal(b, &t) != nil || t.User != c.User || t.AccessToken == "" {
 		return nil
 	}
+	t.hold()
 	return &t
 }
 
@@ -167,7 +169,53 @@ func writeCache(path string, t *cachedToken) error {
 	// place, retrying the rename while Windows reports the cache open in
 	// another process (two runs refreshing at once), so a concurrent refresh
 	// no longer deletes the cache and the refresh token it just received.
-	return cliutil.AtomicWritePrivateFile(path, b, 0o600, 0o700)
+	// Hand-fix (handfixes.json credkit-wiring): the cache is a credential source, held at the
+	// next start (HoldCache), so it is written outside the kit, which would
+	// withhold it by contract.
+	return cliutil.AtomicWriteCredentialFile(path, b, 0o600, 0o700)
+}
+
+// hold binds the minted tokens to the FortiCloud origins each may go to
+// (internal/credwire): the access token to the regional API hosts, the
+// refresh token back to the token endpoint. Hand-fix (handfixes.json credkit-wiring).
+func (t *cachedToken) hold() {
+	if t.AccessToken != "" {
+		cliutil.Hold("minted:fgtcloud-access", t.AccessToken)
+	}
+	if t.RefreshToken != "" {
+		cliutil.Hold("minted:fgtcloud-refresh", t.RefreshToken)
+	}
+}
+
+// CachePath is where the FortiGate Cloud token cache lives: the state
+// directory's fortigate-cloud-token.json, or "" when there is none.
+func CachePath() string {
+	dir, err := cliutil.StateDir()
+	if err != nil {
+		return ""
+	}
+	return filepath.Join(dir, "fortigate-cloud-token.json")
+}
+
+// HoldCache holds the tokens a cache file keeps, at startup, before anything
+// prints. Hand-fix (handfixes.json credkit-wiring). A cache that does not parse is handed to the kit
+// whole (credkit.HoldBody), which holds every word of it; a missing one holds
+// nothing.
+func HoldCache(path string) {
+	info, err := os.Stat(path)
+	if err != nil || !info.Mode().IsRegular() {
+		return
+	}
+	b, err := os.ReadFile(filepath.Clean(path)) // #nosec G304 -- the program's own token cache under the state dir
+	if err != nil || len(bytes.TrimSpace(b)) == 0 {
+		return
+	}
+	var t cachedToken
+	if json.Unmarshal(b, &t) != nil {
+		cliutil.HoldBody(b)
+		return
+	}
+	t.hold()
 }
 
 func (c *Client) grant(ctx context.Context, body map[string]string) (*cachedToken, error) {
@@ -206,8 +254,10 @@ func (c *Client) grant(ctx context.Context, body map[string]string) (*cachedToke
 		exp = 3600
 	}
 	// Renew a minute early so a token never expires mid-request.
-	return &cachedToken{User: c.User, AccessToken: out.AccessToken, RefreshToken: out.RefreshToken,
-		ExpiresAt: time.Now().Add(time.Duration(exp)*time.Second - time.Minute)}, nil
+	t := &cachedToken{User: c.User, AccessToken: out.AccessToken, RefreshToken: out.RefreshToken,
+		ExpiresAt: time.Now().Add(time.Duration(exp)*time.Second - time.Minute)}
+	t.hold()
+	return t, nil
 }
 
 // token returns a valid access token: cache, then one refresh grant, then at

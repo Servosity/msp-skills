@@ -13,6 +13,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"fortinet-pp-cli/internal/credkit"
 	"io"
 	"math"
 	"net/url"
@@ -77,6 +78,7 @@ func readSecretFromStdin(r io.Reader) (string, error) {
 	if token == "" {
 		return "", fmt.Errorf("empty token on stdin")
 	}
+	cliutil.Hold("stdin", token) // Hand-fix (handfixes.json credkit-wiring): a token read from a pipe is held before anything can print it
 	return token, nil
 }
 
@@ -111,11 +113,8 @@ func isTerminal(w io.Writer) bool {
 		}
 	}
 	if f, ok := w.(*os.File); ok {
-		fi, err := f.Stat()
-		if err != nil {
-			return true
-		}
-		return (fi.Mode() & os.ModeCharDevice) != 0
+		// Hand-fix (handfixes.json credkit-wiring): stdout and stderr are the kit's pipes; it knows what they were.
+		return credkit.Terminal(f)
 	}
 	return false
 }
@@ -4706,15 +4705,11 @@ func claimLegacyUnscopedDB(dir, unscoped, scopeHash, label string) (owned, decid
 			_ = os.Remove(tempName)
 		}
 	}()
-	if _, err := temp.Write([]byte(scopeHash + "\n")); err != nil {
-		_ = temp.Close()
-		return false, false
-	}
-	if err := temp.Sync(); err != nil {
-		_ = temp.Close()
-		return false, false
-	}
 	if err := temp.Close(); err != nil {
+		return false, false
+	}
+	// Hand-fix (handfixes.json credkit-wiring): a scope hash can collide with a held credential.
+	if err := credkit.WriteFile(tempName, []byte(scopeHash+"\n"), 0o600); err != nil {
 		return false, false
 	}
 	if err := os.Link(tempName, markerPath); err != nil {

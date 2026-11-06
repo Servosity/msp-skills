@@ -28,6 +28,7 @@ import (
 	"fortinet-pp-cli/internal/client"
 	"fortinet-pp-cli/internal/cliutil"
 	"fortinet-pp-cli/internal/config"
+	"fortinet-pp-cli/internal/credkit"
 	"fortinet-pp-cli/internal/fortios"
 )
 
@@ -186,6 +187,10 @@ func resolveToken(d fleetDevice) (string, error) {
 			return "", fmt.Errorf("device %s: %w", d.Name, err)
 		}
 		if v := strings.TrimSpace(string(b)); v != "" {
+			// Hand-fix (handfixes.json credkit-wiring): held before anything can
+			// print it; bound to no kit origin, it is sent only by this device's
+			// own client (internal/credwire).
+			cliutil.Hold("minted:device-token", v)
 			return v, nil
 		}
 		return "", fmt.Errorf("device %s: token file %s is empty", d.Name, p)
@@ -346,6 +351,9 @@ func (t fleetTarget) client(flags *rootFlags) (*client.Client, error) {
 	cfg.Headers = nil
 	cfg.FortinetApiToken = t.token
 	c := client.New(cfg, flags.timeout, flags.rateLimit)
+	// Hand-fix (handfixes.json credkit-wiring): this device's token goes to the
+	// URL the devices file names, which no build-time kit origin can list.
+	c.SendOutsideKit()
 	if flags.timeoutExplicit {
 		c.SetTimeoutExplicit(true)
 	}
@@ -674,7 +682,9 @@ const backupStamp = "20060102T150405,000000000Z"
 // writeNewPrivateFile creates path exclusively with 0600 permissions: it never
 // overwrites an existing file and never follows a planted symlink.
 func writeNewPrivateFile(path string, body []byte) error {
-	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600) // #nosec G304 -- backup path built from the backup dir + sanitized device dir; O_EXCL refuses existing files and symlinks
+	// Hand-fix (handfixes.json credkit-wiring): the backup is written through the
+	// credential kit as one unit; a withheld one leaves nothing behind.
+	f, err := credkit.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
 	if err != nil {
 		return err
 	}

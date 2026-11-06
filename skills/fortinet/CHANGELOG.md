@@ -9,6 +9,7 @@ All notable changes to this skill are documented here. Format follows
 ### Security
 - **Rebuilt on Printing Press 4.35.1.** The MCP server's HTTP mode (`fortinet-mcp --transport http`) now refuses to start until `FORTINET_MCP_HTTP_TOKEN` is set to at least 32 characters, binds `127.0.0.1:7777` by default, needs `--tls-cert` and `--tls-key` for any other address, and refuses a browser `Origin` that is not loopback or listed in `FORTINET_MCP_HTTP_ALLOWED_ORIGINS`. The default stdio transport is unchanged. Remote agents (ChatGPT, Copilot Studio, the Gemini app) can use the hosted HTTPS path again; see [mcp-install.md](./mcp-install.md).
 - HTTP mode also refuses to start when `FORTINET_MCP_HTTP_TOKEN` still holds the Claude Desktop extension's unfilled placeholder instead of a real token.
+- **Credentials are filtered from every output.** The connector now runs on the shared credential kit: the API token, the FortiManager API key, the FortiGate Cloud password and its access and refresh tokens, each fleet device's token and the MCP HTTP token are withheld from terminal output, `--agent` and MCP results, written files and logs, even when a FortiGate or FortiManager echoes one back in an error. A token is sent only to the host it belongs to.
 - **Fleet commands send each FortiGate only its own token.** A device listed in the devices file no longer receives any static header from the config file's `[headers]` table, or any other credential configured for the single `FORTINET_BASE_URL` device; it gets exactly the token from its own `token_file`.
 
 ### Fixed

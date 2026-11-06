@@ -209,18 +209,20 @@ func guardSecrets(c *client.Client) {
 	if _, done := c.HTTPClient.Transport.(*secretGuard); done {
 		return
 	}
-	next := c.HTTPClient.Transport
-	if next == nil {
-		next = http.DefaultTransport
-	}
 	// Binary downloads (fleet backup) use client.StreamingHTTPClient, which
 	// drops the whole-request Timeout and sets ResponseHeaderTimeout only on a
 	// bare *http.Transport; under the guard it cannot see one. Set it here so a
 	// device that accepts the connection and never answers still times out.
-	if tr, ok := next.(*http.Transport); ok && tr.ResponseHeaderTimeout == 0 {
-		tr = tr.Clone()
-		tr.ResponseHeaderTimeout = c.ConfiguredTimeout()
-		next = tr
+	// Hand-fix (handfixes.json credkit-wiring): through TuneTransport, which
+	// reaches the base transport inside the credential kit's guard.
+	c.TuneTransport(func(tr *http.Transport) {
+		if tr.ResponseHeaderTimeout == 0 {
+			tr.ResponseHeaderTimeout = c.ConfiguredTimeout()
+		}
+	})
+	next := c.HTTPClient.Transport
+	if next == nil {
+		next = http.DefaultTransport
 	}
 	c.HTTPClient.Transport = &secretGuard{next: next}
 }
