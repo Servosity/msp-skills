@@ -4,7 +4,7 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
-## [0.1.10] - unreleased
+## [0.1.10] - 2026-11-05
 
 ### Fixed
 - The connectwise-control-v0.1.9 tag never became a release: the release security gate stopped it on GO-2026-6911, an advisory against an mcp-go package (`client/transport`) this connector does not link. The gate now checks the packages an advisory names (#602). 0.1.10 carries every change listed under 0.1.9; 0.1.9 has no release.
