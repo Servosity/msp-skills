@@ -76,7 +76,7 @@ func TestKitJSMEveryPasswordPieceOfThePairHeld(t *testing.T) {
 	for _, user := range []string{
 		"tech@acmemsp.com", "abcdefg", "abcdefgh", "", "u",
 		"jos\u00e9@caf\u00e9.example", "jose\u0301\u0301@cafe\u0301.ex\u0301", "\ufb03\ufb03\ufb03\ufb03\ufb03\ufb03\ufb03\ufb03",
-		"ADMINISTRATOR@VSPHERE.LOCAL", "tech@acme.\ufb01nance", "tech@acme.o\ufb03ce", "xxxxe\u0301abcd", "tech@\ufb03\ufb03\ufb03\ufb03\ufb03\ufb03", "ab\ufb01cdefgh", "xxxe\u0301abcde", "xxxe\u0301\u0301bcde", "\u00c5ngstr\u00f6m\u212b\u212b\u212b\u212b",
+		"ADMINISTRATOR@VSPHERE.LOCAL", "tech@acme.\ufb01nance", "tech@acme.o\ufb03ce", "tech@A\u030a\u0301\u0316\ufb03ab", "tech@acme.xA\u030a\u0301abcd", "xxxxe\u0301abcd", "tech@\ufb03\ufb03\ufb03\ufb03\ufb03\ufb03", "ab\ufb01cdefgh", "xxxe\u0301abcde", "xxxe\u0301\u0301bcde", "\u00c5ngstr\u00f6m\u212b\u212b\u212b\u212b",
 	} {
 		for _, pass := range []string{"jsmtok-Pr0beEm4il9z", "pw-12345", "p:w:9876543210"} {
 			holdBasic(t, jsmUser, user, pass)
@@ -181,5 +181,19 @@ func TestKitJSMPairBindingInherited(t *testing.T) {
 	o, _ = originOf(u)
 	if m, unknown := originMatcher(o, false); !unknown && (m == nil || m.check([]byte(auth)) == clean) {
 		t.Error("the Basic header may go to an origin its pair is not bound to")
+	}
+}
+
+// Codex r3: stacked combining marks reorder when a piece is normalized on its
+// own; the piece as written still has to be withheld, and a cut a matcher
+// proves complete is taken however few characters it keeps.
+func TestKitJSMStackedMarks(t *testing.T) {
+	holdBasic(t, jsmUser, "tech@A\u030a\u0301\u0316\ufb03ab", "jsmtok-Pr0beEm4il9z")
+	if !leaks("\u030a\u0301\u0316\ufb03ab:j") {
+		t.Errorf("a piece of the pair as written passed: %q", heldValues())
+	}
+	holdBasic(t, jsmUser, "tech@acme.xA\u030a\u0301abcd", "jsmtok-Pr0beEm4il9z")
+	if leaks("https://acme.x\u01fbabcd/") {
+		t.Errorf("ordinary link withheld: %q", heldValues())
 	}
 }

@@ -295,40 +295,67 @@ func holdAllowedLocked(source Source, extra []string, values ...string) {
 }
 
 // secretSide is the part of a Basic pair (user ":" pass, the user declared an
-// Identifier) whose 8-character pieces are the pair's pieces that overlap the
-// password (KF-JSM-1): the colon and the password with the fewest characters
-// of the user in front that still give every such piece: 6 normalized (a
-// piece as written that starts further back normalizes to one holding 8
-// normalized characters of the part). A piece inside the user (its email domain,
-// "acmemsp.") is the Identifier's, not a credential's: an answer naming the
-// domain is ordinary output. The cut is taken only where the part, normalized,
-// ends the normalized pair, so its pieces are pieces of the pair: never more
-// than the whole pair holds. It is the pair, held whole as before, when no cut
-// does that, when the pair is not valid UTF-8 (contract 2 then counts it by
-// bytes) and when the password is under pieceLen characters ("key:x": the
-// user half is the secret by its shape).
-// ponytail: one normalize per candidate cut, capped at 4*pieceLen user
-// characters as written (then the pair, whole); a user is a short account name.
+// Identifier) whose pieces are the pair's pieces that overlap the password
+// (KF-JSM-1): the colon and the password with the fewest characters of the
+// user in front that a matcher of its own proves still withholds every 8-
+// character piece of the pair overlapping the password, as written and
+// normalized. A piece inside the user (its email
+// domain, "acmemsp.") is the Identifier's, not a credential's: an answer
+// naming the domain is ordinary output. A cut is taken only where the part,
+// normalized, ends the normalized pair, so it never holds more than the whole
+// pair. It is the pair, held whole as before, when no cut does that, when the
+// pair is not valid UTF-8 (contract 2 then counts it by bytes) and when the
+// password is under pieceLen characters ("key:x": the user half is the secret
+// by its shape).
+// ponytail: a matcher per candidate cut, capped at 4*pieceLen user
+// characters (then the pair, whole) and memoized per pair (sides, at most
+// 256); a user is a short account name and a program holds few credentials.
 func secretSide(pair string, userLen int, pass string) string {
 	if !utf8.ValidString(pair) || utf8.RuneCountInString(pass) < pieceLen {
 		return pair
 	}
+	if side, ok := sides.m[pair]; ok {
+		return side
+	}
+	side := pair
 	n, np := normalize([]byte(pair)), normalize([]byte(pair[userLen:]))
-	for i := userLen; i > 0; i-- {
-		if !utf8.RuneStart(pair[i]) {
-			continue
+	if bytes.HasSuffix(n, np) {
+		var units [][]byte // every piece of the pair that overlaps the password
+		rs, ns := charStarts([]byte(pair)), charStarts(n)
+		for _, f := range []struct {
+			b     []byte
+			cs    []int
+			colon int
+		}{{[]byte(pair), rs, utf8.RuneCountInString(pair[:userLen])}, {n, ns, len(ns) - 1 - utf8.RuneCount(np)}} {
+			for i := max(0, f.colon-pieceLen+2); i+pieceLen < len(f.cs); i++ {
+				units = append(units, f.b[f.cs[i]:f.cs[i+pieceLen]])
+			}
 		}
-		raw := utf8.RuneCountInString(pair[i:userLen])
-		if raw > 4*pieceLen {
-			break
-		}
-		ns := normalize([]byte(pair[i:]))
-		if utf8.RuneCount(ns)-utf8.RuneCount(np) >= pieceLen-2 && bytes.HasSuffix(n, ns) && bytes.HasSuffix(ns, np) {
-			return pair[i:]
+		for i := userLen; i > 0; i-- {
+			if !utf8.RuneStart(pair[i]) {
+				continue
+			}
+			if utf8.RuneCountInString(pair[i:userLen]) > 4*pieceLen {
+				break
+			}
+			if !bytes.HasSuffix(n, normalize([]byte(pair[i:]))) {
+				continue
+			}
+			m := newMatcher([]string{pair[i:]})
+			if !slices.ContainsFunc(units, func(u []byte) bool { return m == nil || m.check(u) == clean }) {
+				side = pair[i:]
+				break
+			}
 		}
 	}
-	return pair
+	if len(sides.m) < 256 {
+		sides.m[pair] = side
+	}
+	return side
 }
+
+// sides memoizes secretSide; reg's lock guards it.
+var sides = struct{ m map[string]string }{m: map[string]string{}}
 
 // decodeBasic decodes a Basic credential in any base64 alphabet, padded or
 // not, to its "user:password" pair. The pair is kept as bytes when it is not
