@@ -175,11 +175,11 @@
     "released_hash": "sha256:d8f6686a60d3d698925866b4d906dfc0e2ef64b2e7d14a8ae9014e3afad53e52"
   },
   "connectwise-control": {
-    "state": "binary-pending",
-    "version": "0.1.8",
+    "state": "version-pending",
+    "version": "0.1.9",
     "latest_tag": "connectwise-control-v0.1.8",
     "current_hash": "sha256:3dec6d89db34453dac21b226f7972797e1a0ec32b458b2f5b740570433be0a34",
-    "released_hash": "sha256:fa6992095fdcb9ff4e22f37dcea8e92a95c309adc2d09ec3c5d8838efb140c4c"
+    "released_hash": "sha256:3dec6d89db34453dac21b226f7972797e1a0ec32b458b2f5b740570433be0a34"
   },
   "connectwise-manage": {
     "state": "up-to-date",
@@ -211,10 +211,10 @@
   },
   "crowdstrike": {
     "state": "up-to-date",
-    "version": "0.1.10",
-    "latest_tag": "crowdstrike-v0.1.10",
-    "current_hash": "sha256:4cf578e774ad76d45df3395c8254071f92122c3718e037955a3cceaba4e03eca",
-    "released_hash": "sha256:4cf578e774ad76d45df3395c8254071f92122c3718e037955a3cceaba4e03eca"
+    "version": "0.1.11",
+    "latest_tag": "crowdstrike-v0.1.11",
+    "current_hash": "sha256:32c27b34cc69ce367085a5c368a68c6931341da614e4431eefd8c49af5d015e7",
+    "released_hash": "sha256:32c27b34cc69ce367085a5c368a68c6931341da614e4431eefd8c49af5d015e7"
   },
   "datagate": {
     "state": "up-to-date",
@@ -343,11 +343,11 @@
     "released_hash": "sha256:d5224268c39680743641113e5542e2b32777052f0d99a1978ad148322ec4c5ae"
   },
   "kaseya-bms": {
-    "state": "up-to-date",
-    "version": "0.1.7",
+    "state": "version-pending",
+    "version": "0.1.8",
     "latest_tag": "kaseya-bms-v0.1.7",
-    "current_hash": "sha256:b1f19cda876aff80f14fb863088099ac0644b409c4c6a6e7c90b6e6f2f6d45d8",
-    "released_hash": "sha256:b1f19cda876aff80f14fb863088099ac0644b409c4c6a6e7c90b6e6f2f6d45d8"
+    "current_hash": "sha256:709c710742f6fb80c3ac6f6e849bc68f269f344851387a01e2fcef4d8d4530a7",
+    "released_hash": "sha256:709c710742f6fb80c3ac6f6e849bc68f269f344851387a01e2fcef4d8d4530a7"
   },
   "kaseya-vsa": {
     "state": "up-to-date",
@@ -575,10 +575,10 @@
   },
   "servosity": {
     "state": "up-to-date",
-    "version": "0.6.12",
-    "latest_tag": "servosity-v0.6.12",
-    "current_hash": "sha256:b54b5c5bf7e63bf7142fed1059bbe44d4ee25f61c8817b35d52d51fffe2b1a4c",
-    "released_hash": "sha256:b54b5c5bf7e63bf7142fed1059bbe44d4ee25f61c8817b35d52d51fffe2b1a4c"
+    "version": "0.6.13",
+    "latest_tag": "servosity-v0.6.13",
+    "current_hash": "sha256:f9a5e91a13c03b5378e5be14262760669cf3df75ac1583fa07afa456f9fc5950",
+    "released_hash": "sha256:f9a5e91a13c03b5378e5be14262760669cf3df75ac1583fa07afa456f9fc5950"
   },
   "sherweb": {
     "state": "up-to-date",
@@ -672,11 +672,11 @@
     "released_hash": "sha256:11bfccb83ad66e7eb8d86183d3498bbd74af7341d13324810f015dae79c91b72"
   },
   "warranty": {
-    "state": "binary-pending",
-    "version": "0.1.0",
-    "latest_tag": "warranty-v0.1.0",
+    "state": "up-to-date",
+    "version": "0.1.1",
+    "latest_tag": "warranty-v0.1.1",
     "current_hash": "sha256:9e7f2eeabb2b7875aff3bc70c5ac38f7bc465c2ddc85aabe0ac1a72497b4bf4f",
-    "released_hash": "sha256:44ca5ad7f3067b7cfdbaba2f72042e824c10444d870b3360a4a7ae78f3676aa0"
+    "released_hash": "sha256:9e7f2eeabb2b7875aff3bc70c5ac38f7bc465c2ddc85aabe0ac1a72497b4bf4f"
   },
   "watchguard": {
     "state": "up-to-date",

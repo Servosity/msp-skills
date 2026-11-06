@@ -4,7 +4,7 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
-## [0.1.9] - unreleased
+## [0.1.9] - 2026-11-05
 
 ### Security
 - **With no instance configured, nothing is sent.** The built-in base URL, `https://your-instance.screenconnect.com`, is a placeholder on ConnectWise's public cloud domain, and with `CONNECTWISE_CONTROL_BASE_URL` unset the CLI and the MCP server sent the HTTP Basic credentials there. A request to that host, in any spelling and from any source (the built-in default, the environment, a config file or a profile), is now refused before anything is sent, with an error that names `CONNECTWISE_CONTROL_BASE_URL` and `base_url` in `config.toml`. `auth set-credentials` no longer saves the placeholder as the base URL, and the `.mcpb` and MCP registry install forms no longer pre-fill it.

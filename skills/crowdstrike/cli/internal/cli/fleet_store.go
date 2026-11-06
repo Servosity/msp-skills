@@ -5,9 +5,12 @@
 package cli
 
 import (
+	"bytes"
 	"context"
+	"crowdstrike-pp-cli/internal/cliutil"
 	"crowdstrike-pp-cli/internal/store"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -56,7 +59,51 @@ func openFleetStore(ctx context.Context, dbPath string) (*store.Store, error) {
 		_ = st.Close() // best-effort cleanup; original error takes precedence
 		return nil, fmt.Errorf("ensuring fleet schema: %w", err)
 	}
+	if err := ensureFleetOwnerColumn(ctx, st.DB()); err != nil {
+		_ = st.Close() // best-effort cleanup; original error takes precedence
+		return nil, fmt.Errorf("ensuring fleet schema: %w", err)
+	}
 	return st, nil
+}
+
+// ensureFleetOwnerColumn gives fleet_entities its owner column, in a store
+// written before it too: the client a "self" row was read by (selfScopeOwner),
+// "" for every other row. A "self" row written before the column has no owner:
+// see fleetLegacySelfRow. crowdstrike handfix fleet-replace-only-a-proven-scope.
+func ensureFleetOwnerColumn(ctx context.Context, db *sql.DB) error {
+	has := func() (bool, error) {
+		var n int
+		err := db.QueryRowContext(ctx, `SELECT COUNT(*) FROM pragma_table_info('fleet_entities') WHERE name = 'owner'`).Scan(&n)
+		return n > 0, err
+	}
+	if ok, err := has(); err != nil || ok {
+		return err
+	}
+	if _, err := db.ExecContext(ctx, `ALTER TABLE fleet_entities ADD COLUMN owner TEXT NOT NULL DEFAULT ''`); err != nil {
+		if ok, herr := has(); herr == nil && ok {
+			return nil // another process added it first
+		}
+		return err
+	}
+	return nil
+}
+
+// fleetLegacySelfRow selects the rows written before the owner column for the
+// authenticated CID: no reader can tell whose they are or whether they still
+// hold, so they are not current posture, and the complete read of their kind
+// deletes them (writeFleetEntities). The fabric also has cid "self" and no owner
+// and is current, so the kinds are named: the per-CID kinds fleet sync reads.
+// crowdstrike handfix fleet-legacy-rows-not-current.
+const fleetLegacySelfRow = `cid = 'self' AND owner = '' AND kind IN ('host', 'alert', 'vuln', 'policy')`
+
+// fleetLegacyRowsNote is the one line naming the rows fleetLegacySelfRow keeps
+// out of every rollup, "" when there are none.
+func fleetLegacyRowsNote(ctx context.Context, db *sql.DB) string {
+	var n int
+	if err := db.QueryRowContext(ctx, `SELECT COUNT(*) FROM fleet_entities WHERE `+fleetLegacySelfRow).Scan(&n); err != nil || n == 0 {
+		return ""
+	}
+	return fmt.Sprintf("%d row(s) written before this version are excluded from the fleet rollups; the next complete 'fleet sync' of that kind replaces them", n)
 }
 
 // hintIfFleetUnsynced is the fleet-family analogue of the generated
@@ -66,6 +113,12 @@ func openFleetStore(ctx context.Context, dbPath string) (*store.Store, error) {
 func hintIfFleetUnsynced(cmd *cobra.Command, db *store.Store) bool {
 	if cmd == nil || db == nil {
 		return false
+	}
+	// Every rollup calls this first, so none drops rows without saying so. The
+	// prefix is load-bearing: the MCP server forwards only hint: and warning:
+	// lines of a tool's stderr (cobratree stderrHintLines).
+	if note := fleetLegacyRowsNote(context.Background(), db.DB()); note != "" {
+		fmt.Fprintf(cmd.ErrOrStderr(), "warning: %s.\n", note)
 	}
 	state, err := readSyncHintState(db, fleetSyncStateKey)
 	if err != nil || state.hasState {
@@ -93,23 +146,55 @@ func hintIfFleetStale(cmd *cobra.Command, db *store.Store, maxAge time.Duration)
 	return true
 }
 
-// upsertFleetEntities writes a batch of entities for one CID/kind in a single
-// transaction. Existing rows (same cid+kind+id) are replaced so re-syncing a
-// tenant refreshes rather than duplicates.
+// fleetScope is one kind of record for one CID: the unit a fleet sync read
+// is complete or not for.
+type fleetScope struct{ CID, Kind string }
+
+// upsertFleetEntities writes a batch of entities in a single transaction.
+// Existing rows (same cid+kind+id) are replaced so re-syncing a tenant
+// refreshes rather than duplicates.
 func upsertFleetEntities(ctx context.Context, db *sql.DB, ents []fleetEntity) (int, error) {
-	if len(ents) == 0 {
+	return writeFleetEntities(ctx, db, ents, nil, "")
+}
+
+// writeFleetEntities is upsertFleetEntities that, given a scope the sync read
+// completely, first removes every row of that scope in the same transaction:
+// the scope then holds exactly what the read returned (an empty read leaves it
+// empty). crowdstrike handfix fleet-refresh-completeness (Codex r1 of the
+// 4.34.2 review, class stale records survive a complete refresh): rows were
+// only ever upserted, so a vulnerability Spotlight no longer listed as open,
+// a host removed from the tenant or a closed alert stayed in every fleet
+// rollup. A read that failed or ended short replaces nothing (its rows are
+// upserted over what the store held, and fleet sync warns). owner is the
+// client the rows were read by ("" but for a "self" scope): every row written
+// carries it, and a replacement given one removes only that client's rows of
+// the scope and the pre-owner rows it supersedes, never another client's
+// (crowdstrike handfixes fleet-replace-only-a-proven-scope,
+// fleet-legacy-rows-not-current).
+func writeFleetEntities(ctx context.Context, db *sql.DB, ents []fleetEntity, replace *fleetScope, owner string) (int, error) {
+	if len(ents) == 0 && replace == nil {
 		return 0, nil
 	}
 	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
 		return 0, err
 	}
+	if replace != nil {
+		del, args := `DELETE FROM fleet_entities WHERE cid = ? AND kind = ?`, []any{replace.CID, replace.Kind}
+		if owner != "" {
+			del, args = del+` AND owner IN (?, '')`, append(args, owner)
+		}
+		if _, err := tx.ExecContext(ctx, del, args...); err != nil {
+			_ = tx.Rollback()
+			return 0, err
+		}
+	}
 	stmt, err := tx.PrepareContext(ctx, `
-		INSERT INTO fleet_entities (cid, kind, id, name, severity, status, last_seen, synced_at, data)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO fleet_entities (cid, kind, id, name, severity, status, last_seen, synced_at, data, owner)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(cid, kind, id) DO UPDATE SET
 		  name=excluded.name, severity=excluded.severity, status=excluded.status,
-		  last_seen=excluded.last_seen, synced_at=excluded.synced_at, data=excluded.data`)
+		  last_seen=excluded.last_seen, synced_at=excluded.synced_at, data=excluded.data, owner=excluded.owner`)
 	if err != nil {
 		_ = tx.Rollback()
 		return 0, err
@@ -126,7 +211,7 @@ func upsertFleetEntities(ctx context.Context, db *sql.DB, ents []fleetEntity) (i
 			synced = time.Now()
 		}
 		if _, err := stmt.ExecContext(ctx, e.CID, e.Kind, e.ID, e.Name, e.Severity, e.Status,
-			lastSeen, synced.UTC().Format(time.RFC3339), string(e.Raw)); err != nil {
+			lastSeen, synced.UTC().Format(time.RFC3339), fleetStoredRaw(e.Raw), owner); err != nil {
 			_ = tx.Rollback()
 			return n, err
 		}
@@ -136,6 +221,32 @@ func upsertFleetEntities(ctx context.Context, db *sql.DB, ents []fleetEntity) (i
 		return n, err
 	}
 	return n, nil
+}
+
+// fleetStoredRaw is the payload fleet_entities keeps of raw: every value under
+// a credential name redacted at any depth, containers included
+// (cliutil.RedactSecretFields, the rule the generic store applies to every
+// resource row in store/crowdstrike_secrets.go). fleet_entities is written by
+// its own SQL, so the withholding driver alone stood between a child tenant's
+// record and the file, and it withholds held values and credential-named
+// string members only, never a list or object under a credential name. A
+// payload that does not decode is not kept. crowdstrike handfix:
+// store-never-keeps-secrets (fleet_entities).
+func fleetStoredRaw(raw json.RawMessage) string {
+	if len(raw) == 0 {
+		return ""
+	}
+	dec := json.NewDecoder(bytes.NewReader(raw))
+	dec.UseNumber()
+	var v any
+	if dec.Decode(&v) != nil {
+		return "{}"
+	}
+	out, err := json.Marshal(cliutil.RedactSecretFields(v))
+	if err != nil {
+		return "{}"
+	}
+	return string(out)
 }
 
 // loadFleetEntities reads entities from the store, optionally filtered to one
@@ -153,17 +264,19 @@ func loadFleetEntities(ctx context.Context, dbPath, kind string) ([]fleetEntity,
 // loadFleetEntitiesFrom reads entities through an already-open store handle so
 // callers can emit sync hints and run several reads on one connection. When
 // includeRaw is true the data column is loaded into Raw (needed by joins that
-// read nested payload fields, e.g. fleet remediate and fleet tenants).
+// read nested payload fields, e.g. fleet remediate and fleet tenants). Rows
+// written before the owner column are not current: no reader sees them
+// (fleetLegacySelfRow).
 func loadFleetEntitiesFrom(ctx context.Context, st *store.Store, kind string, includeRaw bool) ([]fleetEntity, error) {
 	cols := `cid, kind, id, name, severity, status, last_seen, synced_at`
 	if includeRaw {
 		cols += `, data`
 	}
-	q := `SELECT ` + cols + ` FROM fleet_entities`
+	q := `SELECT ` + cols + ` FROM fleet_entities WHERE NOT (` + fleetLegacySelfRow + `)`
 	var rows *sql.Rows
 	var err error
 	if kind != "" {
-		q += ` WHERE kind = ?`
+		q += ` AND kind = ?`
 		rows, err = st.DB().QueryContext(ctx, q, kind)
 	} else {
 		rows, err = st.DB().QueryContext(ctx, q)
@@ -313,4 +426,50 @@ func snapshotFromEntities(ents []fleetEntity) []fleetSnapshot {
 		out = append(out, *byCID[cid])
 	}
 	return out
+}
+
+// postureKinds are the kinds a posture snapshot counts: hosts, alerts and
+// vulnerabilities.
+var postureKinds = []string{kindHost, kindAlert, kindVuln}
+
+// postureSnapshots is snapshotFromEntities over only the CIDs whose hosts,
+// alerts and vulnerabilities this sync read completely (a CID read completely
+// and found empty gets a zero row). crowdstrike handfix
+// fleet-refresh-completeness (Codex r1 of the 4.34.2 review, class partial
+// refresh recorded as complete posture): every sync recorded a snapshot from
+// whatever kinds it fetched, so a sync of policies alone recorded zero
+// critical vulnerabilities and fleet trend called the tenant "better", and a
+// failed or short read did the same. skipped lists the synced CIDs that got
+// no snapshot.
+func postureSnapshots(ents []fleetEntity, complete map[fleetScope]bool, synced []string) (snaps []fleetSnapshot, skipped []string) {
+	whole := map[string]bool{}
+	for _, cid := range synced {
+		ok := true
+		for _, k := range postureKinds {
+			ok = ok && complete[fleetScope{CID: cid, Kind: k}]
+		}
+		if ok {
+			whole[cid] = true
+		} else {
+			skipped = append(skipped, cid)
+		}
+	}
+	var kept []fleetEntity
+	for _, e := range ents {
+		if whole[e.CID] {
+			kept = append(kept, e)
+		}
+	}
+	snaps = snapshotFromEntities(kept)
+	have := map[string]bool{}
+	for _, s := range snaps {
+		have[s.CID] = true
+	}
+	for _, cid := range synced {
+		if whole[cid] && !have[cid] {
+			have[cid] = true
+			snaps = append(snaps, fleetSnapshot{CID: cid})
+		}
+	}
+	return snaps, skipped
 }
