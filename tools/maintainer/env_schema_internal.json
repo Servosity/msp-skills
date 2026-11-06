@@ -113,6 +113,10 @@
       {
         "var": "DATTO_RMM_API_URL",
         "reason": "Pure alias for DATTO_RMM_BASE_URL, which is declared. internal/config/datto_oauth.go accepts either and returns early when DATTO_RMM_BASE_URL is set; a third URL prompt next to the base URL and the platform shortcut is noise, not a missing credential."
+      },
+      {
+        "var": "PRINTING_PRESS_CLIENT_PROFILE",
+        "reason": "Read by the press 4.34.2 platform layer, but datto-rmm registers no platform source (internal/cli/platform_client.go: registerPlatformSource is never called, so registeredPlatformSource stays nil). Prompting for a client profile would promise a tenant isolation this binary does not provide; a Datto RMM API key already scopes to one account."
       }
     ],
     "immybot": [
