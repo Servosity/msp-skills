@@ -22,9 +22,9 @@ func seedStaleFixture(t *testing.T) string {
 	return path
 }
 
-func TestBackupStaleDetectsStaleAndNever(t *testing.T) {
+func TestBackupStaleFlagsNeverArchived(t *testing.T) {
 	path := seedStaleFixture(t)
-	out, err := runNovel(t, newNovelBackupStaleCmd, "--db", path, "--max-age", "48h")
+	out, err := runNovel(t, newNovelBackupStaleCmd, "--db", path)
 	if err != nil {
 		t.Fatalf("backup-stale: %v", err)
 	}
@@ -32,39 +32,27 @@ func TestBackupStaleDetectsStaleAndNever(t *testing.T) {
 	if view.ProtectedScanned != 3 {
 		t.Errorf("protected_scanned = %d, want 3", view.ProtectedScanned)
 	}
-	got := map[string]backupStaleItem{}
-	for _, it := range view.Items {
-		got[it.ResourceID] = it
-	}
-	if _, ok := got["res1"]; ok {
-		t.Errorf("res1 has a fresh archive and must not be flagged: %s", out)
-	}
-	if it, ok := got["res2"]; !ok || it.NeverArchived || it.AgeHours < 90 {
-		t.Errorf("res2 should be stale with age ~100h: %+v", got["res2"])
-	}
-	if it, ok := got["res3"]; !ok || !it.NeverArchived {
-		t.Errorf("res3 should be never_archived: %+v", got["res3"])
+	// res1 and res2 have archives (their age is not judged); res3 has none.
+	if len(view.Items) != 1 || view.Items[0].ResourceID != "res3" || !view.Items[0].NeverArchived || view.Items[0].Reason != "never_archived" {
+		t.Errorf("only res3 should be flagged, as never_archived: %s", out)
 	}
 }
 
-func TestBackupStaleDayWeekSuffix(t *testing.T) {
+// --max-age is kept for old scripts and ignored.
+func TestBackupStaleMaxAgeIsIgnored(t *testing.T) {
 	path := seedStaleFixture(t)
-	// 7d exceeds the 100h-old archive — only res3 (never archived) flagged.
-	out, err := runNovel(t, newNovelBackupStaleCmd, "--db", path, "--max-age", "7d")
+	plain, err := runNovel(t, newNovelBackupStaleCmd, "--db", path)
 	if err != nil {
-		t.Fatalf("backup-stale with 7d: %v", err)
+		t.Fatalf("backup-stale: %v", err)
 	}
-	view := decodeView[backupStaleView](t, out)
-	if len(view.Items) != 1 || !view.Items[0].NeverArchived {
-		t.Errorf("with --max-age 7d only res3 should be flagged: %s", out)
-	}
-}
-
-func TestBackupStaleBadDuration(t *testing.T) {
-	_, path := newTestStore(t)
-	_, err := runNovel(t, newNovelBackupStaleCmd, "--db", path, "--max-age", "banana")
-	if err == nil {
-		t.Fatal("expected usage error for bad --max-age")
+	for _, v := range []string{"48h", "7d", "banana"} {
+		out, err := runNovel(t, newNovelBackupStaleCmd, "--db", path, "--max-age", v)
+		if err != nil {
+			t.Fatalf("backup-stale --max-age %s: %v", v, err)
+		}
+		if len(decodeView[backupStaleView](t, out).Items) != len(decodeView[backupStaleView](t, plain).Items) {
+			t.Errorf("--max-age %s changed the result: %s", v, out)
+		}
 	}
 }
 
@@ -111,5 +99,39 @@ func TestBackupStaleLimitCapsAllPaths(t *testing.T) {
 	}
 	if view.Note == "" {
 		t.Errorf("capped run should set the capped note")
+	}
+}
+
+// Codex r1 (afi review) class archive-creation-read-as-backup-time: spec.json
+// v1Archive is a backup sequence (a full backup and the incremental backups
+// after it) and its created_at dates the archive, not its latest backup, so a
+// long-lived archive is not a stale backup. What the store can show is a
+// protected resource with no archive at all, and a tenant where no backup task
+// finished in the synced task-statistics window.
+func TestBackupStaleDoesNotReadArchiveAgeAsBackupAge(t *testing.T) {
+	db, path := newTestStore(t)
+	old := time.Now().UTC().AddDate(0, 0, -30).Format(time.RFC3339)
+	win := `"window_start":"2026-10-21T00:00:00Z","window_end":"2026-10-28T00:00:00Z"`
+	seed(t, db, "resources", "res1", `{"id":"res1","tenant_id":"ten1","name":"Long-lived","kind":"office_user"}`)
+	seed(t, db, "protections", "p1", `{"id":"p1","resource_id":"res1","tenant_id":"ten1"}`)
+	seed(t, db, "archives", "a1", fmt.Sprintf(`{"id":"a1","tenant_id":"ten1","resource_id":"res1","created_at":"%s"}`, old))
+	seed(t, db, "task_stats", "ten1", `{"tenant_id":"ten1","total":{"done":14,"failed":0,"warnings":1},`+win+`}`)
+	seed(t, db, "resources", "res2", `{"id":"res2","tenant_id":"ten2","name":"Silent","kind":"office_user"}`)
+	seed(t, db, "protections", "p2", `{"id":"p2","resource_id":"res2","tenant_id":"ten2"}`)
+	seed(t, db, "archives", "a2", fmt.Sprintf(`{"id":"a2","tenant_id":"ten2","resource_id":"res2","created_at":"%s"}`, old))
+	seed(t, db, "task_stats", "ten2", `{"tenant_id":"ten2","total":{"done":0,"failed":3,"warnings":0},`+win+`}`)
+	out, err := runNovel(t, newNovelBackupStaleCmd, "--db", path)
+	if err != nil {
+		t.Fatalf("backup-stale: %v", err)
+	}
+	got := map[string]backupStaleItem{}
+	for _, it := range decodeView[backupStaleView](t, out).Items {
+		got[it.ResourceID] = it
+	}
+	if _, ok := got["res1"]; ok {
+		t.Errorf("a resource whose tenant finished backups this week was flagged for its archive's age: %s", out)
+	}
+	if it, ok := got["res2"]; !ok || it.Reason != "no_finished_task_in_window" || it.NeverArchived {
+		t.Errorf("a protected resource in a tenant with no finished task is not flagged: %s", out)
 	}
 }

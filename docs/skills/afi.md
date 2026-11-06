@@ -12,11 +12,11 @@ faqs:
   - q: "Is the Afi MCP server safe for client data?"
     a: "Yes, by design - and the exceptions are ones you switch on yourself. The CLI, the MCP server, and any local data mirror run on your own machine, and nothing is sent to MSP Skills or any third party unless you ask for it. Three paths can move data off the machine, all opt-in: `--deliver webhook:<url>` posts a command's output to a URL you name; `AFI_FEEDBACK_AUTO_SEND=true` posts feedback you typed to the URL in `AFI_FEEDBACK_ENDPOINT` (with no endpoint set, `feedback` only writes a local file); `--transport http` opens a local MCP listener you then choose whether to expose. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page."
   - q: "Does this work with ChatGPT?"
-    a: "Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way afi-mcp runs, and shares MCP configuration with Codex: add afi-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote (HTTP) server, and this connector's HTTP mode is paused until it is reprinted; the security note at the top of the install guide explains why. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list."
+    a: "Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way afi-mcp runs, and shares MCP configuration with Codex: add afi-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote (HTTP) server, which msp-skills does not support yet. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list."
   - q: "Do I need to know how to code?"
     a: "No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once."
   - q: "Is my Afi data safe?"
-    a: "Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills."
+    a: "Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, credentials are never bundled or transmitted by MSP Skills, and the key goes only to the Afi API host."
   - q: "What does it cost?"
     a: "Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use."
   - q: "Will this trip Afi's API rate limits?"
@@ -57,8 +57,8 @@ Ask your AI 'which mailboxes aren't backed up in Afi?' and get the answer across
 <sub>Your agent runs: <code>afi-cli coverage-gaps --agent</code></sub>
 
 **Instead of** Tab through every tenant's task history hunting for the nightly backups that quietly stopped landing.
-**just ask:** *"Show me protected resources whose newest backup is older than 48 hours."*
-<sub>Your agent runs: <code>afi-cli backup-stale --max-age 48h --agent</code></sub>
+**just ask:** *"Which protected resources have stopped getting backed up?"*
+<sub>Your agent runs: <code>afi-cli backup-stale --agent</code></sub>
 
 **Instead of** Stitch two portal screens into a spreadsheet to compare licenses purchased against seats actually protected.
 **just ask:** *"Where am I over- or under-provisioned on Afi licenses?"*
@@ -76,7 +76,7 @@ Ask your AI 'which mailboxes aren't backed up in Afi?' and get the answer across
 | Question your MSP keeps asking | Command your agent runs |
 | --- | --- |
 | Which resources have no backup protection at all? | `afi-cli coverage-gaps --agent` |
-| Which protected resources have a stale backup (silent failures)? | `afi-cli backup-stale --max-age 48h --agent` |
+| Which protected resources are not getting backed up (silent failures)? | `afi-cli backup-stale --agent` |
 | Is the whole fleet green this morning, or who failed? | `afi-cli fleet-health --failed-only --agent` |
 | What is one tenant's full backup posture for a QBR or ticket? | `afi-cli tenant-scorecard <tenant-id> --agent` |
 | Am I over- or under-licensed on Afi seats? | `afi-cli reconcile-licenses --agent` |
@@ -151,7 +151,7 @@ Yes, by design - and the exceptions are ones you switch on yourself. The CLI, th
 
 ### Does this work with ChatGPT?
 
-Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way afi-mcp runs, and shares MCP configuration with Codex: add afi-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote (HTTP) server, and this connector's HTTP mode is paused until it is reprinted; the security note at the top of the install guide explains why. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
+Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way afi-mcp runs, and shares MCP configuration with Codex: add afi-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote (HTTP) server, which msp-skills does not support yet. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
 
 ### Do I need to know how to code?
 
@@ -159,7 +159,7 @@ No. Paste one sentence into Claude Code or Codex and your agent does the install
 
 ### Is my Afi data safe?
 
-Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills.
+Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, credentials are never bundled or transmitted by MSP Skills, and the key goes only to the Afi API host.
 
 ### What does it cost?
 

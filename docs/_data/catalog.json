@@ -1,5 +1,5 @@
 {
-  "count": 99,
+  "count": 101,
   "connectors": [
     {
       "slug": "abnormal",
@@ -284,7 +284,7 @@
       "source": "github",
       "issue_url": "https://github.com/Servosity/msp-skills/pull/400",
       "verified_version": "0.1.0",
-      "verified_code": "current",
+      "verified_code": "changed",
       "url": "/skills/cloudally/"
     },
     {
@@ -598,6 +598,19 @@
       "verified_version": null,
       "verified_code": null,
       "url": "/skills/itglue/"
+    },
+    {
+      "slug": "jamf-pro",
+      "display_name": "Jamf Pro",
+      "tagline": "Every client's Jamf Pro in one CLI: register each instance once, then find devices, check posture and patch status, and audit policies across all of them.",
+      "category": "MDM",
+      "verification": "awaiting",
+      "verified_by": null,
+      "source": null,
+      "issue_url": null,
+      "verified_version": null,
+      "verified_code": null,
+      "url": "/skills/jamf-pro/"
     },
     {
       "slug": "jira-service-management",
@@ -1209,6 +1222,19 @@
       "verified_version": null,
       "verified_code": null,
       "url": "/skills/veeam/"
+    },
+    {
+      "slug": "vsphere",
+      "display_name": "VMware vSphere",
+      "tagline": "Find every VMware migration blocker, stale snapshot and per-core licence cost in vCenter, read-only, from one prompt.",
+      "category": "Other",
+      "verification": "awaiting",
+      "verified_by": null,
+      "source": null,
+      "issue_url": null,
+      "verified_version": null,
+      "verified_code": null,
+      "url": "/skills/vsphere/"
     },
     {
       "slug": "warranty",

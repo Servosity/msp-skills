@@ -317,6 +317,11 @@
       "reason": "exchange-online ONLY (deliberately NOT the fleet-wide `cli/go.mod` form, same posture as the kaseya-vsa and riverside-fm entries): GO-2026-5932 is the never-fixed x/crypto/openpgp advisory: its OSV range is a single {\"introduced\": \"0\"} event with no `fixed` event, so no version bump clears it. It gates here only because exchange-online is a brand-new connector, so every module in its go.mod is pr_new, and golang.org/x/net v0.62.0, the only release that fixes GO-2026-6860 and GO-2026-6866, requires golang.org/x/crypto v0.58.0. The advisory is scoped by ecosystem_specific.imports to golang.org/x/crypto/openpgp and its subpackages, and this connector builds none of them: `go list -deps ./...` returns 0 openpgp packages on linux, darwin and windows; the only x/crypto packages in the binary are chacha20, chacha20poly1305, cryptobyte(+asn1), hkdf, sha3 and the internal alias/poly1305 helpers. x/crypto arrives via TLS: `go mod why -m golang.org/x/crypto` resolves internal/client -> github.com/refraction-networking/utls -> golang.org/x/crypto/chacha20poly1305. Vetted 2026-11-04."
     },
     {
+      "file": "skills/salesbuildr/cli/go.mod",
+      "rule": "GO-2026-6911",
+      "reason": "salesbuildr ONLY (deliberately NOT the fleet-wide `cli/go.mod` form, same posture as the kaseya-vsa, exchange-online and riverside-fm entries): GO-2026-6911 (published 2026-11-05) is an advisory on github.com/mark3labs/mcp-go with a single {\"introduced\": \"0\"} event and no `fixed` event, so no version bump clears it. It gates here because the salesbuildr reprint on press 4.34.2 moves mcp-go from v0.47.0 to v0.57.0 (pr_new) and mcp-go is a direct import. The advisory is scoped by ecosystem_specific.imports to github.com/mark3labs/mcp-go/client/transport (NewStreamableHTTP and the StreamableHTTP methods: the MCP HTTP CLIENT following a redirect with its headers). salesbuildr is an MCP server and builds no mcp-go client package: `GOOS=linux|darwin|windows go list -deps ./...` returns 0 packages under mcp-go/client; the only mcp-go packages in the binary are mcp, server and tracing. govulncheck agrees it is unreachable: \"Your code is affected by 0 vulnerabilities... 0 vulnerabilities in packages you import and 1 vulnerability in modules you require.\" Vetted 2026-11-05."
+    },
+    {
       "file": "skills/riverside-fm/cli/go.mod",
       "rule": "GO-2026-5932",
       "reason": "riverside-fm ONLY (deliberately NOT the fleet-wide `cli/go.mod` form): the next connector that pulls github.com/enetx/surf must still get a human look. GO-2026-5932 is the one advisory on this module that no version bump can clear - its OSV affected range is a single {\"introduced\": \"0\"} event with NO `fixed` event, and govulncheck prints `Fixed in: N/A`. The two advisories that DID have a fix (GO-2026-6354 / GO-2026-6355, x/crypto/ssh DoS) were fixed, not suppressed, by raising the module to v0.56.0 in the riverside-fm PR. The advisory is scoped by ecosystem_specific.imports to golang.org/x/crypto/openpgp and its six subpackages, and this connector builds none of them: `go list -deps ./...` returns 0 openpgp packages, and the only x/crypto packages in the binary are chacha20, chacha20poly1305, cryptobyte(+asn1), hkdf, sha3 and the internal alias/poly1305 helpers - all TLS and hash primitives. x/crypto is indirect-only and arrives via TLS: `go mod why -m golang.org/x/crypto` resolves internal/client -> github.com/enetx/surf -> github.com/refraction-networking/utls -> golang.org/x/crypto/chacha20poly1305. govulncheck agrees it is unreachable: \"Your code is affected by 0 vulnerabilities... 0 vulnerabilities in packages you import and 1 vulnerability in modules you require.\" It gates only because riverside-fm is a brand-new connector, so every module in its go.mod is `pr_new` in check_security_gate.py. The same never-fixed advisory already rides two shipped connectors under the identical import chain and with zero openpgp packages - axcient and connectwise-control, both at x/crypto v0.53.0 - where it has never gated because their go.mod was not diff-introduced. Vetted 2026-09-06."
@@ -2249,6 +2254,58 @@
         "sha256:5579588dd2552a7fb6eedaaf241604d65c92185a83b933fc72c57e9f00a6dc1a"
       ],
       "reason": "appdirect only, same reviewed declaration as the zammad entry. Declaration repairJournalSegmentTail: the press template's journal tail repair, reading a segment path this package derives from its own state dir (the template's annotation is kept); its one write goes through credkit.AppendFile (credkit-wiring in skills/appdirect/handfixes.json)."
+    },
+    {
+      "file": "skills/jamf-pro/cli/internal/fleet/runner.go",
+      "rule": "G204",
+      "bind": "decl",
+      "sha256": [
+        "sha256:fbd5acdcb0b096f85b18a185f04df52e66d075c722bc6736228fe702159f5d41"
+      ],
+      "press": "4.34.2",
+      "reason": "jamf-pro fleet runner: re-executes only this CLI (os.Executable) once per registered instance; argv is built from fixed literals plus API paths validated as plain Jamf Pro or Classic API paths; the instance is a registry-validated name; the child environment is an allowlist and carries only that instance's secret; no shell."
+    },
+    {
+      "file": "skills/jamf-pro/cli/internal/fleet/runner.go",
+      "rule": "msp-exec-nonliteral-command",
+      "bind": "decl",
+      "sha256": [
+        "sha256:fbd5acdcb0b096f85b18a185f04df52e66d075c722bc6736228fe702159f5d41"
+      ],
+      "press": "4.34.2",
+      "reason": "jamf-pro fleet runner: re-executes only this CLI (os.Executable) once per registered instance; argv is built from fixed literals plus API paths validated as plain Jamf Pro or Classic API paths; the instance is a registry-validated name; the child environment is an allowlist and carries only that instance's secret; no shell."
+    },
+    {
+      "file": "skills/jamf-pro/cli/internal/fleet/runner.go",
+      "rule": "exec-nonliteral-cmd",
+      "bind": "file",
+      "sha256": [
+        "sha256:808cb6db09da5cd274499789884601fb9480f35d753c032ff8dab7c1d6710fb3"
+      ],
+      "press": "4.34.2",
+      "reason": "jamf-pro fleet runner: re-executes only this CLI (os.Executable) once per registered instance; argv is built from fixed literals plus API paths validated as plain Jamf Pro or Classic API paths; the instance is a registry-validated name; the child environment is an allowlist and carries only that instance's secret; no shell."
+    },
+    {
+      "file": "skills/jamf-pro/cli/internal/cli/sync.go",
+      "rule": "G101",
+      "bind": "decl",
+      "press": "4.34.2",
+      "reason": "press 4.34.2 template: a map of endpoint paths such as /api/v1/api-integrations, and G101 reads the words in those keys as hard-coded credentials. No value in these maps is a secret.",
+      "sha256": [
+        "sha256:0b8725769df85e795cc71c21225e5e1daca0a8914317db34b0a7387e736f54f0"
+      ]
+    },
+    {
+      "file": "skills/jamf-pro/cli/internal/cli/resource_paths.go",
+      "rule": "G101",
+      "bind": "decl",
+      "press": "4.34.2",
+      "reason": "press 4.34.2 template: a map of endpoint paths such as /api/v1/api-integrations, and G101 reads the words in those keys as hard-coded credentials. No value in these maps is a secret.",
+      "sha256": [
+        "sha256:24edf317bcc457a800f0f0e55ecb88af5e159897d80f1300717badf99b7fd517",
+        "sha256:6e0094d55f63437174d7bbffcc66d078a42632edbfcb07be7ddf2ddbc9c9e888",
+        "sha256:c84d79f7cee392d0d137bde80b41dafde5a570d878f5eb06a2ade207eafe1464"
+      ]
     }
   ]
 }

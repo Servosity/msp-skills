@@ -27,7 +27,7 @@
       "type": "skill-md",
       "description": "The first CLI for Afi SaaS backup - full public-API coverage plus the fleet-wide coverage, staleness, and offboarding answers the rate-limited API can't serve live. Trigger phrases: `check afi backup coverage`, `which mailboxes aren't backed up in afi`, `afi fleet health`, `offboard a user from afi backup`, `afi backup stale check`, `use afi`, `run afi-cli`.",
       "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/afi/SKILL.md",
-      "digest": "sha256:07a09c49e04fe2f704f2f5b2d9392cb5a7955e47fe8455df77d92af05e3e8938"
+      "digest": "sha256:c4a9490aed27034a069421dc8991b19305f9c23b0f2ed61c9c90263c3c0bf0ff"
     },
     {
       "name": "appdirect",
@@ -55,7 +55,7 @@
       "type": "skill-md",
       "description": "Every Autotask entity at the command line, plus a local SQLite mirror that answers ticket-aging, workload, unbilled-time, and account-360 questions no other Autotask tool can. Trigger phrases: `list autotask tickets`, `autotask company 360`, `who is overloaded in autotask`, `unbilled time in autotask`, `autotask ticket aging`, `use autotask`, `run autotask-cli`.",
       "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/autotask/SKILL.md",
-      "digest": "sha256:ab556f8770af8630eb6d98c7ef4465b05402482bee27030ed9336a64d66c1558"
+      "digest": "sha256:98c274b12e78499eea8e23afde81cb78280f4ef261c6566f87c9eaadc8e804a9"
     },
     {
       "name": "auvik",
@@ -151,9 +151,9 @@
     {
       "name": "cloudally",
       "type": "skill-md",
-      "description": "Use when the user asks about CloudAlly SaaS backup of Microsoft 365 or Google Workspace through the Management API v2: partner, reseller and customer accounts, backup tasks and their status, running or pausing backups, users, billing and recovery (restore) jobs. Trigger phrases: `which CloudAlly backups are failing`, `CloudAlly backup status for all customers`, `list CloudAlly backup tasks`, `run a CloudAlly backup now`, `restore a CloudAlly mailbox`, `CloudAlly billing`, `use cloudally`, `run cloudally-cli`.",
+      "description": "Use when the user asks about CloudAlly backups of Microsoft 365 or Google Workspace: restores many mailboxes to one past backup date, builds and downloads year-end mailbox archives, lists a mailbox's past backups (which CloudAlly's documented API cannot), and finds stale or failing backups across every partner customer; also partner, reseller and customer accounts, backup tasks, users and billing through the Management API v2. Trigger phrases: `restore all mailboxes to a date in CloudAlly`, `batch restore CloudAlly mailboxes`, `download every mailbox as of December 31`, `year-end mailbox archive from CloudAlly`, `list a CloudAlly mailbox's past backups`, `which CloudAlly backups are failing`, `check CloudAlly restore progress`, `CloudAlly backup status for all customers`, `list CloudAlly backup tasks`, `run a CloudAlly backup now`, `CloudAlly billing`, `use cloudally`, `run cloudally-cli`.",
       "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/cloudally/SKILL.md",
-      "digest": "sha256:1caa4cb68900bc873c7c5bd049d99702a8fdc1bd3508b3935b135b07cae2a566"
+      "digest": "sha256:2f2635638bcb5e139cfe75e3bb3ba9cd5b582d779f65ab255350305e6248f51c"
     },
     {
       "name": "connect-tool",
@@ -338,6 +338,13 @@
       "digest": "sha256:8aaee2a34f233f9ae1eb30aee973c4ae61c2e154e06872a738e72dc02a06b6fb"
     },
     {
+      "name": "jamf-pro",
+      "type": "skill-md",
+      "description": "Every client's Jamf Pro in one CLI: register each instance once, then find devices, check posture and patch status, and audit policies across all of them. Trigger phrases: `which client has this Mac`, `jamf posture across clients`, `macs not checked in`, `patch status in jamf`, `broken jamf policies`, `use jamf-pro`, `run jamf-pro`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/jamf-pro/SKILL.md",
+      "digest": "sha256:6bc15d4b7362d3337fdf7a64f4f3dfb396b76804134d91baf9380e2630378707"
+    },
+    {
       "name": "jira-service-management",
       "type": "skill-md",
       "description": "Use when the user asks to triage Jira Service Management (JSM) queues by SLA risk, add an internal note to a service desk ticket, read a ticket's full history, manage JSM customers and client organizations, or look up and reconcile Assets (CMDB) objects: ranks open tickets across every queue by SLA time remaining, posts agent-only notes that error if JSM stores them as public, joins Assets objects to the tickets that touch them, and diffs Assets against an RMM or PSA export. Trigger phrases: `which tickets are about to breach SLA`, `add an internal note to this service desk ticket`, `show the full timeline for SD-123`, `which tickets touch this server in Assets`, `reconcile Assets against my RMM export`, `use jira service management`, `run jira-service-management-cli`, `jsm queues`, `jira service desk sla`.",
@@ -391,7 +398,7 @@
       "type": "skill-md",
       "description": "Open, local revenue-intelligence CLI for Maxio Advanced Billing - MRR waterfalls, retention, and per-client history computed offline from a SQLite mirror, so the trended history survives even though the live API returns only point-in-time figures. Trigger phrases: `what's our MRR`, `show the MRR waterfall`, `recurring revenue for this customer`, `net revenue retention this year`, `what revenue needs attention`, `use maxio`, `run maxio`.",
       "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/maxio/SKILL.md",
-      "digest": "sha256:5e07069313b462676a164776589f1285fc194943214d22101b00c54080b39fdd"
+      "digest": "sha256:d6cc8b1786b3ad06fe7e4184da698f514f1742a93191526d283d2a2e94cbe4a8"
     },
     {
       "name": "microsoft-graph",
@@ -672,6 +679,13 @@
       "description": "Use when the user asks to check Veeam backup health across customers, find failing or stale backup jobs, surface workloads past their RPO, triage VSPC alarms, or report per-tenant license usage from a Veeam Service Provider Console. Syncs every tenant into a local SQLite mirror so it answers multi-tenant backup questions the per-tenant console can't. Trigger phrases: `check Veeam backup health`, `which Veeam jobs are failing`, `stale Veeam backups across customers`, `Veeam alarms triage`, `Veeam license usage by company`, `use veeam`, `run veeam`.",
       "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/veeam/SKILL.md",
       "digest": "sha256:e934b185a99746772c7721273143306dc9b6645dd9a5312999572707d1e5e593"
+    },
+    {
+      "name": "vsphere",
+      "type": "skill-md",
+      "description": "Read-only vCenter inventory for migration planning: blockers, snapshots, per-core licence exposure and Proxmox mapping, as JSON an agent can use. Trigger phrases: `inventory our vcenter`, `what blocks the vmware migration`, `how many cores will broadcom charge us`, `find old vmware snapshots`, `export rvtools from vcenter`, `use vsphere`, `run vsphere-cli`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/vsphere/SKILL.md",
+      "digest": "sha256:63105574aa4f24db496ed2b25ebd7e984ef1f6597c50d24f9596ac0a09d26f83"
     },
     {
       "name": "warranty",

@@ -64,7 +64,7 @@ func newNovelSinceCmd(flags *rootFlags) *cobra.Command {
 			}
 			var rows []row
 			for _, t := range tickets {
-				la, ok := timeAt(t, "lastActivityDate", "lastActivityDateTime")
+				la, ok := timeAt(t, "lastActivityDate")
 				if !ok || la.Before(cutoff) {
 					continue
 				}
@@ -73,7 +73,7 @@ func newNovelSinceCmd(flags *rootFlags) *cobra.Command {
 					ID:           id,
 					Title:        strAt(t, "title"),
 					Status:       strAt(t, "status"),
-					LastActivity: strAt(t, "lastActivityDate", "lastActivityDateTime"),
+					LastActivity: strAt(t, "lastActivityDate"),
 				})
 			}
 			sort.Slice(rows, func(i, j int) bool { return rows[i].LastActivity > rows[j].LastActivity })

@@ -17,17 +17,32 @@ type revMixKind struct {
 }
 
 type revMixView struct {
-	Month          string       `json:"month"`
-	TotalCents     int64        `json:"total_cents"`
-	RecurringPct   float64      `json:"recurring_pct"`
-	UsagePct       float64      `json:"usage_pct"`
-	ServicesPct    float64      `json:"services_pct"`
-	RecurringCents int64        `json:"recurring_cents"`
-	UsageCents     int64        `json:"usage_cents"`
-	ServicesCents  int64        `json:"services_cents"`
-	ByKind         []revMixKind `json:"by_kind"`
-	Note           string       `json:"note,omitempty"`
+	Month          string  `json:"month"`
+	Currency       string  `json:"currency,omitempty"`
+	TotalCents     int64   `json:"total_cents"`
+	RecurringPct   float64 `json:"recurring_pct"`
+	UsagePct       float64 `json:"usage_pct"`
+	ServicesPct    float64 `json:"services_pct"`
+	RecurringCents int64   `json:"recurring_cents"`
+	UsageCents     int64   `json:"usage_cents"`
+	ServicesCents  int64   `json:"services_cents"`
+	// UnclassifiedCents is billed revenue whose invoices carry no line items
+	// (GET /invoices.json returns totals only unless line_items=true): it
+	// counts in the total and in no type (Codex r1, maxio 4.34.2 reprint,
+	// class missing-invoice-detail-read-as-zero).
+	UnclassifiedCents int64 `json:"unclassified_cents"`
+	// OtherCurrencyInvoices counts the month's billed invoices in a currency
+	// other than the site's, left out of every amount (Codex r1 class
+	// currency-dropped).
+	OtherCurrencyInvoices    int          `json:"other_currency_invoices"`
+	UnclassifiedPct          float64      `json:"unclassified_pct"`
+	InvoicesWithoutLineItems int          `json:"invoices_without_line_items"`
+	ByKind                   []revMixKind `json:"by_kind"`
+	Note                     string       `json:"note,omitempty"`
 }
+
+// unclassifiedKind is the by_kind row for billed invoices without line items.
+const unclassifiedKind = "unclassified (invoice without line items)"
 
 // kindToType maps a Chargify invoice line-item kind to a revenue type. In
 // Chargify, quantity_based_component is RECURRING per-unit pricing (e.g.
@@ -38,7 +53,7 @@ func kindToType(kind string) string {
 	switch kind {
 	case "baseline", "on_off_component", "delay_capture", "quantity_based_component":
 		return "recurring"
-	case "metered_component", "metered_usage", "prepaid_usage":
+	case "metered_component", "metered_usage", "prepaid_usage", "prepaid_usage_component", "event_based_component":
 		return "usage"
 	default:
 		return "services"
@@ -71,38 +86,51 @@ func newNovelRevenueMixCmd(flags *rootFlags) *cobra.Command {
 			}
 			defer st.Close()
 
+			parents, err := revenue.SupersededParentsArg(cmd.Context(), db)
+			if err != nil {
+				return err
+			}
 			month := flagMonth
 			if month == "" {
 				var m sql.NullString
 				_ = db.QueryRowContext(cmd.Context(), `
 					SELECT MAX(substr(json_extract(data,'$.issue_date'),1,7))
-					FROM resources WHERE resource_type='invoices-json'`).Scan(&m)
+					FROM resources inv WHERE inv.resource_type='invoices-json'
+					  AND COALESCE(json_extract(inv.data,'$.uid'),'') NOT IN (SELECT value FROM json_each(?))
+					  AND LOWER(COALESCE(json_extract(data,'$.status'),'')) IN (SELECT value FROM json_each(?))`, parents, revenue.BilledInvoiceStatusesArg()).Scan(&m)
 				month = m.String
 			}
+			currency, money := revenueMoney(cmd.Context(), db)
 			if month == "" {
 				hintIfNoInvoices(cmd.ErrOrStderr())
-				return emitRevenue(cmd, flags, revMixView{ByKind: []revMixKind{}, Note: "no invoices synced — run `maxio-cli sync --resources invoices-json --param line_items=true`"}, func(w io.Writer) {
+				return emitRevenue(cmd, flags, revMixView{ByKind: []revMixKind{}, Note: "no invoices synced — run `maxio-cli sync --resources invoices-json --full`"}, func(w io.Writer) {
 					fmt.Fprintln(w, "no invoices synced")
 				})
 			}
 
 			// json_each iterates the line_items array; total_amount is a dollar
-			// string, converted to cents. Voided/canceled/draft invoices excluded.
+			// string, converted to cents. Only billed invoices count
+			// (revenue.BilledInvoiceStatuses: draft, voided, canceled and unknown
+			// statuses bill nothing).
+			billed := revenue.BilledInvoiceStatusesArg()
 			rows, qerr := db.QueryContext(cmd.Context(), `
 				SELECT COALESCE(json_extract(li.value,'$.kind'),'unknown') AS kind,
 				       COALESCE(SUM(CAST(json_extract(li.value,'$.total_amount') AS REAL)), 0) AS amt
 				FROM resources inv, json_each(json_extract(inv.data,'$.line_items')) li
 				WHERE inv.resource_type='invoices-json'
-				  AND json_extract(inv.data,'$.status') NOT IN ('voided','canceled','draft')
+				  AND COALESCE(json_extract(inv.data,'$.uid'),'') NOT IN (SELECT value FROM json_each(?))
+				  AND LOWER(COALESCE(json_extract(inv.data,'$.status'),'')) IN (SELECT value FROM json_each(?))
+				  AND (COALESCE(json_extract(inv.data,'$.currency'),'') = '' OR UPPER(json_extract(inv.data,'$.currency')) = UPPER(?))
+				  AND json_type(inv.data,'$.line_items') = 'array'
 				  AND substr(json_extract(inv.data,'$.issue_date'),1,7) = ?
 				GROUP BY kind
-				ORDER BY amt DESC`, month)
+				ORDER BY amt DESC`, parents, billed, currency, month)
 			if qerr != nil {
 				return fmt.Errorf("querying revenue mix: %w", qerr)
 			}
 			defer rows.Close()
 
-			view := revMixView{Month: month, ByKind: []revMixKind{}}
+			view := revMixView{Month: month, Currency: currency, ByKind: []revMixKind{}}
 			for rows.Next() {
 				var kind sql.NullString
 				var amt sql.NullFloat64
@@ -124,6 +152,44 @@ func newNovelRevenueMixCmd(flags *rootFlags) *cobra.Command {
 			if err := rows.Err(); err != nil {
 				return fmt.Errorf("scanning revenue mix: %w", err)
 			}
+			// A billed invoice whose line items are missing (not synced with
+			// line_items=true) or empty is billed revenue all the same: its
+			// total counts, unclassified, never as zero.
+			var unclassified sql.NullFloat64
+			var withoutItems sql.NullInt64
+			if err := db.QueryRowContext(cmd.Context(), `
+				SELECT COALESCE(SUM(CAST(json_extract(inv.data,'$.total_amount') AS REAL)), 0), COUNT(*)
+				FROM resources inv
+				WHERE inv.resource_type='invoices-json'
+				  AND COALESCE(json_extract(inv.data,'$.uid'),'') NOT IN (SELECT value FROM json_each(?))
+				  AND LOWER(COALESCE(json_extract(inv.data,'$.status'),'')) IN (SELECT value FROM json_each(?))
+				  AND (COALESCE(json_extract(inv.data,'$.currency'),'') = '' OR UPPER(json_extract(inv.data,'$.currency')) = UPPER(?))
+				  AND (COALESCE(json_type(inv.data,'$.line_items'),'') <> 'array' OR json_array_length(inv.data,'$.line_items') = 0)
+				  AND substr(json_extract(inv.data,'$.issue_date'),1,7) = ?`, parents, billed, currency, month).Scan(&unclassified, &withoutItems); err != nil {
+				return fmt.Errorf("querying invoices without line items: %w", err)
+			}
+			if withoutItems.Int64 > 0 {
+				cents := int64(unclassified.Float64*100 + 0.5)
+				view.InvoicesWithoutLineItems = int(withoutItems.Int64)
+				view.UnclassifiedCents = cents
+				view.TotalCents += cents
+				view.ByKind = append(view.ByKind, revMixKind{Kind: unclassifiedKind, AmountCents: cents})
+				fmt.Fprintf(cmd.ErrOrStderr(), "warning: %d billed invoice(s) in %s carry no line items; their total is reported as unclassified. Re-sync with line items: maxio-cli sync --resources invoices-json --full\n", withoutItems.Int64, month)
+			}
+			var otherCurrency sql.NullInt64
+			if err := db.QueryRowContext(cmd.Context(), `
+				SELECT COUNT(*) FROM resources inv
+				WHERE inv.resource_type='invoices-json'
+				  AND COALESCE(json_extract(inv.data,'$.uid'),'') NOT IN (SELECT value FROM json_each(?))
+				  AND LOWER(COALESCE(json_extract(inv.data,'$.status'),'')) IN (SELECT value FROM json_each(?))
+				  AND NOT (COALESCE(json_extract(inv.data,'$.currency'),'') = '' OR UPPER(json_extract(inv.data,'$.currency')) = UPPER(?))
+				  AND substr(json_extract(inv.data,'$.issue_date'),1,7) = ?`, parents, billed, currency, month).Scan(&otherCurrency); err != nil {
+				return fmt.Errorf("counting other-currency invoices: %w", err)
+			}
+			if otherCurrency.Int64 > 0 {
+				view.OtherCurrencyInvoices = int(otherCurrency.Int64)
+				fmt.Fprintf(cmd.ErrOrStderr(), "warning: %d billed invoice(s) in %s are in a currency other than %s and are left out\n", otherCurrency.Int64, month, currency)
+			}
 			if view.TotalCents > 0 {
 				for i := range view.ByKind {
 					view.ByKind[i].Pct = round2(float64(view.ByKind[i].AmountCents) / float64(view.TotalCents) * 100)
@@ -131,15 +197,16 @@ func newNovelRevenueMixCmd(flags *rootFlags) *cobra.Command {
 				view.RecurringPct = round2(float64(view.RecurringCents) / float64(view.TotalCents) * 100)
 				view.UsagePct = round2(float64(view.UsageCents) / float64(view.TotalCents) * 100)
 				view.ServicesPct = round2(float64(view.ServicesCents) / float64(view.TotalCents) * 100)
+				view.UnclassifiedPct = round2(float64(view.UnclassifiedCents) / float64(view.TotalCents) * 100)
 			}
-			view.Note = "billing-line mix from invoice line-item kinds (baseline/on_off/delay_capture=recurring, quantity_based=usage). For recognized-revenue GL figures use the QuickBooks side."
+			view.Note = "billing-line mix of billed invoices (open, paid, pending, processing) from invoice line-item kinds (baseline/on_off/delay_capture/quantity_based=recurring, metered/prepaid usage=usage); invoices without line items count as unclassified. For recognized-revenue GL figures use the QuickBooks side."
 
 			return emitRevenue(cmd, flags, view, func(w io.Writer) {
-				fmt.Fprintf(w, "month %s   total billed: %s\n", view.Month, revenue.Cents(view.TotalCents))
-				fmt.Fprintf(w, "recurring %5.1f%%   usage %5.1f%%   services %5.1f%%\n\n", view.RecurringPct, view.UsagePct, view.ServicesPct)
+				fmt.Fprintf(w, "month %s   total billed: %s\n", view.Month, money(view.TotalCents))
+				fmt.Fprintf(w, "recurring %5.1f%%   usage %5.1f%%   services %5.1f%%   unclassified %5.1f%%\n\n", view.RecurringPct, view.UsagePct, view.ServicesPct, view.UnclassifiedPct)
 				fmt.Fprintf(w, "%-28s %14s %8s\n", "kind", "amount", "pct")
 				for _, k := range view.ByKind {
-					fmt.Fprintf(w, "%-28s %14s %7.1f%%\n", k.Kind, revenue.Cents(k.AmountCents), k.Pct)
+					fmt.Fprintf(w, "%-28s %14s %7.1f%%\n", k.Kind, money(k.AmountCents), k.Pct)
 				}
 			})
 		},
@@ -150,5 +217,5 @@ func newNovelRevenueMixCmd(flags *rootFlags) *cobra.Command {
 }
 
 func hintIfNoInvoices(w io.Writer) {
-	fmt.Fprintln(w, "hint: no invoices in the local store. Run: maxio-cli sync --resources invoices-json --param line_items=true")
+	fmt.Fprintln(w, "hint: no invoices in the local store. Run: maxio-cli sync --resources invoices-json --full")
 }

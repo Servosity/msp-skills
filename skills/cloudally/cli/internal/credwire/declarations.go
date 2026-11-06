@@ -35,6 +35,29 @@ import (
 // (cliutil.AtomicWritePrivateFile) and they are named in Files, because the kit
 // would withhold them by contract.
 //
+// The restore and download workflows (portal.go) also reach the customer
+// portal: POST .../partner-access-token mints a single-use handoff token (the
+// response's accessToken, held as a response field), GET
+// <portal>/newapp?accessToken= spends it for a session cookie (a Set-Cookie
+// value, which the kit holds bound to the portal that set it) and a CSRF token
+// read from the page (held with credkit.Hold as "minted:portal-csrf"). The
+// handoff token is held again as minted:portal-handoff before it is sent, which
+// adds the portal origin to that one value; no other credential may go to the
+// portal. The portal origin is https://app.cloudally.com; CLOUDALLY_PORTAL_URL
+// (URLEnv: a password or query value inside it is held) may name another, but
+// the kit sends portal credentials only to the default portal or to the
+// configured API origin, so any other portal is refused before anything is sent.
+//
+// A presigned download link (the portal's getDownloadUrl answer, which
+// `download link` exists to show a person) is not a credential and is not held:
+// it carries its own short-lived object-storage signature, it is the output the
+// command was asked for, and holding it would withhold the very line the user
+// asked to see. The archive GET to that link adds no held value (no cookie, no
+// CSRF header, no API header); the kit's guard judges it and each redirect hop
+// before it is sent (portal.judgeArchive), and it is then sent outside the
+// kit's transport, whose response holding reads every body whole
+// (credkit-sites.json).
+//
 // The login emails are identifiers, not credentials: the manifest marks them
 // non-sensitive, the program prints them masked, and the partner's own address
 // and domain run through ordinary API results, which holding them would withhold.
@@ -87,12 +110,19 @@ var Declarations = credkit.Declarations{
 		Env:       "CLOUDALLY_BASE_URL",
 		Default:   "https://api.cloudally.com",
 	},
+	// The customer portal origin override; a credential inside it is held.
+	URLEnv: []string{"CLOUDALLY_PORTAL_URL"},
+
 	Origins: []credkit.Origin{
 		// Every credential goes only to the API this process is configured for:
 		// the login, refresh and partner-access-token calls are on that origin too.
 		{Source: "*", Allowed: []string{"base_url"}},
 		// The MCP HTTP bearer authenticates callers of this server; it is sent nowhere.
 		{Source: "env:CLOUDALLY_MCP_HTTP_TOKEN", Allowed: nil},
+		// The portal handoff token and the portal session's CSRF token go to
+		// the customer portal (and the API origin that minted the handoff).
+		{Source: "minted:portal-handoff", Allowed: []string{"base_url", "https://app.cloudally.com"}},
+		{Source: "minted:portal-csrf", Allowed: []string{"https://app.cloudally.com", "base_url"}},
 	},
 	Identifiers: []credkit.Identifier{
 		{Source: "env:CLOUDALLY_EMAIL", Reason: "the company account's login email: a user name the manifest marks non-sensitive and the program prints masked"},
@@ -108,6 +138,7 @@ var Declarations = credkit.Declarations{
 		{Source: "config:updated_at", Reason: "auth-context.json: a time stamp"},
 		{Source: "env:CLOUDALLY_BASE_URL", Reason: "the API base URL; a credential inside it is held through BaseURL"},
 		{Source: "env:CLOUDALLY_CONFIG", Reason: "path of the config file, which Files names"},
+		{Source: "env:CLOUDALLY_PORTAL_URL", Reason: "the customer portal origin; a credential inside it is held through URLEnv"},
 		{Source: "env:CLOUDALLY_HOME", Reason: "root directory for config, data, state and cache"},
 		{Source: "env:CLOUDALLY_CONFIG_DIR", Reason: "directory path"},
 		{Source: "env:CLOUDALLY_DATA_DIR", Reason: "directory path"},

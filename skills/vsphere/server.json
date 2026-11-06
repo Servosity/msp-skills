@@ -1,0 +1,88 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.Servosity/vsphere-mcp",
+  "title": "VMware vSphere MCP",
+  "description": "Read-only vCenter inventory for migration planning: blockers, snapshots, per-core licence exposure",
+  "version": "0.1.0",
+  "icons": [
+    {
+      "src": "https://raw.githubusercontent.com/servosity/msp-skills/main/docs/assets/social/vsphere/vsphere-512x512.png",
+      "mimeType": "image/png",
+      "sizes": [
+        "512x512"
+      ]
+    }
+  ],
+  "repository": {
+    "url": "https://github.com/servosity/msp-skills",
+    "source": "github",
+    "subfolder": "skills/vsphere"
+  },
+  "packages": [
+    {
+      "registryType": "mcpb",
+      "identifier": "https://github.com/servosity/msp-skills/releases/download/vsphere-v0.1.0/vsphere-mcp.mcpb",
+      "version": "0.1.0",
+      "fileSha256": "PLACEHOLDER_SHA256_FILLED_BY_CI",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "VSPHERE_PASSWORD",
+          "description": "Password for VSPHERE_USERNAME.",
+          "isRequired": true,
+          "isSecret": true
+        },
+        {
+          "name": "VSPHERE_USERNAME",
+          "description": "vCenter SSO user, for example readonly@vsphere.local. A Read-Only role is enough.",
+          "isRequired": true,
+          "isSecret": false
+        },
+        {
+          "name": "VSPHERE_BASE_URL",
+          "description": "Your vCenter, https://<vcenter> (https only).",
+          "isRequired": true,
+          "isSecret": false
+        },
+        {
+          "name": "VSPHERE_TLS_FINGERPRINT",
+          "description": "Optional. Only for a self-signed vCenter certificate: its SHA-256 fingerprint (comma-separate several).",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "VSPHERE_USER_AGENT",
+          "description": "Optional. Overrides the User-Agent the CLI sends to vCenter. Leave blank to use the built-in one.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "PRINTING_PRESS_CLIENT_PROFILE",
+          "description": "Optional. Binds the MCP server to one saved client profile. Leave blank for the default.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "VSPHERE_MCP_READ_ONLY",
+          "description": "Optional. Set to exactly 1 to expose only read-only tools. vCenter is only ever read; the tools that write this CLI's own files (learnings, playbooks, the local store, exports) act only with confirm set to true, and this switch hides them. Leave blank.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "VSPHERE_NO_LOCAL_DATA",
+          "description": "Optional. Set to 1 to keep no local copy of API responses: reads go to vCenter and nothing is written to the local store. Leave blank to keep the local store.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "VSPHERE_MCP_HTTP_TOKEN",
+          "description": "Required only when running the MCP server with --transport http (a remote/hosted deployment). Callers must send a matching Authorization: Bearer header. Not needed for the default local stdio transport that Claude Desktop uses.",
+          "isRequired": false,
+          "isSecret": true
+        }
+      ]
+    }
+  ]
+}

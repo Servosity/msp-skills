@@ -1,0 +1,131 @@
+{
+  "schema_version": 2,
+  "generated_at": "2026-10-29T02:44:24.553066Z",
+  "printing_press_version": "4.34.2",
+  "api_name": "afi",
+  "display_name": "Afi",
+  "cli_name": "afi-pp-cli",
+  "creator": {
+    "handle": "DamienStevens",
+    "name": "Damien Stevens"
+  },
+  "owner": "damienstevens",
+  "printer": "DamienStevens",
+  "printer_name": "Damien Stevens",
+  "spec_url": "https://afi.ai/docs/api/openapi/openapi.json",
+  "spec_path": "spec.json",
+  "spec_format": "openapi3",
+  "spec_source": "official",
+  "spec_checksum": "sha256:37bd76edfba99edccd037b9cde5b8536a789ed8f4fcdab1b748f40436e5f28bb",
+  "run_id": "20261028-165305-9e7c86b7",
+  "category": "monitoring",
+  "description": "The first CLI for Afi SaaS backup — full public-API coverage plus the fleet-wide coverage, staleness, and offboarding answers the rate-limited API can't serve live.",
+  "mcp_binary": "afi-pp-mcp",
+  "mcp_tool_count": 22,
+  "mcp_ready": "full",
+  "api_version": "1.0",
+  "auth_type": "api_key",
+  "auth_preference": "ApplicationAuthKey",
+  "auth_env_vars": [
+    "AFI_API_KEY"
+  ],
+  "novel_features": [
+    {
+      "name": "Fleet sync",
+      "command": "fleet-sync",
+      "description": "Walk the whole Afi hierarchy — installations, orgs, tenants, then each tenant's resources, protections, policies, archives, quotas, and task stats — into local SQLite in one respectful pass."
+    },
+    {
+      "name": "Unprotected-resources gap finder",
+      "command": "coverage-gaps",
+      "description": "Find resources in a tenant that have no backup protection applied — the backup blind spots."
+    },
+    {
+      "name": "Fleet health digest",
+      "command": "fleet-health",
+      "description": "One table across all synced tenants: task success/failure counts, failed-task list, and quota breaches."
+    },
+    {
+      "name": "Archive-and-offboard helper",
+      "command": "offboard",
+      "description": "Safely back up a departing user's resource, verify the archive landed, then release the protection — refusing the irreversible step until the backup is confirmed."
+    },
+    {
+      "name": "External-ID resolver",
+      "command": "resolve",
+      "description": "Map a Microsoft 365 / Google Workspace ID, email, or name to the canonical Afi resource or tenant, including Multi-Geo fan-out."
+    },
+    {
+      "name": "License reconciliation",
+      "command": "reconcile-licenses",
+      "description": "Compare purchased subscription quantities against actually-protected resource counts per tenant to flag over- and under-provisioning."
+    },
+    {
+      "name": "Backup staleness watch",
+      "command": "backup-stale",
+      "description": "Flag protected resources that are not getting backed up (no archive at all, or no backup task finished in their tenant in the synced window) — protected-but-silently-failing resources."
+    },
+    {
+      "name": "Tenant backup scorecard",
+      "command": "tenant-scorecard",
+      "description": "One tenant's full backup posture: coverage percentage, last task status, newest/oldest archive age, and quota state."
+    }
+  ],
+  "novel_features_built": [
+    {
+      "name": "Fleet sync",
+      "command": "fleet-sync",
+      "description": "Walk the whole Afi hierarchy — installations, orgs, tenants, then each tenant's resources, protections, policies, archives, quotas, and task stats — into local SQLite in one respectful pass."
+    },
+    {
+      "name": "Unprotected-resources gap finder",
+      "command": "coverage-gaps",
+      "description": "Find resources in a tenant that have no backup protection applied — the backup blind spots."
+    },
+    {
+      "name": "Fleet health digest",
+      "command": "fleet-health",
+      "description": "One table across all synced tenants: task success/failure counts, failed-task list, and quota breaches."
+    },
+    {
+      "name": "Archive-and-offboard helper",
+      "command": "offboard",
+      "description": "Safely back up a departing user's resource, verify the archive landed, then release the protection — refusing the irreversible step until the backup is confirmed."
+    },
+    {
+      "name": "External-ID resolver",
+      "command": "resolve",
+      "description": "Map a Microsoft 365 / Google Workspace ID, email, or name to the canonical Afi resource or tenant, including Multi-Geo fan-out."
+    },
+    {
+      "name": "License reconciliation",
+      "command": "reconcile-licenses",
+      "description": "Compare purchased subscription quantities against actually-protected resource counts per tenant to flag over- and under-provisioning."
+    },
+    {
+      "name": "Backup staleness watch",
+      "command": "backup-stale",
+      "description": "Flag protected resources that are not getting backed up (no archive at all, or no backup task finished in their tenant in the synced window) — protected-but-silently-failing resources."
+    },
+    {
+      "name": "Tenant backup scorecard",
+      "command": "tenant-scorecard",
+      "description": "One tenant's full backup posture: coverage percentage, last task status, newest/oldest archive age, and quota state."
+    }
+  ],
+  "verify": {
+    "mode": "mock",
+    "pass_rate": 100,
+    "passed": 65,
+    "total": 65,
+    "data_pipeline": true,
+    "verdict": "PASS"
+  },
+  "scorecard": {
+    "steinberger": {
+      "percentage": 96,
+      "grade": "A",
+      "total": 96
+    }
+  }
+}

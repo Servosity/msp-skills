@@ -1,7 +1,9 @@
 .PHONY: build test lint install clean
 
+BIN_EXT := $(if $(filter windows,$(shell go env GOOS)),.exe,)
+
 build:
-	go build -o bin/afi-cli ./cmd/afi-cli
+	go build -trimpath -o bin/afi-cli$(BIN_EXT) ./cmd/afi-cli
 
 test:
 	go test ./...
@@ -16,7 +18,7 @@ clean:
 	rm -rf bin/
 
 build-mcp:
-	go build -o bin/afi-mcp ./cmd/afi-mcp
+	go build -trimpath -o bin/afi-mcp$(BIN_EXT) ./cmd/afi-mcp
 
 install-mcp:
 	go install ./cmd/afi-mcp

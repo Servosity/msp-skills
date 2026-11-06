@@ -26,7 +26,14 @@ type whichEntry struct {
 // whichIndex is the curated list of capabilities this CLI advertises.
 // Novel hero features come first (declaration-order ties); promoted
 // endpoint commands follow so natural-language queries can find them.
-var whichIndex = []whichEntry{}
+var whichIndex = []whichEntry{
+	{Command: "restore plan", Description: "Preview every mailbox-and-date restore a batch would submit, with the exact backup each mailbox will be restored from.", Group: "Batch restore by date", WhyItMatters: "Reach for this before any multi-mailbox restore so the operator can review what will be restored and from which backup."},
+	{Command: "restore submit", Description: "Submit one restore per mailbox per date with bounded concurrency and a local ledger; --resume skips rows already submitted and never resends a restore whose outcome is unknown.", Group: "Batch restore by date", WhyItMatters: "Use this instead of looping over recovery restore when more than one mailbox or date is involved."},
+	{Command: "restore watch", Description: "Follow a submitted batch until every restore finishes, with a per-mailbox tally and a non-zero exit if any failed.", Group: "Batch restore by date", WhyItMatters: "Pick this to track a batch you submitted; use tasks list --type RESTORE only for raw job listings."},
+	{Command: "restore history", Description: "See what was restored for which company and when, from the local ledger, without calling the API.", Group: "Batch restore by date", WhyItMatters: "Use this for audit questions about past restores; it never calls the API."},
+	{Command: "backup health", Description: "Find every mailbox or site across all customer accounts that has not backed up in N days or whose last attempt failed, with the error text.", Group: "Partner operations", WhyItMatters: "Use this for a partner-wide health check instead of paging through distributor-accounts backup-statuses."},
+	{Command: "backup snapshots", Description: "List every past backup run for one mailbox in a given month, with each run's date in both ISO and the raw yyyyMMddHHmmss form a restore body needs.", Group: "Batch restore by date", WhyItMatters: "Use this to confirm a past restore point exists before restoring anything. It is read-only and needs a partner login plus --account."},
+}
 
 // whichMatch pairs an index entry with its ranking score for a query.
 // Higher score means stronger match. The ranker is naive (exact token

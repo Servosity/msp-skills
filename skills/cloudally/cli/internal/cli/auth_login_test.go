@@ -25,9 +25,22 @@ func runAuthCmd(t *testing.T, stdin string, args ...string) (stdout, stderr stri
 	if stdin != "" {
 		root.SetIn(strings.NewReader(stdin))
 	}
-	root.SetArgs(args)
+	root.SetArgs(withNoClientPacing(args))
 	err = root.Execute()
 	return out.String(), errOut.String(), err
+}
+
+// withNoClientPacing prepends --rate-limit=0 unless the test sets it: the stub
+// servers send no rate-limit headers, so the API client's auto pacing (about
+// two requests a second) only slowed this package toward CI's ten-minute test
+// timeout. The restore and download commands' own --rate pacing is unchanged.
+func withNoClientPacing(args []string) []string {
+	for _, a := range args {
+		if a == "--rate-limit" || strings.HasPrefix(a, "--rate-limit=") {
+			return args
+		}
+	}
+	return append([]string{"--rate-limit=0"}, args...)
 }
 
 func cliErrCode(t *testing.T, err error) int {

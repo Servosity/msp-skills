@@ -4,6 +4,19 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.1.10] - 2026-11-05
+
+### Changed
+- **Rebuilt on CLI Printing Press 4.34.2** ([GHSA-jh26-vhqh-692c](https://github.com/advisories/GHSA-jh26-vhqh-692c)). HTTP mode (`autotask-mcp --transport http`) now refuses to start without `AUTOTASK_MCP_HTTP_TOKEN`, answers only requests that send `Authorization: Bearer <token>`, binds `127.0.0.1` by default and needs TLS for any other address. New optional switches: `AUTOTASK_MCP_READ_ONLY=1` (expose only read-only tools) and `AUTOTASK_NO_LOCAL_DATA=1` (keep no local copy).
+- **One shared credential layer.** The CLI and the MCP server now use the fleet's shared credential kit: the integration code and Secret are held from startup, sent only to the configured API origin, and any output, file, local store row or MCP result that would repeat one is replaced by a fixed notice. The API user name is the account's login name and is not treated as a secret.
+- Every command keeps its example: the three auth headers are no longer rendered as per-command flags.
+
+### Fixed
+- `export` and `tail` read records, not the entity's field definitions; `tail` also reports records changed after its first poll.
+- A filtered or unfinished `sync` is never read as a complete snapshot by the analysis commands; a store from an older build is refused until an unfiltered sync walks the resource again (one full re-sync per resource after the upgrade).
+- SLA deadlines, time-entry billing and completed tasks are read from the documented Autotask fields.
+- The docs name `AUTOTASK_API_INTEGRATION_CODE`, the variable the binary reads.
+
 ## [0.1.9] - 2026-10-23
 
 ### Security

