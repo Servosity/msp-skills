@@ -4,7 +4,7 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
-## [0.1.8] - unreleased
+## [0.1.8] - 2026-11-05
 
 ### Changed
 - Rebuilt on press 4.34.2. `MAXIO_SITE` is now required: with it unset, a command names the variable and sends nothing, where it used to send your key to the spec's example host.

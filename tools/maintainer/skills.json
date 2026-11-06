@@ -1392,8 +1392,8 @@
       "display_name": "Maxio",
       "cli_hash": "sha256:1554739697e63aa1a2e01a844d33bf29e042346aca2ab7da012436bf0dc629a2",
       "template_version": 3,
-      "version": "0.1.7",
-      "cli_hash_at_release": "sha256:216772fb4739193a7f0de6ad762a09c317a143d629d2f24285017029996e51b1",
+      "version": "0.1.8",
+      "cli_hash_at_release": "sha256:1554739697e63aa1a2e01a844d33bf29e042346aca2ab7da012436bf0dc629a2",
       "has_video": true,
       "live_verified": {
         "status": "awaiting",
