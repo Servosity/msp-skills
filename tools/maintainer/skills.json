@@ -2182,7 +2182,7 @@
       "display_name": "SonicWall",
       "tagline": "Audit every client SonicWall firewall for firmware, SSL-VPN exposure, MFA and licence expiry in one command.",
       "has_video": true,
-      "cli_hash": "sha256:ac5110702f19eddf177f1e9bf79f8dbfd2503b54cfc12d8bafac36e97c4103ae",
+      "cli_hash": "sha256:a9d02e27d33bdec7cff70113444ec3aae4e9217bc30322a5169bb8916b89033f",
       "template_version": 3,
       "version": "0.1.3",
       "cli_hash_at_release": "sha256:0c0e6c833ff68f2a8e62d25809fa91dc6071ea2a6729dd9b996fa96a358c4ad0",
