@@ -1,0 +1,95 @@
+{
+  "manifest_version": "0.3",
+  "name": "keeper-mcp",
+  "display_name": "Keeper Security",
+  "version": "0.1.0",
+  "description": "Read-only Keeper MSP posture across every client, with history, a change feed and no path to a vault secret.",
+  "author": {
+    "name": "Servosity Inc."
+  },
+  "license": "Apache-2.0",
+  "server": {
+    "type": "binary",
+    "entry_point": "bin/keeper-mcp",
+    "mcp_config": {
+      "command": "${__dirname}/bin/keeper-mcp",
+      "args": [],
+      "env": {
+        "KEEPER_API_KEY": "${user_config.keeper_api_key}",
+        "KEEPER_BASE_URL": "${user_config.keeper_base_url}",
+        "KEEPER_MCP_READ_ONLY": "${user_config.keeper_mcp_read_only}",
+        "KEEPER_NO_LOCAL_DATA": "${user_config.keeper_no_local_data}",
+        "KEEPER_MCP_HTTP_TOKEN": "${user_config.keeper_mcp_http_token}",
+        "KEEPER_USER_AGENT": "${user_config.keeper_user_agent}",
+        "PRINTING_PRESS_CLIENT_PROFILE": "${user_config.printing_press_client_profile}"
+      }
+    }
+  },
+  "user_config": {
+    "keeper_api_key": {
+      "type": "string",
+      "title": "Service Mode API key",
+      "description": "The Keeper Commander Service Mode API key service-create printed. It is sent only to your Service Mode host.",
+      "sensitive": true,
+      "required": true
+    },
+    "keeper_base_url": {
+      "type": "string",
+      "title": "Service Mode host",
+      "description": "Your Keeper Commander Service Mode host, e.g. https://keeper-svc.example.internal:9090 (https only; run Service Mode with TLS).",
+      "default": "https://localhost:9090",
+      "required": true,
+      "sensitive": false
+    },
+    "keeper_mcp_read_only": {
+      "type": "string",
+      "title": "Read-only MCP mode",
+      "description": "Optional. Set to exactly 1 to remove every MCP tool that writes this connector's local files. Keeper reads stay available.",
+      "required": false,
+      "sensitive": false
+    },
+    "keeper_no_local_data": {
+      "type": "string",
+      "title": "Run without a local copy",
+      "description": "Optional. Set to 1 to refuse posture report, the one command that saves Keeper data locally. Live reads still work.",
+      "required": false,
+      "sensitive": false
+    },
+    "keeper_mcp_http_token": {
+      "type": "string",
+      "title": "MCP HTTP token",
+      "description": "Required only when running the MCP server with --transport http (a remote or hosted deployment). Callers must send a matching Authorization: Bearer header. Not needed for the default local stdio transport.",
+      "required": false,
+      "sensitive": true
+    },
+    "keeper_user_agent": {
+      "type": "string",
+      "title": "User-Agent",
+      "description": "Optional. Overrides the User-Agent the client sends to your Service Mode host.",
+      "required": false,
+      "sensitive": false
+    },
+    "printing_press_client_profile": {
+      "type": "string",
+      "title": "Client profile",
+      "description": "Optional. The name of a client profile to bind this MCP server to.",
+      "required": false,
+      "sensitive": false
+    }
+  },
+  "compatibility": {
+    "claude_desktop": ">=1.0.0",
+    "platforms": [
+      "darwin",
+      "linux",
+      "win32"
+    ]
+  },
+  "printing_press_version": "4.34.2",
+  "press_provenance": {
+    "printing_press_version": "4.34.2",
+    "generated_at": "2026-10-28T13:16:53.589777Z",
+    "spec_checksum": "sha256:061e52ecd18df385715b85167fa142006fca544ea4d5e42d84d8806eb1f4b815",
+    "spec_format": "openapi3"
+  }
+}

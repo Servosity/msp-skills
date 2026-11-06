@@ -1,0 +1,15 @@
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
+
+package client
+
+import (
+	"net/http"
+)
+
+// This package's unit tests run without the credential kit's outbound guard
+// (OutboundGuard): no test here runs credkit.Start, so the guard would
+// refuse every credentialed request to the loopback servers these tests stand
+// up. The guard is proven on the built binaries by internal/credwire.
+func init() {
+	OutboundGuard = func(rt http.RoundTripper) http.RoundTripper { return rt }
+}

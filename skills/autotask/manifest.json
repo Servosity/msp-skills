@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "autotask-mcp",
   "display_name": "Autotask PSA",
-  "version": "0.1.9",
+  "version": "0.1.10",
   "description": "Every Autotask entity at the command line, plus a local SQLite mirror that answers ticket-aging, workload, unbilled-time, and account-360 questions no other Autotask tool can.",
   "author": {
     "name": "Servosity Inc."
@@ -18,7 +18,12 @@
         "AUTOTASK_API_INTEGRATION_CODE": "${user_config.autotask_api_integration_code}",
         "AUTOTASK_BASE_URL": "${user_config.autotask_base_url}",
         "AUTOTASK_PSA_SECRET": "${user_config.autotask_psa_secret}",
-        "AUTOTASK_PSA_USER_NAME": "${user_config.autotask_psa_user_name}"
+        "AUTOTASK_PSA_USER_NAME": "${user_config.autotask_psa_user_name}",
+        "AUTOTASK_MCP_READ_ONLY": "${user_config.autotask_mcp_read_only}",
+        "AUTOTASK_NO_LOCAL_DATA": "${user_config.autotask_no_local_data}",
+        "AUTOTASK_MCP_HTTP_TOKEN": "${user_config.autotask_mcp_http_token}",
+        "AUTOTASK_USER_AGENT": "${user_config.autotask_user_agent}",
+        "PRINTING_PRESS_CLIENT_PROFILE": "${user_config.printing_press_client_profile}"
       }
     }
   },
@@ -50,6 +55,40 @@
       "description": "Base URL for the Autotask PSA API. Leave the prefilled default unless your account uses a different regional or self-hosted host.",
       "required": false,
       "default": "https://webservices5.autotask.net/atservicesrest/V1.0"
+    },
+    "autotask_mcp_read_only": {
+      "type": "string",
+      "title": "Read-only MCP mode",
+      "description": "Optional. Set to exactly 1 to expose only read-only tools and refuse any tool that changes Autotask. Leave blank to keep every tool (each write still previews and acts only with confirm: true).",
+      "required": false,
+      "sensitive": false
+    },
+    "autotask_no_local_data": {
+      "type": "string",
+      "title": "Run without a local copy",
+      "description": "Optional. Set to 1 to keep no local copy of API responses: reads go to the API and sync refuses to run. Leave blank to keep the local store.",
+      "required": false,
+      "sensitive": false
+    },
+    "autotask_mcp_http_token": {
+      "type": "string",
+      "title": "MCP HTTP transport bearer token",
+      "description": "Required only when running the MCP server with --transport http (a remote/hosted deployment). Callers must send a matching Authorization: Bearer header. Not needed for the default local stdio transport that Claude Desktop uses.",
+      "required": false,
+      "sensitive": true
+    },
+    "autotask_user_agent": {
+      "type": "string",
+      "title": "User-Agent header",
+      "description": "Overrides the User-Agent the CLI sends on Autotask requests. Leave blank to use the CLI's own built-in User-Agent.",
+      "required": false
+    },
+    "printing_press_client_profile": {
+      "type": "string",
+      "title": "Client profile (optional)",
+      "description": "Only for tenant-gated multi-client deployments: binds the MCP server to an existing Printing Press client profile. Leave blank for a single-tenant install.",
+      "required": false,
+      "sensitive": true
     }
   },
   "compatibility": {
@@ -60,11 +99,11 @@
       "win32"
     ]
   },
-  "printing_press_version": "4.24.0",
+  "printing_press_version": "4.34.2",
   "press_provenance": {
-    "printing_press_version": "4.24.0",
-    "generated_at": "2026-06-13T04:35:22.109087Z",
-    "spec_checksum": "sha256:bd5d7d9a1b0b9094812c7a701ff3ec74e0ab9edea5369707266c701f1f764588",
+    "printing_press_version": "4.34.2",
+    "generated_at": "2026-10-29T07:58:58.773341Z",
+    "spec_checksum": "sha256:140fd66cd0749341460fd4ff3b423130cd370f388e89dbd36d8c324036730911",
     "spec_format": "openapi3"
   }
 }

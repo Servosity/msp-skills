@@ -8,16 +8,16 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// newNovelUnbilledCmd cross-joins time entries against invoices locally —
-// approved-but-uninvoiced hours are money on the table.
+// newNovelUnbilledCmd lists billable time not yet approved and posted for
+// billing — hours that never reach an invoice are money on the table.
 // pp:data-source local
 func newNovelUnbilledCmd(flags *rootFlags) *cobra.Command {
 	var flagCompany string
 	var dbPath string
 	cmd := &cobra.Command{
 		Use:   "unbilled",
-		Short: "Surface approved time entries that haven't been invoiced yet — money on the table.",
-		Long: `List time entries not yet attached to an invoice, optionally filtered to one company. Run ` + "`sync`" + ` first.
+		Short: "Surface billable time entries not yet approved and posted for billing — money on the table.",
+		Long: `List billable time entries not yet approved and posted for billing (no billingApprovalDateTime), with the hours each would bill, optionally filtered to one company (through each entry's ticket, task project or contract). Run ` + "`sync`" + ` first.
 
 Use this command for the fast unbilled-hours answer. For the full month-end reconciliation across time, invoices, and contracts, use 'reconcile'.`,
 		Example: strings.Trim(`
@@ -52,21 +52,22 @@ Use this command for the fast unbilled-hours answer. For the full month-end reco
 				Hours      float64 `json:"hours"`
 				DateWorked string  `json:"dateWorked,omitempty"`
 			}
+			companies, err := loadTimeEntryCompanies(db)
+			if err != nil {
+				return apiErr(err)
+			}
 			var rows []entry
 			var totalHours float64
 			for _, e := range entries {
-				if inv, ok := intAt(e, "invoiceID", "invoiceId"); ok && inv != 0 {
+				if !timeEntryUnbilled(e) {
 					continue
 				}
-				if boolAt(e, "isNonBillable") {
-					continue
-				}
-				cid := strAt(e, "companyID", "companyId")
+				cid := companies.company(e)
 				if flagCompany != "" && cid != flagCompany {
 					continue
 				}
 				id, _ := intAt(e, "id")
-				h, _ := numAt(e, "hoursWorked", "hoursToBill", "hours")
+				h := timeEntryBillHours(e)
 				totalHours += h
 				rows = append(rows, entry{
 					ID:         id,

@@ -24,10 +24,11 @@ type resolveMatch struct {
 }
 
 type resolveView struct {
-	Query    string         `json:"query"`
-	Matches  []resolveMatch `json:"matches"`
-	MultiGeo bool           `json:"multi_geo"`
-	Note     string         `json:"note,omitempty"`
+	Query      string         `json:"query"`
+	Matches    []resolveMatch `json:"matches"`
+	MultiGeo   bool           `json:"multi_geo"`
+	Note       string         `json:"note,omitempty"`
+	Incomplete []string       `json:"incomplete,omitempty"`
 }
 
 func newNovelResolveCmd(flags *rootFlags) *cobra.Command {
@@ -99,9 +100,10 @@ Do NOT use this command for free-text search across all synced fields; use 'sear
 				  AND (json_extract(data,'$.external_id') = ?1
 				       OR id = ?1
 				       OR json_extract(data,'$.name') LIKE '%' || ?1 || '%')
+				  AND (?3 = '' OR json_extract(data,'$.kind') = ?3)
 				ORDER BY matched_on, resource_type, id
 				LIMIT ?2`
-			rows, err := db.DB().QueryContext(cmd.Context(), sqlQ, query, flagLimit)
+			rows, err := db.DB().QueryContext(cmd.Context(), sqlQ, query, flagLimit, flagKind)
 			if err != nil {
 				return fmt.Errorf("resolving %q: %w", query, err)
 			}
@@ -117,9 +119,6 @@ Do NOT use this command for free-text search across all synced fields; use 'sear
 					return fmt.Errorf("scanning resolve row: %w", err)
 				}
 				m.ObjectType = typeName[rtype]
-				if flagKind != "" && m.Kind != flagKind {
-					continue
-				}
 				matches = append(matches, m)
 				if m.ObjectType == "tenant" && m.ExternalID != "" {
 					if externalTenants[m.ExternalID] == nil {
@@ -141,6 +140,9 @@ Do NOT use this command for free-text search across all synced fields; use 'sear
 			}
 			if len(matches) == 0 {
 				view.Note = "no local match; run 'afi-cli fleet-sync' to refresh the store, or try 'afi-cli search' for free-text matching"
+			}
+			if err := withFleetGaps(cmd.Context(), db, nil, &view.Incomplete, &view.Note); err != nil {
+				return err
 			}
 			return printJSONFiltered(cmd.OutOrStdout(), view, flags)
 		},

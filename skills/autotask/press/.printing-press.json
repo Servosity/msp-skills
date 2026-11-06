@@ -1,0 +1,232 @@
+{
+  "schema_version": 2,
+  "generated_at": "2026-10-29T07:58:58.773341Z",
+  "printing_press_version": "4.34.2",
+  "api_name": "autotask",
+  "display_name": "Autotask PSA",
+  "cli_name": "autotask-pp-cli",
+  "creator": {
+    "handle": "dstevens",
+    "name": "Damien Stevens"
+  },
+  "contributors": [
+    {
+      "handle": "DamienStevens",
+      "name": "Damien Stevens"
+    }
+  ],
+  "owner": "dstevens",
+  "printer": "dstevens",
+  "printer_name": "Damien Stevens",
+  "spec_path": "spec.json",
+  "spec_format": "openapi3",
+  "spec_source": "official",
+  "spec_checksum": "sha256:140fd66cd0749341460fd4ff3b423130cd370f388e89dbd36d8c324036730911",
+  "run_id": "20261028-225745-29bbffb8",
+  "category": "project-management",
+  "description": "Every Autotask entity at the command line, plus a local SQLite mirror that answers ticket-aging, workload, unbilled-time, and account-360 questions no other Autotask tool can.",
+  "mcp_binary": "autotask-pp-mcp",
+  "mcp_tool_count": 975,
+  "mcp_ready": "full",
+  "api_version": "v1",
+  "auth_type": "api_key",
+  "auth_preference": "ApiIntegrationCode",
+  "auth_env_vars": [
+    "AUTOTASK_API_INTEGRATION_CODE"
+  ],
+  "auth_additional_headers": [
+    {
+      "header": "Secret",
+      "in": "header",
+      "scheme": "Secret",
+      "env_var": {
+        "name": "AUTOTASK_PSA_SECRET",
+        "kind": "per_call",
+        "required": true,
+        "sensitive": true,
+        "inferred": true
+      }
+    },
+    {
+      "header": "UserName",
+      "in": "header",
+      "scheme": "UserName",
+      "env_var": {
+        "name": "AUTOTASK_PSA_USER_NAME",
+        "kind": "per_call",
+        "required": true,
+        "sensitive": true,
+        "inferred": true
+      }
+    }
+  ],
+  "novel_features": [
+    {
+      "name": "Ticket aging",
+      "command": "ticket-aging",
+      "description": "Bucket open tickets by age so you see how stale the service desk is at a glance."
+    },
+    {
+      "name": "Resource workload",
+      "command": "workload",
+      "description": "See which technicians are overloaded by open ticket and task hours before you assign more."
+    },
+    {
+      "name": "Unbilled time",
+      "command": "unbilled",
+      "description": "Surface billable time entries not yet approved and posted for billing — money on the table."
+    },
+    {
+      "name": "SLA breaches",
+      "command": "sla-breaches",
+      "description": "List open tickets past their due date or overdue for first response."
+    },
+    {
+      "name": "Contract burn-down",
+      "command": "contract-burn",
+      "description": "Show how much of each contract's hours/blocks are consumed versus purchased."
+    },
+    {
+      "name": "Stale items",
+      "command": "stale",
+      "description": "Find tickets or projects with no activity in N days."
+    },
+    {
+      "name": "Company 360",
+      "command": "company-360",
+      "description": "One view of a company's tickets, contacts, contracts, config items, and opportunities."
+    },
+    {
+      "name": "Project health",
+      "command": "project-health",
+      "description": "Flag projects with overdue tasks or past end dates."
+    },
+    {
+      "name": "What changed",
+      "command": "since",
+      "description": "See what changed across tickets in the last N hours or days."
+    },
+    {
+      "name": "Triage queue",
+      "command": "triage",
+      "description": "Rank open unassigned tickets by priority and age into a workable queue."
+    },
+    {
+      "name": "Billing close reconciliation",
+      "command": "reconcile",
+      "description": "One month-end table: billable time not yet approved and posted, contract blocks consumed vs purchased, and the money left on the table."
+    },
+    {
+      "name": "Account change delta",
+      "command": "account-brief",
+      "description": "What changed on one account since a point in time — new tickets, contract burn movement, opportunities, stale items."
+    },
+    {
+      "name": "Retainer run-out projection",
+      "command": "retainer",
+      "description": "Block-hour contracts ranked by percent consumed, with projected run-out dates from recent burn rate."
+    },
+    {
+      "name": "Referential-integrity gaps",
+      "command": "data-gaps",
+      "description": "Find tickets with no contract, time entries with no ticket, contacts and config items with no company."
+    },
+    {
+      "name": "Picklist value resolver",
+      "command": "picklist",
+      "description": "Print the label-to-ID map for any picklist field (status, priority, queue) from cached field metadata."
+    }
+  ],
+  "novel_features_built": [
+    {
+      "name": "Ticket aging",
+      "command": "ticket-aging",
+      "description": "Bucket open tickets by age so you see how stale the service desk is at a glance."
+    },
+    {
+      "name": "Resource workload",
+      "command": "workload",
+      "description": "See which technicians are overloaded by open ticket and task hours before you assign more."
+    },
+    {
+      "name": "Unbilled time",
+      "command": "unbilled",
+      "description": "Surface billable time entries not yet approved and posted for billing — money on the table."
+    },
+    {
+      "name": "SLA breaches",
+      "command": "sla-breaches",
+      "description": "List open tickets past their due date or overdue for first response."
+    },
+    {
+      "name": "Contract burn-down",
+      "command": "contract-burn",
+      "description": "Show how much of each contract's hours/blocks are consumed versus purchased."
+    },
+    {
+      "name": "Stale items",
+      "command": "stale",
+      "description": "Find tickets or projects with no activity in N days."
+    },
+    {
+      "name": "Company 360",
+      "command": "company-360",
+      "description": "One view of a company's tickets, contacts, contracts, config items, and opportunities."
+    },
+    {
+      "name": "Project health",
+      "command": "project-health",
+      "description": "Flag projects with overdue tasks or past end dates."
+    },
+    {
+      "name": "What changed",
+      "command": "since",
+      "description": "See what changed across tickets in the last N hours or days."
+    },
+    {
+      "name": "Triage queue",
+      "command": "triage",
+      "description": "Rank open unassigned tickets by priority and age into a workable queue."
+    },
+    {
+      "name": "Billing close reconciliation",
+      "command": "reconcile",
+      "description": "One month-end table: billable time not yet approved and posted, contract blocks consumed vs purchased, and the money left on the table."
+    },
+    {
+      "name": "Account change delta",
+      "command": "account-brief",
+      "description": "What changed on one account since a point in time — new tickets, contract burn movement, opportunities, stale items."
+    },
+    {
+      "name": "Retainer run-out projection",
+      "command": "retainer",
+      "description": "Block-hour contracts ranked by percent consumed, with projected run-out dates from recent burn rate."
+    },
+    {
+      "name": "Referential-integrity gaps",
+      "command": "data-gaps",
+      "description": "Find tickets with no contract, time entries with no ticket, contacts and config items with no company."
+    },
+    {
+      "name": "Picklist value resolver",
+      "command": "picklist",
+      "description": "Print the label-to-ID map for any picklist field (status, priority, queue) from cached field metadata."
+    }
+  ],
+  "verify": {
+    "mode": "mock",
+    "pass_rate": 100,
+    "passed": 700,
+    "total": 700,
+    "data_pipeline": true,
+    "verdict": "PASS"
+  },
+  "scorecard": {
+    "steinberger": {
+      "percentage": 95,
+      "grade": "A",
+      "total": 95
+    }
+  }
+}

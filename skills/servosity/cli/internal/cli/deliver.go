@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"servosity-msp-pp-cli/internal/cliutil"
+	"servosity-msp-pp-cli/internal/credkit"
 	"strings"
 	"time"
 )
@@ -134,13 +135,11 @@ func writeDownloadUnder(dir, name string, body []byte) error {
 	if err := f.Chmod(0o600); err != nil {
 		return fmt.Errorf("setting download permissions: %w", err)
 	}
-	if _, err := f.Write(body); err != nil {
-		return fmt.Errorf("writing download: %w", err)
-	}
-	if err := f.Sync(); err != nil {
-		return fmt.Errorf("writing download: %w", err)
-	}
 	if err := f.Close(); err != nil {
+		return fmt.Errorf("writing download: %w", err)
+	}
+	// Hand-fix (handfixes.json credkit-wiring): the body is written through the credential kit; a withheld one leaves nothing behind.
+	if err := credkit.WriteFile(tmp, body, 0o600); err != nil {
 		return fmt.Errorf("writing download: %w", err)
 	}
 	if err := os.Rename(tmp, path); err != nil {
@@ -167,7 +166,8 @@ func deliverWebhook(url string, body []byte, compact bool) error {
 	// One POST. A followed 3xx would replay the body at a Location the
 	// operator did not name, including another host or an http downgrade.
 	httpClient := &http.Client{
-		Timeout: 30 * time.Second,
+		Timeout:   30 * time.Second,
+		Transport: credkit.Transport(nil), // Hand-fix (handfixes.json credkit-wiring)
 		CheckRedirect: func(*http.Request, []*http.Request) error {
 			return http.ErrUseLastResponse
 		},

@@ -3,7 +3,7 @@
   "name": "io.github.Servosity/immybot-mcp",
   "title": "ImmyBot MCP",
   "description": "Every ImmyBot endpoint typed, plus a local SQLite mirror that answers the cross-tenant questions",
-  "version": "0.1.11",
+  "version": "0.1.12",
   "icons": [
     {
       "src": "https://raw.githubusercontent.com/servosity/msp-skills/main/docs/assets/social/immybot/immybot-512x512.png",
@@ -21,8 +21,8 @@
   "packages": [
     {
       "registryType": "mcpb",
-      "identifier": "https://github.com/servosity/msp-skills/releases/download/immybot-v0.1.11/immybot-mcp.mcpb",
-      "version": "0.1.11",
+      "identifier": "https://github.com/servosity/msp-skills/releases/download/immybot-v0.1.12/immybot-mcp.mcpb",
+      "version": "0.1.12",
       "fileSha256": "PLACEHOLDER_SHA256_FILLED_BY_CI",
       "transport": {
         "type": "stdio"
@@ -80,6 +80,30 @@
         {
           "name": "IMMYBOT_NO_CONFIG_WRITE",
           "description": "Set to 1 to keep credentials off disk. The token cache becomes a no-op, so the connector mints a fresh token each run instead of writing one to config.toml. Leave blank for the default cached behaviour.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "IMMYBOT_MCP_READ_ONLY",
+          "description": "Optional. Set to exactly 1 to expose only read-only tools and refuse any state-changing call.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "IMMYBOT_NO_LOCAL_DATA",
+          "description": "Optional. Set to 1 to save no API data locally: sync and workflow archive are refused and the response cache is off.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "IMMYBOT_MCP_HTTP_TOKEN",
+          "description": "Required only when running the MCP server with --transport http. Not needed for the default local stdio transport.",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "IMMYBOT_MCP_UPLOAD_ROOT",
+          "description": "Optional. Has no effect: this release's MCP server refuses every upload and never opens a local path. Run uploads with immybot-cli.",
           "isRequired": false,
           "isSecret": false
         }

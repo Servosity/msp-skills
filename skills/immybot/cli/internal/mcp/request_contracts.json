@@ -1184,31 +1184,31 @@
         "x-location": "path"
       },
       "include-additional-persons": {
-        "description": "Include additional persons",
+        "description": "Include additional persons (default: true)",
         "type": "boolean",
         "x-location": "query",
         "x-wire-name": "includeAdditionalPersons"
       },
       "include-primary-person": {
-        "description": "Include primary person",
+        "description": "Include primary person (default: true)",
         "type": "boolean",
         "x-location": "query",
         "x-wire-name": "includePrimaryPerson"
       },
       "include-provider-agents": {
-        "description": "Include provider agents",
+        "description": "Include provider agents (default: false)",
         "type": "boolean",
         "x-location": "query",
         "x-wire-name": "includeProviderAgents"
       },
       "include-provider-agents-device-update-form-data": {
-        "description": "Include provider agents device update form data",
+        "description": "Include provider agents device update form data (default: false)",
         "type": "boolean",
         "x-location": "query",
         "x-wire-name": "includeProviderAgentsDeviceUpdateFormData"
       },
       "include-sessions": {
-        "description": "Include sessions",
+        "description": "Include sessions (default: false)",
         "type": "boolean",
         "x-location": "query",
         "x-wire-name": "includeSessions"
@@ -5035,13 +5035,13 @@
     "additionalProperties": true,
     "properties": {
       "include-tenant": {
-        "description": "Include tenant",
+        "description": "Include tenant (default: false)",
         "type": "boolean",
         "x-location": "query",
         "x-wire-name": "includeTenant"
       },
       "include-user-data": {
-        "description": "Include user data",
+        "description": "Include user data (default: false)",
         "type": "boolean",
         "x-location": "query",
         "x-wire-name": "includeUserData"
@@ -6617,7 +6617,7 @@
         "x-location": "body"
       },
       "throw-if-agent-installer-version-not-set": {
-        "description": "Throw if agent installer version not set",
+        "description": "Throw if agent installer version not set (default: true)",
         "type": "boolean",
         "x-location": "query",
         "x-wire-name": "throwIfAgentInstallerVersionNotSet"
@@ -6658,11 +6658,13 @@
         "x-location": "body"
       },
       "providerLinkExternalReferenceData": {
-        "description": "JSON value",
+        "additionalProperties": true,
+        "properties": {},
+        "type": "object",
         "x-location": "body"
       },
       "throw-if-agent-installer-version-not-set": {
-        "description": "Throw if agent installer version not set",
+        "description": "Throw if agent installer version not set (default: true)",
         "type": "boolean",
         "x-location": "query",
         "x-wire-name": "throwIfAgentInstallerVersionNotSet"
@@ -6703,7 +6705,9 @@
         "x-location": "body"
       },
       "providerLinkExternalReferenceData": {
-        "description": "JSON value",
+        "additionalProperties": true,
+        "properties": {},
+        "type": "object",
         "x-location": "body"
       }
     },
@@ -6828,19 +6832,19 @@
         "x-location": "path"
       },
       "include-clients": {
-        "description": "Include clients",
+        "description": "Include clients (default: true)",
         "type": "boolean",
         "x-location": "query",
         "x-wire-name": "includeClients"
       },
       "include-providers-linked-from-this-provider": {
-        "description": "Include providers linked from this provider",
+        "description": "Include providers linked from this provider (default: true)",
         "type": "boolean",
         "x-location": "query",
         "x-wire-name": "includeProvidersLinkedFromThisProvider"
       },
       "throw-if-agent-installer-version-not-set": {
-        "description": "Throw if agent installer version not set",
+        "description": "Throw if agent installer version not set (default: true)",
         "type": "boolean",
         "x-location": "query",
         "x-wire-name": "throwIfAgentInstallerVersionNotSet"
@@ -6878,19 +6882,19 @@
     "additionalProperties": true,
     "properties": {
       "include-clients": {
-        "description": "Include clients",
+        "description": "Include clients (default: false)",
         "type": "boolean",
         "x-location": "query",
         "x-wire-name": "includeClients"
       },
       "include-unlinked-clients": {
-        "description": "Include unlinked clients",
+        "description": "Include unlinked clients (default: false)",
         "type": "boolean",
         "x-location": "query",
         "x-wire-name": "includeUnlinkedClients"
       },
       "throw-if-agent-installer-version-not-set": {
-        "description": "Throw if agent installer version not set",
+        "description": "Throw if agent installer version not set (default: true)",
         "type": "boolean",
         "x-location": "query",
         "x-wire-name": "throwIfAgentInstallerVersionNotSet"
@@ -6965,7 +6969,7 @@
         "x-location": "body"
       },
       "throw-if-agent-installer-version-not-set": {
-        "description": "Throw if agent installer version not set",
+        "description": "Throw if agent installer version not set (default: true)",
         "type": "boolean",
         "x-location": "query",
         "x-wire-name": "throwIfAgentInstallerVersionNotSet"
@@ -7079,7 +7083,7 @@
     "additionalProperties": true,
     "properties": {
       "include-link-form-schemas": {
-        "description": "Include link form schemas",
+        "description": "Include link form schemas (default: false)",
         "type": "boolean",
         "x-location": "query",
         "x-wire-name": "includeLinkFormSchemas"
@@ -7106,7 +7110,7 @@
         "x-location": "body"
       },
       "throw-if-agent-installer-version-not-set": {
-        "description": "Throw if agent installer version not set",
+        "description": "Throw if agent installer version not set (default: true)",
         "type": "boolean",
         "x-location": "query",
         "x-wire-name": "throwIfAgentInstallerVersionNotSet"
@@ -7125,19 +7129,19 @@
         "x-location": "path"
       },
       "include-clients": {
-        "description": "Include clients",
+        "description": "Include clients (default: true)",
         "type": "boolean",
         "x-location": "query",
         "x-wire-name": "includeClients"
       },
       "include-providers-linked-from-this-provider": {
-        "description": "Include providers linked from this provider",
+        "description": "Include providers linked from this provider (default: true)",
         "type": "boolean",
         "x-location": "query",
         "x-wire-name": "includeProvidersLinkedFromThisProvider"
       },
       "throw-if-agent-installer-version-not-set": {
-        "description": "Throw if agent installer version not set",
+        "description": "Throw if agent installer version not set (default: true)",
         "type": "boolean",
         "x-location": "query",
         "x-wire-name": "throwIfAgentInstallerVersionNotSet"
@@ -7152,19 +7156,19 @@
     "additionalProperties": true,
     "properties": {
       "include-clients": {
-        "description": "Include clients",
+        "description": "Include clients (default: false)",
         "type": "boolean",
         "x-location": "query",
         "x-wire-name": "includeClients"
       },
       "include-unlinked-clients": {
-        "description": "Include unlinked clients",
+        "description": "Include unlinked clients (default: false)",
         "type": "boolean",
         "x-location": "query",
         "x-wire-name": "includeUnlinkedClients"
       },
       "throw-if-agent-installer-version-not-set": {
-        "description": "Throw if agent installer version not set",
+        "description": "Throw if agent installer version not set (default: true)",
         "type": "boolean",
         "x-location": "query",
         "x-wire-name": "throwIfAgentInstallerVersionNotSet"
@@ -7208,7 +7212,7 @@
         "x-location": "body"
       },
       "throw-if-agent-installer-version-not-set": {
-        "description": "Throw if agent installer version not set",
+        "description": "Throw if agent installer version not set (default: true)",
         "type": "boolean",
         "x-location": "query",
         "x-wire-name": "throwIfAgentInstallerVersionNotSet"
@@ -8640,7 +8644,7 @@
         "x-location": "body"
       },
       "ignore-syntax-errors": {
-        "description": "Ignore syntax errors",
+        "description": "Ignore syntax errors (default: false)",
         "type": "boolean",
         "x-location": "query",
         "x-wire-name": "ignoreSyntaxErrors"
@@ -8701,7 +8705,7 @@
         "x-location": "body"
       },
       "ignore-syntax-errors": {
-        "description": "Ignore syntax errors",
+        "description": "Ignore syntax errors (default: false)",
         "type": "boolean",
         "x-location": "query",
         "x-wire-name": "ignoreSyntaxErrors"
@@ -8803,7 +8807,7 @@
         "x-location": "body"
       },
       "ignore-syntax-errors": {
-        "description": "Ignore syntax errors",
+        "description": "Ignore syntax errors (default: false)",
         "type": "boolean",
         "x-location": "query",
         "x-wire-name": "ignoreSyntaxErrors"
@@ -8874,7 +8878,7 @@
         "x-location": "body"
       },
       "ignore-syntax-errors": {
-        "description": "Ignore syntax errors",
+        "description": "Ignore syntax errors (default: false)",
         "type": "boolean",
         "x-location": "query",
         "x-wire-name": "ignoreSyntaxErrors"
@@ -9380,7 +9384,7 @@
         "x-wire-name": "searchFilter"
       },
       "search-type": {
-        "description": "Search type",
+        "description": "Search type (default: Name and Content)",
         "type": "string",
         "x-location": "query",
         "x-wire-name": "searchType"
@@ -9503,7 +9507,7 @@
         "x-wire-name": "searchFilter"
       },
       "search-type": {
-        "description": "Search type",
+        "description": "Search type (default: Name and Content)",
         "type": "string",
         "x-location": "query",
         "x-wire-name": "searchType"

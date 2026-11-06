@@ -3,7 +3,7 @@
   "name": "io.github.Servosity/autotask-mcp",
   "title": "Autotask MCP",
   "description": "Every Autotask entity at the command line, plus a local SQLite mirror that answers ticket-aging",
-  "version": "0.1.9",
+  "version": "0.1.10",
   "icons": [
     {
       "src": "https://raw.githubusercontent.com/servosity/msp-skills/main/docs/assets/social/autotask/autotask-512x512.png",
@@ -21,8 +21,8 @@
   "packages": [
     {
       "registryType": "mcpb",
-      "identifier": "https://github.com/servosity/msp-skills/releases/download/autotask-v0.1.9/autotask-mcp.mcpb",
-      "version": "0.1.9",
+      "identifier": "https://github.com/servosity/msp-skills/releases/download/autotask-v0.1.10/autotask-mcp.mcpb",
+      "version": "0.1.10",
       "fileSha256": "PLACEHOLDER_SHA256_FILLED_BY_CI",
       "transport": {
         "type": "stdio"
@@ -51,6 +51,36 @@
           "name": "AUTOTASK_PSA_USER_NAME",
           "description": "Set the AUTOTASK_PSA_USER_NAME credential for the Autotask MCP server.",
           "isRequired": true,
+          "isSecret": true
+        },
+        {
+          "name": "AUTOTASK_MCP_READ_ONLY",
+          "description": "Optional. Set to exactly 1 to expose only read-only tools and refuse any tool that changes Autotask. Leave blank to keep every tool (each write still previews and acts only with confirm: true).",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "AUTOTASK_NO_LOCAL_DATA",
+          "description": "Optional. Set to 1 to keep no local copy of API responses: reads go to the API and sync refuses to run. Leave blank to keep the local store.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "AUTOTASK_MCP_HTTP_TOKEN",
+          "description": "Required only when running the MCP server with --transport http (a remote/hosted deployment). Callers must send a matching Authorization: Bearer header. Not needed for the default local stdio transport that Claude Desktop uses.",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "AUTOTASK_USER_AGENT",
+          "description": "Overrides the User-Agent the CLI sends on Autotask requests. Leave blank to use the CLI's own built-in User-Agent.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "PRINTING_PRESS_CLIENT_PROFILE",
+          "description": "Only for tenant-gated multi-client deployments: binds the MCP server to an existing Printing Press client profile. Leave blank for a single-tenant install.",
+          "isRequired": false,
           "isSecret": true
         }
       ]

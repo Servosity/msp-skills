@@ -42,6 +42,8 @@ body:
         - cisco-duo
         - cisco-meraki
         - cisco-umbrella
+        - cloudally
+        - comet-backup
         - connectsecure
         - connectwise-automate
         - connectwise-control
@@ -66,9 +68,11 @@ body:
         - huntress
         - immybot
         - itglue
+        - jamf-pro
         - jira-service-management
         - kaseya-bms
         - kaseya-vsa
+        - keeper
         - knowbe4
         - levelio
         - liongard
@@ -112,11 +116,13 @@ body:
         - threatlocker
         - unifi-network
         - veeam
+        - vsphere
         - warranty
         - watchguard
         - wordpress
         - xero
         - zammad
+        - zoom-phone
         - other / not listed
     validations:
       required: true

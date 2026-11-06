@@ -51,9 +51,11 @@ func newNovelOffboardCmd(flags *rootFlags) *cobra.Command {
 		Short: "Safely back up a departing user's resource, verify the archive landed, then release the protection",
 		Long: strings.TrimSpace(`
 Run the vendor's archive-and-offboard sequence with a verification gate the
-portal lacks: trigger a final out-of-schedule backup, wait for the task to
-finish, confirm a fresh archive exists for the resource, and only then remove
-the protection so the Microsoft 365 / Google Workspace seat can be released.
+portal lacks: trigger a final out-of-schedule backup, wait for its task to
+finish as done, confirm an archive exists for the resource, and only then
+remove the protection so the Microsoft 365 / Google Workspace seat can be
+released. The finished task is the proof: a backup extends the resource's
+existing archive (a backup sequence), so a new archive is not expected.
 The command REFUSES the irreversible unprotect step until the backup is
 verified (override the wait with --no-wait at your own risk).
 
@@ -78,7 +80,7 @@ Do NOT use this command to unprotect without a final backup; use 'tenants resour
 				return err
 			}
 			if dryRunOK(flags) || cliutil.IsVerifyEnv() {
-				fmt.Fprintln(cmd.OutOrStdout(), "would run: find protection -> trigger final backup job -> wait for task -> verify fresh archive -> unprotect resource")
+				fmt.Fprintln(cmd.OutOrStdout(), "would run: find protection -> trigger final backup job -> wait for task -> verify archive -> unprotect resource")
 				return nil
 			}
 			if len(args) < 1 || strings.TrimSpace(args[0]) == "" {
@@ -115,7 +117,7 @@ Do NOT use this command to unprotect without a final backup; use 'tenants resour
 			if err != nil {
 				step("find-protection", "failed", err.Error())
 				_ = emit()
-				return classifyAPIError(err, flags)
+				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}
 			var protPage struct {
 				Items []struct {
@@ -159,8 +161,6 @@ Do NOT use this command to unprotect without a final backup; use 'tenants resour
 			view.PolicyID, view.JobID = policyID, jobID
 			step("find-protection", "ok", fmt.Sprintf("policy=%s job=%s", policyID, jobID))
 
-			backupStarted := time.Now().UTC().Add(-5 * time.Second)
-
 			// Step 2: trigger the final backup.
 			if flagSkipBackup {
 				step("trigger-backup", "skipped", "--skip-backup")
@@ -169,7 +169,7 @@ Do NOT use this command to unprotect without a final backup; use 'tenants resour
 				if err != nil {
 					step("trigger-backup", "failed", err.Error())
 					_ = emit()
-					return classifyAPIError(err, flags)
+					return classifyAPIError(cmd.OutOrStdout(), err, flags)
 				}
 				var trig struct {
 					TaskID string `json:"task_id"`
@@ -180,17 +180,15 @@ Do NOT use this command to unprotect without a final backup; use 'tenants resour
 
 				// Step 3: wait for the task.
 				if flagNoWait {
-					step("wait-task", "skipped", "--no-wait; archive verification will accept any existing archive")
+					step("wait-task", "skipped", "--no-wait; the final backup is not confirmed, any existing archive is accepted")
 				} else if trig.TaskID == "" {
-					// No task handle (job may already be running): poll the
-					// archives endpoint until a fresh archive lands or the
-					// wait budget runs out, so verification below can pass.
-					if err := waitForFreshArchive(ctx, c, base, resourceID, backupStarted, flagWaitTimeout, flagPollInterval); err != nil {
-						step("wait-archive", "failed", err.Error())
-						_ = emit()
-						return err
-					}
-					step("wait-archive", "ok", "fresh archive observed (no task handle was returned)")
+					// spec.json v1TriggerJobResult always carries task_id.
+					// Without it nothing confirms the final backup finished, and
+					// a new archive is no proof (Codex r1 afi review class
+					// archive-creation-read-as-backup-time).
+					step("wait-task", "failed", "the trigger returned no task id")
+					_ = emit()
+					return apiErr(fmt.Errorf("the backup trigger for %s returned no task id, so the final backup cannot be confirmed — NOT unprotecting; check the backup in the Afi portal, then re-run with --skip-backup", resourceID))
 				} else {
 					status, err := waitForTask(ctx, c, base, trig.TaskID, flagWaitTimeout, flagPollInterval)
 					if err != nil {
@@ -202,26 +200,18 @@ Do NOT use this command to unprotect without a final backup; use 'tenants resour
 				}
 			}
 
-			// Step 4: verify an archive exists (fresh when we waited).
-			needFresh := !flagNoWait && !flagSkipBackup
+			// Step 4: verify an archive exists. Its created_at is when the backup
+			// sequence began (backups extend it), so it is reported, not judged.
 			archID, archAt, err := newestArchive(ctx, c, base, resourceID)
 			if err != nil {
 				step("verify-archive", "failed", err.Error())
 				_ = emit()
-				return classifyAPIError(err, flags)
+				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}
 			if archID == "" {
 				step("verify-archive", "failed", "no archive with a parseable created_at exists for the resource")
 				_ = emit()
 				return apiErr(fmt.Errorf("REFUSING to unprotect: no archive with a usable timestamp exists for resource %s — the departing user's data is not verifiably backed up (inspect with 'afi-cli tenants archives list')", resourceID))
-			}
-			if needFresh {
-				t, perr := time.Parse(time.RFC3339, archAt)
-				if perr != nil || t.Before(backupStarted) {
-					step("verify-archive", "failed", fmt.Sprintf("newest archive %s (created %s) predates the final backup", archID, archAt))
-					_ = emit()
-					return apiErr(fmt.Errorf("REFUSING to unprotect: newest archive for %s was created %s, before the final backup started — wait for the backup task to finish and re-run, or use --no-wait to accept the existing archive", resourceID, archAt))
-				}
 			}
 			view.ArchiveID = archID
 			step("verify-archive", "ok", fmt.Sprintf("archive=%s created=%s", archID, archAt))
@@ -230,7 +220,7 @@ Do NOT use this command to unprotect without a final backup; use 'tenants resour
 			if _, _, err := c.DeleteWithParams(ctx, base+"/resources/"+url.PathEscape(resourceID)+"/protect", map[string]string{"policy_id": policyID}); err != nil {
 				step("unprotect", "failed", err.Error())
 				_ = emit()
-				return classifyAPIError(err, flags)
+				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}
 			view.Unprotected = true
 			step("unprotect", "ok", "protection removed; the external seat can be released")
@@ -305,6 +295,10 @@ func waitForTask(ctx context.Context, c *client.Client, base, taskID string, tim
 		switch {
 		case s == "done" || strings.HasPrefix(s, "succ") || s == "ok" || s == "completed":
 			return task.Status, nil
+		case s == "warnings":
+			// Terminal (spec.json v1Task.status): finished with warnings that
+			// might need attention, so not a verified backup.
+			return "", apiErr(fmt.Errorf("final backup task %s completed with warnings — NOT unprotecting; review it in the Afi portal, then re-run with --skip-backup to accept the existing archive", taskID))
 		case strings.HasPrefix(s, "fail") || strings.HasPrefix(s, "error") || s == "cancelled" || s == "canceled":
 			return "", apiErr(fmt.Errorf("final backup task %s ended with status %q — NOT unprotecting; inspect with 'afi-cli tenants tasks get'", taskID, task.Status))
 		}
@@ -348,36 +342,4 @@ func newestArchive(ctx context.Context, c *client.Client, base, resourceID strin
 		}
 	}
 	return bestID, bestAt, nil
-}
-
-// waitForFreshArchive polls the archives endpoint until an archive created
-// after `since` appears, the timeout elapses, or the context ends. Used when
-// the trigger response carried no task handle to poll.
-func waitForFreshArchive(ctx context.Context, c *client.Client, base, resourceID string, since time.Time, timeout, interval time.Duration) error {
-	if cliutil.IsDogfoodEnv() && timeout > time.Minute {
-		timeout = time.Minute
-	}
-	if interval <= 0 {
-		interval = time.Millisecond // floor: never a zero-delay HTTP loop
-	}
-	deadline := time.Now().Add(timeout)
-	for {
-		_, archAt, err := newestArchive(ctx, c, base, resourceID)
-		if err != nil {
-			return fmt.Errorf("polling archives for %s: %w", resourceID, err)
-		}
-		if archAt != "" {
-			if t, perr := time.Parse(time.RFC3339, archAt); perr == nil && !t.Before(since) {
-				return nil
-			}
-		}
-		if time.Now().After(deadline) {
-			return apiErr(fmt.Errorf("timed out after %s waiting for a fresh archive for %s — NOT unprotecting; re-run later or raise --timeout-wait", timeout, resourceID))
-		}
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-time.After(interval):
-		}
-	}
 }

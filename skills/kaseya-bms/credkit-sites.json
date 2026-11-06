@@ -1,0 +1,156 @@
+{
+ "sites": [
+  {
+   "file": "internal/cli/kbms_dryrun.go",
+   "func": "guardDryRunLocalWrites",
+   "what": "fmt.Fprintf",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the --dry-run preview of a local credential write, printed from the command's RunE to cmd.ErrOrStderr after credkit.Start; runs only from a function init() registers (registerClientHook, registerNovelCommand, config.StoreScopeIdentity), which a command calls after credkit.Start; init only stores the function value and Declarations.Files (credwire.credentialFiles) resolves file paths and runs no command"
+  },
+  {
+   "file": "internal/cli/kbms_dryrun.go",
+   "func": "previewOutputUnderDryRun",
+   "what": "fmt.Fprintf",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "names the --output path the --dry-run preview leaves alone, from the command's RunE to cmd.ErrOrStderr after credkit.Start; runs only from a function init() registers (registerClientHook, registerNovelCommand, config.StoreScopeIdentity), which a command calls after credkit.Start; init only stores the function value and Declarations.Files (credwire.credentialFiles) resolves file paths and runs no command"
+  },
+  {
+   "file": "internal/cli/kbms_guard.go",
+   "func": "installPins",
+   "what": "net/http.DefaultTransport",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the API client's transport chain: installPins sets originPinTripper{credentialResultTripper{config.OutboundGuard(next)}}, and OutboundGuard is credkit.Transport (a variable only so in-process unit tests reach their loopback servers), so every non-dry-run request passes the kit inside the origin pin; under --dry-run dryRunTripper sends nothing"
+  },
+  {
+   "file": "internal/cli/kbms_guard.go",
+   "func": "installPins",
+   "what": "convert:kaseya-bms-pp-cli/internal/cli.credentialResultTripper.RoundTrip",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the API client's transport chain: installPins sets originPinTripper{credentialResultTripper{config.OutboundGuard(next)}}, and OutboundGuard is credkit.Transport (a variable only so in-process unit tests reach their loopback servers), so every non-dry-run request passes the kit inside the origin pin; under --dry-run dryRunTripper sends nothing"
+  },
+  {
+   "file": "internal/cli/kbms_guard.go",
+   "func": "installPins",
+   "what": "call:dynamic",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the API client's transport chain: installPins sets originPinTripper{credentialResultTripper{config.OutboundGuard(next)}}, and OutboundGuard is credkit.Transport (a variable only so in-process unit tests reach their loopback servers), so every non-dry-run request passes the kit inside the origin pin; under --dry-run dryRunTripper sends nothing"
+  },
+  {
+   "file": "internal/cli/kbms_guard.go",
+   "func": "installPins",
+   "what": "convert:kaseya-bms-pp-cli/internal/cli.dryRunTripper.RoundTrip",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the API client's transport chain: installPins sets originPinTripper{credentialResultTripper{config.OutboundGuard(next)}}, and OutboundGuard is credkit.Transport (a variable only so in-process unit tests reach their loopback servers), so every non-dry-run request passes the kit inside the origin pin; under --dry-run dryRunTripper sends nothing"
+  },
+  {
+   "file": "internal/cli/kbms_guard.go",
+   "func": "installPins",
+   "what": "net/http.Client.Transport",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the API client's transport chain: installPins sets originPinTripper{credentialResultTripper{config.OutboundGuard(next)}}, and OutboundGuard is credkit.Transport (a variable only so in-process unit tests reach their loopback servers), so every non-dry-run request passes the kit inside the origin pin; under --dry-run dryRunTripper sends nothing"
+  },
+  {
+   "file": "internal/cli/kbms_guard.go",
+   "func": "installPins",
+   "what": "convert:kaseya-bms-pp-cli/internal/cli.originPinTripper.RoundTrip",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the API client's transport chain: installPins sets originPinTripper{credentialResultTripper{config.OutboundGuard(next)}}, and OutboundGuard is credkit.Transport (a variable only so in-process unit tests reach their loopback servers), so every non-dry-run request passes the kit inside the origin pin; under --dry-run dryRunTripper sends nothing"
+  },
+  {
+   "file": "internal/cli/kbms_guard.go",
+   "func": "originPinTripper.RoundTrip",
+   "what": "net/http.RoundTripper.RoundTrip",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the API client's transport chain: installPins sets originPinTripper{credentialResultTripper{config.OutboundGuard(next)}}, and OutboundGuard is credkit.Transport (a variable only so in-process unit tests reach their loopback servers), so every non-dry-run request passes the kit inside the origin pin; under --dry-run dryRunTripper sends nothing"
+  },
+  {
+   "file": "internal/cli/kbms_guard.go",
+   "func": "credentialResultTripper.RoundTrip",
+   "what": "net/http.RoundTripper.RoundTrip",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the API client's transport chain: installPins sets originPinTripper{credentialResultTripper{config.OutboundGuard(next)}}, and OutboundGuard is credkit.Transport (a variable only so in-process unit tests reach their loopback servers), so every non-dry-run request passes the kit inside the origin pin; under --dry-run dryRunTripper sends nothing"
+  },
+  {
+   "file": "internal/cliutil/kbms_secrets.go",
+   "func": "Held",
+   "what": "kaseya-bms-pp-cli/internal/credkit.Writer.Write",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "writes only to a local bytes.Buffer, to ask the kit's own matcher whether s carries a held value; nothing leaves the process"
+  },
+  {
+   "file": "internal/config/kbms_auth.go",
+   "func": "newKbmsTokenHTTPClient",
+   "what": "net/http.Client{}",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the BMS token client: Transport is OutboundGuard(http.DefaultTransport), and OutboundGuard is credkit.Transport (a variable only so in-process unit tests reach their loopback servers)"
+  },
+  {
+   "file": "internal/config/kbms_auth.go",
+   "func": "newKbmsTokenHTTPClient",
+   "what": "call:dynamic",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the BMS token client: Transport is OutboundGuard(http.DefaultTransport), and OutboundGuard is credkit.Transport (a variable only so in-process unit tests reach their loopback servers)"
+  },
+  {
+   "file": "internal/config/kbms_auth.go",
+   "func": "newKbmsTokenHTTPClient",
+   "what": "net/http.DefaultTransport",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the BMS token client: Transport is OutboundGuard(http.DefaultTransport), and OutboundGuard is credkit.Transport (a variable only so in-process unit tests reach their loopback servers)"
+  },
+  {
+   "file": "internal/config/kbms_auth.go",
+   "func": "MintKbmsToken",
+   "what": "net/http.NewRequestWithContext",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the login request is sent only with hc: newKbmsTokenHTTPClient (credkit.Transport) or the API client's own pinned client (installPins, credkit.Transport inside the origin pin)"
+  },
+  {
+   "file": "internal/config/kbms_auth.go",
+   "func": "MintKbmsToken",
+   "what": "net/http.Client.Do",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "hc is newKbmsTokenHTTPClient or the API client's pinned client, both through credkit.Transport; the mint runs from auth login's RunE or the client hook, after credkit.Start; runs only from a function init() registers (registerClientHook, registerNovelCommand, config.StoreScopeIdentity), which a command calls after credkit.Start; init only stores the function value and Declarations.Files (credwire.credentialFiles) resolves file paths and runs no command"
+  },
+  {
+   "file": "internal/config/kbms_persist.go",
+   "func": "warnLeftOut",
+   "what": "fmt.Fprintf",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "a config.toml save warning (it names a field, never a value), printed only while a command saves the configuration, after credkit.Start; runs only from a function init() registers (registerClientHook, registerNovelCommand, config.StoreScopeIdentity), which a command calls after credkit.Start; init only stores the function value and Declarations.Files (credwire.credentialFiles) resolves file paths and runs no command"
+  },
+  {
+   "file": "internal/credsql/credsql.go",
+   "func": "applyLengthLimit",
+   "what": "database/sql.OpenDB",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "a one-connection DB over the connection the kit's driver is opening, only to set sqlite3_limit; no statement runs through it, and it runs only when a store opens, after Start"
+  },
+  {
+   "file": "internal/credsql/credsql.go",
+   "func": "applyLengthLimit",
+   "what": "database/sql.DB.Conn",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "a one-connection DB over the connection the kit's driver is opening, only to set sqlite3_limit; no statement runs through it, and it runs only when a store opens, after Start"
+  }
+ ]
+}

@@ -95,6 +95,8 @@ Folded in when installed (CI installs them): gosec, govulncheck, osv-scanner, se
     only GATES (P1) when the PR introduced/bumped that module@version, the module is a
     direct first-party import (import-graph, not the `// indirect` comment), or - at
     release only - a GHSA-only high/critical advisory govulncheck's DB cannot reason about.
+    The first two do not gate an advisory that names its vulnerable packages when the
+    build (`go list -deps`, every release GOOS) links none of them.
   * --require-scanners (CI/release): a missing/erroring required scanner is a P1, never a
     silent skip; unresolved osv->module mapping and `go list` failures also fail CLOSED.
 
@@ -785,8 +787,19 @@ BUILD_TARGETS = (("linux", "amd64"), ("linux", "arm64"), ("darwin", "amd64"),
                  ("darwin", "arm64"), ("windows", "amd64"), ("windows", "arm64"))
 
 
-def _go_list_direct(mod_dir: Path, goos: str, goarch: str) -> set[str] | None:
-    code, out, _ = run(["go", "list", "-deps", "-json", "./..."], cwd=str(mod_dir),
+def graph_roots(mod_dir: Path) -> list[str]:
+    """`./...` plus every dir under cmd/ by explicit path. registry.cmd_dirs picks the
+    release entry points from all of them (any name, symlinks followed) and release.yml
+    builds what it picks, while `./...` skips names starting with _ or . and symlinked
+    dirs, so a scan rooted at `./...` alone could miss a release binary's imports (codex,
+    GO-2026-6911 review)."""
+    cmd = mod_dir / "cmd"
+    return ["./..."] + sorted(f"./cmd/{d.name}" for d in (cmd.iterdir() if cmd.is_dir() else ())
+                              if d.is_dir())
+
+
+def _go_list_direct(mod_dir: Path, goos: str, goarch: str) -> tuple[set[str], set[str]] | None:
+    code, out, _ = run(["go", "list", "-deps", "-json", *graph_roots(mod_dir)], cwd=str(mod_dir),
                        timeout=300, env={"GOOS": goos, "GOARCH": goarch, "CGO_ENABLED": "0"})
     if code != 0 or not out:
         return None
@@ -810,24 +823,42 @@ def _go_list_direct(mod_dir: Path, goos: str, goarch: str) -> set[str] | None:
                 m = pkg_mod.get(imp)
                 if m:
                     direct.add(m)
-    return direct
+    return direct, {p.get("ImportPath", "") for p in pkgs}
 
 
-def direct_import_modules(mod_dir: Path) -> set[str] | None:
-    """Modules whose packages are imported by THIS module's own first-party code,
-    unioned across every release GOOS.
+def direct_import_modules(mod_dir: Path) -> tuple[set[str], set[str]] | None:
+    """Modules whose packages are imported by THIS module's own first-party code, and
+    every package the build links (the whole `-deps` closure), unioned across every
+    release GOOS.
 
     Computed from the import GRAPH (`go list -deps -json`), NOT the `// indirect`
     comment (codex: the comment is attacker-influenceable). Returns None if `go list`
     fails for ANY target - the caller fails CLOSED (P1 scanner-error) in CI/release
     rather than silently treating unknown directness as non-direct."""
     union: set[str] = set()
+    linked: set[str] = set()
     for goos, goarch in BUILD_TARGETS:
         d = _go_list_direct(mod_dir, goos, goarch)
         if d is None:
             return None  # fail closed: a target we cannot resolve = unknown directness
-        union |= d
-    return union
+        union |= d[0]
+        linked |= d[1]
+    return union, linked
+
+
+def osv_unlinked(vuln: dict, pname: str, linked: set[str] | None) -> str | None:
+    """One vulnerable package the build does not link, when the OSV record names the
+    vulnerable packages of module `pname` (affected[].ecosystem_specific.imports[].path,
+    Go advisories carry them) and the build links NONE of them; else None. A record that
+    names no package for this module, or an unknown graph, returns None: the whole
+    module counts, as before."""
+    aff = {i["path"] for a in vuln.get("affected", [])
+           if (a.get("package") or {}).get("name") == pname
+           for i in ((a.get("ecosystem_specific") or {}).get("imports") or [])
+           if isinstance(i, dict) and i.get("path")}
+    if not aff or linked is None or aff & linked:
+        return None
+    return sorted(aff)[0]
 
 
 def _longest_module_prefix(name: str, mods: set[str]) -> str | None:
@@ -1303,7 +1334,7 @@ def scan_external(slug: str, suppress: set[tuple[str, str]],
         # 600s (not 300): same go/packages-driven cold-load cost as gosec on heavy-dep
         # connectors; give the reachability analysis matching headroom so a slow runner
         # can't fail-close a healthy connector.
-        code, out, err = run(["govulncheck", "./..."], cwd=str(mod), timeout=600)
+        code, out, err = run(["govulncheck", *graph_roots(mod)], cwd=str(mod), timeout=600)
         if code == 3:
             ev = next((ln.strip() for ln in out.splitlines() if ln.strip().startswith("Vulnerability #")),
                       "govulncheck: a vulnerability is reachable from this module's code.")
@@ -1322,7 +1353,8 @@ def scan_external(slug: str, suppress: set[tuple[str, str]],
         # (reachability) and dep-allowlist (identity) remain the independent P1 gates.
         osv_mods = set(gomod_requires(gomod_path.read_text(errors="replace"))) if gomod_path.is_file() else set()
         introduced = pr_introduced_modules(slug, base)
-        direct = direct_import_modules(mod)  # None => go list failed (for ANY release GOOS)
+        graph = direct_import_modules(mod)  # None => go list failed (for ANY release GOOS)
+        direct, linked = graph if graph is not None else (None, None)
         # Fail CLOSED (codex #4) the moment directness is unknowable - independent of
         # whether osv returns any vuln, so a `go list` failure can't be masked by an
         # empty osv result.
@@ -1367,6 +1399,14 @@ def scan_external(slug: str, suppress: set[tuple[str, str]],
                     else:
                         is_direct = module in direct
                     pr_new = module in introduced
+                    # An advisory that names its vulnerable packages (GO-2026-6911: only
+                    # mcp-go/client/transport) cannot reach a binary that never links one
+                    # of them, so the module-level reasons do not gate it. govulncheck
+                    # still blocks a reachable symbol; unknown graph or no named package
+                    # keeps the module-level rule.
+                    unlinked = osv_unlinked(v, pname, linked)
+                    if unlinked:
+                        is_direct = pr_new = False
                     ids = [vid] + list(v.get("aliases", []))
                     go_covered = any(str(x).startswith("GO-") for x in ids)
                     raw_sev = (sevmap.get(vid, "") or "").strip()
@@ -1382,6 +1422,7 @@ def scan_external(slug: str, suppress: set[tuple[str, str]],
                     why = ("PR introduced/bumped this module@version" if pr_new else
                            "direct first-party import" if is_direct else
                            "release: GHSA-only, govulncheck-DB-blind, high/unknown severity" if ghsa_gate else
+                           f"affected package {unlinked} not linked (tracked; govulncheck gates reachability)" if unlinked else
                            "transitive presence-only (tracked; govulncheck gates reachability)")
                     sev_tag = f"[{raw_sev}] " if raw_sev else ""
                     add("osv-scanner", vid, "P1" if gating else "P2", f"skills/{slug}/cli/go.mod", 0,
@@ -2968,6 +3009,50 @@ sys.exit(1 if case.get("issues") else 0)
 """
 
 
+def _self_test_osv_packages() -> int:
+    """osv_unlinked demotes an advisory only when the build links none of the packages
+    it names for that module."""
+    rec = {"affected": [
+        {"package": {"name": "github.com/mark3labs/mcp-go"},
+         "ecosystem_specific": {"imports": [{"path": "github.com/mark3labs/mcp-go/client/transport"}]}},
+        {"package": {"name": "example.com/other"},
+         "ecosystem_specific": {"imports": [{"path": "example.com/other/pkg"}]}}]}
+    mod, tr = "github.com/mark3labs/mcp-go", "github.com/mark3labs/mcp-go/client/transport"
+    server_only = {mod + "/mcp", mod + "/server", "example.com/other/pkg"}
+    cases = [
+        ("a build linking only mcp and server is unlinked", osv_unlinked(rec, mod, server_only) == tr),
+        ("a build linking client/transport gates as before", osv_unlinked(rec, mod, server_only | {tr}) is None),
+        ("another module's named package does not count for this one",
+         osv_unlinked(rec, mod, {"example.com/other/pkg"}) == tr),
+        ("an unknown graph gates as before", osv_unlinked(rec, mod, None) is None),
+        ("a record naming no package for the module gates as before",
+         osv_unlinked({"affected": [{"package": {"name": mod}}]}, mod, server_only) is None),
+        ("a record with no affected list gates as before", osv_unlinked({}, mod, server_only) is None),
+    ]
+    # The graph sees release entry points `./...` skips: cmd/_acme-cli and the symlink
+    # cmd/aaa-mcp -> ../_entry each link a package cmd/acme-cli does not (real go list,
+    # stdlib only, no network).
+    tmp = Path(tempfile.mkdtemp(prefix="gate-osv-roots-"))
+    try:
+        (tmp / "go.mod").write_text("module example.com/acme\n\ngo 1.21\n")
+        for d, imp in (("cmd/acme-cli", "fmt"), ("cmd/_acme-cli", "net/http/httptest"), ("_entry", "net/smtp")):
+            (tmp / d).mkdir(parents=True)
+            (tmp / d / "main.go").write_text(f'package main\n\nimport _ "{imp}"\n\nfunc main() {{}}\n')
+        (tmp / "cmd" / "aaa-mcp").symlink_to("../_entry", target_is_directory=True)
+        graph = direct_import_modules(tmp)
+        cases.append(("the graph covers a cmd/_ entry point", graph is not None and "net/http/httptest" in graph[1]))
+        cases.append(("the graph covers a symlinked cmd entry point", graph is not None and "net/smtp" in graph[1]))
+        cases.append(("graph_roots names every cmd dir",
+                      graph_roots(tmp) == ["./...", "./cmd/_acme-cli", "./cmd/aaa-mcp", "./cmd/acme-cli"]))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    failed = 0
+    for name, ok in cases:
+        print(f"  {'ok  ' if ok else 'FAIL'} osv packages: {name}")
+        failed += not ok
+    return failed
+
+
 def _self_test_gosec_targets() -> int:
     """The per-target gosec passes, with a stand-in gosec on PATH: a finding only the
     Windows or only the darwin pass reports blocks; with those passes removed it would
@@ -3273,7 +3358,7 @@ def _self_test_bound() -> int:
 def self_test() -> int:
     failed = (_self_test_summary() + _self_test_workflows() + _self_test_changed_files()
               + _self_test_mcp_surface() + _self_test_precedent() + _self_test_line_directive()
-              + _self_test_gosec_targets() + _self_test_bound())
+              + _self_test_gosec_targets() + _self_test_bound() + _self_test_osv_packages())
     if failed:
         print(f"\nSELF-TEST FAIL: {failed} case(s) behaved wrong.")
         return 1

@@ -1,0 +1,1295 @@
+{
+  "slug": "cloudally",
+  "doc": "docs/reprint-survival.md",
+  "_comment": "Connector-specific edits to GENERATED/authored files that a cli-printing-press reprint must NOT clobber. check_handfixes.py asserts every marker below is still present (and banned anti-patterns absent) and fails CI if a reprint dropped one. The hand-authored command files under internal/cli (auth_login, auth_use_account, auth_cloudally_refresh, doctor_verdict) carry no DO NOT EDIT marker, so regen-merge keeps them whole; the backstop entries below catch a reprint that drops their wiring.",
+  "handfixes": [
+    {
+      "id": "notice-carries-the-contributor-credit",
+      "summary": "cli/NOTICE names this connector's contributor, in the Apache-2.0 attribution channel",
+      "why": "CONTRIBUTING.md promises that a contributor's credit survives a regeneration. The press regenerates cli/NOTICE from its own template, which carries the CLI Printing Press attribution but not this repo's per-connector 'contributed by' sentence, so a reprint would silently delete the only place the credit lives.",
+      "status": "active",
+      "spec_encode_followup": "The press has no per-connector contributor field, so there is nothing to encode upstream today.",
+      "asserts": [
+        {
+          "file": "cli/NOTICE",
+          "contains": "The CloudAlly connector was contributed by Jeff Moore (@sonofskywalker3).",
+          "min_count": 1
+        }
+      ]
+    },
+    {
+      "id": "doctor-verdict-tracks-reality",
+      "summary": "doctor classifies the authenticated GET /v2/user answer and turns the api row red on a 404 or a non-JSON answer, instead of calling every non-401/403 answer 'not verified' while the api row stays 'reachable (HTTP 404 at /)'",
+      "why": "The 4.33.5 doctor probed /v2/user but left report[\"api\"] at 'reachable (HTTP 404 at /)' when every API path 404s (a base_url aimed at a web UI), so check_doctor_truth.py's wrong-base state failed: the API read as healthy. doctor_verdict.go (ported from watchguard) reports 'valid' only for a JSON object with members or a JSON array, names CLOUDALLY_BASE_URL in the wrong-base remedy, and points a 401 at auth login. check_doctor_truth.py --slug cloudally failed 1 assertion before this fix and passes after (run on Linux; on Windows the gate's 0600 chmod does not satisfy the credential-file DACL guard, which is true of every connector). See issue #282.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/doctor_verdict.go",
+          "contains": "func doctorProbeCredentials(",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/doctor_verdict.go",
+          "contains": "const doctorProbePath = \"/v2/user\"",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/doctor_verdict.go",
+          "contains": "report[\"api\"] = fmt.Sprintf(\"ERROR the host answered but %s is not there - %s\", doctorProbePath, doctorWrongBaseHint)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/doctor.go",
+          "contains": "doctorProbeCredentials(cmd.Context(), c, report)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/doctor.go",
+          "not_contains": "report[\"credentials\"] = \"valid\""
+        }
+      ]
+    },
+    {
+      "id": "root-short-vendor-casing",
+      "summary": "the root command's Short and Long read 'CloudAlly CLI - ...' with the vendor's casing and describe restores, downloads, backup history and health",
+      "why": "The generator emitted 'Cloudally CLI' with a long-dash separator, a Short truncated mid-sentence, and a description that predates the download commands; MCP clients and --help show it.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/root.go",
+          "contains": "Short: `CloudAlly CLI - Restores and mailbox downloads to a past backup date",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "x-text-osv-floor",
+      "summary": "golang.org/x/text is pinned at v0.42.0 (>= 0.41.0)",
+      "why": "osv flags golang.org/x/text v0.39.0 for GO-2026-5970 and GO-2026-6629; the press go.mod template emits v0.39.0, so a reprint reintroduces it. Same pin as sonicwall and watchguard.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/go.mod",
+          "contains": "golang.org/x/text v0.42.0"
+        }
+      ]
+    },
+    {
+      "id": "windows-sddl-alias-sid-compare",
+      "summary": "the Windows token-file guard compares trustees by SID, resolving SDDL aliases through the OS, so the built-in Administrator (RID 500, rendered as LA) can save and load credentials",
+      "why": "Ported unchanged from skills/sonicwall (same 4.33.5 template defect). Press creds_perms_eval.go compared the SDDL text of the token file's owner and ACE trustees against the process's SID string; the converter renders the built-in local Administrator as the alias LA, so that account's own ACE never matched and every credential read was refused. The fix resolves each trustee to its SID and compares SIDs; the allow-list is unchanged.",
+      "status": "active",
+      "spec_encode_followup": "Press defect in internal/generator/templates/cliutil_creds_perms_eval.go.tmpl and cliutil_creds_perms_windows.go.tmpl. Reported upstream: https://github.com/mvanhorn/cli-printing-press/issues/5029",
+      "asserts": [
+        {
+          "file": "cli/internal/cliutil/creds_perms_eval.go",
+          "contains": "func trusteeSID(trustee string, resolveAlias sddlAliasResolver) string {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/creds_perms_windows.go",
+          "contains": "return evalCredsSecurityResolved(sd.String(), me, resolveSDDLAlias)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/creds_perms_windows.go",
+          "not_contains": "return evalCredsSecurity(sd.String(), me)"
+        },
+        {
+          "file": "cli/internal/cliutil/creds_perms_sddl_test.go",
+          "contains": "func TestEvalCredsSecurityResolvesSDDLAliases(t *testing.T) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "windows-null-dacl-behind-flags",
+      "summary": "the Windows token-file guard checks the DACL section's framing, so a NULL DACL rendered flags first (D:PAINO_ACCESS_CONTROL) is refused",
+      "why": "Ported unchanged from skills/sonicwall (same 4.33.5 template defect). Press creds_perms_eval.go refused a NULL DACL only when the DACL section began with NO_ACCESS_CONTROL, but SDDL puts DACL flags first, so a world-accessible token file was accepted.",
+      "status": "active",
+      "spec_encode_followup": "Same press templates and upstream issue as windows-sddl-alias-sid-compare: https://github.com/mvanhorn/cli-printing-press/issues/5029",
+      "asserts": [
+        {
+          "file": "cli/internal/cliutil/creds_perms_eval.go",
+          "contains": "if strings.Contains(daclFlags, \"NO_ACCESS_CONTROL\") {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/creds_perms_eval.go",
+          "not_contains": "if strings.HasPrefix(rest, \"NO_ACCESS_CONTROL\") {"
+        },
+        {
+          "file": "cli/internal/cliutil/creds_perms_sddl_test.go",
+          "contains": "func TestEvalCredsSecurityRefusesNullDACLBehindFlags(t *testing.T) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "manifest-mcp-name-not-pp",
+      "summary": "manifest.json names the MCP server and its entry point cloudally-mcp, not cloudally-pp-mcp",
+      "why": "The press manifest uses the -pp- binary names; a re-onboard that re-derives name / entry_point / mcp_config.command from it points the .mcpb at a binary the release build never emits.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "manifest.json",
+          "contains": "\"entry_point\": \"bin/cloudally-mcp\""
+        },
+        {
+          "file": "manifest.json",
+          "not_contains": "cloudally-pp-mcp"
+        }
+      ]
+    },
+    {
+      "id": "install-credentials-declared-on-every-channel",
+      "summary": "every operator variable the binaries read is declared on all three install channels: manifest.json (.mcpb), server.json (MCP Registry) and mcp-install.md, with CLOUDALLY_CLIENT_ID and CLOUDALLY_CLIENT_SECRET required and CLOUDALLY_ACCESS_TOKEN optional and blank",
+      "why": "The press manifest declared only CLOUDALLY_ACCESS_TOKEN and the four login inputs, but every request also needs the client-id and client-secret headers, so a Claude Desktop install was never prompted for the two values it cannot work without. A pasted access token expires and then overrides the token auth login saved and refreshes, so the docs tell operators to leave it blank and run auth login once.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "manifest.json",
+          "contains": "\"CLOUDALLY_CLIENT_ID\": \"${user_config.cloudally_client_id}\""
+        },
+        {
+          "file": "manifest.json",
+          "contains": "\"CLOUDALLY_CLIENT_SECRET\": \"${user_config.cloudally_client_secret}\""
+        },
+        {
+          "file": "manifest.json",
+          "contains": "\"CLOUDALLY_MCP_READ_ONLY\": \"${user_config.cloudally_mcp_read_only}\""
+        },
+        {
+          "file": "server.json",
+          "contains": "\"name\": \"CLOUDALLY_CLIENT_SECRET\""
+        },
+        {
+          "file": "mcp-install.md",
+          "contains": "\"CLOUDALLY_ACCESS_TOKEN\": \"\"",
+          "min_count": 3
+        }
+      ]
+    },
+    {
+      "id": "auth-use-account-wired",
+      "summary": "the generated auth command registers the hand-authored `auth use-account`",
+      "why": "auth use-account mints an account-scoped token from the partner login (POST .../partner-access-token) and swaps it in, which is how a partner acts inside one customer. Its command file is hand-authored and survives a reprint, but the AddCommand line lives in the generated auth.go, so a reprint silently drops the subcommand.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/auth.go",
+          "contains": "cmd.AddCommand(newAuthUseAccountCmd(flags))",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "async-job-poll-uses-tasks-get",
+      "summary": "the async-job wait on distributor-account-tasks get, reseller-accounts backup-statuses and user status polls /v2/backup-tasks/{id} and names `tasks get <id>` as the recovery command",
+      "why": "The generator wires --wait on these commands to a sibling status endpoint and may pick /v2/resellers/accounts/{accountId}/backup-tasks/{id} or /v2/distributors/accounts/{accountId}/backup-tasks/{id}. WaitForJob substitutes only {id}, so {accountId} reaches the wire unsubstituted, and the printed recovery hint named `jobs get`, which reads the CLI's own local job table rather than CloudAlly. /v2/backup-tasks/{id} takes only the task id and `tasks get` is the matching read.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/distributor_account_tasks_get.go",
+          "contains": "WaitForJob(ctx, c, \"/v2/backup-tasks/{id}\", asyncJobID",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/distributor_account_tasks_get.go",
+          "contains": "\"cloudally-cli tasks get \"+asyncJobID",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/reseller_accounts_backup-statuses.go",
+          "contains": "WaitForJob(ctx, c, \"/v2/backup-tasks/{id}\", asyncJobID",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/user_status.go",
+          "contains": "WaitForJob(ctx, c, \"/v2/backup-tasks/{id}\", asyncJobID",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "generated-doc-corrections",
+      "summary": "AGENTS.md carries the live CloudAlly rules an agent needs before running write commands",
+      "why": "A re-onboard regenerates these docs from the press templates, which know only the documented API. The rules were observed against a production partner tenant on 2026-10-15, for example that recovery export answers 200 with an empty body and creates no job.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "AGENTS.md",
+          "contains": "## CloudAlly rules for agents"
+        }
+      ]
+    },
+    {
+      "id": "api-discovery-hint-names-shipped-binary",
+      "class": "pp-name-leak",
+      "summary": "the `api` discovery hints tell the operator to run cloudally-cli, the binary this repo ships, instead of cloudally-pp-cli, which does not exist",
+      "why": "The press prints three follow-up hints from api_discovery.go ('Use ... <method> --help', 'Run ... api to list all interfaces', 'Use ... api <interface>'), formatting the binary name as '%s-pp-cli' around the slug. The -pp- strip renamed the binaries and the Cobra strings but missed this format string, so the CLI told an operator (or an agent) to run a binary that is not installed. check_no_pp_leak.py reports the '%s-pp-' format string in Go; a reprint re-emits it.",
+      "status": "active",
+      "spec_encode_followup": "Press-side: the strip should rewrite '%s-pp-cli' format strings in generated Go the same way it rewrites the Cobra Use/Example strings (msp-skills strip-pp-cli).",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/api_discovery.go",
+          "contains": "Run '%s-cli api' to list all interfaces",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/api_discovery.go",
+          "contains": "Use '%s-cli api <interface>' to see methods.",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/api_discovery.go",
+          "not_contains": "%s-pp-cli"
+        }
+      ]
+    },
+    {
+      "id": "credkit-wiring",
+      "class": "credential-kit",
+      "status": "active",
+      "summary": "The shared credential kit (tools/maintainer/credkit, vendored at cli/internal/credkit) is wired by hand and replaces this connector's secret funnel. internal/credwire/declarations.go holds the one Declarations literal; each main starts with credkit.Start and ends with credkit.Exit; the API client, its streaming clone, the CloudAlly login, refresh and partner-access-token calls, feedback, --deliver webhooks and probes send through credkit.Transport (client.OutboundGuard); every file write except the 0600 credential store, config.toml and the use-account sidecar (cliutil.AtomicWritePrivateFile, the declared exemption) goes through the kit; every database opens through internal/credsql's credkit.SQLDriver registration; the MCP stdio and HTTP servers pass credkit.MCPIn, MCPOut, MCPHTTP and MCPTools; the MCP shell-out runs through credkit.RunCommand; isTerminal asks credkit.Terminal.",
+      "why": "One contract, one matcher and one set of sinks replace the connector-only funnel, and a matcher fix reaches this connector by vendoring. The funnel checked error text only and kept an 8-character length floor; the kit checks every sink, from the first statement of main, with no length floor. Tests: internal/credwire/leak_test.go, on the built binaries, seen failing on the pre-kit build (CLOUDALLY_LEAK_BIN_DIR).",
+      "spec_encode_followup": "Press-side: generate the kit wiring and the Declarations literal.",
+      "asserts": [
+        {
+          "file": "cli/cmd/cloudally-cli/main.go",
+          "contains": "credkit.Start(credwire.Declarations)",
+          "code_only": true
+        },
+        {
+          "file": "cli/cmd/cloudally-cli/main.go",
+          "contains": "credkit.Exit(code)",
+          "code_only": true
+        },
+        {
+          "file": "cli/cmd/cloudally-mcp/main.go",
+          "contains": "credkit.Start(credwire.Declarations)",
+          "code_only": true
+        },
+        {
+          "file": "cli/cmd/cloudally-mcp/main.go",
+          "contains": "credkit.Exit(run())",
+          "code_only": true
+        },
+        {
+          "file": "cli/cmd/cloudally-mcp/main.go",
+          "contains": "credkit.MCPIn(os.Stdin), credkit.MCPOut()",
+          "code_only": true
+        },
+        {
+          "file": "cli/cmd/cloudally-mcp/main.go",
+          "contains": "server.WithToolHandlerMiddleware(credkit.MCPTools),",
+          "code_only": true
+        },
+        {
+          "file": "cli/cmd/cloudally-mcp/main.go",
+          "contains": "requireBearerAuth(token, credkit.MCPHTTP(inner))",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/credwire/declarations.go",
+          "contains": "var Declarations = credkit.Declarations{",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/credwire/declarations.go",
+          "contains": "Files: credentialFiles,",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/credwire/declarations.go",
+          "contains": "credkit.HoldBody(b)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/credsql/credsql.go",
+          "contains": "sql.Register(Driver, credkit.SQLDriver(cappedSQLite()))",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/store/store.go",
+          "contains": "sql.Open(credsql.Driver, dsn)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/store/store.go",
+          "not_contains": "sql.Open(\"sqlite\""
+        },
+        {
+          "file": "cli/internal/platform/migration.go",
+          "not_contains": "sql.Open(\"sqlite\""
+        },
+        {
+          "file": "cli/internal/mcp/tools.go",
+          "contains": "store.OpenReadOnlyValueCapped(path, maxValueBytes)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/credkit_transport.go",
+          "contains": "var OutboundGuard = credkit.Transport",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "Transport: guardTransport(tr)}",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "clone.Transport = guardTransport(tr)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "_ = credkit.WriteFile(cacheFile, []byte(data), 0o600)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/auth_cloudally_refresh.go",
+          "contains": "Transport: client.GuardedTransport()",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/feedback.go",
+          "contains": "Transport: cloudallyclient.GuardedTransport()",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/deliver.go",
+          "contains": "Transport: cloudallyclient.GuardedTransport()",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/deliver.go",
+          "contains": "credkit.WriteFile(tmp, body, 0o600)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/cobratree/shellout.go",
+          "contains": "credkit.RunCommand(cmd)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/auth.go",
+          "contains": "credkit.StartCommand(c)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/helpers.go",
+          "contains": "return credkit.Terminal(f)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/learn/journal.go",
+          "contains": "credkit.AppendFile(p, append(line, '\\n'), 0o600)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/learn/teach_log.go",
+          "contains": "credkit.AppendFile(p, append(line, '\\n'), 0o600)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cache/cache.go",
+          "contains": "credkit.WriteFile(s.path(key), []byte(value), 0o600)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/export.go",
+          "contains": "credkit.NewWriter(f, credkit.SinkFile)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/profile.go",
+          "contains": "credkit.WriteFile(tmp, data, 0o600)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/platform/profile.go",
+          "contains": "credkit.WriteFile(tmpName, data, 0o600)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/credwire/leak_test.go",
+          "contains": "func TestMalformedConfigHeldBeforeAnythingPrints(t *testing.T) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/credwire/leak_test.go",
+          "contains": "func TestDiscoveryCoversEveryFileLoadReads(t *testing.T) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/credwire/leak_test.go",
+          "contains": "func TestCredentialFlagsAndStdinAreHeld(t *testing.T) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/credwire/leak_test.go",
+          "contains": "func TestRunProfileCredentialIsHeld(t *testing.T) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/credwire/leak_test.go",
+          "contains": "func TestNoCredentialLeavesOverPlainHTTP(t *testing.T) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/credwire/leak_test.go",
+          "contains": "func TestMCPCredentialArgumentIsHeld(t *testing.T) {",
+          "code_only": true
+        }
+      ],
+      "replaces": [
+        {
+          "id": "secret-echo-decoded-funnel",
+          "reason": "replaced by the shared credential kit"
+        }
+      ]
+    },
+    {
+      "id": "mcp-teach-local-file-flags-blocked",
+      "class": "mcp-local-file-flags",
+      "summary": "teach --playbook-file / --playbook-notes-file and teach-playbook --playbook-file / --notes-file are listed in blockedDestinationFlags, so MCP tool schemas omit them and calls naming them are refused; the CLI keeps them",
+      "why": "Over MCP each of these flags reads any file the server account can reach: teach and teach-playbook copy the file into the local learn store, and playbook_list and recall hand it back, in read-only mode too because teach is a local-write tool. Reproduced on origin/main 6416a241b by driving the real MCP server over stdio with no credentials and a throwaway HOME: tools/call teach_playbook with notes-file pointing at a sentinel file outside HOME recorded it, and playbook_list returned the sentinel text; the other three tool/flag pairs leaked the same way. After the fix tools/list omits all four and each call answers 'unknown MCP parameter' without spawning the CLI. The same probe found 25 of the 30 connectors that ship teach already blocking these flags (by name, by mcp:write-flags or by the usage-text rule); this connector was one of the 5 that did not. Fleet precedent: google-workspace mcp-blocks-local-file-reads. CLI twin checked: teach-playbook --notes-file still reads the file for a local CLI user, which is intended. TestTeachFileFlagsNotSettableOverMCP fails 12 ways on the pre-fix shellout.go and passes after.",
+      "status": "active",
+      "spec_encode_followup": "Press-side (fleet): include the teach family's local-file read flags in the generated blockedDestinationFlags floor.",
+      "asserts": [
+        {
+          "file": "cli/internal/mcp/cobratree/shellout.go",
+          "contains": "\"notes-file\":          true,",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/cobratree/shellout.go",
+          "contains": "\"playbook-file\":       true,",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/cobratree/shellout.go",
+          "contains": "\"playbook-notes-file\": true,",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/cobratree/teach_file_flags_test.go",
+          "contains": "func TestTeachFileFlagsNotSettableOverMCP(",
+          "min_count": 1,
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "mcp-file-flags-refused",
+      "class": "mcp-file-flag",
+      "summary": "An MCP tool call can no longer name a file or directory on the MCP host: `import` declares --input in mcp:write-flags, so the MCP tool no longer forwards a JSONL path for the CLI to open",
+      "why": "The MCP server runs the companion CLI as the account that hosts it; the operator at the command line is trusted, an MCP caller is not. tools/maintainer/check_mcp_file_flags.py derives, from data flow in this connector's code, every flag whose value can start a filesystem path (open, read, write, stat, mkdir, walk, exec, @path expansion), then drives the real MCP server and asserts each such flag is absent from every mirrored tool's schema and refused by name when supplied, and that an ordinary flag still reaches the CLI. On origin/main this connector failed it. Edits: `import` declares --input in mcp:write-flags, so the MCP tool no longer forwards a JSONL path for the CLI to open. The CLI keeps every flag. A reprint that drops these edits fails that check in CI and these asserts here.",
+      "status": "active",
+      "spec_encode_followup": "Press-side: derive the MCP-refused flag set from data flow (a flag whose value can start a filesystem path) instead of usage text or a name list, drop refused flags from every tool schema, refuse them by name at call time, and refuse binary multipart fields in the in-process endpoint handler. Drafted as an upstream issue for cli-printing-press (import --input exposure); tools/maintainer/check_mcp_file_flags.py is the fleet gate until a reprint carries it.",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/import.go",
+          "contains": "\"mcp:write-flags\": \"input\"",
+          "min_count": 1,
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "mcp-execute-confirm-gate",
+      "summary": "the cloudally_execute MCP tool sends a non-GET request only when confirm=true is passed; otherwise it returns a preview of the request",
+      "why": "Press 4.33.5 emitted cloudally_execute with no confirm parameter, so every write ran on the first call and security-gate reports mcp-execute-no-confirm as a P1. The 4.33.8+ template adds a confirm parameter and a codeOrchConfirmAccepted check; this is the same shape by hand until a reprint brings it.",
+      "status": "active",
+      "spec_encode_followup": "Fixed in the press template from v4.33.8; a reprint on that engine makes this entry redundant.",
+      "asserts": [
+        {
+          "file": "cli/internal/mcp/code_orch.go",
+          "contains": "mcplib.WithBoolean(\"confirm\",",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/code_orch.go",
+          "contains": "if !codeOrchConfirmAccepted(args[\"confirm\"]) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/code_orch_confirm_test.go",
+          "contains": "func TestCodeOrchExecuteWriteNeedsConfirm(t *testing.T) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "journal-credential-hardening",
+      "class": "credential-kit",
+      "status": "active",
+      "summary": "The learn journal minimizes what it keeps: an override session id (CLOUDALLY_LEARN_SESSION) is stored hashed (o:<hash>), argv_shape keeps only flag names the invoked command declares and nothing after --, failed_flag is kept only when it is a near miss of a declared flag, and teach.log records argument counts instead of the arguments. Every journal line passes the kit's file sink, so a line that repeats a held value is not written.",
+      "why": "A credential typed where a flag goes, set as a session label, or passed as a stray operand is not a value the kit has held, so the structural rules must keep it out on their own; a held one is the kit's. TestJournalCredentialHardening fails 14 ways on the pre-fix code; TestJournalLineThatEchoesAHeldValueIsNotWritten covers the held case.",
+      "spec_encode_followup": "Press-side: generate the hashed session key and the declared-only argv shape.",
+      "asserts": [
+        {
+          "file": "cli/internal/learn/journal.go",
+          "contains": "func JournalFailedFlag(failed, suggested string, declared []string) string {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/learn/journal.go",
+          "contains": "\"o:\" + hashHarnessSession(",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/learn/journal.go",
+          "contains": "func JournalArgvShape(args []string, isBoolFlag, isDeclared func(name string) bool) map[string]string {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/root.go",
+          "contains": "learn.JournalFailedFlag(",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/root.go",
+          "contains": "learn.JournalArgvShape(os.Args[1:], isBoolFlag, isDeclaredFlag)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/teach.go",
+          "contains": "missing --query (%d args, %d resources)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/teach.go",
+          "not_contains": "missing --query (args=%v"
+        },
+        {
+          "file": "cli/internal/cli/teach_playbook.go",
+          "contains": "missing --query (%d args)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/teach_playbook.go",
+          "not_contains": "missing --query (args=%v)"
+        },
+        {
+          "file": "cli/internal/learn/journal_credential_hardening_test.go",
+          "contains": "func TestJournalCredentialHardening(t *testing.T) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/learn/journal_credential_hardening_test.go",
+          "contains": "func TestJournalLineThatEchoesAHeldValueIsNotWritten(t *testing.T) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "backup-status-composite-identity",
+      "summary": "The store keys backup-statuses rows by userId+taskId+source+entityName, so sync stores them and backup health has rows to read",
+      "why": "The backup-statuses feed carries no id field (spec types V2EntityStatusDirectView / V2EntityStatus3TierView, and the shapes seen live). The 4.33.5 store found no identity, so sync stored 0 rows, exited 1, and backup health printed [] (exit 0), which an agent reads as every backup healthy. Found by the PR #400 docs review against a stub feed. The composite override uses the store's native a+b override syntax; TestBackupStatusRowsStoreWithoutID fails without it.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/store/store.go",
+          "contains": "const backupStatusIdentity = \"userId+taskId+source+entityName\"",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/store/store.go",
+          "contains": "backupStatusIdentity,",
+          "min_count": 4,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/store/backup_status_identity_test.go",
+          "contains": "func TestBackupStatusRowsStoreWithoutID(t *testing.T) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "single-object-reads-return-whole-object",
+      "summary": "user me and the three tasks get commands print the whole user or task object, not one array field of it",
+      "why": "The press inferred a response path from one array field of a single-object response: reportEmails on GET /v2/user (UserView) and entities on GET .../backup-tasks/{id}. user me printed only the report email list, and tasks get printed only the entities, dropping the task's status, name and source; the documented example tasks get --select entities.entity,entities.status exited 2. Executed against the built binary in the 2026-11-04 review. TestSingleObjectReadsReturnTheWholeObject fails without it.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/user_me.go",
+          "contains": "resolveReadWithStrategyAndResponsePath(cmd.Context(), c, flags, \"auto\", \"user\", false, path, params, nil, \"\", cmd.ErrOrStderr())",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/user_me.go",
+          "not_contains": "resolveReadWithStrategyAndResponsePath(cmd.Context(), c, flags, \"auto\", \"user\", false, path, params, nil, \"reportEmails\", cmd.ErrOrStderr())"
+        },
+        {
+          "file": "cli/internal/cli/tasks_get.go",
+          "contains": "resolveReadWithStrategyAndResponsePath(cmd.Context(), c, flags, \"auto\", \"tasks\", false, path, params, nil, \"\", cmd.ErrOrStderr())",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/tasks_get.go",
+          "not_contains": "resolveReadWithStrategyAndResponsePath(cmd.Context(), c, flags, \"auto\", \"tasks\", false, path, params, nil, \"entities\", cmd.ErrOrStderr())"
+        },
+        {
+          "file": "cli/internal/cli/distributor_account_tasks_get.go",
+          "contains": "resolveReadWithStrategyAndResponsePath(cmd.Context(), c, flags, \"live\", \"distributor_account_tasks\", false, path, params, nil, \"\", cmd.ErrOrStderr())",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/distributor_account_tasks_get.go",
+          "not_contains": "resolveReadWithStrategyAndResponsePath(cmd.Context(), c, flags, \"live\", \"distributor_account_tasks\", false, path, params, nil, \"entities\", cmd.ErrOrStderr())"
+        },
+        {
+          "file": "cli/internal/cli/reseller_account_tasks_get.go",
+          "contains": "resolveReadWithStrategyAndResponsePath(cmd.Context(), c, flags, \"live\", \"reseller_account_tasks\", false, path, params, nil, \"\", cmd.ErrOrStderr())",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/reseller_account_tasks_get.go",
+          "not_contains": "resolveReadWithStrategyAndResponsePath(cmd.Context(), c, flags, \"live\", \"reseller_account_tasks\", false, path, params, nil, \"entities\", cmd.ErrOrStderr())"
+        }
+      ]
+    },
+    {
+      "id": "mcp-read-only-switch-drops-write-tools",
+      "summary": "CLOUDALLY_MCP_READ_ONLY=1 lists only tools annotated read-only, and cloudally_read keeps live reads available under it",
+      "why": "Press 4.33.5 only hid mirrored commands, so cloudally_execute and the learn-store writers stayed listed under the switch and CI's user-path row (verify_gate.py read-only) failed. Same shape as press 4.34: drop every tool without readOnlyHint after all registrations, and a separate read tool because dropping cloudally_execute would otherwise remove every live read. TestReadOnlySwitchListsOnlyReadTools and TestCodeOrchReadRefusesWrites fail without it.",
+      "status": "active",
+      "spec_encode_followup": "Fixed in the press template from v4.34; a reprint on that engine makes this entry redundant.",
+      "asserts": [
+        {
+          "file": "cli/internal/mcp/tools.go",
+          "contains": "dropNonReadOnlyTools(s)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/code_orch.go",
+          "contains": "mcplib.NewTool(\"cloudally_read\",",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/code_orch.go",
+          "contains": "func handleCodeOrchRead(",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/read_only_switch_test.go",
+          "contains": "func TestReadOnlySwitchListsOnlyReadTools(t *testing.T) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "local-data-purge-and-no-local-data-switch",
+      "summary": "local-data purge erases the store, response cache and learn journal; CLOUDALLY_NO_LOCAL_DATA=1 keeps API responses off the disk and refuses sync and workflow archive before any request",
+      "why": "Press 4.33.5 has neither, so CI's user-path row (verify_gate.py local-data) failed: no purge command, and sync wrote the store under the switch. Same shape as press 4.34. TestLocalDataPurgePreviewsThenDeletes and TestNoLocalDataSwitch fail without it.",
+      "status": "active",
+      "spec_encode_followup": "Fixed in the press template from v4.34; a reprint on that engine makes this entry redundant.",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/local_data.go",
+          "contains": "func newLocalDataPurgeCmd(flags *rootFlags) *cobra.Command {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/root.go",
+          "contains": "rootCmd.AddCommand(newLocalDataCmd(flags))",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/root.go",
+          "contains": "if err := applyLocalDataEnv(cmd, flags); err != nil {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/data_source.go",
+          "contains": "if localDataDisabled() {",
+          "min_count": 2,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/doctor.go",
+          "contains": "if localDataDisabled() {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/local_data_test.go",
+          "contains": "func TestNoLocalDataSwitch(t *testing.T) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "portal-downloads-export-only",
+      "summary": "downloads are created through the customer portal's startRestoreOrDownload with a constant job type EXPORT, never the documented recovery/export endpoint",
+      "why": "Live, 2026-10-15: POST .../recovery/export answers 200 with an empty body and creates no job, so the generated recovery export commands cannot create a download. The portal endpoint creates one, but it also accepts RESTORE (writes into the live mailbox) and DELETEITEMS (deletes from the backup), so the type is a package constant, never taken from a caller. Backstop for hand-authored files.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/portal/start_download.go",
+          "contains": "const jobTypeExport = \"EXPORT\"",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/portal/start_download.go",
+          "contains": "\"type\":    jobTypeExport,",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/download_start_integration_test.go",
+          "contains": "if body[\"type\"] != \"EXPORT\" {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "download-start-refuses-ms365",
+      "summary": "download start refuses an MS365 task and points at download submit",
+      "why": "Live, 2026-10-15: an MS365 mailbox downloads as one job per sub-source (O365MAIL, O365CALENDAR, O365CONTACTS, O365TASKS, O365NOTES), each asked for with that sub-source's own timestamp; a job for the parent MS365 source is accepted by the portal and creates nothing. download submit resolves the per-sub-source timestamps; download start resolves one run timestamp, so it refuses MS365 rather than report a job that never exists.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/download_start.go",
+          "contains": "if isParentMS365(sourceForDownload(flagSource, task.Source), task.Source) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/download_start_integration_test.go",
+          "contains": "func TestDownloadStartRefusesMS365WithYes(t *testing.T) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "download-date-in-account-timezone",
+      "summary": "download submit --utc-offset selects backups by the account's own calendar day (Resolver.RunOnLocalDate)",
+      "why": "Live, 2026-10-15: CloudAlly stamps snapshots in UTC and a nightly backup that runs late in the evening local time is stamped the next UTC day, so selecting the UTC date 2022-12-31 for a US Eastern account delivered the 30 December state. RunOnLocalDate reads the UTC window for the local day, which can straddle two calendar months. Backstop for hand-authored files.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/portal/calendar.go",
+          "contains": "func (r *Resolver) RunOnLocalDate(ctx context.Context, ent Entity, day time.Time, offset time.Duration) (Snapshot, bool, error) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/download_submit.go",
+          "contains": "cmd.Flags().Float64Var(&flagUTCOffset, \"utc-offset\", 0,",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "logout-clears-partner-sidecar",
+      "summary": "auth logout and auth set-token delete auth-context.json (the partner access and refresh token) and fail loudly if they cannot",
+      "why": "auth login --partner keeps the partner tokens in <state>/auth-context.json so auth use-account can switch customers. The 4.33.5 logout cleared only credentials.toml, so after logout `auth use-account --partner` restored a working partner session (every customer) with no password. Found by the PR #400 runtime review; TestLogoutRemovesPartnerSidecar fails without these lines. auth.go is generated, so a reprint drops them.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/auth.go",
+          "contains": "if err := clearAuthContext(); err != nil {",
+          "code_only": true,
+          "min_count": 2
+        }
+      ]
+    },
+    {
+      "id": "store-scope-follows-login-not-token",
+      "summary": "The local store (restore ledger, synced feeds) is keyed by API origin + client id + logged-in principal through config.StoreScopeIdentity, not by the rotating access token",
+      "why": "The template names the store after a hash of the auth header. CloudAlly tokens rotate on every refresh and re-login, so each rotation opened an empty store: restore history vanished and `restore submit --resume` advised starting a new batch, which resends restores that may already have been accepted. Origin + client id alone let a company login open the partner's store, so the principal is part of the key. Backstop: a template change that ignores the hook brings the token-named stores back silently.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/config/config.go",
+          "contains": "if StoreScopeIdentity != nil {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/cloudally_store_scope.go",
+          "contains": "config.StoreScopeIdentity = cloudallyStoreScopeIdentity",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "portal-session-stays-on-its-origin",
+      "summary": "the portal session client refuses a redirect off the portal origin or from https to http",
+      "why": "The portal session sends its CSRF header on every request and Go re-sends custom headers across hosts; the kit already refuses any held value on such a hop, and this rule also keeps the session itself pinned to its origin with a message naming CLOUDALLY_PORTAL_URL. Carried from the retired auth-and-portal-refuse-cross-host-redirects (PR #400 runtime review).",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/portal/portal.go",
+          "contains": "hc.CheckRedirect = redirectPolicy(base, callerRedirect)",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "download-fetch-private-no-replace",
+      "summary": "download fetch writes owner-only folders and files inside --dest, never through a link, never over an existing file, only from https links to public hosts; download submit records ambiguous creates as UNKNOWN",
+      "why": "Archives were written 0644/0755, a planted .partial symlink redirected the write outside --dest, an existing archive was silently replaced, any server-supplied URL was fetched (SSRF), and a create that timed out was resent on --resume (PR #400 review). Backstop for hand-written files.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/download_fetch.go",
+          "contains": "func publishNoReplace(",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/portal/fetch.go",
+          "contains": "if err := DownloadURLPolicy(req.URL); err != nil {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/download_submit.go",
+          "contains": "dlUnknown",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "mcp-no-local-file-inputs",
+      "summary": "import is CLI-only and the teach/teach-playbook file flags are refused over MCP, so no MCP tool reads or writes a local file the caller names",
+      "why": "Under CLOUDALLY_MCP_READ_ONLY=1, teach_playbook --notes-file read credentials.toml and playbook_list returned the access token (PR #400 round-2 runtime review); import --input read any JSONL file and POSTed a create per line. teach.go, teach_playbook.go and import.go are generated (fleet-wide 4.33.5 template), so a reprint drops these annotations. TestMCPLocalFileFlagsBlocked walks every MCP-visible command and fails on any unblocked file/path flag.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/import.go",
+          "contains": "\"mcp:hidden\": \"true\"",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/teach.go",
+          "contains": "\"mcp:write-flags\":     \"playbook-file playbook-notes-file\",",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/teach_playbook.go",
+          "contains": "\"mcp:write-flags\":     \"notes-file playbook-file\",",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "store-scope-per-user-fail-closed",
+      "summary": "Local stores are keyed by API origin + CloudAlly user (not token, not key pair); the restore ledger commands fail closed on an unusable auth-context.json; the portal URL must be https",
+      "why": "Round 2 of the PR #400 review: every partner login shared one principal, so a restricted partner user opened the administrator's cached data; rotating the key pair orphaned the ledger; a refused or legacy sidecar silently opened an empty per-token store and restore history read as empty; CLOUDALLY_PORTAL_URL=http://... sent the single-use handoff token in cleartext. Backstop for hand-written files.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/auth_login.go",
+          "contains": "func partnerPrincipal(email string) string { return principalPartnerPrefix + userKey(email) }",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/cloudally_store_scope.go",
+          "contains": "id := \"cloudally:origin=\" + binding.origin + \"|principal=\" + principal",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/cloudally_store_scope.go",
+          "not_contains": "\"|client_id=\""
+        },
+        {
+          "file": "cli/internal/cli/portal_session.go",
+          "contains": "return checkPortalURL(v, cloudallyPortalURLEnv)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/restore_submit.go",
+          "contains": "if err := requireBoundStoreScope(); err != nil {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/restore_watch.go",
+          "contains": "if err := requireBoundStoreScope(); err != nil {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/restore_history.go",
+          "contains": "if err := requireBoundStoreScope(); err != nil {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "unowned-data-db-never-adopted",
+      "summary": "The generated store resolver never hands an unowned data.db to a credential with no recorded user (env token, set-token, raw header)",
+      "why": "The 4.33.5 resolver claimed an existing unowned data.db for the first credential that ran, so a raw-token run (and MCP sql/search) read another tenant's cached rows and restore history (PR #400 round-3 Codex review). unscopedStoreAdoptable gates the claim on an owner marker naming this credential's scope; the generated MCP test asserted the old adoption and was updated. A reprint drops both.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/helpers.go",
+          "contains": "if !unscopedStoreAdoptable(unscoped, scopeHash) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/tools_test.go",
+          "contains": "want the credential's own store %q, not the unowned unscoped %q"
+        }
+      ]
+    },
+    {
+      "id": "execute-cancels-on-interrupt",
+      "summary": "Execute runs the command under signal.NotifyContext on interruptSignals (SIGINT, SIGTERM, and SIGHUP on Unix), so Ctrl-C, a tool timeout or a closed terminal cancels the context and restore/download runs stop at a safe point and print how to resume",
+      "why": "The 4.33.5 Execute called ExecuteC with no context: a SIGINT killed restore submit at once with nothing printed although restores were already sent (PR #400 round-4 runtime review, rc=-2 with empty stderr). With the context, an interrupted run exits 5 and prints the exact --resume command (verified with a real SIGINT against a stub). root.go is generated, so a reprint drops it. SIGHUP was added after a round-5 runtime review: closing the terminal or SSH session (SIGHUP, rc=-1) killed a run mid-create and left 4 IN_FLIGHT guard claims. The signal list lives in hand-written build-tagged files because syscall.SIGHUP does not exist on Windows.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/root.go",
+          "contains": "sigCtx, stopSignals := signal.NotifyContext(context.Background(), interruptSignals...)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/interrupt_signals_unix.go",
+          "contains": "var interruptSignals = []os.Signal{os.Interrupt, syscall.SIGTERM, syscall.SIGHUP}",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/interrupt_signals_windows.go",
+          "contains": "var interruptSignals = []os.Signal{os.Interrupt, syscall.SIGTERM}",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/root.go",
+          "contains": "executedCmd, err := rootCmd.ExecuteContextC(sigCtx)",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "credentialless-run-never-opens-data-db",
+      "summary": "A run with no credential uses data-nocredential.db, never data.db, so it cannot read an older tenant's cached rows",
+      "why": "The 4.33.5 resolver returns data.db when there is no credential scope, so an MCPB host with unfilled ${user_config.*} placeholders (and CLI/MCP sql/search, restore history) showed an older tenant's data (PR #400 round-4 runtime review). helpers.go and the generated MCP path tests are reprinted, so both need the ledger.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/helpers.go",
+          "contains": "return credentiallessStorePath(dir)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/tools_test.go",
+          "contains": "\"data-nocredential.db\"",
+          "min_count": 4
+        }
+      ]
+    },
+    {
+      "id": "portal-kit-wiring",
+      "summary": "the restore and download workflows send and write through the shared credential kit: the portal session through credkit.Transport with its handoff and CSRF tokens held, the guard and ledger databases through credsql, the batch ledgers, plan files, download records and store marker through credkit file writes; only the archive bytes and their presigned GET stay outside it, as declared exemptions, and the kit's guard judges that GET and each of its redirect hops before it is sent (judgeArchive)",
+      "why": "The #400 features were written before the kit and carried their own transports, sqlite opens and os writes. The portal origin (https://app.cloudally.com, or the API origin) is the only place the handoff token, CSRF token and session cookies may go; download link output is a presigned URL a person needs, so it is not held; archive bytes are customer data the kit would read whole (credkit-sites.json gives each exemption its reason). portal.go, portal_session.go and the download files are hand-written; a reprint never regenerates them, and these asserts keep the routing in place.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/portal/portal.go",
+          "contains": "hc := &http.Client{Jar: jar, Timeout: timeout, Transport: client.OutboundGuard(plain)}",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/portal/portal.go",
+          "contains": "client.HoldMinted(\"minted:portal-handoff\", handoffToken)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/portal/portal.go",
+          "contains": "client.HoldMinted(\"minted:portal-csrf\", token)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/portal/fetch.go",
+          "contains": "transport, done := downloadTransport(s.plain)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/portal/fetch.go",
+          "contains": "if err := judgeArchive(req); err != nil {\n\t\treturn 0, fmt.Errorf(\"portal: the download link for chunk %s was not sent: %w\", exportDataID, err)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/portal/fetch.go",
+          "contains": "if err := judgeArchive(req); err != nil {\n\t\t\t\treturn fmt.Errorf(\"portal: a redirect of the download was not followed: %w\", err)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/portal/fetch.go",
+          "contains": "resp, err := client.OutboundGuard(judgeOnly{}).RoundTrip(req)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/credwire/declarations.go",
+          "contains": "{Source: \"minted:portal-handoff\", Allowed: []string{\"base_url\", \"https://app.cloudally.com\"}},",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/credwire/declarations.go",
+          "contains": "{Source: \"minted:portal-csrf\", Allowed: []string{\"https://app.cloudally.com\", \"base_url\"}},",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/credwire/declarations.go",
+          "contains": "URLEnv: []string{\"CLOUDALLY_PORTAL_URL\"},",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/restore_guard.go",
+          "contains": "sql.Open(credsql.Driver, path+",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/download_guard.go",
+          "contains": "sql.Open(credsql.Driver, path+",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/download_submit.go",
+          "contains": "sql.Open(credsql.Driver, path+",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/download_submit.go",
+          "contains": "return credkit.WriteFile(path, append(data, '\\n'), batchFilePerm)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/download_ledger.go",
+          "contains": "if err := credkit.WriteFile(tmp, append(data, '\\n'), batchFilePerm); err != nil {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/download_ledger.go",
+          "contains": "name, err := batchFileNamed(root, key)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/restore_plan.go",
+          "contains": "return credkit.WriteFile(path, append(b, '\\n'), planFilePerm)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/download_fetch.go",
+          "contains": "credkit.NewWriter(f, credkit.SinkFile).Write(append(data, '\\n'))",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/cloudally_store_scope.go",
+          "contains": "werr = credkit.WriteFile(tmpName, []byte(unclaimedMarker+\"\\n\"), 0o600)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/portal/credkit_seam_test.go",
+          "contains": "client.OutboundGuard = func(rt http.RoundTripper) http.RoundTripper { return rt }",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/credwire/portal_kit_test.go",
+          "contains": "func TestPortalCredentialsStayOffOtherOrigins(t *testing.T) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/credwire/portal_kit_test.go",
+          "contains": "func TestAuthRedirectToAnotherOriginIsRefused(t *testing.T) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "novel-commands-registered-from-root",
+      "summary": "root.go attaches the backup, restore and download groups and backup snapshots directly, after credkit.Start, instead of from init hooks",
+      "why": "Commands registered from an init hook are reached before credkit.Start as far as the kit wiring checker can tell, which put every output site of the download workflow on its list. root.go is generated, so a reprint would drop these lines and the commands with them.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/root.go",
+          "contains": "addNovelCommandIfAbsent(rootCmd, newNovelBackupCmd(flags))",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/root.go",
+          "contains": "addNovelCommandIfAbsent(rootCmd, newNovelRestoreCmd(flags))",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/root.go",
+          "contains": "addNovelCommandIfAbsent(rootCmd, newDownloadCmd(flags))",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/root.go",
+          "contains": "addBackupSnapshotsCmd(rootCmd, flags)",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "pre-guard-ledger-refusal",
+      "summary": "restore submit, download submit and download start refuse, before any request and with exit 2, while a restore or download ledger the guard has no record of is on disk; each batch this version records is registered in its guard before its first ledger write",
+      "why": "Owner decision for v0.2.0: both guards live in the state directory from the first use, so importing older ledgers (seedFromLedgers, the -1 include-flag wildcard, legacyMaybeSent) only served ledgers written by pre-release builds. It was replaced by a refusal that names the file; restore history, restore watch and download fetch --batch still read such ledgers.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/restore_guard.go",
+          "contains": "func refusePreGuardRestoreLedgers(ctx context.Context) error {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/restore_submit.go",
+          "contains": "if err := refusePreGuardRestoreLedgers(cmd.Context()); err != nil {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/restore_submit_run.go",
+          "contains": "if err := guard.recordBatch(ctx, batch.BatchID); err != nil {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/download_guard.go",
+          "contains": "func refusePreGuardDownloadLedgers(ctx context.Context) error {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/download_submit.go",
+          "contains": "if err := refusePreGuardDownloadLedgers(cmd.Context()); err != nil {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/download_start.go",
+          "contains": "if err := refusePreGuardDownloadLedgers(cmd.Context()); err != nil {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/download_ledger.go",
+          "contains": "if err := guard.recordBatch(ctx, b.BatchKey); err != nil {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/download_guard.go",
+          "not_contains": "include_deleted = -1"
+        },
+        {
+          "file": "cli/internal/cli/preguard_ledger_test.go",
+          "contains": "func TestPreGuardDownloadLedgerRefusesSubmitAndStartBeforeAnyRequest(t *testing.T) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "download-settlement-sim-findings",
+      "summary": "a counted but unlisted create stays REQUESTED (counted_at) and becomes EMPTY only after the stale window; a SKIPPED row is settled only when its holder row is a confirmed job or EMPTY; the guard invariant simulation replays the seeds that found both",
+      "why": "The guard invariant simulation (internal/cli/guard_invariant_sim_test.go) found two ways a download run exited 0 with an archive missing: a job listed only after the reconcile wait was concluded EMPTY, a terminal state (seed 4), and a row held by another batch counted as settled while the holder had never created it (seeds 1014, 1040). Hand-written files; these asserts keep the fixes and their tests.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/download_submit.go",
+          "contains": "case r.Status == dlRequested && r.CountedAt != \"\" && acceptedBefore(*r, time.Now().Add(-staleRequestedAge)):",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/download_submit.go",
+          "contains": "func heldUnsettled(batch *downloadBatch) map[string]int {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/download_empty_window_test.go",
+          "contains": "func TestACountedCreateListedLateIsNeverEmpty(t *testing.T) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/download_held_settled_test.go",
+          "contains": "func TestAHeldRowIsSettledOnlyWhenItsHolderIs(t *testing.T) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/guard_invariant_sim_test.go",
+          "contains": "}{{4, 10}, {1014, 10}, {10011, 10}, {10309, 10}, {11416, 10}, {20125, 25}}",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "listing-and-restore-sim-findings",
+      "summary": "paged listings follow the server's page count (portal.MorePages) and a task feed cut at its cap is an error; restore watch never settles a row on a later batch's task; restore --retry-unknown reads the task list first; an accepted unlisted download create is MISSING only after the stale window",
+      "why": "Found by the guard invariant simulation (seeds 10011, 10309, 11416, 20125): a job on page 2 of a capped listing read as absent, a --new-batch resend's task settled the earlier batch's row, --retry-unknown resent a restore a task already was, and a resume re-created an archive listed after the reconcile wait. Hand-written files; these asserts keep the fixes and their tests.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/portal/start_download.go",
+          "contains": "func MorePages(page, got, asked, totalPages, total, read int) bool {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/portal/start_download.go",
+          "contains": "if !MorePages(page, len(rows), downloadInfoPageSize, pg.TotalPages, pg.Total, read) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/portal/download.go",
+          "contains": "if !MorePages(page, len(pg.Data), downloadInfoPageSize, pg.TotalPages, pg.Total, len(all)) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/restore_api.go",
+          "contains": "if !portal.MorePages(cur, len(pg.Data), restoreTaskPageSize, pg.TotalPages, pg.Total, len(all)) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/restore_watch.go",
+          "contains": "func restoreNextSends(ctx context.Context, ledger *sql.DB, batch *restoreBatch, jobs []restoreJob) (next, prev map[int64]time.Time, err error) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/restore_watch.go",
+          "contains": "if prev, ok := prevSend[j.ID]; ok && c.created.Before(prev.Add(watchCreateSlack)) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/restore_submit_run.go",
+          "contains": "func unknownRowsATaskMayBe(",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/download_submit.go",
+          "contains": "case r.Status == dlRequested && r.AcceptedAt != \"\":",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/portal/listing_cap_test.go",
+          "contains": "func TestDownloadJobsReadsEveryPageThePortalNames(t *testing.T) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/restore_watch_attribution_test.go",
+          "contains": "func TestRestoreWatchNeverTakesALaterBatchsTask(t *testing.T) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/restore_retry_looks_first_test.go",
+          "contains": "func TestRetryUnknownNeverResendsARowATaskMayBe(t *testing.T) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/download_empty_window_test.go",
+          "contains": "func TestAnAcceptedCreateListedLateIsNeverResent(t *testing.T) {",
+          "code_only": true
+        }
+      ]
+    }
+  ],
+  "_superseded": [
+    {
+      "id": "tasks-get-select-example",
+      "reason": "superseded by single-object-reads-return-whole-object: tasks get keeps the whole object, so its Example selects entities.entity,entities.status"
+    },
+    {
+      "id": "auth-and-portal-refuse-cross-host-redirects",
+      "reason": "replaced by the shared credential kit: credkit.Transport refuses a held value on a redirect hop to another origin, for the auth POSTs and the generated client alike; the portal session keeps its own origin rule as portal-session-stays-on-its-origin"
+    }
+  ]
+}

@@ -13,29 +13,43 @@ import (
 	"time"
 
 	"immybot-pp-cli/internal/cliutil"
-	"immybot-pp-cli/internal/store"
 
 	"github.com/spf13/cobra"
 )
 
+// triageCluster is one root cause. MatchedActions counts the cluster's actions
+// the filters selected; it equals action_count and mirrors the view's
+// matched_actions. FirstSeen and LastSeen are the earliest and latest action
+// time (immyActionTimeFields) as mirrored, compared as instants; an action with
+// no usable time does not move them.
 type triageCluster struct {
-	Action        string   `json:"action"`
-	Status        string   `json:"status"`
-	Reason        string   `json:"reason"`
-	ComputerCount int      `json:"computer_count"`
-	TenantCount   int      `json:"tenant_count"`
-	ActionCount   int      `json:"action_count"`
-	Tenants       []string `json:"tenants"`
-	Computers     []string `json:"computers"`
-	SessionIDs    []string `json:"session_ids"`
-	FirstSeen     string   `json:"first_seen,omitempty"`
-	LastSeen      string   `json:"last_seen,omitempty"`
+	Action         string   `json:"action"`
+	Status         string   `json:"status"`
+	Reason         string   `json:"reason"`
+	ComputerCount  int      `json:"computer_count"`
+	TenantCount    int      `json:"tenant_count"`
+	ActionCount    int      `json:"action_count"`
+	MatchedActions int      `json:"matched_actions"`
+	Tenants        []string `json:"tenants"`
+	Computers      []string `json:"computers"`
+	SessionIDs     []string `json:"session_ids"`
+	FirstSeen      string   `json:"first_seen,omitempty"`
+	LastSeen       string   `json:"last_seen,omitempty"`
 }
 
+// triageView is the session-triage result. MatchedActions counts the actions
+// the filters selected (the failures by default, or what --status names, which
+// can be successes); FailedActions counts only the matched actions whose
+// outcome is a failure, so --status Success never reports a success as failed.
+// UndatedActions counts the actions the other filters selected that --since
+// left out because none of endTime, startTime, updatedDateUTC or createdDateUTC
+// parses, so their time is unknown.
 type triageView struct {
 	Since          string          `json:"since,omitempty"`
 	ScannedActions int             `json:"scanned_actions"`
+	MatchedActions int             `json:"matched_actions"`
 	FailedActions  int             `json:"failed_actions"`
+	UndatedActions int             `json:"undated_actions"`
 	Clusters       []triageCluster `json:"clusters"`
 	Note           string          `json:"note,omitempty"`
 }
@@ -53,7 +67,12 @@ func newNovelSessionTriageCmd(flags *rootFlags) *cobra.Command {
 		Use:   "session-triage",
 		Short: "Group recent failed maintenance actions by root cause",
 		Long: "Group last night's failed maintenance actions by root cause instead of reading the " +
-			"same error on forty machines.\n\n" +
+			"same error on forty machines. --status clusters the actions with that outcome or " +
+			"lifecycle instead; matched_actions counts what the filters selected and failed_actions " +
+			"only the failures among them.\n\n" +
+			"An action's time is its endTime, else startTime, else updatedDateUTC, else createdDateUTC. " +
+			"--since keeps only actions whose time is known and inside the window; an action with none " +
+			"of them readable is left out and counted in undated_actions.\n\n" +
 			"Use this command for grouping recent maintenance failures by root cause across sessions " +
 			"and tenants. Do NOT use this command for explaining which deployments apply to one " +
 			"computer; use 'assignment-explain' instead.",
@@ -95,7 +114,7 @@ func newNovelSessionTriageCmd(flags *rootFlags) *cobra.Command {
 				return nil
 			}
 
-			db, err := store.OpenWithContext(ctx, dbPath)
+			db, err := immyOpenMirror(ctx, dbPath)
 			if err != nil {
 				return fmt.Errorf("opening database: %w", err)
 			}
@@ -105,41 +124,56 @@ func newNovelSessionTriageCmd(flags *rootFlags) *cobra.Command {
 			}
 
 			rows, err := db.DB().QueryContext(ctx, `
-				SELECT
+				SELECT id,
 					COALESCE(json_extract(data,'$.maintenanceDisplayName'), json_extract(data,'$.actionTypeName'), json_extract(data,'$.actionType')),
-					COALESCE(json_extract(data,'$.statusName'), json_extract(data,'$.status')),
-					COALESCE(json_extract(data,'$.reason'), json_extract(data,'$.result')),
+					`+immyActionOutcomeColumns+`,
 					json_extract(data,'$.computerName'),
 					json_extract(data,'$.tenantName'),
 					json_extract(data,'$.maintenanceSessionId'),
-					COALESCE(json_extract(data,'$.startTime'), json_extract(data,'$.endTime'))
-				FROM resources
-				WHERE resource_type IN ('maintenance-actions','maintenance-actions-maintenance-item','maintenance-actions-version')`)
+					json_extract(data,'$.computerId'),
+					json_extract(data,'$.tenantId'),
+					`+immyTimeColumns(immyActionTimeFields)+`
+				`+immyActionFrom+immyActionOrder)
 			if err != nil {
 				return fmt.Errorf("querying maintenance actions: %w", err)
 			}
 
 			type actionRow struct {
-				action, status, reason, computer, tenant, session, ts string
+				action, computer, tenant, session string
+				computerKey, tenantKey            string
+				at                                immyRowTime
+				outcome                           immyActionOutcome
 			}
 			// Drain the parent result set fully before any aggregation. SQLite
 			// uses a single connection, so a follow-up query while these rows
 			// are open would block.
 			scanned := make([]actionRow, 0)
+			seen := map[string]struct{}{}
 			for rows.Next() {
-				var action, status, reason, computer, tenant, session, ts sql.NullString
-				if err := rows.Scan(&action, &status, &reason, &computer, &tenant, &session, &ts); err != nil {
+				var rowID, action, computer, tenant, session, computerID, tenantID sql.NullString
+				var oc immyActionOutcomeRow
+				ts := newImmyTimeScan(immyActionTimeFields)
+				dest := append([]any{&rowID, &action}, oc.dest()...)
+				dest = append(dest, &computer, &tenant, &session, &computerID, &tenantID)
+				dest = append(dest, ts.dest()...)
+				if err := rows.Scan(dest...); err != nil {
 					_ = rows.Close()
 					return fmt.Errorf("scanning maintenance action: %w", err)
 				}
+				if immyActionSeen(seen, rowID) {
+					continue
+				}
 				scanned = append(scanned, actionRow{
 					action:   nullStr(action),
-					status:   nullStr(status),
-					reason:   nullStr(reason),
+					outcome:  oc.outcome(),
 					computer: nullStr(computer),
 					tenant:   nullStr(tenant),
 					session:  nullStr(session),
-					ts:       nullStr(ts),
+					at:       ts.time(),
+					// Counted by id (GetMaintenanceActionResponse.computerId,
+					// tenantId): names repeat across tenants.
+					computerKey: immyComputerCountKey(nullStr(computerID), len(scanned)),
+					tenantKey:   immyTenantCountKey(nullStr(tenantID), nullStr(tenant)),
 				})
 			}
 			if err := rows.Err(); err != nil {
@@ -154,10 +188,13 @@ func newNovelSessionTriageCmd(flags *rootFlags) *cobra.Command {
 			tenantFilter := strings.ToLower(strings.TrimSpace(flagTenant))
 
 			type acc struct {
-				cluster   triageCluster
-				computers map[string]struct{}
-				tenants   map[string]struct{}
-				sessions  map[string]struct{}
+				cluster     triageCluster
+				computers   map[string]struct{}
+				tenants     map[string]struct{}
+				names       map[string]struct{}
+				tenantNames map[string]struct{}
+				sessions    map[string]struct{}
+				first, last time.Time
 			}
 			groups := map[string]*acc{}
 
@@ -166,52 +203,59 @@ func newNovelSessionTriageCmd(flags *rootFlags) *cobra.Command {
 				if tenantFilter != "" && !strings.Contains(strings.ToLower(r.tenant), tenantFilter) {
 					continue
 				}
-				if wantStatus != "" {
-					if !strings.EqualFold(strings.TrimSpace(r.status), wantStatus) {
-						continue
-					}
-				} else if !immyIsFailureStatus(r.status) {
+				if !r.outcome.Selected(wantStatus) {
 					continue
 				}
-				if !cutoff.IsZero() && r.ts != "" {
-					if t, err := time.Parse(time.RFC3339, r.ts); err == nil && t.Before(cutoff) {
-						continue
+				if !cutoff.IsZero() && !r.at.NotBefore(cutoff) {
+					if !r.at.Known {
+						view.UndatedActions++
 					}
+					continue
 				}
-				view.FailedActions++
+				view.MatchedActions++
+				if r.outcome.Failed {
+					view.FailedActions++
+				}
 
 				action := r.action
 				if action == "" {
 					action = "unknown"
 				}
-				reason := immyNormalizeReason(r.reason)
-				key := action + "\x00" + r.status + "\x00" + reason
+				reason := immyNormalizeReasonFor(r.outcome.Cause, r.computer)
+				key := action + "\x00" + r.outcome.Label + "\x00" + reason
 				a := groups[key]
 				if a == nil {
 					a = &acc{
-						cluster:   triageCluster{Action: action, Status: r.status, Reason: reason},
-						computers: map[string]struct{}{},
-						tenants:   map[string]struct{}{},
-						sessions:  map[string]struct{}{},
+						cluster:     triageCluster{Action: action, Status: r.outcome.Label, Reason: reason},
+						computers:   map[string]struct{}{},
+						tenants:     map[string]struct{}{},
+						names:       map[string]struct{}{},
+						tenantNames: map[string]struct{}{},
+						sessions:    map[string]struct{}{},
 					}
 					groups[key] = a
 				}
 				a.cluster.ActionCount++
+				a.cluster.MatchedActions++
+				a.computers[r.computerKey] = struct{}{}
+				if r.tenantKey != "" {
+					a.tenants[r.tenantKey] = struct{}{}
+				}
 				if r.computer != "" {
-					a.computers[r.computer] = struct{}{}
+					a.names[r.computer] = struct{}{}
 				}
 				if r.tenant != "" {
-					a.tenants[r.tenant] = struct{}{}
+					a.tenantNames[r.tenant] = struct{}{}
 				}
 				if r.session != "" {
 					a.sessions[r.session] = struct{}{}
 				}
-				if r.ts != "" {
-					if a.cluster.FirstSeen == "" || r.ts < a.cluster.FirstSeen {
-						a.cluster.FirstSeen = r.ts
+				if r.at.Known {
+					if a.cluster.FirstSeen == "" || r.at.At.Before(a.first) {
+						a.first, a.cluster.FirstSeen = r.at.At, r.at.Raw
 					}
-					if r.ts > a.cluster.LastSeen {
-						a.cluster.LastSeen = r.ts
+					if a.cluster.LastSeen == "" || r.at.At.After(a.last) {
+						a.last, a.cluster.LastSeen = r.at.At, r.at.Raw
 					}
 				}
 			}
@@ -219,8 +263,8 @@ func newNovelSessionTriageCmd(flags *rootFlags) *cobra.Command {
 			for _, a := range groups {
 				a.cluster.ComputerCount = len(a.computers)
 				a.cluster.TenantCount = len(a.tenants)
-				a.cluster.Computers = sortedSetSlice(a.computers)
-				a.cluster.Tenants = sortedSetSlice(a.tenants)
+				a.cluster.Computers = sortedSetSlice(a.names)
+				a.cluster.Tenants = sortedSetSlice(a.tenantNames)
 				a.cluster.SessionIDs = sortedSetSlice(a.sessions)
 				view.Clusters = append(view.Clusters, a.cluster)
 			}
@@ -238,14 +282,32 @@ func newNovelSessionTriageCmd(flags *rootFlags) *cobra.Command {
 			}
 			if view.ScannedActions == 0 {
 				view.Note = "no maintenance actions in the local mirror; run 'immybot-cli sync --resources maintenance-actions'"
-			} else if view.FailedActions == 0 {
+			} else if view.MatchedActions == 0 && wantStatus != "" {
+				view.Note = fmt.Sprintf("scanned %d maintenance actions and found none with --status %s matching the filters",
+					view.ScannedActions, strings.TrimSpace(flagStatus))
+			} else if view.MatchedActions == 0 {
 				view.Note = fmt.Sprintf("scanned %d maintenance actions and found no failures matching the filters", view.ScannedActions)
+			}
+			if view.UndatedActions > 0 {
+				msg := fmt.Sprintf("%d action(s) the other filters selected have no endTime, startTime, updatedDateUTC or "+
+					"createdDateUTC that parses, so --since could not place them and left them out; run without --since to see them",
+					view.UndatedActions)
+				view.Note = strings.TrimPrefix(view.Note+"; "+msg, "; ")
 			}
 
 			if !wantsHumanTable(cmd.OutOrStdout(), flags) {
 				return printJSONFiltered(cmd.OutOrStdout(), view, flags)
 			}
+			if view.UndatedActions > 0 {
+				// Printed last, after whichever summary below returns.
+				defer fmt.Fprintf(cmd.OutOrStdout(), "%d action(s) left out: no usable timestamp, so --since could not place them.\n", view.UndatedActions)
+			}
 			if len(view.Clusters) == 0 {
+				if wantStatus != "" {
+					fmt.Fprintf(cmd.OutOrStdout(), "No maintenance actions matched --status %s (scanned %d).\n",
+						strings.TrimSpace(flagStatus), view.ScannedActions)
+					return nil
+				}
 				fmt.Fprintf(cmd.OutOrStdout(), "No failed maintenance actions found (scanned %d).\n", view.ScannedActions)
 				return nil
 			}
@@ -254,13 +316,24 @@ func newNovelSessionTriageCmd(flags *rootFlags) *cobra.Command {
 				fmt.Fprintf(cmd.OutOrStdout(), "%-6d %-6d %-32s %s\n",
 					c.ComputerCount, c.TenantCount, immyTruncate(c.Action, 32), immyTruncate(c.Reason, 80))
 			}
+			// --status can select successes: the summary calls the selection
+			// matched and names as failed only the failures inside it.
+			if wantStatus != "" {
+				failed := ""
+				if view.FailedActions > 0 {
+					failed = fmt.Sprintf(", %d of them failed", view.FailedActions)
+				}
+				fmt.Fprintf(cmd.OutOrStdout(), "\n%d distinct cause(s) across %d action(s) matched by --status %s%s; %d action(s) scanned.\n",
+					len(view.Clusters), view.MatchedActions, strings.TrimSpace(flagStatus), failed, view.ScannedActions)
+				return nil
+			}
 			fmt.Fprintf(cmd.OutOrStdout(), "\n%d distinct failure cause(s) across %d failed action(s); %d action(s) scanned.\n",
 				len(view.Clusters), view.FailedActions, view.ScannedActions)
 			return nil
 		},
 	}
-	cmd.Flags().StringVar(&flagSince, "since", "", "Only consider actions newer than this age (e.g. 24h, 7d, 1w)")
-	cmd.Flags().StringVar(&flagStatus, "status", "", "Cluster actions with this exact status name instead of the default failure statuses")
+	cmd.Flags().StringVar(&flagSince, "since", "", "Only consider actions newer than this age (e.g. 24h, 7d, 1w); an action with no readable endTime, startTime, updatedDateUTC or createdDateUTC never matches and is counted in undated_actions")
+	cmd.Flags().StringVar(&flagStatus, "status", "", "Cluster actions whose outcome (resultName, e.g. Cancelled) or lifecycle status (statusName, e.g. Skipped) is this name instead of the default failures; they count in matched_actions, and only real failures in failed_actions")
 	cmd.Flags().StringVar(&flagTenant, "tenant", "", "Only consider actions whose tenant name contains this substring")
 	cmd.Flags().IntVar(&flagLimit, "limit", 20, "Maximum clusters to return (0 for all)")
 	cmd.Flags().StringVar(&dbPath, "db", "", "Local mirror database path")
@@ -276,4 +349,16 @@ func sortedSetSlice(m map[string]struct{}) []string {
 	}
 	sort.Strings(out)
 	return out
+}
+
+// immyTenantCountKey identifies a tenant for a distinct count: its id, else its
+// name; "" when the row names neither.
+func immyTenantCountKey(tenantID, tenantName string) string {
+	if id := strings.TrimSpace(tenantID); id != "" {
+		return "id:" + id
+	}
+	if name := strings.TrimSpace(tenantName); name != "" {
+		return "name:" + name
+	}
+	return ""
 }

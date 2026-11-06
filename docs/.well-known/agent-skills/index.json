@@ -6,7 +6,7 @@
       "type": "skill-md",
       "description": "The full Abnormal Security REST API as an agent-ready CLI - with a local threat store, ranked SOC triage, and one-shot reporting no SOAR pack offers. Trigger phrases: `triage abnormal threats`, `remediate a phishing campaign in abnormal`, `abnormal email threat report`, `check account takeover risk for an employee`, `vendor email compromise check`, `use abnormal security`, `run abnormal-cli`.",
       "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/abnormal/SKILL.md",
-      "digest": "sha256:5b770759ee4d8f6c8194597ff6b06b7fdd950c098702b76a3f49b392fbc59e5b"
+      "digest": "sha256:0e13a7e0496a192111d720eaa4461248ef5e2d15c5c0404b12bb93d24ddd07fa"
     },
     {
       "name": "acronis",
@@ -27,7 +27,7 @@
       "type": "skill-md",
       "description": "The first CLI for Afi SaaS backup - full public-API coverage plus the fleet-wide coverage, staleness, and offboarding answers the rate-limited API can't serve live. Trigger phrases: `check afi backup coverage`, `which mailboxes aren't backed up in afi`, `afi fleet health`, `offboard a user from afi backup`, `afi backup stale check`, `use afi`, `run afi-cli`.",
       "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/afi/SKILL.md",
-      "digest": "sha256:07a09c49e04fe2f704f2f5b2d9392cb5a7955e47fe8455df77d92af05e3e8938"
+      "digest": "sha256:c4a9490aed27034a069421dc8991b19305f9c23b0f2ed61c9c90263c3c0bf0ff"
     },
     {
       "name": "appdirect",
@@ -55,7 +55,7 @@
       "type": "skill-md",
       "description": "Every Autotask entity at the command line, plus a local SQLite mirror that answers ticket-aging, workload, unbilled-time, and account-360 questions no other Autotask tool can. Trigger phrases: `list autotask tickets`, `autotask company 360`, `who is overloaded in autotask`, `unbilled time in autotask`, `autotask ticket aging`, `use autotask`, `run autotask-cli`.",
       "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/autotask/SKILL.md",
-      "digest": "sha256:ab556f8770af8630eb6d98c7ef4465b05402482bee27030ed9336a64d66c1558"
+      "digest": "sha256:98c274b12e78499eea8e23afde81cb78280f4ef261c6566f87c9eaadc8e804a9"
     },
     {
       "name": "auvik",
@@ -149,6 +149,20 @@
       "digest": "sha256:c8b47110f2555c4971cd93c973ed6d5f3c13cb7f62d42ef0d449de99060d7681"
     },
     {
+      "name": "cloudally",
+      "type": "skill-md",
+      "description": "Use when the user asks about CloudAlly backups of Microsoft 365 or Google Workspace: restores many mailboxes to one past backup date, builds and downloads year-end mailbox archives, lists a mailbox's past backups (which CloudAlly's documented API cannot), and finds stale or failing backups across every partner customer; also partner, reseller and customer accounts, backup tasks, users and billing through the Management API v2. Trigger phrases: `restore all mailboxes to a date in CloudAlly`, `batch restore CloudAlly mailboxes`, `download every mailbox as of December 31`, `year-end mailbox archive from CloudAlly`, `list a CloudAlly mailbox's past backups`, `which CloudAlly backups are failing`, `check CloudAlly restore progress`, `CloudAlly backup status for all customers`, `list CloudAlly backup tasks`, `run a CloudAlly backup now`, `CloudAlly billing`, `use cloudally`, `run cloudally-cli`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/cloudally/SKILL.md",
+      "digest": "sha256:2f2635638bcb5e139cfe75e3bb3ba9cd5b582d779f65ab255350305e6248f51c"
+    },
+    {
+      "name": "comet-backup",
+      "type": "skill-md",
+      "description": "Fleet-wide backup health, failure triage and usage reports for every tenant on your Comet Server, plus the admin API calls an MSP uses day to day. Trigger phrases: `which comet backups failed last night`, `comet backup health across all tenants`, `comet storage usage per customer`, `find offline comet devices`, `re-run failed comet backups`, `use comet-backup`, `run comet-backup`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/comet-backup/SKILL.md",
+      "digest": "sha256:84a17a947e36f9b1ff2c728cccf6894fae308cba57ce851d5a96c28b671ce8ba"
+    },
+    {
       "name": "connect-tool",
       "type": "skill-md",
       "description": "Set up and PROVE authentication for any CLI, MCP server, or Skill by driving your ALREADY-OPEN, logged-in Chrome via the OpenCLI browser bridge (opencli browser bind): your real session, supervised live, never a fresh or headless Chromium. Reconciles to a desired auth state, so it works even when a tool is already connected: first-time setup, token refresh, broadening scopes, key rotation, and repair. Runs on macOS and Windows, storing every secret in the macOS Keychain or Windows Credential Manager without the complete value entering the model context, wires the consumer, and does not stop until a real authenticated call returns live data. Idempotent and self-learning. Use when the user says connect a vendor, set up auth, get me an API key or token, add or broaden a scope, refresh a token, log me into a CLI, wire up credentials, or do the auth setup. Drives your real Chrome through OpenCLI bind only. It does NOT and MUST NOT use any other browser-driving tool or skill, because a spawned browser does not...",
@@ -172,9 +186,9 @@
     {
       "name": "connectwise-control",
       "type": "skill-md",
-      "description": "Use when the user asks to list, search, or inspect ConnectWise Control (ScreenConnect) remote-support and access sessions, run a command on a guest machine, rename or tag sessions, manage instance users, or read the audit log. Turns the ScreenConnect instance surface into typed commands with an offline SQLite mirror. Trigger phrases: `list connectwise control sessions`, `screenconnect session detail`, `run command on a screenconnect guest`, `connectwise control audit log`, `use connectwise control`, `run connectwise-control-cli`.",
+      "description": "Manage ConnectWise Control (ScreenConnect) sessions, users and the audit log from one CLI. Trigger phrases: `list connectwise control sessions`, `screenconnect session detail`, `stale screenconnect agents`, `connectwise control user access review`, `connectwise control audit log`, `use connectwise control`, `run connectwise-control-cli`.",
       "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/connectwise-control/SKILL.md",
-      "digest": "sha256:04e959d85eb395ebe2a3801a9e6b01d5ceecc84256876c59e6970082cd22b9f5"
+      "digest": "sha256:c7b3c2d6da601a3cf56096ca76eecf5d45a9b4839c82f4f94a2003225eb20a66"
     },
     {
       "name": "connectwise-manage",
@@ -209,7 +223,7 @@
       "type": "skill-md",
       "description": "Every CrowdStrike Falcon MSP operation, plus a Flight-Control-aware local store that answers fleet-wide questions across all your tenants at once - something no other Falcon tool (including the official MCP server) does. Trigger phrases: `check crowdstrike alerts across all tenants`, `show stale falcon sensors`, `critical vulnerabilities across my crowdstrike fleet`, `crowdstrike tenant scorecard`, `list falcon child CIDs`, `use crowdstrike-cli`, `run crowdstrike-cli`.",
       "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/crowdstrike/SKILL.md",
-      "digest": "sha256:eff167fcd0bbf04de79478a60e585bb0f280431b13c1ac5cf914927280bb09bd"
+      "digest": "sha256:a07655fa3d2e37da5f45f59d3292110fd112cab0b7784f988ea1ead81ac783bd"
     },
     {
       "name": "datagate",
@@ -321,7 +335,7 @@
       "type": "skill-md",
       "description": "Every ImmyBot endpoint typed, plus a local SQLite mirror that answers the cross-tenant questions the web UI cannot. Trigger phrases: `what failed in last night's maintenance window`, `which tenants are still on an old version of chrome`, `why didn't this computer get the deployment`, `what changed in the fleet since yesterday`, `which computers does this script reach`, `which machines are stuck onboarding`, `use immybot`, `run immybot`.",
       "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/immybot/SKILL.md",
-      "digest": "sha256:d6160e3eeb0e0e4435fb1e8a49d46ff31f7825494c76b3946dfbc0c0d6353030"
+      "digest": "sha256:cedac32faf5e3c5c954be5d8bf59154bc522b7e1551c823105c1ba8cd05c588b"
     },
     {
       "name": "itglue",
@@ -329,6 +343,13 @@
       "description": "Every IT Glue resource, plus an offline SQLite mirror, fleet-wide cross-resource search, and documentation-hygiene analytics no other IT Glue tool offers. Trigger phrases: `find this device across all my IT Glue clients`, `which IT Glue organizations are under-documented`, `audit stale passwords in IT Glue`, `sync IT Glue to a local database`, `what changed in IT Glue since last week`, `use itglue`, `run itglue`.",
       "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/itglue/SKILL.md",
       "digest": "sha256:8aaee2a34f233f9ae1eb30aee973c4ae61c2e154e06872a738e72dc02a06b6fb"
+    },
+    {
+      "name": "jamf-pro",
+      "type": "skill-md",
+      "description": "Every client's Jamf Pro in one CLI: register each instance once, then find devices, check posture and patch status, and audit policies across all of them. Trigger phrases: `which client has this Mac`, `jamf posture across clients`, `macs not checked in`, `patch status in jamf`, `broken jamf policies`, `use jamf-pro`, `run jamf-pro`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/jamf-pro/SKILL.md",
+      "digest": "sha256:6bc15d4b7362d3337fdf7a64f4f3dfb396b76804134d91baf9380e2630378707"
     },
     {
       "name": "jira-service-management",
@@ -342,7 +363,7 @@
       "type": "skill-md",
       "description": "The first dedicated CLI and MCP server for Kaseya BMS - the full PSA surface plus offline sync, full-text search, and the queue, contract-burn, and unbilled-revenue analytics the web grid can't compute. Trigger phrases: `check the BMS queue`, `stale tickets in Kaseya BMS`, `how many contract hours are left`, `unbilled time in BMS`, `BMS sales pipeline`, `use kaseya-bms`, `run kaseya-bms`.",
       "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/kaseya-bms/SKILL.md",
-      "digest": "sha256:03f47661cd1d4c451a1d2e6411fcff9635302554ef38418727439b972c092922"
+      "digest": "sha256:7ad3b1c1795c945953d354269f4ede5818777854b37969f17c402843946ab647"
     },
     {
       "name": "kaseya-vsa",
@@ -350,6 +371,13 @@
       "description": "Every VSA 10 API endpoint, plus a local fleet database that answers patch, health, and software questions across all your clients offline. Trigger phrases: `which devices are missing critical patches`, `kaseya vsa fleet health`, `run a vsa script on a device and get the output`, `who has this software installed in vsa`, `use kaseya vsa`, `run kaseya-vsa`.",
       "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/kaseya-vsa/SKILL.md",
       "digest": "sha256:54cab9ace2b990a3059a41b671ab496c8bf0fe6067b7bca8240a5bbee67f0195"
+    },
+    {
+      "name": "keeper",
+      "type": "skill-md",
+      "description": "Read-only Keeper MSP posture across every client, with history, a change feed and no path to a vault secret. Trigger phrases: `which keeper clients have users without 2fa`, `keeper msp posture report`, `keeper seats per managed company`, `keeper breachwatch exposure across clients`, `use keeper`, `run keeper`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/keeper/SKILL.md",
+      "digest": "sha256:de8bdaabaf5fd2640b8ceae87d8fec9087565c829bf514aa4a2429d05d7bc87e"
     },
     {
       "name": "knowbe4",
@@ -370,14 +398,14 @@
       "type": "skill-md",
       "description": "Every Liongard endpoint, plus an offline copy of your whole MSP estate you can join, search, and drift-check from one command. Trigger phrases: `what changed across my Liongard environments`, `show stale Liongard launchpoints`, `which Liongard agents are offline`, `pivot a Liongard metric across all systems`, `Liongard drift report`, `use liongard`, `run liongard`.",
       "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/liongard/SKILL.md",
-      "digest": "sha256:7ab58c55bbc74f52dda461eb53724269edf3b00b95aef52c7756eafcca6d260f"
+      "digest": "sha256:75e7fa45377f9e8b830f4b36c5775bc52c51a947903046848e1bcaeeec10d9c5"
     },
     {
       "name": "maxio",
       "type": "skill-md",
       "description": "Open, local revenue-intelligence CLI for Maxio Advanced Billing - MRR waterfalls, retention, and per-client history computed offline from a SQLite mirror, so the trended history survives even though the live API returns only point-in-time figures. Trigger phrases: `what's our MRR`, `show the MRR waterfall`, `recurring revenue for this customer`, `net revenue retention this year`, `what revenue needs attention`, `use maxio`, `run maxio`.",
       "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/maxio/SKILL.md",
-      "digest": "sha256:5e07069313b462676a164776589f1285fc194943214d22101b00c54080b39fdd"
+      "digest": "sha256:d6cc8b1786b3ad06fe7e4184da698f514f1742a93191526d283d2a2e94cbe4a8"
     },
     {
       "name": "microsoft-graph",
@@ -508,9 +536,9 @@
     {
       "name": "rewst",
       "type": "skill-md",
-      "description": "Use when the user asks to check Rewst automation health, find failed or dormant workflows, report automation ROI/time-saved, compare config drift between client orgs, or check integration-pack coverage across tenants. Turns Rewst's GraphQL-only gateway into typed commands and adds cross-org rollups the web app makes you assemble one client at a time. Trigger phrases: `check rewst automation health`, `rewst failed workflows`, `how much time did rewst save`, `rewst config drift between orgs`, `which rewst orgs are missing a pack`, `use rewst`, `run rewst`.",
+      "description": "Every Rewst entity as a typed command, plus fleet health, ROI, drift and coverage rollups. Trigger phrases: `check rewst automation health`, `rewst failed workflows`, `how much time did rewst save`, `rewst config drift between orgs`, `which rewst orgs are missing a pack`, `use rewst`, `run rewst`.",
       "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/rewst/SKILL.md",
-      "digest": "sha256:71a44cb7f7d61e34e1808f4e911f36b26d43f2d648379a48cfd95d20cce934ff"
+      "digest": "sha256:a7549456d1e20bd39dc2675e33b137a6c4911cadaa3ae2db58e565f65e90046e"
     },
     {
       "name": "riverside-fm",
@@ -566,7 +594,7 @@
       "type": "skill-md",
       "description": "Use when the user asks where their attention is needed across Servosity clients, which backups went stale, what changed since yesterday, to build QBR backup reports, draft stale-backup follow-up emails, watch restore queues during a DR event, reconcile the Servosity bill against client invoicing, find unprovisioned agents, audit retention tiers against a required minimum, or group this month's backup failures by root cause. Wraps the Servosity partner API plus a local fleet mirror with snapshot history. Trigger phrases: `what needs my attention on servosity`, `fleet stale backups`, `show me the QBR backup report for`, `triage servosity issues`, `drift since yesterday on servosity`, `watch restore queue`, `reconcile servosity bill`, `servosity retention audit`, `cluster servosity backup failures`, `Servosity + ChatGPT`, `Servosity + Claude`, `use servosity`, `run servosity-cli`.",
       "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/servosity/SKILL.md",
-      "digest": "sha256:a22490945fbbe32de57f20a50bdd4e063cb72b48d760e87c453605ae60933cc3"
+      "digest": "sha256:3f623bd0c7073b12ff2a9b88e3ed80bfbe6cb13743e385c3b60e76a55620c00e"
     },
     {
       "name": "sherweb",
@@ -660,6 +688,13 @@
       "digest": "sha256:e934b185a99746772c7721273143306dc9b6645dd9a5312999572707d1e5e593"
     },
     {
+      "name": "vsphere",
+      "type": "skill-md",
+      "description": "Read-only vCenter inventory for migration planning: blockers, snapshots, per-core licence exposure and Proxmox mapping, as JSON an agent can use. Trigger phrases: `inventory our vcenter`, `what blocks the vmware migration`, `how many cores will broadcom charge us`, `find old vmware snapshots`, `export rvtools from vcenter`, `use vsphere`, `run vsphere-cli`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/vsphere/SKILL.md",
+      "digest": "sha256:63105574aa4f24db496ed2b25ebd7e984ef1f6597c50d24f9596ac0a09d26f83"
+    },
+    {
       "name": "warranty",
       "type": "skill-md",
       "description": "Dell, Lenovo and Apple warranty end dates for every client's devices, in one local mirror. Trigger phrases: `is this laptop still under warranty`, `warranty end date for serial`, `which devices go out of warranty this quarter`, `dell warranty lookup`, `lenovo warranty lookup`, `use warranty`, `run warranty-cli`.",
@@ -693,6 +728,13 @@
       "description": "Every Zammad ticket, article, and Knowledge Base operation as one CLI and MCP server - plus a team-management layer (agent load, customer health, aging backlog, escalation triage, churn risk, feedback mining) the Zammad API can't answer in a single call. Trigger phrases: `who is overloaded in support`, `which customers are at risk`, `what tickets are open too long`, `who should we escalate`, `what feedback are we getting`, `search zammad tickets`, `use zammad`, `run zammad`.",
       "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/zammad/SKILL.md",
       "digest": "sha256:358b8a4d2818908ad53e9af2d45740a7588bf2257f154404a93105ca3094ad0f"
+    },
+    {
+      "name": "zoom-phone",
+      "type": "skill-md",
+      "description": "Every Zoom Phone admin operation plus E911, routing and footprint audits, across every client account. Trigger phrases: `audit zoom phone e911`, `what does this zoom phone user have`, `which call queues is this user in`, `where does this zoom phone number ring`, `zoom phone missed calls callback list`, `offboard a zoom phone user`, `zoom phone unassigned numbers`, `offline zoom desk phones`, `broken zoom phone call routing`, `run a zoom phone audit across all client accounts`, `use zoom-phone`, `run zoom-phone`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/zoom-phone/SKILL.md",
+      "digest": "sha256:067b51e9cdbf486193982fb305d2f016d86bd7ad4ccfc7770aa586952d0d36e6"
     }
   ]
 }

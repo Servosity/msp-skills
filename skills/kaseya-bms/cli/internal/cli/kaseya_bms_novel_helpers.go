@@ -157,14 +157,32 @@ func kbmsTime(m map[string]any, key string) (time.Time, bool) {
 
 // kbmsTicketOpen reports whether a ticket row represents open work: no
 // CompletedDate and a status that does not read as a terminal state.
+//
+// kaseya-bms handfix ticket-status-whole-word (Codex review r1 class
+// incorrect terminal-status classification): StatusName is tenant-defined
+// text, so a status is terminal only when one of its words IS a terminal word
+// that the word right before it does not negate or defer ("Not Resolved",
+// "Pending Closed"); a negating word elsewhere describes something else
+// ("Cancelled - No Charge", Codex review r2). The substring match read
+// "Unresolved" as resolved and dropped the open ticket from every novel.
 func kbmsTicketOpen(m map[string]any) bool {
 	if _, done := kbmsTime(m, "CompletedDate"); done {
 		return false
 	}
-	status := strings.ToLower(kbmsStr(m, "StatusName"))
-	for _, terminal := range []string{"completed", "closed", "cancelled", "canceled", "resolved"} {
-		if strings.Contains(status, terminal) {
-			return false
+	words := strings.FieldsFunc(strings.ToLower(kbmsStr(m, "StatusName")), func(r rune) bool {
+		return (r < 'a' || r > 'z') && (r < '0' || r > '9')
+	})
+	for i, w := range words {
+		switch w {
+		case "completed", "complete", "closed", "cancelled", "canceled", "resolved":
+			if i == 0 {
+				return false
+			}
+			switch words[i-1] {
+			case "not", "no", "pending", "awaiting", "waiting":
+			default:
+				return false
+			}
 		}
 	}
 	return true

@@ -23,10 +23,11 @@ type waterfallPeriod struct {
 }
 
 type waterfallView struct {
-	Since   string            `json:"since,omitempty"`
-	GroupBy string            `json:"group_by"`
-	Periods []waterfallPeriod `json:"periods"`
-	Totals  waterfallPeriod   `json:"totals"`
+	Since    string            `json:"since,omitempty"`
+	Currency string            `json:"currency,omitempty"`
+	GroupBy  string            `json:"group_by"`
+	Periods  []waterfallPeriod `json:"periods"`
+	Totals   waterfallPeriod   `json:"totals"`
 }
 
 // pp:data-source local
@@ -67,10 +68,12 @@ func newNovelMrrWaterfallCmd(flags *rootFlags) *cobra.Command {
 				return err
 			}
 			defer st.Close()
+			currency, money := revenueMoney(cmd.Context(), db)
 
 			if has, _ := revenue.HasMovements(cmd.Context(), db); !has {
 				hintRunMrrSync(cmd.ErrOrStderr())
 			}
+			warnIfMovementsIncomplete(cmd.Context(), db, cmd.ErrOrStderr())
 
 			q := `SELECT ts, bucket, amount_cents FROM rev_mrr_movements`
 			var rows interface {
@@ -113,7 +116,7 @@ func newNovelMrrWaterfallCmd(flags *rootFlags) *cobra.Command {
 				return fmt.Errorf("scanning movements: %w", err)
 			}
 
-			view := waterfallView{Since: cutoff, GroupBy: groupBy, Periods: make([]waterfallPeriod, 0, len(periods))}
+			view := waterfallView{Since: cutoff, Currency: currency, GroupBy: groupBy, Periods: make([]waterfallPeriod, 0, len(periods))}
 			for _, p := range periods {
 				p.NetCents = p.NewCents + p.Expansion + p.Contraction + p.Churn + p.Reactivation
 				view.Periods = append(view.Periods, *p)
@@ -132,13 +135,13 @@ func newNovelMrrWaterfallCmd(flags *rootFlags) *cobra.Command {
 				fmt.Fprintf(w, "%-9s %12s %12s %12s %12s %12s %12s\n", "period", "new", "expansion", "contract", "churn", "reactiv", "net")
 				for _, p := range view.Periods {
 					fmt.Fprintf(w, "%-9s %12s %12s %12s %12s %12s %12s\n", p.Period,
-						revenue.Cents(p.NewCents), revenue.Cents(p.Expansion), revenue.Cents(p.Contraction),
-						revenue.Cents(p.Churn), revenue.Cents(p.Reactivation), revenue.Cents(p.NetCents))
+						money(p.NewCents), money(p.Expansion), money(p.Contraction),
+						money(p.Churn), money(p.Reactivation), money(p.NetCents))
 				}
 				t := view.Totals
 				fmt.Fprintf(w, "%-9s %12s %12s %12s %12s %12s %12s\n", "TOTAL",
-					revenue.Cents(t.NewCents), revenue.Cents(t.Expansion), revenue.Cents(t.Contraction),
-					revenue.Cents(t.Churn), revenue.Cents(t.Reactivation), revenue.Cents(t.NetCents))
+					money(t.NewCents), money(t.Expansion), money(t.Contraction),
+					money(t.Churn), money(t.Reactivation), money(t.NetCents))
 			})
 		},
 	}

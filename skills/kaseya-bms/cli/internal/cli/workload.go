@@ -16,6 +16,7 @@ import (
 
 type workloadRow struct {
 	Assignee    string         `json:"assignee"`
+	AssigneeID  string         `json:"assignee_id,omitempty"`
 	OpenTickets int            `json:"open_tickets"`
 	ByPriority  map[string]int `json:"by_priority"`
 	HoursLogged float64        `json:"hours_logged_window"`
@@ -56,10 +57,17 @@ func aggregateWorkload(ticketRows, timelogRows []map[string]any, windowDays int,
 				return row
 			}
 		}
+		// The name joins only when it cannot merge two different known ids
+		// (kaseya-bms handfix record-identity-by-id; Codex review r1 class
+		// technician identity collision: two techs named "Alex Smith" with
+		// AssigneeId 7 and 8 were one row).
 		if norm != "" {
-			if row, ok := byName[norm]; ok {
+			if row, ok := byName[norm]; ok && (id == "" || row.AssigneeID == "" || row.AssigneeID == id) {
 				if id != "" {
 					byID[id] = row
+					if row.AssigneeID == "" {
+						row.AssigneeID = id
+					}
 				}
 				return row
 			}
@@ -67,7 +75,7 @@ func aggregateWorkload(ticketRows, timelogRows []map[string]any, windowDays int,
 		if id == "" && norm == "" {
 			return nil
 		}
-		row := &workloadRow{Assignee: name, ByPriority: map[string]int{}}
+		row := &workloadRow{Assignee: name, AssigneeID: id, ByPriority: map[string]int{}}
 		if id != "" {
 			byID[id] = row
 		}

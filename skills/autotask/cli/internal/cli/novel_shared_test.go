@@ -6,22 +6,22 @@ import (
 	"time"
 )
 
-// TestAccrueBlock pins the contract-block field-name contract shared by
-// contract-burn, reconcile, account-brief, and retainer: blocks reporting
-// what's LEFT derive used; blocks reporting what's USED derive remaining.
+// TestAccrueBlock pins the contract-block fields shared by contract-burn,
+// reconcile, account-brief, and retainer: ContractBlockModel (spec.json)
+// documents hours (purchased) and hoursApproved (used); remaining is derived.
+// The undocumented hoursLeft / hoursRemaining / hoursUsed forms are not read
+// (Codex r1 class wrong-field-read-from-a-documented-response).
 func TestAccrueBlock(t *testing.T) {
 	cases := []struct {
 		name                       string
 		block                      map[string]any
 		purchased, used, remaining float64
 	}{
-		{"hoursLeft form", map[string]any{"hours": 100.0, "hoursLeft": 30.0}, 100, 70, 30},
-		{"hoursRemaining fallback", map[string]any{"hours": 50.0, "hoursRemaining": 50.0}, 50, 0, 50},
-		{"hoursUsed form", map[string]any{"hours": 40.0, "hoursUsed": 10.0}, 40, 10, 30},
-		{"hoursApproved fallback", map[string]any{"hours": 20.0, "hoursApproved": 25.0}, 20, 25, -5},
-		{"hoursLeft wins over hoursUsed", map[string]any{"hours": 10.0, "hoursLeft": 4.0, "hoursUsed": 9.0}, 10, 6, 4},
+		{"hoursApproved", map[string]any{"hours": 40.0, "hoursApproved": 10.0}, 40, 10, 30},
+		{"over-consumed", map[string]any{"hours": 20.0, "hoursApproved": 25.0}, 20, 25, -5},
+		{"undocumented forms ignored", map[string]any{"hours": 10.0, "hoursLeft": 4.0, "hoursUsed": 9.0, "hoursApproved": 2.0}, 10, 2, 8},
 		{"neither side reported", map[string]any{"hours": 8.0}, 8, 0, 0},
-		{"numeric strings (store decode)", map[string]any{"hours": "12", "hoursLeft": "3"}, 12, 9, 3},
+		{"numeric strings (store decode)", map[string]any{"hours": "12", "hoursApproved": "3"}, 12, 3, 9},
 		{"empty block", map[string]any{}, 0, 0, 0},
 	}
 	for _, tc := range cases {

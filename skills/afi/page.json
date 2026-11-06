@@ -8,8 +8,8 @@
     },
     {
       "instead": "Tab through every tenant's task history hunting for the nightly backups that quietly stopped landing.",
-      "say": "Show me protected resources whose newest backup is older than 48 hours.",
-      "cli": "afi-cli backup-stale --max-age 48h --agent"
+      "say": "Which protected resources have stopped getting backed up?",
+      "cli": "afi-cli backup-stale --agent"
     },
     {
       "instead": "Stitch two portal screens into a spreadsheet to compare licenses purchased against seats actually protected.",
@@ -28,8 +28,8 @@
       "command": "afi-cli coverage-gaps --agent"
     },
     {
-      "question": "Which protected resources have a stale backup (silent failures)?",
-      "command": "afi-cli backup-stale --max-age 48h --agent"
+      "question": "Which protected resources are not getting backed up (silent failures)?",
+      "command": "afi-cli backup-stale --agent"
     },
     {
       "question": "Is the whole fleet green this morning, or who failed?",
@@ -57,7 +57,7 @@
   "faqs": [
     {
       "q": "Does this work with ChatGPT?",
-      "a": "Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way afi-mcp runs, and shares MCP configuration with Codex: add afi-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote (HTTP) server, and this connector's HTTP mode is paused until it is reprinted; the security note at the top of the install guide explains why. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list."
+      "a": "Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way afi-mcp runs, and shares MCP configuration with Codex: add afi-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote (HTTP) server, which msp-skills does not support yet. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list."
     },
     {
       "q": "Do I need to know how to code?",
@@ -65,7 +65,7 @@
     },
     {
       "q": "Is my Afi data safe?",
-      "a": "Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills."
+      "a": "Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, credentials are never bundled or transmitted by MSP Skills, and the key goes only to the Afi API host."
     },
     {
       "q": "What does it cost?",

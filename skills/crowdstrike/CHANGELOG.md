@@ -4,6 +4,32 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.1.11] - 2026-11-05
+
+### Security
+- **Rebuilt on Printing Press 4.34.2 ([GHSA-jh26-vhqh-692c](https://github.com/advisories/GHSA-jh26-vhqh-692c)).** The MCP server's HTTP mode listens on `127.0.0.1:7777` by default, refuses to start until `CROWDSTRIKE_MCP_HTTP_TOKEN` is set (at least 32 characters), requires `Authorization: Bearer <token>` on every request, and needs `--tls-cert` and `--tls-key` for any address other than loopback.
+- **Every MCP write previews first.** A tool call that changes CrowdStrike (containing a host, updating alerts, editing policies, host groups or Flight Control groups) returns a preview and sends nothing until it is called again with `confirm` set to boolean true. A tool argument can never name a file to read or write.
+- **The client ID and secret go only to your cloud's token endpoint.** Setting `CROWDSTRIKE_BASE_URL` to US-2, EU-1 or GovCloud now sends the token request to `/oauth2/token` on that same cloud (unless `CROWDSTRIKE_TOKEN_URL` names another), for `auth login`, the automatic sign-in, token refresh and `fleet sync`. The token request sends the client pair in the form body, as CrowdStrike documents.
+- **Credentials stay in one place.** Only `credentials.toml` (mode 0600) holds a credential; a client pair supplied by the environment, and the token minted for it, are never written to disk. Responses are never cached on disk, and any output, file or MCP result that would repeat a credential this program holds is withheld.
+- **Credentials are guarded by the shared credential kit.** Output, files, requests, SQL statements, child processes and MCP messages that carry a credential this program holds (the client pair, a minted token, the MCP HTTP token, or the password or query values of a URL setting) are withheld whole and replaced by a "[credkit: withheld ...]" notice, from before the first line is printed. A learn session label is stored only as a hash, and a mistyped flag name is never written to the learn journal.
+
+### Added
+- `CROWDSTRIKE_MCP_READ_ONLY` (preset to `1` in the Claude Desktop bundle and the install configs) makes the MCP server refuse every write. `CROWDSTRIKE_NO_LOCAL_DATA=1` keeps no local copy of API responses, and `local-data purge` erases the local store, cache and learn journal. Both switches are declared on every install channel.
+- `sync` can also store Spotlight installed patches and vulnerabilities, and two MSSP member queries.
+
+### Changed
+- `CROWDSTRIKE_OAUTH_SCOPE` is optional and not a secret in every install prompt; leave it blank, CrowdStrike grants scopes to the API client in the Falcon console.
+- The generic `sync` partitions now hold records: `devices` stores host records (keyed by device ID) instead of bare IDs, `incidents` stores CrowdScores and `policy` stores prevention-policy members. Run `sync --full` once after upgrading to replace the old ID rows. The `fleet` commands use their own tables and are unaffected.
+
+### Fixed
+- **`fleet sync` reads every page** of each tenant's hosts, alerts and vulnerabilities, and replaces a tenant's stored rows only after a read it can prove complete. A filtered read (`--vuln-filter`) or a failed, short or capped read adds and updates rows but deletes none, and a posture snapshot is recorded only when hosts, alerts and vulnerabilities all read completely.
+- **Fleet rows from an older version no longer count as current.** Hosts, alerts, vulnerabilities and policies an older version stored for the authenticated CID are left out of every `fleet` rollup. `fleet sync` and each rollup print one line saying how many rows are excluded, and the next complete `fleet sync` of that kind replaces them.
+- **Each child tenant uses its own token.** `fleet sync` keeps every child CID's member_cid token in memory and sends it only for that CID, so one tenant's data is never stored under another.
+- `auth login` saves a token only beside the API client that minted it. When the credential store holds another client, a login from `FALCON_CLIENT_ID` and `FALCON_CLIENT_SECRET` now saves nothing and says how to store that client instead.
+- `fleet sync` of the authenticated CID (no `--cids`, `--member-cid` or `--all-cids`) now removes the hosts, alerts, vulnerabilities and policies a complete read no longer returns. Those rows are tied to the API client that read them, so a sync never removes another client's rows from a shared `--db`.
+- `fleet sync` reads each kind and each CID once, however it is named: a kind given twice, an alias such as `spotlight`, another letter case, or a CID listed twice no longer doubles the counts or the posture snapshot `fleet trend` reports.
+- `doctor` checks `api.crowdstrike.com` as the real US-1 API instead of reporting it as an unset placeholder, and names `FALCON_CLIENT_ID` and `FALCON_CLIENT_SECRET` in its auth hint.
+
 ## [0.1.10] - 2026-10-23
 
 ### Security

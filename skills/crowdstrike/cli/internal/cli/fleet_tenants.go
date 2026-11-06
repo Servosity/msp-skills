@@ -289,7 +289,12 @@ func newNovelFleetTenantsCmd(flags *rootFlags) *cobra.Command {
 			"'fleet scorecard' instead.",
 		Example: "  crowdstrike-cli fleet tenants --json\n" +
 			"  crowdstrike-cli fleet tenants --expected cids.txt --json",
-		Annotations: map[string]string{"mcp:read-only": "true"},
+		// crowdstrike handfix mcp-local-read-flag-expected (4.34.2 shape): --expected
+		// names a file on the machine that runs the MCP server; mcp:read-flags
+		// removes it from the tool schema and refuses it, so no tool call can
+		// point the read at another file. The operator still passes it on the
+		// command line.
+		Annotations: map[string]string{"mcp:read-only": "true", "mcp:read-flags": "expected"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if dryRunOK(flags) {
 				return nil
