@@ -1503,7 +1503,7 @@
       "displayName": "Rewst",
       "type": "text/markdown; profile=\"urn:air:agent-skills\"",
       "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/rewst/SKILL.md",
-      "description": "Use when the user asks to check Rewst automation health, find failed or dormant workflows, report automation ROI/time-saved, compare config drift between client orgs, or check integration-pack coverage across tenants. Turns Rewst's GraphQL-only gateway into typed commands and adds cross-org rollups the web app makes you assemble one client at a time. Trigger phrases: `check rewst automation health`, `rewst failed workflows`, `how much time did rewst save`, `rewst config drift between orgs`, `which rewst orgs are missing a pack`, `use rewst`, `run rewst`.",
+      "description": "Every Rewst entity as a typed command, plus fleet health, ROI, drift and coverage rollups. Trigger phrases: `check rewst automation health`, `rewst failed workflows`, `how much time did rewst save`, `rewst config drift between orgs`, `which rewst orgs are missing a pack`, `use rewst`, `run rewst`.",
       "tags": [
         "Automation"
       ],

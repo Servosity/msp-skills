@@ -95,6 +95,62 @@
       {
         "var": "AWS_REGION",
         "reason": "Resolved by aws-sdk-go-v2's config.LoadDefaultConfig region chain (internal/awsx/client.go), not by any os.Getenv in this repo. Cost Explorer is pinned to us-east-1 regardless; this steers the EC2/CloudWatch/S3 clients."
+      },
+      {
+        "var": "AWS_ACCESS_KEY",
+        "reason": "Held, not prompted: skills/aws-billing/cli/internal/credwire/declarations.go names it only so the shared credential kit holds the value aws-sdk-go-v2's default chain will read (internal/awsx/client.go config.LoadDefaultConfig). Legacy alias of AWS_ACCESS_KEY_ID, which the manifest already prompts for; a second prompt would ask for the same key twice."
+      },
+      {
+        "var": "AWS_SECRET_KEY",
+        "reason": "Held, not prompted: skills/aws-billing/cli/internal/credwire/declarations.go names it only so the shared credential kit holds the value aws-sdk-go-v2's default chain will read (internal/awsx/client.go config.LoadDefaultConfig). Legacy alias of AWS_SECRET_ACCESS_KEY, which the manifest already prompts for."
+      },
+      {
+        "var": "AWS_SECURITY_TOKEN",
+        "reason": "Held, not prompted: skills/aws-billing/cli/internal/credwire/declarations.go names it only so the shared credential kit holds the value aws-sdk-go-v2's default chain will read (internal/awsx/client.go config.LoadDefaultConfig). Legacy alias of AWS_SESSION_TOKEN, which the manifest already prompts for."
+      },
+      {
+        "var": "AWS_DEFAULT_PROFILE",
+        "reason": "Held, not prompted: skills/aws-billing/cli/internal/credwire/declarations.go names it only so the shared credential kit holds the value aws-sdk-go-v2's default chain will read (internal/awsx/client.go config.LoadDefaultConfig). Legacy fallback for AWS_PROFILE (also read by internal/cli/awsbilling_scope.go to name the account scope), which the manifest prompts for."
+      },
+      {
+        "var": "AWS_CONFIG_FILE",
+        "reason": "Held, not prompted: skills/aws-billing/cli/internal/credwire/declarations.go names it only so the shared credential kit holds the value aws-sdk-go-v2's default chain will read (internal/awsx/client.go config.LoadDefaultConfig). Relocates ~/.aws/config; set by the operator's shell or AWS tooling, and the bundle uses the default path."
+      },
+      {
+        "var": "AWS_SHARED_CREDENTIALS_FILE",
+        "reason": "Held, not prompted: skills/aws-billing/cli/internal/credwire/declarations.go names it only so the shared credential kit holds the value aws-sdk-go-v2's default chain will read (internal/awsx/client.go config.LoadDefaultConfig). Relocates ~/.aws/credentials; set by the operator's shell or AWS tooling, and the bundle uses the default path."
+      },
+      {
+        "var": "AWS_LOGIN_CACHE_DIRECTORY",
+        "reason": "Held, not prompted: skills/aws-billing/cli/internal/credwire/declarations.go names it only so the shared credential kit holds the value aws-sdk-go-v2's default chain will read (internal/awsx/client.go config.LoadDefaultConfig). Relocates the SSO login token cache that aws sso login writes; never typed by an operator."
+      },
+      {
+        "var": "AWS_WEB_IDENTITY_TOKEN_FILE",
+        "reason": "Held, not prompted: skills/aws-billing/cli/internal/credwire/declarations.go names it only so the shared credential kit holds the value aws-sdk-go-v2's default chain will read (internal/awsx/client.go config.LoadDefaultConfig). Set by the EKS/IRSA runtime, not an operator; meaningless in a desktop install."
+      },
+      {
+        "var": "AWS_CONTAINER_CREDENTIALS_FULL_URI",
+        "reason": "Held, not prompted: skills/aws-billing/cli/internal/credwire/declarations.go names it only so the shared credential kit holds the value aws-sdk-go-v2's default chain will read (internal/awsx/client.go config.LoadDefaultConfig). Set by the ECS/EKS container runtime, not an operator; meaningless in a desktop install."
+      },
+      {
+        "var": "AWS_CONTAINER_AUTHORIZATION_TOKEN",
+        "reason": "Held, not prompted: skills/aws-billing/cli/internal/credwire/declarations.go names it only so the shared credential kit holds the value aws-sdk-go-v2's default chain will read (internal/awsx/client.go config.LoadDefaultConfig). Set by the ECS/EKS container runtime, not an operator; meaningless in a desktop install."
+      },
+      {
+        "var": "AWS_CONTAINER_AUTHORIZATION_TOKEN_FILE",
+        "reason": "Held, not prompted: skills/aws-billing/cli/internal/credwire/declarations.go names it only so the shared credential kit holds the value aws-sdk-go-v2's default chain will read (internal/awsx/client.go config.LoadDefaultConfig). Set by the ECS/EKS container runtime, not an operator; meaningless in a desktop install."
+      },
+      {
+        "var": "AWS_BILLING_BLACKBOX_AWS_ENDPOINT",
+        "reason": "Test build only: read in skills/aws-billing/cli/internal/awsx/awsbilling_testendpoint.go behind the awsbilling_blackbox build tag, which release builds never set, to point the black-box suite at its fake AWS. A shipped binary does not contain it."
+      },
+      {
+        "var": "AWS_BILLING_BLACKBOX_AWS_CA",
+        "reason": "Test build only: same build-tagged file as AWS_BILLING_BLACKBOX_AWS_ENDPOINT, the fake AWS's CA certificate. A shipped binary does not contain it."
+      },
+      {
+        "var": "PRINTING_PRESS_CLIENT_PROFILE",
+        "reason": "Read by the press 4.34 platform layer (internal/platform/profile.go), but aws-billing registers no platform source (internal/cli/platform_client.go: registerPlatformSource is never called), so a prompt would promise a tenant binding this binary does not provide. AWS scopes every call by the caller's own account (sts:GetCallerIdentity). Declare it if a later print registers a source."
       }
     ],
     "autotask": [

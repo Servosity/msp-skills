@@ -1,0 +1,108 @@
+{
+ "sites": [
+  {
+   "file": "cmd/rewst-mcp/main.go",
+   "func": "run",
+   "what": "convert:github.com/mark3labs/mcp-go/server.StreamableHTTPServer.ServeHTTP",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "the MCP HTTP handler is served only inside credkit.MCPHTTP (credkit-mcphttp-outermost)"
+  },
+  {
+   "file": "internal/cli/rewst_graphql_errors.go",
+   "func": "graphQLErrorsTripper.RoundTrip",
+   "what": "net/http.RoundTripper.RoundTrip",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "next is the kit-guarded transport (rewst_guard.go); this only reads the answer the kit has checked"
+  },
+  {
+   "file": "internal/cli/rewst_guard.go",
+   "func": "guardClient",
+   "what": "convert:rewst-pp-cli/internal/cli.graphQLErrorsTripper.RoundTrip",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "graphQLErrorsTripper wraps the transport client.New already built with credkit.Transport (OutboundGuard); under --dry-run it wraps credkit.Transport(dryRunTripper{})"
+  },
+  {
+   "file": "internal/cli/rewst_guard.go",
+   "func": "guardClient",
+   "what": "net/http.Client.Transport",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "graphQLErrorsTripper wraps the transport client.New already built with credkit.Transport (OutboundGuard); under --dry-run it wraps credkit.Transport(dryRunTripper{})"
+  },
+  {
+   "file": "internal/cliutil/credkit_stdin.go",
+   "func": "CompactStdinBody",
+   "what": "os.File.Close",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs inside Start from the Files hook: reads stdin and hands the kit a private pipe or the null device; prints nothing"
+  },
+  {
+   "file": "internal/cliutil/credkit_stdin.go",
+   "func": "CompactStdinBody",
+   "what": "os.File.Stat",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs inside Start from the Files hook: reads stdin and hands the kit a private pipe or the null device; prints nothing"
+  },
+  {
+   "file": "internal/cliutil/credkit_stdin.go",
+   "func": "CompactStdinBody",
+   "what": "os.File.Write",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs inside Start from the Files hook: reads stdin and hands the kit a private pipe or the null device; prints nothing"
+  },
+  {
+   "file": "internal/cliutil/credkit_stdin.go",
+   "func": "CompactStdinBody",
+   "what": "writer:*os.File",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs inside Start from the Files hook: reads stdin and hands the kit a private pipe or the null device; prints nothing"
+  },
+  {
+   "file": "internal/cliutil/credkit_stdin.go",
+   "func": "StashFeedbackStdin",
+   "what": "os.Open",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs inside Start from the Files hook: reads stdin and hands the kit a private pipe or the null device; prints nothing"
+  },
+  {
+   "file": "internal/cliutil/credkit_stdin.go",
+   "func": "StashFeedbackStdin",
+   "what": "writer:*os.File",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs inside Start from the Files hook: reads stdin and hands the kit a private pipe or the null device; prints nothing"
+  },
+  {
+   "file": "internal/credsql/credsql.go",
+   "func": "applyLengthLimit",
+   "what": "database/sql.DB.Conn",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the driver probe inside the driver that credkit.SQLDriver wraps; carries no connector data"
+  },
+  {
+   "file": "internal/credsql/credsql.go",
+   "func": "applyLengthLimit",
+   "what": "database/sql.OpenDB",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "the driver probe inside the driver that credkit.SQLDriver wraps; carries no connector data"
+  },
+  {
+   "file": "internal/credwire/declarations.go",
+   "func": "readRegular",
+   "what": "os.DirFS",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "readRegular runs inside Start and only hands the config, store and profile bytes to credkit.HoldBody and HoldURL"
+  }
+ ]
+}

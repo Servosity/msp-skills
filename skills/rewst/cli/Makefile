@@ -1,7 +1,9 @@
 .PHONY: build test lint install clean
 
+BIN_EXT := $(if $(filter windows,$(shell go env GOOS)),.exe,)
+
 build:
-	go build -o bin/rewst-cli ./cmd/rewst-cli
+	go build -trimpath -o bin/rewst-cli$(BIN_EXT) ./cmd/rewst-cli
 
 test:
 	go test ./...
@@ -16,7 +18,7 @@ clean:
 	rm -rf bin/
 
 build-mcp:
-	go build -o bin/rewst-mcp ./cmd/rewst-mcp
+	go build -trimpath -o bin/rewst-mcp$(BIN_EXT) ./cmd/rewst-mcp
 
 install-mcp:
 	go install ./cmd/rewst-mcp

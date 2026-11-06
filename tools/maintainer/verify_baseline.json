@@ -199,12 +199,6 @@
    "read-only",
    "local-data"
   ],
-  "rewst": [
-   "mcp-http",
-   "write-gating",
-   "read-only",
-   "local-data"
-  ],
   "riverside-fm": [
    "mcp-http",
    "read-only",
