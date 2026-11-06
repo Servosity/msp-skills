@@ -655,6 +655,25 @@
      "code_only": true
     }
    ]
+  },
+  {
+   "id": "gitleaks-low-entropy-password-example",
+   "class": "example-token-trips-gitleaks",
+   "summary": "The generated pp:happy-args annotation on infrastructure delete-backup-server-encryption-password uses low-entropy placeholder UIDs, so gitleaks does not read passwordUid=<uuid> as a leaked password",
+   "why": "Press 4.35.1 emits pp:happy-args from the spec's path examples (spec repair 1 gave every path parameter the RFC 4122 sample UUID 3f2504e0-4f89-11d3-9a0c-0305e82c3301). gitleaks' generic-api-key rule matches `passwordUid=<high-entropy value>` and verify_all/CI fail. The UIDs are not secrets; a low-entropy placeholder keeps the example runnable. Spec-side follow-up: prep.py could give passwordUid a low-entropy example so a reprint emits this by construction.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/infrastructure_delete-backup-server-encryption-password.go",
+     "contains": "passwordUid=00000000-0000-0000-0000-000000000002",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/infrastructure_delete-backup-server-encryption-password.go",
+     "not_contains": "passwordUid=3f2504e0"
+    }
+   ]
   }
  ],
  "retired": [

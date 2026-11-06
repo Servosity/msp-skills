@@ -23,7 +23,7 @@ func newInfrastructureDeleteBackupServerEncryptionPasswordCmd(flags *rootFlags) 
 		Args: func(cmd *cobra.Command, args []string) error {
 			return endpointPositionalArgs(cmd, flags, args, cobra.MaximumNArgs(2))
 		},
-		Annotations: map[string]string{"pp:endpoint": "infrastructure.delete-backup-server-encryption-password", "pp:method": "DELETE", "pp:path": "/infrastructure/backupServers/{backupServerUid}/encryptionPasswords/{passwordUid}", "pp:happy-args": "backupServerUid=3f2504e0-4f89-11d3-9a0c-0305e82c3301;passwordUid=3f2504e0-4f89-11d3-9a0c-0305e82c3301"},
+		Annotations: map[string]string{"pp:endpoint": "infrastructure.delete-backup-server-encryption-password", "pp:method": "DELETE", "pp:path": "/infrastructure/backupServers/{backupServerUid}/encryptionPasswords/{passwordUid}", "pp:happy-args": "backupServerUid=00000000-0000-0000-0000-000000000001;passwordUid=00000000-0000-0000-0000-000000000002"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
 				// A missing required positional is a usage error in every output
