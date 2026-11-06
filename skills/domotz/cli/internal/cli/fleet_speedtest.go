@@ -9,8 +9,10 @@ import (
 	"context"
 	"domotz-pp-cli/internal/cliutil"
 	"encoding/json"
+	"fmt"
 	"math"
 	"net/url"
+	"time"
 
 	"github.com/spf13/cobra"
 )
@@ -43,6 +45,23 @@ type speedReport struct {
 
 func round2(f float64) float64 { return math.Round(f*100) / 100 }
 
+// latestSpeedSample is the sample with the latest timestamp, compared as an
+// instant by the one shared parser (parseDomotzTime; Codex r1, domotz 4.34.2,
+// class time-compared-as-text: the strings were compared, so 12:00+02:00
+// beat 11:00Z). A sample whose timestamp does not parse is never the latest
+// while one parses; ok is false when there is no sample.
+func latestSpeedSample(samples []speedSample) (latest speedSample, ok bool) {
+	var at time.Time
+	parsed := false
+	for i, s := range samples {
+		t, tok := parseDomotzTime(s.Timestamp)
+		if i == 0 || (tok && (!parsed || t.After(at))) {
+			latest, at, parsed = s, t, tok
+		}
+	}
+	return latest, len(samples) > 0
+}
+
 // pp:data-source live
 func newNovelFleetSpeedtestCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
@@ -66,7 +85,7 @@ func newNovelFleetSpeedtestCmd(flags *rootFlags) *cobra.Command {
 			}
 			agents, err := fleetAgentsLive(cmd.Context(), c)
 			if err != nil {
-				return classifyAPIError(err, flags)
+				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}
 
 			results, errs := cliutil.FanoutRun(cmd.Context(), agents,
@@ -77,14 +96,12 @@ func newNovelFleetSpeedtestCmd(flags *rootFlags) *cobra.Command {
 						return nil, err
 					}
 					var samples []speedSample
-					if err := json.Unmarshal(data, &samples); err != nil || len(samples) == 0 {
-						return nil, nil //nolint:nilnil // no data for this site is not an error
+					if err := json.Unmarshal(data, &samples); err != nil {
+						return nil, fmt.Errorf("parsing speed tests for agent %s: %w", a.ID, err)
 					}
-					latest := samples[0]
-					for _, s := range samples[1:] {
-						if s.Timestamp > latest.Timestamp {
-							latest = s
-						}
+					latest, ok := latestSpeedSample(samples)
+					if !ok {
+						return nil, nil //nolint:nilnil // no data for this site is not an error
 					}
 					row := &speedSiteRow{
 						Site:      a.site(),
@@ -131,7 +148,10 @@ func newNovelFleetSpeedtestCmd(flags *rootFlags) *cobra.Command {
 				}
 				report.WorstSite = worst
 			}
-			return printJSONFiltered(cmd.OutOrStdout(), report, flags)
+			if err := printJSONFiltered(cmd.OutOrStdout(), report, flags); err != nil {
+				return err
+			}
+			return fanoutIncomplete(errs, len(agents))
 		},
 	}
 	return cmd

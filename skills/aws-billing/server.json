@@ -65,6 +65,36 @@
           "description": "Session token, required only when the keys above are temporary STS or SSO credentials. Leave blank for long-lived IAM user keys.",
           "isRequired": false,
           "isSecret": true
+        },
+        {
+          "name": "AWS_PROFILE",
+          "description": "Optional. Name of a profile in ~/.aws/config (SSO, assume-role or credential_process).",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "AWS_BILLING_MCP_READ_ONLY",
+          "description": "Optional. Set to exactly 1 to expose only read-only tools and refuse any state-changing execute call.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "AWS_BILLING_NO_LOCAL_DATA",
+          "description": "Optional. Set to 1 to keep no local copy of API responses: reads go to the API instead of the local store.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "AWS_BILLING_USER_AGENT",
+          "description": "Overrides the User-Agent the CLI sends on its own HTTP requests.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "AWS_BILLING_MCP_HTTP_TOKEN",
+          "description": "Required only when running the MCP server with --transport http. Not needed for the default local stdio transport.",
+          "isRequired": false,
+          "isSecret": true
         }
       ]
     }

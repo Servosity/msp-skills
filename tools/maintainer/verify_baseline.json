@@ -15,11 +15,6 @@
    "read-only",
    "local-data"
   ],
-  "aws-billing": [
-   "mcp-http",
-   "read-only",
-   "local-data"
-  ],
   "axcient": [
    "mcp-http",
    "read-only",
@@ -87,12 +82,6 @@
   ],
   "datto-rmm": [
    "mcp-stdio",
-   "mcp-http",
-   "write-gating",
-   "read-only",
-   "local-data"
-  ],
-  "domotz": [
    "mcp-http",
    "write-gating",
    "read-only",
