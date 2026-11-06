@@ -6,11 +6,13 @@ package cli
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"os"
+	"os/signal"
 	"strings"
 	"text/tabwriter"
 	"time"
@@ -179,7 +181,15 @@ func Execute() (retErr error) {
 	rootCmd := newRootCmd(&flags)
 	defer finalizePlatformInvocation(&flags, &retErr)
 
-	executedCmd, err := rootCmd.ExecuteC()
+	// Ctrl-C, SIGTERM, a tool timeout or (on Unix) a closed terminal
+	// cancels the command's context (interruptSignals), so a restore or
+	// download run stops at a safe point and prints how to resume. The
+	// first signal releases the handler, so a second Ctrl-C still kills a
+	// command that ignores its context.
+	sigCtx, stopSignals := signal.NotifyContext(context.Background(), interruptSignals...)
+	defer stopSignals()
+	go func() { <-sigCtx.Done(); stopSignals() }()
+	executedCmd, err := rootCmd.ExecuteContextC(sigCtx)
 	var journalFailedFlag, journalSuggestedFlag string
 	defer func() {
 		journalInvocation(&flags, rootCmd, executedCmd, retErr, journalFailedFlag, journalSuggestedFlag)
@@ -304,8 +314,16 @@ func isCobraUsageError(err error) bool {
 func newRootCmd(flags *rootFlags) *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:   "cloudally-cli",
-		Short: `CloudAlly CLI - CloudAlly's Management API v2 in one CLI and MCP server: partner, reseller and customer accounts, backup tasks and their status, users, billing, and recovery jobs.`,
-		Long: `CloudAlly CLI - CloudAlly's Management API v2 in one CLI and MCP server: partner, reseller and customer accounts, backup tasks and their status, users, billing, and recovery jobs.
+		Short: `CloudAlly CLI - Restores and mailbox downloads to a past backup date, per-mailbox backup history, and backup health across every CloudAlly customer.`,
+		Long: `CloudAlly CLI - Restores and mailbox downloads to a past backup date, per-mailbox backup history, and backup health across every CloudAlly customer.
+
+Highlights (not in the official API docs):
+  • restore plan   Preview every mailbox-and-date restore a batch would submit, with the exact backup each mailbox will be restored from.
+  • restore submit   Submit one restore per mailbox per date with bounded concurrency and a local ledger; --resume skips rows already submitted and never resends a restore whose outcome is unknown.
+  • restore watch   Follow a submitted batch until every restore finishes, with a per-mailbox tally and a non-zero exit if any failed.
+  • restore history   See what was restored for which company and when, from the local ledger, without calling the API.
+  • backup health   Find every mailbox or site across all customer accounts that has not backed up in N days or whose last attempt failed, with the error text.
+  • backup snapshots   List every past backup run for one mailbox in a given month, with each run's date in both ISO and the raw yyyyMMddHHmmss form a restore body needs.
 
 Agent mode: add --agent to any command for JSON output + non-interactive mode.
 Health check: run 'cloudally-cli doctor' to verify auth and connectivity.
@@ -503,6 +521,13 @@ See README.md or the bundled SKILL.md for recipes.`,
 	rootCmd.AddCommand(newTeachLookupCmd(flags))
 	rootCmd.AddCommand(newTeachPlaybookCmd(flags, learnCfg))
 	rootCmd.AddCommand(newPlaybookCmd(flags, learnCfg))
+	// Hand-wired (handfixes.json novel-commands-registered-from-root): the
+	// restore, download and backup workflows are attached here, after
+	// credkit.Start, not from init hooks.
+	addNovelCommandIfAbsent(rootCmd, newNovelBackupCmd(flags))
+	addNovelCommandIfAbsent(rootCmd, newNovelRestoreCmd(flags))
+	addNovelCommandIfAbsent(rootCmd, newDownloadCmd(flags))
+	addBackupSnapshotsCmd(rootCmd, flags)
 	for _, hook := range novelCommandHooks {
 		hook(rootCmd, flags)
 	}

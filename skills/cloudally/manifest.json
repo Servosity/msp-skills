@@ -3,7 +3,7 @@
   "name": "cloudally-mcp",
   "display_name": "CloudAlly",
   "version": "0.1.0",
-  "description": "CloudAlly SaaS backup for Microsoft 365 and Google Workspace: partner, reseller and customer accounts, backup tasks and their status, users, billing and recovery jobs through the Management API v2.",
+  "description": "Restore or download every CloudAlly mailbox as it stood on a past date, read each mailbox's backup history, and find failing backups across every customer.",
   "author": {
     "name": "Servosity Inc."
   },
@@ -23,6 +23,7 @@
         "CLOUDALLY_PARTNER_EMAIL": "${user_config.cloudally_partner_email}",
         "CLOUDALLY_PARTNER_PASSWORD": "${user_config.cloudally_partner_password}",
         "CLOUDALLY_BASE_URL": "${user_config.cloudally_base_url}",
+        "CLOUDALLY_PORTAL_URL": "${user_config.cloudally_portal_url}",
         "CLOUDALLY_MCP_READ_ONLY": "${user_config.cloudally_mcp_read_only}",
         "CLOUDALLY_NO_LOCAL_DATA": "${user_config.cloudally_no_local_data}",
         "CLOUDALLY_MCP_HTTP_TOKEN": "${user_config.cloudally_mcp_http_token}",
@@ -70,7 +71,7 @@
     "cloudally_partner_email": {
       "type": "string",
       "title": "Partner portal login email (optional)",
-      "description": "Optional. Partner portal login used by `auth login --partner`; it reaches every customer account and is needed for the distributor and reseller commands and `auth use-account`.",
+      "description": "Optional. Partner portal login used by `auth login --partner`; it reaches every customer account and is needed for the distributor and reseller commands, `auth use-account`, past backup dates and downloads.",
       "sensitive": false,
       "required": false
     },
@@ -88,10 +89,17 @@
       "sensitive": false,
       "required": false
     },
+    "cloudally_portal_url": {
+      "type": "string",
+      "title": "Portal URL override (testing)",
+      "description": "Optional; leave blank. The customer portal origin used for past backup dates, restores resolved from them and downloads (default https://app.cloudally.com). It must be https (plain http only on a loopback test host), and portal credentials go only to https://app.cloudally.com or the CLOUDALLY_BASE_URL origin, so any other portal is refused before anything is sent. Needed when CLOUDALLY_BASE_URL points away from api.cloudally.com: portal commands then refuse to assume the production portal.",
+      "sensitive": false,
+      "required": false
+    },
     "cloudally_mcp_read_only": {
       "type": "string",
       "title": "Read-only MCP mode",
-      "description": "Optional. Set to 1 to list only read-only tools: it removes cloudally_execute, sync, import, export, workflow_archive, jobs_prune and the learn-store writers, and cloudally_read refuses every state-changing endpoint. The tools it keeps can still write the learn journal and create an empty local store.",
+      "description": "Optional. Set to 1 to list only read-only tools: it removes cloudally_execute, restore_submit, download_submit, download_start, download_link, sync, export, workflow_archive, jobs_prune and the learn-store writers, and cloudally_read refuses every state-changing endpoint. The tools it keeps can still write the learn journal and create an empty local store.",
       "sensitive": false,
       "required": false
     },

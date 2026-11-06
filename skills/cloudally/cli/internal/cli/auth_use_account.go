@@ -91,11 +91,25 @@ func newAuthUseAccountCmd(flags *rootFlags) *cobra.Command {
 			partnerRefresh := cfg.RefreshToken
 			partnerExpiry := cfg.TokenExpiry
 			stashed := false
+			// activeKnown and activePrincipal say whether the auth record
+			// describes the active credential (access and refresh token) and
+			// which user it is; mintingPartner is the partner user the
+			// minting session is known to belong to. None is assumed: a
+			// company token, or one from the environment, is never filed
+			// under a partner user.
+			binding := bindingFor(cfg)
+			activeKnown := actx.pairKnown(binding, cfg.AccessToken, cfg.RefreshToken)
+			activePrincipal := actx.refreshPrincipal(binding, cfg.AccessToken, cfg.RefreshToken)
+			mintingPartner := ""
+			if isPartnerPrincipal(activePrincipal) {
+				mintingPartner = activePrincipal
+			}
 			if actx.Scope == authScopeAccount && actx.PartnerAccessToken != "" {
 				partnerToken = actx.PartnerAccessToken
 				partnerRefresh = actx.PartnerRefreshToken
 				partnerExpiry = actx.PartnerTokenExpiry
 				stashed = true
+				mintingPartner = actx.stashPrincipal(binding)
 			}
 			if partnerToken == "" {
 				return authErr(errors.New("no partner token available: run `cloudally-cli auth login --partner` first, or set CLOUDALLY_ACCESS_TOKEN"))
@@ -108,11 +122,19 @@ func newAuthUseAccountCmd(flags *rootFlags) *cobra.Command {
 				partnerToken, partnerRefresh, partnerExpiry = access, refresh, expiry
 				// Persist the refreshed partner session before minting, so a
 				// failed mint does not strand a rotated refresh token.
-				actx.PartnerAccessToken, actx.PartnerRefreshToken, actx.PartnerTokenExpiry = access, refresh, expiry
+				actx.stashPartner(binding, access, refresh, expiry, mintingPartner)
 				if !refreshExpiry.IsZero() {
 					actx.RefreshExpiresAt = refreshExpiry
 				}
 				if !stashed {
+					// The refreshed token becomes the active one. It keeps the
+					// user the record knew for the old pair; a pair the record
+					// did not describe gives a known token with no user.
+					principal := ""
+					if activeKnown {
+						principal = activePrincipal
+					}
+					actx.bindTo(binding, access, refresh, principal)
 					cfg.AuthHeaderVal = ""
 					if err := cfg.SaveTokens(cfg.ClientID, cfg.ClientSecret, access, refresh, expiry); err != nil {
 						return configErr(fmt.Errorf("saving refreshed partner token: %w", err))
@@ -150,9 +172,15 @@ func newAuthUseAccountCmd(flags *rootFlags) *cobra.Command {
 			// Stash the partner session before overwriting the active token.
 			actx.Scope = authScopeAccount
 			actx.AccountID = accountID
-			actx.PartnerAccessToken = partnerToken
-			actx.PartnerRefreshToken = partnerRefresh
-			actx.PartnerTokenExpiry = partnerExpiry
+			actx.stashPartner(binding, partnerToken, partnerRefresh, partnerExpiry, mintingPartner)
+			// The API minted this token for this account on behalf of the
+			// minting partner user; the store is that user's view of that
+			// account. Without a known partner user the token has no user.
+			principal := ""
+			if mintingPartner != "" {
+				principal = accountPrincipal(mintingPartner, accountID)
+			}
+			actx.bindTo(binding, resp.AccessToken, "", principal)
 			if err := saveAuthContext(actx); err != nil {
 				return configErr(fmt.Errorf("saving partner token aside (%s): %w", authContextFileName, err))
 			}
@@ -178,20 +206,31 @@ func runUseAccountPartner(cmd *cobra.Command, flags *rootFlags) error {
 		return writeDryRun(cmd.OutOrStdout(), flags, "restore the partner token from "+authContextFileName)
 	}
 	actx, ok := loadAuthContext()
+	if ok && actx.Scope == authScopePartner && cfg.AccessToken != "" &&
+		(actx.PartnerAccessToken == "" || isPartnerPrincipal(actx.activePrincipal(bindingFor(cfg), cfg.AccessToken))) {
+		// The partner session is already the active one.
+		return writeUseAccountResult(cmd, flags, authScopePartner, "", cfg.TokenExpiry)
+	}
 	if !ok || actx.PartnerAccessToken == "" {
-		if ok && actx.Scope == authScopePartner && cfg.AccessToken != "" {
-			return writeUseAccountResult(cmd, flags, authScopePartner, "", cfg.TokenExpiry)
-		}
 		return authErr(errors.New("no saved partner token to restore: run `cloudally-cli auth login --partner`"))
 	}
+	// Only a kept session known to come from a partner user's login is
+	// filed under that user; anything else is a known token with no user,
+	// which gets the per-token store. Decided before the record changes
+	// scope, so an old record's unverified stash cannot pass as a partner
+	// session.
+	binding := bindingFor(cfg)
+	restored := actx.stashPrincipal(binding)
 	cfg.AuthHeaderVal = ""
 	if err := cfg.SaveTokens(cfg.ClientID, cfg.ClientSecret, actx.PartnerAccessToken, actx.PartnerRefreshToken, actx.PartnerTokenExpiry); err != nil {
 		return configErr(fmt.Errorf("restoring partner token: %w", err))
 	}
 	actx.Scope = authScopePartner
 	actx.AccountID = ""
+	actx.bindTo(binding, actx.PartnerAccessToken, actx.PartnerRefreshToken, restored)
+	actx.stashPartner(binding, actx.PartnerAccessToken, actx.PartnerRefreshToken, actx.PartnerTokenExpiry, restored)
 	if err := saveAuthContext(actx); err != nil {
-		fmt.Fprintf(cmd.ErrOrStderr(), "warning: could not write %s: %v\n", authContextFileName, err)
+		return configErr(fmt.Errorf("the partner token is active again, but %s could not be updated: %w; local restore history stays unavailable until `cloudally-cli auth login --partner`", authContextFileName, err))
 	}
 	return writeUseAccountResult(cmd, flags, authScopePartner, "", actx.PartnerTokenExpiry)
 }

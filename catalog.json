@@ -462,7 +462,7 @@
       "first_party": false,
       "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/cloudally/install.sh)",
       "install_mcp_doc": "skills/cloudally/mcp-install.md",
-      "description": "CloudAlly SaaS backup for Microsoft 365 and Google Workspace: partner, reseller and customer accounts, backup tasks and their status, users, billing and recovery jobs through the Management API v2.",
+      "description": "Restore or download every CloudAlly mailbox as it stood on a past date, read each mailbox's backup history, and find failing backups across every customer.",
       "verification": "live-verified",
       "verified_version": "0.1.0",
       "verified_code": "current",

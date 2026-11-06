@@ -435,11 +435,11 @@
         "Backup/DR"
       ],
       "representativeQueries": [
-        "What is the latest backup status of every mailbox and site across all my CloudAlly customers?",
-        "Which customer accounts do I manage?",
-        "Switch into this customer's account.",
-        "Which backup tasks does this customer have?",
-        "What state is every entity of this backup task in?"
+        "Which mailboxes across all my CloudAlly customers have not backed up in two days, or failed? (It reads the synced feed: run cloudally-cli sync --resources distributoraccounts-backup-statuses first.)",
+        "What backups does this mailbox have for December?",
+        "Which backup would each mailbox on this task be restored from for December 31st?",
+        "Plan, then restore every mailbox on the task to October 1st.",
+        "Plan, then archive every mailbox as it stood on December 31st in the customer's own timezone."
       ],
       "metadata": {
         "page": "https://msp-skills.compoundingteams.com/skills/cloudally.md"

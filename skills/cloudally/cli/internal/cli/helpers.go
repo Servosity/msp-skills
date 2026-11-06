@@ -4657,12 +4657,17 @@ func defaultDBPathInDir(dir string) string {
 			}
 			return scoped
 		}
+		// Hand-wired (cloudally): never adopt an unowned data.db; see unscopedStoreAdoptable.
+		if !unscopedStoreAdoptable(unscoped, scopeHash) {
+			return scoped
+		}
 		if owned, decided := claimLegacyUnscopedDB(dir, unscoped, scopeHash, label); !decided || owned {
 			return unscoped
 		}
 		return scoped
 	}
-	return unscoped
+	// Hand-wired (cloudally): a run with no credential never opens data.db; see credentiallessStorePath.
+	return credentiallessStorePath(dir)
 }
 
 // MCPStorePath is the SQLite file CLI sync writes, including the

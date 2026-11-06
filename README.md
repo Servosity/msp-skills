@@ -229,7 +229,7 @@ Outcomes, not hype - drawn from each of the 100 connectors' skill pages:
 | Why can't this user get through Duo, and which fix applies? | cisco-duo | `cisco-duo-cli lockout triage "jane@example.com" --account-id "Acme Corp"` |
 | Which client org is in the worst shape right now? | cisco-meraki | `cisco-meraki-cli fleet health --agent` |
 | Which customers have roaming computers off, uninstalled, stale or without web protection, and how many seats each? | cisco-umbrella | `cisco-umbrella-cli fleet health --stale-days 7 --agent` |
-| What is the latest backup status of every mailbox and site across all my CloudAlly customers? | cloudally | `cloudally-cli distributor-accounts backup-statuses --all` |
+| Which mailboxes across all my CloudAlly customers have not backed up in two days, or failed? (It reads the synced feed: run cloudally-cli sync --resources distributor_accounts-backup-statuses first.) | cloudally | `cloudally-cli backup health --stale-days 2 --group-by account` |
 | Which open vulnerabilities across every client are most likely to be exploited? | connectsecure | `connectsecure-cli exposure --min-epss 0.5 --severity Critical,High` |
 | Which agents haven't checked in for 30+ days, by client? | connectwise-automate | `connectwise-automate-cli stale-agents --days 30 --agent` |
 | Which access sessions are in this group? | connectwise-control | `connectwise-control-cli sessions list --session-type Access --group "All Machines" --agent` |
