@@ -18,9 +18,10 @@ import (
 
 func newSyncHintTestStore(t *testing.T) *store.Store {
 	t.Helper()
-	db, err := store.OpenWithContext(context.Background(), filepath.Join(t.TempDir(), "data.db"))
+	path := filepath.Join(t.TempDir(), "data.db")
+	db, err := store.OpenWithContext(context.Background(), path)
 	if err != nil {
-		t.Fatalf("open store: %v", err)
+		t.Fatalf("open store: %v%s", err, explainStoreWithheld(path, err)) // Hand-fix (handfixes.json win-store-withheld-reason): a kit refusal names its trigger, never a held value.
 	}
 	t.Cleanup(func() { db.Close() })
 	return db

@@ -1647,6 +1647,28 @@
      "min_count": 1
     }
    ]
+  },
+  {
+   "id": "win-store-withheld-reason",
+   "class": "test-diagnostics",
+   "status": "active",
+   "summary": "when the credential kit withholds a sync-hint test store's SQLite connection name, the failure names which part of the name the kit refused (by index and length, never its text) and whether the kit is fail-closed",
+   "why": "The Windows CI row failed TestHintIfStale_BackdatedSyncStateWritesHintToStderr on 8d43d29299 with only the kit's withheld notice, and passed on identical code at 4e3f3a07ea; no local run reproduced it. The reason makes the next occurrence diagnosable without printing a held value.",
+   "spec_encode_followup": "Press template: route generated test store opens through a reason helper.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sync_hint_test.go",
+     "contains": "explainStoreWithheld(path, err)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/appdirect_store_withheld_test.go",
+     "contains": "func explainStoreWithheld(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
   }
  ]
 }
