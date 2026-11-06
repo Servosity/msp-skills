@@ -1506,14 +1506,14 @@ const (
 	mcpStoreStatusReady   mcpStoreStatusKind = "ready"
 )
 
-func openMCPReadOnlyStore(path string) (*store.Store, *mcplib.CallToolResult) {
+func openMCPReadOnlyStore(path string, maxValueBytes int) (*store.Store, *mcplib.CallToolResult) {
 	if _, err := os.Stat(path); err != nil {
 		if os.IsNotExist(err) {
 			return nil, mcplib.NewToolResultError(mcpMissingStoreMessage(path))
 		}
 		return nil, mcplib.NewToolResultError(fmt.Sprintf("checking local data store %s: %v", path, err))
 	}
-	db, err := store.OpenReadOnly(path)
+	db, err := store.OpenReadOnlyValueCapped(path, maxValueBytes) // Hand-fix (handfixes.json credkit-wiring)
 	if err != nil {
 		return nil, mcplib.NewToolResultError(fmt.Sprintf("opening local data store %s: %v. Run td-synnex-cli sync to refresh the store, or use live endpoint MCP tools for unsynced data.", path, err))
 	}
@@ -1588,7 +1588,7 @@ func handleSearch(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.Call
 	if err != nil {
 		return mcplib.NewToolResultError(fmt.Sprintf("resolving database: %v", err)), nil
 	}
-	db, toolErr := openMCPReadOnlyStore(path)
+	db, toolErr := openMCPReadOnlyStore(path, 0)
 	if toolErr != nil {
 		return toolErr, nil
 	}
@@ -1804,7 +1804,7 @@ func handleSQL(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.CallToo
 	if err != nil {
 		return mcplib.NewToolResultError(fmt.Sprintf("resolving database: %v", err)), nil
 	}
-	db, toolErr := openMCPReadOnlyStore(path)
+	db, toolErr := openMCPReadOnlyStore(path, mcpSQLMaxValueBytes) // Hand-fix (handfixes.json credkit-wiring)
 	if toolErr != nil {
 		return toolErr, nil
 	}
@@ -1818,10 +1818,6 @@ func handleSQL(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.CallToo
 		return mcplib.NewToolResultError(mcpSQLQueryError(queryCtx, err)), nil
 	}
 	defer conn.Close()
-
-	if _, err := sqlite.Limit(conn, sqlite3.SQLITE_LIMIT_LENGTH, mcpSQLMaxValueBytes); err != nil {
-		return mcplib.NewToolResultError(fmt.Sprintf("setting SQL value length cap: %v", err)), nil
-	}
 
 	rows, err := conn.QueryContext(queryCtx, query)
 	if err != nil {

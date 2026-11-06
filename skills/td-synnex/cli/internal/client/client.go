@@ -35,6 +35,7 @@ import (
 	"syscall"
 	"td-synnex-pp-cli/internal/cliutil"
 	"td-synnex-pp-cli/internal/config"
+	"td-synnex-pp-cli/internal/credkit"
 	"td-synnex-pp-cli/internal/platform"
 	"time"
 	"unicode"
@@ -331,6 +332,19 @@ func loadCACertPool(path string) (*x509.CertPool, error) {
 	return pool, nil
 }
 
+// guardedTransport is cliutil.OutboundGuard (the credential kit's outbound
+// guard) around tr, with tr kept so a streaming client can clone it with its
+// own header timeout and guard the clone. Hand-fix (handfixes.json
+// credkit-wiring).
+type guardedTransport struct {
+	http.RoundTripper
+	inner *http.Transport
+}
+
+func guardTransport(tr *http.Transport) http.RoundTripper {
+	return guardedTransport{RoundTripper: cliutil.OutboundGuard(tr), inner: tr}
+}
+
 func cloneDefaultHTTPTransport() (*http.Transport, error) {
 	base, ok := http.DefaultTransport.(*http.Transport)
 	if !ok || base == nil {
@@ -401,11 +415,16 @@ func StreamingHTTPClient(base *http.Client, headerTimeout time.Duration) *http.C
 	if base == nil {
 		tr := http.DefaultTransport.(*http.Transport).Clone()
 		tr.ResponseHeaderTimeout = headerTimeout
-		return &http.Client{Transport: tr}
+		return &http.Client{Transport: guardTransport(tr)} // Hand-fix (handfixes.json credkit-wiring)
 	}
 	clone := *base
 	clone.Timeout = 0
-	if t, ok := base.Transport.(*http.Transport); ok {
+	switch t := base.Transport.(type) {
+	case guardedTransport: // Hand-fix (handfixes.json credkit-wiring): the guarded API transport
+		tr := t.inner.Clone()
+		tr.ResponseHeaderTimeout = headerTimeout
+		clone.Transport = guardTransport(tr)
+	case *http.Transport:
 		tr := t.Clone()
 		tr.ResponseHeaderTimeout = headerTimeout
 		clone.Transport = tr
@@ -977,6 +996,9 @@ func NewPlainHTTPClient(timeout time.Duration, cfg *config.Config) (*http.Client
 		return nil, err
 	}
 	guardHTTPClient(c, "")
+	if tr, ok := c.Transport.(*http.Transport); ok {
+		c.Transport = guardTransport(tr) // Hand-fix (handfixes.json credkit-wiring)
+	}
 	return c, nil
 }
 
@@ -1187,6 +1209,9 @@ func New(cfg *config.Config, timeout time.Duration, rateLimit float64) *Client {
 	// for Bearer/api_key, so post-redirect headers are byte-identical for
 	// static auth and freshly-signed for nonce-bound auth.
 	guardHTTPClient(httpClient, c.BaseURL)
+	if tr, ok := httpClient.Transport.(*http.Transport); ok {
+		httpClient.Transport = guardTransport(tr) // Hand-fix (handfixes.json credkit-wiring)
+	}
 	httpClient.CheckRedirect = func(req *http.Request, via []*http.Request) error {
 		if len(via) >= 10 {
 			// Match Go's defaultCheckRedirect: a plain error so Client.Do
@@ -1649,7 +1674,7 @@ func (c *Client) writeCacheWithHeaders(path string, params map[string]string, he
 	ensureCachePerms(resourceDir, cacheFile)
 	// Drop the leftover inode so an already-open 0644 FD keeps the old body.
 	_ = os.Remove(cacheFile)
-	_ = os.WriteFile(cacheFile, []byte(data), 0o600)
+	_ = credkit.WriteFile(cacheFile, []byte(data), 0o600) // Hand-fix (handfixes.json credkit-wiring)
 	ensureCachePerms(resourceDir, cacheFile)
 	if c.platformSession != nil {
 		c.writePlatformCacheMetadata(cacheFile)
@@ -1762,7 +1787,7 @@ func (c *Client) writePlatformCacheMetadata(cacheFile string) {
 	}
 	data, err := json.Marshal(metadata)
 	if err == nil {
-		_ = os.WriteFile(cacheFile+".platform.json", data, 0o600)
+		_ = credkit.WriteFile(cacheFile+".platform.json", data, 0o600) // Hand-fix (handfixes.json credkit-wiring)
 	}
 }
 
@@ -3051,8 +3076,6 @@ func (c *Client) maskCredentialText(text string, extraCredentials ...string) str
 		addCredential(c.Config.RefreshToken)
 		addCredential(c.Config.ClientSecret)
 		addCredential(c.Config.TdSynnexAccessToken)
-		// pp:handfix td-synnex (ion-mask-env-refresh-token): read outside Config by auth_ion.go.
-		addCredential(os.Getenv("TD_SYNNEX_REFRESH_TOKEN"))
 		c.unlockTokenState()
 	}
 	sort.SliceStable(masks, func(i, j int) bool {
