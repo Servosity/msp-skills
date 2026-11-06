@@ -2452,6 +2452,127 @@
       ],
       "press": "4.35.1",
       "reason": "blumira, press 4.35.1 reprint, reviewed 2026-11-06 (same declaration digest as the entry for skills/apple-business/cli/internal/cli/helpers.go). claimLegacyUnscopedDB with the credential kit edit (the owner-marker write goes through credkit.WriteFile, handfixes.json credkit-wiring), byte-identical to the declaration bound for sibling kit adopters. Both flagged reads open markerPath (<data.db>.owner) next to the CLI's own store in its resolved data directory, derived from defaultDBPathInDir; no MCP, API or tenant input reaches the path."
+    },
+    {
+      "file": "skills/cork/cli/internal/cliutil/creds_perms_unix.go",
+      "rule": "G115",
+      "bind": "file",
+      "sha256": [
+        "sha256:6f983a466c07f91137f3b91e649c494c3db7743a7608242f4e03b7720245fbea"
+      ],
+      "press": "4.35.1",
+      "reason": "press 4.35.1 template, cork reprint, reviewed 2026-11-06, byte-identical to google-workspace's reviewed copy (same file digest). uint32(os.Geteuid()), twice (verifyUnixPrivateFile, verifyUnixCredentialDir): the POSIX effective uid is a non-negative uid_t, compared for equality with the file or directory owner. The file is !windows."
+    },
+    {
+      "file": "skills/cork/cli/internal/cli/deliver_spacefast.go",
+      "rule": "G703",
+      "bind": "decl",
+      "sha256": [
+        "sha256:991de2fbb979c2c73f3873850ad79e0ce83f8f06ceaaa3f0481f23c06bc9b7f1"
+      ],
+      "press": "4.35.1",
+      "reason": "press 4.35.1 template, cork reprint, reviewed 2026-11-06, byte-identical to google-workspace's reviewed declaration (same digest). loadSpacefastDelivery reads this program's own delivery record: the directory is the CLI's state dir and the file name is the hex of a SHA-256 of the delivery key, so no input picks a path outside that directory."
+    },
+    {
+      "file": "skills/cork/cli/internal/cli/deliver_spacefast.go",
+      "rule": "G304",
+      "bind": "decl",
+      "sha256": [
+        "sha256:991de2fbb979c2c73f3873850ad79e0ce83f8f06ceaaa3f0481f23c06bc9b7f1"
+      ],
+      "press": "4.35.1",
+      "reason": "press 4.35.1 template, cork reprint, reviewed 2026-11-06. Same read as the G703 entry: the CLI's own Spacefast delivery record, state dir plus a SHA-256 hex file name."
+    },
+    {
+      "file": "skills/cork/cli/internal/credwire/declarations.go",
+      "rule": "G703",
+      "bind": "decl",
+      "sha256": [
+        "sha256:2c15a40d0fa25edea1301f55e1678da0c7eb5fd02bec80c02ef18c01b57b40e1"
+      ],
+      "press": "4.35.1",
+      "reason": "cork credential kit wiring (hand-written), reviewed 2026-11-06, byte-identical to google-workspace's and riverside-fm's reviewed readRegular (same digest). It stats and reads a credential source the program reads anyway (its config, credentials.toml, profiles.json), named by the operator's own --config, --home or environment, so Start can hold every credential in it before anything prints. It refuses anything but a regular file and never writes. The MCP server refuses --config and --home."
+    },
+    {
+      "file": "skills/cork/cli/internal/cli/helpers.go",
+      "rule": "G304",
+      "bind": "decl",
+      "sha256": [
+        "sha256:62ee24e2c14754be389c41795461475ec6aa23ec17308bd3166bf8610b765949"
+      ],
+      "press": "4.35.1",
+      "reason": "cork's copy of the press's claimLegacyUnscopedDB (press 4.35.1 reprint), reviewed 2026-11-06, byte-identical to abnormal's and apple-business's reviewed copies (same declaration digest). It differs from the template only in writing the owner marker through the credential kit. The marker path is the CLI's own data directory plus .owner, never a user or MCP argument."
+    },
+    {
+      "file": "skills/connectwise-automate/cli/internal/cliutil/creds_perms_unix.go",
+      "rule": "G115",
+      "bind": "decl",
+      "sha256": [
+        "sha256:ba5b7307221acae36fd84ca89c0de2d80f6a122badffbeaebef908000b88e8be",
+        "sha256:8b017713ba88e73ec54cee2c66a934e3bd3db8164a53a3d0ef528b82daf89610"
+      ],
+      "press": "4.35.1",
+      "reason": "connectwise-automate, press 4.35.1 reprint, reviewed 2026-11-06 (Codex round 1 APPROVED). uint32(os.Geteuid()), twice: the POSIX effective uid is a non-negative uid_t, compared for equality with the file or directory owner. Same code the 4.34.0 fleet entry accepts; the file is !windows."
+    },
+    {
+      "file": "skills/connectwise-automate/cli/internal/cli/deliver_spacefast.go",
+      "rule": "G703",
+      "bind": "decl",
+      "sha256": [
+        "sha256:991de2fbb979c2c73f3873850ad79e0ce83f8f06ceaaa3f0481f23c06bc9b7f1"
+      ],
+      "press": "4.35.1",
+      "reason": "connectwise-automate, press 4.35.1 reprint, reviewed 2026-11-06 (Codex round 1 APPROVED). loadSpacefastDelivery reads this program's own delivery record: the directory is the CLI's state dir and the file name is the hex of a SHA-256 of the delivery key, so no input picks a path outside that directory. --deliver is refused over MCP (check_mcp_file_flags PASS)."
+    },
+    {
+      "file": "skills/connectwise-automate/cli/internal/learn/journal.go",
+      "rule": "G304",
+      "bind": "decl",
+      "sha256": [
+        "sha256:8f56894aa61e40dd44668976cf4b7479104c33707d8d4dfadc502b9b56174390"
+      ],
+      "press": "4.35.1",
+      "reason": "connectwise-automate, press 4.35.1 reprint, reviewed 2026-11-06 (Codex round 1 APPROVED). repairJournalSegmentTail opens this CLI's own learn-journal segment under its state directory (path from the journal's own directory listing); no command input names it. Appends go through credkit.AppendFile."
+    },
+    {
+      "file": "skills/connectwise-automate/cli/internal/cliutil/filelock.go",
+      "rule": "G304",
+      "bind": "decl",
+      "sha256": [
+        "sha256:acc7d3e879d0661575189bcc97c3ab6e024876ba015d44c174c5b6929bcc5f9b"
+      ],
+      "press": "4.35.1",
+      "reason": "connectwise-automate, press 4.35.1 reprint, reviewed 2026-11-06 (Codex round 1 APPROVED). openLockFile opens the lock file beside a CLI state-dir log (the journal or teach log); the path comes from the CLI's own state directory, no command input names it."
+    },
+    {
+      "file": "skills/connectwise-automate/cli/internal/cli/helpers.go",
+      "rule": "G304",
+      "bind": "decl",
+      "sha256": [
+        "sha256:62ee24e2c14754be389c41795461475ec6aa23ec17308bd3166bf8610b765949"
+      ],
+      "press": "4.35.1",
+      "reason": "connectwise-automate, press 4.35.1 reprint, reviewed 2026-11-06 (Codex round 1 APPROVED). Press template claimLegacyUnscopedDB: reads this CLI's own data.db.owner marker beside its store under the data directory; no command input picks the path. The marker write goes through credkit.WriteFile."
+    },
+    {
+      "file": "skills/connectwise-automate/cli/internal/cli/deliver_spacefast.go",
+      "rule": "G304",
+      "bind": "decl",
+      "sha256": [
+        "sha256:991de2fbb979c2c73f3873850ad79e0ce83f8f06ceaaa3f0481f23c06bc9b7f1"
+      ],
+      "press": "4.35.1",
+      "reason": "connectwise-automate, press 4.35.1 reprint, reviewed 2026-11-06 (Codex round 1 APPROVED). Same read as the G703 entry: the CLI's own Spacefast delivery record, state dir plus a SHA-256 hex file name."
+    },
+    {
+      "file": "skills/connectwise-automate/cli/internal/credwire/declarations.go",
+      "rule": "G703",
+      "bind": "decl",
+      "sha256": [
+        "sha256:2c15a40d0fa25edea1301f55e1678da0c7eb5fd02bec80c02ef18c01b57b40e1"
+      ],
+      "press": "4.35.1",
+      "reason": "connectwise-automate, press 4.35.1 reprint, reviewed 2026-11-06 (Codex round 1 APPROVED). credential kit wiring (hand-written). readRegular stats and reads a credential source the program reads anyway (its config, credential store, profiles.json), named by the operator's own --config, --home or environment, so Start can hold every credential in it before anything prints. It refuses anything but a regular file and never writes. The MCP server refuses --config and --home."
     }
   ]
 }
