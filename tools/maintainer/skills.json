@@ -267,8 +267,8 @@
       "display_name": "AWS",
       "cli_hash": "sha256:320dbeb3bde21a2ae26eb4e75bb967243b2555c1abcf92da539b12a91fb6b959",
       "template_version": 3,
-      "version": "0.1.8",
-      "cli_hash_at_release": "sha256:96279142aa0c403a70b9191730bf1a061585eaa3264c6b41331d38780e315bff",
+      "version": "0.1.9",
+      "cli_hash_at_release": "sha256:320dbeb3bde21a2ae26eb4e75bb967243b2555c1abcf92da539b12a91fb6b959",
       "has_video": true,
       "live_verified": {
         "status": "awaiting",
@@ -960,8 +960,8 @@
       "tagline": "Roll up Domotz fleet health, offline devices, and asset inventory across every monitored site from the terminal.",
       "cli_hash": "sha256:b8da85446af15d544bac0dcd88338ed55719ab37110e6c985577c4ad928ec771",
       "template_version": 3,
-      "version": "0.1.7",
-      "cli_hash_at_release": "sha256:d36c3d8a7100f5b662021ccadc9875fe1273bb577b9e0bc37ecc336b5a2323c6",
+      "version": "0.1.8",
+      "cli_hash_at_release": "sha256:b8da85446af15d544bac0dcd88338ed55719ab37110e6c985577c4ad928ec771",
       "has_video": true,
       "live_verified": {
         "status": "awaiting",
@@ -1723,8 +1723,8 @@
       "tagline": "Triage PagerDuty incidents, on-call schedules, and escalation policies from the terminal.",
       "cli_hash": "sha256:bfaa7b6ba054a65a543f67113f6fe6294dfb93144d51fe8a629f92254a166ce9",
       "template_version": 3,
-      "version": "0.1.7",
-      "cli_hash_at_release": "sha256:b70dc01b97b17a2bef5a6002c4360fdbe7a966a0440720ca94d4caa2696b680b",
+      "version": "0.1.8",
+      "cli_hash_at_release": "sha256:bfaa7b6ba054a65a543f67113f6fe6294dfb93144d51fe8a629f92254a166ce9",
       "has_video": true,
       "live_verified": {
         "status": "awaiting",

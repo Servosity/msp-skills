@@ -4,7 +4,7 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
-## [0.1.9] - unreleased
+## [0.1.9] - 2026-11-06
 
 ### Changed
 - **Default reads verify the AWS account first.** With `--data-source auto` (the default), a read calls sts:GetCallerIdentity before it trusts the local store, so the store never answers for a different account than the credentials in use. Offline reads need `--data-source local`.
