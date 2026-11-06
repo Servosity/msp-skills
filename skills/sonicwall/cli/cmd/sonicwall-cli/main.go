@@ -5,13 +5,18 @@
 package main
 
 import (
-	"os"
-
 	"sonicwall-pp-cli/internal/cli"
+	"sonicwall-pp-cli/internal/credkit"
+	"sonicwall-pp-cli/internal/credwire"
 )
 
 func main() {
+	// Hand-fix (handfixes.json credkit-wiring): the credential kit holds every startup credential before any output.
+	credkit.Start(credwire.Declarations)
+	credwire.AfterStart() // Hand-fix (handfixes.json credkit-wiring): the base URL shown to the kit is put back; feedback --stdin keeps its body
+	code := 0
 	if err := cli.Execute(); err != nil {
-		os.Exit(cli.ExitCode(err))
+		code = cli.ExitCode(err)
 	}
+	credkit.Exit(code)
 }

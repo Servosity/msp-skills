@@ -6,6 +6,7 @@ package cli
 
 import (
 	"bytes"
+	"net/http"
 
 	"encoding/json"
 	"errors"
@@ -15,13 +16,30 @@ import (
 	"testing"
 
 	"sonicwall-pp-cli/internal/cliutil"
+	"sonicwall-pp-cli/internal/credkit"
 
 	"github.com/spf13/cobra"
 	"sonicwall-pp-cli/internal/cliutil/testenv"
 )
 
 func TestMain(m *testing.M) {
+	// See cliutil.OutboundGuard: no test here runs credkit.Start. Hand-fix (handfixes.json credkit-wiring)
+	cliutil.OutboundGuard = func(rt http.RoundTripper) http.RoundTripper {
+		if rt == nil {
+			return lazyDefaultTransport{}
+		}
+		return rt
+	}
+	cliutil.Hold = func(credkit.Source, ...string) {}
 	os.Exit(testenv.RunSandboxed(m))
+}
+
+// lazyDefaultTransport sends with whatever http.DefaultTransport is when the
+// request goes out, as a client with no Transport does; tests swap it.
+type lazyDefaultTransport struct{}
+
+func (lazyDefaultTransport) RoundTrip(r *http.Request) (*http.Response, error) {
+	return http.DefaultTransport.RoundTrip(r)
 }
 
 func TestDeclaredAPISurfaceReachable(t *testing.T) {

@@ -1091,7 +1091,7 @@ func restoreCredentialsFile(snap credentialsSnapshot) error {
 	if mode == 0 {
 		mode = 0o600
 	}
-	if err := cliutil.AtomicWritePrivateFile(snap.path, snap.data, mode, 0o700); err != nil {
+	if err := cliutil.AtomicWriteCredentialFile(snap.path, snap.data, mode, 0o700); err != nil { // Hand-fix (handfixes.json credkit-wiring): restores a credential source, outside the kit
 		return err
 	}
 	return os.Chmod(snap.path, mode)
@@ -1296,7 +1296,7 @@ func (c *Config) save() error {
 	if err != nil {
 		return fmt.Errorf("marshaling config: %w", err)
 	}
-	if err := cliutil.AtomicWritePrivateFile(c.Path, data, 0o600, 0o700); err != nil {
+	if err := cliutil.AtomicWriteCredentialFile(c.Path, data, 0o600, 0o700); err != nil { // Hand-fix (handfixes.json credkit-wiring): the config file is a source, written outside the kit
 		return err
 	}
 	c.scrubLegacyCredentials()
@@ -1339,7 +1339,7 @@ func (c *Config) scrubLegacyCredentials() {
 		fmt.Fprintf(os.Stderr, "warning: cannot marshal scrubbed legacy config: %v\n", err)
 		return
 	}
-	if err := cliutil.AtomicWritePrivateFile(c.legacySourcePath, scrubbedData, 0o600, 0o700); err != nil {
+	if err := cliutil.AtomicWriteCredentialFile(c.legacySourcePath, scrubbedData, 0o600, 0o700); err != nil { // Hand-fix (handfixes.json credkit-wiring): the legacy config is a source, written outside the kit
 		fmt.Fprintf(os.Stderr, "warning: cannot write scrubbed legacy config: %v\n", err)
 	}
 }
