@@ -8,12 +8,14 @@
 package cli
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"strconv"
 	"strings"
 
 	"afi-pp-cli/internal/store"
+	"afi-pp-cli/internal/syncer"
 
 	"github.com/spf13/cobra"
 )
@@ -55,6 +57,48 @@ func fleetHint(cmd *cobra.Command, db *store.Store, resourceType string, flags *
 		return
 	}
 	hintIfStale(cmd, db, resourceType, flags.maxAge)
+}
+
+// withFleetGaps names, in incomplete and in the note, every list the last
+// fleet-sync could not read in full that bears on the tenants a report reads
+// (an empty set means every tenant): fleet-wide gaps always, a tenant's own
+// only when that tenant is read. Rows of such a list may be missing or stale,
+// so a report over them never reads as complete (afi handfix
+// fleet-sync-snapshot-truth).
+func withFleetGaps(ctx context.Context, db *store.Store, tenants map[string]bool, incomplete *[]string, note *string) error {
+	rows, err := db.DB().QueryContext(ctx, `SELECT COALESCE(json_extract(data,'$.tenant_id'), ''),
+		COALESCE(json_extract(data,'$.list'), ''), COALESCE(json_extract(data,'$.reason'), '')
+		FROM resources WHERE resource_type = ? AND json_valid(data) ORDER BY id`, syncer.GapResourceType)
+	if err != nil {
+		return fmt.Errorf("reading fleet-sync gaps: %w", err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var tid, list, reason string
+		if err := rows.Scan(&tid, &list, &reason); err != nil {
+			return fmt.Errorf("reading fleet-sync gaps: %w", err)
+		}
+		if tid != "" && len(tenants) > 0 && !tenants[tid] {
+			continue
+		}
+		label := "fleet " + list
+		if tid != "" {
+			label = "tenant " + tid + " " + list
+		}
+		*incomplete = append(*incomplete, label+": "+reason)
+	}
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("reading fleet-sync gaps: %w", err)
+	}
+	if len(*incomplete) > 0 {
+		msg := fmt.Sprintf("the last fleet-sync did not read %d list(s) in full (see incomplete): rows from them may be missing or stale; re-run 'afi-cli fleet-sync' before acting on this", len(*incomplete))
+		if *note == "" {
+			*note = msg
+		} else {
+			*note += "; " + msg
+		}
+	}
+	return nil
 }
 
 // jsonInt64 parses Afi's string-encoded int64 fields ("25") as well as plain

@@ -4,7 +4,6 @@
     "mcp-http-no-bearer-auth": [
       "abnormal",
       "action1",
-      "afi",
       "appdirect",
       "atera",
       "autotask",
@@ -45,7 +44,6 @@
     "mcp-go-no-rebinding-guard": [
       "abnormal",
       "action1",
-      "afi",
       "appdirect",
       "atera",
       "autotask",
@@ -130,7 +128,6 @@
     ],
     "mcp-write-tool-nondestructive": [
       "acronis",
-      "afi",
       "axcient",
       "backup-radar",
       "blumira",
@@ -156,7 +153,6 @@
     ],
     "mcp-share-command": [],
     "mcp-read-only-switch-skips-typed-tools": [
-      "afi",
       "axcient",
       "blumira",
       "connectwise-automate",

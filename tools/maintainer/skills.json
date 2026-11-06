@@ -91,7 +91,7 @@
       "category": "Backup/DR",
       "display_name": "Afi",
       "tagline": "Answer fleet-wide Afi backup coverage, staleness, and licensing questions from one local store.",
-      "cli_hash": "sha256:03150a8b133891e79c555f8f134cc24992ccb10b1490dc6b34f0c0b2d614bc6e",
+      "cli_hash": "sha256:b12adf457b152c7556a18d0f570e3f63f1d7707dd4a3d0ed617ff6774c984502",
       "template_version": 3,
       "version": "0.1.8",
       "cli_hash_at_release": "sha256:4aa85880c521b0469e454721927ac643f6b142fbb5aec773361166617a728bc6",

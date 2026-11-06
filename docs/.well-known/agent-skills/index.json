@@ -27,7 +27,7 @@
       "type": "skill-md",
       "description": "The first CLI for Afi SaaS backup - full public-API coverage plus the fleet-wide coverage, staleness, and offboarding answers the rate-limited API can't serve live. Trigger phrases: `check afi backup coverage`, `which mailboxes aren't backed up in afi`, `afi fleet health`, `offboard a user from afi backup`, `afi backup stale check`, `use afi`, `run afi-cli`.",
       "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/afi/SKILL.md",
-      "digest": "sha256:07a09c49e04fe2f704f2f5b2d9392cb5a7955e47fe8455df77d92af05e3e8938"
+      "digest": "sha256:c4a9490aed27034a069421dc8991b19305f9c23b0f2ed61c9c90263c3c0bf0ff"
     },
     {
       "name": "appdirect",
