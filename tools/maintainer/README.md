@@ -887,6 +887,13 @@ generator writes whole from sources (`catalog.json`, `docs/_data/catalog.json`,
 and re-checks those on the commit it merges. Any other file under `docs/skills/` is an ordinary
 file.
 
+`--approval-before-ci` moves that refusal earlier, never looser: when a required approval is
+not current for the head it just pushed, the run stops (exit 4) right after the push instead of
+after the CI wait, while CI keeps running on that head. A caller that renews the approval for
+that exact head (`approve --head`, or a carry) runs again, and the new run waits on the CI that
+is already going. The final gate still checks every approval, so nothing merges that would not
+have merged without the flag. A dry run reports as before.
+
 Every push it makes carries exactly one ref (`--no-follow-tags`, so a `push.followTags=true` in
 someone's config cannot publish annotated tags with it), and `catalog.json` is restored from the
 validated base before regenerating, because build-catalog.py keeps its `generated_at` and

@@ -1,5 +1,5 @@
 {
-  "count": 105,
+  "count": 106,
   "connectors": [
     {
       "slug": "abnormal",
@@ -134,7 +134,7 @@
     {
       "slug": "aws-billing",
       "display_name": "AWS",
-      "tagline": "Get a non-expert from zero to a Slack-delivered, plain-English, waste-flagged AWS bill breakdown  -  and cache it so you don't pay per Cost Explorer call.",
+      "tagline": "Get a non-expert from zero to a Slack-delivered, plain-English, waste-flagged AWS bill breakdown, and cache it so you don't pay per Cost Explorer call.",
       "category": "Billing",
       "verification": "awaiting",
       "verified_by": null,
@@ -442,6 +442,19 @@
       "verified_version": null,
       "verified_code": null,
       "url": "/skills/datto-rmm/"
+    },
+    {
+      "slug": "datto-saas",
+      "display_name": "Datto SaaS Protection",
+      "tagline": "Fleet-wide Datto SaaS Protection answers - unprotected seats, failing backups, exit inventories - from a local mirror in one ask.",
+      "category": "Backup/DR",
+      "verification": "awaiting",
+      "verified_by": null,
+      "source": null,
+      "issue_url": null,
+      "verified_version": null,
+      "verified_code": null,
+      "url": "/skills/datto-saas/"
     },
     {
       "slug": "dnsfilter",

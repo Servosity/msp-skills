@@ -3,7 +3,7 @@
   "name": "aws-billing-mcp",
   "display_name": "AWS Billing Intelligence",
   "version": "0.1.8",
-  "description": "Get a non-expert from zero to a Slack-delivered, plain-English, waste-flagged AWS bill breakdown  -  and cache it so you don't pay per Cost Explorer call.",
+  "description": "Get a non-expert from zero to a Slack-delivered, plain-English, waste-flagged AWS bill breakdown, and cache it so you don't pay per Cost Explorer call.",
   "author": {
     "name": "Servosity Inc."
   },
@@ -20,7 +20,12 @@
         "AWS_BILLING_SLACK_CHANNEL": "${user_config.aws_billing_slack_channel}",
         "AWS_REGION": "${user_config.aws_region}",
         "AWS_SECRET_ACCESS_KEY": "${user_config.aws_secret_access_key}",
-        "AWS_SESSION_TOKEN": "${user_config.aws_session_token}"
+        "AWS_SESSION_TOKEN": "${user_config.aws_session_token}",
+        "AWS_PROFILE": "${user_config.aws_profile}",
+        "AWS_BILLING_MCP_READ_ONLY": "${user_config.aws_billing_mcp_read_only}",
+        "AWS_BILLING_NO_LOCAL_DATA": "${user_config.aws_billing_no_local_data}",
+        "AWS_BILLING_USER_AGENT": "${user_config.aws_billing_user_agent}",
+        "AWS_BILLING_MCP_HTTP_TOKEN": "${user_config.aws_billing_mcp_http_token}"
       }
     }
   },
@@ -49,7 +54,7 @@
     "aws_billing_slack_channel": {
       "type": "string",
       "title": "Default Slack channel ID",
-      "description": "Slack channel or DM ID that `report --slack` posts to by default (the --slack-channel flag overrides it). Leave blank to pass the destination on every run.",
+      "description": "Slack channel or DM ID that `report --post-slack --yes` posts to by default (the --slack-channel flag overrides it). Leave blank to pass the destination on every run.",
       "required": false
     },
     "aws_region": {
@@ -65,6 +70,40 @@
       "description": "Session token, required only when the keys above are temporary STS or SSO credentials. Leave blank for long-lived IAM user keys.",
       "sensitive": true,
       "required": false
+    },
+    "aws_profile": {
+      "type": "string",
+      "title": "AWS profile",
+      "description": "Optional. Name of a profile in ~/.aws/config (SSO, assume-role or credential_process). Leave blank to use the access key fields or the default chain.",
+      "required": false,
+      "sensitive": false
+    },
+    "aws_billing_mcp_read_only": {
+      "type": "string",
+      "title": "Read-only MCP mode",
+      "description": "Optional. Set to exactly 1 to expose only read-only tools and refuse any state-changing execute call. Leave blank to keep every tool available.",
+      "required": false,
+      "sensitive": false
+    },
+    "aws_billing_no_local_data": {
+      "type": "string",
+      "title": "Run without a local copy",
+      "description": "Optional. Set to 1 to keep no local copy of API responses: reads go to the API instead of the local store. Leave blank to keep the local store.",
+      "required": false,
+      "sensitive": false
+    },
+    "aws_billing_user_agent": {
+      "type": "string",
+      "title": "User-Agent header",
+      "description": "Overrides the User-Agent the CLI sends on its own HTTP requests (report delivery). Leave blank to use the built-in User-Agent.",
+      "required": false
+    },
+    "aws_billing_mcp_http_token": {
+      "type": "string",
+      "title": "MCP HTTP transport bearer token",
+      "description": "Required only when running the MCP server with --transport http (a remote/hosted deployment). Callers must send a matching Authorization: Bearer header. Not needed for the default local stdio transport that Claude Desktop uses.",
+      "required": false,
+      "sensitive": true
     }
   },
   "compatibility": {
@@ -75,11 +114,11 @@
       "win32"
     ]
   },
-  "printing_press_version": "4.19.0",
+  "printing_press_version": "4.34.2",
   "press_provenance": {
-    "printing_press_version": "4.19.0",
-    "generated_at": "2026-05-29T13:31:43.609978Z",
-    "spec_checksum": "sha256:af1aceb7a81137cfe09c8ee210dd8c119885063f62621544bd7dc82398fffb98",
+    "printing_press_version": "4.34.2",
+    "generated_at": "2026-10-29T10:05:54.972125Z",
+    "spec_checksum": "sha256:cf4707ab798edffae84783c9fea1bbb2e29fbf087622c93dacd1ce56f40e7bf2",
     "spec_format": "internal"
   }
 }

@@ -74,9 +74,9 @@
     {
       "name": "aws-billing",
       "type": "skill-md",
-      "description": "Get a non-expert from zero to a plain-English, waste-flagged AWS bill breakdown - per-account, month-over-month, with dollar-ranked waste - and cache it locally so you don't pay per Cost Explorer call. Trigger phrases: `what's my aws bill`, `break down my aws costs`, `why did my aws bill go up`, `find aws waste`, `which account is driving my aws spend`, `post my aws bill to slack`, `set up aws billing access`, `use aws-billing`, `run aws-billing-cli`.",
+      "description": "Get a non-expert from zero to a Slack-delivered, plain-English, waste-flagged AWS bill breakdown, and cache it so you don't pay per Cost Explorer call. Trigger phrases: `what's my aws bill`, `break down my aws costs`, `why did my aws bill go up`, `find aws waste`, `which account is driving my aws spend`, `post my aws bill to slack`, `set up aws billing access`, `use aws-billing`, `run aws-billing-cli`.",
       "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/aws-billing/SKILL.md",
-      "digest": "sha256:b45b415c025c1f2be3f736b7ed6841bb8e812f0baee415f934bf92e72f82b8e0"
+      "digest": "sha256:3be4014740a4d5989a29b91d14f53ba404b7e18a932258601b444c80d438fc2b"
     },
     {
       "name": "axcient",
@@ -247,6 +247,13 @@
       "digest": "sha256:bfccad48f7d1d3fa3a2fc55baef568f4c2bb6318c52dd38005c23190025e7f0e"
     },
     {
+      "name": "datto-saas",
+      "type": "skill-md",
+      "description": "Every Datto SaaS Protection (Backupify) client in one local database: seat audits, protection gaps, backup health ranking, exit inventories and plan-first bulk seat changes. Trigger phrases: `audit datto saas seats`, `which backupify seats are unprotected`, `rank datto saas protection backup health`, `exit inventory for a client leaving backupify`, `plan a bulk seat license change`, `use datto-saas`, `run datto-saas`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/datto-saas/SKILL.md",
+      "digest": "sha256:a93557d6fe08c6f4bc3524a912118b861f9799d99f079589c028ed93a4b226c1"
+    },
+    {
       "name": "dnsfilter",
       "type": "skill-md",
       "description": "Use when the user asks about DNSFilter across every client: why a domain is blocked or allowed for one client and which policy and rule did it, allowing a domain on the policies that actually blocked it (preview first), the pending end-user unblock request queue, which client orgs have roaming clients behind the latest agent release or on a pulled build, roaming clients that went silent, unprotected or bypassed, which policies already allow or block a domain, or a policy hygiene audit. Covers every DNSFilter API operation as commands. Trigger phrases: `why is this site blocked in DNSFilter`, `allow this domain for a client in DNSFilter`, `which DNSFilter roaming clients are out of date`, `DNSFilter unblock requests`, `which clients are on the bad roaming client version`, `use dnsfilter`.",
@@ -265,7 +272,7 @@
       "type": "skill-md",
       "description": "Every Domotz endpoint, plus a local SQLite fleet mirror that answers cross-site questions. Trigger phrases: `which domotz sites are down`, `list offline devices across all sites`, `export domotz device inventory`, `check fleet health in domotz`, `find new devices on the network`, `use domotz`, `run domotz-cli`.",
       "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/domotz/SKILL.md",
-      "digest": "sha256:ca2e883bb73c5af2c53b2cf2c579b2d6362004e11e24df5681202b042bb594d2"
+      "digest": "sha256:03d0c5e3bbd8d6cd2ce84e75b8d753f97d6bcf3e4438de92a0ca84b3679c3c59"
     },
     {
       "name": "dropsuite",
@@ -475,7 +482,7 @@
       "type": "skill-md",
       "description": "Every PagerDuty incident, on-call and service operation from the terminal, plus a local SQLite mirror that answers cross-entity questions - MTTA/MTTR, on-call coverage gaps, responder load - that neither the API nor the web UI can. Trigger phrases: `who is on call for this service`, `show me the open pagerduty incidents`, `what's the mttr for this service`, `acknowledge the pagerduty incident`, `which services have no on-call coverage`, `use pagerduty`, `run pagerduty-cli`.",
       "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/pagerduty/SKILL.md",
-      "digest": "sha256:d2bf2caeaf354f4e46bfce6278e0b2e4b43f0d41d212f0adadfcdcf3f9bb070f"
+      "digest": "sha256:d350d19819252a7e590a70ac8827ed5f48df75c90f22cb45b6a8e22fbb9b706d"
     },
     {
       "name": "pandadoc",
