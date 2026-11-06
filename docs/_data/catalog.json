@@ -1,5 +1,5 @@
 {
-  "count": 105,
+  "count": 106,
   "connectors": [
     {
       "slug": "abnormal",
@@ -442,6 +442,19 @@
       "verified_version": null,
       "verified_code": null,
       "url": "/skills/datto-rmm/"
+    },
+    {
+      "slug": "datto-saas",
+      "display_name": "Datto SaaS Protection",
+      "tagline": "Fleet-wide Datto SaaS Protection answers - unprotected seats, failing backups, exit inventories - from a local mirror in one ask.",
+      "category": "Backup/DR",
+      "verification": "awaiting",
+      "verified_by": null,
+      "source": null,
+      "issue_url": null,
+      "verified_version": null,
+      "verified_code": null,
+      "url": "/skills/datto-saas/"
     },
     {
       "slug": "dnsfilter",

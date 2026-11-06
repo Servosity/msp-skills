@@ -878,6 +878,29 @@
         "issue_url": null
       }
     },
+    "datto-saas": {
+      "system": "Datto SaaS Protection (Backupify): seat audits, protection gaps, backup health ranking, exit inventories and plan-first bulk seat changes across every client from a local mirror",
+      "status": "beta",
+      "cli_binary": "datto-saas-cli",
+      "mcp_binary": "datto-saas-mcp",
+      "vendor": "Datto SaaS Protection",
+      "vendor_trademark_owner": "Datto, Inc",
+      "first_party": false,
+      "category": "Backup/DR",
+      "display_name": "Datto SaaS Protection",
+      "tagline": "Fleet-wide Datto SaaS Protection answers - unprotected seats, failing backups, exit inventories - from a local mirror in one ask.",
+      "has_video": true,
+      "cli_hash": "sha256:2351574e8fd1ed43f809746b9c69a552678fa0ee3436d5df039d0df550c74a5c",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": null,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
+    },
     "dnsfilter": {
       "system": "DNSFilter DNS security and content filtering (MSP and client organizations)",
       "status": "beta",
