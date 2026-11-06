@@ -2,7 +2,11 @@
 
 package cliutil
 
-import "net/url"
+import (
+	"net/netip"
+	"net/url"
+	"strings"
+)
 
 // SameOrigin is the one origin comparison every credential decision uses
 // (hand-fix, handfixes.json: scoped-bearer-stays-on-origin): scheme, host and
@@ -15,4 +19,29 @@ import "net/url"
 // folds a host the network keeps apart.
 func SameOrigin(target, origin *url.URL) bool {
 	return oauthTokenSameOrigin(target, origin)
+}
+
+// SameHost is SameOrigin's host rule for callers that hold bare hostnames (a
+// dial address, a redirect hop, a proxy). Hand-written (handfixes.json
+// stored-credential-origin-exact-host).
+func SameHost(a, b string) bool {
+	return oauthTokenSameHost(a, b)
+}
+
+// CanonicalHost returns a key for hostname h such that CanonicalHost(a) ==
+// CanonicalHost(b) exactly when SameHost(a, b): an IP literal in netip form
+// with its zone as written, an ASCII DNS name lowercased, and a name with any
+// non-ASCII byte unchanged. Hand-written (handfixes.json
+// stored-credential-origin-exact-host); NormalizeCredentialOrigin keys stored
+// credentials with it.
+func CanonicalHost(h string) string {
+	if ip, err := netip.ParseAddr(h); err == nil {
+		return ip.String()
+	}
+	for i := 0; i < len(h); i++ {
+		if h[i] >= 0x80 {
+			return h
+		}
+	}
+	return strings.ToLower(h)
 }

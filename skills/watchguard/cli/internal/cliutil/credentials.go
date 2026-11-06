@@ -319,6 +319,10 @@ func credentialsBytesHaveValues(data []byte) bool {
 
 // NormalizeCredentialOrigin returns a scheme/host/port/path key for raw.
 // Unresolved templates and values that are not http(s) URLs are not origins.
+// Hand-fix (handfixes.json stored-credential-origin-exact-host): the host is
+// keyed by CanonicalHost, SameOrigin's rule, so an IPv6 zone keeps its case
+// and a non-ASCII name is not folded; the generated key lowercased both and
+// sent stored credentials to the other link.
 func NormalizeCredentialOrigin(raw string) (string, bool) {
 	raw = strings.TrimSpace(raw)
 	if raw == "" || strings.Contains(raw, "{") {
@@ -344,11 +348,13 @@ func NormalizeCredentialOrigin(raw string) (string, bool) {
 	if path == "/" {
 		path = ""
 	}
-	return scheme + "://" + strings.ToLower(parsed.Hostname()) + ":" + port + path, true
+	return scheme + "://" + CanonicalHost(parsed.Hostname()) + ":" + port + path, true // Hand-fix (handfixes.json stored-credential-origin-exact-host)
 }
 
 // CredentialOriginsMatch reports whether two base URLs name the same server
-// after folding scheme and host case, default ports, and trailing slashes.
+// after folding scheme case, ASCII host case, default ports, and trailing
+// slashes (hosts compare by SameHost: handfixes.json
+// stored-credential-origin-exact-host).
 func CredentialOriginsMatch(issuedFor, target string) bool {
 	left, leftOK := NormalizeCredentialOrigin(issuedFor)
 	right, rightOK := NormalizeCredentialOrigin(target)

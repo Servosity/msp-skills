@@ -547,7 +547,7 @@ func redirectSameEffectiveOrigin(a, b *url.URL) bool {
 	if !aok || !bok {
 		return false
 	}
-	return as == bs && strings.EqualFold(ah, bh) && ap == bp
+	return as == bs && cliutil.SameHost(ah, bh) && ap == bp // Hand-fix (handfixes.json stored-credential-origin-exact-host)
 }
 
 func redirectEffectiveOrigin(u *url.URL) (scheme, host, port string, ok bool) {
@@ -817,9 +817,9 @@ func dialTargetAllowed(addr, allow string) bool {
 	}
 	ah, ap, err := net.SplitHostPort(allow)
 	if err != nil {
-		return strings.EqualFold(host, allow)
+		return cliutil.SameHost(host, allow) // Hand-fix (handfixes.json stored-credential-origin-exact-host)
 	}
-	return strings.EqualFold(host, ah) && port == ap
+	return cliutil.SameHost(host, ah) && port == ap // Hand-fix (handfixes.json stored-credential-origin-exact-host)
 }
 
 func dialAddrIsConfiguredProxy(addr string) bool {
@@ -850,7 +850,7 @@ func dialAddrIsConfiguredProxy(addr string) bool {
 				p = "80"
 			}
 		}
-		if strings.EqualFold(u.Hostname(), host) && p == port {
+		if cliutil.SameHost(u.Hostname(), host) && p == port { // Hand-fix (handfixes.json stored-credential-origin-exact-host)
 			return true
 		}
 	}

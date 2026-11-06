@@ -109,8 +109,10 @@ Credentials default to WATCHGUARD_CLIENT_ID (Client ID) and WATCHGUARD_CLIENT_SE
 			}
 			// hand-fix (handfixes.json dry-run-side-effect-free): a dry run
 			// sends no credentials and saves nothing.
+			// Hand-fix (handfixes.json auth-login-dry-run-no-access-id): the
+			// preview never names the Access ID, a declared credential.
 			if dryRunOK(flags) {
-				return writeDryRun(cmd.OutOrStdout(), flags, fmt.Sprintf("auth login: POST grant_type=client_credentials to %s as Access ID %s and save the token in %s", tokenURL, clientID, credentialSavePath(cfg)))
+				return writeDryRun(cmd.OutOrStdout(), flags, fmt.Sprintf("auth login: POST grant_type=client_credentials to %s with the configured Access ID and save the token in %s", tokenURL, credentialSavePath(cfg)))
 			}
 			tokenHTTP, err := flags.oauthHTTPClient(cfg)
 			if err != nil {
