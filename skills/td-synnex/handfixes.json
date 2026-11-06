@@ -1575,6 +1575,94 @@
    ]
   },
   {
+   "id": "ion-book-one-account",
+   "class": "book-answers-for-another-account",
+   "status": "active",
+   "summary": "the licence book answers only from walks of the ION account it is asked about: sync refuses (exit 2, naming the store's account) any accountId from --path-context, --param, --global-param or --resource-param that is not the configured account (CLI and the MCP sync tool, which runs the CLI); every walk of a book list (customers, subscriptions, orders) by sync, workflow archive or the auto-refresh first empties a list recorded for another account or for none, with its sync state, and records its own; the book refuses (exit 10, naming the account found and the sync) unless the record and the latest walk's scope both name the configured account; a command aimed at another account's <accountId> saves nothing locally, so a mutation write-back cannot add that account's rows",
+   "why": "Adversarial review 2026-11-06 (fresh context), P1: with TD_SYNNEX_ACCOUNT_ID=10505, `sync --resources customers,subscriptions,orders --path-context accountId=20000` (also the MCP sync tool with path-context [\"accountId=20000\"]) walked account 20000 into account 10505's store with a whole-walk proof; margin --by customer then answered for 10505 with 20000's customers (exit 0), customers show 108500 exited 3, and after an earlier 10505 sync margin merged both accounts silently. ionUnprovenResources checked the walk was whole and unfiltered but never which account it walked. Also found: customers create 20000 wrote account 20000's new customer into the 10505 store through the mutation write-back, and the book answered for it. Sync never prunes a book list (every walk is tenant-scoped by the accountId template var, so syncPruneSkipReason skips it), so refusing the walk alone would leave an explicit --db shared between accounts, an adopted unscoped data.db or a store an earlier build wrote merging rows forever: the store therefore records the account per book list (ion_store_account) and a walk for another account empties the list before writing. Repro on built binaries in .review/repro-r1.log (before: a, b, c, e reproduced; after: none). TestSyncRefusesAnotherAccountsWalk, TestBookAnswersOnlyFromWalksOfItsAccount, TestBookRefusesAStoreNotTracedToItsAccount, TestBookScopeMustNameItsAccount and TestForeignAccountWriteBackStaysOutOfTheBook failed on the unfixed tree and pass after; removing each piece alone (the sync refusal, the book check, the purge, the scope check, the write-back guard) fails its test again. Cost: a store synced before this fix refuses the book (exit 10, naming the sync) until one sync, which re-walks each book list from empty. GENERATED sync.go: a reprint must re-apply the two marked edits.",
+   "spec_encode_followup": "Press-side: a tenant-scoped store should record the tenant each table was walked for and refuse a --path-context or param that names another tenant, since tenant-scoped walks are never pruned.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "pp:handfix td-synnex (ion-book-one-account)",
+     "min_count": 2,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "if err := ionRefuseForeignAccount(c.Config, pathContext, userParams); err != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "if err := ionClaimBookList(db, resource, syncClientTemplateVars(c)[\"accountId\"]); err != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/ion_book.go",
+     "contains": "if foreign, found := ionForeignResources(cmd.Context(), db, ionBookAccount(flags), resources); len(foreign) > 0 {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/ion_book.go",
+     "contains": "names = append([]string{owner}, ionScopeAccounts(scopeKey)...)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/ion_book.go",
+     "contains": "if _, err := db.ReconcileAll(resource, nil, reconcileTypedTable(resource), store.CascadeJunctionsFor(resource)); err != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/ion_book.go",
+     "contains": "if v = strings.TrimSpace(v); strings.EqualFold(strings.TrimSpace(k), \"accountId\") && v != configured {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/ion_account_default.go",
+     "contains": "if len(args) > 0 && strings.TrimSpace(args[0]) != ionBookAccount(flags) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/ion_book_account_test.go",
+     "contains": "func TestSyncRefusesAnotherAccountsWalk(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/ion_book_account_test.go",
+     "contains": "func TestBookAnswersOnlyFromWalksOfItsAccount(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/ion_book_account_test.go",
+     "contains": "func TestBookRefusesAStoreNotTracedToItsAccount(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/ion_book_account_test.go",
+     "contains": "func TestBookScopeMustNameItsAccount(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/ion_book_account_test.go",
+     "contains": "func TestForeignAccountWriteBackStaysOutOfTheBook(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
    "id": "chatgpt-desktop-local-web-unsupported",
    "summary": "README.md, mcp-install.md and page.json say the ChatGPT desktop app runs this connector locally (STDIO) and that ChatGPT on the web, Microsoft 365 Copilot / Copilot Studio and the Gemini app are not supported by msp-skills yet, with a link to the hosted-gateway comparison; no paid-plan list, no Developer Mode recipe, no 'ChatGPT connects only to remote servers'.",
    "why": "Docs fix approved 2026-11-03, following PR #502. OpenAI's MCP docs (https://learn.chatgpt.com/docs/extend/mcp) say the ChatGPT desktop app, Codex CLI and the IDE extension support MCP servers, add them as STDIO, and share MCP configuration; ChatGPT on the web uses remote MCP through plugins and does not read local Codex config. The old text listed ChatGPT plans, said ChatGPT connects only to remote servers, and on the reprinted connectors told users to host the connector over HTTPS for a Developer Mode connector and Copilot Studio; SECURITY.md pauses HTTP mode until each connector is reprinted. README.md, mcp-install.md and page.json are regenerated by msp-skills-publish onboard.py, whose template still writes the old ChatGPT text, so without this entry a re-onboard or reprint silently restores it.",

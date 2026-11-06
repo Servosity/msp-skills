@@ -155,6 +155,13 @@ Resource scoping:
 				return err
 			}
 			c.NoCache = true
+			// pp:handfix td-synnex (ion-book-one-account): the store and the
+			// licence book are keyed on the configured ION account, so an
+			// accountId from --path-context or a param naming another one is
+			// refused before anything is walked or written.
+			if err := ionRefuseForeignAccount(c.Config, pathContext, userParams); err != nil {
+				return err
+			}
 			// Tenant vars go through Config.TemplateVars / buildURL. Ordinary
 			// SkipDefaultSync path params are applied later via replacePathParam.
 			if len(pathContext) > 0 {
@@ -560,6 +567,15 @@ func syncResource(ctx context.Context, c interface {
 
 	var totalCount int
 	requestedAt := started.UTC()
+
+	// pp:handfix td-synnex (ion-book-one-account): sync never prunes a book
+	// list (tenant_scope skip), so one recorded for another ION account, or for
+	// none, is emptied with its sync state before this walk writes it.
+	if preview, ok := c.(interface{ IsDryRun() bool }); !ok || !preview.IsDryRun() {
+		if err := ionClaimBookList(db, resource, syncClientTemplateVars(c)["accountId"]); err != nil {
+			return syncResult{Resource: resource, Err: err, Duration: time.Since(started)}
+		}
+	}
 
 	// Resume cursor from sync_state (unless --full cleared it). Read is
 	// side-effect free so a preflight skip or dry-run cannot reset another

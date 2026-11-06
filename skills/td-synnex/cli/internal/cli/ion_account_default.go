@@ -7,6 +7,7 @@ package cli
 
 import (
 	"net/url"
+	"os"
 	"strconv"
 	"strings"
 
@@ -52,7 +53,24 @@ func wrapAccountDefault(c *cobra.Command, flags *rootFlags) {
 	positionals := strings.Count(c.Use, "<")
 	orig := c.RunE
 	c.RunE = func(cmd *cobra.Command, args []string) error {
-		return orig(cmd, withDefaultAccountID(flags, args, positionals))
+		args = withDefaultAccountID(flags, args, positionals)
+		// The local store and its licence book hold the configured account
+		// only (handfixes.json: ion-book-one-account): a command aimed at
+		// another account saves nothing locally, so a mutation's write-back
+		// cannot put that account's rows into this account's book.
+		if len(args) > 0 && strings.TrimSpace(args[0]) != ionBookAccount(flags) {
+			if prev, had := os.LookupEnv(noLocalDataEnvVar); !had || prev != "1" {
+				_ = os.Setenv(noLocalDataEnvVar, "1")
+				defer func() {
+					if had {
+						_ = os.Setenv(noLocalDataEnvVar, prev)
+					} else {
+						_ = os.Unsetenv(noLocalDataEnvVar)
+					}
+				}()
+			}
+		}
+		return orig(cmd, args)
 	}
 	if c.Annotations == nil {
 		c.Annotations = map[string]string{}

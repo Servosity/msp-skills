@@ -20,6 +20,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"td-synnex-pp-cli/internal/config"
 	"td-synnex-pp-cli/internal/store"
 )
 
@@ -818,6 +819,11 @@ func openIONBook(cmd *cobra.Command, flags *rootFlags, dbPath string, resources 
 			"or --resource-param read a filtered list; a sync by an earlier version is not trusted), so totals and lists "+
 			"would leave records out; run: %s", strings.Join(unproven, ", "), syncHint))
 	}
+	if foreign, found := ionForeignResources(cmd.Context(), db, ionBookAccount(flags), resources); len(foreign) > 0 {
+		_ = db.Close() // read-only handle
+		return nil, func() {}, configErr(fmt.Errorf("local %s not walked for ION account %s (found: %s): the book answers for one account and never merges "+
+			"another's rows; run: %s", strings.Join(foreign, ", "), ionAccountLabel(ionBookAccount(flags)), strings.Join(found, ", "), syncHint))
+	}
 	if len(resources) > 0 && !hintIfUnsynced(cmd, db, resources[0]) {
 		hintIfStale(cmd, db, resources[0], flags.maxAge) // ponytail: the primary resource stands in for the set
 	}
@@ -907,4 +913,132 @@ func subsByResource(b *ionBook) map[string]ionSub {
 		delete(out, k)
 	}
 	return out
+}
+
+// The licence book answers only from walks of the ION account it is asked
+// about (handfixes.json: ion-book-one-account). The default store is keyed on
+// the configured account, but an explicit --db, an adopted unscoped store or a
+// store an earlier build wrote can hold another account's lists, and sync never
+// prunes a book list (the accountId template var makes every walk
+// tenant-scoped). So each book list records the account it was walked for, a
+// walk for another account empties the list first, and the book answers only
+// when the record and the latest walk's scope both name its account.
+const ionStoreAccountDDL = `CREATE TABLE IF NOT EXISTS ion_store_account (resource_type TEXT PRIMARY KEY, account TEXT NOT NULL)`
+
+// ionBookAccount is the account the book answers for: the configured one.
+func ionBookAccount(flags *rootFlags) string {
+	path := ""
+	if flags != nil {
+		path = flags.configPath
+	}
+	cfg, err := config.Load(path)
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(cfg.TemplateVars["accountId"])
+}
+
+func ionAccountLabel(account string) string {
+	if account == "" {
+		return "(none configured; set TD_SYNNEX_ACCOUNT_ID)"
+	}
+	return account
+}
+
+// ionForeignResources names the book lists not proven to be account's: no
+// account record (an earlier build wrote them), a record naming another
+// account, or a latest walk whose scope names another one. found lists the
+// accounts the store does name. Any read error counts as foreign.
+func ionForeignResources(ctx context.Context, db *store.Store, account string, resources []string) (foreign, found []string) {
+	seen := map[string]bool{}
+	for _, r := range resources {
+		var owner, scopeKey string
+		err := db.DB().QueryRowContext(ctx, `SELECT a.account, s.scope_key FROM ion_store_account a JOIN sync_state s ON s.resource_type = a.resource_type WHERE a.resource_type = ?`, r).Scan(&owner, &scopeKey)
+		names := []string{"no account recorded"}
+		if err == nil {
+			names = append([]string{owner}, ionScopeAccounts(scopeKey)...)
+		}
+		mismatch := account == "" || err != nil
+		for _, n := range names {
+			mismatch = mismatch || n != account
+			if !seen[n] {
+				seen[n] = true
+				found = append(found, n)
+			}
+		}
+		if mismatch {
+			foreign = append(foreign, r)
+		}
+	}
+	return foreign, found
+}
+
+// ionScopeAccounts returns every accountId a sync_state scope key names.
+func ionScopeAccounts(scopeKey string) []string {
+	var out []string
+	for _, line := range strings.Split(scopeKey, "\n") {
+		for _, prefix := range []string{"template:accountId=", "path:accountId="} {
+			if v, ok := strings.CutPrefix(line, prefix); ok {
+				out = append(out, v)
+			}
+		}
+	}
+	if len(out) == 0 {
+		out = []string{"no account in the sync scope"}
+	}
+	return out
+}
+
+// ionClaimBookList runs before a walk for account writes resource. A book
+// list recorded for another account, or for none, is emptied with its sync
+// state, then recorded for account. The sync_state row goes first, so a crash
+// at any step leaves the book refusing.
+func ionClaimBookList(db *store.Store, resource, account string) error {
+	if resource != "customers" && resource != "subscriptions" && resource != "orders" {
+		return nil
+	}
+	if _, err := db.DB().Exec(ionStoreAccountDDL); err != nil {
+		return fmt.Errorf("recording the ION account of %s: %w", resource, err)
+	}
+	var owner string
+	if err := db.DB().QueryRow(`SELECT account FROM ion_store_account WHERE resource_type = ?`, resource).Scan(&owner); err == nil && owner == account {
+		return nil
+	}
+	if _, err := db.DB().Exec(`DELETE FROM sync_state WHERE resource_type = ?`, resource); err != nil {
+		return fmt.Errorf("emptying %s of another ION account: %w", resource, err)
+	}
+	if _, err := db.ReconcileAll(resource, nil, reconcileTypedTable(resource), store.CascadeJunctionsFor(resource)); err != nil {
+		return fmt.Errorf("emptying %s of another ION account: %w", resource, err)
+	}
+	if _, err := db.DB().Exec(`INSERT INTO ion_store_account (resource_type, account) VALUES (?, ?) ON CONFLICT(resource_type) DO UPDATE SET account = excluded.account`, resource, account); err != nil {
+		return fmt.Errorf("recording the ION account of %s: %w", resource, err)
+	}
+	return nil
+}
+
+// ionRefuseForeignAccount refuses a sync that would walk another ION account
+// into this store: an accountId from --path-context, --param, --global-param
+// or --resource-param that is not the configured account. TD_SYNNEX_ACCOUNT_ID
+// selects that account, whose default store is its own.
+func ionRefuseForeignAccount(cfg *config.Config, pathContext map[string]string, userParams *syncUserParams) error {
+	configured := ""
+	if cfg != nil {
+		configured = strings.TrimSpace(cfg.TemplateVars["accountId"])
+	}
+	sources := []map[string]string{pathContext}
+	if userParams != nil {
+		sources = append(sources, userParams.flatGlobal, userParams.trueGlobal)
+		for _, m := range userParams.perResource {
+			sources = append(sources, m)
+		}
+	}
+	for _, m := range sources {
+		for k, v := range m {
+			if v = strings.TrimSpace(v); strings.EqualFold(strings.TrimSpace(k), "accountId") && v != configured {
+				return usageErr(fmt.Errorf("accountId=%s is not this store's ION account %s: the local book answers for one account, so sync "+
+					"never walks another into it; to sync account %s, set TD_SYNNEX_ACCOUNT_ID=%s", v, ionAccountLabel(configured), v, v))
+			}
+		}
+	}
+	return nil
 }
