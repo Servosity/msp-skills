@@ -64,7 +64,7 @@ func newNovelFleetTriggersCmd(flags *rootFlags) *cobra.Command {
 			}
 			agents, err := fleetAgentsLive(cmd.Context(), c)
 			if err != nil {
-				return classifyAPIError(err, flags)
+				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}
 
 			results, errs := cliutil.FanoutRun(cmd.Context(), agents,
@@ -103,7 +103,10 @@ func newNovelFleetTriggersCmd(flags *rootFlags) *cobra.Command {
 			for _, r := range results {
 				rows = append(rows, r.Value...)
 			}
-			return printJSONFiltered(cmd.OutOrStdout(), rows, flags)
+			if err := printJSONFiltered(cmd.OutOrStdout(), rows, flags); err != nil {
+				return err
+			}
+			return fanoutIncomplete(errs, len(agents))
 		},
 	}
 	return cmd
