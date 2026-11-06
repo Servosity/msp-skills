@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-11-06",
+  "generated_at": "2026-11-05",
   "skills": [
     {
       "name": "msp-skills-concierge",
@@ -1003,6 +1003,25 @@
       "verification": "awaiting",
       "category": "Documentation",
       "tagline": "Find any device, audit stale passwords, and rank thin client docs by asking."
+    },
+    {
+      "name": "jamf-pro",
+      "system": "Jamf Pro: computers, mobile devices, policies, scripts, and packages across every client Jamf instance for MSPs",
+      "status": "beta",
+      "skill_path": "skills/jamf-pro",
+      "cli_binary": "jamf-pro-cli",
+      "mcp_binary": "jamf-pro-mcp",
+      "version": "0.1.0",
+      "printing_press_version": "4.34.2",
+      "license": "Apache-2.0",
+      "vendor": "Jamf",
+      "vendor_trademark_owner": "JAMF Software, LLC",
+      "first_party": false,
+      "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/jamf-pro/install.sh)",
+      "install_mcp_doc": "skills/jamf-pro/mcp-install.md",
+      "description": "Every client's Jamf Pro in one CLI: register each instance once, then find devices, check posture and patch status, and audit policies across all of them.",
+      "verification": "awaiting",
+      "category": "MDM"
     },
     {
       "name": "jira-service-management",

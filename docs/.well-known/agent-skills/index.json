@@ -338,6 +338,13 @@
       "digest": "sha256:8aaee2a34f233f9ae1eb30aee973c4ae61c2e154e06872a738e72dc02a06b6fb"
     },
     {
+      "name": "jamf-pro",
+      "type": "skill-md",
+      "description": "Every client's Jamf Pro in one CLI: register each instance once, then find devices, check posture and patch status, and audit policies across all of them. Trigger phrases: `which client has this Mac`, `jamf posture across clients`, `macs not checked in`, `patch status in jamf`, `broken jamf policies`, `use jamf-pro`, `run jamf-pro`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/jamf-pro/SKILL.md",
+      "digest": "sha256:6bc15d4b7362d3337fdf7a64f4f3dfb396b76804134d91baf9380e2630378707"
+    },
+    {
       "name": "jira-service-management",
       "type": "skill-md",
       "description": "Use when the user asks to triage Jira Service Management (JSM) queues by SLA risk, add an internal note to a service desk ticket, read a ticket's full history, manage JSM customers and client organizations, or look up and reconcile Assets (CMDB) objects: ranks open tickets across every queue by SLA time remaining, posts agent-only notes that error if JSM stores them as public, joins Assets objects to the tickets that touch them, and diffs Assets against an RMM or PSA export. Trigger phrases: `which tickets are about to breach SLA`, `add an internal note to this service desk ticket`, `show the full timeline for SD-123`, `which tickets touch this server in Assets`, `reconcile Assets against my RMM export`, `use jira service management`, `run jira-service-management-cli`, `jsm queues`, `jira service desk sla`.",

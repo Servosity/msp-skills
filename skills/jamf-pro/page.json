@@ -1,0 +1,124 @@
+{
+  "outcome_intro": "Ask which client has this Mac, or which clients have FileVault off and patches behind, and get one answer across every client's Jamf Pro. Jamf Pro plus your AI agent reads each client's own server in parallel, with that client's own API client, so a question that means logging in to every console one at a time becomes one reply.",
+  "instead_of_say": [
+    {
+      "instead": "Log in to each client's Jamf Pro console and search for a serial number until one of them has it",
+      "say": "Which client has the Mac with serial C02XK1ABJG5H?",
+      "cli": "jamf-pro-cli fleet find C02XK1ABJG5H --agent"
+    },
+    {
+      "instead": "Export inventory from every client's Jamf Pro, then count stale check-ins, old macOS and FileVault status in a spreadsheet",
+      "say": "Which clients have Macs with FileVault off, or below macOS 14.6?",
+      "cli": "jamf-pro-cli fleet posture --stale-days 14 --min-os 14.6 --agent"
+    },
+    {
+      "instead": "Keep a calendar reminder per client for every ADE and VPP token, and find out about the one you missed when enrollment stops",
+      "say": "Which enrollment or VPP tokens expire in the next 30 days, across every client?",
+      "cli": "jamf-pro-cli fleet health --within 30d --agent"
+    }
+  ],
+  "pain_points": [
+    "Jamf Pro gives each customer its own server, so an MSP works many consoles. On Jamf Nation one MSP engineer put it as \"about 100 instances\", because Apple requires each organization to have its own push certificate. Any question across clients means one login per client.",
+    "A ticket names a Mac or a user but not the client, and someone logs in to console after console until a serial number turns up.",
+    "ADE and VPP tokens expire per client on their own dates, so a lapsed token shows up as an onboarding that stopped working.",
+    "A policy changed in your template drifts out of step across clients, and nothing tells you which client lags or which policy can never run."
+  ],
+  "outcomes": [
+    {
+      "question": "Which client has this Mac, iPad or iPhone, by serial, name, username or email?",
+      "command": "jamf-pro-cli fleet find C02XK1ABJG5H --agent"
+    },
+    {
+      "question": "Which clients have stale check-ins, Macs below a macOS floor, FileVault off or the firewall off?",
+      "command": "jamf-pro-cli fleet posture --stale-days 14 --min-os 14.6 --agent"
+    },
+    {
+      "question": "Which patch titles are behind latest, and which clients have failed managed OS updates?",
+      "command": "jamf-pro-cli fleet patch --behind-only --agent"
+    },
+    {
+      "question": "A vendor advisory landed: which clients and computers have this app below the fixed version?",
+      "command": "jamf-pro-cli fleet app \"Google Chrome\" --below 129.0.6668.100 --agent"
+    },
+    {
+      "question": "Which policies are disabled, can never run, have no scope, or point at a missing script or package?",
+      "command": "jamf-pro-cli fleet policy-hygiene --agent"
+    },
+    {
+      "question": "Which ADE or VPP tokens expire soon, which enrollment syncs failed, and which Jamf Pro versions are clients on?",
+      "command": "jamf-pro-cli fleet health --within 30d --agent"
+    },
+    {
+      "question": "Which clients are missing objects from our template instance, or run a different copy of its scripts?",
+      "command": "jamf-pro-cli fleet baseline --golden msp-template --agent"
+    },
+    {
+      "question": "Does every client's API client still work?",
+      "command": "jamf-pro-cli instance test --agent"
+    }
+  ],
+  "different_vs_wrappers": "A connector that forwards each tool call to one Jamf Pro server answers for one client at a time. This one keeps a registry of every client's server and API client, reads them in parallel with each client's own credential, and answers in one table with an instance column. The fleet commands read live; `sync` also builds a local SQLite mirror per instance for offline search.",
+  "different_vs_vendor": "Jamf Pro and Jamf Account stay your place to manage each customer, enroll devices and build policies; this skill answers the questions that cross customers, in the AI agent you already use, and complements them rather than replacing them.",
+  "faqs": [
+    {
+      "q": "Does this work with ChatGPT?",
+      "a": "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so it needs the Jamf Pro MCP server's token-protected HTTP mode hosted over HTTPS. Step-by-step in the install guide."
+    },
+    {
+      "q": "Do I need to know how to code?",
+      "a": "No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once."
+    },
+    {
+      "q": "Is my Jamf Pro data safe?",
+      "a": "Your data stays on your machine. The CLI, the MCP server and the local mirror all run locally. The AI sees query results, and credentials are never bundled or transmitted by MSP Skills: they go to your own Jamf Pro server and nowhere else, and any output that repeats one is withheld."
+    },
+    {
+      "q": "What does it cost?",
+      "a": "Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use."
+    },
+    {
+      "q": "Do I need a separate API client for each client's Jamf Pro?",
+      "a": "Yes. Create one in each instance under Settings > System > API roles and clients, with only the read privileges the reports need, then register it once with `jamf-pro-cli instance add`. Each secret stays in the JAMF_PRO_FLEET_SECRETS environment variable (name=secret entries separated by commas) and is never written to the registry."
+    },
+    {
+      "q": "Will this replace Jamf Account or the Jamf Pro console?",
+      "a": "No. Jamf Account is where a service provider manages customers and their products, and each console is where you build policies and enroll devices. This skill answers questions across the data inside those instances."
+    },
+    {
+      "q": "Can it read LAPS passwords, FileVault keys or lock PINs?",
+      "a": "No. Those endpoints are not included, `fleet exec` refuses them by path, and any password, key, token or PIN field in another response prints as [redacted]. Read them in the Jamf Pro console."
+    },
+    {
+      "q": "We run one Jamf Pro with sites. Does it help?",
+      "a": "Partly. Register that server once and every read works, but fleet reports count per instance, not per site. Fleet reports earn their keep when each client has its own instance."
+    }
+  ],
+  "governance_summary": "It reads inventory, policies, patch status and enrollment health from every Jamf Pro instance you register, and can change one instance at a time with the writes that instance's API client allows. Passwords, keys, tokens and PINs in responses are redacted, and the endpoints that return LAPS passwords, FileVault keys, recovery-lock passwords and lock PINs are not included. Let an agent read freely, preview routine writes, and keep a human on anything that touches credentials or acts on a device.",
+  "safety_tiers": [
+    {
+      "tier": "Read",
+      "examples": "`fleet find`, `fleet posture`, `fleet patch`, `fleet app`, `fleet policy-hygiene`, `fleet health`, `fleet baseline`, `fleet exec`, `computer-inventory list`, `scripts get`, `policies list`, `sync`, `search`",
+      "policy": "Allow"
+    },
+    {
+      "tier": "Write (routine)",
+      "examples": "`buildings create`, `categories update`, `departments update`, `computer-groups create-static-groups`, `packages update`, `computer-extension-attributes update`, every other POST, PUT or PATCH not named below",
+      "policy": "Preview with --dry-run, then a reviewed write"
+    },
+    {
+      "tier": "Credential and identity",
+      "examples": "`auth login`, `auth set-token`, every `api-integrations` and `api-roles` command, `accounts`, `account-groups`, every `local-admin-password` command, `volume-purchasing-locations create` and `update`, and any prestage write that sets an admin password",
+      "policy": "Human-in-the-loop only"
+    },
+    {
+      "tier": "Acts on customer devices",
+      "examples": "`computer-inventory erase`, `computer-inventory remove-mdm-profile`, `mobile-devices erase`, `mobile-devices unmanage`, `mdm send-command`, `mdm deploy-package`, `mdm blank-push`, `mdm renew-profile`, `managed-software-updates create-plans`, `patch-policy-logs retry`, `policies create` and `update`, `scripts create` and `update`, `device-enrollments disown`, `volume-purchasing-locations revoke-licenses` and `reclaim`",
+      "policy": "Human-in-the-loop only, one instance at a time"
+    },
+    {
+      "tier": "Destructive / config",
+      "examples": "Every `delete` and `delete-multiple` command, for example `scripts delete`, `policies delete`, `computer-inventory delete`, `api-roles delete`, `device-enrollments delete`",
+      "policy": "Human-in-the-loop only, explicit confirmation"
+    }
+  ]
+}

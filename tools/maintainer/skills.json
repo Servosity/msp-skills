@@ -1211,6 +1211,28 @@
         "issue_url": null
       }
     },
+    "jamf-pro": {
+      "system": "Jamf Pro: computers, mobile devices, policies, scripts, and packages across every client Jamf instance for MSPs",
+      "status": "beta",
+      "cli_binary": "jamf-pro-cli",
+      "mcp_binary": "jamf-pro-mcp",
+      "vendor": "Jamf",
+      "vendor_trademark_owner": "JAMF Software, LLC",
+      "first_party": false,
+      "category": "MDM",
+      "display_name": "Jamf Pro",
+      "has_video": true,
+      "cli_hash": "sha256:f65b37f65d9976b0feb13673537868f06d38309978d4874246bf176cb5e1a1ca",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": null,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
+    },
     "jira-service-management": {
       "system": "Jira Service Management Cloud: requests, queues, SLAs, customers, organizations, Assets (CMDB)",
       "status": "beta",
