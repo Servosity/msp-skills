@@ -1576,7 +1576,7 @@
       "category": "RMM",
       "display_name": "Nerdio Manager",
       "tagline": "Audit autoscale, sweep idle session hosts, and reconcile per-customer billing across every Nerdio Manager account from your terminal.",
-      "cli_hash": "sha256:9ee5ea50f4e76eaf7eb8fb13c6b0ac3df7f3e5a9425e3e1945220fb731c7c9d5",
+      "cli_hash": "sha256:9f1be269f20741bc11e9c7cdbc34709a2cacde542f5488dab22ba9d212b0002b",
       "template_version": 3,
       "version": "0.1.8",
       "cli_hash_at_release": "sha256:9293f8004d77247a9f04554784426852cba5ced60c1e3b318985c95a2aee0911",

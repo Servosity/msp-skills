@@ -4,6 +4,26 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.1.9] - unreleased
+
+Rebuilt on CLI Printing Press 4.34.2 (the press upgrade that carries the fix for [GHSA-jh26-vhqh-692c](https://github.com/mvanhorn/cli-printing-press/security/advisories/GHSA-jh26-vhqh-692c)).
+
+### Security
+- **HTTP mode needs a token.** `nerdio-mcp --transport http` refuses to start until `NERDIO_MCP_HTTP_TOKEN` is set, every request must send it as `Authorization: Bearer <token>`, the server serves `http://127.0.0.1:7777/mcp` by default, and any other address also needs `--tls-cert` and `--tls-key`. The interim advice not to use HTTP mode is removed from the docs.
+- **The MCP server is split into a read tool and an execute tool.** A state-changing call through `nerdio_execute` sends nothing until the call also passes `confirm: true`. `NERDIO_MCP_READ_ONLY=1` exposes only read-only tools, and `NERDIO_NO_LOCAL_DATA=1` keeps no local copy of API responses.
+- **One shared credential guard.** The CLI and the MCP server now use the fleet's shared credential kit. Any output that carries a credential this program holds (your client secret, a minted token, a credential in your config or profiles) is replaced whole by a fixed notice, on the terminal, in files, in the local store and in MCP results. The client secret and tokens are sent only over https, only to your Nerdio Manager URL or to Microsoft Entra sign-in, and never across a redirect to another server.
+- **No placeholder fallbacks.** A missing or placeholder `NERDIO_TOKEN_URL`, `NERDIO_OAUTH_SCOPE` or `NERDIO_BASE_URL` now sends nothing and names the variable to set, instead of posting your client secret to a placeholder tenant or sending the token to a placeholder host.
+- **Customer secrets are shown, never stored.** LAPS passwords, BitLocker keys and secure-variable values are shown on your own output when you ask for them, and are kept out of error output, files and the local store. Secure variables are no longer synced.
+- **`fleet autoscale-audit --baseline` is refused from the MCP server**, since it reads a local file.
+
+### Changed
+- A token URL on a host other than your Nerdio Manager URL or Microsoft Entra sign-in is refused.
+- Token fields in API answers print as `[withheld]`.
+
+### Fixed
+- The MCP server's startup refusals and `-h` usage text now print before it exits.
+- A refused request is no longer retried; `job wait` stops on a final error.
+
 ## [0.1.8] - 2026-10-23
 
 ### Security

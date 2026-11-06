@@ -64,11 +64,9 @@ To install:
 
 1. Download the `.mcpb` for your platform from the [latest release](https://github.com/Servosity/msp-skills/releases?q=nerdio).
 2. Double-click the `.mcpb` file. Claude Desktop opens and walks you through the install.
-3. Fill in `NERDIO_CLIENT_ID` when Claude Desktop prompts you.
+3. Fill in `NERDIO_BASE_URL`, `NERDIO_TOKEN_URL`, `NERDIO_CLIENT_ID`, `NERDIO_CLIENT_SECRET` and `NERDIO_OAUTH_SCOPE` when Claude Desktop prompts you.
 
-Requires Claude Desktop 1.0.0 or later. A bundle carries the five platform binaries the builder downloads - macOS (`darwin-arm64`, `darwin-amd64`), Linux (`linux-arm64`, `linux-amd64`) and Windows (`windows-amd64`). Windows on ARM is released as a standalone binary but is not bundled, so use the manual config below there.
-
-> **Claude Desktop bundle:** the `.mcpb` launches on macOS (Intel and Apple Silicon), Windows x64 and Linux x64. Every tool shells out to the companion `nerdio-cli`. Releases cut from 2026-09-18 on ship that CLI inside the bundle; older bundles contain only the MCP server, so if yours lacks the companion, run the installer above first (or set `NERDIO_CLI_PATH` to an existing binary). Details: [#331](https://github.com/Servosity/msp-skills/issues/331).
+Requires Claude Desktop 1.0.0 or later. Pre-built bundles ship for macOS Apple Silicon (`darwin-arm64`) and Windows (`amd64`, `arm64`); for other platforms, use the manual config below.
 
 <details>
 <summary>Manual JSON config (advanced)</summary>
@@ -83,7 +81,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/sk
 iwr -useb https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/nerdio/install.ps1 | iex            # Windows
 ```
 
-Add to your Claude Desktop config (`%APPDATA%\Claude\claude_desktop_config.json` on Windows, `~/Library/Application Support/Claude/claude_desktop_config.json` on macOS):
+Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS, `%APPDATA%\Claude\claude_desktop_config.json` on Windows):
 
 ```json
 {
@@ -91,7 +89,11 @@ Add to your Claude Desktop config (`%APPDATA%\Claude\claude_desktop_config.json`
     "nerdio": {
       "command": "nerdio-mcp",
       "env": {
-        "NERDIO_CLIENT_ID": "<your-key>"
+        "NERDIO_BASE_URL": "https://nmm.contoso.com",
+        "NERDIO_TOKEN_URL": "https://login.microsoftonline.com/<TENANT_ID>/oauth2/v2.0/token",
+        "NERDIO_CLIENT_ID": "<client-id>",
+        "NERDIO_CLIENT_SECRET": "<client-secret>",
+        "NERDIO_OAUTH_SCOPE": "<app-id>/.default"
       }
     }
   }
@@ -99,6 +101,17 @@ Add to your Claude Desktop config (`%APPDATA%\Claude\claude_desktop_config.json`
 ```
 
 </details>
+
+### Remote MCP over HTTP
+
+`nerdio-mcp --transport http` (or `PP_MCP_TRANSPORT=http`) serves streamable HTTP at `http://127.0.0.1:7777/mcp`. It refuses to start until `NERDIO_MCP_HTTP_TOKEN` is set to at least 32 characters, and every request must send `Authorization: Bearer <token>`. The command below prints 64 hex characters and meets that minimum. Plain HTTP is allowed only on a loopback `--addr`; any other bind, including `:7777` (every interface), also needs `--tls-cert` and `--tls-key`. Requests with no `Origin` header are accepted, as are loopback origins (`localhost`, `127.0.0.1`, or `[::1]`, any port). Any other `Origin` is refused unless it is listed in `NERDIO_MCP_HTTP_ALLOWED_ORIGINS`, a comma-separated list of `scheme://host[:port]` values with no path. That list is not a CORS policy; the server does not emit CORS headers.
+
+```bash
+export NERDIO_MCP_HTTP_TOKEN="$(openssl rand -hex 32)"
+nerdio-mcp --transport http
+```
+
+Set `NERDIO_MCP_READ_ONLY=1` (exactly `1`) to drop mirrored commands that are not marked read-only and make the raw execute tool refuse state-changing calls. Commands marked local-write, which write only this CLI's own learn store, stay available.
 
 ## Authentication
 
@@ -126,8 +139,6 @@ nerdio-cli job wait 4821 --interval 10s
 
 ## Unique Features
 
-These capabilities aren't available in any other tool for this API.
-
 ### Async job plumbing
 - **`job wait`**  -  Wait for any NMM async job to finish - polls until Completed/Failed/Cancelled and exits with a typed code reflecting the outcome.
 
@@ -150,7 +161,7 @@ These capabilities aren't available in any other tool for this API.
   _Use this to answer 'what is running right now across all customers' in one call._
 
   ```bash
-  nerdio-cli fleet host-estate --running-only --agent --select items.account,items.host,items.power_state
+  nerdio-cli fleet host-estate --running-only --agent --select items.account,items.power_state
   ```
 - **`scripted-actions fan-run`**  -  Execute one scripted action across many customer accounts, collect every returned job ID, and optionally wait for all of them to finish.
 
@@ -178,11 +189,10 @@ These capabilities aren't available in any other tool for this API.
 
 ## Recipes
 
-
 ### Monday autoscale sweep
 
 ```bash
-nerdio-cli fleet autoscale-audit --agent
+nerdio-cli fleet autoscale-audit --agent --max-accounts 50
 ```
 
 Fan out across every customer account and flag host pools with autoscale disabled or diverging from baseline, with failed accounts reported separately.
@@ -190,10 +200,10 @@ Fan out across every customer account and flag host pools with autoscale disable
 ### Weekend power check
 
 ```bash
-nerdio-cli fleet host-estate --running-only --agent --select items.account,items.host,items.power_state
+nerdio-cli fleet host-estate --running-only --agent --select items.account,items.power_state
 ```
 
-One narrow table of every session host still running across all customers - the deep response trimmed to three fields.
+One narrow table of every session host still running across all customers - the deep response trimmed to account and power state.
 
 ### Unpaid invoice check
 
@@ -222,6 +232,81 @@ Full-text search the synced local store instead of paging the live API.
 ## Usage
 
 Run `nerdio-cli --help` for the full command reference and flag list.
+
+## Paths & environment variables
+
+This CLI separates local files into four path kinds:
+
+| Kind | Contents |
+|------|----------|
+| `config` | User-editable settings such as `config.toml` and saved profiles |
+| `data` | Durable local data: `credentials.toml`, `data.db`, cookies, browser-session proof files, and other auth sidecars |
+| `state` | Runtime state such as persisted queries, jobs, and `teach.log` |
+| `cache` | Regenerable HTTP/cache files |
+
+Each kind resolves independently. The ladder is:
+
+1. Per-kind env var: `NERDIO_CONFIG_DIR`, `NERDIO_DATA_DIR`, `NERDIO_STATE_DIR`, or `NERDIO_CACHE_DIR`
+2. `--home <dir>` for this invocation
+3. `NERDIO_HOME` for a flat relocated root
+4. XDG env vars: `XDG_CONFIG_HOME`, `XDG_DATA_HOME`, `XDG_STATE_HOME`, `XDG_CACHE_HOME`
+5. Platform defaults matching existing installs
+
+For containers and agent sandboxes, prefer a single relocated root:
+
+```bash
+export NERDIO_HOME=/srv/nerdio
+nerdio-cli doctor
+```
+
+On Windows (PowerShell):
+
+```powershell
+$env:NERDIO_HOME = "C:\ProgramData\nerdio"
+nerdio-cli doctor
+```
+
+Under `NERDIO_HOME=/srv/nerdio`, the four dirs resolve to `/srv/nerdio/config`, `/srv/nerdio/data`, `/srv/nerdio/state`, and `/srv/nerdio/cache`.
+
+On Windows, set the same variable in PowerShell:
+
+```powershell
+$env:NERDIO_HOME = "C:\srv\nerdio"
+nerdio-cli doctor
+```
+
+Under `$env:NERDIO_HOME = "C:\srv\nerdio"`, the four dirs resolve to `C:\srv\nerdio\config`, `C:\srv\nerdio\data`, `C:\srv\nerdio\state`, and `C:\srv\nerdio\cache`.
+
+MCP servers do not receive CLI flags from the host. Put relocation in the host `env` block:
+
+```json
+{
+  "mcpServers": {
+    "nerdio": {
+      "command": "nerdio-mcp",
+      "env": {
+        "NERDIO_HOME": "/srv/nerdio"
+      }
+    }
+  }
+}
+```
+
+Precedence matters in fleets: an ambient per-kind variable such as `NERDIO_DATA_DIR` overrides an explicit `--home` for that kind. Use `NERDIO_HOME` or the per-kind variables for durable fleet relocation; treat `--home` as the weaker per-invocation lever.
+
+Relocation is one-way. Unsetting `NERDIO_HOME` does not move files back to platform defaults, and `doctor` cannot find credentials left under a former root. Move the files manually before unsetting relocation variables.
+
+Existing installs keep working because the platform-default rung matches the legacy layout. On the first auth write, stored secrets leave `config.toml` and are consolidated into `credentials.toml` under the data directory. Run `nerdio-cli doctor --fail-on warn` to check path and credential-location warnings in automation.
+
+### Local data
+
+Reads are saved locally by default: in `--data-source auto` mode every successful read is also written to the SQLite store (`data.db`, or `data-<hash>.db` per credential) in the data directory. GET responses are never cached on disk. Credentials live in `credentials.toml` in the data directory. The learn journal lives under `learn/` in the state directory. `nerdio-cli doctor` prints the resolved paths, every store file, and the response-cache size.
+
+None of it is encrypted. New files are created owner-only; beyond that the data relies on OS account permissions and full-disk encryption (FileVault, BitLocker, LUKS).
+
+- **Erase it:** `nerdio-cli local-data purge` lists the store files, response cache, and learn journal it would delete; add `--yes` to delete them, or `--only store|cache|journal` to narrow it. Config and credentials are kept.
+- **Run without a local copy:** set `NERDIO_NO_LOCAL_DATA=1`. Reads go to the API (`--data-source live`; `--data-source local` still reads an existing store), the response cache is off (`--no-cache`), nothing new is written to the store, and `sync` and `workflow archive` refuse to run. Set it in an MCP host's `env` block and every command the server runs inherits it.
+- **Choose the read source without flags:** `NERDIO_DATA_SOURCE=auto|live|local` sets the `--data-source` default; an explicit flag wins.
 
 ## Commands
 
@@ -473,6 +558,53 @@ AVD workspaces for a customer account
 - **`nerdio-cli workspaces sessions`** - List sessions in a workspace
 
 
+### fleet
+
+
+- **`nerdio-cli fleet autoscale-audit`** - See every host pool across all customer accounts whose autoscale is disabled or diverges from your baseline - the Monday cost-control sweep as one command.
+
+- **`nerdio-cli fleet host-estate`** - One table of every session host across all customer accounts with pool, account, and power state - the weekend power-sweep view.
+
+- **`nerdio-cli fleet billing-rollup`** - Per-account billed/paid/unpaid/usage rollup for a billing period, joined to account names - PSA-reconciliation-ready without Excel.
+
+
+### job
+
+
+- **`nerdio-cli job wait`** - Wait for any NMM async job to finish - polls until Completed/Failed/Cancelled and exits with a typed code reflecting the outcome.
+
+
+### scripted-actions
+
+
+- **`nerdio-cli scripted-actions fan-run`** - Execute one scripted action across many customer accounts, collect every returned job ID, and optionally wait for all of them to finish.
+
+
+### usages
+
+
+- **`nerdio-cli usages drift`** - Flag customer accounts whose consumption grew or shrank beyond a threshold between two periods.
+
+
+
+
+### Self-learning loop
+
+This CLI caches per-question discovery so repeat queries skip the walk and structurally similar queries get answered via entity substitution. The loop also self-captures: every invocation is journaled locally, and failed-flag corrections plus fresh teaches surface as candidates on the next `recall` for confirm/reject judgment. Agents call `recall` before discovery and fire `teach &` after answering. See the `## Automatic learning` section in `SKILL.md` for the full protocol.
+
+- **`nerdio-cli recall <query>`** - Look up cached resources for a query before running discovery
+- **`nerdio-cli teach`** - Record a query -> resource mapping (silent on success, safe to background with `&`)
+- **`nerdio-cli learnings list`** - Inspect taught rows
+- **`nerdio-cli learnings forget <query>`** - Undo a teach
+- **`nerdio-cli learnings candidates`** - List auto-captured candidates awaiting confirm/reject
+- **`nerdio-cli learnings stats`** - Local loop metrics: recall hit rate, teach-to-reuse, playbook resolution, candidate counts
+- **`nerdio-cli teach-pattern`** - Install a query/resource template up front
+- **`nerdio-cli teach-lookup`** - Add an entity mapping (e.g. country code, team alias) for pattern substitution
+
+Pass `--no-learn` or set `NERDIO_NO_LEARN=true` to disable the loop for deterministic flows.
+
+The local store's schema version stamp is one-way: once this version of `nerdio-cli` opens the database, older binaries refuse it with a version error  -  upgrade the binary rather than downgrading.
+
 ## Output Formats
 
 ```bash
@@ -481,9 +613,8 @@ nerdio-cli accounts
 
 # JSON for scripting and agents
 nerdio-cli accounts --json
-
 # Filter to specific fields
-nerdio-cli accounts --json --select id,name,status
+nerdio-cli accounts --json --select id,name
 
 # Dry run  -  show the request without sending
 nerdio-cli accounts --dry-run
@@ -492,21 +623,23 @@ nerdio-cli accounts --dry-run
 nerdio-cli accounts --agent
 ```
 
+`--csv` prefixes a leading `'` on cells and header keys that start with `=`, `+`, `-`, `@`, a tab, or a line break (including fullwidth `＝＋－＠`) so a spreadsheet does not run them as formulas. Plain signed numbers such as `-5` and `+2.5e3` are left unchanged.
+
 ## Agent Usage
 
 This CLI is designed for AI agent consumption:
 
 - **Non-interactive** - never prompts, every input is a flag
 - **Pipeable** - `--json` output to stdout, errors to stderr
-- **Filterable** - `--select id,name` returns only fields you need
+- **Filterable** - `--select <field>[,<field>...]` returns only fields you need
 - **Previewable** - `--dry-run` shows the request without sending
-- **Explicit retries** - add `--idempotent` to create retries and `--ignore-missing` to delete retries when a no-op success is acceptable
-- **Confirmable** - `--yes` for explicit confirmation of destructive actions
+- **Explicit retries** - add `--idempotent` to create retries and add `--ignore-missing` to delete retries when a no-op success is acceptable
+- **Explicit confirmation** - `--agent` does not imply `--yes`; pass `--yes` separately only after the target, arguments, and side effects are clear
 - **Piped input** - write commands can accept structured input when their help lists `--stdin`
 - **Offline-friendly** - sync/search commands can use the local SQLite store when available
 - **Agent-safe by default** - no colors or formatting unless `--human-friendly` is set
 
-Exit codes: `0` success, `2` usage error, `3` not found, `4` auth error, `5` API error, `7` rate limited, `10` config error.
+Exit codes: `0` success, `2` usage error, `3` not found, `4` auth error, `5` API error, `6` partial failure, `7` rate limited, `10` config error.
 
 ## Freshness
 
@@ -526,6 +659,9 @@ Covered command paths:
 - `nerdio-cli directories list`
 - `nerdio-cli environment-variables`
 - `nerdio-cli environment-variables list`
+- `nerdio-cli invoices`
+- `nerdio-cli invoices get`
+- `nerdio-cli invoices list`
 - `nerdio-cli resource-groups`
 - `nerdio-cli resource-groups list`
 - `nerdio-cli schedules`
@@ -533,8 +669,6 @@ Covered command paths:
 - `nerdio-cli schedules list`
 - `nerdio-cli scripted-actions`
 - `nerdio-cli scripted-actions list`
-- `nerdio-cli secure-variables`
-- `nerdio-cli secure-variables list`
 
 JSON outputs that use the generated provenance envelope include freshness metadata at `meta.freshness`. This metadata describes the freshness decision for the covered command path; it does not claim full historical backfill or API-specific enrichment.
 
@@ -548,9 +682,11 @@ Verifies configuration, credentials, and connectivity to the API.
 
 ## Configuration
 
-Config file: `~/.config/nerdio-cli/config.toml`
+Run `nerdio-cli doctor` to see the resolved config, data, state, and cache directories. The platform-default config path is `~/.config/nerdio-cli/config.toml` on macOS/Linux and `%USERPROFILE%\.config\nerdio-cli\config.toml` on Windows; `--home`, `NERDIO_HOME`, and per-kind env vars can relocate it.
 
 Static request headers can be configured under `headers`; per-command header overrides take precedence.
+
+`--ca-cert`, `NERDIO_CA_CERT`, or `ca_cert` adds a PEM CA bundle to the system trust roots. `--tls-server-name`, `NERDIO_TLS_SERVER_NAME`, or `tls_server_name` is the name checked against the certificate when the dialed address does not match it. Precedence is flag, then environment, then the config file. A config file other users can change does not supply these settings. Certificate verification failures are not retried.
 
 Environment variables:
 
@@ -558,10 +694,22 @@ Environment variables:
 | --- | --- | --- | --- |
 | `NERDIO_CLIENT_ID` | per_call | Yes | Set to your API credential. |
 | `NERDIO_CLIENT_SECRET` | per_call | Yes | Set to your API credential. |
+| `NERDIO_BASE_URL` | per_call | Yes | Your own NMM instance root (e.g. `https://nmm.contoso.com`); there is no vendor-global endpoint. |
+| `NERDIO_TOKEN_URL` | per_call | Yes | Your Entra tenant's token endpoint: `https://login.microsoftonline.com/<TENANT_ID>/oauth2/v2.0/token`. |
+| `NERDIO_OAUTH_SCOPE` | per_call | Yes | The NMM application's scope, `<app-id>/.default` with NO api:// prefix (api:// triggers AADSTS500011). |
+| `NERDIO_NO_CONFIG_WRITE` | per_call | No | Set to `1` to keep every credential off disk (the token is minted per run). |
 
 ### agentcookie (optional)
 
 If you use agentcookie to sync secrets across machines, this CLI auto-adopts agentcookie-managed credentials with no extra setup. When the daemon writes to this CLI's config, `nerdio-cli doctor` reports `agentcookie: detected` and `auth-status` labels the source as `agentcookie`. Skip this section if you don't use agentcookie - the CLI works the same as any other.
+
+## Credential safety
+
+- Every API request and the bearer token go only to the scheme, host and port of `NERDIO_BASE_URL`, your own NMM instance; the shipped placeholder (`nmm.example.com`) is refused, never dialled with a credential. The client ID and secret go only to `NERDIO_TOKEN_URL`, your Entra tenant's token endpoint, as the token request itself, and only when that endpoint is on Entra ID's sign-in hosts (`login.microsoftonline.com`, `login.microsoftonline.us`, `login.partner.microsoftonline.cn`, `login.chinacloudapi.cn`) or on your NMM instance's own origin; a token URL anywhere else is refused. With no token URL (or the `YOUR_TENANT_ID` placeholder) or no `NERDIO_OAUTH_SCOPE`, nothing is sent and the error names the variable. A redirect to any other host is refused, so a credential never reaches it.
+- Any output, file, MCP result or outgoing request that would repeat `NERDIO_CLIENT_ID`, `NERDIO_CLIENT_SECRET`, a minted or stored token, or a value piped in with `--stdin` is withheld whole: it prints "[credkit: withheld from <where>: it carried a credential this program holds]" in its place. A response field named as a token (`accessToken`, `sessionToken` and the like) prints as "[withheld]" and the rest of the record prints as usual. Responses are never cached on disk.
+- Customer secrets you ask for by name (`devices laps`, `devices bitlocker-keys`, `secure-variables list`) are printed to you and written nowhere: they are never synced, cached or stored.
+- Only `credentials.toml` (mode 0600) holds a credential. A client ID and secret supplied by the environment are never written to disk, and nor is the token minted for them: the process keeps it in memory (the MCP server reuses it until it expires). A token is cached in `credentials.toml` only beside the client pair stored there (not at all under `NERDIO_NO_CONFIG_WRITE=1`), and a token is only ever sent for the client and token URL it was minted for.
+- `--dry-run` sends nothing and never mints a token. Over MCP, a call that changes Nerdio returns a preview and sends only with `confirm: true`, and a tool argument can never name a file to read or write.
 
 ### Keeping credentials off disk (optional)
 
