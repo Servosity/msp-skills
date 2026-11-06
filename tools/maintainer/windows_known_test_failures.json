@@ -151,6 +151,39 @@
    },
    "why": "The test's reader calls os.ReadFile on fortigate-cloud-token.json while writers rename new copies over it, and asserts every read succeeds. On Windows a read that lands during the rename fails with 'being used by another process' (rounds 12 and 9 on runs 40059888328 and its re-run, 2026-10-24). The product tolerates it: fgtcloud loadCache treats any read error as a cache miss and refreshes the token, and the writer side already retries (handfixes.json fgtcloud-token-cache-rename-retry). Already failing on main; it surfaced only because a registry change ran every Windows row.",
    "fix": "In the test, retry a read that fails with a Windows sharing violation, or read through loadCache and accept a miss; keep the assertion that a successful read sees one complete token."
+  },
+  {
+   "id": "WIN-FLAKY-STDERR-CAPTURE-PARALLEL",
+   "kind": "flaky",
+   "why": "Press-generated test (internal/cliutil/credentials_test.go, DO NOT EDIT, in about 70 connectors). captureCredentialStderr swaps the process-wide os.Stderr while a parallel test in the same package prints a 'credentials parse failed' warning, so the capture held 180 extra bytes (131252, want 131072). Seen once: netsapiens Windows row of run 42203325621 (2026-11-06).",
+   "fix": "Make the capture and every stderr-writing test in the package share a lock, or run the capture test without t.Parallel; a press template fix re-applied fleet-wide. Listed only where observed.",
+   "failures": {
+    "netsapiens": [
+     "TestCaptureCredentialStderrDrainsConcurrently"
+    ]
+   }
+  },
+  {
+   "id": "WIN-FLAKY-FLEET-CHILD-SECRET",
+   "kind": "flaky",
+   "why": "jamf-pro black box TestFleetChildGetsItsSecret (internal/jamfblackbox/kit_test.go:182, 28 s) failed once on Windows: both fleet children got 'credkit: withheld from child process: it carried a credential this program holds'. The same row passed in the full-matrix run of PR #599 the same night. Seen in run 42205576956 (2026-11-06).",
+   "fix": "Root-cause with winflaky_fix: if the kit can withhold a child's own secret depending on timing, that is a connector or kit bug (missing data) and is fixed there, not here.",
+   "failures": {
+    "jamf-pro": [
+     "TestFleetChildGetsItsSecret"
+    ]
+   }
+  },
+  {
+   "id": "WIN-FLAKY-CROSS-PROCESS-BATCH-GUARD",
+   "kind": "flaky",
+   "why": "cloudally TestDownloadSubmitRerunGuardHoldsAcrossProcesses (internal/cli/download_submit_guard_test.go:266) failed once on Windows: a batch was not settled because the holder batch had not yet created the shared archives when the test checked. Passed on the PR #611 Windows row. Seen in run 42207196243 (2026-11-06).",
+   "fix": "Root-cause with winflaky_fix: the test must wait for the holder process's commit, not a fixed step; if the guard itself misreports settlement on Windows, fix the guard.",
+   "failures": {
+    "cloudally": [
+     "TestDownloadSubmitRerunGuardHoldsAcrossProcesses"
+    ]
+   }
   }
  ]
 }
