@@ -21,8 +21,9 @@ your reseller account, and nothing more.
   ACL lets another user read it), under a file lock, before it prints anything. If that save fails it writes the new refresh token to a private
   rescue file next to the config so you are not locked out. `TD_SYNNEX_ACCESS_TOKEN`
   in the environment overrides the saved access token.
-- **Never printed.** Token values are printed only when you pass `auth mint
-  --print-access-token`. `auth set-token` stores an access token and keeps the stored
+- **Never printed.** No output carries a token value: the credential guard withholds
+  any output that would, `auth mint --print-access-token` included (it prints a withheld
+  notice; read the token from the credentials file instead). `auth set-token` stores an access token and keeps the stored
   refresh token; `auth logout` clears both.
 - **Where tokens go.** Only to the ION API: `https://ion.tdsynnex.com` unless you set
   `TD_SYNNEX_BASE_URL` for a run (for tests), which is never saved to the config file.

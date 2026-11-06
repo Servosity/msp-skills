@@ -153,7 +153,7 @@ td-synnex-cli auth check
 
 Keep `TD_SYNNEX_ACCOUNT_ID` set permanently: the local store is keyed on it, and without it every new 2-hour access token starts an empty store.
 
-ION refresh tokens are **single-use** and last 32 days; access tokens last 2 hours. `auth mint` exchanges the token, saves the new access token and the new refresh token to a private credentials file before it prints anything, and never prints a token unless you pass `--print-access-token`. Keep it fresh from cron or Task Scheduler with `td-synnex-cli auth mint --if-expiring 15m`. `auth check` asks ION how long both tokens stay valid. Do not give the refresh token to `auth set-token`, which stores an access token.
+ION refresh tokens are **single-use** and last 32 days; access tokens last 2 hours. `auth mint` exchanges the token, saves the new access token and the new refresh token to a private credentials file before it prints anything, and never prints a token (`--print-access-token` prints a withheld notice; read the token from the credentials file instead). Keep it fresh from cron or Task Scheduler with `td-synnex-cli auth mint --if-expiring 15m`. `auth check` asks ION how long both tokens stay valid. Do not give the refresh token to `auth set-token`, which stores an access token.
 
 Then pull your book into the local store and confirm the numbers against the portal:
 
