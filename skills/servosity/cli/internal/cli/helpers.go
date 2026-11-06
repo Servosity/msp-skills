@@ -1438,6 +1438,13 @@ func paginatedGet(ctx context.Context, c interface {
 		if limitParam != "" && !hasPositiveLimit && pageSize > 0 {
 			clean[limitParam] = strconv.Itoa(pageSize)
 		}
+		// Hand-fix (handfixes.json all-default-page-size): the server's default is
+		// 10 rows a page. Ask for what sync asks for, on the wire only: pageSize
+		// stays 0, so the server's next link still ends the walk and a server that
+		// caps below this loses no rows. An explicit --page-size, even 0, is kept.
+		if _, given := clean[limitParam]; limitParam != "" && !given && pageSize == 0 {
+			clean[limitParam] = "100"
+		}
 	}
 
 	// Fetch all pages

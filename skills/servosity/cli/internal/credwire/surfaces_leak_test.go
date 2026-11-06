@@ -12,11 +12,14 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"io"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"slices"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -333,5 +336,64 @@ func TestProfileCredentialFlagValuesAreHeld(t *testing.T) {
 	}
 	if res := run(t, cli, s.env(), "profile", "show", "p", "--json"); !strings.Contains(res.stdout, "plainlimit25") {
 		t.Errorf("a non-credential profile value no longer prints:\n%s", res.all())
+	}
+}
+
+// A plain sync with the token held, on the built binary, where the kit scans
+// what sync stores: a resource that is really a binary must not reach the store
+// (one 4 MiB body there ran past a minute and gigabytes), a redirect off the
+// origin is not followed, and both are named in the summary.
+func TestPlainSyncSkipsBinaryResources(t *testing.T) {
+	t.Parallel()
+	cli, _ := binaries(t)
+	s := newSandbox(t)
+	f := newFakeAPI(t, s)
+	var offOrigin atomic.Int32
+	elsewhere := httptest.NewTLSServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { offOrigin.Add(1) }))
+	t.Cleanup(elsewhere.Close)
+	binary := bytes.Repeat([]byte("MZ\x90\x00"), 2<<20) // 8 MiB
+	ordinary := f.Config.Handler
+	f.Config.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/stats/":
+			http.Redirect(w, r, "/installer.bin", http.StatusFound)
+		case "/installer.bin":
+			w.Header().Set("Content-Type", "binary/octet-stream")
+			_, _ = w.Write(binary)
+		case "/reports/usage/":
+			http.Redirect(w, r, elsewhere.URL+"/installer.bin", http.StatusFound)
+		default:
+			ordinary.ServeHTTP(w, r)
+		}
+	})
+	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, cli, "sync", "--json")
+	cmd.Env = s.apiEnv(t, f, "", syntheticToken)
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+	err := cmd.Run()
+	if ctx.Err() != nil {
+		t.Fatalf("sync did not finish in 90s\n%s", stderr.String())
+	}
+	if err != nil {
+		t.Fatalf("sync: %v\n%s", err, stderr.String())
+	}
+	if n := offOrigin.Load(); n != 0 {
+		t.Errorf("%d request(s) followed the redirect off the origin", n)
+	}
+	var summary string
+	for _, line := range strings.Split(stderr.String(), "\n") {
+		if strings.Contains(line, `"event":"sync_summary"`) {
+			summary = line
+		}
+	}
+	for _, name := range []string{`"stats"`, `"reports-usage"`} {
+		if !strings.Contains(summary, name) {
+			t.Errorf("summary does not name %s: %s", name, summary)
+		}
+	}
+	if !f.sawAuth("Token " + syntheticToken) {
+		t.Errorf("the API never saw the token, so this test proved nothing:\n%s", stderr.String())
 	}
 }

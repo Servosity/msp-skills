@@ -261,7 +261,7 @@
       "name": "connectwise-control",
       "source": "./skills/connectwise-control",
       "description": "Manage ConnectWise Control (ScreenConnect) remote support and access sessions from the terminal or your AI agent: list and inspect sessions across groups, run commands on guest machines, rename and tag sessions, manage instance users, and query the audit log - the whole instance from one CLI.",
-      "version": "0.1.8",
+      "version": "0.1.9",
       "category": "remote-access",
       "tags": [
         "connectwise-control",
@@ -324,7 +324,7 @@
       "name": "crowdstrike",
       "source": "./skills/crowdstrike",
       "description": "Every CrowdStrike Falcon MSP operation, plus a Flight-Control-aware local store that answers fleet-wide questions across all your tenants at once \u2014 something no other Falcon tool (including the official MCP server) does.",
-      "version": "0.1.10",
+      "version": "0.1.11",
       "category": "security",
       "tags": [
         "crowdstrike",
@@ -529,7 +529,7 @@
       "name": "kaseya-bms",
       "source": "./skills/kaseya-bms",
       "description": "The first dedicated CLI and MCP server for Kaseya BMS - the full PSA surface plus offline sync, full-text search, and the queue, contract-burn, and unbilled-revenue analytics the web grid can't compute.",
-      "version": "0.1.7",
+      "version": "0.1.8",
       "category": "psa",
       "tags": [
         "kaseya-bms",
@@ -912,7 +912,7 @@
       "name": "servosity",
       "source": "./skills/servosity",
       "description": "The first MSP-fleet CLI for backup. Every Servosity API endpoint as a typed command, plus a local mirror that lets you ask questions the dashboard can't \u2014 across your whole book of clients.",
-      "version": "0.6.12",
+      "version": "0.6.13",
       "category": "backup-dr",
       "tags": [
         "servosity",
@@ -1420,7 +1420,7 @@
       "name": "warranty",
       "source": "./skills/warranty",
       "description": "Dell, Lenovo and Apple warranty end dates for every client's devices, in one local mirror.",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "category": "documentation",
       "tags": [
         "warranty",

@@ -1,7 +1,9 @@
 .PHONY: build test lint install clean
 
+BIN_EXT := $(if $(filter windows,$(shell go env GOOS)),.exe,)
+
 build:
-	go build -o bin/kaseya-bms-cli ./cmd/kaseya-bms-cli
+	go build -trimpath -o bin/kaseya-bms-cli$(BIN_EXT) ./cmd/kaseya-bms-cli
 
 test:
 	go test ./...
@@ -16,7 +18,7 @@ clean:
 	rm -rf bin/
 
 build-mcp:
-	go build -o bin/kaseya-bms-mcp ./cmd/kaseya-bms-mcp
+	go build -trimpath -o bin/kaseya-bms-mcp$(BIN_EXT) ./cmd/kaseya-bms-mcp
 
 install-mcp:
 	go install ./cmd/kaseya-bms-mcp

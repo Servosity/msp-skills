@@ -1,7 +1,9 @@
 .PHONY: build test lint install clean
 
+BIN_EXT := $(if $(filter windows,$(shell go env GOOS)),.exe,)
+
 build:
-	go build -o bin/crowdstrike-cli ./cmd/crowdstrike-cli
+	go build -trimpath -o bin/crowdstrike-cli$(BIN_EXT) ./cmd/crowdstrike-cli
 
 test:
 	go test ./...
@@ -16,7 +18,7 @@ clean:
 	rm -rf bin/
 
 build-mcp:
-	go build -o bin/crowdstrike-mcp ./cmd/crowdstrike-mcp
+	go build -trimpath -o bin/crowdstrike-mcp$(BIN_EXT) ./cmd/crowdstrike-mcp
 
 install-mcp:
 	go install ./cmd/crowdstrike-mcp

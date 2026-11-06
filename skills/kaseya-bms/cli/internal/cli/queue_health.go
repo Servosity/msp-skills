@@ -109,7 +109,7 @@ Use this command for a snapshot of open ticket volume by queue/priority/status.
 Do NOT use this command for which individual tickets are aging; use 'stale-tickets' instead.
 
 Reads the synced local mirror (resource 'servicedesk'); it never calls the API,
-so it costs nothing against the 1500/hour/endpoint rate limit.`, "\n"),
+so it costs nothing against the 500/hour/endpoint rate limit.`, "\n"),
 		Example: strings.Trim(`
   # The dispatcher's morning board
   kaseya-bms-cli queue-health --agent

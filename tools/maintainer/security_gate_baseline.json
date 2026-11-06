@@ -4,7 +4,6 @@
     "mcp-http-no-bearer-auth": [
       "abnormal",
       "action1",
-      "afi",
       "appdirect",
       "atera",
       "autotask",
@@ -13,7 +12,6 @@
       "axcient",
       "connectwise-control",
       "connectwise-manage",
-      "crowdstrike",
       "datto-rmm",
       "domotz",
       "halopsa",
@@ -46,7 +44,6 @@
     "mcp-go-no-rebinding-guard": [
       "abnormal",
       "action1",
-      "afi",
       "appdirect",
       "atera",
       "autotask",
@@ -56,7 +53,6 @@
       "connectwise-automate",
       "connectwise-control",
       "connectwise-manage",
-      "crowdstrike",
       "datto-rmm",
       "domotz",
       "halopsa",
@@ -101,7 +97,6 @@
       "connectsecure",
       "connectwise-manage",
       "connectwise-rmm",
-      "crowdstrike",
       "datto-rmm",
       "domotz",
       "fortinet",
@@ -133,7 +128,6 @@
     ],
     "mcp-write-tool-nondestructive": [
       "acronis",
-      "afi",
       "axcient",
       "backup-radar",
       "blumira",
@@ -159,7 +153,6 @@
     ],
     "mcp-share-command": [],
     "mcp-read-only-switch-skips-typed-tools": [
-      "afi",
       "axcient",
       "blumira",
       "connectwise-automate",

@@ -10,11 +10,6 @@
    "read-only",
    "local-data"
   ],
-  "afi": [
-   "mcp-http",
-   "read-only",
-   "local-data"
-  ],
   "appdirect": [
    "mcp-http",
    "write-gating",
@@ -98,11 +93,7 @@
    "local-data"
   ],
   "crowdstrike": [
-   "mcp-stdio",
-   "mcp-http",
-   "write-gating",
-   "read-only",
-   "local-data"
+   "mcp-stdio"
   ],
   "datagate": [
    "read-only",
@@ -141,12 +132,6 @@
    "local-data"
   ],
   "jira-service-management": [
-   "write-gating",
-   "read-only",
-   "local-data"
-  ],
-  "kaseya-bms": [
-   "mcp-http",
    "write-gating",
    "read-only",
    "local-data"

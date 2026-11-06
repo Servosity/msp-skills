@@ -1498,5 +1498,57 @@
         }
       ]
     }
+  ],
+  "novel_features": [
+    {
+      "name": "Cross-tenant fleet sync",
+      "command": "fleet sync",
+      "description": "Pull hosts, alerts, vulnerabilities, policies, and the Flight Control fabric from every child tenant into one local store keyed by CID. Requires a parent-CID API client with Flight Control (MSSP) scope; without it, sync degrades to the single authenticated CID."
+    },
+    {
+      "name": "MSP tenant scorecard",
+      "command": "fleet scorecard",
+      "description": "One posture board across all tenants: host count, sensor coverage, open critical alerts, critical vulns, and policy posture per CID."
+    },
+    {
+      "name": "Fleet vulnerability rollup",
+      "command": "fleet vulns",
+      "description": "Rank and filter Spotlight vulnerabilities across every tenant at once, by severity or CVE."
+    },
+    {
+      "name": "Stale-sensor detection",
+      "command": "fleet stale",
+      "description": "Find hosts across all tenants whose sensor has not checked in within N days."
+    },
+    {
+      "name": "Prevention-policy drift",
+      "command": "fleet policy-drift",
+      "description": "Diff each tenant's prevention policy settings against a baseline CID to surface under-protected tenants."
+    },
+    {
+      "name": "Unified alert triage queue",
+      "command": "fleet alerts",
+      "description": "One severity-sorted new-alert queue spanning all tenants, from the local store."
+    },
+    {
+      "name": "Offline fleet search",
+      "command": "fleet search",
+      "description": "Full-text search across synced hosts, alerts, vulnerabilities, and policies across all tenants, instantly and offline."
+    },
+    {
+      "name": "Tenant fabric map",
+      "command": "fleet tenants",
+      "description": "See the whole Flight Control fabric - every child CID, its CID groups, user groups, and role grants - as one offline roster."
+    },
+    {
+      "name": "Vuln-to-host remediation worklist",
+      "command": "fleet remediate",
+      "description": "Group fleet-wide exposure by remediation action - which single fix clears the most hosts and tenants."
+    },
+    {
+      "name": "Tenant exposure trend",
+      "command": "fleet trend",
+      "description": "See which tenants got worse since the last sync - week-over-week deltas in open critical alerts and critical vulnerabilities."
+    }
   ]
 }

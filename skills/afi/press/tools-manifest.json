@@ -1,0 +1,636 @@
+{
+  "api_name": "afi",
+  "base_url": "https://papi.afi.ai",
+  "description": "The first CLI for Afi SaaS backup — full public-API coverage plus the fleet-wide coverage, staleness, and offboarding answers the rate-limited API can't serve live.",
+  "mcp_ready": "full",
+  "http_transport": "standard",
+  "auth": {
+    "type": "api_key",
+    "header": "Authorization",
+    "in": "header",
+    "env_vars": [
+      "AFI_API_KEY"
+    ],
+    "env_var_specs": [
+      {
+        "name": "AFI_API_KEY",
+        "kind": "per_call",
+        "required": true,
+        "sensitive": true,
+        "inferred": true
+      }
+    ]
+  },
+  "required_headers": [],
+  "tools": [
+    {
+      "name": "applications_list-installations",
+      "description": "Lists installations for the application identified by the authentication key. Use the `limit` and `page_token` query parameters to paginate through all installations. Optional: limit, page_token. Returns array of V1Installation.",
+      "method": "GET",
+      "path": "/api/v1/applications/me/installations",
+      "params": [
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Maximum number of items to return per page."
+        },
+        {
+          "name": "page_token",
+          "type": "string",
+          "location": "query",
+          "description": "Token from the previous list operation (`next_page_token`) used to continue listing."
+        }
+      ]
+    },
+    {
+      "name": "orgs_create",
+      "description": "Creates a new child organization. Optional: parent_org_id, external_id, name (plus 1 more). Returns the new V1CreateOrgResult.",
+      "method": "POST",
+      "path": "/api/v1/orgs",
+      "params": [
+        {
+          "name": "parent_org_id",
+          "type": "string",
+          "location": "query",
+          "description": "ID of the existing parent organization."
+        },
+        {
+          "name": "external_id",
+          "type": "string",
+          "location": "query",
+          "description": "External ID for the new organization. Use it for idempotency to prevent duplicate organizations and to map the organization to the matching one in an external system that integrates with Afi."
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "query",
+          "description": "Name of the new organization."
+        },
+        {
+          "name": "admin_email",
+          "type": "string",
+          "location": "query",
+          "description": "Email address of the administrator account. An email with an invitation link is sent to this address."
+        }
+      ]
+    },
+    {
+      "name": "orgs_get",
+      "description": "Retrieves an organization by its ID. Required: id. Returns the V1Org.",
+      "method": "GET",
+      "path": "/api/v1/orgs/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "ID of the organization to retrieve (e.g. 550e8400-e29b-41d4-a716-446655440000).",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "orgs_licensing_get-subscription-history",
+      "description": "Returns historical usage for the organization's subscriptions over the requested period. If the licensed quantity changes during that period, the response includes multiple records for the same subscription. Only post-pay subscriptions are included in the response. Required: org_id. Optional: start, end.",
+      "method": "GET",
+      "path": "/api/v1/orgs/{org_id}/licensing/subscriptions/history",
+      "params": [
+        {
+          "name": "org_id",
+          "type": "string",
+          "location": "path",
+          "description": "ID of the organization whose subscription history to retrieve (e.g. 550e8400-e29b-41d4-a716-446655440000).",
+          "required": true
+        },
+        {
+          "name": "start",
+          "type": "string",
+          "location": "query",
+          "description": "Start of the reporting window. Use RFC 3339 format. The window must span 1 to 40 days."
+        },
+        {
+          "name": "end",
+          "type": "string",
+          "location": "query",
+          "description": "End of the reporting window. Use RFC 3339 format. Must be at least one hour before the current time."
+        }
+      ]
+    },
+    {
+      "name": "orgs_licensing_list-subscriptions",
+      "description": "Returns subscription details for the specified organization. Each tenant in the organization has its own subscription. Use the `limit` and `page_token` query parameters to paginate the results. Required: org_id. Optional: limit, page_token.",
+      "method": "GET",
+      "path": "/api/v1/orgs/{org_id}/licensing/subscriptions",
+      "params": [
+        {
+          "name": "org_id",
+          "type": "string",
+          "location": "path",
+          "description": "ID of the organization whose subscriptions to list (e.g. 550e8400-e29b-41d4-a716-446655440000).",
+          "required": true
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Maximum number of items to return per page."
+        },
+        {
+          "name": "page_token",
+          "type": "string",
+          "location": "query",
+          "description": "Token from the previous list operation (`next_page_token`) used to continue listing."
+        }
+      ]
+    },
+    {
+      "name": "orgs_orgs_list",
+      "description": "Lists child organizations of the specified parent organization. The root organization and its sub-organizations form a hierarchy. Each organization in the hierarchy can own tenants and resources. Use the `limit` and `page_token` query parameters to paginate through the hierarchy. Required: org_id. Optional: limit, page_token. Returns array of V1Org.",
+      "method": "GET",
+      "path": "/api/v1/orgs/{org_id}/orgs",
+      "params": [
+        {
+          "name": "org_id",
+          "type": "string",
+          "location": "path",
+          "description": "ID of the parent organization whose child organizations to list (e.g. 550e8400-e29b-41d4-a716-446655440000).",
+          "required": true
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Maximum number of items to return per page (default 100)."
+        },
+        {
+          "name": "page_token",
+          "type": "string",
+          "location": "query",
+          "description": "Token from the previous list operation (`next_page_token`) used to continue listing."
+        }
+      ]
+    },
+    {
+      "name": "orgs_tenants_get-org",
+      "description": "Lists tenants for the specified organization ID. Use the `limit` and `page_token` query parameters to paginate through tenants. Required: org_id. Optional: limit, page_token. Returns array of V1Tenant.",
+      "method": "GET",
+      "path": "/api/v1/orgs/{org_id}/tenants",
+      "params": [
+        {
+          "name": "org_id",
+          "type": "string",
+          "location": "path",
+          "description": "ID of the organization whose tenants to list (e.g. 550e8400-e29b-41d4-a716-446655440000).",
+          "required": true
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Maximum number of items to return per page (default 100)."
+        },
+        {
+          "name": "page_token",
+          "type": "string",
+          "location": "query",
+          "description": "Token from the previous list operation (`next_page_token`) used to continue listing."
+        }
+      ]
+    },
+    {
+      "name": "tenants_get",
+      "description": "Retrieves a tenant by its ID. Required: id. Returns the V1Tenant.",
+      "method": "GET",
+      "path": "/api/v1/tenants/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "ID of the tenant to retrieve (e.g. 550e8400-e29b-41d4-a716-446655440000).",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "tenants_archives_delete",
+      "description": "Schedules the archive for deletion. The default delay is 7 days, during which the deletion can be canceled. Required: tenant_id, id, reason. Returns the ArchivesDeleteResponse. Destructive.",
+      "method": "DELETE",
+      "path": "/api/v1/tenants/{tenant_id}/archives/{id}",
+      "params": [
+        {
+          "name": "tenant_id",
+          "type": "string",
+          "location": "path",
+          "description": "Tenant ID that owns the archive (e.g. 550e8400-e29b-41d4-a716-446655440000).",
+          "required": true
+        },
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "ID of the archive to delete (e.g. 550e8400-e29b-41d4-a716-446655440000).",
+          "required": true
+        },
+        {
+          "name": "reason",
+          "type": "string",
+          "location": "query",
+          "description": "Reason for requesting archive deletion. Provide a mandatory description up to 128 bytes long.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "tenants_archives_list",
+      "description": "Retrieves the archives for the specified tenant and, optionally, for the specified resource in this tenant. Required: tenant_id. Optional: resource_id, limit, page_token. Returns array of V1Archive.",
+      "method": "GET",
+      "path": "/api/v1/tenants/{tenant_id}/archives",
+      "params": [
+        {
+          "name": "tenant_id",
+          "type": "string",
+          "location": "path",
+          "description": "ID of the tenant whose archives to list (e.g. 550e8400-e29b-41d4-a716-446655440000).",
+          "required": true
+        },
+        {
+          "name": "resource_id",
+          "type": "string",
+          "location": "query",
+          "description": "Optional resource ID used to filter the results."
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Maximum number of items to return per page."
+        },
+        {
+          "name": "page_token",
+          "type": "string",
+          "location": "query",
+          "description": "Token from the previous list operation (`next_page_token`) used to continue listing."
+        }
+      ]
+    },
+    {
+      "name": "tenants_audit_list-events",
+      "description": "Retrieves audit events for the specified tenant. Use the `limit` and `page_token` query parameters to paginate through all events. Required: tenant_id. Optional: limit, page_token, start_time (plus 1 more). Returns array of V1AuditEvent.",
+      "method": "GET",
+      "path": "/api/v1/tenants/{tenant_id}/audit/events",
+      "params": [
+        {
+          "name": "tenant_id",
+          "type": "string",
+          "location": "path",
+          "description": "ID of the tenant whose events to list (e.g. 550e8400-e29b-41d4-a716-446655440000).",
+          "required": true
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Maximum number of items to return per page."
+        },
+        {
+          "name": "page_token",
+          "type": "string",
+          "location": "query",
+          "description": "Token from the previous list operation (`next_page_token`) used to continue listing."
+        },
+        {
+          "name": "start_time",
+          "type": "string",
+          "location": "query",
+          "description": "Start of the time range for retrieving audit events. Use RFC 3339 format."
+        },
+        {
+          "name": "end_time",
+          "type": "string",
+          "location": "query",
+          "description": "End of the time range for retrieving audit events. Use RFC 3339 format."
+        }
+      ]
+    },
+    {
+      "name": "tenants_jobs_tasks-trigger",
+      "description": "Triggers an out-of-schedule job execution, spawns a task, and returns its ID. Required: tenant_id, job_id.",
+      "method": "PUT",
+      "path": "/api/v1/tenants/{tenant_id}/jobs/{job_id}/trigger",
+      "params": [
+        {
+          "name": "tenant_id",
+          "type": "string",
+          "location": "path",
+          "description": "Tenant ID that owns the job (e.g. 550e8400-e29b-41d4-a716-446655440000).",
+          "required": true
+        },
+        {
+          "name": "job_id",
+          "type": "string",
+          "location": "path",
+          "description": "ID of the job to trigger (e.g. 550e8400-e29b-41d4-a716-446655440000).",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "tenants_policies_list",
+      "description": "Retrieves policies available to the tenant. Use the `limit` and `page_token` query parameters to paginate through all policies. Required: tenant_id. Optional: limit, page_token, name. Returns array of V1Policy.",
+      "method": "GET",
+      "path": "/api/v1/tenants/{tenant_id}/policies",
+      "params": [
+        {
+          "name": "tenant_id",
+          "type": "string",
+          "location": "path",
+          "description": "ID of the tenant whose policies to list (e.g. 550e8400-e29b-41d4-a716-446655440000).",
+          "required": true
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Maximum number of items to return per page."
+        },
+        {
+          "name": "page_token",
+          "type": "string",
+          "location": "query",
+          "description": "Token from the previous list operation (`next_page_token`) used to continue listing."
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "query",
+          "description": "Optional filter by policy name."
+        }
+      ]
+    },
+    {
+      "name": "tenants_protections_list",
+      "description": "Retrieves protections assigned to resources in the tenant. Use the `limit` and `page_token` query parameters to paginate through all protections. Required: tenant_id. Optional: resource_id, limit, page_token. Returns array of V1Protection.",
+      "method": "GET",
+      "path": "/api/v1/tenants/{tenant_id}/protections",
+      "params": [
+        {
+          "name": "tenant_id",
+          "type": "string",
+          "location": "path",
+          "description": "Tenant for which to list protections (e.g. 550e8400-e29b-41d4-a716-446655440000).",
+          "required": true
+        },
+        {
+          "name": "resource_id",
+          "type": "string",
+          "location": "query",
+          "description": "ID of the resource whose protections to list."
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Maximum number of items to return per page."
+        },
+        {
+          "name": "page_token",
+          "type": "string",
+          "location": "query",
+          "description": "Token from the previous list operation (`next_page_token`) used to continue listing."
+        }
+      ]
+    },
+    {
+      "name": "tenants_quotas_tenants-get-tenant",
+      "description": "Retrieves usage and quota limits for the tenant. Required: id. Returns array of V1TenantQuota.",
+      "method": "GET",
+      "path": "/api/v1/tenants/{id}/quotas",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "ID of the tenant to retrieve quotas for (e.g. 550e8400-e29b-41d4-a716-446655440000).",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "tenants_resources_get",
+      "description": "Retrieves a resource by its ID or external ID. Required: tenant_id, id. Returns the V1Resource.",
+      "method": "GET",
+      "path": "/api/v1/tenants/{tenant_id}/resources/{id}",
+      "params": [
+        {
+          "name": "tenant_id",
+          "type": "string",
+          "location": "path",
+          "description": "Tenant that owns the resource (e.g. 550e8400-e29b-41d4-a716-446655440000).",
+          "required": true
+        },
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "ID of the resource to retrieve. An external ID can be used if prefixed with `ext$` (e.g. 550e8400-e29b-41d4-a716-446655440000).",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "tenants_resources_get-stats",
+      "description": "Retrieves protection statistics for resources in the tenant, grouped by resource kind. Required: tenant_id. Returns array of V1ResourceTenantStats.",
+      "method": "GET",
+      "path": "/api/v1/tenants/{tenant_id}/resources/statistics/summary",
+      "params": [
+        {
+          "name": "tenant_id",
+          "type": "string",
+          "location": "path",
+          "description": "ID of the tenant for which to retrieve resource statistics (e.g. 550e8400-e29b-41d4-a716-446655440000).",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "tenants_resources_list",
+      "description": "Retrieves resources owned by the tenant. Use the `limit` and `page_token` query parameters to paginate through all resources. Required: tenant_id. Optional: limit, page_token. Returns array of V1Resource.",
+      "method": "GET",
+      "path": "/api/v1/tenants/{tenant_id}/resources",
+      "params": [
+        {
+          "name": "tenant_id",
+          "type": "string",
+          "location": "path",
+          "description": "ID of the tenant whose resources to list (e.g. 550e8400-e29b-41d4-a716-446655440000).",
+          "required": true
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Maximum number of items to return per page."
+        },
+        {
+          "name": "page_token",
+          "type": "string",
+          "location": "query",
+          "description": "Token from the previous list operation (`next_page_token`) used to continue listing."
+        }
+      ]
+    },
+    {
+      "name": "tenants_resources_protections-protect",
+      "description": "Assigns the specified policy to the resource. By default, a resource can have at most one policy. Required: tenant_id, resource_id, policy_id. Returns the new V1ProtectResourceResult.",
+      "method": "POST",
+      "path": "/api/v1/tenants/{tenant_id}/resources/{resource_id}/protect",
+      "params": [
+        {
+          "name": "tenant_id",
+          "type": "string",
+          "location": "path",
+          "description": "Tenant that owns the resource (e.g. 550e8400-e29b-41d4-a716-446655440000).",
+          "required": true
+        },
+        {
+          "name": "resource_id",
+          "type": "string",
+          "location": "path",
+          "description": "ID of the resource to protect. External IDs are not supported here (e.g. 550e8400-e29b-41d4-a716-446655440000).",
+          "required": true
+        },
+        {
+          "name": "policy_id",
+          "type": "string",
+          "location": "query",
+          "description": "Policy ID to assign to the resource.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "tenants_resources_protections-unprotect",
+      "description": "Unassigns the specified policy from the resource. Required: tenant_id, resource_id, policy_id. Returns the ResourcesProtectionsUnprotectResponse. Destructive.",
+      "method": "DELETE",
+      "path": "/api/v1/tenants/{tenant_id}/resources/{resource_id}/protect",
+      "params": [
+        {
+          "name": "tenant_id",
+          "type": "string",
+          "location": "path",
+          "description": "Tenant that owns the resource (e.g. 550e8400-e29b-41d4-a716-446655440000).",
+          "required": true
+        },
+        {
+          "name": "resource_id",
+          "type": "string",
+          "location": "path",
+          "description": "ID of the resource to unprotect. External IDs are not supported here (e.g. 550e8400-e29b-41d4-a716-446655440000).",
+          "required": true
+        },
+        {
+          "name": "policy_id",
+          "type": "string",
+          "location": "query",
+          "description": "Policy ID to remove from the resource.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "tenants_tasks_get",
+      "description": "Retrieves a task object by its ID. Poll the task status using exponentially increasing intervals while waiting for completion: Start at 15 seconds and double the interval up to 4 minutes (15 s, 30 s, 60 s, 2 min, 4 min). Polling more frequently is unnecessary; the cached state will not change sooner and doing so increases the likelihood of HTTP 429 errors because of rate limits. Required: tenant_id, task_id. Returns the V1Task.",
+      "method": "GET",
+      "path": "/api/v1/tenants/{tenant_id}/tasks/{task_id}",
+      "params": [
+        {
+          "name": "tenant_id",
+          "type": "string",
+          "location": "path",
+          "description": "Tenant ID that owns the task (e.g. 550e8400-e29b-41d4-a716-446655440000).",
+          "required": true
+        },
+        {
+          "name": "task_id",
+          "type": "string",
+          "location": "path",
+          "description": "ID of the task to retrieve (e.g. 550e8400-e29b-41d4-a716-446655440000).",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "tenants_tasks_get-tenant-stats",
+      "description": "Returns task statistics aggregated by task status for a given time period. The period must be no longer than 31 days and must fall within the most recent 35 days. The `tenant_id` path parameter specifies which tenant's statistics to retrieve. Required: tenant_id, start_time, end_time.",
+      "method": "GET",
+      "path": "/api/v1/tenants/{tenant_id}/tasks/statistics/summary",
+      "params": [
+        {
+          "name": "tenant_id",
+          "type": "string",
+          "location": "path",
+          "description": "ID of the tenant whose task statistics to retrieve (e.g. 550e8400-e29b-41d4-a716-446655440000).",
+          "required": true
+        },
+        {
+          "name": "start_time",
+          "type": "string",
+          "location": "query",
+          "description": "Start of the period for retrieving tenant task statistics. Specify the timestamp with hour granularity to align day-level statistics with a specific time zone. Values are rounded to the nearest hour if not already rounded by the caller. Use the RFC 3339 timestamp format.",
+          "required": true
+        },
+        {
+          "name": "end_time",
+          "type": "string",
+          "location": "query",
+          "description": "End of the period for retrieving the statistics.",
+          "required": true
+        }
+      ]
+    }
+  ],
+  "novel_features": [
+    {
+      "name": "Fleet sync",
+      "command": "fleet-sync",
+      "description": "Walk the whole Afi hierarchy — installations, orgs, tenants, then each tenant's resources, protections, policies, archives, quotas, and task stats — into local SQLite in one respectful pass."
+    },
+    {
+      "name": "Unprotected-resources gap finder",
+      "command": "coverage-gaps",
+      "description": "Find resources in a tenant that have no backup protection applied — the backup blind spots."
+    },
+    {
+      "name": "Fleet health digest",
+      "command": "fleet-health",
+      "description": "One table across all synced tenants: task success/failure counts, failed-task list, and quota breaches."
+    },
+    {
+      "name": "Archive-and-offboard helper",
+      "command": "offboard",
+      "description": "Safely back up a departing user's resource, verify the archive landed, then release the protection — refusing the irreversible step until the backup is confirmed."
+    },
+    {
+      "name": "External-ID resolver",
+      "command": "resolve",
+      "description": "Map a Microsoft 365 / Google Workspace ID, email, or name to the canonical Afi resource or tenant, including Multi-Geo fan-out."
+    },
+    {
+      "name": "License reconciliation",
+      "command": "reconcile-licenses",
+      "description": "Compare purchased subscription quantities against actually-protected resource counts per tenant to flag over- and under-provisioning."
+    },
+    {
+      "name": "Backup staleness watch",
+      "command": "backup-stale",
+      "description": "Flag protected resources that are not getting backed up (no archive at all, or no backup task finished in their tenant in the synced window) — protected-but-silently-failing resources."
+    },
+    {
+      "name": "Tenant backup scorecard",
+      "command": "tenant-scorecard",
+      "description": "One tenant's full backup posture: coverage percentage, last task status, newest/oldest archive age, and quota state."
+    }
+  ]
+}

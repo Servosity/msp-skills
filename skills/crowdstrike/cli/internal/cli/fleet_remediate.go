@@ -111,7 +111,7 @@ func remediationWorklist(ents []fleetEntity, severity string) fleetRemediateView
 			}
 			g.vulns++
 			if host != "" {
-				g.hosts[host] = true
+				g.hosts[e.CID+"\x00"+host] = true // a host is one tenant's: DC01 in two CIDs is two hosts
 			}
 			g.cids[e.CID] = true
 			if e.Severity != "" {
