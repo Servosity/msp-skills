@@ -205,7 +205,7 @@
       "displayName": "AWS",
       "type": "text/markdown; profile=\"urn:air:agent-skills\"",
       "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/aws-billing/SKILL.md",
-      "description": "Get a non-expert from zero to a plain-English, waste-flagged AWS bill breakdown - per-account, month-over-month, with dollar-ranked waste - and cache it locally so you don't pay per Cost Explorer call. Trigger phrases: `what's my aws bill`, `break down my aws costs`, `why did my aws bill go up`, `find aws waste`, `which account is driving my aws spend`, `post my aws bill to slack`, `set up aws billing access`, `use aws-billing`, `run aws-billing-cli`.",
+      "description": "Get a non-expert from zero to a Slack-delivered, plain-English, waste-flagged AWS bill breakdown, and cache it so you don't pay per Cost Explorer call. Trigger phrases: `what's my aws bill`, `break down my aws costs`, `why did my aws bill go up`, `find aws waste`, `which account is driving my aws spend`, `post my aws bill to slack`, `set up aws billing access`, `use aws-billing`, `run aws-billing-cli`.",
       "tags": [
         "Billing"
       ],

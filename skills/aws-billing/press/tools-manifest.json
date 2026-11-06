@@ -20,7 +20,7 @@
           "name": "account_id",
           "type": "string",
           "location": "path",
-          "description": "12-digit AWS account ID",
+          "description": "12-digit AWS account ID (e.g. 123456789012)",
           "required": true
         }
       ]
@@ -88,6 +88,43 @@
           "description": "Filter by 12-digit account ID"
         }
       ]
+    }
+  ],
+  "novel_features": [
+    {
+      "name": "Tiered IAM onboarding",
+      "command": "iam-setup",
+      "description": "Get from zero to a working billing read-only setup with copy-paste least-privilege policy, a one-click CloudFormation launch-stack, or an admin bootstrap path."
+    },
+    {
+      "name": "Permission-aware diagnosis",
+      "command": "doctor",
+      "description": "Probes the AWS credential chain and, on an AccessDenied, names the exact missing ce:/ec2: permission and whether you're in a member vs management account."
+    },
+    {
+      "name": "Per-account + aggregate org rollup",
+      "command": "consolidated",
+      "description": "Shows each linked account's bill with names resolved, the management rollup, and an inline month-over-month delta per account in one view."
+    },
+    {
+      "name": "Dollar-ranked waste rollup",
+      "command": "waste rank",
+      "description": "One table of every idle, orphaned, or over-provisioned resource the hunters found, sorted by estimated monthly dollars wasted, with a grand-total you could save."
+    },
+    {
+      "name": "gp2 to gp3 modernization savings",
+      "command": "waste gp2-gp3",
+      "description": "Lists gp2 EBS volumes and computes the exact monthly dollars saved by converting each to gp3."
+    },
+    {
+      "name": "Data-transfer bleed surface",
+      "command": "waste transfer",
+      "description": "Surfaces the cross-AZ, cross-region, and NAT-gateway data-transfer line items ranked by spend, with the AZ/region pair that's bleeding."
+    },
+    {
+      "name": "Deterministic bill Q\u0026A router",
+      "command": "ask",
+      "description": "Answers known questions about your bill (top services, biggest month-over-month mover, per-account total, transfer spend) straight from the local cache; emits the relevant slice as JSON for anything it can't answer directly."
     }
   ]
 }
