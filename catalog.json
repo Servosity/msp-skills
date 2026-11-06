@@ -840,7 +840,7 @@
       "cli_binary": "fortinet-cli",
       "mcp_binary": "fortinet-mcp",
       "version": "0.1.4",
-      "printing_press_version": "4.33.5",
+      "printing_press_version": "4.35.1",
       "license": "Apache-2.0",
       "vendor": "Fortinet",
       "vendor_trademark_owner": "Fortinet, Inc",
