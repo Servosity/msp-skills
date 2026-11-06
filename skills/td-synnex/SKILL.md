@@ -1,6 +1,6 @@
 ---
 name: td-synnex
-description: "The StreamOne ION v3 reseller API (customers, catalog, orders, subscriptions, carts, reports), plus a local licence book for renewals, margin and cross-distributor true-up. Trigger phrases: `what TD SYNNEX subscriptions renew this month`, `change seats on a StreamOne ION subscription`, `true up licences across TD SYNNEX and Pax8`, `which ION orders are stuck on hold`, `use td-synnex`, `run td-synnex`."
+description: "Use when the user asks about TD SYNNEX StreamOne ION (the ION reseller marketplace for Microsoft 365, Azure and security licences): subscriptions renewing soon or with auto-renew off, margin per customer or SKU, seat true-up against Pax8, Sherweb or PSA exports, stuck or failed orders, recent seat and renewal changes, one customer's full picture, or changing seats, renewal settings or status on an ION subscription. Trigger phrases: `what TD SYNNEX subscriptions renew this month`, `which ION customers am I losing money on`, `change seats on a StreamOne ION subscription`, `true up licences across TD SYNNEX and Pax8`, `which ION orders are stuck on hold`, `use td-synnex`, `run td-synnex`."
 author: "Damien Stevens"
 license: "Apache-2.0"
 vendor: "TD SYNNEX"
@@ -18,7 +18,7 @@ metadata:
         ps1: https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/td-synnex/install.ps1
 ---
 
-# TD SYNNEX StreamOne ION  -  Printing Press CLI
+# TD SYNNEX StreamOne ION - Claude Code Skill
 
 ## Prerequisites: Install the CLI
 
@@ -249,7 +249,7 @@ Do not use this CLI for:
 
 ## Freshness Contract
 
-This printed CLI owns bounded freshness only for registered store-backed read command paths. In `--data-source auto` mode, those paths check `sync_state` and may run a bounded refresh before reading local data. `--data-source local` never refreshes. `--data-source live` reads the API and does not mutate the local store. Set `TD_SYNNEX_NO_AUTO_REFRESH=1` to skip the freshness hook without changing source selection.
+This printed CLI owns bounded freshness only for registered store-backed read command paths. In `--data-source auto` mode, those paths check `sync_state` and may run a bounded refresh before reading local data. The refresh reads only the first page (about 100 rows) of each resource, so run `td-synnex-cli sync` before whole-book answers on a larger book. A command given its own `--db` never refreshes. `--data-source local` never refreshes. `--data-source live` reads the API and does not mutate the local store. The book commands written for this connector (`customers show`, `margin`, `orders stuck`, `position export`, `position trueup`, `subscriptions changes`, `subscriptions renewals`) are store-only: they accept `--data-source auto` or `local`, and `--data-source live` exits 1 with `no live equivalent for this command`; refresh their data with `td-synnex-cli sync`. The book commands refuse (exit 10, naming the sync to run) until a full, unfiltered `td-synnex-cli sync` of every resource they read has completed, so an answer never comes from a partial list. Set `TD_SYNNEX_NO_AUTO_REFRESH=1` to skip the freshness hook without changing source selection.
 
 Covered paths:
 
@@ -258,12 +258,12 @@ Covered paths:
 - `td-synnex-cli customers`
 - `td-synnex-cli customers get`
 - `td-synnex-cli customers list`
-- `td-synnex-cli customers show`
-- `td-synnex-cli margin`
+- `td-synnex-cli customers show` (store-only)
+- `td-synnex-cli margin` (store-only)
 - `td-synnex-cli orders`
-- `td-synnex-cli orders stuck`
-- `td-synnex-cli position export`
-- `td-synnex-cli position trueup`
+- `td-synnex-cli orders stuck` (store-only)
+- `td-synnex-cli position export` (store-only)
+- `td-synnex-cli position trueup` (store-only)
 - `td-synnex-cli products`
 - `td-synnex-cli products get`
 - `td-synnex-cli products list`
@@ -273,10 +273,10 @@ Covered paths:
 - `td-synnex-cli reports get`
 - `td-synnex-cli reports list`
 - `td-synnex-cli subscriptions`
-- `td-synnex-cli subscriptions changes`
+- `td-synnex-cli subscriptions changes` (store-only)
 - `td-synnex-cli subscriptions get`
 - `td-synnex-cli subscriptions list`
-- `td-synnex-cli subscriptions renewals`
+- `td-synnex-cli subscriptions renewals` (store-only)
 - `td-synnex-cli verticals`
 
 When JSON output uses the generated provenance envelope, freshness metadata appears at `meta.freshness`. Treat it as current-cache freshness for the covered command path, not a guarantee of complete historical backfill or API-specific enrichment.
@@ -343,10 +343,12 @@ Mints a new access token only when the stored one expires within 15 minutes, sav
 
 ## Auth Setup
 
-StreamOne ION uses OAuth 2.0 refresh tokens that are single-use and rotate on every exchange (32-day lifetime; access tokens last 2 hours). Get the first refresh token in the ION portal under Settings > Users > Edit > OAuth credentials > Request New Credentials and pipe it to `td-synnex-cli auth mint --refresh-token-stdin`. mint exchanges it and saves the access token and the NEW refresh token to the private credentials file before printing anything; later `auth mint` runs (for example `auth mint --if-expiring 15m` from cron) use the stored token. `auth check` reports how long both tokens stay valid. Do not give the refresh token to `auth set-token`, which stores an access token. Alternatively export TD_SYNNEX_ACCESS_TOKEN with a current access token.
+StreamOne ION uses OAuth 2.0 refresh tokens that are single-use and rotate on every exchange (32-day lifetime; access tokens last 2 hours). Get the first refresh token in the ION portal under Settings > Users > Edit > OAuth credentials > Request New Credentials and pipe it to `td-synnex-cli auth mint --refresh-token-stdin`. mint exchanges it and saves the access token and the NEW refresh token to the private credentials file before printing anything; later `auth mint` runs (for example `auth mint --if-expiring 15m` from cron) use the stored token. `auth check` reports how long both tokens stay valid. Do not give the refresh token to `auth set-token`, which stores an access token. Do not export TD_SYNNEX_ACCESS_TOKEN as well: it overrides the minted token and expires after 2 hours, while `auth mint --if-expiring` keeps the stored one fresh.
 
 - `td-synnex-cli auth mint`  -  exchange the refresh token (stdin, stored, or TD_SYNNEX_REFRESH_TOKEN) for an access token and save the rotated refresh token.
 - `td-synnex-cli auth check`  -  ask ION how long the access and refresh tokens stay valid.
+
+Keep `TD_SYNNEX_ACCOUNT_ID` set permanently (shell profile, or `setx` on Windows): every ION API path needs it, `doctor` needs it to probe the token, and the local store is keyed on it, so without it each new access token starts an empty store.
 
 Run `td-synnex-cli doctor` to verify setup.
 
@@ -370,7 +372,7 @@ Global format flags share one contract on promoted, novel, sync, and `--deliver`
 - **Previewable**  -  `--dry-run` shows the request without sending. A completed dry run exits 0 with `"success": true` and `"dry_run": true` and no HTTP `status`; validation failures still exit non-zero with `"success": false`.
 - **Offline-friendly**  -  sync/search commands can use the local SQLite store when available
 - **Non-interactive**  -  never prompts; inputs are positional arguments and flags
-- **Writes run immediately**  -  Writes run immediately: order, cart checkout, update and delete commands do not prompt, so preview them with `--dry-run`. `subscriptions set` only previews unless you add `--confirm`.
+- **Writes run immediately**  -  Writes run immediately: order, cart checkout, update and delete commands do not prompt, so preview them with `--dry-run`. `subscriptions set` only previews unless you add `--confirm`. Over MCP, every tool that can change ION (order, cart, customer, product, provisioning and report tools, and `subscriptions set`) returns a preview and sends nothing until the call is repeated with `confirm` set to boolean true; endpoint tools refuse any argument they do not declare.
 - **Explicit retries**  -  use `--idempotent` only when an already-existing create should count as success, and use `--ignore-missing` only when a missing delete target should count as success
 
 ### Response envelope
@@ -691,7 +693,7 @@ Parse `$ARGUMENTS`:
    ```
 3. Verify: `claude mcp list`
 
-For a remote host, `td-synnex-mcp --transport http` requires `TD_SYNNEX_MCP_HTTP_TOKEN` set to at least 32 characters (callers send `Authorization: Bearer <token>`; `openssl rand -hex 32` prints 64 hex characters and meets that minimum), binds `127.0.0.1:7777` by default, and needs `--tls-cert`/`--tls-key` for any non-loopback `--addr`. Requests with no `Origin` header are accepted. Loopback origins are accepted; any other `Origin` is refused unless listed in `TD_SYNNEX_MCP_HTTP_ALLOWED_ORIGINS` (comma-separated `scheme://host[:port]` values). `TD_SYNNEX_MCP_READ_ONLY=1` drops mirrored write commands (local-write commands that only touch the CLI's own learn store stay) and makes the raw execute tool refuse state-changing calls.
+For a remote host, `td-synnex-mcp --transport http` requires `TD_SYNNEX_MCP_HTTP_TOKEN` set to at least 32 characters (callers send `Authorization: Bearer <token>`; `openssl rand -hex 32` prints 64 hex characters and meets that minimum), binds `127.0.0.1:7777` by default, and needs `--tls-cert`/`--tls-key` for any non-loopback `--addr`. Requests with no `Origin` header are accepted. Loopback origins are accepted; any other `Origin` is refused unless listed in `TD_SYNNEX_MCP_HTTP_ALLOWED_ORIGINS` (comma-separated `scheme://host[:port]` values). `TD_SYNNEX_MCP_READ_ONLY=1` drops mirrored write commands (local-write commands that only touch the CLI's own learn store stay) and every endpoint tool that can change StreamOne ION.
 
 ## Direct Use
 

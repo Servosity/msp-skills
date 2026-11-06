@@ -62,7 +62,7 @@ To install:
 
 1. Download the `.mcpb` for your platform from the [latest release](https://github.com/Servosity/msp-skills/releases?q=td-synnex).
 2. Double-click the `.mcpb` file. Claude Desktop opens and walks you through the install.
-3. When Claude Desktop prompts, set `TD_SYNNEX_ACCOUNT_ID` to your reseller account ID and leave `TD_SYNNEX_ACCESS_TOKEN` empty. Leave `TD_SYNNEX_ACCESS_TOKEN` out: run `td-synnex-cli auth mint --refresh-token-stdin` once and `td-synnex-cli auth mint --if-expiring 15m` from cron, and the server reads the stored, refreshed token. An access token set here expires after 2 hours and always overrides the stored one.
+3. When Claude Desktop prompts, set `TD_SYNNEX_ACCOUNT_ID` to your reseller account ID and leave every other field empty. Before the first start, run `td-synnex-cli auth mint --refresh-token-stdin` once and `td-synnex-cli auth mint --if-expiring 15m` from cron, and the server reads the stored, refreshed token. An access token set here expires after 2 hours and always overrides the stored one.
 
 Requires Claude Desktop 1.0.0 or later. Pre-built bundles ship for macOS Apple Silicon (`darwin-arm64`) and Windows (`amd64`, `arm64`); for other platforms, use the manual config below.
 
@@ -79,7 +79,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/sk
 iwr -useb https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/td-synnex/install.ps1 | iex            # Windows
 ```
 
-Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS, `%APPDATA%\Claude\claude_desktop_config.json` on Windows):
+Add to your Claude Desktop config (`%APPDATA%\Claude\claude_desktop_config.json` on Windows, `~/Library/Application Support/Claude/claude_desktop_config.json` on macOS):
 
 ```json
 {
@@ -107,22 +107,23 @@ export TD_SYNNEX_MCP_HTTP_TOKEN="$(openssl rand -hex 32)"
 td-synnex-mcp --transport http
 ```
 
-Set `TD_SYNNEX_MCP_READ_ONLY=1` (exactly `1`) to drop mirrored commands that are not marked read-only and make the raw execute tool refuse state-changing calls. Commands marked local-write, which write only this CLI's own learn store, stay available.
+Set `TD_SYNNEX_MCP_READ_ONLY=1` (any value except blank, `0`, `false`, `no` or `off` turns it on) to drop mirrored commands that are not marked read-only and every endpoint tool that can change StreamOne ION. Commands marked local-write, which write only this CLI's own learn store, stay available.
 
 ## Authentication
 
 **API calls need a StreamOne ION access token.** The local-store commands (subscriptions renewals and changes, margin, orders stuck, customers show, position export and trueup) read synced data and need no token once you have synced. Set `TD_SYNNEX_ACCOUNT_ID` to your reseller account ID (portal Quick Access > Account Information) so account paths resolve.
 
-StreamOne ION uses OAuth 2.0 refresh tokens that are single-use and rotate on every exchange (32-day lifetime; access tokens last 2 hours). Get the first refresh token in the ION portal under Settings > Users > Edit > OAuth credentials > Request New Credentials and pipe it to `td-synnex-cli auth mint --refresh-token-stdin`. mint exchanges it and saves the access token and the NEW refresh token to the private credentials file before printing anything; later `auth mint` runs (for example `auth mint --if-expiring 15m` from cron) use the stored token. `auth check` reports how long both tokens stay valid. Do not give the refresh token to `auth set-token`, which stores an access token. Alternatively export TD_SYNNEX_ACCESS_TOKEN with a current access token.
+StreamOne ION uses OAuth 2.0 refresh tokens that are single-use and rotate on every exchange (32-day lifetime; access tokens last 2 hours). Get the first refresh token in the ION portal under Settings > Users > Edit > OAuth credentials > Request New Credentials and pipe it to `td-synnex-cli auth mint --refresh-token-stdin`. mint exchanges it and saves the access token and the NEW refresh token to the private credentials file before printing anything; later `auth mint` runs (for example `auth mint --if-expiring 15m` from cron) use the stored token. `auth check` reports how long both tokens stay valid. Do not give the refresh token to `auth set-token`, which stores an access token. Do not export TD_SYNNEX_ACCESS_TOKEN as well: it overrides the minted token and expires after 2 hours, while `auth mint --if-expiring` keeps the stored one fresh.
 
 ## Quick Start
 
 ```bash
-# First export TD_SYNNEX_ACCOUNT_ID=<your reseller account ID> (portal Quick Access > Account Information); doctor then checks config, credentials and API reachability
+# First set TD_SYNNEX_ACCOUNT_ID=<your reseller account ID> (portal Quick Access > Account Information) and keep it set (shell profile, or setx on Windows): the local store is keyed on it; doctor then probes the token against your account
 td-synnex-cli doctor
 
 # Exchange the portal refresh token (on stdin, here from a file; pbpaste | ... works too) for an access token and store the rotated refresh token
 td-synnex-cli auth mint --refresh-token-stdin < refresh-token.txt
+# Windows (PowerShell): Get-Content refresh-token.txt | td-synnex-cli auth mint --refresh-token-stdin
 
 # Pull your licence book into the local store (needs TD_SYNNEX_ACCOUNT_ID)
 td-synnex-cli sync --resources customers,subscriptions,orders
@@ -138,7 +139,7 @@ td-synnex-cli margin --by customer
 ## Known Gaps
 
 - **Not yet run against a live StreamOne ION tenant.** Every command was checked against TD SYNNEX's published v3 OpenAPI spec, a docs-shaped mock server and unauthenticated route probes, not real account data. Start with `td-synnex-cli doctor` and a small `td-synnex-cli sync --resources customers`, and check the first results against the ION portal.
-- **Money columns in `margin`, `subscriptions renewals`, `position export` and `customers show` are unconfirmed.** They use the price and cost ION reports for each subscription (or its newest billingData month), not multiplied by seats. Every documented example has one licence, so whether ION reports those per seat or per subscription has not been checked; if they are per seat, multi-seat totals are understated. Compare one multi-seat subscription with the ION portal before relying on the totals.
+- **Money columns in `margin`, `subscriptions renewals`, `position export` and `customers show` are unconfirmed.** They use the price and cost ION reports for each subscription (for monthly billing, its newest billed month), not multiplied by seats. Every documented example has one licence, so whether ION reports those per seat or per subscription has not been checked; if they are per seat, multi-seat totals are understated, and so is `position trueup`'s `unit_cost_by_source` (cost divided by seats), by the same factor. Compare one multi-seat subscription with the ION portal before relying on the totals.
 
 ## Unique Features
 
@@ -412,8 +413,8 @@ Manage cloud providers
 - **`td-synnex-cli cloud-providers get-customer`** - Get the customer's association with one cloud provider: provisioned domain, status,
 partner tenant ID, MCA email status and options (key/value pairs such as autoRenew and termSettings, shown in the docs sample).
 For Microsoft, `azureCustomerInfo` is a JSON string from Partner Center that the docs
-sample shows carrying tenant admin UserCredentials (including a Password): treat the
-response as a secret.
+sample shows carrying tenant admin UserCredentials (including a Password). This CLI
+withholds the whole string (`[redacted]`).
 Source: https://docs.streamone.cloud/#get-customer-cloud-provider
 Official spec: GetCustomerCloudProvider.
 - **`td-synnex-cli cloud-providers link-customer`** - Link a tenant the customer already owns at the cloud provider to the ION customer.
@@ -424,8 +425,8 @@ Source: https://docs.streamone.cloud/#link-customer-cloud-provider
 Official spec: LinkCustomerCloudProvider.
 - **`td-synnex-cli cloud-providers provision-customer`** - Create a new tenant for the customer at the cloud provider (for example a Microsoft
 tenant for provider 30). The response returns the tenant admin username, a generated
-password and the login URL where the customer signs the Microsoft Customer Agreement:
-treat the response as a secret. The docs header shows GET, but the endpoint table
+password and the login URL where the customer signs the Microsoft Customer Agreement.
+This CLI shows the password as `[redacted]`. The docs header shows GET, but the endpoint table
 lists POST and the live host answers GET with 415 and POST with 401 (route-probe-2026-10-14.txt), so POST is used.
 Source: https://docs.streamone.cloud/#create-customer-cloud-provider
 Official spec: CustomerCloudProviderProvision.
@@ -471,7 +472,7 @@ List, get, create and update customers, and show one customer from the local sto
 
 - **`td-synnex-cli customers create`** - Create an end customer. The official spec requires customerOrganization, customerAddress
 (street, city, state, zip, country), customerName, customerEmail and languageCode. The response includes a default customer user whose `password`
-field carries the generated initial password: treat the response as a secret.
+field carries the generated initial password. This CLI shows it as `[redacted]`.
 Source: https://docs.streamone.cloud/#create-customer
 Official spec: CreateCustomer.
 - **`td-synnex-cli customers get`** - Get one end customer by ID.
@@ -709,7 +710,7 @@ Exit codes: `0` success, `1` other error, `2` usage error, `3` not found, `4` au
 
 ## Freshness
 
-This CLI owns bounded freshness for registered store-backed read command paths. In `--data-source auto` mode, covered commands check the local SQLite store before serving results; stale or missing resources trigger a bounded refresh, and refresh failures fall back to the existing local data with a warning. `--data-source local` never refreshes, and `--data-source live` reads the API without mutating the local store.
+This CLI owns bounded freshness for registered store-backed read command paths. In `--data-source auto` mode, covered commands check the local SQLite store before serving results; stale or missing resources trigger a bounded refresh that reads only the first page (about 100 rows) of each resource, so run `td-synnex-cli sync` before whole-book answers on a larger book; refresh failures fall back to the existing local data with a warning, and a command given its own `--db` never refreshes. `--data-source local` never refreshes, and `--data-source live` reads the API without mutating the local store. The book commands written for this connector (`customers show`, `margin`, `orders stuck`, `position export`, `position trueup`, `subscriptions changes`, `subscriptions renewals`) are store-only: they accept `--data-source auto` or `local`, and `--data-source live` exits 1 with `no live equivalent for this command`; refresh their data with `td-synnex-cli sync`.
 
 Set `TD_SYNNEX_NO_AUTO_REFRESH=1` to disable the pre-read freshness hook while preserving the selected data source.
 
@@ -719,12 +720,12 @@ Covered command paths:
 - `td-synnex-cli customers`
 - `td-synnex-cli customers get`
 - `td-synnex-cli customers list`
-- `td-synnex-cli customers show`
-- `td-synnex-cli margin`
+- `td-synnex-cli customers show` (store-only)
+- `td-synnex-cli margin` (store-only)
 - `td-synnex-cli orders`
-- `td-synnex-cli orders stuck`
-- `td-synnex-cli position export`
-- `td-synnex-cli position trueup`
+- `td-synnex-cli orders stuck` (store-only)
+- `td-synnex-cli position export` (store-only)
+- `td-synnex-cli position trueup` (store-only)
 - `td-synnex-cli products`
 - `td-synnex-cli products get`
 - `td-synnex-cli products list`
@@ -734,10 +735,10 @@ Covered command paths:
 - `td-synnex-cli reports get`
 - `td-synnex-cli reports list`
 - `td-synnex-cli subscriptions`
-- `td-synnex-cli subscriptions changes`
+- `td-synnex-cli subscriptions changes` (store-only)
 - `td-synnex-cli subscriptions get`
 - `td-synnex-cli subscriptions list`
-- `td-synnex-cli subscriptions renewals`
+- `td-synnex-cli subscriptions renewals` (store-only)
 - `td-synnex-cli verticals`
 
 JSON outputs that use the generated provenance envelope include freshness metadata at `meta.freshness`. This metadata describes the freshness decision for the covered command path; it does not claim full historical backfill or API-specific enrichment.
@@ -761,7 +762,7 @@ Verifies configuration, credentials, and connectivity to the API.
 
 ## Configuration
 
-Run `td-synnex-cli doctor` to see the resolved config, data, state, and cache directories. The platform-default config path is `~/.config/td-synnex-cli/config.toml` on macOS/Linux and `%USERPROFILE%\.config\td-synnex-cli\config.toml` on Windows; `--home`, `TD_SYNNEX_HOME`, and per-kind env vars can relocate it.
+Run `td-synnex-cli doctor` to see the resolved config, data, state, and cache directories. The platform-default config path is `~/.config/td-synnex-cli/config.toml` (`%USERPROFILE%\.config\td-synnex-cli\config.toml` on Windows); `--home`, `TD_SYNNEX_HOME`, and per-kind env vars can relocate it.
 
 Static request headers can be configured under `headers`; per-command header overrides take precedence.
 
@@ -789,8 +790,8 @@ If you use agentcookie to sync secrets across machines, this CLI auto-adopts age
 
 ### API-specific
 - **401 {"code":16,"message":"Unable to authenticate..."}**  -  Run td-synnex-cli auth mint (access tokens expire after 2 hours). An exported TD_SYNNEX_ACCESS_TOKEN always wins over the minted token, so unset a stale one
-- **auth mint returns 400 "cannot validate token request"**  -  The refresh token was already used or is older than 32 days; request new OAuth credentials in the ION portal and pipe the new refresh token to auth mint --refresh-token-stdin
-- **missing required argument (Usage shows <accountId>)**  -  export TD_SYNNEX_ACCOUNT_ID=<reseller account ID from portal Quick Access > Account Information>, or pass the account ID as the first argument
+- **auth mint says "ION rejected the refresh token (it may be used already or older than 32 days)"**  -  The refresh token was already used or is older than 32 days; request new OAuth credentials in the ION portal and pipe the new refresh token to auth mint --refresh-token-stdin
+- **missing required argument (Usage shows <accountId>)**  -  set TD_SYNNEX_ACCOUNT_ID=<reseller account ID from portal Quick Access > Account Information> permanently (shell profile, or setx on Windows), or pass the account ID as the first argument
 - **400 "At least one of page_size and page_token must be present"**  -  Pass --page-size (customers, products and orders lists require it)
 - **403 PERMISSION_DENIED**  -  The ION user behind the token lacks the role for that resource; ask the account admin, or use a dedicated API user
 

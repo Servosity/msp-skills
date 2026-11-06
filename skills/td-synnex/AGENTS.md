@@ -33,7 +33,7 @@ td-synnex-cli customer-orders cancel-order 10505 108536 401244 --dry-run --agent
 
 A completed `--dry-run` reports `"success": true` and `"dry_run": true` and omits HTTP `status`. Hand-written commands should call `writeDryRun` for that shape. A dry run that fails validation exits non-zero with `"success": false`.
 
-Writes run immediately: order, cart checkout, update and delete commands do not prompt, so preview them with `--dry-run`. `subscriptions set` only previews unless you add `--confirm`.
+Writes run immediately: order, cart checkout, update and delete commands do not prompt, so preview them with `--dry-run`. `subscriptions set` only previews unless you add `--confirm`. Over MCP, every tool that can change ION (order, cart, customer, product, provisioning and report tools, and `subscriptions set`) returns a preview and sends nothing until the call is repeated with `confirm` set to boolean true; endpoint tools refuse any argument they do not declare.
 
 ## Novel Command Data Sources
 
