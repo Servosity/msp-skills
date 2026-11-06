@@ -41,7 +41,7 @@ the statusline, you do not need anything in this folder - see the root
 | `registry.py` | Shared loader for `skills.json` (the single source of truth for skills). |
 | `skills.json` | Per-skill metadata: owner/repo, binary names, vendor, status. |
 | `release_batch.sh` | Runs a release batch in a throwaway worktree, pushes the version stamp, and prints probe-gated tag commands. Never tags. |
-| `merge_when_green.py` | Merges one PR only when it is green on the exact commit, on current main: per-branch lock, squash, rebase, registry-aware conflict handling, log-classified CI failures, review approvals bound to the change, and a record of whether CodeRabbit reviewed that exact commit (a skip or rate-limit notice is not a review; `--coderabbit require` makes one mandatory). See [Merging, tagging and stamping](#merging-tagging-and-stamping). `--self-test` proves it against throwaway repos. |
+| `merge_when_green.py` | Merges one PR only when it is green on the exact commit, on current main: per-branch lock, squash, rebase, registry-aware conflict handling, log-classified CI failures, review approvals bound to the change, and a record of whether CodeRabbit reviewed that exact commit (a skip or rate-limit notice is not a review; `--coderabbit require` makes one mandatory). `train` merges several PRs in one CI cycle, one squash commit each. See [Merging, tagging and stamping](#merging-tagging-and-stamping). `--self-test` proves it against throwaway repos. |
 | `gen_coderabbit_config.py` | Writes `.coderabbit.yaml`: CodeRabbit `path_filters` that exclude untouched press template output (Go files with the press's DO-NOT-EDIT header that `handfixes.json` does not name) and nothing else, so every hand-fixed generated file, spec and hand-written file stays in review. Every pattern is checked against every file that must stay in review before it is written. `--check` (run by `ci_guards.sh`) fails on a stale file; `--stats`; `--self-test`. |
 | `resolve_registry.py` | Finishes a conflicted rebase or merge: per-entry three-way merge of `skills.json`, `marketplace.json` and `cards.yaml`, main's copy of derived files, regenerate, re-check, print the final registry diff. Stops on any other conflict. `--self-test`. |
 | `cut_tags.sh` | Cuts release tags one per push behind the pipeline probe and the CHANGELOG check; `--receipts` proves each release sealed complete and sweeps for drafts. `--self-test`. |
@@ -913,6 +913,50 @@ merged in a race, main's CI then green; 8 merged (or possibly merged), but main'
 unverified after a race, the head's checks changed between the final gate and the merge, a call
 timed out after the merge call, or the merge call or its proof did not complete or was interrupted
 (stop the chain and check main by hand); 130 interrupted before the merge call (nothing merged).
+
+**Merge trains: one CI cycle for several PRs.** `merge_when_green.py train 607 608 595` merges the
+PRs in that order, one squash commit per PR, with one CI wait for all of them. A merge holds the
+fleet's one merge lock for a whole CI run (18 to 43 minutes each on 2026-11-06), so merging one
+PR at a time cannot keep up with a queue of dozens. With one PR, `train N` runs exactly like
+`merge_when_green.py N`.
+
+- Car 1 is prepared exactly as a single run prepares it, on `origin/main`. Car i is prepared the
+  same way (squash, rebase, derived files, per-entry registry check, `.coderabbit.yaml`) on car
+  i-1's prepared commit, then pushed as that PR's head with the same lease rules.
+- Stacked bases. CI reads policy, baselines, fleet precedent, release links and the changed-path
+  scope from the PR's base (`pull_request.base.sha`). So before car i's head is pushed, its PR is
+  retargeted to car i-1's branch (already at car i-1's prepared commit); the push then runs every
+  `pull_request` workflow with base = the tree car i lands on, as merging one at a time would, and
+  from then on the PR's stored base (`baseRefOid`, which GitHub refreshes on a push, not live) must
+  read exactly car i-1's prepared commit. Nothing is inferred about what a car ahead changed. Right after car i-1's merge is proven,
+  car i is retargeted to `main` (GitHub's `edited` event runs no workflow here, and check runs
+  belong to the commit); the final gate then re-reads every check against the green verdict. A
+  base GitHub will not set, a failed retarget, a PR that reports another base (branch or commit)
+  during its wait, or a head that is already the prepared commit but was not pushed onto that base
+  by this train stops the train before that car: it and the cars behind it are not merged.
+- Car i's approvals are judged on its OWN change, the diff from car i-1 to car i, by the same
+  byte-identical and carry rules as a single run, with the cars ahead counted as `main`.
+- Before any push, `git merge-tree` checks that GitHub's squash of car i (it squashes onto the
+  merge base, which is `main`) lands exactly car i's prepared tree. Two new connectors that both
+  append to the registries do not; that car waits for the next pass, unpushed.
+- Every car's head must be green (the single run's wait and final gate). A red car j: cars ahead of
+  it may merge, car j and the cars behind it go back to their lanes (`back`, own or not at fault),
+  and their PR bases (first) and heads are put back to `main` and their own commits (read from the remote, so a push whose
+  acknowledgement failed is put back too). Only a head this train pushed is put back; a commit
+  someone else pushed on top is left as it is and reported (`restore_failed` in `--results`), as is
+  a head whose base could not be put back (pushing it then would run its CI on a car's branch).
+- Car i merges only while `main` is exactly car i-1's merge commit, with `--match-head-commit` on
+  car i's tested head. Right after each merge, the merge commit's tree must equal car i's tested
+  tree; anything else is exit 8 and nothing more merges. Anyone else moving `main` mid-train (the
+  catalog bot, a release stamp) stops the train before the next car; the rest are prepared again
+  on the new `main`, bounded by `--max-rebases`.
+
+`--results FILE` writes each PR's outcome as JSON: `merged` (with its merge commit), `failed` (a
+verdict, its exit code meaning what a single run's does), or `back` (no verdict; `own` says
+whether its own trouble sent it back). The process exit is the first car's, or 8 on a hard stop.
+A single run's exit-8 latch covers the whole train: once any car's merge call was made, an
+interrupt, an unexpected stop or a call timing out afterwards is exit 8, with each car's result
+still as proven.
 
 **`repo_lock.py`: one protocol with older copies.** `release.py` and `release_batch.sh` on older
 worktrees hold the same `msp-skills-locks/<name>.lock` with the original O_EXCL-and-pid copy, so
