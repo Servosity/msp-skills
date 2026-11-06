@@ -47,6 +47,12 @@ func exe(name string) string {
 
 func cliBinary(t *testing.T) string {
 	t.Helper()
+	if runtime.GOOS == "windows" {
+		// As google-workspace's leak tests: not proven on a Windows runner from here.
+		// The hold itself is OS-independent and TestTokenExchangeCredentialIsHeld runs
+		// it everywhere; the Windows build is vetted and compiled by the gates.
+		t.Skip("the built-binary leak test is not yet proven on Windows")
+	}
 	binOnce.Do(func() {
 		if d := os.Getenv("SONICWALL_LEAK_BIN_DIR"); d != "" {
 			binDir = d
