@@ -787,8 +787,17 @@ BUILD_TARGETS = (("linux", "amd64"), ("linux", "arm64"), ("darwin", "amd64"),
                  ("darwin", "arm64"), ("windows", "amd64"), ("windows", "arm64"))
 
 
+def graph_roots(mod_dir: Path) -> list[str]:
+    """`./...` plus each cmd/ dir it skips (a name starting with _ or .): registry.cmd_dirs
+    can pick such a dir and release.yml builds what it picks, so a scan rooted at `./...`
+    alone would never see that binary's imports (codex, GO-2026-6911 review)."""
+    cmd = mod_dir / "cmd"
+    return ["./..."] + sorted(f"./cmd/{d.name}" for d in (cmd.iterdir() if cmd.is_dir() else ())
+                              if d.is_dir() and d.name[:1] in "_.")
+
+
 def _go_list_direct(mod_dir: Path, goos: str, goarch: str) -> tuple[set[str], set[str]] | None:
-    code, out, _ = run(["go", "list", "-deps", "-json", "./..."], cwd=str(mod_dir),
+    code, out, _ = run(["go", "list", "-deps", "-json", *graph_roots(mod_dir)], cwd=str(mod_dir),
                        timeout=300, env={"GOOS": goos, "GOARCH": goarch, "CGO_ENABLED": "0"})
     if code != 0 or not out:
         return None
@@ -1323,7 +1332,7 @@ def scan_external(slug: str, suppress: set[tuple[str, str]],
         # 600s (not 300): same go/packages-driven cold-load cost as gosec on heavy-dep
         # connectors; give the reachability analysis matching headroom so a slow runner
         # can't fail-close a healthy connector.
-        code, out, err = run(["govulncheck", "./..."], cwd=str(mod), timeout=600)
+        code, out, err = run(["govulncheck", *graph_roots(mod)], cwd=str(mod), timeout=600)
         if code == 3:
             ev = next((ln.strip() for ln in out.splitlines() if ln.strip().startswith("Vulnerability #")),
                       "govulncheck: a vulnerability is reachable from this module's code.")
@@ -3018,6 +3027,19 @@ def _self_test_osv_packages() -> int:
          osv_unlinked({"affected": [{"package": {"name": mod}}]}, mod, server_only) is None),
         ("a record with no affected list gates as before", osv_unlinked({}, mod, server_only) is None),
     ]
+    # The graph sees a release entry point `./...` skips: cmd/_acme-cli links a package
+    # cmd/acme-cli does not (real go list, stdlib only, no network).
+    tmp = Path(tempfile.mkdtemp(prefix="gate-osv-roots-"))
+    try:
+        (tmp / "go.mod").write_text("module example.com/acme\n\ngo 1.21\n")
+        for d, imp in (("acme-cli", "fmt"), ("_acme-cli", "net/http/httptest")):
+            (tmp / "cmd" / d).mkdir(parents=True)
+            (tmp / "cmd" / d / "main.go").write_text(f'package main\n\nimport _ "{imp}"\n\nfunc main() {{}}\n')
+        graph = direct_import_modules(tmp)
+        cases.append(("the graph covers a cmd/_ entry point", graph is not None and "net/http/httptest" in graph[1]))
+        cases.append(("graph_roots names it", graph_roots(tmp) == ["./...", "./cmd/_acme-cli"]))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
     failed = 0
     for name, ok in cases:
         print(f"  {'ok  ' if ok else 'FAIL'} osv packages: {name}")
