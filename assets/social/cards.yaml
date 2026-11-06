@@ -408,6 +408,10 @@ veeam:
   vendor: "Veeam"
   example_command: "Which customers have failing backups?"
 
+vsphere:
+  vendor: "VMware vSphere"
+  example_command: "Which of our VMs are blocked from leaving VMware?"
+
 warranty:
   vendor: "Device Warranty"
   example_command: "Which devices go out of warranty this quarter?"

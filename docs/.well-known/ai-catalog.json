@@ -1904,6 +1904,26 @@
       }
     },
     {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:vsphere",
+      "displayName": "VMware vSphere",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/vsphere/SKILL.md",
+      "description": "Find every VMware migration blocker, stale snapshot and per-core licence cost in vCenter, read-only, from one prompt.",
+      "tags": [
+        "Other"
+      ],
+      "representativeQueries": [
+        "Which VMs are blocked from migrating, and what is blocking each one?",
+        "Which snapshots are older than a week, and how much delta disk does each of those VMs carry?",
+        "How many licensable cores does this vCenter have under the 16-core-per-CPU minimum?",
+        "How much vCPU, RAM and storage does the Proxmox target need?",
+        "Which Proxmox VE settings does this VM map to?"
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/vsphere.md"
+      }
+    },
+    {
       "identifier": "urn:air:msp-skills.compoundingteams.com:skills:warranty",
       "displayName": "Device Warranty",
       "type": "text/markdown; profile=\"urn:air:agent-skills\"",

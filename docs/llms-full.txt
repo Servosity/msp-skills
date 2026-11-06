@@ -3559,6 +3559,40 @@ A: The full VSPC v3 surface is exposed, including create/delete jobs and agent d
 
 Governance: The skill is read-first: cross-tenant health, stale-backup and at-risk sweeps, alarm triage, license usage, and search are read-only and safe to let an agent run. The write surface is large - creating and deleting backup jobs, policies and rules, installing agents, rebooting and deploying to real customer infrastructure, and credential/certificate operations - and is gated human-in-the-loop. The VSPC token's own permissions are the outer limit on anything the agent can do.
 
+### VMware vSphere (Other)
+
+Page: [VMware vSphere](https://msp-skills.compoundingteams.com/skills/vsphere.md)
+Verification: Awaiting live verification
+Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/vsphere/install.sh)
+
+Ask your AI which client VMs can leave VMware today, which are blocked and why, how many cores Broadcom will bill for, and what each VM looks like on Proxmox. vsphere-cli reads vCenter with a Read-Only login and answers in seconds, as JSON your agent can act on. It never changes anything in vCenter.
+
+Outcomes (question -> command your AI agent runs):
+- Which VMs are blocked from migrating, and what is blocking each one? -> vsphere-cli migration blockers --severity block --agent
+- Which snapshots are older than a week, and how much delta disk does each of those VMs carry? -> vsphere-cli snapshots audit --older-than 7d --agent
+- How many licensable cores does this vCenter have under the 16-core-per-CPU minimum? -> vsphere-cli licence exposure --agent
+- How much vCPU, RAM and storage does the Proxmox target need? -> vsphere-cli migration capacity --powered-on-only --agent
+- Which Proxmox VE settings does this VM map to? -> vsphere-cli migration proxmox-map --vm vm-1021 --agent
+- Can I get an RVTools-format export without a Windows machine? -> vsphere-cli rvtools export --out ./acme-rvtools
+
+FAQ:
+Q: Does this work with ChatGPT?
+A: Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so it needs the VMware vSphere MCP server's token-protected HTTP mode hosted over HTTPS. Step-by-step in the install guide.
+Q: Do I need to know how to code?
+A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
+Q: Is my VMware data safe?
+A: Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills.
+Q: What does it cost?
+A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
+Q: Does it change anything in vCenter?
+A: No. Every vCenter call is a read. A Read-Only role on the vCenter SSO user is enough.
+Q: Which vCenter versions does it support?
+A: Inventory reads need vCenter 7.0 Update 2 or later. Snapshots, licence exposure, host hardware and capacity need vCenter 8.0 Update 1 or later; on older vCenters those checks are reported as unknown, never as a pass.
+Q: Our vCenter uses a self-signed certificate. Will it connect?
+A: Yes. Set VSPHERE_TLS_FINGERPRINT to the certificate's SHA-256 fingerprint and the CLI accepts only that certificate. Without it, normal certificate checks apply.
+
+Governance: Every command that talks to vCenter is a read: the skill cannot power off, delete, move or reconfigure anything. It does write on your own machine (the local store, export files, saved credentials), and local-data purge erases that local data. Let agents run the read commands freely; keep credential and local-erase commands with a human.
+
 ### Device Warranty (Documentation)
 
 Page: [Device Warranty](https://msp-skills.compoundingteams.com/skills/warranty.md)
