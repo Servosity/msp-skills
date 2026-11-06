@@ -1689,7 +1689,7 @@
       "cli_binary": "salesbuildr-cli",
       "mcp_binary": "salesbuildr-mcp",
       "version": "0.1.7",
-      "printing_press_version": "4.24.0",
+      "printing_press_version": "4.34.2",
       "license": "Apache-2.0",
       "vendor": "Salesbuildr",
       "vendor_trademark_owner": "Salesbuildr",

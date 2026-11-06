@@ -587,7 +587,7 @@
       "type": "skill-md",
       "description": "Every Salesbuildr resource as a scriptable command, plus offline margin and pipeline analytics. Trigger phrases: `salesbuildr stale quotes`, `check quote margins`, `salesbuildr pipeline velocity`, `sync salesbuildr catalog`, `company whitespace salesbuildr`, `use salesbuildr`, `run salesbuildr`.",
       "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/salesbuildr/SKILL.md",
-      "digest": "sha256:1c7c2946d0194797970cb47ec026ac25a1b4627a762c5665262ba14a218613d1"
+      "digest": "sha256:1ef353182a5542187f59c6eebbdb648c6832802d68bd9d3218191a237419ef3a"
     },
     {
       "name": "sentinelone",
