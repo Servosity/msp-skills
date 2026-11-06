@@ -55,6 +55,7 @@ body:
         - datagate
         - datto-bcdr
         - datto-rmm
+        - datto-saas
         - dnsfilter
         - domain-cert-tracker
         - domotz

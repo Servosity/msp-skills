@@ -693,6 +693,26 @@
       }
     },
     {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:datto-saas",
+      "displayName": "Datto SaaS Protection",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/datto-saas/SKILL.md",
+      "description": "Fleet-wide Datto SaaS Protection answers - unprotected seats, failing backups, exit inventories - from a local mirror in one ask.",
+      "tags": [
+        "Backup/DR"
+      ],
+      "representativeQueries": [
+        "Which seats across every client are unprotected, newest first?",
+        "Where does Datto's seatsUsed disagree with billable and Active seats, per client?",
+        "Which clients rank worst on backup coverage and short backup windows?",
+        "How many seats does each client have, by seat type and state?",
+        "Give me one seat table for the whole fleet with each client's domains and subscription ids."
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/datto-saas.md"
+      }
+    },
+    {
       "identifier": "urn:air:msp-skills.compoundingteams.com:skills:dnsfilter",
       "displayName": "DNSFilter",
       "type": "text/markdown; profile=\"urn:air:agent-skills\"",

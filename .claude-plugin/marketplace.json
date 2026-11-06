@@ -1682,6 +1682,22 @@
         "claude-code",
         "claude-mcp"
       ]
+    },
+    {
+      "name": "datto-saas",
+      "source": "./skills/datto-saas",
+      "description": "Every Datto SaaS Protection (Backupify) client in one local database: seat audits, protection gaps, backup health ranking, exit inventories and plan-first bulk seat changes.",
+      "version": "0.1.0",
+      "category": "backup-dr",
+      "tags": [
+        "datto-saas",
+        "datto saas protection",
+        "backup-dr",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
     }
   ]
 }
