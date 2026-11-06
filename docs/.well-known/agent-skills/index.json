@@ -475,7 +475,7 @@
       "type": "skill-md",
       "description": "Every PagerDuty incident, on-call and service operation from the terminal, plus a local SQLite mirror that answers cross-entity questions - MTTA/MTTR, on-call coverage gaps, responder load - that neither the API nor the web UI can. Trigger phrases: `who is on call for this service`, `show me the open pagerduty incidents`, `what's the mttr for this service`, `acknowledge the pagerduty incident`, `which services have no on-call coverage`, `use pagerduty`, `run pagerduty-cli`.",
       "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/pagerduty/SKILL.md",
-      "digest": "sha256:d2bf2caeaf354f4e46bfce6278e0b2e4b43f0d41d212f0adadfcdcf3f9bb070f"
+      "digest": "sha256:d350d19819252a7e590a70ac8827ed5f48df75c90f22cb45b6a8e22fbb9b706d"
     },
     {
       "name": "pandadoc",
@@ -721,6 +721,13 @@
       "description": "Use when the user asks which WatchGuard Cloud customer needs attention first, which Fireboxes are offline or behind on firmware, which endpoints are unprotected, isolated or waiting on a reboot across customers, which ThreatSync incidents are untouched, who is exposed to a CVE, whether license allocations match the Fireboxes that report in, or to wait for a Firebox deployment to finish; also to run any WatchGuard Cloud API call (Firebox, FireCloud, Endpoint Security, ThreatSync, NDR, AuthPoint, accounts, operators, allocations). Trigger phrases: `which fireboxes are offline`, `which customers have unprotected endpoints`, `who is exposed to this CVE`, `threatsync incident queue`, `fireboxes behind on firmware`, `wait for the firebox deployment`, `watchguard license allocation`, `use watchguard`, `run watchguard-cli`.",
       "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/watchguard/SKILL.md",
       "digest": "sha256:a708f011e27837f737303738f5de383b331acfb87ebd2a4edcc58bdac6a181a9"
+    },
+    {
+      "name": "windows-server",
+      "type": "skill-md",
+      "description": "Agentless Windows Server health checks over WinRM: one verdict per server, a diffable inventory, and no arbitrary PowerShell. Trigger phrases: `is the file server healthy`, `why is this service stopped on the server`, `who added a local admin on the server`, `what changed on our windows servers this week`, `check expiring certificates on the server`, `use windows-server`, `run windows-server`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/windows-server/SKILL.md",
+      "digest": "sha256:33930c1632946b234b2f4a6ffc011668a989ba0ceb00d5825d161485ed00c534"
     },
     {
       "name": "wordpress",

@@ -2044,6 +2044,26 @@
       }
     },
     {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:windows-server",
+      "displayName": "Windows Server",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/windows-server/SKILL.md",
+      "description": "Check every Windows server's health, disks, services, updates and certificates by asking.",
+      "tags": [
+        "Monitoring"
+      ],
+      "representativeQueries": [
+        "Which of my servers need attention today, and why?",
+        "Which automatic services are stopped, and which Service Control Manager event explains each stop?",
+        "Which System and Application errors are new on a server compared with its own last 7 days?",
+        "Who added or removed a local Administrators member this week, and when?",
+        "What changed in roles, shares, local admins, certificates and updates since the last snapshot?"
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/windows-server.md"
+      }
+    },
+    {
       "identifier": "urn:air:msp-skills.compoundingteams.com:skills:wordpress",
       "displayName": "WordPress",
       "type": "text/markdown; profile=\"urn:air:agent-skills\"",

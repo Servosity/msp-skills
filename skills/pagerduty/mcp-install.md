@@ -1,12 +1,5 @@
 # PagerDuty MCP - install for every agent that speaks MCP
 
-> **Security note (until this connector is reprinted).** Do not run HTTP mode
-> (`--transport http`), not even on localhost. This build has no password,
-> listens on every network interface, and predates the browser-rebinding guard,
-> so a web page you open can reach it. The MCP tools can also make changes with
-> your credentials. Use the default stdio transport. If you set up a tunnel for
-> a remote agent, shut it down. A fix is on the way.
-
 This page wires the PagerDuty MCP server into any MCP client. If you use Claude
 Code, Codex CLI, or Cowork, install the Skill instead (see [README.md](./README.md)) -
 it's simpler. Everyone else: pick your agent below.
@@ -15,7 +8,7 @@ it's simpler. Everyone else: pick your agent below.
 GitHub Copilot, Gemini CLI) launch `pagerduty-mcp` directly on your machine - no
 hosting. *Web-only* AI apps (ChatGPT on the web, Microsoft 365 Copilot / Copilot
 Studio, the Gemini app) need a remote server, which msp-skills does not support
-yet; see **Remote agents** below.
+yet; see **Web-only AI apps** below.
 
 ## Prerequisite: install the MCP binary
 
@@ -37,7 +30,10 @@ Edit your Claude Desktop config:
 - macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
 - Windows: `%APPDATA%\Claude\claude_desktop_config.json`
 
-Add (or merge with your existing `mcpServers` block):
+Add (or merge with your existing `mcpServers` block). Set `PAGERDUTY_API_KEY`; every other
+variable is optional. Set `PAGERDUTY_MCP_READ_ONLY` to `1` to make the server refuse every
+write, and `PAGERDUTY_NO_LOCAL_DATA` to `1` to keep no local copy of API responses. The same
+applies to the configs below.
 
 ```json
 {
@@ -46,7 +42,12 @@ Add (or merge with your existing `mcpServers` block):
       "command": "pagerduty-mcp",
       "env": {
         "PAGERDUTY_API_KEY": "<your-pagerduty_api_key>",
-        "PAGERDUTY_BASE_URL": "https://api.pagerduty.com"
+        "PAGERDUTY_BASE_URL": "<your-pagerduty_base_url>",
+        "PAGERDUTY_MCP_READ_ONLY": "",
+        "PAGERDUTY_NO_LOCAL_DATA": "",
+        "PAGERDUTY_USER_AGENT": "",
+        "PAGERDUTY_MCP_HTTP_TOKEN": "",
+        "PRINTING_PRESS_CLIENT_PROFILE": ""
       }
     }
   }
@@ -67,7 +68,7 @@ add the server once to Codex's `~/.codex/config.toml` (a `[mcp_servers.pagerduty
 table with `command = "pagerduty-mcp"` and an `env` table); the desktop app reads
 that file too.
 
-ChatGPT on the web is a different case: see **Remote agents** below.
+ChatGPT on the web is a different case: see **Web-only AI apps** below.
 
 ## GitHub Copilot (VS Code)
 
@@ -75,7 +76,7 @@ GitHub Copilot supports MCP in **Agent mode** (GA since VS Code 1.102, July 2025
 Two gotchas trip people up: the config file is `mcp.json` (not `settings.json`), and
 the root key is **`servers`** (not `mcpServers` like Claude).
 
-Create `.mcp.json` in your workspace (or open the Command Palette > **MCP: Open User
+Create `.vscode/mcp.json` in your workspace (or open the Command Palette > **MCP: Open User
 Configuration**) and add:
 
 ```json
@@ -86,7 +87,12 @@ Configuration**) and add:
       "command": "pagerduty-mcp",
       "env": {
         "PAGERDUTY_API_KEY": "<your-pagerduty_api_key>",
-        "PAGERDUTY_BASE_URL": "https://api.pagerduty.com"
+        "PAGERDUTY_BASE_URL": "<your-pagerduty_base_url>",
+        "PAGERDUTY_MCP_READ_ONLY": "",
+        "PAGERDUTY_NO_LOCAL_DATA": "",
+        "PAGERDUTY_USER_AGENT": "",
+        "PAGERDUTY_MCP_HTTP_TOKEN": "",
+        "PRINTING_PRESS_CLIENT_PROFILE": ""
       }
     }
   }
@@ -108,7 +114,12 @@ Claude Desktop:
       "command": "pagerduty-mcp",
       "env": {
         "PAGERDUTY_API_KEY": "<your-pagerduty_api_key>",
-        "PAGERDUTY_BASE_URL": "https://api.pagerduty.com"
+        "PAGERDUTY_BASE_URL": "<your-pagerduty_base_url>",
+        "PAGERDUTY_MCP_READ_ONLY": "",
+        "PAGERDUTY_NO_LOCAL_DATA": "",
+        "PAGERDUTY_USER_AGENT": "",
+        "PAGERDUTY_MCP_HTTP_TOKEN": "",
+        "PRINTING_PRESS_CLIENT_PROFILE": ""
       }
     }
   }
@@ -120,24 +131,34 @@ web** is remote-only - see the remote section below.)
 
 ---
 
-# Remote agents (paused until this connector is reprinted)
+# Web-only AI apps (not supported yet)
 
 **Not supported by msp-skills yet.** ChatGPT on the web, Microsoft 365 Copilot /
 Copilot Studio and the Gemini app reach MCP servers at a web address, not programs
-on your machine, so they would need `pagerduty-mcp` running in HTTP mode. Do not
-run HTTP mode with this build (see the security note at the top of this page), and
-do not put this server behind a tunnel or reverse proxy. If your team works in one
-of those apps, a
+on your machine, so they need a remote server. If your team works in one of those
+apps, a
 [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick)
 is the better pick; check that your AI app is on the gateway's setup list. The
 ChatGPT desktop app is different: it runs `pagerduty-mcp` locally (see above).
 
-The HTTP-mode launch command is kept below for reference. It is commented out on
-purpose, so pasting it does nothing:
+## HTTP mode in this build (reference)
+
+This build's HTTP mode is documented here for reference; msp-skills does not
+support a web-only AI app on it yet. Keep stdio (the default) for every local
+agent above. HTTP mode serves `http://127.0.0.1:7777/mcp` by default and refuses
+to start until `PAGERDUTY_MCP_HTTP_TOKEN` is set; every request must send
+`Authorization: Bearer <token>`. Any address other than loopback also needs TLS:
 
 ```bash
-# PAGERDUTY_API_KEY=<value> PAGERDUTY_BASE_URL=<value> pagerduty-mcp --transport http
+export PAGERDUTY_MCP_HTTP_TOKEN="$(openssl rand -hex 32)"
+PAGERDUTY_API_KEY=<value> PAGERDUTY_BASE_URL=<value> pagerduty-mcp --transport http --addr <host>:7777 --tls-cert <cert.pem> --tls-key <key.pem>
 ```
+
+The endpoint is `https://<host>:7777/mcp`: the server answers Streamable HTTP at
+`/mcp`. The server rejects any request without
+`Authorization: Bearer <token>`, so every client must send that header. **Treat
+the token like a password** - whoever holds it can call every tool with your PagerDuty
+credentials.
 
 ---
 
