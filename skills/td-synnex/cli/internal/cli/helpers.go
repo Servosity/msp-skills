@@ -913,12 +913,11 @@ func syncParamIsGlobalScope(name string) bool {
 }
 
 // syncCheckpointScope is the tenant identity for one resource checkpoint.
-// Ordinary filters (--param, --global-param, --resource-param, --since,
-// --dates) narrow prune but stay out of the key, so a sort or window
-// override does not drop the incremental watermark. A declared global-scope
-// selector is the exception, and its effective value follows applyTo: flat
-// --param on flat walks, then --global-param, then --resource-param. An
-// empty key matches upgraded rows whose scope_key defaulted to "".
+// td-synnex: every user param (--param, --global-param, --resource-param)
+// keys it, with its effective value following applyTo: flat --param on flat
+// walks, then --global-param, then --resource-param. --since and --dates
+// narrow prune but stay out of the key. Every key carries ionSyncProofLine,
+// so no key is empty and rows written before the fix never match.
 func syncCheckpointScope(resource string, dependent bool, userParams *syncUserParams, templateVars, pathContext map[string]string) string {
 	var lines []string
 	seen := map[string]struct{}{}
@@ -956,12 +955,16 @@ func syncCheckpointScope(resource string, dependent bool, userParams *syncUserPa
 	if userParams != nil {
 		// Later sources overwrite earlier ones, matching applyTo. Dependent
 		// walks never send flat --param, so that map must not key them.
+		// pp:handfix td-synnex (ion-sync-proof-scope-bound): EVERY user param
+		// keys the checkpoint, not only a declared global-scope selector, so a
+		// filtered walk binds its own scope and an unfiltered walk rebinds
+		// (cursor, watermark and completion dropped) instead of resuming a
+		// filtered offset. A blank name still narrows the walk, so it is quoted
+		// rather than skipped.
 		chosen := map[string]string{}
 		take := func(src map[string]string) {
 			for name, value := range src {
-				if syncParamIsGlobalScope(name) {
-					chosen[name] = value
-				}
+				chosen[name] = value
 			}
 		}
 		if !dependent {
@@ -970,9 +973,15 @@ func syncCheckpointScope(resource string, dependent bool, userParams *syncUserPa
 		take(userParams.trueGlobal)
 		take(userParams.perResource[resource])
 		for name, value := range chosen {
+			if strings.TrimSpace(name) == "" {
+				name = strconv.Quote(name)
+			}
 			add("param", name, value)
 		}
 	}
+	// pp:handfix td-synnex (ion-sync-proof-scope-bound): the proof-version
+	// line the licence book requires before it trusts last_attempt_complete.
+	lines = append(lines, ionSyncProofLine)
 	sort.Strings(lines)
 	return strings.Join(lines, "\n")
 }

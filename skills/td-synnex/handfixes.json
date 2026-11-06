@@ -1009,9 +1009,10 @@
   },
   {
    "id": "ion-book-refuses-unproven-store",
+   "class": "incomplete-read-reported-complete",
    "status": "active",
    "summary": "every licence-book command (customers show, margin, subscriptions renewals/changes, orders stuck, position export/trueup) refuses a store whose resources it reads were not walked to a proven end of pagination, and a missing store, instead of answering from a partial or empty list",
-   "why": "Reprint 4.35.1 (2026-11-02): Codex round 1 P1 (incomplete read reported as complete): the auto-refresh fetches one page per resource (generated runAutoRefresh, maxPages=1) and the book read whatever the store held, so a cold store with 101 subscriptions (documented listSubscriptions SubscriptionList, offset pages of 100) gave customers show 100 seats, USD 1,000 price and USD 800 cost with seats_complete, price_complete and cost_complete true; a missing store printed an empty list (no renewals, no stuck orders) with exit 0, and position trueup compared files against no TD SYNNEX positions. openIONBook now checks sync_state.last_attempt_complete (the press's own completeness proof, also read by the generated MCP store status) for every resource the command reads; any missing row, read error or incomplete attempt refuses with exit 10 and the exact sync command (--db included). One gate in the shared loader covers all eight commands. TestBookRefusesStoreNotProvenComplete failed on the unfixed tree for all eight commands and the missing store (logs/seen/book-unproven-store-fails.log) and passes after; it also proves the other direction (a full sync answers 101 seats, complete). Hand-written ion_book.go; carried by the reprint's hand/ overlay.",
+   "why": "Reprint 4.35.1 (2026-11-02): Codex round 1 P1 (incomplete read reported as complete): the auto-refresh fetches one page per resource (generated runAutoRefresh, maxPages=1) and the book read whatever the store held, so a cold store with 101 subscriptions (documented listSubscriptions SubscriptionList, offset pages of 100) gave customers show 100 seats, USD 1,000 price and USD 800 cost with seats_complete, price_complete and cost_complete true; a missing store printed an empty list (no renewals, no stuck orders) with exit 0, and position trueup compared files against no TD SYNNEX positions. openIONBook now checks sync_state.last_attempt_complete (the press's own completeness proof, also read by the generated MCP store status) for every resource the command reads; any missing row, read error or incomplete attempt refuses with exit 10 and the exact sync command (--db included). One gate in the shared loader covers all eight commands. TestBookRefusesStoreNotProvenComplete failed on the unfixed tree for all eight commands and the missing store (logs/seen/book-unproven-store-fails.log) and passes after; it also proves the other direction (a full sync answers 101 seats, complete). Hand-written ion_book.go; carried by the reprint's hand/ overlay. Round 2 (2026-11-06): the flag alone is not trusted; the row's scope_key must also prove a whole, unfiltered walk by the fixed sync (ion-sync-proof-scope-bound).",
    "asserts": [
     {
      "file": "cli/internal/cli/ion_book.go",
@@ -1021,7 +1022,7 @@
     },
     {
      "file": "cli/internal/cli/ion_book.go",
-     "contains": "SELECT last_attempt_complete FROM sync_state WHERE resource_type = ?",
+     "contains": "SELECT last_attempt_complete, scope_key FROM sync_state WHERE resource_type = ?",
      "min_count": 1,
      "code_only": true
     },
@@ -1071,28 +1072,11 @@
   },
   {
    "id": "ion-sync-completion-claims-only-whole-walks",
+   "class": "incomplete-read-reported-complete",
    "status": "active",
-   "summary": "sync_state.last_attempt_complete (the licence book's completeness proof) is left set only by an unfiltered walk that reached a proven end: a walk narrowed by --param/--global-param/--resource-param is marked incomplete, and workflow archive --full resets with SaveSyncProgress instead of SaveSyncState",
-   "why": "Reprint 4.35.1 (2026-11-02): Same class as ion-book-refuses-unproven-store (Codex round 1 P1, incomplete read reported as complete), closed for every writer of the proof before round 2. (a) `sync --resource-param subscriptions:customerId=108536` (customerId is a documented listSubscriptions filter; --param and --global-param likewise) walked one customer's list to its end and set last_attempt_complete=1, so margin answered for one customer of two. (b) workflow archive --full reset every resource with SaveSyncState, which stamps last_attempt_complete=1 before any page is fetched; an archive that stopped early (its --timeout) left the resources it never reached 'complete' with no rows, and orders stuck, margin and position export answered empty. TestFilteredSyncNeverProvesTheBook (logs/seen/book-filtered-sync-fails.log) and TestWorkflowArchiveFullNeverClaimsUnwalkedComplete (logs/seen/book-archive-full-clear-fails.log) failed before and pass after; an unfiltered sync still proves the book. GENERATED sync.go and channel_workflow.go: re-applied by the reprint's bin/reapply.py after every regenerate.",
+   "summary": "workflow archive --full resets with SaveSyncProgress instead of SaveSyncState, so no resource it never walked is left proven complete; the filtered-walk half (a walk narrowed by --param/--global-param/--resource-param never proves the book) is carried by ion-sync-proof-scope-bound since 2026-11-06",
+   "why": "Reprint 4.35.1 (2026-11-02): Same class as ion-book-refuses-unproven-store (Codex round 1 P1, incomplete read reported as complete), closed for every writer of the proof before round 2. (a) `sync --resource-param subscriptions:customerId=108536` (customerId is a documented listSubscriptions filter; --param and --global-param likewise) walked one customer's list to its end and set last_attempt_complete=1, so margin answered for one customer of two. (b) workflow archive --full reset every resource with SaveSyncState, which stamps last_attempt_complete=1 before any page is fetched; an archive that stopped early (its --timeout) left the resources it never reached 'complete' with no rows, and orders stuck, margin and position export answered empty. TestFilteredSyncNeverProvesTheBook (logs/seen/book-filtered-sync-fails.log) and TestWorkflowArchiveFullNeverClaimsUnwalkedComplete (logs/seen/book-archive-full-clear-fails.log) failed before and pass after; an unfiltered sync still proves the book. GENERATED sync.go and channel_workflow.go: re-applied by the reprint's bin/reapply.py after every regenerate. Round 2 (2026-11-06): part (a)'s sync.go edit (MarkSyncAttemptIncompleteIfCurrent after SaveSyncStateAtInScope) was two writes, so a crash between them certified a filtered walk, and it kept the filtered resume cursor; it is reverted (generated sync.go is back to the press shape) and replaced by ion-sync-proof-scope-bound, under which TestFilteredSyncNeverProvesTheBook still passes.",
    "asserts": [
-    {
-     "file": "cli/internal/cli/sync.go",
-     "contains": "pp:handfix td-synnex (ion-sync-completion-claims-only-whole-walks)",
-     "min_count": 1,
-     "code_only": false
-    },
-    {
-     "file": "cli/internal/cli/sync.go",
-     "contains": "userParams.applyTo(resource, narrowed, false)",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cli/sync.go",
-     "contains": "if err := db.MarkSyncAttemptIncompleteIfCurrent(resource, scopeKey); err != nil {",
-     "min_count": 1,
-     "code_only": true
-    },
     {
      "file": "cli/internal/cli/channel_workflow.go",
      "contains": "if err := s.SaveSyncProgress(resource, \"\", 0); err != nil {",
@@ -1478,6 +1462,74 @@
     {
      "file": "cli/internal/credwire/leak_test.go",
      "contains": "func TestMCPConfirmPreviewNeverEchoesACredentialArgument(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "ion-sync-proof-scope-bound",
+   "class": "incomplete-read-reported-complete",
+   "status": "active",
+   "summary": "the licence book trusts sync_state.last_attempt_complete only on a row whose scope_key carries the constant proof line (proof:params-in-scope=1) and no param: line: every --param/--global-param/--resource-param keys the checkpoint scope, so a filtered walk binds its own scope, an unfiltered walk rebinds (cursor, watermark and completion dropped) instead of resuming it, and filtered or pre-fix proofs are refused until a fresh unfiltered sync",
+   "why": "Reprint 4.35.1, Codex round 2 (2026-11-02), three P1s (incomplete read reported as complete) that defeat the round-1 proof: (1) filters stayed out of syncCheckpointScope, so `sync --max-pages 1 --resource-param subscriptions:customerId=108536` left offset 100 and the unfiltered retry resumed it, skipped customer 108537's 100 subscriptions (the first page of the whole list), ended naturally and set completion=1, and customers show 108537 answered an empty subscription list; (2) the filtered-walk invalidation ran after completion=1 was committed (two writes), so a crash between them certified a filtered walk; (3) the gate trusted flags written by pre-fix builds (published 0.1.2), which certify filtered walks. One fail-closed mechanism closes all three: syncCheckpointScope (GENERATED helpers.go) keys every user param (a blank name is quoted, not skipped) and appends ionSyncProofLine to every key; ionUnprovenResources (hand-written ion_book.go) accepts completion=1 only when ionScopeProvesWholeList(scope_key) holds. A filtered walk is refused whatever its flag says, so the round-1 Mark step was reverted. TestUnfilteredRetryNeverResumesAFilteredWalk, TestFilteredWalkProvesNothingWhateverItsFlag and TestBookRefusesProofWrittenBeforeTheScopeFix failed on the unfixed tree and pass after; removing each piece alone (params out of the key, the param: check, the proof-line check) fails its test again. Cost: a store synced before this fix refuses the book (exit 10, naming the sync) until one unfiltered sync. GENERATED helpers.go: a reprint must re-apply the two marked edits.",
+   "spec_encode_followup": "Press-side: syncCheckpointScope should key every user filter (a filtered walk's offset is meaningless to an unfiltered one), so no generated CLI resumes a filtered cursor in an unfiltered walk.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "pp:handfix td-synnex (ion-sync-proof-scope-bound)",
+     "min_count": 2,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "lines = append(lines, ionSyncProofLine)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "name = strconv.Quote(name)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "not_contains": "if syncParamIsGlobalScope(name) {"
+    },
+    {
+     "file": "cli/internal/cli/ion_book.go",
+     "contains": "const ionSyncProofLine = \"proof:params-in-scope=1\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/ion_book.go",
+     "contains": "if strings.HasPrefix(line, \"param:\") {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/ion_book.go",
+     "contains": "if err != nil || complete != 1 || !ionScopeProvesWholeList(scopeKey) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/ion_book_complete_test.go",
+     "contains": "func TestUnfilteredRetryNeverResumesAFilteredWalk(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/ion_book_complete_test.go",
+     "contains": "func TestFilteredWalkProvesNothingWhateverItsFlag(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/ion_book_complete_test.go",
+     "contains": "func TestBookRefusesProofWrittenBeforeTheScopeFix(",
+     "min_count": 1,
      "code_only": true
     }
    ]
