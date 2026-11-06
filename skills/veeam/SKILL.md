@@ -42,7 +42,7 @@ register the skill with your agent and writes no MCP client config - see
 
 If `--version` reports "command not found" after install, the runtime cannot see the binary directory on `$PATH`. Do not proceed with skill commands until verification succeeds.
 
-Drive the full VSPC v3 REST surface  -  companies, backup servers, jobs, backup agents, protected workloads, alarms, licensing, and billing  -  from one agent-native CLI. A local SQLite mirror powers offline search and cross-tenant commands the web console can't: fleet-health, stale-backups, at-risk, alarms-triage, license-usage, company-overview, and since (drift).
+Drive the full VSPC v3 REST surface  -  companies, backup servers, jobs, backup agents, protected workloads, alarms, licensing, and billing  -  from one CLI built for AI agents. A local SQLite mirror powers offline search and cross-tenant commands the web console can't: fleet-health, stale-backups, at-risk, alarms-triage, license-usage, company-overview, and since (drift).
 
 ## When to Use This CLI
 
@@ -1547,7 +1547,7 @@ Parse `$ARGUMENTS`:
    ```
 3. Verify: `claude mcp list`
 
-For a remote host, `veeam-mcp --transport http` requires `VEEAM_MCP_HTTP_TOKEN` set to at least 32 characters (callers send `Authorization: Bearer <token>`; `openssl rand -hex 32` prints 64 hex characters and meets that minimum), binds `127.0.0.1:7777` by default, and needs `--tls-cert`/`--tls-key` for any non-loopback `--addr`. Requests with no `Origin` header are accepted. Loopback origins are accepted; any other `Origin` is refused unless listed in `VEEAM_MCP_HTTP_ALLOWED_ORIGINS` (comma-separated `scheme://host[:port]` values). `VEEAM_MCP_READ_ONLY=1` keeps only the tools marked read-only: the raw execute tool, sync, import, export and the commands that write this CLI's own learn store (teach, learnings confirm/forget/reject, playbook amend, workflow archive) are removed from the tool list.
+For a remote host, `veeam-mcp --transport http` requires `VEEAM_MCP_HTTP_TOKEN` set to at least 32 characters (callers send `Authorization: Bearer <token>`; `openssl rand -hex 32` prints 64 hex characters and meets that minimum), serves `http://127.0.0.1:7777/mcp` by default, and needs `--tls-cert`/`--tls-key` for any non-loopback `--addr`. Requests with no `Origin` header are accepted. Loopback origins are accepted; any other `Origin` is refused unless listed in `VEEAM_MCP_HTTP_ALLOWED_ORIGINS` (comma-separated `scheme://host[:port]` values). `VEEAM_MCP_READ_ONLY=1` keeps only the tools marked read-only: the raw execute tool, sync, import, export and the commands that write this CLI's own learn store (teach, learnings confirm/forget/reject, playbook amend, workflow archive) are removed from the tool list.
 
 ## Direct Use
 

@@ -2,7 +2,7 @@
 
 **Every Veeam Service Provider Console endpoint as a typed command, plus a local multi-tenant mirror, cross-company rollups, and drift detection no per-instance Veeam tool offers.**
 
-Drive the full VSPC v3 REST surface  -  companies, backup servers, jobs, backup agents, protected workloads, alarms, licensing, and billing  -  from one agent-native CLI. A local SQLite mirror powers offline search and cross-tenant commands the web console can't: fleet-health, stale-backups, at-risk, alarms-triage, license-usage, company-overview, and since (drift).
+Drive the full VSPC v3 REST surface  -  companies, backup servers, jobs, backup agents, protected workloads, alarms, licensing, and billing  -  from one CLI built for AI agents. A local SQLite mirror powers offline search and cross-tenant commands the web console can't: fleet-health, stale-backups, at-risk, alarms-triage, license-usage, company-overview, and since (drift).
 
 ## Install
 
@@ -1495,7 +1495,7 @@ Verifies configuration, credentials, and connectivity to the API.
 
 ## Configuration
 
-Run `veeam-cli doctor` to see the resolved config, data, state, and cache directories. The platform-default config path is `~/.config/veeam-service-provider-pp-cli/config.toml` on macOS/Linux and `%USERPROFILE%\.config\veeam-cli\config.toml` on Windows; `--home`, `VEEAM_HOME`, and per-kind env vars can relocate it.
+Run `veeam-cli doctor` to see the resolved config, data, state, and cache directories. The platform-default config path is `~/.config/veeam-cli/config.toml` on macOS/Linux and `%USERPROFILE%\.config\veeam-cli\config.toml` on Windows; `--home`, `VEEAM_HOME`, and per-kind env vars can relocate it.
 
 Static request headers can be configured under `headers`; per-command header overrides take precedence.
 

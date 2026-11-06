@@ -41,7 +41,10 @@ Add (or merge with your existing `mcpServers` block):
         "VEEAM_TOKEN": "<your-veeam_token>",
         "VEEAM_MCP_READ_ONLY": "",
         "VEEAM_NO_LOCAL_DATA": "",
-        "VEEAM_MCP_HTTP_TOKEN": ""
+        "VEEAM_MCP_HTTP_TOKEN": "",
+        "VEEAM_MCP_UPLOAD_ROOT": "",
+        "VEEAM_USER_AGENT": "",
+        "PRINTING_PRESS_CLIENT_PROFILE": ""
       }
     }
   }
@@ -70,7 +73,10 @@ Configuration**) and add:
         "VEEAM_TOKEN": "<your-veeam_token>",
         "VEEAM_MCP_READ_ONLY": "",
         "VEEAM_NO_LOCAL_DATA": "",
-        "VEEAM_MCP_HTTP_TOKEN": ""
+        "VEEAM_MCP_HTTP_TOKEN": "",
+        "VEEAM_MCP_UPLOAD_ROOT": "",
+        "VEEAM_USER_AGENT": "",
+        "PRINTING_PRESS_CLIENT_PROFILE": ""
       }
     }
   }
@@ -95,7 +101,10 @@ Claude Desktop:
         "VEEAM_TOKEN": "<your-veeam_token>",
         "VEEAM_MCP_READ_ONLY": "",
         "VEEAM_NO_LOCAL_DATA": "",
-        "VEEAM_MCP_HTTP_TOKEN": ""
+        "VEEAM_MCP_HTTP_TOKEN": "",
+        "VEEAM_MCP_UPLOAD_ROOT": "",
+        "VEEAM_USER_AGENT": "",
+        "PRINTING_PRESS_CLIENT_PROFILE": ""
       }
     }
   }

@@ -58,6 +58,24 @@
           "description": "Bearer token that veeam-mcp --transport http requires from every HTTP client (Authorization: Bearer, 32 characters or more). Leave blank for the default stdio transport, which Claude Desktop uses and which never reads it.",
           "isRequired": false,
           "isSecret": true
+        },
+        {
+          "name": "VEEAM_MCP_UPLOAD_ROOT",
+          "description": "Optional. Leave blank: a file sent through an MCP upload must then be base64 file content. Set it to a folder only to let MCP uploads name files inside that folder; no path outside it can be read.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "VEEAM_USER_AGENT",
+          "description": "Overrides the User-Agent the CLI sends on Veeam requests. Leave blank to use the CLI's own built-in User-Agent.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "PRINTING_PRESS_CLIENT_PROFILE",
+          "description": "Only for tenant-gated multi-client deployments: binds the MCP server to an existing Printing Press client profile. Leave blank for a single-tenant install.",
+          "isRequired": false,
+          "isSecret": true
         }
       ]
     }
