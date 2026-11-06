@@ -14,6 +14,7 @@ type rebootPendingRow struct {
 	Name           string `json:"name"`
 	OS             string `json:"os"`
 	MissingCrit    int    `json:"missing_critical_updates"`
+	PostureKnown   bool   `json:"missing_updates_known"` // false: no missing_updates summary (the count is unknown, not zero)
 	LastSeen       string `json:"last_seen"`
 	OnlineStatus   string `json:"online_status"`
 }
@@ -49,9 +50,9 @@ finish patching. Do NOT use it for a composite ranking; use
 				return err
 			}
 			defer db.Close()
-			maybeEmitSyncHints(cmd, db, "endpoints", flags.maxAge)
+			maybeEmitSyncHints(cmd, db, "endpoints_managed", flags.maxAge)
 
-			endpoints, err := fleetLoadAll(cmd.Context(), db, "endpoints")
+			endpoints, err := fleetLoadAll(cmd.Context(), db, "endpoints_managed")
 			if err != nil {
 				return err
 			}
@@ -65,11 +66,7 @@ finish patching. Do NOT use it for a composite ranking; use
 				if !fleetBoolish(fleetField(e, "reboot_required")) {
 					continue
 				}
-				var crit int
-				if mu := fleetNested(e, "missing_updates"); mu != nil {
-					c, _ := fleetNum(mu["critical"])
-					crit = int(c)
-				}
+				crit, _, known := fleetCounts(e, "missing_updates")
 				name := fleetStrField(e, "name")
 				if name == "" {
 					name = fleetStrField(e, "device_name")
@@ -80,6 +77,7 @@ finish patching. Do NOT use it for a composite ranking; use
 					Name:           name,
 					OS:             fleetStrField(e, "OS"),
 					MissingCrit:    crit,
+					PostureKnown:   known,
 					LastSeen:       fleetStrField(e, "last_seen"),
 					OnlineStatus:   fleetStrField(e, "online_status"),
 				})

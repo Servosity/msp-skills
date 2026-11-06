@@ -4,12 +4,6 @@
   "acronis": [
    "install"
   ],
-  "action1": [
-   "mcp-http",
-   "write-gating",
-   "read-only",
-   "local-data"
-  ],
   "appdirect": [
    "mcp-http",
    "write-gating",
@@ -127,11 +121,6 @@
   ],
   "jira-service-management": [
    "write-gating",
-   "read-only",
-   "local-data"
-  ],
-  "knowbe4": [
-   "mcp-http",
    "read-only",
    "local-data"
   ],

@@ -3,7 +3,6 @@
   "rules": {
     "mcp-http-no-bearer-auth": [
       "abnormal",
-      "action1",
       "appdirect",
       "atera",
       "autotask",
@@ -17,7 +16,6 @@
       "halopsa",
       "itglue",
       "kaseya-bms",
-      "knowbe4",
       "microsoft-graph",
       "pagerduty",
       "pandadoc",
@@ -40,7 +38,6 @@
     ],
     "mcp-go-no-rebinding-guard": [
       "abnormal",
-      "action1",
       "appdirect",
       "atera",
       "autotask",
@@ -55,7 +52,6 @@
       "halopsa",
       "itglue",
       "kaseya-bms",
-      "knowbe4",
       "levelio",
       "microsoft-graph",
       "n-central",
@@ -80,7 +76,6 @@
     ],
     "mcp-execute-no-confirm": [
       "abnormal",
-      "action1",
       "appdirect",
       "atera",
       "autotask",

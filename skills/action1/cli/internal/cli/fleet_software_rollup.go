@@ -57,6 +57,7 @@ the asset-management view the org-scoped API cannot produce.`,
 				row       softwareRollupRow
 				orgs      map[string]bool
 				endpoints map[string]bool
+				counted   int // installs a row reports as a count (no endpoint IDs)
 			}
 			byKey := map[string]*agg{}
 			nf := strings.ToLower(strings.TrimSpace(nameFilter))
@@ -86,7 +87,15 @@ the asset-management view the org-scoped API cannot produce.`,
 					}
 					byKey[key] = g
 				}
-				g.row.Installs++
+				// A report-data row (InstalledSoftwareReportDataFields) is one
+				// application in one organization with its endpoint count in
+				// fields.Endpoints; a per-endpoint record counts once.
+				installs := 1
+				if n, ok := fleetNum(fleetField(a, "endpoints")); ok && n >= 0 && endpoint == "" {
+					installs = int(n)
+					g.counted += installs
+				}
+				g.row.Installs += installs
 				if org != "" {
 					g.orgs[org] = true
 				}
@@ -98,7 +107,7 @@ the asset-management view the org-scoped API cannot produce.`,
 			rows := make([]softwareRollupRow, 0, len(byKey))
 			for _, g := range byKey {
 				g.row.Orgs = len(g.orgs)
-				g.row.Endpoints = len(g.endpoints)
+				g.row.Endpoints = len(g.endpoints) + g.counted
 				rows = append(rows, g.row)
 			}
 			sort.SliceStable(rows, func(i, j int) bool {

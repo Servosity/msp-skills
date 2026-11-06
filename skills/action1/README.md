@@ -16,13 +16,6 @@ Every Action1 endpoint, plus fleet-wide patch and vulnerability views across all
 
 ## Works with your agent
 
-> **Security note (until this connector is reprinted).** Do not run HTTP mode
-> (`--transport http`), not even on localhost. This build has no password,
-> listens on every network interface, and predates the browser-rebinding guard,
-> so a web page you open can reach it. The MCP tools can also make changes with
-> your credentials. Use the default stdio transport. If you set up a tunnel for
-> a remote agent, shut it down. A fix is on the way.
-
 The six agents MSP owners actually use (self-serve, works today):
 
 | Your AI agent | How to install the Action1 skill |
@@ -34,7 +27,7 @@ The six agents MSP owners actually use (self-serve, works today):
 | **Claude Cowork** | Paste the install prompt below. |
 | **GitHub Copilot** (VS Code) | Run installer, add `action1-mcp` to `mcp.json` under the `servers` key, then pick **Agent** mode. |
 
-The ChatGPT desktop app runs `action1-mcp` locally and shares MCP configuration with Codex ([OpenAI](https://learn.chatgpt.com/docs/extend/mcp)). ChatGPT on the web needs a remote (HTTP) server, and this connector's HTTP mode is paused until it is reprinted (see the security note in [mcp-install.md](./mcp-install.md)), so msp-skills does not support it yet. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
+The ChatGPT desktop app runs `action1-mcp` locally and shares MCP configuration with Codex ([OpenAI](https://learn.chatgpt.com/docs/extend/mcp)). ChatGPT on the web needs a remote server, which msp-skills does not support yet. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
 
 ### Also for the Microsoft and Google stacks
 
@@ -55,7 +48,7 @@ Big install base, but an honest heads-up: Gemini CLI runs the local binary you j
 
 > **Claude Desktop bundle:** the `.mcpb` launches on macOS (Intel and Apple Silicon), Windows x64 and Linux x64. Every tool shells out to the companion `action1-cli`. Releases cut from 2026-09-18 on ship that CLI inside the bundle; older bundles contain only the MCP server, so if yours lacks the companion, run the Path A or Path B installer below first (or set `ACTION1_CLI_PATH` to an existing binary). Details: [#331](https://github.com/Servosity/msp-skills/issues/331).
 
-[**Download Action1 MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/action1-v0.1.10/action1-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every Action1 release on the [releases page](https://github.com/servosity/msp-skills/releases?q=action1).)
+[**Download Action1 MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/action1-v0.1.11/action1-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every Action1 release on the [releases page](https://github.com/servosity/msp-skills/releases?q=action1).)
 
 Prefer the Claude Code plugin? Add the marketplace once, then install - works immediately, no directory listing required:
 
@@ -146,8 +139,16 @@ OpenClaw isn't generally available yet; the frontmatter wiring is pre-shipped an
 Set the credentials the CLI needs (from your Action1 portal):
 
 ```bash
-ACTION1_CLIENT_ID=<value> ACTION1_CLIENT_SECRET=<value> ACTION1_REGION=<value> action1-cli doctor
+ACTION1_CLIENT_ID=<value> ACTION1_CLIENT_SECRET=<value> action1-cli doctor
 ```
+
+PowerShell:
+
+```powershell
+$env:ACTION1_CLIENT_ID = "<value>"; $env:ACTION1_CLIENT_SECRET = "<value>"; action1-cli doctor
+```
+
+For the EU or Australia data center also set `ACTION1_BASE_URL` (`https://app.eu.action1.com/api/3.0` or `https://app.au.action1.com/api/3.0`); the token is minted from that same host.
 
 `doctor` confirms the credentials work before you run anything that touches data. It exits 0 even when the credential is rejected, so scripts should add `--fail-on error`.
 
@@ -289,7 +290,7 @@ and [repository permissions](https://www.action1.com/documentation/permissions/)
 
 ### Does this work with ChatGPT?
 
-Yes, in the **ChatGPT desktop app**. It runs MCP servers locally (STDIO), the way `action1-mcp` runs, and shares MCP configuration with Codex ([OpenAI](https://learn.chatgpt.com/docs/extend/mcp)): add `action1-mcp` under **Settings > MCP servers** as a STDIO server, or add it once to Codex's `~/.codex/config.toml`. **ChatGPT on the web** is not supported by msp-skills yet: it needs a remote (HTTP) server, and this connector's HTTP mode is paused until it is reprinted; the security note in [mcp-install.md](./mcp-install.md) explains why. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
+Yes, in the **ChatGPT desktop app**. It runs MCP servers locally (STDIO), the way `action1-mcp` runs, and shares MCP configuration with Codex ([OpenAI](https://learn.chatgpt.com/docs/extend/mcp)): add `action1-mcp` under **Settings > MCP servers** as a STDIO server, or add it once to Codex's `~/.codex/config.toml`. **ChatGPT on the web** is not supported by msp-skills yet: it needs a remote server. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
 
 ### Does this work with Codex, Cursor, Windsurf, Cline, Copilot, or Gemini?
 
@@ -305,7 +306,7 @@ Your data stays on **your machine**. The CLI and MCP server are local binaries. 
 
 ### Which Action1 region and credentials do I need?
 
-An API client (Client ID + Client Secret) from your Action1 console's API Credentials page, plus `ACTION1_REGION` set to `us`, `eu`, or `au` to match your console URL. The CLI POSTs them to `/oauth2/token` and mints and refreshes the bearer token for you. Scope the client to read-only permission templates if you only need reporting - see [governance.md](./governance.md).
+An API client (Client ID + Client Secret) from your Action1 console's API Credentials page, plus `ACTION1_BASE_URL` set to your data center (`https://app.action1.com/api/3.0` is the default; EU is `https://app.eu.action1.com/api/3.0`, Australia `https://app.au.action1.com/api/3.0`) to match your console URL. The CLI POSTs them to `/oauth2/token` and mints and refreshes the bearer token for you. Scope the client to read-only permission templates if you only need reporting - see [governance.md](./governance.md).
 
 ### Does this replace the Action1 console?
 

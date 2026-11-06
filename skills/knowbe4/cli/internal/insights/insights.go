@@ -106,43 +106,151 @@ type pstRef struct {
 	CampaignID sql.NullInt64
 }
 
+// RecipientWalk is what one recipients fan-out did: rows upserted, tests
+// walked, tests whose fetch or decode failed, and the first such error. A walk
+// where every test failed is an error, never "zero results".
+type RecipientWalk struct {
+	Rows     int
+	Tests    int
+	Failed   int
+	FirstErr error
+	// Complete is set when the walk recorded itself complete: every test
+	// walked in full, over a completely synced set of phishing tests.
+	Complete bool
+	// AccountErr is why the account risk score (GET /v1/account) was not
+	// taken; the QBR then reads it as unavailable, never as 0.
+	AccountErr error
+}
+
 // SyncExtras populates the insights-owned tables from live data: it fans out over
 // every synced PST to pull recipient-level results, then captures a risk-score
-// snapshot for every user, group, and the account. It is best-effort: a failure
-// on one PST is recorded and the walk continues. Returns the number of recipient
-// rows upserted and the number of risk snapshots captured.
-func SyncExtras(ctx context.Context, g Getter, db *sql.DB, perPage int) (recipients int, snapshots int, err error) {
+// snapshot for every user and group, and for the account from the documented
+// GET /v1/account (current_risk_score; the generated sync never fetches it:
+// its "account" resource reads /account/risk_score_history). A failure on one
+// PST is counted and the walk continues; when every PST fetch failed the walk
+// returns an error and no snapshot is taken. An account fetch that fails is
+// reported in walk.AccountErr. Returns the recipient walk and the number of
+// risk snapshots captured.
+func SyncExtras(ctx context.Context, g Getter, db *sql.DB, perPage int) (walk RecipientWalk, snapshots int, err error) {
 	if err = EnsureSchema(ctx, db); err != nil {
-		return 0, 0, err
+		return walk, 0, err
 	}
-	recipients, err = SyncRecipients(ctx, g, db, perPage)
+	walk, err = SyncRecipients(ctx, g, db, perPage)
 	if err != nil {
-		return recipients, 0, err
+		return walk, 0, err
 	}
-	snapshots, err = SnapshotRisk(ctx, db, time.Now().UTC())
-	return recipients, snapshots, err
+	snapshots, err = SnapshotRisk(ctx, db)
+	if err != nil {
+		return walk, snapshots, err
+	}
+	at := time.Now().UTC()
+	name, score, aerr := fetchAccountRisk(ctx, g)
+	if aerr != nil {
+		walk.AccountErr = aerr
+		return walk, snapshots, nil
+	}
+	if err = snapshotAccount(ctx, db, name, score, at); err != nil {
+		return walk, snapshots, err
+	}
+	return walk, snapshots + 1, nil
+}
+
+// AccountEntityID is the risk_snapshots entity id of the account risk score
+// read from GET /v1/account (the documented account object has no id).
+const AccountEntityID = "account"
+
+// fetchAccountRisk reads the account name and current_risk_score from the
+// documented GET /v1/account object. A body that is not an object, or an
+// object without a numeric current_risk_score, is an error: the score is then
+// unavailable, never 0.
+func fetchAccountRisk(ctx context.Context, g Getter) (string, float64, error) {
+	raw, err := g.Get(ctx, "/account", nil)
+	if err != nil {
+		return "", 0, err
+	}
+	var acct struct {
+		Name             string   `json:"name"`
+		CurrentRiskScore *float64 `json:"current_risk_score"`
+	}
+	if err := json.Unmarshal(raw, &acct); err != nil {
+		return "", 0, fmt.Errorf("decode GET /account: %w", err)
+	}
+	if acct.CurrentRiskScore == nil {
+		return "", 0, fmt.Errorf("GET /account carried no current_risk_score")
+	}
+	return acct.Name, *acct.CurrentRiskScore, nil
+}
+
+func snapshotAccount(ctx context.Context, db *sql.DB, name string, score float64, at time.Time) error {
+	_, err := db.ExecContext(ctx, `INSERT INTO "risk_snapshots"
+		("entity_type","entity_id","entity_name","risk_score","member_count","snapshot_at")
+		VALUES ('account', ?, ?, ?, NULL, ?)
+		ON CONFLICT("entity_type","entity_id","snapshot_at") DO UPDATE SET
+		 "risk_score"=excluded."risk_score","entity_name"=excluded."entity_name"`,
+		AccountEntityID, name, score, at.UTC().Format("2006-01-02T15:04:05.000Z"))
+	return err
 }
 
 // SyncRecipients walks every PST in the local phishing_tests table and upserts
-// its recipient results into pst_recipients.
-func SyncRecipients(ctx context.Context, g Getter, db *sql.DB, perPage int) (int, error) {
+// its recipient results into pst_recipients. It fails when every PST failed.
+// The walk keeps its own completion record (RecipientsResource in sync_state,
+// read by CollectionSynced): cleared before the first request, and set only
+// when every test was walked in full and the tests walked were a completely
+// synced set, so a partial walk is never read as every recipient.
+func SyncRecipients(ctx context.Context, g Getter, db *sql.DB, perPage int) (RecipientWalk, error) {
+	var walk RecipientWalk
 	if perPage <= 0 {
 		perPage = 100
 	}
+	if err := recordRecipientWalk(ctx, db, false, 0); err != nil {
+		return walk, err
+	}
+	testsComplete := CollectionSynced(ctx, db, "phishing-tests")
 	refs, err := loadPSTRefs(ctx, db)
 	if err != nil {
-		return 0, err
+		return walk, err
 	}
-	total := 0
 	for _, ref := range refs {
+		walk.Tests++
 		n, err := syncOnePST(ctx, g, db, ref, perPage)
+		walk.Rows += n
 		if err != nil {
-			// best-effort: skip this PST, keep going
-			continue
+			walk.Failed++
+			if walk.FirstErr == nil {
+				walk.FirstErr = fmt.Errorf("pst %d: %w", ref.PstID, err)
+			}
 		}
-		total += n
 	}
-	return total, nil
+	if walk.Tests > 0 && walk.Failed == walk.Tests {
+		return walk, fmt.Errorf("all %d phishing-test recipient fetches failed: %w", walk.Tests, walk.FirstErr)
+	}
+	if walk.Failed == 0 && testsComplete {
+		if err := recordRecipientWalk(ctx, db, true, walk.Rows); err != nil {
+			return walk, err
+		}
+		walk.Complete = true
+	}
+	return walk, nil
+}
+
+// recordRecipientWalk writes the recipient walk's completion record: complete
+// false marks the walk under way (a crash or a failed test then leaves it
+// unset), complete true stamps a walk that finished. A store without a
+// sync_state table holds no record to clear.
+func recordRecipientWalk(ctx context.Context, db *sql.DB, complete bool, rows int) error {
+	if !complete {
+		_, err := db.ExecContext(ctx, `UPDATE sync_state SET last_attempt_complete = 0 WHERE resource_type = ?`, RecipientsResource)
+		if err != nil && strings.Contains(err.Error(), "no such table") {
+			return nil
+		}
+		return err
+	}
+	_, err := db.ExecContext(ctx, `INSERT INTO sync_state (resource_type, last_cursor, last_synced_at, total_count, last_attempt_complete)
+		VALUES (?, '', ?, ?, 1)
+		ON CONFLICT(resource_type) DO UPDATE SET last_cursor = '', last_synced_at = excluded.last_synced_at,
+		 total_count = excluded.total_count, last_attempt_complete = 1`,
+		RecipientsResource, time.Now().UTC().Format(time.RFC3339), rows)
+	return err
 }
 
 func loadPSTRefs(ctx context.Context, db *sql.DB) ([]pstRef, error) {
@@ -163,9 +271,23 @@ func loadPSTRefs(ctx context.Context, db *sql.DB) ([]pstRef, error) {
 	return refs, rows.Err()
 }
 
+// maxRecipientPages bounds one phishing test's recipient walk (a server that
+// ignored the page parameter would otherwise be walked forever).
+const maxRecipientPages = 1000
+
+// syncOnePST walks one phishing test's recipient pages until a short or empty
+// page. A walk that reaches maxRecipientPages with the last page still full
+// has not read every recipient and is an error, so the test counts as failed
+// and the sync says its answers are partial (knowbe4 handfix
+// r1-incomplete-paging-read-as-complete, Codex r1 knowbe4 4.34.2: the walk
+// stopped after 1000 pages and reported the test as complete, so a recipient
+// past the bound, with a documented clicked_at, never reached repeat-clickers).
 func syncOnePST(ctx context.Context, g Getter, db *sql.DB, ref pstRef, perPage int) (int, error) {
 	count := 0
-	for page := 1; page <= 1000; page++ {
+	for page := 1; ; page++ {
+		if page > maxRecipientPages {
+			return count, fmt.Errorf("recipients for pst %d run past %d pages of %d; the walk stopped before the last page", ref.PstID, maxRecipientPages, perPage)
+		}
 		params := map[string]string{
 			"page":     fmt.Sprintf("%d", page),
 			"per_page": fmt.Sprintf("%d", perPage),
@@ -236,14 +358,21 @@ func upsertRecipients(ctx context.Context, db *sql.DB, ref pstRef, batch []apiRe
 	return tx.Commit()
 }
 
-// SnapshotRisk captures the current risk score for every user and group (and the
-// account) into risk_snapshots, stamped with `at`. Repeated calls over time build
-// the history that risk-drift and group-risk-contribution diff against.
-func SnapshotRisk(ctx context.Context, db *sql.DB, at time.Time) (int, error) {
+// SnapshotRisk copies the risk score of every user and group (and of the
+// account, from an `account info` row) into risk_snapshots. Each copy is
+// stamped with the time its row was read from the API (the row's synced_at),
+// never the time of the copy: a sync that did not re-read a row copies an
+// older reading, and stamping it with the sync's time made it outrank a newer
+// one (knowbe4 handfix r2-stale-source-preferred: an `account info` read of 90
+// copied into a later sync's snapshot tied with that sync's own GET /v1/account
+// read of 70, and the QBR reported 90). A row whose read time does not parse
+// is not copied. The account's copies join its one series (AccountEntityID).
+// Repeated syncs that re-read a row build the history risk-drift and
+// group-risk-contribution diff against.
+func SnapshotRisk(ctx context.Context, db *sql.DB) (int, error) {
 	if err := EnsureSchema(ctx, db); err != nil {
 		return 0, err
 	}
-	stamp := at.UTC().Format("2006-01-02T15:04:05.000Z")
 	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
 		return 0, err
@@ -271,19 +400,23 @@ func SnapshotRisk(ctx context.Context, db *sql.DB, at time.Time) (int, error) {
 		}
 		defer rows.Close()
 		for rows.Next() {
-			var id, name sql.NullString
+			var id, name, readAt sql.NullString
 			var score sql.NullFloat64
 			var members sql.NullInt64
 			if withMembers {
-				if err := rows.Scan(&id, &name, &score, &members); err != nil {
+				if err := rows.Scan(&id, &name, &score, &readAt, &members); err != nil {
 					continue
 				}
 			} else {
-				if err := rows.Scan(&id, &name, &score); err != nil {
+				if err := rows.Scan(&id, &name, &score, &readAt); err != nil {
 					continue
 				}
 			}
 			if !id.Valid {
+				continue
+			}
+			read, ok := parseStoreTS(readAt.String)
+			if !ok {
 				continue
 			}
 			var mc any
@@ -294,7 +427,7 @@ func SnapshotRisk(ctx context.Context, db *sql.DB, at time.Time) (int, error) {
 			if score.Valid {
 				sc = score.Float64
 			}
-			if _, err := ins.ExecContext(ctx, kind, id.String, name.String, sc, mc, stamp); err != nil {
+			if _, err := ins.ExecContext(ctx, kind, id.String, name.String, sc, mc, read.UTC().Format("2006-01-02T15:04:05.000Z")); err != nil {
 				return err
 			}
 			n++
@@ -302,13 +435,15 @@ func SnapshotRisk(ctx context.Context, db *sql.DB, at time.Time) (int, error) {
 		return rows.Err()
 	}
 
-	if err := snap("user", `SELECT id, COALESCE(NULLIF(TRIM(COALESCE(first_name,'')||' '||COALESCE(last_name,'')),''), email) AS name, current_risk_score FROM "users"`, false); err != nil {
+	if err := snap("user", `SELECT id, COALESCE(NULLIF(TRIM(COALESCE(first_name,'')||' '||COALESCE(last_name,'')),''), email) AS name, current_risk_score, CAST(synced_at AS TEXT) FROM "users"`, false); err != nil {
 		return n, err
 	}
-	if err := snap("group", `SELECT id, name, current_risk_score, member_count FROM "groups"`, true); err != nil {
+	if err := snap("group", `SELECT id, name, current_risk_score, CAST(synced_at AS TEXT), member_count FROM "groups"`, true); err != nil {
 		return n, err
 	}
-	if err := snap("account", `SELECT id, name, current_risk_score FROM "account"`, false); err != nil {
+	// The generated "account" table also holds /account/risk_score_history
+	// rows, whose current_risk_score is NULL: only a real score is a snapshot.
+	if err := snap("account", `SELECT '`+AccountEntityID+`', name, current_risk_score, CAST(synced_at AS TEXT) FROM "account" WHERE current_risk_score IS NOT NULL`, false); err != nil {
 		return n, err
 	}
 	return n, tx.Commit()

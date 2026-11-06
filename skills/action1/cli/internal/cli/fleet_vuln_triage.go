@@ -4,6 +4,7 @@ package cli
 
 import (
 	"sort"
+	"strings"
 
 	"github.com/spf13/cobra"
 )
@@ -122,28 +123,38 @@ vulnerabilities one organization at a time and offers no cross-org ranking.`,
 }
 
 // vulnSoftwareName extracts a readable software label from the vulnerability's
-// software field, which may be a string, an object with name/product, or a list.
+// software field. spec.json documents it as VulnerabilitySoftware, a list of
+// {product_name, platform, endpoints_count, versions, ...}: every product is
+// named, in order, joined by ", " (Codex r1 action1 class wrong field read from
+// documented response: the list's first object was printed as a Go map). A
+// string, or an object or list item carrying name or product, reads too; an
+// item with no name is skipped, never printed raw.
 func vulnSoftwareName(v map[string]any) string {
-	sw := fleetField(v, "software")
-	switch t := sw.(type) {
-	case string:
-		return t
-	case map[string]any:
-		if n := fleetStr(t["name"]); n != "" {
-			return n
-		}
-		if n := fleetStr(t["product"]); n != "" {
-			return n
-		}
-	case []any:
-		if len(t) > 0 {
-			if m, ok := t[0].(map[string]any); ok {
-				if n := fleetStr(m["name"]); n != "" {
+	label := func(x any) string {
+		switch t := x.(type) {
+		case string:
+			return strings.TrimSpace(t)
+		case map[string]any:
+			for _, k := range []string{"product_name", "name", "product"} {
+				if n := fleetStrField(t, k); n != "" {
 					return n
 				}
 			}
-			return fleetStr(t[0])
+		}
+		return ""
+	}
+	sw := fleetField(v, "software")
+	items, ok := sw.([]any)
+	if !ok {
+		return label(sw)
+	}
+	var names []string
+	seen := map[string]bool{}
+	for _, item := range items {
+		if n := label(item); n != "" && !seen[n] {
+			seen[n] = true
+			names = append(names, n)
 		}
 	}
-	return ""
+	return strings.Join(names, ", ")
 }

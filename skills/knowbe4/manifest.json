@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "knowbe4-mcp",
   "display_name": "KnowBe4",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "description": "Every KnowBe4 KMSAT reporting feature, plus a local SQLite store for the questions the console cannot answer.",
   "author": {
     "name": "Servosity Inc."
@@ -18,7 +18,13 @@
         "KNOWBE4_API_KEY": "${user_config.knowbe4_api_key}",
         "KNOWBE4_BASE_URL": "${user_config.knowbe4_base_url}",
         "KNOWBE4_REGION": "${user_config.knowbe4_region}",
-        "KNOWBE4_USER_EVENT_API_KEY": "${user_config.knowbe4_user_event_api_key}"
+        "KNOWBE4_USER_EVENT_API_KEY": "${user_config.knowbe4_user_event_api_key}",
+        "KNOWBE4_USER_EVENT_BASE_URL": "${user_config.knowbe4_user_event_base_url}",
+        "PRINTING_PRESS_CLIENT_PROFILE": "${user_config.printing_press_client_profile}",
+        "KNOWBE4_MCP_READ_ONLY": "${user_config.knowbe4_mcp_read_only}",
+        "KNOWBE4_NO_LOCAL_DATA": "${user_config.knowbe4_no_local_data}",
+        "KNOWBE4_MCP_HTTP_TOKEN": "${user_config.knowbe4_mcp_http_token}",
+        "KNOWBE4_USER_AGENT": "${user_config.knowbe4_user_agent}"
       }
     }
   },
@@ -30,25 +36,64 @@
       "sensitive": true,
       "required": true
     },
-    "knowbe4_region": {
-      "type": "string",
-      "title": "KNOWBE4_REGION",
-      "description": "Sets KNOWBE4_REGION for the endpoint template variable {region}.",
-      "default": "us",
-      "required": true,
-      "sensitive": true
-    },
     "knowbe4_base_url": {
       "type": "string",
       "title": "KnowBe4 API base URL",
       "description": "Full API base URL. Leave blank: the CLI builds it from KNOWBE4_REGION. Set it only to point at a different host.",
       "required": false
     },
+    "knowbe4_region": {
+      "type": "string",
+      "title": "KNOWBE4_REGION",
+      "description": "Sets KNOWBE4_REGION for the endpoint template variable {region}.",
+      "default": "us"
+    },
     "knowbe4_user_event_api_key": {
       "type": "string",
-      "title": "User Events API key",
-      "description": "Separate bearer key for the KnowBe4 User Events API, which has its own host and key. Needed only for the `events` commands; leave blank otherwise.",
+      "title": "KnowBe4 User Event API key",
+      "description": "Optional. The separate User Event API key (KnowBe4 User Event API Management Console > API key), used only by the events commands to push custom risk events. Sent only to the User Event API host for your region.",
       "sensitive": true,
+      "required": false
+    },
+    "knowbe4_user_event_base_url": {
+      "type": "string",
+      "title": "KnowBe4 User Event API base URL",
+      "description": "Optional. Overrides the User Event API host the events commands use (default: the User Event API host for your KNOWBE4_REGION). Leave blank unless KnowBe4 gave you a different host.",
+      "required": false
+    },
+    "printing_press_client_profile": {
+      "type": "string",
+      "title": "Client profile (optional)",
+      "description": "Only for tenant-gated multi-client deployments: binds the MCP server to an existing Printing Press client profile. Leave blank for a single-tenant install.",
+      "required": false,
+      "sensitive": true
+    },
+    "knowbe4_mcp_read_only": {
+      "type": "string",
+      "title": "Read-only MCP mode",
+      "description": "Optional. Set to exactly 1 to expose only read-only tools and refuse any non-GET execute call. Preset to 1; clear it only when you want the agent to run the tools this switch hides (events_create and events_delete, which still preview and send only with confirm: true).",
+      "required": false,
+      "sensitive": false,
+      "default": "1"
+    },
+    "knowbe4_no_local_data": {
+      "type": "string",
+      "title": "Run without a local copy",
+      "description": "Optional. Set to 1 to keep no local copy of API responses: reads go to the API, the response cache is off, and sync refuses to run. Leave blank to keep the local store.",
+      "required": false,
+      "sensitive": false
+    },
+    "knowbe4_mcp_http_token": {
+      "type": "string",
+      "title": "MCP HTTP transport bearer token",
+      "description": "Required only when running the MCP server with --transport http (a remote/hosted deployment). Callers must send a matching Authorization: Bearer header. Not needed for the default local stdio transport that Claude Desktop uses.",
+      "required": false,
+      "sensitive": true
+    },
+    "knowbe4_user_agent": {
+      "type": "string",
+      "title": "User-Agent header",
+      "description": "Overrides the User-Agent the CLI sends on KnowBe4 requests. Leave blank to use the CLI's own built-in User-Agent.",
       "required": false
     }
   },
@@ -60,11 +105,11 @@
       "win32"
     ]
   },
-  "printing_press_version": "4.24.0",
+  "printing_press_version": "4.34.2",
   "press_provenance": {
-    "printing_press_version": "4.24.0",
-    "generated_at": "2026-06-13T04:06:30.709989Z",
-    "spec_checksum": "sha256:9b9005bbd5063501ec82550ce31a8cd74b696fdab8a2c5f31dd9c09f48414dbd",
+    "printing_press_version": "4.34.2",
+    "generated_at": "2026-10-29T23:49:08.093087Z",
+    "spec_checksum": "sha256:aefe121af1c716eaaf2e26c771b9a310f0ab2972f8d5380fc559328009b68db4",
     "spec_format": "internal"
   }
 }

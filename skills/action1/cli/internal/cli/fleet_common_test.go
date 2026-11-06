@@ -44,7 +44,7 @@ func seedFleetStore(t *testing.T) string {
 			"vulnerabilities": map[string]any{"critical": 1}},
 	}
 	for _, e := range endpoints {
-		seedUpsert(t, db, "endpoints", e["id"].(string), e)
+		seedUpsert(t, db, "endpoints_managed", e["id"].(string), e)
 	}
 
 	vulns := []map[string]any{
@@ -74,7 +74,7 @@ func seedFleetStore(t *testing.T) string {
 		{"self": "inst-3", "status": "Running", "percent_completed": 30, "organization_id": "org-b"},
 	}
 	for _, i := range instances {
-		seedUpsert(t, db, "automation_instances", i["self"].(string), i)
+		seedUpsert(t, db, "automations_instances", i["self"].(string), i)
 	}
 
 	return dbPath
