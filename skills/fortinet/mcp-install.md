@@ -48,6 +48,7 @@ Add (or merge with your existing `mcpServers` block):
         "FORTINET_CLOUD_REGION": "<your-fortinet_cloud_region>",
         "FORTINET_CLOUD_ACCOUNT_ID": "<your-fortinet_cloud_account_id>",
         "FORTINET_MCP_READ_ONLY": "1",
+        "FORTINET_NO_LOCAL_DATA": "",
         "FORTINET_MCP_HTTP_TOKEN": "<your-fortinet_mcp_http_token>",
         "FORTINET_USER_AGENT": "<your-fortinet_user_agent>",
         "PRINTING_PRESS_CLIENT_PROFILE": "<your-printing_press_client_profile>"
@@ -102,6 +103,7 @@ Configuration**) and add:
         "FORTINET_CLOUD_REGION": "<your-fortinet_cloud_region>",
         "FORTINET_CLOUD_ACCOUNT_ID": "<your-fortinet_cloud_account_id>",
         "FORTINET_MCP_READ_ONLY": "1",
+        "FORTINET_NO_LOCAL_DATA": "",
         "FORTINET_MCP_HTTP_TOKEN": "<your-fortinet_mcp_http_token>",
         "FORTINET_USER_AGENT": "<your-fortinet_user_agent>",
         "PRINTING_PRESS_CLIENT_PROFILE": "<your-printing_press_client_profile>"
@@ -135,6 +137,7 @@ Claude Desktop:
         "FORTINET_CLOUD_REGION": "<your-fortinet_cloud_region>",
         "FORTINET_CLOUD_ACCOUNT_ID": "<your-fortinet_cloud_account_id>",
         "FORTINET_MCP_READ_ONLY": "1",
+        "FORTINET_NO_LOCAL_DATA": "",
         "FORTINET_MCP_HTTP_TOKEN": "<your-fortinet_mcp_http_token>",
         "FORTINET_USER_AGENT": "<your-fortinet_user_agent>",
         "PRINTING_PRESS_CLIENT_PROFILE": "<your-printing_press_client_profile>"
