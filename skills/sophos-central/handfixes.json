@@ -1939,6 +1939,438 @@
      "not_contains": "connects only to remote"
     }
    ]
+  },
+  {
+   "id": "credkit-wiring",
+   "class": "credential-kit",
+   "summary": "The shared credential kit (tools/maintainer/credkit, vendored at cli/internal/credkit) is wired by hand. internal/credwire/declarations.go holds the one Declarations literal; each main starts with credkit.Start and ends with credkit.Exit; the API client (and the Sophos router that wraps its transport), the token mint and refresh, auth login's token exchange, the --deliver webhook and the Spacefast client go through cliutil.OutboundGuard (credkit.Transport); the feedback and probe clients use credkit.Transport; every file write except the 0600 credential store, config.toml and the Spacefast page record goes through the kit (cliutil.AtomicWriteCredentialFile is that declared exemption), the response cache, the learn journal and teach log, export, profiles and the routing cache included; SQLite opens through internal/credsql (credkit.SQLDriver); MCP stdio, HTTP and tool results go through MCPIn/MCPOut, MCPHTTP and MCPTools; the MCP shell-out runs through credkit.RunCommand; terminal checks ask credkit.Terminal. Minted and refreshed tokens, a piped set-token value and a Spacefast page key are held the moment they are read; a --stdin request body's credential fields are held at startup (takeStdinBody, credkit.HoldBody) and the body is handed back after Start (RestoreStdinBody).",
+   "why": "One contract, one matcher and one set of sinks over this connector's own guards, which stay (no entry is retired: the kit replaces none of them, and secret-responses-never-persisted keeps its store, cache, export and tail redaction). Origins: every credential may go to the base URL, https://*.central.sophos.com (the global API and each regional apiHost GET /whoami/v1 or the tenant lookup returns, api-<region>.central.sophos.com; the kit's Origins are fixed data, and sophos-whoami-apihost-routing's isSophosAPIHost pin narrows routing to api.central.sophos.com and api-*.central.sophos.com) and https://id.sophos.com, the default token URL's host; the client secret and refresh token only to the base URL and id.sophos.com; the MCP HTTP bearer nowhere; the Spacefast token and page key only to https://api.spacefast.com. A token URL on a third origin is refused. ResponseFields hold the tamper protection password (password, previousPasswords[].password) and the migration token (token): a sink that would carry one is withheld, the CLI's own stdout included, so endpoints get-tamper-protection and set-tamper-protection print the kit's notice instead of the password. No StdinFlags: --stdin reads a JSON request body that Sophos answers repeat, and held whole it withheld every --stdin write's and read's answer and failed the learn store migration (the jira-service-management class, seen on this connector); takeStdinBody holds only the body's credential fields, and feedback --stdin keeps its free text. The token forms are encoded with grant_type first (cliutil.TokenForm): the kit also reads a form body as one key=value line, so a body starting with client_id held \"grant_type=client_credentials\" too, and a piece of \"credentials\" withheld every output that said the word, the kit's own notice included (doctor on environment credentials printed nothing and exited 74). Failing-first tests on the built binaries (internal/credwire/leak_test.go): the token endpoint echoing the client secret on auth login (TestTokenEndpointEchoNeverPrintsTheClientSecret, which also covers the automatic mint, --agent and MCP, already masked before the kit); the learn journal (TestLearnJournalNeverStoresAHeldCredential); a config.toml that fails to parse (TestMalformedConfigNeverPrintsItsCredential); a profiles.json credential value (TestProfileValueHeldAtStartup); the tamper password written by --deliver file: (TestTamperPasswordNeverReachesAFile); --stdin body credential fields (TestStdinBodyCredentialFieldIsHeld, TestStdinBodyDryRunPreview); feedback --stdin (TestFreeTextStdinIsKept); and, seen failing on the wired build first: --stdin answers (TestStdinRequestBodyAnswerIsPrinted, with StdinFlags), a minting run's output (TestMintRunKeepsItsOutput, before TokenForm) and the regional apiHost (TestRegionalAPIHostStaysAllowed, without the wildcard). In process: internal/store TestStoreNeverWritesAHeldCredential. In-process unit tests swap cliutil.OutboundGuard and cliutil.Hold in hand-written credkit_seam_test.go files (internal/cli, internal/client). refreshAccessToken has no production caller, so its error path is reachable only in process (rejected_mint_test.go). credkit-sites.json lists the hand-written sites the checker cannot classify, each with its reason.",
+   "status": "active",
+   "spec_encode_followup": "Press-side: emit the credkit wiring from a per-connector declarations file, so a reprint keeps it by construction.",
+   "asserts": [
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "var Declarations = credkit.Declarations{",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "\"SOPHOS_CENTRAL_CLIENT_SECRET\",",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "\"SOPHOS_CENTRAL_MCP_HTTP_TOKEN\",",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "{Source: \"*\", Allowed: []string{\"base_url\", \"https://*.central.sophos.com\", \"https://id.sophos.com\"}},",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "{Source: \"env:SOPHOS_CENTRAL_CLIENT_SECRET\", Allowed: []string{\"base_url\", \"https://id.sophos.com\"}},",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "ResponseFields: []string{\"access_token\", \"refresh_token\", \"password\", \"token\", \"clientSecret\", \"client_secret\"},",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "Files: credentialFiles,",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "takeStdinBody(args)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "credkit.HoldBody(stdinBody)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "not_contains": "[]string{\"--stdin\"}"
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestTokenEndpointEchoNeverPrintsTheClientSecret(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestLearnJournalNeverStoresAHeldCredential(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestMalformedConfigNeverPrintsItsCredential(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestProfileValueHeldAtStartup(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestTamperPasswordNeverReachesAFile(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestStdinRequestBodyAnswerIsPrinted(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestStdinBodyCredentialFieldIsHeld(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestStdinBodyDryRunPreview(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestFreeTextStdinIsKept(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestMintRunKeepsItsOutput(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestRegionalAPIHostStaysAllowed(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/credkit_sql_test.go",
+     "contains": "func TestStoreNeverWritesAHeldCredential(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credsql/credsql.go",
+     "contains": "sql.Register(Driver, credkit.SQLDriver(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credkit_guard.go",
+     "contains": "var OutboundGuard = credkit.Transport",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credkit_guard.go",
+     "contains": "var Hold = credkit.Hold",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credkit_guard.go",
+     "contains": "func TokenForm(form url.Values) string {",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/sophos-central-cli/main.go",
+     "contains": "credkit.Start(credwire.Declarations)",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/sophos-central-cli/main.go",
+     "contains": "credwire.RestoreStdinBody()",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/sophos-central-cli/main.go",
+     "contains": "credkit.Exit(code)",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/sophos-central-cli/main.go",
+     "not_contains": "os.Exit("
+    },
+    {
+     "file": "cli/cmd/sophos-central-mcp/main.go",
+     "contains": "credkit.Start(credwire.Declarations)\n\tcredkit.Exit(run())",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/sophos-central-mcp/main.go",
+     "contains": "server.WithToolHandlerMiddleware(credkit.MCPTools),",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/sophos-central-mcp/main.go",
+     "contains": "server.NewStdioServer(s).Listen(ctx, credkit.MCPIn(os.Stdin), credkit.MCPOut())",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/sophos-central-mcp/main.go",
+     "contains": "kit := credkit.MCPHTTP(http.HandlerFunc(",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/sophos-central-mcp/main.go",
+     "not_contains": "server.ServeStdio("
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "return guardedTransport{RoundTripper: cliutil.OutboundGuard(tr), inner: tr}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "guardTransport(tr)",
+     "code_only": true,
+     "min_count": 4
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "credkit.WriteFile(cacheFile",
+     "code_only": true,
+     "min_count": 2
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "cliutil.Hold(\"minted:access_token\", tokenResp.AccessToken)",
+     "code_only": true,
+     "min_count": 2
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "cliutil.Hold(\"minted:refresh_token\", tokenResp.RefreshToken)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "cliutil.TokenForm(form)",
+     "code_only": true,
+     "min_count": 2
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "cliutil.TokenForm(params)",
+     "code_only": true,
+     "min_count": 2
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "not_contains": "form.Encode()"
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "not_contains": "params.Encode()"
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "cliutil.Hold(\"minted:access_token\", tok.AccessToken)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "cliutil.TokenForm(form)",
+     "code_only": true,
+     "min_count": 2
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "not_contains": "form.Encode()"
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "cliutil.Hold(\"stdin\", token)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "return credkit.Terminal(f)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "credkit.WriteFile(tempName, []byte(scopeHash+\"\\n\"), 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deliver.go",
+     "contains": "credkit.WriteFile(tmp, body, 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deliver.go",
+     "contains": "resp, err := cliutil.OutboundGuard(nil).RoundTrip(req)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deliver.go",
+     "not_contains": "http.DefaultTransport.RoundTrip(req)"
+    },
+    {
+     "file": "cli/internal/cli/deliver_spacefast.go",
+     "contains": "cliutil.AtomicWriteCredentialFile(filepath.Join(dir, name), data, 0o600, 0o700)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deliver_spacefast.go",
+     "contains": "cliutil.Hold(\"minted:spacefast-page-key\", prior.Key)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deliver_spacefast.go",
+     "contains": "Transport: cliutil.OutboundGuard(nil),",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/export.go",
+     "contains": "outKit = credkit.NewWriter(f, credkit.SinkFile)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/feedback.go",
+     "contains": "credkit.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/feedback.go",
+     "contains": "Transport: credkit.Transport(nil)}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/profile.go",
+     "contains": "credkit.WriteFile(tmp, data, 0o600); err != nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/teach.go",
+     "contains": "credkit.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)",
+     "code_only": true,
+     "min_count": 2
+    },
+    {
+     "file": "cli/internal/cli/teach.go",
+     "contains": "return credkit.WriteFile(path, ",
+     "code_only": true,
+     "min_count": 2
+    },
+    {
+     "file": "cli/internal/cli/sophos_routing.go",
+     "contains": "base = cliutil.OutboundGuard(nil)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sophos_routing.go",
+     "contains": "credkit.WriteFile(tmp, data, 0o600) == nil",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sophos_routing.go",
+     "not_contains": "http.DefaultTransport"
+    },
+    {
+     "file": "cli/internal/cache/cache.go",
+     "contains": "credkit.WriteFile(s.path(key), []byte(value), 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/paths.go",
+     "contains": "func AtomicWriteCredentialFile(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/paths.go",
+     "contains": "if err := credkit.WriteFile(tmpPath, data, fileMode); err != nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credentials.go",
+     "contains": "if err := AtomicWriteCredentialFile(path, data, 0o600, 0o700); err != nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/probe.go",
+     "contains": "Transport: credkit.Transport(nil)}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/oauth_token.go",
+     "contains": "Transport: OutboundGuard(nil)}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "cliutil.AtomicWriteCredentialFile(",
+     "code_only": true,
+     "min_count": 3
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "credkit.AppendFile(p, append(line, ",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/teach_log.go",
+     "contains": "credkit.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "err := credkit.RunCommand(cmd)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "store.OpenReadOnlyValueCapped(path, maxValueBytes)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "openMCPReadOnlyStore(path, mcpSQLMaxValueBytes)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "not_contains": "sqlite.Limit("
+    },
+    {
+     "file": "cli/internal/platform/migration.go",
+     "contains": "sql.Open(credsql.Driver, ",
+     "code_only": true,
+     "min_count": 4
+    },
+    {
+     "file": "cli/internal/platform/profile.go",
+     "contains": "credkit.WriteFile(tmpName, data, 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/platform/ratelimit.go",
+     "contains": "credkit.WriteFile(path, []byte(strconv.FormatInt(time.Now().UnixNano(), 10)), 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "sql.Open(credsql.Driver, ",
+     "code_only": true,
+     "min_count": 4
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "dsn += \"&\" + credsql.LengthLimitParam + \"=\" + strconv.Itoa(maxValueBytes)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "db.ExecContext(ctx, \"select 1\")",
+     "code_only": true
+    }
+   ]
   }
  ],
  "retired": [
