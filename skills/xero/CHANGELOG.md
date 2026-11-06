@@ -20,6 +20,7 @@ All notable changes to this skill are documented here. Format follows
 ### Security
 - An MCP tool that changes data, in Xero or in this machine's local files, previews and runs only with `confirm` set to boolean true. The preview is the command's own dry run, so a file flag is still refused by name and nothing is written.
 - An MCP call that is not confirmed writes no local state: no learn journal entry and no local database.
+- **Credentials are guarded by the fleet's shared credential kit.** Every credential this program holds (environment, config file, credential store, saved profiles, `--stdin` bodies, tokens minted by `auth login` and refresh) is held from the first byte of output. Any output, file, local database row, MCP result or learn journal entry that would carry one is withheld whole, and a credential is sent only over https to its own host: the bearer to the Xero API, the client secret and refresh token to Xero's token endpoint.
 
 ## [0.1.9] - 2026-10-23
 
