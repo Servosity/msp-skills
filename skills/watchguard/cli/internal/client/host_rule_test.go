@@ -4,6 +4,7 @@ package client
 
 import (
 	"net/url"
+	"os"
 	"testing"
 )
 
@@ -35,9 +36,15 @@ func TestClientHostComparatorsKeepZoneCase(t *testing.T) {
 	if !dialTargetAllowed("API.example.com:443", "api.example.com:443") {
 		t.Error("dial to the pinned ASCII host refused over case")
 	}
-	t.Setenv("HTTPS_PROXY", "http://[fe80::1%25lan0]:3128")
+	// Clear every proxy variable first and set HTTPS_PROXY last: Windows
+	// environment names ignore case, so clearing https_proxy after setting
+	// HTTPS_PROXY would erase the proxy this test configures.
 	for _, k := range []string{"HTTP_PROXY", "ALL_PROXY", "http_proxy", "https_proxy", "all_proxy"} {
 		t.Setenv(k, "")
+	}
+	t.Setenv("HTTPS_PROXY", "http://[fe80::1%25lan0]:3128")
+	if got := os.Getenv("HTTPS_PROXY"); got == "" {
+		t.Fatal("test setup: HTTPS_PROXY is empty after being set")
 	}
 	if dialAddrIsConfiguredProxy("[fe80::1%LAN0]:3128") {
 		t.Error("zone LAN0 dial treated as the proxy configured on zone lan0")
