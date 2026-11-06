@@ -113,6 +113,10 @@ maintainer sees it.`,
   connectsecure-cli feedback --stdin < notes.txt
   connectsecure-cli feedback list`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// --dry-run must not append the local ledger or POST upstream.
+			if dryRunOK(flags) {
+				return writeDryRun(cmd.OutOrStdout(), flags, "feedback")
+			}
 			var text string
 			if useStdin {
 				data, err := io.ReadAll(cmd.InOrStdin())

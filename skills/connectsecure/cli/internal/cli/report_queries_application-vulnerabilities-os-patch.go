@@ -45,7 +45,7 @@ func newReportQueriesApplicationVulnerabilitiesOsPatchCmd(flags *rootFlags) *cob
 				return cmd.Help()
 			}
 			if !cmd.Flags().Changed("agent-type") && flagAgentType == "" && !requiredInputWaived() {
-				return fmt.Errorf("required flag \"%s\" not set", "agent-type")
+				return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "agent-type"))
 			}
 			path := "/r/report_queries/application_vulnerabilities_os_patch"
 			c, err := flags.newClient()

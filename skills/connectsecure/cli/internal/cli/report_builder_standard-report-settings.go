@@ -41,10 +41,10 @@ func newReportBuilderStandardReportSettingsCmd(flags *rootFlags) *cobra.Command 
 				return cmd.Help()
 			}
 			if !cmd.Flags().Changed("reporttype") && flagReporttype == "" && !requiredInputWaived() {
-				return fmt.Errorf("required flag \"%s\" not set", "reporttype")
+				return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "reporttype"))
 			}
 			if !cmd.Flags().Changed("is-global") && flagIsGlobal == "" && !requiredInputWaived() {
-				return fmt.Errorf("required flag \"%s\" not set", "is-global")
+				return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "is-global"))
 			}
 			path := "/report_builder/get_standard_report_settings"
 			c, err := flags.newClient()
@@ -58,7 +58,7 @@ func newReportBuilderStandardReportSettingsCmd(flags *rootFlags) *cobra.Command 
 			if cmd.Flags().Changed("is-global") || flagIsGlobal != "" {
 				params["isGlobal"] = formatCLIParamValue(flagIsGlobal)
 			}
-			data, prov, err := resolveReadWithStrategyAndResponsePath(cmd.Context(), c, flags, "live", "report_builder", false, path, params, nil, "message", cmd.ErrOrStderr())
+			data, prov, err := resolveReadWithStrategyAndResponsePath(cmd.Context(), c, flags, "live", "report_builder", false, path, params, nil, "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}
@@ -85,7 +85,7 @@ func newReportBuilderStandardReportSettingsCmd(flags *rootFlags) *cobra.Command 
 					filtered, selectErr = filterFieldsChecked(filtered, flags.selectFields)
 					selectErr = selectErrorForDryRun(selectErr, flags, data)
 				} else if flags.compact {
-					filtered = compactFields(filtered, map[string]bool{"company_id": true, "company_logo_url": true, "id": true})
+					filtered = compactFields(filtered, map[string]bool{"status": true})
 				}
 				wrapped, wrapErr := wrapWithProvenance(filtered, prov)
 				if wrapErr != nil {
@@ -117,7 +117,7 @@ func newReportBuilderStandardReportSettingsCmd(flags *rootFlags) *cobra.Command 
 			if flags.csv || flags.plain {
 				formatData = outputData
 			}
-			return printOutputWithFlagsMeta(cmd.OutOrStdout(), formatData, flags, map[string]any{"source": "live"}, map[string]bool{"company_id": true, "company_logo_url": true, "id": true})
+			return printOutputWithFlagsMeta(cmd.OutOrStdout(), formatData, flags, map[string]any{"source": "live"}, map[string]bool{"status": true})
 		},
 	}
 	cmd.Flags().StringVar(&flagReporttype, "reporttype", "", "Report Type")

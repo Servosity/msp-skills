@@ -45,7 +45,7 @@ func newReportQueriesRemediateRecordsDaysCmd(flags *rootFlags) *cobra.Command {
 				return cmd.Help()
 			}
 			if !cmd.Flags().Changed("having") && flagHaving == "" && !requiredInputWaived() {
-				return fmt.Errorf("required flag \"%s\" not set", "having")
+				return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "having"))
 			}
 			path := "/r/report_queries/remediate_records_days"
 			c, err := flags.newClient()

@@ -47,13 +47,13 @@ func newReportQueriesRemediationPlanAssetDetailsByEpssCmd(flags *rootFlags) *cob
 				return cmd.Help()
 			}
 			if !cmd.Flags().Changed("having") && flagHaving == "" && !requiredInputWaived() {
-				return fmt.Errorf("required flag \"%s\" not set", "having")
+				return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "having"))
 			}
 			if !cmd.Flags().Changed("software-type") && flagSoftwareType == "" && !requiredInputWaived() {
-				return fmt.Errorf("required flag \"%s\" not set", "software-type")
+				return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "software-type"))
 			}
 			if !cmd.Flags().Changed("epss-score") && flagEpssScore == "" && !requiredInputWaived() {
-				return fmt.Errorf("required flag \"%s\" not set", "epss-score")
+				return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "epss-score"))
 			}
 			path := "/r/report_queries/remediation_plan_asset_details_by_epss"
 			c, err := flags.newClient()

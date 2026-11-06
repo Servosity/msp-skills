@@ -45,7 +45,7 @@ func newReportQueriesApplicationVulnerabilitiesPatchingAssetDetailsCmd(flags *ro
 				return cmd.Help()
 			}
 			if !cmd.Flags().Changed("id") && flagId == "" && !requiredInputWaived() {
-				return fmt.Errorf("required flag \"%s\" not set", "id")
+				return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "id"))
 			}
 			path := "/r/report_queries/application_vulnerabilities_patching_asset_details"
 			c, err := flags.newClient()

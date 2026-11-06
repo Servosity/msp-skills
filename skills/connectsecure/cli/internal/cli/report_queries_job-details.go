@@ -53,7 +53,7 @@ func newReportQueriesJobDetailsCmd(flags *rootFlags) *cobra.Command {
 					Endpoint:       "job-details",
 					Status:         "submitted",
 					SubmittedAt:    asyncSubmittedAt,
-					StatusResource: "report_jobs_view",
+					StatusResource: "jobs_view",
 					StatusEndpoint: "get",
 				})
 				if flagWait {
@@ -61,7 +61,7 @@ func newReportQueriesJobDetailsCmd(flags *rootFlags) *cobra.Command {
 					if ctx == nil {
 						ctx = context.Background()
 					}
-					final, werr := WaitForJob(ctx, c, "/r/company/report_jobs_view/{id}", asyncJobID, WaitOptions{
+					final, werr := WaitForJob(ctx, c, "/r/company/jobs_view/{id}", asyncJobID, WaitOptions{
 						Interval: flagWaitInterval,
 						Timeout:  flagWaitTimeout,
 					})
@@ -76,11 +76,11 @@ func newReportQueriesJobDetailsCmd(flags *rootFlags) *cobra.Command {
 							Endpoint:       "job-details",
 							Status:         "submitted",
 							SubmittedAt:    asyncSubmittedAt,
-							StatusResource: "report_jobs_view",
+							StatusResource: "jobs_view",
 							StatusEndpoint: "get",
 							Error:          werr.Error(),
 						})
-						return asyncJobPendingErr(cmd, flags, asyncJobID, "connectsecure-cli report-jobs-view get "+asyncJobID, werr)
+						return asyncJobPendingErr(cmd, flags, asyncJobID, "connectsecure-cli jobs-view get "+asyncJobID, werr)
 					}
 					if b, merr := json.Marshal(final); merr == nil {
 						data = b

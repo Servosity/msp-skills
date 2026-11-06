@@ -47,13 +47,13 @@ func newReportQueriesApplicationVulnerabilitiesV2Cmd(flags *rootFlags) *cobra.Co
 				return cmd.Help()
 			}
 			if !cmd.Flags().Changed("software-type") && flagSoftwareType == "" && !requiredInputWaived() {
-				return fmt.Errorf("required flag \"%s\" not set", "software-type")
+				return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "software-type"))
 			}
 			if !cmd.Flags().Changed("agent-type") && flagAgentType == "" && !requiredInputWaived() {
-				return fmt.Errorf("required flag \"%s\" not set", "agent-type")
+				return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "agent-type"))
 			}
 			if !cmd.Flags().Changed("platform") && flagPlatform == "" && !requiredInputWaived() {
-				return fmt.Errorf("required flag \"%s\" not set", "platform")
+				return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "platform"))
 			}
 			path := "/r/report_queries/application_vulnerabilities_v2"
 			c, err := flags.newClient()

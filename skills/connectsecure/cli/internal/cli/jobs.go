@@ -240,7 +240,7 @@ func asyncJobPendingErr(cmd *cobra.Command, flags *rootFlags, jobID, recoveryCom
 			"job_id":           jobID,
 			"status":           "pending",
 			"recovery_command": recoveryCommand,
-			"error":            err.Error(),
+			"error":            funnelShownError(err),
 			"code":             ExitJobPending,
 		})
 	}

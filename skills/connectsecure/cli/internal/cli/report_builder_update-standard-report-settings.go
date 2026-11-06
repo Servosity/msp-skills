@@ -51,40 +51,40 @@ func newReportBuilderUpdateStandardReportSettingsCmd(flags *rootFlags) *cobra.Co
 				return cmd.Help()
 			}
 			if !cmd.Flags().Changed("company-logo") && bodyCompanyLogo == "" && !requiredInputWaived() {
-				return fmt.Errorf("required flag \"%s\" not set", "company-logo")
+				return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "company-logo"))
 			}
 			if !cmd.Flags().Changed("cover-page") && bodyCoverPage == "" && !requiredInputWaived() {
-				return fmt.Errorf("required flag \"%s\" not set", "cover-page")
+				return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "cover-page"))
 			}
 			if !cmd.Flags().Changed("footer-alignment") && bodyFooterAlignment == "" && !requiredInputWaived() {
-				return fmt.Errorf("required flag \"%s\" not set", "footer-alignment")
+				return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "footer-alignment"))
 			}
 			if !cmd.Flags().Changed("footer-image") && bodyFooterImage == "" && !requiredInputWaived() {
-				return fmt.Errorf("required flag \"%s\" not set", "footer-image")
+				return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "footer-image"))
 			}
 			if !cmd.Flags().Changed("footer-text") && bodyFooterText == "" && !requiredInputWaived() {
-				return fmt.Errorf("required flag \"%s\" not set", "footer-text")
+				return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "footer-text"))
 			}
 			if !cmd.Flags().Changed("header-alignment") && bodyHeaderAlignment == "" && !requiredInputWaived() {
-				return fmt.Errorf("required flag \"%s\" not set", "header-alignment")
+				return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "header-alignment"))
 			}
 			if !cmd.Flags().Changed("header-image") && bodyHeaderImage == "" && !requiredInputWaived() {
-				return fmt.Errorf("required flag \"%s\" not set", "header-image")
+				return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "header-image"))
 			}
 			if !cmd.Flags().Changed("header-text") && bodyHeaderText == "" && !requiredInputWaived() {
-				return fmt.Errorf("required flag \"%s\" not set", "header-text")
+				return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "header-text"))
 			}
 			if !cmd.Flags().Changed("id") && bodyId == 0 && !requiredInputWaived() {
-				return fmt.Errorf("required flag \"%s\" not set", "id")
+				return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "id"))
 			}
 			if !cmd.Flags().Changed("is-global") && bodyIsGlobal == "" && !requiredInputWaived() {
-				return fmt.Errorf("required flag \"%s\" not set", "is-global")
+				return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "is-global"))
 			}
 			if !cmd.Flags().Changed("reporttype") && bodyReporttype == "" && !requiredInputWaived() {
-				return fmt.Errorf("required flag \"%s\" not set", "reporttype")
+				return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "reporttype"))
 			}
 			if !cmd.Flags().Changed("watermark") && bodyWatermark == "" && !requiredInputWaived() {
-				return fmt.Errorf("required flag \"%s\" not set", "watermark")
+				return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "watermark"))
 			}
 			path := "/report_builder/update_standard_report_settings"
 			c, err := flags.newClient()
@@ -154,7 +154,7 @@ func newReportBuilderUpdateStandardReportSettingsCmd(flags *rootFlags) *cobra.Co
 				}
 			}
 			if !flags.dryRun && statusCode >= 200 && statusCode < 300 && (partialFailure == nil || flags.allowPartialFailure) {
-				writeMutationResponseToStore(cmd.Context(), "report_builder", data, "message")
+				writeMutationResponseToStore(cmd.Context(), "report_builder", data, "")
 			}
 			if wantsHumanTable(cmd.OutOrStdout(), flags) {
 				// Check if response contains an array (directly or wrapped in "data")
@@ -205,16 +205,13 @@ func newReportBuilderUpdateStandardReportSettingsCmd(flags *rootFlags) *cobra.Co
 					envelope["partial_failure"] = partialFailure
 				}
 				if flags.dryRun {
-					envelope["dry_run"] = true
-					envelope["status"] = 0
-					envelope["success"] = false
+					markCompletedDryRun(envelope)
 				}
 				// Verify-mode synthetic envelope detection runs against RAW data
 				// (before --compact/--select filtering) so the sentinel field is
 				// guaranteed to be visible even if the operator passes a filter
-				// flag that would otherwise strip it. Surfaces a top-level
-				// verify_noop signal + flips success to false. Mirrors the dry_run
-				// shape above.
+				// flag that would otherwise strip it. A synthetic noop did not
+				// mutate, so it forces success false after a completed dry-run mark.
 				if len(data) > 0 {
 					var rawParsed any
 					if err := json.Unmarshal(data, &rawParsed); err == nil {
@@ -241,7 +238,7 @@ func newReportBuilderUpdateStandardReportSettingsCmd(flags *rootFlags) *cobra.Co
 					filtered, selectErr = filterFieldsChecked(filtered, flags.selectFields)
 					selectErr = selectErrorForDryRun(selectErr, flags, data)
 				} else if flags.compact {
-					filtered = compactFields(filtered, map[string]bool{"company_id": true, "company_logo_url": true, "id": true})
+					filtered = compactFields(filtered, map[string]bool{"status": true})
 				}
 				if len(filtered) > 0 {
 					var parsed any
@@ -281,7 +278,7 @@ func newReportBuilderUpdateStandardReportSettingsCmd(flags *rootFlags) *cobra.Co
 			// partial failure would exit 0 for these output modes — the exact
 			// silent-swallow regression the surrounding patch is preventing
 			// for asJSON / piped output.
-			printErr := printOutputWithFlagsMeta(cmd.OutOrStdout(), data, flags, map[string]any{"source": "live"}, map[string]bool{"company_id": true, "company_logo_url": true, "id": true})
+			printErr := printOutputWithFlagsMeta(cmd.OutOrStdout(), data, flags, map[string]any{"source": "live"}, map[string]bool{"status": true})
 			if partialFailure != nil && !flags.allowPartialFailure {
 				return partialFailureErr(fmt.Errorf("partial failure in %s response: %s", "report_builder", partialFailure.Message))
 			}

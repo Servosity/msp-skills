@@ -45,7 +45,7 @@ func newReportQueriesProblemsInfoCmd(flags *rootFlags) *cobra.Command {
 				return cmd.Help()
 			}
 			if !cmd.Flags().Changed("problem-name") && flagProblemName == "" && !requiredInputWaived() {
-				return fmt.Errorf("required flag \"%s\" not set", "problem-name")
+				return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "problem-name"))
 			}
 			path := "/r/report_queries/problems_info"
 			c, err := flags.newClient()
