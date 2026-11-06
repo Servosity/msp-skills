@@ -2355,10 +2355,10 @@
       "rule": "G304",
       "bind": "decl",
       "sha256": [
-        "sha256:b2909c6642eb3d86b770b68cc5b6bc28dedfb0cc0236bc41e042ea96e3be91ac"
+        "sha256:80e410000e3ea42f4727ba724fbe4b93829216699732767b4567078f81a6cb87"
       ],
       "press": "4.35.1",
-      "reason": "riverside-fm, press 4.35.1 reprint, reviewed 2026-11-05. Press template claimLegacyUnscopedDB: reads this CLI's own data.db.owner marker beside its store under the data directory; no command input picks the path."
+      "reason": "riverside-fm, press 4.35.1 reprint, reviewed 2026-11-05. Press template claimLegacyUnscopedDB: reads this CLI's own data.db.owner marker beside its store under the data directory; no command input picks the path. Re-bound 2026-11-06 for #620's Windows hand-fix (handfixes.json temp-handle-closed-before-kit-write): the temp handle now closes before credkit.WriteFile writes the marker, replacing a direct temp.Write; both flagged reads of markerPath are unchanged."
     },
     {
       "file": "skills/riverside-fm/cli/internal/client/chrome.go",
