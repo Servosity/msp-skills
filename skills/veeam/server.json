@@ -1,7 +1,7 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.Servosity/veeam-mcp",
-  "title": "Veeam MCP",
+  "title": "Veeam VSPC MCP",
   "description": "Sync Veeam Service Provider Console tenants to local SQLite; cross-company backup answers offline.",
   "version": "0.1.7",
   "icons": [
@@ -29,9 +29,34 @@
       },
       "environmentVariables": [
         {
+          "name": "VEEAM_BASE_URL",
+          "description": "Your VSPC appliance REST API base URL, e.g. https://vspc.example.com:1280/api/v3 (per-instance).",
+          "isRequired": true,
+          "isSecret": false,
+          "default": "https://your-vspc-host:1280/api/v3"
+        },
+        {
           "name": "VEEAM_TOKEN",
           "description": "Bearer token for the VSPC REST API (POST /token with your portal credentials).",
           "isRequired": true,
+          "isSecret": true
+        },
+        {
+          "name": "VEEAM_MCP_READ_ONLY",
+          "description": "Set to 1 for a read-only server: the API execute tool, sync, import, export and the learning-store writers are hidden, so only reads reach Veeam. Leave blank for the full tool set.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "VEEAM_NO_LOCAL_DATA",
+          "description": "Optional. Set to 1 to keep no local copy of Veeam data: reads go to the API, the response cache is off, nothing new is written to the local store, and sync is refused.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "VEEAM_MCP_HTTP_TOKEN",
+          "description": "Bearer token that veeam-mcp --transport http requires from every HTTP client (Authorization: Bearer, 32 characters or more). Leave blank for the default stdio transport, which Claude Desktop uses and which never reads it.",
+          "isRequired": false,
           "isSecret": true
         }
       ]

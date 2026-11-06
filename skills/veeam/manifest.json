@@ -1,6 +1,6 @@
 {
   "manifest_version": "0.3",
-  "name": "veeam-pp-mcp",
+  "name": "veeam-mcp",
   "display_name": "Veeam Service Provider Console",
   "version": "0.1.7",
   "description": "Every Veeam Service Provider Console endpoint as a typed command, plus a local multi-tenant mirror, cross-company rollups, and drift detection no per-instance Veeam tool offers.",
@@ -10,22 +10,52 @@
   "license": "Apache-2.0",
   "server": {
     "type": "binary",
-    "entry_point": "bin/veeam-pp-mcp",
+    "entry_point": "bin/veeam-mcp",
     "mcp_config": {
-      "command": "${__dirname}/bin/veeam-pp-mcp",
+      "command": "${__dirname}/bin/veeam-mcp",
       "args": [],
       "env": {
-        "VEEAM_TOKEN": "${user_config.veeam_token}"
+        "VEEAM_BASE_URL": "${user_config.veeam_base_url}",
+        "VEEAM_TOKEN": "${user_config.veeam_token}",
+        "VEEAM_MCP_READ_ONLY": "${user_config.veeam_mcp_read_only}",
+        "VEEAM_NO_LOCAL_DATA": "${user_config.veeam_no_local_data}",
+        "VEEAM_MCP_HTTP_TOKEN": "${user_config.veeam_mcp_http_token}"
       }
     }
   },
   "user_config": {
+    "veeam_base_url": {
+      "type": "string",
+      "title": "VEEAM_BASE_URL",
+      "description": "Your VSPC appliance REST API base URL, e.g. https://vspc.example.com:1280/api/v3. The console is appliance-hosted, so this is per-instance and required.",
+      "default": "https://your-vspc-host:1280/api/v3",
+      "required": true
+    },
     "veeam_token": {
       "type": "string",
       "title": "VEEAM_TOKEN",
-      "description": "Sets VEEAM_TOKEN for the Veeam Service Provider Console MCP server.",
+      "description": "Bearer token for the VSPC REST API (POST /token with your portal credentials).",
       "sensitive": true,
       "required": true
+    },
+    "veeam_mcp_read_only": {
+      "type": "string",
+      "title": "Read-only mode",
+      "description": "Set to 1 for a read-only server: the API execute tool, sync, import, export and the learning-store writers are hidden, so only reads reach Veeam. Leave blank for the full tool set.",
+      "required": false
+    },
+    "veeam_no_local_data": {
+      "type": "string",
+      "title": "No local data",
+      "description": "Optional. Set to 1 to keep no local copy of Veeam data: reads go to the API, the response cache is off, nothing new is written to the local store, and sync is refused.",
+      "required": false
+    },
+    "veeam_mcp_http_token": {
+      "type": "string",
+      "title": "HTTP transport bearer token",
+      "description": "Bearer token that veeam-mcp --transport http requires from every HTTP client (Authorization: Bearer, 32 characters or more). Leave blank for the default stdio transport, which Claude Desktop uses and which never reads it.",
+      "sensitive": true,
+      "required": false
     }
   },
   "compatibility": {

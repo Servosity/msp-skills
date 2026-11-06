@@ -37,7 +37,11 @@ Add (or merge with your existing `mcpServers` block):
     "veeam": {
       "command": "veeam-mcp",
       "env": {
-        "VEEAM_TOKEN": "<your-veeam_token>"
+        "VEEAM_BASE_URL": "<your-veeam_base_url>",
+        "VEEAM_TOKEN": "<your-veeam_token>",
+        "VEEAM_MCP_READ_ONLY": "",
+        "VEEAM_NO_LOCAL_DATA": "",
+        "VEEAM_MCP_HTTP_TOKEN": ""
       }
     }
   }
@@ -62,7 +66,11 @@ Configuration**) and add:
       "type": "stdio",
       "command": "veeam-mcp",
       "env": {
-        "VEEAM_TOKEN": "<your-veeam_token>"
+        "VEEAM_BASE_URL": "<your-veeam_base_url>",
+        "VEEAM_TOKEN": "<your-veeam_token>",
+        "VEEAM_MCP_READ_ONLY": "",
+        "VEEAM_NO_LOCAL_DATA": "",
+        "VEEAM_MCP_HTTP_TOKEN": ""
       }
     }
   }
@@ -83,7 +91,11 @@ Claude Desktop:
     "veeam": {
       "command": "veeam-mcp",
       "env": {
-        "VEEAM_TOKEN": "<your-veeam_token>"
+        "VEEAM_BASE_URL": "<your-veeam_base_url>",
+        "VEEAM_TOKEN": "<your-veeam_token>",
+        "VEEAM_MCP_READ_ONLY": "",
+        "VEEAM_NO_LOCAL_DATA": "",
+        "VEEAM_MCP_HTTP_TOKEN": ""
       }
     }
   }
@@ -105,7 +117,7 @@ than loopback also needs TLS:
 
 ```bash
 export VEEAM_MCP_HTTP_TOKEN="$(openssl rand -hex 32)"
-VEEAM_TOKEN=<value> veeam-mcp --transport http --addr <host>:7777 --tls-cert <cert.pem> --tls-key <key.pem>
+VEEAM_BASE_URL=<value> VEEAM_TOKEN=<value> veeam-mcp --transport http --addr <host>:7777 --tls-cert <cert.pem> --tls-key <key.pem>
 ```
 
 The endpoint is `https://<host>:7777/mcp`: the server answers Streamable HTTP at
