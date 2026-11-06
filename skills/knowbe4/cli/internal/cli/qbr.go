@@ -71,7 +71,11 @@ func renderQBRMarkdown(rep insights.QBRReport) string {
 	fmt.Fprintf(&b, "# Security Awareness QBR\n\n")
 	fmt.Fprintf(&b, "_Generated %s · window %s_\n\n", rep.GeneratedAt, rep.Window)
 	fmt.Fprintf(&b, "## Risk posture\n\n")
-	fmt.Fprintf(&b, "- Account risk score: **%.1f**", rep.AccountRiskScore)
+	if rep.AccountRiskScore != nil {
+		fmt.Fprintf(&b, "- Account risk score: **%.1f**", *rep.AccountRiskScore)
+	} else {
+		fmt.Fprintf(&b, "- Account risk score: _not in the local store_")
+	}
 	if rep.AccountRiskDelta != nil {
 		dir := "improved"
 		if *rep.AccountRiskDelta > 0 {
@@ -81,13 +85,28 @@ func renderQBRMarkdown(rep insights.QBRReport) string {
 	}
 	fmt.Fprintf(&b, "\n")
 	t := rep.PhishProneTrend
-	if len(t.Points) > 0 {
-		fmt.Fprintf(&b, "- Phish-prone trend: **%.1f%% → %.1f%%** (%+.1f) across %d tests\n", t.FirstPct, t.LastPct, t.DeltaPct, len(t.Points))
+	if len(t.Points) > 0 && t.FirstPct != nil && t.LastPct != nil && t.DeltaPct != nil {
+		fmt.Fprintf(&b, "- Phish-prone trend: **%.1f%% → %.1f%%** (%+.1f) across %d tests\n", *t.FirstPct, *t.LastPct, *t.DeltaPct, len(t.Points))
 	} else {
 		fmt.Fprintf(&b, "- Phish-prone trend: no tests in window\n")
 	}
-	fmt.Fprintf(&b, "- Training completion: **%.1f%%**\n", rep.TrainingCompletion)
-	fmt.Fprintf(&b, "- Repeat clickers: **%d** · Untrained clickers: **%d**\n\n", rep.RepeatClickerCount, rep.UntrainedClickers)
+	if rep.TrainingCompletion != nil {
+		fmt.Fprintf(&b, "- Training completion: **%.1f%%**\n", *rep.TrainingCompletion)
+	} else {
+		fmt.Fprintf(&b, "- Training completion: _no enrollments in the local store_\n")
+	}
+	if rep.RepeatClickerCount != nil && rep.UntrainedClickers != nil {
+		fmt.Fprintf(&b, "- Repeat clickers: **%d** · Untrained clickers: **%d**\n\n", *rep.RepeatClickerCount, *rep.UntrainedClickers)
+	} else {
+		fmt.Fprintf(&b, "- Repeat clickers, untrained clickers: _no phishing-test recipients in the local store_\n\n")
+	}
+	if len(rep.Unavailable) > 0 {
+		fmt.Fprintf(&b, "_Not in the local store (run `knowbe4-cli sync`):_\n\n")
+		for _, u := range rep.Unavailable {
+			fmt.Fprintf(&b, "- %s\n", u)
+		}
+		fmt.Fprintf(&b, "\n")
+	}
 
 	fmt.Fprintf(&b, "## Top-risk users\n\n")
 	if len(rep.TopRiskUsers) == 0 {
@@ -101,7 +120,15 @@ func renderQBRMarkdown(rep insights.QBRReport) string {
 		if name == "" {
 			name = u.Email
 		}
-		fmt.Fprintf(&b, "| %s | %.1f | %.1f%% | %d | %d | %d |\n", name, u.CurrentRisk, u.PhishPronePct, u.ClickedPSTs, u.ReportedPSTs, u.OpenTrainings)
+		fmt.Fprintf(&b, "| %s | %.1f | %.1f%% | %s | %s | %s |\n", name, u.CurrentRisk, u.PhishPronePct, mdCount(u.ClickedPSTs), mdCount(u.ReportedPSTs), mdCount(u.OpenTrainings))
 	}
 	return b.String()
+}
+
+// mdCount renders a count whose input the store does not hold as "n/a", never 0.
+func mdCount(n *int) string {
+	if n == nil {
+		return "n/a"
+	}
+	return fmt.Sprint(*n)
 }

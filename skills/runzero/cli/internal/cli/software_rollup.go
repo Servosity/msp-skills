@@ -50,7 +50,10 @@ substring); omit it to roll up everything. Reads the local store; run
 			if err != nil {
 				return err
 			}
-			return flags.printJSON(cmd, rows)
+			if err := flags.printJSON(cmd, rows); err != nil {
+				return err
+			}
+			return inventoryReadComplete(cmd, flags, st, "software")
 		},
 	}
 	cmd.Flags().StringVar(&dbPath, "db", "", "Database path (default: ~/.local/share/runzero-cli/data.db)")

@@ -77,7 +77,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/sk
 iwr -useb https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/salesbuildr/install.ps1 | iex            # Windows
 ```
 
-Add to your Claude Desktop config (`%APPDATA%\Claude\claude_desktop_config.json` on Windows, `~/Library/Application Support/Claude/claude_desktop_config.json` on macOS):
+Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS, `%APPDATA%\Claude\claude_desktop_config.json` on Windows):
 
 ```json
 {
@@ -94,6 +94,17 @@ Add to your Claude Desktop config (`%APPDATA%\Claude\claude_desktop_config.json`
 ```
 
 </details>
+
+### Remote MCP over HTTP
+
+`salesbuildr-mcp --transport http` (or `PP_MCP_TRANSPORT=http`) serves streamable HTTP at `http://127.0.0.1:7777/mcp`. It refuses to start until `SALESBUILDR_MCP_HTTP_TOKEN` is set to at least 32 characters, and every request must send `Authorization: Bearer <token>`. The command below prints 64 hex characters and meets that minimum. Plain HTTP is allowed only on a loopback `--addr`; any other bind, including `:7777` (every interface), also needs `--tls-cert` and `--tls-key`. Requests with no `Origin` header are accepted, as are loopback origins (`localhost`, `127.0.0.1`, or `[::1]`, any port). Any other `Origin` is refused unless it is listed in `SALESBUILDR_MCP_HTTP_ALLOWED_ORIGINS`, a comma-separated list of `scheme://host[:port]` values with no path. That list is not a CORS policy; the server does not emit CORS headers.
+
+```bash
+export SALESBUILDR_MCP_HTTP_TOKEN="$(openssl rand -hex 32)"
+salesbuildr-mcp --transport http
+```
+
+Set `SALESBUILDR_MCP_READ_ONLY=1` (exactly `1`) to drop mirrored commands that are not marked read-only and make the raw execute tool refuse state-changing calls. Commands marked local-write, which write only this CLI's own learn store, stay available.
 
 ## Authentication
 
@@ -120,8 +131,6 @@ salesbuildr-cli opportunity winrate --by owner
 ```
 
 ## Unique Features
-
-These capabilities aren't available in any other tool for this API.
 
 ### Local analytics that compound
 - **`quote stale`**  -  Surface quotes that have been sent or approved but are aging past a cutoff, with the dollar value still at risk.
@@ -201,7 +210,6 @@ These capabilities aren't available in any other tool for this API.
 
 ## Recipes
 
-
 ### Weekly pipeline review
 
 ```bash
@@ -245,6 +253,81 @@ Query the synced catalog offline for products priced below a 25% markup floor.
 ## Usage
 
 Run `salesbuildr-cli --help` for the full command reference and flag list.
+
+## Paths & environment variables
+
+This CLI separates local files into four path kinds:
+
+| Kind | Contents |
+|------|----------|
+| `config` | User-editable settings such as `config.toml` and saved profiles |
+| `data` | Durable local data: `credentials.toml`, `data.db`, cookies, browser-session proof files, and other auth sidecars |
+| `state` | Runtime state such as persisted queries, jobs, and `teach.log` |
+| `cache` | Regenerable HTTP/cache files |
+
+Each kind resolves independently. The ladder is:
+
+1. Per-kind env var: `SALESBUILDR_CONFIG_DIR`, `SALESBUILDR_DATA_DIR`, `SALESBUILDR_STATE_DIR`, or `SALESBUILDR_CACHE_DIR`
+2. `--home <dir>` for this invocation
+3. `SALESBUILDR_HOME` for a flat relocated root
+4. XDG env vars: `XDG_CONFIG_HOME`, `XDG_DATA_HOME`, `XDG_STATE_HOME`, `XDG_CACHE_HOME`
+5. Platform defaults matching existing installs
+
+For containers and agent sandboxes, prefer a single relocated root:
+
+```bash
+export SALESBUILDR_HOME=/srv/salesbuildr
+salesbuildr-cli doctor
+```
+
+On Windows (PowerShell):
+
+```powershell
+$env:SALESBUILDR_HOME = "C:\ProgramData\salesbuildr"
+salesbuildr-cli doctor
+```
+
+Under `SALESBUILDR_HOME=/srv/salesbuildr`, the four dirs resolve to `/srv/salesbuildr/config`, `/srv/salesbuildr/data`, `/srv/salesbuildr/state`, and `/srv/salesbuildr/cache`.
+
+On Windows, set the same variable in PowerShell:
+
+```powershell
+$env:SALESBUILDR_HOME = "C:\srv\salesbuildr"
+salesbuildr-cli doctor
+```
+
+Under `$env:SALESBUILDR_HOME = "C:\srv\salesbuildr"`, the four dirs resolve to `C:\srv\salesbuildr\config`, `C:\srv\salesbuildr\data`, `C:\srv\salesbuildr\state`, and `C:\srv\salesbuildr\cache`.
+
+MCP servers do not receive CLI flags from the host. Put relocation in the host `env` block:
+
+```json
+{
+  "mcpServers": {
+    "salesbuildr": {
+      "command": "salesbuildr-mcp",
+      "env": {
+        "SALESBUILDR_HOME": "/srv/salesbuildr"
+      }
+    }
+  }
+}
+```
+
+Precedence matters in fleets: an ambient per-kind variable such as `SALESBUILDR_DATA_DIR` overrides an explicit `--home` for that kind. Use `SALESBUILDR_HOME` or the per-kind variables for durable fleet relocation; treat `--home` as the weaker per-invocation lever.
+
+Relocation is one-way. Unsetting `SALESBUILDR_HOME` does not move files back to platform defaults, and `doctor` cannot find credentials left under a former root. Move the files manually before unsetting relocation variables.
+
+Existing installs keep working because the platform-default rung matches the legacy layout. On the first auth write, stored secrets leave `config.toml` and are consolidated into `credentials.toml` under the data directory. Run `salesbuildr-cli doctor --fail-on warn` to check path and credential-location warnings in automation.
+
+### Local data
+
+Reads are saved locally by default: in `--data-source auto` mode every successful read is also written to the SQLite store (`data.db`, or `data-<hash>.db` per credential) in the data directory. GET responses are never cached on disk. Credentials live in `credentials.toml` in the data directory. The learn journal lives under `learn/` in the state directory. `salesbuildr-cli doctor` prints the resolved paths, every store file, and the response-cache size.
+
+None of it is encrypted. New files are created owner-only; beyond that the data relies on OS account permissions and full-disk encryption (FileVault, BitLocker, LUKS).
+
+- **Erase it:** `salesbuildr-cli local-data purge` lists the store files, response cache, and learn journal it would delete; add `--yes` to delete them, or `--only store|cache|journal` to narrow it. Config and credentials are kept.
+- **Run without a local copy:** set `SALESBUILDR_NO_LOCAL_DATA=1`. Reads go to the API (`--data-source live`; `--data-source local` still reads an existing store), the response cache is off (`--no-cache`), nothing new is written to the store, and `sync` and `workflow archive` refuse to run. Set it in an MCP host's `env` block and every command the server runs inherits it.
+- **Choose the read source without flags:** `SALESBUILDR_DATA_SOURCE=auto|live|local` sets the `--data-source` default; an explicit flag wins.
 
 ## Commands
 
@@ -375,6 +458,69 @@ Manage sync state
 - **`salesbuildr-cli sync-state <id>`** - This endpoint is exempt from rate limiting
 
 
+### company
+
+
+- **`salesbuildr-cli company whitespace`** - Show catalog products a company has never been quoted  -  the cross-sell gaps.
+
+
+### opportunity
+
+
+- **`salesbuildr-cli opportunity velocity`** - Aggregate sales-cycle duration and time-in-stage across the opportunity pipeline.
+
+- **`salesbuildr-cli opportunity winrate`** - Compute won/lost ratios grouped by owner, stage, or category.
+
+- **`salesbuildr-cli opportunity mrr-forecast`** - Weight open-pipeline monthly revenue and profit by probability, churn-adjusted.
+
+
+### pricing
+
+
+- **`salesbuildr-cli pricing drift`** - Flag per-company pricing-book prices that have diverged from the master catalog price or cost.
+
+
+### product
+
+
+- **`salesbuildr-cli product velocity`** - Rank catalog products by how often they appear across quote line items and the total value quoted  -  your de-facto bestsellers.
+
+
+### quote
+
+
+- **`salesbuildr-cli quote stale`** - Surface quotes that have been sent or approved but are aging past a cutoff, with the dollar value still at risk.
+
+- **`salesbuildr-cli quote thin`** - Find every quote line item across all open quotes whose markup falls below a floor.
+
+- **`salesbuildr-cli quote funnel`** - See stage-by-stage conversion of the quote lifecycle  -  count and dollar value at draft, sent, approved, declined, and expired.
+
+
+### reconcile-psa
+
+
+- **`salesbuildr-cli reconcile-psa`** - Find rows across companies, contacts, products, and opportunities whose external identifier is missing  -  the records that silently miss a PSA sync.
+
+
+
+
+### Self-learning loop
+
+This CLI caches per-question discovery so repeat queries skip the walk and structurally similar queries get answered via entity substitution. The loop also self-captures: every invocation is journaled locally, and failed-flag corrections plus fresh teaches surface as candidates on the next `recall` for confirm/reject judgment. Agents call `recall` before discovery and fire `teach &` after answering. See the `## Automatic learning` section in `SKILL.md` for the full protocol.
+
+- **`salesbuildr-cli recall <query>`** - Look up cached resources for a query before running discovery
+- **`salesbuildr-cli teach`** - Record a query -> resource mapping (silent on success, safe to background with `&`)
+- **`salesbuildr-cli learnings list`** - Inspect taught rows
+- **`salesbuildr-cli learnings forget <query>`** - Undo a teach
+- **`salesbuildr-cli learnings candidates`** - List auto-captured candidates awaiting confirm/reject
+- **`salesbuildr-cli learnings stats`** - Local loop metrics: recall hit rate, teach-to-reuse, playbook resolution, candidate counts
+- **`salesbuildr-cli teach-pattern`** - Install a query/resource template up front
+- **`salesbuildr-cli teach-lookup`** - Add an entity mapping (e.g. country code, team alias) for pattern substitution
+
+Pass `--no-learn` or set `SALESBUILDR_NO_LEARN=true` to disable the loop for deterministic flows.
+
+The local store's schema version stamp is one-way: once this version of `salesbuildr-cli` opens the database, older binaries refuse it with a version error  -  upgrade the binary rather than downgrading.
+
 ## Output Formats
 
 ```bash
@@ -383,9 +529,8 @@ salesbuildr-cli category public-get-all-categories
 
 # JSON for scripting and agents
 salesbuildr-cli category public-get-all-categories --json
-
 # Filter to specific fields
-salesbuildr-cli category public-get-all-categories --json --select id,name,status
+salesbuildr-cli category public-get-all-categories --json --select addingProductByAdminOnly,addons,billingCode
 
 # Dry run  -  show the request without sending
 salesbuildr-cli category public-get-all-categories --dry-run
@@ -394,21 +539,23 @@ salesbuildr-cli category public-get-all-categories --dry-run
 salesbuildr-cli category public-get-all-categories --agent
 ```
 
+`--csv` prefixes a leading `'` on cells and header keys that start with `=`, `+`, `-`, `@`, a tab, or a line break (including fullwidth `＝＋－＠`) so a spreadsheet does not run them as formulas. Plain signed numbers such as `-5` and `+2.5e3` are left unchanged.
+
 ## Agent Usage
 
 This CLI is designed for AI agent consumption:
 
 - **Non-interactive** - never prompts, every input is a flag
 - **Pipeable** - `--json` output to stdout, errors to stderr
-- **Filterable** - `--select id,name` returns only fields you need
+- **Filterable** - `--select <field>[,<field>...]` returns only fields you need
 - **Previewable** - `--dry-run` shows the request without sending
-- **Explicit retries** - add `--idempotent` to create retries and `--ignore-missing` to delete retries when a no-op success is acceptable
-- **Confirmable** - `--yes` for explicit confirmation of destructive actions
+- **Explicit retries** - add `--idempotent` to create retries and add `--ignore-missing` to delete retries when a no-op success is acceptable
+- **Explicit confirmation** - `--agent` does not imply `--yes`; pass `--yes` separately only after the target, arguments, and side effects are clear
 - **Piped input** - write commands can accept structured input when their help lists `--stdin`
 - **Offline-friendly** - sync/search commands can use the local SQLite store when available
 - **Agent-safe by default** - no colors or formatting unless `--human-friendly` is set
 
-Exit codes: `0` success, `2` usage error, `3` not found, `4` auth error, `5` API error, `7` rate limited, `10` config error.
+Exit codes: `0` success, `2` usage error, `3` not found, `4` auth error, `5` API error, `6` partial failure, `7` rate limited, `10` config error.
 
 ## Runtime Endpoint
 
@@ -429,9 +576,11 @@ Verifies configuration, credentials, and connectivity to the API.
 
 ## Configuration
 
-Config file: `~/.config/salesbuildr-cli/config.toml`
+Run `salesbuildr-cli doctor` to see the resolved config, data, state, and cache directories. The platform-default config path is `~/.config/salesbuildr-cli/config.toml` on macOS/Linux and `%USERPROFILE%\.config\salesbuildr-cli\config.toml` on Windows; `--home`, `SALESBUILDR_HOME`, and per-kind env vars can relocate it.
 
 Static request headers can be configured under `headers`; per-command header overrides take precedence.
+
+`--ca-cert`, `SALESBUILDR_CA_CERT`, or `ca_cert` adds a PEM CA bundle to the system trust roots. `--tls-server-name`, `SALESBUILDR_TLS_SERVER_NAME`, or `tls_server_name` is the name checked against the certificate when the dialed address does not match it. Precedence is flag, then environment, then the config file. A config file other users can change does not supply these settings. Certificate verification failures are not retried.
 
 Environment variables:
 
@@ -444,10 +593,17 @@ Environment variables:
 
 If you use agentcookie to sync secrets across machines, this CLI auto-adopts agentcookie-managed credentials with no extra setup. When the daemon writes to this CLI's config, `salesbuildr-cli doctor` reports `agentcookie: detected` and `auth-status` labels the source as `agentcookie`. Skip this section if you don't use agentcookie - the CLI works the same as any other.
 
+## Credential safety
+
+- The `api-key` header and every API request go only to the scheme, host and port of the API base URL: `https://<SALESBUILDR_TENANT>.salesbuildr.com/public-api`, or `SALESBUILDR_BASE_URL` when set. A redirect to any other host is refused, so the key never reaches it. `SALESBUILDR_TENANT` must be one subdomain label (`acme` for `https://acme.salesbuildr.com`); any other value, or the placeholder `your-tenant`, refuses every request.
+- Any output, file, local store write or MCP result that would carry `SALESBUILDR_API_KEY`, the stored key, an `--integration-key` value, or a credential field from a response (`password`, `otp`, `pin`, `passcode`, `integrationKey`), in any encoding, is withheld whole: the program prints "[credkit: withheld from stdout: it carried a credential this program holds]" (naming the sink) in its place. Responses are never cached on disk.
+- Only `credentials.toml` (mode 0600) holds a credential; `auth set-token` reads the key from stdin, never from an argument.
+- `--dry-run` sends nothing. Over MCP, every call that creates, changes or deletes Salesbuildr data (`salesbuildr_execute`, `import`) returns a preview and sends only with `confirm: true`, and a tool argument can never name a file to read or write.
+
 ## Troubleshooting
 **Authentication errors (exit code 4)**
 - Run `salesbuildr-cli doctor` to check credentials
-- Verify the environment variable is set: `echo $SALESBUILDR_API_KEY`
+- Verify the environment variable is set without printing it: `[ -n "$SALESBUILDR_API_KEY" ] && echo set` (PowerShell: `if ($env:SALESBUILDR_API_KEY) { 'set' }`)
 **Not found errors (exit code 3)**
 - Check the resource ID is correct
 - Run the `list` command to see available items

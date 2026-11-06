@@ -1,0 +1,132 @@
+{
+ "sites": [
+  {
+   "file": "cmd/knowbe4-mcp/knowbe4_tls_key_hold.go",
+   "func": "holdTLSKey",
+   "what": "os.DirFS",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reads the --tls-key file only to hold its key material with the kit"
+  },
+  {
+   "file": "internal/credwire/declarations.go",
+   "func": "holdProfileStores",
+   "what": "os.DirFS",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reads the run profile stores (profiles.json) only to hold their values with credkit.HoldBody and credkit.HoldURL; they are JSON, so Declarations.Files cannot name them"
+  },
+  {
+   "file": "internal/credsql/credsql.go",
+   "func": "applyLengthLimit",
+   "what": "database/sql.OpenDB",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "a connection hook of the inner SQLite driver, run when credkit.SQLDriver opens a connection (never in init): it makes one sqlite3_limit call on that connection and runs no statement; nothing else reaches this handle"
+  },
+  {
+   "file": "internal/credsql/credsql.go",
+   "func": "applyLengthLimit",
+   "what": "database/sql.DB.Conn",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the lent connection of the same hook, used only for the sqlite3_limit call, inside credkit.SQLDriver"
+  },
+  {
+   "file": "internal/userevents/userevents.go",
+   "func": "New",
+   "what": "net/http.Client{}",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "its Transport is cliutil.OutboundGuard(nil): cliutil.OutboundGuard is credkit.Transport outside tests (internal/cliutil/credkit_hold.go); the test seam alone replaces it"
+  },
+  {
+   "file": "internal/userevents/userevents.go",
+   "func": "New",
+   "what": "call:dynamic",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the call is cliutil.OutboundGuard(nil): cliutil.OutboundGuard is credkit.Transport outside tests (internal/cliutil/credkit_hold.go); the test seam alone replaces it"
+  },
+  {
+   "file": "internal/userevents/userevents.go",
+   "func": "New",
+   "what": "sink:net/http.RoundTripper",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the nil is passed to cliutil.OutboundGuard, which wraps http.DefaultTransport in credkit.Transport: cliutil.OutboundGuard is credkit.Transport outside tests (internal/cliutil/credkit_hold.go); the test seam alone replaces it"
+  },
+  {
+   "file": "internal/userevents/userevents.go",
+   "func": "Client.do",
+   "what": "net/http.NewRequestWithContext",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "sent only by c.HTTP, whose Transport is cliutil.OutboundGuard(nil) (credkit.Transport) under the connector origin pin"
+  },
+  {
+   "file": "internal/cli/knowbe4_guard.go",
+   "func": "installPin",
+   "what": "call:dynamic",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the call is cliutil.OutboundGuard(nil), the fallback for a client with no transport: cliutil.OutboundGuard is credkit.Transport outside tests (internal/cliutil/credkit_hold.go); the test seam alone replaces it"
+  },
+  {
+   "file": "internal/cli/knowbe4_guard.go",
+   "func": "installPin",
+   "what": "sink:net/http.RoundTripper",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the nil is passed to cliutil.OutboundGuard, which wraps http.DefaultTransport in credkit.Transport: cliutil.OutboundGuard is credkit.Transport outside tests (internal/cliutil/credkit_hold.go); the test seam alone replaces it"
+  },
+  {
+   "file": "internal/cli/knowbe4_guard.go",
+   "func": "installPin",
+   "what": "net/http.Client.Transport",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "wraps the client transport, which is credkit.Transport (through cliutil.OutboundGuard), in the connector origin pin; every request it passes goes on through the kit"
+  },
+  {
+   "file": "internal/cli/knowbe4_guard.go",
+   "func": "installPin",
+   "what": "convert:knowbe4-pp-cli/internal/cli.originPinTripper.RoundTrip",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the origin pin only refuses or forwards to the kit-wrapped transport (originPinTripper.RoundTrip calls t.next, which is credkit.Transport)"
+  },
+  {
+   "file": "internal/cli/knowbe4_guard.go",
+   "func": "installPin",
+   "what": "convert:knowbe4-pp-cli/internal/cli.dryRunTripper.RoundTrip",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the --dry-run transport sends nothing: it refuses every request with ErrDryRunSend"
+  },
+  {
+   "file": "internal/cli/knowbe4_guard.go",
+   "func": "refuseOtherAPICredentials",
+   "what": "net/http.Client.Transport",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "sets the other-API refusal on the origin pin, which forwards only to the kit-wrapped transport"
+  },
+  {
+   "file": "internal/cli/knowbe4_guard.go",
+   "func": "refuseOtherAPICredentials",
+   "what": "convert:knowbe4-pp-cli/internal/cli.originPinTripper.RoundTrip",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the origin pin only refuses or forwards to the kit-wrapped transport"
+  },
+  {
+   "file": "internal/cli/knowbe4_guard.go",
+   "func": "originPinTripper.RoundTrip",
+   "what": "net/http.RoundTripper.RoundTrip",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "t.next is the kit-wrapped transport (credkit.Transport through cliutil.OutboundGuard), or the --dry-run transport that sends nothing"
+  }
+ ]
+}
