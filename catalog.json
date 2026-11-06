@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-11-05",
+  "generated_at": "2026-11-06",
   "skills": [
     {
       "name": "msp-skills-concierge",
@@ -92,7 +92,7 @@
       "skill_path": "skills/afi",
       "cli_binary": "afi-cli",
       "mcp_binary": "afi-mcp",
-      "version": "0.1.8",
+      "version": "0.1.9",
       "printing_press_version": "4.34.2",
       "license": "Apache-2.0",
       "vendor": "Afi",
@@ -172,7 +172,7 @@
       "skill_path": "skills/autotask",
       "cli_binary": "autotask-cli",
       "mcp_binary": "autotask-mcp",
-      "version": "0.1.9",
+      "version": "0.1.10",
       "printing_press_version": "4.34.2",
       "license": "Apache-2.0",
       "vendor": "Autotask",
@@ -454,7 +454,7 @@
       "skill_path": "skills/cloudally",
       "cli_binary": "cloudally-cli",
       "mcp_binary": "cloudally-mcp",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "printing_press_version": "4.33.5",
       "license": "Apache-2.0",
       "vendor": "CloudAlly",
@@ -465,7 +465,7 @@
       "description": "Restore or download every CloudAlly mailbox as it stood on a past date, read each mailbox's backup history, and find failing backups across every customer.",
       "verification": "live-verified",
       "verified_version": "0.1.0",
-      "verified_code": "current",
+      "verified_code": "changed",
       "category": "Backup/DR",
       "tagline": "See every CloudAlly customer's backup status, tasks and billing, and run backups and recovery jobs, from one CLI and MCP server."
     },
