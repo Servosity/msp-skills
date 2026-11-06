@@ -441,11 +441,11 @@
     "released_hash": "sha256:d45790225e20651bf23351a8bfe20eca448e43f5571235a2b4363d1a70d8bd20"
   },
   "nerdio": {
-    "state": "binary-pending",
-    "version": "0.1.8",
+    "state": "version-pending",
+    "version": "0.1.9",
     "latest_tag": "nerdio-v0.1.8",
     "current_hash": "sha256:30498c026b1b238587c00d7f3432436190a0619a478fd9c7815d4076d9488af2",
-    "released_hash": "sha256:9293f8004d77247a9f04554784426852cba5ced60c1e3b318985c95a2aee0911"
+    "released_hash": "sha256:30498c026b1b238587c00d7f3432436190a0619a478fd9c7815d4076d9488af2"
   },
   "netsapiens": {
     "state": "up-to-date",
