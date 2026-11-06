@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 // Hand-written: makes `doctor` report a verdict that tracks reality.
 //
 // The generated doctor called any HTTP response to `GET /` "reachable" and

@@ -1,7 +1,7 @@
 {
   "name": "td-synnex",
   "version": "0.1.2",
-  "description": "The StreamOne ION v3 reseller API (customers, catalog, orders, subscriptions, carts, reports), plus a local licence book for renewals, margin and cross-distributor true-up.",
+  "description": "Every StreamOne ION reseller API, plus a local licence book for renewals, margin and cross-distributor true-up.",
   "author": {
     "name": "Servosity",
     "url": "https://www.servosity.com"

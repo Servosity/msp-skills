@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 // Hand-written (handfixes.json: ion-book-refuses-unproven-store): the licence
 // book answers only from a store whose every resource it reads was walked to a
 // proven end of pagination.

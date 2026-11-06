@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 // Hand-written: a --dry-run request body is printed only through the
 // registered redactor (Codex review round 13, P1: an order body carrying a
 // tenant admin password reached stderr verbatim).

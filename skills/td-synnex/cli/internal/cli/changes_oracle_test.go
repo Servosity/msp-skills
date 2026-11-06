@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 // Hand-written: brute-force oracle for subscriptions changes previous_seats.
 // Every stated previous_seats must be the one value the order history
 // allows in every ordering consistent with the order times (adversarial

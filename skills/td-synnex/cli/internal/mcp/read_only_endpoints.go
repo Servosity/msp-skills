@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 // Hand-authored (handfixes.json: mcp-order-tools-destructive-hint). The read-only drop is native in 4.35.1 (tools.go).
 
 package mcp
