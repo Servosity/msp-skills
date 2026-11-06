@@ -568,10 +568,10 @@
   },
   "runzero": {
     "state": "up-to-date",
-    "version": "0.1.7",
-    "latest_tag": "runzero-v0.1.7",
-    "current_hash": "sha256:01c262f6eb49225b774a97bb580d26dfd71051a2b6da0eea01a6fbe77314458a",
-    "released_hash": "sha256:01c262f6eb49225b774a97bb580d26dfd71051a2b6da0eea01a6fbe77314458a"
+    "version": "0.1.8",
+    "latest_tag": "runzero-v0.1.8",
+    "current_hash": "sha256:ead1e127f144d247db15cfcb3a024b1cae340fa2b0230a41235a2d3c79a12b09",
+    "released_hash": "sha256:ead1e127f144d247db15cfcb3a024b1cae340fa2b0230a41235a2d3c79a12b09"
   },
   "saas-alerts": {
     "state": "up-to-date",
@@ -582,10 +582,10 @@
   },
   "salesbuildr": {
     "state": "up-to-date",
-    "version": "0.1.7",
-    "latest_tag": "salesbuildr-v0.1.7",
-    "current_hash": "sha256:e31242c2d1749bd63ae9618a38ea5346624a2b36672ccb90154c6d19637ee9d7",
-    "released_hash": "sha256:e31242c2d1749bd63ae9618a38ea5346624a2b36672ccb90154c6d19637ee9d7"
+    "version": "0.1.8",
+    "latest_tag": "salesbuildr-v0.1.8",
+    "current_hash": "sha256:114e50160279eed7598075d7be9c9f4eba22065ab9719fb1c9a449273f107176",
+    "released_hash": "sha256:114e50160279eed7598075d7be9c9f4eba22065ab9719fb1c9a449273f107176"
   },
   "sentinelone": {
     "state": "binary-pending",
