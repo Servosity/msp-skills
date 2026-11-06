@@ -21,10 +21,10 @@
     "released_hash": "sha256:21cffbd6b2c5a562e304f06c6b0566b028af43c5c3553b60bd42f7f8a869f9e9"
   },
   "afi": {
-    "state": "up-to-date",
+    "state": "binary-pending",
     "version": "0.1.8",
     "latest_tag": "afi-v0.1.8",
-    "current_hash": "sha256:4aa85880c521b0469e454721927ac643f6b142fbb5aec773361166617a728bc6",
+    "current_hash": "sha256:b12adf457b152c7556a18d0f570e3f63f1d7707dd4a3d0ed617ff6774c984502",
     "released_hash": "sha256:4aa85880c521b0469e454721927ac643f6b142fbb5aec773361166617a728bc6"
   },
   "appdirect": {
