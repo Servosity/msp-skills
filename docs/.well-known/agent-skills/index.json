@@ -254,6 +254,13 @@
       "digest": "sha256:29677391eba043513241da85b1a43e376fa3c92479bd24808d8103c20e869ac8"
     },
     {
+      "name": "domain-cert-tracker",
+      "type": "skill-md",
+      "description": "Every client's domains and certificates in one inventory: what expires, unlocks or changes. Trigger phrases: `which client domains expire this month`, `check the certificate on this host`, `did any client domain lose its registrar lock`, `new certificates for our clients' domains`, `check SPF DMARC and CAA for a domain`, `use domain-cert-tracker`, `run domain-cert-tracker`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/domain-cert-tracker/SKILL.md",
+      "digest": "sha256:40af54d06202282110caab12d1d4a921a8ba2e1f8a7ce8d3a4e1517d155d001a"
+    },
+    {
       "name": "domotz",
       "type": "skill-md",
       "description": "Every Domotz endpoint, plus a local SQLite fleet mirror that answers cross-site questions. Trigger phrases: `which domotz sites are down`, `list offline devices across all sites`, `export domotz device inventory`, `check fleet health in domotz`, `find new devices on the network`, `use domotz`, `run domotz-cli`.",

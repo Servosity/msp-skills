@@ -1,5 +1,5 @@
 {
-  "count": 102,
+  "count": 103,
   "connectors": [
     {
       "slug": "abnormal",
@@ -455,6 +455,19 @@
       "verified_version": null,
       "verified_code": null,
       "url": "/skills/dnsfilter/"
+    },
+    {
+      "slug": "domain-cert-tracker",
+      "display_name": "Domain and Certificate Tracker",
+      "tagline": "Track every client's domain expiries, registrar locks, DNS drift and certificates from one local inventory, no vendor login.",
+      "category": "Monitoring",
+      "verification": "awaiting",
+      "verified_by": null,
+      "source": null,
+      "issue_url": null,
+      "verified_version": null,
+      "verified_code": null,
+      "url": "/skills/domain-cert-tracker/"
     },
     {
       "slug": "domotz",

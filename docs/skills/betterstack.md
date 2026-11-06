@@ -177,6 +177,10 @@ You need a Better Stack account with an API token. The analytics run against wha
 No, it complements it. The portal is still where you configure monitors and watch live. This skill answers the cross-account questions the portal makes you click through - coverage gaps, MTTA/MTTR, on-call gaps, status-page drift - from your AI.
 
 
+## More Monitoring connectors
+
+Run more than one Monitoring tool, or comparing options? These connectors work the same way: [Domain and Certificate Tracker](/skills/domain-cert-tracker/)
+
 ## Status
 
 Beta. Validated against the Better Stack API surface and being validated with MSPs running it live against their own production tenants in our weekly **[Build Sessions](https://compoundingteams.com/build-sessions)**.

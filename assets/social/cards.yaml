@@ -152,6 +152,10 @@ dnsfilter:
   vendor: "DNSFilter"
   example_command: "Why is this site blocked for Acme?"
 
+domain-cert-tracker:
+  vendor: "Domains & Certs"
+  example_command: "Which client certificates expire this month?"
+
 domotz:
   vendor: "Domotz"
   example_command: "Which client sites have devices down?"

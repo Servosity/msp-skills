@@ -901,6 +901,29 @@
         "evidence": null
       }
     },
+    "domain-cert-tracker": {
+      "system": "Domain and TLS estate per client: registrations, expiries, registrar locks, DNS drift and certificates, from public RDAP, CT logs, DNS and TLS",
+      "status": "beta",
+      "cli_binary": "domain-cert-tracker-cli",
+      "mcp_binary": "domain-cert-tracker-mcp",
+      "vendor": "Servosity",
+      "vendor_trademark_owner": "Servosity Inc",
+      "first_party": true,
+      "category": "Monitoring",
+      "display_name": "Domain and Certificate Tracker",
+      "tagline": "Track every client's domain expiries, registrar locks, DNS drift and certificates from one local inventory, no vendor login.",
+      "has_video": true,
+      "cli_hash": "sha256:02ea1a85df686633bf778b7fa455b214709b6f36ae6b2deb9addc21b2b6abe5a",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": null,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
+    },
     "domotz": {
       "system": "Domotz network monitoring and device discovery platform",
       "status": "beta",

@@ -754,6 +754,26 @@
       "tagline": "DNS security policies, roaming agents and blocked requests across every DNSFilter client."
     },
     {
+      "name": "domain-cert-tracker",
+      "system": "Domain and TLS estate per client: registrations, expiries, registrar locks, DNS drift and certificates, from public RDAP, CT logs, DNS and TLS",
+      "status": "beta",
+      "skill_path": "skills/domain-cert-tracker",
+      "cli_binary": "domain-cert-tracker-cli",
+      "mcp_binary": "domain-cert-tracker-mcp",
+      "version": "0.1.0",
+      "printing_press_version": "4.34.2",
+      "license": "Apache-2.0",
+      "vendor": "Servosity",
+      "vendor_trademark_owner": "Servosity Inc",
+      "first_party": true,
+      "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/domain-cert-tracker/install.sh)",
+      "install_mcp_doc": "skills/domain-cert-tracker/mcp-install.md",
+      "description": "Every client's domains and certificates in one inventory: what expires, unlocks or changes.",
+      "verification": "awaiting",
+      "category": "Monitoring",
+      "tagline": "Track every client's domain expiries, registrar locks, DNS drift and certificates from one local inventory, no vendor login."
+    },
+    {
       "name": "domotz",
       "system": "Domotz network monitoring and device discovery platform",
       "status": "beta",
