@@ -2329,7 +2329,7 @@
       "display_name": "TD SYNNEX StreamOne ION",
       "tagline": "Track StreamOne ION subscriptions, renewals and margin per customer, and true up licence counts across distributors.",
       "has_video": true,
-      "cli_hash": "sha256:3f12f804d288a6aa58928d53a9475300acf1c7af7f738c292b13d4f0956f1997",
+      "cli_hash": "sha256:b4f0d408552810b7ca1906810a11848a8a064b9da4c4d8c369d8ab7e5ae5b462",
       "template_version": 3,
       "version": "0.1.2",
       "cli_hash_at_release": "sha256:1da5f0729d40f51d836e48832dc7e9710d2a4b399568e86ec59ad99092ba5a49",
