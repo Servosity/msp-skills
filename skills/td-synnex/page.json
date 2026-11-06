@@ -89,7 +89,7 @@
     },
     {
       "q": "Can it change subscriptions or place orders?",
-      "a": "Yes, and that is why the safety model matters. subscriptions set previews the UPDATE order and places it only with --confirm. Other writes (carts checkout, customer-orders create-order and cancel-order, customers create and update) send as soon as they run; preview them with --dry-run first. Keep orders, cancellations and suspensions human-approved."
+      "a": "Yes, and that is why the safety model matters. subscriptions set previews the UPDATE order and places it only with --confirm. Other writes (carts checkout, customer-orders create-order and cancel-order, customers create and update) send as soon as they run; preview them with --dry-run first. Over MCP, every tool that can change ION previews and sends only when the agent repeats the call with confirm set to true. Keep orders, cancellations and suspensions human-approved."
     },
     {
       "q": "Are the margin numbers exact?",
@@ -104,7 +104,7 @@
       "a": "No. Ordering, provisioning and invoicing stay in StreamOne ION. This skill answers the questions that span every customer, from your terminal or agent."
     }
   ],
-  "governance_summary": "The skill drives td-synnex-cli and td-synnex-mcp with an ION access token minted from your refresh token and kept in a private credentials file, or read from TD_SYNNEX_ACCESS_TOKEN; tokens are never printed unless you ask and are sent only to the ION API (ion.tdsynnex.com unless you override TD_SYNNEX_BASE_URL). The licence-book commands and every list and get read change nothing. Writes are not gated by default except subscriptions set, which needs --confirm: treat ordering, checkout, cancellation, suspension and deletion as human-only, and set TD_SYNNEX_MCP_READ_ONLY=1 to keep the MCP server to reads. The strongest control is the ION user whose OAuth credentials you issue.",
+  "governance_summary": "The skill drives td-synnex-cli and td-synnex-mcp with an ION access token minted from your refresh token and kept in a private credentials file, or read from TD_SYNNEX_ACCESS_TOKEN; tokens are never printed unless you ask and are sent only to the ION API (ion.tdsynnex.com unless you override TD_SYNNEX_BASE_URL). The licence-book commands and every list and get read change nothing. CLI writes are not gated by default except subscriptions set, which needs --confirm; over MCP every write previews and sends only with confirm set to true: treat ordering, checkout, cancellation, suspension and deletion as human-only, and set TD_SYNNEX_MCP_READ_ONLY=1 to keep the MCP server to reads. The strongest control is the ION user whose OAuth credentials you issue.",
   "safety_tiers": [
     {
       "tier": "Read",

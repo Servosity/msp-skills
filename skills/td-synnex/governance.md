@@ -49,12 +49,13 @@ your reseller account, and nothing more.
   --playbook-file`, `teach-playbook --notes-file`, `position trueup --with` / `--billed`,
   `--db`) are dropped from every MCP tool and refused as arguments, so an agent cannot
   read your credentials file back through them. The file true-up runs from the CLI.
-- **MCP endpoint write tools take only the arguments they declare.** They have no
-  dry-run: an endpoint tool that sends a POST, PUT or DELETE (every write, and the
-  report and pricing reads ION serves over POST) refuses any argument it does not
-  declare (`dry-run` included) and sends nothing. Preview a write with the CLI's
-  `--dry-run`; the tools built from CLI commands, such as `subscriptions_set`, do take a
-  `dry-run` argument.
+- **MCP writes preview first.** Every MCP tool that can change ION (order create and
+  cancel, cart checkout and edits, customer create and update, product enable and
+  disable, provisioning, report save and delete, and `subscriptions set`) returns a
+  preview and sends nothing until the agent repeats the call with `confirm` set to
+  boolean true. Endpoint tools also refuse any argument they do not declare (`dry-run`
+  included) and send nothing; the tools built from CLI commands, such as
+  `subscriptions_set`, do take a `dry-run` argument.
 - **MCP read-only mode.** `TD_SYNNEX_MCP_READ_ONLY=1` (any value except blank, `0`,
   `false`, `no` or `off`) removes every MCP tool that can change ION: order create and cancel, cart checkout and edits, customer create and
   update, product enable and disable, provisioning and linking, report save and delete,

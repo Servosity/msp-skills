@@ -225,7 +225,7 @@ With an ION OAuth refresh token, which needs an ION reseller account. Request it
 
 ### Can it change subscriptions or place orders?
 
-Yes, and that is why the [safety model](#safety-model) matters. `subscriptions set` previews the UPDATE order and places it only with `--confirm`. Other writes (`carts checkout`, `customer-orders create-order` and `cancel-order`, `customers create` and `update`) send as soon as they run; preview them with `--dry-run` first. Set `TD_SYNNEX_MCP_READ_ONLY=1` to keep the MCP server to reads.
+Yes, and that is why the [safety model](#safety-model) matters. `subscriptions set` previews the UPDATE order and places it only with `--confirm`. Other writes (`carts checkout`, `customer-orders create-order` and `cancel-order`, `customers create` and `update`) send as soon as they run; preview them with `--dry-run` first. Over MCP, every tool that can change ION previews and sends only when the agent repeats the call with `confirm` set to true. Set `TD_SYNNEX_MCP_READ_ONLY=1` to keep the MCP server to reads.
 
 ### Are the margin numbers exact?
 
