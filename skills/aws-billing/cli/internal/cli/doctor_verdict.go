@@ -48,31 +48,7 @@ const doctorBaseURLEnv = "AWS_BILLING_BASE_URL"
 // other way.
 const doctorShippedBaseURL = "https://ce.us-east-1.amazonaws.com"
 
-// doctorInfoKeys are report entries rendered without a status indicator:
-// paths, versions, and the free-text hints that tell an operator how to get a
-// credential. They are NOT health checks.
-//
-// doctorExitForFailOn used to scan every value in the report for the substrings
-// "error", "missing", "invalid" and "unreachable". That made --fail-on=error
-// trip on a perfectly healthy connector whose auth hint happened to contain the
-// word "missing", or whose suggested read command was named something like
-// `errors list`. Excluding the informational keys keeps --fail-on keyed to the
-// checks and nothing else.
-var doctorInfoKeys = map[string]bool{
-	"config_path":       true,
-	"base_url":          true,
-	"auth_source":       true,
-	"version":           true,
-	"auth_hint":         true,
-	"auth_key_url":      true,
-	"auth_instructions": true,
-	"agentcookie":       true,
-	"db_path":           true,
-}
-
-func doctorIsInfoKey(key string) bool { return doctorInfoKeys[key] }
-
-// doctorBaseURLIsPlaceholder reports whether base is still the value this
+// doctorBaseURLIsShippedPlaceholder reports whether base is still the value this
 // connector shipped with rather than the operator's own instance.
 //
 // Two shapes ship today: an unresolved template ("https://{tenant}.example/api")
@@ -81,7 +57,7 @@ func doctorIsInfoKey(key string) bool { return doctorInfoKeys[key] }
 // several placeholder hosts resolve through live wildcard DNS and answer real
 // HTTP, so dialling one produces a confident green verdict against a host the
 // operator has never heard of.
-func doctorBaseURLIsPlaceholder(base string) bool {
+func doctorBaseURLIsShippedPlaceholder(base string) bool {
 	if base == "" {
 		return false // "not configured" is a separate, already-handled state
 	}
@@ -107,7 +83,8 @@ func doctorBaseURLIsPlaceholder(base string) bool {
 	if i := strings.IndexAny(host, "/?#:"); i >= 0 {
 		host = host[:i]
 	}
-	for _, reserved := range []string{"example.com", "example.net", "example.org", "example.edu", "invalid", "localhost.example"} {
+	// The whole .example and .invalid TLDs are reserved (RFC 6761), localhost.example included.
+	for _, reserved := range []string{"example.com", "example.net", "example.org", "example.edu", "invalid", "example"} {
 		if host == reserved || strings.HasSuffix(host, "."+reserved) {
 			return true
 		}

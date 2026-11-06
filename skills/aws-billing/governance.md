@@ -9,10 +9,13 @@
 
 The skill drives the `aws-billing-cli` binary (and `aws-billing-mcp`),
 authenticating with the native AWS credential chain documented in mcp-install.md -
-environment variables, a shared `--profile-aws`, SSO, assume-role, or instance
-metadata. It signs its own requests (SigV4); there are no access keys to paste and
-no `aws` CLI dependency. Credentials are read from the environment only - never
-written to disk, never logged, never sent anywhere except the AWS API.
+environment variables, a shared `--profile-aws`, SSO, or assume-role. EC2
+instance-metadata (instance role) credentials are not used; on EC2 use a profile,
+SSO or environment keys. It signs its own requests (SigV4); there are no access keys to paste and
+no `aws` CLI dependency. Credentials are read from the AWS credential chain only -
+never written to disk by this CLI, never logged, never sent anywhere except the AWS
+API. The shared credential kit withholds any output, file, local-store row, helper
+program input or request that would carry one.
 
 ## Default-safe behavior
 
