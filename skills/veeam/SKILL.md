@@ -1,6 +1,6 @@
 ---
 name: veeam
-description: "Every Veeam Service Provider Console endpoint as a typed command, plus a local multi-tenant mirror, cross-company rollups, and drift detection no per-instance Veeam tool offers. Trigger phrases: `check Veeam backup health`, `which Veeam jobs are failing`, `stale Veeam backups across customers`, `Veeam alarms triage`, `Veeam license usage by company`, `what changed in Veeam since yesterday`, `use veeam`, `run veeam`."
+description: "Use when the user asks to check Veeam backup health across customers, find failing or stale backup jobs, surface workloads past their RPO, triage VSPC alarms, or report per-tenant license usage from a Veeam Service Provider Console. Syncs every tenant into a local SQLite mirror so it answers multi-tenant backup questions the per-tenant console can't. Trigger phrases: `check Veeam backup health`, `which Veeam jobs are failing`, `stale Veeam backups across customers`, `Veeam alarms triage`, `Veeam license usage by company`, `what changed in Veeam since yesterday`, `use veeam`, `run veeam`."
 author: "Damien Stevens"
 license: "Apache-2.0"
 vendor: "Veeam"
@@ -18,7 +18,7 @@ metadata:
         ps1: https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/veeam/install.ps1
 ---
 
-# Veeam Service Provider Console  -  Printing Press CLI
+# Veeam Service Provider Console Claude Code Skill
 
 ## Prerequisites: Install the CLI
 
@@ -1547,7 +1547,7 @@ Parse `$ARGUMENTS`:
    ```
 3. Verify: `claude mcp list`
 
-For a remote host, `veeam-mcp --transport http` requires `VEEAM_MCP_HTTP_TOKEN` set to at least 32 characters (callers send `Authorization: Bearer <token>`; `openssl rand -hex 32` prints 64 hex characters and meets that minimum), binds `127.0.0.1:7777` by default, and needs `--tls-cert`/`--tls-key` for any non-loopback `--addr`. Requests with no `Origin` header are accepted. Loopback origins are accepted; any other `Origin` is refused unless listed in `VEEAM_MCP_HTTP_ALLOWED_ORIGINS` (comma-separated `scheme://host[:port]` values). `VEEAM_MCP_READ_ONLY=1` drops mirrored write commands (local-write commands that only touch the CLI's own learn store stay) and makes the raw execute tool refuse state-changing calls.
+For a remote host, `veeam-mcp --transport http` requires `VEEAM_MCP_HTTP_TOKEN` set to at least 32 characters (callers send `Authorization: Bearer <token>`; `openssl rand -hex 32` prints 64 hex characters and meets that minimum), binds `127.0.0.1:7777` by default, and needs `--tls-cert`/`--tls-key` for any non-loopback `--addr`. Requests with no `Origin` header are accepted. Loopback origins are accepted; any other `Origin` is refused unless listed in `VEEAM_MCP_HTTP_ALLOWED_ORIGINS` (comma-separated `scheme://host[:port]` values). `VEEAM_MCP_READ_ONLY=1` keeps only the tools marked read-only: the raw execute tool, sync, import, export and the commands that write this CLI's own learn store (teach, learnings confirm/forget/reject, playbook amend, workflow archive) are removed from the tool list.
 
 ## Direct Use
 

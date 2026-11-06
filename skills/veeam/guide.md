@@ -101,7 +101,7 @@ export VEEAM_MCP_HTTP_TOKEN="$(openssl rand -hex 32)"
 veeam-mcp --transport http
 ```
 
-Set `VEEAM_MCP_READ_ONLY=1` (exactly `1`) to drop mirrored commands that are not marked read-only and make the raw execute tool refuse state-changing calls. Commands marked local-write, which write only this CLI's own learn store, stay available.
+Set `VEEAM_MCP_READ_ONLY=1` (exactly `1`) and the server keeps only the tools marked read-only: the raw execute tool, sync, import, export and the commands that write this CLI's own learn store are removed from the tool list.
 
 ## Authentication
 
