@@ -12,7 +12,7 @@
 <p align="center"><sub>▶ <a href="https://msp-skills.compoundingteams.com/skills/sonicwall/">Watch the 30-second demo</a> - demo data is simulated; every command shown exists in the real CLI.</sub></p>
 <!-- media:end -->
 
-Cyber-insurance posture for a whole SonicWall fleet: firmware, advisories, MFA, SSL-VPN exposure and licences, one row per firewall. Works with the AI you already use - **ChatGPT** (Plus/Pro+, through a hosted HTTPS endpoint; see [mcp-install.md](./mcp-install.md)), **Claude Desktop**, **Codex**, **Claude Code**, **Claude Cowork**, and **GitHub Copilot** - plus **Microsoft 365 Copilot / Copilot Studio** and **Google Gemini** via the remote path. Free, open source, runs on your laptop. Built for MSP owners. No code required.
+Cyber-insurance posture for a whole SonicWall fleet: firmware, advisories, MFA, SSL-VPN exposure and licences, one row per firewall. Works with the AI you already use - **ChatGPT** (desktop app), **Claude Desktop**, **Codex**, **Claude Code**, **Claude Cowork**, and **GitHub Copilot** - plus **Gemini CLI**. Free, open source, runs on your laptop. Built for MSP owners. No code required.
 
 ## Works with your agent
 
@@ -21,13 +21,13 @@ The six agents MSP owners actually use (self-serve, works today):
 | Your AI agent | How to install the SonicWall skill |
 | --- | --- |
 | **Claude Desktop** | Run installer, then **Settings > Extensions** to register `sonicwall-mcp` (no JSON editing). |
-| **ChatGPT** (paid plans) | Run installer, host `sonicwall-mcp` over HTTPS with a bearer token, register it as a Developer Mode connector. See [mcp-install.md](./mcp-install.md). |
+| **ChatGPT** (desktop app) | Run installer, then add `sonicwall-mcp` in **Settings > MCP servers** as a local (STDIO) server. ChatGPT on the web is not supported yet. |
 | **Codex CLI** | Paste the install prompt below. |
 | **Claude Code** | Paste the install prompt below. |
 | **Claude Cowork** | Paste the install prompt below. |
 | **GitHub Copilot** (VS Code) | Run installer, add `sonicwall-mcp` to `mcp.json` under the `servers` key, then pick **Agent** mode. |
 
-ChatGPT needs a remote HTTPS server, which means this connector's HTTP mode: it refuses to start until `SONICWALL_MCP_HTTP_TOKEN` is set, every request must send that token as a bearer header, and any address other than loopback also needs `--tls-cert` and `--tls-key`. See [mcp-install.md](./mcp-install.md).
+The ChatGPT desktop app runs `sonicwall-mcp` locally and shares MCP configuration with Codex ([OpenAI](https://learn.chatgpt.com/docs/extend/mcp)). ChatGPT on the web needs a remote (HTTP) server, which msp-skills does not support yet (see [mcp-install.md](./mcp-install.md)). If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
 
 ### Also for the Microsoft and Google stacks
 
@@ -35,8 +35,8 @@ Big install base, but an honest heads-up: Gemini CLI runs the local binary you j
 
 | Agent | What it takes |
 | --- | --- |
-| **Microsoft 365 Copilot / Copilot Studio** | Host `sonicwall-mcp` over HTTPS with a bearer token (the same HTTP mode as ChatGPT), then add it in Copilot Studio as a Model Context Protocol tool. Needs a Copilot Studio license and a tenant admin. See [mcp-install.md](./mcp-install.md). |
-| **Google Gemini** | **Gemini CLI** is local - same as Claude Code. The **Gemini app** is remote and needs the same hosted HTTPS endpoint as ChatGPT. See [mcp-install.md](./mcp-install.md). |
+| **Microsoft 365 Copilot / Copilot Studio** | Not supported by msp-skills yet: it needs a remote server. A [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list. |
+| **Google Gemini** | **Gemini CLI** is local - same as Claude Code. See [mcp-install.md](./mcp-install.md). The **Gemini app** needs a remote server and is not supported by msp-skills yet. |
 
 > **Skill-native agents (also covered):** [Hermes](https://hermes-agent.nousresearch.com) and [OpenClaw](#install-for-openclaw) read this skill's `SKILL.md` directly *and* speak MCP - see their install sections below. Also works with Cursor, Windsurf, Cline, Continue.dev, and Zed via MCP. Full per-tool wire-up: **[docs/which-agent.md](../../docs/which-agent.md)**.
 
@@ -184,7 +184,7 @@ See [pain-point.md](./pain-point.md) for the longer narrative.
 
 ### Does this work with ChatGPT?
 
-Yes, on **Plus, Pro, Team, Business, Enterprise, and Education** plans (Free does not yet expose Developer Mode). ChatGPT connects only to **remote** MCP servers over HTTPS, so you host `sonicwall-mcp` in HTTP mode: it refuses to start until `SONICWALL_MCP_HTTP_TOKEN` is set, every request must send that token as a bearer header, and any address other than loopback also needs `--tls-cert` and `--tls-key`. The connector works only if its authentication settings can send that bearer token, so check yours first. Step-by-step in [mcp-install.md](./mcp-install.md).
+Yes, in the **ChatGPT desktop app**. It runs MCP servers locally (STDIO), the way `sonicwall-mcp` runs, and shares MCP configuration with Codex ([OpenAI](https://learn.chatgpt.com/docs/extend/mcp)): add `sonicwall-mcp` under **Settings > MCP servers** as a STDIO server, or add it once to Codex's `~/.codex/config.toml`. **ChatGPT on the web** is not supported by msp-skills yet: it needs a remote (HTTP) server; [mcp-install.md](./mcp-install.md) documents this build's HTTP mode for reference. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
 
 ### Does this work with Codex, Cursor, Windsurf, Cline, Copilot, or Gemini?
 
