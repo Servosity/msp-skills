@@ -729,19 +729,45 @@ func loadIONBook(ctx context.Context, db *store.Store, resources ...string) (*io
 	return b, nil
 }
 
+// ionSyncProofLine is the constant line syncCheckpointScope writes into every
+// checkpoint scope key since the scope binds every user sync param
+// (handfixes.json: ion-sync-proof-scope-bound). A scope key without it was
+// written by an older build, whose completion flag can certify a filtered
+// walk, so the book does not trust it.
+const ionSyncProofLine = "proof:params-in-scope=1"
+
+// ionScopeProvesWholeList reports whether a sync_state scope key belongs to
+// an unfiltered walk by a build that binds params into the scope: it carries
+// ionSyncProofLine and no param: line (a --param, --global-param or
+// --resource-param walk reads a filtered list, never the whole one).
+func ionScopeProvesWholeList(scopeKey string) bool {
+	proof := false
+	for _, line := range strings.Split(scopeKey, "\n") {
+		if strings.HasPrefix(line, "param:") {
+			return false
+		}
+		if line == ionSyncProofLine {
+			proof = true
+		}
+	}
+	return proof
+}
+
 // ionUnprovenResources names the resources, of those a book command reads,
-// whose local rows are not a proven-complete list: no sync_state row, or a
+// whose local rows are not a proven-complete list: no sync_state row, a
 // latest sync attempt that did not reach a proven end of pagination
 // (sync_state.last_attempt_complete is not 1; the generated MCP store status
-// reads the same proof). Any error reading the proof counts as unproven, so
-// an old store without the column, a missing table or a closed handle all
-// refuse instead of answering.
+// reads the same flag), or a flag whose scope key does not prove a whole,
+// unfiltered walk (ionScopeProvesWholeList). Any error reading the proof
+// counts as unproven, so an old store without the columns, a missing table
+// or a closed handle all refuse instead of answering.
 func ionUnprovenResources(ctx context.Context, db *store.Store, resources []string) []string {
 	var out []string
 	for _, r := range resources {
 		var complete int
-		err := db.DB().QueryRowContext(ctx, `SELECT last_attempt_complete FROM sync_state WHERE resource_type = ?`, r).Scan(&complete)
-		if err != nil || complete != 1 {
+		var scopeKey string
+		err := db.DB().QueryRowContext(ctx, `SELECT last_attempt_complete, scope_key FROM sync_state WHERE resource_type = ?`, r).Scan(&complete, &scopeKey)
+		if err != nil || complete != 1 || !ionScopeProvesWholeList(scopeKey) {
 			out = append(out, r)
 		}
 	}
@@ -787,8 +813,9 @@ func openIONBook(cmd *cobra.Command, flags *rootFlags, dbPath string, resources 
 	}
 	if unproven := ionUnprovenResources(cmd.Context(), db, resources); len(unproven) > 0 {
 		_ = db.Close() // read-only handle
-		return nil, func() {}, configErr(fmt.Errorf("local %s not proven complete: the latest sync did not reach the end of the list "+
-			"(an auto-refresh fetches one page, and --latest-only, --max-pages or an interrupted walk stop early), so totals and lists "+
+		return nil, func() {}, configErr(fmt.Errorf("local %s not proven complete: the latest sync did not walk the whole list "+
+			"(an auto-refresh fetches one page; --latest-only, --max-pages or an interrupted walk stop early; --param, --global-param "+
+			"or --resource-param read a filtered list; a sync by an earlier version is not trusted), so totals and lists "+
 			"would leave records out; run: %s", strings.Join(unproven, ", "), syncHint))
 	}
 	if len(resources) > 0 && !hintIfUnsynced(cmd, db, resources[0]) {

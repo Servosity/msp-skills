@@ -1179,17 +1179,6 @@ func syncResource(ctx context.Context, c interface {
 	if stateErr != nil {
 		return syncResult{Resource: resource, Count: cachedCount, Err: fmt.Errorf("saving sync state for %s: %w", resource, stateErr), Duration: time.Since(started)}
 	}
-	// pp:handfix td-synnex (ion-sync-completion-claims-only-whole-walks): a walk
-	// narrowed by --param, --global-param or --resource-param reached the end of a
-	// FILTERED list, so it never stands as proof that the store holds the whole
-	// resource (the licence book reads last_attempt_complete as exactly that).
-	narrowed := map[string]string{}
-	userParams.applyTo(resource, narrowed, false)
-	if len(narrowed) > 0 {
-		if err := db.MarkSyncAttemptIncompleteIfCurrent(resource, scopeKey); err != nil {
-			return syncResult{Resource: resource, Count: cachedCount, Err: fmt.Errorf("saving sync state for %s: %w", resource, err), Duration: time.Since(started)}
-		}
-	}
 
 	if reconcileErr != nil {
 		return syncResult{Resource: resource, Count: cachedCount, Warn: reconcileErr, Duration: time.Since(started)}
