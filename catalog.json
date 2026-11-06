@@ -1150,7 +1150,7 @@
       "cli_binary": "knowbe4-cli",
       "mcp_binary": "knowbe4-mcp",
       "version": "0.1.7",
-      "printing_press_version": "4.24.0",
+      "printing_press_version": "4.34.2",
       "license": "Apache-2.0",
       "vendor": "KnowBe4",
       "vendor_trademark_owner": "KnowBe4, Inc",

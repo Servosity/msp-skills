@@ -12,11 +12,11 @@ faqs:
   - q: "Is the KnowBe4 MCP server safe for client data?"
     a: "Yes, by design - and the exceptions are ones you switch on yourself. The CLI, the MCP server, and any local data mirror run on your own machine, and nothing is sent to MSP Skills or any third party unless you ask for it. Three paths can move data off the machine, all opt-in: `--deliver webhook:<url>` posts a command's output to a URL you name; `KNOWBE4_FEEDBACK_AUTO_SEND=true` posts feedback you typed to the URL in `KNOWBE4_FEEDBACK_ENDPOINT` (with no endpoint set, `feedback` only writes a local file); `--transport http` opens a local MCP listener you then choose whether to expose. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page."
   - q: "Does this work with ChatGPT?"
-    a: "Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way knowbe4-mcp runs, and shares MCP configuration with Codex: add knowbe4-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote (HTTP) server, and this connector's HTTP mode is paused until it is reprinted; the security note at the top of the install guide explains why. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list."
+    a: "Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way knowbe4-mcp runs, and shares MCP configuration with Codex: add knowbe4-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote (HTTP) server, which msp-skills does not support yet. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list."
   - q: "Do I need to know how to code?"
     a: "No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once."
   - q: "Is my KnowBe4 data safe?"
-    a: "Your data stays on your machine. The CLI, MCP server, and the local mirror are all local, and the bundled MCP server exposes read-only reporting tools only. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills."
+    a: "Your data stays on your machine. The CLI, MCP server, and the local mirror are all local, and the only MCP tools that change KnowBe4 data (pushing or removing a custom risk event) preview first and send only when confirmed. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills."
   - q: "What does it cost?"
     a: "Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use."
   - q: "Does this replace the KnowBe4 console or need a special partner API?"
@@ -128,10 +128,10 @@ After install, authenticate once with your KnowBe4 credentials, then verify with
 | Tier | Examples | Recommended agent policy |
 | --- | --- | --- |
 | Read | account info, users list, groups list, phishing-tests list, training-enrollments list, risk-leaderboard, repeat-clickers, sync, search, qbr | Allow |
-| Write (routine) | events create, import | Preview with --dry-run, then a reviewed write |
+| Write (routine) | events create | Preview with --dry-run, then a reviewed write |
 | Destructive / config | events delete | Human-in-the-loop only |
 
-The skill reads your KnowBe4 reporting data - accounts, users, groups, phishing tests, training, risk scores - and can sync it to a local SQLite mirror; all of that is read-only and safe to let an agent run, and the bundled MCP server exposes only those read tools. The only write paths are CLI-only: pushing or deleting custom risk events on a user's timeline (a separate, opt-in User Event API key) and bulk import. Keep those human-reviewed and preview them with --dry-run first. Full details in [governance.md](https://github.com/servosity/msp-skills/blob/main/skills/knowbe4/governance.md).
+The skill reads your KnowBe4 reporting data - accounts, users, groups, phishing tests, training, risk scores - and can sync it to a local SQLite mirror; all of that is read-only and safe to let an agent run, The only writes push or delete a custom risk event on a user's timeline (a separate, opt-in User Event API key): on the CLI preview them with --dry-run, and over MCP they return a preview and send only with confirm: true (KNOWBE4_MCP_READ_ONLY=1 removes them). Keep those human-reviewed. Full details in [governance.md](https://github.com/servosity/msp-skills/blob/main/skills/knowbe4/governance.md).
 
 ## Frequently asked questions
 
@@ -145,7 +145,7 @@ Yes, by design - and the exceptions are ones you switch on yourself. The CLI, th
 
 ### Does this work with ChatGPT?
 
-Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way knowbe4-mcp runs, and shares MCP configuration with Codex: add knowbe4-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote (HTTP) server, and this connector's HTTP mode is paused until it is reprinted; the security note at the top of the install guide explains why. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
+Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way knowbe4-mcp runs, and shares MCP configuration with Codex: add knowbe4-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote (HTTP) server, which msp-skills does not support yet. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
 
 ### Do I need to know how to code?
 
@@ -153,7 +153,7 @@ No. Paste one sentence into Claude Code or Codex and your agent does the install
 
 ### Is my KnowBe4 data safe?
 
-Your data stays on your machine. The CLI, MCP server, and the local mirror are all local, and the bundled MCP server exposes read-only reporting tools only. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills.
+Your data stays on your machine. The CLI, MCP server, and the local mirror are all local, and the only MCP tools that change KnowBe4 data (pushing or removing a custom risk event) preview first and send only when confirmed. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills.
 
 ### What does it cost?
 

@@ -15,17 +15,21 @@ package userevents
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
-	"knowbe4-pp-cli/internal/cliutil"
 	"net/url"
 	"regexp"
+
+	"knowbe4-pp-cli/internal/cliutil"
 )
 
 // EnvKey is the environment variable holding the User Event API bearer token.
@@ -56,22 +60,80 @@ func BaseURLForRegion(region string) string {
 	return fmt.Sprintf("https://api-%s.events.knowbe4.com", r)
 }
 
-// New builds a Client from the environment (KNOWBE4_USER_EVENT_API_KEY and the
-// shared KNOWBE4_REGION). It returns an error only if the key is absent.
+// BaseURLEnv optionally points the client at another User Event API origin (a
+// proxy, or an offline fake in tests). The key is then sent only there.
+const BaseURLEnv = "KNOWBE4_USER_EVENT_BASE_URL"
+
+// New builds a Client from the environment (KNOWBE4_USER_EVENT_API_KEY, the
+// shared KNOWBE4_REGION and the optional KNOWBE4_USER_EVENT_BASE_URL). Values an
+// MCPB host left as an unresolved ${user_config.*} placeholder read as unset.
+// It returns an error if the key is absent or the base URL override is not an
+// http(s) URL with a host and no user info.
 func New(timeout time.Duration) (*Client, error) {
-	key := strings.TrimSpace(os.Getenv(EnvKey))
+	key := strings.TrimSpace(cliutil.EnvOverride(EnvKey))
 	if key == "" {
 		return nil, fmt.Errorf("%s is not set — the User Event API uses a key separate from the Reporting API (User Event API Management Console → API key)", EnvKey)
+	}
+	base, err := ResolveBaseURL()
+	if err != nil {
+		return nil, err
 	}
 	if timeout <= 0 {
 		timeout = 30 * time.Second
 	}
 	return &Client{
-		HTTP:    &http.Client{Timeout: timeout},
-		baseURL: BaseURLForRegion(os.Getenv("KNOWBE4_REGION")),
+		// Hand-fix (handfixes.json credkit-wiring): every request passes the credential kit's outbound guard.
+		HTTP:    &http.Client{Timeout: timeout, Transport: cliutil.OutboundGuard(nil)},
+		baseURL: base,
 		apiKey:  key,
 		limiter: cliutil.NewAdaptiveLimiter(4.0),
 	}, nil
+}
+
+// TrustCA adds the PEM CA bundle at path to the system roots the client
+// verifies the User Event host against: the same trust the Reporting client
+// takes from --ca-cert, KNOWBE4_CA_CERT or ca_cert. An empty path changes
+// nothing. The origin pin and the kit's guard are unchanged.
+func (c *Client) TrustCA(path string) error {
+	path = strings.TrimSpace(path)
+	if path == "" {
+		return nil
+	}
+	pemBytes, err := os.ReadFile(filepath.Clean(path))
+	if err != nil {
+		return fmt.Errorf("reading CA bundle %s: %v", path, err)
+	}
+	pool, err := x509.SystemCertPool()
+	if err != nil || pool == nil {
+		return fmt.Errorf("loading system roots: %v", err)
+	}
+	if !pool.AppendCertsFromPEM(pemBytes) {
+		return fmt.Errorf("no certificates in CA bundle %s", path)
+	}
+	base, ok := http.DefaultTransport.(*http.Transport)
+	if !ok || base == nil {
+		return fmt.Errorf("default HTTP transport is not *http.Transport")
+	}
+	tr := base.Clone()
+	tr.TLSClientConfig = &tls.Config{RootCAs: pool, MinVersion: tls.VersionTLS12}
+	// Hand-fix (handfixes.json credkit-wiring): every request passes the credential kit's outbound guard.
+	c.HTTP.Transport = cliutil.OutboundGuard(tr)
+	return nil
+}
+
+// ResolveBaseURL is the User Event API base URL: KNOWBE4_USER_EVENT_BASE_URL
+// when set (an http(s) URL with a host and no user info, query or fragment),
+// else the region's host. The credential kit's wiring binds the key to it.
+func ResolveBaseURL() (string, error) {
+	base := BaseURLForRegion(cliutil.EnvOverride("KNOWBE4_REGION"))
+	if v := strings.TrimSpace(cliutil.EnvOverride(BaseURLEnv)); v != "" {
+		u, err := url.Parse(v)
+		if err != nil || (u.Scheme != "https" && u.Scheme != "http") || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" {
+			return "", fmt.Errorf("%s must be an http(s) URL with a host, and no user info, query or fragment", BaseURLEnv)
+		}
+		base = strings.TrimRight(v, "/")
+	}
+	return base, nil
 }
 
 // BaseURL exposes the resolved host (for diagnostics).
@@ -89,7 +151,7 @@ func (c *Client) do(ctx context.Context, method, path string, body any) (json.Ra
 	url := c.baseURL + path
 	const maxRetries = 4
 	for attempt := 0; ; attempt++ {
-		c.limiter.Wait()
+		c.limiter.Wait(ctx)
 		req, err := http.NewRequestWithContext(ctx, method, url, reqBody)
 		if err != nil {
 			return nil, err
@@ -119,11 +181,11 @@ func (c *Client) do(ctx context.Context, method, path string, body any) (json.Ra
 				}
 				continue
 			}
-			return nil, &cliutil.RateLimitError{URL: url, RetryAfter: cliutil.RetryAfter(resp), Body: cliutil.FunnelWithhold(string(data), []string{c.apiKey})}
+			return nil, &cliutil.RateLimitError{URL: url, RetryAfter: cliutil.RetryAfter(resp), Body: string(data)}
 		}
 		c.limiter.OnSuccess()
 		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-			return nil, fmt.Errorf("user event API %s %s: HTTP %d: %s", method, path, resp.StatusCode, cliutil.FunnelWithhold(strings.TrimSpace(string(data)), []string{c.apiKey}))
+			return nil, fmt.Errorf("user event API %s %s: HTTP %d: %s", method, path, resp.StatusCode, strings.TrimSpace(string(data)))
 		}
 		return json.RawMessage(data), nil
 	}

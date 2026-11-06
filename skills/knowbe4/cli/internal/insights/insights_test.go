@@ -3,6 +3,7 @@ package insights
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"path/filepath"
 	"testing"
 	"time"
@@ -74,7 +75,24 @@ func seed(t *testing.T) (*sql.DB, func()) {
 	exec(`INSERT INTO "risk_snapshots"(entity_type,entity_id,entity_name,risk_score,snapshot_at) VALUES ('account','acct','Acme',30,?)`, old)
 	exec(`INSERT INTO "risk_snapshots"(entity_type,entity_id,entity_name,risk_score,snapshot_at) VALUES ('account','acct','Acme',45,?)`, now)
 
+	// Every collection above was synced to its end (the completion record a
+	// finished list walk writes; CollectionSynced reads it).
+	markSynced(t, db, "users", "groups", "phishing-tests", "training-enrollments", RecipientsResource)
+
 	return db, func() { st.Close() }
+}
+
+// markSynced writes the sync completion record a finished walk of each
+// resource writes.
+func markSynced(t *testing.T, db *sql.DB, resources ...string) {
+	t.Helper()
+	at := time.Now().UTC().Format(time.RFC3339)
+	for _, r := range resources {
+		if _, err := db.Exec(`INSERT INTO sync_state (resource_type, last_cursor, last_synced_at, total_count, last_attempt_complete)
+			VALUES (?, '', ?, 0, 1) ON CONFLICT(resource_type) DO UPDATE SET last_synced_at = excluded.last_synced_at, last_attempt_complete = 1`, r, at); err != nil {
+			t.Fatalf("mark %s synced: %v", r, err)
+		}
+	}
 }
 
 func TestRepeatClickers(t *testing.T) {
@@ -87,8 +105,8 @@ func TestRepeatClickers(t *testing.T) {
 	if len(got) != 1 {
 		t.Fatalf("want 1 repeat clicker (alice), got %d: %+v", len(got), got)
 	}
-	if got[0].Email != "alice@acme.com" || got[0].ClickedPSTs != 2 {
-		t.Fatalf("want alice with 2 clicked PSTs, got %+v", got[0])
+	if got[0].Email != "alice@acme.com" || got[0].ClickedPSTs != 2 || got[0].CurrentRisk == nil {
+		t.Fatalf("want alice with 2 clicked PSTs and her risk score, got %+v", got[0])
 	}
 }
 
@@ -137,11 +155,11 @@ func TestRiskLeaderboard(t *testing.T) {
 	if len(got) != 3 || got[0].Email != "alice@acme.com" {
 		t.Fatalf("want alice top of leaderboard, got %+v", got)
 	}
-	if got[0].ClickedPSTs != 2 {
-		t.Fatalf("want alice clicked 2 PSTs, got %d", got[0].ClickedPSTs)
+	if got[0].ClickedPSTs == nil || *got[0].ClickedPSTs != 2 {
+		t.Fatalf("want alice clicked 2 PSTs, got %v", got[0].ClickedPSTs)
 	}
-	if got[0].OpenTrainings != 1 {
-		t.Fatalf("want alice 1 open (Past Due) training, got %d", got[0].OpenTrainings)
+	if got[0].OpenTrainings == nil || *got[0].OpenTrainings != 1 {
+		t.Fatalf("want alice 1 open (Past Due) training, got %v", got[0].OpenTrainings)
 	}
 }
 
@@ -170,7 +188,7 @@ func TestPhishProneTrend(t *testing.T) {
 	if len(got.Points) != 2 {
 		t.Fatalf("want 2 Finance PSTs, got %d", len(got.Points))
 	}
-	if got.FirstPct != 30 || got.LastPct != 10 || !got.Improving {
+	if got.FirstPct == nil || *got.FirstPct != 30 || got.LastPct == nil || *got.LastPct != 10 || got.Improving == nil || !*got.Improving {
 		t.Fatalf("want improving 30->10, got %+v", got)
 	}
 }
@@ -185,8 +203,8 @@ func TestGroupRiskContribution(t *testing.T) {
 	if len(got) != 1 || got[0].GroupID != "10" {
 		t.Fatalf("want Finance contribution, got %+v", got)
 	}
-	if got[0].Contribution != 1000 { // delta 20 * 50 members
-		t.Fatalf("want weighted contribution 1000, got %v", got[0].Contribution)
+	if got[0].Contribution == nil || *got[0].Contribution != 1000 { // delta 20 * 50 members
+		t.Fatalf("want weighted contribution 1000, got %v", derefF(got[0].Contribution))
 	}
 }
 
@@ -199,18 +217,20 @@ func TestQBR(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if rep.TrainingCompletion <= 0 {
+	if rep.TrainingCompletion == nil || *rep.TrainingCompletion <= 0 {
 		t.Fatalf("want >0 training completion (bob passed of 2), got %v", rep.TrainingCompletion)
 	}
-	if rep.RepeatClickerCount != 1 {
-		t.Fatalf("want 1 repeat clicker in QBR, got %d", rep.RepeatClickerCount)
+	if rep.RepeatClickerCount == nil || *rep.RepeatClickerCount != 1 {
+		t.Fatalf("want 1 repeat clicker in QBR, got %v", rep.RepeatClickerCount)
 	}
 	if len(rep.TopRiskUsers) == 0 || rep.TopRiskUsers[0].Email != "alice@acme.com" {
 		t.Fatalf("want alice as top risk user, got %+v", rep.TopRiskUsers)
 	}
 }
 
-func TestEmptyStoreReturnsEmpty(t *testing.T) {
+// An empty store holds none of the inputs: each list says so (ErrInputNotSynced)
+// instead of answering "nobody", and the QBR still renders with its figures null.
+func TestEmptyStoreSaysNotSynced(t *testing.T) {
 	dir := t.TempDir()
 	st, err := store.OpenWithContext(context.Background(), filepath.Join(dir, "empty.db"))
 	if err != nil {
@@ -218,11 +238,11 @@ func TestEmptyStoreReturnsEmpty(t *testing.T) {
 	}
 	defer st.Close()
 	db := st.DB()
-	if rc, err := RepeatClickers(context.Background(), db, 2, 10, ""); err != nil || len(rc) != 0 {
-		t.Fatalf("empty store should yield no repeat clickers, err=%v n=%d", err, len(rc))
+	if rc, err := RepeatClickers(context.Background(), db, 2, 10, ""); !errors.Is(err, ErrInputNotSynced) || len(rc) != 0 {
+		t.Fatalf("empty store: repeat clickers want ErrInputNotSynced, err=%v n=%d", err, len(rc))
 	}
-	if lb, err := RiskLeaderboard(context.Background(), db, 10); err != nil || len(lb) != 0 {
-		t.Fatalf("empty store should yield empty leaderboard, err=%v n=%d", err, len(lb))
+	if lb, err := RiskLeaderboard(context.Background(), db, 10); !errors.Is(err, ErrInputNotSynced) || len(lb) != 0 {
+		t.Fatalf("empty store: leaderboard want ErrInputNotSynced, err=%v n=%d", err, len(lb))
 	}
 	if _, err := QBR(context.Background(), db, "90d"); err != nil {
 		t.Fatalf("QBR on empty store should not error: %v", err)
