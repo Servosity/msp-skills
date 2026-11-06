@@ -4,10 +4,11 @@ This page wires the Auvik MCP server into any MCP client. If you use Claude
 Code, Codex CLI, or Cowork, install the Skill instead (see [README.md](./README.md)) -
 it's simpler. Everyone else: pick your agent below.
 
-**Two install classes.** *Local* agents (Claude Desktop, GitHub Copilot, Gemini CLI)
-launch `auvik-mcp` directly on your machine - no hosting. *Remote* agents (ChatGPT,
-Microsoft 365 Copilot / Copilot Studio, the Gemini app) only talk to an HTTPS
-endpoint; see **Remote agents** below for what this build supports.
+**Two install classes.** *Local* agents (Claude Desktop, the ChatGPT desktop app,
+GitHub Copilot, Gemini CLI) launch `auvik-mcp` directly on your machine - no
+hosting. *Web-only* AI apps (ChatGPT on the web, Microsoft 365 Copilot / Copilot
+Studio, the Gemini app) need a remote server, which msp-skills does not support
+yet; see **Remote agents** below.
 
 ## Prerequisite: install the MCP binary
 
@@ -53,6 +54,20 @@ Add (or merge with your existing `mcpServers` block):
 ```
 
 Quit Claude Desktop completely and reopen, then ask a question that needs the API.
+
+## ChatGPT desktop app (OpenAI)
+
+The ChatGPT desktop app runs MCP servers locally (STDIO) and shares MCP
+configuration with Codex on the same machine
+([OpenAI](https://learn.chatgpt.com/docs/extend/mcp)). Open **Settings**, select
+**MCP servers**, add a server, choose **STDIO**, and give `auvik-mcp` as the
+command (its full path if the app can't find it). The server reads the same
+environment variables as the Claude Desktop block above. To keep them in a file,
+add the server once to Codex's `~/.codex/config.toml` (a `[mcp_servers.auvik]`
+table with `command = "auvik-mcp"` and an `env` table); the desktop app reads
+that file too.
+
+ChatGPT on the web is a different case: see **Remote agents** below.
 
 ## GitHub Copilot (VS Code)
 
@@ -121,6 +136,15 @@ web** is remote-only - see the remote section below.)
 
 # Remote agents (host the binary over HTTPS first)
 
+**Not supported by msp-skills yet.** ChatGPT on the web, Microsoft 365 Copilot /
+Copilot Studio and the Gemini app reach MCP servers at a web address, not programs
+on your machine, so they would need `auvik-mcp` running in HTTP mode, hosted
+by you over HTTPS. If your team works in one
+of those apps, a
+[hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick)
+is the better pick; check that your AI app is on the gateway's setup list. The
+ChatGPT desktop app is different: it runs `auvik-mcp` locally (see above).
+
 Remote agents need `auvik-mcp` reachable over **HTTPS** with a bearer token. Keep
 stdio (the default) for every local agent. HTTP mode serves
 `http://127.0.0.1:7777/mcp` by default and refuses to start until `AUVIK_MCP_HTTP_TOKEN` is
@@ -137,15 +161,6 @@ The endpoint is `https://<host>:7777/mcp`: the server answers Streamable HTTP at
 `Authorization: Bearer <token>`, so a remote agent works only if its connector
 settings can send that header; check yours first. **Treat the token like a password** -
 whoever holds it can call every tool with your Auvik credentials.
-
-## ChatGPT (Developer Mode)
-
-In ChatGPT (Pro, Plus, Team, Business, Enterprise, or Education - **not** Free):
-Settings > Apps > Advanced > **Developer mode**, then create a custom connector
-pointing at your HTTPS endpoint, if its authentication settings can send the bearer
-token (see above).
-
-Official OpenAI guidance (beta, plan-dependent): https://help.openai.com/en/articles/12584461-developer-mode-and-mcp-apps-in-chatgpt-beta
 
 ## Microsoft 365 Copilot / Copilot Studio
 
@@ -173,7 +188,7 @@ Microsoft docs: https://learn.microsoft.com/en-us/microsoft-copilot-studio/agent
 
 ## Gemini app / web (Google)
 
-Same remote pattern as ChatGPT - point Gemini's connector at your hosted HTTPS
+Point Gemini's connector at your hosted HTTPS
 endpoint, if it can send the bearer token. For a local, no-hosting path on Google, use
 **Gemini CLI** (above) instead.
 
