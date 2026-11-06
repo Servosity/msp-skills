@@ -134,7 +134,7 @@
     {
       "slug": "aws-billing",
       "display_name": "AWS",
-      "tagline": "Get a non-expert from zero to a Slack-delivered, plain-English, waste-flagged AWS bill breakdown  -  and cache it so you don't pay per Cost Explorer call.",
+      "tagline": "Get a non-expert from zero to a Slack-delivered, plain-English, waste-flagged AWS bill breakdown, and cache it so you don't pay per Cost Explorer call.",
       "category": "Billing",
       "verification": "awaiting",
       "verified_by": null,

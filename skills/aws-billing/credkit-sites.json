@@ -1,0 +1,240 @@
+{
+ "sites": [
+  {
+   "file": "internal/awsx/awsbilling_guard.go",
+   "func": "pinTransport",
+   "what": "net/http.TLSNextProto",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "an empty map that keeps every request on HTTP/1.1 (the proxy-hook pin runs on each), inside the transport pinnedHTTPClient wraps with credkit.Transport"
+  },
+  {
+   "file": "internal/awsx/awsbilling_guard.go",
+   "func": "pinnedHTTPClient",
+   "what": "call:dynamic",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "blackboxTransport (a test-build hook, nil in a production build) and OutboundGuard (credkit.Transport; only in-process tests replace it)"
+  },
+  {
+   "file": "internal/awsx/awsbilling_guard.go",
+   "func": "pinnedHTTPClient",
+   "what": "net.Dialer.DialContext",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the dialer of the base transport, which pinnedHTTPClient wraps with credkit.Transport: every request passes the kit before it dials"
+  },
+  {
+   "file": "internal/awsx/awsbilling_guard.go",
+   "func": "pinnedHTTPClient",
+   "what": "net/http.Client{}",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "its Transport is OutboundGuard(tr), and OutboundGuard is credkit.Transport (only in-process tests replace it)"
+  },
+  {
+   "file": "internal/awsx/awsbilling_guard.go",
+   "func": "pinnedHTTPClient",
+   "what": "sink:net/http.Transport",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "the base transport, handed to credkit.Transport through OutboundGuard"
+  },
+  {
+   "file": "internal/awsx/awsbilling_guard.go",
+   "func": "quietCredentialProcesses",
+   "what": "os.OpenFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "opens the null device for writing, to discard a credential_process's stderr while credentials are retrieved; nothing goes to a file"
+  },
+  {
+   "file": "internal/awsx/client.go",
+   "func": "Client.CallerIdentity",
+   "what": "carrier",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the AWS SDK client, whose one HTTP client is pinnedHTTPClient (credkit.Transport through OutboundGuard) for service calls and credential providers alike (config.WithHTTPClient, WithEndpointCredentialOptions); the request it sends passes the kit"
+  },
+  {
+   "file": "internal/awsx/client.go",
+   "func": "New",
+   "what": "carrier",
+   "count": 11,
+   "kind": "exempt",
+   "reason": "the AWS SDK client, whose one HTTP client is pinnedHTTPClient (credkit.Transport through OutboundGuard) for service calls and credential providers alike (config.WithHTTPClient, WithEndpointCredentialOptions); the request it sends passes the kit"
+  },
+  {
+   "file": "internal/awsx/client.go",
+   "func": "New",
+   "what": "github.com/aws/aws-sdk-go-v2/config.WithRegion",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the AWS SDK client, whose one HTTP client is pinnedHTTPClient (credkit.Transport through OutboundGuard) for service calls and credential providers alike (config.WithHTTPClient, WithEndpointCredentialOptions); the request it sends passes the kit"
+  },
+  {
+   "file": "internal/awsx/client.go",
+   "func": "New",
+   "what": "github.com/aws/aws-sdk-go-v2/config.WithSharedConfigProfile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the AWS SDK client, whose one HTTP client is pinnedHTTPClient (credkit.Transport through OutboundGuard) for service calls and credential providers alike (config.WithHTTPClient, WithEndpointCredentialOptions); the request it sends passes the kit"
+  },
+  {
+   "file": "internal/awsx/client.go",
+   "func": "New",
+   "what": "github.com/aws/aws-sdk-go-v2/credentials/endpointcreds.HTTPClient",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the AWS SDK client, whose one HTTP client is pinnedHTTPClient (credkit.Transport through OutboundGuard) for service calls and credential providers alike (config.WithHTTPClient, WithEndpointCredentialOptions); the request it sends passes the kit"
+  },
+  {
+   "file": "internal/awsx/client.go",
+   "func": "New",
+   "what": "sink:net/http.Client",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "the AWS SDK client, whose one HTTP client is pinnedHTTPClient (credkit.Transport through OutboundGuard) for service calls and credential providers alike (config.WithHTTPClient, WithEndpointCredentialOptions); the request it sends passes the kit"
+  },
+  {
+   "file": "internal/awsx/costexplorer.go",
+   "func": "Client.GetCostAndUsageAnswer",
+   "what": "carrier",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the AWS SDK client, whose one HTTP client is pinnedHTTPClient (credkit.Transport through OutboundGuard) for service calls and credential providers alike (config.WithHTTPClient, WithEndpointCredentialOptions); the request it sends passes the kit"
+  },
+  {
+   "file": "internal/awsx/costexplorer.go",
+   "func": "Client.GetCostForecast",
+   "what": "carrier",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the AWS SDK client, whose one HTTP client is pinnedHTTPClient (credkit.Transport through OutboundGuard) for service calls and credential providers alike (config.WithHTTPClient, WithEndpointCredentialOptions); the request it sends passes the kit"
+  },
+  {
+   "file": "internal/awsx/costexplorer.go",
+   "func": "Client.GetDimensionValues",
+   "what": "carrier",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the AWS SDK client, whose one HTTP client is pinnedHTTPClient (credkit.Transport through OutboundGuard) for service calls and credential providers alike (config.WithHTTPClient, WithEndpointCredentialOptions); the request it sends passes the kit"
+  },
+  {
+   "file": "internal/awsx/inventory.go",
+   "func": "Client.avgCPU",
+   "what": "carrier",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the AWS SDK client, whose one HTTP client is pinnedHTTPClient (credkit.Transport through OutboundGuard) for service calls and credential providers alike (config.WithHTTPClient, WithEndpointCredentialOptions); the request it sends passes the kit"
+  },
+  {
+   "file": "internal/awsx/inventory.go",
+   "func": "Client.collectAddresses",
+   "what": "carrier",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the AWS SDK client, whose one HTTP client is pinnedHTTPClient (credkit.Transport through OutboundGuard) for service calls and credential providers alike (config.WithHTTPClient, WithEndpointCredentialOptions); the request it sends passes the kit"
+  },
+  {
+   "file": "internal/awsx/inventory.go",
+   "func": "Client.collectBuckets",
+   "what": "carrier",
+   "count": 3,
+   "kind": "exempt",
+   "reason": "the AWS SDK client, whose one HTTP client is pinnedHTTPClient (credkit.Transport through OutboundGuard) for service calls and credential providers alike (config.WithHTTPClient, WithEndpointCredentialOptions); the request it sends passes the kit"
+  },
+  {
+   "file": "internal/awsx/inventory.go",
+   "func": "Client.collectInstances",
+   "what": "carrier",
+   "count": 3,
+   "kind": "exempt",
+   "reason": "the AWS SDK client, whose one HTTP client is pinnedHTTPClient (credkit.Transport through OutboundGuard) for service calls and credential providers alike (config.WithHTTPClient, WithEndpointCredentialOptions); the request it sends passes the kit"
+  },
+  {
+   "file": "internal/awsx/inventory.go",
+   "func": "Client.collectSnapshots",
+   "what": "carrier",
+   "count": 3,
+   "kind": "exempt",
+   "reason": "the AWS SDK client, whose one HTTP client is pinnedHTTPClient (credkit.Transport through OutboundGuard) for service calls and credential providers alike (config.WithHTTPClient, WithEndpointCredentialOptions); the request it sends passes the kit"
+  },
+  {
+   "file": "internal/awsx/inventory.go",
+   "func": "Client.collectVolumes",
+   "what": "carrier",
+   "count": 3,
+   "kind": "exempt",
+   "reason": "the AWS SDK client, whose one HTTP client is pinnedHTTPClient (credkit.Transport through OutboundGuard) for service calls and credential providers alike (config.WithHTTPClient, WithEndpointCredentialOptions); the request it sends passes the kit"
+  },
+  {
+   "file": "internal/awsx/organizations.go",
+   "func": "Client.ListAccounts",
+   "what": "carrier",
+   "count": 3,
+   "kind": "exempt",
+   "reason": "the AWS SDK client, whose one HTTP client is pinnedHTTPClient (credkit.Transport through OutboundGuard) for service calls and credential providers alike (config.WithHTTPClient, WithEndpointCredentialOptions); the request it sends passes the kit"
+  },
+  {
+   "file": "internal/awsx/organizations.go",
+   "func": "Client.ManagementAccountID",
+   "what": "carrier",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the AWS SDK client, whose one HTTP client is pinnedHTTPClient (credkit.Transport through OutboundGuard) for service calls and credential providers alike (config.WithHTTPClient, WithEndpointCredentialOptions); the request it sends passes the kit"
+  },
+  {
+   "file": "internal/cli/awsbilling_guard.go",
+   "func": "init",
+   "what": "convert:aws-billing-pp-cli/internal/cli.dryRunTripper.RoundTrip",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "part of the generated client's transport chain, which runs inside the kit: doInternal sends every request with sendClient.Transport = OutboundGuard(httpClient.Transport)"
+  },
+  {
+   "file": "internal/cli/awsbilling_guard.go",
+   "func": "init",
+   "what": "net/http.Client.Transport",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "part of the generated client's transport chain, which runs inside the kit: doInternal sends every request with sendClient.Transport = OutboundGuard(httpClient.Transport)"
+  },
+  {
+   "file": "internal/cli/awsbilling_scope.go",
+   "func": "awsReadOpts.profileLabel",
+   "what": "aws-billing-pp-cli/internal/cliutil.EnvOverride",
+   "count": 1,
+   "kind": "exempt",
+   "names": [
+    "AWS_PROFILE",
+    "AWS_DEFAULT_PROFILE"
+   ],
+   "reason": "reads the AWS profile name the command names, a label for the store's scope"
+  },
+  {
+   "file": "internal/cli/report.go",
+   "func": "htmlToPDF",
+   "what": "os.CreateTemp",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "creates the empty temporary HTML file and closes it; the report is written into it with credkit.WriteFile"
+  },
+  {
+   "file": "internal/credsql/credsql.go",
+   "func": "applyLengthLimit",
+   "what": "database/sql.OpenDB",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "lends a connection already opened through credkit.SQLDriver to set SQLITE_LIMIT_LENGTH: it runs no statement and writes no value, and the hook only runs when the store opens, after Start"
+  },
+  {
+   "file": "internal/credwire/declarations.go",
+   "func": "readRegular",
+   "what": "os.DirFS",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reads a credential source inside Start (the AWS config file for holdAWSConfig, a profiles.json for holdProfileStore) only to hold its credential values; it writes nothing"
+  }
+ ]
+}

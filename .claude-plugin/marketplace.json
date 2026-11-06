@@ -147,7 +147,7 @@
     {
       "name": "aws-billing",
       "source": "./skills/aws-billing",
-      "description": "Get a non-expert from zero to a Slack-delivered, plain-English, waste-flagged AWS bill breakdown  -  and cache it so you don't pay per Cost Explorer call.",
+      "description": "Get a non-expert from zero to a Slack-delivered, plain-English, waste-flagged AWS bill breakdown \u2014 and cache it so you don't pay per Cost Explorer call.",
       "version": "0.1.8",
       "category": "billing",
       "tags": [

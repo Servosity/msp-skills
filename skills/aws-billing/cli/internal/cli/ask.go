@@ -2,8 +2,11 @@
 // `ask` — deterministic natural-language intent router over the synced bill.
 // Recognized questions are answered straight from the local cache / SDK; an
 // unrecognized question emits the relevant cost slice as JSON to pipe to an LLM.
+// A bill that cannot be read is an error, never a $0 answer (Codex r1 class
+// failure-read-as-an-empty-result).
 //
 // pp:client-call
+// pp:data-source auto
 package cli
 
 import (
@@ -35,7 +38,7 @@ ready to pipe to an LLM (e.g. '... --agent | claude -p "..."').`,
   aws-billing-cli ask "which account costs the most" --agent`,
 		// ask accepts any free-text question (unknown -> emits a cost slice,
 		// exit 0), so there is no invalid-argument error path to probe.
-		Annotations: map[string]string{"mcp:read-only": "true", "pp:no-error-path-probe": "true"},
+		Annotations: map[string]string{"mcp:read-only": "true", "pp:data-source": "auto", "pp:no-error-path-probe": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
 				return cmd.Help()
@@ -55,8 +58,14 @@ ready to pipe to an LLM (e.g. '... --agent | claude -p "..."').`,
 			case "changed":
 				fromPR, _ := resolvePeriod("last-month")
 				toPR, _ := resolvePeriod("this-month")
-				from, _, _ := canonicalCostLines(cmd.Context(), o, fromPR)
-				to, src, _ := canonicalCostLines(cmd.Context(), o, toPR)
+				from, _, err := canonicalCostLines(cmd.Context(), o, fromPR)
+				if err != nil {
+					return err
+				}
+				to, src, err := canonicalCostLines(cmd.Context(), o, toPR)
+				if err != nil {
+					return err
+				}
 				fromS, ft := sumByService(from)
 				toS, tt := sumByService(to)
 				type mv struct {
@@ -88,7 +97,10 @@ ready to pipe to an LLM (e.g. '... --agent | claude -p "..."').`,
 				return nil
 
 			case "account":
-				lines, src, _ := canonicalCostLines(cmd.Context(), o, pr)
+				lines, src, err := canonicalCostLines(cmd.Context(), o, pr)
+				if err != nil {
+					return err
+				}
 				byAcct, total := sumByAccount(lines)
 				nameByAcct := map[string]string{}
 				for _, l := range lines {
@@ -120,13 +132,16 @@ ready to pipe to an LLM (e.g. '... --agent | claude -p "..."').`,
 				return nil
 
 			case "transfer":
-				return newNovelWasteTransferCmd(flags).RunE(cmd, nil)
+				return runWasteTransfer(cmd, flags, o, pr, 0) // this call's period, database, profile and region
 
 			case "waste":
 				return runWasteList(cmd, flags, o, "waste rank", "", "", "savings")
 
 			case "total":
-				lines, src, _ := canonicalCostLines(cmd.Context(), o, pr)
+				lines, src, err := canonicalCostLines(cmd.Context(), o, pr)
+				if err != nil {
+					return err
+				}
 				_, total := sumByService(lines)
 				if flags.asJSON {
 					return flags.printJSON(cmd, map[string]any{"intent": intent, "source": src, "period": pr.Label, "total_usd": round2f(total)})
@@ -135,7 +150,10 @@ ready to pipe to an LLM (e.g. '... --agent | claude -p "..."').`,
 				return nil
 
 			case "services":
-				lines, src, _ := canonicalCostLines(cmd.Context(), o, pr)
+				lines, src, err := canonicalCostLines(cmd.Context(), o, pr)
+				if err != nil {
+					return err
+				}
 				groups, total := groupCostLines(lines, "service")
 				if len(groups) > 10 {
 					groups = groups[:10]
@@ -151,7 +169,10 @@ ready to pipe to an LLM (e.g. '... --agent | claude -p "..."').`,
 
 			default:
 				// Unknown intent: emit the cost slice for an LLM to interpret.
-				lines, src, _ := canonicalCostLines(cmd.Context(), o, pr)
+				lines, src, err := canonicalCostLines(cmd.Context(), o, pr)
+				if err != nil {
+					return err
+				}
 				groups, total := groupCostLines(lines, "service")
 				payload := map[string]any{
 					"question":     strings.Join(args, " "),
