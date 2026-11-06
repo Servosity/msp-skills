@@ -14,11 +14,11 @@
     "released_hash": "sha256:76468ea93751d4ef32e216bec0519f7c10cf82204265bdcb17f03e7b1f969a12"
   },
   "action1": {
-    "state": "binary-pending",
-    "version": "0.1.10",
+    "state": "version-pending",
+    "version": "0.1.11",
     "latest_tag": "action1-v0.1.10",
     "current_hash": "sha256:af8714bb0f0e13a34c8dbb92a59806175df4ada0e7726f2ca74849210664c93f",
-    "released_hash": "sha256:21cffbd6b2c5a562e304f06c6b0566b028af43c5c3553b60bd42f7f8a869f9e9"
+    "released_hash": "sha256:af8714bb0f0e13a34c8dbb92a59806175df4ada0e7726f2ca74849210664c93f"
   },
   "afi": {
     "state": "up-to-date",
@@ -385,11 +385,11 @@
     "released_hash": "sha256:6320a64c84444731e69f909745f051427aac39bdf5ee0121708ebc9bfc0e34e9"
   },
   "knowbe4": {
-    "state": "binary-pending",
-    "version": "0.1.7",
+    "state": "version-pending",
+    "version": "0.1.8",
     "latest_tag": "knowbe4-v0.1.7",
     "current_hash": "sha256:5aa06bc8b8239c11a2f2d6514a08e8d57fde1908add3c463109da4736895bdc5",
-    "released_hash": "sha256:955b404706a25f4c33173317c3df1f5d4e30f1e1b1bc2d1bcab3d4ef77bf87ee"
+    "released_hash": "sha256:5aa06bc8b8239c11a2f2d6514a08e8d57fde1908add3c463109da4736895bdc5"
   },
   "levelio": {
     "state": "up-to-date",
