@@ -17,11 +17,15 @@ import (
 	"net/netip"
 	"net/url"
 	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/mark3labs/mcp-go/server"
 	"veeam-pp-cli/internal/cli"
+	"veeam-pp-cli/internal/credkit"
+	"veeam-pp-cli/internal/credwire"
 	mcptools "veeam-pp-cli/internal/mcp"
 )
 
@@ -57,52 +61,79 @@ const httpAllowedOriginsEnvVar = "VEEAM_MCP_HTTP_ALLOWED_ORIGINS"
 var version = "1.0.0"
 
 func main() {
+	// Hand-fix (handfixes.json credkit-wiring): the credential kit holds every startup credential before any output.
+	credkit.Start(credwire.Declarations)
+	credkit.Exit(run())
+}
+
+func run() int {
 	// Pin the learn-event surface for this process and every walker
 	// shell-out child, so usage events record surface=mcp.
 	_ = os.Setenv("VEEAM_LEARN_SURFACE", "mcp")
 	if err := cli.BindMCPServerProfile(); err != nil {
 		fmt.Fprintf(os.Stderr, "MCP client-profile bind failed: %v\n", err)
-		os.Exit(1)
+		return 1
 	}
 	s := server.NewMCPServer(
 		"Veeam Service Provider",
 		version,
+		// Hand-fix (handfixes.json credkit-wiring): outermost, so every tool result and error passes the credential kit.
+		server.WithToolHandlerMiddleware(credkit.MCPTools),
 		server.WithToolCapabilities(false),
 	)
 
 	mcptools.RegisterTools(s)
 
+	// Hand-fix (handfixes.json credkit-wiring): a help or flag error returns through
+	// credkit.Exit, which drains the kit's pipes; flag.Parse's own os.Exit would not.
+	flag.CommandLine.Init(os.Args[0], flag.ContinueOnError)
 	transport := flag.String("transport", defaultTransport(), "MCP transport: stdio | http")
 	addr := flag.String("addr", defaultHTTPAddr, "bind address for http transport (host:port or :port)")
 	tlsCert := flag.String("tls-cert", "", "TLS certificate file; required with --tls-key for any non-loopback --addr")
 	tlsKey := flag.String("tls-key", "", "TLS private key file; required with --tls-cert for any non-loopback --addr")
-	flag.Parse()
+	// A copy: flag keeps the slice it parses, and argv stays read-only.
+	if err := flag.CommandLine.Parse(append([]string(nil), os.Args[1:]...)); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return 0
+		}
+		return 2
+	}
+	// Hand-fix (handfixes.json credkit-wiring): this binary has no --config or
+	// --home, yet startup read one (hidden from the parser as another flag's
+	// value or after a positional) and the kit took the allowed origin from it.
+	if credwire.StartupNamedConfigOrHome() {
+		fmt.Fprintln(os.Stderr, "veeam-mcp takes no --config or --home: set VEEAM_CONFIG or VEEAM_HOME instead")
+		return 2
+	}
 
 	switch strings.ToLower(*transport) {
 	case "stdio":
-		if err := server.ServeStdio(s); err != nil {
+		// Hand-fix (handfixes.json credkit-wiring): ServeStdio's own signal handling, with stdin and stdout through the kit.
+		ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
+		defer stop()
+		if err := server.NewStdioServer(s).Listen(ctx, credkit.MCPIn(os.Stdin), credkit.MCPOut()); err != nil {
 			fmt.Fprintf(os.Stderr, "MCP server error: %v\n", err)
-			os.Exit(1)
+			return 1
 		}
 	case "http":
 		token, err := requireHTTPCallerToken()
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "MCP server error: %v\n", err)
-			os.Exit(1)
+			return 1
 		}
 		allowedOrigins, err := loadAllowedHTTPOrigins()
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "MCP server error: %v\n", err)
-			os.Exit(1)
+			return 1
 		}
 		bindAddr, loopback := classifyHTTPBind(*addr)
 		if err := requireTLSForNonLoopback(*addr, loopback, *tlsCert, *tlsKey); err != nil {
 			fmt.Fprintf(os.Stderr, "MCP server error: %v\n", err)
-			os.Exit(1)
+			return 1
 		}
 		if (*tlsCert != "") != (*tlsKey != "") {
 			fmt.Fprintf(os.Stderr, "MCP server error: both --tls-cert and --tls-key are required for TLS\n")
-			os.Exit(1)
+			return 1
 		}
 		inner := server.NewStreamableHTTPServer(s)
 		httpSrv := newMCPHTTPServer(bindAddr, requireBearerAuthWithOrigins(token, allowedOrigins, inner))
@@ -114,12 +145,13 @@ func main() {
 		}
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "MCP server error: %v\n", err)
-			os.Exit(1)
+			return 1
 		}
 	default:
 		fmt.Fprintf(os.Stderr, "unknown --transport %q (supported: stdio, http)\n", *transport)
-		os.Exit(2)
+		return 2
 	}
+	return 0
 }
 
 // defaultTransport reads PP_MCP_TRANSPORT env when set, otherwise falls back
@@ -203,33 +235,65 @@ func requireBearerAuthWithOrigins(expected string, allowed map[string]struct{}, 
 	return requireBearerAuthWithLimits(expected, allowed, next, mcpHTTPMaxBodyBytes, mcpHTTPBodyReadDeadline)
 }
 
+// requireBearerAuthWithLimits is the whole HTTP handler. Hand-fix
+// (handfixes.json credkit-wiring): every response it serves, the
+// Origin, bearer and body-limit refusals included, is written through
+// credkit.MCPHTTP, so a held value never leaves in a status line, header or
+// body. The one step before the kit writes nothing: it decides the refusal
+// and bounds the body read, so the kit never reads an unbounded or broken
+// body from a caller, and a refused request reaches the kit with no header
+// and no body (nothing in it can mark the kit's acquisition unknown).
 func requireBearerAuthWithLimits(expected string, allowed map[string]struct{}, next http.Handler, maxBytes int64, readTimeout time.Duration) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if !requestOriginPermitted(r, allowed) {
-			http.Error(w, "forbidden origin", http.StatusForbidden)
-			return
-		}
-		if !bearerTokenMatches(r.Header.Get("Authorization"), expected) {
-			w.Header().Set("WWW-Authenticate", `Bearer realm="mcp"`)
-			http.Error(w, "unauthorized", http.StatusUnauthorized)
-			return
-		}
-		if err := bufferMCPRequestBody(w, r, maxBytes, readTimeout); err != nil {
+	kit := credkit.MCPHTTP(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if ref, refused := r.Context().Value(mcpHTTPRefusalKey{}).(mcpHTTPRefusal); refused {
+			if ref.status == http.StatusUnauthorized {
+				w.Header().Set("WWW-Authenticate", `Bearer realm="mcp"`)
+			}
+			http.Error(w, ref.message, ref.status)
 			return
 		}
 		next.ServeHTTP(w, r)
+	}))
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ref, refused := mcpHTTPPreflight(r, http.NewResponseController(w), expected, allowed, maxBytes, readTimeout)
+		if refused {
+			r = r.Clone(context.WithValue(r.Context(), mcpHTTPRefusalKey{}, ref))
+			r.Header = http.Header{}
+			r.Trailer = nil
+			r.Body = http.NoBody
+			r.ContentLength = 0
+			r.TransferEncoding = nil
+			r.GetBody = nil
+		}
+		kit.ServeHTTP(w, r)
 	})
 }
 
-func bufferMCPRequestBody(w http.ResponseWriter, r *http.Request, maxBytes int64, readTimeout time.Duration) error {
-	if r.Method != http.MethodPost || r.Body == nil {
-		return nil
+type mcpHTTPRefusalKey struct{}
+
+type mcpHTTPRefusal struct {
+	status  int
+	message string
+}
+
+// mcpHTTPPreflight decides whether r is refused and, for an authenticated
+// request with a body, reads that body under maxBytes and readTimeout into
+// memory. It never writes a response; rc only sets the read deadline.
+func mcpHTTPPreflight(r *http.Request, rc *http.ResponseController, expected string, allowed map[string]struct{}, maxBytes int64, readTimeout time.Duration) (mcpHTTPRefusal, bool) {
+	if !requestOriginPermitted(r, allowed) {
+		return mcpHTTPRefusal{http.StatusForbidden, "forbidden origin"}, true
+	}
+	if !bearerTokenMatches(r.Header.Get("Authorization"), expected) {
+		return mcpHTTPRefusal{http.StatusUnauthorized, "unauthorized"}, true
+	}
+	// A request expecting 100-continue keeps its body unread: the kit
+	// refuses it (417) before net/http would send the interim response.
+	if r.Body == nil || r.Body == http.NoBody || mcpHTTPExpectsContinue(r) {
+		return mcpHTTPRefusal{}, false
 	}
 	if r.ContentLength > maxBytes {
-		rejectMCPHTTPRequest(w, http.StatusRequestEntityTooLarge, "request body too large")
-		return fmt.Errorf("request body too large")
+		return mcpHTTPRefusal{http.StatusRequestEntityTooLarge, "request body too large"}, true
 	}
-	rc := http.NewResponseController(w)
 	deadlineSet := false
 	if readTimeout > 0 {
 		if err := rc.SetReadDeadline(time.Now().Add(readTimeout)); err == nil {
@@ -242,15 +306,12 @@ func bufferMCPRequestBody(w http.ResponseWriter, r *http.Request, maxBytes int64
 	if err != nil {
 		var maxErr *http.MaxBytesError
 		if errors.As(err, &maxErr) {
-			rejectMCPHTTPRequest(w, http.StatusRequestEntityTooLarge, "request body too large")
-			return err
+			return mcpHTTPRefusal{http.StatusRequestEntityTooLarge, "request body too large"}, true
 		}
 		if isMCPBodyReadTimeout(err) {
-			rejectMCPHTTPRequest(w, http.StatusRequestTimeout, "request body read timed out")
-			return err
+			return mcpHTTPRefusal{http.StatusRequestTimeout, "request body read timed out"}, true
 		}
-		rejectMCPHTTPRequest(w, http.StatusBadRequest, "reading request body")
-		return err
+		return mcpHTTPRefusal{http.StatusBadRequest, "reading request body"}, true
 	}
 	if deadlineSet {
 		_ = rc.SetReadDeadline(time.Time{})
@@ -260,7 +321,23 @@ func bufferMCPRequestBody(w http.ResponseWriter, r *http.Request, maxBytes int64
 	r.GetBody = func() (io.ReadCloser, error) {
 		return io.NopCloser(bytes.NewReader(body)), nil
 	}
-	return nil
+	return mcpHTTPRefusal{}, false
+}
+
+// mcpHTTPExpectsContinue is the kit's own test for a request it refuses
+// before reading the body: HTTP/1.1 or later with a 100-continue token.
+func mcpHTTPExpectsContinue(r *http.Request) bool {
+	if !r.ProtoAtLeast(1, 1) {
+		return false
+	}
+	for _, v := range r.Header.Values("Expect") {
+		for _, t := range strings.Split(v, ",") {
+			if strings.EqualFold(strings.TrimSpace(t), "100-continue") {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func isMCPBodyReadTimeout(err error) bool {
@@ -269,20 +346,6 @@ func isMCPBodyReadTimeout(err error) bool {
 	}
 	var netErr net.Error
 	return errors.As(err, &netErr) && netErr.Timeout()
-}
-
-func rejectMCPHTTPRequest(w http.ResponseWriter, status int, message string) {
-	body := message + "\n"
-	conn, bufrw, err := http.NewResponseController(w).Hijack()
-	if err != nil {
-		w.Header().Set("Connection", "close")
-		http.Error(w, message, status)
-		return
-	}
-	fmt.Fprintf(bufrw, "HTTP/1.1 %d %s\r\nConnection: close\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Length: %d\r\n\r\n%s",
-		status, http.StatusText(status), len(body), body)
-	_ = bufrw.Flush()
-	_ = conn.Close()
 }
 
 func bearerTokenMatches(header, expected string) bool {

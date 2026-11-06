@@ -10,6 +10,7 @@ import (
 	"io"
 	"net/http"
 	"time"
+	"veeam-pp-cli/internal/credkit"
 )
 
 // defaultProbeTimeout caps the request when the caller passes a nil
@@ -71,7 +72,7 @@ func ProbeReachable(ctx context.Context, client *http.Client, url string) (statu
 		// global DefaultClient has none, so a nil-client probe against
 		// a slow host would hang. Callers passing their own client are
 		// expected to set Timeout themselves.
-		client = &http.Client{Timeout: defaultProbeTimeout}
+		client = &http.Client{Timeout: defaultProbeTimeout, Transport: credkit.Transport(nil)} // Hand-fix (handfixes.json credkit-wiring)
 	}
 	req, reqErr := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if reqErr != nil {
