@@ -36,9 +36,11 @@ but do not stop the import.`,
   # Import from stdin
   cat data.jsonl | cloudally-cli import <resource> --input -`,
 		Args: cobra.ExactArgs(1),
-		// --input names a file on the machine that runs the MCP server; operators only.
+		// CLI only: over MCP it would read a local JSONL file and POST a
+		// create per line with no plan or confirmation. --input names a file on
+		// the machine that runs the MCP server; operators only.
 		// Hand-fix (handfixes.json: mcp-file-flags-refused).
-		Annotations: map[string]string{"mcp:write-flags": "input"},
+		Annotations: map[string]string{"mcp:hidden": "true", "mcp:write-flags": "input"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			resource := args[0]
 			path, err := resourceWritePath(resource)

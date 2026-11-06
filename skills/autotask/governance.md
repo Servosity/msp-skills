@@ -8,7 +8,7 @@
 ## What it authenticates as
 
 The skill drives the `autotask-cli` binary (and `autotask-mcp`),
-authenticating with `AUTOTASK_PSA_API_INTEGRATION_CODE`, `AUTOTASK_PSA_SECRET`, `AUTOTASK_PSA_USER_NAME`. Credentials are read from the environment only -
+authenticating with `AUTOTASK_API_INTEGRATION_CODE`, `AUTOTASK_PSA_SECRET`, `AUTOTASK_PSA_USER_NAME`. Credentials are read from the environment only -
 never written to disk, never logged, never sent anywhere except the Autotask API.
 
 ## Default-safe behavior

@@ -55,7 +55,7 @@
       "type": "skill-md",
       "description": "Every Autotask entity at the command line, plus a local SQLite mirror that answers ticket-aging, workload, unbilled-time, and account-360 questions no other Autotask tool can. Trigger phrases: `list autotask tickets`, `autotask company 360`, `who is overloaded in autotask`, `unbilled time in autotask`, `autotask ticket aging`, `use autotask`, `run autotask-cli`.",
       "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/autotask/SKILL.md",
-      "digest": "sha256:ab556f8770af8630eb6d98c7ef4465b05402482bee27030ed9336a64d66c1558"
+      "digest": "sha256:98c274b12e78499eea8e23afde81cb78280f4ef261c6566f87c9eaadc8e804a9"
     },
     {
       "name": "auvik",
@@ -151,9 +151,9 @@
     {
       "name": "cloudally",
       "type": "skill-md",
-      "description": "Use when the user asks about CloudAlly SaaS backup of Microsoft 365 or Google Workspace through the Management API v2: partner, reseller and customer accounts, backup tasks and their status, running or pausing backups, users, billing and recovery (restore) jobs. Trigger phrases: `which CloudAlly backups are failing`, `CloudAlly backup status for all customers`, `list CloudAlly backup tasks`, `run a CloudAlly backup now`, `restore a CloudAlly mailbox`, `CloudAlly billing`, `use cloudally`, `run cloudally-cli`.",
+      "description": "Use when the user asks about CloudAlly backups of Microsoft 365 or Google Workspace: restores many mailboxes to one past backup date, builds and downloads year-end mailbox archives, lists a mailbox's past backups (which CloudAlly's documented API cannot), and finds stale or failing backups across every partner customer; also partner, reseller and customer accounts, backup tasks, users and billing through the Management API v2. Trigger phrases: `restore all mailboxes to a date in CloudAlly`, `batch restore CloudAlly mailboxes`, `download every mailbox as of December 31`, `year-end mailbox archive from CloudAlly`, `list a CloudAlly mailbox's past backups`, `which CloudAlly backups are failing`, `check CloudAlly restore progress`, `CloudAlly backup status for all customers`, `list CloudAlly backup tasks`, `run a CloudAlly backup now`, `CloudAlly billing`, `use cloudally`, `run cloudally-cli`.",
       "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/cloudally/SKILL.md",
-      "digest": "sha256:1caa4cb68900bc873c7c5bd049d99702a8fdc1bd3508b3935b135b07cae2a566"
+      "digest": "sha256:2f2635638bcb5e139cfe75e3bb3ba9cd5b582d779f65ab255350305e6248f51c"
     },
     {
       "name": "connect-tool",
@@ -336,6 +336,13 @@
       "description": "Every IT Glue resource, plus an offline SQLite mirror, fleet-wide cross-resource search, and documentation-hygiene analytics no other IT Glue tool offers. Trigger phrases: `find this device across all my IT Glue clients`, `which IT Glue organizations are under-documented`, `audit stale passwords in IT Glue`, `sync IT Glue to a local database`, `what changed in IT Glue since last week`, `use itglue`, `run itglue`.",
       "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/itglue/SKILL.md",
       "digest": "sha256:8aaee2a34f233f9ae1eb30aee973c4ae61c2e154e06872a738e72dc02a06b6fb"
+    },
+    {
+      "name": "jamf-pro",
+      "type": "skill-md",
+      "description": "Every client's Jamf Pro in one CLI: register each instance once, then find devices, check posture and patch status, and audit policies across all of them. Trigger phrases: `which client has this Mac`, `jamf posture across clients`, `macs not checked in`, `patch status in jamf`, `broken jamf policies`, `use jamf-pro`, `run jamf-pro`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/jamf-pro/SKILL.md",
+      "digest": "sha256:6bc15d4b7362d3337fdf7a64f4f3dfb396b76804134d91baf9380e2630378707"
     },
     {
       "name": "jira-service-management",

@@ -93,8 +93,8 @@
       "tagline": "Answer fleet-wide Afi backup coverage, staleness, and licensing questions from one local store.",
       "cli_hash": "sha256:b12adf457b152c7556a18d0f570e3f63f1d7707dd4a3d0ed617ff6774c984502",
       "template_version": 3,
-      "version": "0.1.8",
-      "cli_hash_at_release": "sha256:4aa85880c521b0469e454721927ac643f6b142fbb5aec773361166617a728bc6",
+      "version": "0.1.9",
+      "cli_hash_at_release": "sha256:b12adf457b152c7556a18d0f570e3f63f1d7707dd4a3d0ed617ff6774c984502",
       "has_video": true,
       "live_verified": {
         "status": "awaiting",
@@ -189,10 +189,10 @@
       "category": "PSA",
       "display_name": "Autotask PSA",
       "tagline": "Triage tickets, surface unbilled time, and project retainer burn by asking.",
-      "cli_hash": "sha256:d38c62044a6ebdadc8b90b338e28235c063aefb5d6e267b61d73daed9a5b7f3a",
+      "cli_hash": "sha256:766008066e3d7fc70c3a388891ba171a47f202f9abdf561185595c4930392250",
       "template_version": 3,
-      "version": "0.1.9",
-      "cli_hash_at_release": "sha256:91ca48c3c47904d750169a994095d2207214080bfa28f0cfcd4004868f7b2d80",
+      "version": "0.1.10",
+      "cli_hash_at_release": "sha256:766008066e3d7fc70c3a388891ba171a47f202f9abdf561185595c4930392250",
       "has_video": true,
       "live_verified": {
         "status": "awaiting",
@@ -538,10 +538,10 @@
       "category": "Backup/DR",
       "display_name": "CloudAlly",
       "tagline": "See every CloudAlly customer's backup status, tasks and billing, and run backups and recovery jobs, from one CLI and MCP server.",
-      "cli_hash": "sha256:20966c685624bfc657a30ce99cea344da2b0cbfac423e944767e2b72aeaa264a",
+      "cli_hash": "sha256:b94da090756d70bd178b4121aec08076f2e3ac87750e625d3b1a08f274dba0c8",
       "template_version": 3,
-      "version": "0.1.0",
-      "cli_hash_at_release": "sha256:20966c685624bfc657a30ce99cea344da2b0cbfac423e944767e2b72aeaa264a",
+      "version": "0.2.0",
+      "cli_hash_at_release": "sha256:b94da090756d70bd178b4121aec08076f2e3ac87750e625d3b1a08f274dba0c8",
       "live_verified": {
         "status": "live-verified",
         "date": "2026-11-05",
@@ -1211,6 +1211,28 @@
         "issue_url": null
       }
     },
+    "jamf-pro": {
+      "system": "Jamf Pro: computers, mobile devices, policies, scripts, and packages across every client Jamf instance for MSPs",
+      "status": "beta",
+      "cli_binary": "jamf-pro-cli",
+      "mcp_binary": "jamf-pro-mcp",
+      "vendor": "Jamf",
+      "vendor_trademark_owner": "JAMF Software, LLC",
+      "first_party": false,
+      "category": "MDM",
+      "display_name": "Jamf Pro",
+      "has_video": true,
+      "cli_hash": "sha256:f65b37f65d9976b0feb13673537868f06d38309978d4874246bf176cb5e1a1ca",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": "sha256:f65b37f65d9976b0feb13673537868f06d38309978d4874246bf176cb5e1a1ca",
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
+    },
     "jira-service-management": {
       "system": "Jira Service Management Cloud: requests, queues, SLAs, customers, organizations, Assets (CMDB)",
       "status": "beta",
@@ -1392,8 +1414,8 @@
       "display_name": "Maxio",
       "cli_hash": "sha256:1554739697e63aa1a2e01a844d33bf29e042346aca2ab7da012436bf0dc629a2",
       "template_version": 3,
-      "version": "0.1.7",
-      "cli_hash_at_release": "sha256:216772fb4739193a7f0de6ad762a09c317a143d629d2f24285017029996e51b1",
+      "version": "0.1.8",
+      "cli_hash_at_release": "sha256:1554739697e63aa1a2e01a844d33bf29e042346aca2ab7da012436bf0dc629a2",
       "has_video": true,
       "live_verified": {
         "status": "awaiting",

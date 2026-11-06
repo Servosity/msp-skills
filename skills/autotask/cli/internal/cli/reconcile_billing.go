@@ -18,8 +18,8 @@ func newNovelReconcileCmd(flags *rootFlags) *cobra.Command {
 	var dbPath string
 	cmd := &cobra.Command{
 		Use:   "reconcile",
-		Short: "One month-end table: unbilled approved time, contract burn, and the money left on the table.",
-		Long: `Cross-join time entries, invoices, and contract blocks in the local store into one billing-close report: approved-but-uninvoiced hours (by company), contract consumed-vs-purchased, and a money-on-the-table total. Run ` + "`sync`" + ` first.
+		Short: "One month-end table: billable time not yet approved and posted, contract blocks consumed vs purchased, and the money left on the table.",
+		Long: `Cross-join time entries, tickets, projects, contracts and contract blocks in the local store into one billing-close report: billable hours not yet approved and posted for billing (by company, through each entry's ticket, task project or contract), contract consumed-vs-purchased, and a money-on-the-table total. Run ` + "`sync`" + ` first.
 
 Use this command for the full month-end reconciliation across time, invoices, and contracts. Do NOT use it for just unbilled hours (use 'unbilled') or just per-contract consumption (use 'contract-burn').`,
 		Example: strings.Trim(`
@@ -50,8 +50,14 @@ Use this command for the full month-end reconciliation across time, invoices, an
 			if err != nil {
 				return apiErr(err)
 			}
-			blocks, _ := listEntity(db, "contract-blocks")
-			contracts, _ := listEntity(db, "contracts")
+			blocks, err := listEntity(db, "contract-blocks")
+			if err != nil {
+				return apiErr(err)
+			}
+			contracts, err := listEntity(db, "contracts")
+			if err != nil {
+				return apiErr(err)
+			}
 
 			// Map contractID -> companyID so contract rows can honor --company.
 			contractCompany := map[string]string{}
@@ -61,7 +67,12 @@ Use this command for the full month-end reconciliation across time, invoices, an
 				}
 			}
 
-			// Leg 1: unbilled approved time (no invoiceID, billable).
+			companies, err := loadTimeEntryCompanies(db)
+			if err != nil {
+				return apiErr(err)
+			}
+
+			// Leg 1: billable time not yet approved and posted.
 			type companyHours struct {
 				CompanyID string  `json:"companyID"`
 				Entries   int     `json:"entries"`
@@ -71,17 +82,14 @@ Use this command for the full month-end reconciliation across time, invoices, an
 			var unbilledEntries int
 			var unbilledHours float64
 			for _, e := range entries {
-				if inv, ok := intAt(e, "invoiceID", "invoiceId"); ok && inv != 0 {
+				if !timeEntryUnbilled(e) {
 					continue
 				}
-				if boolAt(e, "isNonBillable") {
-					continue
-				}
-				cid := strAt(e, "companyID", "companyId")
+				cid := companies.company(e)
 				if flagCompany != "" && cid != flagCompany {
 					continue
 				}
-				h, _ := numAt(e, "hoursWorked", "hoursToBill", "hours")
+				h := timeEntryBillHours(e)
 				unbilledEntries++
 				unbilledHours += h
 				key := cid

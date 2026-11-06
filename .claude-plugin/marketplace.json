@@ -58,7 +58,7 @@
       "name": "afi",
       "source": "./skills/afi",
       "description": "The first CLI for Afi SaaS backup \u2014 full public-API coverage plus the fleet-wide coverage, staleness, and offboarding answers the rate-limited API can't serve live.",
-      "version": "0.1.8",
+      "version": "0.1.9",
       "category": "backup-dr",
       "tags": [
         "afi",
@@ -103,7 +103,7 @@
       "name": "autotask",
       "source": "./skills/autotask",
       "description": "Every Autotask entity at the command line, plus a local SQLite mirror that answers ticket-aging, workload, unbilled-time, and account-360 questions no other Autotask tool can.",
-      "version": "0.1.9",
+      "version": "0.1.10",
       "category": "psa",
       "tags": [
         "autotask",
@@ -591,7 +591,7 @@
       "name": "maxio",
       "source": "./skills/maxio",
       "description": "Open, local revenue-intelligence CLI for Maxio Advanced Billing \u2014 MRR waterfalls, retention, and per-client history computed offline from a SQLite mirror, so the trended history survives even though the live API returns only point-in-time figures.",
-      "version": "0.1.7",
+      "version": "0.1.8",
       "category": "billing",
       "tags": [
         "maxio",
@@ -1561,7 +1561,7 @@
       "name": "cloudally",
       "source": "./skills/cloudally",
       "description": "See every CloudAlly customer's backup status, tasks and billing, and run backups and recovery jobs, from one CLI and MCP server.",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "category": "backup-dr",
       "tags": [
         "cloudally",
@@ -1598,6 +1598,22 @@
         "zoom-phone",
         "zoom",
         "telephony",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
+    },
+    {
+      "name": "jamf-pro",
+      "source": "./skills/jamf-pro",
+      "description": "Every client's Jamf Pro in one CLI: register each instance once, then find devices, check posture and patch status, and audit policies across all of them.",
+      "version": "0.1.0",
+      "category": "mdm",
+      "tags": [
+        "jamf-pro",
+        "jamf",
+        "mdm",
         "msp",
         "mcp",
         "claude-code",

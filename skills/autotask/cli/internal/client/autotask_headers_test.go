@@ -27,10 +27,10 @@ func TestAllThreeAutotaskHeadersSent(t *testing.T) {
 	defer srv.Close()
 
 	cfg := &config.Config{
-		BaseURL:                       srv.URL,
+		BaseURL:                    srv.URL,
 		AutotaskApiIntegrationCode: "integration-code-123",
-		AutotaskPsaUserName:           "api-user@example.com",
-		AutotaskPsaSecret:             "secret-456",
+		AutotaskPsaUserName:        "api-user@example.com",
+		AutotaskPsaSecret:          "secret-456",
 	}
 	c := New(cfg, 5*time.Second, 0)
 	if _, err := c.Get(context.Background(), "/Companies/query", nil); err != nil {
@@ -72,18 +72,16 @@ func TestCrossHostRedirectStripsAutotaskHeaders(t *testing.T) {
 	defer origin.Close()
 
 	cfg := &config.Config{
-		BaseURL:                       origin.URL,
+		BaseURL:                    origin.URL,
 		AutotaskApiIntegrationCode: "integration-code-123",
-		AutotaskPsaUserName:           "api-user@example.com",
-		AutotaskPsaSecret:             "secret-456",
+		AutotaskPsaUserName:        "api-user@example.com",
+		AutotaskPsaSecret:          "secret-456",
 	}
 	c := New(cfg, 5*time.Second, 0)
-	if _, err := c.Get(context.Background(), "/Companies/query", nil); err != nil {
-		t.Fatalf("Get: %v", err)
-	}
-	if leaked == nil {
-		t.Fatal("redirect target never received the request")
-	}
+	// 4.34.x refuses the hop outright (loopback redirect guard, and the origin pin
+	// refuses any redirect off the configured origin); a refused hop leaks nothing.
+	// Either way the other host must never see a credential header.
+	_, _ = c.Get(context.Background(), "/Companies/query", nil)
 	for _, header := range []string{"ApiIntegrationCode", "UserName", "Secret"} {
 		if g := leaked.Get(header); g != "" {
 			t.Errorf("cross-host redirect leaked %s=%q; credential headers must be stripped on cross-host hops", header, g)

@@ -21,11 +21,11 @@
     "released_hash": "sha256:21cffbd6b2c5a562e304f06c6b0566b028af43c5c3553b60bd42f7f8a869f9e9"
   },
   "afi": {
-    "state": "binary-pending",
-    "version": "0.1.8",
-    "latest_tag": "afi-v0.1.8",
+    "state": "up-to-date",
+    "version": "0.1.9",
+    "latest_tag": "afi-v0.1.9",
     "current_hash": "sha256:b12adf457b152c7556a18d0f570e3f63f1d7707dd4a3d0ed617ff6774c984502",
-    "released_hash": "sha256:4aa85880c521b0469e454721927ac643f6b142fbb5aec773361166617a728bc6"
+    "released_hash": "sha256:b12adf457b152c7556a18d0f570e3f63f1d7707dd4a3d0ed617ff6774c984502"
   },
   "appdirect": {
     "state": "up-to-date",
@@ -50,10 +50,10 @@
   },
   "autotask": {
     "state": "up-to-date",
-    "version": "0.1.9",
-    "latest_tag": "autotask-v0.1.9",
-    "current_hash": "sha256:91ca48c3c47904d750169a994095d2207214080bfa28f0cfcd4004868f7b2d80",
-    "released_hash": "sha256:91ca48c3c47904d750169a994095d2207214080bfa28f0cfcd4004868f7b2d80"
+    "version": "0.1.10",
+    "latest_tag": "autotask-v0.1.10",
+    "current_hash": "sha256:766008066e3d7fc70c3a388891ba171a47f202f9abdf561185595c4930392250",
+    "released_hash": "sha256:766008066e3d7fc70c3a388891ba171a47f202f9abdf561185595c4930392250"
   },
   "auvik": {
     "state": "up-to-date",
@@ -148,10 +148,10 @@
   },
   "cloudally": {
     "state": "up-to-date",
-    "version": "0.1.0",
-    "latest_tag": "cloudally-v0.1.0",
-    "current_hash": "sha256:20966c685624bfc657a30ce99cea344da2b0cbfac423e944767e2b72aeaa264a",
-    "released_hash": "sha256:20966c685624bfc657a30ce99cea344da2b0cbfac423e944767e2b72aeaa264a"
+    "version": "0.2.0",
+    "latest_tag": "cloudally-v0.2.0",
+    "current_hash": "sha256:b94da090756d70bd178b4121aec08076f2e3ac87750e625d3b1a08f274dba0c8",
+    "released_hash": "sha256:b94da090756d70bd178b4121aec08076f2e3ac87750e625d3b1a08f274dba0c8"
   },
   "connect-tool": {
     "state": "markdown-only",
@@ -335,6 +335,13 @@
     "current_hash": "sha256:78c2769ba7ddd569d3f22f4d3470038d95285281fbf05592944d1717c8bc8752",
     "released_hash": "sha256:78c2769ba7ddd569d3f22f4d3470038d95285281fbf05592944d1717c8bc8752"
   },
+  "jamf-pro": {
+    "state": "up-to-date",
+    "version": "0.1.0",
+    "latest_tag": "jamf-pro-v0.1.0",
+    "current_hash": "sha256:f65b37f65d9976b0feb13673537868f06d38309978d4874246bf176cb5e1a1ca",
+    "released_hash": "sha256:f65b37f65d9976b0feb13673537868f06d38309978d4874246bf176cb5e1a1ca"
+  },
   "jira-service-management": {
     "state": "up-to-date",
     "version": "0.1.4",
@@ -385,11 +392,11 @@
     "released_hash": "sha256:2116baa46d0e0c97200a2f6b3790a41a9e8e8af72b1fc7a081167c68f8b455d1"
   },
   "maxio": {
-    "state": "binary-pending",
-    "version": "0.1.7",
-    "latest_tag": "maxio-v0.1.7",
+    "state": "up-to-date",
+    "version": "0.1.8",
+    "latest_tag": "maxio-v0.1.8",
     "current_hash": "sha256:1554739697e63aa1a2e01a844d33bf29e042346aca2ab7da012436bf0dc629a2",
-    "released_hash": "sha256:216772fb4739193a7f0de6ad762a09c317a143d629d2f24285017029996e51b1"
+    "released_hash": "sha256:1554739697e63aa1a2e01a844d33bf29e042346aca2ab7da012436bf0dc629a2"
   },
   "microsoft-graph": {
     "state": "up-to-date",

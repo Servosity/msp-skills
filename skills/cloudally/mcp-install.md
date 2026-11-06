@@ -45,6 +45,7 @@ Add (or merge with your existing `mcpServers` block):
         "CLOUDALLY_PARTNER_EMAIL": "",
         "CLOUDALLY_PARTNER_PASSWORD": "",
         "CLOUDALLY_BASE_URL": "",
+        "CLOUDALLY_PORTAL_URL": "",
         "CLOUDALLY_MCP_READ_ONLY": "",
         "CLOUDALLY_NO_LOCAL_DATA": "",
         "CLOUDALLY_MCP_HTTP_TOKEN": "",
@@ -84,6 +85,7 @@ Configuration**) and add:
         "CLOUDALLY_PARTNER_EMAIL": "",
         "CLOUDALLY_PARTNER_PASSWORD": "",
         "CLOUDALLY_BASE_URL": "",
+        "CLOUDALLY_PORTAL_URL": "",
         "CLOUDALLY_MCP_READ_ONLY": "",
         "CLOUDALLY_NO_LOCAL_DATA": "",
         "CLOUDALLY_MCP_HTTP_TOKEN": "",
@@ -100,7 +102,7 @@ invisible in Ask/Edit mode.
 
 ## Gemini CLI (Google)
 
-Edit `~/.gemini/settings.json` (Gemini CLI's config) and add the same shape as
+Edit `~/.gemini/settings.json` (Windows: `%USERPROFILE%\.gemini\settings.json`; Gemini CLI's config) and add the same shape as
 Claude Desktop:
 
 ```json
@@ -117,6 +119,7 @@ Claude Desktop:
         "CLOUDALLY_PARTNER_EMAIL": "",
         "CLOUDALLY_PARTNER_PASSWORD": "",
         "CLOUDALLY_BASE_URL": "",
+        "CLOUDALLY_PORTAL_URL": "",
         "CLOUDALLY_MCP_READ_ONLY": "",
         "CLOUDALLY_NO_LOCAL_DATA": "",
         "CLOUDALLY_MCP_HTTP_TOKEN": "",
@@ -142,6 +145,8 @@ default and refuses to start until `CLOUDALLY_MCP_HTTP_TOKEN` is set; press 4.32
 ```bash
 CLOUDALLY_CLIENT_ID=<value> CLOUDALLY_CLIENT_SECRET=<value> CLOUDALLY_MCP_HTTP_TOKEN=<a long random value> cloudally-mcp --transport http
 ```
+
+On Windows, set the same three variables in PowerShell first (`$env:CLOUDALLY_CLIENT_ID = "<value>"`, and likewise `CLOUDALLY_CLIENT_SECRET` and `CLOUDALLY_MCP_HTTP_TOKEN`), then start the server in HTTP mode the same way.
 
 Then expose `http://localhost:7777/mcp` as a public HTTPS URL via a secure tunnel
 (Cloudflare Tunnel, ngrok) or your own reverse proxy. The path is part of the

@@ -435,11 +435,11 @@
         "Backup/DR"
       ],
       "representativeQueries": [
-        "What is the latest backup status of every mailbox and site across all my CloudAlly customers?",
-        "Which customer accounts do I manage?",
-        "Switch into this customer's account.",
-        "Which backup tasks does this customer have?",
-        "What state is every entity of this backup task in?"
+        "Which mailboxes across all my CloudAlly customers have not backed up in two days, or failed? (It reads the synced feed: run cloudally-cli sync --resources distributoraccounts-backup-statuses first.)",
+        "What backups does this mailbox have for December?",
+        "Which backup would each mailbox on this task be restored from for December 31st?",
+        "Plan, then restore every mailbox on the task to October 1st.",
+        "Plan, then archive every mailbox as it stood on December 31st in the customer's own timezone."
       ],
       "metadata": {
         "page": "https://msp-skills.compoundingteams.com/skills/cloudally.md"
@@ -948,6 +948,26 @@
       ],
       "metadata": {
         "page": "https://msp-skills.compoundingteams.com/skills/itglue.md"
+      }
+    },
+    {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:jamf-pro",
+      "displayName": "Jamf Pro",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/jamf-pro/SKILL.md",
+      "description": "Every client's Jamf Pro in one CLI: register each instance once, then find devices, check posture and patch status, and audit policies across all of them. Trigger phrases: `which client has this Mac`, `jamf posture across clients`, `macs not checked in`, `patch status in jamf`, `broken jamf policies`, `use jamf-pro`, `run jamf-pro`.",
+      "tags": [
+        "MDM"
+      ],
+      "representativeQueries": [
+        "Which client has this Mac, iPad or iPhone, by serial, name, username or email?",
+        "Which clients have stale check-ins, Macs below a macOS floor, FileVault off or the firewall off?",
+        "Which patch titles are behind latest, and which clients have failed managed OS updates?",
+        "A vendor advisory landed: which clients and computers have this app below the fixed version?",
+        "Which policies are disabled, can never run, have no scope, or point at a missing script or package?"
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/jamf-pro.md"
       }
     },
     {

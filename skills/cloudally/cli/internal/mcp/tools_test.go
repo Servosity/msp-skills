@@ -47,7 +47,8 @@ func TestMCPPathResolutionMatchesCLIResolverWithHomeEnv(t *testing.T) {
 	if err != nil {
 		t.Fatalf("cliutil.DataDir() error = %v", err)
 	}
-	if want := filepath.Join(cliDataDir, "data.db"); gotDB != want {
+	// Hand-wired (cloudally): a run with no credential uses data-nocredential.db, never data.db.
+	if want := filepath.Join(cliDataDir, "data-nocredential.db"); gotDB != want {
 		t.Fatalf("MCP db path = %q, want CLI resolver path %q", gotDB, want)
 	}
 	wantCLI, err := cli.MCPStorePath()
@@ -74,7 +75,8 @@ func TestMCPPathResolutionMatchesCLIResolverWithPlatformDefaults(t *testing.T) {
 	if err != nil {
 		t.Fatalf("mcpDBPath() error = %v", err)
 	}
-	if want := filepath.Join(home, ".local", "share", "cloudally-cli", "data.db"); gotDB != want {
+	// Hand-wired (cloudally): a run with no credential uses data-nocredential.db, never data.db.
+	if want := filepath.Join(home, ".local", "share", "cloudally-cli", "data-nocredential.db"); gotDB != want {
 		t.Fatalf("MCP db path = %q, want %q", gotDB, want)
 	}
 	wantCLI, err := cli.MCPStorePath()
@@ -112,12 +114,15 @@ func TestMCPDBPathUsesCredentialScopedStore(t *testing.T) {
 	if err := os.WriteFile(legacy, []byte{}, 0o600); err != nil {
 		t.Fatalf("write legacy data.db: %v", err)
 	}
+	// Hand-wired (cloudally): an unowned data.db may hold another tenant's
+	// rows, so a credential never adopts it; the scoped store stays.
+	scoped := got
 	got, err = mcpDBPath()
 	if err != nil {
 		t.Fatalf("mcpDBPath() after legacy file error = %v", err)
 	}
-	if got != legacy {
-		t.Fatalf("MCP db path = %q, want existing unscoped %q", got, legacy)
+	if got != scoped {
+		t.Fatalf("MCP db path = %q, want the credential's own store %q, not the unowned unscoped %q", got, scoped, legacy)
 	}
 }
 
@@ -275,7 +280,7 @@ func TestMCPSearchMissingStoreIsActionable(t *testing.T) {
 		t.Fatalf("handleSearch missing store IsError = %v, want true", result != nil && result.IsError)
 	}
 	text := mcpTextContent(t, result)
-	for _, want := range []string{"No local data store found", "data.db"} {
+	for _, want := range []string{"No local data store found", "data-nocredential.db"} { // Hand-wired (cloudally)
 		if !strings.Contains(text, want) {
 			t.Fatalf("missing-store error %q missing %q", text, want)
 		}
@@ -351,7 +356,7 @@ func TestMCPSQLMissingStoreIsActionable(t *testing.T) {
 		t.Fatalf("handleSQL missing store IsError = %v, want true", result != nil && result.IsError)
 	}
 	text := mcpTextContent(t, result)
-	for _, want := range []string{"No local data store found", "data.db"} {
+	for _, want := range []string{"No local data store found", "data-nocredential.db"} { // Hand-wired (cloudally)
 		if !strings.Contains(text, want) {
 			t.Fatalf("missing-store error %q missing %q", text, want)
 		}

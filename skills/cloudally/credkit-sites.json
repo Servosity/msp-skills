@@ -26,17 +26,17 @@
   },
   {
    "file": "internal/cli/auth_login.go",
-   "func": "loadAuthContext",
+   "func": "readAuthContext",
    "what": "os.ReadFile",
    "count": 1,
    "kind": "exempt",
-   "reason": "reads auth-context.json, a credential file credwire.credentialFiles names, so Start held its partner tokens before this read; the bytes are only decoded into authContext"
+   "reason": "reads auth-context.json (through its resolved path, after the private-file check), a credential file credwire.credentialFiles names, so Start held its partner tokens before this read; the bytes are only decoded into authContext"
   },
   {
    "file": "internal/cli/auth_login.go",
    "func": "newAuthLoginCmd",
    "what": "fmt.Fprintf",
-   "count": 2,
+   "count": 3,
    "kind": "exempt",
    "reason": "the checker reaches it from the init that registers the auth commands (auth_register.go) or the refresh hook (auth_cloudally_refresh.go); init only appends the constructor or hook, which runs when Execute builds and runs a command, after credkit.Start in main"
   },
@@ -52,14 +52,6 @@
    "file": "internal/cli/auth_use_account.go",
    "func": "newAuthUseAccountCmd",
    "what": "writer:io.Writer",
-   "count": 1,
-   "kind": "exempt",
-   "reason": "the checker reaches it from the init that registers the auth commands (auth_register.go) or the refresh hook (auth_cloudally_refresh.go); init only appends the constructor or hook, which runs when Execute builds and runs a command, after credkit.Start in main"
-  },
-  {
-   "file": "internal/cli/auth_use_account.go",
-   "func": "runUseAccountPartner",
-   "what": "fmt.Fprintf",
    "count": 1,
    "kind": "exempt",
    "reason": "the checker reaches it from the init that registers the auth commands (auth_register.go) or the refresh hook (auth_cloudally_refresh.go); init only appends the constructor or hook, which runs when Execute builds and runs a command, after credkit.Start in main"
@@ -100,7 +92,7 @@
    "file": "internal/client/credkit_transport.go",
    "func": "guardTransport",
    "what": "carrier",
-   "count": 3,
+   "count": 2,
    "kind": "exempt",
    "reason": "this is the routing itself: tr is wrapped by OutboundGuard, which is credkit.Transport in production (only in-process unit tests swap it for the identity), and the guarded transport is set only as the Transport of the connector's own http.Client literals"
   },
@@ -343,6 +335,374 @@
    "count": 1,
    "kind": "exempt",
    "reason": "hands the file to credkit.Terminal, which only reports whether the stream was a terminal; it writes nothing"
+  },
+  {
+   "file": "internal/cli/auth_login.go",
+   "func": "authBinding.fingerprint",
+   "what": "io.Writer.Write",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "a SHA-256 hash.Hash in memory: Write and Sum feed the hash and write nothing out; the checker reaches it from the store-scope hook config.StoreScopeIdentity, which init only assigns and which runs after credkit.Start"
+  },
+  {
+   "file": "internal/cli/auth_login.go",
+   "func": "authBinding.fingerprint",
+   "what": "hash.Hash.Sum",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "a SHA-256 hash.Hash in memory: Write and Sum feed the hash and write nothing out; the checker reaches it from the store-scope hook config.StoreScopeIdentity, which init only assigns and which runs after credkit.Start"
+  },
+  {
+   "file": "internal/cli/cloudally_store_scope.go",
+   "func": "unscopedStoreAdoptable",
+   "what": "os.ReadFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reads the data.db owner marker (a store scope hash or the unclaimed word), not a credential file"
+  },
+  {
+   "file": "internal/cli/cloudally_store_scope.go",
+   "func": "markerDecided",
+   "what": "os.ReadFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reads the data.db owner marker (a store scope hash or the unclaimed word), not a credential file"
+  },
+  {
+   "file": "internal/cli/cloudally_store_scope.go",
+   "func": "markUnscopedStoreUnclaimed",
+   "what": "os.CreateTemp",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "creates the empty temporary marker only to reserve a private name; its content is written through credkit.WriteFile before the link"
+  },
+  {
+   "file": "internal/cli/cloudally_store_scope.go",
+   "func": "markUnscopedStoreUnclaimed",
+   "what": "os.File.Name",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reads the temporary marker's name; no output. the checker reaches it from the store-scope hook (cloudally_store_scope.go init only assigns config.StoreScopeIdentity, which runs when a command resolves its store, after credkit.Start)"
+  },
+  {
+   "file": "internal/cli/cloudally_store_scope.go",
+   "func": "markUnscopedStoreUnclaimed",
+   "what": "os.File.Close",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "closes the empty temporary marker before credkit.WriteFile writes it; no output. the checker reaches it from the store-scope hook (cloudally_store_scope.go init only assigns config.StoreScopeIdentity, which runs when a command resolves its store, after credkit.Start)"
+  },
+  {
+   "file": "internal/cli/cloudally_store_scope.go",
+   "func": "markUnscopedStoreUnclaimed",
+   "what": "os.Link",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "links the marker written through credkit.WriteFile into place; the destination is the data.db owner marker, no credential file"
+  },
+  {
+   "file": "internal/cli/download_fetch.go",
+   "func": "sweepStalePartials",
+   "what": "os.Root.Open",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "opens a --dest directory to list stale .partial names; reads no file content"
+  },
+  {
+   "file": "internal/cli/download_fetch.go",
+   "func": "readArchiveRecord",
+   "what": "os.Root.Open",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reads a .cloudally.json download record this program wrote through the kit (export ids, sizes, names), not a credential file"
+  },
+  {
+   "file": "internal/cli/download_fetch.go",
+   "func": "writeArchiveRecord",
+   "what": "os.Root.Rename",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "moves a download record written through credkit.NewWriter under a fresh temporary name into place; its destination is a .cloudally.json record under --dest, no credential file"
+  },
+  {
+   "file": "internal/cli/download_fetch.go",
+   "func": "createPartial",
+   "what": "os.Root.OpenFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "creates an exclusive, private .partial file under --dest; an archive's bytes go to it directly (the archive bytes of `download fetch` are customer data, not program output: they stream to --dest outside the kit's file sink (credwire.Declarations), since the kit would check every byte of a multi-gigabyte zip as one stream and withhold at random), and a record's through credkit.NewWriter (writeArchiveRecord)"
+  },
+  {
+   "file": "internal/cli/download_fetch.go",
+   "func": "publishNoReplace",
+   "what": "os.Root.Link",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "publishes a finished archive partial under its final name without replacing a file; the archive bytes of `download fetch` are customer data, not program output: they stream to --dest outside the kit's file sink (credwire.Declarations), since the kit would check every byte of a multi-gigabyte zip as one stream and withhold at random"
+  },
+  {
+   "file": "internal/cli/download_fetch.go",
+   "func": "publishNoReplace",
+   "what": "os.Root.Open",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "opens the --dest directory as a handle for the no-replace rename; reads no file content"
+  },
+  {
+   "file": "internal/cli/download_fetch.go",
+   "func": "claimAndRename",
+   "what": "os.Root.OpenFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "claims an archive's final name with an exclusive empty create, writing no byte, before the archive partial is renamed over it; the archive bytes of `download fetch` are customer data, not program output: they stream to --dest outside the kit's file sink (credwire.Declarations), since the kit would check every byte of a multi-gigabyte zip as one stream and withhold at random"
+  },
+  {
+   "file": "internal/cli/download_fetch.go",
+   "func": "claimAndRename",
+   "what": "os.Root.Rename",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "renames a finished archive partial over the name it claimed; the archive bytes of `download fetch` are customer data, not program output: they stream to --dest outside the kit's file sink (credwire.Declarations), since the kit would check every byte of a multi-gigabyte zip as one stream and withhold at random"
+  },
+  {
+   "file": "internal/cli/download_publish_darwin.go",
+   "func": "renameNoReplace",
+   "what": "golang.org/x/sys/unix.RenameatxNp",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "renameatx_np(RENAME_EXCL): publishes a finished archive partial without replacing a file; it writes no content. the archive bytes of `download fetch` are customer data, not program output: they stream to --dest outside the kit's file sink (credwire.Declarations), since the kit would check every byte of a multi-gigabyte zip as one stream and withhold at random"
+  },
+  {
+   "file": "internal/cli/download_publish_linux.go",
+   "func": "renameNoReplace",
+   "what": "golang.org/x/sys/unix.Renameat2",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "renameat2(RENAME_NOREPLACE): publishes a finished archive partial without replacing a file; it writes no content. the archive bytes of `download fetch` are customer data, not program output: they stream to --dest outside the kit's file sink (credwire.Declarations), since the kit would check every byte of a multi-gigabyte zip as one stream and withhold at random"
+  },
+  {
+   "file": "internal/cli/download_publish_windows.go",
+   "func": "renameNoReplace",
+   "what": "golang.org/x/sys/windows.UTF16PtrFromString",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "converts the two archive paths for MoveFileEx; no system call that writes"
+  },
+  {
+   "file": "internal/cli/download_publish_windows.go",
+   "func": "renameNoReplace",
+   "what": "golang.org/x/sys/windows.MoveFileEx",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "MoveFileEx without MOVEFILE_REPLACE_EXISTING: publishes a finished archive partial without replacing a file; it writes no content. the archive bytes of `download fetch` are customer data, not program output: they stream to --dest outside the kit's file sink (credwire.Declarations), since the kit would check every byte of a multi-gigabyte zip as one stream and withhold at random"
+  },
+  {
+   "file": "internal/cli/download_space_windows.go",
+   "func": "freeBytes",
+   "what": "golang.org/x/sys/windows.UTF16PtrFromString",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "converts the --dest path for GetDiskFreeSpaceEx; no system call that writes"
+  },
+  {
+   "file": "internal/cli/download_space_windows.go",
+   "func": "freeBytes",
+   "what": "golang.org/x/sys/windows.GetDiskFreeSpaceEx",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reads the free space of the --dest volume; writes nothing, reads no environment, starts no process"
+  },
+  {
+   "file": "internal/cli/download_guard.go",
+   "func": "openDownloadGuard",
+   "what": "os.OpenFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "creates the guard database file empty with mode 0600 (O_CREATE without O_TRUNC, so a guard another run holds is never truncated) and closes it at once, writing no byte; every statement then runs through credsql.Driver (credkit.SQLDriver)"
+  },
+  {
+   "file": "internal/cli/restore_guard.go",
+   "func": "openRestoreGuard",
+   "what": "os.OpenFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "creates the guard database file empty with mode 0600 (O_CREATE without O_TRUNC, so a guard another run holds is never truncated) and closes it at once, writing no byte; every statement then runs through credsql.Driver (credkit.SQLDriver)"
+  },
+  {
+   "file": "internal/cli/download_ledger.go",
+   "func": "loadBatch",
+   "what": "os.Root.ReadFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reads a download batch ledger this program wrote through credkit.WriteFile (export ids, dates, states), not a credential file"
+  },
+  {
+   "file": "internal/cli/restore.go",
+   "func": "parseEntityFilter",
+   "what": "os.Open",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reads the --entities list the operator names (mailbox addresses or ids), not a credential file; the flag is refused over MCP (mcp:write-flags)"
+  },
+  {
+   "file": "internal/cli/restore_plan.go",
+   "func": "readPlanFile",
+   "what": "os.ReadFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reads a --plan-file this program wrote through credkit.WriteFile (restore rows), not a credential file"
+  },
+  {
+   "file": "internal/portal/fetch.go",
+   "func": "Session.FetchChunk",
+   "what": "net/http.NewRequestWithContext",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "sent only by downloadClient; the presigned object-storage GET of `download fetch` is sent outside the kit's transport: the kit's guard first judges the request and every redirect hop without sending them (judgeArchive), so a held value never goes off its origin in the link or a hop, and the client itself adds none (no cookie jar, no CSRF or API header; the presigned link is not held, credwire.Declarations), and the kit's transport reads every response body whole to hold declared fields, which a multi-gigabyte archive would turn into a withhold of everything after 64 MiB"
+  },
+  {
+   "file": "internal/portal/fetch.go",
+   "func": "Session.downloadClient",
+   "what": "net/http.Client{}",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the presigned object-storage GET of `download fetch` is sent outside the kit's transport: the kit's guard first judges the request and every redirect hop without sending them (judgeArchive), so a held value never goes off its origin in the link or a hop, and the client itself adds none (no cookie jar, no CSRF or API header; the presigned link is not held, credwire.Declarations), and the kit's transport reads every response body whole to hold declared fields, which a multi-gigabyte archive would turn into a withhold of everything after 64 MiB"
+  },
+  {
+   "file": "internal/portal/fetch.go",
+   "func": "judgeArchive",
+   "what": "call:dynamic",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the kit's judgement of an archive request or redirect hop: judgeOnly is wrapped by OutboundGuard, which is credkit.Transport in production (only in-process unit tests swap it for the identity), and its RoundTrip answers an empty 204 and sends nothing, so the guard decides and no byte leaves here"
+  },
+  {
+   "file": "internal/portal/fetch.go",
+   "func": "judgeArchive",
+   "what": "net/http.RoundTripper.RoundTrip",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the kit's judgement of an archive request or redirect hop: judgeOnly is wrapped by OutboundGuard, which is credkit.Transport in production (only in-process unit tests swap it for the identity), and its RoundTrip answers an empty 204 and sends nothing, so the guard decides and no byte leaves here"
+  },
+  {
+   "file": "internal/portal/fetch.go",
+   "func": "judgeArchive",
+   "what": "convert:cloudally-pp-cli/internal/portal.judgeOnly.RoundTrip",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the kit's judgement of an archive request or redirect hop: judgeOnly is wrapped by OutboundGuard, which is credkit.Transport in production (only in-process unit tests swap it for the identity), and its RoundTrip answers an empty 204 and sends nothing, so the guard decides and no byte leaves here"
+  },
+  {
+   "file": "internal/portal/fetch.go",
+   "func": "downloadTransport",
+   "what": "net/http.DefaultTransport",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the plain transport under downloadClient when the session has none; the presigned object-storage GET of `download fetch` is sent outside the kit's transport: the kit's guard first judges the request and every redirect hop without sending them (judgeArchive), so a held value never goes off its origin in the link or a hop, and the client itself adds none (no cookie jar, no CSRF or API header; the presigned link is not held, credwire.Declarations), and the kit's transport reads every response body whole to hold declared fields, which a multi-gigabyte archive would turn into a withhold of everything after 64 MiB"
+  },
+  {
+   "file": "internal/portal/fetch.go",
+   "func": "downloadTransport",
+   "what": "net.Dialer.DialContext",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the dialer that vets the address a download connection reaches (checkDownloadConn) before any byte; the presigned object-storage GET of `download fetch` is sent outside the kit's transport: the kit's guard first judges the request and every redirect hop without sending them (judgeArchive), so a held value never goes off its origin in the link or a hop, and the client itself adds none (no cookie jar, no CSRF or API header; the presigned link is not held, credwire.Declarations), and the kit's transport reads every response body whole to hold declared fields, which a multi-gigabyte archive would turn into a withhold of everything after 64 MiB"
+  },
+  {
+   "file": "internal/portal/fetch.go",
+   "func": "downloadTransport",
+   "what": "sink:net/http.Transport",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the presigned object-storage GET of `download fetch` is sent outside the kit's transport: the kit's guard first judges the request and every redirect hop without sending them (judgeArchive), so a held value never goes off its origin in the link or a hop, and the client itself adds none (no cookie jar, no CSRF or API header; the presigned link is not held, credwire.Declarations), and the kit's transport reads every response body whole to hold declared fields, which a multi-gigabyte archive would turn into a withhold of everything after 64 MiB"
+  },
+  {
+   "file": "internal/portal/fetch.go",
+   "func": "downloadTransport",
+   "what": "carrier",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the presigned object-storage GET of `download fetch` is sent outside the kit's transport: the kit's guard first judges the request and every redirect hop without sending them (judgeArchive), so a held value never goes off its origin in the link or a hop, and the client itself adds none (no cookie jar, no CSRF or API header; the presigned link is not held, credwire.Declarations), and the kit's transport reads every response body whole to hold declared fields, which a multi-gigabyte archive would turn into a withhold of everything after 64 MiB"
+  },
+  {
+   "file": "internal/portal/fetch.go",
+   "func": "downloadTransport",
+   "what": "convert:cloudally-pp-cli/internal/portal.proxySplit.RoundTrip",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the presigned object-storage GET of `download fetch` is sent outside the kit's transport: the kit's guard first judges the request and every redirect hop without sending them (judgeArchive), so a held value never goes off its origin in the link or a hop, and the client itself adds none (no cookie jar, no CSRF or API header; the presigned link is not held, credwire.Declarations), and the kit's transport reads every response body whole to hold declared fields, which a multi-gigabyte archive would turn into a withhold of everything after 64 MiB"
+  },
+  {
+   "file": "internal/portal/fetch.go",
+   "func": "proxySplit.RoundTrip",
+   "what": "net/http.Transport.RoundTrip",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "the presigned object-storage GET of `download fetch` is sent outside the kit's transport: the kit's guard first judges the request and every redirect hop without sending them (judgeArchive), so a held value never goes off its origin in the link or a hop, and the client itself adds none (no cookie jar, no CSRF or API header; the presigned link is not held, credwire.Declarations), and the kit's transport reads every response body whole to hold declared fields, which a multi-gigabyte archive would turn into a withhold of everything after 64 MiB"
+  },
+  {
+   "file": "internal/portal/portal.go",
+   "func": "Open",
+   "what": "sink:net/http.Transport",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the portal session client's Transport is client.OutboundGuard (credkit.Transport in the built binaries; only in-process unit tests swap it for the identity) around this plain transport"
+  },
+  {
+   "file": "internal/portal/portal.go",
+   "func": "Open",
+   "what": "net/http.Client{}",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the portal session client's Transport is client.OutboundGuard (credkit.Transport in the built binaries; only in-process unit tests swap it for the identity) around this plain transport"
+  },
+  {
+   "file": "internal/portal/portal.go",
+   "func": "Open",
+   "what": "call:dynamic",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "OutboundGuard is credkit.Transport in production; only in-process unit tests swap it for the identity"
+  },
+  {
+   "file": "internal/portal/portal.go",
+   "func": "Session.getPage",
+   "what": "net/http.NewRequestWithContext",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "sent only by s.hc: the portal session client's Transport is client.OutboundGuard (credkit.Transport in the built binaries; only in-process unit tests swap it for the identity) around this plain transport"
+  },
+  {
+   "file": "internal/portal/portal.go",
+   "func": "Session.getPage",
+   "what": "net/http.Client.Do",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "s.hc is the kit-guarded session client; the checker reaches it from the package-level test seam `var openPortal = portal.Open` (portal_session.go), whose initializer only stores the function, which runs when a command opens a portal session after credkit.Start"
+  },
+  {
+   "file": "internal/portal/portal.go",
+   "func": "Session.send",
+   "what": "net/http.NewRequestWithContext",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "sent only by s.hc: the portal session client's Transport is client.OutboundGuard (credkit.Transport in the built binaries; only in-process unit tests swap it for the identity) around this plain transport"
+  },
+  {
+   "file": "internal/cli/download_ledger.go",
+   "func": "saveBatch",
+   "what": "os.Rename",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the content was written through credkit.WriteFile under this temporary name first; the rename only moves that file into place, and its destination is a download batch ledger, no credential file"
+  },
+  {
+   "file": "internal/cli/download_ledger.go",
+   "func": "batchFileNamed",
+   "what": "os.Root.Open",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "opens the batch ledger folder to list its names; reads no file content"
   }
  ]
 }

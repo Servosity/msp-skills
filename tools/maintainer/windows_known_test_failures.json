@@ -151,6 +151,28 @@
    },
    "why": "The test's reader calls os.ReadFile on fortigate-cloud-token.json while writers rename new copies over it, and asserts every read succeeds. On Windows a read that lands during the rename fails with 'being used by another process' (rounds 12 and 9 on runs 40059888328 and its re-run, 2026-10-24). The product tolerates it: fgtcloud loadCache treats any read error as a cache miss and refreshes the token, and the writer side already retries (handfixes.json fgtcloud-token-cache-rename-retry). Already failing on main; it surfaced only because a registry change ran every Windows row.",
    "fix": "In the test, retry a read that fails with a Windows sharing violation, or read through loadCache and accept a miss; keep the assertion that a successful read sees one complete token."
+  },
+  {
+   "id": "WIN-FLAKY-SAME-SECOND-WALKS",
+   "kind": "flaky",
+   "why": "The test needs the resources of two capture walks to carry the same synced_at second (store.Upsert stamps time.Now()) and retries when they straddle one. On a loaded windows-latest runner every attempt straddled a second and the test failed (run 42137139467, PR #604, whose diff does not touch sentinelone).",
+   "fix": "Inject the clock store.Upsert uses for synced_at in this test, so both walks get the same second without relying on wall time.",
+   "failures": {
+    "sentinelone": [
+     "TestCaptureMembershipIsPerWalkNotPerSecond"
+    ]
+   }
+  },
+  {
+   "id": "WIN-FLAKY-ACCOUNTS-DIR-RENAME",
+   "kind": "flaky",
+   "why": "Subtest accounts_dir_itself_is_a_symlink renames .config/zoom-phone-cli/accounts to plant a symlink; Windows refused the rename with Access is denied on two runs of PR #599 (attempt 2 and run 42133348026), and it passed on others. Likely a handle still open under accounts/ when the rename runs.",
+   "fix": "Find the handle still open under accounts/ when the rename runs (a candidate: releasing the profile lock signals a goroutine without waiting for it to close its handle) and close it before the rename; then remove this entry.",
+   "failures": {
+    "zoom-phone": [
+     "TestAcctStorageTreeRefusesLinks"
+    ]
+   }
   }
  ]
 }
