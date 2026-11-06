@@ -161,9 +161,6 @@
   "tactical-rmm": [
    "mcp-stdio"
   ],
-  "td-synnex": [
-   "local-data"
-  ],
   "threatdown": [
    "write-gating",
    "read-only",

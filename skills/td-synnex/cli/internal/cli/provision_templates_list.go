@@ -61,7 +61,7 @@ func newProvisionTemplatesListCmd(flags *rootFlags) *cobra.Command {
 				return usageErr(fmt.Errorf("missing required argument\nUsage: %s%s", cmd.CommandPath(), " <accountId>"))
 			}
 			if !cmd.Flags().Changed("vendor") && flagVendor == "" && !requiredInputWaived() {
-				return fmt.Errorf("required flag \"%s\" not set", "vendor")
+				return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "vendor"))
 			}
 			if cmd.Flags().Changed("vendor") {
 				allowedVendor := []string{"NOT_SPECIFIED", "MICROSOFT", "GOOGLE", "IBM", "SOPHOS"}
@@ -73,7 +73,7 @@ func newProvisionTemplatesListCmd(flags *rootFlags) *cobra.Command {
 					}
 				}
 				if !validVendor {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagVendor, "vendor", allowedVendor)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagVendor, "vendor", allowedVendor))
 				}
 			}
 			if cmd.Flags().Changed("action") {
@@ -86,7 +86,7 @@ func newProvisionTemplatesListCmd(flags *rootFlags) *cobra.Command {
 					}
 				}
 				if !validAction {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagAction, "action", allowedAction)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagAction, "action", allowedAction))
 				}
 			}
 			path := "/accounts/{accountId}/provisionTemplates"

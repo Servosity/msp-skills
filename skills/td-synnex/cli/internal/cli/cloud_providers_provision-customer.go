@@ -65,23 +65,26 @@ func newCloudProvidersProvisionCustomerCmd(flags *rootFlags) *cobra.Command {
 				return usageErr(fmt.Errorf("missing required argument\nUsage: %s%s", cmd.CommandPath(), " <accountId> <customerId> <providerId>"))
 			}
 			if !stdinBody {
+				if len(args) > 1 && args[1] != "" && !cmd.Flags().Changed("customer-id-2") {
+					bodyCustomerId2 = args[1]
+				}
 				if (cmd.Flags().Changed("azure-customer-details-billing-profile-company-name") || bodyAzureCustomerDetailsBillingProfileCompanyName != "") || (cmd.Flags().Changed("azure-customer-details-billing-profile-default-address") || bodyAzureCustomerDetailsBillingProfileDefaultAddress != "") || (cmd.Flags().Changed("azure-customer-details-billing-profile-email") || bodyAzureCustomerDetailsBillingProfileEmail != "") || (cmd.Flags().Changed("azure-customer-details-company-profile-domain") || bodyAzureCustomerDetailsCompanyProfileDomain != "") || (cmd.Flags().Changed("azure-customer-details-organization-registration-number") || bodyAzureCustomerDetailsOrganizationRegistrationNumber != "") {
 					if (cmd.Flags().Changed("azure-customer-details-billing-profile-company-name") || bodyAzureCustomerDetailsBillingProfileCompanyName != "") || (cmd.Flags().Changed("azure-customer-details-billing-profile-default-address") || bodyAzureCustomerDetailsBillingProfileDefaultAddress != "") || (cmd.Flags().Changed("azure-customer-details-billing-profile-email") || bodyAzureCustomerDetailsBillingProfileEmail != "") {
 						if !cmd.Flags().Changed("azure-customer-details-billing-profile-company-name") && bodyAzureCustomerDetailsBillingProfileCompanyName == "" && !requiredInputWaived() {
-							return fmt.Errorf("required flag \"%s\" not set", "azure-customer-details-billing-profile-company-name")
+							return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "azure-customer-details-billing-profile-company-name"))
 						}
 						if !cmd.Flags().Changed("azure-customer-details-billing-profile-email") && bodyAzureCustomerDetailsBillingProfileEmail == "" && !requiredInputWaived() {
-							return fmt.Errorf("required flag \"%s\" not set", "azure-customer-details-billing-profile-email")
+							return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "azure-customer-details-billing-profile-email"))
 						}
 					}
 					if cmd.Flags().Changed("azure-customer-details-company-profile-domain") || bodyAzureCustomerDetailsCompanyProfileDomain != "" {
 						if !cmd.Flags().Changed("azure-customer-details-company-profile-domain") && bodyAzureCustomerDetailsCompanyProfileDomain == "" && !requiredInputWaived() {
-							return fmt.Errorf("required flag \"%s\" not set", "azure-customer-details-company-profile-domain")
+							return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "azure-customer-details-company-profile-domain"))
 						}
 					}
 				}
 				if !cmd.Flags().Changed("customer-id-2") && bodyCustomerId2 == "" && !requiredInputWaived() {
-					return fmt.Errorf("required flag \"%s\" not set", "customer-id-2")
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "customer-id-2"))
 				}
 			}
 			path := "/accounts/{accountId}/customers/{customerId}/cloudProviders/{providerId}:provision"
@@ -260,16 +263,13 @@ func newCloudProvidersProvisionCustomerCmd(flags *rootFlags) *cobra.Command {
 					envelope["partial_failure"] = partialFailure
 				}
 				if flags.dryRun {
-					envelope["dry_run"] = true
-					envelope["status"] = 0
-					envelope["success"] = false
+					markCompletedDryRun(envelope)
 				}
 				// Verify-mode synthetic envelope detection runs against RAW data
 				// (before --compact/--select filtering) so the sentinel field is
 				// guaranteed to be visible even if the operator passes a filter
-				// flag that would otherwise strip it. Surfaces a top-level
-				// verify_noop signal + flips success to false. Mirrors the dry_run
-				// shape above.
+				// flag that would otherwise strip it. A synthetic noop did not
+				// mutate, so it forces success false after a completed dry-run mark.
 				if len(data) > 0 {
 					var rawParsed any
 					if err := json.Unmarshal(data, &rawParsed); err == nil {

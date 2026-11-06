@@ -6,7 +6,6 @@ package cli
 
 import (
 	"bytes"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -34,6 +33,8 @@ type rootFlags struct {
 	dryRun        bool
 	noCache       bool
 	noInput       bool
+	caCert        string
+	tlsServerName string
 	idempotent    bool
 	ignoreMissing bool
 	yes           bool
@@ -177,9 +178,10 @@ func RootCmd() *cobra.Command {
 func Execute() (retErr error) {
 	var flags rootFlags
 	rootCmd := newRootCmd(&flags)
-	// Hand-fix (handfixes.json secret-echo-decoded-funnel): a command's error passes the funnel before Cobra prints it.
-	funnelCommandErrors(rootCmd)
 	defer finalizePlatformInvocation(&flags, &retErr)
+	// A previous Execute in this process may have reached PreRun. Reset
+	// before parse so a failure that never gets there still consults argv.
+	preRunReached = false
 
 	executedCmd, err := rootCmd.ExecuteC()
 	var journalFailedFlag, journalSuggestedFlag string
@@ -194,13 +196,11 @@ func Execute() (retErr error) {
 	}
 	envelopeWriter := io.Writer(os.Stdout)
 	if flags.deliverBuf != nil {
-		envelopeWriter = io.MultiWriter(os.Stdout, flags.deliverBuf)
+		envelopeWriter = &mirrorWriter{primary: os.Stdout, copy: flags.deliverBuf}
 	}
 	envelopeWritten := writeCredentialSaveErrorEnvelope(envelopeWriter, &flags, err)
 	if envelopeWritten && flags.deliverBuf != nil {
-		if derr := Deliver(flags.deliverSink, flags.deliverBuf.Bytes(), flags.compact); derr != nil {
-			fmt.Fprintf(os.Stderr, "warning: deliver to %s:%s failed: %v\n", flags.deliverSink.Scheme, flags.deliverSink.Target, derr)
-		}
+		_ = deliverCapturedOutput(&flags)
 	}
 	if err != nil && strings.Contains(err.Error(), "unknown flag") {
 		msg := err.Error()
@@ -227,8 +227,7 @@ func Execute() (retErr error) {
 		}
 	}
 	if err == nil && flags.deliverBuf != nil {
-		if derr := Deliver(flags.deliverSink, flags.deliverBuf.Bytes(), flags.compact); derr != nil {
-			fmt.Fprintf(os.Stderr, "warning: deliver to %s:%s failed: %v\n", flags.deliverSink.Scheme, flags.deliverSink.Target, derr)
+		if derr := deliverCapturedOutput(&flags); derr != nil {
 			return derr
 		}
 	}
@@ -244,6 +243,23 @@ func Execute() (retErr error) {
 	return err
 }
 
+// deliverCapturedOutput ships buffered output. --dry-run previews the sink
+// and does not open it: a webhook POST or a file write is a side effect.
+func deliverCapturedOutput(flags *rootFlags) error {
+	if flags == nil || flags.deliverBuf == nil {
+		return nil
+	}
+	if flags.dryRun {
+		fmt.Fprintf(os.Stderr, "dry-run: would deliver to %s:%s\n", flags.deliverSink.Scheme, flags.deliverSink.Target)
+		return nil
+	}
+	if err := Deliver(flags.deliverSink, flags.deliverBuf.Bytes(), flags.compact); err != nil {
+		fmt.Fprintf(os.Stderr, "warning: deliver to %s:%s failed: %v\n", flags.deliverSink.Scheme, flags.deliverSink.Target, err)
+		return err
+	}
+	return nil
+}
+
 func writeCredentialSaveErrorEnvelope(w io.Writer, flags *rootFlags, err error) bool {
 	if flags == nil || !flags.asJSON || err == nil {
 		return false
@@ -252,13 +268,13 @@ func writeCredentialSaveErrorEnvelope(w io.Writer, flags *rootFlags, err error) 
 	if !errors.As(err, &permissionErr) {
 		return false
 	}
-	_ = json.NewEncoder(w).Encode(map[string]any{
+	_ = writeEncodedJSON(w, map[string]any{
 		"saved":                true,
 		"credentials_path":     permissionErr.Path,
 		"permissions_verified": false,
 		"error":                permissionErr.Error(),
 		"code":                 ExitCode(err),
-	})
+	}, "", "")
 	return true
 }
 
@@ -340,6 +356,8 @@ See README.md or the bundled SKILL.md for recipes.`,
 	rootCmd.PersistentFlags().StringVar(&flags.receiptFile, "receipt-file", "", "Override the run receipt destination")
 	rootCmd.PersistentFlags().StringVar(&flags.auditDir, "audit-dir", "", "Aggregate the receipt and index under this audit directory")
 	rootCmd.PersistentFlags().BoolVar(&flags.noInput, "no-input", false, "Disable all interactive prompts (for CI/agents)")
+	rootCmd.PersistentFlags().StringVar(&flags.caCert, "ca-cert", "", "PEM CA bundle added to the system trust roots")
+	rootCmd.PersistentFlags().StringVar(&flags.tlsServerName, "tls-server-name", "", "DNS name to verify when the dialed host does not match the certificate")
 	rootCmd.PersistentFlags().BoolVar(&flags.idempotent, "idempotent", false, "Treat already-existing create results as a successful no-op")
 	rootCmd.PersistentFlags().BoolVar(&flags.ignoreMissing, "ignore-missing", false, "Treat missing delete targets as a successful no-op")
 	rootCmd.PersistentFlags().StringVar(&flags.selectFields, "select", "", "Comma-separated fields to include in output (e.g. --select cartName,checkedOut,currencyCode)")
@@ -358,14 +376,18 @@ See README.md or the bundled SKILL.md for recipes.`,
 			flag.Hidden = true
 		}
 	}
-	rootCmd.PersistentFlags().StringVar(&flags.deliverSpec, "deliver", "", "Route output to a sink: stdout (default), file:<path>, webhook:<url>")
+	rootCmd.PersistentFlags().StringVar(&flags.deliverSpec, "deliver", "", "Route output to a sink: stdout (default), file:<path>, webhook:<url>, spacefast:<name> (live web page)")
 	rootCmd.PersistentFlags().Float64Var(&flags.rateLimit, "rate-limit", client.RateLimitAuto, "Max requests per second (0 to disable; default auto — pace to server rate-limit headers)")
 	if f := rootCmd.PersistentFlags().Lookup("rate-limit"); f != nil {
 		f.DefValue = "auto"
 	}
 
 	rootCmd.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
-		var appliedProfile *Profile
+		// Flag parse succeeded. A preview is the parsed flag from here on,
+		// including a profile applied below. Argv is the wrong signal: the
+		// token "--dry-run" may be a flag value on a real write.
+		preRunReached = true
+		resetProfileAppliedFlags()
 		if err := enforceMCPBoundProfile(cmd, flags); err != nil {
 			return err
 		}
@@ -373,17 +395,6 @@ See README.md or the bundled SKILL.md for recipes.`,
 			return err
 		}
 		configureDefaultDBScope(flags.configPath)
-		if flags.deliverSpec != "" {
-			sink, err := ParseDeliverSink(flags.deliverSpec)
-			if err != nil {
-				return err
-			}
-			flags.deliverSink = sink
-			if sink.Scheme != "stdout" && sink.Scheme != "" {
-				flags.deliverBuf = &bytes.Buffer{}
-				cmd.SetOut(io.MultiWriter(os.Stdout, flags.deliverBuf))
-			}
-		}
 		if flags.runProfileName != "" {
 			profile, err := GetProfile(flags.runProfileName)
 			if err != nil {
@@ -399,11 +410,27 @@ See README.md or the bundled SKILL.md for recipes.`,
 			if err := ApplyProfileToFlags(cmd, profile); err != nil {
 				return err
 			}
-			appliedProfile = profile
+		}
+		// A saved --deliver has to be applied before the sink is chosen.
+		// profile save records the flag and prints a confirmation; wiring
+		// the sink would also write that confirmation to the destination.
+		if flags.deliverSpec != "" && !profileSaveSkipsDeliver(cmd) {
+			sink, err := ParseDeliverSink(flags.deliverSpec)
+			if err != nil {
+				return err
+			}
+			flags.deliverSink = sink
+			if sink.Scheme != "stdout" && sink.Scheme != "" {
+				flags.deliverBuf = &bytes.Buffer{}
+				cmd.SetOut(&mirrorWriter{primary: os.Stdout, copy: flags.deliverBuf})
+			}
 		}
 		// A saved profile can set dry-run after flag parse. Suppression has to
 		// see that value before any store path is resolved.
 		setLegacyDBClaimSuppressed(flags.dryRun)
+		if err := applyLocalDataEnv(cmd, flags); err != nil {
+			return err
+		}
 		// An incompatible --data-source has to fail before the platform
 		// identity probe. A failed probe would otherwise hide this error.
 		switch flags.dataSource {
@@ -472,14 +499,17 @@ See README.md or the bundled SKILL.md for recipes.`,
 		// process. Skipped for framework commands that should never
 		// touch the local store (auth, doctor, help, etc.), for
 		// --no-learn invocations so deterministic agent flows don't
-		// race a background seed, and for read-only commands so a GET
-		// never runs the one-way schema migration.
+		// race a background seed, for --dry-run so a preview cannot
+		// create or migrate the store, and for read-only commands so a
+		// GET never runs the one-way schema migration. The sync.Once is
+		// not consumed on a skip, so a later real call in this process
+		// still seeds.
 		// pp:handfix td-synnex: the seed hooks open the DEFAULT store; an explicit --db must not create or migrate it.
-		if !noLearnActive(flags) && !shouldSkipLearnHook(cmd.CommandPath()) && commandMayWriteStore(cmd) && !explicitDBFlag(cmd) {
+		if !noLearnActive(flags) && !dryRunActive(flags, cmd.Root()) && !shouldSkipLearnHook(cmd.CommandPath()) && commandMayWriteStore(cmd) && !explicitDBFlag(cmd) {
 			runLearnInitOnce(cmd.Context())
 			runPlaybookInitOnce(cmd.Context())
 		}
-		flags.timeoutExplicit = timeoutExplicitFrom(cmd, appliedProfile)
+		flags.timeoutExplicit = timeoutExplicitFrom(cmd)
 		flags.agentSource = declaredAgentSource(cmd, flags)
 		return nil
 	}
@@ -494,6 +524,7 @@ See README.md or the bundled SKILL.md for recipes.`,
 	rootCmd.AddCommand(newReportsCmd(flags))
 	rootCmd.AddCommand(newSubscriptionsCmd(flags))
 	rootCmd.AddCommand(newDoctorCmd(flags))
+	rootCmd.AddCommand(newLocalDataCmd(flags))
 	if registeredPlatformSource != nil {
 		attachPlatformClientCommands(rootCmd, flags)
 	}
@@ -540,6 +571,10 @@ See README.md or the bundled SKILL.md for recipes.`,
 		attachPlatformWhoamiCommand(rootCmd, flags)
 	}
 
+	if isTerminal(os.Stderr) {
+		rootCmd.SetErr(&terminalStreamFilter{w: rootCmd.ErrOrStderr()})
+	}
+
 	return rootCmd
 }
 
@@ -564,6 +599,7 @@ var learnHookSkipList = map[string]struct{}{
 	"agent-context": {},
 	"completion":    {},
 	"version":       {},
+	"local-data":    {},
 }
 
 // shouldSkipLearnHook reports whether a recall pre-run hook should
@@ -633,8 +669,9 @@ func commandMayWriteStore(cmd *cobra.Command) bool {
 func journalInvocation(flags *rootFlags, rootCmd, executed *cobra.Command, err error, failedFlag, suggestedFlag string) {
 	// The master --no-learn switch kills journaling too. On the
 	// parse-failure path the flag was never parsed into rootFlags, so
-	// the raw args are consulted as well.
-	if noLearnActive(flags) || argsDisableLearn(os.Args[1:]) {
+	// the raw args are consulted as well. --dry-run is the same shape:
+	// a preview must not create the learn journal.
+	if noLearnActive(flags) || dryRunActive(flags, rootCmd) || argsDisableLearn(os.Args[1:]) || isLocalDataInvocation(rootCmd, executed) {
 		return
 	}
 	exitCode := 0
@@ -672,6 +709,13 @@ func journalInvocation(flags *rootFlags, rootCmd, executed *cobra.Command, err e
 		FailedFlag:    failedFlag,
 		SuggestedFlag: suggestedFlag,
 	})
+}
+
+// isLocalDataInvocation keeps the learn loop from journaling or deriving
+// after local-data purge, which would recreate the files it just erased.
+func isLocalDataInvocation(rootCmd, executed *cobra.Command) bool {
+	chain := journalVerbChain(rootCmd, executed)
+	return len(chain) > 0 && chain[0] == "local-data"
 }
 
 // journalVerbChain resolves the subcommand verb chain for the journal
@@ -714,6 +758,163 @@ func findSubcommand(cmd *cobra.Command, name string) *cobra.Command {
 		}
 	}
 	return nil
+}
+
+// preRunReached is true once flag parse has succeeded and PersistentPreRunE
+// has started. Until then a preview is visible only on argv, because a
+// parse failure never fills rootFlags.
+var preRunReached bool
+
+// dryRunActive reports whether this invocation is a preview. After parse,
+// only the flag counts: a profile may have set it, and argv can contain
+// the token "--dry-run" as a value on a real write. Before parse, argv
+// is the only signal.
+func dryRunActive(flags *rootFlags, root *cobra.Command) bool {
+	if flags != nil && flags.dryRun {
+		return true
+	}
+	if preRunReached {
+		return false
+	}
+	return argsRequestDryRun(root, os.Args[1:])
+}
+
+// Bool parsing matches pflag, so --dry-run=false is not a preview. A token
+// consumed as another flag's value is not itself a flag, and the last
+// --dry-run wins. Tokens after -- are positionals.
+func argsRequestDryRun(root *cobra.Command, args []string) bool {
+	cmd := root
+	dry := false
+	for i := 0; i < len(args); i++ {
+		tok := args[i]
+		if tok == "--" {
+			break
+		}
+		if strings.HasPrefix(tok, "--") {
+			name, value, hasValue := splitLongArg(tok)
+			if name == "" {
+				continue
+			}
+			if !hasValue && flagConsumesArg(cmd, name) && i+1 < len(args) {
+				i++
+				continue
+			}
+			if name != "dry-run" {
+				continue
+			}
+			if !hasValue {
+				dry = true
+				continue
+			}
+			if v, ok := dryRunFlagValue(value); ok {
+				dry = v
+			}
+			continue
+		}
+		if len(tok) > 1 && tok[0] == '-' {
+			dry, i = applyDryRunShort(cmd, args, i, dry)
+			continue
+		}
+		if cmd == nil {
+			continue
+		}
+		if next := findSubcommand(cmd, tok); next != nil {
+			cmd = next
+		}
+	}
+	return dry
+}
+
+func splitLongArg(tok string) (name, value string, hasValue bool) {
+	body := tok[2:]
+	if body == "" || body[0] == '-' || body[0] == '=' {
+		return "", "", false
+	}
+	name, value, hasValue = strings.Cut(body, "=")
+	return name, value, hasValue
+}
+
+// Unknown names and bool flags (NoOptDefVal set) do not take the next
+// token, so a following --dry-run is still a flag.
+func flagConsumesArg(cmd *cobra.Command, name string) bool {
+	flag := lookupCommandFlag(cmd, name)
+	return flag != nil && flag.NoOptDefVal == ""
+}
+
+// Persistent flags stay on ancestors until ParseFlags merges them onto the leaf.
+func lookupCommandFlag(cmd *cobra.Command, name string) *pflag.Flag {
+	for cur := cmd; cur != nil; cur = cur.Parent() {
+		if flag := cur.Flags().Lookup(name); flag != nil {
+			return flag
+		}
+		if flag := cur.PersistentFlags().Lookup(name); flag != nil {
+			return flag
+		}
+	}
+	return nil
+}
+
+func lookupCommandShorthand(cmd *cobra.Command, letter string) *pflag.Flag {
+	for cur := cmd; cur != nil; cur = cur.Parent() {
+		if flag := cur.Flags().ShorthandLookup(letter); flag != nil {
+			return flag
+		}
+		if flag := cur.PersistentFlags().ShorthandLookup(letter); flag != nil {
+			return flag
+		}
+	}
+	return nil
+}
+
+func dryRunFlagValue(value string) (bool, bool) {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "1", "t", "true":
+		return true, true
+	case "0", "f", "false":
+		return false, true
+	default:
+		return false, false
+	}
+}
+
+// The returned index is the last argv token the cluster consumed; the
+// caller increments past it.
+func applyDryRunShort(cmd *cobra.Command, args []string, i int, dry bool) (bool, int) {
+	cluster := args[i][1:]
+	for len(cluster) > 0 {
+		letter := cluster[:1]
+		rest := cluster[1:]
+		flag := lookupCommandShorthand(cmd, letter)
+		name := ""
+		consumes := false
+		if flag != nil {
+			name = flag.Name
+			consumes = flag.NoOptDefVal == ""
+		}
+		if strings.HasPrefix(rest, "=") {
+			if name == "dry-run" {
+				if v, ok := dryRunFlagValue(rest[1:]); ok {
+					dry = v
+				}
+			}
+			return dry, i
+		}
+		if !consumes {
+			if name == "dry-run" {
+				dry = true
+			}
+			cluster = rest
+			continue
+		}
+		if rest != "" {
+			return dry, i
+		}
+		if i+1 < len(args) {
+			return dry, i + 1
+		}
+		return dry, i
+	}
+	return dry, i
 }
 
 // argsDisableLearn reports whether the raw args carry the master
@@ -759,7 +960,9 @@ var learnFamilyCommands = map[string]struct{}{
 // appended may wait out the peer still holding the offset lock so that
 // line is not left unpaired when the process exits.
 func deriveFlagCorrections(flags *rootFlags, rootCmd, executed *cobra.Command) {
-	if noLearnActive(flags) || argsDisableLearn(os.Args[1:]) || learn.JournalCaptureDisabled() {
+	// Derivation opens the store once it pairs a correction and creates
+	// the journal directory on the way in. A preview must do neither.
+	if noLearnActive(flags) || dryRunActive(flags, rootCmd) || argsDisableLearn(os.Args[1:]) || learn.JournalCaptureDisabled() || isLocalDataInvocation(rootCmd, executed) {
 		return
 	}
 	// pp:handfix td-synnex: a command given its own --db never opens the default store,
@@ -808,19 +1011,60 @@ func commandTreeHasFlag(cmd *cobra.Command, name string) bool {
 	return false
 }
 
-// ApplyProfileToFlags overlays values without setting Flag.Changed, so a
-// profile-supplied timeout must count here or binary transfers would drop
-// the whole-call bound.
-func timeoutExplicitFrom(cmd *cobra.Command, profile *Profile) bool {
-	if cmd != nil && cmd.Flags().Changed("timeout") {
-		return true
+// noLocalDataEnvVar is the operator switch for running without a local copy
+// of API responses. It is an env var because MCP hosts cannot pass CLI flags;
+// every child CLI the MCP server spawns inherits it.
+const noLocalDataEnvVar = "TD_SYNNEX_NO_LOCAL_DATA"
+
+// dataSourceEnvVar supplies the --data-source default for hosts that cannot
+// pass CLI flags. An explicit flag or run profile still wins.
+const dataSourceEnvVar = "TD_SYNNEX_DATA_SOURCE"
+
+func localDataDisabled() bool {
+	return strings.TrimSpace(os.Getenv(noLocalDataEnvVar)) == "1"
+}
+
+// localDataWriterCommands are the generated commands whose job is to copy API
+// data into the local store, keyed by command path below the root.
+var localDataWriterCommands = map[string]bool{"sync": true, "workflow archive": true}
+
+// applyLocalDataEnv folds the local-data env switches into the parsed flags.
+// The disable switch outranks every flag so an agent-supplied argument cannot
+// undo the operator's choice. Reading a store that already exists saves
+// nothing new, so local reads stay available.
+func applyLocalDataEnv(cmd *cobra.Command, flags *rootFlags) error {
+	if localDataDisabled() {
+		flags.noCache = true
+		switch {
+		case cmd.Flags().Changed("data-source") && flags.dataSource == "auto":
+			return fmt.Errorf("--data-source auto conflicts with %s=1: auto saves live reads to the local store; use live or local", noLocalDataEnvVar)
+		case cmd.Flags().Changed("data-source"):
+		case commandDataSourceAnnotation(cmd) == "local":
+			flags.dataSource = "local"
+		default:
+			flags.dataSource = "live"
+		}
+		path := strings.Join(strings.Fields(cmd.CommandPath())[1:], " ")
+		if localDataWriterCommands[path] && !flags.dryRun {
+			return fmt.Errorf("%s is disabled while %s=1: it would save API data to the local store", path, noLocalDataEnvVar)
+		}
+		return nil
 	}
-	if profile != nil {
-		if _, ok := profile.Values["timeout"]; ok {
-			return true
+	if value := strings.TrimSpace(os.Getenv(dataSourceEnvVar)); value != "" && !cmd.Flags().Changed("data-source") {
+		switch value {
+		case "auto", "live", "local":
+			flags.dataSource = value
+		default:
+			return fmt.Errorf("invalid %s value %q: must be auto, live, or local", dataSourceEnvVar, value)
 		}
 	}
-	return false
+	return nil
+}
+
+// ApplyProfileToFlags uses FlagSet.Set, so a saved timeout is Changed and
+// keeps the whole-call bound on binary transfers.
+func timeoutExplicitFrom(cmd *cobra.Command) bool {
+	return cmd != nil && cmd.Flags().Changed("timeout")
 }
 
 func ExitCode(err error) int {
@@ -831,12 +1075,28 @@ func ExitCode(err error) int {
 	return 1
 }
 
+func (f *rootFlags) applyTLSFlags(cfg *config.Config) {
+	if f == nil || cfg == nil {
+		return
+	}
+	if v := strings.TrimSpace(f.caCert); v != "" {
+		cfg.SetCACert(v)
+	}
+	if v := strings.TrimSpace(f.tlsServerName); v != "" {
+		cfg.SetTLSServerName(v)
+	}
+}
+
 func (f *rootFlags) newClient() (*client.Client, error) {
 	cfg, err := config.Load(f.configPath)
 	if err != nil {
 		return nil, configErr(err)
 	}
+	f.applyTLSFlags(cfg)
 	c := client.New(cfg, f.timeout, f.rateLimit)
+	if tlsErr := c.TLSConfigError(); tlsErr != nil {
+		return nil, configErr(tlsErr)
+	}
 	if f.timeoutExplicit {
 		c.SetTimeoutExplicit(true)
 	}
@@ -859,13 +1119,14 @@ func (f *rootFlags) printTable(w *cobra.Command, headers []string, rows [][]stri
 	if f.asJSON {
 		return fmt.Errorf("use printJSON for JSON output")
 	}
-	tw := tabwriter.NewWriter(w.OutOrStdout(), 2, 4, 2, ' ', 0)
+	out := w.OutOrStdout()
+	tw := tabwriter.NewWriter(out, 2, 4, 2, ' ', 0)
 	header := ""
 	for i, h := range headers {
 		if i > 0 {
 			header += "\t"
 		}
-		header += h
+		header += terminalText(out, h)
 	}
 	fmt.Fprintln(tw, header)
 	for _, row := range rows {
@@ -874,7 +1135,7 @@ func (f *rootFlags) printTable(w *cobra.Command, headers []string, rows [][]stri
 			if i > 0 {
 				line += "\t"
 			}
-			line += cell
+			line += terminalText(out, cell)
 		}
 		fmt.Fprintln(tw, line)
 	}

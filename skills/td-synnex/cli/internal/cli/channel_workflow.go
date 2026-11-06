@@ -110,7 +110,10 @@ and full resync. After archiving, use 'search' for instant full-text search.`,
 			// since filter, not cursor reset. Mirrors newSyncCmd's pattern.
 			if full {
 				for _, resource := range resources {
-					if err := s.SaveSyncState(resource, "", 0); err != nil {
+					// pp:handfix td-synnex (ion-sync-completion-claims-only-whole-walks):
+					// SaveSyncState stamps the attempt complete before any page is
+					// fetched; the reset must leave it incomplete until the walk ends.
+					if err := s.SaveSyncProgress(resource, "", 0); err != nil {
 						return fmt.Errorf("clearing sync state for %s: %w", resource, err)
 					}
 				}

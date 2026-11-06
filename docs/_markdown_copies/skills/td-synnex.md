@@ -101,7 +101,7 @@ After install, authenticate once with your TD SYNNEX StreamOne ION credentials, 
 | Orders and spend | td-synnex-cli subscriptions set (seats, renewal setting, friendly name; places an order only with --confirm); td-synnex-cli carts checkout; td-synnex-cli customer-orders create-order; td-synnex-cli cloud-providers provision-customer; td-synnex-cli cloud-providers link-customer; td-synnex-cli products enable; td-synnex-cli products disable; td-synnex-cli programs batch-update-product | Human-in-the-loop only |
 | Destructive / credential | td-synnex-cli subscriptions set --status suspended or deleted; td-synnex-cli subscriptions set --renewal cancel_at_renewal (or its alias auto-off); td-synnex-cli customer-orders cancel-order; td-synnex-cli carts delete; td-synnex-cli cart-items delete; td-synnex-cli reports delete; td-synnex-cli auth mint, auth set-token and auth logout (credential changes) | Human-in-the-loop only, explicit confirmation |
 
-The skill drives td-synnex-cli and td-synnex-mcp with an ION access token minted from your refresh token and kept in a private credentials file, or read from TD_SYNNEX_ACCESS_TOKEN; tokens are never printed unless you ask and are sent only to the ION API (ion.tdsynnex.com unless you override TD_SYNNEX_BASE_URL). The licence-book commands and every list and get read change nothing. Writes are not gated by default except subscriptions set, which needs --confirm: treat ordering, checkout, cancellation, suspension and deletion as human-only, and set TD_SYNNEX_MCP_READ_ONLY=1 to keep the MCP server to reads. The strongest control is the ION user whose OAuth credentials you issue. Full details in [governance.md](https://github.com/servosity/msp-skills/blob/main/skills/td-synnex/governance.md).
+The skill drives td-synnex-cli and td-synnex-mcp with an ION access token minted from your refresh token and kept in a private credentials file, or read from TD_SYNNEX_ACCESS_TOKEN; tokens are never printed unless you ask and are sent only to the ION API (ion.tdsynnex.com unless you override TD_SYNNEX_BASE_URL). The licence-book commands and every list and get read change nothing. CLI writes are not gated by default except subscriptions set, which needs --confirm; over MCP every write previews and sends only with confirm set to true: treat ordering, checkout, cancellation, suspension and deletion as human-only, and set TD_SYNNEX_MCP_READ_ONLY=1 to keep the MCP server to reads. The strongest control is the ION user whose OAuth credentials you issue. Full details in [governance.md](https://github.com/servosity/msp-skills/blob/main/skills/td-synnex/governance.md).
 
 ## Frequently asked questions
 
@@ -115,7 +115,7 @@ Yes, by design - and the exceptions are ones you switch on yourself. The CLI, th
 
 ### Does this work with ChatGPT?
 
-Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way td-synnex-mcp runs, and shares MCP configuration with Codex: add td-synnex-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote (HTTP) server, and this connector's HTTP mode is paused until it is reprinted; the security note at the top of the install guide explains why. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
+Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way td-synnex-mcp runs, and shares MCP configuration with Codex: add td-synnex-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote server. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
 
 ### Do I need to know how to code?
 
@@ -139,7 +139,7 @@ subscriptions renewals, subscriptions changes, margin, position export, position
 
 ### Can it change subscriptions or place orders?
 
-Yes, and that is why the safety model matters. subscriptions set previews the UPDATE order and places it only with --confirm. Other writes (carts checkout, customer-orders create-order and cancel-order, customers create and update) send as soon as they run; preview them with --dry-run first. Keep orders, cancellations and suspensions human-approved.
+Yes, and that is why the safety model matters. subscriptions set previews the UPDATE order and places it only with --confirm. Other writes (carts checkout, customer-orders create-order and cancel-order, customers create and update) send as soon as they run; preview them with --dry-run first. Over MCP, every tool that can change ION previews and sends only when the agent repeats the call with confirm set to true. Keep orders, cancellations and suspensions human-approved.
 
 ### Are the margin numbers exact?
 

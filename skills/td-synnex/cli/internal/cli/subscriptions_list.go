@@ -80,7 +80,7 @@ func newSubscriptionsListCmd(flags *rootFlags) *cobra.Command {
 					}
 				}
 				if !validSubscriptionStatus {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagSubscriptionStatus, "subscription-status", allowedSubscriptionStatus)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagSubscriptionStatus, "subscription-status", allowedSubscriptionStatus))
 				}
 			}
 			if cmd.Flags().Changed("start-date-range-relative-date-range") {
@@ -93,7 +93,7 @@ func newSubscriptionsListCmd(flags *rootFlags) *cobra.Command {
 					}
 				}
 				if !validStartDateRangeRelativeDateRange {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagStartDateRangeRelativeDateRange, "start-date-range-relative-date-range", allowedStartDateRangeRelativeDateRange)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagStartDateRangeRelativeDateRange, "start-date-range-relative-date-range", allowedStartDateRangeRelativeDateRange))
 				}
 			}
 			if cmd.Flags().Changed("end-date-range-relative-date-range") {
@@ -106,7 +106,7 @@ func newSubscriptionsListCmd(flags *rootFlags) *cobra.Command {
 					}
 				}
 				if !validEndDateRangeRelativeDateRange {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagEndDateRangeRelativeDateRange, "end-date-range-relative-date-range", allowedEndDateRangeRelativeDateRange)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagEndDateRangeRelativeDateRange, "end-date-range-relative-date-range", allowedEndDateRangeRelativeDateRange))
 				}
 			}
 			if cmd.Flags().Changed("pagination-sort-order") {
@@ -119,7 +119,7 @@ func newSubscriptionsListCmd(flags *rootFlags) *cobra.Command {
 					}
 				}
 				if !validPaginationSortOrder {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagPaginationSortOrder, "pagination-sort-order", allowedPaginationSortOrder)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagPaginationSortOrder, "pagination-sort-order", allowedPaginationSortOrder))
 				}
 			}
 			if cmd.Flags().Changed("resource-type") {
@@ -132,7 +132,7 @@ func newSubscriptionsListCmd(flags *rootFlags) *cobra.Command {
 					}
 				}
 				if !validResourceType {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagResourceType, "resource-type", allowedResourceType)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagResourceType, "resource-type", allowedResourceType))
 				}
 			}
 			path := "/accounts/{accountId}/subscriptions"
@@ -241,7 +241,7 @@ func newSubscriptionsListCmd(flags *rootFlags) *cobra.Command {
 			if cmd.Flags().Changed("billing-cycle") || flagBillingCycle != "" {
 				params["billingCycle"] = formatCLIParamValue(flagBillingCycle)
 			}
-			data, prov, err := resolveReadWithStrategyAndResponsePath(cmd.Context(), c, flags, "live", "subscriptions", false, path, params, nil, "items", cmd.ErrOrStderr())
+			data, prov, err := resolveReadWithStrategyAndResponsePath(cmd.Context(), c, flags, "live", "subscriptions", false, path, params, nil, "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}
@@ -268,7 +268,7 @@ func newSubscriptionsListCmd(flags *rootFlags) *cobra.Command {
 					filtered, selectErr = filterFieldsChecked(filtered, flags.selectFields)
 					selectErr = selectErrorForDryRun(selectErr, flags, data)
 				} else if flags.compact {
-					filtered = compactFields(filtered, map[string]bool{"ccpChargeId": true, "ccpPlanId": true, "ccpProductId": true, "ccpSkuId": true, "cloudProviderId": true, "cost": true, "currency": true, "customerId": true, "customerName": true, "id": true, "isvId": true, "partnerName": true, "price": true, "resellerId": true, "subscriptionDisplayName": true, "subscriptionId": true, "subscriptionName": true, "subscriptionOfferId": true, "subscriptionProductId": true, "subscriptionRenewStatus": true, "subscriptionSkuId": true, "subscriptionStatus": true})
+					filtered = compactFields(filtered, map[string]bool{"totalCount": true})
 				}
 				wrapped, wrapErr := wrapWithProvenance(filtered, prov)
 				if wrapErr != nil {
@@ -300,7 +300,7 @@ func newSubscriptionsListCmd(flags *rootFlags) *cobra.Command {
 			if flags.csv || flags.plain {
 				formatData = outputData
 			}
-			return printOutputWithFlagsMeta(cmd.OutOrStdout(), formatData, flags, map[string]any{"source": "live"}, map[string]bool{"ccpChargeId": true, "ccpPlanId": true, "ccpProductId": true, "ccpSkuId": true, "cloudProviderId": true, "cost": true, "currency": true, "customerId": true, "customerName": true, "id": true, "isvId": true, "partnerName": true, "price": true, "resellerId": true, "subscriptionDisplayName": true, "subscriptionId": true, "subscriptionName": true, "subscriptionOfferId": true, "subscriptionProductId": true, "subscriptionRenewStatus": true, "subscriptionSkuId": true, "subscriptionStatus": true})
+			return printOutputWithFlagsMeta(cmd.OutOrStdout(), formatData, flags, map[string]any{"source": "live"}, map[string]bool{"totalCount": true})
 		},
 	}
 	cmd.Flags().StringVar(&flagCustomerId, "customer-id", "", "Customer ID to filter by.")

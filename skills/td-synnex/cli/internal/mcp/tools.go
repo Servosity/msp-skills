@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -57,7 +58,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithString("productType", mcplib.Description("Product type")),
 			mcplib.WithNumber("quantity", mcplib.Required(), mcplib.Description("Quantity")),
 			mcplib.WithString("status", mcplib.Description("Cart item status, for example DRAFT.")),
-			mcplib.WithDestructiveHintAnnotation(false),
+			mcplib.WithSchemaAdditionalProperties(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
 		makeAPIHandler("POST", "/customers/{customerId}/carts/{cartId}/cartItems", false, false, nil, mcpPageConfig{}, []mcpParamBinding{{PublicName: "customerId", WireName: "customerId", Location: "path"}, {PublicName: "cartId", WireName: "cartId", Location: "path"}, {PublicName: "add-ons-display-name", WireName: "displayName", Location: "body", BodyPath: []string{"addOns", "displayName"}}, {PublicName: "add-ons-parent", WireName: "parent", Location: "body", BodyPath: []string{"addOns", "parent"}}, {PublicName: "add-ons-parent-identifier", WireName: "parentIdentifier", Location: "body", BodyPath: []string{"addOns", "parentIdentifier"}}, {PublicName: "add-ons-plan-id", WireName: "planId", Location: "body", BodyPath: []string{"addOns", "planId"}}, {PublicName: "currencyCode", WireName: "currencyCode", Location: "body"}, {PublicName: "payment-credit-card-name", WireName: "creditCardName", Location: "body", BodyPath: []string{"payment", "creditCardName"}}, {PublicName: "payment-payment-type", WireName: "paymentType", Location: "body", BodyPath: []string{"payment", "paymentType"}}, {PublicName: "planName", WireName: "planName", Location: "body"}, {PublicName: "productType", WireName: "productType", Location: "body"}, {PublicName: "quantity", WireName: "quantity", Location: "body"}, {PublicName: "status", WireName: "status", Location: "body"}}, []string{"customerId", "cartId"}),
@@ -68,6 +69,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithNumber("customerId", mcplib.Required(), mcplib.Description("Customer ID.")),
 			mcplib.WithString("cartId", mcplib.Required(), mcplib.Description("Cart ID.")),
 			mcplib.WithString("cartItemId", mcplib.Required(), mcplib.Description("Cart item ID.")),
+			mcplib.WithSchemaAdditionalProperties(false),
 			mcplib.WithDestructiveHintAnnotation(true),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
@@ -79,6 +81,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithNumber("customerId", mcplib.Required(), mcplib.Description("Customer ID.")),
 			mcplib.WithString("cartId", mcplib.Required(), mcplib.Description("Cart ID.")),
 			mcplib.WithString("cartItemId", mcplib.Required(), mcplib.Description("Cart item ID.")),
+			mcplib.WithSchemaAdditionalProperties(false),
 			mcplib.WithReadOnlyHintAnnotation(true),
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
@@ -90,6 +93,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithDescription("List the items in a cart with plan, quantity, prices, add-ons, term and checkout state. The response key is `cartitems` (lowercase i). Source: https://docs.streamone.cloud/#list-cart-items Official spec: ListCartItems. Required: customerId, cartId. Returns array of CartItem."),
 			mcplib.WithNumber("customerId", mcplib.Required(), mcplib.Description("Customer ID.")),
 			mcplib.WithString("cartId", mcplib.Required(), mcplib.Description("Cart ID.")),
+			mcplib.WithSchemaAdditionalProperties(false),
 			mcplib.WithReadOnlyHintAnnotation(true),
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
@@ -110,6 +114,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithString("productType", mcplib.Description("Product type")),
 			mcplib.WithNumber("quantity", mcplib.Description("Quantity")),
 			mcplib.WithString("status", mcplib.Description("Cart item status, for example DRAFT.")),
+			mcplib.WithSchemaAdditionalProperties(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
 		makeAPIHandler("PUT", "/customers/{customerId}/carts/{cartId}/cartItems/{cartItemId}", false, false, nil, mcpPageConfig{}, []mcpParamBinding{{PublicName: "customerId", WireName: "customerId", Location: "path"}, {PublicName: "cartId", WireName: "cartId", Location: "path"}, {PublicName: "cartItemId", WireName: "cartItemId", Location: "path"}, {PublicName: "addOns", WireName: "addOns", Location: "body"}, {PublicName: "currencyCode", WireName: "currencyCode", Location: "body"}, {PublicName: "payment-credit-card-name", WireName: "creditCardName", Location: "body", BodyPath: []string{"payment", "creditCardName"}}, {PublicName: "payment-payment-type", WireName: "paymentType", Location: "body", BodyPath: []string{"payment", "paymentType"}}, {PublicName: "planName", WireName: "planName", Location: "body"}, {PublicName: "productType", WireName: "productType", Location: "body"}, {PublicName: "quantity", WireName: "quantity", Location: "body"}, {PublicName: "status", WireName: "status", Location: "body"}}, []string{"customerId", "cartId", "cartItemId"}),
@@ -121,7 +126,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithString("cartId", mcplib.Required(), mcplib.Description("Cart ID.")),
 			mcplib.WithArray("provisionData", mcplib.Description("Provision data")),
 			mcplib.WithNumber("totalCalculatedValue", mcplib.Description("Final cart value including discounts.")),
-			mcplib.WithDestructiveHintAnnotation(false),
+			mcplib.WithSchemaAdditionalProperties(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
 		makeAPIHandler("POST", "/customers/{customerId}/carts/{cartId}:checkout", false, false, map[string]string{client.ReplaySafeHeader: "false"}, mcpPageConfig{}, []mcpParamBinding{{PublicName: "customerId", WireName: "customerId", Location: "path"}, {PublicName: "cartId", WireName: "cartId", Location: "path"}, {PublicName: "provisionData", WireName: "provisionData", Location: "body"}, {PublicName: "totalCalculatedValue", WireName: "totalCalculatedValue", Location: "body"}}, []string{"customerId", "cartId"}),
@@ -136,7 +141,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithString("payment-payment-type", mcplib.Description("Payment type")),
 			mcplib.WithString("status", mcplib.Description("Status")),
 			mcplib.WithString("userName", mcplib.Description("User name")),
-			mcplib.WithDestructiveHintAnnotation(false),
+			mcplib.WithSchemaAdditionalProperties(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
 		makeAPIHandler("POST", "/customers/{customerId}/carts", false, false, nil, mcpPageConfig{}, []mcpParamBinding{{PublicName: "customerId", WireName: "customerId", Location: "path"}, {PublicName: "cartDisplayName", WireName: "cartDisplayName", Location: "body"}, {PublicName: "currencyCode", WireName: "currencyCode", Location: "body"}, {PublicName: "payment-credit-card-name", WireName: "creditCardName", Location: "body", BodyPath: []string{"payment", "creditCardName"}}, {PublicName: "payment-payment-type", WireName: "paymentType", Location: "body", BodyPath: []string{"payment", "paymentType"}}, {PublicName: "status", WireName: "status", Location: "body"}, {PublicName: "userName", WireName: "userName", Location: "body"}}, []string{"customerId"}),
@@ -146,6 +151,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithDescription("Clear or delete a cart. Source: official spec DeleteCart (not on the docs site). Route checked 2026-10-14: unauthenticated request returns 401 (route exists). Required: customerId, cartId. Destructive."),
 			mcplib.WithNumber("customerId", mcplib.Required(), mcplib.Description("Customer ID.")),
 			mcplib.WithString("cartId", mcplib.Required(), mcplib.Description("Cart ID.")),
+			mcplib.WithSchemaAdditionalProperties(false),
 			mcplib.WithDestructiveHintAnnotation(true),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
@@ -156,6 +162,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithDescription("Get one cart (a flat cart object per the official spec; the docs site sample wraps it in a `carts` array). Source: https://docs.streamone.cloud/#get-cart Official spec: GetCart. Required: customerId, cartId. Returns the Cart."),
 			mcplib.WithNumber("customerId", mcplib.Required(), mcplib.Description("Customer ID.")),
 			mcplib.WithString("cartId", mcplib.Required(), mcplib.Description("Cart ID.")),
+			mcplib.WithSchemaAdditionalProperties(false),
 			mcplib.WithReadOnlyHintAnnotation(true),
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
@@ -173,6 +180,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithString("pagination.sortOrder", mcplib.Description("Sort direction.")),
 			mcplib.WithNumber("pagination.userId", mcplib.Description("User ID that owns the cart.")),
 			mcplib.WithString("status", mcplib.Required(), mcplib.Description("Cart status filter.")),
+			mcplib.WithSchemaAdditionalProperties(false),
 			mcplib.WithReadOnlyHintAnnotation(true),
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
@@ -190,6 +198,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithString("payment-payment-type", mcplib.Description("Payment type")),
 			mcplib.WithString("status", mcplib.Description("Status")),
 			mcplib.WithString("userName", mcplib.Description("User name")),
+			mcplib.WithSchemaAdditionalProperties(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
 		makeAPIHandler("PUT", "/customers/{customerId}/carts/{cartId}", false, false, nil, mcpPageConfig{}, []mcpParamBinding{{PublicName: "customerId", WireName: "customerId", Location: "path"}, {PublicName: "cartId", WireName: "cartId", Location: "path"}, {PublicName: "cartDisplayName", WireName: "cartDisplayName", Location: "body"}, {PublicName: "currencyCode", WireName: "currencyCode", Location: "body"}, {PublicName: "payment-credit-card-name", WireName: "creditCardName", Location: "body", BodyPath: []string{"payment", "creditCardName"}}, {PublicName: "payment-payment-type", WireName: "paymentType", Location: "body", BodyPath: []string{"payment", "paymentType"}}, {PublicName: "status", WireName: "status", Location: "body"}, {PublicName: "userName", WireName: "userName", Location: "body"}}, []string{"customerId", "cartId"}),
@@ -198,6 +207,7 @@ func RegisterTools(s *server.MCPServer) {
 		mcplib.NewTool("categories_list",
 			mcplib.WithDescription("List product categories (Security, Cloud Services and others) with product counts and parent/child links. Source: https://docs.streamone.cloud/#list-categories Official spec: ListCategories. Required: accountId. Returns array of Category."),
 			mcplib.WithNumber("accountId", mcplib.Required(), mcplib.Description("Reseller account ID (portal Quick Access > Account Information).")),
+			mcplib.WithSchemaAdditionalProperties(false),
 			mcplib.WithReadOnlyHintAnnotation(true),
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
@@ -208,6 +218,7 @@ func RegisterTools(s *server.MCPServer) {
 		mcplib.NewTool("charges_list",
 			mcplib.WithDescription("List the account's pricing charge rules (markup/margin plans): charge name, plan type (FIXED_AMOUNT, FIXED_PERCENT, TIERED), whether the rate applies to customer or seller cost, tiers and currency. Source: official spec ListCharges (not on the docs site). Route checked 2026-10-14: unauthenticated request returns 401 (route exists). Required: accountId."),
 			mcplib.WithNumber("accountId", mcplib.Required(), mcplib.Description("Reseller account ID (portal Quick Access > Account Information).")),
+			mcplib.WithSchemaAdditionalProperties(false),
 			mcplib.WithReadOnlyHintAnnotation(true),
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
@@ -216,11 +227,12 @@ func RegisterTools(s *server.MCPServer) {
 	)
 	s.AddTool(
 		mcplib.NewTool("cloud_profiles_get-customer",
-			mcplib.WithDescription("Show which cloud providers a customer is linked to (Microsoft CSP, Google Workspace, Azure and others) with tenant ID, domain, GDAP status, GDAP roles and Microsoft Customer Agreement status for Azure/Microsoft providers. Source: https://docs.streamone.cloud/#get-customer-cloud-profiles Official spec: GetCustomerCloudProfiles (providerId optional there; the docs site marks it required). Required: accountId, customerId. Optional: providerId, enabledOnly. Returns array of CloudProfile."),
+			mcplib.WithDescription("Show which cloud providers a customer is linked to (Microsoft CSP, Google Workspace, Azure and others) with tenant ID, domain, GDAP status, GDAP roles and Microsoft Customer Agreement status for Azure/Microsoft providers. Source: https://docs.streamone.cloud/#get-customer-cloud-profiles Official spec: GetCustomerCloudProfiles (providerId optional there; the docs site marks it required). Required: accountId, customerId. Optional: providerId, enabledOnly. Returns the CloudProfiles."),
 			mcplib.WithNumber("accountId", mcplib.Required(), mcplib.Description("Reseller account ID (portal Quick Access > Account Information).")),
 			mcplib.WithNumber("customerId", mcplib.Required(), mcplib.Description("Customer ID.")),
 			mcplib.WithString("providerId", mcplib.Description("Cloud provider ID in StreamOne ION, for example 30 for Microsoft CSP.")),
 			mcplib.WithBoolean("enabledOnly", mcplib.Description("When true, return only the customer's active cloud profiles.")),
+			mcplib.WithSchemaAdditionalProperties(false),
 			mcplib.WithReadOnlyHintAnnotation(true),
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
@@ -233,6 +245,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithNumber("accountId", mcplib.Required(), mcplib.Description("Reseller account ID (portal Quick Access > Account Information).")),
 			mcplib.WithNumber("customerId", mcplib.Required(), mcplib.Description("Customer ID.")),
 			mcplib.WithNumber("providerId", mcplib.Required(), mcplib.Description("Cloud provider ID, for example 30 for Microsoft CSP.")),
+			mcplib.WithSchemaAdditionalProperties(false),
 			mcplib.WithReadOnlyHintAnnotation(true),
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
@@ -247,7 +260,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithNumber("providerId", mcplib.Required(), mcplib.Description("Cloud provider ID, for example 30 for Microsoft CSP.")),
 			mcplib.WithString("id", mcplib.Required(), mcplib.Description("Existing tenant ID.")),
 			mcplib.WithString("name", mcplib.Required(), mcplib.Description("accounts/{accountId}/customers/{customerId}/cloudProviders/{providerId}")),
-			mcplib.WithDestructiveHintAnnotation(false),
+			mcplib.WithSchemaAdditionalProperties(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
 		makeAPIHandler("POST", "/accounts/{accountId}/customers/{customerId}/cloudProviders/{providerId}:link", false, false, map[string]string{client.ReplaySafeHeader: "false"}, mcpPageConfig{}, []mcpParamBinding{{PublicName: "accountId", WireName: "accountId", Location: "path"}, {PublicName: "customerId", WireName: "customerId", Location: "path"}, {PublicName: "providerId", WireName: "providerId", Location: "path"}, {PublicName: "id", WireName: "id", Location: "body"}, {PublicName: "name", WireName: "name", Location: "body"}}, []string{"accountId", "customerId", "providerId"}),
@@ -264,7 +277,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithString("azure-customer-details-company-profile-domain", mcplib.Description("Tenant domain, for example contoso.onmicrosoft.com.")),
 			mcplib.WithString("azure-customer-details-organization-registration-number", mcplib.Description("Organization registration number")),
 			mcplib.WithString("customer-id-2", mcplib.Required(), mcplib.Description("Customer id")),
-			mcplib.WithDestructiveHintAnnotation(false),
+			mcplib.WithSchemaAdditionalProperties(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
 		makeAPIHandler("POST", "/accounts/{accountId}/customers/{customerId}/cloudProviders/{providerId}:provision", false, false, map[string]string{client.ReplaySafeHeader: "false"}, mcpPageConfig{}, []mcpParamBinding{{PublicName: "accountId", WireName: "accountId", Location: "path"}, {PublicName: "customerId", WireName: "customerId", Location: "path"}, {PublicName: "providerId", WireName: "providerId", Location: "path"}, {PublicName: "azure-customer-details-billing-profile-company-name", WireName: "companyName", Location: "body", BodyPath: []string{"azureCustomerDetails", "billingProfile", "companyName"}}, {PublicName: "azure-customer-details-billing-profile-default-address", WireName: "defaultAddress", Location: "body", BodyPath: []string{"azureCustomerDetails", "billingProfile", "defaultAddress"}}, {PublicName: "azure-customer-details-billing-profile-email", WireName: "email", Location: "body", BodyPath: []string{"azureCustomerDetails", "billingProfile", "email"}}, {PublicName: "azure-customer-details-company-profile-domain", WireName: "domain", Location: "body", BodyPath: []string{"azureCustomerDetails", "companyProfile", "domain"}}, {PublicName: "azure-customer-details-organization-registration-number", WireName: "organizationRegistrationNumber", Location: "body", BodyPath: []string{"azureCustomerDetails", "organizationRegistrationNumber"}}, {PublicName: "customer-id-2", WireName: "customerId", Location: "body"}}, []string{"accountId", "customerId", "providerId"}),
@@ -275,7 +288,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithNumber("accountId", mcplib.Required(), mcplib.Description("Reseller account ID (portal Quick Access > Account Information).")),
 			mcplib.WithNumber("customerId", mcplib.Required(), mcplib.Description("Customer ID.")),
 			mcplib.WithString("orderId", mcplib.Required(), mcplib.Description("Order ID.")),
-			mcplib.WithDestructiveHintAnnotation(false),
+			mcplib.WithSchemaAdditionalProperties(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
 		makeAPIHandler("POST", "/accounts/{accountId}/customers/{customerId}/orders/{orderId}:cancel", false, false, map[string]string{client.ReplaySafeHeader: "false"}, mcpPageConfig{}, []mcpParamBinding{{PublicName: "accountId", WireName: "accountId", Location: "path"}, {PublicName: "customerId", WireName: "customerId", Location: "path"}, {PublicName: "orderId", WireName: "orderId", Location: "path"}}, []string{"accountId", "customerId", "orderId"}),
@@ -289,7 +302,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithString("name", mcplib.Description("Name")),
 			mcplib.WithArray("orderItems", mcplib.Required(), mcplib.Description("Order items")),
 			mcplib.WithString("referenceId", mcplib.Description("Reference id")),
-			mcplib.WithDestructiveHintAnnotation(false),
+			mcplib.WithSchemaAdditionalProperties(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
 		makeAPIHandler("POST", "/accounts/{accountId}/customers/{customerId}/orders", false, false, map[string]string{client.ReplaySafeHeader: "false"}, mcpPageConfig{}, []mcpParamBinding{{PublicName: "accountId", WireName: "accountId", Location: "path"}, {PublicName: "customerId", WireName: "customerId", Location: "path"}, {PublicName: "displayName", WireName: "displayName", Location: "body"}, {PublicName: "name", WireName: "name", Location: "body"}, {PublicName: "orderItems", WireName: "orderItems", Location: "body"}, {PublicName: "referenceId", WireName: "referenceId", Location: "body"}}, []string{"accountId", "customerId"}),
@@ -300,6 +313,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithNumber("accountId", mcplib.Required(), mcplib.Description("Reseller account ID (portal Quick Access > Account Information).")),
 			mcplib.WithNumber("customerId", mcplib.Required(), mcplib.Description("Customer ID.")),
 			mcplib.WithString("orderId", mcplib.Required(), mcplib.Description("Order ID.")),
+			mcplib.WithSchemaAdditionalProperties(false),
 			mcplib.WithReadOnlyHintAnnotation(true),
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
@@ -314,6 +328,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithNumber("pageSize", mcplib.Required(), mcplib.Description("Page size of the response.")),
 			mcplib.WithString("status", mcplib.Description("Order status filter.")),
 			mcplib.WithString("cursor", mcplib.Description("Opaque pagination cursor returned by a previous MCP response")),
+			mcplib.WithSchemaAdditionalProperties(false),
 			mcplib.WithReadOnlyHintAnnotation(true),
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
@@ -336,7 +351,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithString("customerPhone", mcplib.Description("Customer phone")),
 			mcplib.WithString("customerTitle", mcplib.Description("Primary contact title, for example Ms.")),
 			mcplib.WithString("languageCode", mcplib.Required(), mcplib.Description("ISO 639-1 language code, for example en.")),
-			mcplib.WithDestructiveHintAnnotation(false),
+			mcplib.WithSchemaAdditionalProperties(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
 		makeAPIHandler("POST", "/accounts/{accountId}/customers", false, false, map[string]string{client.ReplaySafeHeader: "false"}, mcpPageConfig{}, []mcpParamBinding{{PublicName: "accountId", WireName: "accountId", Location: "path"}, {PublicName: "customer-address-city", WireName: "city", Location: "body", BodyPath: []string{"customerAddress", "city"}}, {PublicName: "customer-address-country", WireName: "country", Location: "body", BodyPath: []string{"customerAddress", "country"}}, {PublicName: "customer-address-state", WireName: "state", Location: "body", BodyPath: []string{"customerAddress", "state"}}, {PublicName: "customer-address-street", WireName: "street", Location: "body", BodyPath: []string{"customerAddress", "street"}}, {PublicName: "customer-address-suite", WireName: "suite", Location: "body", BodyPath: []string{"customerAddress", "suite"}}, {PublicName: "customer-address-zip", WireName: "zip", Location: "body", BodyPath: []string{"customerAddress", "zip"}}, {PublicName: "customerEmail", WireName: "customerEmail", Location: "body"}, {PublicName: "customerName", WireName: "customerName", Location: "body"}, {PublicName: "customerOrganization", WireName: "customerOrganization", Location: "body"}, {PublicName: "customerPhone", WireName: "customerPhone", Location: "body"}, {PublicName: "customerTitle", WireName: "customerTitle", Location: "body"}, {PublicName: "languageCode", WireName: "languageCode", Location: "body"}}, []string{"accountId"}),
@@ -346,6 +361,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithDescription("Get one end customer by ID. Source: https://docs.streamone.cloud/#get-customer Official spec: GetCustomer. Required: accountId, customerId. Returns the Customer."),
 			mcplib.WithNumber("accountId", mcplib.Required(), mcplib.Description("Reseller account ID (portal Quick Access > Account Information).")),
 			mcplib.WithNumber("customerId", mcplib.Required(), mcplib.Description("Customer ID.")),
+			mcplib.WithSchemaAdditionalProperties(false),
 			mcplib.WithReadOnlyHintAnnotation(true),
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
@@ -362,6 +378,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithString("filter.customerStatus", mcplib.Description("Customer status filter.")),
 			mcplib.WithString("filter.languageCode", mcplib.Description("Two-letter preferred language code, for example EN.")),
 			mcplib.WithString("cursor", mcplib.Description("Opaque pagination cursor returned by a previous MCP response")),
+			mcplib.WithSchemaAdditionalProperties(false),
 			mcplib.WithReadOnlyHintAnnotation(true),
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
@@ -385,6 +402,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithString("customerPhone", mcplib.Description("Customer phone")),
 			mcplib.WithString("customerTitle", mcplib.Description("Primary contact title, for example Ms.")),
 			mcplib.WithString("languageCode", mcplib.Required(), mcplib.Description("ISO 639-1 language code, for example en.")),
+			mcplib.WithSchemaAdditionalProperties(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
 		makeAPIHandler("PUT", "/accounts/{accountId}/customers/{customerId}", false, false, nil, mcpPageConfig{}, []mcpParamBinding{{PublicName: "accountId", WireName: "accountId", Location: "path"}, {PublicName: "customerId", WireName: "customerId", Location: "path"}, {PublicName: "customer-address-city", WireName: "city", Location: "body", BodyPath: []string{"customerAddress", "city"}}, {PublicName: "customer-address-country", WireName: "country", Location: "body", BodyPath: []string{"customerAddress", "country"}}, {PublicName: "customer-address-state", WireName: "state", Location: "body", BodyPath: []string{"customerAddress", "state"}}, {PublicName: "customer-address-street", WireName: "street", Location: "body", BodyPath: []string{"customerAddress", "street"}}, {PublicName: "customer-address-suite", WireName: "suite", Location: "body", BodyPath: []string{"customerAddress", "suite"}}, {PublicName: "customer-address-zip", WireName: "zip", Location: "body", BodyPath: []string{"customerAddress", "zip"}}, {PublicName: "customerEmail", WireName: "customerEmail", Location: "body"}, {PublicName: "customerName", WireName: "customerName", Location: "body"}, {PublicName: "customerOrganization", WireName: "customerOrganization", Location: "body"}, {PublicName: "customerPhone", WireName: "customerPhone", Location: "body"}, {PublicName: "customerTitle", WireName: "customerTitle", Location: "body"}, {PublicName: "languageCode", WireName: "languageCode", Location: "body"}}, []string{"accountId", "customerId"}),
@@ -402,6 +420,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithString("sortBy", mcplib.Description("Attribute to sort by, for example createTime or updateTime.")),
 			mcplib.WithString("sortOrder", mcplib.Description("Sort direction.")),
 			mcplib.WithString("cursor", mcplib.Description("Opaque pagination cursor returned by a previous MCP response")),
+			mcplib.WithSchemaAdditionalProperties(false),
 			mcplib.WithReadOnlyHintAnnotation(true),
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
@@ -414,6 +433,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithNumber("accountId", mcplib.Required(), mcplib.Description("Reseller account ID (portal Quick Access > Account Information).")),
 			mcplib.WithArray("externalProductWithProvider", mcplib.Description("External product with provider")),
 			mcplib.WithNumber("priceBookCustomerId", mcplib.Description("Customer ID whose price book is used.")),
+			mcplib.WithSchemaAdditionalProperties(false),
 			mcplib.WithReadOnlyHintAnnotation(true),
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
@@ -425,7 +445,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithDescription("Hide a catalog product for the account (toggles its visibility in the storefront). No request body. Source: official spec DisableProduct (not on the docs site). Route checked 2026-10-14: unauthenticated request returns 401 (route exists). Required: accountId, productId."),
 			mcplib.WithNumber("accountId", mcplib.Required(), mcplib.Description("Reseller account ID (portal Quick Access > Account Information).")),
 			mcplib.WithString("productId", mcplib.Required(), mcplib.Description("Product ID.")),
-			mcplib.WithDestructiveHintAnnotation(false),
+			mcplib.WithSchemaAdditionalProperties(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
 		makeAPIHandler("POST", "/accounts/{accountId}/products/{productId}:disable", false, false, nil, mcpPageConfig{}, []mcpParamBinding{{PublicName: "accountId", WireName: "accountId", Location: "path"}, {PublicName: "productId", WireName: "productId", Location: "path"}}, []string{"accountId", "productId"}),
@@ -435,7 +455,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithDescription("Show a catalog product for the account (toggles its visibility in the storefront). No request body. Source: official spec EnableProduct (not on the docs site). Route checked 2026-10-14: unauthenticated request returns 401 (route exists). Required: accountId, productId."),
 			mcplib.WithNumber("accountId", mcplib.Required(), mcplib.Description("Reseller account ID (portal Quick Access > Account Information).")),
 			mcplib.WithString("productId", mcplib.Required(), mcplib.Description("Product ID.")),
-			mcplib.WithDestructiveHintAnnotation(false),
+			mcplib.WithSchemaAdditionalProperties(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
 		makeAPIHandler("POST", "/accounts/{accountId}/products/{productId}:enable", false, false, nil, mcpPageConfig{}, []mcpParamBinding{{PublicName: "accountId", WireName: "accountId", Location: "path"}, {PublicName: "productId", WireName: "productId", Location: "path"}}, []string{"accountId", "productId"}),
@@ -454,6 +474,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithBoolean("excludeFilter.excludeVersionHistory", mcplib.Description("Omit version history.")),
 			mcplib.WithBoolean("excludeFilter.excludeDeployment", mcplib.Description("Omit deployment information.")),
 			mcplib.WithString("clientRole", mcplib.Description("CUSTOMER (default) returns published product details; OWNER returns the owner's view.")),
+			mcplib.WithSchemaAdditionalProperties(false),
 			mcplib.WithReadOnlyHintAnnotation(true),
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
@@ -476,6 +497,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithString("filter.cloudProviderId", mcplib.Description("Cloud provider ID, for example 30.")),
 			mcplib.WithString("filter.mfgPartNumber", mcplib.Description("Manufacturer part number.")),
 			mcplib.WithString("cursor", mcplib.Description("Opaque pagination cursor returned by a previous MCP response")),
+			mcplib.WithSchemaAdditionalProperties(false),
 			mcplib.WithReadOnlyHintAnnotation(true),
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
@@ -489,6 +511,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithString("productId", mcplib.Required(), mcplib.Description("Product ID.")),
 			mcplib.WithString("product-programs-partner-name", mcplib.Description("accounts/{accountId}")),
 			mcplib.WithString("product-programs-program-name", mcplib.Description("accounts/{accountId}/programs/{id}")),
+			mcplib.WithSchemaAdditionalProperties(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
 		makeAPIHandler("PUT", "/accounts/{accountId}/products_programs/{productId}:batchUpdate", false, false, nil, mcpPageConfig{}, []mcpParamBinding{{PublicName: "accountId", WireName: "accountId", Location: "path"}, {PublicName: "productId", WireName: "productId", Location: "path"}, {PublicName: "product-programs-partner-name", WireName: "partnerName", Location: "body", BodyPath: []string{"product_programs", "partnerName"}}, {PublicName: "product-programs-program-name", WireName: "programName", Location: "body", BodyPath: []string{"product_programs", "programName"}}}, []string{"accountId", "productId"}),
@@ -498,6 +521,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithDescription("List the vendor programs defined for the account and, with --product-name, whether each is attached to that product. Source: official spec ListPrograms (not on the docs site). Route checked 2026-10-14: unauthenticated request returns 401 (route exists). Required: accountId. Optional: productName."),
 			mcplib.WithNumber("accountId", mcplib.Required(), mcplib.Description("Reseller account ID (portal Quick Access > Account Information).")),
 			mcplib.WithString("productName", mcplib.Description("Product ID to report program attachment for.")),
+			mcplib.WithSchemaAdditionalProperties(false),
 			mcplib.WithReadOnlyHintAnnotation(true),
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
@@ -509,6 +533,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithDescription("Get one provisioning template by ID. Documented IDs include provisiontemplate30 (Microsoft create), provisiontemplate33 (Microsoft modify and manage subscription), provisiontemplate34 (Microsoft change plan), provisiontemplate55 (Microsoft renewal settings), provisiontemplate56 (Microsoft cancel), provisiontemplate01 (Google Workspace create) and provisiontemplate40 (Sophos create). Source: https://docs.streamone.cloud/#get-provisioning-info-by-template-id Official spec: GetProvisioningInfoByTemplateId. Required: accountId, templateId. Returns the ProvisionTemplates."),
 			mcplib.WithNumber("accountId", mcplib.Required(), mcplib.Description("Reseller account ID (portal Quick Access > Account Information).")),
 			mcplib.WithString("templateId", mcplib.Required(), mcplib.Description("Provisioning template ID, for example provisiontemplate30.")),
+			mcplib.WithSchemaAdditionalProperties(false),
 			mcplib.WithReadOnlyHintAnnotation(true),
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
@@ -522,6 +547,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithString("vendor", mcplib.Required(), mcplib.Description("Vendor name.")),
 			mcplib.WithString("provider", mcplib.Description("Provider name.")),
 			mcplib.WithString("action", mcplib.Description("Order action the template describes.")),
+			mcplib.WithSchemaAdditionalProperties(false),
 			mcplib.WithReadOnlyHintAnnotation(true),
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
@@ -533,6 +559,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithDescription("Delete a saved report if the user has permission (the docs site's Reports intro lists deleting reports). Source: official spec DeleteReport. Route checked 2026-10-14: unauthenticated request returns 401 (route exists). Required: accountId, reportId. Destructive."),
 			mcplib.WithNumber("accountId", mcplib.Required(), mcplib.Description("Reseller account ID (portal Quick Access > Account Information).")),
 			mcplib.WithString("reportId", mcplib.Required(), mcplib.Description("Report ID from the reports list.")),
+			mcplib.WithSchemaAdditionalProperties(false),
 			mcplib.WithDestructiveHintAnnotation(true),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
@@ -559,6 +586,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithObject("specs-currency-option", mcplib.Description("Currency option")),
 			mcplib.WithObject("specs-date-range-option-selected-range", mcplib.Description("Selected range")),
 			mcplib.WithArray("specs-selected-columns", mcplib.Description("Selected columns")),
+			mcplib.WithSchemaAdditionalProperties(false),
 			mcplib.WithReadOnlyHintAnnotation(true),
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
@@ -586,6 +614,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithObject("specs-currency-option", mcplib.Description("Currency option")),
 			mcplib.WithObject("specs-date-range-option-selected-range", mcplib.Description("Selected range")),
 			mcplib.WithArray("specs-selected-columns", mcplib.Description("Selected columns")),
+			mcplib.WithSchemaAdditionalProperties(false),
 			mcplib.WithReadOnlyHintAnnotation(true),
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
@@ -613,6 +642,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithObject("specs-currency-option", mcplib.Description("Currency option")),
 			mcplib.WithObject("specs-date-range-option-selected-range", mcplib.Description("Selected range")),
 			mcplib.WithArray("specs-selected-columns", mcplib.Description("Selected columns")),
+			mcplib.WithSchemaAdditionalProperties(false),
 			mcplib.WithReadOnlyHintAnnotation(true),
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
@@ -640,6 +670,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithObject("specs-currency-option", mcplib.Description("Currency option")),
 			mcplib.WithObject("specs-date-range-option-selected-range", mcplib.Description("Selected range")),
 			mcplib.WithArray("specs-selected-columns", mcplib.Description("Selected columns")),
+			mcplib.WithSchemaAdditionalProperties(false),
 			mcplib.WithReadOnlyHintAnnotation(true),
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
@@ -652,6 +683,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithNumber("accountId", mcplib.Required(), mcplib.Description("Reseller account ID (portal Quick Access > Account Information).")),
 			mcplib.WithString("reportId", mcplib.Required(), mcplib.Description("Report ID from the reports list.")),
 			mcplib.WithBoolean("includeMetadata", mcplib.Description("Include detailed metadata.")),
+			mcplib.WithSchemaAdditionalProperties(false),
 			mcplib.WithReadOnlyHintAnnotation(true),
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
@@ -663,6 +695,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithDescription("List the predefined and saved reports available to the account (billing, customer, subscription reports) with their IDs, category, template and providers. Source: https://docs.streamone.cloud/#list-reports Official spec: ListReports. Required: accountId. Optional: module. Returns array of ReportSummary."),
 			mcplib.WithNumber("accountId", mcplib.Required(), mcplib.Description("Reseller account ID (portal Quick Access > Account Information).")),
 			mcplib.WithString("module", mcplib.Description("Reports module, for example REPORTS_REPORTS_MODULE.")),
+			mcplib.WithSchemaAdditionalProperties(false),
 			mcplib.WithReadOnlyHintAnnotation(true),
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
@@ -690,7 +723,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithObject("specs-currency-option", mcplib.Description("Currency option")),
 			mcplib.WithObject("specs-date-range-option-selected-range", mcplib.Description("Selected range")),
 			mcplib.WithArray("specs-selected-columns", mcplib.Description("Selected columns")),
-			mcplib.WithDestructiveHintAnnotation(false),
+			mcplib.WithSchemaAdditionalProperties(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
 		makeAPIHandler("POST", "/accounts/{accountId}/reports/{reportId}", false, false, nil, mcpPageConfig{}, []mcpParamBinding{{PublicName: "accountId", WireName: "accountId", Location: "path"}, {PublicName: "reportId", WireName: "reportId", Location: "path"}, {PublicName: "accessTime", WireName: "accessTime", Location: "body"}, {PublicName: "cacheMetadataProviderIds", WireName: "cacheMetadataProviderIds", Location: "body"}, {PublicName: "category", WireName: "category", Location: "body"}, {PublicName: "createTime", WireName: "createTime", Location: "body"}, {PublicName: "createdBy", WireName: "createdBy", Location: "body"}, {PublicName: "displayName", WireName: "displayName", Location: "body"}, {PublicName: "lastUpdatedBy", WireName: "lastUpdatedBy", Location: "body"}, {PublicName: "options", WireName: "options", Location: "body"}, {PublicName: "providerIds", WireName: "providerIds", Location: "body"}, {PublicName: "report-id-2", WireName: "reportId", Location: "body"}, {PublicName: "reportModule", WireName: "reportModule", Location: "body"}, {PublicName: "reportTemplateId", WireName: "reportTemplateId", Location: "body"}, {PublicName: "specs-all-columns", WireName: "allColumns", Location: "body", BodyPath: []string{"specs", "allColumns"}}, {PublicName: "specs-currency-option", WireName: "currencyOption", Location: "body", BodyPath: []string{"specs", "currencyOption"}}, {PublicName: "specs-date-range-option-selected-range", WireName: "selectedRange", Location: "body", BodyPath: []string{"specs", "dateRangeOption", "selectedRange"}}, {PublicName: "specs-selected-columns", WireName: "selectedColumns", Location: "body", BodyPath: []string{"specs", "selectedColumns"}}}, []string{"accountId", "reportId"}),
@@ -702,6 +735,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithNumber("customerId", mcplib.Required(), mcplib.Description("Customer ID.")),
 			mcplib.WithString("subscriptionId", mcplib.Required(), mcplib.Description("Subscription ID.")),
 			mcplib.WithBoolean("refresh", mcplib.Description("Refresh the subscription from the provider before returning it.")),
+			mcplib.WithSchemaAdditionalProperties(false),
 			mcplib.WithReadOnlyHintAnnotation(true),
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
@@ -710,7 +744,7 @@ func RegisterTools(s *server.MCPServer) {
 	)
 	s.AddTool(
 		mcplib.NewTool("subscriptions_list",
-			mcplib.WithDescription("List subscriptions across the account (or one customer with customerId): licence counts, status, term, billing cycle, start/end/renewal dates, auto-renew, price, cost, margin and CCP product/SKU/plan IDs. Paginate with --pagination-limit and --pagination-offset (pagination.limit and pagination.offset on the wire; ION documents a limit as required); the response's paginationResponse.totalSize is the filtered total. Status values include ACCEPTED, ACTIVE, CANCELLED, DELETED, EXPIRED, SUSPENDED and others. Source: https://docs.streamone.cloud/#list-customer-subscriptions Official spec: ListCustomerSubscriptions (query names customerId and subscriptionId; the docs site spells them customerID and subscriptionID). Required: accountId. Optional: customerId, subscriptionId, resellerId (plus 29 more). Returns array of Subscription."),
+			mcplib.WithDescription("List subscriptions across the account (or one customer with customerId): licence counts, status, term, billing cycle, start/end/renewal dates, auto-renew, price, cost, margin and CCP product/SKU/plan IDs. Paginate with --pagination-limit and --pagination-offset (pagination.limit and pagination.offset on the wire; ION documents a limit as required); the response's paginationResponse.totalSize is the filtered total. Status values include ACCEPTED, ACTIVE, CANCELLED, DELETED, EXPIRED, SUSPENDED and others. Source: https://docs.streamone.cloud/#list-customer-subscriptions Official spec: ListCustomerSubscriptions (query names customerId and subscriptionId; the docs site spells them customerID and subscriptionID). Required: accountId. Optional: customerId, subscriptionId, resellerId (plus 29 more). Returns the SubscriptionList."),
 			mcplib.WithNumber("accountId", mcplib.Required(), mcplib.Description("Reseller account ID (portal Quick Access > Account Information).")),
 			mcplib.WithString("customerId", mcplib.Description("Customer ID to filter by.")),
 			mcplib.WithString("subscriptionId", mcplib.Description("Subscription ID to filter by.")),
@@ -744,6 +778,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithString("resourceType", mcplib.Description("Resource type, for example AZURE::Subscription or ACRONIS::Tenant.")),
 			mcplib.WithString("accountName", mcplib.Description("Account name.")),
 			mcplib.WithString("billingCycle", mcplib.Description("Billing cycle, for example monthly.")),
+			mcplib.WithSchemaAdditionalProperties(false),
 			mcplib.WithReadOnlyHintAnnotation(true),
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
@@ -754,6 +789,7 @@ func RegisterTools(s *server.MCPServer) {
 		mcplib.NewTool("verticals_list",
 			mcplib.WithDescription("List the industry verticals (Commercial, Corporate, Education, Charity and others) used to segment products and pricing. Source: https://docs.streamone.cloud/#list-verticals Official spec: ListVerticals. Required: accountId. Returns array of Vertical."),
 			mcplib.WithNumber("accountId", mcplib.Required(), mcplib.Description("Reseller account ID (portal Quick Access > Account Information).")),
+			mcplib.WithSchemaAdditionalProperties(false),
 			mcplib.WithReadOnlyHintAnnotation(true),
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
@@ -765,7 +801,7 @@ func RegisterTools(s *server.MCPServer) {
 		mcplib.NewTool("search",
 			mcplib.WithDescription("Full-text search across all synced data. Faster than paginating list endpoints. Requires sync first."),
 			mcplib.WithString("query", mcplib.Required(), mcplib.Description("Search query (supports FTS5 syntax: AND, OR, NOT, quotes for phrases)")),
-			mcplib.WithNumber("limit", mcplib.Description("Max results (default 25)")),
+			mcplib.WithNumber("limit", mcplib.Description("Max results (default 25, at most "+strconv.Itoa(bound.MaxItems)+")"), mcplib.Max(bound.MaxItems)),
 			mcplib.WithReadOnlyHintAnnotation(true),
 			mcplib.WithDestructiveHintAnnotation(false),
 		),
@@ -797,14 +833,28 @@ func RegisterTools(s *server.MCPServer) {
 	markDestructiveTools(s)
 	// Runtime Cobra-tree mirror — exposes every user-facing command that is
 	// not already covered by a typed endpoint or framework MCP tool.
-	cobratree.RegisterAll(s, cli.RootCmd(), cobratree.SiblingCLIPath)
+	cobratree.RegisterAll(s, cli.RootCmd(), cobratree.CachedSiblingCLIPath)
+	// Hand-wired (handfixes.json: ion-mcp-write-confirm): every write tool previews until confirm is boolean true.
+	RequireConfirmForWrites(s)
 
-	// Hand-wired (handfixes.json: mcp-read-only-drops-endpoint-writes): the
-	// read-only kill switch must cover the endpoint tools and the local-store
-	// writers the mirror keeps (teach, learnings_confirm), so it runs last.
+	// The read-only switch covers every tool, so this runs after all
+	// registrations. Tools without readOnlyHint, including local-store
+	// writers, are removed.
 	if cliutil.IsMCPReadOnlyEnv() {
 		dropNonReadOnlyTools(s)
 	}
+}
+
+// dropNonReadOnlyTools removes every tool not annotated readOnlyHint=true.
+// A tool with no annotation fails closed.
+func dropNonReadOnlyTools(s *server.MCPServer) {
+	var drop []string
+	for name, entry := range s.ListTools() {
+		if hint := entry.Tool.Annotations.ReadOnlyHint; hint == nil || !*hint {
+			drop = append(drop, name)
+		}
+	}
+	s.DeleteTools(drop...)
 }
 
 type mcpParamBinding struct {
@@ -1032,19 +1082,8 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 			}
 		}
 
-		for k, v := range args {
-			if pathParams[k] || knownArgs[k] {
-				continue
-			}
-			// td-synnex hand-fix (mcp-endpoint-writes-refuse-undeclared-args): an
-			// argument a POST, PUT or DELETE tool does not declare never reaches
-			// ION. A "dry-run": true on carts_delete deleted the cart
-			// (adversarial round 14, P1); GET reads keep the pass-through for
-			// API filters.
-			if !strings.EqualFold(method, "GET") {
-				return mcpToolError(fmt.Sprintf("unknown MCP parameter %q: this tool declares no such argument, and nothing was sent (endpoint tools have no dry-run; preview a write with the CLI's --dry-run)", k)), nil
-			}
-			params[k] = formatMCPParamValue(v)
+		if err := rejectUndeclaredMCPArgs(args, knownArgs, pathParams); err != nil {
+			return mcpToolError(err.Error()), nil
 		}
 
 		// The public cursor argument is either an opaque MCP cursor or, on a
@@ -1160,21 +1199,21 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 			case strings.Contains(msg, "HTTP 400") && cliutil.LooksLikeAuthError(msg):
 				return mcpToolError("authentication error: " + cliutil.SanitizeErrorBody(msg) +
 					"\nhint: the API rejected the request — this usually means auth is missing or invalid." +
-					"\n      Run 'td-synnex-cli auth setup' for credential setup steps." +
+					"\n      " + "Run 'td-synnex-cli auth setup' for credential setup steps." +
 					"\n      Get a key at: https://ion.tdsynnex.com/" +
 					"\n      ION portal: Settings > Users > Edit user > OAuth credentials > Request New Credentials, then pipe that refresh token to: td-synnex-cli auth mint --refresh-token-stdin (set-token below is only for an access token you already have)" +
 					"\n      Run 'td-synnex-cli doctor' to check auth status."), nil
 			case strings.Contains(msg, "HTTP 401"):
 				return mcpToolError("authentication failed: " + cliutil.SanitizeErrorBody(msg) +
 					"\nhint: check your token." +
-					"\n      Run 'td-synnex-cli auth setup' for credential setup steps." +
+					"\n      " + "Run 'td-synnex-cli auth setup' for credential setup steps." +
 					"\n      Get a key at: https://ion.tdsynnex.com/" +
 					"\n      ION portal: Settings > Users > Edit user > OAuth credentials > Request New Credentials, then pipe that refresh token to: td-synnex-cli auth mint --refresh-token-stdin (set-token below is only for an access token you already have)" +
 					"\n      Run 'td-synnex-cli doctor' to check auth status."), nil
 			case strings.Contains(msg, "HTTP 403"):
 				return mcpToolError("permission denied: " + cliutil.SanitizeErrorBody(msg) +
 					"\nhint: your credentials are valid but lack access to this resource. Check that they have the required permissions and match the API's expected auth scheme." +
-					"\n      Run 'td-synnex-cli auth setup' for credential setup steps." +
+					"\n      " + "Run 'td-synnex-cli auth setup' for credential setup steps." +
 					"\n      Get a key at: https://ion.tdsynnex.com/" +
 					"\n      ION portal: Settings > Users > Edit user > OAuth credentials > Request New Credentials, then pipe that refresh token to: td-synnex-cli auth mint --refresh-token-stdin (set-token below is only for an access token you already have)" +
 					"\n      Run 'td-synnex-cli doctor' to check auth status."), nil
@@ -1238,6 +1277,163 @@ func mcpToolError(message string) *mcplib.CallToolResult {
 	return mcplib.NewToolResultError(bound.Text(message))
 }
 
+// Reserved transport arguments are accepted on every endpoint tool. They are
+// not request fields, so an unused one is ignored instead of copied onto the
+// wire. Declared bindings with these names still flow through knownArgs.
+func mcpReservedArg(name string) bool {
+	switch name {
+	case "cursor", "body_json", "body_base64", "content_type":
+		return true
+	default:
+		return false
+	}
+}
+
+func rejectUndeclaredMCPArgs(args map[string]any, knownArgs, pathParams map[string]bool) error {
+	var unknown []string
+	for name := range args {
+		if pathParams[name] || knownArgs[name] || mcpReservedArg(name) {
+			continue
+		}
+		unknown = append(unknown, name)
+	}
+	if len(unknown) == 0 {
+		return nil
+	}
+	sort.Strings(unknown)
+	candidates := mcpArgCandidates(knownArgs, pathParams)
+	parts := make([]string, len(unknown))
+	for i, name := range unknown {
+		parts[i] = formatUnknownMCPArg(name, suggestMCPArg(name, candidates))
+	}
+	return fmt.Errorf("%s", strings.Join(parts, "; "))
+}
+
+func mcpArgCandidates(knownArgs, pathParams map[string]bool) []string {
+	names := make([]string, 0, len(knownArgs)+len(pathParams))
+	seen := make(map[string]struct{}, len(knownArgs)+len(pathParams))
+	for name := range knownArgs {
+		if _, ok := seen[name]; ok {
+			continue
+		}
+		seen[name] = struct{}{}
+		names = append(names, name)
+	}
+	for name := range pathParams {
+		if _, ok := seen[name]; ok {
+			continue
+		}
+		seen[name] = struct{}{}
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
+}
+
+func formatUnknownMCPArg(name, suggestion string) string {
+	if suggestion == "" {
+		return fmt.Sprintf("unknown argument %q", name)
+	}
+	return fmt.Sprintf("unknown argument %q (did you mean %q?)", name, suggestion)
+}
+
+func suggestMCPArg(name string, candidates []string) string {
+	folded := mcpArgFold(name)
+	stripped := mcpArgStrip(folded)
+	best := ""
+	bestDist := 0
+	ambiguous := false
+	consider := func(cand string, dist int) {
+		if best == "" || dist < bestDist {
+			best = cand
+			bestDist = dist
+			ambiguous = false
+			return
+		}
+		if dist == bestDist && cand != best {
+			ambiguous = true
+		}
+	}
+	for _, cand := range candidates {
+		if cand == "" || cand == name {
+			continue
+		}
+		cf := mcpArgFold(cand)
+		if cf == folded {
+			consider(cand, 0)
+			continue
+		}
+		if stripped != "" && mcpArgStrip(cf) == stripped {
+			consider(cand, 0)
+			continue
+		}
+		dist := runeLevenshtein(folded, cf)
+		if mcpArgDistanceOK(folded, cf, dist) {
+			consider(cand, dist)
+		}
+	}
+	if ambiguous {
+		return ""
+	}
+	return best
+}
+
+func mcpArgFold(name string) string {
+	return strings.ReplaceAll(strings.ToLower(name), "-", "_")
+}
+
+func mcpArgStrip(folded string) string {
+	return strings.ReplaceAll(folded, "_", "")
+}
+
+func mcpArgDistanceOK(a, b string, dist int) bool {
+	if dist <= 0 {
+		return false
+	}
+	la, lb := len([]rune(a)), len([]rune(b))
+	if la < 3 || lb < 3 {
+		return false
+	}
+	if la >= 5 && lb >= 5 {
+		return dist <= 2
+	}
+	return dist <= 1
+}
+
+func runeLevenshtein(a, b string) int {
+	ar, br := []rune(a), []rune(b)
+	if len(ar) == 0 {
+		return len(br)
+	}
+	if len(br) == 0 {
+		return len(ar)
+	}
+	prev := make([]int, len(br)+1)
+	cur := make([]int, len(br)+1)
+	for j := range prev {
+		prev[j] = j
+	}
+	for i := 1; i <= len(ar); i++ {
+		cur[0] = i
+		for j := 1; j <= len(br); j++ {
+			cost := 1
+			if ar[i-1] == br[j-1] {
+				cost = 0
+			}
+			del, ins, sub := prev[j]+1, cur[j-1]+1, prev[j-1]+cost
+			cur[j] = del
+			if ins < cur[j] {
+				cur[j] = ins
+			}
+			if sub < cur[j] {
+				cur[j] = sub
+			}
+		}
+		prev, cur = cur, prev
+	}
+	return prev[len(br)]
+}
+
 func mcpToolPageResultText(method string, data json.RawMessage, pageConfig mcpPageConfig, cursor string) *mcplib.CallToolResult {
 	return mcpToolPageResultTextWithPlatform(method, data, pageConfig, cursor, "", false, nil)
 }
@@ -1276,6 +1472,9 @@ func newMCPConfig() (*config.Config, error) {
 
 func newMCPClientFromConfig(ctx context.Context, cfg *config.Config) (*client.Client, *platform.Session, error) {
 	c := client.New(cfg, 60*time.Second, defaultMCPRateLimit)
+	if tlsErr := c.TLSConfigError(); tlsErr != nil {
+		return nil, nil, tlsErr
+	}
 	// Agents calling through MCP need fresh data every call. The on-disk
 	// response cache survives across MCP server invocations, so a
 	// DELETE/PATCH followed by a GET would otherwise return the
@@ -1307,14 +1506,14 @@ const (
 	mcpStoreStatusReady   mcpStoreStatusKind = "ready"
 )
 
-func openMCPReadOnlyStore(path string) (*store.Store, *mcplib.CallToolResult) {
+func openMCPReadOnlyStore(path string, maxValueBytes int) (*store.Store, *mcplib.CallToolResult) {
 	if _, err := os.Stat(path); err != nil {
 		if os.IsNotExist(err) {
 			return nil, mcplib.NewToolResultError(mcpMissingStoreMessage(path))
 		}
 		return nil, mcplib.NewToolResultError(fmt.Sprintf("checking local data store %s: %v", path, err))
 	}
-	db, err := store.OpenReadOnly(path)
+	db, err := store.OpenReadOnlyValueCapped(path, maxValueBytes) // Hand-fix (handfixes.json credkit-wiring)
 	if err != nil {
 		return nil, mcplib.NewToolResultError(fmt.Sprintf("opening local data store %s: %v. Run td-synnex-cli sync to refresh the store, or use live endpoint MCP tools for unsynced data.", path, err))
 	}
@@ -1375,22 +1574,33 @@ func handleSearch(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.Call
 	}
 
 	limit := 25
+	limitCapped := false
 	if v, ok := args["limit"].(float64); ok && v > 0 {
-		limit = int(v)
+		if v > float64(bound.MaxItems) {
+			limit = bound.MaxItems
+			limitCapped = true
+		} else {
+			limit = int(v)
+		}
 	}
 
 	path, err := mcpDBPath()
 	if err != nil {
 		return mcplib.NewToolResultError(fmt.Sprintf("resolving database: %v", err)), nil
 	}
-	db, toolErr := openMCPReadOnlyStore(path)
+	db, toolErr := openMCPReadOnlyStore(path, 0)
 	if toolErr != nil {
 		return toolErr, nil
 	}
 	defer db.Close()
 
-	results, err := db.Search(query, limit)
+	queryCtx, cancel := bound.WithSQLQueryDeadline(ctx)
+	defer cancel()
+	results, err := db.SearchContext(queryCtx, query, limit)
 	if err != nil {
+		if queryCtx.Err() != nil {
+			return mcplib.NewToolResultError(fmt.Sprintf("search cancelled: %v. MCP search queries are bounded to %s.", queryCtx.Err(), bound.SQLQueryTimeout)), nil
+		}
 		return mcplib.NewToolResultError(fmt.Sprintf("search failed: %v", err)), nil
 	}
 	storeStatus, err := mcpStoreStatus(db)
@@ -1398,10 +1608,10 @@ func handleSearch(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.Call
 		return mcplib.NewToolResultError(fmt.Sprintf("reading store status: %v", err)), nil
 	}
 
-	return toolResultJSON(mcpSearchEnvelope(results, storeStatus))
+	return toolResultJSON(mcpSearchEnvelope(results, storeStatus, limitCapped))
 }
 
-func mcpSearchEnvelope(results []json.RawMessage, storeStatus mcpStoreStatusKind) map[string]any {
+func mcpSearchEnvelope(results []json.RawMessage, storeStatus mcpStoreStatusKind, limitCapped bool) map[string]any {
 	if results == nil {
 		results = []json.RawMessage{}
 	}
@@ -1410,6 +1620,9 @@ func mcpSearchEnvelope(results []json.RawMessage, storeStatus mcpStoreStatusKind
 		"results":      results,
 		"store_status": storeStatus,
 		"resumable":    false,
+	}
+	if limitCapped {
+		out["limit_capped"] = true
 	}
 	if storeStatus == mcpStoreStatusPartial {
 		out["warning"] = "Local data may be incomplete because the latest sync attempt did not finish."
@@ -1591,7 +1804,7 @@ func handleSQL(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.CallToo
 	if err != nil {
 		return mcplib.NewToolResultError(fmt.Sprintf("resolving database: %v", err)), nil
 	}
-	db, toolErr := openMCPReadOnlyStore(path)
+	db, toolErr := openMCPReadOnlyStore(path, mcpSQLMaxValueBytes) // Hand-fix (handfixes.json credkit-wiring)
 	if toolErr != nil {
 		return toolErr, nil
 	}
@@ -1605,10 +1818,6 @@ func handleSQL(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.CallToo
 		return mcplib.NewToolResultError(mcpSQLQueryError(queryCtx, err)), nil
 	}
 	defer conn.Close()
-
-	if _, err := sqlite.Limit(conn, sqlite3.SQLITE_LIMIT_LENGTH, mcpSQLMaxValueBytes); err != nil {
-		return mcplib.NewToolResultError(fmt.Sprintf("setting SQL value length cap: %v", err)), nil
-	}
 
 	rows, err := conn.QueryContext(queryCtx, query)
 	if err != nil {

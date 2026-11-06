@@ -431,6 +431,7 @@ func TestIONOAuthURL(t *testing.T) {
 func TestSubscriptionsSetHonoursAccountDefault(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
 	t.Setenv("XDG_CONFIG_HOME", "")
 	t.Setenv("TD_SYNNEX_ACCOUNT_ID", "10505")
 	flags := &rootFlags{}
@@ -454,6 +455,7 @@ func TestSubscriptionsSetHonoursAccountDefault(t *testing.T) {
 func TestSetTokenKeepsStoredRefreshToken(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
 	t.Setenv("XDG_CONFIG_HOME", "")
 	t.Setenv("XDG_DATA_HOME", "")
 	t.Setenv("TD_SYNNEX_ACCESS_TOKEN", "")
@@ -490,6 +492,7 @@ func TestAuthKeepsRefreshTokenShadowedByConfig(t *testing.T) {
 	setup := func(t *testing.T, cfgBody string, credMode os.FileMode) (string, *cobra.Command) {
 		home := t.TempDir()
 		t.Setenv("HOME", home)
+		t.Setenv("USERPROFILE", home)
 		t.Setenv("XDG_CONFIG_HOME", "")
 		t.Setenv("XDG_DATA_HOME", "")
 		t.Setenv("TD_SYNNEX_ACCESS_TOKEN", "")
@@ -748,6 +751,7 @@ func TestChangesDropUnchangedSeatsInCombinedOrders(t *testing.T) {
 func TestSavedTokenIsNotShadowedAndEndpointNotPersisted(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
 	t.Setenv("XDG_CONFIG_HOME", "")
 	t.Setenv("XDG_DATA_HOME", "")
 	t.Setenv("TD_SYNNEX_ACCESS_TOKEN", "")
@@ -928,6 +932,7 @@ func TestParsePositionFileKeepsLargeNumericIDs(t *testing.T) {
 func TestStaleFileTokenDroppedEvenWithEnvToken(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
 	t.Setenv("XDG_CONFIG_HOME", "")
 	t.Setenv("XDG_DATA_HOME", "")
 	cfg, err := config.Load("")
@@ -1057,12 +1062,14 @@ func TestPrintIONJSONCarriesFreshnessInAgentMeta(t *testing.T) {
 func TestFreshnessMetaDoesNotCertifyAnotherDB(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
 	flags := &rootFlags{freshnessMeta: map[string]any{"decision": "fresh"}}
 	cmd := &cobra.Command{}
 	cmd.SetErr(io.Discard)
 	book, closeDB, err := openIONBook(cmd, flags, filepath.Join(home, "missing.db"), "subscriptions")
 	defer closeDB()
-	if err != nil || book != nil {
+	// A missing store is refused, never an empty book (Codex round 1 of reprint 4.35.1).
+	if err == nil || book != nil {
 		t.Fatalf("missing --db store: book=%v err=%v", book, err)
 	}
 	m, _ := flags.freshnessMeta.(map[string]any)

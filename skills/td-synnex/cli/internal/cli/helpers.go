@@ -32,6 +32,7 @@ import (
 	"td-synnex-pp-cli/internal/client"
 	"td-synnex-pp-cli/internal/cliutil"
 	"td-synnex-pp-cli/internal/config"
+	"td-synnex-pp-cli/internal/credkit"
 	"td-synnex-pp-cli/internal/platform"
 )
 
@@ -77,6 +78,7 @@ func readSecretFromStdin(r io.Reader) (string, error) {
 	if token == "" {
 		return "", fmt.Errorf("empty token on stdin")
 	}
+	cliutil.Hold("stdin", token) // Hand-fix (handfixes.json credkit-wiring): a token read from a pipe is held before anything can print it
 	return token, nil
 }
 
@@ -103,14 +105,84 @@ func colorEnabled() bool {
 }
 
 func isTerminal(w io.Writer) bool {
-	if f, ok := w.(*os.File); ok {
-		fi, err := f.Stat()
-		if err != nil {
-			return true
+	// In-memory writers have no Stat mode. A method keeps the override on the
+	// value itself so a test can force either side without a process-wide flag.
+	if w != nil {
+		if over, ok := w.(interface{ TerminalOverride() bool }); ok {
+			return over.TerminalOverride()
 		}
-		return (fi.Mode() & os.ModeCharDevice) != 0
+	}
+	if f, ok := w.(*os.File); ok {
+		// Hand-fix (handfixes.json credkit-wiring): stdout and stderr are the kit's pipes; it knows what they were.
+		return credkit.Terminal(f)
 	}
 	return false
+}
+
+// mirrorWriter duplicates command output for --deliver. It is not a terminal
+// for format selection, so a list still renders as JSON the way io.MultiWriter
+// did. Control escaping follows the primary writer.
+type mirrorWriter struct {
+	primary io.Writer
+	copy    io.Writer
+}
+
+func (m *mirrorWriter) Write(p []byte) (int, error) {
+	n, err := m.primary.Write(p)
+	if err != nil {
+		return n, err
+	}
+	if n != len(p) {
+		return n, io.ErrShortWrite
+	}
+	n, err = m.copy.Write(p)
+	if err != nil {
+		return n, err
+	}
+	if n != len(p) {
+		return n, io.ErrShortWrite
+	}
+	return len(p), nil
+}
+
+func (m *mirrorWriter) TerminalOverride() bool {
+	return false
+}
+
+func (m *mirrorWriter) EscapesTerminalControls() bool {
+	return isTerminal(m.primary)
+}
+
+func terminalText(w io.Writer, s string) string {
+	if escapesTerminalControls(w) {
+		return cliutil.EscapeTerminalControls(s)
+	}
+	return s
+}
+
+func escapesTerminalControls(w io.Writer) bool {
+	if w != nil {
+		if esc, ok := w.(interface{ EscapesTerminalControls() bool }); ok {
+			return esc.EscapesTerminalControls()
+		}
+	}
+	return isTerminal(w)
+}
+
+// terminalStreamFilter escapes controls on a TTY stderr without rewriting the
+// carriage returns progress output uses to redraw a line.
+type terminalStreamFilter struct {
+	w io.Writer
+}
+
+func (f *terminalStreamFilter) Write(p []byte) (int, error) {
+	if len(p) == 0 {
+		return 0, nil
+	}
+	if _, err := io.WriteString(f.w, cliutil.EscapeTerminalStream(string(p))); err != nil {
+		return 0, err
+	}
+	return len(p), nil
 }
 
 func bold(s string) string {
@@ -389,9 +461,36 @@ func requiredInputWaived() bool {
 }
 
 type dryRunResult struct {
-	DryRun bool   `json:"dry_run"`
-	Action string `json:"action"`
-	Would  string `json:"would"`
+	DryRun  bool   `json:"dry_run"`
+	Success bool   `json:"success"`
+	Action  string `json:"action"`
+	Would   string `json:"would"`
+}
+
+// markCompletedDryRun records that a dry run built a valid request and sent
+// nothing. success means the command did what was asked. status is removed
+// so 0 cannot be read as an HTTP result.
+func markCompletedDryRun(envelope map[string]any) {
+	envelope["dry_run"] = true
+	delete(envelope, "status")
+	envelope["success"] = true
+}
+
+// dryRunValidationErr is a dry run that never built a request. Machine output
+// reports success:false so it cannot be read as a completed plan. The error
+// itself is unchanged, including its exit code.
+func dryRunValidationErr(cmd *cobra.Command, flags *rootFlags, err error) error {
+	if err == nil {
+		return nil
+	}
+	if cmd != nil && flags != nil && flags.dryRun && flags.asJSON {
+		_ = writeEncodedJSON(cmd.OutOrStdout(), map[string]any{
+			"success": false,
+			"dry_run": true,
+			"error":   err.Error(),
+		}, "", "")
+	}
+	return err
 }
 
 type harnessRefusalResult struct {
@@ -403,13 +502,15 @@ type harnessRefusalResult struct {
 }
 
 // writeDryRun ends a --dry-run short-circuit by reporting the action that was
-// skipped. Returning silently leaves a --json caller with empty stdout, which
-// is indistinguishable from a broken command rather than a deliberate no-op.
-// Callers pass cmd.OutOrStdout() so the report follows any redirected writer.
+// skipped. A completed dry run reports success:true with dry_run:true and no
+// HTTP status. Returning silently leaves a --json caller with empty stdout,
+// which is indistinguishable from a broken command rather than a deliberate
+// no-op. Callers pass cmd.OutOrStdout() so the report follows any redirected
+// writer. Hand-written commands should call this instead of emitting success:false.
 func writeDryRun(w io.Writer, flags *rootFlags, action string) error {
 	would := "run " + action + "; no changes made"
 	if flags != nil && flags.asJSON {
-		return json.NewEncoder(w).Encode(dryRunResult{DryRun: true, Action: action, Would: would})
+		return writeEncodedJSON(w, dryRunResult{DryRun: true, Success: true, Action: action, Would: would}, "", "")
 	}
 	_, err := fmt.Fprintf(w, "dry-run: would %s\n", would)
 	return err
@@ -426,13 +527,13 @@ func writeHarnessRefusal(w io.Writer, flags *rootFlags, action string) error {
 	reason := "Printing Press harness refuses visible side effects"
 	would := "run " + action + "; no visible side effect performed"
 	if flags != nil && flags.asJSON {
-		return json.NewEncoder(w).Encode(harnessRefusalResult{
+		return writeEncodedJSON(w, harnessRefusalResult{
 			Refused: true,
 			Harness: harness,
 			Action:  action,
 			Reason:  reason,
 			Would:   would,
-		})
+		}, "", "")
 	}
 	_, err := fmt.Fprintf(w, "%s: %s; would %s\n", harness, reason, would)
 	return err
@@ -485,7 +586,7 @@ func endpointArgsUsageErr(cmd *cobra.Command, flags *rootFlags, err error) error
 			printFlags = &copied
 		}
 		if printErr := printJSONFiltered(cmd.OutOrStdout(), map[string]any{
-			"error": funnelShownError(err),
+			"error": err.Error(),
 			"usage": endpointUsageLine(cmd),
 		}, printFlags); printErr != nil {
 			return printErr
@@ -587,19 +688,19 @@ func parentNoSubcommandRunE(flags *rootFlags) func(*cobra.Command, []string) err
 		sort.Strings(subs)
 		if len(args) > 0 {
 			if machine {
-				_ = json.NewEncoder(cmd.OutOrStdout()).Encode(map[string]any{
+				_ = writeEncodedJSON(cmd.OutOrStdout(), map[string]any{
 					"error":             "unknown subcommand",
 					"unknown":           args[0],
 					"valid_subcommands": subs,
-				})
+				}, "", "")
 			}
 			return usageErr(fmt.Errorf("unknown subcommand %q for %q\nRun '%s --help' for available subcommands", args[0], cmd.CommandPath(), cmd.CommandPath()))
 		}
 		if machine {
-			_ = json.NewEncoder(cmd.OutOrStdout()).Encode(map[string]any{
+			_ = writeEncodedJSON(cmd.OutOrStdout(), map[string]any{
 				"error":             "subcommand required",
 				"valid_subcommands": subs,
-			})
+			}, "", "")
 			return usageErr(fmt.Errorf("subcommand required for %q", cmd.CommandPath()))
 		}
 		return cmd.Help()
@@ -647,7 +748,7 @@ func syncErrorJSON(resource, parent string, err error) string {
 		payload.Body = apiErr.Body
 	}
 	out, _ := json.Marshal(payload)
-	return string(out)
+	return string(cliutil.EscapeJSONControls(out))
 }
 
 // syncWarningJSON renders a sync_warning event as a single valid JSON line.
@@ -674,7 +775,7 @@ func syncWarningJSON(resource, parent string, status int, reason, message string
 		Message:  message,
 	}
 	out, _ := json.Marshal(payload)
-	return string(out)
+	return string(cliutil.EscapeJSONControls(out))
 }
 
 // syncUserParams carries user-supplied query parameters injected into sync
@@ -793,6 +894,108 @@ func (p *syncUserParams) validateResourceNames(known []string) error {
 		strings.Join(unknown, ", "), strings.Join(known, ", "))
 }
 
+// syncScopeTemplateVars are the base-URL and global path placeholders that
+// distinguish one tenant checkpoint from another. Version-shaped names are
+// ignored at runtime; they are not a tenant.
+var syncScopeTemplateVars = []string{
+	"accountId",
+}
+
+func syncScopeVarIgnored(name string) bool {
+	n := strings.ToLower(strings.TrimSpace(name))
+	n = strings.ReplaceAll(n, "-", "")
+	n = strings.ReplaceAll(n, "_", "")
+	return n == "apiversion" || n == "version"
+}
+
+func syncParamIsGlobalScope(name string) bool {
+	return false
+}
+
+// syncCheckpointScope is the tenant identity for one resource checkpoint.
+// td-synnex: every user param (--param, --global-param, --resource-param)
+// keys it, with its effective value following applyTo: flat --param on flat
+// walks, then --global-param, then --resource-param. --since and --dates
+// narrow prune but stay out of the key. Every key carries ionSyncProofLine,
+// so no key is empty and rows written before the fix never match.
+func syncCheckpointScope(resource string, dependent bool, userParams *syncUserParams, templateVars, pathContext map[string]string) string {
+	var lines []string
+	seen := map[string]struct{}{}
+	add := func(kind, name, value string) {
+		name = strings.TrimSpace(name)
+		if name == "" {
+			return
+		}
+		if (kind == "template" || kind == "path") && syncScopeVarIgnored(name) {
+			return
+		}
+		key := kind + ":" + name
+		if _, ok := seen[key]; ok {
+			return
+		}
+		seen[key] = struct{}{}
+		value = strings.ReplaceAll(value, "\n", " ")
+		value = strings.ReplaceAll(value, "\r", " ")
+		lines = append(lines, key+"="+value)
+	}
+	for _, name := range syncScopeTemplateVars {
+		if templateVars == nil {
+			continue
+		}
+		if value, ok := templateVars[name]; ok && strings.TrimSpace(value) != "" {
+			add("template", name, value)
+		}
+	}
+	for name, value := range pathContext {
+		if strings.TrimSpace(value) == "" {
+			continue
+		}
+		add("path", name, value)
+	}
+	if userParams != nil {
+		// Later sources overwrite earlier ones, matching applyTo. Dependent
+		// walks never send flat --param, so that map must not key them.
+		// pp:handfix td-synnex (ion-sync-proof-scope-bound): EVERY user param
+		// keys the checkpoint, not only a declared global-scope selector, so a
+		// filtered walk binds its own scope and an unfiltered walk rebinds
+		// (cursor, watermark and completion dropped) instead of resuming a
+		// filtered offset. A blank name still narrows the walk, so it is quoted
+		// rather than skipped.
+		chosen := map[string]string{}
+		take := func(src map[string]string) {
+			for name, value := range src {
+				chosen[name] = value
+			}
+		}
+		if !dependent {
+			take(userParams.flatGlobal)
+		}
+		take(userParams.trueGlobal)
+		take(userParams.perResource[resource])
+		for name, value := range chosen {
+			if strings.TrimSpace(name) == "" {
+				name = strconv.Quote(name)
+			}
+			add("param", name, value)
+		}
+	}
+	// pp:handfix td-synnex (ion-sync-proof-scope-bound): the proof-version
+	// line the licence book requires before it trusts last_attempt_complete.
+	lines = append(lines, ionSyncProofLine)
+	sort.Strings(lines)
+	return strings.Join(lines, "\n")
+}
+
+func syncClientTemplateVars(c any) map[string]string {
+	src, ok := c.(interface {
+		CurrentTemplateVars() map[string]string
+	})
+	if !ok || src == nil {
+		return nil
+	}
+	return src.CurrentTemplateVars()
+}
+
 // accessDenialPatterns matches API error bodies that indicate the request was
 // rejected for access-policy reasons rather than for input validity. Matching
 // is case-insensitive and uses word boundaries so common substrings inside
@@ -906,7 +1109,7 @@ func (e *noopWriteError) Unwrap() error { return e.cause }
 func writeNoop(w io.Writer, flags *rootFlags, reason, prose string) error {
 	result := &noopWriteError{prose: prose}
 	if flags != nil && flags.asJSON {
-		result.cause = json.NewEncoder(w).Encode(noopResult{Status: "noop", Reason: reason})
+		result.cause = writeEncodedJSON(w, noopResult{Status: "noop", Reason: reason}, "", "")
 		return apiErr(result)
 	}
 	_, result.cause = fmt.Fprintln(w, prose)
@@ -923,10 +1126,10 @@ func writeAPIErrorEnvelope(w io.Writer, flags *rootFlags, err error, code int) {
 	if flags == nil || !flags.asJSON {
 		return
 	}
-	_ = json.NewEncoder(w).Encode(map[string]any{
-		"error": funnelShownError(err),
+	_ = writeEncodedJSON(w, map[string]any{
+		"error": err.Error(),
 		"code":  code,
-	})
+	}, "", "")
 }
 
 // Printed CLIs need an API-specific way to distinguish known console or landing
@@ -980,7 +1183,7 @@ func classifyHTMLTransportError(err error) error {
 		return classified
 	}
 	if htmlLooksLikeAuthFailure(evidence) {
-		return authErr(fmt.Errorf("not authenticated or session expired; API returned HTML instead of JSON. " + "Run 'td-synnex-cli auth setup' for credential setup steps."))
+		return authErr(fmt.Errorf("not authenticated or session expired; API returned HTML instead of JSON. %s", "Run 'td-synnex-cli auth setup' for credential setup steps."))
 	}
 	return apiErr(fmt.Errorf("%w\nhint: the request may have reached a web page or the wrong endpoint", err))
 }
@@ -1002,27 +1205,29 @@ func classifyAPIErrorOnly(err error) error {
 
 	msg := err.Error()
 	switch {
+	case errors.Is(err, client.ErrPlaintextCredential):
+		return configErr(fmt.Errorf("%w\nhint: use https so credentials are not sent in plaintext", err))
 	case strings.Contains(msg, "HTTP 409"):
 		return apiErr(err)
 	case errors.Is(err, client.ErrPlaceholderCredential):
 		return authErr(err)
 	case strings.Contains(msg, "HTTP 400") && cliutil.LooksLikeAuthError(msg):
 		return authErr(fmt.Errorf("%w\nhint: the API rejected the request — this usually means auth is missing or invalid."+
-			"\n      Run 'td-synnex-cli auth setup' for credential setup steps."+
+			"\n      "+"Run 'td-synnex-cli auth setup' for credential setup steps."+
 			"\n      Get a key at: https://ion.tdsynnex.com/"+
 			"\n      ION portal: Settings > Users > Edit user > OAuth credentials > Request New Credentials, then pipe that refresh token to: td-synnex-cli auth mint --refresh-token-stdin (set-token below is only for an access token you already have)"+
 			"\n      Run 'td-synnex-cli doctor' to check auth status."+
 			"\n      Response: "+cliutil.SanitizeErrorBody(msg), err))
 	case strings.Contains(msg, "HTTP 401"):
 		return authErr(fmt.Errorf("%w\nhint: check your token."+
-			"\n      Run 'td-synnex-cli auth setup' for credential setup steps."+
+			"\n      "+"Run 'td-synnex-cli auth setup' for credential setup steps."+
 			"\n      Get a key at: https://ion.tdsynnex.com/"+
 			"\n      ION portal: Settings > Users > Edit user > OAuth credentials > Request New Credentials, then pipe that refresh token to: td-synnex-cli auth mint --refresh-token-stdin (set-token below is only for an access token you already have)"+
 			"\n      Run 'td-synnex-cli doctor' to check auth status.", err))
 	case strings.Contains(msg, "HTTP 403"):
 		return authErr(fmt.Errorf("%w\nhint: permission denied. Your credentials are valid but lack access to this resource."+
 			"\n      Check that your credentials have the required permissions and match the API's expected auth scheme."+
-			"\n      Run 'td-synnex-cli auth setup' for credential setup steps."+
+			"\n      "+"Run 'td-synnex-cli auth setup' for credential setup steps."+
 			"\n      Get a key at: https://ion.tdsynnex.com/"+
 			"\n      ION portal: Settings > Users > Edit user > OAuth credentials > Request New Credentials, then pipe that refresh token to: td-synnex-cli auth mint --refresh-token-stdin (set-token below is only for an access token you already have)"+
 			"\n      Run 'td-synnex-cli doctor' to check auth status.", err))
@@ -2265,8 +2470,7 @@ func emitPlatformOutputMetadata(w io.Writer, flags *rootFlags) error {
 		"event": "output_metadata",
 		"meta":  flags.platformSession.OutputMetadata(),
 	}
-	encoder := json.NewEncoder(w)
-	if err := encoder.Encode(event); err != nil {
+	if err := writeEncodedJSON(w, event, "", ""); err != nil {
 		return err
 	}
 	flags.platformMetadataEmitted = true
@@ -3375,7 +3579,7 @@ const emptyTabularResultMarker = "(no rows)"
 func printCSV(w io.Writer, data json.RawMessage, documentedFields ...map[string]bool) error {
 	items, ok := tabularObjectRows(data)
 	if !ok {
-		fmt.Fprintln(w, string(data))
+		fmt.Fprintln(w, terminalText(w, string(data)))
 		return nil
 	}
 	if len(items) == 0 {
@@ -3419,6 +3623,8 @@ func writeCSVRows(w io.Writer, items []map[string]any) error {
 func writeCSVRow(w io.Writer, cells []string) {
 	escaped := make([]string, len(cells))
 	for i, cell := range cells {
+		cell = terminalText(w, cell)
+		cell = csvSafeCell(cell)
 		if strings.ContainsAny(cell, ",\"\r\n") {
 			escaped[i] = `"` + strings.ReplaceAll(cell, `"`, `""`) + `"`
 		} else {
@@ -3426,6 +3632,79 @@ func writeCSVRow(w io.Writer, cells []string) {
 		}
 	}
 	fmt.Fprintln(w, strings.Join(escaped, ","))
+}
+
+// csvSafeCell stops spreadsheet formula injection without turning a plain
+// signed decimal into text. Leading apostrophes are skipped so a value that
+// already has one stays distinguishable after a single-apostrophe unescape.
+func csvSafeCell(s string) string {
+	if csvPlainNumber(s) {
+		return s
+	}
+	i := 0
+	for i < len(s) && s[i] == '\'' {
+		i++
+	}
+	if csvFormulaLead(s[i:]) {
+		return "'" + s
+	}
+	return s
+}
+
+func csvFormulaLead(s string) bool {
+	// Fullwidth = + - @ are a common bypass of an ASCII-only check.
+	for _, r := range s {
+		switch r {
+		case '=', '+', '-', '@', '\t', '\r', '\n', '\uFF1D', '\uFF0B', '\uFF0D', '\uFF20':
+			return true
+		default:
+			return false
+		}
+	}
+	return false
+}
+
+func csvPlainNumber(s string) bool {
+	if s == "" {
+		return false
+	}
+	i := 0
+	if s[0] == '+' || s[0] == '-' {
+		i++
+	}
+	if i >= len(s) {
+		return false
+	}
+	digits := 0
+	for i < len(s) && s[i] >= '0' && s[i] <= '9' {
+		digits++
+		i++
+	}
+	if i < len(s) && s[i] == '.' {
+		i++
+		for i < len(s) && s[i] >= '0' && s[i] <= '9' {
+			digits++
+			i++
+		}
+	}
+	if digits == 0 {
+		return false
+	}
+	if i < len(s) && (s[i] == 'e' || s[i] == 'E') {
+		i++
+		if i < len(s) && (s[i] == '+' || s[i] == '-') {
+			i++
+		}
+		exp := 0
+		for i < len(s) && s[i] >= '0' && s[i] <= '9' {
+			exp++
+			i++
+		}
+		if exp == 0 {
+			return false
+		}
+	}
+	return i == len(s)
 }
 
 func csvDeclaredHeader(documentedFields ...map[string]bool) []string {
@@ -3448,7 +3727,7 @@ func csvDeclaredHeader(documentedFields ...map[string]bool) []string {
 func printPlain(w io.Writer, data json.RawMessage, documentedFields ...map[string]bool) error {
 	items, ok := tabularObjectRows(data)
 	if !ok {
-		fmt.Fprintln(w, string(data))
+		fmt.Fprintln(w, terminalText(w, string(data)))
 		return nil
 	}
 	if len(items) == 0 {
@@ -3457,7 +3736,7 @@ func printPlain(w io.Writer, data json.RawMessage, documentedFields ...map[strin
 			fmt.Fprintln(w, emptyTabularResultMarker)
 			return nil
 		}
-		fmt.Fprintln(w, strings.Join(keys, "\t"))
+		fmt.Fprintln(w, joinPlainFields(w, keys))
 		return nil
 	}
 	keySet := map[string]bool{}
@@ -3471,15 +3750,26 @@ func printPlain(w io.Writer, data json.RawMessage, documentedFields ...map[strin
 		keys = append(keys, k)
 	}
 	sort.Strings(keys)
-	fmt.Fprintln(w, strings.Join(keys, "\t"))
+	fmt.Fprintln(w, joinPlainFields(w, keys))
 	for _, item := range items {
 		var vals []string
 		for _, k := range keys {
-			vals = append(vals, plainCellValue(item[k]))
+			vals = append(vals, terminalText(w, plainCellValue(item[k])))
 		}
 		fmt.Fprintln(w, strings.Join(vals, "\t"))
 	}
 	return nil
+}
+
+func joinPlainFields(w io.Writer, fields []string) string {
+	if !escapesTerminalControls(w) {
+		return strings.Join(fields, "\t")
+	}
+	escaped := make([]string, len(fields))
+	for i, field := range fields {
+		escaped[i] = cliutil.EscapeTerminalControls(field)
+	}
+	return strings.Join(escaped, "\t")
 }
 
 func printQuiet(w io.Writer, data json.RawMessage) error {
@@ -3487,7 +3777,7 @@ func printQuiet(w io.Writer, data json.RawMessage) error {
 	if ok {
 		for _, item := range items {
 			if v := quietRowValue(item); v != "" {
-				fmt.Fprintln(w, v)
+				fmt.Fprintln(w, terminalText(w, v))
 			}
 		}
 		return nil
@@ -3497,21 +3787,21 @@ func printQuiet(w io.Writer, data json.RawMessage) error {
 		for _, v := range scalars {
 			if m, ok := v.(map[string]any); ok {
 				if s := quietRowValue(m); s != "" {
-					fmt.Fprintln(w, s)
+					fmt.Fprintln(w, terminalText(w, s))
 				}
 				continue
 			}
 			if v == nil {
 				continue
 			}
-			fmt.Fprintln(w, fmt.Sprint(v))
+			fmt.Fprintln(w, terminalText(w, fmt.Sprint(v)))
 		}
 		return nil
 	}
 	var obj map[string]any
 	if err := json.Unmarshal(data, &obj); err == nil {
 		if v := quietRowValue(obj); v != "" {
-			fmt.Fprintln(w, v)
+			fmt.Fprintln(w, terminalText(w, v))
 		}
 		return nil
 	}
@@ -3519,7 +3809,7 @@ func printQuiet(w io.Writer, data json.RawMessage) error {
 	if trimmed == "" || trimmed == "null" {
 		return nil
 	}
-	fmt.Fprintln(w, trimmed)
+	fmt.Fprintln(w, terminalText(w, trimmed))
 	return nil
 }
 
@@ -3695,9 +3985,7 @@ func printOutput(w io.Writer, data json.RawMessage, asJSON bool) error {
 	}
 
 	if asJSON {
-		enc := json.NewEncoder(w)
-		enc.SetIndent("", "  ")
-		return enc.Encode(data)
+		return writeEncodedJSON(w, data, "", "  ")
 	}
 
 	// Try to detect if response is an array
@@ -3716,14 +4004,32 @@ func printOutput(w io.Writer, data json.RawMessage, asJSON bool) error {
 	// Single object - pretty print
 	var obj map[string]any
 	if err := json.Unmarshal(data, &obj); err == nil {
-		enc := json.NewEncoder(w)
-		enc.SetIndent("", "  ")
-		return enc.Encode(obj)
+		return writeEncodedJSON(w, obj, "", "  ")
 	}
 
-	// Fallback: print raw
-	fmt.Fprintln(w, string(data))
+	// Fallback: print raw. Valid JSON that is not an object or row array
+	// still has to escape C1; anything else is human text on a TTY.
+	var text string
+	if json.Valid(data) {
+		text = string(cliutil.EscapeJSONControls(data))
+	} else {
+		text = cliutil.EscapeTerminalControls(string(data))
+	}
+	fmt.Fprintln(w, text)
 	return nil
+}
+
+func writeEncodedJSON(w io.Writer, v any, prefix, indent string) error {
+	var buf bytes.Buffer
+	enc := json.NewEncoder(&buf)
+	if prefix != "" || indent != "" {
+		enc.SetIndent(prefix, indent)
+	}
+	if err := enc.Encode(v); err != nil {
+		return err
+	}
+	_, err := w.Write(cliutil.EscapeJSONControls(buf.Bytes()))
+	return err
 }
 
 // levenshteinDistance computes the edit distance between two strings using a two-row DP approach.
@@ -4085,7 +4391,7 @@ func formatCellValue(v any) string {
 				parts = append(parts, cliutil.ScrubTerminal(s))
 			} else {
 				b, _ := json.Marshal(item)
-				parts = append(parts, string(b))
+				parts = append(parts, cliutil.ScrubTerminal(string(b)))
 			}
 		}
 		return truncate(strings.Join(parts, ", "), 60)
@@ -4093,7 +4399,7 @@ func formatCellValue(v any) string {
 		return formatSingleObject(val)
 	default:
 		b, _ := json.Marshal(val)
-		return truncate(string(b), 60)
+		return truncate(cliutil.ScrubTerminal(string(b)), 60)
 	}
 }
 
@@ -4164,7 +4470,7 @@ func formatObjectSummary(obj map[string]any) string {
 	if len(parts) == 0 {
 		// Fallback: JSON summary
 		b, _ := json.Marshal(obj)
-		return truncate(string(b), 80)
+		return truncate(cliutil.ScrubTerminal(string(b)), 80)
 	}
 	return "    " + strings.Join(parts, " ")
 }
@@ -4243,7 +4549,7 @@ func nonJSONPayloadError(data json.RawMessage) error {
 	}
 	if len(trimmed) > 0 && trimmed[0] == '<' {
 		if htmlLooksLikeAuthFailure(trimmed) {
-			return authErr(fmt.Errorf("not authenticated or session expired; API returned HTML instead of JSON. " + "Run 'td-synnex-cli auth setup' for credential setup steps."))
+			return authErr(fmt.Errorf("not authenticated or session expired; API returned HTML instead of JSON. %s", "Run 'td-synnex-cli auth setup' for credential setup steps."))
 		}
 		return apiErr(fmt.Errorf("API returned HTML instead of JSON; the request may have reached a web page or the wrong endpoint"))
 	}
@@ -4585,15 +4891,11 @@ func claimLegacyUnscopedDB(dir, unscoped, scopeHash, label string) (owned, decid
 			_ = os.Remove(tempName)
 		}
 	}()
-	if _, err := temp.Write([]byte(scopeHash + "\n")); err != nil {
-		_ = temp.Close()
-		return false, false
-	}
-	if err := temp.Sync(); err != nil {
-		_ = temp.Close()
-		return false, false
-	}
 	if err := temp.Close(); err != nil {
+		return false, false
+	}
+	// Hand-fix (handfixes.json credkit-wiring): a scope hash can collide with a held credential.
+	if err := credkit.WriteFile(tempName, []byte(scopeHash+"\n"), 0o600); err != nil {
 		return false, false
 	}
 	if err := os.Link(tempName, markerPath); err != nil {

@@ -7,12 +7,14 @@ package cli
 
 import (
 	"net/url"
+	"os"
 	"strconv"
 	"strings"
 
 	"github.com/spf13/cobra"
 
 	"td-synnex-pp-cli/internal/config"
+	"td-synnex-pp-cli/internal/store"
 )
 
 const accountPathPrefix = "/accounts/{accountId}"
@@ -38,6 +40,10 @@ func init() {
 	}
 	registerNovelCommand(func(root *cobra.Command, flags *rootFlags) {
 		walkCommands(root, func(c *cobra.Command) { wrapAccountDefault(c, flags) })
+		// A live read's or a mutation's write-back writes book rows for the
+		// configured account only (store/ion_book_rows.go). ponytail: the
+		// newest root's flags win, as the generated default-store scope does.
+		store.IONBookAccount = func() string { return ionBookAccount(flags) }
 	})
 }
 
@@ -52,7 +58,24 @@ func wrapAccountDefault(c *cobra.Command, flags *rootFlags) {
 	positionals := strings.Count(c.Use, "<")
 	orig := c.RunE
 	c.RunE = func(cmd *cobra.Command, args []string) error {
-		return orig(cmd, withDefaultAccountID(flags, args, positionals))
+		args = withDefaultAccountID(flags, args, positionals)
+		// The local store and its licence book hold the configured account
+		// only (handfixes.json: ion-book-one-account): a command aimed at
+		// another account saves nothing locally, so a mutation's write-back
+		// cannot put that account's rows into this account's book.
+		if len(args) > 0 && strings.TrimSpace(args[0]) != ionBookAccount(flags) {
+			if prev, had := os.LookupEnv(noLocalDataEnvVar); !had || prev != "1" {
+				_ = os.Setenv(noLocalDataEnvVar, "1")
+				defer func() {
+					if had {
+						_ = os.Setenv(noLocalDataEnvVar, prev)
+					} else {
+						_ = os.Unsetenv(noLocalDataEnvVar)
+					}
+				}()
+			}
+		}
+		return orig(cmd, args)
 	}
 	if c.Annotations == nil {
 		c.Annotations = map[string]string{}

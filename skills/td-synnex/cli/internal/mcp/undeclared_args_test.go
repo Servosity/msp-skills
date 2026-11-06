@@ -42,12 +42,13 @@ func TestEndpointWriteRefusesUndeclaredArgument(t *testing.T) {
 	if !res.IsError || hits.Load() != 0 {
 		t.Fatalf("an undeclared dry-run must refuse the delete before any request: isError=%v hits=%d", res.IsError, hits.Load())
 	}
-	// Controls: the same delete without it, and a read with an unknown
-	// filter, do reach the server, so the refusal above is not vacuous.
+	// Control: the same delete without it does reach the server, so the
+	// refusal above is not vacuous. Press 4.35.1 refuses an undeclared
+	// argument on every endpoint tool (rejectUndeclaredMCPArgs), reads too.
 	if res := call("DELETE", map[string]any{"customerId": "1", "cartId": "C1"}); res.IsError || hits.Load() != 1 {
 		t.Fatalf("declared delete should be sent: isError=%v hits=%d", res.IsError, hits.Load())
 	}
-	if res := call("GET", map[string]any{"customerId": "1", "cartId": "C1", "pageSize": 5}); res.IsError || hits.Load() != 2 {
-		t.Fatalf("a read keeps the filter pass-through: isError=%v hits=%d", res.IsError, hits.Load())
+	if res := call("GET", map[string]any{"customerId": "1", "cartId": "C1", "pageSize": 5}); !res.IsError || hits.Load() != 1 {
+		t.Fatalf("an undeclared read argument must be refused before any request: isError=%v hits=%d", res.IsError, hits.Load())
 	}
 }

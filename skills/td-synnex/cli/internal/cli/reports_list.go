@@ -50,7 +50,7 @@ func newReportsListCmd(flags *rootFlags) *cobra.Command {
 					}
 				}
 				if !validModule {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagModule, "module", allowedModule)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagModule, "module", allowedModule))
 				}
 			}
 			path := "/accounts/{accountId}/reports"

@@ -6,6 +6,7 @@ package cli
 import (
 	"bytes"
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -20,6 +21,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"td-synnex-pp-cli/internal/config"
 	"td-synnex-pp-cli/internal/store"
 )
 
@@ -682,13 +684,62 @@ func lastSegment(name string) string {
 
 func round2(v float64) float64 { return math.Round(v*100) / 100 }
 
-// loadIONBook reads the requested resource types from the local store.
-// Each ListScan drains fully before the next query runs.
-func loadIONBook(ctx context.Context, db *store.Store, resources ...string) (*ionBook, error) {
+// ionQuerier is a store handle or the read transaction openIONBook holds.
+type ionQuerier interface {
+	QueryRowContext(ctx context.Context, query string, args ...any) *sql.Row
+	QueryContext(ctx context.Context, query string, args ...any) (*sql.Rows, error)
+}
+
+// ionUntaggedRows counts the resource rows no write for account committed
+// (store/ion_book_rows.go tags each book row with its writer's account).
+func ionUntaggedRows(ctx context.Context, q ionQuerier, resource, account string) (int, error) {
+	var n int
+	err := q.QueryRowContext(ctx, `SELECT COUNT(*) FROM resources r WHERE r.resource_type = ? AND NOT EXISTS
+		(SELECT 1 FROM ion_book_row t WHERE t.resource_type = r.resource_type AND t.id = r.id AND t.account = ?)`, resource, account).Scan(&n)
+	return n, err
+}
+
+// ionUntaggedResources names the book lists holding a row no write for
+// account committed, or whose tags cannot be read.
+func ionUntaggedResources(ctx context.Context, q ionQuerier, account string, resources []string) []string {
+	var out []string
+	for _, r := range resources {
+		if n, err := ionUntaggedRows(ctx, q, r, account); err != nil || n > 0 {
+			out = append(out, r)
+		}
+	}
+	return out
+}
+
+// ionListScan walks resource's rows that a write for account committed,
+// newest first (the ListScan order), inside q's snapshot.
+func ionListScan(ctx context.Context, q ionQuerier, resource, account string, fn func(id string, data json.RawMessage) bool) error {
+	rows, err := q.QueryContext(ctx, `SELECT r.id, r.data FROM resources r JOIN ion_book_row t
+		ON t.resource_type = r.resource_type AND t.id = r.id AND t.account = ? WHERE r.resource_type = ? ORDER BY r.updated_at DESC`, account, resource)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id, data string
+		if err := rows.Scan(&id, &data); err != nil {
+			return err
+		}
+		if !fn(id, json.RawMessage(data)) {
+			return nil
+		}
+	}
+	return rows.Err()
+}
+
+// loadIONBook reads the requested resource types from the local store: only
+// rows a write for account committed. Each scan drains fully before the
+// next query runs.
+func loadIONBook(ctx context.Context, q ionQuerier, account string, resources ...string) (*ionBook, error) {
 	b := &ionBook{Customers: map[string]ionCustomer{}, Skipped: map[string]int{}}
 	for _, r := range resources {
 		var scanErr error
-		err := db.ListScan(r, func(id string, data json.RawMessage) bool {
+		err := ionListScan(ctx, q, r, account, func(id string, data json.RawMessage) bool {
 			if ctx.Err() != nil {
 				scanErr = ctx.Err()
 				return false
@@ -729,9 +780,55 @@ func loadIONBook(ctx context.Context, db *store.Store, resources ...string) (*io
 	return b, nil
 }
 
-// openIONBook resolves the DB path, emits the missing-mirror and sync hints,
-// and loads the book. A nil book with nil error means "no local mirror":
-// callers print an empty result.
+// ionSyncProofLine is the constant line syncCheckpointScope writes into every
+// checkpoint scope key since the scope binds every user sync param
+// (handfixes.json: ion-sync-proof-scope-bound). A scope key without it was
+// written by an older build, whose completion flag can certify a filtered
+// walk, so the book does not trust it.
+const ionSyncProofLine = "proof:params-in-scope=1"
+
+// ionScopeProvesWholeList reports whether a sync_state scope key belongs to
+// an unfiltered walk by a build that binds params into the scope: it carries
+// ionSyncProofLine and no param: line (a --param, --global-param or
+// --resource-param walk reads a filtered list, never the whole one).
+func ionScopeProvesWholeList(scopeKey string) bool {
+	proof := false
+	for _, line := range strings.Split(scopeKey, "\n") {
+		if strings.HasPrefix(line, "param:") {
+			return false
+		}
+		if line == ionSyncProofLine {
+			proof = true
+		}
+	}
+	return proof
+}
+
+// ionUnprovenResources names the resources, of those a book command reads,
+// whose local rows are not a proven-complete list: no sync_state row, a
+// latest sync attempt that did not reach a proven end of pagination
+// (sync_state.last_attempt_complete is not 1; the generated MCP store status
+// reads the same flag), or a flag whose scope key does not prove a whole,
+// unfiltered walk (ionScopeProvesWholeList). Any error reading the proof
+// counts as unproven, so an old store without the columns, a missing table
+// or a closed handle all refuse instead of answering.
+func ionUnprovenResources(ctx context.Context, db ionQuerier, resources []string) []string {
+	var out []string
+	for _, r := range resources {
+		var complete int
+		var scopeKey string
+		err := db.QueryRowContext(ctx, `SELECT last_attempt_complete, scope_key FROM sync_state WHERE resource_type = ?`, r).Scan(&complete, &scopeKey)
+		if err != nil || complete != 1 || !ionScopeProvesWholeList(scopeKey) {
+			out = append(out, r)
+		}
+	}
+	return out
+}
+
+// openIONBook resolves the DB path, emits the sync hints, and loads the book.
+// It answers only from a store whose every resource the command reads was
+// walked to a proven end: a missing store or a partial list is an error
+// naming the sync that completes it, never an empty or partial result.
 func openIONBook(cmd *cobra.Command, flags *rootFlags, dbPath string, resources ...string) (*ionBook, func(), error) {
 	explicitDB := dbPath != ""
 	if explicitDBFlag(cmd) && strings.TrimSpace(dbPath) == "" {
@@ -751,18 +848,52 @@ func openIONBook(cmd *cobra.Command, flags *rootFlags, dbPath string, resources 
 		}
 		flags.freshnessMeta = map[string]any{"decision": decision, "db": dbPath, "reason": "--db selects a store the freshness check does not cover"}
 	}
+	syncHint := "td-synnex-cli sync --resources " + strings.Join(resources, ",")
+	if explicitDB {
+		syncHint += " --db " + dbPath
+	}
 	if os.IsNotExist(statErr) {
-		fmt.Fprintf(cmd.ErrOrStderr(), "no local mirror at %s\nrun: td-synnex-cli sync --resources %s --db %s\n", dbPath, strings.Join(resources, ","), dbPath)
-		return nil, func() {}, nil
+		// Nothing synced is not a proven-empty book: an empty list here would
+		// read as "no renewals / no stuck orders / no seats" (Codex round 1 of
+		// reprint 4.35.1, P1 incomplete read reported as complete).
+		return nil, func() {}, configErr(fmt.Errorf("no local mirror at %s, so no complete %s to answer from; run: %s", dbPath, strings.Join(resources, ", "), syncHint))
 	}
 	db, err := store.OpenReadOnlyContext(cmd.Context(), dbPath)
 	if err != nil {
 		return nil, func() {}, configErr(fmt.Errorf("opening local store: %w", err))
 	}
+	// One read transaction holds every proof below and the rows they prove, so
+	// a sync of another account between a check and the read cannot change
+	// what the book answers from (handfixes.json: ion-book-one-account).
+	tx, err := db.DB().BeginTx(cmd.Context(), nil)
+	if err != nil {
+		_ = db.Close() // read-only handle
+		return nil, func() {}, configErr(fmt.Errorf("reading local store: %w", err))
+	}
+	defer func() { _ = tx.Rollback() }() // read-only: every row is in memory by then
+	account := ionBookAccount(flags)
+	if unproven := ionUnprovenResources(cmd.Context(), tx, resources); len(unproven) > 0 {
+		_ = db.Close() // read-only handle
+		return nil, func() {}, configErr(fmt.Errorf("local %s not proven complete: the latest sync did not walk the whole list "+
+			"(an auto-refresh fetches one page; --latest-only, --max-pages or an interrupted walk stop early; --param, --global-param "+
+			"or --resource-param read a filtered list; a sync by an earlier version is not trusted), so totals and lists "+
+			"would leave records out; run: %s", strings.Join(unproven, ", "), syncHint))
+	}
+	if foreign, found := ionForeignResources(cmd.Context(), tx, account, resources); len(foreign) > 0 {
+		_ = db.Close() // read-only handle
+		return nil, func() {}, configErr(fmt.Errorf("local %s not walked for ION account %s (found: %s): the book answers for one account and never merges "+
+			"another's rows; run: %s", strings.Join(foreign, ", "), ionAccountLabel(account), strings.Join(found, ", "), syncHint))
+	}
+	if untagged := ionUntaggedResources(cmd.Context(), tx, account, resources); len(untagged) > 0 {
+		_ = db.Close() // read-only handle
+		return nil, func() {}, configErr(fmt.Errorf("local %s hold rows no sync of ION account %s wrote (a sync of another account into the same store, "+
+			"or an earlier version): the book answers for one account and never merges another's rows; run: %s",
+			strings.Join(untagged, ", "), ionAccountLabel(account), syncHint))
+	}
 	if len(resources) > 0 && !hintIfUnsynced(cmd, db, resources[0]) {
 		hintIfStale(cmd, db, resources[0], flags.maxAge) // ponytail: the primary resource stands in for the set
 	}
-	b, err := loadIONBook(cmd.Context(), db, resources...)
+	b, err := loadIONBook(cmd.Context(), tx, account, resources...)
 	if err != nil {
 		_ = db.Close() // read-only handle; the load error is the one to report
 		return nil, func() {}, err
@@ -848,4 +979,141 @@ func subsByResource(b *ionBook) map[string]ionSub {
 		delete(out, k)
 	}
 	return out
+}
+
+// The licence book answers only from walks of the ION account it is asked
+// about (handfixes.json: ion-book-one-account). The default store is keyed on
+// the configured account, but an explicit --db, an adopted unscoped store or a
+// store an earlier build wrote can hold another account's lists, and sync never
+// prunes a book list (the accountId template var makes every walk
+// tenant-scoped). So each book list records the account it was walked for, a
+// walk for another account empties the list first, and the book answers only
+// when the record and the latest walk's scope both name its account.
+const ionStoreAccountDDL = `CREATE TABLE IF NOT EXISTS ion_store_account (resource_type TEXT PRIMARY KEY, account TEXT NOT NULL)`
+
+// ionBookAccount is the account the book answers for: the configured one.
+func ionBookAccount(flags *rootFlags) string {
+	path := ""
+	if flags != nil {
+		path = flags.configPath
+	}
+	cfg, err := config.Load(path)
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(cfg.TemplateVars["accountId"])
+}
+
+func ionAccountLabel(account string) string {
+	if account == "" {
+		return "(none configured; set TD_SYNNEX_ACCOUNT_ID)"
+	}
+	return account
+}
+
+// ionForeignResources names the book lists not proven to be account's: no
+// account record (an earlier build wrote them), a record naming another
+// account, or a latest walk whose scope names another one. found lists the
+// accounts the store does name. Any read error counts as foreign.
+func ionForeignResources(ctx context.Context, db ionQuerier, account string, resources []string) (foreign, found []string) {
+	seen := map[string]bool{}
+	for _, r := range resources {
+		var owner, scopeKey string
+		err := db.QueryRowContext(ctx, `SELECT a.account, s.scope_key FROM ion_store_account a JOIN sync_state s ON s.resource_type = a.resource_type WHERE a.resource_type = ?`, r).Scan(&owner, &scopeKey)
+		names := []string{"no account recorded"}
+		if err == nil {
+			names = append([]string{owner}, ionScopeAccounts(scopeKey)...)
+		}
+		mismatch := account == "" || err != nil
+		for _, n := range names {
+			mismatch = mismatch || n != account
+			if !seen[n] {
+				seen[n] = true
+				found = append(found, n)
+			}
+		}
+		if mismatch {
+			foreign = append(foreign, r)
+		}
+	}
+	return foreign, found
+}
+
+// ionScopeAccounts returns every accountId a sync_state scope key names.
+func ionScopeAccounts(scopeKey string) []string {
+	var out []string
+	for _, line := range strings.Split(scopeKey, "\n") {
+		for _, prefix := range []string{"template:accountId=", "path:accountId="} {
+			if v, ok := strings.CutPrefix(line, prefix); ok {
+				out = append(out, v)
+			}
+		}
+	}
+	if len(out) == 0 {
+		out = []string{"no account in the sync scope"}
+	}
+	return out
+}
+
+// ionClaimBookList runs before a walk for account writes resource. A book
+// list recorded for another account, or for none, is emptied with its sync
+// state, then recorded for account. The sync_state row goes first, so a crash
+// at any step leaves the book refusing.
+func ionClaimBookList(db *store.Store, resource, account string) error {
+	if !store.IsIONBookList(resource) {
+		return nil
+	}
+	for _, ddl := range []string{ionStoreAccountDDL, store.IONBookRowDDL} {
+		if _, err := db.DB().Exec(ddl); err != nil {
+			return fmt.Errorf("recording the ION account of %s: %w", resource, err)
+		}
+	}
+	var owner string
+	if err := db.DB().QueryRow(`SELECT account FROM ion_store_account WHERE resource_type = ?`, resource).Scan(&owner); err == nil && owner == account {
+		// A row no write for account tagged (an earlier build, or a walk that
+		// lost a race for the claim) is emptied too, so one sync recovers.
+		if n, err := ionUntaggedRows(context.Background(), db.DB(), resource, account); err == nil && n == 0 {
+			return nil
+		}
+	}
+	if _, err := db.DB().Exec(`DELETE FROM sync_state WHERE resource_type = ?`, resource); err != nil {
+		return fmt.Errorf("emptying %s of another ION account: %w", resource, err)
+	}
+	if _, err := db.ReconcileAll(resource, nil, reconcileTypedTable(resource), store.CascadeJunctionsFor(resource)); err != nil {
+		return fmt.Errorf("emptying %s of another ION account: %w", resource, err)
+	}
+	if _, err := db.DB().Exec(`DELETE FROM ion_book_row WHERE resource_type = ?`, resource); err != nil {
+		return fmt.Errorf("emptying %s of another ION account: %w", resource, err)
+	}
+	if _, err := db.DB().Exec(`INSERT INTO ion_store_account (resource_type, account) VALUES (?, ?) ON CONFLICT(resource_type) DO UPDATE SET account = excluded.account`, resource, account); err != nil {
+		return fmt.Errorf("recording the ION account of %s: %w", resource, err)
+	}
+	return nil
+}
+
+// ionRefuseForeignAccount refuses a sync that would walk another ION account
+// into this store: an accountId from --path-context, --param, --global-param
+// or --resource-param that is not the configured account. TD_SYNNEX_ACCOUNT_ID
+// selects that account, whose default store is its own.
+func ionRefuseForeignAccount(cfg *config.Config, pathContext map[string]string, userParams *syncUserParams) error {
+	configured := ""
+	if cfg != nil {
+		configured = strings.TrimSpace(cfg.TemplateVars["accountId"])
+	}
+	sources := []map[string]string{pathContext}
+	if userParams != nil {
+		sources = append(sources, userParams.flatGlobal, userParams.trueGlobal)
+		for _, m := range userParams.perResource {
+			sources = append(sources, m)
+		}
+	}
+	for _, m := range sources {
+		for k, v := range m {
+			if v = strings.TrimSpace(v); strings.EqualFold(strings.TrimSpace(k), "accountId") && v != configured {
+				return usageErr(fmt.Errorf("accountId=%s is not this store's ION account %s: the local book answers for one account, so sync "+
+					"never walks another into it; to sync account %s, set TD_SYNNEX_ACCOUNT_ID=%s", v, ionAccountLabel(configured), v, v))
+			}
+		}
+	}
+	return nil
 }

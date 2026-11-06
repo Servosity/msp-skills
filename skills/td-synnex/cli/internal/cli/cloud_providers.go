@@ -11,7 +11,7 @@ import (
 func newCloudProvidersCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "cloud-providers",
-		Short:       "Get and create cloud providers",
+		Short:       "Manage cloud providers command groups",
 		Annotations: map[string]string{"mcp:read-only": "true", "pp:parent-group": "true", "pp:api-resource": "true", "pp:typed-exit-codes": "0,2"},
 		RunE:        parentNoSubcommandRunE(flags),
 	}

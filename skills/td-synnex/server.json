@@ -82,6 +82,12 @@
           "description": "Only used when the MCP server is bound to a tenant-gated client profile. This connector registers no tenant-gated source, so leave it blank.",
           "isRequired": false,
           "isSecret": true
+        },
+        {
+          "name": "TD_SYNNEX_NO_LOCAL_DATA",
+          "description": "Optional: set to 1 to keep no local copy of StreamOne ION data (no response cache, no store writes, sync refused).",
+          "isRequired": false,
+          "isSecret": false
         }
       ]
     }
