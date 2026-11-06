@@ -2063,8 +2063,8 @@
       "tagline": "Surface stale quotes, thin-margin lines, and pipeline velocity across your Salesbuildr quoting by asking.",
       "cli_hash": "sha256:114e50160279eed7598075d7be9c9f4eba22065ab9719fb1c9a449273f107176",
       "template_version": 3,
-      "version": "0.1.7",
-      "cli_hash_at_release": "sha256:e31242c2d1749bd63ae9618a38ea5346624a2b36672ccb90154c6d19637ee9d7",
+      "version": "0.1.8",
+      "cli_hash_at_release": "sha256:114e50160279eed7598075d7be9c9f4eba22065ab9719fb1c9a449273f107176",
       "has_video": true,
       "live_verified": {
         "status": "awaiting",
