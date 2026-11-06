@@ -4,7 +4,7 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
-## [0.1.8] - unreleased
+## [0.1.8] - 2026-11-06
 
 ### Security
 - Rebuilt on CLI Printing Press 4.34.2 with mcp-go v0.57.0 and golang.org/x/text v0.42.0 (advisory [GHSA-jh26-vhqh-692c](https://github.com/advisories/GHSA-jh26-vhqh-692c)). MCP HTTP mode (`runzero-mcp --transport http`) now refuses to start until `RUNZERO_MCP_HTTP_TOKEN` is set to 32 or more characters, answers 401 to a request without `Authorization: Bearer <token>` and 403 to a browser origin it does not allow, listens on `127.0.0.1:7777` by default, and needs `--tls-cert` and `--tls-key` for any other address.
