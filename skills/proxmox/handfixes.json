@@ -914,6 +914,170 @@
      "not_contains": "connects only to remote"
     }
    ]
+  },
+  {
+   "id": "credkit-wiring",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "The shared credential kit (tools/maintainer/credkit, vendored at cli/internal/credkit) is wired by hand: internal/credwire/declarations.go holds the one credkit.Declarations literal; both mains start with credkit.Start(credwire.Declarations) and end with credkit.Exit; every HTTP client (API, per-service TLS pins, --deliver webhook and Spacefast, feedback, probe) goes through credkit.Transport, every SQLite handle through the credkit.SQLDriver internal/credsql registers, every program file write through the kit, child processes through credkit.RunCommand or StartCommand, and the MCP stdio and HTTP servers through credkit.MCPTools, MCPIn, MCPOut and MCPHTTP. A Proxmox token is USER@REALM!TOKENID=SECRET (PBS: ...:SECRET); only the SECRET is held (cliutil.TokenSecret), under minted:pve-token, minted:pbs-token or minted:cluster:<home>:<name>:<service>, each bound to that token's own origin (PVE base URL or PROXMOX_HOST, PROXMOX_PBS_HOST, each clusters.toml entry's own hosts); the raw env, config and Authorization forms are exempt with that reason, because Proxmox lists the token id in ordinary reads. The credential store and config are sources, written outside the kit.",
+   "why": "One contract, one matcher and one set of sinks; proxmox had no earlier credential layer (no funnel, no holder). response-secret-redaction stays: storage plugins name their own secret fields, which an exact-name ResponseFields list cannot cover. Classes closed, each by a built-binary test in internal/credwire/leak_test.go seen failing first on the pre-kit build (.review/seen-fail-kit.log): an API error echoing part of the token secret (CLI, --agent, MCP); tokens in config.toml, the credential store and a config that does not parse held at startup; PROXMOX_API_TOKEN, PROXMOX_PBS_API_TOKEN and clusters.toml tokens held at startup; each token sent only to its own service or cluster, never to a --deliver webhook; SPACEFAST_TOKEN held; and the learn journal never recording a held secret. TestTokenIDInOrdinaryReadIsShown failed on a build that held whole tokens: a task list naming root@pam!monitor printed only the kit's notice.",
+   "asserts": [
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "var Declarations = credkit.Declarations{",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "{Source: \"minted:pve-token\", Allowed: pveOrigins()},",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "{Source: \"minted:pbs-token\", Allowed: pbsOrigins()},",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "}, clusterOrigins()...),",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "{Source: \"header:authorization\", Reason: ",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/proxmox_token_secret.go",
+     "contains": "func TokenSecret(v string) string {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/credkit_clusters.go",
+     "contains": "func ClusterTokenSources() []ClusterTokenSource {",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/proxmox-cli/main.go",
+     "contains": "credkit.Start(credwire.Declarations)",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/proxmox-cli/main.go",
+     "contains": "credkit.Exit(code)",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/proxmox-mcp/main.go",
+     "contains": "credkit.Start(credwire.Declarations)",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/proxmox-mcp/main.go",
+     "contains": "credkit.Exit(run())",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/proxmox-mcp/main.go",
+     "contains": "server.WithToolHandlerMiddleware(credkit.MCPTools)",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/proxmox-mcp/main.go",
+     "contains": "server.NewStdioServer(s).Listen(ctx, credkit.MCPIn(os.Stdin), credkit.MCPOut())",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/proxmox-mcp/main.go",
+     "contains": "kit := credkit.MCPHTTP(http.HandlerFunc(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credsql/credsql.go",
+     "contains": "sql.Register(Driver, credkit.SQLDriver(cappedSQLite()))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "sql.Open(credsql.Driver, dsn)",
+     "code_only": true,
+     "min_count": 3
+    },
+    {
+     "file": "cli/internal/platform/migration.go",
+     "contains": "sql.Open(credsql.Driver, ",
+     "code_only": true,
+     "min_count": 4
+    },
+    {
+     "file": "cli/internal/cliutil/credkit_guard.go",
+     "contains": "var OutboundGuard = credkit.Transport",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "return guardedTransport{RoundTripper: cliutil.OutboundGuard(tr), inner: tr}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "httpClient.Transport = guardTransport(tr)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "cliutil.Hold(\"minted:authorization\", cliutil.TokenSecret(authHeader))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/proxmox_routing.go",
+     "contains": "c.HTTPClient.Transport = pinnedGuard{RoundTripper: cliutil.OutboundGuard(pins), pins: pins}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "cliutil.Hold(\"stdin\", cliutil.TokenSecret(token))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "err := credkit.RunCommand(cmd)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "credkit.AppendFile(p, append(line, '\\n'), 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credentials.go",
+     "contains": "AtomicWriteCredentialFile(path, data, 0o600, 0o700)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "not_contains": "_ = os.WriteFile(cacheFile"
+    },
+    {
+     "file": "cli/internal/cli/deliver.go",
+     "not_contains": "http.DefaultTransport.RoundTrip(req)"
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestTokenIDInOrdinaryReadIsShown(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestClusterTokensHeldAndBound(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestEachTokenGoesOnlyToItsService(",
+     "code_only": true
+    }
+   ]
   }
  ],
  "retired": [

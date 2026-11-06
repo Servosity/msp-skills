@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"proxmox-pp-cli/internal/credkit"
 	"sort"
 	"strings"
 
@@ -86,7 +87,7 @@ func saveProfileStore(s *profileStore) error {
 		return fmt.Errorf("marshaling profiles: %w", err)
 	}
 	tmp := p + ".tmp"
-	if err := os.WriteFile(tmp, data, 0o600); err != nil {
+	if err := credkit.WriteFile(tmp, data, 0o600); err != nil { // Hand-fix (handfixes.json credkit-wiring)
 		return fmt.Errorf("writing profiles: %w", err)
 	}
 	return os.Rename(tmp, p)
