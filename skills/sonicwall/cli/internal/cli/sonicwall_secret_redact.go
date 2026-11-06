@@ -16,6 +16,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
+	"sonicwall-pp-cli/internal/cliutil"
 	"sonicwall-pp-cli/internal/posture"
 )
 
@@ -32,8 +33,9 @@ import (
 // Exact names only (from a scan of the three vendor schemas, matched
 // case-insensitively): a key heuristic would also blank one_time_password and
 // totp, which posture and mfa-audit must read. The token exchanges
-// (nsm-login, nsm-session, msw-tenants access-code) are skipped: returning a
-// token is their job, and they are the Credential tier.
+// (nsm-login, nsm-session, msw-tenants access-code) are not blanked: returning a
+// token is their job, and they are the Credential tier. The credential they mint
+// is held through the credential kit instead (holdExchangeCredentials).
 var schemaSecretFields = map[string]bool{
 	// SonicOS (beyond nsmCredentialFields, which passthrough reads also use)
 	"authentication_code": true, "registration_code": true, "get_community_name": true,
@@ -49,7 +51,8 @@ var schemaSecretFields = map[string]bool{
 	"refreshtoken": true, "registrationcode": true, "transauthcode": true,
 }
 
-// tokenExchangePaths return a token on purpose; their callers need it intact.
+// tokenExchangePaths return a token on purpose; their callers need it intact,
+// so it is held (holdExchangeCredentials), not blanked.
 var tokenExchangePaths = []string{"/auth/sso", "/auth/refreshSessionToken", "/api/generate-cscAccessCode"}
 
 // The transport is installed by the envelope hook in sonicwall_nsm_envelope.go,
@@ -139,8 +142,11 @@ func isSchemaSecret(key string, passthrough bool) bool {
 func (t sonicOSRedactTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	resp, err := t.base.RoundTrip(req)
 	scan, passthrough := redactFieldsFor(req)
-	if err != nil || resp == nil || resp.Body == nil || !scan {
+	if err != nil || resp == nil || resp.Body == nil {
 		return resp, err
+	}
+	if !scan {
+		return holdExchangeCredentials(req, resp)
 	}
 	body, readErr := io.ReadAll(resp.Body)
 	_ = resp.Body.Close()
@@ -216,6 +222,68 @@ func decodeOneJSONValue(body []byte, doc *any) bool {
 		return false
 	}
 	return len(bytes.TrimSpace(body[dec.InputOffset():])) == 0
+}
+
+// holdExchangeCredentials holds the credential a token exchange mints before
+// the client, and so any sink (stdout, the SQLite store, the journal), can see
+// it. Hand-fix (handfixes.json credkit-wiring): NSM answers a session token in
+// status.info[].message, unless status.success is explicitly false (an error
+// envelope, whose messages are public text), and MySonicWall answers the CSC
+// access code in content.accessCode. Field names match case-insensitively, as
+// nsm-login reads them. The body reaches the caller intact, decoded, since
+// nsm-login needs the token; a body that cannot be read as JSON is withheld
+// whole, so no token reaches a sink unheld.
+func holdExchangeCredentials(req *http.Request, resp *http.Response) (*http.Response, error) {
+	body, err := io.ReadAll(resp.Body)
+	_ = resp.Body.Close()
+	if err != nil {
+		return nil, fmt.Errorf("reading %s response: %w", req.URL.Path, err)
+	}
+	resp.Body = io.NopCloser(bytes.NewReader(body))
+	plain, derr := decodeForInspection(resp.Header.Get("Content-Encoding"), body)
+	if derr != nil {
+		return withheldSecretResponse(resp, req.URL.Path, "it could not be decoded for inspection"), nil
+	}
+	resp = replaceBody(resp, plain)
+	if len(bytes.TrimSpace(plain)) == 0 {
+		return resp, nil
+	}
+	var doc struct {
+		Status struct {
+			Success *bool `json:"success"`
+			Info    []struct {
+				Message json.RawMessage `json:"message"`
+			} `json:"info"`
+		} `json:"status"`
+		Content struct {
+			AccessCode json.RawMessage `json:"accessCode"`
+		} `json:"content"`
+	}
+	if json.Unmarshal(plain, &doc) != nil {
+		return withheldSecretResponse(resp, req.URL.Path, "it is not the JSON a token exchange answers"), nil
+	}
+	if doc.Status.Success == nil || *doc.Status.Success {
+		for _, info := range doc.Status.Info {
+			holdRawCredential("minted:nsm-session-token", info.Message)
+		}
+	}
+	holdRawCredential("minted:csc-access-code", doc.Content.AccessCode)
+	return resp, nil
+}
+
+// holdRawCredential holds one JSON value: a string as decoded (and trimmed, as
+// nsm-login uses it), anything else as its JSON text (nsm-login uses a numeric
+// access code as written).
+func holdRawCredential(source string, raw json.RawMessage) {
+	raw = bytes.TrimSpace(raw)
+	if len(raw) == 0 || string(raw) == "null" {
+		return
+	}
+	var s string
+	if json.Unmarshal(raw, &s) != nil {
+		s = string(raw)
+	}
+	cliutil.Hold(source, s, strings.TrimSpace(s))
 }
 
 // replaceBody swaps resp's body for a plain, already-decoded one.
