@@ -1,0 +1,76 @@
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
+
+package cli
+
+import (
+	"encoding/json"
+	"strings"
+)
+
+// esetMetadataOnlyPage reports whether a list page holds nothing but paging
+// metadata, and returns its next-page token. Protobuf JSON can omit an empty
+// repeated field, so ESET may answer an empty page as `{}` or
+// `{"nextPageToken":"B"}` (handfixes.json: sync-metadata-only-pages).
+// tokenOK is false when a token is present but is not a string (or null): the
+// caller must not read that as "no more pages".
+func esetMetadataOnlyPage(data json.RawMessage) (meta bool, token string, tokenOK bool) {
+	var obj map[string]json.RawMessage
+	if json.Unmarshal(data, &obj) != nil || obj == nil {
+		return false, "", true
+	}
+	for k := range obj {
+		switch k {
+		case "nextPageToken", "totalSize", "pageToken", "totalCount":
+		default:
+			return false, "", true
+		}
+	}
+	if raw, ok := obj["nextPageToken"]; ok && string(raw) != "null" {
+		if json.Unmarshal(raw, &token) != nil {
+			return true, "", false
+		}
+	}
+	return true, token, true
+}
+
+// esetMalformedPageToken reports a list page whose nextPageToken is present,
+// not null and not a string. ESET tokens are strings; any other type must not
+// be read as "no more pages" (handfixes.json: sync-metadata-only-pages).
+func esetMalformedPageToken(data json.RawMessage) bool {
+	var obj map[string]json.RawMessage
+	if json.Unmarshal(data, &obj) != nil {
+		return false
+	}
+	raw, ok := obj["nextPageToken"]
+	if !ok || string(raw) == "null" {
+		return false
+	}
+	var token string
+	return json.Unmarshal(raw, &token) != nil
+}
+
+// esetUnexpectedListShape reports a list page that lacks every declared list
+// key yet carries keys other than paging metadata: an error envelope such as
+// {"message":"...","details":[]} or a foreign wrapper, not an empty page
+// (handfixes.json: sync-unexpected-list-shape). ESET list responses hold
+// only the list key, nextPageToken and totalSize; a page that has its list
+// key is accepted even with extra keys.
+func esetUnexpectedListShape(data json.RawMessage, listKeys ...string) bool {
+	var obj map[string]json.RawMessage
+	if json.Unmarshal(data, &obj) != nil || obj == nil {
+		return false
+	}
+	for _, k := range listKeys {
+		if _, ok := obj[strings.SplitN(k, ".", 2)[0]]; ok {
+			return false
+		}
+	}
+	for k := range obj {
+		switch k {
+		case "nextPageToken", "totalSize", "pageToken", "totalCount":
+		default:
+			return true
+		}
+	}
+	return false
+}

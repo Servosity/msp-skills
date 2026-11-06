@@ -2189,6 +2189,36 @@
       "reason": "press 4.35.1 template, google-workspace reprint, reviewed 2026-11-04. Same read as the G703 entry: the CLI's own Spacefast delivery record, state dir plus a SHA-256 hex file name."
     },
     {
+      "file": "skills/sonicwall/cli/internal/cliutil/creds_perms_unix.go",
+      "rule": "G115",
+      "bind": "file",
+      "sha256": [
+        "sha256:6f983a466c07f91137f3b91e649c494c3db7743a7608242f4e03b7720245fbea"
+      ],
+      "press": "4.35.1",
+      "reason": "press 4.35.1 template, sonicwall reprint, reviewed 2026-11-06 (same bound hash as the google-workspace entry). uint32(os.Geteuid()), twice (verifyUnixPrivateFile, verifyUnixCredentialDir): the POSIX effective uid is a non-negative uid_t, compared for equality with the file or directory owner. Same code the 4.34.0 fleet entry accepts; the file is !windows."
+    },
+    {
+      "file": "skills/sonicwall/cli/internal/cli/deliver_spacefast.go",
+      "rule": "G703",
+      "bind": "decl",
+      "sha256": [
+        "sha256:991de2fbb979c2c73f3873850ad79e0ce83f8f06ceaaa3f0481f23c06bc9b7f1"
+      ],
+      "press": "4.35.1",
+      "reason": "press 4.35.1 template, sonicwall reprint, reviewed 2026-11-06 (same bound hash as the google-workspace entry). loadSpacefastDelivery reads this program's own delivery record: the directory is the CLI's state dir and the file name is the hex of a SHA-256 of the delivery key, so no input picks a path outside that directory. --deliver is refused over MCP (check_mcp_file_flags PASS)."
+    },
+    {
+      "file": "skills/sonicwall/cli/internal/cli/deliver_spacefast.go",
+      "rule": "G304",
+      "bind": "decl",
+      "sha256": [
+        "sha256:991de2fbb979c2c73f3873850ad79e0ce83f8f06ceaaa3f0481f23c06bc9b7f1"
+      ],
+      "press": "4.35.1",
+      "reason": "press 4.35.1 template, sonicwall reprint, reviewed 2026-11-06 (same bound hash as the google-workspace entry). Same read as the G703 entry: the CLI's own Spacefast delivery record, state dir plus a SHA-256 hex file name."
+    },
+    {
       "file": "skills/google-workspace/cli/internal/credwire/declarations.go",
       "rule": "G703",
       "bind": "decl",

@@ -734,6 +734,26 @@
       "tagline": "Fleet-wide Datto RMM answers - stale agents, alert storms, patch and AV gaps - from a local mirror in one ask."
     },
     {
+      "name": "datto-saas",
+      "system": "Datto SaaS Protection (Backupify): seat audits, protection gaps, backup health ranking, exit inventories and plan-first bulk seat changes across every client from a local mirror",
+      "status": "beta",
+      "skill_path": "skills/datto-saas",
+      "cli_binary": "datto-saas-cli",
+      "mcp_binary": "datto-saas-mcp",
+      "version": "0.1.0",
+      "printing_press_version": "4.34.2",
+      "license": "Apache-2.0",
+      "vendor": "Datto SaaS Protection",
+      "vendor_trademark_owner": "Datto, Inc",
+      "first_party": false,
+      "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/datto-saas/install.sh)",
+      "install_mcp_doc": "skills/datto-saas/mcp-install.md",
+      "description": "Every Datto SaaS Protection (Backupify) client in one local database: seat audits, protection gaps, backup health ranking, exit inventories and plan-first bulk seat changes.",
+      "verification": "awaiting",
+      "category": "Backup/DR",
+      "tagline": "Fleet-wide Datto SaaS Protection answers - unprotected seats, failing backups, exit inventories - from a local mirror in one ask."
+    },
+    {
       "name": "dnsfilter",
       "system": "DNSFilter DNS security and content filtering (MSP and client organizations)",
       "status": "beta",
@@ -811,6 +831,26 @@
       "description": "Every Dropsuite (NinjaOne SaaS Backup) read, plus fleet-wide backup health, coverage gaps and billing reconciliation from one reseller credential.",
       "verification": "awaiting",
       "category": "Backup/DR"
+    },
+    {
+      "name": "eset-protect",
+      "system": "ESET PROTECT cloud console via the ESET Connect API",
+      "status": "beta",
+      "skill_path": "skills/eset-protect",
+      "cli_binary": "eset-protect-cli",
+      "mcp_binary": "eset-protect-mcp",
+      "version": "0.1.0",
+      "printing_press_version": "4.34.2",
+      "license": "Apache-2.0",
+      "vendor": "ESET",
+      "vendor_trademark_owner": "ESET, spol. s r.o.",
+      "first_party": false,
+      "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/eset-protect/install.sh)",
+      "install_mcp_doc": "skills/eset-protect/mcp-install.md",
+      "description": "Every ESET Connect endpoint in one binary, plus per-customer health, exposure and QBR reports built from a local mirror of your MSP tree.",
+      "verification": "awaiting",
+      "category": "Security",
+      "tagline": "Devices, detections, incidents and response actions across every ESET PROTECT client."
     },
     {
       "name": "exchange-online",
