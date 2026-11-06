@@ -4,6 +4,22 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.1.8] - unreleased
+
+### Security
+- Rebuilt on CLI Printing Press 4.34.2 ([GHSA-jh26-vhqh-692c](https://github.com/advisories/GHSA-jh26-vhqh-692c)). The MCP server's HTTP mode refuses to start until `DOMOTZ_MCP_HTTP_TOKEN` is set (32 characters or more), serves `http://127.0.0.1:7777/mcp` by default, and needs `--tls-cert` and `--tls-key` on any other address. Every MCP write previews first and sends only when called again with `confirm` set to `true`. `DOMOTZ_MCP_HTTP_TOKEN`, `DOMOTZ_MCP_READ_ONLY`, `DOMOTZ_NO_LOCAL_DATA`, `DOMOTZ_USER_AGENT` and `PRINTING_PRESS_CLIENT_PROFILE` are now declared on every install channel.
+- **Every output is checked for credentials by the shared credential kit.** Stdout, stderr, files the CLI writes, its local database, MCP tool results and child processes all pass one shared check: text that repeats a credential the program holds, whole, as a piece of 8 or more characters, or in a decoded form, is withheld whole and replaced by a notice that says so. Credentials are read from `DOMOTZ_API_KEY`, `DOMOTZ_MCP_HTTP_TOKEN`, the base URL, every config file and the saved key before anything prints, and a device's SNMP communities, SNMPv3 keys and device credentials are held as soon as Domotz returns them, so a value Domotz echoes back in another field (encoded, or whitespace-only) is withheld too. The API key is sent only to the Domotz API host for your region over https, never to another host or across a redirect. A device read that carries SNMP or device credentials is withheld whole; use `--select` to read its other fields.
+
+### Added
+- `fleet unalerted`: the devices no enabled alert profile watches, across every Collector, VITAL first, so a device that can go down without paging anyone is found before it matters.
+
+### Fixed
+- The store-backed fleet reports read the device rows `sync` writes, and refuse to answer from a store whose last sync did not finish, instead of answering from part of the fleet.
+- Live fleet reports page through every Collector, and fail when any Collector could not be read, instead of reporting a partial fleet as the whole.
+- `--all` lists and `export` start from the first page Domotz returns (page 0), so the first page of devices is no longer skipped.
+- `fleet new`, `fleet speedtest`, `fleet events`, `fleet stale` and `topology --cached` compare times as instants, so times written in different formats sort and filter correctly.
+- Per-device resources (device applications and variables) are synced only when named with `sync --resources`, so a plain `sync` no longer makes one request per device for them.
+
 ## [0.1.7] - 2026-10-23
 
 ### Security

@@ -469,10 +469,10 @@
     "released_hash": "sha256:c086ebc8f69946888c412bd1c7cf7504ec4c5450481b7ae2bc4a64869a2f8014"
   },
   "pagerduty": {
-    "state": "up-to-date",
+    "state": "binary-pending",
     "version": "0.1.7",
     "latest_tag": "pagerduty-v0.1.7",
-    "current_hash": "sha256:b70dc01b97b17a2bef5a6002c4360fdbe7a966a0440720ca94d4caa2696b680b",
+    "current_hash": "sha256:bfaa7b6ba054a65a543f67113f6fe6294dfb93144d51fe8a629f92254a166ce9",
     "released_hash": "sha256:b70dc01b97b17a2bef5a6002c4360fdbe7a966a0440720ca94d4caa2696b680b"
   },
   "pandadoc": {

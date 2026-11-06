@@ -16,7 +16,12 @@
       "args": [],
       "env": {
         "PAGERDUTY_API_KEY": "${user_config.pagerduty_api_key}",
-        "PAGERDUTY_BASE_URL": "${user_config.pagerduty_base_url}"
+        "PAGERDUTY_BASE_URL": "${user_config.pagerduty_base_url}",
+        "PAGERDUTY_MCP_READ_ONLY": "${user_config.pagerduty_mcp_read_only}",
+        "PAGERDUTY_NO_LOCAL_DATA": "${user_config.pagerduty_no_local_data}",
+        "PAGERDUTY_USER_AGENT": "${user_config.pagerduty_user_agent}",
+        "PAGERDUTY_MCP_HTTP_TOKEN": "${user_config.pagerduty_mcp_http_token}",
+        "PRINTING_PRESS_CLIENT_PROFILE": "${user_config.printing_press_client_profile}"
       }
     }
   },
@@ -34,6 +39,37 @@
       "description": "Base URL for the PagerDuty API. Leave the prefilled default unless your account uses a different regional or self-hosted host.",
       "required": false,
       "default": "https://api.pagerduty.com"
+    },
+    "pagerduty_mcp_read_only": {
+      "type": "string",
+      "title": "Read-only mode",
+      "description": "Optional. Set to 1 to make the MCP server refuse every write: only read tools are callable. Leave blank to allow writes (each MCP write still previews and sends only when called again with confirm set to true).",
+      "required": false
+    },
+    "pagerduty_no_local_data": {
+      "type": "string",
+      "title": "Run without a local copy",
+      "description": "Optional. Set to 1 to keep no local copy of API responses: reads go to the API and sync refuses to run. Leave blank to keep the local store.",
+      "required": false
+    },
+    "pagerduty_user_agent": {
+      "type": "string",
+      "title": "User-Agent header",
+      "description": "Overrides the User-Agent the CLI sends on PagerDuty requests. Leave blank to use the CLI's built-in User-Agent.",
+      "required": false
+    },
+    "pagerduty_mcp_http_token": {
+      "type": "string",
+      "title": "MCP HTTP transport bearer token",
+      "description": "Required only when running the MCP server with --transport http (a remote/hosted deployment); at least 32 characters. Callers must send a matching Authorization: Bearer header. Not needed for the default local stdio transport that Claude Desktop uses.",
+      "required": false,
+      "sensitive": true
+    },
+    "printing_press_client_profile": {
+      "type": "string",
+      "title": "Client profile",
+      "description": "Binds this MCP server to one tenant-gated client profile. Leave blank to use the profile configured as default_client_profile.",
+      "required": false
     }
   },
   "compatibility": {
@@ -44,11 +80,11 @@
       "win32"
     ]
   },
-  "printing_press_version": "4.24.0",
+  "printing_press_version": "4.34.2",
   "press_provenance": {
-    "printing_press_version": "4.24.0",
-    "generated_at": "2026-06-13T04:25:50.923538Z",
-    "spec_checksum": "sha256:81e1fec1de631f462f771cc1ba58fc4a74a701d5cbb0dd555847f728ac499126",
+    "printing_press_version": "4.34.2",
+    "generated_at": "2026-10-30T05:50:54.313683Z",
+    "spec_checksum": "sha256:cec429fd14f41ce76b69d810dbdb4ce532fa38537cd9ece16cf5c084ef23fdda",
     "spec_format": "openapi3"
   }
 }
