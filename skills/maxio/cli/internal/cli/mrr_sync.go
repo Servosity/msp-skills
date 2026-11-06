@@ -57,15 +57,25 @@ exactly how this CLI keeps your movement history after Maxio sunsets it.`),
 			if err != nil {
 				return err
 			}
+			// Codex r1 (maxio 4.34.2 reprint) class
+			// incomplete-backfill-read-as-complete: a capped or failed movement
+			// backfill is said so, never shown as caught up.
+			if !res.MovementsComplete {
+				reason := "it stopped at --max-pages before the start of the log"
+				if res.MovementsError != "" {
+					reason = res.MovementsError
+				}
+				fmt.Fprintf(cmd.ErrOrStderr(), "warning: the MRR movement history is incomplete (%s); run `maxio-cli mrr sync --max-pages 0` to finish the backfill.\n", reason)
+			}
 			return emitRevenue(cmd, flags, res, func(w io.Writer) {
-				fmt.Fprintf(w, "snapshot %s: MRR %s, %d active subs; %d per-subscription rows; movements +%d (fetched %d across %d page(s))\n",
-					res.SnapshotAt, revenue.Cents(res.SiteMRRCents), res.ActiveSubs, res.SubSnapshotRows,
-					res.MovementsInserted, res.MovementsFetched, res.MovementPagesRead)
+				fmt.Fprintf(w, "snapshot %s: MRR %s, %d active subs; %d per-subscription rows; movements +%d (fetched %d across %d page(s); history complete: %t)\n",
+					res.SnapshotAt, revenue.Money(res.SiteMRRCents, res.Currency), res.ActiveSubs, res.SubSnapshotRows,
+					res.MovementsInserted, res.MovementsFetched, res.MovementPagesRead, res.MovementsComplete)
 			})
 		},
 	}
 	cmd.Flags().StringVar(&dbPath, "db", "", "Database path")
-	cmd.Flags().IntVar(&maxPages, "max-pages", 50, "Max movement pages to backfill (200 movements/page; 0 = unlimited)")
+	cmd.Flags().IntVar(&maxPages, "max-pages", 50, "Max movement pages to backfill (50 movements/page, Maxio's maximum; 0 = unlimited)")
 	return cmd
 }
 

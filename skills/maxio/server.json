@@ -31,7 +31,7 @@
         {
           "name": "MAXIO_API_KEY",
           "description": "Single-secret Maxio credential, sent as the HTTP Basic username with the constant 'x' as the password. Use this or the MAXIO_USERNAME + MAXIO_PASSWORD pair.",
-          "isRequired": false,
+          "isRequired": true,
           "isSecret": true
         },
         {
@@ -43,20 +43,49 @@
         {
           "name": "MAXIO_PASSWORD",
           "description": "Set the MAXIO_PASSWORD credential for the Maxio MCP server.",
-          "isRequired": true,
+          "isRequired": false,
           "isSecret": true
         },
         {
           "name": "MAXIO_SITE",
           "description": "Set the MAXIO_SITE credential for the Maxio MCP server.",
           "isRequired": true,
-          "isSecret": true,
-          "default": "subdomain"
+          "isSecret": false
         },
         {
           "name": "MAXIO_USERNAME",
           "description": "Set the MAXIO_USERNAME credential for the Maxio MCP server.",
-          "isRequired": true,
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "MAXIO_MCP_READ_ONLY",
+          "description": "Optional. Set to exactly 1 to expose only read-only tools and refuse any non-GET execute call. Leave blank to expose every tool; a call that changes Maxio still needs confirm set to true.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "MAXIO_NO_LOCAL_DATA",
+          "description": "Optional. Set to 1 to keep no local copy of API responses: reads go to the API, nothing is written to the local store, and sync and the revenue commands that read it refuse to run. Leave blank to keep the local store.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "MAXIO_MCP_HTTP_TOKEN",
+          "description": "Required only when running the MCP server with --transport http. Callers must send a matching Authorization: Bearer header. Not needed for the default stdio transport.",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "MAXIO_USER_AGENT",
+          "description": "Overrides the User-Agent the CLI sends on Maxio requests. Leave blank to use the CLI's own built-in User-Agent.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "PRINTING_PRESS_CLIENT_PROFILE",
+          "description": "Only for tenant-gated multi-client deployments: binds the MCP server to an existing Printing Press client profile. Leave blank for a single-tenant install.",
+          "isRequired": false,
           "isSecret": true
         }
       ]

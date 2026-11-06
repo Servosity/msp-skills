@@ -146,12 +146,6 @@
    "read-only",
    "local-data"
   ],
-  "maxio": [
-   "mcp-http",
-   "write-gating",
-   "read-only",
-   "local-data"
-  ],
   "microsoft-graph": [
    "mcp-http",
    "read-only",

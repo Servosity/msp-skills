@@ -64,10 +64,10 @@ func newNovelMrrNowCmd(flags *rootFlags) *cobra.Command {
 					return
 				}
 				fmt.Fprintf(w, "MRR  %s\nARR  %s\nActive subscriptions: %d\n",
-					revenue.Cents(view.MRRCents), revenue.Cents(view.ARRCents), view.ActiveSubs)
+					view.MRR, view.ARR, view.ActiveSubs)
 				if view.Growth != nil {
 					fmt.Fprintf(w, "Growth vs %s: %s (%+.1f%%)\n",
-						shortDate(view.Growth.PriorAt), revenue.Cents(view.Growth.DeltaCents), view.Growth.Pct)
+						shortDate(view.Growth.PriorAt), revenue.Money(view.Growth.DeltaCents, view.Currency), view.Growth.Pct)
 				}
 				fmt.Fprintf(w, "Source: %s · as of %s\n", view.Source, view.AsOf)
 			})
@@ -77,8 +77,11 @@ func newNovelMrrNowCmd(flags *rootFlags) *cobra.Command {
 	return cmd
 }
 
+// The currency is the one the figure came with: the live /mrr.json currency,
+// or the snapshot's (Codex r1, maxio 4.34.2 reprint, class currency-dropped:
+// a local snapshot read back as USD with a dollar sign whatever its currency).
 func buildMrrNow(ctx context.Context, flags *rootFlags, db *sql.DB, stderr io.Writer) (*mrrNowView, error) {
-	view := &mrrNowView{Currency: "USD"}
+	view := &mrrNowView{}
 	usedLive := false
 	if flags.dataSource != "local" {
 		if c, err := flags.newClient(); err == nil {
@@ -93,13 +96,16 @@ func buildMrrNow(ctx context.Context, flags *rootFlags, db *sql.DB, stderr io.Wr
 				if json.Unmarshal(data, &s) == nil {
 					view.MRRCents = s.MRR.AmountInCents
 					view.AsOf = s.MRR.AtTime
-					if s.MRR.Currency != "" {
-						view.Currency = s.MRR.Currency
-					}
+					view.Currency = s.MRR.Currency
 					usedLive = true
 				}
 			}
 			if usedLive {
+				// The live figure is /mrr.json and /stats.json together: a failed
+				// or unreadable stats read is not zero active subscriptions, so
+				// the live answer is dropped for the snapshot (or an error in
+				// live mode) instead (Codex r1 class partial-snapshot-published).
+				usedLive = false
 				if data, gerr := c.Get(ctx, "/stats.json", nil); gerr == nil {
 					var st struct {
 						Stats struct {
@@ -108,17 +114,21 @@ func buildMrrNow(ctx context.Context, flags *rootFlags, db *sql.DB, stderr io.Wr
 					}
 					if json.Unmarshal(data, &st) == nil {
 						view.ActiveSubs = st.Stats.TotalActiveSubscriptions
+						usedLive = true
 					}
+				}
+				if !usedLive {
+					*view = mrrNowView{}
 				}
 			}
 		}
 	}
 
-	var priorAt sql.NullString
+	var priorAt, priorCurrency sql.NullString
 	var priorCents, priorActive sql.NullInt64
 	_ = db.QueryRowContext(ctx,
-		`SELECT snapshot_at, mrr_cents, active_subs FROM rev_site_snapshots ORDER BY snapshot_at DESC LIMIT 1`).
-		Scan(&priorAt, &priorCents, &priorActive)
+		`SELECT snapshot_at, mrr_cents, active_subs, currency FROM rev_site_snapshots ORDER BY snapshot_at DESC LIMIT 1`).
+		Scan(&priorAt, &priorCents, &priorActive, &priorCurrency)
 
 	if !usedLive {
 		if !priorAt.Valid {
@@ -133,6 +143,7 @@ func buildMrrNow(ctx context.Context, flags *rootFlags, db *sql.DB, stderr io.Wr
 		view.MRRCents = priorCents.Int64
 		view.ActiveSubs = priorActive.Int64
 		view.AsOf = priorAt.String
+		view.Currency = priorCurrency.String
 		view.Source = "local-snapshot"
 		var p2At sql.NullString
 		var p2Cents sql.NullInt64
@@ -148,9 +159,12 @@ func buildMrrNow(ctx context.Context, flags *rootFlags, db *sql.DB, stderr io.Wr
 			setGrowth(view, priorAt.String, priorCents.Int64)
 		}
 	}
-	view.MRR = revenue.Cents(view.MRRCents)
+	if view.Currency == "" {
+		view.Currency = revenue.SiteCurrency(ctx, db)
+	}
+	view.MRR = revenue.Money(view.MRRCents, view.Currency)
 	view.ARRCents = view.MRRCents * 12
-	view.ARR = revenue.Cents(view.ARRCents)
+	view.ARR = revenue.Money(view.ARRCents, view.Currency)
 	return view, nil
 }
 

@@ -29,6 +29,7 @@ type clientHistoryPoint struct {
 
 type clientMRRView struct {
 	SnapshotAt   string               `json:"snapshot_at"`
+	Currency     string               `json:"currency,omitempty"`
 	Customers    []clientMRRRow       `json:"customers"`
 	TotalCents   int64                `json:"total_mrr_cents"`
 	SiteMRRCents int64                `json:"site_mrr_cents,omitempty"`
@@ -64,16 +65,18 @@ func newNovelMrrClientCmd(flags *rootFlags) *cobra.Command {
 
 			var latest sql.NullString
 			_ = db.QueryRowContext(cmd.Context(), `SELECT MAX(snapshot_at) FROM rev_sub_mrr_snapshots`).Scan(&latest)
+			currency, money := revenueMoney(cmd.Context(), db)
 			if !latest.Valid || latest.String == "" {
 				hintRunMrrSync(cmd.ErrOrStderr())
 				return emitRevenue(cmd, flags, clientMRRView{Customers: []clientMRRRow{}, Note: "no MRR snapshots yet"}, func(w io.Writer) {})
 			}
 
-			// Drive from active subscriptions (the complete customer set), LEFT
-			// JOIN per-sub MRR. Maxio's /subscriptions_mrr.json omits some
+			// Drive from current subscriptions (the complete customer set: every
+			// live or problem state, revenue.CurrentStates; Codex r1 class
+			// current-states-narrowed-to-active), LEFT JOIN per-sub MRR. Maxio's /subscriptions_mrr.json omits some
 			// subscription types (e.g. annual prepay), so an INNER JOIN on the
 			// snapshot would drop whole customers; the LEFT JOIN keeps every
-			// active customer visible (with MRR 0 where Maxio reports none).
+			// current customer visible (with MRR 0 where Maxio reports none).
 			rows, err := db.QueryContext(cmd.Context(), `
 				SELECT CAST(json_extract(sub.data,'$.customer.id') AS TEXT) AS cust_id,
 				       COALESCE(NULLIF(json_extract(cust.data,'$.organization'),''),
@@ -86,9 +89,9 @@ func newNovelMrrClientCmd(flags *rootFlags) *cobra.Command {
 				LEFT JOIN rev_sub_mrr_snapshots s ON s.subscription_id = sub.id AND s.snapshot_at = ?
 				LEFT JOIN resources cust ON cust.resource_type='customers-json'
 				     AND cust.id = CAST(json_extract(sub.data,'$.customer.id') AS TEXT)
-				WHERE sub.resource_type='subscriptions-json' AND json_extract(sub.data,'$.state')='active'
+				WHERE sub.resource_type='subscriptions-json' AND LOWER(COALESCE(json_extract(sub.data,'$.state'),'')) IN (SELECT value FROM json_each(?))
 				GROUP BY cust_id
-				ORDER BY SUM(COALESCE(s.mrr_cents,0)) DESC`, latest.String)
+				ORDER BY SUM(COALESCE(s.mrr_cents,0)) DESC`, latest.String, revenue.CurrentStatesArg())
 			if err != nil {
 				return fmt.Errorf("querying per-customer MRR: %w", err)
 			}
@@ -110,7 +113,7 @@ func newNovelMrrClientCmd(flags *rootFlags) *cobra.Command {
 				r.PlanCents = plan.Int64
 				r.UsageCents = usage.Int64
 				r.Subscriptions = int(subs.Int64)
-				r.MRR = revenue.Cents(r.MRRCents)
+				r.MRR = money(r.MRRCents)
 				all = append(all, r)
 			}
 
@@ -127,7 +130,7 @@ func newNovelMrrClientCmd(flags *rootFlags) *cobra.Command {
 				all = kept
 			}
 
-			view := clientMRRView{SnapshotAt: latest.String}
+			view := clientMRRView{SnapshotAt: latest.String, Currency: currency}
 			for _, r := range all {
 				view.TotalCents += r.MRRCents
 			}
@@ -142,7 +145,7 @@ func newNovelMrrClientCmd(flags *rootFlags) *cobra.Command {
 					view.SiteMRRCents = siteMRR.Int64
 					if d := siteMRR.Int64 - view.TotalCents; d > view.TotalCents/100 || d < -view.TotalCents/100 {
 						view.Note = fmt.Sprintf("per-subscription MRR total (%s) differs from site MRR (%s); Maxio computes them separately",
-							revenue.Cents(view.TotalCents), revenue.Cents(siteMRR.Int64))
+							money(view.TotalCents), money(siteMRR.Int64))
 					}
 				}
 			}
@@ -181,11 +184,11 @@ func newNovelMrrClientCmd(flags *rootFlags) *cobra.Command {
 			return emitRevenue(cmd, flags, view, func(w io.Writer) {
 				fmt.Fprintf(w, "Per-customer MRR (snapshot %s)\n", shortDate(view.SnapshotAt))
 				for _, r := range view.Customers {
-					fmt.Fprintf(w, "  %-40s %12s  (%d sub)\n", truncate(r.Customer, 40), revenue.Cents(r.MRRCents), r.Subscriptions)
+					fmt.Fprintf(w, "  %-40s %12s  (%d sub)\n", truncate(r.Customer, 40), money(r.MRRCents), r.Subscriptions)
 				}
-				fmt.Fprintf(w, "  %-40s %12s\n", "TOTAL", revenue.Cents(view.TotalCents))
+				fmt.Fprintf(w, "  %-40s %12s\n", "TOTAL", money(view.TotalCents))
 				for _, h := range view.History {
-					fmt.Fprintf(w, "  history %s  %s\n", shortDate(h.SnapshotAt), revenue.Cents(h.MRRCents))
+					fmt.Fprintf(w, "  history %s  %s\n", shortDate(h.SnapshotAt), money(h.MRRCents))
 				}
 			})
 		},

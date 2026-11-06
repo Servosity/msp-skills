@@ -28,9 +28,10 @@ type retentionPeriod struct {
 }
 
 type retentionView struct {
-	Since   string            `json:"since,omitempty"`
-	GroupBy string            `json:"group_by"`
-	Periods []retentionPeriod `json:"periods"`
+	Since    string            `json:"since,omitempty"`
+	Currency string            `json:"currency,omitempty"`
+	GroupBy  string            `json:"group_by"`
+	Periods  []retentionPeriod `json:"periods"`
 }
 
 // pp:data-source local
@@ -74,10 +75,11 @@ func newNovelRetentionCmd(flags *rootFlags) *cobra.Command {
 				return err
 			}
 			defer st.Close()
+			currency, money := revenueMoney(cmd.Context(), db)
 
 			if has, _ := revenue.HasMovements(cmd.Context(), db); !has {
 				hintRunMrrSync(cmd.ErrOrStderr())
-				return emitRevenue(cmd, flags, retentionView{Since: cutoff, GroupBy: groupBy, Periods: []retentionPeriod{}}, func(w io.Writer) {
+				return emitRevenue(cmd, flags, retentionView{Since: cutoff, Currency: currency, GroupBy: groupBy, Periods: []retentionPeriod{}}, func(w io.Writer) {
 					fmt.Fprintln(w, "No MRR movements stored yet.")
 				})
 			}
@@ -131,7 +133,8 @@ func newNovelRetentionCmd(flags *rootFlags) *cobra.Command {
 			}
 
 			sort.Strings(order)
-			view := retentionView{Since: cutoff, GroupBy: groupBy, Periods: make([]retentionPeriod, 0, len(order))}
+			warnIfMovementsIncomplete(cmd.Context(), db, cmd.ErrOrStderr())
+			view := retentionView{Since: cutoff, Currency: currency, GroupBy: groupBy, Periods: make([]retentionPeriod, 0, len(order))}
 			for _, key := range order {
 				a := byPeriod[key]
 				boundary := periodStartDate(key, groupBy, a.firstTS)
@@ -172,7 +175,7 @@ func newNovelRetentionCmd(flags *rootFlags) *cobra.Command {
 				fmt.Fprintf(w, "%-10s %12s %12s %10s %10s %10s\n", "period", "start_mrr", "end_mrr", "nrr%", "grr%", "quick")
 				for _, p := range view.Periods {
 					fmt.Fprintf(w, "%-10s %12s %12s %10s %10s %10s\n", p.Period,
-						revenue.Cents(p.StartingMRR), revenue.Cents(p.EndingMRR),
+						money(p.StartingMRR), money(p.EndingMRR),
 						pctStr(p.NRRPct), pctStr(p.GRRPct), ratioStr(p.QuickRatio))
 				}
 			})

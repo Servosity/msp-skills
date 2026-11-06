@@ -1152,7 +1152,7 @@
       "cli_binary": "maxio-cli",
       "mcp_binary": "maxio-mcp",
       "version": "0.1.7",
-      "printing_press_version": "4.24.0",
+      "printing_press_version": "4.34.2",
       "license": "Apache-2.0",
       "vendor": "Maxio",
       "vendor_trademark_owner": "Maxio LLC",
