@@ -1968,6 +1968,26 @@
       "tagline": "Clear approval backlogs, beat the 31-day audit cliff, and find dark agents across every tenant by asking."
     },
     {
+      "name": "threecx",
+      "system": "3CX Phone System (cloud or on-premises PBX)",
+      "status": "beta",
+      "skill_path": "skills/threecx",
+      "cli_binary": "threecx-cli",
+      "mcp_binary": "threecx-mcp",
+      "version": "0.1.0",
+      "printing_press_version": "4.34.2",
+      "license": "Apache-2.0",
+      "vendor": "3CX",
+      "vendor_trademark_owner": "3CX Ltd",
+      "first_party": false,
+      "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/threecx/install.sh)",
+      "install_mcp_doc": "skills/threecx/mcp-install.md",
+      "description": "Run every client's 3CX phone system from one CLI: trunk, version, licence and backup health across the whole fleet, plus the full Configuration API on any single PBX.",
+      "verification": "awaiting",
+      "category": "Other",
+      "tagline": "Check trunk, licence, version and backup health across every client's 3CX phone system at once."
+    },
+    {
       "name": "unifi-network",
       "system": "self-hosted UniFi Network controller managing devices, clients, firewall policies, ACLs, VLANs, VPN, and switching on a local gateway",
       "status": "beta",

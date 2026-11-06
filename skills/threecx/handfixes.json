@@ -1,0 +1,871 @@
+{
+ "slug": "threecx",
+ "doc": "docs/reprint-survival.md",
+ "_comment": "Connector-specific edits to GENERATED files that a cli-printing-press reprint must NOT clobber. First print press 4.33.5 (run 20261014-153356-31994c0c); first release on press 4.34.2 (run 20261027-171145-29bd3631). Credential-less: no vendor PBX; behaviour proven against a mock PBX built from 3CX's official XAPI swagger.",
+ "handfixes": [
+  {
+   "id": "root-display-name",
+   "summary": "Root help reads '3CX CLI', not the slug-derived 'Threecx CLI'",
+   "why": "root.go.tmpl renders {{humanName .Name}} and ignores the spec's x-display-name (press 4.33.5 and 4.34.2). Re-apply: cli-factory/threecx/reprint-4342-20261027/tools/apply_handfixes.py.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "Short: `3CX CLI",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "not_contains": "Threecx CLI"
+    }
+   ]
+  },
+  {
+   "id": "fqdn-error-mentions-pbx",
+   "summary": "The unresolved {fqdn} error also tells the user to pick a registered PBX with --pbx",
+   "why": "The generated TemplateVarError only says 'export THREECX_FQDN=<value>'; fleet users and agents never learn about --pbx from the error they actually hit.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/client/url.go",
+     "contains": "or pick a registered phone system with --pbx <name>",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "api-origin-pinned",
+   "class": "auth-wire",
+   "summary": "Every API request, redirect hop and the OAuth token exchange go only to the scheme, host and port the configuration resolved when the client was built (for --pbx, the registered PBX's FQDN); anything else is refused before it is dialled or given the secret or token",
+   "why": "Work order host pinning. The generated client sends the bearer token to whatever URL a request names, and the token client (cliutil.OAuthTokenHTTPClient) reuses the client's transport. originPinTripper (hand file internal/cli/threecx_guard.go, registered with registerClientHook so every CLI, fleet-child and MCP client gets it) compares a byte-exact ASCII-folded origin, and the same check runs first in CheckRedirect. Tests: TestOriginPinRefusesAnotherHost, TestNormalizedOriginRefusesNonASCIIAndFillsPorts, internal/threecxblackbox TestRedirectToAnotherHostIsRefused. Codex r1: the check is shared as pinnedRedirect, and the inner transport is sendOrRefuse (responses held, or every request refused under --dry-run). A redirect hop to a GET that mints, grants or allocates is refused unless the first request was one, since every confirm gate reads only the first path. Test: internal/threecxblackbox TestR4MCPRefusesARedirectToAStateChangingGET.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/threecx_guard.go",
+     "contains": "func init() { registerClientHook(guardClient) }",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/threecx_guard.go",
+     "contains": "c.HTTPClient.Transport = originPinTripper{origin: origin, next: sendOrRefuse(next, c.DryRun)}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/threecx_guard.go",
+     "contains": "if origin == \"\" || normalizedOrigin(req.URL) != origin {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/threecx_guard.go",
+     "contains": "!isASCII(u.Scheme) || !isASCII(u.Host)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/threecx_rules_test.go",
+     "contains": "func TestOriginPinRefusesAnotherHost(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/threecx_guard.go",
+     "contains": "next := client.OutboundGuard(c.HTTPClient.Transport)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/threecx_guard.go",
+     "contains": "if len(via) > 0 && cliutil.StateChangingGET(req.URL.Path) && !cliutil.StateChangingGET(via[0].URL.Path) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "no-response-cache",
+   "class": "credential-in-files",
+   "summary": "The on-disk GET response cache is off on every client",
+   "why": "XAPI bodies carry SIP passwords, provisioning links and API keys; raw bodies must not sit in cache files (the store strips them separately). Set in guardClient. Test: internal/threecxblackbox TestNoCredentialInAnyWrittenFile.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/threecx_guard.go",
+     "contains": "c.NoCache = true",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "store-never-keeps-secrets",
+   "class": "credential-in-files",
+   "summary": "Every store write passes withoutStoredSecrets at the merge choke point: credential-named values, PINs among them, are replaced by name at any depth, and a record that cannot be decoded is stored as {}. A held value anywhere else in a statement is refused by the kit (credkit-sqlite-every-handle).",
+   "why": "Every live read writes through to the store and sync upserts raw bodies. mergeIncomingResourceData is the one merge every upsert path calls. A PIN is never held, so nothing else would stop it. Hand file internal/store/threecx_secrets.go. Tests: internal/store TestStoreRedactsCredentialMembersByName; internal/threecxblackbox TestNoCredentialInAnyWrittenFile.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "return withoutStoredSecrets(s.mergeIncomingResourceDataRaw(tx, resourceType, id, incoming))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/threecx_secrets.go",
+     "contains": "func withoutStoredSecrets(data json.RawMessage) json.RawMessage {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/threecx_secrets_test.go",
+     "contains": "func TestStoreRedactsCredentialMembersByName(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "response-credentials-held",
+   "class": "secret-echo",
+   "summary": "Every credential a response carries is held before any command reads the body, then replaced by name so the listing stays readable: the access token /connect/token mints, Concealed values, credential-named fields, and the value a minting function (GenerateApiKey, APIToken, GenerateAppToken, GenerateProvLink, GetMicrosoftAccessToken, GetOAuth) returns. A token exchange is left whole for the client; its token is held all the same. A password that is literally a word such as hidden is held: a mask is judged by shape only.",
+   "why": "The kit withholds a whole unit that repeats a held value, so a listing that carries a SIP password would print nothing if the member were not replaced first. The kit holds declared names; the shared walker also holds what no declared name can see (Concealed objects under any name, minted unnamed values). responseHoldTripper (threecx_guard.go) reads each response under the client size cap and decodes it as the client will (client/threecx_decode.go: Content-Encoding, BOM, XSSI). holdToolArguments is the same walker over MCP arguments. Tests: TestResponseCredentialsHeld, TestAWordIsNeverAMask; black-box TestShortPasswordSplitOrEncoded, TestShortPasswordAloneKeepsTheRecord, TestMCPPreviewHoldsANestedCredential. A PIN the operator supplies is held (HoldOperatorValues, operatorFieldNames, the PIN flags); a PIN in a response is replaced by name and named in Identifiers. Every member of a duplicate key and every document in a body is held (decodeDocuments).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/threecx_guard.go",
+     "contains": "cliutil.HoldCredentialFields(plain, cliutil.MintsCredential(req.URL.Path))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/threecx_decode.go",
+     "contains": "func DecodeBody(encoding string, body []byte) ([]byte, error) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/threecx_secrets.go",
+     "contains": "func MintsCredential(path string) bool",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/threecx_guard.go",
+     "contains": "cliutil.RedactBody(plain)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/threecx_guard.go",
+     "contains": "if isTokenExchange(req) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/threecx-mcp/main.go",
+     "contains": "server.WithToolHandlerMiddleware(holdToolArguments),",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/threecx-mcp/threecx_args_mcp.go",
+     "contains": "cliutil.HoldOperatorValues(req.GetArguments())",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/threecx_secrets.go",
+     "contains": "return v == \"\" || strings.Trim(v, \"*\\u2022\") == \"\" || v == RedactedValue",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/threecx_secrets.go",
+     "contains": "type duplicateMembers []map[string]any",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "mcp-mirror-write-confirm",
+   "class": "write-safety",
+   "summary": "Mirrored MCP tools that can change 3CX state (import, any later non-read-only command) preview with --dry-run and send only with confirm: true",
+   "why": "Press 4.34.2 gates threecx_execute on confirm natively, but the Cobra-tree mirror registers import with no confirm. RequireConfirmForMirroredWrites (hand file internal/mcp/cobratree/threecx_confirm.go), called right after RegisterAll, wraps every mirrored tool that is not read-only, not mcp:local-write and not export/sync/workflow archive/learnings forget/reject, so a command added later is gated by default. Only boolean true sends. Tests: TestRegisteredMirroredWritesNeedConfirm (fails without the tools.go line), internal/threecxblackbox TestMCPWriteNeedsConfirm (threecx_execute previews send nothing, confirm true sends one).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "cobratree.RequireConfirmForMirroredWrites(s, cli.RootCmd(), cobratree.CachedSiblingCLIPath)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/threecx_confirm.go",
+     "contains": "func RequireConfirmForMirroredWrites(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/threecx_confirm.go",
+     "contains": "if confirmed, ok := args[\"confirm\"].(bool); ok && confirmed {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/threecx_confirm_registered_test.go",
+     "contains": "func TestRegisteredMirroredWritesNeedConfirm(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "token-client-pinned",
+   "class": "auth-wire",
+   "summary": "The token-endpoint client 'auth login' builds (root.go oauthHTTPClient) is pinned to the configured phone system's origin like every API client, holds what the token endpoint answers, and refuses every request under --dry-run; 'auth login', 'auth set-token' and 'auth logout' honour --dry-run (preview, nothing sent, read, saved or deleted)",
+   "why": "Codex r1 [P1] credential-sent-to-another-host: auth login used client.NewPlainHTTPClient, which registerClientHook never reaches, and the generated same-origin redirect check compares against the token URL itself, so THREECX_TOKEN_URL=https://<other>/connect/token sent the client secret (HTTP Basic) to another host. Codex r1 [P1] preview-sends-anyway: auth login ignored --dry-run and saved the minted token. Edit in generated root.go re-applied by tools/apply_handfixes.py; guardTokenClient, dryRunTripper and the auth wrapper live in hand files internal/cli/threecx_guard.go and internal/cli/threecx_auth_dryrun.go. Tests: internal/threecxblackbox TestAuthLoginNeverLeavesTheConfiguredPBX, TestDryRunSendsNothing; internal/cli TestDryRunClientsRefuseEveryRequest.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "guardTokenClient(hc, cfg, f.dryRun)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/threecx_guard.go",
+     "contains": "func guardTokenClient(hc *http.Client, cfg *config.Config, dryRun bool) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/threecx_guard.go",
+     "contains": "hc.Transport = originPinTripper{origin: origin, next: sendOrRefuse(next, dryRun)}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/threecx_auth_dryrun.go",
+     "contains": "return writeDryRun(cmd.OutOrStdout(), flags, name)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/threecxblackbox/r1_test.go",
+     "contains": "func TestAuthLoginNeverLeavesTheConfiguredPBX(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/threecxblackbox/r1_test.go",
+     "contains": "func TestDryRunSendsNothing(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/threecx_guard.go",
+     "contains": "next := client.OutboundGuard(hc.Transport)",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "every-input-reported",
+   "class": "wrong-result",
+   "summary": "One rule for every fleet verdict (health checks, licence renewal window, version drift, backup flags): healthy only when every input it uses was reported; a missing input makes the verdict unknown (or keeps a worse one), never pass, warn or current, and never drops a row from a filtered report",
+   "why": "Codex r1 and r2 [P1] unknown-telemetry-reported-as-healthy (every 3CX field is nullable in vendor-docs/3cx-swagger.yaml): a null IsMaintananceExpired read as current, a far licence date hid a null maintenance expiry in 'fleet licences --within', a null LicenseActive with a date passed. Orchestrator order 2026-10-27: fix the class structurally, test first. fleet.Settle (hand file internal/fleet/threecx_inputs.go) is the one rule; EvaluateHealth applies it to every check (licence activation and expiry, maintenance, backup schedule, trunks, flags, disk, storage quota, capacity incl. a limit of 0), LicenceRow.OutsideWindow drops a row only when activation and both expiries were reported (Unknown names the rest), VersionRowFor calls maintenance current only when both sources say so and a missing update list unknown, BackupRowFor flags SIZE_UNKNOWN when the shrink comparison lacks a size. Tests (seen failing first: unknown-seen-failing-unit.log, unknown-seen-failing-cli.log): TestHealthIsPassOnlyWhenEveryInputWasReported (every input nulled and dropped), TestLicenceOutsideWindowNeedsEveryInput, TestVersionVerdictsNeedEveryInput, TestFleetLicencesWithinKeepsPartialFacts, TestFleetVersionsBehindKeepsPartialFacts; prove_unknown.sh reverts each part alone.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/fleet/threecx_inputs.go",
+     "contains": "func Settle(level Level, detail string, missing ...string) (Level, string) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/fleet/checks.go",
+     "contains": "settled(\"license\", level, detail, unreported(\"licence activation\", s.LicenseActive != nil, \"licence expiry\", ok))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/fleet/checks.go",
+     "contains": "func (r LicenceRow) OutsideWindow(window int) bool {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/fleet/checks.go",
+     "contains": "case u.IsMaintananceExpired != nil && byDate != nil:",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/fleet/checks.go",
+     "contains": "if u.Entries == nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_licences.go",
+     "contains": "if !r.OutsideWindow(windowDays) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/fleet/threecx_inputs_test.go",
+     "contains": "func TestHealthIsPassOnlyWhenEveryInputWasReported(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "fleet-runner-self-exec",
+   "class": "subprocess",
+   "summary": "The fleet runner re-executes only this binary (fleet.SelfExecutable = os.Executable; no caller can name another binary), with no shell, an argument list of fixed literals plus request paths re-validated as plain XAPI paths (childArgs), and a registry-validated PBX passed by name in the environment",
+   "why": "Security gate P1 at internal/fleet/runner.go (gosec G204, builtin exec-nonliteral-cmd). Orchestrator order 2026-10-27: remove it structurally if possible. The Runner.Exe override is gone (tests swap SelfExecutable); argv is built only by childArgs. gosec still reports G204 (the command is a variable by nature: the running binary's path), so the base-owned bound suppression in LEDGER-NOTES section 7 remains. Test: TestChildArgsAreFixedLiteralsAndValidatedPaths.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/fleet/runner.go",
+     "contains": "var SelfExecutable = os.Executable",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/fleet/runner.go",
+     "contains": "args, err := childArgs(r.Timeout, reqs)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/fleet/runner.go",
+     "contains": "if !plainXAPIPath(q.Path) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/fleet/runner.go",
+     "not_contains": "Exe string"
+    },
+    {
+     "file": "cli/internal/fleet/threecx_runner_test.go",
+     "contains": "func TestChildArgsAreFixedLiteralsAndValidatedPaths(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/fleet/runner.go",
+     "contains": "err := credkit.RunCommand(cmd)",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "dry-run-opens-no-sink",
+   "class": "dry-run-file-mutation",
+   "summary": "export --dry-run --output leaves the destination file untouched",
+   "why": "The generated export opened and truncated --output before the dry-run transport refused the first request, so a preview destroyed an existing export.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/export.go",
+     "contains": "if outputFile != \"\" && flags.dryRun {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/threecx_dryrun_sink_test.go",
+     "contains": "func TestExportDryRunLeavesOutputFileUntouched("
+    }
+   ]
+  },
+  {
+   "id": "doctor-verdict-tracks-reality",
+   "class": "doctor-truth",
+   "summary": "doctor probes GET /SystemStatus with the real credential (a client ID and secret it mints from count), refuses the shipped https://{fqdn}/xapi/v1 placeholder naming THREECX_FQDN and THREECX_BASE_URL, and reads a 404 as a wrong base URL, instead of calling any HTTP response 'reachable' and never checking the credential",
+   "why": "`doctor` is the command every SKILL, guide and docs page tells an operator to run to confirm the connector works, and it could not tell a working install from a broken one: it called any HTTP response to `GET /` \"reachable\", never probed the credential (\"present, not verified\"), so a 401 on every call and a base_url aimed at the 3CX web client (every API path 404s) both read healthy. threecx is a new connector and never received the fleet's port (replay_handfixes.py only replays entries already in a connector's own ledger), so it is ported by hand to the press 4.34.2 shape and adapted: (1) a 3CX install authenticates with THREECX_CLIENT_ID / THREECX_CLIENT_SECRET and holds no bearer until the first request mints one, so cfg.AuthHeader() alone read every real install as 'auth: not configured' and skipped the probe; doctorCredentialAvailable counts the client ID and secret, for the auth row, the Step 2 guard and doctorProbeCredentials, and a refused credential keeps its 'refused' verdict. (2) The probe prefers GET /SystemStatus, the read the connector's own fleet health/versions/backups/licences already depend on; the generic walk would pick `aisettings get` (GET /AISettings), a feature endpoint where a 404 proves nothing about the base URL. (3) The placeholder remedy names THREECX_FQDN and THREECX_BASE_URL, and the placeholder credentials row no longer shares text with the api row: the output chokepoint holds the value of every credential-named member, with needles that value whole and its text after the first space, so the old 'skipped (base_url is a placeholder)' made '(base_url is a placeholder)' a held value and the api row that repeated it printed as '[text withheld ...]', hiding the remedy. The credentials row stays WARN-prefixed so --fail-on keeps its placeholder semantics (the api row still carries the error phrase). The chokepoint's name-based redaction still prints `credentials` as '[redacted]' in every state, so check_doctor_truth.py reads the redaction rather than the verdict there; the verdict's polarity in all four states (plus no-credential and a rejected client secret) is proven before the chokepoint by doctor_verdict_test.go. See issue #282.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "func doctorProbeCredentials(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "if c == nil || !doctorCredentialAvailable(c.Config) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "func doctorCredentialAvailable(cfg *config.Config) bool {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "return strings.TrimSpace(cfg.ClientID) != \"\" && strings.TrimSpace(cfg.ClientSecret) != \"\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "func doctorBaseURLIsShippedPlaceholder(base string) bool {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "const doctorShippedBaseURL = \"https://{fqdn}/xapi/v1\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "const doctorBaseURLEnv = \"THREECX_BASE_URL\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "const doctorPreferredProbePath = \"/SystemStatus\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "if cmdPath = doctorLeafForPath(root, nil, doctorPreferredProbePath); cmdPath != \"\" {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "func doctorBaseURLIsPlaceholder(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorIsInfoKey(k)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "configured, authSource := doctorAuthConfigured(cfg)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "if doctorBaseURLIsPlaceholder(doctorBase) || doctorBaseURLIsShippedPlaceholder(doctorBase) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "report[\"api\"] = \"not configured (base_url is a placeholder); set \" + doctorFQDNEnv + \" to your phone system's FQDN, or \" + doctorBaseURLEnv + \" to its full API root\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "report[\"credentials\"] = \"WARN not checked: no phone system is chosen yet, so nothing was sent\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "} else if !doctorCredentialAvailable(cfg) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "report[\"credentials\"] = \"ERROR not verified: no credential is configured, so nothing was probed.\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorProbeCredentials(cmd.Context(), c, cmd.Root(), \"threecx-cli\", report)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "not_contains": "present, not verified. Run `%s %s`"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "not_contains": "for _, v := range report {"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "not_contains": "report[\"credentials\"] = \"skipped (base_url is a placeholder)\""
+    },
+    {
+     "file": "cli/internal/cli/doctor_verdict_test.go",
+     "contains": "func TestDoctorVerdictTracksReality(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor_verdict_test.go",
+     "contains": "func TestDoctorPlaceholderNamesTheFixAndDialsNothing(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor_verdict_test.go",
+     "contains": "func TestDoctorCountsClientCredentialsAsConfigured(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "credkit-wiring",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "The shared credential kit (tools/maintainer/credkit, vendored at cli/internal/credkit) is wired by hand and replaces this connector's own funnel, chokepoint and SQLite wrapper. internal/credwire/declarations.go holds the one Declarations literal; each main starts with credkit.Start and ends with credkit.Exit; the API client and token client go through credkit.Transport under the origin pin; every file write except the 0600 credential store and config file goes through the kit (cliutil.AtomicWriteCredentialFile is that declared exemption); stdout and stderr are the kit's pipes.",
+   "why": "One contract, one matcher and one set of sinks replace the connector-only copies, and a matcher fix reaches this connector by vendoring. A PBX FQDN is the operator's, so no hosted domain can be named: credentialFiles shows the kit this process's phone system (--pbx, THREECX_PBX, THREECX_FQDN, config) through THREECX_BASE_URL for the duration of Start, and AfterStart puts the variable back. When nothing resolves the kit allows no origin. The fleet registry is deliberately not a credential file: the kit holds every value in a file it is given, and the registry holds host names. Tests: internal/threecxblackbox (built binaries against a stub that echoes every credential in every encoding), writers_test TestEveryFileWriteGoesThroughTheKit, internal/credwire TestCredentialFilesHoldsWhatDeclarationsCannotName, TestAfterStartRestoresTheBaseURL, internal/cli TestDeclaredCredentialFlagsMatchTheCommands. A saved profile is held where loadProfileStore reads it (cliutil.HoldProfileStore), whichever home it came from; startup still holds the homes it can name. Test: internal/threecxblackbox TestR4ProfileHeldWhereItIsRead.",
+   "spec_encode_followup": "Press-side: emit the credkit wiring from a per-connector declarations file, and let a declaration name an operator-chosen host as its origin, so a reprint keeps it by construction.",
+   "asserts": [
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "var Declarations = credkit.Declarations{",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "\"THREECX_MCP_HTTP_TOKEN\",",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "{Source: \"*\", Allowed: []string{\"base_url\"}},",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "func showBaseURL(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "func holdPBXSecrets() {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "func holdOAuthCode(args []string) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/threecx-cli/main.go",
+     "contains": "credkit.Start(credwire.Declarations)",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/threecx-cli/main.go",
+     "contains": "credwire.AfterStart()",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/threecx-cli/main.go",
+     "contains": "credkit.Exit(code)",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/threecx-cli/main.go",
+     "not_contains": "os.Exit("
+    },
+    {
+     "file": "cli/cmd/threecx-mcp/main.go",
+     "contains": "credkit.Start(credwire.Declarations)\n\tcredwire.AfterStart()\n\tcredkit.Exit(run())",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/threecx-mcp/main.go",
+     "contains": "server.WithToolHandlerMiddleware(credkit.MCPTools),",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/threecx-mcp/main.go",
+     "contains": "server.NewStdioServer(s).Listen(ctx, credkit.MCPIn(os.Stdin), credkit.MCPOut())",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/threecx-mcp/main.go",
+     "not_contains": "server.ServeStdio("
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "var OutboundGuard = credkit.Transport",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "_ = credkit.WriteFile(cacheFile, []byte(data), 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "cliutil.Hold(\"minted:authorization\", authHeader)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "err := credkit.RunCommand(cmd)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/darwin_acl_darwin.go",
+     "contains": "err := credkit.RunCommand(cmd)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "return credkit.Terminal(f)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/feedback.go",
+     "contains": "Transport: credkit.Transport(nil)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deliver.go",
+     "contains": "Transport: credkit.Transport(nil),",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deliver.go",
+     "contains": "if err := credkit.WriteFile(tmp, body, 0o600); err != nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/probe.go",
+     "contains": "Transport: credkit.Transport(nil)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/oauth_token.go",
+     "contains": "Transport: credkit.Transport(nil)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/paths.go",
+     "contains": "func AtomicWriteCredentialFile(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credentials.go",
+     "contains": "HoldConfigFile(data)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "cliutil.HoldConfigFile(data)",
+     "code_only": true,
+     "min_count": 2
+    },
+    {
+     "file": "cli/internal/threecxblackbox/writers_test.go",
+     "contains": "func TestEveryFileWriteGoesThroughTheKit(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/threecxblackbox/kit_test.go",
+     "contains": "func TestCredentialReachesTheConfiguredPhoneSystemOnly(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/threecxblackbox/kit_test.go",
+     "contains": "func TestSavedTokenIsNotSentOverPlainHTTP(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations_test.go",
+     "contains": "func TestAfterStartRestoresTheBaseURL(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/profile.go",
+     "contains": "cliutil.HoldProfileStore(data)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/profile_hold.go",
+     "contains": "func HoldProfileStore(data []byte) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "credkit-sqlite-every-handle",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "Every SQLite handle goes through credkit.SQLDriver: internal/credsql registers the one driver and every sql.Open in store.go and platform/migration.go names it, the read-only opener included. The MCP sql value cap moved from sqlite.Limit on a held connection to a DSN parameter credsql applies as each connection opens.",
+   "why": "A statement's text and bound values are a sink of their own, reads included. Replaces the connector-only withheldSQLiteDriver.",
+   "spec_encode_followup": "Press-side: generate store, migration and MCP sql opens against one kit-wrapped driver name, and express the MCP sql value cap as a connection-open setting.",
+   "asserts": [
+    {
+     "file": "cli/internal/credsql/credsql.go",
+     "contains": "sql.Register(Driver, credkit.SQLDriver(cappedSQLite()))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "func OpenReadOnlyValueCapped(dbPath string, maxValueBytes int) (*Store, error) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "not_contains": "sql.Open(\"sqlite\""
+    },
+    {
+     "file": "cli/internal/platform/migration.go",
+     "not_contains": "sql.Open(\"sqlite\""
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "not_contains": "sqlite.Limit("
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "openMCPReadOnlyStore(path, mcpSQLMaxValueBytes)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/credkit_sql_test.go",
+     "contains": "func TestEveryStoreOpenChecksStatementsThroughTheKit(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/credkit_sql_test.go",
+     "contains": "func TestNoSQLiteHandleBypassesTheKit(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "credkit-mcphttp-outermost",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "credkit.MCPHTTP writes every response the MCP HTTP server serves, refusals included. requireBearerAuthWithLimits runs a preflight that writes nothing, then credkit.MCPHTTP around a gate that answers the Origin, bearer and body-limit verdicts.",
+   "why": "With the kit wrapping only the inner handler, a refusal answers outside it: a token holding the word unauthorized made a GET /mcp without Authorization return a piece of the held token.",
+   "spec_encode_followup": "Press-side: generate the MCP HTTP auth wrapper so its refusals are written by the inner, kit-wrapped handler and only a write-free preflight runs before credkit.MCPHTTP.",
+   "asserts": [
+    {
+     "file": "cli/cmd/threecx-mcp/main.go",
+     "contains": "kit := credkit.MCPHTTP(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/threecx-mcp/main.go",
+     "contains": "kit.ServeHTTP(w, r)",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/threecx-mcp/main.go",
+     "not_contains": "credkit.MCPHTTP(inner)"
+    },
+    {
+     "file": "cli/internal/threecxblackbox/mcphttp_test.go",
+     "contains": "func TestKitMCPHTTPRefusalsPassTheKit(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/threecxblackbox/mcphttp_test.go",
+     "contains": "func TestKitMCPHTTPRefusalsLeaveTheServerAnswering(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "mcp-mint-gets-confirm",
+   "class": "mcp-write-without-confirm",
+   "summary": "A GET that mints or grants a credential or allocates an object needs confirm on MCP",
+   "why": "3CX exposes GenerateApiKey, GetRequestHelpLink (grants vendor remote access), InitTrunk and others as GETs, which the generated table reads as reads, so threecx_read ran them with no confirm and under the read-only switch. internal/mcp/threecx_mint_gate.go marks them at init; code_orch.go stays template output. export.go refuses a function call in place of a record, so the mirrored export tool, which runs with no confirm, cannot reach one.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/threecx_mint_gate.go",
+     "contains": "ep.NeedsConfirm, ep.Mutating = true, true",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/export.go",
+     "contains": "cliutil.StateChangingGET(path) || singleItem && strings.Contains(path, \"/Pbx.\")",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "mcp-honours-pbx-selection",
+   "class": "wrong-origin-declaration",
+   "summary": "The MCP server applies THREECX_PBX, so its native tools use the phone system the kit was shown",
+   "why": "The CLI selector runs from root's pre-run, which the MCP server never runs: Declarations named the selected phone system while native tools loaded the global config and store. Re-apply in cmd/threecx-mcp/main.go run(). The selection keeps the server's own controls: the read-only and no-local-data switches (fleet.keptEnv) and the listener's bearer, allowed origins and companion path (ApplyMCPPBXSelection, hand file).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/cmd/threecx-mcp/main.go",
+     "contains": "cli.ApplyMCPPBXSelection()",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "saved-credential-bound-to-phone-system",
+   "class": "credential-sent-to-another-host",
+   "summary": "A credential on disk goes only to the phone system it was saved for",
+   "why": "The store recorded the unresolved template https://{fqdn}/xapi/v1 and compared origins only under --config, so THREECX_FQDN naming another client sent this client's secret there. config.go records the resolved URL and judges every load; internal/config/threecx_origin.go holds the rule. keepProfileCredential judges the store beside an explicit config by the same rule, and refuseFileCredentialsElsewhere drops [headers] with the scalars.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "cfg.refuseFileCredentialsElsewhere()",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "withFQDN(c.BaseURL, c.targetFQDN())",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "not_contains": "creds.HasValues() && explicit && !c.allowsGlobalCredential(creds)"
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "c.keepProfileCredential(creds, configPath)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "return withFQDN(v, c.targetFQDN())",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "path-context-stays-in-the-run",
+   "class": "host-file-written-from-mcp-argument",
+   "summary": "config.toml keeps only the FQDN of template_vars, and no path context can set the FQDN",
+   "why": "The sync path-context argument was merged into TemplateVars and the token save wrote it to config.toml, where the next start held it and refused to start.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "TemplateVars:  savedTemplateVars(c.TemplateVars)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "--path-context cannot set fqdn",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "stdin-body-held-whole",
+   "class": "credential-source-not-held",
+   "summary": "A --stdin body is held before a generated command parses it",
+   "why": "236 generated commands parse --stdin into a map, losing every member of a duplicate key but the last. The selector's pre-run in threecx_pbx_select.go calls holdStdinBody. The kit also holds the whole body and every line from StdinFlags in internal/credwire/declarations.go, which covers a body that does not parse.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/threecx_pbx_select.go",
+     "contains": "holdStdinBody(cmd)",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "fleet-tests-portable-child",
+   "class": "test-portability",
+   "status": "active",
+   "summary": "The fleet tests' per-PBX child is the Go test binary itself (TestMain runs fakeChildMain when FAKE_3CX_FLEET_CHILD=1), not a bash script, so the fleet tests run on Windows.",
+   "why": "A #!/bin/bash child cannot be executed on Windows: every fleet test there failed with 'none of the N PBX(es) in scope could be read' (CI on PR #557). The marker has no THREECX_ prefix so fleet.Scrub passes it to the child. internal/cli/root_test.go is generated; its TestMain gains the two-line dispatch.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/root_test.go",
+     "contains": "os.Exit(fakeChildMain(os.Args[1:]))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/threecx_fakechild_test.go",
+     "contains": "func fakeChildMain(args []string) int {",
+     "code_only": true
+    }
+   ]
+  }
+ ]
+}

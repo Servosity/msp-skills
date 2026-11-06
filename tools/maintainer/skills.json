@@ -2392,6 +2392,29 @@
       },
       "install_auth_hint": "Then set `THREATLOCKER_API_KEY` (Portal > Administrators > API Users > Generate API Token) and run `threatlocker-cli doctor`"
     },
+    "threecx": {
+      "system": "3CX Phone System (cloud or on-premises PBX)",
+      "status": "beta",
+      "cli_binary": "threecx-cli",
+      "mcp_binary": "threecx-mcp",
+      "vendor": "3CX",
+      "vendor_trademark_owner": "3CX Ltd",
+      "first_party": false,
+      "category": "Other",
+      "display_name": "3CX",
+      "tagline": "Check trunk, licence, version and backup health across every client's 3CX phone system at once.",
+      "has_video": true,
+      "cli_hash": "sha256:17c33bbe79499c2bd5265a64e48cb52129ca4ff199e1903a34528d93410a65c5",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": null,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
+    },
     "unifi-network": {
       "system": "self-hosted UniFi Network controller managing devices, clients, firewall policies, ACLs, VLANs, VPN, and switching on a local gateway",
       "status": "beta",
