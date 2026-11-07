@@ -88,18 +88,23 @@ current across a rebase only when both hold:
     (pinned diff options, so a reviewer's diff config cannot change it), not
     `git patch-id`, which ignores whitespace even inside string literals. What a
     rebase moves without changing what the branch did is fingerprinted by
-    content instead of position: the three source registries entry by entry
-    (every value byte-exact), README.md and the issue forms by their
-    hand-written parts only (generator-owned regions masked with the
-    generator's own patterns). Only files a generator writes WHOLE from
+    content instead of position: the three source registries and the three
+    shared gate files (security_suppressions.json, security_gate_baseline.json,
+    verify_baseline.json) entry by entry (every value byte-exact), README.md
+    and the issue forms by their hand-written parts only (generator-owned
+    regions masked with the generator's own patterns). Only files a generator writes WHOLE from
     sources (catalog.json, docs/_data/catalog.json, docs/llms*.txt, each
     connector's docs/skills/<slug>.md, .coderabbit.yaml) are left out, because
     this tool regenerates and re-checks them on the commit it merges;
   * main's new commits since the approval's base touch nothing under the
     connector's directory, nothing in release_matrix.py's shared machinery list,
     no directory the branch's other files live in, no hand-written part of a
-    README or issue form the branch also edits, and no registry entry of a
-    slug the branch touches.
+    README or issue form the branch also edits, no registry entry of a
+    slug the branch touches, and, in the shared gate files, no entry of a
+    connector the branch touches (including one whose entries it edits), no
+    entry that is not exactly one connector's (fleet-wide, {slug} or
+    malformed entries, rule keys, top-level fields) and nothing it cannot
+    read per entry.
 Automatic checks always re-run on the new commit regardless.
 With --approval-before-ci a run whose approvals are not current for the head
 it just pushed stops there (exit 4) instead of after the CI wait; CI keeps
@@ -130,6 +135,7 @@ Pure stdlib plus the `gh` CLI.
 from __future__ import annotations
 
 import argparse
+import ast
 import contextlib
 import difflib
 import hashlib
@@ -183,7 +189,7 @@ def _read_tool(f: str) -> str | None:
 LOADED_TOOLS = {f: _read_tool(f) for f in TOOL_FILES}
 rr._form_options_re()  # build-catalog.py's masks, loaded together with that snapshot
 
-FINGERPRINT_VERSION = "msp-skills-change-fingerprint/3"  # 3: .coderabbit.yaml left out (regenerated)
+FINGERPRINT_VERSION = "msp-skills-change-fingerprint/4"  # 4: the shared gate files per entry; 3: .coderabbit.yaml left out
 FLAKE_RERUNS = 2
 PUSH_LAG_READS, PUSH_LAG_SLEEP_S = 30, 2  # GitHub's PR API trails a branch push by seconds
 UNKNOWN_RERUNS = 1
@@ -298,12 +304,232 @@ def _has_coderabbit_gen(git: Git, rev: str) -> bool:
     return git.run("cat-file", "-e", f"{rev}:{CODERABBIT_GEN}", check=False).returncode == 0
 
 
+# --------------------------------------------------------------------------- #
+# The shared gate files, compared per connector entry
+# --------------------------------------------------------------------------- #
+#
+# Three base-owned gate files hold entries for every connector, and nearly
+# every connector change edits its own: security_suppressions.json ("suppress"
+# and "bound", accepted findings scoped by the path they name),
+# security_gate_baseline.json (per MCP-surface rule, the connectors still
+# burning it down) and verify_baseline.json (per connector, the verify
+# features it is known to fail, or to ERROR on). Compared as whole files,
+# every connector merge (which edits them) lapsed the approval of every other
+# pending connector change and failed every train car behind it, both through
+# main_touches ("beside a file this change edits") and through the
+# fingerprint (a literal diff's index line carries the whole file's blob id).
+# They are compared like the registries instead: entry by entry, each entry
+# owned by the ONE connector it names, or by none.
+#
+# Why per entry is safe. Both gates read these files from the trusted base and
+# judge a connector's row only through:
+#   * that connector's own entries: a "skills/<dir>/..." suppression path
+#     matches only files of skills/<dir>/ (check_security_gate.py compares
+#     exact repo-relative paths), and a baseline slug excuses only that slug's
+#     row; or
+#   * entries that are not one connector's: a slug-relative ("cli/...") or
+#     {slug} path (fleet-wide template entries), a malformed entry (a
+#     "suppress" entry with no "file" or "rule" empties the whole list for
+#     every row), a rule key, the file's presence, or any top-level field.
+# Every entry of the second kind is owned by no connector, so main changing
+# one is always a reason, as is a file this cannot read (fail closed, naming
+# the file). Main changing another connector's entries therefore cannot change
+# what this change's rows mean. And this decides only whether the human review
+# still describes the change: CI, the security gate included, re-runs on the
+# exact rebased commit (the merged tree) before anything merges.
+#
+# What stays whole-file: a change whose OWN edit to one of these files touches
+# an entry that is not one connector's (or that this cannot read) keeps
+# today's rule for it, the file and its directory as dependencies. The
+# disjoint-base exception (disjoint_move) keeps treating them as shared tooling
+# on both sides: it merges WITHOUT a CI run, so a tree whose gate inputs moved
+# must not skip the gate re-run.
+GATE_ENTRY_FILES = ("tools/maintainer/security_suppressions.json",
+                    "tools/maintainer/security_gate_baseline.json",
+                    "tools/maintainer/verify_baseline.json")
+_GATE_SECTIONS = {GATE_ENTRY_FILES[0]: ("suppress", "bound"), GATE_ENTRY_FILES[1]: ("rules",),
+                  GATE_ENTRY_FILES[2]: ("connectors", "known_errors")}
+_NAME_RE = re.compile(r"[a-z0-9][a-z0-9-]*")  # a connector directory or slug (the gate's SLUG_RE), a feature id
+_ODD_PATH_RE = re.compile(r"[{}*?\[\]\\\x00-\x1f\x7f]")
+
+
+def _path_owner(f: object) -> str | None:
+    """The connector directory a suppression path scopes to: "skills/<dir>/<file>"
+    with a literal directory name and a plain relative path. None for anything
+    else: slug-relative "cli/..." (fleet-wide), a {slug} pattern, a glob or
+    escape character, an empty, "." or ".." segment."""
+    if not isinstance(f, str) or _ODD_PATH_RE.search(f):
+        return None
+    parts = f.split("/")
+    if len(parts) < 3 or parts[0] != "skills" or not _NAME_RE.fullmatch(parts[1]) \
+            or any(x in ("", ".", "..") for x in parts):
+        return None
+    return parts[1]
+
+
+def _names(v: object) -> bool:
+    """A list of distinct connector slugs or feature ids: the only list shape
+    either gate reads without failing every row."""
+    return isinstance(v, list) and all(isinstance(x, str) and _NAME_RE.fullmatch(x) for x in v) \
+        and len(set(v)) == len(v)
+
+
+# The vocabulary each reader accepts, read from the reader's own source at the
+# same revision as the file: an entry outside it makes the reader refuse the
+# whole file (verify_gate.py's GateError, check_security_gate.py's baseline
+# policy P1), which is every connector's row, never one connector's.
+_READER_VOCAB = {GATE_ENTRY_FILES[1]: ("tools/maintainer/check_security_gate.py", "MCP_RULES"),
+                 GATE_ENTRY_FILES[2]: ("tools/maintainer/verify_gate.py", "FEATURE_IDS")}
+_VOCAB_CACHE: dict[tuple[str, str], frozenset[str]] = {}
+
+
+def _regular_text(git: Git, rev: str, path: str, modes: tuple[str, ...] = ("100644",)) -> str | None:
+    """The text of `path` at `rev`, None when absent. Raises rr.UnknownFormat
+    unless it is an ordinary file of one of `modes` (a data file: 100644): a
+    symlink makes its readers follow the link to another file, and a mode is
+    not an entry."""
+    raw = git.raw("ls-tree", "-z", rev, "--", path)
+    if not raw:
+        return None
+    meta = raw.split(b"\t", 1)[0].decode("ascii", "replace").split(" ")
+    mode = meta[0]
+    if mode not in modes or len(meta) != 3 or meta[1] != "blob" or raw.count(b"\0") != 1:
+        raise rr.UnknownFormat(f"it is not an ordinary file at {rev[:12]} (mode {mode})")
+    # Read the very blob the tree lists, checked: the file exists, so a failed
+    # read is never "absent" (Git.show would return None for it).
+    p = git._bounded(["git", "cat-file", "blob", meta[2]], cwd=str(git.repo), capture_output=True,
+                     env=git.env or os.environ)
+    if p.returncode != 0:
+        raise rr.UnknownFormat(f"its blob {meta[2][:12]} at {rev[:12]} cannot be read")
+    return p.stdout.decode("utf-8", "surrogateescape")
+
+
+def _reader_vocab(git: Git, rev: str, path: str) -> frozenset[str] | None:
+    if path not in _READER_VOCAB:
+        return None
+    reader, name = _READER_VOCAB[path]
+    try:
+        src = _regular_text(git, rev, reader, ("100644", "100755"))  # a script may be executable
+    except rr.UnknownFormat as exc:
+        raise rr.UnknownFormat(f"its reader {reader}: {exc}") from exc
+    if src is None:
+        raise rr.UnknownFormat(f"its reader {reader} is missing at {rev[:12]}")
+    key = (hashlib.sha256(src.encode("utf-8", "surrogateescape")).hexdigest(), name)
+    if key not in _VOCAB_CACHE:
+        why = f"cannot read {name} from {reader} at {rev[:12]}"
+        try:
+            vals = [n.value for n in ast.parse(src).body if isinstance(n, ast.Assign)
+                    and any(isinstance(t, ast.Name) and t.id == name for t in n.targets)]
+            if len(vals) != 1:
+                raise ValueError(f"{len(vals)} assignments")
+            v = ast.literal_eval(vals[0])
+        except (SyntaxError, ValueError, TypeError, MemoryError, RecursionError) as exc:
+            raise rr.UnknownFormat(f"{why} ({exc})") from exc
+        if name == "MCP_RULES":
+            ok = isinstance(v, tuple) and all(isinstance(r, tuple) and len(r) == 2 and isinstance(r[0], str)
+                                              for r in v)
+            ids = [r[0] for r in v] if ok else []
+        else:
+            ok = isinstance(v, tuple) and all(isinstance(f, str) for f in v)
+            ids = list(v) if ok else []
+        if not ok or not ids:
+            raise rr.UnknownFormat(f"{why} (not the expected literal)")
+        _VOCAB_CACHE[key] = frozenset(ids)
+    return _VOCAB_CACHE[key]
+
+
+def gate_entries(path: str, text: str | None, vocab: frozenset[str] | None = None
+                 ) -> dict[str, tuple[str, str | None]]:
+    """{entry key: (canonical value, owning connector or None)} for one revision
+    of a shared gate file. Owner None means the entry is not exactly one
+    connector's. `vocab`: the rule ids (security baseline) or feature ids
+    (verify baseline) the file's reader accepts; required for those two.
+    Raises rr.UnknownFormat for anything its reader would refuse as a whole,
+    and for anything this does not read."""
+    if text is None:  # a missing file changes every row (the gates fail closed on it)
+        return {rr.canon(["file"]): ("absent", None)}
+    obj = rr.load_json_strict(text)  # duplicate keys refused: json.loads would silently keep the last
+    if not isinstance(obj, dict):
+        raise rr.UnknownFormat("not a JSON object")
+    if path in _READER_VOCAB and not vocab:
+        raise rr.UnknownFormat("no reader vocabulary to check it against")
+    if path == GATE_ENTRY_FILES[1] and not isinstance(obj.get("rules"), dict):
+        raise rr.UnknownFormat('no "rules" object')
+    if path == GATE_ENTRY_FILES[2]:
+        if not isinstance(obj.get("connectors"), dict):
+            raise rr.UnknownFormat('no "connectors" object')
+        extra = sorted(set(obj) - set(_GATE_SECTIONS[path]) - {"_comment"})
+        if extra:
+            raise rr.UnknownFormat(f"keys verify_gate.py refuses: {extra}")
+    out: dict[str, tuple[str, str | None]] = {rr.canon(["file"]): ("present", None)}
+    for sec, v in obj.items():
+        if sec not in _GATE_SECTIONS[path]:
+            out[rr.canon(["top", sec])] = (rr.canon(v), None)  # any other top-level field: every row
+            continue
+        out[rr.canon(["section", sec])] = ("present", None)  # a section added or dropped: every row
+        if sec in ("suppress", "bound"):
+            if not isinstance(v, list):
+                raise rr.UnknownFormat(f'"{sec}" is not a list')
+            for e in v:  # a multiset: an entry's position is ignored, a duplicate counts
+                key = rr.canon([sec, e])
+                owner = _path_owner(e.get("file")) if isinstance(e, dict) and isinstance(e.get("rule"), str) \
+                    else None
+                n = int(out.get(key, ("0", None))[0]) + 1
+                out[key] = (str(n), owner)
+        elif sec == "rules":
+            if set(v) != vocab:
+                raise rr.UnknownFormat(f"its rule keys are not exactly check_security_gate.py's (unknown: "
+                                       f"{sorted(set(v) - set(vocab or ()))}, missing: "
+                                       f"{sorted(set(vocab or ()) - set(v))})")
+            for rule, slugs in v.items():
+                if not _names(slugs):
+                    raise rr.UnknownFormat(f"rule {rule!r} is not a list of distinct connector slugs")
+                out[rr.canon(["rule", rule])] = ("present", None)  # every row reads every rule key
+                for s_ in slugs:
+                    out[rr.canon(["rule", rule, s_])] = ("listed", s_)
+        else:  # verify_baseline.json "connectors" / "known_errors"
+            if not isinstance(v, dict):
+                raise rr.UnknownFormat(f'"{sec}" is not an object')
+            for slug, feats in v.items():
+                if not _names(feats) or not set(feats) <= (vocab or frozenset()):
+                    raise rr.UnknownFormat(f"{sec}.{slug} is not a list of distinct feature ids verify_gate.py "
+                                           f"knows")
+                out[rr.canon([sec, slug])] = (rr.canon(feats), slug if _NAME_RE.fullmatch(slug) else None)
+    if path == GATE_ENTRY_FILES[2]:
+        fail, err = obj["connectors"], obj.get("known_errors", {})
+        if any(set(fail[s_]) & set(err.get(s_, [])) for s_ in fail):
+            # verify_gate.py refuses the whole file for that: every row fails, not one connector's
+            raise rr.UnknownFormat("a pair is listed both as a FAIL and as a known error")
+    return out
+
+
+def gate_revision(git: Git, rev: str, path: str) -> dict[str, tuple[str, str | None]]:
+    """gate_entries of `path` at `rev`, its mode and its reader's vocabulary
+    checked at that same revision. Raises rr.UnknownFormat."""
+    text = _regular_text(git, rev, path)
+    return gate_entries(path, text, _reader_vocab(git, rev, path) if text is not None else None)
+
+
+def gate_entry_changes(git: Git, path: str, old: str, new: str) -> list[tuple[str, str | None]]:
+    """(entry key, owner) of every entry of `path` that differs between the
+    revisions `old` and `new`. Raises rr.UnknownFormat."""
+    a, b = gate_revision(git, old, path), gate_revision(git, new, path)
+    out = []
+    for k in sorted(set(a) | set(b)):
+        if a.get(k, ("",))[0] != b.get(k, ("",))[0]:
+            owners = {x[1] for x in (a.get(k), b.get(k)) if x is not None}
+            out.append((k, owners.pop() if len(owners) == 1 else None))
+    return out
+
+
 def fingerprint(git: Git, base: str, head: str) -> str:
     """sha256 over the change `git diff base...head`, byte-exact for every byte
     a person wrote:
       * every ordinary file: a pinned `git diff --binary` (blob ids included);
-      * the three registries: entry by entry, every value byte-exact, the
-        entry's position in the file ignored;
+      * the three registries and the three shared gate files
+        (GATE_ENTRY_FILES): entry by entry, every value byte-exact, the
+        entry's position in the file ignored (a gate file this cannot read
+        per entry falls back to its literal diff);
       * README.md and the issue forms: a diff of their HAND-WRITTEN parts (the
         generator-owned regions masked out with the generator's own patterns);
       * left out entirely only what a generator writes whole from sources:
@@ -321,7 +547,7 @@ def fingerprint(git: Git, base: str, head: str) -> str:
     h.update(FINGERPRINT_VERSION.encode() + b"\n")
     literal: list[str] = []
     for p in paths:
-        if p in rr.REGISTRY_FILES or p in rr.PARTIAL_DERIVED or rr.is_full_derived(p, pages):
+        if p in rr.REGISTRY_FILES or p in GATE_ENTRY_FILES or p in rr.PARTIAL_DERIVED or rr.is_full_derived(p, pages):
             continue
         if p == CODERABBIT_CONFIG and _has_coderabbit_gen(git, head):
             continue  # regenerated from the tree and --check'ed on the commit this tool merges
@@ -337,6 +563,17 @@ def fingerprint(git: Git, base: str, head: str) -> str:
             continue
         delta = [[k, old.get(k), new.get(k)] for k in sorted(set(old) | set(new)) if old.get(k) != new.get(k)]
         h.update(b"\0registry " + reg.encode() + b"\0" + json.dumps(delta, ensure_ascii=True).encode())
+    for gf in GATE_ENTRY_FILES:
+        if gf not in paths:
+            continue
+        try:
+            go = {k: v for k, (v, _o) in gate_revision(git, mb, gf).items()}
+            gn = {k: v for k, (v, _o) in gate_revision(git, head, gf).items()}
+        except rr.UnknownFormat:
+            literal.append(gf)  # unreadable: its literal bytes, as before
+            continue
+        delta = [[k, go.get(k), gn.get(k)] for k in sorted(set(go) | set(gn)) if go.get(k) != gn.get(k)]
+        h.update(b"\0gate-entries " + gf.encode() + b"\0" + json.dumps(delta, ensure_ascii=True).encode())
     for part in rr.PARTIAL_DERIVED:
         if part not in paths:
             continue
@@ -360,6 +597,12 @@ class Footprint:
     dep_prefixes: set[str] = field(default_factory=set)
     dep_files: set[str] = field(default_factory=set)
     authored_partial: set[str] = field(default_factory=set)
+    # Shared gate files the change edits only in one-connector entries (their
+    # owners are in slugs and skill_dirs), and the directory they sit in: a
+    # dependency for every OTHER file there, as before, while the gate files
+    # themselves are compared per entry.
+    gate_files: set[str] = field(default_factory=set)
+    gate_prefixes: set[str] = field(default_factory=set)
 
 
 def footprint(git: Git, base: str, head: str) -> Footprint:
@@ -379,6 +622,19 @@ def footprint(git: Git, base: str, head: str) -> Footprint:
                 fp.slugs |= rr.registry_slugs(rr.changed_entries(p, git.show(mb, p), git.show(head, p)))
             except rr.UnknownFormat:
                 fp.dep_files.add(p)
+        elif p in GATE_ENTRY_FILES:
+            try:
+                owners = {o for _k, o in gate_entry_changes(git, p, mb, head)}
+            except rr.UnknownFormat:
+                owners = {None}
+            if None in owners:  # an entry that is not one connector's, or unreadable: the whole file, as before
+                fp.dep_files.add(p)
+                fp.dep_prefixes.add("/".join(parts[:-1]) + "/")
+            else:  # its own connectors' entries: what they suppress or excuse is those connectors' code
+                fp.gate_files.add(p)
+                fp.gate_prefixes.add("/".join(parts[:-1]) + "/")
+                fp.slugs |= {o for o in owners if o}
+                fp.skill_dirs |= {o for o in owners if o}
         elif p in rr.PARTIAL_DERIVED:
             if rr.mask_generated(p, git.show(mb, p)) != rr.mask_generated(p, git.show(head, p)):
                 fp.authored_partial.add(p)
@@ -431,7 +687,9 @@ def main_touches(git: Git, old_base: str, new_base: str, fp: Footprint) -> list[
             continue
         elif p == CODERABBIT_CONFIG and _has_coderabbit_gen(git, new_base):
             continue
-        elif p in fp.dep_files or any(p.startswith(x) for x in fp.dep_prefixes):
+        elif p in GATE_ENTRY_FILES and p not in fp.dep_files and not any(p.startswith(x) for x in fp.dep_prefixes):
+            continue  # compared per entry below (unless another file the change edits sits beside it)
+        elif p in fp.dep_files or any(p.startswith(x) for x in fp.dep_prefixes | fp.gate_prefixes):
             hits.append(f"main changed {p} (beside a file this change edits)")
     for reg in rr.REGISTRY_FILES:
         if reg not in names:
@@ -447,6 +705,28 @@ def main_touches(git: Git, old_base: str, new_base: str, fp: Footprint) -> list[
             hits.append(f"main changed the registry-wide {k} in {reg}")
         for s in sorted(rr.registry_slugs(changed) & fp.slugs):
             hits.append(f"main changed the {reg} entry for {s}")
+    # The shared gate files (see GATE_ENTRY_FILES): main's change to one is a
+    # reason when it changes an entry of a connector this change touches, any
+    # entry that is not exactly one connector's, or cannot be read per entry.
+    # A change with no connector and no entry there reads none of it (as before).
+    deps = fp.slugs | fp.skill_dirs
+    for gf in GATE_ENTRY_FILES:
+        if gf not in names or gf in fp.dep_files or any(gf.startswith(x) for x in fp.dep_prefixes):
+            continue  # unchanged on main, or already a reason as a whole file above
+        if not deps and gf not in fp.gate_files:
+            continue
+        try:
+            changed_g = gate_entry_changes(git, gf, old_base, new_base)
+        except rr.UnknownFormat as exc:
+            hits.append(f"main's {gf} cannot be compared per entry ({exc})")
+            continue
+        shared = [k for k, o in changed_g if o is None]
+        for k in shared[:5]:
+            hits.append(f"main changed {gf} outside one connector's entries: {_printable(k)[:160]}")
+        if len(shared) > 5:
+            hits.append(f"main changed {len(shared) - 5} more entries of {gf} that are not one connector's")
+        for o in sorted({o for _k, o in changed_g if o is not None and o in deps}):
+            hits.append(f"main changed {gf} entries of {o}, a connector this change touches")
     return hits
 
 
@@ -473,7 +753,10 @@ def main_touches(git: Git, old_base: str, new_base: str, fp: Footprint) -> list[
 # docs/assets/{social,video}/<slug>/ media, and .coderabbit.yaml, which its
 # generator must confirm on the merged tree. Everything else (tools/, .github/,
 # any other root or shared file, a registry on main, a merge commit on main, a
-# symlink or submodule) means a re-run as before. Those generated files are the ones
+# symlink or submodule) means a re-run as before. The shared gate files
+# (GATE_ENTRY_FILES) stay whole here on both sides, although approvals compare
+# them per entry: this path merges without any CI run, so a merged tree whose
+# security or verify gate inputs moved must take the re-run. Those generated files are the ones
 # catalog.yml commits to main on its own after every merge (`derived=` there);
 # the registries and the issue forms it also writes stay excluded, because they
 # live under tools/ and .github/. A generated file is not trusted by name: the
@@ -4120,6 +4403,208 @@ def _self_test() -> int:
         expect(rc == EXIT_APPROVAL and any("registry-wide top:owner" in s for s in logs),
                "main changing the registry's owner makes every approval stale")
 
+        # T8b6: the three shared gate files are compared per connector entry, like the registries.
+        print("shared gate files (suppressions, security baseline, verify baseline) per connector entry:")
+        g_sup, g_gbl, g_vbl = ("tools/maintainer/security_suppressions.json",
+                               "tools/maintainer/security_gate_baseline.json", "tools/maintainer/verify_baseline.json")
+        gate_slugs = ("alpha", "alpha-x", "alpha-y", "delta", "delta-x", "delta-y", "echo", "echo-x", "echo-y")
+        zero = "sha256:" + "0" * 64
+
+        def gate_put(w: Path, path: str, obj: object) -> None:
+            (w / path).write_text(json.dumps(obj, indent=1) + "\n")
+
+        def gate_get(w: Path, path: str) -> dict:
+            return json.loads((w / path).read_text())
+
+        def gate_setup(w: Path) -> None:
+            # The readers' vocabularies (the rule ids and feature ids they accept), as the real files define them.
+            (w / "tools/maintainer/check_security_gate.py").write_text(
+                'MCP_RULES = (\n    ("mcp-x", "first rule"),\n    ("mcp-y", "second "\n     "rule"),\n)\n')
+            (w / "tools/maintainer/verify_gate.py").write_text(
+                'FEATURE_IDS = ("install", "mcp-stdio", "mcp-http", "write-gating", "read-only", "local-data")\n')
+            gate_put(w, g_sup, {"_comment": "c", "suppress": [
+                {"file": f"skills/{s}/cli/main.go", "rule": "G204", "reason": f"{s} reviewed"} for s in gate_slugs]
+                + [{"file": "cli/internal/client/client.go", "rule": "G107", "reason": "fleet template"}],
+                "bound": [{"file": f"skills/{s}/cli/main.go", "rule": "G304", "bind": "file", "sha256": [zero],
+                           "reason": f"{s} bound"} for s in gate_slugs]
+                + [{"file": "cli/cmd/{slug}-mcp/main.go", "rule": "G115", "bind": "decl", "sha256": [zero],
+                    "slug_neutral": True, "reason": "template"}]})
+            gate_put(w, g_gbl, {"_comment": "c", "rules": {"mcp-x": list(gate_slugs), "mcp-y": []}})
+            gate_put(w, g_vbl, {"_comment": "c", "connectors": {s: ["mcp-http", "write-gating"] for s in gate_slugs},
+                                "known_errors": {}})
+            # an ordinary file whose NAME is a valid baseline, for the symlink case below
+            gate_put(w, 'tools/maintainer/{"connectors":{}}', {"connectors": {"alpha": ["install"]}})
+
+        def gate_edit(slug: str, files: tuple[str, ...] = (g_sup, g_gbl, g_vbl)) -> Callable[[Path], None]:
+            """What a reprint does to its own entries: re-reviews its suppressions, burns down its baselines."""
+            def edit(w: Path) -> None:
+                if g_sup in files:
+                    d = gate_get(w, g_sup)
+                    for sec in ("suppress", "bound"):
+                        for e in d[sec]:
+                            if e["file"] == f"skills/{slug}/cli/main.go":
+                                e["reason"] = f"{slug} re-reviewed"
+                    gate_put(w, g_sup, d)
+                if g_gbl in files:
+                    d = gate_get(w, g_gbl)
+                    d["rules"]["mcp-x"].remove(slug)
+                    gate_put(w, g_gbl, d)
+                if g_vbl in files:
+                    d = gate_get(w, g_vbl)
+                    d["connectors"][slug] = ["mcp-http"]
+                    gate_put(w, g_vbl, d)
+            return edit
+
+        def gate_json(path: str, fn: Callable[[dict], None]) -> Callable[[Path], None]:
+            def edit(w: Path) -> None:
+                d = gate_get(w, path)
+                fn(d)
+                gate_put(w, path, d)
+            return edit
+
+        def gate_case(pr_edit: Callable[[Path], None], main_edit: Callable[[Path], None],
+                      also_main: Callable[[Path], None] | None = None,
+                      before: Callable[[Path, str, str], None] | None = None) -> tuple[bool, list[str]]:
+            """approval_status of a change approved on the gate files' base, rebased onto a main that
+            then ran `main_edit`: the decision a single run and a train car both make."""
+            origin, work, _b = world()
+            main_commit(work, gate_setup, "the shared gate files")
+            base0 = sh("git", "rev-parse", "HEAD", cwd=work)
+            sh("git", "checkout", "-q", "-b", "fix/alpha", cwd=work)
+            pr_edit(work)
+            sh("git", "add", "-A", cwd=work)
+            sh("git", "commit", "-q", "-s", "-m", "the change", cwd=work)
+            head0 = sh("git", "rev-parse", "HEAD", cwd=work)
+            gw = Git(work, env)
+            appr = {"reviewer": "codex", "head": head0, "base": base0, "diff_hash": fingerprint(gw, base0, head0),
+                    "fingerprint_version": FINGERPRINT_VERSION}
+            main_commit(work, main_edit, "main edits the gate files")
+            if also_main:
+                main_commit(work, also_main, "main edits another file")
+            new_base = sh("git", "rev-parse", "main", cwd=work)
+            sh("git", "checkout", "-q", "fix/alpha", cwd=work)
+            sh("git", "rebase", "-q", "main", cwd=work)
+            rebased = sh("git", "rev-parse", "HEAD", cwd=work)
+            sh("git", "checkout", "-q", "main", cwd=work)
+            if before:
+                before(work, base0, new_base)
+            return approval_status(gw, appr, new_base, rebased)
+
+        def alpha_change(w: Path) -> None:  # a reprint of alpha: its directory and its own gate entries
+            (w / "skills/alpha/SKILL.md").write_text("# alpha\n\nline one\nREPRINTED\nline three\n")
+            gate_edit("alpha")(w)
+
+        for gf in (g_sup, g_gbl, g_vbl):
+            ok, why = gate_case(alpha_change, gate_edit("delta", (gf,)))
+            expect(ok and not why, f"main edits only another connector's entries in {gf}: the approval of a change "
+                                   f"to alpha's own entries stays current ({why})")
+        ok, why = gate_case(alpha_change, lambda w: (gate_edit("delta")(w), gate_edit("echo")(w)))
+        expect(ok and not why, f"two other connectors' merges edit all three files: still current ({why})")
+        ok, why = gate_case(gate_edit("alpha", (g_sup,)), gate_edit("delta"))
+        expect(ok and not why, f"a change that only re-reviews alpha's suppressions stays current when main edits "
+                               f"delta's entries ({why})")
+        for gf in (g_sup, g_gbl, g_vbl):
+            ok, why = gate_case(alpha_change, gate_edit("alpha", (gf,)) if gf != g_gbl else
+                                gate_json(g_gbl, lambda d: d["rules"]["mcp-y"].append("alpha")))
+            expect(not ok and any(gf in r for r in why), f"main edits alpha's own entry in {gf}: stale ({why})")
+            expect(any(gf in r and "alpha" in r for r in why), f"and the reason names {gf} and alpha ({why})")
+        ok, why = gate_case(lambda w: (w / "skills/alpha/SKILL.md").write_text("# alpha\n\nfixed\n"),
+                            gate_edit("alpha", (g_vbl,)))
+        expect(not ok and any(g_vbl in r and "alpha" in r for r in why),
+               f"a change to alpha's directory alone is stale when main edits alpha's verify entry ({why})")
+        ok, why = gate_case(gate_edit("alpha", (g_sup,)),
+                            lambda w: (w / "skills/alpha/cli/main.go").write_text('package main\n\nconst n = 9\n'))
+        expect(not ok and any("skills/alpha/" in r for r in why),
+               f"a change to alpha's suppressions is stale when main edits the code they bind ({why})")
+        fleet_edits = (
+            ("a slug-relative (fleet-wide) suppression", gate_json(g_sup, lambda d: d["suppress"].append(
+                {"file": "cli/internal/store/store.go", "rule": "G202", "reason": "fleet"})), g_sup),
+            ("the fleet template's bound entry", gate_json(g_sup, lambda d: d["bound"][-1].update(sha256=[
+                "sha256:" + "1" * 64])), g_sup),
+            ("a {slug} repo-relative bound entry", gate_json(g_sup, lambda d: d["bound"].append(
+                {"file": "skills/{slug}/cli/main.go", "rule": "G306", "bind": "file", "sha256": [zero],
+                 "reason": "x"})), g_sup),
+            ("a suppression with no rule (it empties the whole list for every row)", gate_json(
+                g_sup, lambda d: d["suppress"].append({"file": "skills/delta/cli/a.go", "reason": "x"})), g_sup),
+            ("a suppression path that climbs out of its directory", gate_json(g_sup, lambda d: d["suppress"].append(
+                {"file": "skills/delta/../alpha/cli/main.go", "rule": "G204", "reason": "x"})), g_sup),
+            ("a suppression glob", gate_json(g_sup, lambda d: d["suppress"].append(
+                {"file": "skills/delta/cli/*.go", "rule": "G204", "reason": "x"})), g_sup),
+            ("a new top-level section", gate_json(g_sup, lambda d: d.update(allow=[])), g_sup),
+            ("a top-level field", gate_json(g_gbl, lambda d: d.update(_comment="changed")), g_gbl),
+            ("a new rule key", gate_json(g_gbl, lambda d: d["rules"].update({"mcp-z": ["delta"]})), g_gbl),
+            ("a removed rule key", gate_json(g_gbl, lambda d: d["rules"].pop("mcp-y")), g_gbl),
+            ("a verify entry that is not a connector slug", gate_json(
+                g_vbl, lambda d: d["connectors"].update({"Not A Slug": ["install"]})), g_vbl),
+            ("a top-level verify field", gate_json(g_vbl, lambda d: d.update(_comment="changed")), g_vbl),
+        )
+        for label, edit, gf in fleet_edits:
+            ok, why = gate_case(alpha_change, edit)
+            expect(not ok and any(gf in r for r in why), f"main changes {label} in {gf}: stale ({why})")
+
+        def alpha_change_but(gf: str) -> Callable[[Path], None]:  # alpha's reprint, leaving `gf` alone
+            def edit(w: Path) -> None:
+                (w / "skills/alpha/SKILL.md").write_text("# alpha\n\nline one\nREPRINTED\nline three\n")
+                gate_edit("alpha", tuple(f for f in (g_sup, g_gbl, g_vbl) if f != gf))(w)
+            return edit
+        ok, why = gate_case(alpha_change_but(g_vbl), lambda w: (w / g_vbl).unlink())
+        expect(not ok and any(g_vbl in r for r in why), f"main deletes {g_vbl}: stale ({why})")
+        unreadable = (
+            ("is not JSON", lambda w: (w / g_sup).write_text("{not json\n"), g_sup),
+            ("has a duplicate key", lambda w: (w / g_gbl).write_text((w / g_gbl).read_text().replace(
+                '"_comment": "c",', '"_comment": "c",\n "_comment": "d",')), g_gbl),
+            ("has a section of the wrong shape", gate_json(g_sup, lambda d: d.update(bound={})), g_sup),
+            ("has a rule that is not a list", gate_json(g_gbl, lambda d: d["rules"].update({"mcp-y": {}})), g_gbl),
+            ("lists a slug twice in one rule", gate_json(g_gbl, lambda d: d["rules"]["mcp-x"].append("delta")), g_gbl),
+            ("has a verify entry that is not a list", gate_json(
+                g_vbl, lambda d: d["connectors"].update({"delta": "install"})), g_vbl),
+            ("names a feature verify_gate.py does not know (it refuses the whole file)", gate_json(
+                g_vbl, lambda d: d["connectors"].update({"delta": ["future-feature"]})), g_vbl),
+            ("has a key verify_gate.py does not know", gate_json(g_vbl, lambda d: d.update(extra={})), g_vbl),
+            ("has no connectors object", gate_json(g_vbl, lambda d: d.pop("connectors")), g_vbl),
+            ("names a rule check_security_gate.py does not know", gate_json(
+                g_gbl, lambda d: d["rules"].update({"mcp-unknown": ["delta"]})), g_gbl),
+            ("is missing a rule check_security_gate.py requires", gate_json(
+                g_gbl, lambda d: d["rules"].pop("mcp-y")), g_gbl),
+            # a symlink whose target text is itself a valid baseline (Codex round 1): the gate follows the link
+            ("is a symlink now", lambda w: ((w / g_vbl).unlink(), (w / g_vbl).symlink_to('{"connectors":{}}')), g_vbl),
+            ("is executable now", lambda w: (w / g_vbl).chmod(0o755), g_vbl),
+        )
+        for label, edit, gf in unreadable:
+            ok, why = gate_case(alpha_change_but(gf), edit)
+            expect(not ok and any(gf in r and "cannot be compared" in r for r in why),
+                   f"main's {gf} {label}: stale, naming the file as not comparable per entry ({why})")
+        def lose_blobs(w: Path, *revs: str) -> None:  # the trees still list the file, its bytes cannot be read
+            for r in revs:
+                oid = sh("git", "rev-parse", f"{r}:{g_vbl}", cwd=w)
+                (w / ".git/objects" / oid[:2] / oid[2:]).unlink()
+        ok, why = gate_case(alpha_change_but(g_vbl), gate_edit("alpha", (g_vbl,)), before=lose_blobs)
+        expect(not ok and any(g_vbl in r for r in why),
+               f"a gate file listed in the tree whose bytes cannot be read is never read as absent ({why})")
+        ok, why = gate_case(lambda w: (alpha_change(w), gate_json(g_sup, lambda d: d["suppress"].append(
+            {"file": "cli/internal/x.go", "rule": "G204", "reason": "fleet"}))(w)), gate_edit("delta", (g_sup,)))
+        expect(not ok and any(g_sup in r for r in why),
+               f"a change that itself edits a fleet-wide entry keeps the whole-file rule ({why})")
+        ok, why = gate_case(alpha_change, gate_edit("delta"),
+                            lambda w: (w / "tools/maintainer/check_security_gate.py").write_text("# gate\n"))
+        expect(not ok and any("check_security_gate.py" in r for r in why),
+               f"another file beside the gate files still lapses it, as before ({why})")
+        ok, why = gate_case(lambda w: (w / "docs/guide.md").write_text("guide rewritten\n"),
+                            gate_json(g_sup, lambda d: d["suppress"].append(
+                                {"file": "cli/internal/y.go", "rule": "G204", "reason": "fleet"})))
+        expect(ok and not why, f"a change with no connector and no gate entry is not lapsed by them ({why})")
+        origin, work, _b = world()
+        main_commit(work, gate_setup, "the shared gate files")
+        base0 = sh("git", "rev-parse", "HEAD", cwd=work)
+        fps = []
+        for reason in ("alpha re-reviewed", "alpha  re-reviewed"):
+            sh("git", "checkout", "-q", "--detach", base0, cwd=work)
+            gate_json(g_sup, lambda d, r=reason: d["suppress"][0].update(reason=r))(work)
+            sh("git", "commit", "-q", "-s", "-am", "reason", cwd=work)
+            fps.append(fingerprint(Git(work, env), base0, sh("git", "rev-parse", "HEAD", cwd=work)))
+        sh("git", "checkout", "-q", "main", cwd=work)
+        expect(fps[0] != fps[1], "the fingerprint still tells apart two entries that differ by one space")
+
         # T8b5: a listing cut short at a page boundary is never green.
         class _Stub:
             def __init__(self, rc: int, out: str) -> None:
@@ -5203,6 +5688,22 @@ def _self_test() -> int:
             expect(fakes[0].messages == [(None, None)], "car 1 is merged with the same call as a single run")
         expect(sum("carried to" in s for s in logs) == 3,
                "each car's approval carried: its own change (diff from the car ahead) is the approved one")
+
+        # TR1b: reprint-shaped cars that each edit their own entries in the three shared gate files
+        # (the 2026-11-07 trains): every car's approval carries onto the cars ahead of it.
+        origin, work = train_world()
+        main_commit(work, gate_setup, "the shared gate files")
+        start = origin_rev(origin, "refs/heads/main")
+        heads = {s: fix_branch(work, s, gate_edit(s)) for s in ("alpha", "delta", "echo")}
+        fakes = [FakeGitHub(origin, env, 91 + i, f"fix/{s}", f"fix {s} docs", green)
+                 for i, s in enumerate(("alpha", "delta", "echo"))]
+        for fk, s in zip(fakes, ("alpha", "delta", "echo")):
+            approve(work, fk, heads[s])
+        rc, res, logs = run_train(work, fakes, max_rebases=0)
+        expect(rc == 0 and [r["result"] for r in res] == ["merged"] * 3 and len(landed(origin, start)) == 3
+               and sum("carried to" in s for s in logs) == 3,
+               f"three cars editing their own gate entries all merge, each approval carried "
+               f"(rc={rc}, {[(r['result'], r.get('why', '')) for r in res]})")
 
         # TR2: a red middle car: only the car ahead of it merges in that pass; the car behind it is not
         # merged on top of it, and the PR heads stacked on unmerged cars are put back.
