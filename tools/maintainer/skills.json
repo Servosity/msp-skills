@@ -2510,7 +2510,7 @@
       "first_party": false,
       "category": "Backup/DR",
       "display_name": "Veeam",
-      "cli_hash": "sha256:bb384b1bf3114c81687737462d69eb496e3a72f27ad51c4d7855248d7f4a3267",
+      "cli_hash": "sha256:d3891d2cbb1532435ed3e85b5cda3684184852ee56c14b5c355f47bb540d33fa",
       "template_version": 3,
       "version": "0.1.7",
       "cli_hash_at_release": "sha256:11bfccb83ad66e7eb8d86183d3498bbd74af7341d13324810f015dae79c91b72",

@@ -16,7 +16,7 @@ type staleJob struct {
 	Job       string  `json:"job"`
 	Kind      string  `json:"kind"`
 	Status    string  `json:"status"`
-	LastRun   string  `json:"last_run,omitempty"`
+	LastRun   string  `json:"last_run,omitempty"` // when the latest session ended (started, if no end is recorded)
 	DaysStale float64 `json:"days_stale"`
 	Enabled   bool    `json:"enabled"`
 }
@@ -27,6 +27,7 @@ type staleView struct {
 	Count     int        `json:"count"`
 }
 
+// pp:data-source local
 func newNovelStaleBackupsCmd(flags *rootFlags) *cobra.Command {
 	var flagDays, dbPath string
 	var includeDisabled bool
@@ -47,8 +48,11 @@ Disabled jobs are hidden unless --include-disabled is set.`, "\n"),
   veeam-cli stale-backups --days 3
   veeam-cli stale-backups --days 7 --include-disabled
   veeam-cli stale-backups --days 1 --agent`, "\n"),
-		Annotations: map[string]string{"mcp:read-only": "true"},
+		Annotations: map[string]string{"mcp:read-only": "true", "pp:data-source": "local"},
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := validateDataSourceStrategy(flags, "local"); err != nil {
+				return err
+			}
 			if dryRunOK(flags) {
 				return nil
 			}
@@ -66,7 +70,10 @@ Disabled jobs are hidden unless --include-disabled is set.`, "\n"),
 				defer db.Close()
 			}
 
-			names := veeamCompanyNames(ctx, db)
+			names, err := veeamCompanyNames(ctx, db)
+			if err != nil {
+				return err
+			}
 			now := time.Now()
 			cutoff := now.Add(-window)
 
@@ -74,18 +81,16 @@ Disabled jobs are hidden unless --include-disabled is set.`, "\n"),
 				types []string
 				kind  string
 			}{
-				{[]string{"infrastructure-backup-servers-jobs"}, "backup-server-job"},
-				{[]string{
-					"infrastructure-backup-agents-jobs",
-					"infrastructure-backup-agents-windows-jobs",
-					"infrastructure-backup-agents-linux-jobs",
-					"infrastructure-backup-agents-mac-jobs",
-				}, "agent-job"},
+				{[]string{veeamPathServerJobs}, "backup-server-job"},
+				{[]string{veeamPathAgentJobs}, "agent-job"},
 			}
 
 			out := make([]staleJob, 0)
 			for _, src := range sources {
-				rows, _ := veeamLoad(ctx, db, src.types...)
+				rows, err := veeamLoad(ctx, db, src.types...)
+				if err != nil {
+					return err
+				}
 				for _, j := range rows {
 					enabled := true
 					if v, ok := vbool(j, "isEnabled"); ok {
@@ -95,7 +100,7 @@ Disabled jobs are hidden unless --include-disabled is set.`, "\n"),
 						continue
 					}
 					health := veeamJobHealth(vstr(j, "status"))
-					last, hasLast := vtime(j, "lastRun")
+					last, hasLast := veeamJobEnded(j)
 					stale := false
 					daysStale := 0.0
 					switch {
@@ -114,10 +119,7 @@ Disabled jobs are hidden unless --include-disabled is set.`, "\n"),
 					if !stale {
 						continue
 					}
-					org := vstr(j, "organizationUid")
-					if org == "" {
-						org = vstr(j, "mappedOrganizationUid")
-					}
+					org := veeamOrgOf(j)
 					lastStr := ""
 					if hasLast {
 						lastStr = last.UTC().Format(time.RFC3339)

@@ -26,6 +26,7 @@ type atRiskView struct {
 	Count     int              `json:"count"`
 }
 
+// pp:data-source local
 func newNovelAtRiskCmd(flags *rootFlags) *cobra.Command {
 	var flagRpo, dbPath string
 	var limit int
@@ -44,8 +45,11 @@ Reads only the local SQLite mirror — run `+"`veeam-cli sync`"+` first.`, "\n")
   veeam-cli at-risk
   veeam-cli at-risk --rpo 24h
   veeam-cli at-risk --rpo 4h --agent`, "\n"),
-		Annotations: map[string]string{"mcp:read-only": "true"},
+		Annotations: map[string]string{"mcp:read-only": "true", "pp:data-source": "local"},
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := validateDataSourceStrategy(flags, "local"); err != nil {
+				return err
+			}
 			if dryRunOK(flags) {
 				return nil
 			}
@@ -63,7 +67,10 @@ Reads only the local SQLite mirror — run `+"`veeam-cli sync`"+` first.`, "\n")
 				defer db.Close()
 			}
 
-			names := veeamCompanyNames(ctx, db)
+			names, err := veeamCompanyNames(ctx, db)
+			if err != nil {
+				return err
+			}
 			now := time.Now()
 			cutoff := now.Add(-rpo)
 
@@ -71,13 +78,16 @@ Reads only the local SQLite mirror — run `+"`veeam-cli sync`"+` first.`, "\n")
 				rtype     string
 				managedBy string
 			}{
-				{"protected-workloads-computers-managed-by-backup-server", "backup-server"},
-				{"protected-workloads-computers-managed-by-console", "console"},
+				{veeamPathWorkloadsServer, "backup-server"},
+				{veeamPathWorkloadsConsole, "console"},
 			}
 
 			out := make([]atRiskWorkload, 0)
 			for _, src := range sources {
-				rows, _ := veeamLoad(ctx, db, src.rtype)
+				rows, err := veeamLoad(ctx, db, src.rtype)
+				if err != nil {
+					return err
+				}
 				for _, w := range rows {
 					last, has := vtime(w, "latestRestorePointDate")
 					var reason string

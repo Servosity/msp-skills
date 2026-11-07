@@ -29,6 +29,16 @@ func (s *Store) migrateExtras(ctx context.Context, conn *sql.Conn) error {
 		)`,
 		`CREATE INDEX IF NOT EXISTS idx_veeam_usage_snapshots_org
 			ON veeam_usage_snapshots(org_uid, captured_at)`,
+		// veeam_walk backs the local-mirror reports' coverage proof
+		// (internal/cli/veeam_walk.go): per partition the reports read, the
+		// record IDs the last finished, unrestricted sync walk returned.
+		`CREATE TABLE IF NOT EXISTS veeam_walk (
+			resource_type TEXT PRIMARY KEY,
+			state         TEXT NOT NULL,
+			next_cursor   TEXT NOT NULL DEFAULT '',
+			pending       TEXT NOT NULL DEFAULT '[]',
+			members       TEXT NOT NULL DEFAULT '[]'
+		)`,
 	}
 	for _, m := range migrations {
 		if _, err := conn.ExecContext(ctx, m); err != nil {

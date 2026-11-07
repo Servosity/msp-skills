@@ -30,7 +30,6 @@
       "tactical-rmm",
       "threatlocker",
       "unifi-network",
-      "veeam",
       "xero"
     ],
     "mcp-go-no-rebinding-guard": [
@@ -63,7 +62,6 @@
       "syncro",
       "tactical-rmm",
       "unifi-network",
-      "veeam",
       "xero"
     ],
     "mcp-execute-no-confirm": [
@@ -97,7 +95,6 @@
       "threatdown",
       "threatlocker",
       "unifi-network",
-      "veeam",
       "watchguard",
       "zammad"
     ],
