@@ -242,7 +242,7 @@ The strongest control is the **scope you grant the Maxio credentials** - the CLI
 
 ## Status
 
-Beta. Validated against the Maxio API surface and being validated with MSPs running it live against their own production tenant in our weekly Build Sessions. RSVP at [compoundingteams.com/build-sessions](https://compoundingteams.com/build-sessions).
+Live-verified. Confirmed by Servosity (maintainer) against their own production tenant. More MSPs run it live in our weekly Build Sessions. RSVP at [compoundingteams.com/build-sessions](https://compoundingteams.com/build-sessions).
 
 ---
 

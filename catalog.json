@@ -1245,7 +1245,7 @@
     {
       "name": "maxio",
       "system": "Maxio Advanced Billing - subscription revenue, MRR, and retention intelligence",
-      "status": "beta",
+      "status": "live-verified",
       "skill_path": "skills/maxio",
       "cli_binary": "maxio-cli",
       "mcp_binary": "maxio-mcp",
@@ -1258,7 +1258,9 @@
       "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/maxio/install.sh)",
       "install_mcp_doc": "skills/maxio/mcp-install.md",
       "description": "Open, local revenue-intelligence CLI for Maxio Advanced Billing  -  MRR waterfalls, retention, and per-client history computed offline from a SQLite mirror, so the trended history survives even though the live API returns only point-in-time figures.",
-      "verification": "awaiting",
+      "verification": "live-verified",
+      "verified_version": "0.1.8",
+      "verified_code": "current",
       "category": "Billing"
     },
     {
@@ -1766,7 +1768,7 @@
     {
       "name": "servosity",
       "system": "Servosity backup and DR: fleet attention, stale backups, QBR reports, restores, billing",
-      "status": "beta",
+      "status": "live-verified",
       "skill_path": "skills/servosity",
       "cli_binary": "servosity-cli",
       "mcp_binary": "servosity-mcp",
@@ -1779,7 +1781,9 @@
       "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/servosity/install.sh)",
       "install_mcp_doc": "skills/servosity/mcp-install.md",
       "description": "The first MSP-fleet CLI for backup. Every Servosity API endpoint as a typed command, plus a local mirror that lets you ask questions the dashboard can't \u2014 across your whole book of clients.",
-      "verification": "awaiting",
+      "verification": "live-verified",
+      "verified_version": "0.6.13",
+      "verified_code": "current",
       "category": "Backup/DR",
       "tagline": "Fleet attention, stale backups, QBR reports, and restore watch for every client by asking."
     },

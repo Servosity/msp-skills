@@ -2230,7 +2230,7 @@ Governance: Read commands (drift, health, coverage, the stale/offline/failure ro
 ### Maxio (Billing)
 
 Page: [Maxio](https://msp-skills.compoundingteams.com/skills/maxio.md)
-Verification: Awaiting live verification
+Verification: Live-verified by Servosity (maintainer) (2026-11-06)
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/maxio/install.sh)
 
 Ask 'what's our MRR, and how did it move last quarter?' and get the New / Expansion / Contraction / Churn / Reactivation waterfall, net and gross revenue retention, per-customer revenue history, and a ranked list of accounts that need attention - in one command, computed offline from a local mirror of your Maxio Advanced Billing data. It is the revenue math the dashboard buries and the live, point-in-time API can't reconstruct after the fact.
@@ -3208,7 +3208,7 @@ Governance: The skill drives the sentinelone-cli and sentinelone-mcp binaries, a
 ### Servosity (Backup/DR)
 
 Page: [Servosity](https://msp-skills.compoundingteams.com/skills/servosity.md)
-Verification: Awaiting live verification
+Verification: Live-verified by Servosity (maintainer) (2026-11-06)
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/servosity/install.sh)
 
 MSPs run Servosity as the backup and DR platform - M365, DR Server, and DR Desktop protection across a whole book of clients. Ask your AI "where is my attention needed today", "which backups went stale this week", or "build Acme's QBR backup section" and get fleet-wide answers the per-client dashboard can't compose: ranked attention sweeps, day-over-day drift, ready-to-send stale-backup follow-ups, and the whole book's QBR reports in one pass.
