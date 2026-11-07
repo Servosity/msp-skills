@@ -7,8 +7,8 @@ All notable changes to this skill are documented here. Format follows
 ## [0.1.5] - unreleased
 
 ### Changed
-- Rebuilt on CLI Printing Press 4.35.1.
-- HTTP mode (`connectsecure-mcp --transport http`) for remote agents is documented again. It refuses to start until `CONNECTSECURE_MCP_HTTP_TOKEN` is set to at least 32 characters, every request must send that token as a bearer header, any address other than loopback also needs `--tls-cert` and `--tls-key`, and browser origins other than loopback are refused unless listed in `CONNECTSECURE_MCP_HTTP_ALLOWED_ORIGINS`.
+- Rebuilt on CLI Printing Press 4.35.1 ([GHSA-jh26-vhqh-692c](https://github.com/advisories/GHSA-jh26-vhqh-692c)).
+- HTTP mode (`connectsecure-mcp --transport http`) is documented again, for reference. It refuses to start until `CONNECTSECURE_MCP_HTTP_TOKEN` is set to at least 32 characters, every request must send that token as a bearer header, any address other than loopback also needs `--tls-cert` and `--tls-key`, and browser origins other than loopback are refused unless listed in `CONNECTSECURE_MCP_HTTP_ALLOWED_ORIGINS`.
 - New `local-data purge` previews and, with `--yes`, erases the local store, response cache and learn journal. `CONNECTSECURE_NO_LOCAL_DATA=1` runs every read live and writes nothing locally.
 - `--csv` prefixes `'` on cells that a spreadsheet would run as a formula. `--deliver file:` writes a private 0600 file; `--deliver webhook:` does not follow redirects.
 - `sync` no longer mirrors three report-builder resources (standard report settings, the default template download and the standard report list). None was in the default sync set or read by an analysis command.
@@ -18,6 +18,7 @@ All notable changes to this skill are documented here. Format follows
 - Active Directory computer rows are keyed by `object_guid`, so two clients' computers with the same name stay separate rows in the local store.
 
 ### Security
+- Credentials are handled by the shared msp-skills credential kit: every output, file, local-store write, MCP result and outbound request that would carry a credential this program holds (the client secret, the API key pair, a pre-minted or freshly minted access token, a saved token, a configured header) is withheld whole (a `[credkit: withheld from ...]` notice), and a credentialed request goes only over https to the configured pod. With no pod configured, no credential is sent anywhere.
 - MCP file uploads take the file as base64 content. A path is accepted only when `CONNECTSECURE_MCP_UPLOAD_ROOT` names a folder, and only for files inside it.
 
 ## [0.1.4] - 2026-10-23
