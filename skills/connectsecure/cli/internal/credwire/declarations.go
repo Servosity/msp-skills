@@ -302,6 +302,7 @@ func holdFile(path string) {
 // readRegular reads path only when it is a regular file, so a FIFO or a device
 // named as a source cannot stall the start.
 func readRegular(path string) ([]byte, error) {
+	path = filepath.Clean(path)
 	info, err := os.Stat(path)
 	if err != nil {
 		return nil, err
@@ -309,7 +310,7 @@ func readRegular(path string) ([]byte, error) {
 	if !info.Mode().IsRegular() {
 		return nil, os.ErrInvalid
 	}
-	return os.ReadFile(filepath.Clean(path)) // #nosec G304 -- a credential source this program reads anyway
+	return os.ReadFile(path) // #nosec G304 -- a credential source this program reads anyway
 }
 
 // compactStdinBody puts a --stdin JSON body on one line before the kit reads
