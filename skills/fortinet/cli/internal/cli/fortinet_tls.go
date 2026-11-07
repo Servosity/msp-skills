@@ -32,27 +32,24 @@ func skipTLSVerify(c *client.Client) {
 	if c == nil || c.HTTPClient == nil {
 		return
 	}
-	rt := c.HTTPClient.Transport
-	guard, guarded := rt.(*secretGuard)
+	// Hand-fix (handfixes.json credkit-wiring): the base transport sits inside
+	// the credential kit's guard (and the secret guard, when installed);
+	// TuneTransport reaches it.
+	guard, guarded := c.HTTPClient.Transport.(*secretGuard)
 	if guarded {
-		rt = guard.next
+		c.HTTPClient.Transport = guard.next
 	}
-	tr, ok := rt.(*http.Transport)
-	if !ok {
-		return
-	}
-	tr = tr.Clone()
-	cfg := &tls.Config{}
-	if tr.TLSClientConfig != nil {
-		cfg = tr.TLSClientConfig.Clone()
-	}
-	cfg.InsecureSkipVerify = true //nolint:gosec // explicit --insecure / FORTINET_SKIP_TLS_VERIFY / per-device opt-in for self-signed FortiGate certs
-	tr.TLSClientConfig = cfg
+	c.TuneTransport(func(tr *http.Transport) {
+		cfg := &tls.Config{}
+		if tr.TLSClientConfig != nil {
+			cfg = tr.TLSClientConfig.Clone()
+		}
+		cfg.InsecureSkipVerify = true //nolint:gosec // explicit --insecure / FORTINET_SKIP_TLS_VERIFY / per-device opt-in for self-signed FortiGate certs
+		tr.TLSClientConfig = cfg
+	})
 	if guarded {
-		c.HTTPClient.Transport = &secretGuard{next: tr}
-		return
+		c.HTTPClient.Transport = &secretGuard{next: c.HTTPClient.Transport}
 	}
-	c.HTTPClient.Transport = tr
 }
 
 // refuseOffOriginRedirects wraps c's redirect policy so a hop to another

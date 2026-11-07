@@ -1,0 +1,508 @@
+{
+ "sites": [
+  {
+   "file": "internal/cli/audit_admins.go",
+   "func": "newNovelAuditAdminsCmd",
+   "what": "writer:io.Writer",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "output from a command's RunE, after Start, so the kit's output layer checks it: the checker reaches it only through a closure an init function registers (registerNovelCommand in fortinet_cloud.go, fortinet_fleet.go, fortinet_fmg.go, fortinet_audit_core.go), which runs only once Execute builds the command tree"
+  },
+  {
+   "file": "internal/cli/audit_firmware.go",
+   "func": "newNovelAuditFirmwareCmd",
+   "what": "fmt.Fprintf",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "output from a command's RunE, after Start, so the kit's output layer checks it: the checker reaches it only through a closure an init function registers (registerNovelCommand in fortinet_cloud.go, fortinet_fleet.go, fortinet_fmg.go, fortinet_audit_core.go), which runs only once Execute builds the command tree"
+  },
+  {
+   "file": "internal/cli/audit_firmware.go",
+   "func": "newNovelAuditFirmwareCmd",
+   "what": "writer:io.Writer",
+   "count": 3,
+   "kind": "exempt",
+   "reason": "output from a command's RunE, after Start, so the kit's output layer checks it: the checker reaches it only through a closure an init function registers (registerNovelCommand in fortinet_cloud.go, fortinet_fleet.go, fortinet_fmg.go, fortinet_audit_core.go), which runs only once Execute builds the command tree"
+  },
+  {
+   "file": "internal/cli/audit_licenses.go",
+   "func": "newNovelAuditLicensesCmd",
+   "what": "fmt.Fprintf",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "output from a command's RunE, after Start, so the kit's output layer checks it: the checker reaches it only through a closure an init function registers (registerNovelCommand in fortinet_cloud.go, fortinet_fleet.go, fortinet_fmg.go, fortinet_audit_core.go), which runs only once Execute builds the command tree"
+  },
+  {
+   "file": "internal/cli/audit_licenses.go",
+   "func": "newNovelAuditLicensesCmd",
+   "what": "writer:io.Writer",
+   "count": 3,
+   "kind": "exempt",
+   "reason": "output from a command's RunE, after Start, so the kit's output layer checks it: the checker reaches it only through a closure an init function registers (registerNovelCommand in fortinet_cloud.go, fortinet_fleet.go, fortinet_fmg.go, fortinet_audit_core.go), which runs only once Execute builds the command tree"
+  },
+  {
+   "file": "internal/cli/audit_sslvpn.go",
+   "func": "newNovelAuditSslvpnCmd",
+   "what": "writer:io.Writer",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "output from a command's RunE, after Start, so the kit's output layer checks it: the checker reaches it only through a closure an init function registers (registerNovelCommand in fortinet_cloud.go, fortinet_fleet.go, fortinet_fmg.go, fortinet_audit_core.go), which runs only once Execute builds the command tree"
+  },
+  {
+   "file": "internal/cli/audit_sslvpn.go",
+   "func": "runFindingsAudit",
+   "what": "writer:io.Writer",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "output from a command's RunE, after Start, so the kit's output layer checks it: the checker reaches it only through a closure an init function registers (registerNovelCommand in fortinet_cloud.go, fortinet_fleet.go, fortinet_fmg.go, fortinet_audit_core.go), which runs only once Execute builds the command tree"
+  },
+  {
+   "file": "internal/cli/fleet_audit.go",
+   "func": "newNovelFleetAuditCmd",
+   "what": "fmt.Fprintf",
+   "count": 4,
+   "kind": "exempt",
+   "reason": "output from a command's RunE, after Start, so the kit's output layer checks it: the checker reaches it only through a closure an init function registers (registerNovelCommand in fortinet_cloud.go, fortinet_fleet.go, fortinet_fmg.go, fortinet_audit_core.go), which runs only once Execute builds the command tree"
+  },
+  {
+   "file": "internal/cli/fleet_audit.go",
+   "func": "newNovelFleetAuditCmd",
+   "what": "fmt.Fprintln",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "output from a command's RunE, after Start, so the kit's output layer checks it: the checker reaches it only through a closure an init function registers (registerNovelCommand in fortinet_cloud.go, fortinet_fleet.go, fortinet_fmg.go, fortinet_audit_core.go), which runs only once Execute builds the command tree"
+  },
+  {
+   "file": "internal/cli/fleet_audit.go",
+   "func": "newNovelFleetAuditCmd",
+   "what": "writer:io.Writer",
+   "count": 3,
+   "kind": "exempt",
+   "reason": "output from a command's RunE, after Start, so the kit's output layer checks it: the checker reaches it only through a closure an init function registers (registerNovelCommand in fortinet_cloud.go, fortinet_fleet.go, fortinet_fmg.go, fortinet_audit_core.go), which runs only once Execute builds the command tree"
+  },
+  {
+   "file": "internal/cli/fleet_audit.go",
+   "func": "recordAuditRun",
+   "what": "database/sql.DB.BeginTx",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "output from a command's RunE, after Start, so the kit's output layer checks it: the checker reaches it only through a closure an init function registers (registerNovelCommand in fortinet_cloud.go, fortinet_fleet.go, fortinet_fmg.go, fortinet_audit_core.go), which runs only once Execute builds the command tree"
+  },
+  {
+   "file": "internal/cli/fleet_audit.go",
+   "func": "recordAuditRun",
+   "what": "database/sql.DB.ExecContext",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "output from a command's RunE, after Start, so the kit's output layer checks it: the checker reaches it only through a closure an init function registers (registerNovelCommand in fortinet_cloud.go, fortinet_fleet.go, fortinet_fmg.go, fortinet_audit_core.go), which runs only once Execute builds the command tree"
+  },
+  {
+   "file": "internal/cli/fleet_audit.go",
+   "func": "recordAuditRun",
+   "what": "database/sql.DB.QueryContext",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "output from a command's RunE, after Start, so the kit's output layer checks it: the checker reaches it only through a closure an init function registers (registerNovelCommand in fortinet_cloud.go, fortinet_fleet.go, fortinet_fmg.go, fortinet_audit_core.go), which runs only once Execute builds the command tree"
+  },
+  {
+   "file": "internal/cli/fleet_audit.go",
+   "func": "recordAuditRun",
+   "what": "database/sql.DB.QueryRowContext",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "output from a command's RunE, after Start, so the kit's output layer checks it: the checker reaches it only through a closure an init function registers (registerNovelCommand in fortinet_cloud.go, fortinet_fleet.go, fortinet_fmg.go, fortinet_audit_core.go), which runs only once Execute builds the command tree"
+  },
+  {
+   "file": "internal/cli/fleet_changes.go",
+   "func": "diffBackups",
+   "what": "os.ReadFile",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "reads two saved fleet backups (fleet backup wrote them through credkit.OpenFile); they are configurations, not credential files, and the diff prints through the output layer"
+  },
+  {
+   "file": "internal/cli/fleet_changes.go",
+   "func": "newNovelFleetChangesCmd",
+   "what": "fmt.Fprintf",
+   "count": 5,
+   "kind": "exempt",
+   "reason": "output from a command's RunE, after Start, so the kit's output layer checks it: the checker reaches it only through a closure an init function registers (registerNovelCommand in fortinet_cloud.go, fortinet_fleet.go, fortinet_fmg.go, fortinet_audit_core.go), which runs only once Execute builds the command tree"
+  },
+  {
+   "file": "internal/cli/fleet_changes.go",
+   "func": "newNovelFleetChangesCmd",
+   "what": "writer:io.Writer",
+   "count": 3,
+   "kind": "exempt",
+   "reason": "output from a command's RunE, after Start, so the kit's output layer checks it: the checker reaches it only through a closure an init function registers (registerNovelCommand in fortinet_cloud.go, fortinet_fleet.go, fortinet_fmg.go, fortinet_audit_core.go), which runs only once Execute builds the command tree"
+  },
+  {
+   "file": "internal/cli/fleet_health.go",
+   "func": "newNovelFleetHealthCmd",
+   "what": "fmt.Fprintf",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "output from a command's RunE, after Start, so the kit's output layer checks it: the checker reaches it only through a closure an init function registers (registerNovelCommand in fortinet_cloud.go, fortinet_fleet.go, fortinet_fmg.go, fortinet_audit_core.go), which runs only once Execute builds the command tree"
+  },
+  {
+   "file": "internal/cli/fleet_health.go",
+   "func": "newNovelFleetHealthCmd",
+   "what": "writer:io.Writer",
+   "count": 3,
+   "kind": "exempt",
+   "reason": "output from a command's RunE, after Start, so the kit's output layer checks it: the checker reaches it only through a closure an init function registers (registerNovelCommand in fortinet_cloud.go, fortinet_fleet.go, fortinet_fmg.go, fortinet_audit_core.go), which runs only once Execute builds the command tree"
+  },
+  {
+   "file": "internal/cli/fortinet_audit_core.go",
+   "func": "printFindingsTable",
+   "what": "fmt.Fprintf",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "output from a command's RunE, after Start, so the kit's output layer checks it: the checker reaches it only through a closure an init function registers (registerNovelCommand in fortinet_cloud.go, fortinet_fleet.go, fortinet_fmg.go, fortinet_audit_core.go), which runs only once Execute builds the command tree"
+  },
+  {
+   "file": "internal/cli/fortinet_audit_core.go",
+   "func": "printFindingsTable",
+   "what": "fmt.Fprintln",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "output from a command's RunE, after Start, so the kit's output layer checks it: the checker reaches it only through a closure an init function registers (registerNovelCommand in fortinet_cloud.go, fortinet_fleet.go, fortinet_fmg.go, fortinet_audit_core.go), which runs only once Execute builds the command tree"
+  },
+  {
+   "file": "internal/cli/fortinet_audit_core.go",
+   "func": "warnUnchecked",
+   "what": "fmt.Fprintf",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "output from a command's RunE, after Start, so the kit's output layer checks it: the checker reaches it only through a closure an init function registers (registerNovelCommand in fortinet_cloud.go, fortinet_fleet.go, fortinet_fmg.go, fortinet_audit_core.go), which runs only once Execute builds the command tree"
+  },
+  {
+   "file": "internal/cli/fortinet_cloud.go",
+   "func": "newCloudCmd",
+   "what": "fmt.Fprintf",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "output from a command's RunE, after Start, so the kit's output layer checks it: the checker reaches it only through a closure an init function registers (registerNovelCommand in fortinet_cloud.go, fortinet_fleet.go, fortinet_fmg.go, fortinet_audit_core.go), which runs only once Execute builds the command tree"
+  },
+  {
+   "file": "internal/cli/fortinet_cloud.go",
+   "func": "newCloudCmd",
+   "what": "fmt.Fprintln",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "output from a command's RunE, after Start, so the kit's output layer checks it: the checker reaches it only through a closure an init function registers (registerNovelCommand in fortinet_cloud.go, fortinet_fleet.go, fortinet_fmg.go, fortinet_audit_core.go), which runs only once Execute builds the command tree"
+  },
+  {
+   "file": "internal/cli/fortinet_cloud.go",
+   "func": "newCloudCmd",
+   "what": "writer:io.Writer",
+   "count": 5,
+   "kind": "exempt",
+   "reason": "output from a command's RunE, after Start, so the kit's output layer checks it: the checker reaches it only through a closure an init function registers (registerNovelCommand in fortinet_cloud.go, fortinet_fleet.go, fortinet_fmg.go, fortinet_audit_core.go), which runs only once Execute builds the command tree"
+  },
+  {
+   "file": "internal/cli/fortinet_fleet.go",
+   "func": "fanOut",
+   "what": "generic:carrier",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "a fleet target carries its device client; the generic is the bounded parallel fan-out over targets, and each client's sends are judged as the client itself (SendOutsideKit, TuneTransport)"
+  },
+  {
+   "file": "internal/cli/fortinet_fleet.go",
+   "func": "newFleetBackupCmd",
+   "what": "fmt.Fprintf",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "output from a command's RunE, after Start, so the kit's output layer checks it: the checker reaches it only through a closure an init function registers (registerNovelCommand in fortinet_cloud.go, fortinet_fleet.go, fortinet_fmg.go, fortinet_audit_core.go), which runs only once Execute builds the command tree"
+  },
+  {
+   "file": "internal/cli/fortinet_fleet.go",
+   "func": "newFleetBackupCmd",
+   "what": "writer:io.Writer",
+   "count": 3,
+   "kind": "exempt",
+   "reason": "output from a command's RunE, after Start, so the kit's output layer checks it: the checker reaches it only through a closure an init function registers (registerNovelCommand in fortinet_cloud.go, fortinet_fleet.go, fortinet_fmg.go, fortinet_audit_core.go), which runs only once Execute builds the command tree"
+  },
+  {
+   "file": "internal/cli/fortinet_fleet.go",
+   "func": "newFleetDevicesCmd",
+   "what": "fmt.Fprintf",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "output from a command's RunE, after Start, so the kit's output layer checks it: the checker reaches it only through a closure an init function registers (registerNovelCommand in fortinet_cloud.go, fortinet_fleet.go, fortinet_fmg.go, fortinet_audit_core.go), which runs only once Execute builds the command tree"
+  },
+  {
+   "file": "internal/cli/fortinet_fleet.go",
+   "func": "newFleetDevicesCmd",
+   "what": "writer:io.Writer",
+   "count": 3,
+   "kind": "exempt",
+   "reason": "output from a command's RunE, after Start, so the kit's output layer checks it: the checker reaches it only through a closure an init function registers (registerNovelCommand in fortinet_cloud.go, fortinet_fleet.go, fortinet_fmg.go, fortinet_audit_core.go), which runs only once Execute builds the command tree"
+  },
+  {
+   "file": "internal/cli/fortinet_fleet.go",
+   "func": "readDevicesFile",
+   "what": "os.ReadFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reads the operator's devices file: names, URLs and token_file paths, never a token (token_env and inline tokens are refused)"
+  },
+  {
+   "file": "internal/cli/fortinet_fleet.go",
+   "func": "resolveToken",
+   "what": "os.ReadFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reads a device's token_file, a credential source; the token is held as minted:device-token on the next line, before anything can print it"
+  },
+  {
+   "file": "internal/cli/fortinet_fleet.go",
+   "func": "warnFailures",
+   "what": "fmt.Fprintf",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "output from a command's RunE, after Start, so the kit's output layer checks it: the checker reaches it only through a closure an init function registers (registerNovelCommand in fortinet_cloud.go, fortinet_fleet.go, fortinet_fmg.go, fortinet_audit_core.go), which runs only once Execute builds the command tree"
+  },
+  {
+   "file": "internal/cli/fortinet_fleet.go",
+   "func": "writeNewPrivateFile",
+   "what": "fortinet-pp-cli/internal/credkit.Writer.Close",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "output from a command's RunE, after Start, so the kit's output layer checks it: the checker reaches it only through a closure an init function registers (registerNovelCommand in fortinet_cloud.go, fortinet_fleet.go, fortinet_fmg.go, fortinet_audit_core.go), which runs only once Execute builds the command tree"
+  },
+  {
+   "file": "internal/cli/fortinet_fleet.go",
+   "func": "writeNewPrivateFile",
+   "what": "fortinet-pp-cli/internal/credkit.Writer.Write",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "output from a command's RunE, after Start, so the kit's output layer checks it: the checker reaches it only through a closure an init function registers (registerNovelCommand in fortinet_cloud.go, fortinet_fleet.go, fortinet_fmg.go, fortinet_audit_core.go), which runs only once Execute builds the command tree"
+  },
+  {
+   "file": "internal/cli/fortinet_fmg.go",
+   "func": "newFMGCmd",
+   "what": "fmt.Fprintf",
+   "count": 4,
+   "kind": "exempt",
+   "reason": "output from a command's RunE, after Start, so the kit's output layer checks it: the checker reaches it only through a closure an init function registers (registerNovelCommand in fortinet_cloud.go, fortinet_fleet.go, fortinet_fmg.go, fortinet_audit_core.go), which runs only once Execute builds the command tree"
+  },
+  {
+   "file": "internal/cli/fortinet_fmg.go",
+   "func": "newFMGCmd",
+   "what": "writer:io.Writer",
+   "count": 8,
+   "kind": "exempt",
+   "reason": "output from a command's RunE, after Start, so the kit's output layer checks it: the checker reaches it only through a closure an init function registers (registerNovelCommand in fortinet_cloud.go, fortinet_fleet.go, fortinet_fmg.go, fortinet_audit_core.go), which runs only once Execute builds the command tree"
+  },
+  {
+   "file": "internal/cli/fortinet_secrets.go",
+   "func": "guardSecrets",
+   "what": "convert:fortinet-pp-cli/internal/cli.secretGuard.RoundTrip",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "secretGuard (handfixes.json fortios-secrets-redacted) is the outer layer that redacts FortiOS ENC tenant secrets in responses; its next is the client's own transport: the kit-guarded API transport (TuneTransport keeps the guard), or, for a fleet device's client, that client's pinned transport (SendOutsideKit)"
+  },
+  {
+   "file": "internal/cli/fortinet_secrets.go",
+   "func": "guardSecrets",
+   "what": "net/http.Client.Transport",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "secretGuard (handfixes.json fortios-secrets-redacted) is the outer layer that redacts FortiOS ENC tenant secrets in responses; its next is the client's own transport: the kit-guarded API transport (TuneTransport keeps the guard), or, for a fleet device's client, that client's pinned transport (SendOutsideKit)"
+  },
+  {
+   "file": "internal/cli/fortinet_secrets.go",
+   "func": "guardSecrets",
+   "what": "net/http.DefaultTransport",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "secretGuard (handfixes.json fortios-secrets-redacted) is the outer layer that redacts FortiOS ENC tenant secrets in responses; its next is the client's own transport: the kit-guarded API transport (TuneTransport keeps the guard), or, for a fleet device's client, that client's pinned transport (SendOutsideKit)"
+  },
+  {
+   "file": "internal/cli/fortinet_secrets.go",
+   "func": "secretGuard.RoundTrip",
+   "what": "net/http.RoundTripper.RoundTrip",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "secretGuard (handfixes.json fortios-secrets-redacted) is the outer layer that redacts FortiOS ENC tenant secrets in responses; its next is the client's own transport: the kit-guarded API transport (TuneTransport keeps the guard), or, for a fleet device's client, that client's pinned transport (SendOutsideKit)"
+  },
+  {
+   "file": "internal/cli/fortinet_tls.go",
+   "func": "skipTLSVerify",
+   "what": "convert:fortinet-pp-cli/internal/cli.secretGuard.RoundTrip",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "secretGuard (handfixes.json fortios-secrets-redacted) is the outer layer that redacts FortiOS ENC tenant secrets in responses; its next is the client's own transport: the kit-guarded API transport (TuneTransport keeps the guard), or, for a fleet device's client, that client's pinned transport (SendOutsideKit)"
+  },
+  {
+   "file": "internal/cli/fortinet_tls.go",
+   "func": "skipTLSVerify",
+   "what": "net/http.Client.Transport",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "secretGuard (handfixes.json fortios-secrets-redacted) is the outer layer that redacts FortiOS ENC tenant secrets in responses; its next is the client's own transport: the kit-guarded API transport (TuneTransport keeps the guard), or, for a fleet device's client, that client's pinned transport (SendOutsideKit)"
+  },
+  {
+   "file": "internal/cli/policies_hygiene.go",
+   "func": "newNovelPoliciesHygieneCmd",
+   "what": "fmt.Fprintf",
+   "count": 8,
+   "kind": "exempt",
+   "reason": "output from a command's RunE, after Start, so the kit's output layer checks it: the checker reaches it only through a closure an init function registers (registerNovelCommand in fortinet_cloud.go, fortinet_fleet.go, fortinet_fmg.go, fortinet_audit_core.go), which runs only once Execute builds the command tree"
+  },
+  {
+   "file": "internal/cli/policies_hygiene.go",
+   "func": "newNovelPoliciesHygieneCmd",
+   "what": "fmt.Fprintln",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "output from a command's RunE, after Start, so the kit's output layer checks it: the checker reaches it only through a closure an init function registers (registerNovelCommand in fortinet_cloud.go, fortinet_fleet.go, fortinet_fmg.go, fortinet_audit_core.go), which runs only once Execute builds the command tree"
+  },
+  {
+   "file": "internal/cli/policies_hygiene.go",
+   "func": "newNovelPoliciesHygieneCmd",
+   "what": "writer:io.Writer",
+   "count": 3,
+   "kind": "exempt",
+   "reason": "output from a command's RunE, after Start, so the kit's output layer checks it: the checker reaches it only through a closure an init function registers (registerNovelCommand in fortinet_cloud.go, fortinet_fleet.go, fortinet_fmg.go, fortinet_audit_core.go), which runs only once Execute builds the command tree"
+  },
+  {
+   "file": "internal/client/fortinet_kit_transport.go",
+   "func": "Client.SendOutsideKit",
+   "what": "net/http.Client.Transport",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "TuneTransport and SendOutsideKit (handfixes.json credkit-wiring): TuneTransport re-wraps the tuned clone in guardTransport, which is cliutil.OutboundGuard (credkit.Transport); SendOutsideKit unwraps it only for a fleet device's client, whose token goes to the URL the operator's devices file names, with https only, no off-origin redirect and no other configured credential (plain-http-refused-every-client, redirects-stay-on-origin, fleet-device-client-carries-no-configured-credential)"
+  },
+  {
+   "file": "internal/client/fortinet_kit_transport.go",
+   "func": "Client.TuneTransport",
+   "what": "net/http.Client.Transport",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "TuneTransport and SendOutsideKit (handfixes.json credkit-wiring): TuneTransport re-wraps the tuned clone in guardTransport, which is cliutil.OutboundGuard (credkit.Transport); SendOutsideKit unwraps it only for a fleet device's client, whose token goes to the URL the operator's devices file names, with https only, no off-origin redirect and no other configured credential (plain-http-refused-every-client, redirects-stay-on-origin, fleet-device-client-carries-no-configured-credential)"
+  },
+  {
+   "file": "internal/credsql/credsql.go",
+   "func": "applyLengthLimit",
+   "what": "database/sql.DB.Conn",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "lends a connection already opened through credkit.SQLDriver to set SQLITE_LIMIT_LENGTH: it runs no statement and writes no value, and the hook only runs when a store opens, after Start"
+  },
+  {
+   "file": "internal/credsql/credsql.go",
+   "func": "applyLengthLimit",
+   "what": "database/sql.OpenDB",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "lends a connection already opened through credkit.SQLDriver to set SQLITE_LIMIT_LENGTH: it runs no statement and writes no value, and the hook only runs when a store opens, after Start"
+  },
+  {
+   "file": "internal/credwire/declarations.go",
+   "func": "readRegular",
+   "what": "os.ReadFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reads a credential source at startup (a credential store or a run-profile store) to hold it with credkit.HoldBody; nothing it reads is printed"
+  },
+  {
+   "file": "internal/fgtcloud/client.go",
+   "func": "Client.Get",
+   "what": "net/http.Client.Do",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "output from a command's RunE, after Start, so the kit's output layer checks it: the checker reaches it only through a closure an init function registers (registerNovelCommand in fortinet_cloud.go, fortinet_fleet.go, fortinet_fmg.go, fortinet_audit_core.go), which runs only once Execute builds the command tree"
+  },
+  {
+   "file": "internal/fgtcloud/client.go",
+   "func": "Client.Get",
+   "what": "net/http.NewRequestWithContext",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "a FortiCloud request, sent only by c.HTTP, whose Transport is cliutil.OutboundGuard(nil). cliutil.OutboundGuard is credkit.Transport (internal/cliutil/credkit_guard.go), kept a variable only so in-process tests, which never run Start, can swap it; the checker cannot resolve a call through a variable"
+  },
+  {
+   "file": "internal/fgtcloud/client.go",
+   "func": "Client.grant",
+   "what": "net/http.Client.Do",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "output from a command's RunE, after Start, so the kit's output layer checks it: the checker reaches it only through a closure an init function registers (registerNovelCommand in fortinet_cloud.go, fortinet_fleet.go, fortinet_fmg.go, fortinet_audit_core.go), which runs only once Execute builds the command tree"
+  },
+  {
+   "file": "internal/fgtcloud/client.go",
+   "func": "Client.grant",
+   "what": "net/http.NewRequestWithContext",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "a FortiCloud request, sent only by c.HTTP, whose Transport is cliutil.OutboundGuard(nil). cliutil.OutboundGuard is credkit.Transport (internal/cliutil/credkit_guard.go), kept a variable only so in-process tests, which never run Start, can swap it; the checker cannot resolve a call through a variable"
+  },
+  {
+   "file": "internal/fgtcloud/client.go",
+   "func": "Client.loadCache",
+   "what": "os.ReadFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reads the FortiGate Cloud token cache, a credential source written with cliutil.AtomicWriteCredentialFile; its tokens are held (cachedToken.hold) before use, and at every start (HoldCache)"
+  },
+  {
+   "file": "internal/fgtcloud/client.go",
+   "func": "HoldCache",
+   "what": "os.ReadFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reads the FortiGate Cloud token cache, a credential source written with cliutil.AtomicWriteCredentialFile; its tokens are held (cachedToken.hold) before use, and at every start (HoldCache)"
+  },
+  {
+   "file": "internal/fgtcloud/client.go",
+   "func": "New",
+   "what": "call:dynamic",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the FortiGate Cloud client: its Transport is cliutil.OutboundGuard(nil). cliutil.OutboundGuard is credkit.Transport (internal/cliutil/credkit_guard.go), kept a variable only so in-process tests, which never run Start, can swap it; the checker cannot resolve a call through a variable"
+  },
+  {
+   "file": "internal/fgtcloud/client.go",
+   "func": "New",
+   "what": "net/http.Client{}",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the FortiGate Cloud client: its Transport is cliutil.OutboundGuard(nil). cliutil.OutboundGuard is credkit.Transport (internal/cliutil/credkit_guard.go), kept a variable only so in-process tests, which never run Start, can swap it; the checker cannot resolve a call through a variable"
+  },
+  {
+   "file": "internal/fgtcloud/client.go",
+   "func": "New",
+   "what": "sink:net/http.RoundTripper",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the FortiGate Cloud client: its Transport is cliutil.OutboundGuard(nil). cliutil.OutboundGuard is credkit.Transport (internal/cliutil/credkit_guard.go), kept a variable only so in-process tests, which never run Start, can swap it; the checker cannot resolve a call through a variable"
+  },
+  {
+   "file": "internal/fortimgr/client.go",
+   "func": "Client.Get",
+   "what": "net/http.Client.Do",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "output from a command's RunE, after Start, so the kit's output layer checks it: the checker reaches it only through a closure an init function registers (registerNovelCommand in fortinet_cloud.go, fortinet_fleet.go, fortinet_fmg.go, fortinet_audit_core.go), which runs only once Execute builds the command tree"
+  },
+  {
+   "file": "internal/fortimgr/client.go",
+   "func": "Client.Get",
+   "what": "net/http.NewRequestWithContext",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the FortiManager client (handfixes.json credkit-wiring): FORTINET_FMG_API_KEY goes only to the operator's FORTINET_FMG_URL, which no build-time kit origin can list; New refuses a non-https URL and userinfo, and refuseRedirect refuses every redirect. The key is held from startup (SecretEnv), so every output sink withholds it"
+  },
+  {
+   "file": "internal/fortimgr/client.go",
+   "func": "New",
+   "what": "net/http.Client{}",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the FortiManager client (handfixes.json credkit-wiring): FORTINET_FMG_API_KEY goes only to the operator's FORTINET_FMG_URL, which no build-time kit origin can list; New refuses a non-https URL and userinfo, and refuseRedirect refuses every redirect. The key is held from startup (SecretEnv), so every output sink withholds it"
+  }
+ ]
+}

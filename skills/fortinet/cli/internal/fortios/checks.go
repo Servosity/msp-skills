@@ -886,6 +886,33 @@ type PolicyRow struct {
 	LastUsed string   `json:"last_used,omitempty"`
 }
 
+// policyFamilies are the address families a (consolidated) firewall policy
+// matches on, with the documented modes that replace their address fields
+// (sources/cmdb_fields.json firewall_policy): internet-service[6] "enable"
+// means destination address and service are not used; internet-service[6]-src
+// "enable" means source address is not used.
+var policyFamilies = []struct{ src, dst, dstMode, srcMode string }{
+	{"srcaddr", "dstaddr", "internet-service", "internet-service-src"},
+	{"srcaddr6", "dstaddr6", "internet-service6", "internet-service6-src"},
+}
+
+// policyAnyAny reports whether a policy matches any source, any destination
+// and any service in at least one address family. A negated "all" matches
+// nothing, and a field a documented mode replaces is not matched at all.
+func policyAnyAny(p Obj) bool {
+	on := func(k string) bool { return strings.EqualFold(Str(p, k), "enable") }
+	anyService := contains(Names(p, "service"), "ALL") && !on("service-negate")
+	for _, f := range policyFamilies {
+		if on(f.srcMode) || on(f.dstMode) {
+			continue
+		}
+		if anyService && contains(Names(p, f.src), "all") && contains(Names(p, f.dst), "all") && !on(f.src+"-negate") && !on(f.dst+"-negate") {
+			return true
+		}
+	}
+	return false
+}
+
 // Policies flags unused, any-any accept, logging-disabled and disabled
 // policies. A policy is only "unused" when a counter row exists for it:
 // without counters there is no evidence the rule is dead.
@@ -906,13 +933,7 @@ func Policies(device, vdom string, policies, stats []Obj, now time.Time, unusedF
 		if disabled {
 			row.Issues = append(row.Issues, "disabled")
 		}
-		// Any-any per address family (consolidated policies carry IPv6 in
-		// srcaddr6/dstaddr6). A negated "all" matches nothing.
-		on := func(k string) bool { return strings.EqualFold(Str(p, k), "enable") }
-		anyFamily := func(src, dst string) bool {
-			return contains(Names(p, src), "all") && contains(Names(p, dst), "all") && !on(src+"-negate") && !on(dst+"-negate")
-		}
-		if accept && !disabled && (anyFamily("srcaddr", "dstaddr") || anyFamily("srcaddr6", "dstaddr6")) && contains(Names(p, "service"), "ALL") && !on("service-negate") {
+		if accept && !disabled && policyAnyAny(p) {
 			row.Issues = append(row.Issues, "any-any-accept")
 		}
 		if accept && !disabled && strings.EqualFold(Str(p, "logtraffic"), "disable") {

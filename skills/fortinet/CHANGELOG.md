@@ -4,6 +4,22 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.1.5] - unreleased
+
+### Security
+- **Rebuilt on Printing Press 4.35.1.** The MCP server's HTTP mode (`fortinet-mcp --transport http`) now refuses to start until `FORTINET_MCP_HTTP_TOKEN` is set to at least 32 characters, binds `127.0.0.1:7777` by default, needs `--tls-cert` and `--tls-key` for any other address, and refuses a browser `Origin` that is not loopback or listed in `FORTINET_MCP_HTTP_ALLOWED_ORIGINS`. The default stdio transport is unchanged. Remote agents (ChatGPT, Copilot Studio, the Gemini app) can use the hosted HTTPS path again; see [mcp-install.md](./mcp-install.md).
+- HTTP mode also refuses to start when `FORTINET_MCP_HTTP_TOKEN` still holds the Claude Desktop extension's unfilled placeholder instead of a real token.
+- **Credentials are filtered from every output.** The connector now runs on the shared credential kit: the API token, the FortiManager API key, the FortiGate Cloud password and its access and refresh tokens, each fleet device's token and the MCP HTTP token are withheld from terminal output, `--agent` and MCP results, written files and logs, even when a FortiGate or FortiManager echoes one back in an error. A token is sent only to the host it belongs to.
+- **Fleet commands send each FortiGate only its own token.** A device listed in the devices file no longer receives any static header from the config file's `[headers]` table, or any other credential configured for the single `FORTINET_BASE_URL` device; it gets exactly the token from its own `token_file`.
+
+### Fixed
+- **`policies hygiene` reads Internet Service policies correctly.** A policy that matches by FortiOS Internet Service (the `internet-service`, `internet-service-src` and their IPv6 forms) instead of by address or service is no longer reported as an any-any accept.
+
+### Added
+- `local-data purge` lists the local store, response cache and learn journal and deletes them only with `--yes`; `FORTINET_NO_LOCAL_DATA=1` runs with no local copy, and `FORTINET_DATA_SOURCE` sets the `--data-source` default.
+- `--ca-cert` / `FORTINET_CA_CERT` adds a PEM CA bundle for a FortiGate with a private CA, and `--tls-server-name` / `FORTINET_TLS_SERVER_NAME` sets the name checked against its certificate.
+- `--csv` prefixes `'` on a cell that a spreadsheet would run as a formula; `--deliver webhook:` no longer follows redirects.
+
 ## [0.1.4] - 2026-10-23
 
 ### Fixed

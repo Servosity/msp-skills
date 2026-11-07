@@ -28,6 +28,7 @@ import (
 	"fortinet-pp-cli/internal/client"
 	"fortinet-pp-cli/internal/cliutil"
 	"fortinet-pp-cli/internal/config"
+	"fortinet-pp-cli/internal/credkit"
 	"fortinet-pp-cli/internal/fortios"
 )
 
@@ -186,6 +187,10 @@ func resolveToken(d fleetDevice) (string, error) {
 			return "", fmt.Errorf("device %s: %w", d.Name, err)
 		}
 		if v := strings.TrimSpace(string(b)); v != "" {
+			// Hand-fix (handfixes.json credkit-wiring): held before anything can
+			// print it; bound to no kit origin, it is sent only by this device's
+			// own client (internal/credwire).
+			cliutil.Hold("minted:device-token", v)
 			return v, nil
 		}
 		return "", fmt.Errorf("device %s: token file %s is empty", d.Name, p)
@@ -332,18 +337,23 @@ func (t fleetTarget) client(flags *rootFlags) (*client.Client, error) {
 		return nil, configErr(err)
 	}
 	cfg.BaseURL = t.apiURL
+	// The device's token_file token is the only credential this client may send.
+	// Every other configured credential belongs to the FORTINET_BASE_URL device:
+	// clear them all. Config-file headers apply to every request and any header
+	// name can carry a credential (X-Api-Token, a vendor proxy key), so none of
+	// them follows a per-device client to another device (fail closed for the class).
 	cfg.AuthHeaderVal = ""
 	cfg.AccessToken = ""
+	cfg.RefreshToken = ""
+	cfg.TokenExpiry = time.Time{}
+	cfg.ClientID = ""
+	cfg.ClientSecret = ""
+	cfg.Headers = nil
 	cfg.FortinetApiToken = t.token
-	// Config-file headers apply to every request; never let a configured
-	// credential header follow the per-device token to another device.
-	for k := range cfg.Headers {
-		switch strings.ToLower(k) {
-		case "authorization", "cookie", "x-api-key", "x-auth-token":
-			delete(cfg.Headers, k)
-		}
-	}
 	c := client.New(cfg, flags.timeout, flags.rateLimit)
+	// Hand-fix (handfixes.json credkit-wiring): this device's token goes to the
+	// URL the devices file names, which no build-time kit origin can list.
+	c.SendOutsideKit()
 	if flags.timeoutExplicit {
 		c.SetTimeoutExplicit(true)
 	}
@@ -672,7 +682,9 @@ const backupStamp = "20060102T150405,000000000Z"
 // writeNewPrivateFile creates path exclusively with 0600 permissions: it never
 // overwrites an existing file and never follows a planted symlink.
 func writeNewPrivateFile(path string, body []byte) error {
-	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600) // #nosec G304 -- backup path built from the backup dir + sanitized device dir; O_EXCL refuses existing files and symlinks
+	// Hand-fix (handfixes.json credkit-wiring): the backup is written through the
+	// credential kit as one unit; a withheld one leaves nothing behind.
+	f, err := credkit.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
 	if err != nil {
 		return err
 	}

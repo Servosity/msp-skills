@@ -497,3 +497,36 @@ func TestAdminsManagementOnUnknownRoleInterface(t *testing.T) {
 		t.Errorf("IPv6-open admin with management only on LAN = %+v, want PASS", f)
 	}
 }
+
+// Codex 2026-11-02 r1: sources/cmdb_fields.json firewall_policy documents that internet-service /
+// internet-service6 "enable" means destination address and service are not used, and
+// internet-service-src / internet-service6-src "enable" means source address is not used. A policy whose
+// address fields read "all" while an Internet Service mode replaces them is not any-any in that family.
+func TestPoliciesInternetServiceReplacesAddressMatch(t *testing.T) {
+	v4 := `{"policyid":%d,"action":"accept","status":"enable","logtraffic":"all","srcaddr":[{"name":"all"}],"dstaddr":[{"name":"all"}],"service":[{"name":"ALL"}]%s}`
+	v6 := `{"policyid":%d,"action":"accept","status":"enable","logtraffic":"all","srcaddr":[],"dstaddr":[],"srcaddr6":[{"name":"all"}],"dstaddr6":[{"name":"all"}],"service":[{"name":"ALL"}]%s}`
+	both := `{"policyid":%d,"action":"accept","status":"enable","logtraffic":"all","srcaddr":[{"name":"all"}],"dstaddr":[{"name":"all"}],"srcaddr6":[{"name":"all"}],"dstaddr6":[{"name":"all"}],"service":[{"name":"ALL"}]%s}`
+	isvc := `,"internet-service":"enable","internet-service-name":[{"name":"Microsoft-Office365"}]`
+	pol := objs(t, "["+strings.Join([]string{
+		fmt.Sprintf(v4, 1, ""),
+		fmt.Sprintf(v4, 2, isvc),
+		fmt.Sprintf(v4, 3, `,"internet-service-src":"enable","internet-service-src-name":[{"name":"Microsoft-Office365"}]`),
+		fmt.Sprintf(v6, 4, ""),
+		fmt.Sprintf(v6, 5, `,"internet-service6":"enable","internet-service6-name":[{"name":"Microsoft-Office365"}]`),
+		fmt.Sprintf(v6, 6, `,"internet-service6-src":"enable"`),
+		fmt.Sprintf(both, 7, isvc),                          // IPv6 family is still any-any
+		fmt.Sprintf(v4, 8, `,"internet-service6":"enable"`), // an IPv6 mode leaves the IPv4 family any-any
+		fmt.Sprintf(both, 9, isvc+`,"internet-service6":"enable"`),
+	}, ",")+"]")
+	var flagged []int
+	for _, r := range Policies("hq", "root", pol, nil, time.Now(), time.Hour) {
+		for _, is := range r.Issues {
+			if is == "any-any-accept" {
+				flagged = append(flagged, r.PolicyID)
+			}
+		}
+	}
+	if fmt.Sprint(flagged) != "[1 4 7 8]" {
+		t.Fatalf("any-any-accept on %v, want [1 4 7 8]", flagged)
+	}
+}

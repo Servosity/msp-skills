@@ -2127,6 +2127,13 @@ func TestMigrate_V8ToV9AddsCandidatesAndEvents(t *testing.T) {
 	if notes != "hand-authored notes" {
 		t.Fatalf("preserved playbook notes = %q, want original", notes)
 	}
+	var ingress string
+	if err := s.DB().QueryRow(`SELECT ingress_surface FROM learning_playbooks WHERE query_family = 'family_X'`).Scan(&ingress); err != nil {
+		t.Fatalf("read upgraded ingress_surface: %v", err)
+	}
+	if ingress != "cli" {
+		t.Fatalf("upgraded ingress_surface = %q, want cli", ingress)
+	}
 
 	// v8 is past the FTS content pin (4) but before the tokenizer pin, so
 	// the trigram rebuild must replace the porter sentinel with leaves.
@@ -4172,5 +4179,784 @@ func TestMigrate_AddsColumnsOnUpgrade_SyncState(t *testing.T) {
 		).Scan(&got); err != nil {
 			t.Fatalf("%s index missing from sync_state after migrate: %v", wantIdx, err)
 		}
+	}
+}
+
+func TestColumnNeedsBackfill(t *testing.T) {
+	known := map[string]map[string]struct{}{
+		"items": {"id": {}, "name": {}},
+	}
+	cases := []struct {
+		table  string
+		column string
+		want   bool
+	}{
+		{table: "missing", column: "name", want: false},
+		{table: "items", column: "name", want: false},
+		{table: "items", column: "note", want: true},
+		{table: "Items", column: "name", want: false},
+		{table: "items", column: "Name", want: true},
+	}
+	for _, tc := range cases {
+		if got := columnNeedsBackfill(known, tc.table, tc.column); got != tc.want {
+			t.Errorf("columnNeedsBackfill(%q, %q) = %v, want %v", tc.table, tc.column, got, tc.want)
+		}
+	}
+	if columnNeedsBackfill(nil, "items", "name") {
+		t.Fatal("nil map must not need a backfill")
+	}
+	markColumnPresent(known, "items", "note")
+	if columnNeedsBackfill(known, "items", "note") {
+		t.Fatal("marked column must not need a backfill")
+	}
+	markColumnPresent(known, "fresh", "id")
+	if columnNeedsBackfill(known, "fresh", "id") {
+		t.Fatal("column marked on a new table must be present")
+	}
+	noteBackfillProbe(context.Background())
+	noteBackfillAlter(context.Background())
+}
+
+func TestBackfillColumns_OneSnapshotPerOpen(t *testing.T) {
+	want := []struct{ table, column string }{
+		{"sync_state", "last_attempt_complete"},
+		{"sync_state", "scope_key"},
+		{"address_groups", "category"},
+		{"address_groups", "color"},
+		{"address_groups", "comment"},
+		{"address_groups", "exclude"},
+		{"address_groups", "fabric_object"},
+		{"address_groups", "name"},
+		{"address_groups", "q_origin_key"},
+		{"address_groups", "type"},
+		{"address_groups", "uuid"},
+		{"addresses", "associated_interface"},
+		{"addresses", "color"},
+		{"addresses", "comment"},
+		{"addresses", "country"},
+		{"addresses", "end_ip"},
+		{"addresses", "fabric_object"},
+		{"addresses", "fqdn"},
+		{"addresses", "interface"},
+		{"addresses", "name"},
+		{"addresses", "q_origin_key"},
+		{"addresses", "start_ip"},
+		{"addresses", "subnet"},
+		{"addresses", "type"},
+		{"addresses", "uuid"},
+		{"addresses", "wildcard_fqdn"},
+		{"admin_profiles", "admintimeout"},
+		{"admin_profiles", "admintimeout_override"},
+		{"admin_profiles", "authgrp"},
+		{"admin_profiles", "comments"},
+		{"admin_profiles", "ftviewgrp"},
+		{"admin_profiles", "fwgrp"},
+		{"admin_profiles", "loggrp"},
+		{"admin_profiles", "name"},
+		{"admin_profiles", "netgrp"},
+		{"admin_profiles", "q_origin_key"},
+		{"admin_profiles", "scope"},
+		{"admin_profiles", "secfabgrp"},
+		{"admin_profiles", "sysgrp"},
+		{"admin_profiles", "utmgrp"},
+		{"admin_profiles", "vpngrp"},
+		{"admin_profiles", "wanoptgrp"},
+		{"admin_profiles", "wifi"},
+		{"administrators", "accprofile"},
+		{"administrators", "comments"},
+		{"administrators", "email_to"},
+		{"administrators", "force_password_change"},
+		{"administrators", "fortitoken"},
+		{"administrators", "guest_auth"},
+		{"administrators", "hidden"},
+		{"administrators", "ip6_trusthost1"},
+		{"administrators", "ip6_trusthost2"},
+		{"administrators", "ip6_trusthost3"},
+		{"administrators", "name"},
+		{"administrators", "password_expire"},
+		{"administrators", "peer_auth"},
+		{"administrators", "q_origin_key"},
+		{"administrators", "remote_auth"},
+		{"administrators", "remote_group"},
+		{"administrators", "trusthost1"},
+		{"administrators", "trusthost10"},
+		{"administrators", "trusthost2"},
+		{"administrators", "trusthost3"},
+		{"administrators", "trusthost4"},
+		{"administrators", "trusthost5"},
+		{"administrators", "trusthost6"},
+		{"administrators", "trusthost7"},
+		{"administrators", "trusthost8"},
+		{"administrators", "trusthost9"},
+		{"administrators", "two_factor"},
+		{"administrators", "two_factor_authentication"},
+		{"administrators", "wildcard"},
+		{"api_users", "accprofile"},
+		{"api_users", "comments"},
+		{"api_users", "cors_allow_origin"},
+		{"api_users", "name"},
+		{"api_users", "peer_auth"},
+		{"api_users", "q_origin_key"},
+		{"api_users", "schedule"},
+		{"dhcp_servers", "default_gateway"},
+		{"dhcp_servers", "dns_service"},
+		{"dhcp_servers", "interface"},
+		{"dhcp_servers", "lease_time"},
+		{"dhcp_servers", "netmask"},
+		{"dhcp_servers", "q_origin_key"},
+		{"dhcp_servers", "status"},
+		{"interfaces", "alias"},
+		{"interfaces", "dedicated_to"},
+		{"interfaces", "description"},
+		{"interfaces", "device_identification"},
+		{"interfaces", "interface"},
+		{"interfaces", "ip"},
+		{"interfaces", "macaddr"},
+		{"interfaces", "mode"},
+		{"interfaces", "mtu"},
+		{"interfaces", "name"},
+		{"interfaces", "q_origin_key"},
+		{"interfaces", "role"},
+		{"interfaces", "speed"},
+		{"interfaces", "status"},
+		{"interfaces", "type"},
+		{"interfaces", "vdom"},
+		{"interfaces", "vlanid"},
+		{"ipsec_phase1", "authmethod"},
+		{"ipsec_phase1", "comments"},
+		{"ipsec_phase1", "dpd"},
+		{"ipsec_phase1", "ike_version"},
+		{"ipsec_phase1", "interface"},
+		{"ipsec_phase1", "keylife"},
+		{"ipsec_phase1", "mode_cfg"},
+		{"ipsec_phase1", "name"},
+		{"ipsec_phase1", "nattraversal"},
+		{"ipsec_phase1", "net_device"},
+		{"ipsec_phase1", "peertype"},
+		{"ipsec_phase1", "q_origin_key"},
+		{"ipsec_phase1", "remote_gw"},
+		{"ipsec_phase1", "type"},
+		{"ipsec_phase2", "auto_negotiate"},
+		{"ipsec_phase2", "comments"},
+		{"ipsec_phase2", "dst_addr_type"},
+		{"ipsec_phase2", "dst_subnet"},
+		{"ipsec_phase2", "keylifeseconds"},
+		{"ipsec_phase2", "name"},
+		{"ipsec_phase2", "pfs"},
+		{"ipsec_phase2", "phase1name"},
+		{"ipsec_phase2", "q_origin_key"},
+		{"ipsec_phase2", "src_addr_type"},
+		{"ipsec_phase2", "src_subnet"},
+		{"ldap_servers", "ca_cert"},
+		{"ldap_servers", "cnid"},
+		{"ldap_servers", "dn"},
+		{"ldap_servers", "interface"},
+		{"ldap_servers", "name"},
+		{"ldap_servers", "port"},
+		{"ldap_servers", "q_origin_key"},
+		{"ldap_servers", "secondary_server"},
+		{"ldap_servers", "secure"},
+		{"ldap_servers", "server"},
+		{"ldap_servers", "server_identity_check"},
+		{"ldap_servers", "source_ip"},
+		{"ldap_servers", "type"},
+		{"local_in_policies", "action"},
+		{"local_in_policies", "comments"},
+		{"local_in_policies", "intf"},
+		{"local_in_policies", "policyid"},
+		{"local_in_policies", "q_origin_key"},
+		{"local_in_policies", "schedule"},
+		{"local_in_policies", "status"},
+		{"local_in_policies", "uuid"},
+		{"local_users", "email_to"},
+		{"local_users", "fortitoken"},
+		{"local_users", "ldap_server"},
+		{"local_users", "name"},
+		{"local_users", "passwd_policy"},
+		{"local_users", "passwd_time"},
+		{"local_users", "q_origin_key"},
+		{"local_users", "radius_server"},
+		{"local_users", "status"},
+		{"local_users", "tacacs_plus_server"},
+		{"local_users", "two_factor"},
+		{"local_users", "two_factor_authentication"},
+		{"local_users", "type"},
+		{"local_users", "workstation"},
+		{"monitor", "build"},
+		{"monitor", "http_method"},
+		{"monitor", "http_status"},
+		{"monitor", "name"},
+		{"monitor", "path"},
+		{"monitor", "revision"},
+		{"monitor", "serial"},
+		{"monitor", "status"},
+		{"monitor", "vdom"},
+		{"monitor", "version"},
+		{"monitor", "comments"},
+		{"monitor", "fingerprint"},
+		{"monitor", "is_built_in"},
+		{"monitor", "is_ca"},
+		{"monitor", "serial_number"},
+		{"monitor", "source"},
+		{"monitor", "type"},
+		{"monitor", "valid_from"},
+		{"monitor", "valid_to"},
+		{"monitor", "ip"},
+		{"monitor", "mac"},
+		{"monitor", "server_mkey"},
+		{"monitor", "hostname"},
+		{"monitor", "master"},
+		{"monitor", "primary"},
+		{"monitor", "priority"},
+		{"monitor", "serial_no"},
+		{"monitor", "vcluster_id"},
+		{"monitor", "connection_count"},
+		{"monitor", "creation_time"},
+		{"monitor", "incoming_bytes"},
+		{"monitor", "outgoing_bytes"},
+		{"monitor", "rgwy"},
+		{"monitor", "reachable"},
+		{"monitor", "selected"},
+		{"monitor", "server"},
+		{"monitor", "stratum"},
+		{"monitor", "active_sessions"},
+		{"monitor", "bytes"},
+		{"monitor", "hit_count"},
+		{"monitor", "last_used"},
+		{"monitor", "policyid"},
+		{"monitor", "duration"},
+		{"monitor", "index"},
+		{"monitor", "remote_host"},
+		{"monitor", "user_name"},
+		{"monitor", "connecting_from"},
+		{"monitor", "fgt_peer_intf_name"},
+		{"monitor", "join_time"},
+		{"monitor", "os_version"},
+		{"monitor", "state"},
+		{"policies", "action"},
+		{"policies", "application_list"},
+		{"policies", "av_profile"},
+		{"policies", "comments"},
+		{"policies", "inspection_mode"},
+		{"policies", "ips_sensor"},
+		{"policies", "logtraffic"},
+		{"policies", "name"},
+		{"policies", "nat"},
+		{"policies", "policyid"},
+		{"policies", "q_origin_key"},
+		{"policies", "schedule"},
+		{"policies", "ssl_ssh_profile"},
+		{"policies", "status"},
+		{"policies", "utm_status"},
+		{"policies", "uuid"},
+		{"policies", "webfilter_profile"},
+		{"radius_servers", "auth_type"},
+		{"radius_servers", "interface"},
+		{"radius_servers", "name"},
+		{"radius_servers", "nas_ip"},
+		{"radius_servers", "q_origin_key"},
+		{"radius_servers", "secondary_server"},
+		{"radius_servers", "server"},
+		{"radius_servers", "source_ip"},
+		{"radius_servers", "timeout"},
+		{"service_groups", "color"},
+		{"service_groups", "comment"},
+		{"service_groups", "fabric_object"},
+		{"service_groups", "name"},
+		{"service_groups", "proxy"},
+		{"service_groups", "q_origin_key"},
+		{"service_groups", "uuid"},
+		{"services", "category"},
+		{"services", "color"},
+		{"services", "comment"},
+		{"services", "fqdn"},
+		{"services", "icmpcode"},
+		{"services", "icmptype"},
+		{"services", "iprange"},
+		{"services", "name"},
+		{"services", "protocol"},
+		{"services", "protocol_number"},
+		{"services", "q_origin_key"},
+		{"services", "sctp_portrange"},
+		{"services", "tcp_portrange"},
+		{"services", "udp_portrange"},
+		{"services", "uuid"},
+		{"settings", "build"},
+		{"settings", "http_method"},
+		{"settings", "http_status"},
+		{"settings", "name"},
+		{"settings", "path"},
+		{"settings", "revision"},
+		{"settings", "serial"},
+		{"settings", "status"},
+		{"settings", "vdom"},
+		{"settings", "version"},
+		{"sslvpn_portals", "auto_connect"},
+		{"sslvpn_portals", "host_check"},
+		{"sslvpn_portals", "keep_alive"},
+		{"sslvpn_portals", "limit_user_logins"},
+		{"sslvpn_portals", "name"},
+		{"sslvpn_portals", "q_origin_key"},
+		{"sslvpn_portals", "save_password"},
+		{"sslvpn_portals", "split_tunneling"},
+		{"sslvpn_portals", "tunnel_mode"},
+		{"sslvpn_portals", "web_mode"},
+		{"static_routes", "blackhole"},
+		{"static_routes", "comment"},
+		{"static_routes", "device"},
+		{"static_routes", "distance"},
+		{"static_routes", "dst"},
+		{"static_routes", "dstaddr"},
+		{"static_routes", "dynamic_gateway"},
+		{"static_routes", "gateway"},
+		{"static_routes", "priority"},
+		{"static_routes", "q_origin_key"},
+		{"static_routes", "seq_num"},
+		{"static_routes", "src"},
+		{"static_routes", "status"},
+		{"static_routes", "virtual_wan_link"},
+		{"static_routes", "weight"},
+		{"user_groups", "authtimeout"},
+		{"user_groups", "company"},
+		{"user_groups", "email"},
+		{"user_groups", "group_type"},
+		{"user_groups", "mobile_phone"},
+		{"user_groups", "name"},
+		{"user_groups", "q_origin_key"},
+		{"vdoms", "flag"},
+		{"vdoms", "name"},
+		{"vdoms", "q_origin_key"},
+		{"vdoms", "short_name"},
+		{"vdoms", "vcluster_id"},
+		{"vips", "color"},
+		{"vips", "comment"},
+		{"vips", "extintf"},
+		{"vips", "extip"},
+		{"vips", "extport"},
+		{"vips", "mappedport"},
+		{"vips", "name"},
+		{"vips", "portforward"},
+		{"vips", "protocol"},
+		{"vips", "q_origin_key"},
+		{"vips", "status"},
+		{"vips", "type"},
+		{"vips", "uuid"},
+	}
+	if len(want) < 2 {
+		t.Fatal("backfill fixture must list more than one column")
+	}
+
+	dbPath := filepath.Join(t.TempDir(), "data.db")
+	raw, err := sql.Open("sqlite", dbPath)
+	if err != nil {
+		t.Fatalf("open raw: %v", err)
+	}
+	if _, err := raw.Exec(`PRAGMA journal_mode = DELETE`); err != nil {
+		raw.Close()
+		t.Fatalf("journal_mode: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE sync_state (
+		resource_type TEXT PRIMARY KEY,
+		last_cursor TEXT,
+		last_synced_at DATETIME,
+		total_count INTEGER
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old sync_state: %v", err)
+	}
+	if _, err := raw.Exec(`INSERT INTO sync_state (resource_type, last_cursor) VALUES ('items', 'cursor-1')`); err != nil {
+		raw.Close()
+		t.Fatalf("seed sync_state: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "address_groups" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old address_groups: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "addresses" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old addresses: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "admin_profiles" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old admin_profiles: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "administrators" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old administrators: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "api_users" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old api_users: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "dhcp_servers" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old dhcp_servers: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "interfaces" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old interfaces: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "ipsec_phase1" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old ipsec_phase1: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "ipsec_phase2" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old ipsec_phase2: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "ldap_servers" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old ldap_servers: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "local_in_policies" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old local_in_policies: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "local_users" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old local_users: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "monitor" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old monitor: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "policies" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old policies: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "radius_servers" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old radius_servers: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "service_groups" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old service_groups: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "services" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old services: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "settings" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old settings: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "sslvpn_portals" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old sslvpn_portals: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "static_routes" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old static_routes: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "user_groups" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old user_groups: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "vdoms" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old vdoms: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "vips" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old vips: %v", err)
+	}
+	if err := raw.Close(); err != nil {
+		t.Fatalf("close raw: %v", err)
+	}
+
+	ctx, stats := contextWithBackfillStats(context.Background())
+	s, err := OpenWithContext(ctx, dbPath)
+	if err != nil {
+		t.Fatalf("open upgraded db: %v", err)
+	}
+	if stats.probes != 1 {
+		s.Close()
+		t.Fatalf("probes = %d, want 1 for %d columns", stats.probes, len(want))
+	}
+	if stats.alters != len(want) {
+		s.Close()
+		t.Fatalf("alters = %d, want %d (one per missing column, not per probe)", stats.alters, len(want))
+	}
+	for _, c := range want {
+		var name string
+		if err := s.DB().QueryRow(`SELECT name FROM pragma_table_xinfo(?) WHERE name = ?`, c.table, c.column).Scan(&name); err != nil {
+			s.Close()
+			t.Fatalf("%s.%s missing after backfill: %v", c.table, c.column, err)
+		}
+	}
+	var cursor string
+	if err := s.DB().QueryRow(`SELECT last_cursor FROM sync_state WHERE resource_type = 'items'`).Scan(&cursor); err != nil {
+		s.Close()
+		t.Fatalf("read upgraded sync_state: %v", err)
+	}
+	if cursor != "cursor-1" {
+		s.Close()
+		t.Fatalf("last_cursor = %q, want cursor-1", cursor)
+	}
+	var ingress string
+	if err := s.DB().QueryRow(`SELECT name FROM pragma_table_xinfo('learning_playbooks') WHERE name = 'ingress_surface'`).Scan(&ingress); err != nil {
+		s.Close()
+		t.Fatalf("missing learning_playbooks must be created with ingress_surface, not skipped: %v", err)
+	}
+	if err := s.Close(); err != nil {
+		t.Fatalf("close upgraded db: %v", err)
+	}
+
+	ctx, stats = contextWithBackfillStats(context.Background())
+	s, err = OpenWithContext(ctx, dbPath)
+	if err != nil {
+		t.Fatalf("reopen upgraded db: %v", err)
+	}
+	defer s.Close()
+	if stats.probes != 1 || stats.alters != 0 {
+		t.Fatalf("reopen probes=%d alters=%d, want 1 and 0", stats.probes, stats.alters)
+	}
+}
+
+func TestBackfillColumns_GeneratedColumnNotReAdded(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "data.db")
+	raw, err := sql.Open("sqlite", dbPath)
+	if err != nil {
+		t.Fatalf("open raw: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE sync_state (
+		resource_type TEXT PRIMARY KEY,
+		last_cursor TEXT,
+		last_synced_at DATETIME,
+		total_count INTEGER,
+		scope_key TEXT GENERATED ALWAYS AS ('') VIRTUAL
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create generated scope_key: %v", err)
+	}
+	if err := raw.Close(); err != nil {
+		t.Fatalf("close raw: %v", err)
+	}
+
+	ctx, stats := contextWithBackfillStats(context.Background())
+	s, err := OpenWithContext(ctx, dbPath)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	if stats.probes != 1 {
+		s.Close()
+		t.Fatalf("probes = %d, want 1", stats.probes)
+	}
+	if stats.alters != 1 {
+		s.Close()
+		t.Fatalf("alters = %d, want 1 (last_attempt_complete only; table_info would also retry scope_key)", stats.alters)
+	}
+	var hidden int
+	if err := s.DB().QueryRow(`SELECT hidden FROM pragma_table_xinfo('sync_state') WHERE name = 'scope_key'`).Scan(&hidden); err != nil {
+		s.Close()
+		t.Fatalf("scope_key visibility: %v", err)
+	}
+	if hidden != 2 && hidden != 3 {
+		s.Close()
+		t.Fatalf("scope_key hidden = %d, want a generated column", hidden)
+	}
+	var present string
+	if err := s.DB().QueryRow(`SELECT name FROM pragma_table_xinfo('sync_state') WHERE name = 'last_attempt_complete'`).Scan(&present); err != nil {
+		s.Close()
+		t.Fatalf("last_attempt_complete missing: %v", err)
+	}
+	if err := s.Close(); err != nil {
+		t.Fatalf("close: %v", err)
+	}
+
+	ctx, stats = contextWithBackfillStats(context.Background())
+	s, err = OpenWithContext(ctx, dbPath)
+	if err != nil {
+		t.Fatalf("reopen: %v", err)
+	}
+	defer s.Close()
+	if stats.probes != 1 || stats.alters != 0 {
+		t.Fatalf("reopen probes=%d alters=%d, want 1 and 0", stats.probes, stats.alters)
+	}
+}
+
+func TestBackfillColumns_FreshStoreDoesNotAlter(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "data.db")
+	ctx, stats := contextWithBackfillStats(context.Background())
+	s, err := OpenWithContext(ctx, dbPath)
+	if err != nil {
+		t.Fatalf("open fresh: %v", err)
+	}
+	if stats.probes != 1 || stats.alters != 0 {
+		s.Close()
+		t.Fatalf("fresh probes=%d alters=%d, want 1 and 0", stats.probes, stats.alters)
+	}
+	version, err := s.SchemaVersion()
+	if err != nil {
+		s.Close()
+		t.Fatalf("schema version: %v", err)
+	}
+	if version != StoreSchemaVersion {
+		s.Close()
+		t.Fatalf("user_version = %d, want %d", version, StoreSchemaVersion)
+	}
+	var scope string
+	if err := s.DB().QueryRow(`SELECT name FROM pragma_table_xinfo('sync_state') WHERE name = 'scope_key'`).Scan(&scope); err != nil {
+		s.Close()
+		t.Fatalf("fresh sync_state missing scope_key: %v", err)
+	}
+	if err := s.Close(); err != nil {
+		t.Fatalf("close fresh: %v", err)
+	}
+
+	ctx, stats = contextWithBackfillStats(context.Background())
+	s, err = OpenWithContext(ctx, dbPath)
+	if err != nil {
+		t.Fatalf("reopen fresh: %v", err)
+	}
+	defer s.Close()
+	if stats.probes != 1 || stats.alters != 0 {
+		t.Fatalf("reopen probes=%d alters=%d, want 1 and 0", stats.probes, stats.alters)
+	}
+}
+
+func TestSnapshotTableColumnsCanceled(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "data.db")
+	db, err := sql.Open("sqlite", dbPath)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer db.Close()
+	if _, err := db.Exec(`CREATE TABLE t (id TEXT)`); err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	conn, err := db.Conn(context.Background())
+	if err != nil {
+		t.Fatalf("conn: %v", err)
+	}
+	defer conn.Close()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	_, err = snapshotTableColumns(ctx, conn)
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("snapshot error = %v, want context.Canceled", err)
+	}
+}
+
+func TestAddColumnDuplicateAndInvalid(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "data.db")
+	db, err := sql.Open("sqlite", dbPath)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer db.Close()
+	if _, err := db.Exec(`CREATE TABLE sync_state (resource_type TEXT PRIMARY KEY)`); err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	conn, err := db.Conn(context.Background())
+	if err != nil {
+		t.Fatalf("conn: %v", err)
+	}
+	defer conn.Close()
+
+	ctx := context.Background()
+	if err := addColumn(ctx, conn, "sync_state", "resource_type", "TEXT"); err != nil {
+		t.Fatalf("duplicate column must be swallowed: %v", err)
+	}
+	err = addColumn(ctx, conn, "sync_state", "bad_pk", "INTEGER PRIMARY KEY")
+	if err == nil || strings.Contains(err.Error(), "duplicate column name") {
+		t.Fatalf("primary key add = %v, want a non-duplicate error", err)
+	}
+	err = addColumn(ctx, conn, "missing_table", "col", "TEXT")
+	if err == nil || !strings.Contains(err.Error(), "missing_table.col") {
+		t.Fatalf("missing table add = %v, want wrapped missing_table.col", err)
 	}
 }

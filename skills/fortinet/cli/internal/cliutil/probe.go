@@ -7,6 +7,7 @@ package cliutil
 import (
 	"context"
 	"fmt"
+	"fortinet-pp-cli/internal/credkit"
 	"io"
 	"net/http"
 	"time"
@@ -71,7 +72,7 @@ func ProbeReachable(ctx context.Context, client *http.Client, url string) (statu
 		// global DefaultClient has none, so a nil-client probe against
 		// a slow host would hang. Callers passing their own client are
 		// expected to set Timeout themselves.
-		client = &http.Client{Timeout: defaultProbeTimeout}
+		client = &http.Client{Timeout: defaultProbeTimeout, Transport: credkit.Transport(nil)} // Hand-fix (handfixes.json credkit-wiring)
 	}
 	req, reqErr := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if reqErr != nil {
