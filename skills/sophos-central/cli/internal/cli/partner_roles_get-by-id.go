@@ -53,7 +53,7 @@ func newPartnerRolesGetByIdCmd(flags *rootFlags) *cobra.Command {
 				path = appendArrayQueryParam(path, "fields", flagFields, "form", false)
 			}
 			params := map[string]string{}
-			data, prov, err := resolveReadWithStrategyAndResponsePath(cmd.Context(), c, flags, "auto", "partner_roles", false, path, params, nil, "permissionSets", cmd.ErrOrStderr())
+			data, prov, err := resolveReadWithStrategyAndResponsePath(cmd.Context(), c, flags, "auto", "partner_roles", false, path, params, nil, "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}
@@ -80,7 +80,7 @@ func newPartnerRolesGetByIdCmd(flags *rootFlags) *cobra.Command {
 					filtered, selectErr = filterFieldsChecked(filtered, flags.selectFields)
 					selectErr = selectErrorForDryRun(selectErr, flags, data)
 				} else if flags.compact {
-					filtered = compactFields(filtered, nil)
+					filtered = compactFields(filtered, map[string]bool{"createdAt": true, "id": true, "name": true, "type": true, "updatedAt": true})
 				}
 				wrapped, wrapErr := wrapWithProvenance(filtered, prov)
 				if wrapErr != nil {
@@ -112,7 +112,7 @@ func newPartnerRolesGetByIdCmd(flags *rootFlags) *cobra.Command {
 			if flags.csv || flags.plain {
 				formatData = outputData
 			}
-			return printOutputWithFlagsMeta(cmd.OutOrStdout(), formatData, flags, map[string]any{"source": "live"}, nil)
+			return printOutputWithFlagsMeta(cmd.OutOrStdout(), formatData, flags, map[string]any{"source": "live"}, map[string]bool{"createdAt": true, "id": true, "name": true, "type": true, "updatedAt": true})
 		},
 	}
 	cmd.Flags().StringVar(&flagFields, "fields", "", "The fields to return in a partial response.")

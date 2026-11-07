@@ -1,0 +1,132 @@
+{
+  "schema_version": 2,
+  "generated_at": "2026-11-03T03:13:46.834339Z",
+  "printing_press_version": "4.35.1",
+  "api_name": "sophos-central",
+  "display_name": "Sophos Central",
+  "cli_name": "sophos-central-pp-cli",
+  "creator": {
+    "handle": "DamienStevens",
+    "name": "Damien Stevens"
+  },
+  "owner": "damienstevens",
+  "printer": "DamienStevens",
+  "printer_name": "Damien Stevens",
+  "spec_path": "spec.yaml",
+  "spec_format": "openapi3",
+  "spec_source": "official",
+  "spec_checksum": "sha256:b0ec5c2fa31d5cd8830c22872fe733f20959506b8a12b290a3d49da4fe0f0a5c",
+  "run_id": "20261102-165601-f36492c6",
+  "category": "monitoring",
+  "description": "The Sophos Central partner, organization and tenant APIs, routed to the right tenant and region automatically, plus a cross-tenant triage queue, fleet tamper remediation, a multi-tenant SIEM collector and hostname-based containment.",
+  "mcp_binary": "sophos-central-pp-mcp",
+  "mcp_tool_count": 228,
+  "mcp_ready": "full",
+  "api_version": "1.0.0",
+  "auth_type": "bearer_token",
+  "auth_preference": "sophosOAuth",
+  "auth_env_vars": [
+    "SOPHOS_CENTRAL_CLIENT_ID",
+    "SOPHOS_CENTRAL_CLIENT_SECRET"
+  ],
+  "auth_key_url": "https://developer.sophos.com/getting-started/",
+  "novel_features": [
+    {
+      "name": "Fleet refresh",
+      "command": "fleet refresh",
+      "description": "Refresh tenants, endpoints, alerts, account health and licences for every non-trial customer tenant in one run, with a per-tenant ok/forbidden/error ledger (add --include-trial for trial tenants)."
+    },
+    {
+      "name": "Fleet triage queue",
+      "command": "fleet triage",
+      "description": "One ranked work queue across all customers: open high and medium alerts, bad or suspicious endpoints, tamper protection off, isolated or stale devices."
+    },
+    {
+      "name": "Fleet health ranking",
+      "command": "fleet health",
+      "description": "Rank customers worst-first by Account Health Check score with sub-scores and the change since the previous fleet refresh."
+    },
+    {
+      "name": "Fleet gap analysis",
+      "command": "fleet gaps",
+      "description": "Per-customer security and commercial gaps: low protection, partial tamper protection, risky exclusions, unencrypted or unlicensed devices, licence over-usage or expiry."
+    },
+    {
+      "name": "Fleet revenue ranking",
+      "command": "fleet revenue",
+      "description": "Rank customers by monthly Sophos revenue for a billing month (partner credential only) and compare billed quantities with deployed endpoints counted by the last fleet refresh."
+    },
+    {
+      "name": "Cross-tenant containment",
+      "command": "contain",
+      "description": "Isolate (contain) machines by hostname, IP or endpoint ID without knowing the tenant: resolves the tenant from the fleet refresh index (or searches one --tenant live), previews isolation plus optional scan, forensic log and alert acknowledgement, and runs only with --yes."
+    },
+    {
+      "name": "Fleet tamper remediation",
+      "command": "fleet tamper",
+      "description": "Find supported endpoints with tamper protection off across non-trial customers and, with --yes, turn it back on; tenants whose tenant-wide tamper setting is off are reported, not changed."
+    },
+    {
+      "name": "Fleet SIEM collector",
+      "command": "fleet siem-collect",
+      "description": "Pull SIEM events and alerts for every tenant from each tenant's saved cursor as NDJSON, warning when a cursor fell outside the 24-hour window (CLI and cron only; not exposed as an MCP tool)."
+    }
+  ],
+  "novel_features_built": [
+    {
+      "name": "Fleet refresh",
+      "command": "fleet refresh",
+      "description": "Refresh tenants, endpoints, alerts, account health and licences for every non-trial customer tenant in one run, with a per-tenant ok/forbidden/error ledger (add --include-trial for trial tenants)."
+    },
+    {
+      "name": "Fleet triage queue",
+      "command": "fleet triage",
+      "description": "One ranked work queue across all customers: open high and medium alerts, bad or suspicious endpoints, tamper protection off, isolated or stale devices."
+    },
+    {
+      "name": "Fleet health ranking",
+      "command": "fleet health",
+      "description": "Rank customers worst-first by Account Health Check score with sub-scores and the change since the previous fleet refresh."
+    },
+    {
+      "name": "Fleet gap analysis",
+      "command": "fleet gaps",
+      "description": "Per-customer security and commercial gaps: low protection, partial tamper protection, risky exclusions, unencrypted or unlicensed devices, licence over-usage or expiry."
+    },
+    {
+      "name": "Fleet revenue ranking",
+      "command": "fleet revenue",
+      "description": "Rank customers by monthly Sophos revenue for a billing month (partner credential only) and compare billed quantities with deployed endpoints counted by the last fleet refresh."
+    },
+    {
+      "name": "Cross-tenant containment",
+      "command": "contain",
+      "description": "Isolate (contain) machines by hostname, IP or endpoint ID without knowing the tenant: resolves the tenant from the fleet refresh index (or searches one --tenant live), previews isolation plus optional scan, forensic log and alert acknowledgement, and runs only with --yes."
+    },
+    {
+      "name": "Fleet tamper remediation",
+      "command": "fleet tamper",
+      "description": "Find supported endpoints with tamper protection off across non-trial customers and, with --yes, turn it back on; tenants whose tenant-wide tamper setting is off are reported, not changed."
+    },
+    {
+      "name": "Fleet SIEM collector",
+      "command": "fleet siem-collect",
+      "description": "Pull SIEM events and alerts for every tenant from each tenant's saved cursor as NDJSON, warning when a cursor fell outside the 24-hour window (CLI and cron only; not exposed as an MCP tool)."
+    }
+  ],
+  "verify": {
+    "mode": "mock",
+    "pass_rate": 100,
+    "passed": 198,
+    "total": 198,
+    "data_pipeline": true,
+    "verdict": "PASS"
+  },
+  "scorecard": {
+    "steinberger": {
+      "percentage": 96,
+      "grade": "A",
+      "total": 96
+    }
+  }
+}

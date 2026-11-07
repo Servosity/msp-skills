@@ -167,11 +167,6 @@
    "read-only",
    "local-data"
   ],
-  "sophos-central": [
-   "write-gating",
-   "read-only",
-   "local-data"
-  ],
   "syncro": [
    "mcp-http",
    "write-gating",

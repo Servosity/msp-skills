@@ -643,7 +643,7 @@
       "type": "skill-md",
       "description": "Use when the user asks to check Sophos Central across every customer: a ranked triage queue of alerts and unhealthy machines, Account Health Check rankings, security and licence gaps, tamper protection off, partner billing against deployment, or to isolate a machine by hostname without knowing its tenant. Covers the Sophos Central partner, organization and tenant APIs with tenant and region routing handled for you. Trigger phrases: `check sophos alerts across all customers`, `which sophos endpoints have tamper protection off`, `isolate this machine in sophos`, `sophos health check scores for my tenants`, `reconcile sophos partner billing`, `use sophos central`, `run sophos-central`.",
       "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/sophos-central/SKILL.md",
-      "digest": "sha256:5dc2d99cbf4611bfc366643de04c8525b99b57548ac38a7a4809565bd257dfaf"
+      "digest": "sha256:54ac2c8fbb4fdf946461b885d686785843d8eb5786df2128cb151d0716acda13"
     },
     {
       "name": "superops",

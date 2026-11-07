@@ -49,7 +49,7 @@ func newPoliciesGetValueOfSettingItemInBasePolicyCmd(flags *rootFlags) *cobra.Co
 					}
 				}
 				if !validPolicyType {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagPolicyType, "policy-type", allowedPolicyType)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagPolicyType, "policy-type", allowedPolicyType))
 				}
 			}
 			path := "/endpoint/v1/policies/{policyType}/base/settings/{settingKey}"

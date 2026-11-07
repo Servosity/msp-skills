@@ -24,6 +24,7 @@ import (
 	mcplib "github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 	"sophos-central-pp-cli/internal/cli"
+	"sophos-central-pp-cli/internal/cliutil"
 	"sophos-central-pp-cli/internal/mcp/cobratree"
 )
 
@@ -34,21 +35,27 @@ func RegisterIntents(s *server.MCPServer) {
 		recipePath := []string{
 			"contain",
 		}
-		opts := []mcplib.ToolOption{
-			mcplib.WithDescription("Previews isolation, scan, forensic log and alert acknowledgement for the tenant that owns the host (needs a prior fleet refresh, or --tenant); add --yes to run it."),
-			mcplib.WithOpenWorldHintAnnotation(true),
+		// A recipe must not re-expose a command the mirror walker would prune
+		// (Cobra-hidden or mcp:hidden) or that the MCP read-only switch would
+		// drop; otherwise a recipe wrapping, say, `share publish --remote` could
+		// surface a hidden, network-writing command over MCP.
+		if recipeTargetExposed(recipePath) {
+			opts := []mcplib.ToolOption{
+				mcplib.WithDescription("Previews isolation, scan, forensic log and alert acknowledgement for the tenant that owns the host (needs a prior fleet refresh, or --tenant); add --yes to run it."),
+				mcplib.WithOpenWorldHintAnnotation(true),
+			}
+			opts = append(opts, mcplib.WithString("slug", mcplib.Required(), mcplib.Description("Override the recipe's positional slug value.")))
+			if !recipeDestinationBlocked(recipePath, "scan") {
+				opts = append(opts, mcplib.WithBoolean("scan", mcplib.Description("Override the recipe's --scan value.")))
+			}
+			if !recipeDestinationBlocked(recipePath, "forensic-log") {
+				opts = append(opts, mcplib.WithBoolean("forensic_log", mcplib.Description("Override the recipe's --forensic-log value.")))
+			}
+			if !recipeDestinationBlocked(recipePath, "ack-alerts") {
+				opts = append(opts, mcplib.WithBoolean("ack_alerts", mcplib.Description("Override the recipe's --ack-alerts value.")))
+			}
+			s.AddTool(mcplib.NewTool("contain_a_compromised_workstation", opts...), handleContainACompromisedWorkstation)
 		}
-		opts = append(opts, mcplib.WithString("slug", mcplib.Required(), mcplib.Description("Override the recipe's positional slug value.")))
-		if !recipeDestinationBlocked(recipePath, "scan") {
-			opts = append(opts, mcplib.WithBoolean("scan", mcplib.Description("Override the recipe's --scan value.")))
-		}
-		if !recipeDestinationBlocked(recipePath, "forensic-log") {
-			opts = append(opts, mcplib.WithBoolean("forensic_log", mcplib.Description("Override the recipe's --forensic-log value.")))
-		}
-		if !recipeDestinationBlocked(recipePath, "ack-alerts") {
-			opts = append(opts, mcplib.WithBoolean("ack_alerts", mcplib.Description("Override the recipe's --ack-alerts value.")))
-		}
-		s.AddTool(mcplib.NewTool("contain_a_compromised_workstation", opts...), handleContainACompromisedWorkstation)
 	}
 }
 
@@ -58,17 +65,22 @@ func handleContainACompromisedWorkstation(ctx context.Context, req mcplib.CallTo
 		return mcplib.NewToolResultError(fmt.Sprintf("companion CLI binary not found: %v", recipeCLIPathErr)), nil
 	}
 
-	input := req.GetArguments()
 	recipePath := []string{
 		"contain",
 	}
-	args := []string{}
-	args = append(args, "contain")
-	var missingSlug bool
-	if err := rejectFlagLikeRecipeValue("slug", input["slug"]); err != nil {
-		return mcplib.NewToolResultError(err.Error()), nil
+	// Re-check exposure at call time: the read-only switch may have flipped on
+	// since registration, and a handler must never run a hidden or read-only-
+	// blocked command even if its tool was registered earlier.
+	if !recipeTargetExposed(recipePath) {
+		return mcplib.NewToolResultError("tool is not available"), nil
 	}
-	args, missingSlug = appendRecipePositional(args, input["slug"], true)
+
+	input := req.GetArguments()
+	args := []string{}
+	recipeEnd := -1
+	args = appendRecipeStatic(args, "contain", &recipeEnd)
+	var missingSlug bool
+	args, missingSlug = appendRecipePositional(args, input["slug"], true, &recipeEnd)
 	if missingSlug {
 		return mcplib.NewToolResultError("slug is required"), nil
 	}
@@ -79,7 +91,7 @@ func handleContainACompromisedWorkstation(ctx context.Context, req mcplib.CallTo
 			}
 		}
 	} else {
-		args = appendRecipeBoolFlag(args, "scan", input["scan"], true)
+		args = appendRecipeBoolFlag(args, "scan", input["scan"], true, &recipeEnd)
 	}
 	if recipeDestinationBlocked(recipePath, "forensic-log") {
 		if input != nil {
@@ -88,7 +100,7 @@ func handleContainACompromisedWorkstation(ctx context.Context, req mcplib.CallTo
 			}
 		}
 	} else {
-		args = appendRecipeBoolFlag(args, "forensic-log", input["forensic_log"], true)
+		args = appendRecipeBoolFlag(args, "forensic-log", input["forensic_log"], true, &recipeEnd)
 	}
 	if recipeDestinationBlocked(recipePath, "ack-alerts") {
 		if input != nil {
@@ -97,12 +109,12 @@ func handleContainACompromisedWorkstation(ctx context.Context, req mcplib.CallTo
 			}
 		}
 	} else {
-		args = appendRecipeBoolFlag(args, "ack-alerts", input["ack_alerts"], true)
+		args = appendRecipeBoolFlag(args, "ack-alerts", input["ack_alerts"], true, &recipeEnd)
 	}
 
 	out, err := cobratree.RunCLICommand(ctx, recipeCLIPath, args)
 	if err != nil {
-		return mcplib.NewToolResultError(err.Error()), nil
+		return cobratree.ToolResultFromCLIFailure(out, err), nil
 	}
 	return cobratree.ToolResultFromCLICommand(out), nil
 }
@@ -113,18 +125,40 @@ var (
 )
 
 func init() {
+	// Uncached on purpose: init runs before a test can point the CLI path
+	// env var at a stand-in or reset the process memo, and a cached miss
+	// here would stick for every later registration.
 	recipeCLIPath, recipeCLIPathErr = cobratree.SiblingCLIPath()
 }
 
-// recipeCommandRoot is the Cobra tree consulted for write-sink annotations.
-// Recipe text does not carry mcp:write-flags; the live command does.
+// recipeCommandRoot is the live Cobra tree consulted for a recipe's target
+// command: its hidden / mcp:hidden / read-only annotations, and its write-sink
+// and read-path flag annotations. Recipe text does not carry these; the live
+// command does.
 var recipeCommandRoot = cli.RootCmd
 
-func recipeDestinationBlocked(path []string, flagName string) bool {
-	if flagName == "" || recipeCommandRoot == nil {
-		return cobratree.DestinationFlagBlocked(nil, flagName)
+// recipeTargetExposed reports whether the command a recipe wraps may be surfaced
+// and run over MCP right now. When the recipe's target resolves to an in-tree
+// command, that command must not be hidden (itself or an ancestor, Cobra-hidden
+// or mcp:hidden) — otherwise the recipe would re-expose a surface the mirror
+// walker deliberately pruned. While the MCP read-only switch is on, the recipe
+// is withheld unless its target is provably safe: annotated mcp:read-only or
+// mcp:local-write. A recipe whose target does not resolve to an in-tree command
+// cannot be the hidden command, so it is not blocked on that basis when the
+// read-only switch is off, but it is still withheld under read-only (an
+// unverifiable target cannot be proven side-effect-free).
+func recipeTargetExposed(path []string) bool {
+	if recipeCommandRoot == nil {
+		return true
 	}
-	return cobratree.DestinationFlagBlocked(cobratree.CommandAtPath(recipeCommandRoot(), recipeCommandPath(path)), flagName)
+	cmd := cobratree.CommandAtPath(recipeCommandRoot(), recipeCommandPath(path))
+	if cmd != nil && !cobratree.CommandExposableOverMCP(cmd) {
+		return false
+	}
+	if cliutil.IsMCPReadOnlyEnv() && !cobratree.CommandAllowedUnderMCPReadOnly(cmd) {
+		return false
+	}
+	return true
 }
 
 // recipeCommandPath keeps the Cobra command words. Static flags such as
@@ -139,16 +173,79 @@ func recipeCommandPath(path []string) []string {
 	}
 	return out
 }
+func recipeDestinationBlocked(path []string, flagName string) bool {
+	if flagName == "" {
+		return false
+	}
+	if recipeCommandRoot == nil {
+		return cobratree.DestinationFlagBlocked(nil, flagName) || cobratree.InputFlagBlocked(nil, flagName)
+	}
+	cmd := cobratree.CommandAtPath(recipeCommandRoot(), recipeCommandPath(path))
+	return cobratree.DestinationFlagBlocked(cmd, flagName) || cobratree.InputFlagBlocked(cmd, flagName)
+}
 
-func appendRecipePositional(args []string, value any, required bool) ([]string, bool) {
+func appendRecipePositional(args []string, value any, required bool, end *int) ([]string, bool) {
 	selected := recipeValueString(value)
 	if selected == "" {
 		return args, required
 	}
+	// A value that looks like a flag is placed after `--` so pflag keeps it
+	// as data. The same shape as joining `--key=value`: the CLI still runs,
+	// and the value cannot set another flag.
+	if recipePositionalNeedsSeparator(selected) && recipeSeparatorIndex(end) < 0 {
+		args = recipeMarkSeparator(args, end)
+	}
 	return append(args, selected), false
 }
 
-func appendRecipeStringFlag(args []string, name string, value any, defaultValue string, required bool, useEquals bool) ([]string, bool) {
+func recipePositionalNeedsSeparator(value string) bool {
+	return value != "-" && strings.HasPrefix(value, "-")
+}
+
+// recipeSeparatorIndex is the `--` this builder inserted. A flag value of
+// `--` is its own argv token and is not that separator.
+func recipeSeparatorIndex(end *int) int {
+	if end == nil {
+		return -1
+	}
+	return *end
+}
+
+func recipeMarkSeparator(args []string, end *int) []string {
+	if recipeSeparatorIndex(end) < 0 && end != nil {
+		*end = len(args)
+	}
+	return append(args, "--")
+}
+
+// Flags appended after a protected positional must land before `--`.
+// Everything after that separator is positional.
+func insertRecipeBeforeEndOfFlags(args []string, end *int, tokens ...string) []string {
+	i := recipeSeparatorIndex(end)
+	if i < 0 {
+		return append(args, tokens...)
+	}
+	out := make([]string, 0, len(args)+len(tokens))
+	out = append(out, args[:i]...)
+	out = append(out, tokens...)
+	out = append(out, args[i:]...)
+	if end != nil {
+		*end = i + len(tokens)
+	}
+	return out
+}
+
+func appendRecipeStatic(args []string, token string, end *int) []string {
+	if token == "--" {
+		return recipeMarkSeparator(args, end)
+	}
+	if token != "-" && strings.HasPrefix(token, "-") {
+		return insertRecipeBeforeEndOfFlags(args, end, token)
+	}
+	return append(args, token)
+}
+
+func appendRecipeStringFlag(args []string, name string, value any, defaultValue string, required bool, useEquals bool, end *int) ([]string, bool) {
 	selected := defaultValue
 	if value != nil {
 		selected = recipeValueString(value)
@@ -156,31 +253,19 @@ func appendRecipeStringFlag(args []string, name string, value any, defaultValue 
 	if selected == "" {
 		return args, required
 	}
-	// Hand-wired (sophos-mcp-recipe-argv-not-flag-like): always joined, so a
-	// value can never be parsed as a second flag; useEquals is kept only for
-	// the generated call sites.
-	return append(args, "--"+name+"="+selected), false
-}
-
-// rejectFlagLikeRecipeValue is hand-wired (sophos-mcp-recipe-argv-not-flag-like).
-// A recipe positional comes straight from the tool call and lands in argv
-// ahead of the recipe's own flags, so a value beginning with "-" would be
-// parsed by pflag as a flag (for example {"slug": "--yes"} on contain). Mirrors
-// the rule in cobratree.validatePositionalArgsForMCP.
-func rejectFlagLikeRecipeValue(name string, value any) error {
-	if s := recipeValueString(value); s != "-" && strings.HasPrefix(s, "-") {
-		return fmt.Errorf("flag-like value %q not allowed for %s; pass a plain value", s, name)
+	if useEquals {
+		return insertRecipeBeforeEndOfFlags(args, end, "--"+name+"="+selected), false
 	}
-	return nil
+	return insertRecipeBeforeEndOfFlags(args, end, "--"+name, selected), false
 }
 
-func appendRecipeBoolFlag(args []string, name string, value any, defaultValue bool) []string {
+func appendRecipeBoolFlag(args []string, name string, value any, defaultValue bool, end *int) []string {
 	selected := defaultValue
 	if v, ok := value.(bool); ok {
 		selected = v
 	}
 	if selected {
-		return append(args, "--"+name)
+		return insertRecipeBeforeEndOfFlags(args, end, "--"+name)
 	}
 	return args
 }

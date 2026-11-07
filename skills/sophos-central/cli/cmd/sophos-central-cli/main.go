@@ -5,13 +5,18 @@
 package main
 
 import (
-	"os"
-
 	"sophos-central-pp-cli/internal/cli"
+	"sophos-central-pp-cli/internal/credkit"
+	"sophos-central-pp-cli/internal/credwire"
 )
 
 func main() {
+	// Hand-fix (handfixes.json credkit-wiring): the credential kit holds every startup credential before any output.
+	credkit.Start(credwire.Declarations)
+	credwire.RestoreStdinBody() // Hand-fix (handfixes.json credkit-wiring): a --stdin command gets its body back after Start
+	code := 0
 	if err := cli.Execute(); err != nil {
-		os.Exit(cli.ExitCode(err))
+		code = cli.ExitCode(err)
 	}
+	credkit.Exit(code)
 }

@@ -1,20 +1,14 @@
 # Sophos Central MCP - install for every agent that speaks MCP
 
-> **Security note (until this connector is reprinted).** Do not run HTTP mode
-> (`--transport http`), not even on localhost. This build checks a token, but it
-> predates the fix release's request size and time limits. The MCP tools can
-> also make changes with your credentials. Use the default stdio transport. If
-> you set up a tunnel for a remote agent, shut it down. A fix is on the way.
-
 This page wires the Sophos Central MCP server into any MCP client. If you use Claude
 Code, Codex CLI, or Cowork, install the Skill instead (see [README.md](./README.md)) -
 it's simpler. Everyone else: pick your agent below.
 
 **Two install classes.** *Local* agents (Claude Desktop, the ChatGPT desktop app,
-GitHub Copilot, Gemini CLI) launch `sophos-central-mcp` directly on your machine -
-no hosting. *Web-only* AI apps (ChatGPT on the web, Microsoft 365 Copilot /
-Copilot Studio, the Gemini app) need a remote server, which msp-skills does not
-support yet; see **Remote agents** below.
+GitHub Copilot, Gemini CLI) launch `sophos-central-mcp` directly on your machine - no
+hosting. *Web-only* AI apps (ChatGPT on the web, Microsoft 365 Copilot / Copilot
+Studio, the Gemini app) need a remote server, which msp-skills does not support
+yet; see **Remote agents** below.
 
 ## Prerequisite: install the MCP binary
 
@@ -51,6 +45,7 @@ Add (or merge with your existing `mcpServers` block):
         "SOPHOS_CENTRAL_TOKEN_URL": "",
         "SOPHOS_CENTRAL_OAUTH_SCOPE": "",
         "SOPHOS_CENTRAL_MCP_READ_ONLY": "1",
+        "SOPHOS_CENTRAL_NO_LOCAL_DATA": "",
         "SOPHOS_CENTRAL_MCP_HTTP_TOKEN": "",
         "SOPHOS_CENTRAL_USER_AGENT": "",
         "PRINTING_PRESS_CLIENT_PROFILE": ""
@@ -59,9 +54,6 @@ Add (or merge with your existing `mcpServers` block):
   }
 }
 ```
-
-`SOPHOS_CENTRAL_MCP_READ_ONLY` is `1` in every JSON config on this page. Remove
-this line only when you want the agent to make changes.
 
 Quit Claude Desktop completely and reopen, then ask a question that needs the API.
 
@@ -85,7 +77,7 @@ GitHub Copilot supports MCP in **Agent mode** (GA since VS Code 1.102, July 2025
 Two gotchas trip people up: the config file is `mcp.json` (not `settings.json`), and
 the root key is **`servers`** (not `mcpServers` like Claude).
 
-Create `.mcp.json` in your workspace (or open the Command Palette > **MCP: Open User
+Create `.vscode/mcp.json` in your workspace (or open the Command Palette > **MCP: Open User
 Configuration**) and add:
 
 ```json
@@ -102,6 +94,7 @@ Configuration**) and add:
         "SOPHOS_CENTRAL_TOKEN_URL": "",
         "SOPHOS_CENTRAL_OAUTH_SCOPE": "",
         "SOPHOS_CENTRAL_MCP_READ_ONLY": "1",
+        "SOPHOS_CENTRAL_NO_LOCAL_DATA": "",
         "SOPHOS_CENTRAL_MCP_HTTP_TOKEN": "",
         "SOPHOS_CENTRAL_USER_AGENT": "",
         "PRINTING_PRESS_CLIENT_PROFILE": ""
@@ -132,6 +125,7 @@ Claude Desktop:
         "SOPHOS_CENTRAL_TOKEN_URL": "",
         "SOPHOS_CENTRAL_OAUTH_SCOPE": "",
         "SOPHOS_CENTRAL_MCP_READ_ONLY": "1",
+        "SOPHOS_CENTRAL_NO_LOCAL_DATA": "",
         "SOPHOS_CENTRAL_MCP_HTTP_TOKEN": "",
         "SOPHOS_CENTRAL_USER_AGENT": "",
         "PRINTING_PRESS_CLIENT_PROFILE": ""
@@ -146,25 +140,63 @@ web** is remote-only - see the remote section below.)
 
 ---
 
-# Remote agents (paused until this connector is reprinted)
+# Remote agents (host the binary over HTTPS first)
 
 **Not supported by msp-skills yet.** ChatGPT on the web, Microsoft 365 Copilot /
 Copilot Studio and the Gemini app reach MCP servers at a web address, not programs
-on your machine, so they would need `sophos-central-mcp` running in HTTP mode. Do
-not run HTTP mode with this build (see the security note at the top of this page),
-and do not put this server behind a tunnel or reverse proxy. If your team works in
-one of those apps, a
+on your machine, so they would need `sophos-central-mcp` running in HTTP mode, hosted
+by you over HTTPS. If your team works in one
+of those apps, a
 [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick)
 is the better pick; check that your AI app is on the gateway's setup list. The
-ChatGPT desktop app is different: it runs `sophos-central-mcp` locally (see
-above).
+ChatGPT desktop app is different: it runs `sophos-central-mcp` locally (see above).
 
-The HTTP-mode launch command is kept below for reference. It is commented out on
-purpose, so pasting it does nothing:
+Remote agents need `sophos-central-mcp` reachable over **HTTPS** with a bearer token. Keep
+stdio (the default) for every local agent. HTTP mode serves
+`http://127.0.0.1:7777/mcp` by default and refuses to start until `SOPHOS_CENTRAL_MCP_HTTP_TOKEN` is
+set; every request must send `Authorization: Bearer <token>`. Any address other
+than loopback also needs TLS:
 
 ```bash
-# SOPHOS_CENTRAL_CLIENT_ID=<value> SOPHOS_CENTRAL_CLIENT_SECRET=<value> SOPHOS_CENTRAL_MCP_HTTP_TOKEN=<long-random-value> sophos-central-mcp --transport http
+# make the token with: openssl rand -hex 32 (32 characters or more)
+SOPHOS_CENTRAL_CLIENT_ID=<value> SOPHOS_CENTRAL_CLIENT_SECRET=<value> SOPHOS_CENTRAL_TENANT_ID=<value> SOPHOS_CENTRAL_BASE_URL=<value> SOPHOS_CENTRAL_TOKEN_URL=<value> SOPHOS_CENTRAL_OAUTH_SCOPE=<value> SOPHOS_CENTRAL_MCP_READ_ONLY=1 SOPHOS_CENTRAL_NO_LOCAL_DATA=<value> SOPHOS_CENTRAL_USER_AGENT=<value> PRINTING_PRESS_CLIENT_PROFILE=<value> SOPHOS_CENTRAL_MCP_HTTP_TOKEN=<long-random-value> sophos-central-mcp --transport http --addr <host>:7777 --tls-cert <cert.pem> --tls-key <key.pem>
 ```
+
+The endpoint is `https://<host>:7777/mcp`: the server answers Streamable HTTP at
+`/mcp` and returns 404 at the bare root. The server rejects any request without
+`Authorization: Bearer <token>`, so a remote agent works only if its connector
+settings can send that header; check yours first. **Treat the token like a password** -
+whoever holds it can call every tool with your Sophos Central credentials.
+
+## Microsoft 365 Copilot / Copilot Studio
+
+**Honest heads-up:** there is no local path. Microsoft 365 Copilot, Copilot Studio,
+and Security Copilot all consume MCP over **remote Streamable-HTTP only** - the local
+`sophos-central-mcp` you installed is not enough on its own. You also need a **Copilot Studio
+license** and a **tenant admin** to enable it. This is a build-and-host task, not a
+self-serve install.
+
+Once `sophos-central-mcp` is hosted over HTTPS (above), the lowest-code route:
+
+1. In **Copilot Studio**, open your agent > **Tools** > **Add a tool** > **Model
+   Context Protocol**.
+2. Enter a **Server name**, the **Server URL** (your HTTPS endpoint), and auth.
+   The server needs `Authorization: Bearer <token>` on every request, so this
+   works only if the auth option you pick sends it. Copilot Studio builds the Power
+   Platform connector behind the scenes; generative orchestration must be **on**.
+3. Publish the agent into Microsoft 365 Copilot.
+
+Alternative (dev-ish): build a **declarative agent** with the Microsoft 365 Agents
+Toolkit in VS Code (**Add an Action > Start with an MCP Server**, point at the remote
+URL), then sideload - requires admin-enabled Custom App Upload + Copilot Access.
+
+Microsoft docs: https://learn.microsoft.com/en-us/microsoft-copilot-studio/agent-extend-action-mcp
+
+## Gemini app / web (Google)
+
+Point Gemini's connector at your hosted HTTPS
+endpoint, if it can send the bearer token. For a local, no-hosting path on Google, use
+**Gemini CLI** (above) instead.
 
 ---
 
@@ -181,7 +213,7 @@ hermes mcp add sophos-central -- sophos-central-mcp
 openclaw mcp set sophos-central '{"command":"sophos-central-mcp"}'
 ```
 
-Same env vars as the blocks above, including `SOPHOS_CENTRAL_MCP_READ_ONLY=1`. For the Skill-install path (no MCP wiring), see
+Same env vars as the blocks above. For the Skill-install path (no MCP wiring), see
 the "Install for Hermes" / "Install for OpenClaw" sections in [README.md](./README.md).
 
 For the simplest path overall, use Claude Desktop or the Claude Code / Codex Skill.

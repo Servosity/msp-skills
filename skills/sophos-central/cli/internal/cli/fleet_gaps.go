@@ -174,6 +174,10 @@ func buildGaps(db fleetReader, filter map[string]bool, opt gapOptions) (gapsView
 			names[doc.TenantID] = doc.TenantName
 		}
 		for _, c := range checks {
+			if c.Failed {
+				add(doc.TenantID, fleetGap{Kind: "security", Type: "health_check_failed", Detail: fmt.Sprintf("%s returned no result (unexpected error); its checks were not run", c.Check)})
+				continue
+			}
 			if c.Score >= opt.threshold {
 				continue
 			}
@@ -227,7 +231,9 @@ func buildGaps(db fleetReader, filter map[string]bool, opt gapOptions) (gapsView
 		if encryptionAssigned && jsonString(e, "encryption", "overallStatus") == "notEncrypted" {
 			t.unencrypted++
 		}
-		if jsonString(e, "packages", "protection", "status") == "unlicensed" {
+		// The endpoint schema documents the protection status under both
+		// deviceSoftware and packages; either one saying unlicensed counts.
+		if jsonString(e, "deviceSoftware", "protection", "status") == "unlicensed" || jsonString(e, "packages", "protection", "status") == "unlicensed" {
 			t.unlicensed++
 		}
 		return true
@@ -273,7 +279,7 @@ func buildGaps(db fleetReader, filter map[string]bool, opt gapOptions) (gapsView
 				EndDate   string `json:"endDate"`
 				Perpetual bool   `json:"perpetual"`
 				Unlimited bool   `json:"unlimited"`
-				Quantity  int    `json:"quantity"`
+				Quantity  *int   `json:"quantity"` // absent is unknown; 0 is a real entitlement
 				Usage     struct {
 					Current struct {
 						Count int `json:"count"`
@@ -291,12 +297,17 @@ func buildGaps(db fleetReader, filter map[string]bool, opt gapOptions) (gapsView
 			if name == "" {
 				name = l.Product.Code
 			}
-			if !l.Unlimited && l.Quantity > 0 && l.Usage.Current.Count > l.Quantity {
-				add(doc.TenantID, fleetGap{Kind: "commercial", Type: "licence_over_usage", Count: l.Usage.Current.Count - l.Quantity,
-					Detail: fmt.Sprintf("%s: %d in use, %d licensed", name, l.Usage.Current.Count, l.Quantity)})
+			if !l.Unlimited && l.Quantity != nil && l.Usage.Current.Count > *l.Quantity {
+				add(doc.TenantID, fleetGap{Kind: "commercial", Type: "licence_over_usage", Count: l.Usage.Current.Count - *l.Quantity,
+					Detail: fmt.Sprintf("%s: %d in use, %d licensed", name, l.Usage.Current.Count, *l.Quantity)})
 			}
 			if !l.Perpetual && l.EndDate != "" {
-				if end, perr := time.Parse("2006-01-02", l.EndDate[:min(len(l.EndDate), 10)]); perr == nil && end.After(opt.now) && end.Sub(opt.now) <= 30*24*time.Hour {
+				// The licensing spec: valid until the end of endDate in UTC.
+				if end, perr := time.Parse("2006-01-02", l.EndDate[:min(len(l.EndDate), 10)]); perr == nil {
+					validUntil := end.AddDate(0, 0, 1)
+					if !validUntil.After(opt.now) || validUntil.Sub(opt.now) > 30*24*time.Hour {
+						continue
+					}
 					add(doc.TenantID, fleetGap{Kind: "commercial", Type: "licence_expiring", Detail: fmt.Sprintf("%s ends %s", name, end.Format("2006-01-02"))})
 				}
 			}

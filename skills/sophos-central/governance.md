@@ -53,7 +53,11 @@ get-tamper-protection`, `endpoints set-tamper-protection`) and a migration job's
 token (`migrations get-job`, `get-jobs`, `create-receiving-job`,
 `create-sending-job`). A response carrying either is never written to the response
 cache or the local store, and those six commands are not exposed through the MCP
-server, so an agent cannot read a tamper password on its own.
+server, so an agent cannot read a tamper password on its own. The CLI does not print
+either secret: where one would appear, the command prints
+`[credkit: withheld from stdout: it carried a credential this program holds]`
+instead, and the rest of the answer (`--select enabled`, for example) still prints.
+Read a tamper protection password or a migration token in the Sophos Central console.
 
 ## Default-safe behavior
 
@@ -67,8 +71,9 @@ server, so an agent cannot read a tamper password on its own.
   Code or Codex.
 - **The MCP server can still write.** Its generic `sophos-central_execute` tool can
   call any Sophos Central endpoint except the six that return a password or token (named above),
-  including isolation, scans, exclusions and policy changes, gated only by your AI
-  app's per-tool approval prompt. For an agent that should only read, set
+  including isolation, scans, exclusions and policy changes. Every such call
+  returns a preview and sends nothing until it carries `confirm: true`, so the
+  real gate is your AI app's per-tool approval prompt on that confirmed call. For an agent that should only read, set
   `SOPHOS_CENTRAL_MCP_READ_ONLY=1` in the MCP server's environment: it refuses every
   non-GET call and hides the `sync` and `export` tools.
 - **Read commands are always safe to run** (the fleet reports, list, get, search);
@@ -90,7 +95,7 @@ for an autonomous agent is **read only**; require a human for anything below Rea
 | **Endpoint response** | Acts on real customer machines. | `contain --yes`, `fleet tamper --yes`, `endpoints set-isolation`, `endpoints bulk-isolate`, `endpoints scan`, `endpoints update-check`, `endpoints collect-forensic-log`, `endpoints collect-memory-dump`, `endpoints update-aap`, `live-discover run-query`, `device-software`, `software add-special-static-package` | Human-in-the-loop, explicit confirmation |
 | **Protection and policy config** | Changes what Sophos blocks, allows, scans or decrypts, or which policy a machine gets. An exclusion or allowed item can open a hole. | `exclusions add-scanning`, `exclusions update-scanning-by-id`, `exclusions delete-scanning-by-id`, `exclusions add-isolation`, `exclusions update-isolation-by-id`, `exclusions delete-isolation-by-id`, `exclusions add-intrusion-prevention`, `exclusions update-intrusion-prevention-by-id`, `exclusions delete-intrusion-prevention-by-id`, `allowed-items post-by-id`, `allowed-items patch-by-id`, `allowed-items delete-by-id`, `blocked-items post-by-id`, `blocked-items delete-by-id`, `blocked-addresses post-blocked-address-sets`, `blocked-addresses delete-blocked-address-sets`, `policies create-policy`, `policies update-policy`, `policies update-settings-of-policy`, `policies clone-policy`, `policies reset-policy-settings`, `policies reset-setting-in-policy`, `policies update-base-policy`, `policies update-settings-of-base-policy`, `policies update-value-of-setting-item-in-base-policy`, `policies clone-base-policy`, `policies reset-base-policy-settings`, `policies reset-setting-in-base-policy`, `exploit-mitigation add-application`, `exploit-mitigation patch-application-by-id`, `exploit-mitigation delete-application-by-id`, `web-control add-local-site-exclusion`, `web-control update-local-site-setting-by-id`, `web-control delete-local-sites-by-id`, `web-control update-web-decryption-excluded-sites`, `web-control update-web-decryption-settings`, `event-journal update-settings`, `endpoint-groups create-tenant`, `endpoint-groups patch-tenant`, `endpoint-groups add-multiple-endpoints-to-group`, `endpoint-groups remove-multiple-endpoints-from-group`, `endpoint-groups remove-single-endpoint-from-group` | Preview with `--dry-run`, then a human-approved write |
 | **Write (routine)** | Day-to-day records with no direct protection effect. | `alerts act-on`, `endpoint-tags`, `users create-tenant`, `users patch-tenant`, `users add-to-multiple-groups`, `users remove-from-multiple-groups`, `users remove-from-single-group`, `user-groups create-tenant`, `user-groups patch-tenant`, `user-groups add-multiple-users-to-group`, `user-groups remove-multiple-users-from-group`, `user-groups remove-single-user-from-group`, `health-check post-snooze`, `xdr start-query-run`, `xdr cancel-query-run`, `enrichment-pivots create`, `enrichment-pivots update`, `software update-comment`, `import` | Preview with `--dry-run`, then a reviewed write |
-| **Credential and access** | Returns a live secret, or changes who can do what. `endpoints get-tamper-protection` / `set-tamper-protection` return the tamper protection password; the three `migrations` reads return the migration token. | `endpoints get-tamper-protection`, `endpoints set-tamper-protection`, `migrations get-job`, `migrations get-jobs`, `migrations create-receiving-job`, `auth login`, `auth set-token`, `admins create-tenant`, `admins create-role-assignment`, `admins remove-role-assignment-by-id`, `admins deprovision-by-id`, `roles create-tenant`, `roles patch-tenant`, `roles delete-tenant-by-id`, `partner-admins create`, `partner-admins create-admin-role-assignment`, `partner-admins remove-admin-role-assignment-by-id`, `partner-admins delete-by-id`, `partner-roles create`, `partner-roles patch`, `partner-roles delete-by-id`, `org-admins create-organization-admin`, `org-admins create-admin-role-assignment`, `org-admins remove-admin-role-assignment-by-id`, `org-admins delete-organization-admin-by-id`, `org-roles create-organization-role`, `org-roles patch-organization-role`, `org-roles delete-organization-role-by-id` | Human-in-the-loop only |
+| **Credential and access** | Reads or changes a live secret, or changes who can do what. `endpoints get-tamper-protection` / `set-tamper-protection` reach the tamper protection password and the `migrations` commands the migration token; the CLI withholds both secrets from its output. | `endpoints get-tamper-protection`, `endpoints set-tamper-protection`, `migrations get-job`, `migrations get-jobs`, `migrations create-receiving-job`, `auth login`, `auth set-token`, `admins create-tenant`, `admins create-role-assignment`, `admins remove-role-assignment-by-id`, `admins deprovision-by-id`, `roles create-tenant`, `roles patch-tenant`, `roles delete-tenant-by-id`, `partner-admins create`, `partner-admins create-admin-role-assignment`, `partner-admins remove-admin-role-assignment-by-id`, `partner-admins delete-by-id`, `partner-roles create`, `partner-roles patch`, `partner-roles delete-by-id`, `org-admins create-organization-admin`, `org-admins create-admin-role-assignment`, `org-admins remove-admin-role-assignment-by-id`, `org-admins delete-organization-admin-by-id`, `org-roles create-organization-role`, `org-roles patch-organization-role`, `org-roles delete-organization-role-by-id` | Human-in-the-loop only |
 | **Destructive and commercial** | Irreversible loss, moves endpoints to another tenant, or changes what a customer is billed. | `endpoints delete`, `endpoints bulk-delete`, `policies delete-policy`, `endpoint-groups delete-tenant-by-id`, `users delete-tenant-by-id`, `user-groups delete-tenant-by-id`, `enrichment-pivots delete`, `software delete-comment`, `migrations create-sending-job`, `tenants create`, `tenants update`, `tenants post-account-amendment`, `tenants post-product-selection`, `tenants cancel-pending-amendment`, `provisioning patch-default-products`, `provisioning reset-default-products`, `web-control clear-web-decryption-excluded-sites` | Human-in-the-loop only, explicit confirmation |
 
 ## How to lock it down
@@ -107,7 +112,8 @@ for an autonomous agent is **read only**; require a human for anything below Rea
 - **Never let an agent run Credential, Destructive, or Endpoint response commands
   unattended.** Treat them like a production database drop: human, reviewed, logged.
 - **Rotate the credential if it is ever exposed** (for example after bridging the
-  MCP server to a public endpoint for ChatGPT - see mcp-install.md). Sophos shows
+  MCP server's HTTP mode is reached from a host you did not intend - see
+  mcp-install.md). Sophos shows
   the client secret only once and does not alert you when a credential expires.
 
 ## Why an MSP owner can be comfortable

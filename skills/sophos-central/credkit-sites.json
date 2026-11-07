@@ -1,0 +1,356 @@
+{
+ "sites": [
+  {
+   "file": "internal/cli/contain.go",
+   "func": "newNovelContainCmd",
+   "what": "fmt.Fprintln",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs only inside the command's RunE, after Start, and writes to the command's own stdout or stderr, which the kit's output layer checks; the checker counts it as before Start only because internal/mcp/intents.go keeps recipeCommandRoot = cli.RootCmd, a package-level function value no initializer calls"
+  },
+  {
+   "file": "internal/cli/contain.go",
+   "func": "newNovelContainCmd",
+   "what": "writer:io.Writer",
+   "count": 5,
+   "kind": "exempt",
+   "reason": "runs only inside the command's RunE, after Start, and writes to the command's own stdout or stderr, which the kit's output layer checks; the checker counts it as before Start only because internal/mcp/intents.go keeps recipeCommandRoot = cli.RootCmd, a package-level function value no initializer calls"
+  },
+  {
+   "file": "internal/cli/fleet_gaps.go",
+   "func": "newNovelFleetGapsCmd",
+   "what": "fmt.Fprintf",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "runs only inside the command's RunE, after Start, and writes to the command's own stdout or stderr, which the kit's output layer checks; the checker counts it as before Start only because internal/mcp/intents.go keeps recipeCommandRoot = cli.RootCmd, a package-level function value no initializer calls"
+  },
+  {
+   "file": "internal/cli/fleet_gaps.go",
+   "func": "newNovelFleetGapsCmd",
+   "what": "fmt.Fprintln",
+   "count": 3,
+   "kind": "exempt",
+   "reason": "runs only inside the command's RunE, after Start, and writes to the command's own stdout or stderr, which the kit's output layer checks; the checker counts it as before Start only because internal/mcp/intents.go keeps recipeCommandRoot = cli.RootCmd, a package-level function value no initializer calls"
+  },
+  {
+   "file": "internal/cli/fleet_gaps.go",
+   "func": "newNovelFleetGapsCmd",
+   "what": "writer:io.Writer",
+   "count": 8,
+   "kind": "exempt",
+   "reason": "runs only inside the command's RunE, after Start, and writes to the command's own stdout or stderr, which the kit's output layer checks; the checker counts it as before Start only because internal/mcp/intents.go keeps recipeCommandRoot = cli.RootCmd, a package-level function value no initializer calls"
+  },
+  {
+   "file": "internal/cli/fleet_health.go",
+   "func": "newNovelFleetHealthCmd",
+   "what": "fmt.Fprintf",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs only inside the command's RunE, after Start, and writes to the command's own stdout or stderr, which the kit's output layer checks; the checker counts it as before Start only because internal/mcp/intents.go keeps recipeCommandRoot = cli.RootCmd, a package-level function value no initializer calls"
+  },
+  {
+   "file": "internal/cli/fleet_health.go",
+   "func": "newNovelFleetHealthCmd",
+   "what": "fmt.Fprintln",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "runs only inside the command's RunE, after Start, and writes to the command's own stdout or stderr, which the kit's output layer checks; the checker counts it as before Start only because internal/mcp/intents.go keeps recipeCommandRoot = cli.RootCmd, a package-level function value no initializer calls"
+  },
+  {
+   "file": "internal/cli/fleet_health.go",
+   "func": "newNovelFleetHealthCmd",
+   "what": "writer:io.Writer",
+   "count": 8,
+   "kind": "exempt",
+   "reason": "runs only inside the command's RunE, after Start, and writes to the command's own stdout or stderr, which the kit's output layer checks; the checker counts it as before Start only because internal/mcp/intents.go keeps recipeCommandRoot = cli.RootCmd, a package-level function value no initializer calls"
+  },
+  {
+   "file": "internal/cli/fleet_refresh.go",
+   "func": "newNovelFleetRefreshCmd",
+   "what": "writer:io.Writer",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs only inside the command's RunE, after Start, and writes to the command's own stdout or stderr, which the kit's output layer checks; the checker counts it as before Start only because internal/mcp/intents.go keeps recipeCommandRoot = cli.RootCmd, a package-level function value no initializer calls"
+  },
+  {
+   "file": "internal/cli/fleet_refresh.go",
+   "func": "pruneOutOfScopeTenants",
+   "what": "database/sql.DB.Exec",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "a statement on the fleet store, opened through the kit's SQL driver (internal/credsql), so the kit checks it; it runs only inside fleet refresh's RunE, after Start; the checker counts it as before Start only because internal/mcp/intents.go keeps recipeCommandRoot = cli.RootCmd, a package-level function value no initializer calls"
+  },
+  {
+   "file": "internal/cli/fleet_refresh.go",
+   "func": "runFleetSync",
+   "what": "fmt.Fprintf",
+   "count": 4,
+   "kind": "exempt",
+   "reason": "runs only inside the command's RunE, after Start, and writes to the command's own stdout or stderr, which the kit's output layer checks; the checker counts it as before Start only because internal/mcp/intents.go keeps recipeCommandRoot = cli.RootCmd, a package-level function value no initializer calls"
+  },
+  {
+   "file": "internal/cli/fleet_refresh.go",
+   "func": "runFleetSync",
+   "what": "writer:io.Writer",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "runs only inside the command's RunE, after Start, and writes to the command's own stdout or stderr, which the kit's output layer checks; the checker counts it as before Start only because internal/mcp/intents.go keeps recipeCommandRoot = cli.RootCmd, a package-level function value no initializer calls"
+  },
+  {
+   "file": "internal/cli/fleet_refresh.go",
+   "func": "tenantsWrittenSince",
+   "what": "database/sql.DB.Query",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "a statement on the fleet store, opened through the kit's SQL driver (internal/credsql), so the kit checks it; it runs only inside fleet refresh's RunE, after Start; the checker counts it as before Start only because internal/mcp/intents.go keeps recipeCommandRoot = cli.RootCmd, a package-level function value no initializer calls"
+  },
+  {
+   "file": "internal/cli/fleet_revenue.go",
+   "func": "billingJoinData",
+   "what": "fmt.Fprintln",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs only inside the command's RunE, after Start, and writes to the command's own stdout or stderr, which the kit's output layer checks; the checker counts it as before Start only because internal/mcp/intents.go keeps recipeCommandRoot = cli.RootCmd, a package-level function value no initializer calls"
+  },
+  {
+   "file": "internal/cli/fleet_revenue.go",
+   "func": "newNovelFleetRevenueCmd",
+   "what": "fmt.Fprintf",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs only inside the command's RunE, after Start, and writes to the command's own stdout or stderr, which the kit's output layer checks; the checker counts it as before Start only because internal/mcp/intents.go keeps recipeCommandRoot = cli.RootCmd, a package-level function value no initializer calls"
+  },
+  {
+   "file": "internal/cli/fleet_revenue.go",
+   "func": "newNovelFleetRevenueCmd",
+   "what": "writer:io.Writer",
+   "count": 4,
+   "kind": "exempt",
+   "reason": "runs only inside the command's RunE, after Start, and writes to the command's own stdout or stderr, which the kit's output layer checks; the checker counts it as before Start only because internal/mcp/intents.go keeps recipeCommandRoot = cli.RootCmd, a package-level function value no initializer calls"
+  },
+  {
+   "file": "internal/cli/fleet_siem_collect.go",
+   "func": "newNovelFleetSiemCollectCmd",
+   "what": "writer:io.Writer",
+   "count": 4,
+   "kind": "exempt",
+   "reason": "runs only inside the command's RunE, after Start, and writes to the command's own stdout or stderr, which the kit's output layer checks; the checker counts it as before Start only because internal/mcp/intents.go keeps recipeCommandRoot = cli.RootCmd, a package-level function value no initializer calls"
+  },
+  {
+   "file": "internal/cli/fleet_siem_collect.go",
+   "func": "pullSiem",
+   "what": "writer:io.Writer",
+   "count": 3,
+   "kind": "exempt",
+   "reason": "runs only inside the command's RunE, after Start, and writes to the command's own stdout or stderr, which the kit's output layer checks; the checker counts it as before Start only because internal/mcp/intents.go keeps recipeCommandRoot = cli.RootCmd, a package-level function value no initializer calls"
+  },
+  {
+   "file": "internal/cli/fleet_siem_collect.go",
+   "func": "writeSiemRecord",
+   "what": "fmt.Fprintln",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs only inside the command's RunE, after Start, and writes to the command's own stdout or stderr, which the kit's output layer checks; the checker counts it as before Start only because internal/mcp/intents.go keeps recipeCommandRoot = cli.RootCmd, a package-level function value no initializer calls"
+  },
+  {
+   "file": "internal/cli/fleet_tamper.go",
+   "func": "newNovelFleetTamperCmd",
+   "what": "fmt.Fprintln",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs only inside the command's RunE, after Start, and writes to the command's own stdout or stderr, which the kit's output layer checks; the checker counts it as before Start only because internal/mcp/intents.go keeps recipeCommandRoot = cli.RootCmd, a package-level function value no initializer calls"
+  },
+  {
+   "file": "internal/cli/fleet_tamper.go",
+   "func": "newNovelFleetTamperCmd",
+   "what": "writer:io.Writer",
+   "count": 5,
+   "kind": "exempt",
+   "reason": "runs only inside the command's RunE, after Start, and writes to the command's own stdout or stderr, which the kit's output layer checks; the checker counts it as before Start only because internal/mcp/intents.go keeps recipeCommandRoot = cli.RootCmd, a package-level function value no initializer calls"
+  },
+  {
+   "file": "internal/cli/fleet_triage.go",
+   "func": "newNovelFleetTriageCmd",
+   "what": "fmt.Fprintf",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "runs only inside the command's RunE, after Start, and writes to the command's own stdout or stderr, which the kit's output layer checks; the checker counts it as before Start only because internal/mcp/intents.go keeps recipeCommandRoot = cli.RootCmd, a package-level function value no initializer calls"
+  },
+  {
+   "file": "internal/cli/fleet_triage.go",
+   "func": "newNovelFleetTriageCmd",
+   "what": "fmt.Fprintln",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "runs only inside the command's RunE, after Start, and writes to the command's own stdout or stderr, which the kit's output layer checks; the checker counts it as before Start only because internal/mcp/intents.go keeps recipeCommandRoot = cli.RootCmd, a package-level function value no initializer calls"
+  },
+  {
+   "file": "internal/cli/fleet_triage.go",
+   "func": "newNovelFleetTriageCmd",
+   "what": "writer:io.Writer",
+   "count": 8,
+   "kind": "exempt",
+   "reason": "runs only inside the command's RunE, after Start, and writes to the command's own stdout or stderr, which the kit's output layer checks; the checker counts it as before Start only because internal/mcp/intents.go keeps recipeCommandRoot = cli.RootCmd, a package-level function value no initializer calls"
+  },
+  {
+   "file": "internal/cli/sophos_fleet.go",
+   "func": "emitScopedSyncHints",
+   "what": "fmt.Fprintf",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "runs only inside the command's RunE, after Start, and writes to the command's own stdout or stderr, which the kit's output layer checks; the checker counts it as before Start only because internal/mcp/intents.go keeps recipeCommandRoot = cli.RootCmd, a package-level function value no initializer calls"
+  },
+  {
+   "file": "internal/cli/sophos_fleet.go",
+   "func": "emitScopedSyncHints",
+   "what": "writer:io.Writer",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs only inside the command's RunE, after Start, and writes to the command's own stdout or stderr, which the kit's output layer checks; the checker counts it as before Start only because internal/mcp/intents.go keeps recipeCommandRoot = cli.RootCmd, a package-level function value no initializer calls"
+  },
+  {
+   "file": "internal/cli/sophos_fleet.go",
+   "func": "fleetFreshness",
+   "what": "fmt.Fprintln",
+   "count": 4,
+   "kind": "exempt",
+   "reason": "runs only inside the command's RunE, after Start, and writes to the command's own stdout or stderr, which the kit's output layer checks; the checker counts it as before Start only because internal/mcp/intents.go keeps recipeCommandRoot = cli.RootCmd, a package-level function value no initializer calls"
+  },
+  {
+   "file": "internal/cli/sophos_fleet.go",
+   "func": "warnBlind",
+   "what": "fmt.Fprintf",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs only inside the command's RunE, after Start, and writes to the command's own stdout or stderr, which the kit's output layer checks; the checker counts it as before Start only because internal/mcp/intents.go keeps recipeCommandRoot = cli.RootCmd, a package-level function value no initializer calls"
+  },
+  {
+   "file": "internal/cli/sophos_routing.go",
+   "func": "installSophosRouting",
+   "what": "call:dynamic",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the router's base when the API client has no transport: cliutil.OutboundGuard(nil), which is credkit.Transport around http.DefaultTransport, a package variable the checker cannot resolve; client.New always sets a credkit.Transport-wrapped transport first, so in the binaries this branch never runs"
+  },
+  {
+   "file": "internal/cli/sophos_routing.go",
+   "func": "installSophosRouting",
+   "what": "convert:sophos-central-pp-cli/internal/cli.sophosRouter.RoundTrip",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the router becomes the API client's transport; its RoundTrip sends only through r.base, the credkit.Transport-wrapped transport it wraps, so the kit judges every request it makes"
+  },
+  {
+   "file": "internal/cli/sophos_routing.go",
+   "func": "installSophosRouting",
+   "what": "net/http.Client.Transport",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the router wraps c.HTTPClient.Transport, the API client's credkit.Transport-wrapped transport, and sends every request it rewrites (the global host, the regional apiHost, the tenant and partner headers) through it, so the kit judges the rewritten request; it adds no credential of its own"
+  },
+  {
+   "file": "internal/cli/sophos_routing.go",
+   "func": "installSophosRouting",
+   "what": "sink:net/http.RoundTripper",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the nil passed to cliutil.OutboundGuard (credkit.Transport), which the kit replaces with http.DefaultTransport inside its own guard"
+  },
+  {
+   "file": "internal/cli/sophos_routing.go",
+   "func": "sophosRouter.RoundTrip",
+   "what": "net/http.RoundTripper.RoundTrip",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "r.base.RoundTrip: base is the API client's credkit.Transport-wrapped transport (installSophosRouting), so every request, GET /whoami/v1 and the rewritten regional one included, is judged by the kit"
+  },
+  {
+   "file": "internal/cli/sophos_routing.go",
+   "func": "sophosRouter.loadDisk",
+   "what": "os.ReadFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reads the routing cache (the caller's tenant or partner ID from GET /whoami/v1 and each tenant's apiHost, keyed by a SHA-256 of the Authorization header), not a credential file; its write goes through credkit.WriteFile"
+  },
+  {
+   "file": "internal/cli/sophos_routing.go",
+   "func": "sophosRouter.saveDiskLocked",
+   "what": "os.Rename",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "moves the routing cache's .tmp, written by credkit.WriteFile, into place; the destination is that cache under the state directory, never a credential file Start holds"
+  },
+  {
+   "file": "internal/credsql/credsql.go",
+   "func": "applyLengthLimit",
+   "what": "database/sql.DB.Conn",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "lends a connection already opened through credkit.SQLDriver to set SQLITE_LIMIT_LENGTH: it runs no statement and writes no value, and the hook only runs when a store opens, after Start"
+  },
+  {
+   "file": "internal/credsql/credsql.go",
+   "func": "applyLengthLimit",
+   "what": "database/sql.OpenDB",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "lends a connection already opened through credkit.SQLDriver to set SQLITE_LIMIT_LENGTH: it runs no statement and writes no value, and the hook only runs when a store opens, after Start"
+  },
+  {
+   "file": "internal/credwire/declarations.go",
+   "func": "holdPipedToken",
+   "what": "os.File.Stat",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reads stdin's mode inside Start's Files hook, before anything prints; it writes nothing"
+  },
+  {
+   "file": "internal/credwire/declarations.go",
+   "func": "holdPipedToken",
+   "what": "writer:*os.File",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "os.Stdin read with io.ReadAll inside Start's Files hook, so the kit holds the piped token before the command reads it; nothing is written to it"
+  },
+  {
+   "file": "internal/credwire/declarations.go",
+   "func": "pipeOf",
+   "what": "os.File.Close",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "closes that pipe's write end, which ends the input; no output"
+  },
+  {
+   "file": "internal/credwire/declarations.go",
+   "func": "pipeOf",
+   "what": "os.File.Write",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the write end of a pipe that refills os.Stdin with the same piped token (holdPipedToken, already held) or --stdin body (RestoreStdinBody, after Start): an input to this process, not an output"
+  },
+  {
+   "file": "internal/credwire/declarations.go",
+   "func": "readRegular",
+   "what": "os.ReadFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reads only the credential sources credentialFiles names and the run-profile stores, inside Start, and the bytes go only to credkit.HoldBody and credkit.HoldURL"
+  },
+  {
+   "file": "internal/credwire/declarations.go",
+   "func": "takeStdinBody",
+   "what": "os.File.Stat",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reads stdin's mode inside Start's Files hook, before anything prints, so a terminal is not read; it writes nothing"
+  },
+  {
+   "file": "internal/credwire/declarations.go",
+   "func": "takeStdinBody",
+   "what": "writer:*os.File",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "os.Stdin read with io.ReadAll inside Start's Files hook: the --stdin body, whose credential fields credkit.HoldBody holds before anything prints, handed back on a new pipe after Start; nothing is written to it"
+  }
+ ]
+}

@@ -124,6 +124,12 @@
      "contains": "nextCursorPath: \"pages.nextKey\"",
      "min_count": 1,
      "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "cursorParam:    \"pageFromKey\",",
+     "min_count": 3,
+     "code_only": false
     }
    ]
   },
@@ -200,6 +206,12 @@
      "contains": "pagination did not advance (repeated cursor)",
      "min_count": 1,
      "code_only": false
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "extractFailures++",
+     "min_count": 1,
+     "code_only": false
     }
    ]
   },
@@ -223,20 +235,26 @@
     },
     {
      "file": "cli/internal/cli/sync.go",
-     "contains": "db.GetSyncState(stateKey)",
+     "contains": "db.ReadSyncScope(stateKey, scopeKey)",
      "min_count": 1,
      "code_only": false
     },
     {
      "file": "cli/internal/cli/sync.go",
-     "contains": "db.SaveSyncStateAt(sophosSyncStateKey(resource), \"\", 0, time.Time{})",
-     "min_count": 1,
+     "contains": "db.ClearSyncScopeIfCurrent(sophosSyncStateKey(resource), scopeKey)",
+     "min_count": 2,
      "code_only": false
     },
     {
      "file": "cli/internal/cli/channel_workflow.go",
      "contains": "if err := s.SaveSyncStateAt(sophosSyncStateKey(resource), \"\", 0, time.Time{}); err != nil {",
      "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "InScope(stateKey, scopeKey",
+     "min_count": 5,
      "code_only": false
     }
    ]
@@ -262,6 +280,12 @@
     {
      "file": "cli/internal/cli/sync.go",
      "contains": "\tcase userParams.hasAny():\n\t\t// HAND-FIX(sophos-filtered-prune): a --param walk saw a subset, so it",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "case userParams.hasAny():",
      "min_count": 1,
      "code_only": false
     }
@@ -391,57 +415,13 @@
     },
     {
      "file": "SKILL.md",
-     "contains": "`state` contains `teach.log`",
+     "contains": "`state` contains persisted queries, jobs, and `teach.log`",
      "min_count": 1,
      "code_only": false
     },
     {
      "file": "SKILL.md",
      "contains": "Create an API credential in Sophos Central",
-     "min_count": 1,
-     "code_only": false
-    }
-   ]
-  },
-  {
-   "id": "mcp-recipe-argv-not-flag-like",
-   "summary": "MCP recipe intents refuse a flag-like value (leading '-') for a positional or string flag, e.g. contain's slug",
-   "why": "Press 4.33.5 recipe intents append agent-supplied values to argv; a value like '--yes' or '--base-url=...' became a flag (argv smuggling, see the fleet-wide finding on PR #317). rejectFlagLikeRecipeValue refuses it and string flags are passed as --name=value. Same fix as skills/acronis 'mcp-recipe-argv-not-flag-like'.",
-   "status": "active",
-   "asserts": [
-    {
-     "file": "cli/internal/mcp/intents.go",
-     "contains": "func rejectFlagLikeRecipeValue(",
-     "min_count": 1,
-     "code_only": false
-    },
-    {
-     "file": "cli/internal/mcp/intents.go",
-     "contains": "if err := rejectFlagLikeRecipeValue(\"slug\", input[\"slug\"]); err != nil {",
-     "min_count": 1,
-     "code_only": false
-    },
-    {
-     "file": "cli/internal/mcp/intents.go",
-     "contains": "if s := recipeValueString(value); s != \"-\" && strings.HasPrefix(s, \"-\") {",
-     "min_count": 1,
-     "code_only": false
-    },
-    {
-     "file": "cli/internal/mcp/intents.go",
-     "contains": "return append(args, \"--\"+name+\"=\"+selected), false",
-     "min_count": 1,
-     "code_only": false
-    },
-    {
-     "file": "cli/internal/mcp/recipe_intents_test.go",
-     "contains": "func TestRecipeIntentContainACompromisedWorkstationRejectsFlagLikePositional(",
-     "min_count": 1,
-     "code_only": false
-    },
-    {
-     "file": "cli/internal/mcp/recipe_intents_test.go",
-     "contains": "func TestRejectFlagLikeRecipeValueEdges(",
      "min_count": 1,
      "code_only": false
     }
@@ -596,7 +576,7 @@
   {
    "id": "secret-responses-never-persisted",
    "summary": "a response carrying a tamper protection password or a migration token is never cached, stored, exported or printed by tail, and the six operations that return one are not MCP-executable",
-   "why": "Sophos returns live credentials from exactly six operations (a scan of every 2xx response schema in the vendor spec for password/secret/token keys): GET and POST /endpoint/v1/endpoints/{id}/tamper-protection (password, previousPasswords) and GET/POST/PUT /endpoint/v1/migrations[/{id}] (token). The generated response cache wrote every GET body to disk, sync stored migration rows (resources table, FTS index and the typed migrations.token column), and the export and tail commands - both MCP tools - printed the token to any agent. Guards: the cache refuses a body with a secret key, every store write and the typed migrations writer drop secret keys, export and tail redact before printing (round 1 of this run caught `export migrations` leaking through MCP), and the MCP execute tool drops the six endpoint IDs. A human reads the tamper password with `endpoints get-tamper-protection` on the CLI.",
+   "why": "Sophos returns live credentials from exactly six operations (a scan of every 2xx response schema in the vendor spec for password/secret/token keys): GET and POST /endpoint/v1/endpoints/{id}/tamper-protection (password, previousPasswords) and GET/POST/PUT /endpoint/v1/migrations[/{id}] (token). The generated response cache wrote every GET body to disk, sync stored migration rows (resources table, FTS index and the typed migrations.token column), and the export and tail commands - both MCP tools - printed the token to any agent. Guards: the cache refuses a body with a secret key, every store write and the typed migrations writer drop secret keys, export and tail redact before printing (round 1 of this run caught `export migrations` leaking through MCP), and the MCP execute tool drops the six endpoint IDs. Since the credential kit (credkit-wiring) the CLI withholds both secrets from its own output too; a human reads them in the Sophos Central console.",
    "status": "active",
    "asserts": [
     {
@@ -1299,38 +1279,6 @@
    ]
   },
   {
-   "id": "mcp-filesystem-destination-gate",
-   "summary": "MCP shell-out tools refuse local-file source and destination flags (--home, --input, --notes-file, --playbook-file, --playbook-notes-file plus the generated output/receipt flags), and import is CLI-only",
-   "why": "Forwarded from a tool call, a local-path flag lets an agent read any file this account can reach (credentials.toml included) into the store, where playbook_list and sql hand it back, or write a file anywhere. UnblockedFilesystemPathFlags walks the registered tool set by usage text so a newly generated local-path flag fails the test instead of shipping open. import needs --input, so it is hidden from MCP rather than a tool that always fails.",
-   "status": "active",
-   "asserts": [
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "\"playbook-notes-file\": true,",
-     "min_count": 1,
-     "code_only": false
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "func UnblockedFilesystemPathFlags(root *cobra.Command) []string {",
-     "min_count": 1,
-     "code_only": false
-    },
-    {
-     "file": "cli/internal/cli/import.go",
-     "contains": "Annotations: map[string]string{\"mcp:hidden\": \"true\"},",
-     "min_count": 1,
-     "code_only": false
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/filesystem_tree_test.go",
-     "contains": "UnblockedFilesystemPathFlags(",
-     "min_count": 1,
-     "code_only": false
-    }
-   ]
-  },
-  {
    "id": "mcp-bool-false-forwarded",
    "summary": "an explicit false for a boolean MCP argument is forwarded as --name=false",
    "why": "cliArgsFromMCP dropped false booleans, so a default-true flag (tail --follow) could never be turned off from a tool call and tail ran forever inside the MCP server.",
@@ -1623,96 +1571,10 @@
    ]
   },
   {
-   "id": "windows-sddl-alias-sid-compare",
-   "summary": "the Windows token-file guard compares trustees by SID, resolving SDDL aliases through the OS, so the built-in Administrator (RID 500, rendered as LA) can save and load credentials",
-   "why": "Press 4.30.2+ creds_perms_eval.go compared the SDDL text of the token file's owner and ACE trustees against the process's SID string. The SDDL converter renders the built-in local Administrator (RID 500) as the alias LA, so that account's own ACE never matched: `auth set-token` exited 1 with `token file DACL grants access to a non-owner principal (LA)` and every read refused the file. Reproduced 2026-10-15 on the published fortinet-cli 0.1.0, installed with the README one-liner on a windows-latest runner (whoami S-1-5-21-...-500). The fix resolves each trustee to its SID (fixed aliases from a table, machine-relative ones like LA through ConvertStringSidToSid, kept only when the converter renders that SID back to the same alias) and compares SIDs. The allow-list is unchanged (current user, BUILTIN\\Administrators, SYSTEM): an owner or allow-ACE trustee that is any other principal, a broad group, or unresolvable is still refused. A reprint from an unfixed press silently restores the string compare while unit tests stay green on every non-Windows host.",
-   "status": "active",
-   "spec_encode_followup": "Press defect in internal/generator/templates/cliutil_creds_perms_eval.go.tmpl and cliutil_creds_perms_windows.go.tmpl (unfixed on press main as of 4.33.5). Reported upstream: https://github.com/mvanhorn/cli-printing-press/issues/5029",
-   "asserts": [
-    {
-     "file": "cli/internal/cliutil/creds_perms_eval.go",
-     "contains": "func trusteeSID(trustee string, resolveAlias sddlAliasResolver) string {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/creds_perms_eval.go",
-     "contains": "if om == nil || !sidAllowed(trusteeSID(om[1], resolveAlias), currentUserSID) {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/creds_perms_eval.go",
-     "contains": "if !sidAllowed(trusteeSID(trustee, resolveAlias), currentUserSID) {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/creds_perms_windows.go",
-     "contains": "return evalCredsSecurityResolved(sd.String(), me, resolveSDDLAlias)",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/creds_perms_windows.go",
-     "contains": "sid, err := windows.StringToSid(alias)",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/creds_perms_windows.go",
-     "not_contains": "return evalCredsSecurity(sd.String(), me)"
-    },
-    {
-     "file": "cli/internal/cliutil/creds_perms_sddl_test.go",
-     "contains": "func TestEvalCredsSecurityResolvesSDDLAliases(t *testing.T) {",
-     "code_only": true
-    }
-   ]
-  },
-  {
-   "id": "windows-null-dacl-behind-flags",
-   "summary": "the Windows token-file guard checks the DACL section's framing, so a NULL DACL is refused in the form Windows actually renders it, flags first (D:PAINO_ACCESS_CONTROL), and DACL text that does not frame as flags plus complete six-field ACEs is refused rather than skipped",
-   "why": "Press creds_perms_eval.go refused a NULL DACL only when the DACL section began with NO_ACCESS_CONTROL. SDDL puts DACL flags (P, AI, AR) first, and a real NULL DACL on Windows Server 2025 renders as O:<owner>D:PAINO_ACCESS_CONTROL (measured on a windows-latest runner, 2026-10-15), so the guard found no ACEs to inspect and accepted a world-accessible token file. That was already a hole for every ordinary account; for the built-in Administrator the owner-alias mismatch happened to refuse it, so resolving LA (windows-sddl-alias-sid-compare) without this fix would have widened the hole. The DACL section's framing is now checked: its flags must be drawn from P/AI/AR/NO_ACCESS_CONTROL, an empty DACL followed by a SACL section ends at that section, and the ACE list must be complete, un-nested (...) groups of exactly six fields. Unknown flags, an unclosed or nested group, stray text, or a wrong field count is refused (fail-closed). ACE flags and rights are not validated; they do not change which principal an allow ACE names.",
-   "status": "active",
-   "spec_encode_followup": "Same press templates as windows-sddl-alias-sid-compare; reported in the same upstream issue: https://github.com/mvanhorn/cli-printing-press/issues/5029",
-   "asserts": [
-    {
-     "file": "cli/internal/cliutil/creds_perms_eval.go",
-     "contains": "if strings.Contains(daclFlags, \"NO_ACCESS_CONTROL\") {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/creds_perms_eval.go",
-     "contains": "if !daclFlagsRe.MatchString(daclFlags) {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/creds_perms_eval.go",
-     "contains": "if !aceListRe.MatchString(rest[flagsEnd:]) {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/creds_perms_eval.go",
-     "contains": "if len(fields) != 6 {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/creds_perms_eval.go",
-     "not_contains": "if strings.HasPrefix(rest, \"NO_ACCESS_CONTROL\") {"
-    },
-    {
-     "file": "cli/internal/cliutil/creds_perms_sddl_test.go",
-     "contains": "func TestEvalCredsSecurityRefusesNullDACLBehindFlags(t *testing.T) {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/creds_perms_sddl_test.go",
-     "contains": "func TestEvalCredsSecurityChecksTheDACLSectionFraming(t *testing.T) {",
-     "code_only": true
-    }
-   ]
-  },
-  {
    "id": "no-create-alias-on-destructive-commands",
    "class": "create-alias-on-destructive",
-   "summary": "The generator's hidden Cobra alias `create` is removed from the 7 commands listed in `why` whose POST deletes, cancels, disables, stops, rolls back or otherwise destroys or disrupts something, so `<parent> create` no longer runs them",
-   "why": "cli-printing-press gives a POST endpoint command the hidden alias `create`. On these commands the POST is destructive, so an agent that guessed the conventional verb (`<group> create`) ran the destructive call, and the alias appeared nowhere in help, agent-context or governance.md. Reproduced on origin/main 6416a241b against a local fake server: `maxio-cli subscriptions purge-json create sub_123 --ack 1` sent POST /subscriptions/sub_123/purge.json, `sentinelone-cli reports create` sent POST /reports/delete-reports and `tactical-rmm-cli agents shutdown create agent-42` sent POST /agents/agent-42/shutdown/. Fleet gate: tools/maintainer/check_command_tree.py, which walks the real cli.RootCmd() tree (137 such commands in 28 connectors on 6416a241b, 0 after). The canonical command names are unchanged; only the alias goes. A reprint re-adds it: remove it again. TestDestructiveCommandsDoNotAnswerToCreate fails while the alias is present. Commands here: alerts act-on (POST /common/v1/alerts/{alertId}/actions); blocked-addresses delete-blocked-address-sets (POST /endpoint/v1/settings/blocked-addresses/bulk/delete); endpoints bulk-delete (POST /endpoint/v1/endpoints/delete); health-check post-snooze (POST /account-health-check/v1/snooze); migrations create-receiving-job (POST /endpoint/v1/migrations); software add-special-static-package (POST /endpoint/v1/software/packages/static/{staticPackageId}/add); xdr cancel-query-run (POST /xdr-query/v1/queries/runs/{runId}/cancel).",
+   "summary": "The generator's hidden Cobra alias `create` is removed from the 8 commands listed in `why` whose POST deletes, cancels, disables, stops, rolls back or otherwise destroys or disrupts something, so `<parent> create` no longer runs them",
+   "why": "cli-printing-press gives a POST endpoint command the hidden alias `create`. On these commands the POST is destructive, so an agent that guessed the conventional verb (`<group> create`) ran the destructive call, and the alias appeared nowhere in help, agent-context or governance.md. Reproduced on origin/main 6416a241b against a local fake server: `maxio-cli subscriptions purge-json create sub_123 --ack 1` sent POST /subscriptions/sub_123/purge.json, `sentinelone-cli reports create` sent POST /reports/delete-reports and `tactical-rmm-cli agents shutdown create agent-42` sent POST /agents/agent-42/shutdown/. Fleet gate: tools/maintainer/check_command_tree.py, which walks the real cli.RootCmd() tree (137 such commands in 28 connectors on 6416a241b, 0 after). The canonical command names are unchanged; only the alias goes. A reprint re-adds it: remove it again. TestDestructiveCommandsDoNotAnswerToCreate fails while the alias is present. Commands here: alerts act-on (POST /common/v1/alerts/{alertId}/actions); blocked-addresses delete-blocked-address-sets (POST /endpoint/v1/settings/blocked-addresses/bulk/delete); endpoints bulk-delete (POST /endpoint/v1/endpoints/delete); health-check post-snooze (POST /account-health-check/v1/snooze); migrations create-receiving-job (POST /endpoint/v1/migrations); software add-special-static-package (POST /endpoint/v1/software/packages/static/{staticPackageId}/add); xdr cancel-query-run (POST /xdr-query/v1/queries/runs/{runId}/cancel); endpoints bulk-isolate (POST /endpoint/v1/endpoints/isolation; the 4.35.1 render added its alias).",
    "status": "active",
    "spec_encode_followup": "Press-side: emit the `create` alias only for operations that create something.",
    "asserts": [
@@ -1749,61 +1611,10 @@
      "contains": "func TestDestructiveCommandsDoNotAnswerToCreate(",
      "min_count": 1,
      "code_only": true
-    }
-   ]
-  },
-  {
-   "id": "interim-http-security-note-2026-10-22",
-   "summary": "mcp-install.md and README.md open with the interim HTTP-mode security note and pauses the remote-agent recipe (launch line commented out, no tunnel step) until this connector is reprinted; SOPHOS_CENTRAL_MCP_READ_ONLY is preset to \"1\" in every config block and the .mcpb default; the README and page.json ChatGPT answers say this build's remote path is paused.",
-   "why": "Docs-only interim fix ratified 2026-10-22. This build's HTTP mode is unsafe (no password and/or no rebinding guard, no request limits, writes with no confirmation), so the install guide must not tell anyone to run it or tunnel it. mcp-install.md is regenerated by msp-skills-publish onboard.py; this entry makes a regeneration that drops the note fail CI. Remove it on purpose with the post-reprint docs fix. 2026-10-22 follow-up to #428: README.md (security note under \"Works with your agent\", the ChatGPT / Copilot Studio / Gemini rows, the ChatGPT paragraph and FAQ) and page.json (ChatGPT FAQ, and from there docs/skills and llms-full.txt) carry the same pause. README.md is regenerated by onboard.py render_readme; page.json's FAQ is agent-authored prose, so a re-polish that restores the HTTPS/tunnel answer fails here.",
-   "status": "active",
-   "asserts": [
-    {
-     "file": "mcp-install.md",
-     "contains": "**Security note (until this connector is reprinted).**",
-     "min_count": 1
     },
     {
-     "file": "mcp-install.md",
-     "contains": "# Remote agents (paused until this connector is reprinted)",
-     "min_count": 1
-    },
-    {
-     "file": "mcp-install.md",
-     "not_contains": "via a secure tunnel"
-    },
-    {
-     "file": "mcp-install.md",
-     "contains": "\"SOPHOS_CENTRAL_MCP_READ_ONLY\": \"1\"",
-     "min_count": 3
-    },
-    {
-     "file": "manifest.json",
-     "contains": "Preset to 1; clear it only when you want the agent to make changes.",
-     "min_count": 1
-    },
-    {
-     "file": "README.md",
-     "contains": "**Security note (until this connector is reprinted).**",
-     "min_count": 1
-    },
-    {
-     "file": "README.md",
-     "contains": "this connector's HTTP mode is paused until it is reprinted",
-     "min_count": 1
-    },
-    {
-     "file": "README.md",
-     "not_contains": "--addr :7777"
-    },
-    {
-     "file": "page.json",
-     "contains": "this connector's HTTP mode is paused until it is reprinted",
-     "min_count": 1
-    },
-    {
-     "file": "page.json",
-     "not_contains": "--addr :7777"
+     "file": "cli/internal/cli/endpoints_bulk-isolate.go",
+     "not_contains": "[]string{\"create\"}"
     }
    ]
   },
@@ -1870,176 +1681,209 @@
    ]
   },
   {
-   "id": "secret-echo-decoded-funnel",
-   "class": "secret-echo",
-   "summary": "One decoded output funnel for every server text the client shows: maskCredentialText (every API error, transport error, displayed URL and --dry-run parameter goes through it) still masks each held credential as written and URL-escaped, then withholds the WHOLE text if any held value survives in any view reachable by undoing control/format characters, JSON and JavaScript escapes, percent escapes at any depth, HTML entities, markup tags, and base64/base64url/hex runs at every alignment (cliutil.FunnelWithhold, shared byte-identical across the fleet). The held set is every value the masks cover plus the part after a scheme word and both halves of a base64 id:secret pair (Basic auth, composed keys). Surfaces funnelled here: the API error body (checked whole before the 4096-byte display cut, then again as shown); the title of an HTML page returned where JSON was expected; the OAuth client-credentials token endpoint's error body; the token refresh endpoint's error body. The `auth login` token exchange (internal/cli/auth.go mintClientCredentialsToken) funnels its error body with the client secret it sent. Round 3 (owner-approved structural pass): the decoder searches every view breadth-first over one fixed set of steps (control-character drop, JSON and JavaScript escapes, the identity escape as its own step, percent, HTML entities, tag strip, base64 at four alignments, hex at two), matches every view, the original included, before any filter, keeps every view a step makes (a literal backslash survives), deduplicates, and is capped by total work (512 times the input plus 4 MiB; text over 1 MiB or past the cap is withheld). Every value a funnel call is given is held process-wide (cliutil.FunnelHold), and the client holds its credentials when built and its resolved auth header on every request. Two error-only backstops withhold any held value: every command error before Cobra prints it plus every JSON/agent error envelope (internal/cli/secret_funnel_cli.go), and every MCP error result and handler error through the outermost tool middleware (cmd/<mcp>/secret_funnel_mcp.go). Success output is never funnelled.",
-   "why": "class_harness.py secret-echo (Step 3.1, PR #436) drives the built CLI and MCP server against a fake server that reflects each configured credential in every encoding; on origin/main this connector printed the credential HTML-entity-encoded, JSON-escaped, double URL-encoded or base64 (the generated masks cover only the raw, QueryEscape and PathEscape forms; press issue #5145). Matching encoded needles one at a time never converged (saas-alerts and cisco-meraki review loops), so the fix is a decode-then-check backstop that withholds the whole text and fails closed (text over 4 MiB, a decoding chain that does not settle in 32 rounds, or work past the budget is withheld). Classification is kept: the plain withheld notice avoids every word the auth-error classifiers match, and a withheld text that itself read as an auth failure gets a notice that says so (an HTTP 400 'invalid token' answer echoing the token keeps its auth exit code). Codex round 1 (2026-10-23) added that, the fail-closed depth bound (a text-like layer left at depth 8 withholds), the JavaScript escapes \\v, \\0 and the identity escape, a bounded \\u{ search, and the token-endpoint error bodies outside the client. Known limits: values under 8 characters are only masked as written; case-changed, split-and-interleaved or otherwise transformed (compressed, encrypted) echoes are not reconstructed. A reprint that drops these edits fails class_harness.py secret-echo in CI and these asserts.",
+   "id": "rejected-mint-never-hangs",
+   "summary": "a rejected token request returns an error instead of re-entering the token-state lock",
+   "why": "Press 4.35.1 masks a token-endpoint error while authHeader/doInternal hold the token-state mutex; mint_lock_scan.py flags the three sites. The 4.35.1 shape passes held=true so applyCredentialMask never relocks; this test pins that (seen hanging with held=false, 2026-11-02 reprint).",
    "status": "active",
-   "spec_encode_followup": "Press-side: cli-printing-press issue #5145 (encoded credential echo). The generated maskCredentialText should end in a decode-then-check backstop over every held credential, and the error-body and token-endpoint paths should check the whole body before the display cut.",
+   "class": "auth-wire",
    "asserts": [
     {
-     "file": "cli/internal/cliutil/secret_funnel.go",
-     "contains": "func FunnelEchoes(text string, secrets []string) bool {",
+     "file": "cli/internal/client/rejected_mint_test.go",
+     "contains": "func TestRejectedTokenRequestReturnsInsteadOfHanging(",
      "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/secret_funnel_test.go",
-     "contains": "func TestFunnelRecognizesEveryEncodingOfAHeldSecret(t *testing.T) {",
-     "min_count": 1,
-     "code_only": true
+     "code_only": false
     },
     {
      "file": "cli/internal/client/client.go",
-     "contains": "held = append(held, value)",
+     "contains": "msg := c.applyCredentialMask(raw, true, extraCredentials...)",
+     "min_count": 1,
+     "code_only": false
+    }
+   ]
+  },
+  {
+   "id": "fleet-revenue-honors-tenant",
+   "summary": "fleet revenue keeps only the tenants --tenant selects",
+   "why": "The usage report lists every customer (items[].accountId); without the filter a --tenant run reported other customers' revenue (Codex r1, 2026-11-02 reprint).",
+   "status": "active",
+   "class": "wrong-result",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/fleet_revenue.go",
+     "contains": "if filter != nil && !filter[l.AccountID] {",
      "min_count": 1,
      "code_only": true
     },
     {
-     "file": "cli/internal/client/client.go",
-     "contains": "return cliutil.FunnelWithhold(masked, held)",
+     "file": "cli/internal/cli/sophos_review_r1_test.go",
+     "contains": "func TestFleetRevenueHonorsTenantSelector(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "health-null-section-is-failed",
+   "summary": "a null Account Health Check section is a failed check, and a delta needs two comparable complete snapshots",
+   "why": "The health-check spec says null means an unexpected error. Read as absent it raised the overall score (Codex r1); a previous snapshot with a null section, or one that scored other checks, produced a delta nobody measured (Codex r2).",
+   "status": "active",
+   "class": "wrong-result",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sophos_fleet.go",
+     "contains": "*out = append(*out, healthCheck{Check: path, Failed: true})",
      "min_count": 1,
      "code_only": true
     },
     {
-     "file": "cli/internal/client/client.go",
-     "contains": "func (c *Client) shownErrorBody(body []byte, extraCredentials ...string) string {",
+     "file": "cli/internal/cli/fleet_gaps.go",
+     "contains": "Type: \"health_check_failed\"",
      "min_count": 1,
      "code_only": true
     },
     {
-     "file": "cli/internal/client/client.go",
-     "contains": "bodyText := c.shownErrorBody(respBody, authHeader)",
+     "file": "cli/internal/cli/fleet_health.go",
+     "contains": "Status: \"health_check_failed\"",
      "min_count": 1,
      "code_only": true
     },
     {
-     "file": "cli/internal/client/client.go",
-     "not_contains": "bodyText := truncateBody(respBody)"
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "contains": "c.shownSummary(respBody, summary, authHeader)",
+     "file": "cli/internal/cli/fleet_health.go",
+     "contains": "if note := healthBaselineGap(prevChecks, current[rows[i].TenantID]); note != \"\" {",
      "min_count": 1,
      "code_only": true
     },
     {
-     "file": "cli/internal/client/client.go",
-     "contains": "func (c *Client) shownSummary(body []byte, summary string, extraCredentials ...string) string {",
+     "file": "cli/internal/cli/fleet_health.go",
+     "contains": "func healthBaselineGap(prev, cur []healthCheck) string {",
      "min_count": 1,
      "code_only": true
     },
     {
-     "file": "cli/internal/client/client.go",
-     "contains": "cliutil.SanitizeErrorBody(c.shownErrorBody(body, clientID, clientSecret))",
+     "file": "cli/internal/cli/sophos_review_r1_test.go",
+     "contains": "func TestFleetHealthNullSectionIsAFailedCheck(",
      "min_count": 1,
      "code_only": true
     },
     {
-     "file": "cli/internal/client/client.go",
-     "contains": "cliutil.SanitizeErrorBody(c.shownErrorBody(body)))",
+     "file": "cli/internal/cli/sophos_review_r2_test.go",
+     "contains": "func TestR2HealthDeltaNeedsTwoCompleteComparableSnapshots(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "fleet-rows-attributed-to-fetch-tenant",
+   "summary": "every fleet row carries the tenant it was fetched for; unattributed rows from an older build are retired with the ledger",
+   "why": "The endpoint and alert schemas make tenant optional, so unattributed rows sat outside every per-tenant reconcile and a removed endpoint stayed in triage (Codex r1 for new rows, Codex r2 for rows an older build stored).",
+   "status": "active",
+   "class": "wrong-result",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/fleet_refresh.go",
+     "contains": "refusing to store it",
      "min_count": 1,
      "code_only": true
     },
     {
-     "file": "cli/internal/client/client.go",
-     "not_contains": "cliutil.SanitizeErrorBody(string(body))"
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "not_contains": "cliutil.SanitizeErrorBody(truncateBody(body))"
-    },
-    {
-     "file": "cli/internal/cli/auth.go",
-     "contains": "cliutil.SanitizeErrorBody(cliutil.FunnelWithhold(string(body), []string{clientSecret}))",
+     "file": "cli/internal/cli/fleet_refresh.go",
+     "contains": "tenant[\"id\"] = tenantID",
      "min_count": 1,
      "code_only": true
     },
     {
-     "file": "cli/internal/cli/auth.go",
-     "not_contains": "cliutil.SanitizeErrorBody(string(body))"
-    },
-    {
-     "file": "cli/internal/cliutil/secret_funnel.go",
-     "contains": "var funnelSteps = []func(string) []string{",
+     "file": "cli/internal/cli/fleet_refresh.go",
+     "contains": "func retireUnattributedFleetRows(db *store.Store) (int, error) {",
      "min_count": 1,
      "code_only": true
     },
     {
-     "file": "cli/internal/cliutil/secret_funnel.go",
-     "contains": "funnelTextStep(funnelIdentityUnescape),",
+     "file": "cli/internal/cli/fleet_refresh.go",
+     "contains": "if n, err := retireUnattributedFleetRows(db); err != nil {",
      "min_count": 1,
      "code_only": true
     },
     {
-     "file": "cli/internal/cliutil/secret_funnel.go",
-     "contains": "func FunnelHeld(text string) string {",
+     "file": "cli/internal/cli/sophos_review_r1_test.go",
+     "contains": "func TestStoreTenantRowsAttributesTheFetchTenant(",
      "min_count": 1,
      "code_only": true
     },
     {
-     "file": "cli/internal/cliutil/secret_funnel_test.go",
-     "contains": "func TestFunnelCodexRound2(t *testing.T) {",
+     "file": "cli/internal/cli/sophos_review_r2_test.go",
+     "contains": "func TestR2UnattributedLegacyRowsDoNotSurviveRefresh(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "unlicensed-from-device-software",
+   "summary": "fleet gaps reads unlicensed protection from deviceSoftware as well as packages",
+   "why": "The endpoint schema reports protection status under deviceSoftware; reading only packages missed unlicensed endpoints (Codex r1).",
+   "status": "active",
+   "class": "wrong-result",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/fleet_gaps.go",
+     "contains": "jsonString(e, \"deviceSoftware\", \"protection\", \"status\") == \"unlicensed\"",
      "min_count": 1,
      "code_only": true
     },
     {
-     "file": "cli/internal/cli/secret_funnel_cli.go",
-     "contains": "func funnelCommandErrors(root *cobra.Command) {",
+     "file": "cli/internal/cli/sophos_review_r1_test.go",
+     "contains": "func TestGapsReadDeviceSoftwareUnlicensed(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "licence-quantity-and-end-of-day",
+   "summary": "a licence with quantity 0 is still an entitlement, and it is valid through the end of its endDate UTC day",
+   "why": "Quantity was an int defaulting to 0 (absent read as none) and expiry was midnight at the start of endDate (Codex r1).",
+   "status": "active",
+   "class": "wrong-result",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/fleet_gaps.go",
+     "contains": "Quantity  *int",
      "min_count": 1,
      "code_only": true
     },
     {
-     "file": "cli/internal/cli/secret_funnel_cli_test.go",
-     "contains": "func TestFunnelCommandErrorsWithholdsAnEchoedCredential(t *testing.T) {",
+     "file": "cli/internal/cli/fleet_gaps.go",
+     "contains": "validUntil := end.AddDate(0, 0, 1)",
      "min_count": 1,
      "code_only": true
     },
+    {
+     "file": "cli/internal/cli/sophos_review_r1_test.go",
+     "contains": "func TestGapsLicenceZeroQuantityAndEndOfDay(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "fleet-refresh-honors-no-local-data",
+   "summary": "SOPHOS_CENTRAL_NO_LOCAL_DATA=1 refuses fleet refresh like sync",
+   "why": "Press 4.35.1 blocks only its own store writers (sync, workflow archive); fleet refresh copies every tenant's endpoints, alerts, health and licences into the store, so the operator's no-local-copy switch did not hold for it.",
+   "status": "active",
+   "class": "wrong-result",
+   "asserts": [
     {
      "file": "cli/internal/cli/root.go",
-     "contains": "funnelCommandErrors(rootCmd)",
+     "contains": "var localDataWriterCommands = map[string]bool{\"sync\": true, \"workflow archive\": true, \"fleet refresh\": true}",
      "min_count": 1,
      "code_only": true
     },
     {
-     "file": "cli/cmd/sophos-central-mcp/main.go",
-     "contains": "server.WithToolHandlerMiddleware(funnelToolErrors),",
+     "file": "cli/internal/cli/sophos_no_local_data_test.go",
+     "contains": "func TestNoLocalDataRefusesFleetRefresh(",
      "min_count": 1,
      "code_only": true
-    },
-    {
-     "file": "cli/cmd/sophos-central-mcp/secret_funnel_mcp.go",
-     "contains": "func funnelToolErrors(next server.ToolHandlerFunc) server.ToolHandlerFunc {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/cmd/sophos-central-mcp/secret_funnel_mcp_test.go",
-     "contains": "func TestFunnelToolErrorsWithholdsAnEchoedCredential(t *testing.T) {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "contains": "c.holdCredentials()",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "contains": "cliutil.FunnelHold(authHeader)",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cli/helpers.go",
-     "contains": "funnelShownError(err),",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cli/helpers.go",
-     "not_contains": "\"error\": err.Error(),"
     }
    ]
   },
@@ -2095,6 +1939,465 @@
      "not_contains": "connects only to remote"
     }
    ]
+  },
+  {
+   "id": "credkit-wiring",
+   "class": "credential-kit",
+   "summary": "The shared credential kit (tools/maintainer/credkit, vendored at cli/internal/credkit) is wired by hand. internal/credwire/declarations.go holds the one Declarations literal; each main starts with credkit.Start and ends with credkit.Exit; the API client (and the Sophos router that wraps its transport), the token mint and refresh, auth login's token exchange, the --deliver webhook and the Spacefast client go through cliutil.OutboundGuard (credkit.Transport); the feedback and probe clients use credkit.Transport; every file write except the 0600 credential store, config.toml and the Spacefast page record goes through the kit (cliutil.AtomicWriteCredentialFile is that declared exemption), the response cache, the learn journal and teach log, export, profiles and the routing cache included; SQLite opens through internal/credsql (credkit.SQLDriver); MCP stdio, HTTP and tool results go through MCPIn/MCPOut, MCPHTTP and MCPTools; the MCP shell-out runs through credkit.RunCommand; terminal checks ask credkit.Terminal. Minted and refreshed tokens, a piped set-token value and a Spacefast page key are held the moment they are read; a --stdin request body's credential fields are held at startup (takeStdinBody, credkit.HoldBody) and the body is handed back after Start (RestoreStdinBody).",
+   "why": "One contract, one matcher and one set of sinks over this connector's own guards, which stay (no entry is retired: the kit replaces none of them, and secret-responses-never-persisted keeps its store, cache, export and tail redaction). Origins: every credential may go to the base URL, https://*.central.sophos.com (the global API and each regional apiHost GET /whoami/v1 or the tenant lookup returns, api-<region>.central.sophos.com; the kit's Origins are fixed data, and sophos-whoami-apihost-routing's isSophosAPIHost pin narrows routing to api.central.sophos.com and api-*.central.sophos.com) and https://id.sophos.com, the default token URL's host; the client secret and refresh token only to the base URL and id.sophos.com; the MCP HTTP bearer nowhere; the Spacefast token and page key only to https://api.spacefast.com. A token URL on a third origin is refused. ResponseFields hold the tamper protection password (password, previousPasswords[].password) and the migration token (token): a sink that would carry one is withheld, the CLI's own stdout included, so endpoints get-tamper-protection and set-tamper-protection print the kit's notice instead of the password. No StdinFlags: --stdin reads a JSON request body that Sophos answers repeat, and held whole it withheld every --stdin write's and read's answer and failed the learn store migration (the jira-service-management class, seen on this connector); takeStdinBody holds only the body's credential fields, and feedback --stdin keeps its free text. The token forms are encoded with grant_type first (cliutil.TokenForm): the kit also reads a form body as one key=value line, so a body starting with client_id held \"grant_type=client_credentials\" too, and a piece of \"credentials\" withheld every output that said the word, the kit's own notice included (doctor on environment credentials printed nothing and exited 74). Failing-first tests on the built binaries (internal/credwire/leak_test.go): the token endpoint echoing the client secret on auth login (TestTokenEndpointEchoNeverPrintsTheClientSecret, which also covers the automatic mint, --agent and MCP, already masked before the kit); the learn journal (TestLearnJournalNeverStoresAHeldCredential); a config.toml that fails to parse (TestMalformedConfigNeverPrintsItsCredential); a profiles.json credential value (TestProfileValueHeldAtStartup); the tamper password written by --deliver file: (TestTamperPasswordNeverReachesAFile); --stdin body credential fields (TestStdinBodyCredentialFieldIsHeld, TestStdinBodyDryRunPreview); feedback --stdin (TestFreeTextStdinIsKept); and, seen failing on the wired build first: --stdin answers (TestStdinRequestBodyAnswerIsPrinted, with StdinFlags), a minting run's output (TestMintRunKeepsItsOutput, before TokenForm) and the regional apiHost (TestRegionalAPIHostStaysAllowed, without the wildcard). In process: internal/store TestStoreNeverWritesAHeldCredential. In-process unit tests swap cliutil.OutboundGuard and cliutil.Hold in hand-written credkit_seam_test.go files (internal/cli, internal/client). refreshAccessToken has no production caller, so its error path is reachable only in process (rejected_mint_test.go). credkit-sites.json lists the hand-written sites the checker cannot classify, each with its reason.",
+   "status": "active",
+   "spec_encode_followup": "Press-side: emit the credkit wiring from a per-connector declarations file, so a reprint keeps it by construction.",
+   "asserts": [
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "var Declarations = credkit.Declarations{",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "\"SOPHOS_CENTRAL_CLIENT_SECRET\",",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "\"SOPHOS_CENTRAL_MCP_HTTP_TOKEN\",",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "{Source: \"*\", Allowed: []string{\"base_url\", \"https://*.central.sophos.com\", \"https://id.sophos.com\"}},",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "{Source: \"env:SOPHOS_CENTRAL_CLIENT_SECRET\", Allowed: []string{\"base_url\", \"https://id.sophos.com\"}},",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "ResponseFields: []string{\"access_token\", \"refresh_token\", \"password\", \"token\", \"clientSecret\", \"client_secret\"},",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "Files: credentialFiles,",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "takeStdinBody(args)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "credkit.HoldBody(stdinBody)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "not_contains": "[]string{\"--stdin\"}"
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestTokenEndpointEchoNeverPrintsTheClientSecret(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestLearnJournalNeverStoresAHeldCredential(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestMalformedConfigNeverPrintsItsCredential(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestProfileValueHeldAtStartup(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestTamperPasswordNeverReachesAFile(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestStdinRequestBodyAnswerIsPrinted(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestStdinBodyCredentialFieldIsHeld(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestStdinBodyDryRunPreview(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestFreeTextStdinIsKept(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestMintRunKeepsItsOutput(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestRegionalAPIHostStaysAllowed(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/credkit_sql_test.go",
+     "contains": "func TestStoreNeverWritesAHeldCredential(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credsql/credsql.go",
+     "contains": "sql.Register(Driver, credkit.SQLDriver(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credkit_guard.go",
+     "contains": "var OutboundGuard = credkit.Transport",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credkit_guard.go",
+     "contains": "var Hold = credkit.Hold",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credkit_guard.go",
+     "contains": "func TokenForm(form url.Values) string {",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/sophos-central-cli/main.go",
+     "contains": "credkit.Start(credwire.Declarations)",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/sophos-central-cli/main.go",
+     "contains": "credwire.RestoreStdinBody()",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/sophos-central-cli/main.go",
+     "contains": "credkit.Exit(code)",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/sophos-central-cli/main.go",
+     "not_contains": "os.Exit("
+    },
+    {
+     "file": "cli/cmd/sophos-central-mcp/main.go",
+     "contains": "credkit.Start(credwire.Declarations)\n\tcredkit.Exit(run())",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/sophos-central-mcp/main.go",
+     "contains": "server.WithToolHandlerMiddleware(credkit.MCPTools),",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/sophos-central-mcp/main.go",
+     "contains": "server.NewStdioServer(s).Listen(ctx, credkit.MCPIn(os.Stdin), credkit.MCPOut())",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/sophos-central-mcp/main.go",
+     "contains": "kit := credkit.MCPHTTP(http.HandlerFunc(",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/sophos-central-mcp/main.go",
+     "not_contains": "server.ServeStdio("
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "return guardedTransport{RoundTripper: cliutil.OutboundGuard(tr), inner: tr}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "guardTransport(tr)",
+     "code_only": true,
+     "min_count": 4
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "credkit.WriteFile(cacheFile",
+     "code_only": true,
+     "min_count": 2
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "cliutil.Hold(\"minted:access_token\", tokenResp.AccessToken)",
+     "code_only": true,
+     "min_count": 2
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "cliutil.Hold(\"minted:refresh_token\", tokenResp.RefreshToken)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "cliutil.TokenForm(form)",
+     "code_only": true,
+     "min_count": 2
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "cliutil.TokenForm(params)",
+     "code_only": true,
+     "min_count": 2
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "not_contains": "form.Encode()"
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "not_contains": "params.Encode()"
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "cliutil.Hold(\"minted:access_token\", tok.AccessToken)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "cliutil.TokenForm(form)",
+     "code_only": true,
+     "min_count": 2
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "not_contains": "form.Encode()"
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "cliutil.Hold(\"stdin\", token)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "return credkit.Terminal(f)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "credkit.WriteFile(tempName, []byte(scopeHash+\"\\n\"), 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deliver.go",
+     "contains": "credkit.WriteFile(tmp, body, 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deliver.go",
+     "contains": "resp, err := cliutil.OutboundGuard(nil).RoundTrip(req)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deliver.go",
+     "not_contains": "http.DefaultTransport.RoundTrip(req)"
+    },
+    {
+     "file": "cli/internal/cli/deliver_spacefast.go",
+     "contains": "cliutil.AtomicWriteCredentialFile(filepath.Join(dir, name), data, 0o600, 0o700)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deliver_spacefast.go",
+     "contains": "cliutil.Hold(\"minted:spacefast-page-key\", prior.Key)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deliver_spacefast.go",
+     "contains": "Transport: cliutil.OutboundGuard(nil),",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/export.go",
+     "contains": "outKit = credkit.NewWriter(f, credkit.SinkFile)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/feedback.go",
+     "contains": "credkit.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/feedback.go",
+     "contains": "Transport: credkit.Transport(nil)}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/profile.go",
+     "contains": "credkit.WriteFile(tmp, data, 0o600); err != nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/teach.go",
+     "contains": "credkit.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)",
+     "code_only": true,
+     "min_count": 2
+    },
+    {
+     "file": "cli/internal/cli/teach.go",
+     "contains": "return credkit.WriteFile(path, ",
+     "code_only": true,
+     "min_count": 2
+    },
+    {
+     "file": "cli/internal/cli/sophos_routing.go",
+     "contains": "base = cliutil.OutboundGuard(nil)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sophos_routing.go",
+     "contains": "credkit.WriteFile(tmp, data, 0o600) == nil",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sophos_routing.go",
+     "not_contains": "http.DefaultTransport"
+    },
+    {
+     "file": "cli/internal/cache/cache.go",
+     "contains": "credkit.WriteFile(s.path(key), []byte(value), 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/paths.go",
+     "contains": "func AtomicWriteCredentialFile(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/paths.go",
+     "contains": "if err := credkit.WriteFile(tmpPath, data, fileMode); err != nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credentials.go",
+     "contains": "if err := AtomicWriteCredentialFile(path, data, 0o600, 0o700); err != nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/probe.go",
+     "contains": "Transport: credkit.Transport(nil)}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/oauth_token.go",
+     "contains": "Transport: OutboundGuard(nil)}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "cliutil.AtomicWriteCredentialFile(",
+     "code_only": true,
+     "min_count": 3
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "credkit.AppendFile(p, append(line, ",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/teach_log.go",
+     "contains": "credkit.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "err := credkit.RunCommand(cmd)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "store.OpenReadOnlyValueCapped(path, maxValueBytes)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "openMCPReadOnlyStore(path, mcpSQLMaxValueBytes)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "not_contains": "sqlite.Limit("
+    },
+    {
+     "file": "cli/internal/platform/migration.go",
+     "contains": "sql.Open(credsql.Driver, ",
+     "code_only": true,
+     "min_count": 4
+    },
+    {
+     "file": "cli/internal/platform/profile.go",
+     "contains": "credkit.WriteFile(tmpName, data, 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/platform/ratelimit.go",
+     "contains": "credkit.WriteFile(path, []byte(strconv.FormatInt(time.Now().UnixNano(), 10)), 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "sql.Open(credsql.Driver, ",
+     "code_only": true,
+     "min_count": 4
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "dsn += \"&\" + credsql.LengthLimitParam + \"=\" + strconv.Itoa(maxValueBytes)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "db.ExecContext(ctx, \"select 1\")",
+     "code_only": true
+    }
+   ]
+  }
+ ],
+ "retired": [
+  {
+   "id": "mcp-recipe-argv-not-flag-like",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: Upstreamed as cli-printing-press #5045 (4.33.6): a recipe positional that looks like a flag is placed after --, so it cannot set another flag."
+  },
+  {
+   "id": "mcp-filesystem-destination-gate",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: Press 4.34.0 builds a per-command blocked set (blockedDestinationFlags, blockedInputFlags, root control-plane flags), removes those flags from each tool's schema, refuses any undeclared argument name (so \"db=/path\" is refused) and skips '=' names in cliArgsFromMCP."
+  },
+  {
+   "id": "windows-sddl-alias-sid-compare",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: Upstreamed as cli-printing-press #5041 (4.33.6): trustees are resolved to SIDs (LA through the OS) and compared by SID; the press generates the alias tests."
+  },
+  {
+   "id": "windows-null-dacl-behind-flags",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: Upstreamed as cli-printing-press #5041 (4.33.6): the DACL section's flags and ACE list are framed (daclFlagsRe, aceListRe), so a NULL DACL behind flags is refused."
+  },
+  {
+   "id": "interim-http-security-note-2026-10-22",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: The note paused HTTP mode until a reprint because the build served HTTP with no token. Press 4.34.0 HTTP mode refuses to start without <PREFIX>_MCP_HTTP_TOKEN, answers 401 without the right bearer, binds 127.0.0.1 by default and refuses a non-loopback address without TLS; onboard.py now writes HTTP guidance that follows the binary (cc-skills #14) and never writes this note, so the entry would fail on every re-onboard."
   }
  ]
 }

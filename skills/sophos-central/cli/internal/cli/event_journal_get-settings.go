@@ -33,7 +33,7 @@ func newEventJournalGetSettingsCmd(flags *rootFlags) *cobra.Command {
 					}
 				}
 				if !validEndpointType {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagEndpointType, "endpoint-type", allowedEndpointType)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagEndpointType, "endpoint-type", allowedEndpointType))
 				}
 			}
 			path := "/endpoint/v1/settings/event-journal/{endpointType}"

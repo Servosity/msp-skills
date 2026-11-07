@@ -103,6 +103,10 @@ Needs a partner credential. Reads every page of GET /partner/v1/billing/usage/{y
 			if err != nil {
 				return classifyAPIErrorOnly(err)
 			}
+			filter, err := fleetTenantFilter()
+			if err != nil {
+				return err
+			}
 			if who.IDType != "partner" {
 				return usageErr(fmt.Errorf("fleet revenue reads the partner usage report and needs a partner credential; this credential is a %s", who.IDType))
 			}
@@ -120,6 +124,10 @@ Needs a partner credential. Reads every page of GET /partner/v1/billing/usage/{y
 				var l billingLine
 				if err := json.Unmarshal(r, &l); err != nil {
 					return apiErr(fmt.Errorf("decoding a billing usage line for %04d-%02d: %w", year, month, err))
+				}
+				// Like every fleet read, --tenant narrows the report to the selected customers.
+				if filter != nil && !filter[l.AccountID] {
+					continue
 				}
 				lines = append(lines, l)
 			}
@@ -145,7 +153,7 @@ Needs a partner credential. Reads every page of GET /partner/v1/billing/usage/{y
 	cmd.Flags().StringVar(&flagMonth, "month", "", "Billing month as YYYY-MM (default: the previous calendar month)")
 	cmd.Flags().IntVar(&flagLimit, "limit", 20, "Maximum customers to return")
 	cmd.Flags().StringVar(&dbPath, "db", "", "SQLite database file used for the tenant join (default: resolved data directory data.db)")
-	// The usage report is a partner-global call; the tenant selector does not apply.
+	// The usage report is a partner-global call; --tenant filters its lines by accountId.
 	return cmd
 }
 

@@ -34,7 +34,7 @@ func newRolesListTenantCmd(flags *rootFlags) *cobra.Command {
 					}
 				}
 				if !validType {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagType, "type", allowedType)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagType, "type", allowedType))
 				}
 			}
 			if cmd.Flags().Changed("principal-type") {
@@ -47,7 +47,7 @@ func newRolesListTenantCmd(flags *rootFlags) *cobra.Command {
 					}
 				}
 				if !validPrincipalType {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagPrincipalType, "principal-type", allowedPrincipalType)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagPrincipalType, "principal-type", allowedPrincipalType))
 				}
 			}
 			path := "/common/v1/roles"

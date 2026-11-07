@@ -58,7 +58,7 @@ func newUsersListTenantGroupsByIdCmd(flags *rootFlags) *cobra.Command {
 					}
 				}
 				if !validSourceType {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagSourceType, "source-type", allowedSourceType)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagSourceType, "source-type", allowedSourceType))
 				}
 			}
 			path := "/common/v1/directory/users/{userId}/groups"
