@@ -7,6 +7,7 @@
 package cliutil
 
 import (
+	"bytes"
 	"encoding/binary"
 	"fmt"
 	"os"
@@ -18,6 +19,8 @@ import (
 	"unsafe"
 
 	"golang.org/x/sys/unix"
+
+	"servosity-msp-pp-cli/internal/credkit"
 )
 
 // x/sys names the syscall and the attrlist layout. These locks fail the
@@ -80,7 +83,11 @@ func darwinUIDUUID(uid uint32) ([16]byte, error) {
 
 func lookupDarwinUIDUUID(uid uint32) ([16]byte, error) {
 	var zero [16]byte
-	out, err := exec.Command("/usr/bin/dsmemberutil", "getuuid", "-u", strconv.FormatUint(uint64(uid), 10)).CombinedOutput() // #nosec G204 -- fixed system path plus a decimal uid; PATH must not hide it.
+	cmd := exec.Command("/usr/bin/dsmemberutil", "getuuid", "-u", strconv.FormatUint(uint64(uid), 10)) // #nosec G204 -- fixed system path plus a decimal uid; PATH must not hide it.
+	var buf bytes.Buffer
+	cmd.Stdout, cmd.Stderr = &buf, &buf
+	err := credkit.RunCommand(cmd) // Hand-fix (handfixes.json credkit-wiring)
+	out := buf.Bytes()
 	if err != nil {
 		msg := strings.TrimSpace(string(out))
 		if msg == "" {

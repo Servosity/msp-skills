@@ -72,7 +72,7 @@ fetch_failures.
 			}
 			accounts, err := resolveFleetAccounts(cmd.Context(), cmd, flags, c, flagAccounts)
 			if err != nil {
-				return classifyAPIError(err, flags)
+				return classifyAPIError(cmd.ErrOrStderr(), err, flags)
 			}
 			accounts, truncated := capFleetAccounts(accounts, flagMaxAccounts)
 
@@ -116,7 +116,7 @@ fetch_failures.
 							}
 							if state, ok := extractStringAny(host, "powerState", "power_state", "status", "state", "vmStatus"); ok {
 								row.PowerState = state
-								running := strings.Contains(strings.ToLower(state), "running") || strings.Contains(strings.ToLower(state), "available")
+								running := strings.Contains(strings.ToLower(state), "running") || (strings.Contains(strings.ToLower(state), "available") && !strings.Contains(strings.ToLower(state), "unavailable"))
 								row.Running = &running
 							}
 							out.rows = append(out.rows, row)

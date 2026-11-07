@@ -31,7 +31,7 @@ anything that changes an endpoint, deploys patches, or touches a credential.
 
 | Tier | What it does | Examples | Recommended agent policy |
 | --- | --- | --- | --- |
-| **Read** | Fleet roll-ups, triage, inventory, search. No change. | `fleet-health`, `stale-agents`, `patch-compliance`, `alert-triage`, `client-rollup`, `os-inventory`, `since`, and every `list` / `get` / `search` | Allow |
+| **Read** | Fleet roll-ups, triage, inventory, search. No change. | `fleet-health`, `stale-agents`, `patch-compliance`, `alert-triage`, `client-rollup`, `os-inventory`, `agent-versions`, `since`, and every `list` / `get` / `search` | Allow |
 | **Endpoint and fleet actions** | Changes real endpoints or deploys across the fleet. High impact, hard to undo. | `computers command-execute` (runs a real command on an agent), `patching deploy-approved`, `patching deploy-security`, `patching reattempt-failed` (fleet-wide patch deployment) | Human-in-the-loop, explicit confirmation. Preview with `--dry-run`, then an approved run. |
 | **Write (data)** | Creates or upserts records via the API. | `import <resource>` | Preview with `--dry-run`, then an approved write |
 | **Credential / security** | Mints or stores tokens. | `apitoken mint`, `apitoken refresh`, `auth set-token` | Human-in-the-loop only |

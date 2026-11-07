@@ -1,0 +1,1280 @@
+{
+ "slug": "zoom-phone",
+ "doc": "docs/reprint-survival.md",
+ "_comment": "Connector-specific edits a cli-printing-press reprint must NOT clobber. check_handfixes.py asserts every marker below is still present (and every banned anti-pattern still absent) and fails CI if a reprint dropped one.",
+ "handfixes": [
+  {
+   "id": "credkit-wiring",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "The shared credential kit (tools/maintainer/credkit, vendored at cli/internal/credkit) is wired by hand. internal/credwire/declarations.go holds the one Declarations literal; credkit.Start is the first statement of each main and credkit.Exit the last; the API client and token mint go through credkit.Transport under the origin rules; feedback, deliver and the doctor probe are built on it; every file write except the 0600 credential store and config.toml goes through the kit (cliutil.AtomicWriteCredentialFile is that declared exemption); fleet children run through credkit.RunCommand. Retired, reason replaced by the shared credential kit: secret-echo-decoded-funnel, zoom-phone-secret-holder.",
+   "why": "One contract, one matcher and one set of sinks replace the connector-only copies. Origins: the configured base URL; the client credentials also reach zoom.us and zoomgov.com, the two token hosts; the MCP HTTP bearers go nowhere at all. Tests: internal/zoomblackbox (built binaries over TLS against a fake that echoes), each from the review's failing input and seen failing on the pre-kit tree. Zoom sets the tracking cookie _zm_chtaid (a number 0 to 999) on every response; held, it withheld any output printing the same number (Windows CI smoke, doctor), so it is an Identifier; every other Zoom cookie stays held.",
+   "asserts": [
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "var Declarations = credkit.Declarations{",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "Files: credentialFiles,",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/credkit_paths.go",
+     "contains": "func ConsultedPaths() ([]string, error) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/zoom-phone-cli/main.go",
+     "contains": "credkit.Start(credwire.Declarations)",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/zoom-phone-cli/main.go",
+     "contains": "credkit.Exit(code)",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/zoom-phone-cli/main.go",
+     "not_contains": "os.Exit("
+    },
+    {
+     "file": "cli/cmd/zoom-phone-mcp/main.go",
+     "contains": "credkit.Exit(run())",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/zoom-phone-mcp/main.go",
+     "contains": "server.WithToolHandlerMiddleware(credkit.MCPTools),",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/zoom-phone-mcp/main.go",
+     "contains": "server.WithToolHandlerMiddleware(holdToolArguments),",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/zoom-phone-mcp/main.go",
+     "contains": "server.NewStdioServer(s).Listen(ctx, credkit.MCPIn(os.Stdin), credkit.MCPOut())",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/zoom-phone-mcp/main.go",
+     "not_contains": "server.ServeStdio("
+    },
+    {
+     "file": "cli/internal/cliutil/credkit_outbound.go",
+     "contains": "var OutboundGuard = credkit.Transport",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "httpClient.Transport = cliutil.OutboundGuard(httpClient.Transport)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "cliutil.Hold(\"minted:authorization\", authHeader)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/paths.go",
+     "contains": "func AtomicWriteCredentialFile(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credkit_hold.go",
+     "contains": "func HoldConfigFile(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/zoom_fleet.go",
+     "contains": "err := credkit.RunCommand(c)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/export.go",
+     "contains": "credkit.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/feedback.go",
+     "contains": "errors.Join(json.NewEncoder(f).Encode(entry), f.Close())",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/feedback.go",
+     "not_contains": "\"stdin\", false, \"Read feedback body"
+    },
+    {
+     "file": "cli/internal/cli/zoom_accounts.go",
+     "contains": "info.HasClientID = merged.ClientID != \"\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/zoom_profile_hold.go",
+     "contains": "func HoldProfileStore(path string) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/zoomblackbox/blackbox_test.go",
+     "contains": "func TestShortPinSentAndHeld(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/zoomblackbox/blackbox_test.go",
+     "contains": "func TestRetentionAfter4097ObservedPins(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/zoomblackbox/blackbox_test.go",
+     "contains": "func TestRealisticOutputSurvives(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/zoomblackbox/blackbox_test.go",
+     "contains": "func TestAccountsAndFleet(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/accounts_connect.go",
+     "contains": "\"has_client_id\": clientID != \"\",",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/zoom_accounts.go",
+     "contains": "cliutil.HoldConfigFile(data)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/zoom_accounts_isolation.go",
+     "contains": "func ZoomAcctStartupCheck() bool {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/zoom_accounts_isolation.go",
+     "not_contains": "var _ = zoomAcctStartupCheck()"
+    },
+    {
+     "file": "cli/cmd/zoom-phone-mcp/main.go",
+     "contains": "mcptools.ZoomAcctStartupCheck()",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/zoomblackbox/blackbox_test.go",
+     "contains": "func TestMCPIsolationRefusalPassesTheKit(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations_test.go",
+     "contains": "func TestEveryCredentialFlagIsDeclared(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "StdinFlags: []string{\"--client-secret-stdin\"},",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "credkit.HoldBody(b)",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/zoom-phone-cli/main.go",
+     "contains": "credwire.HoldStdinBody()",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "credkit.HoldBody(body)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "credkit.HoldBody(raw)",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/zoom-phone-mcp/zoom_args_mcp.go",
+     "contains": "credkit.HoldBody(b)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/zoomblackbox/blackbox_test.go",
+     "contains": "func TestStdinCreateKeepsItsResult(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "{Source: \"cookie:_zm_chtaid\", Reason:",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/zoomblackbox/blackbox_test.go",
+     "contains": "func TestZoomTrackingCookieDoesNotWithholdOutput(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "credkit-sqlite-every-handle",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "Every SQLite handle goes through credkit.SQLDriver: internal/credsql registers the one driver and every sql.Open in store.go and platform/migration.go names it, the MCP sql tool's read-only opener included. The MCP sql value cap moved from sqlite.Limit on a held connection to a DSN parameter credsql applies as each connection opens.",
+   "why": "A statement's text and bound values are a sink of their own, reads included. Closes credential-split-across-sql-bindings: a held value split across two bound values of one statement is one unit to the driver. Replaces the connector-only WithholdingSQLiteDriver.",
+   "asserts": [
+    {
+     "file": "cli/internal/credsql/credsql.go",
+     "contains": "sql.Register(Driver, credkit.SQLDriver(cappedSQLite()))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "func OpenReadOnlyValueCapped(dbPath string, maxValueBytes int) (*Store, error) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "db, err := sql.Open(credsql.Driver, dsn)",
+     "code_only": true,
+     "min_count": 3
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "not_contains": "sql.Open(\"sqlite\""
+    },
+    {
+     "file": "cli/internal/platform/migration.go",
+     "contains": "source, err := sql.Open(credsql.Driver, readOnlySQLiteDSN(sourcePath))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/platform/migration.go",
+     "not_contains": "sql.Open(\"sqlite\""
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "not_contains": "sqlite.Limit("
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "db, toolErr := openMCPReadOnlyStore(path, mcpSQLMaxValueBytes)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/credkit_sql_test.go",
+     "contains": "func TestEveryStoreOpenChecksStatementsThroughTheKit(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/credkit_sql_test.go",
+     "contains": "func TestNoSQLiteHandleBypassesTheKit(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/credkit_sql_test.go",
+     "contains": "func TestCredentialSplitAcrossBindingsIsRefused(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "credkit-mcphttp-outermost",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "credkit.MCPHTTP writes every response the MCP HTTP server serves, refusals included. requireBearerAuthWithLimits runs a preflight that writes nothing, then credkit.MCPHTTP around a gate that answers the Origin, bearer and body-limit verdicts.",
+   "why": "With the kit wrapping only the inner handler, a refusal answers outside it: a token holding the word unauthorized made a GET /mcp without Authorization return a piece of the held token.",
+   "spec_encode_followup": "Press-side: generate the MCP HTTP auth wrapper so its refusals are written by the inner, kit-wrapped handler and only a write-free preflight runs before credkit.MCPHTTP.",
+   "asserts": [
+    {
+     "file": "cli/cmd/zoom-phone-mcp/main.go",
+     "contains": "kit := credkit.MCPHTTP(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/zoom-phone-mcp/main.go",
+     "contains": "kit.ServeHTTP(w, r)",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/zoom-phone-mcp/main.go",
+     "not_contains": "credkit.MCPHTTP(inner)"
+    },
+    {
+     "file": "cli/internal/zoomblackbox/mcphttp_test.go",
+     "contains": "func TestKitMCPHTTPRefusalsPassTheKit(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/zoomblackbox/mcphttp_test.go",
+     "contains": "func TestKitMCPHTTPRefusalsLeaveTheServerAnswering(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "credkit-every-file-write",
+   "class": "raw-file-write-past-kit",
+   "status": "active",
+   "summary": "No handle from a raw open writes a byte past the credential kit. The lock file stays empty; the journal's lines and repair newline go through credkit.AppendFile; the fingerprint key through credkit.WriteFile. TestEveryFileWriteGoesThroughTheKit walks every function's handles with go/ast, so a raw Write, io.Copy, Fprint or a handle stored behind an interface fails it.",
+   "why": "A scan of raw opens alone allows a handle that then writes. A response holding a one-character credential would otherwise put that byte in a lock file, past the kit. A reprint re-emits these writers; these asserts and the scan catch it.",
+   "asserts": [
+    {
+     "file": "cli/internal/cliutil/filelock.go",
+     "not_contains": "f.Write([]byte{0})"
+    },
+    {
+     "file": "cli/internal/cliutil/filelock.go",
+     "contains": "root.OpenFile(filepath.Base(lockPath), os.O_CREATE|os.O_RDWR, 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "not_contains": "f.Write([]byte{'\\n'})"
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "credkit.AppendFile(p, []byte{'\\n'}, 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "credkit.AppendFile(p, append(line, '\\n'), 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/platform/profile.go",
+     "not_contains": "file.Write(key)"
+    },
+    {
+     "file": "cli/internal/platform/profile.go",
+     "contains": "credkit.WriteFile(path, key, 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/zoomblackbox/writers_test.go",
+     "contains": "func rawHandleWrites(t *testing.T, files map[string]string) []handleWrite {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/zoomblackbox/writers_test.go",
+     "contains": "func TestEveryFileWriteGoesThroughTheKit(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/export.go",
+     "contains": "if err := writer.Flush(); err != nil {\n\t\t\t\t\t\t\treturn fmt.Errorf(\"writing export: %w\", err)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/zoomblackbox/blackbox_test.go",
+     "contains": "func TestExportJSONLToFile(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "journal-credential-hardening",
+   "class": "secret-persisted",
+   "status": "active",
+   "summary": "The learn journal writes through the kit, ZOOM_PHONE_LEARN_SESSION is hashed under its own prefix, argv_shape and failed_flag record only flag names the invoked command declares (any other is a placeholder), and teach_playbook's error log counts arguments rather than repeating them.",
+   "why": "A mistyped flag can be a pasted token, and a session label can be anything the harness set: both reached the journal file as written.",
+   "asserts": [
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "return \"o:\" + hashHarnessSession(v)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "const journalUndeclaredFlag = \"<undeclared>\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "func JournalArgvShape(args []string, isBoolFlag, isDeclared func(name string) bool) map[string]string {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "ArgvShape:     learn.JournalArgvShape(os.Args[1:], isBoolFlag, isDeclaredFlag),",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal_credential_hardening_test.go",
+     "contains": "func TestJournalCredentialHardening(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/zoomblackbox/blackbox_test.go",
+     "contains": "func TestJournalHoldsNoCredential(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "zoom-phone-account-credentials-grant",
+   "class": "auth-wire",
+   "summary": "both token mints (auth login, the automatic mint) send grant_type=account_credentials with account_id",
+   "why": "Zoom Server-to-Server OAuth is not the standard client_credentials grant: POST https://zoom.us/oauth/token with grant_type=account_credentials and account_id, Basic client_id:client_secret (developers.zoom.us/docs/internal-apps/s2s-oauth). The press emits client_credentials, which Zoom rejects. 4.34.2 reprint (2026-10-27, run 20261027-120930-16377276): auth login mints through flags.oauthHTTPClient(cfg); both mints pass the 4.34.2 token-request guard.",
+   "status": "active",
+   "spec_encode_followup": "press: an x-token-request grant override (the spec already declares it under zoomS2S x-token-request)",
+   "asserts": [
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "\"grant_type\": {\"account_credentials\"},",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "\"account_id\": {accountID},",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "\"grant_type\": {\"account_credentials\"},",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "mintClientCredentialsToken(tokenHTTP, tokenURL, clientID, clientSecret, cfg.ZoomPhoneAccountId)",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "zoom-phone-auth-hint-text",
+   "class": "docs-truth",
+   "summary": "auth hints name the three S2S env vars and auth login instead of the generated auth-setup/re-authenticate text",
+   "why": "The generated hint ('Run ... auth login to re-authenticate' on 4.34.2, 'auth setup' on 4.33.5) gives no path to a first login for a three-variable S2S app. 4.34.2 reprint (2026-10-27, run 20261027-120930-16377276): carried into the 4.34.2 shapes (fmt.Errorf with %s, and \"\\n      \"+hint+).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "Set ZOOM_PHONE_ACCOUNT_ID, ZOOM_PHONE_CLIENT_ID and ZOOM_PHONE_CLIENT_SECRET from a Zoom Server-to-Server OAuth app",
+     "min_count": 5,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "Set ZOOM_PHONE_ACCOUNT_ID, ZOOM_PHONE_CLIENT_ID and ZOOM_PHONE_CLIENT_SECRET from a Zoom Server-to-Server OAuth app",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/agent_context.go",
+     "contains": "Description: \"Client Secret of the Zoom Server-to-Server OAuth app.\",",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "zoom-phone-drop-dead-stamped-dryrun-helper",
+   "class": "dead-code",
+   "summary": "no dead printStampedDryRunOutput helper in helpers.go",
+   "why": "4.33.5 emitted an unused helper that failed lint; 4.34.2 does not emit it. Kept as an absence assert.",
+   "status": "upstreamed",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "not_contains": "func printStampedDryRunOutput("
+    }
+   ]
+  },
+  {
+   "id": "zoom-phone-drop-object-field-indexes",
+   "class": "store-schema",
+   "summary": "no CREATE INDEX on an object-valued *_id field that has no column",
+   "why": "The generator indexes every field ending in _id, even JSON objects with no table column. SQLite keeps such an index as a string-literal expression and ALTER TABLE DROP COLUMN (the MCP checkpoint test, future migrations) then fails schema verification. Class form: reapply/drop_phantom_indexes.py (run dir) drops every single-column index whose column is not a column of its table. 4.34.2 reprint (2026-10-27, run 20261027-120930-16377276).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/store/store.go",
+     "not_contains": "ON \"auto_receptionists\"(\"block_calls_without_caller_id\")"
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "not_contains": "ON \"call_queues\"(\"block_calls_without_caller_id\")"
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "not_contains": "ON \"shared_line_groups\"(\"block_calls_without_caller_id\")"
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "not_contains": "ON \"account_settings\"(\"block_calls_without_caller_id\")"
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "not_contains": "ON \"account_settings\"(\"select_outbound_caller_id\")"
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "not_contains": "ON \"sites\"(\"outbound_caller_id\")"
+    }
+   ]
+  },
+  {
+   "id": "zoom-phone-dry-run-no-mint",
+   "class": "dry-run-side-effect",
+   "summary": "--dry-run never mints a token",
+   "why": "authHeader minted under --dry-run, dialing the token endpoint. Native in press 4.34.2 (checked inside lockTokenState); asserted so a regression is loud.",
+   "status": "upstreamed",
+   "asserts": [
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "if !c.DryRun && c.needsClientCredentialsMint() {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "zoom-phone-login-persists-identity",
+   "class": "auth-wire",
+   "summary": "both token-saving paths persist the account ID they minted with",
+   "why": "A saved profile must stay one identity (app, secret, token, account) even when inputs came from the environment; the store scope and the tenant guard read it.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "cfg.ZoomPersistAccountID()",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "c.Config.ZoomPersistAccountID()",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/zoom_identity.go",
+     "contains": "func (c *Config) ZoomPersistAccountID() {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "zoom-phone-mcp-hardening",
+   "class": "mcp-surface",
+   "summary": "local-file flags blocked from MCP; secret-returning GETs lose mcp:read-only",
+   "why": "teach/teach-playbook/import read arbitrary local files; seven GETs return SIP passwords, PINs, activation codes and channel tokens.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/zoom_mcp_hardening.go",
+     "contains": "zoomAppendAnnotation(cmd, \"mcp:write-flags\", flagNames)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/zoom_mcp_hardening.go",
+     "contains": "delete(cmd.Annotations, \"mcp:read-only\")",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "zoom-phone-mcp-secret-endpoints",
+   "class": "secret-read-tier",
+   "summary": "the code-orchestration tools refuse the seven secret-returning GET endpoints in MCP read-only mode",
+   "why": "Credential-tier reads must not run under ZOOM_PHONE_MCP_READ_ONLY. 4.34.2 reprint (2026-10-27, run 20261027-120930-16377276): the condition sits beside 4.34.2's codeOrchRefuseForReadOnlySwitch after the read/execute split.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "codeOrchRefuseForReadOnlySwitch(ep, method, executeTool) || zoomCodeOrchSecretBlocked(id) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/zoom_secret_endpoints.go",
+     "contains": "func zoomCodeOrchSecretBlocked(id string) bool {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "zoom-phone-mint-error-masking",
+   "class": "secret-echo",
+   "summary": "token-endpoint errors show only the HTTP status and a recognized OAuth error code",
+   "why": "Masking known encodings still exposed arbitrary token-endpoint text (Codex round 1). One shared client.ZoomTokenEndpointError allowlists what may be shown for auth login, the automatic mint and the refresh exchange. 4.34.2 reprint (2026-10-27, run 20261027-120930-16377276).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "ZoomTokenEndpointError(resp.StatusCode, body)",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "ZoomTokenResponseUnreadable(resp.StatusCode)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "client.ZoomTokenEndpointError(resp.StatusCode, body)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/zoom_guard.go",
+     "contains": "func ZoomTokenEndpointError(status int, body []byte) string {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "zoom-phone-next-page-token-transport",
+   "class": "pagination",
+   "summary": "a client hook renames the page_token query key to next_page_token on the wire",
+   "why": "Zoom pages with next_page_token; the spec names it page_token so the press detects cursor paging.",
+   "status": "active",
+   "spec_encode_followup": "x-url-name next_page_token on the page_token parameter once the press pages with x-url-name wire names in every path",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/zoom_pagination.go",
+     "contains": "q[\"next_page_token\"] = cursor",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/zoom_pagination.go",
+     "contains": "q.Del(\"page_token\")",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "zoom-phone-no-persisted-url-overrides",
+   "class": "credential-host",
+   "summary": "ZOOM_PHONE_BASE_URL / ZOOM_PHONE_TOKEN_URL overrides are never written into the config file",
+   "why": "An override is per-process (verify, tests); persisting it re-points every later run at another host.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "out.BaseURL = c.fileConfig.BaseURL",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "out.TokenURL = c.fileConfig.TokenURL",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "zoom-phone-novel-json-error-envelope",
+   "class": "agent-output",
+   "summary": "novel commands print the {error, code} envelope under --json when they fail without output",
+   "why": "Agents parse stdout; an empty stdout on failure reads as success.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/zoom_novel_errors.go",
+     "contains": "func zoomWrapJSONErrorEnvelope(cmd *cobra.Command, flags *rootFlags) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "zoom-phone-profile-save-lock",
+   "class": "concurrency",
+   "summary": "token saves run under a per-profile cross-process lock and refuse a profile whose identity changed on disk",
+   "why": "Concurrent mints (fleet, MCP) could save tenant A's token into a profile another process just switched to tenant B.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "c.Config.ZoomLockProfileForSave()",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "cfg.ZoomLockProfileForReplace()",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/zoom_profile_lock.go",
+     "contains": "func (c *Config) ZoomLockProfileForSave() (func(), error) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "zoom-phone-secret-transport",
+   "class": "secret-redaction",
+   "summary": "every response is redacted by content before the client, cache, store or MCP see it; unreadable bodies never pass",
+   "why": "Zoom returns SIP passwords, PINs, activation codes and channel tokens in ordinary GETs. Redaction is decided by what the body is, not its Content-Type (Codex round 1); a body it cannot read is withheld on a non-2xx and refused on a 2xx unless the request is an allowlisted file download (Codex round 2 class, secret-redaction). 4.34.2 reprint (2026-10-27, run 20261027-120930-16377276).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/zoom_secret_transport.go",
+     "contains": "zoomDownloadTemplates",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/zoom_secret_transport.go",
+     "contains": "body = zoomWithheldBody(len(body))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/zoom_secret_transport.go",
+     "contains": "redacted, changed, err := store.RedactSecretsStrict(normalized)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/zoom_secret_transport.go",
+     "not_contains": "case !success || client.ZoomLooksLikeHTMLDocument(body):"
+    },
+    {
+     "file": "cli/internal/client/zoom_guard.go",
+     "contains": "func ZoomLooksLikeHTMLDocument(body []byte) bool {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "zoom-phone-same-origin-redirects",
+   "class": "credential-host-redirect",
+   "summary": "no HTTP client that carries a credential or a body follows a redirect off its origin, a non-GET/HEAD request is never redirected, and no error names the Location",
+   "why": "Codex review r1 of the 4.34.2 onboard (2026-10-28), class credential-host-redirect: Go drops Authorization on a cross-host redirect but replays a 307/308 body, so a PIN PATCH answered `307 Location: https://example.com/collect` sent {\"pin_code\":\"679412\"} there. cliutil.ZoomRedirectRefusal is the one rule (same scheme, host and effective port as the first request; writes never), installed in the API client and every clone (New, guardHTTPClient, StreamingHTTPClient), the OAuth token client (oauthTokenSameOriginRedirect, which keeps its own cross-origin check beside it) and the feedback POST; the webhook delivery already follows nothing. Go still puts the Location in *url.Error and quotes it in a parse error, so ZoomScrubTransportError replaces both. The generated test TestOAuthTokenHTTPClientAllowsSameOriginRedirect asserted that a same-origin 307 replays the token form (client secret included); it encoded the wrong contract and is replaced by TestOAuthTokenHTTPClientRefusesSameOriginRedirect.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cliutil/zoom_redirect.go",
+     "contains": "func ZoomRedirectRefusal(req *http.Request, via []*http.Request) error {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/zoom_redirect.go",
+     "contains": "func ZoomScrubTransportError(err error, requested *url.URL) error {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/zoom_redirect.go",
+     "contains": "case \"\", http.MethodGet, http.MethodHead:",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/oauth_token.go",
+     "contains": "if err := ZoomRedirectRefusal(req, via); err != nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "if err := cliutil.ZoomRedirectRefusal(req, via); err != nil {",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "err = cliutil.ZoomScrubTransportError(err, req.URL)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "CheckRedirect: zoomSameOriginReadsOnly",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "return errors.Is(err, cliutil.ErrZoomRedirectRefused) ||",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "case errors.Is(err, cliutil.ErrZoomRedirectRefused):",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/zoom_guard.go",
+     "contains": "func zoomSameOriginReadsOnly(req *http.Request, via []*http.Request) error {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/feedback.go",
+     "contains": "CheckRedirect: cliutil.ZoomRedirectRefusal",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/feedback.go",
+     "contains": "zoomclient.ZoomMaskTransportError(err, req)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deliver.go",
+     "contains": "client.ZoomMaskTransportError(err, req)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/oauth_token_test.go",
+     "contains": "func TestOAuthTokenHTTPClientRefusesSameOriginRedirect(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/oauth_token_test.go",
+     "not_contains": "func TestOAuthTokenHTTPClientAllowsSameOriginRedirect("
+    },
+    {
+     "file": "cli/internal/cli/zoom_r1_redirect_origin_test.go",
+     "contains": "func TestZoomR1APIClientNeverReplaysABodyOffOrigin(",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "zoom-phone-store-redacts-secrets",
+   "class": "secret-persistence",
+   "summary": "credential fields are redacted from every row before any store write, including the merged row",
+   "why": "The read-only sql/search tools must never return SIP passwords or PINs.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "incoming = zoomRedactSecrets(incoming)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "return zoomRedactSecrets(merged)",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "zoom-phone-store-scope-account-id",
+   "class": "store-scope-identity",
+   "summary": "the local store is keyed by the credential actually attached: API host, Zoom account and app only for a token this CLI provably minted for them (a mint record saved with the token), a hash of the credential otherwise; a credential this CLI did not mint, beside app credentials able to mint, is replaced before the first request and a config [headers] Authorization is refused, so the store always belongs to the credential sent",
+   "why": "The default key hashed every credential field, so it moved on the first mint. Keying by the app alone let two accounts behind one app share rows, and after auth set-token a leftover phone_client_id kept app A's store under tenant B's token (Codex round 2 class, store-scope-identity). Now: host + account + app; a credential this CLI did not mint for the app is keyed by a hash of itself; a partial identity gets its own scope; conflicting aliases select neither. 4.34.2 reprint (2026-10-27, run 20261027-120930-16377276). Codex review r1 of the 4.34.2 onboard (2026-10-28), class store-scope-identity: a config with client_id=app-A, phone_account_id=acct-A and auth_header=\"Bearer B\" (tenant B's token) selected app A's store, so a sync wrote B's rows into it; an access_token with no mint record was trusted the same way. Now both mints (auth login, the client's automatic mint) call ZoomRecordMint, which stores sha256(account, app, token) with the token in the 0600 credential store, and only a matching record keys the stable scope; every other attached credential is keyed by its own sha256, independent of the aliases beside it. Codex review r2 of the 4.34.2 onboard (2026-10-28), class store-scope-identity: the scope was computed from config fields while the credential actually sent was decided later. Config with app A credentials and a stale access_token=B opened B's store, then minted A and wrote A's rows into it; [headers] Authorization=\"Bearer B\" selected A's store while every request carried B. Now one decision, ZoomMintReplacesCredential, drives both the client and the scope, so a foreign credential beside mint-capable app credentials is never sent and no mint can switch tenants under an open store; the client refuses the header override on every request, the MCP server included.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/config/zoom_store_scope.go",
+     "contains": "return base + \"\\nzoom_account=\" + account + \"\\nzoom_app=\" + app",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/zoom_store_scope.go",
+     "contains": "if cred := c.zoomUnboundCredential(account, app); cred != \"\" && !c.ZoomMintReplacesCredential() {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/zoom_store_scope.go",
+     "contains": "func (c *Config) ZoomAppIdentity() (app string, conflict bool) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/zoom_tenant_guard.go",
+     "contains": "zoomRefuseConflictingAppAliases(c.Config)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/zoom_store_scope.go",
+     "contains": "func (c *Config) ZoomRecordMint(account, app, accessToken string) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/zoom_store_scope.go",
+     "contains": "return subtle.ConstantTimeCompare([]byte(c.ZoomMintRecord), []byte(zoomMintRecord(account, app, token))) == 1",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/zoom_store_scope.go",
+     "contains": "return base + \"\\nzoom_credential=\" + hex.EncodeToString(sum[:])",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "ZoomMintRecord string `toml:\"zoom_mint_record,omitempty\"`",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "c.fileConfig.ZoomMintRecord = c.ZoomMintRecord",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "c.ZoomMintRecord = creds.ZoomMintRecord",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "c.updateFileConfigField(\"ZoomMintRecord\")",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credentials.go",
+     "contains": "ZoomMintRecord string `toml:\"zoom_mint_record,omitempty\"`",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/zoom_profile_lock.go",
+     "contains": "fc.ZoomMintRecord = d.MintRecord",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "c.Config.ZoomRecordMint(accountID, clientID, tokenResp.AccessToken)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "cfg.ZoomRecordMint(cfg.ZoomPhoneAccountId, clientID, tok.AccessToken)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/zoom_store_scope_attached_test.go",
+     "contains": "func TestStoreScopeRawCredentialNeverKeysAppStore(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/zoom_store_scope_attached_test.go",
+     "contains": "func TestStoreScopeMintRecordRoundTrip(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/zoom_store_scope.go",
+     "contains": "c.ZoomMintRecord = zoomMintRecord(account, app, accessToken)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "if cfg.ZoomMintReplacesCredential() && (!cliutil.IsVerifyEnv() || cliutil.IsVerifyLiveHTTPEnv()) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "c.Config.ZoomRefuseAuthorizationOverride()",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/zoom_tenant_guard.go",
+     "contains": "c.Config.ZoomRefuseAuthorizationOverride()",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/zoom_r2_store_scope_test.go",
+     "contains": "func TestZoomR2MintTransitionNeverWritesIntoAnotherCredentialsStore("
+    },
+    {
+     "file": "cli/internal/client/zoom_header_override_test.go",
+     "contains": "func TestZoomConfigAuthorizationHeaderOverrideRefused("
+    }
+   ]
+  },
+  {
+   "id": "zoom-phone-sync-replaces-rows",
+   "class": "store-sync",
+   "summary": "every syncResource call replaces stored rows instead of the keep-richer merge",
+   "why": "A list sync is the current state: an unassigned number's assignee must not survive.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "defer store.BeginSyncReplace()()",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "if zoomSyncReplaceDepth.Load() > 0 {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "zoom-phone-sync-store-lock",
+   "class": "concurrency",
+   "summary": "auto-refresh and workflow archive run under the store-keyed sync lock",
+   "why": "Concurrent syncs into one store interleaved replace windows.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/auto_refresh.go",
+     "contains": "localWithSyncStoreLock(db.Path(), false, nil, func() error {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/channel_workflow.go",
+     "contains": "localAcquireSyncStoreLock(archiveCtx, s.Path(), cmd.ErrOrStderr())",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "zoom-phone-tail-redacts-secrets",
+   "class": "secret-redaction",
+   "summary": "tail writes through cmd.OutOrStdout and redacts credential fields in every line",
+   "why": "tail streamed raw rows to os.Stdout, bypassing redaction.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/tail.go",
+     "contains": "enc := json.NewEncoder(cmd.OutOrStdout())",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/tail.go",
+     "not_contains": "enc := json.NewEncoder(os.Stdout)"
+    }
+   ]
+  },
+  {
+   "id": "zoom-phone-tenant-guard",
+   "class": "store-scope-identity",
+   "summary": "https-only base and token URLs; refuses an env app or account that differs from the saved profile",
+   "why": "A typo or a second tenant in the environment would re-point the saved profile's token at another tenant.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/zoom_tenant_guard.go",
+     "contains": "zoomRefuseEnvAccountMismatch(c.Config.ZoomFileAccountID()",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "if err := zoomRequireSecureTokenURL(tokenURL); err != nil {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "zoom-phone-write-through-lock",
+   "class": "concurrency",
+   "summary": "write-through caching runs only while no sync holds the store lock, and holds it for the write",
+   "why": "A write-through during a sync's replace window resurrected stale fields. 4.34.2 reprint (2026-10-27, run 20261027-120930-16377276): after 4.34.2's localDataDisabled() early return.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/data_source.go",
+     "contains": "releaseCacheLock, cacheOK := localTryCacheWriteLock(",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "zoom-phone-mcp-write-confirm",
+   "class": "mcp-write-gate",
+   "summary": "an MCP tool call changes Zoom only with confirm: true (offboard --apply and fleet --allow-writes preview; a transport backstop answers 428)",
+   "why": "Work-order rule: every MCP write previews and sends only with confirm: true. The mirrored offboard and fleet tools sent DELETEs with no confirm; confirm:\"1\" was coerced through argv (Codex round 1), so only a bare --confirm (JSON true) counts. 4.34.2 reprint (2026-10-27, run 20261027-120930-16377276).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/offboard.go",
+     "contains": "mcpPreview := apply && zoomMCPPreviewOnly(cmd)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet.go",
+     "contains": "mcpPreview := target.access == fleetAccessWrite && zoomMCPPreviewOnly(cmd)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/zoom_mcp_write_confirm.go",
+     "contains": "c.HTTPClient.Transport = zoomMCPWriteGate{base: base, c: c}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/zoom_mcp_write_confirm.go",
+     "contains": "f.NoOptDefVal = zoomMCPConfirmBare",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "zoom-phone-filtered-sync-additive",
+   "class": "store-sync",
+   "summary": "the coverage tracker records a filtered sync as additive, never as a pruning --full walk",
+   "why": "Press 4.34.2 never prunes a filtered sync (syncPruneSkipReason). Treating a filtered --full as a prune deleted other walks' coverage (multi-site locations, the BYOC walk). 4.34.2 reprint (2026-10-27, run 20261027-120930-16377276).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/zoom_local_sync_scope.go",
+     "contains": "fullWalk := fullWalk && params == \"\" && !syncResourceHasDateWindow(rt)",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "zoom-phone-envelope-total-records",
+   "class": "spec-repair",
+   "summary": "Zoom list envelopes unwrap (spec repair: total_records/from/to dropped from 55 list response schemas)",
+   "why": "Press 4.34.2 unwraps a single-array envelope only when every sibling is in envelopeMetadataPropertyNames; total_records is not, so a plain render silently dropped 25 default sync resources, their response paths and 3 typed tables with every gate green. The repair is in the library spec (run dir spec_repair.py); these asserts catch a reprint from an unrepaired spec. 4.34.2 reprint (2026-10-27, run 20261027-120930-16377276).",
+   "status": "active",
+   "spec_encode_followup": "press: add total_records to envelopeMetadataPropertyNames (internal/openapi/parser.go)",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "case \"users\":\n\t\treturn []string{\"users\"}"
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "case \"call_queues\":\n\t\treturn []string{\"call_queues\"}"
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "case \"devices\":\n\t\treturn []string{\"devices\"}"
+    }
+   ]
+  },
+  {
+   "id": "zoom-phone-fleet-use-string",
+   "class": "mcp-surface",
+   "summary": "fleet's Use is 'fleet -- <command> [args...]'",
+   "why": "The 4.34.2 MCP walker parsed '[flags]' as a positional, so the fleet tool demanded a flags value before command (check_mcp_file_flags failed on fleet --select).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/fleet.go",
+     "contains": "Use:   \"fleet -- <command> [args...]\",",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet.go",
+     "not_contains": "fleet [flags] --"
+    }
+   ]
+  },
+  {
+   "id": "zoom-phone-e164-phone-key",
+   "class": "wrong-result",
+   "summary": "one phone parser keeps the country code of any '+' number",
+   "why": "Dropping a leading 1 made +43 1 5550123 equal +1 431 555 0123, so callbacks merged distinct callers (Codex round 1). 4.34.2 reprint (2026-10-27, run 20261027-120930-16377276).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/zoom_shared.go",
+     "contains": "func zoomPhoneE164(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/routing_trace.go",
+     "contains": "e164, ok := zoomPhoneE164(trimmed)",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "zoom-phone-race-test-account-grant",
+   "class": "test-contract",
+   "summary": "the 4.34.2 concurrent-mint test expects the account_credentials grant and an account ID",
+   "why": "The template test asserts grant_type=client_credentials; Zoom's mint is account_credentials and refuses to run without an account ID.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/client/token_race_test.go",
+     "contains": "got != \"account_credentials\" {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/token_race_test.go",
+     "contains": "ZoomPhoneAccountId: \"test-account-id\",",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "zoom-phone-offboard-write-sim",
+   "class": "write-exactly-once",
+   "summary": "offboard --apply (DELETEs into a live tenant) ships with a random simulation test: a fake Zoom that refuses, drops the connection, answers late or acts and then fails, crashed and parallel runs; nothing is removed twice and no run reports every step done while a planned membership is still present.",
+   "why": "msp-skills write-command rule: a command that writes into live customer data ships only after a crash-and-retry test proves it never acts twice and never exits 0 with work missing. Proven both ways: classifying a failed DELETE as removed fails the test.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/zoom_offboard_sim_test.go",
+     "contains": "func TestOffboardApplySimulation(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/offboard.go",
+     "contains": "\t\t\tr.Status = \"failed\"\n",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "doctor-verdict-tracks-reality",
+   "class": "doctor",
+   "summary": "doctor probes a real GET endpoint with the real credential, minting first when the profile holds only app credentials, instead of printing 'present, not verified'",
+   "why": "`doctor` is the command every guide tells an operator to run to confirm the connector works, and it could not tell a working install from an expired one. Measured and gated by tools/maintainer/check_doctor_truth.py. See issue #282. The helpers are the fleet's doctor_verdict.go; the zoom-phone change is ZoomCanMint, because a Server-to-Server profile often holds no token yet and the probe's first request mints one.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "func doctorProbeCredentials(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "!c.Config.ZoomCanMint()",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorProbeCredentials(cmd.Context(), c, cmd.Root(), \"zoom-phone-cli\", report)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "not_contains": "present, not verified. Run `%s %s`"
+    }
+   ]
+  },
+  {
+   "id": "zoom-phone-example-placeholder",
+   "class": "gitleaks",
+   "summary": "the extension delete-line-key example uses a low-entropy placeholder line key id",
+   "why": "The spec's example id next to the name lineKeyId matches gitleaks' generic-api-key rule. A reprint regenerates the example from the spec, so this entry fails if it comes back.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/extension_delete-line-key.go",
+     "contains": "lineKeyId=BBBBBBBBBBBBBBBBBBBBBB"
+    },
+    {
+     "file": "cli/internal/cli/extension_delete-line-key.go",
+     "not_contains": "BH9SHc4YTnWqQ9u0LC3kkg"
+    }
+   ]
+  },
+  {
+   "id": "private-file-owner-only-dacl",
+   "class": "credential-file-permissions",
+   "status": "active",
+   "summary": "Every private-file writer (cliutil atomicWritePrivate: the 0600 credential store, config.toml, account profiles, other private files; platform writePrivateFile: profiles.json, receipts, rate-limit state) creates its temp file through cliutil.CreatePrivateTemp. On Windows that sets a protected owner-only DACL at creation, with no sharing; elsewhere it is os.CreateTemp.",
+   "why": "Chmod is a no-op on NTFS, so os.CreateTemp inherits the directory's ACL: under a --home in C:\\Users\\Public an account config.toml holding the client secret was readable by other users (Codex pass-4 round 1). Tests: cliutil TestAtomicWriteCredentialFile_PublicDirectoryStaysPrivate, platform TestWritePrivateFile_PublicDirectoryStaysPrivate (Windows CI row). The press test TestSaveCredentialsVerifiesWrittenFile asserted the old inheritance (a post-save refusal on Windows); it now asserts the save succeeds and the file passes VerifyCredsPerms.",
+   "asserts": [
+    {
+     "file": "cli/internal/cliutil/paths.go",
+     "contains": "tmp, err := CreatePrivateTemp(dir, \".\"+filepath.Base(path)+\".*.tmp\")",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/platform/profile.go",
+     "contains": "tmp, err := cliutil.CreatePrivateTemp(dir, \".tmp-*\")",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/private_temp_windows.go",
+     "contains": "windows.SecurityDescriptorFromString(\"D:P(A;;FA;;;\" + sid + \")\")",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/private_temp_windows_test.go",
+     "contains": "func TestAtomicWriteCredentialFile_PublicDirectoryStaysPrivate(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credentials_perms_test.go",
+     "contains": "want a private file",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credentials_perms_test.go",
+     "not_contains": "want post-save permission refusal"
+    }
+   ]
+  }
+ ]
+}

@@ -18,7 +18,10 @@ func newNovelSlaBreachesCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "sla-breaches",
 		Short: "List open tickets past their due date or overdue for first response.",
-		Long:  "List open tickets whose dueDateTime is in the past, ranked by how overdue they are. Run `sync` first.",
+		Long: "List open tickets with an overdue pending deadline, ranked by how overdue they are: the first response " +
+			"(firstResponseDueDateTime, met once firstResponseDateTime is set), the resolution plan (resolutionPlanDueDateTime / " +
+			"resolutionPlanDateTime), the resolution (resolvedDueDateTime / resolvedDateTime) and the ticket due date " +
+			"(dueDateTime). `breach` names the most overdue one. Run `sync` first.",
 		Example: strings.Trim(`
   autotask-cli sla-breaches
   autotask-cli sla-breaches --agent
@@ -49,6 +52,8 @@ func newNovelSlaBreachesCmd(flags *rootFlags) *cobra.Command {
 				Title      string  `json:"title,omitempty"`
 				CompanyID  string  `json:"companyID,omitempty"`
 				DueDate    string  `json:"dueDateTime,omitempty"`
+				Breach     string  `json:"breach"`
+				BreachDue  string  `json:"breachDue"`
 				OverdueHrs float64 `json:"overdueHours"`
 				Priority   string  `json:"priority,omitempty"`
 			}
@@ -57,8 +62,8 @@ func newNovelSlaBreachesCmd(flags *rootFlags) *cobra.Command {
 				if !isTicketOpen(t) {
 					continue
 				}
-				due, ok := timeAt(t, "dueDateTime", "dueDate")
-				if !ok || !due.Before(now) {
+				breach, due, ok := mostOverdueDeadline(t, now)
+				if !ok {
 					continue
 				}
 				id, _ := intAt(t, "id")
@@ -66,7 +71,9 @@ func newNovelSlaBreachesCmd(flags *rootFlags) *cobra.Command {
 					ID:         id,
 					Title:      strAt(t, "title"),
 					CompanyID:  strAt(t, "companyID", "companyId"),
-					DueDate:    strAt(t, "dueDateTime", "dueDate"),
+					DueDate:    strAt(t, "dueDateTime"),
+					Breach:     breach,
+					BreachDue:  due.UTC().Format(time.RFC3339),
 					OverdueHrs: now.Sub(due).Hours(),
 					Priority:   strAt(t, "priority"),
 				})
@@ -81,4 +88,28 @@ func newNovelSlaBreachesCmd(flags *rootFlags) *cobra.Command {
 	cmd.Flags().StringVar(&dbPath, "db", "", "Database path (default: ~/.local/share/autotask-cli/data.db)")
 	cmd.Flags().IntVar(&limit, "limit", 0, "Maximum rows to return (0 = all)")
 	return cmd
+}
+
+// slaDeadlines are the documented TicketModel deadlines, each with the field
+// that records it was met (spec.json). An empty met field means pending.
+var slaDeadlines = []struct{ name, due, met string }{
+	{"first-response", "firstResponseDueDateTime", "firstResponseDateTime"},
+	{"resolution-plan", "resolutionPlanDueDateTime", "resolutionPlanDateTime"},
+	{"resolution", "resolvedDueDateTime", "resolvedDateTime"},
+	{"due-date", "dueDateTime", ""},
+}
+
+// mostOverdueDeadline returns the pending deadline furthest past now, so a
+// ticket overdue for first response is listed even when its due date is ahead.
+func mostOverdueDeadline(t map[string]any, now time.Time) (name string, due time.Time, ok bool) {
+	for _, d := range slaDeadlines {
+		at, has := timeAt(t, d.due)
+		if !has || !at.Before(now) || (d.met != "" && strAt(t, d.met) != "") {
+			continue
+		}
+		if !ok || at.Before(due) {
+			name, due, ok = d.name, at, true
+		}
+	}
+	return name, due, ok
 }

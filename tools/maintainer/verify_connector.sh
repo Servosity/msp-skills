@@ -38,6 +38,14 @@
 #              claims, linux doctor truth, linux mcp gate, linux hand-fix ledger
 #   [windows]  windows vet, windows test compile, windows cgo context,
 #              unix-only test lint (a predictor; CI's Windows job is the authority)
+#
+# SCOPED profile (VERIFY_PROFILE=scoped, decision D1): the build row runs on
+# VERIFY_LINUX_ARCH, this host's own architecture (linux/arm64 on Apple
+# silicon), never emulated; CI's native linux/amd64 row is the Linux receipt.
+# The Windows predictors run on this host as plain GOOS=windows cross-compiles
+# (cgo off: the same result anywhere), and windows/amd64 is compiled once:
+# "windows vet" builds it in the Windows tree, so the cross-compile step skips
+# it and the test compile reuses that tree's build cache.
 
 set -uo pipefail
 cd "$(dirname "$0")/../.." || exit 0
@@ -89,6 +97,9 @@ here="$(pwd)"
 
 # ---- CI's build row, in Linux ------------------------------------------------
 linux_mode="${VERIFY_LINUX_MODE:-none}"
+profile="${VERIFY_PROFILE:-full}"
+arch="${VERIFY_LINUX_ARCH:-amd64}"
+image="${VERIFY_LINUX_IMAGE:-golang}"
 
 linux_run() { # linux_run <dir relative to the repo root> <shell command>
   local cwd="$1" cmd="$2"
@@ -102,7 +113,7 @@ linux_run() { # linux_run <dir relative to the repo root> <shell command>
       ( cd "$VERIFY_LINUX_SRC/$cwd" && env -i PATH="$PATH" HOME="$HOME" TMPDIR="${TMPDIR:-/tmp}" CI=true \
           ${GOPATH:+GOPATH="$GOPATH"} ${GOMODCACHE:+GOMODCACHE="$GOMODCACHE"} ${GOCACHE:+GOCACHE="$GOCACHE"} \
           ${GOPROXY:+GOPROXY="$GOPROXY"} \
-          GOOS=linux GOARCH=amd64 CGO_ENABLED=1 GOENV=off GOFLAGS= GOWORK="$(work_at "$VERIFY_LINUX_SRC")" \
+          GOOS=linux GOARCH="$arch" CGO_ENABLED=1 GOENV=off GOFLAGS= GOWORK="$(work_at "$VERIFY_LINUX_SRC")" \
           GOTOOLCHAIN="go$gover+auto" bash -c "$cmd" ) ;;
     docker)
       [ -n "${VERIFY_LINUX_SRC:-}" ] || {
@@ -110,16 +121,16 @@ linux_run() { # linux_run <dir relative to the repo root> <shell command>
       # The container's environment is only what is listed here. No -w: Docker
       # hands a volume's working directory back to root, and this user then
       # cannot write there.
-      docker run --rm --platform linux/amd64 --user "${VERIFY_LINUX_USER:-$(id -u):$(id -g)}" \
-        -e HOME=/tmp -e CI=true -e GOOS=linux -e GOARCH=amd64 -e CGO_ENABLED=1 \
+      docker run --rm --platform "linux/$arch" --user "${VERIFY_LINUX_USER:-$(id -u):$(id -g)}" \
+        -e HOME=/tmp -e CI=true -e GOOS=linux -e GOARCH="$arch" -e CGO_ENABLED=1 \
         -e GOTOOLCHAIN=auto -e GOENV=off -e GOFLAGS= -e GOWORK="$(work_at /src)" \
         -e GOMODCACHE=/gomod -e GOCACHE=/gocache \
         -v "${VERIFY_LINUX_GOMOD:-msp-skills-verify-gomod}:/gomod" \
-        -v "${VERIFY_LINUX_GOCACHE:-msp-skills-verify-gocache-amd64}:/gocache" \
+        -v "${VERIFY_LINUX_GOCACHE:-msp-skills-verify-gocache-$arch}:/gocache" \
         -v "$VERIFY_LINUX_SRC:/src" \
-        "golang:${gover}-bookworm" bash -c 'cd "/src/$1" && eval "$2"' bash "$cwd" "$cmd" ;;
+        "$image:${gover}-bookworm" bash -c 'cd "/src/$1" && eval "$2"' bash "$cwd" "$cmd" ;;
     *)
-      echo "CI's build row (linux/amd64, cgo on) cannot run here: this host is not linux/amd64"
+      echo "CI's build row (linux/$arch, cgo on) cannot run here: this host is not linux/$arch"
       echo "with a C compiler, and no Docker daemon is reachable. Install Docker or OrbStack,"
       echo "or run on Linux. Not a pass: these results come only from a real Linux run."
       return 1 ;;
@@ -127,12 +138,17 @@ linux_run() { # linux_run <dir relative to the repo root> <shell command>
 }
 
 # The cross-compile step exactly as ci.yml runs it on the Linux runner: each
-# target's default cgo setting there (on only for linux/amd64, the host).
+# target's default cgo setting there (on only for the host's own pair:
+# linux/amd64 on CI's runner and in the FULL profile, the row's architecture in
+# the SCOPED one). SCOPED leaves windows/amd64 to "windows vet", which builds it
+# in the Windows tree (compiled once, not twice).
+cross_pairs="windows/amd64 windows/arm64 darwin/amd64 darwin/arm64 linux/amd64 linux/arm64"
+[ "$profile" = scoped ] && cross_pairs="${cross_pairs#windows/amd64 }"
 # shellcheck disable=SC2016 # expanded by the bash inside the Linux context
 CROSS='fail=0
-for pair in windows/amd64 windows/arm64 darwin/amd64 darwin/arm64 linux/amd64 linux/arm64; do
+for pair in '"$cross_pairs"'; do
   os="${pair%/*}"; arch="${pair#*/}"
-  cg=0; [ "$pair" = linux/amd64 ] && cg=1
+  cg=0; [ "$pair" = linux/'"$arch"' ] && cg=1
   if ! GOOS="$os" GOARCH="$arch" CGO_ENABLED="$cg" go build ./... 2>build.err; then
     echo "does not compile for $pair"; sed "s/^/    /" build.err; fail=1
   fi
@@ -142,7 +158,14 @@ exit "$fail"'
 
 linux_build_vet()   { linux_run "$mod" 'go version && go build ./... && go vet ./...'; }
 linux_cross()       { linux_run "$mod" "$CROSS"; }
-linux_test()        { linux_run "$mod" 'go test -count=1 ./...'; }   # as CI: never a cached result
+# as CI: never a cached result. In the linux/amd64 container on a non-amd64 host the tests run emulated, several
+# times slower than on CI's native runner, so go test's 10-minute default per package failed packages CI passes
+# (vsphere, kaseya-bms, 2026-11-05). There every test still runs and a hang still fails, at 30 minutes; CI's
+# native row and a native run here keep the default.
+linux_test() {
+  local t=; [ "$linux_mode" = docker ] && [ "$arch" = amd64 ] && [ "$(uname -m)" != x86_64 ] && t=' -timeout 30m'
+  linux_run "$mod" "go test -count=1$t ./..."
+}
 linux_py()          { linux_run . "python3 tools/maintainer/$1 --slug $slug"; }
 
 # ---- CI's windows row: predictors ---------------------------------------
@@ -172,8 +195,9 @@ cd "$W/$MOD" || exit 2
 export GOOS=windows GOARCH=amd64 CGO_ENABLED=0'
 # shellcheck disable=SC2016 # $1 and $2 belong to the inner bash
 win_run() { # win_run <shell command>, at the module in the Windows tree ($W is its root, $TOOLS the tools)
-  case "$linux_mode" in
-    docker)
+  # SCOPED: always on this host (a plain cross-compile), never the amd64 container.
+  case "$profile:$linux_mode" in
+    full:docker)
       [ -n "${VERIFY_LINUX_SEED:-}" ] || { echo "no read-only seed of the commit for the container (VERIFY_LINUX_SEED)"; return 1; }
       docker run --rm --platform linux/amd64 --user "${VERIFY_LINUX_USER:-$(id -u):$(id -g)}" \
         -e HOME=/tmp -e CI=true -e GOTOOLCHAIN=auto -e GOENV=off -e GOFLAGS= \
@@ -194,7 +218,11 @@ win_run() { # win_run <shell command>, at the module in the Windows tree ($W is 
 
 # The commands below are expanded inside the Windows tree, not here.
 # shellcheck disable=SC2016
-windows_vet()          { win_run 'go vet ./...'; }
+if [ "$profile" = scoped ]; then
+  windows_vet()        { win_run 'go build ./... && go vet ./...'; }
+else
+  windows_vet()        { win_run 'go vet ./...'; }
+fi
 # -o /dev/null with several packages: go links every test binary and discards
 # it (a link error is a failure too), so nothing lands in the module.
 windows_test_compile() { win_run 'go test -c -o /dev/null ./...'; }

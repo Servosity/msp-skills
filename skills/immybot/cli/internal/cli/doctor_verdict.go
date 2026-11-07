@@ -46,33 +46,9 @@ const doctorBaseURLEnv = "IMMYBOT_BASE_URL"
 // placeholder and doctor would never dial it. Refusing to check a healthy
 // install is the same class of defect as blessing a broken one, pointed the
 // other way.
-const doctorShippedBaseURL = "https://{subdomain}.immy.bot"
+const doctorShippedBaseURL = "https://your-instance.immy.bot" // the resolved value when IMMYBOT_SUBDOMAIN is unset
 
-// doctorInfoKeys are report entries rendered without a status indicator:
-// paths, versions, and the free-text hints that tell an operator how to get a
-// credential. They are NOT health checks.
-//
-// doctorExitForFailOn used to scan every value in the report for the substrings
-// "error", "missing", "invalid" and "unreachable". That made --fail-on=error
-// trip on a perfectly healthy connector whose auth hint happened to contain the
-// word "missing", or whose suggested read command was named something like
-// `errors list`. Excluding the informational keys keeps --fail-on keyed to the
-// checks and nothing else.
-var doctorInfoKeys = map[string]bool{
-	"config_path":       true,
-	"base_url":          true,
-	"auth_source":       true,
-	"version":           true,
-	"auth_hint":         true,
-	"auth_key_url":      true,
-	"auth_instructions": true,
-	"agentcookie":       true,
-	"db_path":           true,
-}
-
-func doctorIsInfoKey(key string) bool { return doctorInfoKeys[key] }
-
-// doctorBaseURLIsPlaceholder reports whether base is still the value this
+// doctorBaseURLIsShippedPlaceholder reports whether base is still the value this
 // connector shipped with rather than the operator's own instance.
 //
 // Two shapes ship today: an unresolved template ("https://{tenant}.example/api")
@@ -81,7 +57,7 @@ func doctorIsInfoKey(key string) bool { return doctorInfoKeys[key] }
 // several placeholder hosts resolve through live wildcard DNS and answer real
 // HTTP, so dialling one produces a confident green verdict against a host the
 // operator has never heard of.
-func doctorBaseURLIsPlaceholder(base string) bool {
+func doctorBaseURLIsShippedPlaceholder(base string) bool {
 	if base == "" {
 		return false // "not configured" is a separate, already-handled state
 	}
@@ -239,7 +215,7 @@ func doctorProbeCredentials(ctx context.Context, c *client.Client, root *cobra.C
 	case status == 404:
 		doctorWrongBaseURL(apiPath, report)
 	case status >= 500:
-		report["credentials"] = fmt.Sprintf("WARN not verified (HTTP %d from %s) - the vendor API returned a server error, so the credential was never checked.", status, apiPath)
+		report["credentials"] = fmt.Sprintf("WARN not verified (HTTP %d from %s) - the vendor API returned a server error, so the credential was not tested.", status, apiPath)
 	case status > 0:
 		report["credentials"] = fmt.Sprintf("WARN not verified (HTTP %d from %s). Run `%s %s` to see the full response.", status, apiPath, bin, cmdPath)
 	default:
@@ -254,7 +230,7 @@ func doctorProbeCredentials(ctx context.Context, c *client.Client, root *cobra.C
 // credential is not at fault and must not be blamed, and the api row must stop
 // claiming the connector is reachable in any useful sense.
 func doctorWrongBaseURL(apiPath string, report map[string]any) {
-	report["credentials"] = fmt.Sprintf("ERROR not verified (HTTP 404 from %s) - the endpoint does not exist at this base_url, so the credential was never checked.", apiPath)
+	report["credentials"] = fmt.Sprintf("ERROR not verified (HTTP 404 from %s) - the endpoint does not exist at this base_url, so the credential was not tested.", apiPath)
 	report["api"] = fmt.Sprintf("ERROR the host answered but %s is not there - base_url is not this vendor's API root. Point %s at the API root.", apiPath, doctorBaseURLEnv)
 }
 

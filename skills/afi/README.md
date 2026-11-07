@@ -6,10 +6,10 @@
 <!-- media:start -->
 <p align="center">
   <a href="https://msp-skills.compoundingteams.com/skills/afi/">
-    <img src="../../docs/assets/social/afi/wide-1200x630.png" alt="Afi - MCP server and Claude Code Skill" width="600">
+    <img src="../../docs/assets/video/afi/animated-og.gif" alt="Afi demo - animated preview" width="600">
   </a>
 </p>
-<p align="center"><sub><a href="https://msp-skills.compoundingteams.com/skills/afi/">Full skill page</a> - install, outcomes, safety model.</sub></p>
+<p align="center"><sub>▶ <a href="https://msp-skills.compoundingteams.com/skills/afi/">Watch the 30-second demo</a> - demo data is simulated; every command shown exists in the real CLI.</sub></p>
 <!-- media:end -->
 
 <!-- first-party-note:start -->
@@ -24,13 +24,6 @@ The first CLI for Afi SaaS backup  -  full public-API coverage plus the fleet-wi
 
 ## Works with your agent
 
-> **Security note (until this connector is reprinted).** Do not run HTTP mode
-> (`--transport http`), not even on localhost. This build has no password,
-> listens on every network interface, and predates the browser-rebinding guard,
-> so a web page you open can reach it. The MCP tools can also make changes with
-> your credentials. Use the default stdio transport. If you set up a tunnel for
-> a remote agent, shut it down. A fix is on the way.
-
 The six agents MSP owners actually use (self-serve, works today):
 
 | Your AI agent | How to install the Afi skill |
@@ -42,7 +35,7 @@ The six agents MSP owners actually use (self-serve, works today):
 | **Claude Cowork** | Paste the install prompt below. |
 | **GitHub Copilot** (VS Code) | Run installer, add `afi-mcp` to `mcp.json` under the `servers` key, then pick **Agent** mode. |
 
-The ChatGPT desktop app runs `afi-mcp` locally and shares MCP configuration with Codex ([OpenAI](https://learn.chatgpt.com/docs/extend/mcp)). ChatGPT on the web needs a remote (HTTP) server, and this connector's HTTP mode is paused until it is reprinted (see the security note in [mcp-install.md](./mcp-install.md)), so msp-skills does not support it yet. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
+The ChatGPT desktop app runs `afi-mcp` locally and shares MCP configuration with Codex ([OpenAI](https://learn.chatgpt.com/docs/extend/mcp)). ChatGPT on the web needs a remote (HTTP) server, which msp-skills does not support yet (see [mcp-install.md](./mcp-install.md)). If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
 
 ### Also for the Microsoft and Google stacks
 
@@ -63,7 +56,7 @@ Big install base, but an honest heads-up: Gemini CLI runs the local binary you j
 
 > **Claude Desktop bundle:** the `.mcpb` launches on macOS (Intel and Apple Silicon), Windows x64 and Linux x64. Every tool shells out to the companion `afi-cli`. Releases cut from 2026-09-18 on ship that CLI inside the bundle; older bundles contain only the MCP server, so if yours lacks the companion, run the Path A or Path B installer below first (or set `AFI_CLI_PATH` to an existing binary). Details: [#331](https://github.com/Servosity/msp-skills/issues/331).
 
-[**Download Afi MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/afi-v0.1.8/afi-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every Afi release on the [releases page](https://github.com/servosity/msp-skills/releases?q=afi).)
+[**Download Afi MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/afi-v0.1.9/afi-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every Afi release on the [releases page](https://github.com/servosity/msp-skills/releases?q=afi).)
 
 Prefer the Claude Code plugin? Add the marketplace once, then install - works immediately, no directory listing required:
 
@@ -157,6 +150,12 @@ Set the credentials the CLI needs (from your Afi portal):
 AFI_API_KEY=<value> afi-cli doctor
 ```
 
+PowerShell:
+
+```powershell
+$env:AFI_API_KEY = "<value>"; afi-cli doctor
+```
+
 `doctor` confirms the credentials work before you run anything that touches data. It exits 0 even when the credential is rejected, so scripts should add `--fail-on error`.
 
 
@@ -165,7 +164,7 @@ AFI_API_KEY=<value> afi-cli doctor
 | Question your MSP keeps asking | Command |
 | --- | --- |
 | Which resources have no backup protection at all? | `afi-cli coverage-gaps --agent` |
-| Which protected resources have a stale backup (silent failures)? | `afi-cli backup-stale --max-age 48h --agent` |
+| Which protected resources are not getting backed up (silent failures)? | `afi-cli backup-stale --agent` |
 | Is the whole fleet green this morning, or who failed? | `afi-cli fleet-health --failed-only --agent` |
 | What is one tenant's full backup posture for a QBR or ticket? | `afi-cli tenant-scorecard <tenant-id> --agent` |
 | Am I over- or under-licensed on Afi seats? | `afi-cli reconcile-licenses --agent` |
@@ -187,7 +186,7 @@ SaaS backup has a quiet failure mode MSP owners raise again and again on r/msp: 
 This skill closes that gap from the local mirror:
 
 - **`afi-cli coverage-gaps --agent`** - every resource with no backup protection, fleet-wide. The blind spots, named.
-- **`afi-cli backup-stale --max-age 48h --agent`** - protected resources whose newest archive has gone stale: the silent-failure class.
+- **`afi-cli backup-stale --agent`** - protected resources with no archive at all, or in a tenant where no backup task finished in the synced window: the silent-failure class.
 - **`afi-cli fleet-health --failed-only --agent`** - the Monday "is the fleet green" sweep in one table.
 - **`afi-cli reconcile-licenses --agent`** - seats purchased vs seats actually protected.
 - **`afi-cli offboard <resource-id> --tenant <tenant-id> --reason "employee departure"`** - a guarded archive-then-release that refuses to drop protection until a fresh backup is verified.
@@ -198,7 +197,7 @@ See [pain-point.md](./pain-point.md) for the longer narrative.
 
 ### Does this work with ChatGPT?
 
-Yes, in the **ChatGPT desktop app**. It runs MCP servers locally (STDIO), the way `afi-mcp` runs, and shares MCP configuration with Codex ([OpenAI](https://learn.chatgpt.com/docs/extend/mcp)): add `afi-mcp` under **Settings > MCP servers** as a STDIO server, or add it once to Codex's `~/.codex/config.toml`. **ChatGPT on the web** is not supported by msp-skills yet: it needs a remote (HTTP) server, and this connector's HTTP mode is paused until it is reprinted; the security note in [mcp-install.md](./mcp-install.md) explains why. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
+Yes, in the **ChatGPT desktop app**. It runs MCP servers locally (STDIO), the way `afi-mcp` runs, and shares MCP configuration with Codex ([OpenAI](https://learn.chatgpt.com/docs/extend/mcp)): add `afi-mcp` under **Settings > MCP servers** as a STDIO server, or add it once to Codex's `~/.codex/config.toml`. **ChatGPT on the web** is not supported by msp-skills yet: it needs a remote (HTTP) server, which msp-skills does not support yet (see [mcp-install.md](./mcp-install.md)). If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
 
 ### Does this work with Codex, Cursor, Windsurf, Cline, Copilot, or Gemini?
 
@@ -210,7 +209,7 @@ No. The recommended install is to paste one sentence into Claude Code or Codex -
 
 ### Is my Afi data safe?
 
-Your data stays on **your machine**. The CLI and MCP server are local binaries. The SQLite mirror sits in a directory under your user account. The AI agent only sees what the CLI returns - typically a query result, not raw bulk data. Credentials are read from your environment or your agent's config; never bundled into this repo or transmitted anywhere by MSP Skills.
+Your data stays on **your machine**. The CLI and MCP server are local binaries. The SQLite mirror sits in a directory under your user account. The AI agent only sees what the CLI returns - typically a query result, not raw bulk data. Credentials are read from your environment or your agent's config, or from `credentials.toml` (mode 0600) if you run `auth set-token`; never bundled into this repo or transmitted anywhere by MSP Skills, and the key goes only to the Afi API host.
 
 ### Will this trip Afi's API rate limits?
 

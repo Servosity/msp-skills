@@ -3,7 +3,7 @@
   "name": "io.github.Servosity/crowdstrike-mcp",
   "title": "CrowdStrike MCP",
   "description": "Every CrowdStrike Falcon MSP operation, plus a Flight-Control-aware local store that answers",
-  "version": "0.1.10",
+  "version": "0.1.11",
   "icons": [
     {
       "src": "https://raw.githubusercontent.com/servosity/msp-skills/main/docs/assets/social/crowdstrike/crowdstrike-512x512.png",
@@ -21,8 +21,8 @@
   "packages": [
     {
       "registryType": "mcpb",
-      "identifier": "https://github.com/servosity/msp-skills/releases/download/crowdstrike-v0.1.10/crowdstrike-mcp.mcpb",
-      "version": "0.1.10",
+      "identifier": "https://github.com/servosity/msp-skills/releases/download/crowdstrike-v0.1.11/crowdstrike-mcp.mcpb",
+      "version": "0.1.11",
       "fileSha256": "PLACEHOLDER_SHA256_FILLED_BY_CI",
       "transport": {
         "type": "stdio"
@@ -37,16 +37,15 @@
         },
         {
           "name": "CROWDSTRIKE_OAUTH_SCOPE",
-          "description": "Set the CROWDSTRIKE_OAUTH_SCOPE credential for the CrowdStrike MCP server.",
-          "isRequired": true,
-          "isSecret": true
+          "description": "Optional OAuth2 scope for the token request. Leave blank: CrowdStrike grants scopes to the API client in the Falcon console.",
+          "isRequired": false,
+          "isSecret": false
         },
         {
           "name": "CROWDSTRIKE_TOKEN_URL",
-          "description": "Token endpoint the client-credentials exchange posts to. Leave the prefilled default unless your tenant uses a different token endpoint.",
+          "description": "Optional. Leave blank: the client ID and secret are posted to /oauth2/token on the cloud named by the base URL. Set it only for a non-standard token endpoint.",
           "isRequired": false,
-          "isSecret": false,
-          "default": "https://api.crowdstrike.com/oauth2/token"
+          "isSecret": false
         },
         {
           "name": "FALCON_CLIENT_ID",
@@ -62,7 +61,38 @@
         },
         {
           "name": "CROWDSTRIKE_NO_CONFIG_WRITE",
-          "description": "Set to 1 to keep credentials off disk. The token cache becomes a no-op, so the connector mints a fresh token each run instead of writing one to config.toml. Leave blank for the default cached behaviour.",
+          "description": "Set to 1 to keep credentials off disk. The token cache becomes a no-op, so the connector mints a fresh token each run instead of writing one to credentials.toml. Leave blank for the default cached behaviour.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "CROWDSTRIKE_MCP_READ_ONLY",
+          "description": "Set to 1 to refuse every write from the MCP server (read tools only).",
+          "isRequired": false,
+          "isSecret": false,
+          "default": "1"
+        },
+        {
+          "name": "CROWDSTRIKE_NO_LOCAL_DATA",
+          "description": "Set to 1 to keep no local copy of API responses (reads go to the API; the response cache is off).",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "CROWDSTRIKE_USER_AGENT",
+          "description": "Overrides the User-Agent the CLI sends on CrowdStrike requests.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "CROWDSTRIKE_MCP_HTTP_TOKEN",
+          "description": "Required only when running the MCP server with --transport http (at least 32 characters). Not needed for the default local stdio transport.",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "PRINTING_PRESS_CLIENT_PROFILE",
+          "description": "Binds this MCP server to one tenant-gated client profile. Leave blank to use the default client profile.",
           "isRequired": false,
           "isSecret": false
         }

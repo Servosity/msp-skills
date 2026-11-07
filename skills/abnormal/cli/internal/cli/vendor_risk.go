@@ -56,12 +56,12 @@ Do NOT use it for an account-takeover picture; use 'employee-risk'.
 Vendor-case matching scans recent vendor cases for the domain;
 scanned_vendor_cases reports how many were examined.`, "\n"),
 		Example: strings.Trim(`
-  abnormal-cli vendor-risk acme-supplies.com
-  abnormal-cli vendor-risk acme-supplies.com --agent
-  abnormal-cli vendor-risk acme-supplies.com --max-scan-pages 5`, "\n"),
+  abnormal-cli vendor-risk supplier.example.com
+  abnormal-cli vendor-risk supplier.example.com --agent
+  abnormal-cli vendor-risk supplier.example.com --max-scan-pages 5`, "\n"),
 		Annotations: map[string]string{
 			"mcp:read-only": "true",
-			"pp:happy-args": "vendor-domain=acme-supplies.com",
+			"pp:happy-args": "vendor-domain=supplier.example.com",
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 && cmd.Flags().NFlag() == 0 {
@@ -69,7 +69,7 @@ scanned_vendor_cases reports how many were examined.`, "\n"),
 			}
 			if len(args) < 1 {
 				_ = cmd.Usage()
-				return usageErr(fmt.Errorf("vendor-risk requires a vendor domain (e.g. acme-supplies.com)"))
+				return usageErr(fmt.Errorf("vendor-risk requires a vendor domain (e.g. supplier.example.com)"))
 			}
 			domain := strings.ToLower(strings.TrimSpace(args[0]))
 			if domain == "" || !strings.Contains(domain, ".") {
@@ -140,16 +140,30 @@ scanned_vendor_cases reports how many were examined.`, "\n"),
 					break
 				}
 				var pageDoc struct {
-					VendorCases    []vendorCaseRow `json:"vendorCases"`
-					NextPageNumber *int            `json:"nextPageNumber"`
+					VendorCases    []map[string]json.RawMessage `json:"vendorCases"`
+					NextPageNumber *int                         `json:"nextPageNumber"`
 				}
 				if err := json.Unmarshal(data, &pageDoc); err != nil {
 					fail("vendor-cases", fmt.Errorf("parsing vendor cases page %d: %w", page, err))
 					scanCapHit = false
 					break
 				}
-				for _, vc := range pageDoc.VendorCases {
-					view.ScannedVendorCases++
+				// The list rows carry only vendorCaseId (spec.json VendorCases);
+				// the domain is in the detail (VendorCaseDetails).
+				ids, missing := listedIDs(pageDoc.VendorCases, "vendorCaseId")
+				if missing > 0 {
+					fail("vendor-cases", fmt.Errorf("%d listed vendor case(s) on page %d carry no vendorCaseId", missing, page))
+				}
+				view.ScannedVendorCases += len(pageDoc.VendorCases)
+				for i, raw := range listedCaseDetails(ctx, c, "/vendor-cases/", ids, fail) {
+					if raw == nil {
+						continue
+					}
+					var vc vendorCaseRow
+					if err := json.Unmarshal(raw, &vc); err != nil || vc.VendorCaseID.String() == "" {
+						fail("/vendor-cases/"+ids[i], fmt.Errorf("unreadable vendor case detail (%v): no vendorCaseId", err))
+						continue
+					}
 					if strings.EqualFold(strings.TrimSpace(vc.VendorDomain), domain) {
 						view.OpenCases = append(view.OpenCases, vc)
 					}
@@ -159,14 +173,16 @@ scanned_vendor_cases reports how many were examined.`, "\n"),
 					break
 				}
 			}
-			if len(view.OpenCases) == 0 && scanCapHit {
+			if len(view.FetchFailures) > 0 {
+				view.Note = fmt.Sprintf("%d fetch(es) failed (see fetch_failures): open_cases may be incomplete", len(view.FetchFailures))
+			} else if len(view.OpenCases) == 0 && scanCapHit {
 				view.Note = fmt.Sprintf("scanned %d recent vendor cases without a match for %s; raise --max-scan-pages to widen the search", view.ScannedVendorCases, domain)
 			}
 			if len(view.FetchFailures) > 0 {
-				fmt.Fprintf(cmd.ErrOrStderr(), "warning: %d of 3 sources failed; profile assembled from the remaining sources\n", len(view.FetchFailures))
+				fmt.Fprintf(cmd.ErrOrStderr(), "warning: %d fetch(es) failed; profile assembled from the remaining sources, open_cases may be incomplete\n", len(view.FetchFailures))
 			}
 			if view.Details == nil && view.Activity == nil && len(view.OpenCases) == 0 {
-				return classifyAPIError(fmt.Errorf("all vendor sources failed for %s; first error: %s", domain, view.FetchFailures[0].Error), flags)
+				return classifyAPIError(cmd.OutOrStdout(), fmt.Errorf("all vendor sources failed for %s; first error: %s", domain, view.FetchFailures[0].Error), flags)
 			}
 			return printJSONFiltered(cmd.OutOrStdout(), view, flags)
 		},

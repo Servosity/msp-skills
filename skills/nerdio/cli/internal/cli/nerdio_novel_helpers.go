@@ -7,6 +7,7 @@ package cli
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -274,6 +275,13 @@ func waitForJob(ctx context.Context, c *client.Client, jobID int64, interval, ti
 	for {
 		data, err := c.Get(ctx, nmmJobPath+strconv.FormatInt(jobID, 10), nil)
 		out.Polls++
+		if err != nil && jobPollErrorIsFinal(err) {
+			// A refusal that a later poll cannot change (the host pin, a 4xx
+			// other than 429: bad job id, no access) ends the wait at once
+			// instead of after three polls and two intervals.
+			out.ElapsedMS = time.Since(start).Milliseconds()
+			return out, fmt.Errorf("polling job %d: %w", jobID, err)
+		}
 		if err != nil {
 			consecutiveErrs++
 			if consecutiveErrs >= 3 {
@@ -308,9 +316,20 @@ func waitForJob(ctx context.Context, c *client.Client, jobID int64, interval, ti
 		case <-ctx.Done():
 			out.ElapsedMS = time.Since(start).Milliseconds()
 			return out, ctx.Err()
-		case <-time.After(interval):
+		case <-time.After(min(interval, time.Until(deadline))): // the last wait ends at --timeout
 		}
 	}
+}
+
+// jobPollErrorIsFinal reports a job poll error no retry can change: the host
+// guard's refusal (client.ErrHostPinRefused) or an HTTP 4xx other than 429.
+// Transient errors (429, 5xx, a network blip) keep the tolerance of three.
+func jobPollErrorIsFinal(err error) bool {
+	if errors.Is(err, client.ErrHostPinRefused) {
+		return true
+	}
+	var apiErr *client.APIError
+	return errors.As(err, &apiErr) && apiErr.StatusCode >= 400 && apiErr.StatusCode < 500 && apiErr.StatusCode != 429
 }
 
 // fleetFetchFailure is one failed account fetch inside a fleet fan-out.

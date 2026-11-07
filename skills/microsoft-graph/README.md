@@ -16,13 +16,6 @@ The maintained single-binary successor to the retiring mgc  -  every MSP-relevan
 
 ## Works with your agent
 
-> **Security note (until this connector is reprinted).** Do not run HTTP mode
-> (`--transport http`), not even on localhost. This build has no password,
-> listens on every network interface, and predates the browser-rebinding guard,
-> so a web page you open can reach it. The MCP tools can also read your data
-> with your credentials. Use the default stdio transport. If you set up a tunnel
-> for a remote agent, shut it down. A fix is on the way.
-
 The six agents MSP owners actually use (self-serve, works today):
 
 | Your AI agent | How to install the Microsoft Graph skill |
@@ -34,7 +27,7 @@ The six agents MSP owners actually use (self-serve, works today):
 | **Claude Cowork** | Paste the install prompt below. |
 | **GitHub Copilot** (VS Code) | Run installer, add `microsoft-graph-mcp` to `mcp.json` under the `servers` key, then pick **Agent** mode. |
 
-The ChatGPT desktop app runs `microsoft-graph-mcp` locally and shares MCP configuration with Codex ([OpenAI](https://learn.chatgpt.com/docs/extend/mcp)). ChatGPT on the web needs a remote (HTTP) server, and this connector's HTTP mode is paused until it is reprinted (see the security note in [mcp-install.md](./mcp-install.md)), so msp-skills does not support it yet. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
+The ChatGPT desktop app runs `microsoft-graph-mcp` locally and shares MCP configuration with Codex ([OpenAI](https://learn.chatgpt.com/docs/extend/mcp)). ChatGPT on the web needs a remote (HTTP) server, which msp-skills does not support yet (see [mcp-install.md](./mcp-install.md)). If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
 
 ### Also for the Microsoft and Google stacks
 
@@ -165,6 +158,9 @@ MICROSOFT_GRAPH_TOKEN=<value> microsoft-graph-cli doctor
 | Which groups are ownerless, empty, or guest-heavy across the tenant? | `microsoft-graph-cli groups risk --agent` |
 | Which third-party apps are consented into the tenant, and which are over-privileged or admin-consented? | `microsoft-graph-cli apps consent --agent` |
 | Where does this tenant stand overall - users, license waste, admins, alerts, device drift? | `microsoft-graph-cli tenant snapshot --agent` |
+| Which Teams Phone numbers does the tenant hold, and which are unassigned? | `microsoft-graph-cli phone-numbers list --agent` |
+| Which users have Enterprise Voice on, with which numbers and Teams policies? | `microsoft-graph-cli teams-users list --filter 'isEnterpriseVoiceEnabled eq true' --agent` |
+| What was said in one of my own Teams meetings? (own tenant only) | `microsoft-graph-cli transcripts download --meeting '<meeting-id>' --transcript '<transcript-id>'` |
 
 Full command reference: [guide.md](./guide.md). For the AI-agent operating contract (`--agent`, `--dry-run`, when to confirm before mutating), see [AGENTS.md](./AGENTS.md).
 
@@ -195,7 +191,7 @@ See [pain-point.md](./pain-point.md) for the longer narrative.
 
 ### Does this work with ChatGPT?
 
-Yes, in the **ChatGPT desktop app**. It runs MCP servers locally (STDIO), the way `microsoft-graph-mcp` runs, and shares MCP configuration with Codex ([OpenAI](https://learn.chatgpt.com/docs/extend/mcp)): add `microsoft-graph-mcp` under **Settings > MCP servers** as a STDIO server, or add it once to Codex's `~/.codex/config.toml`. **ChatGPT on the web** is not supported by msp-skills yet: it needs a remote (HTTP) server, and this connector's HTTP mode is paused until it is reprinted; the security note in [mcp-install.md](./mcp-install.md) explains why. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
+Yes, in the **ChatGPT desktop app**. It runs MCP servers locally (STDIO), the way `microsoft-graph-mcp` runs, and shares MCP configuration with Codex ([OpenAI](https://learn.chatgpt.com/docs/extend/mcp)): add `microsoft-graph-mcp` under **Settings > MCP servers** as a STDIO server, or add it once to Codex's `~/.codex/config.toml`. **ChatGPT on the web** is not supported by msp-skills yet: it needs a remote (HTTP) server, which msp-skills does not support yet; see [mcp-install.md](./mcp-install.md). If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
 
 ### Does this work with Codex, Cursor, Windsurf, Cline, Copilot, or Gemini?
 
@@ -233,11 +229,12 @@ Free. Apache-2.0 licensed. You pay only for whichever AI agent you use (Claude, 
 
 | Tier | Examples | Recommended agent policy |
 | --- | --- | --- |
-| Read | `licenses waste`, `admins audit`, `apps consent`, `security triage`, `managed-devices drift`, `groups risk`, `tenant snapshot`, `users list`, `pull`, `search`, `export` | Allow |
-| Write (import only) | `import <resource> --input data.jsonl` - the sole write path; one POST per JSONL record | Preview with `--dry-run`, then a reviewed write |
-| Destructive / config | None - the CLI exposes no delete or update path | Human-in-the-loop only |
+| Read | `licenses waste`, `admins audit`, `apps consent`, `security triage`, `managed-devices drift`, `groups risk`, `tenant snapshot`, `users list`, `phone-numbers list`, `teams-users list`, `pull`, `search`, `export` | Allow |
+| Sensitive read (own tenant only) | `transcripts list`, `transcripts download`, `transcripts all` - meeting content; refused for any tenant but `MICROSOFT_GRAPH_HOME_TENANT`, never stored | Allow only for your own meetings; switch off for MCP with `MICROSOFT_GRAPH_MCP_NO_TRANSCRIPTS=1` |
+| Local writes | `auth login`, `profile save`, `teach`, `local-data purge --yes` - change only this machine's credential file, profiles, learn store or local data | Allow |
+| Tenant writes | None - no command creates, changes or deletes anything in your tenant | - |
 
-Every typed command is read-only; the one create path is `import`, which previews with `--dry-run`. The strongest control is the **scope you grant the Microsoft Graph credentials** - the CLI can only do what the credentials are permitted to do. Full details, including how to lock it down, are in [governance.md](./governance.md).
+No command writes to your tenant. The strongest control is the **scope you grant the Microsoft Graph credentials** - the CLI can only read what the credentials are permitted to read. Full details, including how to lock it down, are in [governance.md](./governance.md).
 
 ## Status
 
@@ -247,4 +244,4 @@ Beta. Validated against the Microsoft Graph API surface and being validated with
 
 **Standards.** Conforms to the open [Agent Skills spec](https://agentskills.io) (Anthropic, Dec 2025; 40+ agents). MCP-compatible - works with any MCP-capable agent including [Hermes](https://hermes-agent.nousresearch.com). OpenClaw-ready (frontmatter pre-wired, awaiting OpenClaw launch).
 
-Maintained by [Servosity](https://www.servosity.com). Apache-2.0 licensed. Built with [CLI Printing Press](https://github.com/mvanhorn/cli-printing-press). _Last updated: 2026-07-03._
+Maintained by [Servosity](https://www.servosity.com). Apache-2.0 licensed. Built with [CLI Printing Press](https://github.com/mvanhorn/cli-printing-press). _Last updated: 2026-10-28._

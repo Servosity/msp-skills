@@ -112,11 +112,11 @@ func TestAuthSetTokenAndLogoutHonorDryRun(t *testing.T) {
 		})
 		return found
 	}
-	run("", "auth", "set-token", "stub-dry-run-token", "--dry-run")
+	run("stub-dry-run-token\n", "auth", "set-token", "--dry-run")
 	if saved("stub-dry-run-token") {
 		t.Fatal("auth set-token --dry-run saved the token")
 	}
-	run("", "auth", "set-token", "stub-saved-token")
+	run("stub-saved-token\n", "auth", "set-token")
 	if !saved("stub-saved-token") {
 		t.Fatal("control: auth set-token did not save the token, so the dry-run check proved nothing")
 	}

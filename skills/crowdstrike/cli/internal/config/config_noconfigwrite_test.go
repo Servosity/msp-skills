@@ -10,6 +10,9 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"crowdstrike-pp-cli/internal/cliutil"
+	"crowdstrike-pp-cli/internal/cliutil/testenv"
 )
 
 // Issue #270: a supported way to run this connector with no credential
@@ -67,8 +70,7 @@ func ncwFilesMentioning(snap map[string]string, needle string) []string {
 // throwaway HOME and returns everything that landed on disk.
 func ncwMint(t *testing.T, value string, set bool) map[string]string {
 	t.Helper()
-	home := t.TempDir()
-	t.Setenv("HOME", home)
+	home := testenv.Isolate(t, cliutil.ConfigDir, cliutil.DataDir, cliutil.StateDir, cliutil.CacheDir)
 	t.Setenv("CROWDSTRIKE_CONFIG", filepath.Join(home, "config.toml"))
 	if set {
 		t.Setenv(NoConfigWriteEnv, value)
@@ -128,9 +130,8 @@ func TestWithoutTheSwitchTheCacheIsByteIdentical(t *testing.T) {
 // that is already on disk, even with the switch set - guarding save()
 // unconditionally would make logout silently inert.
 func TestNoConfigWriteStillAllowsTheWipe(t *testing.T) {
-	home := t.TempDir()
+	home := testenv.Isolate(t, cliutil.ConfigDir, cliutil.DataDir, cliutil.StateDir, cliutil.CacheDir)
 	cfgPath := filepath.Join(home, "config.toml")
-	t.Setenv("HOME", home)
 	t.Setenv("CROWDSTRIKE_CONFIG", cfgPath)
 
 	// Seed through the connector's own writer so the on-disk format is

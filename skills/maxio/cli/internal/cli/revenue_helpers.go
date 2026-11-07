@@ -55,3 +55,20 @@ func emitRevenue(cmd interface{ OutOrStdout() io.Writer }, flags *rootFlags, v a
 	}
 	return printJSONFiltered(w, v, flags)
 }
+
+// revenueMoney is the site's currency and a renderer for cents in it (Codex
+// r1, maxio 4.34.2 reprint, class currency-dropped: every amount printed a
+// dollar sign whatever the site's currency).
+func revenueMoney(ctx context.Context, db *sql.DB) (string, func(int64) string) {
+	cur := revenue.SiteCurrency(ctx, db)
+	return cur, func(c int64) string { return revenue.Money(c, cur) }
+}
+
+// warnIfMovementsIncomplete tells a reader of the movement log that the
+// stored history does not reach the log's first page (Codex r1 class
+// incomplete-backfill-read-as-complete). Written to stderr so JSON stays clean.
+func warnIfMovementsIncomplete(ctx context.Context, db *sql.DB, w io.Writer) {
+	if !revenue.MovementsComplete(ctx, db) {
+		fmt.Fprintln(w, "warning: the stored MRR movement history does not reach the start of Maxio's log (a capped or failed `mrr sync`, or one from an older version); totals from it may be incomplete. Run `maxio-cli mrr sync --max-pages 0`.")
+	}
+}

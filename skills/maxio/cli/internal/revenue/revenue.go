@@ -74,6 +74,7 @@ func EnsureSchema(db *sql.DB) error {
 		)`,
 		`CREATE INDEX IF NOT EXISTS idx_rev_mvmt_ts ON rev_mrr_movements(ts)`,
 		`CREATE INDEX IF NOT EXISTS idx_rev_sub_snap_at ON rev_sub_mrr_snapshots(snapshot_at)`,
+		`CREATE TABLE IF NOT EXISTS rev_sync_state (key TEXT PRIMARY KEY, value TEXT)`,
 	}
 	for _, s := range stmts {
 		if _, err := db.Exec(s); err != nil {
@@ -139,8 +140,8 @@ type subMRRResp struct {
 
 type movementsResp struct {
 	MRR struct {
-		TotalPages int           `json:"total_pages"`
-		Movements  []rawMovement `json:"movements"`
+		TotalPages int               `json:"total_pages"`
+		Movements  []json.RawMessage `json:"movements"`
 	} `json:"mrr"`
 }
 
@@ -175,10 +176,22 @@ type SyncResult struct {
 	MovementsFetched  int    `json:"movements_fetched"`
 	MovementsInserted int    `json:"movements_inserted"`
 	MovementPagesRead int    `json:"movement_pages_read"`
+	// MovementsComplete is true only when the stored movement history reaches
+	// the log's first page (Codex r1 class incomplete-backfill-read-as-complete);
+	// MovementsError names the failure that stopped the backfill.
+	MovementsComplete bool   `json:"movements_complete"`
+	MovementsError    string `json:"movements_error,omitempty"`
+	Currency          string `json:"currency,omitempty"`
 }
 
 // Sync fetches the live Insights surfaces and persists a snapshot + incremental
 // movement backfill. It is the single write path for the revenue tables.
+//
+// Codex r1 (maxio 4.34.2 reprint) class partial-snapshot-published: the site
+// row and every per-subscription row of one snapshot are fetched first and
+// written in ONE transaction, so a failed page, an unreadable response or a
+// failed /stats.json leaves no part of the snapshot behind and readers keep
+// the last complete one.
 func Sync(ctx context.Context, c *client.Client, db *sql.DB, opts SyncOptions) (*SyncResult, error) {
 	if err := EnsureSchema(db); err != nil {
 		return nil, err
@@ -187,26 +200,31 @@ func Sync(ctx context.Context, c *client.Client, db *sql.DB, opts SyncOptions) (
 
 	// 1. Site MRR + stats -> one site snapshot row.
 	var site siteMRRResp
-	if data, err := c.Get(ctx, "/mrr.json", nil); err == nil {
-		_ = json.Unmarshal(data, &site)
-	} else {
+	data, err := c.Get(ctx, "/mrr.json", nil)
+	if err != nil {
 		return nil, fmt.Errorf("fetching site MRR: %w", err)
 	}
+	if err := json.Unmarshal(data, &site); err != nil {
+		return nil, fmt.Errorf("parsing site MRR: %w", err)
+	}
 	var stats statsResp
-	if data, err := c.Get(ctx, "/stats.json", nil); err == nil {
-		_ = json.Unmarshal(data, &stats)
+	data, err = c.Get(ctx, "/stats.json", nil)
+	if err != nil {
+		return nil, fmt.Errorf("fetching site stats: %w", err)
+	}
+	if err := json.Unmarshal(data, &stats); err != nil {
+		return nil, fmt.Errorf("parsing site stats: %w", err)
 	}
 	res.SiteMRRCents = site.MRR.AmountInCents
 	res.ActiveSubs = stats.Stats.TotalActiveSubscriptions
-	if _, err := db.ExecContext(ctx,
-		`INSERT OR REPLACE INTO rev_site_snapshots (snapshot_at, at_time, mrr_cents, currency, active_subs, total_subs)
-		 VALUES (?,?,?,?,?,?)`,
-		opts.SnapshotAt, site.MRR.AtTime, site.MRR.AmountInCents, site.MRR.Currency,
-		stats.Stats.TotalActiveSubscriptions, stats.Stats.TotalSubscriptions); err != nil {
-		return nil, fmt.Errorf("writing site snapshot: %w", err)
-	}
+	res.Currency = site.MRR.Currency
 
-	// 2. Per-subscription MRR -> per-sub snapshot rows (paginated).
+	// 2. Per-subscription MRR (paginated, per_page capped at 200).
+	type subRow struct {
+		id                 string
+		mrr, plan, usageCt int64
+	}
+	var subs []subRow
 	for page := 1; ; page++ {
 		data, err := c.Get(ctx, "/subscriptions_mrr.json", map[string]string{
 			"page": strconv.Itoa(page), "per_page": "200",
@@ -218,110 +236,181 @@ func Sync(ctx context.Context, c *client.Client, db *sql.DB, opts SyncOptions) (
 		if err := json.Unmarshal(data, &sm); err != nil {
 			return nil, fmt.Errorf("parsing per-subscription MRR page %d: %w", page, err)
 		}
-		if len(sm.SubscriptionsMRR) == 0 {
-			break
-		}
-		tx, err := db.BeginTx(ctx, nil)
-		if err != nil {
-			return nil, err
-		}
 		for _, s := range sm.SubscriptionsMRR {
-			if _, err := tx.ExecContext(ctx,
-				`INSERT OR REPLACE INTO rev_sub_mrr_snapshots (snapshot_at, subscription_id, mrr_cents, plan_cents, usage_cents)
-				 VALUES (?,?,?,?,?)`,
-				opts.SnapshotAt, s.SubscriptionID.String(), s.MRRAmount, s.Breakouts.Plan, s.Breakouts.Usage); err != nil {
-				_ = tx.Rollback()
-				return nil, fmt.Errorf("writing sub snapshot: %w", err)
-			}
-			res.SubSnapshotRows++
-		}
-		if err := tx.Commit(); err != nil {
-			return nil, err
+			subs = append(subs, subRow{s.SubscriptionID.String(), s.MRRAmount, s.Breakouts.Plan, s.Breakouts.Usage})
 		}
 		if len(sm.SubscriptionsMRR) < 200 {
 			break
 		}
 	}
 
-	// 3. MRR movements -> backfill from the most-recent pages BACKWARD. The
-	//    endpoint is oldest-first and caps per_page at 10 (so a busy site has
-	//    hundreds of pages); "recent" movements live on the LAST pages. We read
-	//    total_pages from page 1, then walk from the last page down so a capped
-	//    sync gets the most-relevant recent movements and an incremental re-sync
-	//    stops as soon as it reaches an already-stored page. This is the
-	//    deprecated surface we copy locally so it survives upstream sunset.
-	firstData, ferr := c.Get(ctx, "/mrr_movements.json", map[string]string{"page": "1", "per_page": "200"})
-	if ferr == nil {
-		var first movementsResp
-		if json.Unmarshal(firstData, &first) == nil {
-			total := first.MRR.TotalPages
-			if total < 1 {
-				total = 1
-			}
-			for page := total; page >= 1; page-- {
-				if opts.MaxMovementPages > 0 && res.MovementPagesRead >= opts.MaxMovementPages {
-					break
-				}
-				data, gerr := c.Get(ctx, "/mrr_movements.json", map[string]string{
-					"page": strconv.Itoa(page), "per_page": "200",
-				})
-				if gerr != nil {
-					break
-				}
-				var mv movementsResp
-				if json.Unmarshal(data, &mv) != nil {
-					break
-				}
-				res.MovementPagesRead++
-				res.MovementsFetched += len(mv.MRR.Movements)
-				inserted, sawExisting, ierr := insertMovements(ctx, db, mv.MRR.Movements)
-				if ierr != nil {
-					return nil, ierr
-				}
-				res.MovementsInserted += inserted
-				// Caught up to prior backfill: a whole page already stored.
-				if sawExisting && inserted == 0 {
-					break
-				}
-			}
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := tx.ExecContext(ctx,
+		`INSERT OR REPLACE INTO rev_site_snapshots (snapshot_at, at_time, mrr_cents, currency, active_subs, total_subs)
+		 VALUES (?,?,?,?,?,?)`,
+		opts.SnapshotAt, site.MRR.AtTime, site.MRR.AmountInCents, site.MRR.Currency,
+		stats.Stats.TotalActiveSubscriptions, stats.Stats.TotalSubscriptions); err != nil {
+		_ = tx.Rollback()
+		return nil, fmt.Errorf("writing site snapshot: %w", err)
+	}
+	for _, s := range subs {
+		if _, err := tx.ExecContext(ctx,
+			`INSERT OR REPLACE INTO rev_sub_mrr_snapshots (snapshot_at, subscription_id, mrr_cents, plan_cents, usage_cents)
+			 VALUES (?,?,?,?,?)`,
+			opts.SnapshotAt, s.id, s.mrr, s.plan, s.usageCt); err != nil {
+			_ = tx.Rollback()
+			return nil, fmt.Errorf("writing sub snapshot: %w", err)
 		}
+		res.SubSnapshotRows++
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, err
+	}
+
+	// 3. MRR movements -> backfill from the most-recent pages BACKWARD. The
+	//    endpoint is oldest-first and caps per_page at 50 (so a busy site has
+	//    many pages); "recent" movements live on the LAST pages. We read
+	//    total_pages from page 1, then walk from the last page down so a capped
+	//    sync gets the most-relevant recent movements. This is the deprecated
+	//    surface we copy locally so it survives upstream sunset.
+	//
+	//    Codex r1 class incomplete-backfill-read-as-complete: a walk may stop at
+	//    an already-stored page only when the stored history was complete
+	//    before it started; otherwise (a capped or failed earlier walk) it walks
+	//    on toward page 1. The history is marked partial while a walk runs and
+	//    complete only when one reaches page 1 or catches up with a complete
+	//    history; a fetch or parse failure is reported, never read as the end.
+	if err := backfillMovements(ctx, c, db, opts, res); err != nil {
+		return nil, err
 	}
 	return res, nil
 }
 
+func backfillMovements(ctx context.Context, c *client.Client, db *sql.DB, opts SyncOptions, res *SyncResult) error {
+	prevComplete := syncState(ctx, db, movementsBackfillKey) == "complete"
+	if err := setSyncState(ctx, db, movementsBackfillKey, "partial"); err != nil {
+		return err
+	}
+	firstData, err := c.Get(ctx, "/mrr_movements.json", map[string]string{"page": "1", "per_page": "50"})
+	if err != nil {
+		res.MovementsError = fmt.Sprintf("fetching MRR movements page 1: %v", err)
+		return nil
+	}
+	var first movementsResp
+	if err := json.Unmarshal(firstData, &first); err != nil {
+		res.MovementsError = fmt.Sprintf("parsing MRR movements page 1: %v", err)
+		return nil
+	}
+	total := first.MRR.TotalPages
+	if total < 1 {
+		total = 1
+	}
+	complete := false
+	// seen counts identical records across the whole walk, not per page, and a
+	// caught-up stop needs two quiet pages: a new record identical to a stored
+	// one can be the whole last page, its excess row one page further back.
+	seen := map[string]int{}
+	quietPages := 0
+	for page := total; page >= 1; page-- {
+		if opts.MaxMovementPages > 0 && res.MovementPagesRead >= opts.MaxMovementPages {
+			break
+		}
+		mv := first
+		if page != 1 {
+			data, gerr := c.Get(ctx, "/mrr_movements.json", map[string]string{
+				"page": strconv.Itoa(page), "per_page": "50",
+			})
+			if gerr != nil {
+				res.MovementsError = fmt.Sprintf("fetching MRR movements page %d: %v", page, gerr)
+				break
+			}
+			mv = movementsResp{}
+			if perr := json.Unmarshal(data, &mv); perr != nil {
+				res.MovementsError = fmt.Sprintf("parsing MRR movements page %d: %v", page, perr)
+				break
+			}
+		}
+		res.MovementPagesRead++
+		res.MovementsFetched += len(mv.MRR.Movements)
+		inserted, sawExisting, ierr := insertMovements(ctx, db, mv.MRR.Movements, seen)
+		if ierr != nil {
+			return ierr
+		}
+		res.MovementsInserted += inserted
+		if sawExisting && inserted == 0 {
+			quietPages++
+		} else {
+			quietPages = 0
+		}
+		if page == 1 || (prevComplete && quietPages >= 2) {
+			complete = true
+			break
+		}
+	}
+	if complete {
+		if err := setSyncState(ctx, db, movementsBackfillKey, "complete"); err != nil {
+			return err
+		}
+	}
+	res.MovementsComplete = complete
+	return nil
+}
+
+// movementKey is the key the 0.1.x CLI stored (no subscription_id); a
+// stored row under it is claimed by the first movement that matches it.
 func movementKey(m rawMovement) string {
 	h := sha256.Sum256([]byte(m.Timestamp + "|" + m.Category + "|" +
 		strconv.FormatInt(m.AmountInCents, 10) + "|" + m.Description + "|" + string(m.LineItems)))
 	return hex.EncodeToString(h[:16])
 }
 
-func insertMovements(ctx context.Context, db *sql.DB, movements []rawMovement) (inserted int, sawExisting bool, err error) {
+func insertMovements(ctx context.Context, db *sql.DB, raws []json.RawMessage, seen map[string]int) (inserted int, sawExisting bool, err error) {
 	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
 		return 0, false, err
 	}
-	for _, m := range movements {
-		key := movementKey(m)
+	for _, raw := range raws {
+		var m rawMovement
+		if uerr := json.Unmarshal(raw, &m); uerr != nil {
+			_ = tx.Rollback()
+			return inserted, sawExisting, fmt.Errorf("parsing movement: %w", uerr)
+		}
+		base := movementIdentity(raw, 0)
+		key := movementIdentity(raw, seen[base])
+		seen[base]++
+		var exists int
+		_ = tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM rev_mrr_movements WHERE mvmt_key = ?`, key).Scan(&exists)
+		if exists > 0 {
+			sawExisting = true
+			continue
+		}
+		claimed, cerr := tx.ExecContext(ctx, `UPDATE rev_mrr_movements SET mvmt_key = ? WHERE mvmt_key = ?`, key, movementKey(m))
+		if cerr != nil {
+			_ = tx.Rollback()
+			return inserted, sawExisting, fmt.Errorf("re-keying movement: %w", cerr)
+		}
+		if n, _ := claimed.RowsAffected(); n > 0 {
+			sawExisting = true
+			continue
+		}
 		bucket := classifyBucket(m.Category, m.AmountInCents)
 		li := string(m.LineItems)
-		if li == "" {
+		if li == "" || li == "null" {
 			li = "[]"
 		}
-		r, err := tx.ExecContext(ctx,
-			`INSERT OR IGNORE INTO rev_mrr_movements
+		if _, err := tx.ExecContext(ctx,
+			`INSERT INTO rev_mrr_movements
 			 (mvmt_key, ts, amount_cents, category, bucket, plan_cents, usage_cents, description, line_items)
 			 VALUES (?,?,?,?,?,?,?,?,?)`,
 			key, m.Timestamp, m.AmountInCents, m.Category, bucket,
-			m.Breakouts.Plan, m.Breakouts.Usage, m.Description, li)
-		if err != nil {
+			m.Breakouts.Plan, m.Breakouts.Usage, m.Description, li); err != nil {
 			_ = tx.Rollback()
 			return inserted, sawExisting, fmt.Errorf("inserting movement: %w", err)
 		}
-		if n, _ := r.RowsAffected(); n > 0 {
-			inserted++
-		} else {
-			sawExisting = true
-		}
+		inserted++
 	}
 	if err := tx.Commit(); err != nil {
 		return inserted, sawExisting, err

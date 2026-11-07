@@ -12,10 +12,10 @@ import (
 
 // whitespaceProduct is one catalog product a company has never been quoted.
 type whitespaceProduct struct {
-	ID    string  `json:"id"`
-	Name  string  `json:"name"`
-	MPN   string  `json:"mpn,omitempty"`
-	Price float64 `json:"price"`
+	ID    string   `json:"id"`
+	Name  string   `json:"name"`
+	MPN   string   `json:"mpn,omitempty"`
+	Price *float64 `json:"price"` // null when the catalog product carries no price (unknown, not 0)
 }
 
 type whitespaceReport struct {
@@ -134,12 +134,16 @@ func newNovelCompanyWhitespaceCmd(flags *rootFlags) *cobra.Command {
 					}
 				}
 				if !seen {
-					report.Whitespace = append(report.Whitespace, whitespaceProduct{ID: p.ID, Name: p.Name, MPN: p.MPN, Price: p.Price})
+					report.Whitespace = append(report.Whitespace, whitespaceProduct{ID: p.ID, Name: p.Name, MPN: p.MPN, Price: presentNum(p.Price, p.HasPrice)})
 				}
 			}
 			sort.SliceStable(report.Whitespace, func(i, j int) bool {
-				if report.Whitespace[i].Price != report.Whitespace[j].Price {
-					return report.Whitespace[i].Price > report.Whitespace[j].Price
+				pi, pj := report.Whitespace[i].Price, report.Whitespace[j].Price
+				if (pi == nil) != (pj == nil) {
+					return pi != nil // priced products first; an unknown price is not ranked as 0
+				}
+				if pi != nil && *pi != *pj {
+					return *pi > *pj
 				}
 				return report.Whitespace[i].ID < report.Whitespace[j].ID
 			})
@@ -162,7 +166,7 @@ func newNovelCompanyWhitespaceCmd(flags *rootFlags) *cobra.Command {
 			tw := newTabWriter(w)
 			fmt.Fprintln(tw, "PRODUCT\tMPN\tPRICE")
 			for _, p := range report.Whitespace {
-				fmt.Fprintf(tw, "%s\t%s\t%.2f\n", truncate(p.Name, 40), orDash(p.MPN), p.Price)
+				fmt.Fprintf(tw, "%s\t%s\t%s\n", truncate(p.Name, 40), orDash(p.MPN), fmtNum(p.Price, "%.2f"))
 			}
 			if err := tw.Flush(); err != nil {
 				return err
@@ -178,37 +182,49 @@ func newNovelCompanyWhitespaceCmd(flags *rootFlags) *cobra.Command {
 	return cmd
 }
 
-// resolveCompany finds a company by exact id, exact external identifier,
-// case-insensitive exact name, or unique case-insensitive substring match.
+// resolveCompany finds a company by one identifier namespace at a time,
+// strongest first, across every row: exact internal id, then exact external
+// identifier, then case-insensitive exact name, then a unique case-insensitive
+// substring of the name. Within a namespace more than one match is refused as
+// ambiguous, never resolved to the first row (Codex r1 4.34.2 review class
+// identifier-namespaces-merged: one pass over all three namespaces returned
+// the first row whose id OR external identifier OR name matched, so another
+// company's external identifier "1234" shadowed the company whose internal id
+// is 1234).
 func resolveCompany(companies []novelCompany, target string) (novelCompany, error) {
 	lower := strings.ToLower(target)
-	var substringMatches []novelCompany
-	for _, c := range companies {
-		if c.ID == target || (c.ExternalIdentifier != "" && c.ExternalIdentifier == target) {
-			return c, nil
-		}
-		name := strings.ToLower(c.Name)
-		if name == lower {
-			return c, nil
-		}
-		if name != "" && strings.Contains(name, lower) {
-			substringMatches = append(substringMatches, c)
-		}
+	tiers := []struct {
+		what  string
+		match func(novelCompany) bool
+	}{
+		{"internal id", func(c novelCompany) bool { return c.ID != "" && c.ID == target }},
+		{"external identifier", func(c novelCompany) bool { return c.ExternalIdentifier != "" && c.ExternalIdentifier == target }},
+		{"name", func(c novelCompany) bool { return c.Name != "" && strings.ToLower(c.Name) == lower }},
+		{"name", func(c novelCompany) bool { return c.Name != "" && strings.Contains(strings.ToLower(c.Name), lower) }},
 	}
-	switch len(substringMatches) {
-	case 1:
-		return substringMatches[0], nil
-	case 0:
-		return novelCompany{}, fmt.Errorf("no company matching %q in local store (run `salesbuildr-cli sync` first?)", target)
-	default:
-		names := make([]string, 0, len(substringMatches))
-		for i, c := range substringMatches {
-			if i >= 5 {
-				names = append(names, "…")
-				break
+	for _, tier := range tiers {
+		var matches []novelCompany
+		for _, c := range companies {
+			if tier.match(c) {
+				matches = append(matches, c)
 			}
-			names = append(names, c.Name)
 		}
-		return novelCompany{}, fmt.Errorf("company %q is ambiguous: %s", target, strings.Join(names, ", "))
+		switch len(matches) {
+		case 0:
+			continue
+		case 1:
+			return matches[0], nil
+		default:
+			names := make([]string, 0, len(matches))
+			for i, c := range matches {
+				if i >= 5 {
+					names = append(names, "…")
+					break
+				}
+				names = append(names, fmt.Sprintf("%s (id %s)", c.Name, c.ID))
+			}
+			return novelCompany{}, fmt.Errorf("company %q is ambiguous by %s: %s; pass the internal id", target, tier.what, strings.Join(names, ", "))
+		}
 	}
+	return novelCompany{}, fmt.Errorf("no company matching %q in local store (run `salesbuildr-cli sync` first?)", target)
 }

@@ -11,7 +11,9 @@ import (
 // match exactly, IPv6 zone included (Linux interface names are case-sensitive,
 // so fe80::1%lan0 and fe80::1%LAN0 can be different peers); a DNS name matches
 // case-insensitively in ASCII only (a non-ASCII host never folds); an explicit
-// default port equals none; https down to http leaves the origin.
+// default port equals none; any scheme change leaves the origin: https down to
+// http, and http up to https too (port 80 to 443 is another endpoint than the
+// one the operator configured).
 func TestRedirectLeavesOriginComparesHostsLikeTheNetwork(t *testing.T) {
 	for _, tc := range []struct {
 		from, to string
@@ -19,7 +21,8 @@ func TestRedirectLeavesOriginComparesHostsLikeTheNetwork(t *testing.T) {
 	}{
 		{"https://API.Example.TEST/a", "https://api.example.test/b", false},
 		{"https://api.example.test/a", "https://api.example.test:443/b", false},
-		{"http://api.example.test/a", "https://api.example.test/b", false},
+		{"http://api.example.test/a", "https://api.example.test/b", true},
+		{"HTTPS://api.example.test/a", "https://api.example.test/b", false},
 		{"https://api.example.test/a", "http://api.example.test/b", true},
 		{"https://api.example.test/a", "https://api.example.test:8443/b", true},
 		{"https://api.example.test/a", "https://elsewhere.example.test/b", true},

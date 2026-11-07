@@ -4,6 +4,7 @@ package cli
 
 import (
 	"bytes"
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
@@ -18,8 +19,9 @@ import (
 
 // s1DecommissionAPI serves agents 301 and 302 until 301 is decommissioned
 // (spec.yaml /agents/actions/decommission); from then on GET /agents returns
-// only 302. Filters are ignored: every walk sees the whole fleet.
-func s1DecommissionAPI(t *testing.T, decommissioned *atomic.Bool) *httptest.Server {
+// only 302, after calling onDecommissionedRead (when set) inside that walk.
+// Filters are ignored: every walk sees the whole fleet.
+func s1DecommissionAPI(t *testing.T, decommissioned *atomic.Bool, onDecommissionedRead *atomic.Pointer[func()]) *httptest.Server {
 	t.Helper()
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -28,6 +30,8 @@ func s1DecommissionAPI(t *testing.T, decommissioned *atomic.Bool) *httptest.Serv
 			agents := `{"id":"302","computerName":"WS-KEEP","agentVersion":"24.1.2.6","networkStatus":"connected"}`
 			if !decommissioned.Load() {
 				agents = `{"id":"301","computerName":"WS-GONE","agentVersion":"24.1.2.6","networkStatus":"connected"},` + agents
+			} else if hook := onDecommissionedRead.Load(); hook != nil {
+				(*hook)()
 			}
 			_, _ = w.Write([]byte(`{"data":[` + agents + `],"pagination":{"nextCursor":null}}`))
 		default:
@@ -127,34 +131,73 @@ func keysOf[V any](m map[string]V) []string {
 // longer returned by the second (decommissioned). When the second walk starts
 // within the same wall-clock second as 301's write, or after the clock
 // stepped backwards, a timestamp test ("synced_at at or after the walk
-// start") reads 301 as written by the second walk, and history never reports
-// the removal an MSP acts on.
+// start", or "within the walk's seconds") reads 301 as written by the second
+// walk, and history never reports the removal an MSP acts on.
 func TestCaptureMembershipIsPerWalkNotPerSecond(t *testing.T) {
 	testenv.Isolate(t)
 	var decommissioned atomic.Bool
-	srv := s1DecommissionAPI(t, &decommissioned)
+	var onDecommissionedRead atomic.Pointer[func()]
+	srv := s1DecommissionAPI(t, &decommissioned, &onDecommissionedRead)
 	defer srv.Close()
 	t.Setenv("SENTINELONE_BASE_URL", srv.URL)
 	t.Setenv("SENTINELONE_API_TOKEN", "test-token-1234")
 
 	t.Run("same_second", func(t *testing.T) {
-		for attempt := 1; attempt <= 10; attempt++ {
-			db := filepath.Join(t.TempDir(), "s1.db")
-			decommissioned.Store(false)
-			now := time.Now()
-			time.Sleep(now.Truncate(time.Second).Add(time.Second + 10*time.Millisecond).Sub(now))
-			runMembershipSync(t, db)
-			decommissioned.Store(true)
-			runMembershipSync(t, db)
-			gone, kept := agentSyncedAt(t, db, "301"), agentSyncedAt(t, db, "302")
-			if gone != kept {
-				t.Logf("attempt %d: the walks straddled a second (%s vs %s); retrying", attempt, gone, kept)
-				continue
-			}
-			assertDecommissionedAgentReadsAsRemoved(t, db)
-			return
+		// Two walks are not timed to fit one wall-clock second (a loaded
+		// runner never fits two syncs in one). Instead, while the second walk
+		// is reading agents, the first walk's agent rows and capture are
+		// restamped with the wall-clock second of that read: 301 then carries
+		// a stamp inside the second walk's own span, on any runner. The
+		// restamp goes through a connection opened between the walks, which
+		// carries no walk recorder, so the second walk never records it.
+		db := filepath.Join(t.TempDir(), "s1.db")
+		decommissioned.Store(false)
+		runMembershipSync(t, db)
+
+		s, err := store.Open(db)
+		if err != nil {
+			t.Fatal(err)
 		}
-		t.Fatal("precondition: could not run two syncs within one wall-clock second in 10 attempts")
+		defer s.Close()
+		conn, err := s.DB().Conn(context.Background())
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer conn.Close()
+		var stamped string
+		var stampErr error
+		restamp := func() {
+			if stamped != "" {
+				return
+			}
+			stamped = time.Now().UTC().Format(time.RFC3339)
+			for _, q := range []string{
+				`UPDATE resources SET synced_at = ? WHERE resource_type = 'agents'`,
+				`UPDATE fleet_snapshots SET captured_at = ? WHERE entity = 'agents'`,
+				`UPDATE fleet_capture_log SET captured_at = ? WHERE entity = 'agents'`,
+			} {
+				if _, err := conn.ExecContext(context.Background(), q, stamped); err != nil && stampErr == nil {
+					stampErr = err
+				}
+			}
+		}
+		onDecommissionedRead.Store(&restamp)
+		defer onDecommissionedRead.Store(nil)
+
+		decommissioned.Store(true)
+		runMembershipSync(t, db)
+		if stampErr != nil {
+			t.Fatalf("restamping the first walk during the second: %v", stampErr)
+		}
+		if stamped == "" {
+			t.Fatal("precondition: the second walk never read agents, so nothing was restamped")
+		}
+		// 301 carries the second of the second walk's read; 302, written by
+		// that walk after the read, carries the same second or a later one.
+		if gone, kept := agentSyncedAt(t, db, "301"), agentSyncedAt(t, db, "302"); gone != stamped || kept < gone {
+			t.Fatalf("precondition: agent 301 synced_at = %s, want %s (inside the second walk, at or before 302's %s)", gone, stamped, kept)
+		}
+		assertDecommissionedAgentReadsAsRemoved(t, db)
 	})
 
 	t.Run("clock_stepped_back", func(t *testing.T) {

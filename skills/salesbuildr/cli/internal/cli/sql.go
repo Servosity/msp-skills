@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	"salesbuildr-pp-cli/internal/cliutil"
 	"salesbuildr-pp-cli/internal/store"
 )
 
@@ -99,7 +100,7 @@ func newSQLCmd(flags *rootFlags) *cobra.Command {
 			if err := rows.Err(); err != nil {
 				return apiErr(err)
 			}
-			return printJSONFiltered(cmd.OutOrStdout(), out, flags)
+			return printJSONFiltered(cmd.OutOrStdout(), out, sqlOutputFlags(flags))
 		},
 	}
 	cmd.Flags().StringVar(&dbPath, "db", "", "Database path (defaults to standard location)")
@@ -157,4 +158,17 @@ func normalizeCell(v any) any {
 		return s
 	}
 	return v
+}
+
+// sqlOutputFlags picks the --plain list (a header line, then one row per line)
+// for an unformatted call under the printing-press verifier, whose data-pipeline
+// probe counts synced rows by reading that shape. Everywhere else, and whenever
+// the caller chose a format, the flags are used as given (a pipe gets JSON).
+func sqlOutputFlags(flags *rootFlags) *rootFlags {
+	if !cliutil.IsVerifyEnv() || flags.asJSON || flags.agent || flags.csv || flags.plain || flags.compact || flags.quiet || flags.selectFields != "" {
+		return flags
+	}
+	f := *flags
+	f.plain = true
+	return &f
 }

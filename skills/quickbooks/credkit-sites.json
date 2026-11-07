@@ -1,0 +1,312 @@
+{
+  "sites": [
+    {
+      "file": "cmd/quickbooks-mcp/qbo_tls_key_hold.go",
+      "func": "qboHoldTLSKey",
+      "what": "os.DirFS",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "reads the TLS key file of the MCP server only to hold its contents; they are sent nowhere"
+    },
+    {
+      "file": "internal/cli/auth_refresh.go",
+      "func": "refreshAccessToken",
+      "what": "call:dynamic",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "the refresh request is sent by a client whose Transport is credkit.Transport"
+    },
+    {
+      "file": "internal/cli/auth_refresh.go",
+      "func": "refreshAccessToken",
+      "what": "net/http.Client.Do",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "the refresh request is sent by a client whose Transport is credkit.Transport"
+    },
+    {
+      "file": "internal/cli/auth_refresh.go",
+      "func": "refreshAccessToken",
+      "what": "net/http.Client{}",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "the refresh request is sent by a client whose Transport is credkit.Transport"
+    },
+    {
+      "file": "internal/cli/auth_refresh.go",
+      "func": "refreshAccessToken",
+      "what": "net/http.NewRequestWithContext",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "the refresh request is sent by a client whose Transport is credkit.Transport"
+    },
+    {
+      "file": "internal/client/qbo_token_refresh.go",
+      "func": "QBORefreshTokens",
+      "what": "sink:net/http.RoundTripper",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "the context carries tokenClient.Transport, built with credkit.Transport, to QBOTokenGrant, whose client wraps it in the outbound guard again"
+    },
+    {
+      "file": "internal/client/qbo_token_refresh.go",
+      "func": "QBOTokenTransport",
+      "what": "assert:RoundTrip",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "the context carries tokenClient.Transport, built with credkit.Transport, to QBOTokenGrant, whose client wraps it in the outbound guard again"
+    },
+    {
+      "file": "internal/client/qbo_token_refresh.go",
+      "func": "QBOTokenTransport",
+      "what": "assert:net/http.Transport",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "the context carries tokenClient.Transport, built with credkit.Transport, to QBOTokenGrant, whose client wraps it in the outbound guard again"
+    },
+    {
+      "file": "internal/client/qbo_token_refresh.go",
+      "func": "QBOTokenTransport",
+      "what": "sink:net/http.RoundTripper",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "the context carries tokenClient.Transport, built with credkit.Transport, to QBOTokenGrant, whose client wraps it in the outbound guard again"
+    },
+    {
+      "file": "internal/cliutil/qbo_credkit_hold.go",
+      "func": "QBOHoldEnvInputs",
+      "what": "os.Getenv",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "reflect reads a config or credentials struct only to hold its string fields; the environment read loops over a constant list of two URL variables held the same way",
+      "names": [
+        "QUICKBOOKS_TOKEN_URL",
+        "QUICKBOOKS_FEEDBACK_ENDPOINT"
+      ]
+    },
+    {
+      "file": "internal/cliutil/qbo_credkit_hold.go",
+      "func": "QBOHoldTOMLCredentials",
+      "what": "reflect",
+      "count": 26,
+      "kind": "exempt",
+      "reason": "reflect reads a config or credentials struct only to hold its string fields; the environment read loops over a constant list of two URL variables held the same way"
+    },
+    {
+      "file": "internal/cliutil/qbo_durable_write.go",
+      "func": "DurableAtomicWritePrivateFile",
+      "what": "os.CreateTemp",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "writes and syncs the 0600 credential store and config rewrite, credential sources listed in Declarations.Files, which stay outside the kit (brief item 7)"
+    },
+    {
+      "file": "internal/cliutil/qbo_durable_write.go",
+      "func": "DurableAtomicWritePrivateFile",
+      "what": "os.File.Chmod",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "writes and syncs the 0600 credential store and config rewrite, credential sources listed in Declarations.Files, which stay outside the kit (brief item 7)"
+    },
+    {
+      "file": "internal/cliutil/qbo_durable_write.go",
+      "func": "DurableAtomicWritePrivateFile",
+      "what": "os.File.Close",
+      "count": 2,
+      "kind": "exempt",
+      "reason": "writes and syncs the 0600 credential store and config rewrite, credential sources listed in Declarations.Files, which stay outside the kit (brief item 7)"
+    },
+    {
+      "file": "internal/cliutil/qbo_durable_write.go",
+      "func": "DurableAtomicWritePrivateFile",
+      "what": "os.File.Name",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "writes and syncs the 0600 credential store and config rewrite, credential sources listed in Declarations.Files, which stay outside the kit (brief item 7)"
+    },
+    {
+      "file": "internal/cliutil/qbo_durable_write.go",
+      "func": "DurableAtomicWritePrivateFile",
+      "what": "os.File.Write",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "writes and syncs the 0600 credential store and config rewrite, credential sources listed in Declarations.Files, which stay outside the kit (brief item 7)"
+    },
+    {
+      "file": "internal/cliutil/qbo_durable_write.go",
+      "func": "DurableAtomicWritePrivateFile",
+      "what": "writer:*os.File",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "writes and syncs the 0600 credential store and config rewrite, credential sources listed in Declarations.Files, which stay outside the kit (brief item 7)"
+    },
+    {
+      "file": "internal/cliutil/qbo_durable_write.go",
+      "func": "qboSyncDir",
+      "what": "os.File.Close",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "writes and syncs the 0600 credential store and config rewrite, credential sources listed in Declarations.Files, which stay outside the kit (brief item 7)"
+    },
+    {
+      "file": "internal/cliutil/qbo_durable_write.go",
+      "func": "qboSyncDir",
+      "what": "os.File.Sync",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "writes and syncs the 0600 credential store and config rewrite, credential sources listed in Declarations.Files, which stay outside the kit (brief item 7)"
+    },
+    {
+      "file": "internal/cliutil/qbo_durable_write.go",
+      "func": "qboSyncDir",
+      "what": "os.Open",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "writes and syncs the 0600 credential store and config rewrite, credential sources listed in Declarations.Files, which stay outside the kit (brief item 7)"
+    },
+    {
+      "file": "internal/cliutil/qbo_durable_write.go",
+      "func": "var",
+      "what": "os.File.Sync",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "writes and syncs the 0600 credential store and config rewrite, credential sources listed in Declarations.Files, which stay outside the kit (brief item 7)"
+    },
+    {
+      "file": "internal/cliutil/qbo_lock_open_unix.go",
+      "func": "qboOpenLockFile",
+      "what": "os.File.Close",
+      "count": 2,
+      "kind": "exempt",
+      "reason": "opens the token refresh lock file; holds a lock and carries no credential"
+    },
+    {
+      "file": "internal/cliutil/qbo_lock_open_unix.go",
+      "func": "qboOpenLockFile",
+      "what": "os.File.Stat",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "opens the token refresh lock file; holds a lock and carries no credential"
+    },
+    {
+      "file": "internal/cliutil/qbo_lock_open_unix.go",
+      "func": "qboOpenLockFile",
+      "what": "os.OpenFile",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "opens the token refresh lock file; holds a lock and carries no credential"
+    },
+    {
+      "file": "internal/cliutil/qbo_lock_open_windows.go",
+      "func": "qboOpenLockFile",
+      "what": "golang.org/x/sys/windows.CloseHandle",
+      "count": 2,
+      "kind": "exempt",
+      "reason": "opens the token refresh lock file; holds a lock and carries no credential"
+    },
+    {
+      "file": "internal/cliutil/qbo_lock_open_windows.go",
+      "func": "qboOpenLockFile",
+      "what": "golang.org/x/sys/windows.CreateFile",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "opens the token refresh lock file; holds a lock and carries no credential"
+    },
+    {
+      "file": "internal/cliutil/qbo_lock_open_windows.go",
+      "func": "qboOpenLockFile",
+      "what": "golang.org/x/sys/windows.GetFileInformationByHandle",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "opens the token refresh lock file; holds a lock and carries no credential"
+    },
+    {
+      "file": "internal/cliutil/qbo_lock_open_windows.go",
+      "func": "qboOpenLockFile",
+      "what": "golang.org/x/sys/windows.UTF16PtrFromString",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "opens the token refresh lock file; holds a lock and carries no credential"
+    },
+    {
+      "file": "internal/cliutil/qbo_lock_open_windows.go",
+      "func": "qboOpenLockFile",
+      "what": "os.NewFile",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "opens the token refresh lock file; holds a lock and carries no credential"
+    },
+    {
+      "file": "internal/cliutil/qbo_token_lock.go",
+      "func": "QBOWithTokenLock",
+      "what": "os.File.Close",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "the token refresh lock file, which records only the holder process id"
+    },
+    {
+      "file": "internal/cliutil/qbo_token_lock.go",
+      "func": "QBOWithTokenLock",
+      "what": "os.File.Seek",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "the token refresh lock file, which records only the holder process id"
+    },
+    {
+      "file": "internal/cliutil/qbo_token_lock.go",
+      "func": "QBOWithTokenLock",
+      "what": "os.File.Stat",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "the token refresh lock file, which records only the holder process id"
+    },
+    {
+      "file": "internal/cliutil/qbo_token_lock.go",
+      "func": "QBOWithTokenLock",
+      "what": "os.File.Write",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "the token refresh lock file, which records only the holder process id"
+    },
+    {
+      "file": "internal/cliutil/qbo_token_lock.go",
+      "func": "QBOWithTokenLock",
+      "what": "writer:*os.File",
+      "count": 2,
+      "kind": "exempt",
+      "reason": "the token refresh lock file, which records only the holder process id"
+    },
+    {
+      "file": "internal/config/qbo_token_store.go",
+      "func": "qboConfigDigest",
+      "what": "os.ReadFile",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "hashes the config file already listed in Declarations.Files; only the digest is kept"
+    },
+    {
+      "file": "internal/credsql/credsql.go",
+      "func": "applyLengthLimit",
+      "what": "database/sql.DB.Conn",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "a one-connection database on the connection the kit-wrapped driver just opened, only to set the SQLite length limit"
+    },
+    {
+      "file": "internal/credsql/credsql.go",
+      "func": "applyLengthLimit",
+      "what": "database/sql.OpenDB",
+      "count": 2,
+      "kind": "exempt",
+      "reason": "a one-connection database on the connection the kit-wrapped driver just opened, only to set the SQLite length limit"
+    },
+    {
+      "file": "internal/mcp/request_contract.go",
+      "func": "loadRequestContracts",
+      "what": "builtin.panic",
+      "count": 1,
+      "kind": "exempt",
+      "reason": "a panic when the JSON compiled into the binary does not parse: the text describes that embedded file and carries no credential"
+    }
+  ]
+}

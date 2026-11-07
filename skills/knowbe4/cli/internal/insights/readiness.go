@@ -40,6 +40,12 @@ func ReportRate(ctx context.Context, db *sql.DB, byGroup bool, limit int, worst 
 	if err != nil {
 		return nil, err
 	}
+	if !recipientsHeld(ctx, db) {
+		return nil, notSynced(recipientsInput, recipientsSource)
+	}
+	if byGroup && !usersHeld(ctx, db) { // group membership is each user's "groups"
+		return nil, notSynced(usersInput, usersSource)
+	}
 	recips, err := loadRecipients(ctx, db)
 	if err != nil {
 		return nil, err
@@ -246,6 +252,10 @@ type TableFreshness struct {
 	LastSynced string  `json:"last_synced,omitempty"`
 	AgeHours   float64 `json:"age_hours,omitempty"`
 	Stale      bool    `json:"stale"`
+	// Complete says whether the collection's last sync finished
+	// (CollectionSynced); a table with rows but no finished sync is not a
+	// complete collection. Absent for a table no command reads as one.
+	Complete *bool `json:"complete,omitempty"`
 }
 
 // CommandReadiness reports whether one transcendence command has the local
@@ -281,7 +291,6 @@ func Freshness(ctx context.Context, db *sql.DB, staleAfter time.Duration, now ti
 		Commands:        []CommandReadiness{},
 	}
 
-	counts := map[string]int{}
 	addTable := func(name string, rowsN int, last string) {
 		tf := TableFreshness{Table: name, Rows: rowsN, LastSynced: last}
 		if t, ok := parseStoreTS(last); ok {
@@ -290,7 +299,6 @@ func Freshness(ctx context.Context, db *sql.DB, staleAfter time.Duration, now ti
 		} else if rowsN == 0 {
 			tf.Stale = true
 		}
-		counts[name] = rowsN
 		rep.Resources = append(rep.Resources, tf)
 	}
 
@@ -323,25 +331,26 @@ func Freshness(ctx context.Context, db *sql.DB, staleAfter time.Duration, now ti
 	var prLast string
 	_ = db.QueryRowContext(ctx, `SELECT COUNT(*), COALESCE(MAX(synced_at),'') FROM "pst_recipients"`).Scan(&prRows, &prLast)
 	addTable("pst_recipients", prRows, prLast)
-	var rsRows, rsDistinct int
+	var rsRows int
 	var rsLast string
-	_ = db.QueryRowContext(ctx, `SELECT COUNT(*), COUNT(DISTINCT snapshot_at), COALESCE(MAX(snapshot_at),'') FROM "risk_snapshots"`).Scan(&rsRows, &rsDistinct, &rsLast)
+	_ = db.QueryRowContext(ctx, `SELECT COUNT(*), COALESCE(MAX(snapshot_at),'') FROM "risk_snapshots"`).Scan(&rsRows, &rsLast)
 	addTable("risk_snapshots", rsRows, rsLast)
 
-	// Readiness must reflect the TYPED tables the insight commands actually
-	// read (loadUsers reads "users", trainingEmailSets reads
-	// "training_enrollments", ...), not just the generic resources ledger —
-	// the two can diverge on partial or abnormal sync state. Table names are
-	// static literals, never user input.
-	for rt, tbl := range map[string]string{
-		"users":                "users",
-		"groups":               "groups",
-		"phishing-tests":       "phishing_tests",
-		"training-enrollments": "training_enrollments",
-	} {
-		var n int
-		if err := db.QueryRowContext(ctx, `SELECT COUNT(*) FROM "`+tbl+`"`).Scan(&n); err == nil && n > counts[rt] {
-			counts[rt] = n
+	// Readiness is the same predicate the commands answer through
+	// (CollectionSynced): a command is ready when every collection it reads
+	// was completely synced, never because its table has a row (knowbe4
+	// handfix r2-missing-input-read-as-zero: one cached enrollment made
+	// untrained-clickers "ready" while its answer was false).
+	held := map[string]bool{
+		"pst_recipients": recipientsHeld(ctx, db),
+		"risk_snapshots": rsRows > 0,
+	}
+	for _, rt := range []string{"users", "groups", "phishing-tests", "training-enrollments"} {
+		held[rt] = CollectionSynced(ctx, db, rt)
+	}
+	for i := range rep.Resources {
+		if h, ok := held[rep.Resources[i].Table]; ok {
+			rep.Resources[i].Complete = &h
 		}
 	}
 
@@ -354,26 +363,27 @@ func Freshness(ctx context.Context, db *sql.DB, staleAfter time.Duration, now ti
 	}{
 		{"repeat-clickers", []string{"pst_recipients"}, syncHint},
 		{"untrained-clickers", []string{"pst_recipients", "training-enrollments"}, syncHint},
-		{"coverage-gaps", []string{"users"}, syncHint},
+		{"coverage-gaps", []string{"users", "training-enrollments", "pst_recipients"}, syncHint},
 		{"phish-prone-trend", []string{"phishing-tests"}, syncHint},
 		{"risk-leaderboard", []string{"users"}, syncHint},
 		{"report-rate", []string{"pst_recipients"}, syncHint},
 		{"risk-drift", []string{"risk_snapshots"}, "snapshots accumulate once per sync; run sync on two different days to get a delta"},
 		{"group-risk-contribution", []string{"risk_snapshots", "groups"}, "snapshots accumulate once per sync; run sync on two different days to get a delta"},
-		{"qbr", []string{"users", "phishing-tests", "pst_recipients"}, syncHint},
+		{"qbr", []string{"users", "phishing-tests", "pst_recipients", "training-enrollments"}, syncHint},
 	}
 	for _, r := range reqs {
 		cr := CommandReadiness{Command: r.command, Requires: r.requires, Ready: true}
 		for _, t := range r.requires {
-			if counts[t] == 0 {
+			if !held[t] {
 				cr.Ready = false
 				cr.Missing = append(cr.Missing, t)
 			}
 		}
-		// Drift commands need two distinct snapshots to compute a delta.
-		if (r.command == "risk-drift" || r.command == "group-risk-contribution") && rsDistinct < 2 && cr.Ready {
+		// Drift commands need one entity read at two different times, the
+		// predicate RiskDrift answers through (driftHeld).
+		if cr.Ready && ((r.command == "risk-drift" && !driftHeld(ctx, db, "")) || (r.command == "group-risk-contribution" && !driftHeld(ctx, db, "group"))) {
 			cr.Ready = false
-			cr.Missing = append(cr.Missing, "risk_snapshots (need 2+ distinct snapshot times)")
+			cr.Missing = append(cr.Missing, "risk_snapshots (need one entity read at 2+ distinct times)")
 		}
 		if !cr.Ready {
 			cr.Hint = r.hint

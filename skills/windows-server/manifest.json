@@ -1,0 +1,102 @@
+{
+  "manifest_version": "0.3",
+  "name": "windows-server-mcp",
+  "display_name": "Windows Server",
+  "version": "0.1.0",
+  "description": "Agentless Windows Server health checks over WinRM: one verdict per server, a diffable inventory, and no arbitrary PowerShell.",
+  "author": {
+    "name": "Servosity Inc."
+  },
+  "license": "Apache-2.0",
+  "server": {
+    "type": "binary",
+    "entry_point": "bin/windows-server-mcp",
+    "mcp_config": {
+      "command": "${__dirname}/bin/windows-server-mcp",
+      "args": [],
+      "env": {
+        "WINDOWS_SERVER_PASSWORD": "${user_config.windows_server_password}",
+        "WINDOWS_SERVER_USERNAME": "${user_config.windows_server_username}",
+        "WINDOWS_SERVER_MCP_READ_ONLY": "${user_config.windows_server_mcp_read_only}",
+        "WINDOWS_SERVER_NO_LOCAL_DATA": "${user_config.windows_server_no_local_data}",
+        "WINDOWS_SERVER_MCP_HTTP_TOKEN": "${user_config.windows_server_mcp_http_token}",
+        "WINDOWS_SERVER_BASE_URL": "${user_config.windows_server_base_url}",
+        "WINDOWS_SERVER_USER_AGENT": "${user_config.windows_server_user_agent}",
+        "PRINTING_PRESS_CLIENT_PROFILE": "${user_config.printing_press_client_profile}"
+      }
+    }
+  },
+  "user_config": {
+    "windows_server_password": {
+      "type": "string",
+      "title": "WINDOWS_SERVER_PASSWORD",
+      "description": "Password for the WinRM account shared by servers that have no password stored with servers login",
+      "sensitive": true,
+      "required": true
+    },
+    "windows_server_username": {
+      "type": "string",
+      "title": "WINDOWS_SERVER_USERNAME",
+      "description": "WinRM account name (a local or domain account in the server's Administrators group)",
+      "required": true,
+      "sensitive": true
+    },
+    "windows_server_mcp_read_only": {
+      "type": "string",
+      "title": "Read-only MCP mode",
+      "description": "Optional. Set to exactly 1 to offer only tools that change nothing: services restart, services start, health and inventory snapshot are removed. Leave blank to keep every tool available.",
+      "required": false,
+      "sensitive": false
+    },
+    "windows_server_no_local_data": {
+      "type": "string",
+      "title": "Run without a local copy",
+      "description": "Optional. Set to 1 to keep no local store: health prints verdicts without recording history or events, and inventory snapshot is refused. Leave blank to keep the local store.",
+      "required": false,
+      "sensitive": false
+    },
+    "windows_server_mcp_http_token": {
+      "type": "string",
+      "title": "MCP HTTP transport bearer token",
+      "description": "Required only when running the MCP server with --transport http (a remote/hosted deployment). Callers must send a matching Authorization: Bearer header. Not needed for the default local stdio transport that Claude Desktop uses.",
+      "required": false,
+      "sensitive": true
+    },
+    "windows_server_base_url": {
+      "type": "string",
+      "title": "Internal virtual base URL (leave blank)",
+      "description": "Leave blank. The CLI's internal request surface is the fixed https://winrm.invalid; any other value is refused. Servers come only from the config file's [[servers]] entries.",
+      "required": false,
+      "sensitive": false
+    },
+    "windows_server_user_agent": {
+      "type": "string",
+      "title": "User-Agent header (optional)",
+      "description": "Optional. Overrides the User-Agent the CLI sends on WinRM requests. Leave blank to use the CLI's own built-in User-Agent.",
+      "required": false,
+      "sensitive": false
+    },
+    "printing_press_client_profile": {
+      "type": "string",
+      "title": "Client profile (optional)",
+      "description": "Only for tenant-gated multi-client deployments: binds the MCP server to an existing Printing Press client profile. Leave blank for a single-tenant install.",
+      "required": false,
+      "sensitive": true
+    }
+  },
+  "compatibility": {
+    "claude_desktop": ">=1.0.0",
+    "platforms": [
+      "darwin",
+      "linux",
+      "win32"
+    ]
+  },
+  "printing_press_version": "4.34.2",
+  "press_provenance": {
+    "printing_press_version": "4.34.2",
+    "generated_at": "2026-10-28T15:50:18.984011Z",
+    "spec_checksum": "sha256:cb2d0600e74adb65bfdcf7210518ec00fdbbf577496678691155f0f45e96f861",
+    "spec_format": "openapi3"
+  }
+}

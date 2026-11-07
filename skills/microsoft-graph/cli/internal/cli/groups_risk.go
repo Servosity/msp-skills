@@ -32,7 +32,7 @@ data are counted in missingAssociationData and never flagged.`, "\n"),
 		Example: strings.Trim(`
   microsoft-graph-cli groups risk --agent
   microsoft-graph-cli groups risk --guest-ratio 0.3 --json`, "\n"),
-		Annotations: map[string]string{"mcp:read-only": "true"},
+		Annotations: map[string]string{"mcp:read-only": "true", "pp:data-source": "local"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if dryRunOK(flags) {
 				return nil

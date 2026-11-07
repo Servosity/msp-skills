@@ -48,7 +48,7 @@ func newDevicesCameraGetDeviceCustomAnalyticsCmd(flags *rootFlags) *cobra.Comman
 				return err
 			}
 			params := map[string]string{}
-			data, prov, err := resolveReadWithStrategyAndResponsePath(cmd.Context(), c, flags, "live", "camera", false, path, params, nil, "parameters", cmd.ErrOrStderr())
+			data, prov, err := resolveReadWithStrategyAndResponsePath(cmd.Context(), c, flags, "live", "camera", false, path, params, nil, "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}
@@ -75,7 +75,7 @@ func newDevicesCameraGetDeviceCustomAnalyticsCmd(flags *rootFlags) *cobra.Comman
 					filtered, selectErr = filterFieldsChecked(filtered, flags.selectFields)
 					selectErr = selectErrorForDryRun(selectErr, flags, data)
 				} else if flags.compact {
-					filtered = compactFields(filtered, map[string]bool{"name": true})
+					filtered = compactFields(filtered, map[string]bool{"artifactId": true})
 				}
 				wrapped, wrapErr := wrapWithProvenance(filtered, prov)
 				if wrapErr != nil {
@@ -107,7 +107,7 @@ func newDevicesCameraGetDeviceCustomAnalyticsCmd(flags *rootFlags) *cobra.Comman
 			if flags.csv || flags.plain {
 				formatData = outputData
 			}
-			return printOutputWithFlagsMeta(cmd.OutOrStdout(), formatData, flags, map[string]any{"source": "live"}, map[string]bool{"name": true})
+			return printOutputWithFlagsMeta(cmd.OutOrStdout(), formatData, flags, map[string]any{"source": "live"}, map[string]bool{"artifactId": true})
 		},
 	}
 

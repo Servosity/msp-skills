@@ -1,0 +1,903 @@
+{
+  "api_name": "vsphere",
+  "base_url": "https://vcenter.example.com",
+  "description": "Read-only vCenter inventory for migration planning: blockers, snapshots, per-core licence exposure and Proxmox mapping, as JSON an agent can use.",
+  "mcp_ready": "full",
+  "http_transport": "standard",
+  "auth": {
+    "type": "api_key",
+    "header": "Authorization",
+    "format": "Basic {VSPHERE_USERNAME}:{VSPHERE_PASSWORD}",
+    "env_vars": [
+      "VSPHERE_USERNAME",
+      "VSPHERE_PASSWORD"
+    ],
+    "env_var_specs": [
+      {
+        "name": "VSPHERE_USERNAME",
+        "kind": "per_call",
+        "required": true,
+        "sensitive": false,
+        "description": "vCenter SSO user, e.g. readonly@vsphere.local. A Read-Only role is enough."
+      },
+      {
+        "name": "VSPHERE_PASSWORD",
+        "kind": "per_call",
+        "required": true,
+        "sensitive": true,
+        "description": "Password for VSPHERE_USERNAME."
+      }
+    ]
+  },
+  "required_headers": [],
+  "tools": [
+    {
+      "name": "appliance_version",
+      "description": "Get the version. Needs the vSphere Automation API (vCenter 7 Update 2 or later). Returns the ApplianceSystemVersionVersionStruct.",
+      "method": "GET",
+      "path": "/api/appliance/system/version",
+      "params": []
+    },
+    {
+      "name": "cluster_get",
+      "description": "Retrieves information about the cluster corresponding to cluster. Needs the vSphere Automation API (vCenter 7 Update 2 or later). Required: cluster. Returns the VcenterClusterInfo.",
+      "method": "GET",
+      "path": "/api/vcenter/cluster/{cluster}",
+      "params": [
+        {
+          "name": "cluster",
+          "type": "string",
+          "location": "path",
+          "description": "Identifier of the cluster. (e.g. domain-c8)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "cluster_list",
+      "description": "Returns information about at most 1000 visible (subject to permission checks) clusters in vCenter matching the Cluster.FilterSpec. Needs the vSphere Automation API (vCenter 7 Update 2 or later). Optional: clusters, names, folders (plus 1 more).",
+      "method": "GET",
+      "path": "/api/vcenter/cluster",
+      "params": [
+        {
+          "name": "clusters",
+          "type": "array",
+          "location": "query",
+          "description": "Identifiers of clusters that can match the filter. If unset or empty, clusters with any identifier match the filter. When clients pass a value of this structure as a parameter, the field must contain identifiers for the resource type: ClusterComputeResource. When operations return a value of this structure as a result, the field will contain identifiers for the resource type: ClusterComputeReso..."
+        },
+        {
+          "name": "names",
+          "type": "array",
+          "location": "query",
+          "description": "Names that clusters must have to match the filter (see Cluster.Info.name). If unset or empty, clusters with any name match the filter."
+        },
+        {
+          "name": "folders",
+          "type": "array",
+          "location": "query",
+          "description": "Folders that must contain the cluster for the cluster to match the filter. If unset or empty, clusters in any folder match the filter. When clients pass a value of this structure as a parameter, the field must contain identifiers for the resource type: Folder. When operations return a value of this structure as a result, the field will contain identifiers for the resource type: Folder."
+        },
+        {
+          "name": "datacenters",
+          "type": "array",
+          "location": "query",
+          "description": "Datacenters that must contain the cluster for the cluster to match the filter. If unset or empty, clusters in any datacenter match the filter. When clients pass a value of this structure as a parameter, the field must contain identifiers for the resource type: Datacenter. When operations return a value of this structure as a result, the field will contain identifiers for the resource type: Data..."
+        }
+      ]
+    },
+    {
+      "name": "datacenter_get",
+      "description": "Retrieves information about the datacenter corresponding to datacenter. Needs the vSphere Automation API (vCenter 7 Update 2 or later). Required: datacenter. Returns the VcenterDatacenterInfo.",
+      "method": "GET",
+      "path": "/api/vcenter/datacenter/{datacenter}",
+      "params": [
+        {
+          "name": "datacenter",
+          "type": "string",
+          "location": "path",
+          "description": "Identifier of the datacenter. (e.g. datacenter-3)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "datacenter_list",
+      "description": "Returns information about at most 1000 visible (subject to permission checks) datacenters in vCenter matching the Datacenter.FilterSpec. Needs the vSphere Automation API (vCenter 7 Update 2 or later). Optional: datacenters, names, folders.",
+      "method": "GET",
+      "path": "/api/vcenter/datacenter",
+      "params": [
+        {
+          "name": "datacenters",
+          "type": "array",
+          "location": "query",
+          "description": "Identifiers of datacenters that can match the filter. If unset or empty, datacenters with any identifier match the filter. When clients pass a value of this structure as a parameter, the field must contain identifiers for the resource type: Datacenter. When operations return a value of this structure as a result, the field will contain identifiers for the resource type: Datacenter."
+        },
+        {
+          "name": "names",
+          "type": "array",
+          "location": "query",
+          "description": "Names that datacenters must have to match the filter (see Datacenter.Info.name). If unset or empty, datacenters with any name match the filter."
+        },
+        {
+          "name": "folders",
+          "type": "array",
+          "location": "query",
+          "description": "Folders that must contain the datacenters for the datacenter to match the filter. If unset or empty, datacenters in any folder match the filter. When clients pass a value of this structure as a parameter, the field must contain identifiers for the resource type: Folder. When operations return a value of this structure as a result, the field will contain identifiers for the resource type: Folder."
+        }
+      ]
+    },
+    {
+      "name": "datastore_get",
+      "description": "Retrieves information about the datastore indicated by datastore. Needs the vSphere Automation API (vCenter 7 Update 2 or later). Required: datastore. Returns the VcenterDatastoreInfo.",
+      "method": "GET",
+      "path": "/api/vcenter/datastore/{datastore}",
+      "params": [
+        {
+          "name": "datastore",
+          "type": "string",
+          "location": "path",
+          "description": "Identifier of the datastore for which information should be retrieved. (e.g. datastore-11)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "datastore_list",
+      "description": "Returns information about at most 2500 visible (subject to permission checks) datastores in vCenter matching the Datastore.FilterSpec. Needs the vSphere Automation API (vCenter 7 Update 2 or later). Optional: datastores, names, types (plus 2 more).",
+      "method": "GET",
+      "path": "/api/vcenter/datastore",
+      "params": [
+        {
+          "name": "datastores",
+          "type": "array",
+          "location": "query",
+          "description": "Identifiers of datastores that can match the filter. If unset or empty, datastores with any identifier match the filter. When clients pass a value of this structure as a parameter, the field must contain identifiers for the resource type: Datastore. When operations return a value of this structure as a result, the field will contain identifiers for the resource type: Datastore."
+        },
+        {
+          "name": "names",
+          "type": "array",
+          "location": "query",
+          "description": "Names that datastores must have to match the filter (see Datastore.Info.name). If unset or empty, datastores with any name match the filter."
+        },
+        {
+          "name": "types",
+          "type": "array",
+          "location": "query",
+          "description": "Types that datastores must have to match the filter (see Datastore.Summary.type). If unset or empty, datastores with any type match the filter."
+        },
+        {
+          "name": "folders",
+          "type": "array",
+          "location": "query",
+          "description": "Folders that must contain the datastore for the datastore to match the filter. If unset or empty, datastores in any folder match the filter. When clients pass a value of this structure as a parameter, the field must contain identifiers for the resource type: Folder. When operations return a value of this structure as a result, the field will contain identifiers for the resource type: Folder."
+        },
+        {
+          "name": "datacenters",
+          "type": "array",
+          "location": "query",
+          "description": "Datacenters that must contain the datastore for the datastore to match the filter. If unset or empty, datastores in any datacenter match the filter. When clients pass a value of this structure as a parameter, the field must contain identifiers for the resource type: Datacenter. When operations return a value of this structure as a result, the field will contain identifiers for the resource type..."
+        }
+      ]
+    },
+    {
+      "name": "folder_list",
+      "description": "Returns information about at most 1000 visible (subject to permission checks) folders in vCenter matching the Folder.FilterSpec. Needs the vSphere Automation API (vCenter 7 Update 2 or later). Optional: folders, names, type (plus 2 more).",
+      "method": "GET",
+      "path": "/api/vcenter/folder",
+      "params": [
+        {
+          "name": "folders",
+          "type": "array",
+          "location": "query",
+          "description": "Identifiers of folders that can match the filter. If unset or empty, folders with any identifier match the filter. When clients pass a value of this structure as a parameter, the field must contain identifiers for the resource type: Folder. When operations return a value of this structure as a result, the field will contain identifiers for the resource type: Folder."
+        },
+        {
+          "name": "names",
+          "type": "array",
+          "location": "query",
+          "description": "Names that folders must have to match the filter (see Folder.Summary.name). If unset or empty, folders with any name match the filter."
+        },
+        {
+          "name": "type",
+          "type": "string",
+          "location": "query",
+          "description": "The Folder.Type enumerated type defines the type of a vCenter Server folder. The type of a folder determines what what kinds of children can be contained in the folder."
+        },
+        {
+          "name": "parent_folders",
+          "type": "array",
+          "location": "query",
+          "description": "Folders that must contain the folder for the folder to match the filter. If unset or empty, folder in any folder match the filter. When clients pass a value of this structure as a parameter, the field must contain identifiers for the resource type: Folder. When operations return a value of this structure as a result, the field will contain identifiers for the resource type: Folder."
+        },
+        {
+          "name": "datacenters",
+          "type": "array",
+          "location": "query",
+          "description": "Datacenters that must contain the folder for the folder to match the filter. If unset or empty, folder in any datacenter match the filter. When clients pass a value of this structure as a parameter, the field must contain identifiers for the resource type: Datacenter. When operations return a value of this structure as a result, the field will contain identifiers for the resource type: Datacenter."
+        }
+      ]
+    },
+    {
+      "name": "host_list",
+      "description": "Returns information about at most 2500 visible (subject to permission checks) hosts in vCenter matching the Host.FilterSpec. Needs the vSphere Automation API (vCenter 7 Update 2 or later). Optional: hosts, names, folders (plus 4 more).",
+      "method": "GET",
+      "path": "/api/vcenter/host",
+      "params": [
+        {
+          "name": "hosts",
+          "type": "array",
+          "location": "query",
+          "description": "Identifiers of hosts that can match the filter. If unset or empty, hosts with any identifier match the filter. When clients pass a value of this structure as a parameter, the field must contain identifiers for the resource type: HostSystem. When operations return a value of this structure as a result, the field will contain identifiers for the resource type: HostSystem."
+        },
+        {
+          "name": "names",
+          "type": "array",
+          "location": "query",
+          "description": "Names that hosts must have to match the filter (see Host.Summary.name). If unset or empty, hosts with any name match the filter."
+        },
+        {
+          "name": "folders",
+          "type": "array",
+          "location": "query",
+          "description": "Folders that must contain the hosts for the hosts to match the filter. If unset or empty, hosts in any folder match the filter. When clients pass a value of this structure as a parameter, the field must contain identifiers for the resource type: Folder. When operations return a value of this structure as a result, the field will contain identifiers for the resource type: Folder."
+        },
+        {
+          "name": "datacenters",
+          "type": "array",
+          "location": "query",
+          "description": "Datacenters that must contain the hosts for the hosts to match the filter. If unset or empty, hosts in any datacenter match the filter. When clients pass a value of this structure as a parameter, the field must contain identifiers for the resource type: Datacenter. When operations return a value of this structure as a result, the field will contain identifiers for the resource type: Datacenter."
+        },
+        {
+          "name": "standalone",
+          "type": "bool",
+          "location": "query",
+          "description": "If true, only hosts that are not part of a cluster can match the filter, and if false, only hosts that are are part of a cluster can match the filter. If unset Hosts can match filter independent of whether they are part of a cluster or not. If this field is true and Host.FilterSpec.clusters os not empty, no hosts will match the filter."
+        },
+        {
+          "name": "clusters",
+          "type": "array",
+          "location": "query",
+          "description": "Clusters that must contain the hosts for the hosts to match the filter. If unset or empty, hosts in any cluster and hosts that are not in a cluster match the filter. If this field is not empty and Host.FilterSpec.standalone is true, no hosts will match the filter. When clients pass a value of this structure as a parameter, the field must contain identifiers for the resource type: ClusterCompute..."
+        },
+        {
+          "name": "connection_states",
+          "type": "array",
+          "location": "query",
+          "description": "Connection states that a host must be in to match the filter (see Host.Summary.connection-state. If unset or empty, hosts in any connection state match the filter."
+        }
+      ]
+    },
+    {
+      "name": "network_list",
+      "description": "Returns information about at most 1000 visible (subject to permission checks) networks in vCenter matching the Network.FilterSpec. Needs the vSphere Automation API (vCenter 7 Update 2 or later). Optional: networks, names, types (plus 2 more).",
+      "method": "GET",
+      "path": "/api/vcenter/network",
+      "params": [
+        {
+          "name": "networks",
+          "type": "array",
+          "location": "query",
+          "description": "Identifiers of networks that can match the filter. If unset or empty, networks with any identifier match the filter. When clients pass a value of this structure as a parameter, the field must contain identifiers for the resource type: Network. When operations return a value of this structure as a result, the field will contain identifiers for the resource type: Network."
+        },
+        {
+          "name": "names",
+          "type": "array",
+          "location": "query",
+          "description": "Names that networks must have to match the filter (see Network.Summary.name). If unset or empty, networks with any name match the filter."
+        },
+        {
+          "name": "types",
+          "type": "array",
+          "location": "query",
+          "description": "Types that networks must have to match the filter (see Network.Summary.type). If unset, networks with any type match the filter."
+        },
+        {
+          "name": "folders",
+          "type": "array",
+          "location": "query",
+          "description": "Folders that must contain the network for the network to match the filter. If unset or empty, networks in any folder match the filter. When clients pass a value of this structure as a parameter, the field must contain identifiers for the resource type: Folder. When operations return a value of this structure as a result, the field will contain identifiers for the resource type: Folder."
+        },
+        {
+          "name": "datacenters",
+          "type": "array",
+          "location": "query",
+          "description": "Datacenters that must contain the network for the network to match the filter. If unset or empty, networks in any datacenter match the filter. When clients pass a value of this structure as a parameter, the field must contain identifiers for the resource type: Datacenter. When operations return a value of this structure as a result, the field will contain identifiers for the resource type: Data..."
+        }
+      ]
+    },
+    {
+      "name": "resource_pool_get",
+      "description": "Retrieves one resource pool by id (resgroup-N, from resource_pool_list). Needs the vSphere Automation API (vCenter 7 Update 2 or later). Required: resource_pool. Returns the pool's name, the ids of its child resource pools, and its CPU and memory allocation (reservation, expandable reservation, limit, shares).",
+      "method": "GET",
+      "path": "/api/vcenter/resource-pool/{resource_pool}",
+      "params": [
+        {
+          "name": "resource_pool",
+          "type": "string",
+          "location": "path",
+          "description": "Identifier of the resource pool for which information should be retrieved. (e.g. resgroup-9)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "resource_pool_list",
+      "description": "Returns information about at most 1000 visible (subject to permission checks) resource pools in vCenter matching the ResourcePool.FilterSpec. Needs the vSphere Automation API (vCenter 7 Update 2 or later). Optional: resource_pools, names, parent_resource_pools (plus 3 more).",
+      "method": "GET",
+      "path": "/api/vcenter/resource-pool",
+      "params": [
+        {
+          "name": "resource_pools",
+          "type": "array",
+          "location": "query",
+          "description": "Identifiers of resource pools that can match the filter. If unset or empty, resource pools with any identifier match the filter. When clients pass a value of this structure as a parameter, the field must contain identifiers for the resource type: ResourcePool. When operations return a value of this structure as a result, the field will contain identifiers for the resource type: ResourcePool."
+        },
+        {
+          "name": "names",
+          "type": "array",
+          "location": "query",
+          "description": "Names that resource pools must have to match the filter (see ResourcePool.Info.name). If unset or empty, resource pools with any name match the filter."
+        },
+        {
+          "name": "parent_resource_pools",
+          "type": "array",
+          "location": "query",
+          "description": "Resource pools that must contain the resource pool for the resource pool to match the filter. If unset or empty, resource pools in any resource pool match the filter. When clients pass a value of this structure as a parameter, the field must contain identifiers for the resource type: ResourcePool. When operations return a value of this structure as a result, the field will contain identifiers f..."
+        },
+        {
+          "name": "datacenters",
+          "type": "array",
+          "location": "query",
+          "description": "Datacenters that must contain the resource pool for the resource pool to match the filter. If unset or empty, resource pools in any datacenter match the filter. When clients pass a value of this structure as a parameter, the field must contain identifiers for the resource type: Datacenter. When operations return a value of this structure as a result, the field will contain identifiers for the r..."
+        },
+        {
+          "name": "hosts",
+          "type": "array",
+          "location": "query",
+          "description": "Hosts that must contain the resource pool for the resource pool to match the filter. If unset or empty, resource pools in any host match the filter. When clients pass a value of this structure as a parameter, the field must contain identifiers for the resource type: HostSystem. When operations return a value of this structure as a result, the field will contain identifiers for the resource type..."
+        },
+        {
+          "name": "clusters",
+          "type": "array",
+          "location": "query",
+          "description": "Clusters that must contain the resource pool for the resource pool to match the filter. If unset or empty, resource pools in any cluster match the filter. When clients pass a value of this structure as a parameter, the field must contain identifiers for the resource type: ClusterComputeResource. When operations return a value of this structure as a result, the field will contain identifiers for..."
+        }
+      ]
+    },
+    {
+      "name": "session_get",
+      "description": "Show the current vCenter session (user, created and last-accessed time); the CLI logs in for you. Needs the vSphere Automation API (vCenter 7 Update 2 or later). Returns the CisSessionInfo.",
+      "method": "GET",
+      "path": "/api/session",
+      "params": []
+    },
+    {
+      "name": "tagging_association_list",
+      "description": "Returns tag associations that match the specified iteration spec. Needs the vSphere Automation API (vCenter 7 Update 2 or later). Optional: marker.",
+      "method": "GET",
+      "path": "/api/vcenter/tagging/associations",
+      "params": [
+        {
+          "name": "marker",
+          "type": "string",
+          "location": "query",
+          "description": "Marker is an opaque token that allows the caller to request the next page of tag associations. If unset or empty, first page of tag associations will be returned. When clients pass a value of this structure as a parameter, the field must be an identifier for the resource type: vcenter.tagging.associations.Marker. When operations return a value of this structure as a result, the field will be an..."
+        }
+      ]
+    },
+    {
+      "name": "tagging_category_get",
+      "description": "Fetches the category information for the given category identifier. Needs the vSphere Automation API (vCenter 7 Update 2 or later). Required: category_id. Returns the CisTaggingCategoryModel.",
+      "method": "GET",
+      "path": "/api/cis/tagging/category/{category_id}",
+      "params": [
+        {
+          "name": "category_id",
+          "type": "string",
+          "location": "path",
+          "description": "Tag category id. (e.g. urn:vmomi:InventoryServiceCategory:6a1b6c0e-1f2a-4a3d-9d8e-2b7c1a0e5f31:GLOBAL)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "tagging_category_list",
+      "description": "Enumerates the categories in the system. Needs the vSphere Automation API (vCenter 7 Update 2 or later). Returns identifiers only; read each one with the matching get command.",
+      "method": "GET",
+      "path": "/api/cis/tagging/category",
+      "params": []
+    },
+    {
+      "name": "tagging_tag_get",
+      "description": "Fetches one tag by its identifier (a urn:vmomi:InventoryServiceTag:...:GLOBAL id from tagging_tag_list). Needs the vSphere Automation API (vCenter 7 Update 2 or later). Required: tag_id. Returns the tag's id, category_id, name, description and used_by list.",
+      "method": "GET",
+      "path": "/api/cis/tagging/tag/{tag_id}",
+      "params": [
+        {
+          "name": "tag_id",
+          "type": "string",
+          "location": "path",
+          "description": "Tag id. (e.g. urn:vmomi:InventoryServiceTag:9c0d7e4a-3b5f-4e2c-8a1d-5f6b2c3d4e71:GLOBAL)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "tagging_tag_list",
+      "description": "Enumerates the tags in the system. Needs the vSphere Automation API (vCenter 7 Update 2 or later). Returns identifiers only; read each one with the matching get command.",
+      "method": "GET",
+      "path": "/api/cis/tagging/tag",
+      "params": []
+    },
+    {
+      "name": "vi_datastore_summary",
+      "description": "Global properties of the datastore. Virtual Infrastructure JSON API: needs vCenter 8 Update 1 or later; the CLI logs in with its own VI/JSON session. Required: moId. Returns the DatastoreSummary.",
+      "method": "GET",
+      "path": "/sdk/vim25/8.0.1.0/Datastore/{moId}/summary",
+      "params": [
+        {
+          "name": "moId",
+          "type": "string",
+          "location": "path",
+          "description": "Datastore managed object id, the same id the Automation API returns. (e.g. datastore-11)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "vi_host_summary",
+      "description": "Basic information about the host, including connection state. Virtual Infrastructure JSON API: needs vCenter 8 Update 1 or later; the CLI logs in with its own VI/JSON session. Required: moId. Returns the HostListSummary.",
+      "method": "GET",
+      "path": "/sdk/vim25/8.0.1.0/HostSystem/{moId}/summary",
+      "params": [
+        {
+          "name": "moId",
+          "type": "string",
+          "location": "path",
+          "description": "HostSystem managed object id, the same id the Automation API returns. (e.g. host-10)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "vi_service_instance_content",
+      "description": "The properties of the ServiceInstance managed object. Virtual Infrastructure JSON API: needs vCenter 8 Update 1 or later; the CLI logs in with its own VI/JSON session. Unauthenticated: answers before login. Returns the ServiceContent. (public)",
+      "method": "GET",
+      "path": "/sdk/vim25/8.0.1.0/ServiceInstance/ServiceInstance/content",
+      "no_auth": true,
+      "params": []
+    },
+    {
+      "name": "vi_vm_layout-ex",
+      "description": "Detailed information about the files that comprise this virtual machine. Virtual Infrastructure JSON API: needs vCenter 8 Update 1 or later; the CLI logs in with its own VI/JSON session. Required: moId. Returns the ViVmLayoutExResponse.",
+      "method": "GET",
+      "path": "/sdk/vim25/8.0.1.0/VirtualMachine/{moId}/layoutEx",
+      "params": [
+        {
+          "name": "moId",
+          "type": "string",
+          "location": "path",
+          "description": "VirtualMachine managed object id, the same id the Automation API returns. (e.g. vm-1021)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "vi_vm_snapshot",
+      "description": "Current snapshot and tree. Virtual Infrastructure JSON API: needs vCenter 8 Update 1 or later; the CLI logs in with its own VI/JSON session. Required: moId. Returns the ViVmSnapshotResponse.",
+      "method": "GET",
+      "path": "/sdk/vim25/8.0.1.0/VirtualMachine/{moId}/snapshot",
+      "params": [
+        {
+          "name": "moId",
+          "type": "string",
+          "location": "path",
+          "description": "VirtualMachine managed object id, the same id the Automation API returns. (e.g. vm-1021)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "vi_vm_storage",
+      "description": "Storage space used by the virtual machine, split by datastore. Virtual Infrastructure JSON API: needs vCenter 8 Update 1 or later; the CLI logs in with its own VI/JSON session. Required: moId. Returns the ViVmStorageResponse.",
+      "method": "GET",
+      "path": "/sdk/vim25/8.0.1.0/VirtualMachine/{moId}/storage",
+      "params": [
+        {
+          "name": "moId",
+          "type": "string",
+          "location": "path",
+          "description": "VirtualMachine managed object id, the same id the Automation API returns. (e.g. vm-1021)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "vi_vm_summary",
+      "description": "Basic information about one virtual machine from the VI/JSON API. Virtual Infrastructure JSON API: needs vCenter 8 Update 1 or later; the CLI logs in with its own VI/JSON session. Required: moId (vm-N, the same id the Automation API returns). Returns the VirtualMachineSummary object: runtime, config, guest, storage, quickStats and overallStatus, plus any custom field values.",
+      "method": "GET",
+      "path": "/sdk/vim25/8.0.1.0/VirtualMachine/{moId}/summary",
+      "params": [
+        {
+          "name": "moId",
+          "type": "string",
+          "location": "path",
+          "description": "VirtualMachine managed object id, the same id the Automation API returns. (e.g. vm-1021)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "vm_get",
+      "description": "Returns the full configuration of one virtual machine by id (vm-N, from vm_list). Needs the vSphere Automation API (vCenter 7 Update 2 or later). Required: vm. Returns name, guest OS, power state, hardware version, boot settings, CPU, memory, and the disks, NICs, CD-ROMs and storage adapters keyed by device id. Use the vm_hardware_* tools when you need only one device class.",
+      "method": "GET",
+      "path": "/api/vcenter/vm/{vm}",
+      "params": [
+        {
+          "name": "vm",
+          "type": "string",
+          "location": "path",
+          "description": "Virtual machine identifier. (e.g. vm-1021)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "vm_list",
+      "description": "Returns information about at most 4000 visible (subject to permission checks) virtual machines in vCenter matching the VM.FilterSpec. Needs the vSphere Automation API (vCenter 7 Update 2 or later). vCenter refuses (unable_to_allocate_resource) when more than 4000 VMs match; filter by cluster or host on large estates. Optional: vms, names, folders (plus 5 more).",
+      "method": "GET",
+      "path": "/api/vcenter/vm",
+      "params": [
+        {
+          "name": "vms",
+          "type": "array",
+          "location": "query",
+          "description": "Identifiers of virtual machines that can match the filter. If unset or empty, virtual machines with any identifier match the filter. When clients pass a value of this structure as a parameter, the field must contain identifiers for the resource type: VirtualMachine. When operations return a value of this structure as a result, the field will contain identifiers for the resource type: VirtualMac..."
+        },
+        {
+          "name": "names",
+          "type": "array",
+          "location": "query",
+          "description": "Names that virtual machines must have to match the filter (see VM.Info.name). If unset or empty, virtual machines with any name match the filter."
+        },
+        {
+          "name": "folders",
+          "type": "array",
+          "location": "query",
+          "description": "Folders that must contain the virtual machine for the virtual machine to match the filter. If unset or empty, virtual machines in any folder match the filter. When clients pass a value of this structure as a parameter, the field must contain identifiers for the resource type: Folder. When operations return a value of this structure as a result, the field will contain identifiers for the resourc..."
+        },
+        {
+          "name": "datacenters",
+          "type": "array",
+          "location": "query",
+          "description": "Datacenters that must contain the virtual machine for the virtual machine to match the filter. If unset or empty, virtual machines in any datacenter match the filter. When clients pass a value of this structure as a parameter, the field must contain identifiers for the resource type: Datacenter. When operations return a value of this structure as a result, the field will contain identifiers for..."
+        },
+        {
+          "name": "hosts",
+          "type": "array",
+          "location": "query",
+          "description": "Hosts that must contain the virtual machine for the virtual machine to match the filter. If unset or empty, virtual machines on any host match the filter. When clients pass a value of this structure as a parameter, the field must contain identifiers for the resource type: HostSystem. When operations return a value of this structure as a result, the field will contain identifiers for the resourc..."
+        },
+        {
+          "name": "clusters",
+          "type": "array",
+          "location": "query",
+          "description": "Clusters that must contain the virtual machine for the virtual machine to match the filter. If unset or empty, virtual machines in any cluster match the filter. When clients pass a value of this structure as a parameter, the field must contain identifiers for the resource type: ClusterComputeResource. When operations return a value of this structure as a result, the field will contain identifie..."
+        },
+        {
+          "name": "resource_pools",
+          "type": "array",
+          "location": "query",
+          "description": "Resource pools that must contain the virtual machine for the virtual machine to match the filter. If unset or empty, virtual machines in any resource pool match the filter. When clients pass a value of this structure as a parameter, the field must contain identifiers for the resource type: ResourcePool. When operations return a value of this structure as a result, the field will contain identif..."
+        },
+        {
+          "name": "power_states",
+          "type": "array",
+          "location": "query",
+          "description": "Power states that a virtual machine must be in to match the filter (see Power.Info.state. If unset or empty, virtual machines in any power state match the filter."
+        }
+      ]
+    },
+    {
+      "name": "vm_guest_identity",
+      "description": "Return information about the guest. Needs the vSphere Automation API (vCenter 7 Update 2 or later). Required: vm. Returns the VcenterVmGuestIdentityInfo.",
+      "method": "GET",
+      "path": "/api/vcenter/vm/{vm}/guest/identity",
+      "params": [
+        {
+          "name": "vm",
+          "type": "string",
+          "location": "path",
+          "description": "Identifier of the virtual machine. (e.g. vm-1021)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "vm_guest_local-filesystem",
+      "description": "Returns details of the local file systems in the guest operating system. Needs the vSphere Automation API (vCenter 7 Update 2 or later). Required: vm.",
+      "method": "GET",
+      "path": "/api/vcenter/vm/{vm}/guest/local-filesystem",
+      "params": [
+        {
+          "name": "vm",
+          "type": "string",
+          "location": "path",
+          "description": "Identifier of the virtual machine. (e.g. vm-1021)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "vm_guest_network-interfaces",
+      "description": "Returns information about the networking interfaces in the guest operating system. Needs the vSphere Automation API (vCenter 7 Update 2 or later). Required: vm.",
+      "method": "GET",
+      "path": "/api/vcenter/vm/{vm}/guest/networking/interfaces",
+      "params": [
+        {
+          "name": "vm",
+          "type": "string",
+          "location": "path",
+          "description": "Virtual machine ID (e.g. vm-1021)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "vm_hardware_boot",
+      "description": "Returns the boot-related settings of a virtual machine. Needs the vSphere Automation API (vCenter 7 Update 2 or later). Required: vm.",
+      "method": "GET",
+      "path": "/api/vcenter/vm/{vm}/hardware/boot",
+      "params": [
+        {
+          "name": "vm",
+          "type": "string",
+          "location": "path",
+          "description": "Virtual machine identifier. (e.g. vm-1021)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "vm_hardware_cdroms",
+      "description": "Returns commonly used information about the virtual CD-ROM devices belonging to the virtual machine. Needs the vSphere Automation API (vCenter 7 Update 2 or later). Required: vm.",
+      "method": "GET",
+      "path": "/api/vcenter/vm/{vm}/hardware/cdrom",
+      "params": [
+        {
+          "name": "vm",
+          "type": "string",
+          "location": "path",
+          "description": "Virtual machine identifier. (e.g. vm-1021)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "vm_hardware_cpu",
+      "description": "Returns the CPU-related settings of a virtual machine. Needs the vSphere Automation API (vCenter 7 Update 2 or later). Required: vm.",
+      "method": "GET",
+      "path": "/api/vcenter/vm/{vm}/hardware/cpu",
+      "params": [
+        {
+          "name": "vm",
+          "type": "string",
+          "location": "path",
+          "description": "Virtual machine identifier. (e.g. vm-1021)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "vm_hardware_disk",
+      "description": "Returns information about a virtual disk. Needs the vSphere Automation API (vCenter 7 Update 2 or later). Required: vm, disk.",
+      "method": "GET",
+      "path": "/api/vcenter/vm/{vm}/hardware/disk/{disk}",
+      "params": [
+        {
+          "name": "vm",
+          "type": "string",
+          "location": "path",
+          "description": "Virtual machine identifier. (e.g. vm-1021)",
+          "required": true
+        },
+        {
+          "name": "disk",
+          "type": "string",
+          "location": "path",
+          "description": "Virtual disk identifier. (e.g. 2000)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "vm_hardware_disks",
+      "description": "Returns commonly used information about the virtual disks belonging to the virtual machine. Needs the vSphere Automation API (vCenter 7 Update 2 or later). Required: vm.",
+      "method": "GET",
+      "path": "/api/vcenter/vm/{vm}/hardware/disk",
+      "params": [
+        {
+          "name": "vm",
+          "type": "string",
+          "location": "path",
+          "description": "Virtual machine identifier. (e.g. vm-1021)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "vm_hardware_get",
+      "description": "Returns the virtual hardware settings of a virtual machine. Needs the vSphere Automation API (vCenter 7 Update 2 or later). Required: vm.",
+      "method": "GET",
+      "path": "/api/vcenter/vm/{vm}/hardware",
+      "params": [
+        {
+          "name": "vm",
+          "type": "string",
+          "location": "path",
+          "description": "Virtual machine identifier. (e.g. vm-1021)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "vm_hardware_memory",
+      "description": "Returns the memory-related settings of a virtual machine. Needs the vSphere Automation API (vCenter 7 Update 2 or later). Required: vm.",
+      "method": "GET",
+      "path": "/api/vcenter/vm/{vm}/hardware/memory",
+      "params": [
+        {
+          "name": "vm",
+          "type": "string",
+          "location": "path",
+          "description": "Virtual machine identifier. (e.g. vm-1021)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "vm_hardware_nic",
+      "description": "Returns information about a virtual Ethernet adapter. Needs the vSphere Automation API (vCenter 7 Update 2 or later). Required: vm, nic.",
+      "method": "GET",
+      "path": "/api/vcenter/vm/{vm}/hardware/ethernet/{nic}",
+      "params": [
+        {
+          "name": "vm",
+          "type": "string",
+          "location": "path",
+          "description": "Virtual machine identifier. (e.g. vm-1021)",
+          "required": true
+        },
+        {
+          "name": "nic",
+          "type": "string",
+          "location": "path",
+          "description": "Virtual Ethernet adapter identifier. (e.g. 4000)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "vm_hardware_nics",
+      "description": "Returns commonly used information about the virtual Ethernet adapters belonging to the virtual machine. Needs the vSphere Automation API (vCenter 7 Update 2 or later). Required: vm.",
+      "method": "GET",
+      "path": "/api/vcenter/vm/{vm}/hardware/ethernet",
+      "params": [
+        {
+          "name": "vm",
+          "type": "string",
+          "location": "path",
+          "description": "Virtual machine identifier. (e.g. vm-1021)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "vm_hardware_nvme-adapters",
+      "description": "Returns commonly used information about the virtual NVMe adapters belonging to the virtual machine. Needs the vSphere Automation API (vCenter 7 Update 2 or later). Required: vm.",
+      "method": "GET",
+      "path": "/api/vcenter/vm/{vm}/hardware/adapter/nvme",
+      "params": [
+        {
+          "name": "vm",
+          "type": "string",
+          "location": "path",
+          "description": "Virtual machine identifier. (e.g. vm-1021)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "vm_hardware_sata-adapters",
+      "description": "Returns commonly used information about the virtual SATA adapters belonging to the virtual machine. Needs the vSphere Automation API (vCenter 7 Update 2 or later). Required: vm.",
+      "method": "GET",
+      "path": "/api/vcenter/vm/{vm}/hardware/adapter/sata",
+      "params": [
+        {
+          "name": "vm",
+          "type": "string",
+          "location": "path",
+          "description": "Virtual machine identifier. (e.g. vm-1021)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "vm_hardware_scsi-adapters",
+      "description": "Returns commonly used information about the virtual SCSI adapters belonging to the virtual machine. Needs the vSphere Automation API (vCenter 7 Update 2 or later). Required: vm.",
+      "method": "GET",
+      "path": "/api/vcenter/vm/{vm}/hardware/adapter/scsi",
+      "params": [
+        {
+          "name": "vm",
+          "type": "string",
+          "location": "path",
+          "description": "Virtual machine identifier. (e.g. vm-1021)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "vm_power_get",
+      "description": "Returns the power state information of a virtual machine. Needs the vSphere Automation API (vCenter 7 Update 2 or later). Required: vm.",
+      "method": "GET",
+      "path": "/api/vcenter/vm/{vm}/power",
+      "params": [
+        {
+          "name": "vm",
+          "type": "string",
+          "location": "path",
+          "description": "Virtual machine identifier. (e.g. vm-1021)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "vm_tools_get",
+      "description": "Get the properties of VMware Tools. Needs the vSphere Automation API (vCenter 7 Update 2 or later). Required: vm. Returns the VcenterVmToolsInfo.",
+      "method": "GET",
+      "path": "/api/vcenter/vm/{vm}/tools",
+      "params": [
+        {
+          "name": "vm",
+          "type": "string",
+          "location": "path",
+          "description": "Identifier of the virtual machine. (e.g. vm-1021)",
+          "required": true
+        }
+      ]
+    }
+  ],
+  "novel_features": [
+    {
+      "name": "Migration blockers",
+      "command": "migration blockers",
+      "description": "One verdict per VM (blocked, review, ready, or unknown when a check could not run) with reason codes: snapshots, vCenter's consolidation-needed flag, delta chains without snapshots, attached ISOs, VMware Tools missing or stopped, PVSCSI controllers, NVMe disks, EFI firmware and VMXNET NICs."
+    },
+    {
+      "name": "Snapshots audit",
+      "command": "snapshots audit",
+      "description": "Every snapshot in the vCenter as a row with age, tree depth and quiesced flag, plus per-VM delta-disk and snapshot-file totals and the VMs vCenter says need consolidation."
+    },
+    {
+      "name": "Licence exposure",
+      "command": "licence exposure",
+      "description": "Licensable cores per host, cluster and vCenter under Broadcom's 16-cores-per-CPU minimum, next to current licence editions and usage with keys masked."
+    },
+    {
+      "name": "Migration capacity",
+      "command": "migration capacity",
+      "description": "Per-cluster sizing totals: VMs, vCPU, vRAM, physical cores and RAM with overcommit ratios, and provisioned versus committed versus guest-used storage, each with the count of items it covers."
+    },
+    {
+      "name": "Proxmox map",
+      "command": "migration proxmox-map",
+      "description": "Each VM's sizing, firmware, disks, NICs and guest OS beside the Proxmox VE qm settings they map to (bios, efidisk0, ostype, sockets, cores, memory, scsihw, netN with model and MAC, disk slots, boot order, smbios1), following Proxmox's own VMware importer."
+    },
+    {
+      "name": "RVTools CSV export",
+      "command": "rvtools export",
+      "description": "Writes the RVTools CSV tabs that AWS Transform and other assessment tools read (vInfo, vCPU, vMemory, vDisk, vPartition, vNetwork, vTools, vHost, vSource, plus vSnapshot) from macOS or Linux; without --out it prints them as JSON."
+    }
+  ]
+}

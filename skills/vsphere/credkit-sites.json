@@ -1,0 +1,348 @@
+{
+ "sites": [
+  {
+   "file": "internal/cli/licence_exposure.go",
+   "func": "newNovelLicenceExposureCmd",
+   "what": "fmt.Fprintf",
+   "count": 3,
+   "kind": "exempt",
+   "reason": "runs only from a command's RunE, after Start; the checker reaches it through credentialFiles, which builds the command tree to parse flags and runs none of it"
+  },
+  {
+   "file": "internal/cli/licence_exposure.go",
+   "func": "newNovelLicenceExposureCmd",
+   "what": "writer:io.Writer",
+   "count": 7,
+   "kind": "exempt",
+   "reason": "runs only from a command's RunE, after Start; the checker reaches it through credentialFiles, which builds the command tree to parse flags and runs none of it"
+  },
+  {
+   "file": "internal/cli/migration_blockers.go",
+   "func": "newNovelMigrationBlockersCmd",
+   "what": "fmt.Fprintf",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs only from a command's RunE, after Start; the checker reaches it through credentialFiles, which builds the command tree to parse flags and runs none of it"
+  },
+  {
+   "file": "internal/cli/migration_blockers.go",
+   "func": "newNovelMigrationBlockersCmd",
+   "what": "fmt.Fprintln",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "runs only from a command's RunE, after Start; the checker reaches it through credentialFiles, which builds the command tree to parse flags and runs none of it"
+  },
+  {
+   "file": "internal/cli/migration_blockers.go",
+   "func": "newNovelMigrationBlockersCmd",
+   "what": "writer:io.Writer",
+   "count": 6,
+   "kind": "exempt",
+   "reason": "runs only from a command's RunE, after Start; the checker reaches it through credentialFiles, which builds the command tree to parse flags and runs none of it"
+  },
+  {
+   "file": "internal/cli/migration_capacity.go",
+   "func": "newNovelMigrationCapacityCmd",
+   "what": "fmt.Fprintln",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs only from a command's RunE, after Start; the checker reaches it through credentialFiles, which builds the command tree to parse flags and runs none of it"
+  },
+  {
+   "file": "internal/cli/migration_capacity.go",
+   "func": "newNovelMigrationCapacityCmd",
+   "what": "writer:io.Writer",
+   "count": 6,
+   "kind": "exempt",
+   "reason": "runs only from a command's RunE, after Start; the checker reaches it through credentialFiles, which builds the command tree to parse flags and runs none of it"
+  },
+  {
+   "file": "internal/cli/migration_proxmox_map.go",
+   "func": "newNovelMigrationProxmoxMapCmd",
+   "what": "fmt.Fprintln",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs only from a command's RunE, after Start; the checker reaches it through credentialFiles, which builds the command tree to parse flags and runs none of it"
+  },
+  {
+   "file": "internal/cli/migration_proxmox_map.go",
+   "func": "newNovelMigrationProxmoxMapCmd",
+   "what": "writer:io.Writer",
+   "count": 6,
+   "kind": "exempt",
+   "reason": "runs only from a command's RunE, after Start; the checker reaches it through credentialFiles, which builds the command tree to parse flags and runs none of it"
+  },
+  {
+   "file": "internal/cli/rvtools_export.go",
+   "func": "newNovelRvtoolsExportCmd",
+   "what": "fmt.Fprintf",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs only from a command's RunE, after Start; the checker reaches it through credentialFiles, which builds the command tree to parse flags and runs none of it"
+  },
+  {
+   "file": "internal/cli/rvtools_export.go",
+   "func": "newNovelRvtoolsExportCmd",
+   "what": "writer:io.Writer",
+   "count": 6,
+   "kind": "exempt",
+   "reason": "runs only from a command's RunE, after Start; the checker reaches it through credentialFiles, which builds the command tree to parse flags and runs none of it"
+  },
+  {
+   "file": "internal/cli/rvtools_export.go",
+   "func": "writeCSV",
+   "what": "encoding/csv.Writer.Write",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs only from a command's RunE, after Start; the checker reaches it through credentialFiles, which builds the command tree to parse flags and runs none of it"
+  },
+  {
+   "file": "internal/cli/rvtools_export.go",
+   "func": "writeCSV",
+   "what": "os.CreateTemp",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "an empty 0600 temp file made exclusively, then renamed over its own tab: every byte reaches it through credkit.NewWriter"
+  },
+  {
+   "file": "internal/cli/rvtools_export.go",
+   "func": "writeCSV",
+   "what": "os.File.Chmod",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs only from a command's RunE, after Start; the checker reaches it through credentialFiles, which builds the command tree to parse flags and runs none of it"
+  },
+  {
+   "file": "internal/cli/rvtools_export.go",
+   "func": "writeCSV",
+   "what": "os.File.Close",
+   "count": 4,
+   "kind": "exempt",
+   "reason": "runs only from a command's RunE, after Start; the checker reaches it through credentialFiles, which builds the command tree to parse flags and runs none of it"
+  },
+  {
+   "file": "internal/cli/rvtools_export.go",
+   "func": "writeCSV",
+   "what": "os.File.Name",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "runs only from a command's RunE, after Start; the checker reaches it through credentialFiles, which builds the command tree to parse flags and runs none of it"
+  },
+  {
+   "file": "internal/cli/rvtools_export.go",
+   "func": "writeCSV",
+   "what": "os.Rename",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "an empty 0600 temp file made exclusively, then renamed over its own tab: every byte reaches it through credkit.NewWriter"
+  },
+  {
+   "file": "internal/cli/rvtools_export.go",
+   "func": "writeCSV",
+   "what": "vsphere-pp-cli/internal/credkit.Writer.Write",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs only from a command's RunE, after Start; the checker reaches it through credentialFiles, which builds the command tree to parse flags and runs none of it"
+  },
+  {
+   "file": "internal/cli/rvtools_export.go",
+   "func": "writeCSV",
+   "what": "writer:*os.File",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs only from a command's RunE, after Start; the checker reaches it through credentialFiles, which builds the command tree to parse flags and runs none of it"
+  },
+  {
+   "file": "internal/cli/snapshots_audit.go",
+   "func": "newNovelSnapshotsAuditCmd",
+   "what": "fmt.Fprintf",
+   "count": 4,
+   "kind": "exempt",
+   "reason": "runs only from a command's RunE, after Start; the checker reaches it through credentialFiles, which builds the command tree to parse flags and runs none of it"
+  },
+  {
+   "file": "internal/cli/snapshots_audit.go",
+   "func": "newNovelSnapshotsAuditCmd",
+   "what": "writer:io.Writer",
+   "count": 7,
+   "kind": "exempt",
+   "reason": "runs only from a command's RunE, after Start; the checker reaches it through credentialFiles, which builds the command tree to parse flags and runs none of it"
+  },
+  {
+   "file": "internal/cli/vsphere_cmd.go",
+   "func": "vcenterClient",
+   "what": "writer:io.Writer",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs only from a command's RunE, after Start; the checker reaches it through credentialFiles, which builds the command tree to parse flags and runs none of it"
+  },
+  {
+   "file": "internal/cli/vsphere_guard.go",
+   "func": "guardClient",
+   "what": "convert:vsphere-pp-cli/internal/cli.originPinTripper.RoundTrip",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the session layer and origin pin sit above OutboundGuard(tr), which is credkit.Transport, so the guard judges each request as really sent, session id and Basic login included (TestEveryHTTPClientIsGuarded, TestNoCredentialInAnyOutput)"
+  },
+  {
+   "file": "internal/cli/vsphere_guard.go",
+   "func": "guardClient",
+   "what": "net/http.Client.Transport",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the session layer and origin pin sit above OutboundGuard(tr), which is credkit.Transport, so the guard judges each request as really sent, session id and Basic login included (TestEveryHTTPClientIsGuarded, TestNoCredentialInAnyOutput)"
+  },
+  {
+   "file": "internal/cli/vsphere_guard.go",
+   "func": "originPinTripper.RoundTrip",
+   "what": "net/http.RoundTripper.RoundTrip",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the session layer and origin pin sit above OutboundGuard(tr), which is credkit.Transport, so the guard judges each request as really sent, session id and Basic login included (TestEveryHTTPClientIsGuarded, TestNoCredentialInAnyOutput)"
+  },
+  {
+   "file": "internal/cli/vsphere_inventory.go",
+   "func": "warnFailures",
+   "what": "fmt.Fprintf",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs only from a command's RunE, after Start; the checker reaches it through credentialFiles, which builds the command tree to parse flags and runs none of it"
+  },
+  {
+   "file": "internal/client/vsphere_session.go",
+   "func": "Client.InstallVsphereTransport",
+   "what": "call:dynamic",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the session layer and origin pin sit above OutboundGuard(tr), which is credkit.Transport, so the guard judges each request as really sent, session id and Basic login included (TestEveryHTTPClientIsGuarded, TestNoCredentialInAnyOutput)"
+  },
+  {
+   "file": "internal/client/vsphere_session.go",
+   "func": "Client.InstallVsphereTransport",
+   "what": "convert:vsphere-pp-cli/internal/client.sessionTransport.RoundTrip",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the session layer and origin pin sit above OutboundGuard(tr), which is credkit.Transport, so the guard judges each request as really sent, session id and Basic login included (TestEveryHTTPClientIsGuarded, TestNoCredentialInAnyOutput)"
+  },
+  {
+   "file": "internal/client/vsphere_session.go",
+   "func": "Client.InstallVsphereTransport",
+   "what": "net/http.Client.Transport",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the session layer and origin pin sit above OutboundGuard(tr), which is credkit.Transport, so the guard judges each request as really sent, session id and Basic login included (TestEveryHTTPClientIsGuarded, TestNoCredentialInAnyOutput)"
+  },
+  {
+   "file": "internal/client/vsphere_session.go",
+   "func": "Client.InstallVsphereTransport",
+   "what": "sink:net/http.Transport",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "the session layer and origin pin sit above OutboundGuard(tr), which is credkit.Transport, so the guard judges each request as really sent, session id and Basic login included (TestEveryHTTPClientIsGuarded, TestNoCredentialInAnyOutput)"
+  },
+  {
+   "file": "internal/client/vsphere_session.go",
+   "func": "sessionTransport.RoundTrip",
+   "what": "net/http.RoundTripper.RoundTrip",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "the session layer and origin pin sit above OutboundGuard(tr), which is credkit.Transport, so the guard judges each request as really sent, session id and Basic login included (TestEveryHTTPClientIsGuarded, TestNoCredentialInAnyOutput)"
+  },
+  {
+   "file": "internal/client/vsphere_session.go",
+   "func": "sessionTransport.loginAutomation",
+   "what": "net/http.NewRequestWithContext",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the session layer and origin pin sit above OutboundGuard(tr), which is credkit.Transport, so the guard judges each request as really sent, session id and Basic login included (TestEveryHTTPClientIsGuarded, TestNoCredentialInAnyOutput)"
+  },
+  {
+   "file": "internal/client/vsphere_session.go",
+   "func": "sessionTransport.loginAutomation",
+   "what": "net/http.RoundTripper.RoundTrip",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the session layer and origin pin sit above OutboundGuard(tr), which is credkit.Transport, so the guard judges each request as really sent, session id and Basic login included (TestEveryHTTPClientIsGuarded, TestNoCredentialInAnyOutput)"
+  },
+  {
+   "file": "internal/client/vsphere_session.go",
+   "func": "sessionTransport.loginVI",
+   "what": "net/http.NewRequestWithContext",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "the session layer and origin pin sit above OutboundGuard(tr), which is credkit.Transport, so the guard judges each request as really sent, session id and Basic login included (TestEveryHTTPClientIsGuarded, TestNoCredentialInAnyOutput)"
+  },
+  {
+   "file": "internal/client/vsphere_session.go",
+   "func": "sessionTransport.loginVI",
+   "what": "net/http.RoundTripper.RoundTrip",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "the session layer and origin pin sit above OutboundGuard(tr), which is credkit.Transport, so the guard judges each request as really sent, session id and Basic login included (TestEveryHTTPClientIsGuarded, TestNoCredentialInAnyOutput)"
+  },
+  {
+   "file": "internal/client/vsphere_session.go",
+   "func": "sessionTransport.plain",
+   "what": "net/http.RoundTripper.RoundTrip",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the session layer and origin pin sit above OutboundGuard(tr), which is credkit.Transport, so the guard judges each request as really sent, session id and Basic login included (TestEveryHTTPClientIsGuarded, TestNoCredentialInAnyOutput)"
+  },
+  {
+   "file": "internal/client/vsphere_session.go",
+   "func": "sessionTransport.send",
+   "what": "net/http.RoundTripper.RoundTrip",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the session layer and origin pin sit above OutboundGuard(tr), which is credkit.Transport, so the guard judges each request as really sent, session id and Basic login included (TestEveryHTTPClientIsGuarded, TestNoCredentialInAnyOutput)"
+  },
+  {
+   "file": "internal/credsql/credsql.go",
+   "func": "applyLengthLimit",
+   "what": "database/sql.DB.Conn",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs only from a command's RunE, after Start; the checker reaches it through credentialFiles, which builds the command tree to parse flags and runs none of it"
+  },
+  {
+   "file": "internal/credsql/credsql.go",
+   "func": "applyLengthLimit",
+   "what": "database/sql.OpenDB",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "a connection the kit's inner driver just opened, lent to set its length limit before the kit hands it to database/sql; no program value passes"
+  },
+  {
+   "file": "internal/config/credkit_paths.go",
+   "func": "HoldBaseURLs",
+   "what": "os.Open",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the files Declarations.Files names, read again inside Start only to hold what their base_url carries with credkit.HoldURL (config.HoldBaseURLs); Start reads and holds each itself, and nothing is written"
+  },
+  {
+   "file": "internal/config/credkit_paths.go",
+   "func": "HoldBaseURLs",
+   "what": "os.File.Stat",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the files Declarations.Files names, read again inside Start only to hold what their base_url carries with credkit.HoldURL (config.HoldBaseURLs); Start reads and holds each itself, and nothing is written"
+  },
+  {
+   "file": "internal/config/credkit_paths.go",
+   "func": "HoldBaseURLs",
+   "what": "writer:*os.File",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the files Declarations.Files names, read again inside Start only to hold what their base_url carries with credkit.HoldURL (config.HoldBaseURLs); Start reads and holds each itself, and nothing is written"
+  },
+  {
+   "file": "internal/config/credkit_paths.go",
+   "func": "HoldBaseURLs",
+   "what": "os.File.Close",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the files Declarations.Files names, read again inside Start only to hold what their base_url carries with credkit.HoldURL (config.HoldBaseURLs); Start reads and holds each itself, and nothing is written"
+  }
+ ]
+}

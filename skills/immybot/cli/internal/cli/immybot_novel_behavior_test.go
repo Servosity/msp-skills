@@ -66,17 +66,23 @@ func TestSessionTriageClustersIdenticalFailures(t *testing.T) {
 	now := time.Now().UTC().Format(time.RFC3339)
 	db := seedStore(t, map[string][]map[string]any{
 		"maintenance-actions": {
-			{"id": "1", "maintenanceDisplayName": "Install Chrome", "statusName": "Failed",
-				"reason":       "Exit code 1603 on host 11111111-2222-3333-4444-555555555555",
-				"computerName": "WS-01", "tenantName": "Contoso", "maintenanceSessionId": "s1", "startTime": now},
-			{"id": "2", "maintenanceDisplayName": "Install Chrome", "statusName": "Failed",
-				"reason":       "Exit code 1604 on host 99999999-8888-7777-6666-555555555555",
-				"computerName": "WS-02", "tenantName": "Fabrikam", "maintenanceSessionId": "s2", "startTime": now},
-			{"id": "3", "maintenanceDisplayName": "Patch Windows", "statusName": "Failed",
-				"reason": "Reboot pending", "computerName": "WS-03", "tenantName": "Contoso",
+			// Spec shape (GetMaintenanceActionResponse): the outcome is result/resultName,
+			// the cause resultReasonMessage; statusName is the lifecycle and reason the
+			// planning reason.
+			{"id": "1", "maintenanceDisplayName": "Install Chrome", "status": "Complete", "statusName": "Complete",
+				"result": "Failed", "resultName": "Failed", "reason": "SoftwareMissing",
+				"resultReasonMessage": "Exit code 1603 on host 11111111-2222-3333-4444-555555555555",
+				"computerName":        "WS-01", "tenantName": "Contoso", "maintenanceSessionId": "s1", "startTime": now},
+			{"id": "2", "maintenanceDisplayName": "Install Chrome", "status": 4, "statusName": nil,
+				"result": 2, "resultName": nil, "reason": 0,
+				"resultReasonMessage": "Exit code 1603 on host 99999999-8888-7777-6666-555555555555",
+				"computerName":        "WS-02", "tenantName": "Fabrikam", "maintenanceSessionId": "s2", "startTime": now},
+			{"id": "3", "maintenanceDisplayName": "Patch Windows", "status": "Complete", "statusName": "Complete",
+				"result": "Failed", "resultName": "Failed", "reason": "UpdateAvailable",
+				"resultReasonMessage": "Reboot pending", "computerName": "WS-03", "tenantName": "Contoso",
 				"maintenanceSessionId": "s3", "startTime": now},
-			{"id": "4", "maintenanceDisplayName": "Install Chrome", "statusName": "Success",
-				"reason": "", "computerName": "WS-04", "tenantName": "Contoso",
+			{"id": "4", "maintenanceDisplayName": "Install Chrome", "status": "Complete", "statusName": "Complete",
+				"result": "Success", "resultName": "Success", "reason": "SoftwareMissing", "computerName": "WS-04", "tenantName": "Contoso",
 				"maintenanceSessionId": "s4", "startTime": now},
 		},
 	})
@@ -91,7 +97,7 @@ func TestSessionTriageClustersIdenticalFailures(t *testing.T) {
 		t.Fatalf("failed_actions = %d, want 3 (successes must be excluded)", v.FailedActions)
 	}
 	if len(v.Clusters) != 2 {
-		t.Fatalf("clusters = %d, want 2; the two Chrome failures differ only by exit code and GUID and must collapse:\n%s", len(v.Clusters), out)
+		t.Fatalf("clusters = %d, want 2; the two Chrome failures differ only by host GUID and must collapse:\n%s", len(v.Clusters), out)
 	}
 	top := v.Clusters[0]
 	if top.Action != "Install Chrome" || top.ComputerCount != 2 {
@@ -105,7 +111,8 @@ func TestSessionTriageClustersIdenticalFailures(t *testing.T) {
 func TestSessionTriageEmptyIsHonest(t *testing.T) {
 	db := seedStore(t, map[string][]map[string]any{
 		"maintenance-actions": {
-			{"id": "1", "maintenanceDisplayName": "Install Chrome", "statusName": "Success", "computerName": "WS-01"},
+			{"id": "1", "maintenanceDisplayName": "Install Chrome", "status": "Complete", "statusName": "Complete",
+				"result": "Success", "resultName": "Success", "computerName": "WS-01"},
 		},
 	})
 	out, err := runCLI(t, "session-triage", "--since", "24h", "--json", "--db", db)
@@ -230,11 +237,11 @@ func TestAssignmentExplainShadowsBroaderScope(t *testing.T) {
 		},
 		"target-assignments": {
 			{"id": "a-tenant", "maintenanceIdentifier": "chrome", "maintenanceType": "software",
-				"targetName": "Chrome (tenant-wide)", "targetTypeName": "Tenant", "tenantId": "t1"},
+				"targetName": "Chrome (tenant-wide)", "targetType": "AllForTenant", "targetTypeName": "All Computers for Tenant", "tenantId": "t1"},
 			{"id": "a-computer", "maintenanceIdentifier": "chrome", "maintenanceType": "software",
-				"targetName": "Chrome (this machine)", "targetTypeName": "Computer", "tenantId": "t1", "target": "42"},
+				"targetName": "Chrome (this machine)", "targetType": "Computer", "targetTypeName": "Computer", "tenantId": "t1", "target": "42"},
 			{"id": "a-other", "maintenanceIdentifier": "sevenzip", "maintenanceType": "software",
-				"targetName": "7-Zip (other tenant)", "targetTypeName": "Tenant", "tenantId": "t2"},
+				"targetName": "7-Zip (other tenant)", "targetType": 21, "tenantId": "t2"},
 		},
 	})
 	out, err := runCLI(t, "assignment-explain", "42", "--json", "--data-source", "local", "--db", db)
@@ -270,17 +277,22 @@ func TestAssignmentExplainShadowsBroaderScope(t *testing.T) {
 
 func TestScriptBlastRadiusWalksAllHops(t *testing.T) {
 	db := seedStore(t, map[string][]map[string]any{
-		"scripts": {
+		// Spec shape: scripts live in scripts-global / scripts-local with a
+		// databaseType, and every reference carries its <role>ScriptType.
+		"scripts-global": {
 			{"id": "312", "name": "Detect Chrome", "databaseType": "Global"},
+		},
+		"scripts-local": {
 			{"id": "999", "name": "Unrelated", "databaseType": "Local"},
 		},
 		"maintenance-tasks": {
-			{"id": "task-1", "name": "Chrome Task", "getScriptId": "312", "setScriptId": "312", "testScriptId": nil},
-			{"id": "task-2", "name": "Other Task", "getScriptId": "999"},
+			{"id": "task-1", "name": "Chrome Task", "databaseType": "Global", "getScriptId": "312", "getScriptType": "Global",
+				"setScriptId": "312", "setScriptType": "Global", "testScriptId": nil, "testScriptType": "Global"},
+			{"id": "task-2", "name": "Other Task", "databaseType": "Global", "getScriptId": "999", "getScriptType": "Local"},
 		},
 		"target-assignments": {
-			{"id": "asg-1", "maintenanceIdentifier": "task-1", "targetName": "All Contoso", "tenantId": "t1"},
-			{"id": "asg-2", "maintenanceIdentifier": "task-2", "targetName": "Unrelated", "tenantId": "t2"},
+			{"id": "asg-1", "maintenanceType": "GlobalMaintenanceTask", "maintenanceIdentifier": "task-1", "targetName": "All Contoso", "tenantId": "t1"},
+			{"id": "asg-2", "maintenanceType": "GlobalMaintenanceTask", "maintenanceIdentifier": "task-2", "targetName": "Unrelated", "tenantId": "t2"},
 		},
 		"tenants": {
 			{"id": "t1", "name": "Contoso"},

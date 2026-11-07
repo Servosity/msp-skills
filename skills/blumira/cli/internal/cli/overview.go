@@ -19,7 +19,9 @@ func newNovelOverviewCmd(flags *rootFlags) *cobra.Command {
 			"individual findings to work next; use 'triage' instead.\n\n" +
 			"Joins synced findings and agent devices per account: open counts by priority,\n" +
 			"oldest open age, resolved counts, device/DC/stale-agent tallies. The hottest\n" +
-			"account (most P1s, then most open) sorts first. Reads the local store.",
+			"account (most P1s, then most open) sorts first. device_coverage says whether\n" +
+			"an account's device tallies are complete, incomplete (its device list sync\n" +
+			"could not read), or unknown. Reads the local store.",
 		Example: "  blumira-cli overview\n" +
 			"  blumira-cli overview --json --select account_name,p1_open,open_findings",
 		Annotations: map[string]string{"mcp:read-only": "true"},
@@ -46,7 +48,14 @@ func newNovelOverviewCmd(flags *rootFlags) *cobra.Command {
 			if err != nil {
 				return apiErr(err)
 			}
-			rows := computeOverview(findings, devices, time.Now().UTC())
+			cov, err := loadDeviceCoverage(s)
+			if err != nil {
+				return apiErr(err)
+			}
+			if !flags.quiet {
+				warnDeviceCoverageGaps(cmd.ErrOrStderr(), cov.Gaps)
+			}
+			rows := applyDeviceCoverage(computeOverview(findings, devices, time.Now().UTC()), cov)
 			return emitAnalyticsRows(cmd, flags, rows, len(rows), emptyStoreHint)
 		},
 	}

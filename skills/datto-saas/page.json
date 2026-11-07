@@ -1,0 +1,106 @@
+{
+  "outcome_intro": "Ask which users across every client are not backed up, which clients' backups are slipping, and where Datto's seat count disagrees with what you bill, and get one answer for the whole fleet. Datto SaaS Protection reports client by client; this skill mirrors every client's domains and seats locally, so the fleet-wide seat audit becomes one command, and seat changes are planned before anything is sent.",
+  "instead_of_say": [
+    {
+      "instead": "Open each client in the SaaS Protection portal and scan the seat list for users nobody turned protection on for",
+      "say": "Which users across all my clients joined in the last month and are not backed up?",
+      "cli": "datto-saas-cli seats gaps --since 30d --agent"
+    },
+    {
+      "instead": "Export every client's seat list to a spreadsheet and count billable and Active seats against seatsUsed by hand before billing",
+      "say": "Before I invoice, where does Datto's seatsUsed disagree with its billable and Active seats, per client?",
+      "cli": "datto-saas-cli seats reconcile --only-flagged --agent"
+    },
+    {
+      "instead": "Click through each client's backup report to find the ones whose backups are slipping",
+      "say": "Which clients have the worst backup coverage right now?",
+      "cli": "datto-saas-cli backup-health --below 95 --agent"
+    }
+  ],
+  "pain_points": [
+    "A new hire who lands outside Auto-Add, or after the seat cap is reached, is not backed up, and nothing in a single client's view flags it across the fleet.",
+    "Seat counts drive the Datto bill, so a seat that is Active but not billable, or billed but archived, is a margin leak that only shows up when someone reconciles by hand.",
+    "Offboarding a client means collecting domains, subscription ids, retention and every seat from several screens before anyone can cancel safely."
+  ],
+  "outcomes": [
+    {
+      "question": "Which seats across every client are unprotected, newest first?",
+      "command": "datto-saas-cli seats gaps --since 30d --agent"
+    },
+    {
+      "question": "Where does Datto's seatsUsed disagree with billable and Active seats, per client?",
+      "command": "datto-saas-cli seats reconcile --only-flagged --agent"
+    },
+    {
+      "question": "Which clients rank worst on backup coverage and short backup windows?",
+      "command": "datto-saas-cli backup-health --below 95 --agent"
+    },
+    {
+      "question": "How many seats does each client have, by seat type and state?",
+      "command": "datto-saas-cli seats summary --agent"
+    },
+    {
+      "question": "Give me one seat table for the whole fleet with each client's domains and subscription ids.",
+      "command": "datto-saas-cli seats roster --state Unprotected,Paused --agent"
+    },
+    {
+      "question": "What do I need to know before a client leaves SaaS Protection?",
+      "command": "datto-saas-cli exit-inventory 123456 --data-source live --agent"
+    },
+    {
+      "question": "Which batches would license this client's unprotected seats, without sending anything?",
+      "command": "datto-saas-cli seats bulk-plan --action License --state Unprotected --customer 123456 --agent"
+    }
+  ],
+  "different_vs_wrappers": "Most Datto SaaS Protection integrations proxy one question into one live API call, and the API answers one client at a time. This skill syncs every client's domains, seats and applications into a local SQLite mirror, so a fleet question such as which seats are unprotected everywhere becomes one offline query, and the only write, a bulk seat change, is planned and previewed before it is sent.",
+  "different_vs_vendor": "The SaaS Protection portal and Datto's own exports stay where you restore data and manage settings; this skill adds fleet-wide seat audits, billing reconciliation and offboarding manifests inside the AI agent you already use, and complements the portal rather than replacing it.",
+  "faqs": [
+    {
+      "q": "Does this work with ChatGPT?",
+      "a": "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so it needs the Datto SaaS Protection MCP server's token-protected HTTP mode hosted over HTTPS. Step-by-step in the install guide."
+    },
+    {
+      "q": "Do I need to know how to code?",
+      "a": "No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once."
+    },
+    {
+      "q": "Is my Datto SaaS Protection data safe?",
+      "a": "Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills."
+    },
+    {
+      "q": "Which Datto API key does it need?",
+      "a": "The Datto REST API key pair from the Partner Portal (Admin, Integrations, API Keys): DATTO_SAAS_PUBLIC_KEY and DATTO_SAAS_SECRET_KEY, sent as HTTP Basic auth to api.datto.com. One partner key sees every client you manage."
+    },
+    {
+      "q": "Can it change seats or billing on its own?",
+      "a": "Only one command writes: seats bulk-change, which licenses, pauses or unlicenses seats. Over MCP it returns a preview and sends only when confirm is true, and the read-only MCP mode refuses it. Plan the batches first with seats bulk-plan, which sends nothing."
+    },
+    {
+      "q": "What does it cost?",
+      "a": "Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use."
+    }
+  ],
+  "governance_summary": "The datto-saas skill reads your Datto SaaS Protection domains, seats, applications, backup stats and activity log, and keeps a local copy on your machine. It changes one thing at Datto: seats bulk-change licenses, pauses or unlicenses seats, which changes what is backed up and what you are billed, so keep it human-in-the-loop. Reads and seat plans are safe to allow.",
+  "safety_tiers": [
+    {
+      "tier": "Read",
+      "examples": "seats gaps, seats reconcile, seats summary, seats roster, backup-health, exit-inventory, seats bulk-plan (plans only, sends nothing), domains, seats list, applications, backup-stats, activity-log, search, analytics",
+      "policy": "Allow"
+    },
+    {
+      "tier": "Local state",
+      "examples": "sync, export, workflow archive, local-data purge, learnings, teach*, playbook amend, profile, feedback (write the local mirror, a local file or the learning store; never change anything at Datto)",
+      "policy": "Allow"
+    },
+    {
+      "tier": "Seat and billing change",
+      "examples": "seats bulk-change (License, Pause or Unlicense up to 100 seats per call; changes what is backed up and billed)",
+      "policy": "Human-in-the-loop only: plan with seats bulk-plan, preview with --dry-run, then a reviewed send"
+    },
+    {
+      "tier": "Credential / config",
+      "examples": "auth set-credentials, auth logout (replace or clear the stored key pair)",
+      "policy": "Human-in-the-loop only"
+    }
+  ]
+}

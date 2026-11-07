@@ -3,7 +3,13 @@
 
 package cli
 
-import "testing"
+import (
+	"errors"
+	"fmt"
+	"testing"
+
+	"nerdio-pp-cli/internal/client"
+)
 
 func TestJobTerminal(t *testing.T) {
 	cases := []struct {
@@ -45,5 +51,26 @@ func TestJobWaitCommandShape(t *testing.T) {
 	}
 	if cmd.Annotations["mcp:read-only"] != "true" {
 		t.Error("job wait must be annotated mcp:read-only")
+	}
+}
+
+// A job poll error no retry can change ends `job wait` at once: before this a
+// host-pin refusal (no NERDIO_BASE_URL) or a 404 for a wrong job id polled
+// three times with two full intervals between (20 s at the default 10 s).
+func TestJobWaitStopsOnAFinalError(t *testing.T) {
+	for _, c := range []struct {
+		err   error
+		final bool
+	}{
+		{fmt.Errorf("GET x: %w", client.ErrHostPinRefused), true},
+		{&client.APIError{StatusCode: 404}, true},
+		{&client.APIError{StatusCode: 403}, true},
+		{&client.APIError{StatusCode: 429}, false},
+		{&client.APIError{StatusCode: 503}, false},
+		{errors.New("connection reset by peer"), false},
+	} {
+		if got := jobPollErrorIsFinal(c.err); got != c.final {
+			t.Errorf("jobPollErrorIsFinal(%v) = %v, want %v", c.err, got, c.final)
+		}
 	}
 }

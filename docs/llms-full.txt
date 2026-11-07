@@ -46,7 +46,7 @@ Outcomes (question -> command your AI agent runs):
 - What new, unremediated email threats need attention right now? -> abnormal-cli triage --since 24h --top 20
 - Pull a client-ready security report for the quarter -> abnormal-cli report-snapshot --since 90d --csv
 - What is the account-takeover risk picture for this employee? -> abnormal-cli employee-risk "vip@acme.com"
-- Is this vendor showing email-compromise signs? -> abnormal-cli vendor-risk "acme-supplies.com"
+- Is this vendor showing email-compromise signs? -> abnormal-cli vendor-risk "supplier.example.com"
 - Remediate a threat and block until it actually completes -> abnormal-cli remediate-watch <threat|case> <id>
 - List the latest Abnormal cases -> abnormal-cli cases retrieve --all
 - How many attacks did we stop this week? -> abnormal-cli aggregations attack-stopped-retrieve
@@ -54,7 +54,7 @@ Outcomes (question -> command your AI agent runs):
 
 FAQ:
 Q: Does this work with ChatGPT?
-A: Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way abnormal-mcp runs, and shares MCP configuration with Codex: add abnormal-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote (HTTP) server, and this connector's HTTP mode is paused until it is reprinted; the security note at the top of the install guide explains why. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
+A: Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way abnormal-mcp runs, and shares MCP configuration with Codex: add abnormal-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote (HTTP) server hosted over HTTPS (see Remote agents in the install guide). If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
 Q: Do I need to know how to code?
 A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
 Q: Is my Abnormal Security data safe?
@@ -136,7 +136,7 @@ Outcomes (question -> command your AI agent runs):
 
 FAQ:
 Q: Does this work with ChatGPT?
-A: Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way action1-mcp runs, and shares MCP configuration with Codex: add action1-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote (HTTP) server, and this connector's HTTP mode is paused until it is reprinted; the security note at the top of the install guide explains why. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
+A: Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way action1-mcp runs, and shares MCP configuration with Codex: add action1-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote server. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
 Q: Do I need to know how to code?
 A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
 Q: Is my Action1 data safe?
@@ -144,7 +144,7 @@ A: Your data stays on your machine. The CLI, MCP server, and the local mirror ar
 Q: What does it cost?
 A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
 Q: Which Action1 region and credentials do I need?
-A: An API client (Client ID + Client Secret) from your Action1 console's API Credentials page, plus ACTION1_REGION set to us, eu, or au to match your console URL. The CLI mints and refreshes the bearer token for you. Scope the client to read-only permissions if you only need reporting.
+A: An API client (Client ID + Client Secret) from your Action1 console's API Credentials page, plus ACTION1_BASE_URL set to your data center (the US host is the default; EU is https://app.eu.action1.com/api/3.0, Australia https://app.au.action1.com/api/3.0). The CLI mints and refreshes the bearer token for you. Scope the client to read-only permissions if you only need reporting.
 Q: Does this replace the Action1 console?
 A: No. The console stays your place to configure automations and approve patches interactively. This skill answers the cross-organization questions the console shows one org at a time - fleet patch posture, CVE blast-radius, per-client scorecards - and lets your AI agent run them.
 
@@ -160,7 +160,7 @@ Ask your AI 'which mailboxes aren't backed up in Afi?' and get the answer across
 
 Outcomes (question -> command your AI agent runs):
 - Which resources have no backup protection at all? -> afi-cli coverage-gaps --agent
-- Which protected resources have a stale backup (silent failures)? -> afi-cli backup-stale --max-age 48h --agent
+- Which protected resources are not getting backed up (silent failures)? -> afi-cli backup-stale --agent
 - Is the whole fleet green this morning, or who failed? -> afi-cli fleet-health --failed-only --agent
 - What is one tenant's full backup posture for a QBR or ticket? -> afi-cli tenant-scorecard <tenant-id> --agent
 - Am I over- or under-licensed on Afi seats? -> afi-cli reconcile-licenses --agent
@@ -169,11 +169,11 @@ Outcomes (question -> command your AI agent runs):
 
 FAQ:
 Q: Does this work with ChatGPT?
-A: Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way afi-mcp runs, and shares MCP configuration with Codex: add afi-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote (HTTP) server, and this connector's HTTP mode is paused until it is reprinted; the security note at the top of the install guide explains why. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
+A: Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way afi-mcp runs, and shares MCP configuration with Codex: add afi-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote (HTTP) server, which msp-skills does not support yet. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
 Q: Do I need to know how to code?
 A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
 Q: Is my Afi data safe?
-A: Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills.
+A: Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, credentials are never bundled or transmitted by MSP Skills, and the key goes only to the Afi API host.
 Q: What does it cost?
 A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
 Q: Will this trip Afi's API rate limits?
@@ -328,7 +328,7 @@ A: Your data stays on your machine. The CLI, MCP server, and the local mirror ar
 Q: What does it cost?
 A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
 Q: What credentials do I need?
-A: An API-only user created in your own Autotask instance, which gives you a UserName and Secret, plus the tracking Integration Code from your integration vendor record. Set AUTOTASK_PSA_USER_NAME, AUTOTASK_PSA_SECRET, and AUTOTASK_PSA_API_INTEGRATION_CODE in your environment. The API user's security level is the real permission boundary - scope it to exactly what you want the AI to reach.
+A: An API-only user created in your own Autotask instance, which gives you a UserName and Secret, plus the tracking Integration Code from your integration vendor record. Set AUTOTASK_PSA_USER_NAME, AUTOTASK_PSA_SECRET, and AUTOTASK_API_INTEGRATION_CODE in your environment. The API user's security level is the real permission boundary - scope it to exactly what you want the AI to reach.
 Q: Do I have to figure out my Autotask zone URL?
 A: No. Autotask hosts each tenant in a numbered zone (webservicesN.autotask.net). Run autotask-cli zone once and the CLI discovers and caches your tenant's base URL, the same way Autotask's own docs tell integrations to make a zone-information request first.
 Q: Will this blow through my Autotask API limits?
@@ -338,7 +338,7 @@ A: Run autotask-cli picklist "Tickets" "status" (or any entity and field) and it
 Q: Is this Datto Autotask PSA or just Autotask?
 A: Same product. Autotask PSA is now branded Datto Autotask PSA under Kaseya; this skill targets the Autotask REST API, which both names refer to. It does not cover Datto RMM - that is a separate product with a separate API.
 
-Governance: The skill drives the autotask-cli and autotask-mcp binaries, authenticating with an Autotask API user's credentials read from the environment (AUTOTASK_PSA_USER_NAME, AUTOTASK_PSA_SECRET, AUTOTASK_PSA_API_INTEGRATION_CODE) - never logged and never sent anywhere except your own Autotask zone. Read commands (the cross-entity views, search, picklist) can change nothing. Writes are not gated by default: --dry-run is an opt-in preview flag, so the recommended policy is an agent-level rule - preview with --dry-run, show the exact command, get approval, then run the write. Keep the delete commands and any security-level administration human-only. The strongest control is the security level on the API user you create.
+Governance: The skill drives the autotask-cli and autotask-mcp binaries, authenticating with an Autotask API user's credentials read from the environment (AUTOTASK_PSA_USER_NAME, AUTOTASK_PSA_SECRET, AUTOTASK_API_INTEGRATION_CODE) - never logged and never sent anywhere except your own Autotask zone. Read commands (the cross-entity views, search, picklist) can change nothing. Writes are not gated by default: --dry-run is an opt-in preview flag, so the recommended policy is an agent-level rule - preview with --dry-run, show the exact command, get approval, then run the write. Keep the delete commands and any security-level administration human-only. The strongest control is the security level on the API user you create.
 
 ### Auvik (RMM)
 
@@ -418,7 +418,7 @@ Governance: The skill reads your Avanan detections, scanned messages and files, 
 ### AWS (Billing)
 
 Page: [AWS](https://msp-skills.compoundingteams.com/skills/aws-billing.md)
-Verification: Awaiting live verification
+Verification: Live-verified by Servosity (maintainer) (2026-11-06)
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/aws-billing/install.sh)
 
 Ask "why did my AWS bill go up?" and get a plain-English answer: the service that moved, the linked account driving it, and the idle instances and orphaned volumes bleeding dollars - without learning Cost Explorer's dimension grammar. It syncs your bill into a local cache once, so every follow-up question is instant and free instead of $0.01 per Cost Explorer call.
@@ -445,7 +445,7 @@ A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already us
 Q: Will this run up my Cost Explorer bill?
 A: No - that is the point of the local cache. 'sync' pulls your cost data once (each Cost Explorer request is about $0.01), then bill, compare, consolidated, waste, and ask answer from the local SQLite mirror for free. Pass --data-source live only when you want a fresh pull.
 Q: Do I need the aws CLI installed?
-A: No. The binary signs its own AWS requests (SigV4) using the native credential chain - environment variables, a shared --profile-aws, SSO, assume-role, or instance metadata. There is nothing to paste and no aws CLI dependency.
+A: No. The binary signs its own AWS requests (SigV4) using the native credential chain - environment variables, a shared --profile-aws, SSO, or assume-role (EC2 instance-metadata credentials are not used; on EC2 use a profile, SSO or environment keys). There is nothing to paste and no aws CLI dependency.
 Q: Does it work from a member account, or only the payer?
 A: Org-wide cost data (the consolidated rollup) needs a management/payer-account profile; from a member account you see only that account's own costs. Resource-level waste scans work in any account. Run 'aws-billing-cli doctor' to see exactly what your credentials can reach.
 Q: Can it change anything in my AWS account?
@@ -553,7 +553,7 @@ Outcomes (question -> command your AI agent runs):
 
 FAQ:
 Q: Does this work with ChatGPT?
-A: Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way betterstack-mcp runs, and shares MCP configuration with Codex: add betterstack-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote (HTTP) server, and this connector's HTTP mode is paused until it is reprinted; the security note at the top of the install guide explains why. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
+A: Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way betterstack-mcp runs, and shares MCP configuration with Codex: add betterstack-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote server. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
 Q: Do I need to know how to code?
 A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
 Q: Is my Better Stack data safe?
@@ -676,7 +676,7 @@ Outcomes (question -> command your AI agent runs):
 
 FAQ:
 Q: Does this work with ChatGPT?
-A: Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way blumira-mcp runs, and shares MCP configuration with Codex: add blumira-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote (HTTP) server, this connector speaks stdio only, and the bridge it would need is paused until it is reprinted; the security note at the top of the install guide explains why. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
+A: Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way blumira-mcp runs, and shares MCP configuration with Codex: add blumira-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote server. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
 Q: Do I need to know how to code?
 A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
 Q: Is my Blumira data safe?
@@ -797,7 +797,7 @@ Outcomes (question -> command your AI agent runs):
 
 FAQ:
 Q: Does this work with ChatGPT?
-A: Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way cisco-meraki-mcp runs, and shares MCP configuration with Codex: add cisco-meraki-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote (HTTP) server, and this connector's HTTP mode is paused until it is reprinted; the security note at the top of the install guide explains why. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
+A: Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way cisco-meraki-mcp runs, and shares MCP configuration with Codex: add cisco-meraki-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote server. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
 Q: Do I need to know how to code?
 A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your Meraki API key once.
 Q: Is my Cisco Meraki data safe?
@@ -811,9 +811,9 @@ A: Meraki allows about ten calls per second per organization. The CLI paces itse
 Q: Does it work with the Canada, China, India, or FedRAMP dashboards?
 A: Yes. Set CISCO_MERAKI_BASE_URL to your region's API host, for example https://api.meraki.ca/api/v1 (Canada), https://api.meraki.cn/api/v1 (China), https://api.meraki.in/api/v1 (India), or https://api.gov-meraki.com/api/v1 (FedRAMP). Leave it unset for the global dashboard.
 Q: Can an agent change my clients' networks by accident?
-A: Writes send immediately when called, with no confirmation prompt, so keep autonomous agents to reads and --dry-run previews. The bulk tool, fleet push, previews a per-network diff by default and sends nothing unless you add --apply. See the safety model for which commands to keep behind a human. Set CISCO_MERAKI_MCP_READ_ONLY=1 on the MCP server and it refuses every write outright.
+A: From the CLI, writes send immediately when called, with no confirmation prompt. Over MCP, every write tool returns a preview and sends nothing until it is called again with confirm set to boolean true. Keep autonomous agents to reads and --dry-run previews. The bulk tool, fleet push, previews a per-network diff by default and sends nothing unless you add --apply. See the safety model for which commands to keep behind a human. Set CISCO_MERAKI_MCP_READ_ONLY=1 on the MCP server and it refuses every write outright.
 
-Governance: Reads - the fleet views, every GET, sync and search - change nothing in the Dashboard and are safe for an agent, with one exception: over thirty reads return live secrets or license keys (SSID pre-shared keys, identity PSK passphrases, SNMP community strings, site-to-site VPN peer secrets, BGP and OSPF passwords, Apple VPP tokens, license keys, webhook header templates and receiver URLs, the API request log, and the raw configuration change log and action batches, which record API request bodies) and the CLI does not redact them, so those belong behind a human. search, analytics and MCP sql read the local mirror, which keeps license keys and redacts credentials by field name and label - allow them only if that is acceptable. Routine config writes should be previewed with --dry-run and approved. Bulk pushes, reboots and port cycles, admin and SAML changes, API key generation, and deletes or unclaims should never run unattended. For an MCP agent that should never write, CISCO_MERAKI_MCP_READ_ONLY=1 makes the server refuse every non-GET call. The real ceiling is the API key: it can do whatever the Dashboard admin who generated it can do.
+Governance: Reads - the fleet views, every GET, sync and search - change nothing in the Dashboard and are safe for an agent, with one exception: over thirty reads return live secrets or license keys (SSID pre-shared keys, identity PSK passphrases, SNMP community strings, site-to-site VPN peer secrets, BGP and OSPF passwords, Apple VPP tokens, license keys, webhook header templates and receiver URLs, the API request log, and the raw configuration change log and action batches, which record API request bodies) and, apart from answers carrying a documented secret field such as an SSID psk or a VPN peer secret, which are withheld whole, the CLI does not redact them, so those belong behind a human. search, analytics and MCP sql read the local mirror, which keeps license keys and redacts credentials by field name and label - allow them only if that is acceptable. Routine config writes should be previewed with --dry-run and approved. Bulk pushes, reboots and port cycles, admin and SAML changes, API key generation, and deletes or unclaims should never run unattended. For an MCP agent that should never write, CISCO_MERAKI_MCP_READ_ONLY=1 makes the server refuse every non-GET call. The real ceiling is the API key: it can do whatever the Dashboard admin who generated it can do.
 
 ### Cisco Umbrella (Security)
 
@@ -848,6 +848,85 @@ Q: Will this hit the Umbrella API rate limits?
 A: It is built to stay inside them. Token requests are limited to 20 a minute, so fleet health starts customers 3 seconds apart; narrow a large fleet with --customers or --max-customers. Sync once and search, hygiene and analytics answer from the local store without new API calls.
 
 Governance: The skill reads Umbrella deployments, policies, destination lists, reports, Investigate data and MSP customer records, and keeps a local store for offline questions; credential values are withheld from its output and never kept in the SQLite store; the key, secret and bearer token are saved to an owner-only, unencrypted credentials.toml until auth logout. It can also create, change and delete networks, sites, destination lists, tunnels, users and customer records, and it can change API keys and set tunnel credentials you chose. It refuses five actions, because Umbrella returns a new secret only once and this program withholds it: api-keys create, api-keys refresh, s3-bucket-keys, tunnels add with no secret of your own and tunnels update-credentials with auto-rotate or no secret of your own. Do those in the Umbrella dashboard. Let an agent read freely, preview routine writes with --dry-run, and keep a human approving deletes and anything that changes a credential.
+
+### CloudAlly (Backup/DR)
+
+Page: [CloudAlly](https://msp-skills.compoundingteams.com/skills/cloudally.md)
+Verification: Live-verified by @sonofskywalker3 (Servosity) (2026-11-05)
+Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/cloudally/install.sh)
+
+Ask your AI to restore or download every CloudAlly mailbox as it stood on a past date, list a mailbox's past backups, or find every customer whose backups are stale or failing, alongside the everyday Management API v2 work: backup tasks and their entities, running or pausing backups, users and billing. It plans before it acts, records every restore and download in a local ledger, and reads the past backup dates CloudAlly's documented API cannot reach from the customer portal, the same way the partner portal does.
+
+Outcomes (question -> command your AI agent runs):
+- Which mailboxes across all my CloudAlly customers have not backed up in two days, or failed? (It reads the synced feed: run cloudally-cli sync --resources distributor_accounts-backup-statuses first.) -> cloudally-cli backup health --stale-days 2 --group-by account
+- What backups does this mailbox have for December? -> cloudally-cli backup snapshots --account 5f1c2a --task 64b0e9 --entity jane.doe@contoso.com --month 2025-12
+- Which backup would each mailbox on this task be restored from for December 31st? -> cloudally-cli restore plan --account 5f1c2a --task 64b0e9 --date 2025-12-31
+- Plan, then restore every mailbox on the task to October 1st. -> cloudally-cli restore plan --account 5f1c2a --task 64b0e9 --date 2026-10-01
+- Plan, then archive every mailbox as it stood on December 31st in the customer's own timezone. -> cloudally-cli download submit --account 5f1c2a --task 64b0e9 --on-date 2025-12-31 --utc-offset -5
+- Download every finished year-end archive into an existing folder (create it first), one folder per mailbox and sub-source. -> cloudally-cli download fetch --account 5f1c2a --dest ./archives --year 2025 --batch 20261015-201500-ab12
+- What did we restore for this customer since September? -> cloudally-cli restore history --account 5f1c2a --since 2026-09-01
+- What is the latest backup status of every mailbox and site across all my CloudAlly customers? -> cloudally-cli distributor-accounts backup-statuses --all
+- Which customer accounts do I manage? -> cloudally-cli distributor-accounts list --all
+- Switch into this customer's account. -> cloudally-cli auth use-account 5f1c2a
+- Which backup tasks does this customer have? -> cloudally-cli tasks list --type BACKUP --all
+- What state is every entity of this backup task in? -> cloudally-cli tasks get 64b0e9 --select entities.entity,entities.status
+- How are all of this account's tasks doing? -> cloudally-cli user status --all
+- Which restore jobs are running or finished? -> cloudally-cli tasks list --type RESTORE
+- What are this month's bills across my resellers? -> cloudally-cli distributor-resellers all-bills
+
+FAQ:
+Q: Does this work with ChatGPT?
+A: Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, and cloudally-mcp speaks HTTP natively: set CLOUDALLY_MCP_HTTP_TOKEN, run `cloudally-mcp --transport http`, and serve its /mcp endpoint (http://127.0.0.1:7777/mcp by default) over HTTPS behind an authenticating proxy that signs ChatGPT in with OAuth and adds the bearer header the server requires. ChatGPT cannot send a fixed bearer token, so a bare tunnel gets HTTP 401. Step-by-step in the install guide.
+Q: Do I need to know how to code?
+A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter the CloudAlly API client id and secret once and run `cloudally-cli auth login --partner`.
+Q: What credentials does it need?
+A: A CloudAlly API application key pair (CLOUDALLY_CLIENT_ID and CLOUDALLY_CLIENT_SECRET, from the partner portal under Integrations > REST API) plus one login: `auth login` for a single company account, or `auth login --partner` for every customer. The distributor and reseller commands, `auth use-account`, past backup dates and downloads need the partner login.
+Q: Can it change or delete my customers' backups?
+A: It can, because CloudAlly's API can: restores write back into live mailboxes, and deleting a backup task deletes its data. restore submit, download submit and download start show what they would do and stop until you pass --yes; the generated recovery restore and delete commands send immediately, which is why governance.md marks them human-only. Set CLOUDALLY_MCP_READ_ONLY=1 to give an MCP agent read-only tools: with it off, the MCP restore and download tools only preview, but cloudally_execute can call any endpoint (including recovery restore and tasks delete) as soon as the caller passes confirm=true and download_link returns live links.
+Q: Why does a December 31st download hold December 30th?
+A: CloudAlly stamps backups in UTC, and a nightly backup runs late in the evening local time, so it is stamped the next UTC day. Pass `download submit --utc-offset -5` (US Eastern in winter; -4 during daylight saving time) and --on-date then means the customer's own calendar day.
+Q: Is my CloudAlly data safe?
+A: Your data stays on your machine. The CLI, MCP server and local store are all local, the MCP server runs over stdio unless you start it with --transport http, and download links are minted and streamed in one step rather than stored. Every request goes through a shared credential kit that holds the key pair, the tokens and the portal session and sends each only to CloudAlly's API or https://app.cloudally.com. Credentials are never bundled or transmitted by MSP Skills.
+Q: Can it download mailbox archives?
+A: Yes. The documented export call (recovery export and its distributor and reseller variants) answers 200 and creates no job, so `download submit` (every mailbox backed up on one date) and `download start` (one single-archive mailbox) create the jobs through the customer portal the way the portal does, and `download fetch` mints each 60-second link and writes the archive to a folder you choose. Both creates print a plan and stop until you pass --yes.
+Q: What does it cost?
+A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
+
+Governance: This connector can restore into live customer mailboxes, create download jobs and, through CloudAlly's own API, delete backup tasks and their data, so it is not read-only. restore submit, download submit and download start print their plan and stop until --yes is passed (over MCP they only preview), and a restore or download guard in the state directory refuses to send the same restore or create the same archive twice; the generated recovery restore and delete commands send immediately and are human-only. Download jobs are only ever EXPORT jobs, and CLOUDALLY_MCP_READ_ONLY=1 limits an MCP agent to reads. The company login (auth login) reaches one customer; the partner login reaches all of them.
+
+### Comet Backup (Backup/DR)
+
+Page: [Comet Backup](https://msp-skills.compoundingteams.com/skills/comet-backup.md)
+Verification: Awaiting live verification
+Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/comet-backup/install.sh)
+
+Ask which Comet backups failed or went quiet last night and get every protected item across every tenant on your Comet Server in one list, with the error lines that explain each failure. Comet's console and emailed reports answer one customer at a time; this skill reads the whole server, reports per-tenant storage against quota, and keeps a local snapshot history so you can see what changed since yesterday.
+
+Outcomes (question -> command your AI agent runs):
+- Which protected items failed, are overdue or never backed up, across every tenant? -> comet-backup-cli health --state failed,overdue,never --json
+- Why did backups fail in the last 24 hours, with the first error lines from each job log? -> comet-backup-cli triage --window 24h --json
+- Which tenants are at or above 80 percent of a storage, device or Microsoft 365 quota? -> comet-backup-cli usage --over 80 --json
+- Which offline devices have not finished a job in a week and still own protected items? -> comet-backup-cli devices stale --older-than 7d --billable-only --json
+- Which devices run a Comet client version that differs from the server? -> comet-backup-cli devices outdated --json
+- Which backup problems opened or resolved since the previous snapshot? -> comet-backup-cli changes --only health --json
+
+FAQ:
+Q: Does this work with ChatGPT?
+A: Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so it needs the Comet Backup MCP server's token-protected HTTP mode hosted over HTTPS. Step-by-step in the install guide.
+Q: Do I need to know how to code?
+A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
+Q: Is my Comet Backup data safe?
+A: Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills.
+Q: What does it cost?
+A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
+Q: What Comet account does it need?
+A: A Comet Server admin account. Set COMET_BACKUP_SERVER to your server's host and port (or COMET_BACKUP_BASE_URL to its full URL), then COMET_BACKUP_USERNAME and COMET_BACKUP_PASSWORD. Comet recommends a dedicated API admin with a long random password and no 2FA; for an admin that requires 2FA, start a session with Comet's session-start API and set COMET_BACKUP_SESSION_KEY instead. Personal API tokens are not supported yet. On Comet-Hosted servers, create an Additional User with a local password.
+Q: Does it work with self-hosted and Comet-Hosted servers?
+A: Yes. Each MSP runs one Comet Server, self-hosted or Comet-Hosted, holding all of its tenants; the skill talks only to the server you name and refuses a redirect to any other host.
+Q: Can it run backups or restores?
+A: It can ask an online device to run a backup or a restore through Comet's live-connection API, but those are writes on a customer endpoint: preview them with --dry-run and keep them human-approved. The MCP server sends a write only when the call carries confirm: true. rerun-failed only prints its plan unless you add --yes.
+
+Governance: Most commands only read: fleet health, failure triage, usage, device lists, job history and server status. Seven reads return credential material (password hashes, TOTP keys, storage keys); the CLI redacts those fields and the MCP server runs them only with confirm: true. Writes reach your tenants and their devices (run a backup or restore, uninstall, delete a user), so preview them with --dry-run and keep a human in the loop.
 
 ### connect-tool (Meta)
 
@@ -924,7 +1003,7 @@ Outcomes (question -> command your AI agent runs):
 
 FAQ:
 Q: Does this work with ChatGPT?
-A: Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way connectwise-automate-mcp runs, and shares MCP configuration with Codex: add connectwise-automate-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote (HTTP) server, this connector speaks stdio only, and the bridge it would need is paused until it is reprinted; the security note at the top of the install guide explains why. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
+A: Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way connectwise-automate-mcp runs, and shares MCP configuration with Codex: add connectwise-automate-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote server. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
 Q: Do I need to know how to code?
 A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
 Q: Is my ConnectWise Automate data safe?
@@ -1076,11 +1155,11 @@ Outcomes (question -> command your AI agent runs):
 
 FAQ:
 Q: Does this work with ChatGPT?
-A: Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way cork-mcp runs, and shares MCP configuration with Codex: add cork-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote (HTTP) server, this connector speaks stdio only, and the bridge it would need is paused until it is reprinted; the security note at the top of the install guide explains why. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
+A: Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way cork-mcp runs, and shares MCP configuration with Codex: add cork-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote (HTTP) server; the install guide explains why. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
 Q: Do I need to know how to code?
 A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your Cork API key once.
 Q: Is my Cork data safe?
-A: Your data stays on your machine. The CLI, MCP server, and the local mirror are all local, and the MCP server speaks stdio only so it opens no network listener. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills.
+A: Your data stays on your machine. The CLI, MCP server, and the local mirror are all local, and the MCP server speaks stdio by default so it opens no network listener unless you start its token-protected HTTP mode. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills.
 Q: What does it cost?
 A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
 Q: Will this hit my Cork API rate limits?
@@ -1147,7 +1226,7 @@ Outcomes (question -> command your AI agent runs):
 
 FAQ:
 Q: Does this work with ChatGPT?
-A: Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way crowdstrike-mcp runs, and shares MCP configuration with Codex: add crowdstrike-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote (HTTP) server, and this connector's HTTP mode is paused until it is reprinted; the security note at the top of the install guide explains why. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
+A: Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way crowdstrike-mcp runs, and shares MCP configuration with Codex: add crowdstrike-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote server. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
 Q: Do I need to know how to code?
 A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
 Q: Is my CrowdStrike data safe?
@@ -1252,6 +1331,39 @@ A: You need an API key and secret key from Setup > Users in your Datto RMM porta
 
 Governance: The skill reads your Datto RMM fleet and writes only when you ask it to - creating or updating variables, warranty and UDF data, sites, and quick jobs. Every fleet rollup, search, and lookup is read-only and always safe to run. Deleting variables or site proxy settings, bulk-resolving alert storms, and resetting your API keys are gated as destructive or credential operations and should stay human-in-the-loop.
 
+### Datto SaaS Protection (Backup/DR)
+
+Page: [Datto SaaS Protection](https://msp-skills.compoundingteams.com/skills/datto-saas.md)
+Verification: Awaiting live verification
+Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/datto-saas/install.sh)
+
+Ask which users across every client are not backed up, which clients' backups are slipping, and where Datto's seat count disagrees with what you bill, and get one answer for the whole fleet. Datto SaaS Protection reports client by client; this skill mirrors every client's domains and seats locally, so the fleet-wide seat audit becomes one command, and seat changes are planned before anything is sent.
+
+Outcomes (question -> command your AI agent runs):
+- Which seats across every client are unprotected, newest first? -> datto-saas-cli seats gaps --since 30d --agent
+- Where does Datto's seatsUsed disagree with billable and Active seats, per client? -> datto-saas-cli seats reconcile --only-flagged --agent
+- Which clients rank worst on backup coverage and short backup windows? -> datto-saas-cli backup-health --below 95 --agent
+- How many seats does each client have, by seat type and state? -> datto-saas-cli seats summary --agent
+- Give me one seat table for the whole fleet with each client's domains and subscription ids. -> datto-saas-cli seats roster --state Unprotected,Paused --agent
+- What do I need to know before a client leaves SaaS Protection? -> datto-saas-cli exit-inventory 123456 --data-source live --agent
+- Which batches would license this client's unprotected seats, without sending anything? -> datto-saas-cli seats bulk-plan --action License --state Unprotected --customer 123456 --agent
+
+FAQ:
+Q: Does this work with ChatGPT?
+A: Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so it needs the Datto SaaS Protection MCP server's token-protected HTTP mode hosted over HTTPS. Step-by-step in the install guide.
+Q: Do I need to know how to code?
+A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
+Q: Is my Datto SaaS Protection data safe?
+A: Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills.
+Q: Which Datto API key does it need?
+A: The Datto REST API key pair from the Partner Portal (Admin, Integrations, API Keys): DATTO_SAAS_PUBLIC_KEY and DATTO_SAAS_SECRET_KEY, sent as HTTP Basic auth to api.datto.com. One partner key sees every client you manage.
+Q: Can it change seats or billing on its own?
+A: Only one command writes: seats bulk-change, which licenses, pauses or unlicenses seats. Over MCP it returns a preview and sends only when confirm is true, and the read-only MCP mode refuses it. Plan the batches first with seats bulk-plan, which sends nothing.
+Q: What does it cost?
+A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
+
+Governance: The datto-saas skill reads your Datto SaaS Protection domains, seats, applications, backup stats and activity log, and keeps a local copy on your machine. It changes one thing at Datto: seats bulk-change licenses, pauses or unlicenses seats, which changes what is backed up and what you are billed, so keep it human-in-the-loop. Reads and seat plans are safe to allow.
+
 ### DNSFilter (Security)
 
 Page: [DNSFilter](https://msp-skills.compoundingteams.com/skills/dnsfilter.md)
@@ -1292,6 +1404,39 @@ A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already us
 
 Governance: The skill authenticates with a DNSFilter API token you create, and it can do whatever that token can do in the dashboard. Every troubleshooting and fleet view (why-blocked, unblocks triage, agents drift, agents stale, lists where, policy-audit) and the ordinary lists and gets are read-only and safe to let an agent run. allow previews by default; it and every policy, allow-list, block-list, scheduled-policy and unblock-decision change, and every change to which policy or bypass domains a site, MAC address or roaming client uses, need a human to approve the exact command, because one allow opens the site for every site and roaming client on that policy. Reads that return a secret (site secret keys in the networks lists, API key tokens, the roaming client uninstall PIN) and everything that creates, rotates or revokes a credential are human-only, as are deletes, roaming client uninstalls, billing, seat and distributor changes. The MCP server's generic execute tool can call any endpoint, so set DNSFILTER_MCP_READ_ONLY=1 for an agent that should only read.
 
+### Domain and Certificate Tracker (Monitoring)
+
+Page: [Domain and Certificate Tracker](https://msp-skills.compoundingteams.com/skills/domain-cert-tracker.md)
+Verification: Awaiting live verification
+Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/domain-cert-tracker/install.sh)
+
+Ask your AI "what expires, lost its lock or changed across my clients' domains this month?" and get one answer per client: registration expiry and transfer lock from RDAP, every unexpired certificate logged in Certificate Transparency, the certificate each host really serves, and DNS drift. It needs no account or credential: every source is public, and the inventory and history stay on your machine.
+
+Outcomes (question -> command your AI agent runs):
+- What expires within 30 days, lost its lock or changed, per client? -> domain-cert-tracker-cli report --days 30 --agent
+- Which hosts still serve an old certificate after a newer one was logged? -> domain-cert-tracker-cli renewals --agent
+- Which new certificates came from an issuer the domain's CAA does not permit, or a first-ever issuer? -> domain-cert-tracker-cli issuers audit --days 7 --agent
+- Which hostnames have certificates in CT but are not in the client's inventory? -> domain-cert-tracker-cli hosts discover --agent
+- What changed since the agent last looked, once per event, for ticketing? -> domain-cert-tracker-cli events list --since 0 --agent
+- What certificate does this host serve right now, and when does it expire? -> domain-cert-tracker-cli tls probe www.example.com --agent
+- What are a domain's registrar, expiry date and lock statuses? -> domain-cert-tracker-cli domain example.com --json
+
+FAQ:
+Q: Does this work with ChatGPT?
+A: Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so it needs the domain-cert-tracker MCP server's token-protected HTTP mode hosted over HTTPS. Step-by-step in the install guide.
+Q: Do I need to know how to code?
+A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. There are no credentials to enter.
+Q: Do I need an account or API key?
+A: No. RDAP, crt.sh and DNS are public, and TLS probes connect to your clients' own public hosts. There is nothing to sign up for and no credential to store.
+Q: Is my client data safe?
+A: The client inventory and sweep history stay in a local SQLite store under your user account. Lookups send only the domain or host being checked to the public service that answers for it. HTTP lookups and TLS probes connect only to public addresses on port 443 unless you allow another port on the command line (the one exception is a server you name yourself in DOMAIN_CERT_TRACKER_BASE_URL); DNS checks use the resolver your operating system is configured with.
+Q: Will it hit rate limits?
+A: sweep sends each RDAP lookup straight to the registry that answers for the domain (through the IANA bootstrap file), runs at most 4 checks in parallel, and downloads at most 50 new certificates per sweep from crt.sh to read their full name lists. A crt.sh answer cut off at its 10,000-row limit is a failed check. A failed check is listed as unverified and never replaces the last good result.
+Q: What does it cost?
+A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
+
+Governance: It reads public RDAP, Certificate Transparency, DNS and TLS and never changes anything at a registrar, CA, DNS provider or client server. Its only writes are to its own local store: the client inventory (clients set, clients import, clients remove) and sweep history. Let agents run reads and sweeps; changing or removing inventory needs an explicit confirm, and purging the local store is for a human.
+
 ### Domotz (Network Monitoring)
 
 Page: [Domotz](https://msp-skills.compoundingteams.com/skills/domotz.md)
@@ -1308,13 +1453,14 @@ Outcomes (question -> command your AI agent runs):
 - Give me one asset inventory across every site -> domotz-cli fleet inventory --csv
 - Where are IP conflicts across the fleet? -> domotz-cli fleet ip-conflicts --agent
 - Which devices can't be fully monitored (auth or SNMP gaps)? -> domotz-cli fleet unmonitored --agent
+- Which important devices could go down with nobody alerted? -> domotz-cli fleet unalerted --vital-only --agent
 - How many devices of each vendor do we manage? -> domotz-cli fleet breakdown --by vendor --agent
 - Which Collectors have gone quiet (stale sync)? -> domotz-cli fleet stale --agent
 - Find a hostname or IP anywhere in the synced fleet -> domotz-cli search "<query>"
 
 FAQ:
 Q: Does this work with ChatGPT?
-A: Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way domotz-mcp runs, and shares MCP configuration with Codex: add domotz-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote (HTTP) server, and this connector's HTTP mode is paused until it is reprinted; the security note at the top of the install guide explains why. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
+A: Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way domotz-mcp runs, and shares MCP configuration with Codex: add domotz-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote server. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
 Q: Do I need to know how to code?
 A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
 Q: Is my Domotz data safe?
@@ -1325,6 +1471,82 @@ Q: Do I need a special Domotz plan to use the API?
 A: No add-on is required - you generate an API Key from the Domotz Portal under Settings > Services > API Keys on your existing account. A handful of endpoints (company areas, team moves, some RBAC) are Enterprise-plan only; everything else works on standard accounts, and the CLI returns a clear error when a plan gates an endpoint.
 
 Governance: The skill reads your Domotz fleet - Collectors, devices, variables, alerts, and topology - and can also create and delete monitoring objects, control device power outlets, and change SNMP credentials. Reads are safe to run unattended with one exception: reading SNMP authentication returns community strings and keys, so treat it like a secret. Keep an autonomous agent to reads plus previewed writes, and require a human for anything that deletes, controls hardware, or touches credentials.
+
+### Dropsuite (Backup/DR)
+
+Page: [Dropsuite](https://msp-skills.compoundingteams.com/skills/dropsuite.md)
+Verification: Awaiting live verification
+Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/dropsuite/install.sh)
+
+Selling Dropsuite backup to a book of clients? Ask your AI "what is failing or stale across my clients," "which users are not backed up yet," or "do my seat counts match what I invoice" and get one answer instead of opening each organization in the partner portal. One reseller credential resolves every client's token, and health snapshots plus a restore-test ledger build dated evidence the API does not keep.
+
+Outcomes (question -> command your AI agent runs):
+- What is failing, stuck or stale across every client right now? -> dropsuite-cli health --stale-after 48h --failing --agent
+- Which tenant mailboxes are not added to backup, with coverage percent per client? -> dropsuite-cli coverage --agent
+- Which clients are over-allocated against my PSA invoice, or suspended but still holding seats? -> dropsuite-cli billing --invoice psa-seats.csv --flagged-only --agent
+- Which deactivated or deleted mailboxes still hold storage, and which invitations were never accepted? -> dropsuite-cli hygiene --older-than 30d --agent
+- Which client owns this email address, and are its mailbox and OneDrive backed up? -> dropsuite-cli locate jane@example.com --agent
+- Give me dated proof of protection for one client for an insurer or QBR -> dropsuite-cli evidence --org 26561-14 --window 90d --markdown
+- What changed since last week: objects that left backup or backups that stopped advancing? -> dropsuite-cli drift --since 7d --agent
+- Which clients are due a restore test? -> dropsuite-cli restore-test due --every 90d --pick --agent
+
+FAQ:
+Q: Does this work with ChatGPT?
+A: Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so it needs the Dropsuite (NinjaOne) MCP server's token-protected HTTP mode hosted over HTTPS. Step-by-step in the install guide.
+Q: Do I need to know how to code?
+A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
+Q: Is my Dropsuite data safe?
+A: Your data stays on your machine. The CLI, MCP server and the local store are local, and the AI sees query results, not raw bulk data. Requests go only to your configured Dropsuite API host, and the reseller tokens and every organization token the CLI reads are withheld from all output, files and the local store. Responses are never cached on disk.
+Q: What does it cost?
+A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
+Q: Which Dropsuite credentials do I need?
+A: The two values from Settings > API Settings in the Dropsuite partner portal: the Reseller Token (DROPSUITE_RESELLER_TOKEN, sent as X-Reseller-Token) and your reseller Authentication Token (DROPSUITE_ACCESS_TOKEN, sent as X-Access-Token). You do not collect each client's token: --org, or DROPSUITE_ORG for the MCP server, resolves it from the organization list. If your partner API is not on dropsuite.us, set DROPSUITE_HOST.
+Q: Can the AI change backups or restore data?
+A: No. Every command reads, and restore-test record only writes to a local ledger on your machine. The exception is a portal sign-in link: portal get-login-link, organizations get-support-sso-link, locate --sso-link and evidence --with-sso-link mint one, and a new organization link invalidates the previous one. Over MCP those calls return a preview and mint only when the agent repeats the call with confirm: true. For an agent that should only read, set DROPSUITE_MCP_READ_ONLY=1: the sign-in link tools are removed.
+
+Governance: The skill reads backup status, coverage, seats and organization settings for every client your reseller credential can see, and keeps health snapshots and a restore-test ledger on your machine. It cannot change a backup or run a restore. The one sensitive action is minting a portal sign-in link, which is credential tier: let an agent read freely, and keep a human on sign-in links.
+
+### ESET PROTECT (Security)
+
+Page: [ESET PROTECT](https://msp-skills.compoundingteams.com/skills/eset-protect.md)
+Verification: Awaiting live verification
+Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/eset-protect/install.sh)
+
+Ask your AI which customers have ESET devices that need attention, which machines stopped checking in, who is exposed to a new CVE, and what the morning detection queue looks like, across every customer at once. The CLI syncs your ESET PROTECT tree into a local SQLite mirror, rolls it up per customer, and shows the exact scan, isolate or release task before it is sent.
+
+Outcomes (question -> command your AI agent runs):
+- Which customers have devices that need attention, are muted or stopped checking in? -> eset-protect-cli fleet health
+- What should my techs work first this morning, detections and open incidents together? -> eset-protect-cli triage --since 24h --min-severity medium
+- Which customers and devices are exposed to this CVE, and is a patch available? -> eset-protect-cli exposure --cve CVE-2024-3400
+- Give me one customer's quarter: device health, detections, incidents, top CVEs and patches -> eset-protect-cli report customer "Acme Dental" --since 90d
+- Which devices have not checked in for two weeks, most stale first? -> eset-protect-cli fleet stale --days 14
+- Which security patches are still missing, ranked by the devices and CVE risk they fix? -> eset-protect-cli patches backlog --security-only
+- Is the same file hash showing up at more than one customer this week? -> eset-protect-cli detections spread --since 7d --min-customers 2
+- Isolate this machine from the network (show me the exact task first) -> eset-protect-cli respond isolate "FRONTDESK-01"
+
+FAQ:
+Q: Does this work with ChatGPT?
+A: Yes, on paid ChatGPT plans, if its connector settings can send a bearer token. ChatGPT connects to remote MCP servers over HTTPS, so you run eset-protect-mcp --transport http with ESET_PROTECT_MCP_HTTP_TOKEN set to at least 32 characters on an HTTPS host you control (it refuses to start without the token, and every request must send it). Step-by-step in the install guide.
+Q: Do I need to know how to code?
+A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
+Q: Is my ESET data safe?
+A: Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills.
+Q: What does it cost?
+A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
+Q: What ESET account do I need?
+A: A dedicated ESET Connect API user. A Superuser or Root creates it in ESET PROTECT Hub, ESET Business Account or ESET MSP Administrator 2 and turns on the Integrations toggle; the Superuser or Root account itself cannot be given API access. The new user accepts the invitation email and finishes account setup, and a Hub user must also sign in to ESET PROTECT Hub once. Set ESET_PROTECT_USERNAME and ESET_PROTECT_PASSWORD; the CLI exchanges them for a one-hour token.
+Q: Which region should I set?
+A: Set ESET_PROTECT_REGION to the region of your ESET PROTECT console: eu (the default), de, us, ca or jpn. The jpn region has no quarantine or Cloud Office user API, and no v2 detection list.
+Q: Will this hit ESET Connect rate limits?
+A: ESET Connect allows 10 calls per second for each set of credentials, account and source IP, and answers 429 above that; under its Fair Use Policy a very large burst is slowed to 2 requests per second and the rest is rejected with 50x. The CLI slows down and retries when it sees a 429; set --rate-limit 8 to stay under the limit from the start and keep sync --concurrency low. Slow requests answered with 202 and a response id are polled until --timeout runs out (60 seconds by default). ESET answers 504 to a query that is not ready within 120 seconds, so pass --timeout 3m for large queries and narrow the query if ESET still answers 504.
+Q: Can the AI isolate a machine or change a policy by itself?
+A: The respond commands only print the task unless you add --yes, and over MCP they only preview. Other write commands run when invoked on the command line unless you pass --dry-run. Over MCP, the generic eset-protect_execute tool can reach any state-changing ESET Connect endpoint, but it only previews the call until the call carries confirm: true. For a read-only agent, set ESET_PROTECT_MCP_READ_ONLY=1 in the MCP server's environment: no tool that changes ESET is offered and installer and enrollment links are refused. Keep your AI app's approval prompt on.
+Q: Does it work with on-premises ESET PROTECT?
+A: No. It signs in through the ESET Connect cloud API, so it works with ESET PROTECT (cloud). An on-premises ESET PROTECT server uses a different API and sign-in, which this connector does not support.
+Q: Does it replace the ESET PROTECT console?
+A: No. The console stays the place for policy editing, investigations in ESET Inspect and day-to-day administration. This skill answers the across-every-customer questions and runs previewed actions from your AI agent.
+
+Governance: The skill signs in as the ESET Connect API user you create, so that user's access rights are the real boundary. Reads, reports and the local mirror are safe to allow. Response actions (scan, isolate, release), policy and EDR rule changes, quarantine restores and deletes reach real customer machines and need a human to approve the exact request.
 
 ### Exchange Online (Security)
 
@@ -1654,7 +1876,7 @@ Outcomes (question -> command your AI agent runs):
 
 FAQ:
 Q: Does this work with ChatGPT?
-A: Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way immybot-mcp runs, and shares MCP configuration with Codex: add immybot-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote (HTTP) server, and this connector's HTTP mode is paused until it is reprinted; the security note at the top of the install guide explains why. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
+A: Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way immybot-mcp runs, and shares MCP configuration with Codex: add immybot-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote server. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
 Q: Do I need to know how to code?
 A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
 Q: What does it cost?
@@ -1707,6 +1929,44 @@ Q: Can it delete my documentation?
 A: No. The CLI reads, and creates or updates contacts, passwords, configurations, and documents - it exposes no delete for any IT Glue resource. The coverage and stale-password audits read metadata only; password secret values are never read or printed.
 
 Governance: The skill drives the itglue-cli and itglue-mcp binaries, authenticating with an IT Glue API key read from the environment (ITGLUE_API_KEY) - never logged and never sent anywhere except the IT Glue API. Most read commands (search, coverage, changes, contacts dupes, org show, orphans, and the organization/configuration/contact/document list and get) change nothing and run against the local mirror. The exceptions are passwords get and passwords list: when the API key has password access they can return the stored secret, so treat them as credential-tier, not routine reads (passwords stale is metadata-only and stays safe). Writes are not gated by default: --dry-run is an opt-in preview flag, so the recommended policy is an agent-level rule - preview with --dry-run, show the exact command, get approval, then run the write. The CLI exposes no delete for any IT Glue resource; the most sensitive operations are credential reads and writes (passwords get/list/create/update), which should stay human-approved. The real permission boundary is the scope of the IT Glue account whose key you use.
+
+### Jamf Pro (MDM)
+
+Page: [Jamf Pro](https://msp-skills.compoundingteams.com/skills/jamf-pro.md)
+Verification: Awaiting live verification
+Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/jamf-pro/install.sh)
+
+Ask which client has this Mac, or which clients have FileVault off and patches behind, and get one answer across every client's Jamf Pro. Jamf Pro plus your AI agent reads each client's own server in parallel, with that client's own API client, so a question that means logging in to every console one at a time becomes one reply.
+
+Outcomes (question -> command your AI agent runs):
+- Which client has this Mac, iPad or iPhone, by serial, name, username or email? -> jamf-pro-cli fleet find C02XK1ABJG5H --agent
+- Which clients have stale check-ins, Macs below a macOS floor, FileVault off or the firewall off? -> jamf-pro-cli fleet posture --stale-days 14 --min-os 14.6 --agent
+- Which patch titles are behind latest, and which clients have failed managed OS updates? -> jamf-pro-cli fleet patch --behind-only --agent
+- A vendor advisory landed: which clients and computers have this app below the fixed version? -> jamf-pro-cli fleet app "Google Chrome" --below 129.0.6668.100 --agent
+- Which policies are disabled, can never run, have no scope, or point at a missing script or package? -> jamf-pro-cli fleet policy-hygiene --agent
+- Which ADE or VPP tokens expire soon, which enrollment syncs failed, and which Jamf Pro versions are clients on? -> jamf-pro-cli fleet health --within 30d --agent
+- Which clients are missing objects from our template instance, or run a different copy of its scripts? -> jamf-pro-cli fleet baseline --golden msp-template --agent
+- Does every client's API client still work? -> jamf-pro-cli instance test --agent
+
+FAQ:
+Q: Does this work with ChatGPT?
+A: Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so it needs the Jamf Pro MCP server's token-protected HTTP mode hosted over HTTPS. Step-by-step in the install guide.
+Q: Do I need to know how to code?
+A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
+Q: Is my Jamf Pro data safe?
+A: Your data stays on your machine. The CLI, the MCP server and the local mirror all run locally. The AI sees query results, and credentials are never bundled or transmitted by MSP Skills: they go to your own Jamf Pro server and nowhere else, and any output that repeats one is withheld.
+Q: What does it cost?
+A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
+Q: Do I need a separate API client for each client's Jamf Pro?
+A: Yes. Create one in each instance under Settings > System > API roles and clients, with only the read privileges the reports need, then register it once with `jamf-pro-cli instance add`. Each secret stays in the JAMF_PRO_FLEET_SECRETS environment variable (name=secret entries separated by commas) and is never written to the registry.
+Q: Will this replace Jamf Account or the Jamf Pro console?
+A: No. Jamf Account is where a service provider manages customers and their products, and each console is where you build policies and enroll devices. This skill answers questions across the data inside those instances.
+Q: Can it read LAPS passwords, FileVault keys or lock PINs?
+A: No. Those endpoints are not included, `fleet exec` refuses them by path, and any password, key, token or PIN field in another response prints as [redacted]. Read them in the Jamf Pro console.
+Q: We run one Jamf Pro with sites. Does it help?
+A: Partly. Register that server once and every read works, but fleet reports count per instance, not per site. Fleet reports earn their keep when each client has its own instance.
+
+Governance: It reads inventory, policies, patch status and enrollment health from every Jamf Pro instance you register, and can change one instance at a time with the writes that instance's API client allows. Passwords, keys, tokens and PINs in responses are redacted, and the endpoints that return LAPS passwords, FileVault keys, recovery-lock passwords and lock PINs are not included. Let an agent read freely, preview routine writes, and keep a human on anything that touches credentials or acts on a device.
 
 ### Jira Service Management (PSA)
 
@@ -1786,7 +2046,7 @@ A: Your data stays on your machine. The CLI, MCP server, and the local mirror ar
 Q: What does it cost?
 A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
 Q: Will this hit my Kaseya BMS API rate limits?
-A: Rarely. BMS allows 1,500 requests per hour per endpoint. Reads default to the local SQLite mirror (--data-source auto), so day-to-day questions cost zero API calls; you only spend the budget when you sync or query live.
+A: Rarely. BMS allows 500 requests per hour per endpoint. Reads default to the local SQLite mirror (--data-source auto), so day-to-day questions cost zero API calls; you only spend the budget when you sync or query live.
 Q: Do I need to be a Kaseya customer, and how do I authenticate?
 A: Yes - you need a Kaseya BMS tenant and an API user. The skill authenticates as that user with 'kaseya-bms-cli auth login' (your BMS username, password, and tenant name), and can only do what that user is permitted to do. You can also paste a pre-minted JWT via KASEYA_BMS_TOKEN.
 Q: Will this replace my Kaseya BMS portal?
@@ -1828,6 +2088,40 @@ A: It is built to stay inside them. VSA 10 limits each API token per hour, so th
 
 Governance: The skill reads devices, assets, organizations, policies, scripts, tasks and audit logs, and keeps a local mirror for offline questions; custom-field values, product keys and webhook signing keys are never stored in it. It can also create, change and delete organizations, sites, groups, notifications and webhooks, and it can run scripts, tasks and workflows on customer endpoints. Let an agent read freely, preview routine writes with --dry-run, and keep a human approving deletes, credential reads and anything that runs on an endpoint.
 
+### Keeper Admin and MSP Console (Security)
+
+Page: [Keeper Admin and MSP Console](https://msp-skills.compoundingteams.com/skills/keeper.md)
+Verification: Awaiting live verification
+Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/keeper/install.sh)
+
+See every client's Keeper 2FA coverage, weak and reused passwords, BreachWatch exposure, inactive users and seats in one run, then ask what changed since last quarter. Keeper Security + your AI reads through your own Commander Service Mode host and stores each run locally. It is read-only, and it has no path to a vault record.
+
+Outcomes (question -> command your AI agent runs):
+- How is every client doing on 2FA, weak passwords and BreachWatch? -> keeper-cli posture report --days 90 --agent
+- Which clients have users without 2FA, admins first? -> keeper-cli users risk --kind no-2fa --agent
+- What changed since the last posture run, by client and by user? -> keeper-cli posture diff --agent
+- Which invites went stale, and who is inactive or locked? -> keeper-cli users hygiene --kind invited,inactive --agent
+- Which managed company does this user belong to? -> keeper-cli users find jane@example.com --agent
+- How many seats does each client have allocated and active? -> keeper-cli companies list --agent
+
+FAQ:
+Q: Does this work with ChatGPT?
+A: Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so it needs the Keeper Security MCP server's token-protected HTTP mode hosted over HTTPS. Step-by-step in the install guide.
+Q: Do I need to know how to code?
+A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
+Q: Is my Keeper Security data safe?
+A: Your data stays on your machine and your own Service Mode host. Typed reads are printed and not saved; only posture report saves metrics and per-user facts to a local store. The skill cannot read a vault record, and a response shaped like record content is refused whole.
+Q: Can this read passwords from a client's vault?
+A: No. It can send only the admin and MSP reports listed by keeper-cli allowlist, each with fixed read-only flags. Set the same list on your Service Mode key with service-create -c, so Service Mode refuses anything else too.
+Q: What do I need from Keeper?
+A: Keeper Commander running in Service Mode on a host you control, over TLS (service-create with -crtf and -crtp), and its API key. The CLI refuses plain http on every host, localhost included. A private certificate is trusted with KEEPER_CA_CERT.
+Q: Do I need a Keeper MSP account?
+A: The cross-client commands need one. An account that is not an MSP is reported as its own enterprise, one company in the same format.
+Q: What does it cost?
+A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
+
+Governance: The skill reads Keeper admin and MSP reports: companies, seats, users, roles, teams, 2FA, password-health scores, BreachWatch summaries and audit events. It cannot change anything in Keeper and cannot read a vault record. The only things it writes are local: posture runs, learnings and profiles. Let an agent read freely, and keep a human on the credential commands.
+
 ### KnowBe4 (Security)
 
 Page: [KnowBe4](https://msp-skills.compoundingteams.com/skills/knowbe4.md)
@@ -1850,17 +2144,17 @@ Outcomes (question -> command your AI agent runs):
 
 FAQ:
 Q: Does this work with ChatGPT?
-A: Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way knowbe4-mcp runs, and shares MCP configuration with Codex: add knowbe4-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote (HTTP) server, and this connector's HTTP mode is paused until it is reprinted; the security note at the top of the install guide explains why. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
+A: Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way knowbe4-mcp runs, and shares MCP configuration with Codex: add knowbe4-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote (HTTP) server, which msp-skills does not support yet. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
 Q: Do I need to know how to code?
 A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
 Q: Is my KnowBe4 data safe?
-A: Your data stays on your machine. The CLI, MCP server, and the local mirror are all local, and the bundled MCP server exposes read-only reporting tools only. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills.
+A: Your data stays on your machine. The CLI, MCP server, and the local mirror are all local, and the only MCP tools that change KnowBe4 data (pushing or removing a custom risk event) preview first and send only when confirmed. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills.
 Q: What does it cost?
 A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
 Q: Does this replace the KnowBe4 console or need a special partner API?
 A: Neither. It uses your standard KMSAT Reporting API key (Account Settings - API - enable Reporting API) and your region (us, eu, ca, uk, or de). It reads what your account already exposes and adds the cross-client rollups the console doesn't. The one write path that needs extra setup is pushing custom risk events, which uses a separate, opt-in User Event API key.
 
-Governance: The skill reads your KnowBe4 reporting data - accounts, users, groups, phishing tests, training, risk scores - and can sync it to a local SQLite mirror; all of that is read-only and safe to let an agent run, and the bundled MCP server exposes only those read tools. The only write paths are CLI-only: pushing or deleting custom risk events on a user's timeline (a separate, opt-in User Event API key) and bulk import. Keep those human-reviewed and preview them with --dry-run first.
+Governance: The skill reads your KnowBe4 reporting data - accounts, users, groups, phishing tests, training, risk scores - and can sync it to a local SQLite mirror; all of that is read-only and safe to let an agent run, The only writes push or delete a custom risk event on a user's timeline (a separate, opt-in User Event API key): on the CLI preview them with --dry-run, and over MCP they return a preview and send only with confirm: true (KNOWBE4_MCP_READ_ONLY=1 removes them). Keep those human-reviewed.
 
 ### Level (RMM)
 
@@ -1913,8 +2207,7 @@ Outcomes (question -> command your AI agent runs):
 - Give me one health scorecard for the whole estate. -> liongard-cli health --agent
 - Show me one client's complete picture in a single command. -> liongard-cli environments overview 42
 - Which inspections failed or errored across the estate? -> liongard-cli detections failures --since 7d
-- Pull one metric across every system, CSV-ready for a report. -> liongard-cli metrics pivot "MFA Enabled Count" --csv
-- Which systems breach a threshold, like patch age over 30 days? -> liongard-cli metrics breach "Patch Age Days" --op gt --value 30
+- Which systems does one metric cover, CSV-ready for a report? -> liongard-cli metrics pivot "MFA Enabled Count" --csv
 - Where are my monitoring gaps (systems with no launchpoint, environments with no systems)? -> liongard-cli coverage
 - Which environments are still missing a given inspector? -> liongard-cli inspectors coverage --inspector "Microsoft 365"
 - What is the full change history for one system? -> liongard-cli systems history 4821
@@ -1922,7 +2215,7 @@ Outcomes (question -> command your AI agent runs):
 
 FAQ:
 Q: Does this work with ChatGPT?
-A: Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way liongard-mcp runs, and shares MCP configuration with Codex: add liongard-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote (HTTP) server, and this connector's HTTP mode is paused until it is reprinted; the security note at the top of the install guide explains why. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
+A: Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way liongard-mcp runs, and shares MCP configuration with Codex: add liongard-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote (HTTP) server hosted over HTTPS (see Remote agents in the install guide). If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
 Q: Do I need to know how to code?
 A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
 Q: Is my Liongard data safe?
@@ -1937,7 +2230,7 @@ Governance: Read commands (drift, health, coverage, the stale/offline/failure ro
 ### Maxio (Billing)
 
 Page: [Maxio](https://msp-skills.compoundingteams.com/skills/maxio.md)
-Verification: Awaiting live verification
+Verification: Live-verified by Servosity (maintainer) (2026-11-06)
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/maxio/install.sh)
 
 Ask 'what's our MRR, and how did it move last quarter?' and get the New / Expansion / Contraction / Churn / Reactivation waterfall, net and gross revenue retention, per-customer revenue history, and a ranked list of accounts that need attention - in one command, computed offline from a local mirror of your Maxio Advanced Billing data. It is the revenue math the dashboard buries and the live, point-in-time API can't reconstruct after the fact.
@@ -1987,14 +2280,16 @@ Outcomes (question -> command your AI agent runs):
 - Which groups are ownerless, empty, or guest-heavy across the tenant? -> microsoft-graph-cli groups risk --agent
 - Which third-party apps have been consented into the tenant, and which are over-privileged, admin-consented, or user-consented shadow IT? -> microsoft-graph-cli apps consent --agent
 - Where does this tenant stand overall - users, license waste, admins, alerts, device drift? -> microsoft-graph-cli tenant snapshot --agent
+- Which Teams Phone numbers does the tenant hold, and which are unassigned? -> microsoft-graph-cli phone-numbers list --agent
+- Which users have Enterprise Voice on, with which numbers and Teams policies? -> microsoft-graph-cli teams-users list --filter 'isEnterpriseVoiceEnabled eq true' --agent
 
 FAQ:
 Q: Does this work with ChatGPT?
-A: Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way microsoft-graph-mcp runs, and shares MCP configuration with Codex: add microsoft-graph-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote (HTTP) server, and this connector's HTTP mode is paused until it is reprinted; the security note at the top of the install guide explains why. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
+A: Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way microsoft-graph-mcp runs, and shares MCP configuration with Codex: add microsoft-graph-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote (HTTP) server, which msp-skills does not support yet; see the install guide. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
 Q: Do I need to know how to code?
 A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
 Q: Is my Microsoft 365 data safe?
-A: Your data stays on your machine. The CLI, MCP server, and the local SQLite mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills - the token is read from your environment and used only against the Microsoft Graph API.
+A: Your data stays on your machine. The CLI, MCP server, and the local SQLite mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills - the token is read from your environment or from the 0600 credentials file `auth login` writes, and is sent only to the Microsoft Graph API (and the client secret only to the Entra token endpoint).
 Q: Will this hit my Microsoft Graph throttling limits?
 A: The local mirror exists so reads stop hitting Graph. After the first `pull`, the cross-entity views (licenses waste/orphans/map, admins audit, security triage, managed-devices drift, groups risk, tenant snapshot) run against local SQLite with zero API calls. Live calls follow @odata.nextLink and respect a `--rate-limit` throttle, and pull treats resources your token can't reach as warnings, not failures.
 Q: Is this the replacement for the Microsoft Graph CLI (mgc) that's being retired?
@@ -2003,10 +2298,12 @@ Q: Does it use a delegated or app-only token?
 A: Either. Run `auth login --tenant <id> --client-id <id> --client-secret <secret>` to mint and cache an app-only (client-credentials) token for unattended MSP use, or export a pre-minted token as MICROSOFT_GRAPH_TOKEN. Read scopes such as Directory.Read.All, RoleManagement.Read.Directory, SecurityAlert.Read.All, and DeviceManagementManagedDevices.Read.All must be granted and admin-consented. App-only tokens have no /me, so `users me` is delegated-only.
 Q: How do I audit which third-party apps have been consented into a tenant?
 A: Run `microsoft-graph-cli apps consent --agent`. It inventories every non-Microsoft enterprise application (service principal) and the access it holds - joining service principals, delegated consent grants (oauth2PermissionGrants), and application/app-only permissions (appRoleAssignments) into one risk-ranked table. It flags over-privileged apps, admin-consented (tenant-wide) apps, privilege-escalation permissions, and user-consented shadow IT, all read-only. Microsoft's own first-party apps are counted but not listed so the report is just the consent you granted or inherited. Needs read scopes Application.Read.All, Directory.Read.All, and DelegatedPermissionGrant.Read.All.
+Q: Can it read Teams meeting transcripts?
+A: Only in your own tenant. An MSP's credentials can reach its clients' tenants, but a client's meetings are never the MSP's to read, so `transcripts list`, `transcripts download` and `transcripts all` refuse any token whose tenant is not MICROSOFT_GRAPH_HOME_TENANT, a user who signed in from another tenant (GDAP or guest), and an app-only token unless MICROSOFT_GRAPH_TRANSCRIPTS_APP_ONLY=1 and a Teams application access policy limits the app to named users. Nothing is kept on disk. Set MICROSOFT_GRAPH_MCP_NO_TRANSCRIPTS=1 to switch them off for MCP.
 Q: What does it cost?
 A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
 
-Governance: The skill drives the microsoft-graph-cli and microsoft-graph-mcp binaries, authenticating with a MICROSOFT_GRAPH_TOKEN read from the environment - never logged, never written to disk, never sent anywhere except the Microsoft Graph API. Every typed command is read-only: users, groups, directory roles, licenses, devices, managed devices, security alerts and incidents, third-party app consent (`apps consent`), and the cross-entity analytics change nothing. The single write path is the explicit `import` command (a JSONL-to-POST create path), which previews with `--dry-run`. The strongest control is the scope of the token you mint - grant read-only Graph scopes and the CLI can only read.
+Governance: The skill drives the microsoft-graph-cli and microsoft-graph-mcp binaries, authenticating with a MICROSOFT_GRAPH_TOKEN from the environment or the 0600 credentials file `auth login` writes - never logged, and sent only to the Microsoft Graph API. No command writes to your tenant: users, groups, directory roles, licenses, devices, managed devices, security alerts and incidents, third-party app consent (`apps consent`), Teams Phone numbers and user voice settings, and the cross-entity analytics only read. Teams meeting transcripts are read in your own tenant only and never stored. The strongest control is the scope of the token you mint - grant read-only Graph scopes and the CLI can only read.
 
 ### Mimecast (Security)
 
@@ -2277,7 +2574,7 @@ Outcomes (question -> command your AI agent runs):
 
 FAQ:
 Q: Does this work with ChatGPT?
-A: Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way pagerduty-mcp runs, and shares MCP configuration with Codex: add pagerduty-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote (HTTP) server, and this connector's HTTP mode is paused until it is reprinted; the security note at the top of the install guide explains why. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
+A: Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way pagerduty-mcp runs, and shares MCP configuration with Codex: add pagerduty-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote server. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
 Q: Do I need to know how to code?
 A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
 Q: Is my PagerDuty data safe?
@@ -2520,7 +2817,7 @@ Ask your books a question and get the answer, not a CSV export. The skill syncs 
 
 Outcomes (question -> command your AI agent runs):
 - Who owes us money, bucketed 0-30 / 31-60 / 61-90 / 90+? -> quickbooks-cli ar-aging --agent
-- What do we owe vendors, and when is it due? -> quickbooks-cli ap-aging --agent
+- What do we owe vendors, and how overdue is it? -> quickbooks-cli ap-aging --agent
 - Which overdue invoices should I chase first? -> quickbooks-cli invoices stale --days 30 --agent
 - Where does our cash stand across accounts, AR, and AP? -> quickbooks-cli balances --agent
 - What net cash movement is scheduled over the next 4 weeks? -> quickbooks-cli cash-forecast --weeks 4 --agent
@@ -2534,7 +2831,7 @@ Outcomes (question -> command your AI agent runs):
 
 FAQ:
 Q: Does this work with ChatGPT?
-A: Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way quickbooks-mcp runs, and shares MCP configuration with Codex: add quickbooks-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote (HTTP) server, and this connector's HTTP mode is paused until it is reprinted; the security note at the top of the install guide explains why. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
+A: Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way quickbooks-mcp runs, and shares MCP configuration with Codex: add quickbooks-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote server. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
 Q: Do I need to know how to code?
 A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
 Q: Is my QuickBooks Online data safe?
@@ -2546,7 +2843,7 @@ A: Rarely. The only API-heavy step is the one-time sync that mirrors your compan
 Q: Do I need to be an Intuit partner to use it?
 A: No. You need a QuickBooks Online company and an OAuth access token scoped to com.intuit.quickbooks.accounting, plus your company realm ID. You mint the token from the Intuit Developer portal or the OAuth 2.0 Playground, and `quickbooks-cli auth refresh` turns a refresh token into a fresh access token - no partner status required.
 
-Governance: The skill reads everything - aging, balances, DSO, cash forecast, reconciliation, search - and read commands cannot change anything. Writes are explicit create/update/delete commands on invoices, bills, payments, customers, vendors, accounts, items, and journal entries, and `--dry-run` is opt-in, so the recommended agent policy is: read freely, preview every write, and keep a human on deletes. Credentials are read from the environment only and are never written to disk or logged.
+Governance: The skill reads everything - aging, balances, DSO, cash forecast, reconciliation, search - and read commands cannot change anything. Writes are explicit create/update/delete commands on invoices, bills, payments, customers, vendors, accounts, items, and journal entries, and `--dry-run` is opt-in, so the recommended agent policy is: read freely, preview every write, and keep a human on deletes. Credentials come from the environment or from the local credentials file that `auth set-token` and `auth refresh` write, and are never logged.
 
 ### QuoteWerks (CRM)
 
@@ -2625,7 +2922,7 @@ Page: [Rewst](https://msp-skills.compoundingteams.com/skills/rewst.md)
 Verification: Awaiting live verification
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/rewst/install.sh)
 
-Ask your AI "is automation healthy for this client?" or "which workflows failed overnight?" and get an answer across every tenant. Rewst's only surface is a GraphQL gateway with no first-party CLI. This skill turns every entity into a typed command and adds cross-org rollups - execution health, failure triage, ROI, dormant workflows, config drift, and pack coverage - the web app makes you assemble one client at a time.
+Ask your AI "is automation healthy for this client?" or "which workflows failed overnight?" and get an answer across every tenant. Rewst's only surface is a GraphQL gateway with no first-party CLI. This skill adds cross-org rollups - execution health, failure triage, ROI, dormant workflows, config drift, and pack coverage - the web app makes you assemble one client at a time.
 
 Outcomes (question -> command your AI agent runs):
 - Is automation healthy for this client right now? -> rewst-cli health --org <orgId> --since 24h --agent
@@ -2637,26 +2934,26 @@ Outcomes (question -> command your AI agent runs):
 
 FAQ:
 Q: Does this work with ChatGPT?
-A: Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way rewst-mcp runs, and shares MCP configuration with Codex: add rewst-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote (HTTP) server, and this connector's HTTP mode is paused until it is reprinted; the security note at the top of the install guide explains why. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
+A: Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way rewst-mcp runs, and shares MCP configuration with Codex: add rewst-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote server. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
 Q: Do I need to know how to code?
 A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
 Q: Is my Rewst data safe?
-A: Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills.
+A: Your data stays on your machine. The CLI and MCP server are local binaries. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills.
 Q: What does it cost?
 A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
 Q: Is Rewst's API REST or GraphQL?
-A: GraphQL-only. This CLI maps the schema to typed commands and includes an api command that exposes every endpoint by interface name for full schema coverage, so you don't hand-write GraphQL for common operations. EU/AU regions set REWST_BASE_URL; the US default is api.rewst.io.
+A: GraphQL-only. The rollups (orgs, health, failures, dormant, roi, drift, coverage) and doctor send real GraphQL queries, so you don't hand-write GraphQL for those questions. The typed entity commands in this build are generated as REST-shaped calls the gateway refuses. EU/AU regions set REWST_BASE_URL; the US default is api.rewst.io.
 Q: Can it build or run workflows?
-A: It reads and manages Rewst entities (workflows, triggers, variables, packs); it does not visually author workflow graphs - use the Rewst designer for that. Creating or updating triggers and workflows is gated human-in-the-loop, since those changes affect automation running on live customer tenants.
+A: No. It reads workflow health, failures, time saved, drift and pack coverage; it does not author workflow graphs - use the Rewst designer for that. The typed create and update commands for triggers and workflows are refused by the gateway in this build, and the safety tiers still treat them as human-in-the-loop, since those changes affect automation running on live customer tenants.
 Q: Does it work across all my client organizations?
 A: Yes. The rollups (health, failures, drift, coverage) are multi-org by design and take an --org or --parent id; coverage scans a parent org's managed sub-orgs.
 
-Governance: The skill is read-first: the six cross-org rollups (health, failures, dormant, roi, drift, coverage) plus get/list/search are read-only and safe to let an agent run. Creating or updating workflows, triggers, packs, and org-variables arms or alters automation that runs on live customer tenants - those are gated human-in-the-loop, as are organization/user admin and saving an API token. The Rewst API token's own permissions are the outer limit on anything the agent can do.
+Governance: The skill is read-first: the seven GraphQL rollups (orgs, health, failures, dormant, roi, drift, coverage) plus get/list/search are read-only and safe to let an agent run. Creating or updating workflows, triggers, packs, and org-variables arms or alters automation that runs on live customer tenants - those are gated human-in-the-loop, as are organization/user admin and saving an API token. The Rewst API token's own permissions are the outer limit on anything the agent can do.
 
 ### Riverside.fm (Marketing)
 
 Page: [Riverside.fm](https://msp-skills.compoundingteams.com/skills/riverside-fm.md)
-Verification: Awaiting live verification
+Verification: Live-verified by Servosity (maintainer) (2026-11-06)
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/riverside-fm/install.sh)
 
 Pull every transcript, audio track, and video out of your own Riverside.com account in one command - no Business plan, no API key, no clicking Studio then Project then Take for each file. Ask your agent to archive a whole studio, find a quote across every episode, or convert a transcript to WebVTT, and it runs the real command against the same internal API the web app already uses.
@@ -2685,9 +2982,9 @@ A: No. The official Riverside API requires a custom-priced Business plan. This C
 Q: Can this download other people's recordings?
 A: No. It authenticates as you, with your own browser session, and only reaches the studios and takes your account already has access to. It is scoped to exporting your own content, not scraping anyone else's.
 Q: Will this change anything in my Riverside account?
-A: The commands you use to export, search, and convert all read - they only download and transform your data. The CLI does include the generic import command, which can POST records from a local file via the API's create/upsert path; it is not part of any workflow in this skill, and an agent should treat it as a reviewed write. Nothing in this CLI deletes or publishes.
+A: The commands you use to export, search, and convert all read - they only download and transform your data. Nothing in this CLI writes to Riverside, deletes or publishes.
 
-Governance: The Riverside data commands in this skill read: they download, search, and convert data from your own account. The one mutating command is the generic import, which POSTs records from a local JSONL file via the API's create/upsert path and is not part of any export workflow here. The CLI authenticates with your own browser session cookies, read from your environment only, and can do only what your Riverside account already permits. The safe agent policy is to allow reads freely and keep a human on import and anything else the safety scanner flags as a write.
+Governance: The Riverside data commands in this skill read: they download, search, and convert data from your own account. No command changes anything in your Riverside account. The CLI authenticates with your own browser session cookies, read from your environment only, and can do only what your Riverside account already permits. The safe agent policy is to allow reads freely and keep a human on import and anything else the safety scanner flags as a write.
 
 ### RocketCyber (Security)
 
@@ -2858,11 +3155,11 @@ Outcomes (question -> command your AI agent runs):
 
 FAQ:
 Q: Does this work with ChatGPT?
-A: Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way salesbuildr-mcp runs, and shares MCP configuration with Codex: add salesbuildr-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote (HTTP) server, and this connector's HTTP mode is paused until it is reprinted; the security note at the top of the install guide explains why. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
+A: Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way salesbuildr-mcp runs, and shares MCP configuration with Codex: add salesbuildr-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web needs a remote server: you host salesbuildr-mcp over HTTPS with SALESBUILDR_MCP_HTTP_TOKEN set, and it works only if your ChatGPT connector can send that bearer token (see the install guide). If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
 Q: Do I need to know how to code?
 A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
 Q: Is my Salesbuildr data safe?
-A: Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills.
+A: Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, credentials are never bundled or transmitted by MSP Skills, and the key goes only to your Salesbuildr API host.
 Q: What does it cost?
 A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
 Q: Will this hammer my Salesbuildr API rate limits?
@@ -2915,7 +3212,7 @@ Governance: The skill drives the sentinelone-cli and sentinelone-mcp binaries, a
 ### Servosity (Backup/DR)
 
 Page: [Servosity](https://msp-skills.compoundingteams.com/skills/servosity.md)
-Verification: Awaiting live verification
+Verification: Live-verified by Servosity (maintainer) (2026-11-06)
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/servosity/install.sh)
 
 MSPs run Servosity as the backup and DR platform - M365, DR Server, and DR Desktop protection across a whole book of clients. Ask your AI "where is my attention needed today", "which backups went stale this week", or "build Acme's QBR backup section" and get fleet-wide answers the per-client dashboard can't compose: ranked attention sweeps, day-over-day drift, ready-to-send stale-backup follow-ups, and the whole book's QBR reports in one pass.
@@ -2928,6 +3225,7 @@ Outcomes (question -> command your AI agent runs):
 - Build the backup section of Acme's QBR as a PDF -> servosity-cli qbr "Acme Co" --out acme-q1.pdf
 - Quarter-end: every client's QBR backup report in one pass -> servosity-cli qbr-all --quarter 2026-Q1 --out ./qbrs/
 - Watch every client's restore queue during a DR event -> servosity-cli restore-queue watch
+- Which issues are new or changed since my agent last looked? -> servosity-cli events list --since 0 --json
 - Does my Servosity bill match what I invoice my clients? -> servosity-cli bill --reconcile invoices.csv
 - Which hosts are below 7-year retention or outside the recovery guarantee? -> servosity-cli retention-audit --min 7YEAR
 - What one root cause is behind this month's backup failures? -> servosity-cli failure-clusters --top 10
@@ -2945,6 +3243,8 @@ Q: What credentials do I need?
 A: A Servosity partner API token from the partner portal. Set SERVOSITY_MSP_TOKEN in your environment or run servosity-cli auth set-token. The token carries your reseller scope - the CLI sees exactly the clients your Servosity account sees, nothing more.
 Q: Can this change anything in my Servosity account?
 A: The day-to-day surface is read-only. The write surface is issue triage (triage --ignore / --archive / --reactivate / --comment) and import, plus raw create/update/delete subcommands under the API resource groups. --dry-run is an opt-in preview, not a default - the recommended agent policy is preview, approve, then run. Restores and backup configuration stay in the dashboard.
+Q: Can my agent hear about new Servosity issues?
+A: Yes. Servosity does not send webhooks yet, so servosity-cli issues watch polls your issue list read-only (every 5 minutes by default) and records each new, changed, archived, ignored or reactivated issue as an event. Your agent reads them with servosity-cli events list --since <cursor> or the read-only MCP tool events_list, which costs no Servosity call. Events carry ids and triage fields, never issue text.
 Q: Is it fast enough for the morning sweep?
 A: After a sync, the fleet views (attention, drift, stale-backups, backup-facts, qbr) read the local store - instant and offline. Pass --refresh when you want a live pull; restore-queue watch polls live by design.
 Q: Do I need to be a Servosity partner?
@@ -3382,6 +3682,38 @@ A: No. The Portal stays best for authoring policies and the interactive approve/
 
 Governance: The skill drives the threatlocker-cli and threatlocker-mcp binaries, authenticating with a THREATLOCKER_API_KEY read from the environment, never logged and never sent anywhere except the ThreatLocker API. Read commands (approvals triage, audit drift, audit export, audit retention-check, devices health, applications hunt, search) change nothing. Writes are not gated by default: --dry-run is an opt-in preview flag, so the recommended policy is an agent-level rule, preview with --dry-run, show the exact command, get approval, then run the write. Keep computers delete and policies delete human-only. The strongest control is the scope of the API key you mint in the Portal.
 
+### 3CX (Other)
+
+Page: [3CX](https://msp-skills.compoundingteams.com/skills/threecx.md)
+Verification: Awaiting live verification
+Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/threecx/install.sh)
+
+Ask which client's 3CX phone system needs you today and get one ranked answer across every PBX you manage: trunks down, builds behind, licences and maintenance running out, backups gone stale. Each PBX keeps its own API credential, nothing is cached between runs, and the full 3CX Configuration API stays one command away on any single system.
+
+Outcomes (question -> command your AI agent runs):
+- Which client phone systems are failing or warning, and why? -> threecx-cli fleet health --agent
+- Which trunks are offline, misconfigured or in an unknown state across every client? -> threecx-cli fleet trunks --offline --agent
+- Whose licence or maintenance expires in the next 60 days? -> threecx-cli fleet licences --within 60d --agent
+- Which PBXes are behind the newest 3CX build in our fleet or have updates pending? -> threecx-cli fleet versions --behind --agent
+- Which clients have no backup in the last two days? -> threecx-cli fleet backups --stale 48h --problems --agent
+- What changed on our phone systems since yesterday? -> threecx-cli fleet changes --since 24h --agent
+
+FAQ:
+Q: Does this work with ChatGPT?
+A: Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so it needs the 3CX MCP server's token-protected HTTP mode hosted over HTTPS. Step-by-step in the install guide.
+Q: Do I need to know how to code?
+A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
+Q: Is my 3CX data safe?
+A: Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills.
+Q: What does it cost?
+A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
+Q: Does it change anything on my clients' phone systems?
+A: The fleet commands only read. The single-PBX commands cover the whole Configuration API, including writes such as restarting services or rebooting phones; in the MCP server every write returns a preview until the agent sends confirm: true, and on the CLI you preview any write with --dry-run first. MCP read-only mode (THREECX_MCP_READ_ONLY) removes the write tools entirely.
+Q: Which 3CX versions and licences does this need?
+A: 3CX V20 or later with the Configuration API, which 3CX documents as needing an 8SC or higher licence. On each PBX, create an API client under Admin Console > Integrations > API with Configuration API access; its client ID is the DN number shown there and the API key is shown once. A PBX on a lower edition reports an error in its own row instead of stopping the whole fleet run.
+
+Governance: The fleet commands and every GET command only read. Writes (setting changes, user edits), phone-system control (service restarts, phone reboots, firmware pushes, updates, backup restores), credential commands (API keys, tokens, provisioning links) and deletes or purges are separate tiers that should need a human. Scope each PBX's API client to the department and role your workflow needs.
+
 ### UniFi Network (Network Monitoring)
 
 Page: [UniFi Network](https://msp-skills.compoundingteams.com/skills/unifi-network.md)
@@ -3452,6 +3784,40 @@ Q: Can it change backup jobs or run restores?
 A: The full VSPC v3 surface is exposed, including create/delete jobs and agent deployment, but those are gated human-in-the-loop in governance.md. Day-to-day this is read-first monitoring; destructive and infrastructure commands need explicit approval.
 
 Governance: The skill is read-first: cross-tenant health, stale-backup and at-risk sweeps, alarm triage, license usage, and search are read-only and safe to let an agent run. The write surface is large - creating and deleting backup jobs, policies and rules, installing agents, rebooting and deploying to real customer infrastructure, and credential/certificate operations - and is gated human-in-the-loop. The VSPC token's own permissions are the outer limit on anything the agent can do.
+
+### VMware vSphere (Other)
+
+Page: [VMware vSphere](https://msp-skills.compoundingteams.com/skills/vsphere.md)
+Verification: Awaiting live verification
+Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/vsphere/install.sh)
+
+Ask your AI which client VMs can leave VMware today, which are blocked and why, how many cores Broadcom will bill for, and what each VM looks like on Proxmox. vsphere-cli reads vCenter with a Read-Only login and answers in seconds, as JSON your agent can act on. It never changes anything in vCenter.
+
+Outcomes (question -> command your AI agent runs):
+- Which VMs are blocked from migrating, and what is blocking each one? -> vsphere-cli migration blockers --severity block --agent
+- Which snapshots are older than a week, and how much delta disk does each of those VMs carry? -> vsphere-cli snapshots audit --older-than 7d --agent
+- How many licensable cores does this vCenter have under the 16-core-per-CPU minimum? -> vsphere-cli licence exposure --agent
+- How much vCPU, RAM and storage does the Proxmox target need? -> vsphere-cli migration capacity --powered-on-only --agent
+- Which Proxmox VE settings does this VM map to? -> vsphere-cli migration proxmox-map --vm vm-1021 --agent
+- Can I get an RVTools-format export without a Windows machine? -> vsphere-cli rvtools export --out ./acme-rvtools
+
+FAQ:
+Q: Does this work with ChatGPT?
+A: Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so it needs the VMware vSphere MCP server's token-protected HTTP mode hosted over HTTPS. Step-by-step in the install guide.
+Q: Do I need to know how to code?
+A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
+Q: Is my VMware data safe?
+A: Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills.
+Q: What does it cost?
+A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
+Q: Does it change anything in vCenter?
+A: No. Every vCenter call is a read. A Read-Only role on the vCenter SSO user is enough.
+Q: Which vCenter versions does it support?
+A: Inventory reads need vCenter 7.0 Update 2 or later. Snapshots, licence exposure, host hardware and capacity need vCenter 8.0 Update 1 or later; on older vCenters those checks are reported as unknown, never as a pass.
+Q: Our vCenter uses a self-signed certificate. Will it connect?
+A: Yes. Set VSPHERE_TLS_FINGERPRINT to the certificate's SHA-256 fingerprint and the CLI accepts only that certificate. Without it, normal certificate checks apply.
+
+Governance: Every command that talks to vCenter is a read: the skill cannot power off, delete, move or reconfigure anything. It does write on your own machine (the local store, export files, saved credentials), and local-data purge erases that local data. Let agents run the read commands freely; keep credential and local-erase commands with a human.
 
 ### Device Warranty (Documentation)
 
@@ -3529,6 +3895,41 @@ Q: Has it been tested against a live WatchGuard Cloud account?
 A: Not yet. Every command was built from WatchGuard's published OpenAPI specifications and tested against a local mock of those APIs, not a real account. If you run it against your own WatchGuard Cloud account, tell us what worked or broke on the GitHub issue tracker or at a Build Session; a real MSP run is what earns the live-verified badge.
 
 Governance: The skill is read-first: the cross-customer reports, sync, search and nearly every list and get command only read. The exceptions are the reads whose output carries a secret (BOVPN tunnels, Firebox certificates, networks, users, content filtering and the activation keys from activations), which belong with the credential commands; the response cache never stores them and the local mirror drops them (a software license key in an allocation row is replaced by a one-way fingerprint; Firebox serial numbers are kept). Every write sends immediately with no confirmation prompt, so preview with --dry-run and keep endpoint actions, deployments and deletes human-in-the-loop. The read-only Access ID is the outer limit for a reporting agent.
+
+### Windows Server (Monitoring)
+
+Page: [Windows Server](https://msp-skills.compoundingteams.com/skills/windows-server.md)
+Verification: Awaiting live verification
+Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/windows-server/install.sh)
+
+Ask your AI "which of my Windows servers need attention today, and why?" and get one ok, warn, crit or unknown verdict per server: pending reboot, low disks, stopped automatic services, System log errors, patch age, pending updates, expiring certificates, Defender, time sync and failed scheduled tasks. It connects over WinRM with HTTPS, runs only fixed read scripts, and changes nothing except a service you confirm.
+
+Outcomes (question -> command your AI agent runs):
+- Which of my servers need attention today, and why? -> windows-server-cli health --agent
+- Which automatic services are stopped, and which Service Control Manager event explains each stop? -> windows-server-cli services down --agent
+- Which System and Application errors are new on a server compared with its own last 7 days? -> windows-server-cli eventlog new --window 24h --baseline 7d --agent
+- Who added or removed a local Administrators member this week, and when? -> windows-server-cli local-admins changes --hours 168 --agent
+- What changed in roles, shares, local admins, certificates and updates since the last snapshot? -> windows-server-cli inventory diff --agent
+- Which volumes are low on free space? -> windows-server-cli volumes --agent --select server,drive_letter,size_bytes,percent_free
+- Which scheduled tasks failed their last run? -> windows-server-cli scheduled-tasks --failed --agent
+
+FAQ:
+Q: Does this work with ChatGPT?
+A: Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so it needs the Windows Server MCP server's token-protected HTTP mode hosted over HTTPS. Step-by-step in the install guide.
+Q: Do I need to know how to code?
+A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
+Q: Is my Windows Server data safe?
+A: Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills.
+Q: What does it cost?
+A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
+Q: Do I need to install an agent on each server?
+A: No. It uses WinRM over HTTPS (port 5986), which is built into Windows Server. Enable an HTTPS listener and give the CLI a local or domain account in the server's Administrators group. Nothing is installed on the server.
+Q: Can the AI run its own PowerShell on my client's server?
+A: No. Every command runs one fixed script that ships inside the binary and is checked by hash before it runs. Arguments such as a service name are validated against a strict pattern and passed as typed data, never pasted into script text.
+Q: What does it change on a server?
+A: Only two things, and only after a preview: restarting one service, or starting one stopped automatic service. Over MCP the change runs only with confirm: true; on the CLI only with --yes.
+
+Governance: It reads server state over WinRM with fixed scripts and writes nothing to the server except two service actions: restart a service, or start a stopped automatic one, each previewed first and sent only with --yes (CLI) or confirm: true (MCP). Locally it writes the server list's stored passwords (0600 store), the health and inventory history, and the agent learning store. Keep agents on reads; have a human approve every service action.
 
 ### WordPress (Marketing)
 
@@ -3643,3 +4044,36 @@ Q: Can my agent hear about new Zammad tickets without polling?
 A: Yes. `zammad-cli webhooks register` creates signed Zammad webhooks and triggers, and `zammad-cli webhooks listen` receives them on this machine (127.0.0.1 by default; any other address needs TLS). It verifies every request's signature, drops replays, fetches the ticket through the API instead of trusting the webhook body, and on every start records what changed while it was down. Your agent reads the events with `events list` or the read-only MCP tool `events_list`. Zammad has to reach the listener, so this fits a self-hosted Zammad on the same server or your LAN.
 
 Governance: Read commands (agent-load, customer-health, escalate, churn-risk, feedback-scan, overdue, ticket and Knowledge Base reads, search, sync) only pull data into a local mirror and are safe to allow. Routine writes (adding a ticket note, creating or updating a ticket, tagging, publishing a Knowledge Base answer) change the desk and should be previewed with --dry-run before a reviewed run. Deleting a ticket or Knowledge Base answer is destructive and should stay human-in-the-loop.
+
+### Zoom Phone (Telephony)
+
+Page: [Zoom Phone](https://msp-skills.compoundingteams.com/skills/zoom-phone.md)
+Verification: Awaiting live verification
+Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/zoom-phone/install.sh)
+
+Ask which client users have no verified 911 address, where the main number really rings after hours, or what a departing employee still holds, and get the answer from every client Zoom Phone account at once. The CLI mirrors each account locally for the audits, reads live data for routing and missed calls, and a change made through the MCP server runs only with confirm: true; in the CLI a change is sent at once, and --dry-run is the opt-in preview.
+
+Outcomes (question -> command your AI agent runs):
+- Which users, common areas and sites have a missing or unverified emergency address? -> zoom-phone-cli e911 audit --json --select findings.kind,findings.name,findings.detail
+- Which phone numbers are unassigned, pending, or still held by an inactive user? -> zoom-phone-cli numbers inventory --agent
+- Which desk phones are offline, unassigned or on drifted firmware, by site? -> zoom-phone-cli devices health --agent
+- Which external callers missed us this week and have not been called back? -> zoom-phone-cli callbacks --since 7d --agent
+- Which IVR keys point at nothing, and which call queues have nobody to answer? -> zoom-phone-cli routing audit --agent
+- What does this user hold before we remove them? -> zoom-phone-cli footprint jane@example.com --agent
+- Run the E911 audit across every client account at once -> zoom-phone-cli fleet -- e911 audit
+
+FAQ:
+Q: Does this work with ChatGPT?
+A: Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so it needs the Zoom MCP server's token-protected HTTP mode hosted over HTTPS. Step-by-step in the install guide.
+Q: Do I need to know how to code?
+A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
+Q: Is my Zoom data safe?
+A: Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data. Credentials are saved with the current token in a credentials file readable only by your user, and are never bundled or transmitted by MSP Skills.
+Q: What does it cost?
+A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
+Q: What Zoom credentials does it need?
+A: A Server-to-Server OAuth app in the Zoom App Marketplace, created in each client account, with the phone admin read scopes your workflow needs (add write scopes only if you want changes). You give the CLI its Account ID, Client ID and Client Secret; save one profile per client with accounts connect.
+Q: Will it hit my Zoom rate limits?
+A: Zoom Phone limits are per account and shared by every app. The E911, number and desk-phone audits read the local mirror, so after a sync they make no API calls. Live reads (routing, callbacks, footprint group membership) back off on HTTP 429 and honor Retry-After.
+
+Governance: Reads (the audits, routing traces, missed-call lists, footprints, sync and every Zoom Phone GET) change nothing and are safe to allow. Changes to a client account (call forwarding, queue members, settings) should be previewed and then approved: in the CLI a write is sent as soon as it runs and --dry-run is opt-in, while the MCP server runs a write only with confirm: true; deletes, the offboard plan's --apply, phone reboots, firmware and provisioning rules, SMS and emergency-address changes stay human-in-the-loop. Any command that can return a stored secret (device SIP passwords, PINs, activation codes) and any change to roles is credential tier.

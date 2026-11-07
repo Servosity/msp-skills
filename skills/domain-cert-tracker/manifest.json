@@ -1,0 +1,85 @@
+{
+  "manifest_version": "0.3",
+  "name": "domain-cert-tracker-mcp",
+  "display_name": "Domain and Certificate Tracker",
+  "version": "0.1.0",
+  "description": "Every client's domains and certificates in one inventory: what expires, unlocks or changes.",
+  "author": {
+    "name": "Servosity Inc."
+  },
+  "license": "Apache-2.0",
+  "server": {
+    "type": "binary",
+    "entry_point": "bin/domain-cert-tracker-mcp",
+    "mcp_config": {
+      "command": "${__dirname}/bin/domain-cert-tracker-mcp",
+      "args": [],
+      "env": {
+        "DOMAIN_CERT_TRACKER_BASE_URL": "${user_config.domain_cert_tracker_base_url}",
+        "PRINTING_PRESS_CLIENT_PROFILE": "${user_config.printing_press_client_profile}",
+        "DOMAIN_CERT_TRACKER_MCP_READ_ONLY": "${user_config.domain_cert_tracker_mcp_read_only}",
+        "DOMAIN_CERT_TRACKER_NO_LOCAL_DATA": "${user_config.domain_cert_tracker_no_local_data}",
+        "DOMAIN_CERT_TRACKER_USER_AGENT": "${user_config.domain_cert_tracker_user_agent}",
+        "DOMAIN_CERT_TRACKER_MCP_HTTP_TOKEN": "${user_config.domain_cert_tracker_mcp_http_token}"
+      }
+    }
+  },
+  "compatibility": {
+    "claude_desktop": ">=1.0.0",
+    "platforms": [
+      "darwin",
+      "linux",
+      "win32"
+    ]
+  },
+  "printing_press_version": "4.34.2",
+  "press_provenance": {
+    "printing_press_version": "4.34.2",
+    "generated_at": "2026-10-28T07:13:56.149255Z",
+    "spec_checksum": "sha256:aaa1117e1c4d8107aebffd24ad419e1b0c8d935b992a4c15b604b2bf82eee453",
+    "spec_format": "openapi3"
+  },
+  "user_config": {
+    "domain_cert_tracker_base_url": {
+      "type": "string",
+      "title": "RDAP base URL",
+      "description": "Optional. RDAP server used for single lookups (domain, nameserver, ip, autnum, bootstrap, certificates). Leave the prefilled default; sweep always routes each domain to its own registry. A server named here is reached even on a private address or another port, so set it only to a server you run or trust.",
+      "required": false,
+      "default": "https://rdap.org"
+    },
+    "printing_press_client_profile": {
+      "type": "string",
+      "title": "Client profile (optional)",
+      "description": "Only for tenant-gated multi-client deployments: binds the MCP server to an existing Printing Press client profile. Leave blank for a single-tenant install.",
+      "required": false,
+      "sensitive": true
+    },
+    "domain_cert_tracker_mcp_read_only": {
+      "type": "string",
+      "title": "Read-only MCP mode",
+      "description": "Optional. Set to exactly 1 to expose only read-only tools and refuse any state-changing call (sweep, clients set, clients remove). Leave blank to keep every tool available.",
+      "required": false,
+      "sensitive": false
+    },
+    "domain_cert_tracker_no_local_data": {
+      "type": "string",
+      "title": "Run without a local copy",
+      "description": "Optional. Set to 1 to keep no local store or response cache: single lookups still work, but sweep is refused. Leave blank to keep the local store.",
+      "required": false,
+      "sensitive": false
+    },
+    "domain_cert_tracker_user_agent": {
+      "type": "string",
+      "title": "User-Agent header",
+      "description": "Overrides the User-Agent the CLI sends to RDAP servers and crt.sh. Leave blank to use the CLI's own built-in User-Agent.",
+      "required": false
+    },
+    "domain_cert_tracker_mcp_http_token": {
+      "type": "string",
+      "title": "MCP HTTP transport bearer token",
+      "description": "Required only when running the MCP server with --transport http (a remote/hosted deployment). Callers must send a matching Authorization: Bearer header. Not needed for the default local stdio transport that Claude Desktop uses.",
+      "required": false,
+      "sensitive": true
+    }
+  }
+}

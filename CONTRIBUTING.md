@@ -201,6 +201,12 @@ Run them all locally with one command before you push:
 bash tools/maintainer/verify_all.sh
 ```
 
+`bash tools/maintainer/verify_all.sh --changed` checks only what your branch
+touched: the tool self-tests your change can reach, and your connector's Linux
+build and tests on your machine's own architecture. CI is the authority for the
+rest: it runs the x86 (linux/amd64) build and every tool self-test on every pull
+request. Add `--full` to run those here as well.
+
 ### If the security check flags your pull request
 
 `security-gate` reads its policy from `main`, not from your branch. That means

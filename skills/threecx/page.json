@@ -1,0 +1,106 @@
+{
+  "outcome_intro": "Ask which client's 3CX phone system needs you today and get one ranked answer across every PBX you manage: trunks down, builds behind, licences and maintenance running out, backups gone stale. Each PBX keeps its own API credential, nothing is cached between runs, and the full 3CX Configuration API stays one command away on any single system.",
+  "instead_of_say": [
+    {
+      "instead": "Logging into every client's 3CX admin console each morning to read the PBX Status page",
+      "say": "Which of our 3CX phone systems needs attention today?",
+      "cli": "threecx-cli fleet health --agent"
+    },
+    {
+      "instead": "Waiting for a client to call in because their SIP trunk dropped overnight",
+      "say": "Is any client's 3CX trunk offline or misconfigured right now?",
+      "cli": "threecx-cli fleet trunks --offline --agent"
+    },
+    {
+      "instead": "Keeping a spreadsheet of 3CX licence and maintenance renewal dates per client",
+      "say": "Which 3CX licences or maintenance plans expire in the next 60 days?",
+      "cli": "threecx-cli fleet licences --within 60d --agent"
+    }
+  ],
+  "pain_points": [
+    "Every 3CX tool, from the admin console to 3CX's own MCP preview, talks to one phone system at a time, so an MSP with 40 clients checks 40 consoles to answer one question.",
+    "A dead SIP trunk, a lapsed maintenance plan or a backup that quietly stopped is found when the client calls, not before: resellers on the 3CX forum have built their own polling apps to catch these across instances."
+  ],
+  "outcomes": [
+    {
+      "question": "Which client phone systems are failing or warning, and why?",
+      "command": "threecx-cli fleet health --agent"
+    },
+    {
+      "question": "Which trunks are offline, misconfigured or in an unknown state across every client?",
+      "command": "threecx-cli fleet trunks --offline --agent"
+    },
+    {
+      "question": "Whose licence or maintenance expires in the next 60 days?",
+      "command": "threecx-cli fleet licences --within 60d --agent"
+    },
+    {
+      "question": "Which PBXes are behind the newest 3CX build in our fleet or have updates pending?",
+      "command": "threecx-cli fleet versions --behind --agent"
+    },
+    {
+      "question": "Which clients have no backup in the last two days?",
+      "command": "threecx-cli fleet backups --stale 48h --problems --agent"
+    },
+    {
+      "question": "What changed on our phone systems since yesterday?",
+      "command": "threecx-cli fleet changes --since 24h --agent"
+    }
+  ],
+  "different_vs_wrappers": "This connector is built for a fleet: it registers every client PBX with its own credential and answers health, trunk, licence, version and backup questions for all of them in one parallel run, with a pass, warn, fail or unknown verdict per PBX. Single-PBX projects such as the 3cx-xapi CLI in the Printing Press library and SSIG-IT/3cx-mcp-server cover one phone system per connection.",
+  "different_vs_vendor": "3CX's own MCP server (a V20 preview) connects one user to one PBX; this complements it by comparing every client's phone system side by side and keeping a local history so you can see what changed between runs.",
+  "faqs": [
+    {
+      "q": "Does this work with ChatGPT?",
+      "a": "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so it needs the 3CX MCP server's token-protected HTTP mode hosted over HTTPS. Step-by-step in the install guide."
+    },
+    {
+      "q": "Do I need to know how to code?",
+      "a": "No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once."
+    },
+    {
+      "q": "Is my 3CX data safe?",
+      "a": "Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills."
+    },
+    {
+      "q": "What does it cost?",
+      "a": "Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use."
+    },
+    {
+      "q": "Does it change anything on my clients' phone systems?",
+      "a": "The fleet commands only read. The single-PBX commands cover the whole Configuration API, including writes such as restarting services or rebooting phones; in the MCP server every write returns a preview until the agent sends confirm: true, and on the CLI you preview any write with --dry-run first. MCP read-only mode (THREECX_MCP_READ_ONLY) removes the write tools entirely."
+    },
+    {
+      "q": "Which 3CX versions and licences does this need?",
+      "a": "3CX V20 or later with the Configuration API, which 3CX documents as needing an 8SC or higher licence. On each PBX, create an API client under Admin Console > Integrations > API with Configuration API access; its client ID is the DN number shown there and the API key is shown once. A PBX on a lower edition reports an error in its own row instead of stopping the whole fleet run."
+    }
+  ],
+  "governance_summary": "The fleet commands and every GET command only read. Writes (setting changes, user edits), phone-system control (service restarts, phone reboots, firmware pushes, updates, backup restores), credential commands (API keys, tokens, provisioning links) and deletes or purges are separate tiers that should need a human. Scope each PBX's API client to the department and role your workflow needs.",
+  "safety_tiers": [
+    {
+      "tier": "Read",
+      "examples": "fleet health, fleet trunks, fleet licences, fleet versions, fleet backups, fleet changes, fleet exec, users list, trunks list, system-status",
+      "policy": "Allow"
+    },
+    {
+      "tier": "Write (routine)",
+      "examples": "users-id update-user, queues-id update-queue, holidays-id update-holiday, office-hours update, import",
+      "policy": "Preview with --dry-run, then a reviewed write"
+    },
+    {
+      "tier": "Phone-system control",
+      "examples": "services restart, services restart-operating-system, install-updates, users reboot-phone, users reprovision-all-phones, sip-devices bulk-update-firmware, backups-file-name restore, users make-call",
+      "policy": "Human-in-the-loop only"
+    },
+    {
+      "tier": "Credential / identity",
+      "examples": "any command that can return or mint a credential: conference-settings generate-api-key, system-status apitoken, service-principals-id generate-app-token, users-id generate-prov-link, users regenerate-passwords, service-principals create, oauth-clients",
+      "policy": "Human-in-the-loop only"
+    },
+    {
+      "tier": "Destructive",
+      "examples": "every delete and purge: users-id delete-user, users batch-delete, purge-calls, purge-all-logs, recordings purge-local, backups purge-local, fleet remove, local-data purge",
+      "policy": "Human-in-the-loop only, explicit confirmation"
+    }
+  ]
+}

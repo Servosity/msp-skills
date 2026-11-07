@@ -95,6 +95,14 @@ cisco-umbrella:
   vendor: "Cisco Umbrella"
   example_command: "Which clients have roaming computers offline?"
 
+cloudally:
+  vendor: "CloudAlly"
+  example_command: "Which customers have a failing backup?"
+
+comet-backup:
+  vendor: "Comet Backup"
+  example_command: "Which Comet backups failed last night?"
+
 connect-tool:
   subtitle: "Claude Code Skill - no MCP server to install"
   vendor: "connect-tool"  # matches docs/skills/connect-tool.md
@@ -140,13 +148,29 @@ datto-rmm:
   vendor: "Datto RMM"
   example_command: "Which endpoints across all my clients have gone dark?"
 
+datto-saas:
+  vendor: "Datto SaaS Protection"
+  example_command: "Which users across all my clients are not backed up?"
+
 dnsfilter:
   vendor: "DNSFilter"
   example_command: "Why is this site blocked for Acme?"
 
+domain-cert-tracker:
+  vendor: "Domains & Certs"
+  example_command: "Which client certificates expire this month?"
+
 domotz:
   vendor: "Domotz"
   example_command: "Which client sites have devices down?"
+
+dropsuite:
+  vendor: "Dropsuite"
+  example_command: "Which client backups are failing or stale?"
+
+eset-protect:
+  vendor: "ESET PROTECT"
+  example_command: "Which ESET customers need attention?"
 
 exchange-online:
   vendor: "Exchange Online"
@@ -202,6 +226,10 @@ itglue:
   vendor: "IT Glue"
   example_command: "Which clients are under-documented?"
 
+jamf-pro:
+  vendor: "Jamf Pro"
+  example_command: "Which clients have FileVault off?"
+
 jira-service-management:
   vendor: "Jira Service Mgmt"
   example_command: "Which tickets breach SLA in the next two hours?"
@@ -213,6 +241,14 @@ kaseya-bms:
 kaseya-vsa:
   vendor: "Kaseya VSA 10"
   example_command: "Which critical patches are missing everywhere?"
+
+keeper:
+  vendor: "Keeper Security"
+  example_command: "Which clients have users without 2FA?"
+  response_lines:
+    - "3 clients - 7 users, 2 of them admins"
+    - "Read-only - no path to a vault secret"
+  outcome_line: "Every client's Keeper posture, read-only."
 
 knowbe4:
   vendor: "KnowBe4"
@@ -307,6 +343,9 @@ rewst:
   vendor: "Rewst"
   example_command: "Which workflows failed for this client?"
 
+riverside-fm:
+  vendor: "Riverside.fm"
+
 rocketcyber:
   vendor: "RocketCyber"
   example_command: "What broke across all my clients overnight?"
@@ -384,6 +423,10 @@ threatlocker:
   vendor: "ThreatLocker"
   example_command: "What approvals are pending everywhere?"
 
+threecx:
+  vendor: "3CX"
+  example_command: "Which client has a 3CX trunk down?"
+
 unifi-network:
   vendor: "UniFi Network"
   example_command: "What changed on this UniFi site?"
@@ -392,6 +435,10 @@ veeam:
   vendor: "Veeam"
   example_command: "Which customers have failing backups?"
 
+vsphere:
+  vendor: "VMware vSphere"
+  example_command: "Which of our VMs are blocked from leaving VMware?"
+
 warranty:
   vendor: "Device Warranty"
   example_command: "Which devices go out of warranty this quarter?"
@@ -399,6 +446,10 @@ warranty:
 watchguard:
   vendor: "WatchGuard"
   example_command: "Which customer needs attention first?"
+
+windows-server:
+  vendor: "Windows Server"
+  example_command: "Which of my servers need attention today?"
 
 wordpress:
   vendor: "WordPress"
@@ -411,3 +462,7 @@ xero:
 zammad:
   vendor: "Zammad"
   example_command: "Which customers might churn?"
+
+zoom-phone:
+  vendor: "Zoom Phone"
+  example_command: "Which users have no verified 911 address?"

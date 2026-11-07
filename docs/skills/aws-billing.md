@@ -1,11 +1,11 @@
 ---
 layout: default
 title: "AWS MCP Server - Free, Open Source, Runs Locally | MSP Skills"
-description: "Get a non-expert from zero to a Slack-delivered, plain-English, waste-flagged AWS bill breakdown  -  and cache it so you don't pay per Cost Explorer call."
+description: "Get a non-expert from zero to a Slack-delivered, plain-English, waste-flagged AWS bill breakdown, and cache it so you don't pay per Cost Explorer call."
 permalink: /skills/aws-billing/
 skill_name: "AWS MCP"
 image: /assets/social/aws-billing/wide-1200x630.png
-verification: awaiting
+verification: live-verified
 faqs:
   - q: "Is there an MCP server for AWS?"
     a: "Yes - this one. A free, open source MCP server and Claude Code Skill for AWS, built for MSPs. It runs locally on your machine, works with Claude, ChatGPT, Copilot, and any MCP-capable agent, and installs in about 60 seconds."
@@ -22,7 +22,7 @@ faqs:
   - q: "Will this run up my Cost Explorer bill?"
     a: "No - that is the point of the local cache. 'sync' pulls your cost data once (each Cost Explorer request is about $0.01), then bill, compare, consolidated, waste, and ask answer from the local SQLite mirror for free. Pass --data-source live only when you want a fresh pull."
   - q: "Do I need the aws CLI installed?"
-    a: "No. The binary signs its own AWS requests (SigV4) using the native credential chain - environment variables, a shared --profile-aws, SSO, assume-role, or instance metadata. There is nothing to paste and no aws CLI dependency."
+    a: "No. The binary signs its own AWS requests (SigV4) using the native credential chain - environment variables, a shared --profile-aws, SSO, or assume-role (EC2 instance-metadata credentials are not used; on EC2 use a profile, SSO or environment keys). There is nothing to paste and no aws CLI dependency."
   - q: "Does it work from a member account, or only the payer?"
     a: "Org-wide cost data (the consolidated rollup) needs a management/payer-account profile; from a member account you see only that account's own costs. Resource-level waste scans work in any account. Run 'aws-billing-cli doctor' to see exactly what your credentials can reach."
   - q: "Can it change anything in my AWS account?"
@@ -42,7 +42,7 @@ howto:
 > under Apache-2.0 - built for the MSP community, vendor-neutral by design.
 > Not affiliated with, endorsed by, or sponsored by Amazon.com, Inc. or its affiliates.
 
-**Passes all 4 mechanical gates** (build · command-surface · claims · install). Awaiting its first MSP receipt - [be the first, 60 seconds →](https://msp-skills.compoundingteams.com/verified/#receipt).
+**✓ Live-verified by Servosity (maintainer)** against a production tenant · 2026-11-06.
 
 Yes - there is an MCP server for AWS. It's free, open source, and runs on your own machine, so your client data stays local unless you route it somewhere yourself. It connects AWS to Claude, ChatGPT, Copilot, or any MCP-capable agent, and installs in about 60 seconds.
 
@@ -170,7 +170,7 @@ No - that is the point of the local cache. 'sync' pulls your cost data once (eac
 
 ### Do I need the aws CLI installed?
 
-No. The binary signs its own AWS requests (SigV4) using the native credential chain - environment variables, a shared --profile-aws, SSO, assume-role, or instance metadata. There is nothing to paste and no aws CLI dependency.
+No. The binary signs its own AWS requests (SigV4) using the native credential chain - environment variables, a shared --profile-aws, SSO, or assume-role (EC2 instance-metadata credentials are not used; on EC2 use a profile, SSO or environment keys). There is nothing to paste and no aws CLI dependency.
 
 ### Does it work from a member account, or only the payer?
 
@@ -187,7 +187,7 @@ Run more than one Billing tool, or comparing options? These connectors work the 
 
 ## Status
 
-Beta. Validated against the AWS API surface and being validated with MSPs running it live against their own production tenants in our weekly **[Build Sessions](https://compoundingteams.com/build-sessions)**.
+Live-verified. Confirmed by Servosity (maintainer) against their own production tenant. More MSPs run it live in our weekly **[Build Sessions](https://compoundingteams.com/build-sessions)**.
 
 Build Sessions are free and stay free - [The Build Room](https://compoundingteams.com) is where the deep work happens.
 

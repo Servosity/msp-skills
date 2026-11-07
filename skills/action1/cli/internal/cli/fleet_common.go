@@ -76,7 +76,40 @@ func fleetLoadAll(ctx context.Context, db *store.Store, resourceType string) ([]
 // store.LookupFieldValue (which flattens nested objects/arrays to JSON strings
 // for SQLite columns), this returns the RAW decoded value, so nested summaries
 // like missing_updates stay map[string]any and numbers stay json.Number.
+// A report-data row (InstalledSoftwareReportDataFields and every other
+// /reportdata and /installed-software row) carries its columns under "fields"
+// with display names ("Name", "Update Status"): a key the row does not carry
+// at the top level is read there too (action1 handfix
+// fleet-reads-documented-shapes; Codex r1 action1 class wrong field read from
+// documented response).
 func fleetField(obj map[string]any, key string) any {
+	if v := fleetTopField(obj, key); v != nil {
+		return v
+	}
+	if fields, ok := obj["fields"].(map[string]any); ok {
+		if v := fleetTopField(fields, key); v != nil {
+			return v
+		}
+		if v, ok := fields[fleetDisplayName(key)]; ok {
+			return v
+		}
+	}
+	return nil
+}
+
+// fleetDisplayName is a report column's display name: words capitalized and
+// joined by spaces (update_status is "Update Status").
+func fleetDisplayName(key string) string {
+	parts := strings.Split(key, "_")
+	for i, p := range parts {
+		if p != "" {
+			parts[i] = strings.ToUpper(p[:1]) + p[1:]
+		}
+	}
+	return strings.Join(parts, " ")
+}
+
+func fleetTopField(obj map[string]any, key string) any {
 	if v, ok := obj[key]; ok {
 		return v
 	}
@@ -187,9 +220,15 @@ func fleetNested(obj map[string]any, key string) map[string]any {
 	return nil
 }
 
-// fleetOrgID extracts an organization identifier, preferring organization_id
-// and falling back to the first entry of organization_ids.
+// fleetOrgID extracts an organization identifier. A row sync fetched by
+// walking the organizations (action1 handfix org-fan-out-sync) carries the
+// organization it was read from as parent_id; automation instances and
+// installed software carry no organization field of their own. Otherwise
+// organization_id, then the first entry of organization_ids.
 func fleetOrgID(obj map[string]any) string {
+	if id := fleetStrField(obj, "parent_id"); id != "" {
+		return id
+	}
 	if id := fleetStrField(obj, "organization_id"); id != "" {
 		return id
 	}
@@ -200,7 +239,13 @@ func fleetOrgID(obj map[string]any) string {
 }
 
 // fleetTimeLayouts covers the timestamp shapes Action1 returns across endpoints.
+// The first is the one spec.json documents for last_seen, start_time,
+// published_date and remediation_deadline (YYYY-MM-DD_HH-mm-ss, Endpoint
+// last_seen example "2022-08-29_12-22-11"; Codex r1 action1 class wrong
+// timestamp parsing from documented response). RFC 3339 reads the ISO times
+// with fractional seconds ("2024-06-27T10:20:40.000Z").
 var fleetTimeLayouts = []string{
+	"2006-01-02_15-04-05",
 	time.RFC3339,
 	"2006-01-02T15:04:05",
 	"2006-01-02 15:04:05",
@@ -223,6 +268,50 @@ func fleetParseTime(s string) (time.Time, bool) {
 		}
 	}
 	return time.Time{}, false
+}
+
+// fleetLastSeen reads an endpoint's last check-in: known when it parses,
+// unreadable when a value is set that no documented layout reads (it is then
+// never taken as recent: the dark-agent and staleness views count it).
+func fleetLastSeen(e map[string]any) (t time.Time, known, unreadable bool) {
+	s := fleetStrField(e, "last_seen")
+	if s == "" {
+		return time.Time{}, false, false
+	}
+	if t, ok := fleetParseTime(s); ok {
+		return t, true, false
+	}
+	return time.Time{}, false, true
+}
+
+// fleetOnlineStatusOffline interprets Endpoint.online_status as spec.json
+// documents it (#/components/schemas/OnlineStatus: SUCCESS = last seen within
+// 7 days, WARNING = 8 to 30 days ago, ERROR = more than 30 days ago; Codex r1
+// action1 class wrong status interpretation from documented response). The
+// connection words of other shapes (Online, Connected, Up) read as online. Any
+// other value is reported, never taken as online; an empty one is unknown.
+func fleetOnlineStatusOffline(s string) bool {
+	switch strings.ToUpper(strings.TrimSpace(s)) {
+	case "", "SUCCESS", "ONLINE", "CONNECTED", "UP":
+		return false
+	}
+	return true
+}
+
+// fleetCounts reads one of an endpoint's documented count summaries
+// (missing_updates and vulnerabilities: {critical, other}, which Action1
+// returns only when the endpoint was read with fields=* or that field). known
+// is false when the summary is absent or holds neither count: an unknown
+// posture, never zero (action1 handfix fleet-absent-is-unknown; Codex r1
+// action1 class missing endpoint reported as remediated).
+func fleetCounts(e map[string]any, key string) (critical, other int, known bool) {
+	m := fleetNested(e, key)
+	if m == nil {
+		return 0, 0, false
+	}
+	c, okC := fleetNum(m["critical"])
+	o, okO := fleetNum(m["other"])
+	return int(c), int(o), okC || okO
 }
 
 // fleetEmit writes rows as field-filtered JSON (the default and --agent path, and

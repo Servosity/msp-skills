@@ -1,0 +1,181 @@
+{
+  "outcome_intro": "Ask your AI to restore or download every CloudAlly mailbox as it stood on a past date, list a mailbox's past backups, or find every customer whose backups are stale or failing, alongside the everyday Management API v2 work: backup tasks and their entities, running or pausing backups, users and billing. It plans before it acts, records every restore and download in a local ledger, and reads the past backup dates CloudAlly's documented API cannot reach from the customer portal, the same way the partner portal does.",
+  "instead_of_say": [
+    {
+      "instead": "Opening the CloudAlly restore wizard once per mailbox to put a whole company back to how it was on the 1st, and keeping a spreadsheet of which ones are done",
+      "say": "Restore every mailbox on this customer's Microsoft 365 task to its backup from October 1st, and show me the plan first.",
+      "cli": "cloudally-cli restore plan --account 5f1c2a --task 64b0e9 --date 2026-10-01"
+    },
+    {
+      "instead": "Building a year-end export per mailbox and per sub-source in the portal, then racing 60-second download links one archive at a time",
+      "say": "Plan year-end archives of every mailbox as they stood on December 31st in the customer's timezone, and show me the plan first.",
+      "cli": "cloudally-cli download submit --account 5f1c2a --task 64b0e9 --on-date 2025-12-31 --utc-offset -5"
+    },
+    {
+      "instead": "Clicking into every customer account in the partner portal to look for red backup statuses",
+      "say": "Which mailboxes across all my CloudAlly customers have not backed up in two days, or failed?",
+      "cli": "cloudally-cli backup health --stale-days 2 --group-by account"
+    },
+    {
+      "instead": "Opening one customer in the portal to see which backup tasks they have and whether any are paused",
+      "say": "Switch to this customer and list their backup tasks.",
+      "cli": "cloudally-cli tasks list --type BACKUP --all"
+    },
+    {
+      "instead": "Paging through a task's entities in the portal to find the one that stopped backing up",
+      "say": "What state is every mailbox on this backup task in, and when did each last back up?",
+      "cli": "cloudally-cli tasks get 64b0e9 --select entities.entity,entities.status"
+    }
+  ],
+  "pain_points": [
+    "The CloudAlly portal restores and exports one mailbox, one date, one wizard at a time; a company-wide restore or a multi-year legal request is hundreds of trips through the same screens.",
+    "The documented CloudAlly API reports only each mailbox's latest backup, so it cannot say which backup existed on a past date.",
+    "The documented export call answers 200 and creates no job, and an MS365 mailbox needs a separate download per sub-source with its own timestamp.",
+    "Backup timestamps are UTC, so the backup stamped December 31st holds December 30th for a US customer.",
+    "Download links expire after 60 seconds, and spotting a failing backup means opening every customer account.",
+    "The Management API v2 needs a client-id and client-secret header plus a bearer token on every request, and separate logins for partner and company scope.",
+    "Acting inside one customer from a partner login needs a token minted for that account, and tokens expire."
+  ],
+  "outcomes": [
+    {
+      "question": "Which mailboxes across all my CloudAlly customers have not backed up in two days, or failed? (It reads the synced feed: run cloudally-cli sync --resources distributor_accounts-backup-statuses first.)",
+      "command": "cloudally-cli backup health --stale-days 2 --group-by account"
+    },
+    {
+      "question": "What backups does this mailbox have for December?",
+      "command": "cloudally-cli backup snapshots --account 5f1c2a --task 64b0e9 --entity jane.doe@contoso.com --month 2025-12"
+    },
+    {
+      "question": "Which backup would each mailbox on this task be restored from for December 31st?",
+      "command": "cloudally-cli restore plan --account 5f1c2a --task 64b0e9 --date 2025-12-31"
+    },
+    {
+      "question": "Plan, then restore every mailbox on the task to October 1st.",
+      "command": "cloudally-cli restore plan --account 5f1c2a --task 64b0e9 --date 2026-10-01"
+    },
+    {
+      "question": "Plan, then archive every mailbox as it stood on December 31st in the customer's own timezone.",
+      "command": "cloudally-cli download submit --account 5f1c2a --task 64b0e9 --on-date 2025-12-31 --utc-offset -5"
+    },
+    {
+      "question": "Download every finished year-end archive into an existing folder (create it first), one folder per mailbox and sub-source.",
+      "command": "cloudally-cli download fetch --account 5f1c2a --dest ./archives --year 2025 --batch 20261015-201500-ab12"
+    },
+    {
+      "question": "What did we restore for this customer since September?",
+      "command": "cloudally-cli restore history --account 5f1c2a --since 2026-09-01"
+    },
+    {
+      "question": "What is the latest backup status of every mailbox and site across all my CloudAlly customers?",
+      "command": "cloudally-cli distributor-accounts backup-statuses --all"
+    },
+    {
+      "question": "Which customer accounts do I manage?",
+      "command": "cloudally-cli distributor-accounts list --all"
+    },
+    {
+      "question": "Switch into this customer's account.",
+      "command": "cloudally-cli auth use-account 5f1c2a"
+    },
+    {
+      "question": "Which backup tasks does this customer have?",
+      "command": "cloudally-cli tasks list --type BACKUP --all"
+    },
+    {
+      "question": "What state is every entity of this backup task in?",
+      "command": "cloudally-cli tasks get 64b0e9 --select entities.entity,entities.status"
+    },
+    {
+      "question": "How are all of this account's tasks doing?",
+      "command": "cloudally-cli user status --all"
+    },
+    {
+      "question": "Which restore jobs are running or finished?",
+      "command": "cloudally-cli tasks list --type RESTORE"
+    },
+    {
+      "question": "What are this month's bills across my resellers?",
+      "command": "cloudally-cli distributor-resellers all-bills"
+    }
+  ],
+  "different_vs_wrappers": "[cloudally](https://github.com/jancotanis/cloudally) (a Ruby gem) and [n8n-nodes-cloudally](https://github.com/davejlong/n8n-nodes-cloudally) (n8n workflow nodes) wrap CloudAlly's documented API. This one is a single binary that works as a CLI and an MCP server and goes past the documented API where it stops: it reads each mailbox's past backups from the customer portal, creates downloads the way the portal does (the documented export call creates nothing), plans and ledgers bulk restores and downloads to one date, and sweeps every customer's backup health in one command. It also handles the company and partner logins, refreshes tokens on its own, switches into a customer account with `auth use-account`, and can mirror the read endpoints into a local SQLite store for offline search.",
+  "different_vs_vendor": "The CloudAlly partner and customer portals restore and export one mailbox and one date at a time through a wizard. This works from the AI agent you already use, handles a whole task at once (several dates per restore batch, one date per download batch), shows a plan before anything changes, and keeps a local record of every restore and download it started.",
+  "faqs": [
+    {
+      "q": "Does this work with ChatGPT?",
+      "a": "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, and cloudally-mcp speaks HTTP natively: set CLOUDALLY_MCP_HTTP_TOKEN, run `cloudally-mcp --transport http`, and serve its /mcp endpoint (http://127.0.0.1:7777/mcp by default) over HTTPS behind an authenticating proxy that signs ChatGPT in with OAuth and adds the bearer header the server requires. ChatGPT cannot send a fixed bearer token, so a bare tunnel gets HTTP 401. Step-by-step in the install guide."
+    },
+    {
+      "q": "Do I need to know how to code?",
+      "a": "No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter the CloudAlly API client id and secret once and run `cloudally-cli auth login --partner`."
+    },
+    {
+      "q": "What credentials does it need?",
+      "a": "A CloudAlly API application key pair (CLOUDALLY_CLIENT_ID and CLOUDALLY_CLIENT_SECRET, from the partner portal under Integrations > REST API) plus one login: `auth login` for a single company account, or `auth login --partner` for every customer. The distributor and reseller commands, `auth use-account`, past backup dates and downloads need the partner login."
+    },
+    {
+      "q": "Can it change or delete my customers' backups?",
+      "a": "It can, because CloudAlly's API can: restores write back into live mailboxes, and deleting a backup task deletes its data. restore submit, download submit and download start show what they would do and stop until you pass --yes; the generated recovery restore and delete commands send immediately, which is why governance.md marks them human-only. Set CLOUDALLY_MCP_READ_ONLY=1 to give an MCP agent read-only tools: with it off, the MCP restore and download tools only preview, but cloudally_execute can call any endpoint (including recovery restore and tasks delete) as soon as the caller passes confirm=true and download_link returns live links."
+    },
+    {
+      "q": "Why does a December 31st download hold December 30th?",
+      "a": "CloudAlly stamps backups in UTC, and a nightly backup runs late in the evening local time, so it is stamped the next UTC day. Pass `download submit --utc-offset -5` (US Eastern in winter; -4 during daylight saving time) and --on-date then means the customer's own calendar day."
+    },
+    {
+      "q": "Is my CloudAlly data safe?",
+      "a": "Your data stays on your machine. The CLI, MCP server and local store are all local, the MCP server runs over stdio unless you start it with --transport http, and download links are minted and streamed in one step rather than stored. Every request goes through a shared credential kit that holds the key pair, the tokens and the portal session and sends each only to CloudAlly's API or https://app.cloudally.com. Credentials are never bundled or transmitted by MSP Skills."
+    },
+    {
+      "q": "Can it download mailbox archives?",
+      "a": "Yes. The documented export call (recovery export and its distributor and reseller variants) answers 200 and creates no job, so `download submit` (every mailbox backed up on one date) and `download start` (one single-archive mailbox) create the jobs through the customer portal the way the portal does, and `download fetch` mints each 60-second link and writes the archive to a folder you choose. Both creates print a plan and stop until you pass --yes."
+    },
+    {
+      "q": "What does it cost?",
+      "a": "Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use."
+    }
+  ],
+  "governance_summary": "This connector can restore into live customer mailboxes, create download jobs and, through CloudAlly's own API, delete backup tasks and their data, so it is not read-only. restore submit, download submit and download start print their plan and stop until --yes is passed (over MCP they only preview), and a restore or download guard in the state directory refuses to send the same restore or create the same archive twice; the generated recovery restore and delete commands send immediately and are human-only. Download jobs are only ever EXPORT jobs, and CLOUDALLY_MCP_READ_ONLY=1 limits an MCP agent to reads. The company login (auth login) reaches one customer; the partner login reaches all of them.",
+  "safety_tiers": [
+    {
+      "tier": "Read",
+      "examples": "backup health, backup snapshots, restore plan, restore watch, restore history, download list, download watch; every list, get, details, status, bills, tasks and backup-statuses read; sync, search, export. Local writes only: the response cache, the local store and files you name (restore plan --plan-out)",
+      "policy": "Allow"
+    },
+    {
+      "tier": "Sensitive read",
+      "examples": "download link (a 60-second presigned URL to a mailbox archive; no confirm) and download fetch (CLI only, no confirm; writes complete mailbox archives to disk, and --plan-only previews)",
+      "policy": "Human-in-the-loop - never paste a link anywhere"
+    },
+    {
+      "tier": "Write",
+      "examples": "download submit and download start (EXPORT jobs only; each needs --yes, and without it prints the plan and exits 2); backup-now, activate, pause, add-entity and cancel on backup tasks; creating accounts, resellers and users; updating settings and permissions",
+      "policy": "Human-in-the-loop"
+    },
+    {
+      "tier": "Restore",
+      "examples": "restore submit (needs --yes; without it, prints each mailbox and its backup and exits 2) and the recovery restore commands (no confirm), which write backed-up items back into live mailboxes, sites and drives",
+      "policy": "Human-in-the-loop - run restore plan first"
+    },
+    {
+      "tier": "Destructive",
+      "examples": "tasks delete and its distributor and reseller variants (delete a backup task and its data; never point one at a download job), remove-entity, unsubscribe and user delete (delete a CloudAlly account), delete-user",
+      "policy": "Human only"
+    },
+    {
+      "tier": "Credential",
+      "examples": "auth login, auth use-account, auth set-token, auth logout, session login, partner-login and refresh, access-token and sign-in-token, user update-password, import",
+      "policy": "Human-in-the-loop only"
+    },
+    {
+      "tier": "Data egress",
+      "examples": "--deliver webhook:<url> on any command, feedback --send, and feedback when CLOUDALLY_FEEDBACK_ENDPOINT is set with CLOUDALLY_FEEDBACK_AUTO_SEND=true",
+      "policy": "Human-in-the-loop - a webhook sink moves client data off your machine"
+    },
+    {
+      "tier": "MCP execute",
+      "examples": "cloudally_execute calls any endpoint of the CloudAlly spec by ID: each call follows the tiers above, and the tool is not listed while CLOUDALLY_MCP_READ_ONLY=1 (cloudally_read stays, and refuses every state-changing endpoint)",
+      "policy": "Human-in-the-loop unless CLOUDALLY_MCP_READ_ONLY=1"
+    }
+  ],
+  "auth_note": "Create an API application in the CloudAlly partner portal (Integrations > REST API), set CLOUDALLY_CLIENT_ID and CLOUDALLY_CLIENT_SECRET, set CLOUDALLY_PARTNER_EMAIL and CLOUDALLY_PARTNER_PASSWORD, then run `cloudally-cli auth login --partner` and `cloudally-cli doctor`: it makes one authenticated read to confirm the token works. For a single company, set CLOUDALLY_EMAIL and CLOUDALLY_PASSWORD and run `cloudally-cli auth login` instead."
+}

@@ -1,0 +1,1009 @@
+{
+ "slug": "comet-backup",
+ "doc": "docs/reprint-survival.md",
+ "handfixes": [
+  {
+   "id": "comet-form-body-auth",
+   "class": "auth-wire",
+   "summary": "Comet reads admin credentials from form fields in the POST body (Username, AuthType, Password or SessionKey), never a header; a 2xx carrying a failed CometAPIResponseMessage (Status >= 400 with a Message) is an error; a redirect off the origin is refused because a 307/308 replays the credential-bearing body; an auth failure with a bkup_-shaped personal API token configured says such tokens are not supported.",
+   "why": "Comet API guide (curl/PowerShell examples) and comet-go-sdk cometsdk.go CometAPIClient.Request: credentials are form fields, success is Status 200-299 in the envelope. Personal API tokens (26.8.3+) have no documented login field, so the CLI cannot send one. Hand file internal/client/comet_auth.go; five call sites in generated client.go, re-applied by tools/apply_handfixes.py. Tests: TestCometFormAuth, TestCometEnvelopeError, TestCometClientHooks (counts the five hooks and drives each), TestCometTokenHint.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "comet-backup hand-fix (",
+     "code_only": false,
+     "min_count": 5
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "cometFormAuth(c.Config, path, bodyBytes, contentType, c.DryRun)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "return errCometCrossOriginRedirect(req.URL)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "if authHeader != \"\" && !cometBodyAuthPath(path) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "if envErr := c.cometEnvelopeError(method, c.displayURL(path, authHeader), respBody); envErr != nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "apiErr.Body += c.cometTokenHint(resp.StatusCode)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/comet_auth.go",
+     "contains": "func cometFormAuth(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/comet_auth_test.go",
+     "contains": "func TestCometTokenHint(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "comet-no-tail",
+   "class": "endpoint-shape",
+   "summary": "No tail command: every Comet admin call is a POST, so the generated GET-polling tail can only fail.",
+   "why": "Prior patch comet-has-no-get-endpoints-so-no-tail-command. root.go drops newTailCmd and tail.go is removed by tools/apply_handfixes.py.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "comet-backup hand-fix (no-tail)",
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "not_contains": "rootCmd.AddCommand(newTailCmd(flags))"
+    }
+   ]
+  },
+  {
+   "id": "comet-import-creates-only",
+   "class": "write-safety",
+   "summary": "import maps only resources whose POST creates a record (users -> add-user); no read endpoint is mapped as a create, and storage (request-storage-vault) is not importable (see comet-write-crash-retry-sim).",
+   "why": "Prior patch comet-import-only-for-creating-posts: the generator maps every POST as a create, and Comet reads are POSTs. internal/cli/resource_paths.go, re-applied by tools/apply_handfixes.py.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/resource_paths.go",
+     "contains": "comet-backup hand-fix (import-creates-only)",
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/resource_paths.go",
+     "not_contains": "\"/api/v1/admin/job/abandon\""
+    },
+    {
+     "file": "cli/internal/cli/resource_paths.go",
+     "not_contains": "\"/api/v1/admin/dispatcher/apply-retention-rules\""
+    },
+    {
+     "file": "cli/internal/cli/resource_paths.go",
+     "contains": "\"users\": \"/api/v1/admin/add-user\",",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "comet-server-template",
+   "class": "auth-wire",
+   "summary": "The Comet Server is per MSP: the spec declares servers https://{server} with x-path-template-env-vars server -> COMET_BACKUP_SERVER, so the Desktop bundle prompts for it (required) and no placeholder host is ever contacted; COMET_BACKUP_BASE_URL still overrides.",
+   "why": "Prior patch comet-server-url-is-per-msp-and-must-be-prompted (a manifest user_config hand-edit) is retired: the spec encodes it, so it survives every reprint by construction. tools/spec_repair.py.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "manifest.json",
+     "not_contains": "\"COMET_BACKUP_SERVER\": \"\""
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"COMET_BACKUP_SERVER\": \"${user_config.comet_backup_server}\""
+    }
+   ]
+  },
+  {
+   "id": "mcp-recipe-string-flag-joined",
+   "class": "recipe-argv",
+   "summary": "An MCP recipe passes every string flag as one joined --name=value argument, so a value that starts with '-' can never become a flag of the mirrored CLI child.",
+   "why": "Work order: an MCP tool argument must never be passed through as a command-line flag of a mirrored CLI child. Comet's only recipe takes a bool, but the joined form is the fleet class fix. internal/mcp/intents.go appendRecipeStringFlag, re-applied by tools/apply_handfixes.py.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/intents.go",
+     "contains": "func appendRecipeStringFlag(args []string, name string, value any, defaultValue string, required bool, _ bool, end *int) ([]string, bool) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/intents.go",
+     "not_contains": "return insertRecipeBeforeEndOfFlags(args, end, \"--\"+name, selected), false"
+    },
+    {
+     "file": "cli/internal/mcp/recipe_intents_test.go",
+     "contains": "\"--query=--\"",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "outbound-sinks-withheld",
+   "class": "secret-echo",
+   "summary": "Every send to a host other than the Comet Server (feedback --send to COMET_BACKUP_FEEDBACK_ENDPOINT, --deliver webhook:) goes through the credential kit's outbound guard, which refuses it when its URL, a header or its body carries a held credential, and never follows a redirect. A webhook body has every member holding the [redacted] marker removed first: under a credential's name the kit would read the marker as that credential and refuse the delivery.",
+   "why": "Codex r1 P1 (credential sent to another host): postFeedback sent the raw entry while only the local ledger copy was filtered. WithholdBytes now runs inside postFeedback and deliverWebhook, the only two off-host senders (probe.go sends a bodiless GET). Re-applied by tools/apply_credential_rules.py. Tests: TestOutboundSinksWithholdCredentials, TestSinksOnAnotherHostGetNoCredential (black-box, a capture server as both sinks). Codex r2 (fixed after the review stop, unreviewed): COMET_BACKUP_USER_AGENT or a URL repeating a held credential; refuseHeldOffHost (hand file comet_guard.go) runs in both senders before the request leaves; TestOutboundSinksRefuseCredentialInURLOrHeaders. Publish Codex r1: postFeedback used a default http.Client that followed a 307 to another host carrying the credential in its Location; both off-host senders now go through sendOffHost (refuse held values, send once, never follow a redirect).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/comet_guard.go",
+     "contains": "func sendOffHost(label string, req *http.Request, timeout time.Duration)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/comet_guard.go",
+     "contains": "Transport: credkit.Transport(nil),",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/comet_guard.go",
+     "contains": "return http.ErrUseLastResponse",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/feedback.go",
+     "contains": "return sendOffHost(\"feedback endpoint\", req, 15*time.Second)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/feedback.go",
+     "not_contains": "client.Do(req)"
+    },
+    {
+     "file": "cli/internal/cli/deliver.go",
+     "contains": "return sendOffHost(\"webhook\", req, 30*time.Second)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deliver.go",
+     "contains": "bytes.NewReader(cliutil.OmitRedactedMembers(body))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cometblackbox/blackbox_test.go",
+     "contains": "func TestSinksOnAnotherHostGetNoCredential(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/comet_rules_test.go",
+     "contains": "func TestOffHostSendersNeverFollowRedirects(t *testing.T)",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "api-origin-pinned",
+   "class": "auth-wire",
+   "summary": "Every request and redirect hop goes only to the scheme, host and port of the configured Comet Server (COMET_BACKUP_BASE_URL, or https://{server} resolved from COMET_BACKUP_SERVER); anything else is refused before it is resolved, dialled or sent the credential-bearing body.",
+   "why": "Work order host pinning. originPinTripper and the same check FIRST in CheckRedirect (hand file internal/cli/comet_guard.go, registered with registerClientHook, so every CLI and MCP client gets it). Byte-exact ASCII-folded origins; a host with a non-ASCII byte never matches. Tests: TestOriginPinRefusesRedirectToAnotherHost, TestOriginPinFollowsTemplatedServer, TestNormalizedOriginRefusesNonASCIIAndFillsPorts, TestRedirectNeverReachesAnotherHost (black-box, CLI and MCP).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/comet_guard.go",
+     "contains": "c.HTTPClient.Transport = originPinTripper{origins: origins, next: responseHoldTripper{next: next}}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/comet_guard.go",
+     "contains": "origins := pinnedOrigins(client.ResolvedBaseURL(c.BaseURL, c.CurrentTemplateVars()))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/comet_guard.go",
+     "contains": "if err := checkPinned(origins, req.URL); err != nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/comet_guard.go",
+     "contains": "registerClientHook(func(c *client.Client) error {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "no-response-cache",
+   "class": "secret-echo",
+   "summary": "The on-disk response cache is off on every client: Comet bodies carry password hashes, TOTP keys and storage destination keys.",
+   "why": "Work order: nothing but the credential store holds a credential. c.NoCache = true in guardClient (comet_guard.go); README and SKILL say so (tools/patch_docs.py).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/comet_guard.go",
+     "contains": "c.NoCache = true",
+     "code_only": true
+    },
+    {
+     "file": "guide.md",
+     "contains": "There is no response cache"
+    }
+   ]
+  },
+  {
+   "id": "store-never-keeps-secrets",
+   "class": "secret-echo",
+   "summary": "Every resource write passes mergeIncomingResourceData, which replaces credential-named values (PasswordHash, TOTPKey, S3SecretKey, SFTPPassword, ReadWriteKey, AccessKey, ...) with [redacted], so the local store never keeps one; the credential kit's SQL driver (credkit-sqlite-every-handle) withholds any statement that repeats a held credential.",
+   "why": "Work order: no credential in files. Resource rows: store.go, 3 lines; every SQL write (learnings, playbooks, learn events, the typed users table): OpenWithContext opens SQLite through WithholdingSQLiteDriver (hand file internal/store/comet_withhold_driver.go). Re-applied by tools/apply_credential_rules.py. Covered by TestNoCredentialInAnyWrittenFile (the .db files are scanned; snapshot and teach runs write) and TestStoreRedactsCredentialNamedValuesNotHeld. Publish adversarial r1: credentials under operator-chosen names (CustomHeaders maps of webhooks, PSA configs and custom remote storage, and CustomBody) were not classified; every header map, custom body, Authorization and Cookie name is now a credential, and any Authorization-shaped value is held wherever it sits.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "return withoutStoredSecrets(s.mergeIncomingResourceDataRaw(tx, resourceType,",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/comet_secrets.go",
+     "contains": "sessionkey|headers?$|custombody|authorization|cookie)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cometblackbox/blackbox_test.go",
+     "contains": "\"CustomHeaders\":{\"Authorization\":\"Bearer %s\"}",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "mcp-mirror-write-confirm",
+   "class": "write-safety",
+   "summary": "Mirrored MCP tools that are not read-only preview and run only with confirm: true. A tool that can change Comet state (import, rerun_failed, any later non-read-only command) previews through --dry-run or its own plan; a tool that writes only this machine's files (sync, export, teach, learnings) previews through the CLI's --help, so the arguments pass the mirror's checks and the command does not run, since a sync preview would still open the writable store.",
+   "why": "Press 4.34.2 gates comet-backup_execute on confirm, but the Cobra-tree mirror registers import and the novel rerun-failed with no confirm. RequireConfirmForMirroredWrites (hand file internal/mcp/cobratree/comet_confirm.go), called from RegisterTools after RegisterAll, wraps every mirrored tool that is not read-only, mcp:local-write or local-only. Only boolean true sends; confirm is never forwarded. Tests: TestRegisteredMirroredWritesNeedConfirm, TestMirroredWriteNeedsBooleanConfirm.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "cobratree.RequireConfirmForMirroredWrites(s, cli.RootCmd(), cobratree.CachedSiblingCLIPath)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/comet_confirm.go",
+     "contains": "func RequireConfirmForMirroredWrites(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/rerun_failed.go",
+     "contains": "\"comet:sends-with-yes\": \"true\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/comet_confirm.go",
+     "contains": "s.AddTool(tool, mirrorConfirmGate(name, path, preview, entry.Handler))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/comet_confirm.go",
+     "not_contains": "if mirrorLocalOnlyCommands[path] {\n\t\t\tcontinue"
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/comet_confirm_test.go",
+     "contains": "func TestOnlyReadOnlyMirrorsStayUngated(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "credential-tier-read-confirm",
+   "class": "write-safety",
+   "summary": "The ten reads whose responses carry credential material (users.get, users.list-full, user_groups.get, organizations.list, storage.buckets, storage.bucket, constellation.last-report, policies.get, policies.list-full, protected_items.get) are credential tier: the MCP server previews them and runs them only with confirm: true, refuses them under COMET_BACKUP_MCP_READ_ONLY=1, and every output path prints their credential fields as [redacted]. README and SKILL name them.",
+   "why": "Work order blocker: user commands that print credential material must be credential tier. Comet's admin API returns password hashes, TOTP keys, destination keys (UserProfileConfig), bucket ReadWriteKey (BucketProperties) and organization storage passwords. NeedsConfirm on those seven rows of the generated endpoint table, re-applied by tools/apply_credential_rules.py; TestEveryStateChangingEndpointNeedsConfirm fails if any row loses it or runs under read-only. msp-skills governance.md (gen_governance.py classifies by verb) must list them under Credential tier.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "NeedsConfirm:   true, // comet-backup handfix: credential-tier-read-confirm",
+     "code_only": false,
+     "min_count": 10
+    },
+    {
+     "file": "cli/internal/mcp/comet_writes_confirm_test.go",
+     "contains": "returns credential material but runs under",
+     "code_only": true
+    },
+    {
+     "file": "guide.md",
+     "contains": "Credential tier: ten reads return credential material"
+    },
+    {
+     "file": "SKILL.md",
+     "contains": "Credential tier: ten reads return credential material"
+    }
+   ]
+  },
+  {
+   "id": "comet-write-crash-retry-sim",
+   "class": "write-safety",
+   "summary": "The bulk writes (rerun-failed --yes, import) pass a seeded crash-and-retry simulation: 200 seeds against a fake Comet Server that answers, refuses (5xx, 4xx), drops the connection, answers late, answers an empty 200 or a 200 failure envelope, with two parallel runs, a run cancelled mid-flight, a rerun and a healthy rerun. Four fixes it forced: rerun-failed plans and dispatches under one dispatch lock per OS account; the server version fails closed; import counts a record only on a 2xx Comet Status and --idempotent skips records that exist; storage is not importable; every Comet client drops Idempotency-Key headers so no write is replayed.",
+   "why": "Repo rule: a command that writes into live customer data in bulk ships only after a crash-and-retry simulation proves it never acts twice and never exits 0 while work is missing. On the original code the simulation found: two parallel rerun-failed --yes runs dispatched the same backups twice (R1); a {\"Status\":403} envelope on meta/version read as an old server and dispatched scheduled rules for custom-run failures (R1); import counted an empty 200 or a message-less failure envelope as created and exited 0 with the record missing (I2); import ignored --idempotent, so a rerun after a crash could never finish (I3); import storage created the same Storage Vault again on every rerun (I1), and no request field lets Comet refuse a duplicate, so it was removed. The --idempotent pre-read must fail through fleetError: classifyAPIError's 409 no-op made a refused read exit 0 with nothing imported. The client replays a POST after an ambiguous failure only when an Idempotency-Key or X-Idempotency-Key header is present (client.go canRetryAmbiguousFailure, even with X-Printing-Press-Replay-Safe false); Comet ignores the header, so a config [headers] entry would have re-sent a dispatch up to three times. Each fix was reverted and its test watched fail. COMET_WRITE_SIM_SEEDS=1500 runs a longer soak. Publish Codex r1 + adversarial r1: the dispatch lock was keyed by the server URL as typed and lived in the per-home state dir, so host vs host:443, 127.0.0.1 vs localhost, or two COMET_BACKUP_HOME values dispatched the same backup twice; the lock is now one per user under the home directory. The per-home lock location is superseded by rerun-dispatch-lock (one lock per OS account).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/comet_write_sim_test.go",
+     "contains": "func TestRerunFailedWriteSimulation(t *testing.T)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/comet_write_sim_test.go",
+     "contains": "func TestImportWriteSimulation(t *testing.T)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/comet_write_sim_test.go",
+     "contains": "func TestImportStorageIsNotImportable(t *testing.T)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/comet_write_sim_test.go",
+     "contains": "func TestCometWritesNeverReplayed(t *testing.T)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cometblackbox/import_absent_test.go",
+     "contains": "func TestImportStorageAbsentFromCLIAndMCP(t *testing.T)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/rerun_failed.go",
+     "contains": "return withRerunDispatchLock(ctx, c, run)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/comet_fleet.go",
+     "contains": "\"%d.%d\", &major, &minor); n < 2 {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/import.go",
+     "contains": "guard, err := newCometImportGuard(cmd.Context(), c, path, flags.idempotent)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/import.go",
+     "contains": "return fleetError(cmd, flags, c, err)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/import.go",
+     "contains": "if guard.exists(body) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/import.go",
+     "contains": "err = guard.confirm(data)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/import.go",
+     "not_contains": "_, status, err := c.Post(cmd.Context(), path, body)"
+    },
+    {
+     "file": "cli/internal/cli/comet_import_guard.go",
+     "contains": "func (g *cometImportGuard) confirm(data json.RawMessage) error {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/resource_paths.go",
+     "not_contains": "/api/v1/admin/request-storage-vault"
+    },
+    {
+     "file": "cli/internal/cli/comet_guard.go",
+     "contains": "dropIdempotencyKeys(c)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/rerun_failed.go",
+     "not_contains": "sha256.Sum256([]byte(strings.TrimRight(strings.ToLower(server)"
+    },
+    {
+     "file": "cli/internal/cli/comet_write_sim_test.go",
+     "contains": "func TestRerunDispatchLockIgnoresServerNameAndHome(t *testing.T)",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "comet-change-id-not-redacted",
+   "class": "wrong-result",
+   "summary": "changes --json names each change's stable identifier change_id, not key, so the output filter (SecretFieldName matches key) does not redact the ticket correlation id.",
+   "why": "Publish Codex r1 [P2]: every change serialized its id as \"key\", which SecretFieldName classifies as a credential, so changes --json printed [redacted] for every id and a PSA integration could not match tickets. internal/comet/comet.go is generated.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/comet/comet.go",
+     "contains": "`json:\"change_id\"`",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/comet/comet.go",
+     "not_contains": "Key      string `json:\"key\"`"
+    }
+   ]
+  },
+  {
+   "id": "rerun-dispatch-lock",
+   "class": "write-safety",
+   "summary": "rerun-failed --yes plans and dispatches under one lock per OS account, found from the OS identity alone: Unix an flock in /tmp/comet-backup-locks-<euid> (verified private, O_NOFOLLOW), Windows a Global named mutex keyed on the token SID. No environment variable, flag, config path, server URL spelling or admin user moves or renames it.",
+   "why": "Publish Codex r2 (bulk-write-acts-twice): the lock lived under os.UserHomeDir, which reads HOME, so two concurrent rerun-failed --yes runs by one account with HOME=/tmp/comet-a and HOME=/tmp/comet-b took different locks and both dispatched the same failed backup. TestRerunFailedDispatchesOnceAcrossInvocationEnvironments failed on the HOME-keyed code and passes on this one.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/rerun_failed.go",
+     "contains": "ran, err := cliutil.TryWithDispatchLock(rerunDispatchLockName, fn)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/rerun_failed.go",
+     "contains": "const rerunDispatchLockName = \"rerun-failed-dispatch\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/rerun_failed.go",
+     "not_contains": "os.UserHomeDir()"
+    },
+    {
+     "file": "cli/internal/cliutil/comet_dispatch_lock.go",
+     "contains": "func TryWithDispatchLock(name string, fn func() error) (bool, error) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/comet_dispatch_lock_unix.go",
+     "contains": "func verifyPrivateLockDir(d *os.File, checked fs.FileInfo, dir string) error {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/comet_dispatch_lock_windows.go",
+     "contains": "func checkDispatchLockOwner(h windows.Handle, me *windows.SID, objName string) error {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/rerun_lock_test.go",
+     "contains": "func TestRerunFailedDispatchesOnceAcrossInvocationEnvironments(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/rerun_lock_test.go",
+     "contains": "func TestRerunDispatchLockIgnoresInvocationEnvironment(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/comet_dispatch_lock_unix.go",
+     "not_contains": "f.WriteAt("
+    }
+   ]
+  },
+  {
+   "id": "credkit-wiring",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "The shared credential kit (tools/maintainer/credkit, vendored at cli/internal/credkit) is wired by hand and replaces this connector's own funnel, chokepoint and SQLite wrapper. internal/credwire/declarations.go holds the one Declarations literal; each main starts with credkit.Start and ends with credkit.Exit; the API client goes through credkit.Transport under the origin pin and inside the response redactor, so the kit reads the server's own bytes and never reads the [redacted] marker as a credential; every file write except the 0600 credential store and config file goes through the kit (cliutil.AtomicWriteCredentialFile is that declared exemption); stdout and stderr are the kit's pipes. The MCP server's CLI children run through credkit.RunCommand, which hands each child the held set. Documents the kit's sources do not reach (a request body before a preview, MCP arguments, an import record, a --stdin body) go to credkit.HoldBody through cliutil.HoldDocument; no reader of the connector's own.",
+   "why": "One contract, one matcher and one set of sinks replace the connector-only copies, and a matcher fix reaches this connector by vendoring. A Comet Server's host is the MSP's, so no hosted domain can be named: credentialFiles shows the kit this process's server (COMET_BACKUP_BASE_URL, COMET_BACKUP_SERVER, config) through COMET_BACKUP_BASE_URL for the duration of Start, and AfterStart puts the variable back. When nothing resolves the kit allows no origin. Tests: internal/cometblackbox (built binaries against a stub that echoes every credential in every encoding), internal/credwire.",
+   "spec_encode_followup": "Press-side: generate the Start and Exit prologue, the Declarations literal from the spec's auth and credential fields, and the credential hand-off for CLI children.",
+   "asserts": [
+    {
+     "file": "cli/cmd/comet-backup-cli/main.go",
+     "contains": "credkit.Start(credwire.Declarations)",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/comet-backup-cli/main.go",
+     "contains": "credkit.Exit(code)",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/comet-backup-mcp/main.go",
+     "contains": "credkit.Start(credwire.Declarations)",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/comet-backup-mcp/main.go",
+     "contains": "credkit.Exit(run())",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/comet-backup-mcp/main.go",
+     "contains": "credkit.MCPIn(os.Stdin), credkit.MCPOut()",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "var Declarations = credkit.Declarations{",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "var OutboundGuard = credkit.Transport",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "credkit.Hold(\"minted:authorization\", authHeader)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/comet_guard.go",
+     "contains": "next := client.OutboundGuard(c.HTTPClient.Transport)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "cmd.Env = mcpChildEnviron()",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credkit_hold.go",
+     "contains": "credkit.HoldBody(b)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/paths.go",
+     "contains": "func AtomicWriteCredentialFile(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cometblackbox/blackbox_test.go",
+     "contains": "func TestNoCredentialInAnyOutput(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cometblackbox/blackbox_test.go",
+     "contains": "func TestRecordsStillPrintWithCredentialFieldsRedacted(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations_test.go",
+     "contains": "func TestAfterStartRestoresTheBaseURL(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/comet-backup-mcp/main.go",
+     "contains": "flag.CommandLine.Parse(append([]string(nil), os.Args[1:]...))",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "credkit-sqlite-every-handle",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "Every SQLite handle goes through credkit.SQLDriver: internal/credsql registers the one driver and every sql.Open in store.go and platform/migration.go names it, the read-only opener included. The MCP sql value cap moved from sqlite.Limit on a held connection to a DSN parameter credsql applies as each connection opens.",
+   "why": "A statement's text and bound values are a sink of their own, reads included. Replaces the connector-only WithholdingSQLiteDriver.",
+   "spec_encode_followup": "Press-side: generate store, migration and MCP sql opens against one kit-wrapped driver name, and express the MCP sql value cap as a connection-open setting.",
+   "asserts": [
+    {
+     "file": "cli/internal/credsql/credsql.go",
+     "contains": "sql.Register(Driver, credkit.SQLDriver(cappedSQLite()))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "func OpenReadOnlyValueCapped(dbPath string, maxValueBytes int) (*Store, error) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "not_contains": "sql.Open(\"sqlite\""
+    },
+    {
+     "file": "cli/internal/platform/migration.go",
+     "not_contains": "sql.Open(\"sqlite\""
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "not_contains": "sqlite.Limit("
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "openMCPReadOnlyStore(path, mcpSQLMaxValueBytes)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cometblackbox/kit_test.go",
+     "contains": "func TestMCPSQLStatementWithheldAtSQLite(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "credkit-mcphttp-outermost",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "credkit.MCPHTTP writes every response the MCP HTTP server serves, refusals included. requireBearerAuthWithLimits runs a preflight that writes nothing, then credkit.MCPHTTP around a gate that answers the Origin, bearer and body-limit verdicts.",
+   "why": "With the kit wrapping only the inner handler, a refusal answers outside it: a token holding the word unauthorized made a GET /mcp without Authorization return a piece of the held token.",
+   "spec_encode_followup": "Press-side: generate the MCP HTTP auth wrapper so its refusals are written by the inner, kit-wrapped handler.",
+   "asserts": [
+    {
+     "file": "cli/cmd/comet-backup-mcp/main.go",
+     "contains": "kit := credkit.MCPHTTP(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/comet-backup-mcp/main.go",
+     "contains": "kit.ServeHTTP(w, r)",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/comet-backup-mcp/main.go",
+     "not_contains": "credkit.MCPHTTP(inner)"
+    },
+    {
+     "file": "cli/internal/cometblackbox/kit_test.go",
+     "contains": "func TestMCPHTTPRefusalsPassTheKit(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "response-credentials-redacted",
+   "class": "secret-echo",
+   "status": "active",
+   "summary": "Credential-named members of a Comet response are held, then replaced by [redacted] before any command reads the body, so a credential-tier read still prints its records. Every member of a duplicate key and every component of a credential value (form and query values, cookie values, a URL's password, an auth header's token at any length) is held.",
+   "why": "The kit withholds a whole unit that carries a held value. Without the redactor every record-bearing read of a Comet profile or organization would print only the kit's notice.",
+   "spec_encode_followup": "None: the field list comes from comet-go-sdk.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/comet_guard.go",
+     "contains": "cliutil.HoldDocument(plain)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/comet_guard.go",
+     "contains": "if redacted := cliutil.RedactBody(plain); !bytes.Equal(redacted, plain) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "redacted-marker-never-written",
+   "class": "write-safety",
+   "status": "active",
+   "summary": "A request whose body or parameters carry [redacted] is refused before it is previewed or sent.",
+   "why": "A profile read with users get --json and written back with users set-profile --profile-data would store the marker as every Storage Vault's key, destroying the real credentials.",
+   "spec_encode_followup": "None: connector-specific redaction.",
+   "asserts": [
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "if cliutil.CarriesRedactedValue(params, bodyBytes) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/comet_secrets.go",
+     "contains": "func CarriesRedactedValue(params map[string]string, body []byte) bool {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cometblackbox/kit_test.go",
+     "contains": "func TestRedactedMarkerIsNeverWrittenBack(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "stdin-body-held-whole",
+   "class": "secret-echo",
+   "status": "active",
+   "summary": "A --stdin body is held from its raw bytes before the command parses it, previews and --dry-run included, then re-piped to the command.",
+   "why": "Every generated command parses --stdin into a map, which keeps only the last member of a duplicate key and fails on a malformed body, so a hold on the parsed form never sees the rest.",
+   "spec_encode_followup": "Press-side: generated --stdin commands hold the raw body through one helper before parsing.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/comet_stdin_hold.go",
+     "contains": "func holdStdinBody(cmd *cobra.Command) error {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "if err := holdStdinBody(cmd); err != nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cometblackbox/kit_test.go",
+     "contains": "func TestStdinBodyHeldBeforeItsParseError(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "run-profile-allow-list",
+   "class": "secret-echo",
+   "status": "active",
+   "summary": "A run profile carries only flags some command declares and none that takes a credential: other keys are dropped on load. Inside Start, every value saved under a credential flag's name and the password and query values of a saved base-url are held, every duplicate included; other values are free text.",
+   "why": "profiles.json is hand-editable and profile show prints it; a pasted credential or webhook token there would print, and the kit's file reader would hold every string and refuse to start.",
+   "spec_encode_followup": "Press-side: generate the allow-list and the startup hold in profile.go.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/profile.go",
+     "contains": "if !runProfileValueAllowed(flag) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/profile.go",
+     "contains": "func runProfileValueAllowed(flag string) bool {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/profile.go",
+     "contains": "if cliutil.SecretFieldName(name) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "func holdProfileStore(path string) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "holdProfileStores(home)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cometblackbox/kit_test.go",
+     "contains": "func TestRunProfileCarriesOnlyTheAllowList(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations_test.go",
+     "contains": "func TestProfileStoreCredentialsHeldAtStart(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "doctor-verdict-tracks-reality",
+   "class": "wrong-result",
+   "status": "active",
+   "summary": "doctor makes one authenticated Comet call the way every command does and its credentials verdict is positive only when that call proved the login: negative on a refused login (HTTP or a failure envelope on 200), on a base URL that is not a Comet Server, and on the unresolved template, whose remedy names COMET_BACKUP_SERVER and COMET_BACKUP_BASE_URL.",
+   "why": "Issue #282: doctor is what every guide tells an operator to run, and a generated GET / against a Comet Server proved nothing about the login.",
+   "spec_encode_followup": "Press-side: x-doctor-probe naming the authenticated read and its body auth.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorPlaceholderVerdict(report)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "func doctorProbeCredentials(ctx context.Context, c *client.Client, report map[string]any) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/comet_login.go",
+     "contains": "func CometLoginConfigured(cfg *config.Config) (authType string, ok bool) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cometblackbox/doctor_truth_test.go",
+     "contains": "func newCometStub(t *testing.T, state string) (*cometStub, string, string) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "import-record-held-raw",
+   "class": "secret-echo",
+   "status": "active",
+   "summary": "import holds each input line before its map decode.",
+   "why": "The map keeps only the last of a duplicate member and a broken line never reaches the request hold, so a server refusal or parse error could repeat the lost value.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/import.go",
+     "contains": "cliutil.HoldDocument([]byte(line))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cometblackbox/sources_test.go",
+     "contains": "func TestImportRecordHeldBeforeItsMapDecode(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "stdin-held-after-profile",
+   "class": "secret-echo",
+   "status": "active",
+   "summary": "The stdin body hold runs after the run profile is applied.",
+   "why": "A saved profile can turn --stdin on, which would otherwise start the read after the hold had returned.",
+   "asserts": [
+    {
+     "file": "cli/internal/cometblackbox/sources_test.go",
+     "contains": "func TestProfileEnabledStdinHeld(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "env-overrides-never-saved",
+   "class": "secret-echo",
+   "status": "active",
+   "summary": "A config save keeps the file's base URL and template variables when the environment overrode them.",
+   "why": "auth logout rewrites the config. Saved, COMET_BACKUP_BASE_URL or COMET_BACKUP_SERVER would write a URL password to disk and pin that server over a later environment.",
+   "asserts": [
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "cfg.markEnvOverride(\"BaseURL\")",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "cfg.markEnvOverride(\"TemplateVars\")",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "if c.envOverrides[\"BaseURL\"] {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cometblackbox/sources_test.go",
+     "contains": "func TestLogoutKeepsTheEnvironmentOutOfTheConfig(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "jobs-range-tolerates-clock-skew",
+   "class": "write-safety",
+   "status": "active",
+   "summary": "The date-range read ends a day past this machine's clock.",
+   "why": "Comet filters on its own clock (comet-go-sdk: only jobs started or ended in range). With that clock ahead, a just-started backup was missing and rerun-failed planned its failed predecessor again.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/comet_fleet.go",
+     "contains": "f.Set(\"End\", fmt.Sprint(now.Add(jobsClockMargin).Unix()))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/comet_write_sim_test.go",
+     "contains": "func simStartClock(seed int64) int64 {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "rerun-dispatch-intent",
+   "class": "write-safety",
+   "status": "active",
+   "summary": "rerun-failed records a dispatch before sending it and clears it on an answer. One left behind (a killed run, a lost reply, a 5xx) is reported unconfirmed and not sent again for 30 minutes. A future-dated intent (the clock moved back) keeps refusing.",
+   "why": "The lock is released when a run dies, and a job may not show yet, so a waiting run planned and sent the same backup again.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/rerun_failed.go",
+     "contains": "ierr = cliutil.RecordDispatchIntent(key)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/rerun_failed.go",
+     "contains": "age, inDoubt, ierr := cliutil.DispatchIntentAge(key)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/comet_dispatch_lock.go",
+     "contains": "func RecordDispatchIntent(key string) error {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/comet_intent_test.go",
+     "contains": "func TestInterruptedDispatchIsNotSentAgainUntilTheHoldPasses(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/comet_intent_test.go",
+     "contains": "func TestDispatchIntentSurvivesALostReplyOnly(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/rerun_failed.go",
+     "contains": "status != 408",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/rerun_failed.go",
+     "contains": "func rerunIntentHolds(age time.Duration) bool { return age < rerunIntentHold }",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/rerun_failed.go",
+     "contains": "ierr = ctx.Err()",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/rerun_intent_hold_test.go",
+     "contains": "func TestRerunIntentHoldsAcrossAClockMovedBack(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "execute-preview-redacted",
+   "class": "secret-echo",
+   "status": "active",
+   "summary": "comet-backup_execute's preview prints a request body with its credential members as the marker.",
+   "why": "A held credential in the body would withhold the whole preview, leaving an agent nothing to read before it confirms.",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "previewBody = cliutil.RedactSecretFields(previewBody)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cometblackbox/sources_test.go",
+     "contains": "func TestExecutePreviewRedactsItsBody(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "redact-json-in-string",
+   "class": "secret-echo",
+   "status": "active",
+   "summary": "Response redaction reaches a record carried as a JSON string (EngineProps SMBAUTH-*).",
+   "why": "The nested password was held but not redacted, so one documented SMB share credential withheld the whole of users list-full.",
+   "asserts": [
+    {
+     "file": "cli/internal/cliutil/comet_secrets.go",
+     "contains": "func redactJSONInString(s string, seen map[string]bool) string {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/comet_redact_nested_test.go",
+     "contains": "func TestRedactReachesJSONInsideAString(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "base-url-password-any-character",
+   "class": "secret-echo",
+   "status": "active",
+   "summary": "A password inside base_url is held whatever raw characters it carries, from the environment, the server variable or config.",
+   "why": "A raw / # or ? ends the authority for a URL parser and the kit's own reader, so the password went unheld and the connection error printed it.",
+   "asserts": [
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "credkit.HoldURL(credkit.Source(\"userinfo\"), base)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cometblackbox/sources_test.go",
+     "contains": "func TestBaseURLPasswordWithReservedCharactersHeld(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "preview-keeps-its-dry-run",
+   "class": "write-safety",
+   "status": "active",
+   "summary": "A mirrored write's preview drops a caller's dry-run argument, so its own --dry-run is the one the child reads.",
+   "why": "The last flag wins, and dry-run false after the preview's --dry-run sent the write with no confirm.",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/cobratree/comet_confirm.go",
+     "contains": "preview = withoutArgument(\"dry-run\", run(\"--dry-run\"))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/comet_confirm_test.go",
+     "contains": "func TestPreviewDropsACallersDryRunFalse(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  }
+ ]
+}

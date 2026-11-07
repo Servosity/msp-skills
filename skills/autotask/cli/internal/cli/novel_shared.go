@@ -45,7 +45,15 @@ func openNovelStore(ctx context.Context, dbFlag string) (*store.Store, error) {
 // interactive reads). Novel aggregations must see EVERY synced row — a silent
 // 200-row slice understates totals and corrupts rankings on any real tenant —
 // so pass an explicit effectively-unbounded limit instead of 0.
+//
+// A resource is read as the whole account only when its last sync finished
+// unfiltered (requireFinishedSync); every novel reads through here, so every
+// novel refuses a partial store, and a caller must return the error, never
+// read it as an empty result.
 func listEntity(db *store.Store, resourceType string) ([]map[string]any, error) {
+	if err := requireFinishedSync(db, resourceType); err != nil {
+		return nil, err
+	}
 	raws, err := db.List(resourceType, math.MaxInt32)
 	if err != nil {
 		return nil, err
@@ -217,7 +225,7 @@ func ageBucketLabel(hours float64) string {
 // ticketCreated returns the most relevant timestamp for aging a ticket: prefer
 // createDate, fall back to lastActivityDate.
 func ticketCreated(m map[string]any) (time.Time, bool) {
-	if t, ok := timeAt(m, "createDate", "createdDate", "CreateDate"); ok {
+	if t, ok := timeAt(m, "createDate", "CreateDate"); ok {
 		return t, true
 	}
 	return timeAt(m, "lastActivityDate", "LastActivityDate")
@@ -240,11 +248,139 @@ func isTicketOpen(m map[string]any) bool {
 // retainer all accumulate through it.
 func accrueBlock(b map[string]any) (purchased, used, remaining float64) {
 	purchased, _ = numAt(b, "hours")
-	if r, ok := numAt(b, "hoursLeft", "hoursRemaining"); ok {
-		return purchased, purchased - r, r
-	}
-	if u, ok := numAt(b, "hoursUsed", "hoursApproved"); ok {
+	if u, ok := numAt(b, "hoursApproved"); ok {
 		return purchased, u, purchased - u
 	}
 	return purchased, 0, 0
+}
+
+// requireFinishedSync refuses a resource whose stored rows are not backed by a
+// finished, unfiltered sync (autotask handfix, class
+// incomplete-snapshot-read-as-complete, pre-closed from the atera 4.34.2
+// reprint's Codex r1): a sync_state row whose last attempt did not complete or
+// never recorded a sync time (a sync that stopped part way), a walk that sent
+// a filter (autotask_sync_scope.go), rows with no sync_state at all (a live
+// read's write-through), or a resource never synced in a store where other
+// resources were (a report joining it would read it as empty: data-gaps would
+// call every ticket's company an orphan). A store where nothing was synced
+// yet keeps the documented empty result and its sync hint.
+func requireFinishedSync(s *store.Store, resourceType string) error {
+	if s == nil {
+		return nil
+	}
+	var complete int
+	var synced *string
+	found, err := novelQueryOne(s, `SELECT last_attempt_complete, CAST(last_synced_at AS TEXT) FROM sync_state WHERE resource_type = ?`, []any{resourceType}, &complete, &synced)
+	if err != nil {
+		return err
+	}
+	if found {
+		if complete != 1 || synced == nil || *synced == "" {
+			return fmt.Errorf("the last sync of %s did not finish, so the local store holds only part of it; run 'autotask-cli sync --resources %s' again before trusting this report", resourceType, resourceType)
+		}
+		params, filtered, err := syncWalkFiltered(s, resourceType)
+		if err != nil {
+			return err
+		}
+		if filtered && params == syncFiltersUnrecorded {
+			return fmt.Errorf("the last sync of %s was written by an older build or by 'workflow archive', which record no filters, so the local store may hold only part of it; run 'autotask-cli sync --resources %s' before trusting this report", resourceType, resourceType)
+		}
+		if filtered {
+			return fmt.Errorf("the last sync of %s sent filters (%s), so the local store holds only the records they matched; run 'autotask-cli sync --resources %s' without --param, --resource-param or --global-param before trusting this report", resourceType, params, resourceType)
+		}
+		return nil
+	}
+	var n int
+	if _, err := novelQueryOne(s, `SELECT COUNT(*) FROM resources WHERE resource_type = ?`, []any{resourceType}, &n); err != nil {
+		return err
+	}
+	if n > 0 {
+		return fmt.Errorf("%s has %d record(s) in the local store from live reads but was never synced, so the store holds only part of it; run 'autotask-cli sync --resources %s' before trusting this report", resourceType, n, resourceType)
+	}
+	var syncedAny int
+	if _, err := novelQueryOne(s, `SELECT COUNT(*) FROM sync_state`, nil, &syncedAny); err != nil {
+		return err
+	}
+	if syncedAny > 0 {
+		return fmt.Errorf("%s was never synced, so this report would read it as empty; run 'autotask-cli sync --resources %s' before trusting this report", resourceType, resourceType)
+	}
+	return nil
+}
+
+// novelQueryOne scans the first row of a query; found is false when it has none.
+func novelQueryOne(s *store.Store, query string, args []any, dest ...any) (bool, error) {
+	rows, err := s.Query(query, args...)
+	if err != nil {
+		return false, err
+	}
+	defer rows.Close()
+	if !rows.Next() {
+		return false, rows.Err()
+	}
+	return true, rows.Scan(dest...)
+}
+
+// timeEntryCompanies answers what a time entry cannot say itself: TimeEntryModel
+// (spec.json) carries no companyID, only ticketID, taskID and contractID, so the
+// company comes from the ticket, the task's project, or the contract, in that
+// order. Every source must be a finished sync (listEntity refuses otherwise).
+type timeEntryCompanies struct{ ticket, task, project, contract map[string]string }
+
+func loadTimeEntryCompanies(db *store.Store) (*timeEntryCompanies, error) {
+	r := &timeEntryCompanies{}
+	for _, src := range []struct {
+		resource, field string
+		into            *map[string]string
+	}{
+		{"tickets", "companyID", &r.ticket},
+		{"tasks", "projectID", &r.task},
+		{"projects", "companyID", &r.project},
+		{"contracts", "companyID", &r.contract},
+	} {
+		rows, err := listEntity(db, src.resource)
+		if err != nil {
+			return nil, err
+		}
+		m := make(map[string]string, len(rows))
+		for _, row := range rows {
+			m[strAt(row, "id")] = strAt(row, src.field)
+		}
+		*src.into = m
+	}
+	return r, nil
+}
+
+func (r *timeEntryCompanies) company(e map[string]any) string {
+	if c := r.ticket[strAt(e, "ticketID", "ticketId")]; c != "" {
+		return c
+	}
+	if c := r.project[r.task[strAt(e, "taskID", "taskId")]]; c != "" {
+		return c
+	}
+	if c := r.contract[strAt(e, "contractID", "contractId")]; c != "" {
+		return c
+	}
+	return strAt(e, "companyID", "companyId")
+}
+
+// timeEntryUnbilled: billable time not yet approved and posted for billing.
+// Approve and Post sets billingApprovalDateTime; spec.json documents no invoice
+// link on a time entry.
+func timeEntryUnbilled(e map[string]any) bool {
+	return !boolAt(e, "isNonBillable") && strAt(e, "billingApprovalDateTime") == ""
+}
+
+// timeEntryBillHours is what the entry would bill: hoursToBill, else hoursWorked.
+func timeEntryBillHours(e map[string]any) float64 {
+	h, _ := numAt(e, "hoursToBill", "hoursWorked")
+	return h
+}
+
+// isTaskDone: TaskModel (spec.json) documents no percentComplete; a task is
+// done when its status is Complete (5) or it carries a completedDateTime.
+func isTaskDone(tk map[string]any) bool {
+	if s, ok := intAt(tk, "status"); ok && s == 5 {
+		return true
+	}
+	return strAt(tk, "completedDateTime") != ""
 }

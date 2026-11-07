@@ -108,6 +108,15 @@ These capabilities aren't available in any other tool for this API.
   servosity-cli triage --company 4421 --ignore 550e8400-e29b-41d4-a716-446655440000 --comment 'scheduled outage' --dry-run
   ```
 
+- **`issues watch`**  -  Poll the partner issue list (read-only) and record each new, changed, archived, ignored or reactivated issue as an event; `events list --since <cursor>` reads them. Servosity has no issue webhooks yet, so this is the bridge.
+
+  _Reach for this when the user wants to react to new or changed issues. Read with `events list --since <cursor>` and keep the returned cursor; run `issues read <id>` for an issue's text. Over MCP, `events_list` reads the recorded events (read-only, no Servosity call); `issues watch` is CLI-only._
+
+  ```bash
+  servosity-cli issues watch --once --json
+  servosity-cli events list --since 0 --type servosity.issue.created --json
+  ```
+
 ### Disaster recovery
 - **`restore-queue watch`**  -  Watch every active company's restore queue across the book during a DR event. Polls each company periodically and prints diffs since the last tick.
 
@@ -331,6 +340,7 @@ These capabilities aren't available in any other tool for this API.
 
 - `servosity-cli issues list`  -  List
 - `servosity-cli issues read`  -  Read
+- `servosity-cli issues watch`  -  Poll the partner issue list and record each change as an event (read-only on Servosity; CLI only)
 
 **report-subscriptions**  -  Manage report subscriptions
 
@@ -412,6 +422,12 @@ These capabilities aren't available in any other tool for this API.
 
 
 - `servosity-cli email-draft`  -  Generate ready-to-paste follow-up email bodies for every client with a stale backup, filled from the local store (client name, hosts, days stale, last success).
+
+
+**events**
+
+
+- `servosity-cli events list`  -  List the issue events `issues watch` recorded after a cursor, oldest first (local, no Servosity call).
 
 
 **failure-clusters**
@@ -527,6 +543,15 @@ servosity-cli restore-queue watch --interval 30s --json
 ```
 
 Emits NDJSON, one tick per line. Pipe to `tee dr-event.log` to capture the timeline of every queue change for the post-mortem.
+
+### Issue changes as events
+
+```bash
+servosity-cli issues watch --interval 5m
+servosity-cli events list --since 0 --json
+```
+
+The first poll records a baseline and no events. Each later change is one event (`servosity.issue.created`, `.updated`, `.archived`, `.ignored`, `.reactivated`) with a cursor; pass the last cursor as `--since` to read only newer ones.
 
 ## Auth Setup
 

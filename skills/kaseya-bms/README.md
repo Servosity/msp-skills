@@ -55,7 +55,7 @@ Big install base, but an honest heads-up: Gemini CLI runs the local binary you j
 
 > **Claude Desktop bundle:** the `.mcpb` launches on macOS (Intel and Apple Silicon), Windows x64 and Linux x64. Every tool shells out to the companion `kaseya-bms-cli`. Releases cut from 2026-09-18 on ship that CLI inside the bundle; older bundles contain only the MCP server, so if yours lacks the companion, run the Path A or Path B installer below first (or set `KASEYA_BMS_CLI_PATH` to an existing binary). Details: [#331](https://github.com/Servosity/msp-skills/issues/331).
 
-[**Download Kaseya BMS MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/kaseya-bms-v0.1.7/kaseya-bms-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every Kaseya BMS release on the [releases page](https://github.com/servosity/msp-skills/releases?q=kaseya-bms).)
+[**Download Kaseya BMS MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/kaseya-bms-v0.1.9/kaseya-bms-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every Kaseya BMS release on the [releases page](https://github.com/servosity/msp-skills/releases?q=kaseya-bms).)
 
 Prefer the Claude Code plugin? Add the marketplace once, then install - works immediately, no directory listing required:
 
@@ -185,7 +185,7 @@ Full command reference: [guide.md](./guide.md). For the AI-agent operating contr
 
 ## What makes this different
 
-Most Kaseya BMS integrations and MCP servers proxy each question into a live API call. That's fine for one record. It dies at scale, when you're asking "how many approved billable hours are unbilled across every client this month" or "which contracts are most burned down heading into renewal" - and the BMS API's 1,500-requests-per-hour-per-endpoint limit punishes you for asking it live.
+Most Kaseya BMS integrations and MCP servers proxy each question into a live API call. That's fine for one record. It dies at scale, when you're asking "how many approved billable hours are unbilled across every client this month" or "which contracts are most burned down heading into renewal" - and the BMS API's 500-requests-per-hour-per-endpoint limit punishes you for asking it live.
 
 This skill syncs Kaseya BMS into a **local SQLite mirror** with full-text search. Aggregate questions become one local SQL join: instant, offline, and the AI sees the answer, not the raw data. Compound commands like `workload` (open tickets joined with hours logged per technician) and `contract-burn` (time logs routed through their tickets' contracts) join across tickets, time logs, and contracts - work a stateless API wrapper can't do.
 
@@ -223,7 +223,7 @@ Your data stays on **your machine**. The CLI and MCP server are local binaries. 
 
 ### Will this hit my Kaseya BMS API rate limits?
 
-Rarely. BMS allows 1,500 requests per hour per endpoint. Reads default to the local SQLite mirror (`--data-source auto`), so day-to-day questions cost **zero** API calls; you only spend the budget when you `sync` or explicitly query live with `--data-source live`.
+Rarely. BMS allows 500 requests per hour per endpoint. Reads default to the local SQLite mirror (`--data-source auto`), so day-to-day questions cost **zero** API calls; you only spend the budget when you `sync` or explicitly query live with `--data-source live`.
 
 ### Do I need to be a Kaseya customer, and how do I authenticate?
 

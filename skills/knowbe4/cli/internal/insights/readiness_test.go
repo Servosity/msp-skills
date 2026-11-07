@@ -77,11 +77,12 @@ func TestFreshnessReadiness(t *testing.T) {
 	if !ready["repeat-clickers"].Ready {
 		t.Fatalf("repeat-clickers should be ready (pst_recipients populated): %+v", ready["repeat-clickers"])
 	}
-	// Readiness reflects the TYPED tables the commands read: the seeded
-	// training_enrollments table is populated even though the generic
-	// resources ledger is empty, and UntrainedClickers works against it.
+	// Readiness is the predicate the commands answer through
+	// (CollectionSynced): the seeded enrollments' sync finished, so
+	// untrained-clickers is ready although the generic resources ledger is
+	// empty.
 	if !ready["untrained-clickers"].Ready {
-		t.Fatalf("untrained-clickers should be ready (typed training_enrollments populated): %+v", ready["untrained-clickers"])
+		t.Fatalf("untrained-clickers should be ready (training-enrollments synced): %+v", ready["untrained-clickers"])
 	}
 	if !ready["risk-drift"].Ready {
 		t.Fatalf("risk-drift should be ready (2 distinct snapshots): %+v", ready["risk-drift"])

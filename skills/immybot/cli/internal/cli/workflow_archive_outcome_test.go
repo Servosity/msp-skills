@@ -14,6 +14,9 @@ import (
 	"strings"
 	"sync"
 	"testing"
+
+	"immybot-pp-cli/internal/cliutil"
+	"immybot-pp-cli/internal/cliutil/testenv"
 )
 
 // Issue #275 finding 3 (upstream cli-printing-press #4410): `workflow archive`
@@ -64,8 +67,13 @@ func (d *archiveDouble) distinctPaths() int {
 // a throwaway HOME with dummy credentials pointed at the double.
 func runArchive(t *testing.T, d *archiveDouble, extra ...string) (stdout, stderr string, err error) {
 	t.Helper()
-	home := t.TempDir()
-	t.Setenv("HOME", home)
+	// HOME and USERPROFILE both: on Windows os.UserHomeDir reads USERPROFILE.
+	restore, err := cliutil.SetHomeOverride("")
+	if err != nil {
+		t.Fatalf("reset home override: %v", err)
+	}
+	t.Cleanup(restore)
+	home := testenv.Isolate(t, cliutil.ConfigDir, cliutil.DataDir, cliutil.StateDir, cliutil.CacheDir)
 	os.Unsetenv("PRINTING_PRESS_VERIFY")
 	cfgPath := filepath.Join(home, "config.toml")
 	// A pre-minted, far-future token in the config file so the client never

@@ -56,6 +56,11 @@ type findingRec struct {
 	Created     string   `json:"created,omitempty"`
 	Modified    string   `json:"modified,omitempty"`
 	Owners      []string `json:"owners,omitempty"`
+	// OwnershipKnown is false when the payload carries no owner data or an
+	// owner shape decodeOwnership does not understand: /org/findings
+	// (findings_data_record) has no owners field, so its findings are
+	// "ownership unknown", never "unassigned".
+	OwnershipKnown bool `json:"-"`
 }
 
 // resolvedStatusCode is the Blumira finding status code for "Resolved".
@@ -115,6 +120,7 @@ func parseBlumiraTime(s string) (time.Time, bool) {
 		"2006-01-02T15:04:05",
 		"2006-01-02 15:04:05.999999",
 		"2006-01-02 15:04:05",
+		"2006-01-02T15:04", // legacy minute-bucket snapshot keys
 		"2006-01-02",
 	}
 	for _, l := range layouts {
@@ -190,12 +196,15 @@ func mapBool(m map[string]any, keys ...string) bool {
 
 // ---- store loaders --------------------------------------------------------
 
-const analyticsListLimit = 100000
+// analyticsListLimit 0 reads every stored row (store.List treats <= 0 as no
+// limit), so a large store is never analysed from a silent prefix.
+const analyticsListLimit = 0
 
 // findingResourceTypes are the store resource_types that hold findings_data_record.
 var findingResourceTypes = []string{"msp-accounts-findings", "org-findings"}
 
 func decodeFinding(m map[string]any) findingRec {
+	owners, known := decodeOwnership(m)
 	return findingRec{
 		ID:          mapString(m, "finding_id", "id"),
 		ShortID:     mapString(m, "short_id"),
@@ -210,7 +219,9 @@ func decodeFinding(m map[string]any) findingRec {
 		Resolution:  mapInt(m, "resolution"),
 		Created:     mapString(m, "created"),
 		Modified:    mapString(m, "modified"),
-		Owners:      decodeOwners(m),
+		Owners:      owners,
+
+		OwnershipKnown: known,
 	}
 }
 
@@ -240,18 +251,52 @@ func loadFindings(s *store.Store) ([]findingRec, error) {
 	return out, nil
 }
 
+// loadDevices reads every synced agent device: the direct org's
+// (/org/agents/devices, partition org-agents-devices) and every MSP
+// sub-account's (/msp/accounts/{account_id}/agents/devices, filled by sync's
+// post-sync device walk), de-duplicated by device_id. A device report must
+// also call loadDeviceCoverageGaps to name the sub-accounts it could not read.
 func loadDevices(s *store.Store) ([]deviceRec, error) {
 	rows, err := s.List("org-agents-devices", analyticsListLimit)
 	if err != nil {
 		return nil, err
 	}
-	var out []deviceRec
+	type sourced struct {
+		raw     json.RawMessage
+		account string
+	}
+	all := make([]sourced, 0, len(rows))
 	for _, raw := range rows {
-		m, err := store.DecodeJSONObject(raw)
+		all = append(all, sourced{raw: raw})
+	}
+	db := s.DB()
+	if err := ensureMSPDeviceTables(db); err != nil {
+		return nil, err
+	}
+	sub, err := db.Query(`SELECT account_id, data FROM msp_account_devices ORDER BY account_id, device_id`)
+	if err != nil {
+		return nil, err
+	}
+	for sub.Next() {
+		var account, data string
+		if err := sub.Scan(&account, &data); err != nil {
+			_ = sub.Close()
+			return nil, err
+		}
+		all = append(all, sourced{raw: json.RawMessage(data), account: account})
+	}
+	_ = sub.Close()
+	if err := sub.Err(); err != nil {
+		return nil, err
+	}
+	seen := map[string]bool{}
+	var out []deviceRec
+	for _, src := range all {
+		m, err := store.DecodeJSONObject(src.raw)
 		if err != nil {
 			continue
 		}
-		out = append(out, deviceRec{
+		d := deviceRec{
 			DeviceID: mapString(m, "device_id", "id"),
 			Hostname: mapString(m, "hostname"),
 			Account:  mapString(m, "org_id"),
@@ -261,7 +306,17 @@ func loadDevices(s *store.Store) ([]deviceRec, error) {
 			Excluded: mapBool(m, "is_excluded"),
 			Alive:    mapString(m, "alive"),
 			Platform: mapString(m, "plat"),
-		})
+		}
+		if d.Account == "" {
+			d.Account = src.account
+		}
+		if d.DeviceID != "" {
+			if seen[d.DeviceID] {
+				continue
+			}
+			seen[d.DeviceID] = true
+		}
+		out = append(out, d)
 	}
 	return out, nil
 }
@@ -305,9 +360,21 @@ const findingHistoryDDL = `CREATE TABLE IF NOT EXISTS finding_history (
 	PRIMARY KEY (synced_at, finding_id)
 )`
 
+// findingHistoryPointsDDL records, per history point, the findings sync mark
+// it was taken under (see recordFindingHistory).
+const findingHistoryPointsDDL = `CREATE TABLE IF NOT EXISTS finding_history_points (
+	synced_at TEXT PRIMARY KEY,
+	sync_mark TEXT,
+	from_sync INTEGER
+)`
+
 func ensureFindingHistory(db *sql.DB) error {
-	_, err := db.Exec(findingHistoryDDL)
-	return err
+	for _, ddl := range []string{findingHistoryDDL, findingHistoryPointsDDL} {
+		if _, err := db.Exec(ddl); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // historySnapshot is one captured batch of findings keyed by the sync that
@@ -318,29 +385,95 @@ type historySnapshot struct {
 	Findings []findingRec
 }
 
-// captureFindingHistory records the current findings as a snapshot batch keyed
-// by the store's last sync time for findings. Idempotent: re-running between
-// syncs (same key) inserts nothing new thanks to the (synced_at, finding_id)
-// primary key. Returns the batch key used.
+// historyKeyLayout is fixed-width (always nine fractional digits), so keys
+// written by this build also sort correctly as strings.
+const historyKeyLayout = "2006-01-02T15:04:05.000000000Z07:00"
+
+// captureFindingHistory is the analytics commands' capture: it adds the
+// current findings as a history point only when sync has not already recorded
+// them (see recordFindingHistory).
 func captureFindingHistory(db *sql.DB, s *store.Store, findings []findingRec, now time.Time) (string, error) {
+	return recordFindingHistory(db, s, findings, now, false)
+}
+
+// findingsSyncMark identifies the findings walks the store currently reflects:
+// each findings partition's recorded sync time, verbatim.
+func findingsSyncMark(s *store.Store) string {
+	parts := make([]string, 0, len(findingResourceTypes))
+	for _, rt := range findingResourceTypes {
+		parts = append(parts, rt+"="+s.GetLastSyncedAt(rt))
+	}
+	return strings.Join(parts, ";")
+}
+
+// recordFindingHistory adds the current findings as a snapshot (history point).
+// Snapshot identity is the sync, not a timestamp string:
+//   - fromSync (sync's post-sync step) always adds a point, so every sync is a
+//     history point and drift compares the two most recent syncs even when the
+//     latest changed nothing;
+//   - otherwise (an analytics command) it adds a point only when the findings
+//     partitions were walked since the latest point (their sync mark differs,
+//     e.g. by a build that did not record history) or the stored state differs
+//     from it; re-running a command between syncs adds nothing.
+//
+// Each point's key is later than every existing key (fixed-width, nine
+// fractional digits), so a resync of either findings partition, even within
+// the same second, can never be folded into an earlier point. Returns the key
+// of the point that holds the current state.
+func recordFindingHistory(db *sql.DB, s *store.Store, findings []findingRec, now time.Time, fromSync bool) (string, error) {
 	if err := ensureFindingHistory(db); err != nil {
 		return "", err
 	}
-	key := ""
-	for _, rt := range findingResourceTypes {
-		if ls := s.GetLastSyncedAt(rt); ls != "" {
-			key = ls
-			break
+	snaps, err := loadHistorySnapshots(db)
+	if err != nil {
+		return "", err
+	}
+	marks, err := loadHistoryMarks(db)
+	if err != nil {
+		return "", err
+	}
+	var latest *historySnapshot
+	if len(snaps) > 0 {
+		latest = &snaps[len(snaps)-1]
+	}
+	// A sync that returns no findings is still a history point (an empty one),
+	// so drift sees the next new finding. An analytics command with nothing
+	// recorded and nothing stored has no state to capture.
+	if len(findings) == 0 && !fromSync && latest == nil {
+		return "", nil
+	}
+	mark := findingsSyncMark(s)
+	if !fromSync && latest != nil && sameFindingState(latest.Findings, findings) {
+		latestMark, marked := marks[latest.Key]
+		if !marked {
+			// A point written before marks existed that already holds the
+			// current state: adopt it rather than add a duplicate, which would
+			// make drift compare a state with itself.
+			if _, err := db.Exec(`INSERT OR IGNORE INTO finding_history_points (synced_at, sync_mark, from_sync) VALUES (?, ?, 0)`, latest.Key, mark); err != nil {
+				return "", err
+			}
+			return latest.Key, nil
+		}
+		if latestMark == mark {
+			return latest.Key, nil
 		}
 	}
-	if key == "" {
-		// No sync state recorded; fall back to a coarse minute bucket so
-		// repeated runs in the same minute don't double-count.
-		key = now.UTC().Format("2006-01-02T15:04")
+	at := now.UTC()
+	if !fromSync {
+		var lastSync time.Time
+		for _, rt := range findingResourceTypes {
+			if t, ok := parseBlumiraTime(s.GetLastSyncedAt(rt)); ok && t.After(lastSync) {
+				lastSync = t
+			}
+		}
+		if !lastSync.IsZero() && (latest == nil || lastSync.After(latest.SyncedAt)) {
+			at = lastSync
+		}
 	}
-	if len(findings) == 0 {
-		return key, nil
+	if latest != nil && !at.After(latest.SyncedAt) {
+		at = latest.SyncedAt.Add(time.Microsecond)
 	}
+	key := at.UTC().Format(historyKeyLayout)
 	tx, err := db.Begin()
 	if err != nil {
 		return key, err
@@ -360,15 +493,98 @@ func captureFindingHistory(db *sql.DB, s *store.Store, findings []findingRec, no
 			return key, err
 		}
 	}
+	if _, err := tx.Exec(`INSERT OR REPLACE INTO finding_history_points (synced_at, sync_mark, from_sync) VALUES (?, ?, ?)`,
+		key, mark, fromSync); err != nil {
+		_ = tx.Rollback()
+		return key, err
+	}
 	if err := tx.Commit(); err != nil {
 		return key, err
 	}
 	return key, nil
 }
 
-// loadHistorySnapshots reads all snapshot batches, ordered oldest-first.
+// loadHistoryMarks maps each history point key to the findings sync mark it
+// was recorded under ("" for points written by builds before marks existed).
+func loadHistoryMarks(db *sql.DB) (map[string]string, error) {
+	rows, err := db.Query(`SELECT synced_at, sync_mark FROM finding_history_points`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[string]string{}
+	for rows.Next() {
+		var key string
+		var mark sql.NullString
+		if err := rows.Scan(&key, &mark); err != nil {
+			return nil, err
+		}
+		out[key] = mark.String
+	}
+	return out, rows.Err()
+}
+
+// sameFindingState reports whether two finding sets carry the same state for
+// every field the history-based commands read.
+func sameFindingState(a, b []findingRec) bool {
+	type state struct {
+		account, name, statusName string
+		status, priority          int
+	}
+	index := func(fs []findingRec) map[string]state {
+		m := make(map[string]state, len(fs))
+		for _, f := range fs {
+			m[f.ID] = state{f.Account, f.Name, f.StatusName, f.Status, f.Priority}
+		}
+		return m
+	}
+	ma, mb := index(a), index(b)
+	if len(ma) != len(mb) {
+		return false
+	}
+	for id, sa := range ma {
+		if sb, ok := mb[id]; !ok || sa != sb {
+			return false
+		}
+	}
+	return true
+}
+
+// loadHistorySnapshots reads all snapshot batches, ordered oldest-first by
+// their parsed time (keys written by older builds use other layouts, so a
+// string order is not a time order). Points are enumerated from
+// finding_history_points as well as finding_history, so a point that holds no
+// findings (an empty sync) is still a snapshot.
 func loadHistorySnapshots(db *sql.DB) ([]historySnapshot, error) {
 	if err := ensureFindingHistory(db); err != nil {
+		return nil, err
+	}
+	byKey := map[string]*historySnapshot{}
+	var order []string
+	addPoint := func(key string) *historySnapshot {
+		snap, ok := byKey[key]
+		if !ok {
+			t, _ := parseBlumiraTime(key)
+			snap = &historySnapshot{Key: key, SyncedAt: t}
+			byKey[key] = snap
+			order = append(order, key)
+		}
+		return snap
+	}
+	points, err := db.Query(`SELECT synced_at FROM finding_history_points`)
+	if err != nil {
+		return nil, err
+	}
+	for points.Next() {
+		var key string
+		if err := points.Scan(&key); err != nil {
+			_ = points.Close()
+			return nil, err
+		}
+		addPoint(key)
+	}
+	_ = points.Close()
+	if err := points.Err(); err != nil {
 		return nil, err
 	}
 	rows, err := db.Query(`SELECT synced_at, finding_id, account, name, status, status_name, priority, created, modified
@@ -377,8 +593,6 @@ func loadHistorySnapshots(db *sql.DB) ([]historySnapshot, error) {
 		return nil, err
 	}
 	defer rows.Close()
-	byKey := map[string]*historySnapshot{}
-	var order []string
 	for rows.Next() {
 		var key string
 		var f findingRec
@@ -394,13 +608,7 @@ func loadHistorySnapshots(db *sql.DB) ([]historySnapshot, error) {
 		f.Modified = modified.String
 		f.Status = int(status.Int64)
 		f.Priority = int(priority.Int64)
-		snap, ok := byKey[key]
-		if !ok {
-			t, _ := parseBlumiraTime(key)
-			snap = &historySnapshot{Key: key, SyncedAt: t}
-			byKey[key] = snap
-			order = append(order, key)
-		}
+		snap := addPoint(key)
 		snap.Findings = append(snap.Findings, f)
 	}
 	if err := rows.Err(); err != nil {
@@ -410,6 +618,12 @@ func loadHistorySnapshots(db *sql.DB) ([]historySnapshot, error) {
 	for _, k := range order {
 		out = append(out, *byKey[k])
 	}
+	sort.SliceStable(out, func(i, j int) bool {
+		if !out[i].SyncedAt.Equal(out[j].SyncedAt) {
+			return out[i].SyncedAt.Before(out[j].SyncedAt)
+		}
+		return out[i].Key < out[j].Key
+	})
 	return out, nil
 }
 
@@ -638,11 +852,25 @@ func computeCoverage(basis, orgRules []ruleRec) []coverageRow {
 
 type exposureRow struct {
 	Account     string `json:"account,omitempty"`
+	AccountName string `json:"account_name,omitempty"`
 	DeviceID    string `json:"device_id"`
 	Hostname    string `json:"hostname"`
 	IsDC        bool   `json:"is_domain_controller"`
 	Reason      string `json:"reason"`
 	LastSeenHrs int    `json:"last_seen_hours"` // -1 when unknown
+	// CoverageGap marks a sub-account whose device list could not be read:
+	// its devices (domain controllers included) are unknown, not healthy.
+	CoverageGap bool `json:"coverage_gap,omitempty"`
+}
+
+// exposureGapRows lists the sub-accounts a device report could not cover;
+// they lead the report.
+func exposureGapRows(gaps []deviceCoverageGap) []exposureRow {
+	rows := make([]exposureRow, 0, len(gaps))
+	for _, g := range gaps {
+		rows = append(rows, exposureRow{Account: g.Account, AccountName: g.AccountName, Reason: g.Detail, LastSeenHrs: -1, CoverageGap: true})
+	}
+	return rows
 }
 
 type exposureOpts struct {
@@ -756,15 +984,16 @@ type velocityRow struct {
 }
 
 // computeVelocity derives MTTR and open-rate per group (account) from the
-// snapshot history within [since, now]. MTTR for a finding = time between its
-// first appearance and the first snapshot in which it is resolved.
+// snapshot history within [since, now] (snapshots oldest-first). A finding
+// counts by its LATEST observed state: one resolved and then reopened is open.
+// MTTR for a currently resolved finding = time between its first appearance
+// and the snapshot that began its current resolved stretch.
 func computeVelocity(snaps []historySnapshot, since time.Time, groupByAccount bool) []velocityRow {
 	type track struct {
 		first    time.Time
-		resolved time.Time
-		isRes    bool
+		resolved time.Time // start of the current resolved stretch
+		isRes    bool      // latest observed state is resolved
 		account  string
-		open     bool
 	}
 	tracks := map[string]*track{}
 	for _, snap := range snaps {
@@ -774,16 +1003,17 @@ func computeVelocity(snaps []historySnapshot, since time.Time, groupByAccount bo
 		for _, f := range snap.Findings {
 			t := tracks[f.ID]
 			if t == nil {
-				t = &track{first: snap.SyncedAt, account: f.Account, open: true}
+				t = &track{first: snap.SyncedAt}
 				tracks[f.ID] = t
 			}
-			if f.IsResolved() && !t.isRes {
-				t.isRes = true
-				t.resolved = snap.SyncedAt
-				t.open = false
+			if f.Account != "" {
+				t.account = f.Account
 			}
-			if !f.IsResolved() {
-				t.open = true
+			switch {
+			case f.IsResolved() && !t.isRes:
+				t.isRes, t.resolved = true, snap.SyncedAt
+			case !f.IsResolved():
+				t.isRes, t.resolved = false, time.Time{}
 			}
 		}
 	}

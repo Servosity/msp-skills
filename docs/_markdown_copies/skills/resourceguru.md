@@ -137,6 +137,10 @@ No. You need an account that can read the schedule, authenticated with your acco
 
 No. It reports and analyzes; it is not where you edit the schedule. Writes go through the same API the web app uses, so confirm any mutation in Resource Guru afterward. The unique value is the per-day, fleet-wide utilization the portal does not surface.
 
+## More Other connectors
+
+Run more than one Other tool, or comparing options? These connectors work the same way: [3CX](https://msp-skills.compoundingteams.com/skills/threecx.md) · [VMware vSphere](https://msp-skills.compoundingteams.com/skills/vsphere.md)
+
 ## Status
 
 Beta. Validated against the Resource Guru API surface and being validated with MSPs running it live against their own production tenants in our weekly **[Build Sessions](https://compoundingteams.com/build-sessions)**.

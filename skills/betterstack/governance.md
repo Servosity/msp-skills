@@ -8,12 +8,15 @@
 ## What it authenticates as
 
 The skill drives the `betterstack-cli` binary (and `betterstack-mcp`),
-authenticating with `BETTERSTACK_API_TOKEN`. Credentials are read from the environment only -
-never written to disk, never logged, never sent anywhere except the Better Stack API.
+authenticating with `BETTERSTACK_API_TOKEN`, or the token `auth set-token` saved to
+`credentials.toml` (mode 0600), the one file that holds it. It is never logged and never
+sent anywhere except the Better Stack API.
 
 ## Default-safe behavior
 
 - **`--dry-run` is opt-in - use it.** Mutating commands send immediately unless you pass `--dry-run` first to preview the request without sending. Make your agent's policy: preview, show the exact command, get approval, then run the write.
+- **Over MCP, a write previews first.** A tool that changes something in Better Stack
+  returns a preview and sends only with `confirm: true`.
 - **Read commands are always safe to run** (reports, rollups, search); they cannot
   change anything.
 - **Agent mode is explicit.** `--agent` produces JSON for scripting but does not

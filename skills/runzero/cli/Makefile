@@ -1,7 +1,9 @@
 .PHONY: build test lint install clean
 
+BIN_EXT := $(if $(filter windows,$(shell go env GOOS)),.exe,)
+
 build:
-	go build -o bin/runzero-cli ./cmd/runzero-cli
+	go build -trimpath -o bin/runzero-cli$(BIN_EXT) ./cmd/runzero-cli
 
 test:
 	go test ./...
@@ -16,7 +18,7 @@ clean:
 	rm -rf bin/
 
 build-mcp:
-	go build -o bin/runzero-mcp ./cmd/runzero-mcp
+	go build -trimpath -o bin/runzero-mcp$(BIN_EXT) ./cmd/runzero-mcp
 
 install-mcp:
 	go install ./cmd/runzero-mcp

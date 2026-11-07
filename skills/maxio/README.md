@@ -55,7 +55,7 @@ Big install base, but an honest heads-up: Gemini CLI runs the local binary you j
 
 > **Claude Desktop bundle:** the `.mcpb` launches on macOS (Intel and Apple Silicon), Windows x64 and Linux x64. Every tool shells out to the companion `maxio-cli`. Releases cut from 2026-09-18 on ship that CLI inside the bundle; older bundles contain only the MCP server, so if yours lacks the companion, run the Path A or Path B installer below first (or set `MAXIO_CLI_PATH` to an existing binary). Details: [#331](https://github.com/Servosity/msp-skills/issues/331).
 
-[**Download Maxio MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/maxio-v0.1.7/maxio-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every Maxio release on the [releases page](https://github.com/servosity/msp-skills/releases?q=maxio).)
+[**Download Maxio MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/maxio-v0.1.8/maxio-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every Maxio release on the [releases page](https://github.com/servosity/msp-skills/releases?q=maxio).)
 
 Prefer the Claude Code plugin? Add the marketplace once, then install - works immediately, no directory listing required:
 
@@ -207,7 +207,7 @@ Your data stays on **your machine**. The CLI and MCP server are local binaries. 
 
 ### Will this hit my Maxio API rate limits?
 
-Rarely, for the analytics. After you sync, the revenue-analytics commands (`maxio-cli mrr waterfall`, `maxio-cli retention`, `maxio-cli cohort`, `maxio-cli triage`, `maxio-cli reconcile`) read from the local SQLite mirror, so they make zero API calls. Keeping the mirror current is two incremental commands - `maxio-cli sync` for the full dataset and `maxio-cli mrr sync` to snapshot MRR-movement history - and both fetch only what changed since the last run. The endpoint-mirror commands and `maxio-cli tail` read live from Maxio, so those do count against your limits.
+Rarely, for the analytics. After you sync, the revenue-analytics commands (`maxio-cli mrr waterfall`, `maxio-cli retention`, `maxio-cli cohort`, `maxio-cli triage`, `maxio-cli reconcile`) read from the local SQLite mirror, so they make zero API calls. Keeping the mirror current is two incremental commands - `maxio-cli sync` for the full dataset and `maxio-cli mrr sync` to snapshot MRR-movement history - and both fetch only what changed since the last run. A `sync` narrowed by a `--param`, `--global-param` or `--resource-param`, or by a `--since` later than the last full pass, reads what you asked and leaves the stored sync time alone, so the next plain `sync` still fetches everything since that pass. The endpoint-mirror commands and `maxio-cli tail` read live from Maxio, so those do count against your limits.
 
 ### Do I need to be a Maxio partner or customer?
 
@@ -221,6 +221,15 @@ No. It complements the portal, which still owns billing operations and configura
 
 Free. Apache-2.0 licensed. You pay only for whichever AI agent you use (Claude, ChatGPT, Codex, etc.), and that's billed by your AI provider, not by us.
 
+## Credential safety
+
+- The API key travels only as HTTP Basic (`<key>:x`) and only to the scheme, host and port of the configured base URL (`https://<site>.chargify.com` built from `MAXIO_SITE`, or `MAXIO_BASE_URL`). The one other host is Maxio's Events-Based Billing ingestion endpoint, `https://events.chargify.com/<the same site>/events/...`, used by `events record` and `bulk-record-events`. A redirect to any other host, a plain http address and a site that is not a single host-name label are all refused, so the key never reaches them. `MAXIO_SITE` has no default: with it unset, a command names the variable and sends nothing.
+- A response's card, bank and token fields (a vault token, a self-service page token, a webhook signature, a Maxio.js `chargify_token`) are replaced with `[redacted]` as the response arrives, so ordinary lists still work and none of those values reach the output or the local store.
+- Any other output, file or MCP result that would repeat `MAXIO_API_KEY`, the stored key, or a credential you typed (a card number or CVV, a bank account number or IBAN, a `chargify_token`, a payment nonce) is withheld as a whole and prints `[credkit: withheld from <where>: it carried a credential this program holds]` in its place, including in the common encodings.
+- Responses are never cached on disk: every command reads the API's current answer.
+- A saved key lives only in `credentials.toml`, or in a `config.toml` you put it in, and both are kept at mode 0600. `auth set-token` reads the key from stdin, never from an argument.
+- `--dry-run` sends nothing. Over MCP, `maxio_execute` (every Maxio endpoint that changes something) and `import` return a preview and send only with `confirm: true`, and a tool argument can never name a file to read or write.
+
 ## Safety model
 
 | Tier | Examples | Recommended agent policy |
@@ -233,7 +242,7 @@ The strongest control is the **scope you grant the Maxio credentials** - the CLI
 
 ## Status
 
-Beta. Validated against the Maxio API surface and being validated with MSPs running it live against their own production tenant in our weekly Build Sessions. RSVP at [compoundingteams.com/build-sessions](https://compoundingteams.com/build-sessions).
+Live-verified. Confirmed by Servosity (maintainer) against their own production tenant. More MSPs run it live in our weekly Build Sessions. RSVP at [compoundingteams.com/build-sessions](https://compoundingteams.com/build-sessions).
 
 ---
 

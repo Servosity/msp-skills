@@ -63,7 +63,7 @@ Use this command to resolve the label<->ID values inside one picklist field. Do 
 			path := "/" + entityPascal + "/entityInformation/fields"
 			data, prov, err := resolveReadWithStrategy(cmd.Context(), c, flags, "auto", entityKebab, false, path, map[string]string{}, nil, cmd.ErrOrStderr())
 			if err != nil {
-				return classifyAPIError(err, flags)
+				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}
 
 			var envelope struct {

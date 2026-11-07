@@ -25,9 +25,9 @@ coverage questions offline - no portal walk, no rate-limit risk:
 
 - **`afi-cli coverage-gaps --agent`** - every resource with no backup
   protection attached, across the fleet. The blind spots, named.
-- **`afi-cli backup-stale --max-age 48h --agent`** - protected resources whose
-  newest archive has gone stale: the silent-failure class no portal screen
-  surfaces.
+- **`afi-cli backup-stale --agent`** - protected resources with no archive at
+  all, or in a tenant where no backup task finished in the synced window: the
+  silent-failure class no portal screen surfaces.
 - **`afi-cli fleet-health --failed-only --agent`** - the Monday-morning "is the
   whole fleet green" sweep in one table instead of one tenant tab at a time.
 - **`afi-cli reconcile-licenses --agent`** - seats purchased vs seats actually

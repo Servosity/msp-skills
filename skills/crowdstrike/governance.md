@@ -8,12 +8,21 @@
 ## What it authenticates as
 
 The skill drives the `crowdstrike-cli` binary (and `crowdstrike-mcp`),
-authenticating with `CROWDSTRIKE_OAUTH_SCOPE`, `FALCON_CLIENT_ID`, `FALCON_CLIENT_SECRET`. Credentials are read from the environment only -
-never written to disk, never logged, never sent anywhere except the CrowdStrike API.
+authenticating with `CROWDSTRIKE_OAUTH_SCOPE`, `FALCON_CLIENT_ID`, `FALCON_CLIENT_SECRET`.
+
+- The client ID and secret go only to the token URL of the configured Falcon cloud
+  (`/oauth2/token` on the `CROWDSTRIKE_BASE_URL` host); every API request and the
+  bearer token go only to that cloud. A redirect to any other host is refused.
+- Credentials come from the environment, or from `credentials.toml` (mode 0600)
+  when you run `auth login` or `auth set-token`. No other file holds a credential;
+  a pair from the environment, and the token minted for it, are never written to disk.
+- Output, files, requests and MCP results that would repeat a credential this
+  program holds, whole or as 8 or more characters in a row in the encodings the
+  check knows, are withheld whole and replaced by a "[credkit: withheld ...]" notice.
 
 ## Default-safe behavior
 
-- **`--dry-run` is opt-in - use it.** Mutating commands send immediately unless you pass `--dry-run` first to preview the request without sending. Make your agent's policy: preview, show the exact command, get approval, then run the write.
+- **`--dry-run` is opt-in - use it.** From the CLI, mutating commands send immediately unless you pass `--dry-run` first to preview the request without sending. Over MCP, every write tool returns a preview and sends nothing until it is called again with `confirm` set to boolean true, and `CROWDSTRIKE_MCP_READ_ONLY=1` (preset in the install configs) refuses every write. Make your agent's policy: preview, show the exact command, get approval, then run the write.
 - **Read commands are always safe to run** (reports, rollups, search); they cannot
   change anything.
 - **Agent mode is explicit.** `--agent` produces JSON for scripting but does not

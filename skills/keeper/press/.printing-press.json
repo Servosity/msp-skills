@@ -1,0 +1,271 @@
+{
+  "schema_version": 2,
+  "generated_at": "2026-10-28T13:16:53.589777Z",
+  "printing_press_version": "4.34.2",
+  "api_name": "keeper",
+  "display_name": "Keeper Admin and MSP Console",
+  "cli_name": "keeper-pp-cli",
+  "creator": {
+    "handle": "DamienStevens",
+    "name": "Damien Stevens"
+  },
+  "owner": "damienstevens",
+  "printer": "DamienStevens",
+  "printer_name": "Damien Stevens",
+  "spec_path": "spec.yaml",
+  "spec_format": "openapi3",
+  "spec_source": "docs",
+  "spec_checksum": "sha256:061e52ecd18df385715b85167fa142006fca544ea4d5e42d84d8806eb1f4b815",
+  "run_id": "20261028-034526-63550f08",
+  "category": "auth",
+  "description": "Read-only Keeper MSP posture across every client, with history, a change feed and no path to a vault secret.",
+  "mcp_binary": "keeper-pp-mcp",
+  "mcp_tool_count": 2,
+  "mcp_public_tool_count": 1,
+  "mcp_ready": "full",
+  "api_version": "1.0.0",
+  "auth_type": "api_key",
+  "auth_preference": "apiKey",
+  "auth_env_vars": [
+    "KEEPER_API_KEY"
+  ],
+  "novel_features": [
+    {
+      "name": "Multi-company posture report",
+      "command": "posture report",
+      "description": "Fetch 2FA coverage, weak and reused passwords, BreachWatch exposure, inactive users and seat usage for every managed company in one run, and record it."
+    },
+    {
+      "name": "Posture diff between runs",
+      "command": "posture diff",
+      "description": "Compare two stored posture runs (needs two 'posture report' runs): per-company metric deltas and per-user transitions such as 2FA turned off or newly at risk."
+    },
+    {
+      "name": "Change events feed",
+      "command": "events list",
+      "description": "Read posture change events (user.twofa_disabled, posture.weak_passwords_increased and more) after a cursor, once each."
+    },
+    {
+      "name": "Cross-company user lookup",
+      "command": "users find",
+      "description": "Find which managed company a user belongs to, with status, 2FA and last login, across every client; reads the newest stored 'posture report' run (run it first)."
+    },
+    {
+      "name": "Account hygiene sweep",
+      "command": "users hygiene",
+      "description": "List stale invites (with how long they have been pending), locked, inactive and pending-transfer users across every client; reads the newest stored 'posture report' run (run it first)."
+    },
+    {
+      "name": "User security exceptions",
+      "command": "users risk",
+      "description": "List users without 2FA (admins outside any 2FA-enforcing role first), BreachWatch at-risk users and users with weak or reused passwords across every client; reads the newest stored 'posture report' run (run it first)."
+    },
+    {
+      "name": "Posture run history",
+      "command": "posture runs",
+      "description": "List stored posture runs with their time, status and inactivity window."
+    },
+    {
+      "name": "Managed companies",
+      "command": "companies list",
+      "description": "List every managed company with plan, seats allocated and active, storage and add-ons."
+    },
+    {
+      "name": "One managed company",
+      "command": "companies get",
+      "description": "Show one managed company's plan, seats and add-ons by id."
+    },
+    {
+      "name": "MSP products and pricing",
+      "command": "products list",
+      "description": "List MSP products, add-ons and file plans with pricing."
+    },
+    {
+      "name": "MSP permits",
+      "command": "permits list",
+      "description": "Show which products and add-ons the MSP may allocate and the maximum file plan."
+    },
+    {
+      "name": "Consumption billing statement",
+      "command": "billing report",
+      "description": "Show the monthly consumption billing statement, optionally by company and by date."
+    },
+    {
+      "name": "Users with status and 2FA",
+      "command": "users list",
+      "description": "List an enterprise's or a managed company's users with status, transfer status, node, roles and 2FA."
+    },
+    {
+      "name": "Last login per user",
+      "command": "users last-login",
+      "description": "Show each user's last login within a window."
+    },
+    {
+      "name": "Nodes",
+      "command": "nodes list",
+      "description": "List the enterprise node tree with user, team and role counts."
+    },
+    {
+      "name": "Teams",
+      "command": "teams list",
+      "description": "List teams with node and user count."
+    },
+    {
+      "name": "Roles",
+      "command": "roles list",
+      "description": "List roles with admin flag, default role, node and user count."
+    },
+    {
+      "name": "Security audit",
+      "command": "security-audit report",
+      "description": "Show each user's weak, fair, medium, strong, reused and unique password counts, security score and 2FA."
+    },
+    {
+      "name": "BreachWatch summary",
+      "command": "breachwatch summary",
+      "description": "Show each user's BreachWatch at-risk, passed and ignored counts."
+    },
+    {
+      "name": "Audit trail events",
+      "command": "audit-trail events",
+      "description": "Read raw audit events, newest first, filtered by period, user and event type."
+    },
+    {
+      "name": "Audit trail summary",
+      "command": "audit-trail summary",
+      "description": "Count audit events by type per day, week, month or the whole period."
+    },
+    {
+      "name": "Command allowlist",
+      "command": "allowlist",
+      "description": "Print the read-only Commander commands this CLI can send and the matching Service Mode -c value."
+    }
+  ],
+  "novel_features_built": [
+    {
+      "name": "Multi-company posture report",
+      "command": "posture report",
+      "description": "Fetch 2FA coverage, weak and reused passwords, BreachWatch exposure, inactive users and seat usage for every managed company in one run, and record it."
+    },
+    {
+      "name": "Posture diff between runs",
+      "command": "posture diff",
+      "description": "Compare two stored posture runs (needs two 'posture report' runs): per-company metric deltas and per-user transitions such as 2FA turned off or newly at risk."
+    },
+    {
+      "name": "Change events feed",
+      "command": "events list",
+      "description": "Read posture change events (user.twofa_disabled, posture.weak_passwords_increased and more) after a cursor, once each."
+    },
+    {
+      "name": "Cross-company user lookup",
+      "command": "users find",
+      "description": "Find which managed company a user belongs to, with status, 2FA and last login, across every client; reads the newest stored 'posture report' run (run it first)."
+    },
+    {
+      "name": "Account hygiene sweep",
+      "command": "users hygiene",
+      "description": "List stale invites (with how long they have been pending), locked, inactive and pending-transfer users across every client; reads the newest stored 'posture report' run (run it first)."
+    },
+    {
+      "name": "User security exceptions",
+      "command": "users risk",
+      "description": "List users without 2FA (admins outside any 2FA-enforcing role first), BreachWatch at-risk users and users with weak or reused passwords across every client; reads the newest stored 'posture report' run (run it first)."
+    },
+    {
+      "name": "Posture run history",
+      "command": "posture runs",
+      "description": "List stored posture runs with their time, status and inactivity window."
+    },
+    {
+      "name": "Managed companies",
+      "command": "companies list",
+      "description": "List every managed company with plan, seats allocated and active, storage and add-ons."
+    },
+    {
+      "name": "One managed company",
+      "command": "companies get",
+      "description": "Show one managed company's plan, seats and add-ons by id."
+    },
+    {
+      "name": "MSP products and pricing",
+      "command": "products list",
+      "description": "List MSP products, add-ons and file plans with pricing."
+    },
+    {
+      "name": "MSP permits",
+      "command": "permits list",
+      "description": "Show which products and add-ons the MSP may allocate and the maximum file plan."
+    },
+    {
+      "name": "Consumption billing statement",
+      "command": "billing report",
+      "description": "Show the monthly consumption billing statement, optionally by company and by date."
+    },
+    {
+      "name": "Users with status and 2FA",
+      "command": "users list",
+      "description": "List an enterprise's or a managed company's users with status, transfer status, node, roles and 2FA."
+    },
+    {
+      "name": "Last login per user",
+      "command": "users last-login",
+      "description": "Show each user's last login within a window."
+    },
+    {
+      "name": "Nodes",
+      "command": "nodes list",
+      "description": "List the enterprise node tree with user, team and role counts."
+    },
+    {
+      "name": "Teams",
+      "command": "teams list",
+      "description": "List teams with node and user count."
+    },
+    {
+      "name": "Roles",
+      "command": "roles list",
+      "description": "List roles with admin flag, default role, node and user count."
+    },
+    {
+      "name": "Security audit",
+      "command": "security-audit report",
+      "description": "Show each user's weak, fair, medium, strong, reused and unique password counts, security score and 2FA."
+    },
+    {
+      "name": "BreachWatch summary",
+      "command": "breachwatch summary",
+      "description": "Show each user's BreachWatch at-risk, passed and ignored counts."
+    },
+    {
+      "name": "Audit trail events",
+      "command": "audit-trail events",
+      "description": "Read raw audit events, newest first, filtered by period, user and event type."
+    },
+    {
+      "name": "Audit trail summary",
+      "command": "audit-trail summary",
+      "description": "Count audit events by type per day, week, month or the whole period."
+    },
+    {
+      "name": "Command allowlist",
+      "command": "allowlist",
+      "description": "Print the read-only Commander commands this CLI can send and the matching Service Mode -c value."
+    }
+  ],
+  "verify": {
+    "mode": "mock",
+    "pass_rate": 100,
+    "passed": 40,
+    "total": 40,
+    "data_pipeline": true,
+    "verdict": "PASS"
+  },
+  "scorecard": {
+    "steinberger": {
+      "percentage": 87,
+      "grade": "A",
+      "total": 87
+    }
+  }
+}

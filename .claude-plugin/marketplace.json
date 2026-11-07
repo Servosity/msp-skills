@@ -12,7 +12,7 @@
       "name": "abnormal",
       "source": "./skills/abnormal",
       "description": "The full Abnormal Security REST API as an agent-native CLI \u2014 with a local threat store, ranked SOC triage, and one-shot reporting no SOAR pack offers.",
-      "version": "0.1.7",
+      "version": "0.1.8",
       "category": "security",
       "tags": [
         "abnormal",
@@ -42,8 +42,8 @@
     {
       "name": "action1",
       "source": "./skills/action1",
-      "description": "Every Action1 endpoint, plus fleet-wide patch and vulnerability views across all your organizations.",
-      "version": "0.1.10",
+      "description": "Every Action1 endpoint, plus the fleet-wide patch and vulnerability views the org-siloed API cannot give you.",
+      "version": "0.1.11",
       "category": "rmm",
       "tags": [
         "action1",
@@ -58,7 +58,7 @@
       "name": "afi",
       "source": "./skills/afi",
       "description": "The first CLI for Afi SaaS backup \u2014 full public-API coverage plus the fleet-wide coverage, staleness, and offboarding answers the rate-limited API can't serve live.",
-      "version": "0.1.8",
+      "version": "0.1.9",
       "category": "backup-dr",
       "tags": [
         "afi",
@@ -103,7 +103,7 @@
       "name": "autotask",
       "source": "./skills/autotask",
       "description": "Every Autotask entity at the command line, plus a local SQLite mirror that answers ticket-aging, workload, unbilled-time, and account-360 questions no other Autotask tool can.",
-      "version": "0.1.9",
+      "version": "0.1.10",
       "category": "psa",
       "tags": [
         "autotask",
@@ -147,8 +147,8 @@
     {
       "name": "aws-billing",
       "source": "./skills/aws-billing",
-      "description": "Get a non-expert from zero to a Slack-delivered, plain-English, waste-flagged AWS bill breakdown  -  and cache it so you don't pay per Cost Explorer call.",
-      "version": "0.1.8",
+      "description": "Get a non-expert from zero to a Slack-delivered, plain-English, waste-flagged AWS bill breakdown \u2014 and cache it so you don't pay per Cost Explorer call.",
+      "version": "0.1.9",
       "category": "billing",
       "tags": [
         "aws-billing",
@@ -164,7 +164,7 @@
       "name": "axcient",
       "source": "./skills/axcient",
       "description": "Every x360Recover endpoint, plus the fleet-wide backup-health answers the API alone can't give \u2014 offline, joined, and agent-ready.",
-      "version": "0.2.17",
+      "version": "0.2.18",
       "category": "backup-dr",
       "tags": [
         "axcient",
@@ -179,7 +179,7 @@
       "name": "betterstack",
       "source": "./skills/betterstack",
       "description": "Every Better Stack Uptime feature, plus an offline SQLite mirror and cross-resource fleet analytics \u2014 what's down and who's paged, coverage gaps, MTTA/MTTR, flapping, on-call gaps, and status-page drift \u2014 that the API alone can't answer.",
-      "version": "0.1.7",
+      "version": "0.1.8",
       "category": "monitoring",
       "tags": [
         "betterstack",
@@ -194,7 +194,7 @@
     {
       "name": "blumira",
       "source": "./skills/blumira",
-      "description": "Every Blumira finding, detection, and agent across your direct org and every MSP sub-account - in one offline-searchable store with cross-account triage and over-time trends no single API call can answer.",
+      "description": "Every Blumira finding, detection, and agent across your direct org and every MSP sub-account \u2014 in one offline-searchable store with cross-account triage and over-time trends no single API call can answer.",
       "version": "0.1.6",
       "category": "security",
       "tags": [
@@ -261,7 +261,7 @@
       "name": "connectwise-control",
       "source": "./skills/connectwise-control",
       "description": "Manage ConnectWise Control (ScreenConnect) remote support and access sessions from the terminal or your AI agent: list and inspect sessions across groups, run commands on guest machines, rename and tag sessions, manage instance users, and query the audit log - the whole instance from one CLI.",
-      "version": "0.1.8",
+      "version": "0.1.10",
       "category": "remote-access",
       "tags": [
         "connectwise-control",
@@ -324,7 +324,7 @@
       "name": "crowdstrike",
       "source": "./skills/crowdstrike",
       "description": "Every CrowdStrike Falcon MSP operation, plus a Flight-Control-aware local store that answers fleet-wide questions across all your tenants at once \u2014 something no other Falcon tool (including the official MCP server) does.",
-      "version": "0.1.10",
+      "version": "0.1.11",
       "category": "security",
       "tags": [
         "crowdstrike",
@@ -386,7 +386,7 @@
       "name": "domotz",
       "source": "./skills/domotz",
       "description": "Every Domotz endpoint, plus a local SQLite fleet mirror that answers cross-site questions.",
-      "version": "0.1.7",
+      "version": "0.1.8",
       "category": "network-monitoring",
       "tags": [
         "domotz",
@@ -497,8 +497,8 @@
     {
       "name": "immybot",
       "source": "./skills/immybot",
-      "description": "Every ImmyBot endpoint typed, plus a local SQLite mirror that answers the cross-tenant questions the web UI cannot.",
-      "version": "0.1.11",
+      "description": "Every ImmyBot endpoint typed, plus a local mirror that joins what the web UI keeps per tenant.",
+      "version": "0.1.12",
       "category": "rmm",
       "tags": [
         "immybot",
@@ -529,7 +529,7 @@
       "name": "kaseya-bms",
       "source": "./skills/kaseya-bms",
       "description": "The first dedicated CLI and MCP server for Kaseya BMS - the full PSA surface plus offline sync, full-text search, and the queue, contract-burn, and unbilled-revenue analytics the web grid can't compute.",
-      "version": "0.1.7",
+      "version": "0.1.9",
       "category": "psa",
       "tags": [
         "kaseya-bms",
@@ -545,7 +545,7 @@
       "name": "knowbe4",
       "source": "./skills/knowbe4",
       "description": "Every KnowBe4 KMSAT reporting feature, plus a local SQLite store for the questions the console cannot answer.",
-      "version": "0.1.7",
+      "version": "0.1.8",
       "category": "security",
       "tags": [
         "knowbe4",
@@ -576,7 +576,7 @@
       "name": "liongard",
       "source": "./skills/liongard",
       "description": "Every Liongard endpoint, plus an offline copy of your whole MSP estate you can join, search, and drift-check from one command.",
-      "version": "0.1.7",
+      "version": "0.1.8",
       "category": "documentation",
       "tags": [
         "liongard",
@@ -590,8 +590,8 @@
     {
       "name": "maxio",
       "source": "./skills/maxio",
-      "description": "The first open, local revenue-intelligence CLI for Maxio Advanced Billing  -  MRR waterfalls, retention, and per-client history computed offline from a SQLite mirror that outlives Maxio's deprecated Insights API.",
-      "version": "0.1.7",
+      "description": "Open, local revenue-intelligence CLI for Maxio Advanced Billing \u2014 MRR waterfalls, retention, and per-client history computed offline from a SQLite mirror, so the trended history survives even though the live API returns only point-in-time figures.",
+      "version": "0.1.8",
       "category": "billing",
       "tags": [
         "maxio",
@@ -640,7 +640,7 @@
       "name": "mspbots",
       "source": "./skills/mspbots",
       "description": "The first MSPbots tool anywhere \u2014 readable filters, alias-named resources, full exports, and the KPI history MSPbots itself doesn't keep.",
-      "version": "0.1.7",
+      "version": "0.1.8",
       "category": "msp",
       "tags": [
         "mspbots",
@@ -670,7 +670,7 @@
       "name": "nerdio",
       "source": "./skills/nerdio",
       "description": "The first non-PowerShell client for the Nerdio Manager for MSP API - cross-account AVD fleet audits, async-job plumbing, and offline search no other Nerdio tool has.",
-      "version": "0.1.8",
+      "version": "0.1.9",
       "category": "rmm",
       "tags": [
         "nerdio",
@@ -701,7 +701,7 @@
       "name": "pagerduty",
       "source": "./skills/pagerduty",
       "description": "Every PagerDuty incident, on-call and service operation from the terminal, plus a local SQLite mirror that answers cross-entity questions \u2014 MTTA/MTTR, on-call coverage gaps, responder load \u2014 that neither the API nor the web UI can.",
-      "version": "0.1.7",
+      "version": "0.1.8",
       "category": "incident-response",
       "tags": [
         "pagerduty",
@@ -775,8 +775,8 @@
     {
       "name": "quickbooks",
       "source": "./skills/quickbooks",
-      "description": "Every QuickBooks Online Accounting entity, plus an offline SQLite mirror, cross-entity search, and AR/AP aging no SDK or read-only MCP ships.",
-      "version": "0.1.14",
+      "description": "Every QuickBooks Online entity, plus an offline SQLite mirror, AR/AP aging and close checks.",
+      "version": "0.1.15",
       "category": "billing",
       "tags": [
         "quickbooks",
@@ -807,7 +807,7 @@
       "name": "rewst",
       "source": "./skills/rewst",
       "description": "Operate and monitor Rewst RPA across every client org from the terminal or your AI agent: workflow execution health, failure triage, automation ROI, dormant-workflow cleanup, cross-org config drift, and integration-pack coverage - the multi-tenant answers the web console makes you assemble one org at a time.",
-      "version": "0.1.7",
+      "version": "0.1.8",
       "category": "automation",
       "tags": [
         "rewst",
@@ -821,11 +821,12 @@
     {
       "name": "riverside-fm",
       "source": "./skills/riverside-fm",
-      "description": "Every Riverside.fm studio, take, transcript, and asset as one agent-native CLI plus a local SQLite mirror - bulk studio export with resume, priority-fallback download, transcript search and talktime, and signed-URL refresh the web app never exposes.",
-      "version": "0.1.5",
-      "category": "msp",
+      "description": "The first programmatic way to download every transcript, audio track, and video from your own Riverside.com account \u2014 no Business plan or API key required.",
+      "version": "0.1.6",
+      "category": "marketing",
       "tags": [
         "riverside-fm",
+        "riverside",
         "marketing",
         "msp",
         "mcp",
@@ -837,7 +838,7 @@
       "name": "rocketcyber",
       "source": "./skills/rocketcyber",
       "description": "The first CLI and MCP server for RocketCyber Managed SOC, with triage and posture analytics no console page or API call computes.",
-      "version": "0.1.8",
+      "version": "0.1.9",
       "category": "security",
       "tags": [
         "rocketcyber",
@@ -867,7 +868,7 @@
       "name": "runzero",
       "source": "./skills/runzero",
       "description": "Every runZero query, plus a local SQLite copy of your whole attack surface that diffs over time, joins assets to vulnerabilities offline, and costs zero API quota to re-slice.",
-      "version": "0.1.7",
+      "version": "0.1.8",
       "category": "security",
       "tags": [
         "runzero",
@@ -882,7 +883,7 @@
       "name": "salesbuildr",
       "source": "./skills/salesbuildr",
       "description": "Every Salesbuildr resource as a scriptable command, plus offline margin and pipeline analytics.",
-      "version": "0.1.7",
+      "version": "0.1.8",
       "category": "crm",
       "tags": [
         "salesbuildr",
@@ -912,7 +913,7 @@
       "name": "servosity",
       "source": "./skills/servosity",
       "description": "The first MSP-fleet CLI for backup. Every Servosity API endpoint as a typed command, plus a local mirror that lets you ask questions the dashboard can't \u2014 across your whole book of clients.",
-      "version": "0.6.11",
+      "version": "0.6.13",
       "category": "backup-dr",
       "tags": [
         "servosity",
@@ -957,7 +958,7 @@
       "name": "superops",
       "source": "./skills/superops",
       "description": "Every SuperOps PSA+RMM entity in your terminal, plus a local SQLite mirror that answers cross-entity questions the web UI can't.",
-      "version": "0.1.14",
+      "version": "0.1.15",
       "category": "psa",
       "tags": [
         "superops",
@@ -1170,7 +1171,7 @@
     {
       "name": "cisco-meraki",
       "source": "./skills/cisco-meraki",
-      "description": "Every Meraki Dashboard operation, plus cross-org fleet views that read every page, and a local mirror built for MSPs running many client orgs.",
+      "description": "Every Meraki Dashboard operation, plus cross-org fleet views that read every page, built for MSPs running many client orgs.",
       "version": "0.1.3",
       "category": "network-monitoring",
       "tags": [
@@ -1355,6 +1356,22 @@
       ]
     },
     {
+      "name": "eset-protect",
+      "source": "./skills/eset-protect",
+      "description": "Every ESET Connect endpoint in one binary, plus per-customer health, exposure and QBR reports built from a local mirror of your MSP tree.",
+      "version": "0.1.0",
+      "category": "security",
+      "tags": [
+        "eset-protect",
+        "eset",
+        "security",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
+    },
+    {
       "name": "blackpoint",
       "source": "./skills/blackpoint",
       "description": "CompassOne from the terminal: tenants, detections, assets, vulnerabilities, posture, reports and Cloud Response admin, plus a cross-tenant fleet view of open detections, stale agents and coverage gaps.",
@@ -1389,7 +1406,7 @@
       "name": "netsapiens",
       "source": "./skills/netsapiens",
       "description": "Every NetSapiens v2 endpoint plus a reseller-wide fleet view: seat limits, offline phones, unrouted numbers and E911 gaps across every client at once.",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "category": "telephony",
       "tags": [
         "netsapiens",
@@ -1420,7 +1437,7 @@
       "name": "warranty",
       "source": "./skills/warranty",
       "description": "Dell, Lenovo and Apple warranty end dates for every client's devices, in one local mirror.",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "category": "documentation",
       "tags": [
         "warranty",
@@ -1436,7 +1453,7 @@
       "name": "exchange-online",
       "source": "./skills/exchange-online",
       "description": "Exchange Online admin for MSPs over REST: forwarding audits, EWS posture, offboarding and quarantine across client tenants, no PowerShell session.",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "category": "security",
       "tags": [
         "exchange-online",
@@ -1452,7 +1469,7 @@
       "name": "dnsfilter",
       "source": "./skills/dnsfilter",
       "description": "Every DNSFilter API operation, plus one-command answers to 'why is this site blocked for this client' and 'which clients are behind on the roaming agent'.",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "category": "security",
       "tags": [
         "dnsfilter",
@@ -1467,7 +1484,7 @@
       "name": "kaseya-vsa",
       "source": "./skills/kaseya-vsa",
       "description": "Every VSA 10 API endpoint, plus a local fleet database that answers patch, health, and software questions across all your clients offline.",
-      "version": "0.1.0",
+      "version": "0.1.2",
       "category": "rmm",
       "tags": [
         "kaseya-vsa",
@@ -1499,7 +1516,7 @@
       "name": "prtg",
       "source": "./skills/prtg",
       "description": "Every PRTG API v2 endpoint, plus a fleet view across every client's PRTG core: alarms, status, handoffs, hygiene and safe bulk actions in one command.",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "category": "network-monitoring",
       "tags": [
         "prtg",
@@ -1515,10 +1532,183 @@
       "name": "synology",
       "source": "./skills/synology",
       "description": "Every client NAS's Active Backup jobs and storage health, mirrored into one local SQLite database and checked with one command.",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "category": "backup-dr",
       "tags": [
         "synology",
+        "backup-dr",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
+    },
+    {
+      "name": "dropsuite",
+      "source": "./skills/dropsuite",
+      "description": "Every Dropsuite (NinjaOne SaaS Backup) read, plus fleet-wide backup health, coverage gaps and billing reconciliation from one reseller credential.",
+      "version": "0.1.0",
+      "category": "backup-dr",
+      "tags": [
+        "dropsuite",
+        "dropsuite (ninjaone)",
+        "backup-dr",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
+    },
+    {
+      "name": "vsphere",
+      "source": "./skills/vsphere",
+      "description": "Read-only vCenter inventory for migration planning: blockers, snapshots, per-core licence exposure and Proxmox mapping, as JSON an agent can use.",
+      "version": "0.1.0",
+      "category": "msp",
+      "tags": [
+        "vsphere",
+        "vmware",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
+    },
+    {
+      "name": "cloudally",
+      "source": "./skills/cloudally",
+      "description": "See every CloudAlly customer's backup status, tasks and billing, and run backups and recovery jobs, from one CLI and MCP server.",
+      "version": "0.2.0",
+      "category": "backup-dr",
+      "tags": [
+        "cloudally",
+        "backup-dr",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
+    },
+    {
+      "name": "keeper",
+      "source": "./skills/keeper",
+      "description": "Read-only Keeper MSP posture across every client, with history, a change feed and no path to a vault secret.",
+      "version": "0.1.0",
+      "category": "security",
+      "tags": [
+        "keeper",
+        "keeper security",
+        "security",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
+    },
+    {
+      "name": "zoom-phone",
+      "source": "./skills/zoom-phone",
+      "description": "Every Zoom Phone admin operation plus E911, routing and footprint audits, across every client account.",
+      "version": "0.1.1",
+      "category": "telephony",
+      "tags": [
+        "zoom-phone",
+        "zoom",
+        "telephony",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
+    },
+    {
+      "name": "jamf-pro",
+      "source": "./skills/jamf-pro",
+      "description": "Every client's Jamf Pro in one CLI: register each instance once, then find devices, check posture and patch status, and audit policies across all of them.",
+      "version": "0.1.0",
+      "category": "mdm",
+      "tags": [
+        "jamf-pro",
+        "jamf",
+        "mdm",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
+    },
+    {
+      "name": "comet-backup",
+      "source": "./skills/comet-backup",
+      "description": "Fleet-wide backup health, failure triage and usage reports for every tenant on your Comet Server, plus the admin API calls an MSP uses day to day.",
+      "version": "0.1.0",
+      "category": "backup-dr",
+      "tags": [
+        "comet-backup",
+        "comet backup",
+        "backup-dr",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
+    },
+    {
+      "name": "domain-cert-tracker",
+      "source": "./skills/domain-cert-tracker",
+      "description": "Every client's domains and certificates in one inventory: what expires, unlocks or changes.",
+      "version": "0.1.0",
+      "category": "monitoring",
+      "tags": [
+        "domain-cert-tracker",
+        "servosity",
+        "monitoring",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
+    },
+    {
+      "name": "threecx",
+      "source": "./skills/threecx",
+      "description": "Run every client's 3CX phone system from one CLI: trunk, version, licence and backup health across the whole fleet, plus the full Configuration API on any single PBX.",
+      "version": "0.1.0",
+      "category": "msp",
+      "tags": [
+        "threecx",
+        "3cx",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
+    },
+    {
+      "name": "windows-server",
+      "source": "./skills/windows-server",
+      "description": "Agentless Windows Server health checks over WinRM: one verdict per server, a diffable inventory, and no arbitrary PowerShell.",
+      "version": "0.1.0",
+      "category": "monitoring",
+      "tags": [
+        "windows-server",
+        "windows server",
+        "monitoring",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
+    },
+    {
+      "name": "datto-saas",
+      "source": "./skills/datto-saas",
+      "description": "Every Datto SaaS Protection (Backupify) client in one local database: seat audits, protection gaps, backup health ranking, exit inventories and plan-first bulk seat changes.",
+      "version": "0.1.0",
+      "category": "backup-dr",
+      "tags": [
+        "datto-saas",
+        "datto saas protection",
         "backup-dr",
         "msp",
         "mcp",

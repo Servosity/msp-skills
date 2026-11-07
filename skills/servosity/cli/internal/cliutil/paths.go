@@ -15,6 +15,8 @@ import (
 	"sync"
 	"syscall"
 	"time"
+
+	"servosity-msp-pp-cli/internal/credkit"
 )
 
 const appName = "servosity-cli"
@@ -127,7 +129,27 @@ func ReadFileWithLegacyFallback(primary, legacy string) ([]byte, string, error) 
 	return data, legacy, nil
 }
 
+// AtomicWritePrivateFile writes through the credential kit: withheld data leaves
+// nothing behind. Hand-fix (handfixes.json credkit-wiring).
 func AtomicWritePrivateFile(path string, data []byte, fileMode, dirMode os.FileMode) error {
+	return atomicWritePrivate(path, data, fileMode, dirMode, func(tmpPath string, _ *os.File) error {
+		return credkit.WriteFile(tmpPath, data, fileMode)
+	})
+}
+
+// AtomicWriteCredentialFile writes outside the credential kit, for this
+// connector's own credential sources and nothing else: the 0600 credentials
+// store and the config file. Both are in Declarations.Files, and the kit
+// withholds a held value by contract, so a token could never be saved through
+// it. Hand-fix (handfixes.json credkit-wiring), exempt with that reason.
+func AtomicWriteCredentialFile(path string, data []byte, fileMode, dirMode os.FileMode) error {
+	return atomicWritePrivate(path, data, fileMode, dirMode, func(_ string, tmp *os.File) error {
+		_, err := tmp.Write(data)
+		return err
+	})
+}
+
+func atomicWritePrivate(path string, data []byte, fileMode, dirMode os.FileMode, write func(tmpPath string, tmp *os.File) error) error {
 	dir := filepath.Dir(path)
 	if err := os.MkdirAll(dir, dirMode); err != nil {
 		return fmt.Errorf("creating private file dir: %w", err)
@@ -142,7 +164,7 @@ func AtomicWritePrivateFile(path string, data []byte, fileMode, dirMode os.FileM
 		_ = os.Remove(tmpPath)
 		return fmt.Errorf("securing temporary private file: %w", err)
 	}
-	if _, err := tmp.Write(data); err != nil {
+	if err := write(tmpPath, tmp); err != nil {
 		_ = tmp.Close()
 		_ = os.Remove(tmpPath)
 		return fmt.Errorf("writing temporary private file: %w", err)

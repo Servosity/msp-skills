@@ -4,6 +4,31 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.1.11] - 2026-11-06
+
+### Security
+- **Rebuilt on Printing Press 4.34.2 ([GHSA-jh26-vhqh-692c](https://github.com/advisories/GHSA-jh26-vhqh-692c)).** The MCP server's HTTP mode listens on `127.0.0.1:7777` by default, refuses to start until `ACTION1_MCP_HTTP_TOKEN` is set (at least 32 characters), requires `Authorization: Bearer <token>` on every request, and needs `--tls-cert` and `--tls-key` for any address other than loopback. HTTP mode is available again for ChatGPT, Copilot Studio and the Gemini app.
+- **Every MCP write previews first.** A tool call that changes Action1 (`action1_execute`, `import`) returns a preview and sends nothing until it is called again with `confirm` set to boolean true. A tool argument can never name a file to read or write.
+- **The credentials go only to your Action1 data center.** The token is minted from `<ACTION1_BASE_URL>/oauth2/token`, so an EU or Australia base URL mints from its own region, and a redirect to another host is refused.
+- **Credentials stay in one place.** Only `credentials.toml` (mode 0600) holds a credential; a client pair supplied by the environment, and the token minted for it, are never written to disk. Responses are never cached on disk, and any output, file or MCP result that would repeat a credential this program holds is withheld.
+- **One shared credential layer.** The CLI and MCP server now use the msp-skills credential kit: every credential the program holds is known before anything prints, and any output unit that repeats one in any encoding (stdout, stderr, files, the local store, MCP results) is replaced whole by a notice. A very short credential, one split across several MCP replies, and one that matches the learn journal's own timestamp are all covered. The client ID's unique part is held; `api-key-` and `@action1.com` are not secrets and stay printable.
+- **The learn journal no longer records text typed in place of a flag name,** and an `ACTION1_LEARN_SESSION` value is stored hashed.
+- **A token is only sent for the client it was minted for.** A stored token is used only when the record that holds it names the client in effect, so a pair from the environment or from `--config` never authenticates with another client's token, and minting for it never overwrites the stored client's record.
+
+### Added
+- `ACTION1_MCP_READ_ONLY=1` makes the MCP server refuse every write, and `ACTION1_NO_LOCAL_DATA=1` keeps no local copy of API responses. Both are declared on every install channel, with `ACTION1_USER_AGENT` and `ACTION1_MCP_HTTP_TOKEN`.
+
+### Changed
+- List commands page with `--offset` (was `--from`), the name every other paging flag uses; the request still sends Action1's `from` parameter.
+- `ACTION1_REGION` is gone from the docs (the binary never read it): set `ACTION1_BASE_URL` to `https://app.eu.action1.com/api/3.0` or `https://app.au.action1.com/api/3.0` for the EU or Australia data center.
+
+### Fixed
+- **`sync` reads every page and every organization.** Paging follows Action1's `next_page`, so sync no longer stops after the first page, and the per-organization lists (managed endpoints, vulnerabilities, automation instances, installed software) are walked for every organization. The `fleet` commands, which had read empty tables, now see the synced data.
+- **An explicit token opens its own local store.** With `ACTION1_OAUTH2` set, the fleet commands read the data synced for that token, never the store of a client pair saved on the same machine. The local store of a client pair no longer changes when its token is re-minted.
+- **`fleet patch-drift` never reports a missing endpoint as remediated.** An endpoint absent from the latest sync, or synced without its missing-updates summary, is `not_observed`, and a sync that returned no endpoints is still the current snapshot.
+- The `fleet` views read Action1's documented shapes: `last_seen` timestamps, online status, report-data `fields` and vulnerability `product_name`.
+- `auth set-token`, `auth logout` and `export --output` change nothing under `--dry-run`, and `--dry-run` never mints a token.
+
 ## [0.1.10] - 2026-10-23
 
 ### Security

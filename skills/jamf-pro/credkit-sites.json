@@ -1,0 +1,508 @@
+{
+ "sites": [
+  {
+   "file": "internal/cli/fleet_app.go",
+   "func": "newNovelFleetAppCmd",
+   "what": "writer:io.Writer",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs in a command's RunE, after credkit.Start; Declarations.Files builds the command tree only to read its flags and runs no command, the one way this is reachable before Start"
+  },
+  {
+   "file": "internal/cli/fleet_baseline.go",
+   "func": "newNovelFleetBaselineCmd",
+   "what": "fmt.Fprintln",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs in a command's RunE, after credkit.Start; Declarations.Files builds the command tree only to read its flags and runs no command, the one way this is reachable before Start"
+  },
+  {
+   "file": "internal/cli/fleet_baseline.go",
+   "func": "newNovelFleetBaselineCmd",
+   "what": "writer:io.Writer",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "runs in a command's RunE, after credkit.Start; Declarations.Files builds the command tree only to read its flags and runs no command, the one way this is reachable before Start"
+  },
+  {
+   "file": "internal/cli/fleet_exec.go",
+   "func": "newNovelFleetExecCmd",
+   "what": "writer:io.Writer",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs in a command's RunE, after credkit.Start; Declarations.Files builds the command tree only to read its flags and runs no command, the one way this is reachable before Start"
+  },
+  {
+   "file": "internal/cli/fleet_exec.go",
+   "func": "runRawGets",
+   "what": "fmt.Fprintln",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs in a command's RunE, after credkit.Start; Declarations.Files builds the command tree only to read its flags and runs no command, the one way this is reachable before Start"
+  },
+  {
+   "file": "internal/cli/fleet_find.go",
+   "func": "findDetail",
+   "what": "fmt.Fprintf",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs in a command's RunE, after credkit.Start; Declarations.Files builds the command tree only to read its flags and runs no command, the one way this is reachable before Start"
+  },
+  {
+   "file": "internal/cli/fleet_find.go",
+   "func": "findDetail",
+   "what": "writer:io.Writer",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs in a command's RunE, after credkit.Start; Declarations.Files builds the command tree only to read its flags and runs no command, the one way this is reachable before Start"
+  },
+  {
+   "file": "internal/cli/fleet_find.go",
+   "func": "newNovelFleetFindCmd",
+   "what": "writer:io.Writer",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs in a command's RunE, after credkit.Start; Declarations.Files builds the command tree only to read its flags and runs no command, the one way this is reachable before Start"
+  },
+  {
+   "file": "internal/cli/fleet_find.go",
+   "func": "warnTruncated",
+   "what": "fmt.Fprintf",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs in a command's RunE, after credkit.Start; Declarations.Files builds the command tree only to read its flags and runs no command, the one way this is reachable before Start"
+  },
+  {
+   "file": "internal/cli/fleet_health.go",
+   "func": "newNovelFleetHealthCmd",
+   "what": "writer:io.Writer",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs in a command's RunE, after credkit.Start; Declarations.Files builds the command tree only to read its flags and runs no command, the one way this is reachable before Start"
+  },
+  {
+   "file": "internal/cli/fleet_patch.go",
+   "func": "newNovelFleetPatchCmd",
+   "what": "writer:io.Writer",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs in a command's RunE, after credkit.Start; Declarations.Files builds the command tree only to read its flags and runs no command, the one way this is reachable before Start"
+  },
+  {
+   "file": "internal/cli/fleet_policy_hygiene.go",
+   "func": "newNovelFleetPolicyHygieneCmd",
+   "what": "fmt.Fprintln",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs in a command's RunE, after credkit.Start; Declarations.Files builds the command tree only to read its flags and runs no command, the one way this is reachable before Start"
+  },
+  {
+   "file": "internal/cli/fleet_policy_hygiene.go",
+   "func": "newNovelFleetPolicyHygieneCmd",
+   "what": "writer:io.Writer",
+   "count": 3,
+   "kind": "exempt",
+   "reason": "runs in a command's RunE, after credkit.Start; Declarations.Files builds the command tree only to read its flags and runs no command, the one way this is reachable before Start"
+  },
+  {
+   "file": "internal/cli/fleet_posture.go",
+   "func": "newNovelFleetPostureCmd",
+   "what": "writer:io.Writer",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs in a command's RunE, after credkit.Start; Declarations.Files builds the command tree only to read its flags and runs no command, the one way this is reachable before Start"
+  },
+  {
+   "file": "internal/cli/instance.go",
+   "func": "newInstanceAddCmd",
+   "what": "fmt.Fprintf",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "runs in a command's RunE, after credkit.Start; Declarations.Files builds the command tree only to read its flags and runs no command, the one way this is reachable before Start"
+  },
+  {
+   "file": "internal/cli/instance.go",
+   "func": "newInstanceAddCmd",
+   "what": "writer:io.Writer",
+   "count": 5,
+   "kind": "exempt",
+   "reason": "runs in a command's RunE, after credkit.Start; Declarations.Files builds the command tree only to read its flags and runs no command, the one way this is reachable before Start"
+  },
+  {
+   "file": "internal/cli/instance.go",
+   "func": "newInstanceListCmd",
+   "what": "writer:io.Writer",
+   "count": 4,
+   "kind": "exempt",
+   "reason": "runs in a command's RunE, after credkit.Start; Declarations.Files builds the command tree only to read its flags and runs no command, the one way this is reachable before Start"
+  },
+  {
+   "file": "internal/cli/instance.go",
+   "func": "newInstanceRemoveCmd",
+   "what": "writer:io.Writer",
+   "count": 3,
+   "kind": "exempt",
+   "reason": "runs in a command's RunE, after credkit.Start; Declarations.Files builds the command tree only to read its flags and runs no command, the one way this is reachable before Start"
+  },
+  {
+   "file": "internal/cli/instance_probe.go",
+   "func": "newInstanceTestCmd",
+   "what": "writer:io.Writer",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs in a command's RunE, after credkit.Start; Declarations.Files builds the command tree only to read its flags and runs no command, the one way this is reachable before Start"
+  },
+  {
+   "file": "internal/cli/jamf_fleet_common.go",
+   "func": "collectFn",
+   "what": "fmt.Fprintf",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs in a command's RunE, after credkit.Start; Declarations.Files builds the command tree only to read its flags and runs no command, the one way this is reachable before Start"
+  },
+  {
+   "file": "internal/cli/jamf_fleet_common.go",
+   "func": "emptyFleet",
+   "what": "fmt.Fprintln",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs in a command's RunE, after credkit.Start; Declarations.Files builds the command tree only to read its flags and runs no command, the one way this is reachable before Start"
+  },
+  {
+   "file": "internal/cli/jamf_fleet_common.go",
+   "func": "emptyFleet",
+   "what": "writer:io.Writer",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "runs in a command's RunE, after credkit.Start; Declarations.Files builds the command tree only to read its flags and runs no command, the one way this is reachable before Start"
+  },
+  {
+   "file": "internal/cli/jamf_fleet_common.go",
+   "func": "hintEmptyFleet",
+   "what": "fmt.Fprintf",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs in a command's RunE, after credkit.Start; Declarations.Files builds the command tree only to read its flags and runs no command, the one way this is reachable before Start"
+  },
+  {
+   "file": "internal/cli/jamf_fleet_common.go",
+   "func": "render",
+   "what": "encoding/csv.Writer.Write",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs in a command's RunE, after credkit.Start; Declarations.Files builds the command tree only to read its flags and runs no command, the one way this is reachable before Start"
+  },
+  {
+   "file": "internal/cli/jamf_fleet_common.go",
+   "func": "render",
+   "what": "fmt.Fprintln",
+   "count": 4,
+   "kind": "exempt",
+   "reason": "runs in a command's RunE, after credkit.Start; Declarations.Files builds the command tree only to read its flags and runs no command, the one way this is reachable before Start"
+  },
+  {
+   "file": "internal/cli/jamf_fleet_common.go",
+   "func": "render",
+   "what": "text/tabwriter.Writer.Flush",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs in a command's RunE, after credkit.Start; Declarations.Files builds the command tree only to read its flags and runs no command, the one way this is reachable before Start"
+  },
+  {
+   "file": "internal/cli/jamf_fleet_common.go",
+   "func": "render",
+   "what": "writer:io.Writer",
+   "count": 4,
+   "kind": "exempt",
+   "reason": "runs in a command's RunE, after credkit.Start; Declarations.Files builds the command tree only to read its flags and runs no command, the one way this is reachable before Start"
+  },
+  {
+   "file": "internal/cli/jamf_output_cli.go",
+   "func": "printOwnReport",
+   "what": "writer:io.Writer",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs in doctor's RunE, after credkit.Start; Declarations.Files builds the command tree only to read its flags and runs no command, the one way this is reachable before Start"
+  },
+  {
+   "file": "internal/cli/jamf_output_cli.go",
+   "func": "refuseMalformedStdinBody",
+   "what": "os.File.Close",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "hands the command its own --stdin body back over a private pipe: nothing leaves the process, and the kit already read this stdin"
+  },
+  {
+   "file": "internal/cli/jamf_output_cli.go",
+   "func": "refuseMalformedStdinBody",
+   "what": "os.File.Write",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "hands the command its own --stdin body back over a private pipe: nothing leaves the process, and the kit already read this stdin"
+  },
+  {
+   "file": "internal/cli/jamf_output_cli.go",
+   "func": "refuseMalformedStdinBody",
+   "what": "writer:*os.File",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "hands the command its own --stdin body back over a private pipe: nothing leaves the process, and the kit already read this stdin"
+  },
+  {
+   "file": "internal/cli/jamf_token_auth.go",
+   "func": "bound",
+   "what": "os.ReadFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reads the identity marker, a hash of the identity, and compares it: never printed, not a credential"
+  },
+  {
+   "file": "internal/cli/jamf_token_auth.go",
+   "func": "headerWrittenWithServer",
+   "what": "os.ReadFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reads the same config file config.Load already read and held, compares two values, and prints and keeps nothing"
+  },
+  {
+   "file": "internal/cli/jamf_token_auth.go",
+   "func": "init",
+   "what": "call:dynamic",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "part of the client's transport chain, which runs inside the kit: every client's transport is jamfTransport over client.OutboundGuard (the kit's guard), so the guard judges what reaches the wire"
+  },
+  {
+   "file": "internal/cli/jamf_token_auth.go",
+   "func": "init",
+   "what": "convert:jamf-pro-pp-cli/internal/cli.jamfTransport.RoundTrip",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "part of the client's transport chain, which runs inside the kit: every client's transport is jamfTransport over client.OutboundGuard (the kit's guard), so the guard judges what reaches the wire"
+  },
+  {
+   "file": "internal/cli/jamf_token_auth.go",
+   "func": "init",
+   "what": "net/http.Client.Transport",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "part of the client's transport chain, which runs inside the kit: every client's transport is jamfTransport over client.OutboundGuard (the kit's guard), so the guard judges what reaches the wire"
+  },
+  {
+   "file": "internal/cli/jamf_token_auth.go",
+   "func": "jamfLoginClient",
+   "what": "call:dynamic",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "part of the client's transport chain, which runs inside the kit: every client's transport is jamfTransport over client.OutboundGuard (the kit's guard), so the guard judges what reaches the wire"
+  },
+  {
+   "file": "internal/cli/jamf_token_auth.go",
+   "func": "jamfLoginClient",
+   "what": "convert:jamf-pro-pp-cli/internal/cli.jamfTransport.RoundTrip",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "part of the client's transport chain, which runs inside the kit: every client's transport is jamfTransport over client.OutboundGuard (the kit's guard), so the guard judges what reaches the wire"
+  },
+  {
+   "file": "internal/cli/jamf_token_auth.go",
+   "func": "jamfLoginClient",
+   "what": "net/http.Client.Transport",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "part of the client's transport chain, which runs inside the kit: every client's transport is jamfTransport over client.OutboundGuard (the kit's guard), so the guard judges what reaches the wire"
+  },
+  {
+   "file": "internal/cli/jamf_token_auth.go",
+   "func": "jamfTransport.RoundTrip",
+   "what": "net/http.RoundTripper.RoundTrip",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "part of the client's transport chain, which runs inside the kit: every client's transport is jamfTransport over client.OutboundGuard (the kit's guard), so the guard judges what reaches the wire"
+  },
+  {
+   "file": "internal/cli/jamf_token_auth.go",
+   "func": "sanitizeErrorBody",
+   "what": "io.Copy",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "drains an error body to io.Discard: nothing is written anywhere"
+  },
+  {
+   "file": "internal/cli/jamf_token_auth.go",
+   "func": "writeBinding",
+   "what": "os.CreateTemp",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "an empty temp file renamed into place: the marker's content goes through credkit.WriteFile, and it is a hash of the identity, not a credential"
+  },
+  {
+   "file": "internal/cli/jamf_token_auth.go",
+   "func": "writeBinding",
+   "what": "os.File.Close",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "an empty temp file renamed into place: the marker's content goes through credkit.WriteFile, and it is a hash of the identity, not a credential"
+  },
+  {
+   "file": "internal/cli/jamf_token_auth.go",
+   "func": "writeBinding",
+   "what": "os.File.Name",
+   "count": 3,
+   "kind": "exempt",
+   "reason": "an empty temp file renamed into place: the marker's content goes through credkit.WriteFile, and it is a hash of the identity, not a credential"
+  },
+  {
+   "file": "internal/cli/jamf_token_auth.go",
+   "func": "writeBinding",
+   "what": "os.Rename",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "an empty temp file renamed into place: the marker's content goes through credkit.WriteFile, and it is a hash of the identity, not a credential"
+  },
+  {
+   "file": "internal/cliutil/credkit_hold.go",
+   "func": "ReadRegular",
+   "what": "os.DirFS",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the config read itself: only the Regular check on the path, the bytes go through the hold before any parser sees them"
+  },
+  {
+   "file": "internal/credsql/credsql.go",
+   "func": "applyLengthLimit",
+   "what": "database/sql.DB.Conn",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "a one-connection DB over the connection the kit's driver is opening, only to set sqlite3_limit; no statement runs through it, and it runs only when a store opens, after Start"
+  },
+  {
+   "file": "internal/credsql/credsql.go",
+   "func": "applyLengthLimit",
+   "what": "database/sql.OpenDB",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "a one-connection DB over the connection the kit's driver is opening, only to set sqlite3_limit; no statement runs through it, and it runs only when a store opens, after Start"
+  },
+  {
+   "file": "internal/fleet/instancelock.go",
+   "func": "HoldInstance",
+   "what": "os.File.Close",
+   "count": 3,
+   "kind": "exempt",
+   "reason": "the per-instance lock file: it holds no content and only takes an advisory lock"
+  },
+  {
+   "file": "internal/fleet/instancelock.go",
+   "func": "HoldInstance",
+   "what": "writer:*os.File",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "the per-instance lock file: it holds no content and only takes an advisory lock"
+  },
+  {
+   "file": "internal/fleet/instancelock.go",
+   "func": "ReleaseHeldForTest",
+   "what": "os.File.Close",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the per-instance lock file: it holds no content and only takes an advisory lock"
+  },
+  {
+   "file": "internal/fleet/instancelock.go",
+   "func": "WithInstanceExclusive",
+   "what": "os.File.Close",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the per-instance lock file: it holds no content and only takes an advisory lock"
+  },
+  {
+   "file": "internal/fleet/instancelock.go",
+   "func": "WithInstanceExclusive",
+   "what": "writer:*os.File",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the per-instance lock file: it holds no content and only takes an advisory lock"
+  },
+  {
+   "file": "internal/fleet/instancelock.go",
+   "func": "lockFile",
+   "what": "os.OpenFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the per-instance lock file: it holds no content and only takes an advisory lock"
+  },
+  {
+   "file": "internal/fleet/instancelock_unix.go",
+   "func": "lockExclusive",
+   "what": "os.File.Fd",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the per-instance lock file: it holds no content and only takes an advisory lock"
+  },
+  {
+   "file": "internal/fleet/instancelock_unix.go",
+   "func": "lockExclusive",
+   "what": "syscall.Flock",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the per-instance lock file: it holds no content and only takes an advisory lock"
+  },
+  {
+   "file": "internal/fleet/instancelock_unix.go",
+   "func": "lockShared",
+   "what": "os.File.Fd",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the per-instance lock file: it holds no content and only takes an advisory lock"
+  },
+  {
+   "file": "internal/fleet/instancelock_unix.go",
+   "func": "lockShared",
+   "what": "syscall.Flock",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the per-instance lock file: it holds no content and only takes an advisory lock"
+  },
+  {
+   "file": "internal/fleet/instancelock_windows.go",
+   "func": "lockExclusive",
+   "what": "golang.org/x/sys/windows.LockFileEx",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the per-instance lock file: it holds no content and only takes an advisory lock"
+  },
+  {
+   "file": "internal/fleet/instancelock_windows.go",
+   "func": "lockExclusive",
+   "what": "os.File.Fd",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the per-instance lock file: it holds no content and only takes an advisory lock"
+  },
+  {
+   "file": "internal/fleet/instancelock_windows.go",
+   "func": "lockShared",
+   "what": "golang.org/x/sys/windows.LockFileEx",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the per-instance lock file: it holds no content and only takes an advisory lock"
+  },
+  {
+   "file": "internal/fleet/instancelock_windows.go",
+   "func": "lockShared",
+   "what": "os.File.Fd",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the per-instance lock file: it holds no content and only takes an advisory lock"
+  },
+  {
+   "file": "internal/fleet/registry.go",
+   "func": "Load",
+   "what": "os.ReadFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the instance registry holds names, servers, client IDs and the NAME of each secret variable, never a credential; check_handfixes secrets-never-on-disk proves it"
+  }
+ ]
+}

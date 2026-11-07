@@ -36,7 +36,7 @@ the stale set; run 'liongard-cli sync' first.`,
   # Actually trigger the runs
   liongard-cli launchpoints run-stale --older-than 7d --confirm
 `, "\n"),
-		Annotations: map[string]string{"mcp:read-only": "false"},
+		Annotations: map[string]string{"mcp:read-only": "false", "liongard:send-flag": "confirm"}, // liongard handfix mcp-mirror-write-confirm: MCP confirm: true adds --confirm
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Verify / dry-run probes: exit 0 before any store or API access.
 			if dryRunOK(flags) {

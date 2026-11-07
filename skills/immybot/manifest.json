@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "immybot-mcp",
   "display_name": "ImmyBot",
-  "version": "0.1.11",
+  "version": "0.1.12",
   "description": "Every ImmyBot endpoint typed, plus a local SQLite mirror that answers the cross-tenant questions the web UI cannot.",
   "author": {
     "name": "Servosity Inc."
@@ -23,7 +23,11 @@
         "IMMYBOT_TOKEN_URL": "${user_config.immybot_token_url}",
         "IMMYBOT_USER_AGENT": "${user_config.immybot_user_agent}",
         "PRINTING_PRESS_CLIENT_PROFILE": "${user_config.printing_press_client_profile}",
-        "IMMYBOT_NO_CONFIG_WRITE": "${user_config.immybot_no_config_write}"
+        "IMMYBOT_NO_CONFIG_WRITE": "${user_config.immybot_no_config_write}",
+        "IMMYBOT_MCP_READ_ONLY": "${user_config.immybot_mcp_read_only}",
+        "IMMYBOT_NO_LOCAL_DATA": "${user_config.immybot_no_local_data}",
+        "IMMYBOT_MCP_HTTP_TOKEN": "${user_config.immybot_mcp_http_token}",
+        "IMMYBOT_MCP_UPLOAD_ROOT": "${user_config.immybot_mcp_upload_root}"
       }
     }
   },
@@ -85,6 +89,34 @@
       "description": "Set to 1 to keep credentials off disk. The token cache becomes a no-op, so the connector mints a fresh token each run instead of writing one to config.toml. Leave blank for the default cached behaviour.",
       "required": false,
       "default": ""
+    },
+    "immybot_mcp_read_only": {
+      "type": "string",
+      "title": "Read-only MCP mode",
+      "description": "Optional. Set to exactly 1 to expose only read-only tools and make the raw execute tool refuse any state-changing call. Leave blank to keep the write tools (they still need confirm).",
+      "required": false,
+      "sensitive": false
+    },
+    "immybot_no_local_data": {
+      "type": "string",
+      "title": "Run without a local copy",
+      "description": "Optional. Set to 1 to save no API data locally: sync and workflow archive are refused and the response cache is off. Leave blank to keep the local mirror the cross-tenant commands read.",
+      "required": false,
+      "sensitive": false
+    },
+    "immybot_mcp_http_token": {
+      "type": "string",
+      "title": "MCP HTTP transport bearer token",
+      "description": "Required only when running the MCP server with --transport http (a remote/hosted deployment). Callers must send a matching Authorization: Bearer header. Not needed for the default local stdio transport that Claude Desktop uses.",
+      "required": false,
+      "sensitive": true
+    },
+    "immybot_mcp_upload_root": {
+      "type": "string",
+      "title": "MCP upload folder (optional)",
+      "description": "Optional. Leave blank. Reserved for MCP file uploads: this release's MCP server refuses every upload and never opens a local path, so this setting has no effect. Run uploads with immybot-cli.",
+      "required": false,
+      "sensitive": false
     }
   },
   "compatibility": {
@@ -94,5 +126,12 @@
       "linux",
       "win32"
     ]
+  },
+  "printing_press_version": "4.34.0",
+  "press_provenance": {
+    "printing_press_version": "4.34.0",
+    "generated_at": "2026-10-26T23:50:56.160484Z",
+    "spec_checksum": "sha256:30ec604684f80691771694b2a4b1eca695a14b5e0cef671ccba81f062475578d",
+    "spec_format": "openapi3"
   }
 }

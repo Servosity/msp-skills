@@ -33,11 +33,15 @@ type reconcileTotals struct {
 }
 
 type reconcileView struct {
-	Since     string          `json:"since,omitempty"`
-	Months    int             `json:"months"`
-	Customers []reconcileRow  `json:"customers"`
-	Totals    reconcileTotals `json:"totals"`
-	Note      string          `json:"note"`
+	Since    string `json:"since,omitempty"`
+	Currency string `json:"currency,omitempty"`
+	// OtherCurrencyInvoices counts the window's billed invoices in a currency
+	// other than the site's, left out of every total.
+	OtherCurrencyInvoices int             `json:"other_currency_invoices"`
+	Months                int             `json:"months"`
+	Customers             []reconcileRow  `json:"customers"`
+	Totals                reconcileTotals `json:"totals"`
+	Note                  string          `json:"note"`
 }
 
 // pp:data-source local
@@ -81,6 +85,7 @@ func newNovelReconcileCmd(flags *rootFlags) *cobra.Command {
 			if !latest.Valid || latest.String == "" {
 				hintRunMrrSync(cmd.ErrOrStderr())
 			}
+			currency, money := revenueMoney(cmd.Context(), db)
 
 			// months_in_period: how many months the invoiced window spans, used to
 			// scale monthly MRR up to an expected billed amount.
@@ -95,9 +100,16 @@ func newNovelReconcileCmd(flags *rootFlags) *cobra.Command {
 				}
 			}
 
-			// Per active subscription: latest MRR + invoiced-in-period, joined to a
-			// customer display name. Invoiced amount comes from invoices-json whose
-			// total_amount is dollars-as-string (×100 → cents).
+			// Per current subscription (revenue.CurrentStates): latest MRR +
+			// invoiced-in-period, joined to a customer display name. Invoiced
+			// amount comes from billed invoices only (revenue.BilledInvoiceStatuses:
+			// Codex r1 class unbilled-invoice-status-counted summed draft,
+			// voided and canceled invoices) whose total_amount is
+			// dollars-as-string (x100 -> cents).
+			parents, err := revenue.SupersededParentsArg(cmd.Context(), db)
+			if err != nil {
+				return err
+			}
 			rows, qerr := db.QueryContext(cmd.Context(), `
 				SELECT CAST(json_extract(sub.data,'$.customer.id') AS TEXT) AS cust_id,
 				       COALESCE(NULLIF(json_extract(cust.data,'$.organization'),''),
@@ -108,14 +120,17 @@ func newNovelReconcileCmd(flags *rootFlags) *cobra.Command {
 				       (SELECT COALESCE(SUM(CAST(json_extract(inv.data,'$.total_amount') AS REAL)*100),0)
 				          FROM resources inv
 				         WHERE inv.resource_type='invoices-json'
+				           AND COALESCE(json_extract(inv.data,'$.uid'),'') NOT IN (SELECT value FROM json_each(?))
 				           AND CAST(json_extract(inv.data,'$.subscription_id') AS TEXT) = sub.id
+				           AND LOWER(COALESCE(json_extract(inv.data,'$.status'),'')) IN (SELECT value FROM json_each(?))
+				           AND (COALESCE(json_extract(inv.data,'$.currency'),'') = '' OR UPPER(json_extract(inv.data,'$.currency')) = UPPER(?))
 				           AND (? = '' OR json_extract(inv.data,'$.issue_date') >= ?)) AS invoiced_cents
 				FROM resources sub
 				LEFT JOIN rev_sub_mrr_snapshots s ON s.subscription_id = sub.id AND s.snapshot_at = ?
 				LEFT JOIN resources cust ON cust.resource_type='customers-json'
 				     AND cust.id = CAST(json_extract(sub.data,'$.customer.id') AS TEXT)
-				WHERE sub.resource_type='subscriptions-json' AND json_extract(sub.data,'$.state')='active'`,
-				cutoff, cutoff, latest.String)
+				WHERE sub.resource_type='subscriptions-json' AND LOWER(COALESCE(json_extract(sub.data,'$.state'),'')) IN (SELECT value FROM json_each(?))`,
+				parents, revenue.BilledInvoiceStatusesArg(), currency, cutoff, cutoff, latest.String, revenue.CurrentStatesArg())
 			if qerr != nil {
 				return fmt.Errorf("querying reconciliation: %w", qerr)
 			}
@@ -187,12 +202,27 @@ func newNovelReconcileCmd(flags *rootFlags) *cobra.Command {
 				out = out[:limit]
 			}
 
+			var otherCurrency sql.NullInt64
+			if err := db.QueryRowContext(cmd.Context(), `
+				SELECT COUNT(*) FROM resources inv
+				WHERE inv.resource_type='invoices-json'
+				  AND COALESCE(json_extract(inv.data,'$.uid'),'') NOT IN (SELECT value FROM json_each(?))
+				  AND LOWER(COALESCE(json_extract(inv.data,'$.status'),'')) IN (SELECT value FROM json_each(?))
+				  AND NOT (COALESCE(json_extract(inv.data,'$.currency'),'') = '' OR UPPER(json_extract(inv.data,'$.currency')) = UPPER(?))
+				  AND (? = '' OR json_extract(inv.data,'$.issue_date') >= ?)`, parents, revenue.BilledInvoiceStatusesArg(), currency, cutoff, cutoff).Scan(&otherCurrency); err != nil {
+				return fmt.Errorf("counting other-currency invoices: %w", err)
+			}
+			if otherCurrency.Int64 > 0 {
+				fmt.Fprintf(cmd.ErrOrStderr(), "warning: %d billed invoice(s) in a currency other than %s are left out of the totals\n", otherCurrency.Int64, currency)
+			}
 			view := reconcileView{
-				Since:     cutoff,
-				Months:    months,
-				Customers: out,
-				Totals:    totals,
-				Note:      "reconciles normalized MRR vs Advanced Billing invoices only — not GAAP recognized revenue; a customer is flagged only when |gap| exceeds 50% of expected billed amount (or has MRR with no invoices, or invoices with no MRR), so a sizable book-wide gap can show with few per-customer flags",
+				OtherCurrencyInvoices: int(otherCurrency.Int64),
+				Since:                 cutoff,
+				Currency:              currency,
+				Months:                months,
+				Customers:             out,
+				Totals:                totals,
+				Note:                  "reconciles normalized MRR vs Advanced Billing invoices only — not GAAP recognized revenue; a customer is flagged only when |gap| exceeds 50% of expected billed amount (or has MRR with no invoices, or invoices with no MRR), so a sizable book-wide gap can show with few per-customer flags",
 			}
 			if view.Customers == nil {
 				view.Customers = []reconcileRow{}
@@ -207,13 +237,13 @@ func newNovelReconcileCmd(flags *rootFlags) *cobra.Command {
 						mark = "!"
 					}
 					fmt.Fprintf(w, "%s %-32s %12s %12s %12s %12s\n", mark, truncate(r.Customer, 32),
-						revenue.Cents(r.MRRCents), revenue.Cents(r.InvoicedCents),
-						revenue.Cents(r.ExpectedCents), revenue.Cents(r.GapCents))
+						money(r.MRRCents), money(r.InvoicedCents),
+						money(r.ExpectedCents), money(r.GapCents))
 				}
 				t := view.Totals
 				fmt.Fprintf(w, "  %-32s %12s %12s %12s %12s\n", "TOTAL",
-					revenue.Cents(t.MRRCents), revenue.Cents(t.InvoicedCents),
-					revenue.Cents(t.ExpectedCents), revenue.Cents(t.GapCents))
+					money(t.MRRCents), money(t.InvoicedCents),
+					money(t.ExpectedCents), money(t.GapCents))
 				fmt.Fprintf(w, "note: %s\n", view.Note)
 			})
 		},

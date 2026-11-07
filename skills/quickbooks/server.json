@@ -3,7 +3,7 @@
   "name": "io.github.Servosity/quickbooks-mcp",
   "title": "QuickBooks Online MCP",
   "description": "Every QuickBooks Online Accounting entity, plus an offline SQLite mirror and AR/AP aging.",
-  "version": "0.1.14",
+  "version": "0.1.15",
   "icons": [
     {
       "src": "https://raw.githubusercontent.com/servosity/msp-skills/main/docs/assets/social/quickbooks/quickbooks-512x512.png",
@@ -21,8 +21,8 @@
   "packages": [
     {
       "registryType": "mcpb",
-      "identifier": "https://github.com/servosity/msp-skills/releases/download/quickbooks-v0.1.14/quickbooks-mcp.mcpb",
-      "version": "0.1.14",
+      "identifier": "https://github.com/servosity/msp-skills/releases/download/quickbooks-v0.1.15/quickbooks-mcp.mcpb",
+      "version": "0.1.15",
       "fileSha256": "PLACEHOLDER_SHA256_FILLED_BY_CI",
       "transport": {
         "type": "stdio"
@@ -77,6 +77,36 @@
           "isRequired": false,
           "isSecret": false,
           "default": "https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer"
+        },
+        {
+          "name": "PRINTING_PRESS_CLIENT_PROFILE",
+          "description": "Optional: binds the MCP server to an existing tenant-gated Printing Press client profile. Leave unset for a single-tenant install.",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "QUICKBOOKS_MCP_READ_ONLY",
+          "description": "Optional. Set to exactly 1 to expose only read-only tools and refuse any state-changing execute call.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "QUICKBOOKS_NO_LOCAL_DATA",
+          "description": "Optional. Set to 1 to save no API data locally: sync is refused, the response cache is off, and reads go to the API. Commands that read the local mirror still read what is already there.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "QUICKBOOKS_MCP_HTTP_TOKEN",
+          "description": "Required only when running the MCP server with --transport http. Not needed for the default local stdio transport.",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "QUICKBOOKS_USER_AGENT",
+          "description": "Overrides the User-Agent the CLI sends on QuickBooks Online requests.",
+          "isRequired": false,
+          "isSecret": false
         }
       ]
     }

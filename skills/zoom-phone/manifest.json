@@ -1,0 +1,136 @@
+{
+  "manifest_version": "0.3",
+  "name": "zoom-phone-mcp",
+  "display_name": "Zoom Phone",
+  "version": "0.1.1",
+  "description": "Zoom Phone admin API for MSPs, plus E911, call routing, number and desk-phone audits across every client Zoom account.",
+  "author": {
+    "name": "Servosity Inc."
+  },
+  "license": "Apache-2.0",
+  "server": {
+    "type": "binary",
+    "entry_point": "bin/zoom-phone-mcp",
+    "mcp_config": {
+      "command": "${__dirname}/bin/zoom-phone-mcp",
+      "args": [],
+      "env": {
+        "ZOOM_PHONE_ACCOUNT_ID": "${user_config.zoom_phone_account_id}",
+        "ZOOM_PHONE_CLIENT_ID": "${user_config.zoom_phone_client_id}",
+        "ZOOM_PHONE_CLIENT_SECRET": "${user_config.zoom_phone_client_secret}",
+        "ZOOM_PHONE_BASE_URL": "${user_config.zoom_phone_base_url}",
+        "ZOOM_PHONE_TOKEN_URL": "${user_config.zoom_phone_token_url}",
+        "ZOOM_PHONE_OAUTH_SCOPE": "${user_config.zoom_phone_oauth_scope}",
+        "PRINTING_PRESS_CLIENT_PROFILE": "${user_config.printing_press_client_profile}",
+        "ZOOM_PHONE_MCP_READ_ONLY": "${user_config.zoom_phone_mcp_read_only}",
+        "ZOOM_PHONE_NO_LOCAL_DATA": "${user_config.zoom_phone_no_local_data}",
+        "ZOOM_PHONE_MCP_UPLOAD_ROOT": "${user_config.zoom_phone_mcp_upload_root}",
+        "ZOOM_PHONE_USER_AGENT": "${user_config.zoom_phone_user_agent}",
+        "ZOOM_PHONE_MCP_HTTP_TOKEN": "${user_config.zoom_phone_mcp_http_token}"
+      }
+    }
+  },
+  "user_config": {
+    "zoom_phone_account_id": {
+      "type": "string",
+      "title": "ZOOM_PHONE_ACCOUNT_ID",
+      "description": "Account ID of the Zoom Server-to-Server OAuth app (sent as account_id on the token request).",
+      "required": true,
+      "sensitive": true
+    },
+    "zoom_phone_client_id": {
+      "type": "string",
+      "title": "ZOOM_PHONE_CLIENT_ID",
+      "description": "Client ID of the Zoom Server-to-Server OAuth app.",
+      "required": true,
+      "sensitive": true
+    },
+    "zoom_phone_client_secret": {
+      "type": "string",
+      "title": "ZOOM_PHONE_CLIENT_SECRET",
+      "description": "Client Secret of the Zoom Server-to-Server OAuth app.",
+      "sensitive": true,
+      "required": true
+    },
+    "zoom_phone_base_url": {
+      "type": "string",
+      "title": "Zoom API base URL",
+      "description": "Base URL for the Zoom Phone API. Leave the prefilled default.",
+      "required": false,
+      "sensitive": false,
+      "default": "https://api.zoom.us/v2"
+    },
+    "zoom_phone_token_url": {
+      "type": "string",
+      "title": "OAuth token URL",
+      "description": "Token endpoint the Server-to-Server OAuth exchange posts to. Leave the prefilled default.",
+      "required": false,
+      "sensitive": false,
+      "default": "https://zoom.us/oauth/token"
+    },
+    "zoom_phone_oauth_scope": {
+      "type": "string",
+      "title": "OAuth scope (optional)",
+      "description": "Optional. Leave blank: a Zoom Server-to-Server OAuth token carries the scopes added to the app.",
+      "required": false,
+      "sensitive": false
+    },
+    "printing_press_client_profile": {
+      "type": "string",
+      "title": "Client profile (optional)",
+      "description": "Only for tenant-gated multi-client deployments: binds the MCP server to an existing Printing Press client profile. It does not select a Zoom account. Leave blank for a single-tenant install.",
+      "required": false,
+      "sensitive": true
+    },
+    "zoom_phone_mcp_read_only": {
+      "type": "string",
+      "title": "Read-only MCP mode",
+      "description": "Optional. Set to exactly 1 to refuse every write and every secret-returning read. Leave blank to keep every tool available.",
+      "required": false,
+      "sensitive": false
+    },
+    "zoom_phone_no_local_data": {
+      "type": "string",
+      "title": "Run without a local copy",
+      "description": "Optional. Set to 1 to keep no local copy of API responses: reads go to the API and the response cache is off. The audits that read the local mirror then report nothing assessed. Leave blank to keep the local store.",
+      "required": false,
+      "sensitive": false
+    },
+    "zoom_phone_mcp_upload_root": {
+      "type": "string",
+      "title": "MCP upload folder (optional)",
+      "description": "Optional. A folder MCP file uploads (audio library files) may be read from by path. Leave blank: uploads then take base64 file content and the server reads no local path.",
+      "required": false,
+      "sensitive": false
+    },
+    "zoom_phone_user_agent": {
+      "type": "string",
+      "title": "User-Agent header",
+      "description": "Overrides the User-Agent the CLI sends on Zoom requests. Leave blank to use the built-in User-Agent.",
+      "required": false,
+      "sensitive": false
+    },
+    "zoom_phone_mcp_http_token": {
+      "type": "string",
+      "title": "MCP HTTP transport bearer token",
+      "description": "Required only when running the MCP server with --transport http. Callers must send a matching Authorization: Bearer header. Not needed for the default local stdio transport.",
+      "required": false,
+      "sensitive": true
+    }
+  },
+  "compatibility": {
+    "claude_desktop": ">=1.0.0",
+    "platforms": [
+      "darwin",
+      "linux",
+      "win32"
+    ]
+  },
+  "printing_press_version": "4.34.2",
+  "press_provenance": {
+    "printing_press_version": "4.34.2",
+    "generated_at": "2026-10-27T17:59:42.029048Z",
+    "spec_checksum": "sha256:9d9dc141fe53c2ec8c5aa69a41038315926c771fc44a075d774f025dfd03cf0f",
+    "spec_format": "openapi3"
+  }
+}

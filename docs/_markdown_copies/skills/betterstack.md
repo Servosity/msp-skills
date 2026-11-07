@@ -115,7 +115,7 @@ Yes, by design - and the exceptions are ones you switch on yourself. The CLI, th
 
 ### Does this work with ChatGPT?
 
-Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way betterstack-mcp runs, and shares MCP configuration with Codex: add betterstack-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote (HTTP) server, and this connector's HTTP mode is paused until it is reprinted; the security note at the top of the install guide explains why. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
+Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way betterstack-mcp runs, and shares MCP configuration with Codex: add betterstack-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote server. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
 
 ### Do I need to know how to code?
 
@@ -140,6 +140,10 @@ You need a Better Stack account with an API token. The analytics run against wha
 ### Will this replace the Better Stack portal?
 
 No, it complements it. The portal is still where you configure monitors and watch live. This skill answers the cross-account questions the portal makes you click through - coverage gaps, MTTA/MTTR, on-call gaps, status-page drift - from your AI.
+
+## More Monitoring connectors
+
+Run more than one Monitoring tool, or comparing options? These connectors work the same way: [Domain and Certificate Tracker](https://msp-skills.compoundingteams.com/skills/domain-cert-tracker.md) · [Windows Server](https://msp-skills.compoundingteams.com/skills/windows-server.md)
 
 ## Status
 

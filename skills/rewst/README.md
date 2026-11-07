@@ -16,13 +16,6 @@ Operate and monitor Rewst RPA across every client org from the terminal or your 
 
 ## Works with your agent
 
-> **Security note (until this connector is reprinted).** Do not run HTTP mode
-> (`--transport http`), not even on localhost. This build has no password,
-> listens on every network interface, and predates the browser-rebinding guard,
-> so a web page you open can reach it. The MCP tools can also make changes with
-> your credentials. Use the default stdio transport. If you set up a tunnel for
-> a remote agent, shut it down. A fix is on the way.
-
 The six agents MSP owners actually use (self-serve, works today):
 
 | Your AI agent | How to install the Rewst skill |
@@ -34,7 +27,7 @@ The six agents MSP owners actually use (self-serve, works today):
 | **Claude Cowork** | Paste the install prompt below. |
 | **GitHub Copilot** (VS Code) | Run installer, add `rewst-mcp` to `mcp.json` under the `servers` key, then pick **Agent** mode. |
 
-The ChatGPT desktop app runs `rewst-mcp` locally and shares MCP configuration with Codex ([OpenAI](https://learn.chatgpt.com/docs/extend/mcp)). ChatGPT on the web needs a remote (HTTP) server, and this connector's HTTP mode is paused until it is reprinted (see the security note in [mcp-install.md](./mcp-install.md)), so msp-skills does not support it yet. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
+The ChatGPT desktop app runs `rewst-mcp` locally and shares MCP configuration with Codex ([OpenAI](https://learn.chatgpt.com/docs/extend/mcp)). ChatGPT on the web needs a remote server, which msp-skills does not support yet. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
 
 ### Also for the Microsoft and Google stacks
 
@@ -55,7 +48,7 @@ Big install base, but an honest heads-up: Gemini CLI runs the local binary you j
 
 > **Claude Desktop bundle:** the `.mcpb` launches on macOS (Intel and Apple Silicon), Windows x64 and Linux x64. Every tool shells out to the companion `rewst-cli`. Releases cut from 2026-09-18 on ship that CLI inside the bundle; older bundles contain only the MCP server, so if yours lacks the companion, run the Path A or Path B installer below first (or set `REWST_CLI_PATH` to an existing binary). Details: [#331](https://github.com/Servosity/msp-skills/issues/331).
 
-[**Download Rewst MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/rewst-v0.1.7/rewst-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every Rewst release on the [releases page](https://github.com/servosity/msp-skills/releases?q=rewst).)
+[**Download Rewst MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/rewst-v0.1.8/rewst-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every Rewst release on the [releases page](https://github.com/servosity/msp-skills/releases?q=rewst).)
 
 Prefer the Claude Code plugin? Add the marketplace once, then install - works immediately, no directory listing required:
 
@@ -162,6 +155,7 @@ REWST_API_TOKEN=<value> rewst-cli doctor
 | How much time did automation save this client? | `rewst-cli roi --org <orgId> --since 30d --agent` |
 | What does one org have that another is missing? | `rewst-cli drift --org <orgId> --against <otherOrgId> --agent` |
 | Which managed sub-orgs are missing an integration pack? | `rewst-cli coverage --parent <orgId> --pack microsoft --agent` |
+| Which org ids can my token see? | `rewst-cli orgs --agent` |
 
 Full command reference: [guide.md](./guide.md). For the AI-agent operating contract (`--agent`, `--dry-run`, when to confirm before mutating), see [AGENTS.md](./AGENTS.md).
 
@@ -169,7 +163,9 @@ Full command reference: [guide.md](./guide.md). For the AI-agent operating contr
 
 Rewst's only surface is a **GraphQL gateway** - no first-party CLI, no terminal access, no cross-tenant view. Most integrations just forward a query and hand back raw GraphQL nodes. That's fine for one record. It dies when you're asking "is automation healthy across all 40 of my clients" or "which workflows failed overnight, in which tenant".
 
-This skill turns the whole schema into typed commands, syncs the syncable entities into a **local SQLite mirror** for offline search, and adds the cross-org rollups Rewst's gateway has no single endpoint for. Compound commands like `health`, `failures`, `roi`, `drift`, and `coverage` aggregate across organizations, workflows, executions, variables, and packs live - and your AI sees the answer, not a page of GraphQL JSON.
+This skill adds the cross-org rollups Rewst's gateway has no single endpoint for. `orgs`, `health`, `failures`, `dormant`, `roi`, `drift` and `coverage` send real GraphQL queries and aggregate across organizations, workflows, executions, variables and packs live - and your AI sees the answer, not a page of GraphQL JSON. A Rewst answer that is refused, errored or missing a value is reported as a failure, never as empty or zero data.
+
+**Known limitation of this build:** the typed entity commands (`organizations`, `workflows`, `org-variables` and the rest, plus `sync`) are generated as REST-shaped calls the Rewst GraphQL gateway refuses, so they fail with an HTTP 400 or a GraphQL error. Use the seven commands above and `doctor`, which are the ones that reach Rewst today.
 
 ## The pain this closes
 
@@ -189,7 +185,7 @@ See [pain-point.md](./pain-point.md) for the longer narrative.
 
 ### Does this work with ChatGPT?
 
-Yes, in the **ChatGPT desktop app**. It runs MCP servers locally (STDIO), the way `rewst-mcp` runs, and shares MCP configuration with Codex ([OpenAI](https://learn.chatgpt.com/docs/extend/mcp)): add `rewst-mcp` under **Settings > MCP servers** as a STDIO server, or add it once to Codex's `~/.codex/config.toml`. **ChatGPT on the web** is not supported by msp-skills yet: it needs a remote (HTTP) server, and this connector's HTTP mode is paused until it is reprinted; the security note in [mcp-install.md](./mcp-install.md) explains why. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
+Yes, in the **ChatGPT desktop app**. It runs MCP servers locally (STDIO), the way `rewst-mcp` runs, and shares MCP configuration with Codex ([OpenAI](https://learn.chatgpt.com/docs/extend/mcp)): add `rewst-mcp` under **Settings > MCP servers** as a STDIO server, or add it once to Codex's `~/.codex/config.toml`. **ChatGPT on the web** is not supported by msp-skills yet: it needs a remote server. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
 
 ### Does this work with Codex, Cursor, Windsurf, Cline, Copilot, or Gemini?
 
@@ -205,11 +201,11 @@ Your data stays on **your machine**. The CLI and MCP server are local binaries. 
 
 ### Is Rewst's API REST or GraphQL?
 
-GraphQL-only. This CLI maps the schema to typed commands and includes an `api` command that exposes every endpoint by interface name for full schema coverage, so you don't hand-write GraphQL for common operations. EU/AU regions set `REWST_BASE_URL`; the US default is `api.rewst.io`.
+GraphQL-only. The rollups (`orgs`, `health`, `failures`, `dormant`, `roi`, `drift`, `coverage`) and `doctor` send real GraphQL queries, so you don't hand-write GraphQL for those questions. The typed entity commands in this build are generated as REST-shaped calls the gateway refuses (see the known limitation above). EU/AU regions set `REWST_BASE_URL`; the US default is `api.rewst.io`.
 
 ### Can it build or run workflows?
 
-It reads and manages Rewst entities (workflows, triggers, variables, packs); it does not visually author workflow graphs - use the Rewst designer for that. Creating or updating triggers and workflows is gated human-in-the-loop, since those changes affect automation running on live customer tenants.
+No. It reads workflow health, failures, time saved, drift and pack coverage; it does not author workflow graphs - use the Rewst designer for that. The typed create and update commands for triggers and workflows are refused by the gateway in this build (see the known limitation above), and the safety tiers below still treat them as human-in-the-loop, since those changes affect automation running on live customer tenants.
 
 ### Does it work across all my client organizations?
 
@@ -237,6 +233,13 @@ Rewst's API is GraphQL: reads are queries, writes are mutations. The nuance for 
 | Credential | `auth set-token` | Human-in-the-loop only |
 
 The strongest control is the **scope you grant the Rewst API client** - the CLI can only do what the token is permitted to do. Full details, including how to lock it down, are in [governance.md](./governance.md).
+
+## Credential safety
+
+- Your Rewst API token goes only to the base URL you configured (`https://api.rewst.io`, or `REWST_BASE_URL` for the EU and AU regions). A redirect to any other host is refused.
+- Output, logs, files, the local store and MCP results never repeat the token or a credential Rewst answers with (an API client's secret, a third-party login token, an integration secret in a pack config): the shared credential kit replaces it with a fixed notice.
+- Only `credentials.toml` (mode 0600) holds the token; `auth set-token` reads it from stdin.
+- Not held yet: the value of an org variable whose category is `secret`. Treat `org-variables` output as sensitive.
 
 ## Status
 

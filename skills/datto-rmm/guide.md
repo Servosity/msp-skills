@@ -60,9 +60,7 @@ To install:
 2. Double-click the `.mcpb` file. Claude Desktop opens and walks you through the install.
 3. Fill in `DATTO_RMM_API_KEY` when Claude Desktop prompts you.
 
-Requires Claude Desktop 1.0.0 or later. A bundle carries the five platform binaries the builder downloads - macOS (`darwin-arm64`, `darwin-amd64`), Linux (`linux-arm64`, `linux-amd64`) and Windows (`windows-amd64`). Windows on ARM is released as a standalone binary but is not bundled, so use the manual config below there.
-
-> **Claude Desktop bundle:** the `.mcpb` launches on macOS (Intel and Apple Silicon), Windows x64 and Linux x64. Every tool shells out to the companion `datto-rmm-cli`. Releases cut from 2026-09-18 on ship that CLI inside the bundle; older bundles contain only the MCP server, so if yours lacks the companion, run the installer above first (or set `DATTO_RMM_CLI_PATH` to an existing binary). Details: [#331](https://github.com/Servosity/msp-skills/issues/331).
+Requires Claude Desktop 1.0.0 or later. Pre-built bundles ship for macOS Apple Silicon (`darwin-arm64`) and Windows (`amd64`, `arm64`); for other platforms, use the manual config below.
 
 <details>
 <summary>Manual JSON config (advanced)</summary>
@@ -77,7 +75,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/sk
 iwr -useb https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/datto-rmm/install.ps1 | iex            # Windows
 ```
 
-Add to your Claude Desktop config (`%APPDATA%\Claude\claude_desktop_config.json` on Windows, `~/Library/Application Support/Claude/claude_desktop_config.json` on macOS):
+Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS, `%APPDATA%\Claude\claude_desktop_config.json` on Windows):
 
 ```json
 {
@@ -94,9 +92,20 @@ Add to your Claude Desktop config (`%APPDATA%\Claude\claude_desktop_config.json`
 
 </details>
 
+### Remote MCP over HTTP
+
+`datto-rmm-mcp --transport http` (or `PP_MCP_TRANSPORT=http`) serves streamable HTTP at `http://127.0.0.1:7777/mcp`. It refuses to start until `DATTO_RMM_MCP_HTTP_TOKEN` is set to at least 32 characters, and every request must send `Authorization: Bearer <token>`. The command below prints 64 hex characters and meets that minimum. Plain HTTP is allowed only on a loopback `--addr`; any other bind, including `:7777` (every interface), also needs `--tls-cert` and `--tls-key`. Requests with no `Origin` header are accepted, as are loopback origins (`localhost`, `127.0.0.1`, or `[::1]`, any port). Any other `Origin` is refused unless it is listed in `DATTO_RMM_MCP_HTTP_ALLOWED_ORIGINS`, a comma-separated list of `scheme://host[:port]` values with no path. That list is not a CORS policy; the server does not emit CORS headers.
+
+```bash
+export DATTO_RMM_MCP_HTTP_TOKEN="$(openssl rand -hex 32)"
+datto-rmm-mcp --transport http
+```
+
+Set `DATTO_RMM_MCP_READ_ONLY=1` (exactly `1`) to drop mirrored commands that are not marked read-only and make the raw execute tool refuse state-changing calls. Commands marked local-write, which write only this CLI's own learn store, stay available.
+
 ## Authentication
 
-Datto RMM uses OAuth 2.0. You have an API key and an API secret key (Setup > Users > generate API keys in the Datto RMM web UI). The CLI mints and auto-refreshes a bearer token for you from DATTO_RMM_API_KEY + DATTO_RMM_API_SECRET_KEY (no manual token handling). Pick your region with DATTO_RMM_PLATFORM (pinotage, merlot, concord, vidal, zinfandel, syrah) or set DATTO_RMM_API_URL directly. Tokens last ~100 hours and refresh automatically on 401.
+Datto RMM uses OAuth 2.0. You have an API key and an API secret key (Setup > Users > generate API keys in the Datto RMM web UI). The first API call mints a bearer token for you from DATTO_RMM_API_KEY + DATTO_RMM_API_SECRET_KEY (no manual token handling) and caches it in the 0600 credential store, bound to that key and host. Pick your region with DATTO_RMM_PLATFORM (pinotage, merlot, concord, vidal, zinfandel, syrah) or set DATTO_RMM_API_URL directly. Tokens last about 100 hours; a fresh one is minted 5 minutes before the cached one expires (run auth logout to drop a revoked token).
 
 ## Quick Start
 
@@ -120,8 +129,6 @@ datto-rmm-cli search "acme"
 
 ## Unique Features
 
-These capabilities aren't available in any other tool for this API.
-
 ### Fleet hygiene that compounds
 - **`fleet stale`**  -  Lists every device across all customer sites that hasn't checked in within a chosen window, so you catch dead agents before the customer does.
 
@@ -143,6 +150,13 @@ These capabilities aren't available in any other tool for this API.
 
   ```bash
   datto-rmm-cli fleet agent-drift --agent --select hostname,siteName,cagVersion,lastSeen
+  ```
+- **`fleet udf`**  -  Rolls one device user-defined field up across every synced site: each distinct value with its device and site counts, how many devices leave it empty, and the devices behind one value or behind the gaps.
+
+  _Reach for this when a UDF carries an MSP convention (contract tier, backup state, owner) and you need every device across every customer that breaks it._
+
+  ```bash
+  datto-rmm-cli fleet udf udf7 --agent
   ```
 
 ### Alert intelligence
@@ -237,7 +251,6 @@ These capabilities aren't available in any other tool for this API.
 
 ## Recipes
 
-
 ### Find unprotected endpoints for a security review
 
 ```bash
@@ -273,6 +286,81 @@ Devices whose warranty expires within 90 days, sorted by date  -  drop straight 
 ## Usage
 
 Run `datto-rmm-cli --help` for the full command reference and flag list.
+
+## Paths & environment variables
+
+This CLI separates local files into four path kinds:
+
+| Kind | Contents |
+|------|----------|
+| `config` | User-editable settings such as `config.toml` and saved profiles |
+| `data` | Durable local data: `credentials.toml`, `data.db`, cookies, browser-session proof files, and other auth sidecars |
+| `state` | Runtime state such as persisted queries, jobs, and `teach.log` |
+| `cache` | Regenerable HTTP/cache files |
+
+Each kind resolves independently. The ladder is:
+
+1. Per-kind env var: `DATTO_RMM_CONFIG_DIR`, `DATTO_RMM_DATA_DIR`, `DATTO_RMM_STATE_DIR`, or `DATTO_RMM_CACHE_DIR`
+2. `--home <dir>` for this invocation
+3. `DATTO_RMM_HOME` for a flat relocated root
+4. XDG env vars: `XDG_CONFIG_HOME`, `XDG_DATA_HOME`, `XDG_STATE_HOME`, `XDG_CACHE_HOME`
+5. Platform defaults matching existing installs
+
+For containers and agent sandboxes, prefer a single relocated root:
+
+```bash
+export DATTO_RMM_HOME=/srv/datto-rmm
+datto-rmm-cli doctor
+```
+
+On Windows (PowerShell):
+
+```powershell
+$env:DATTO_RMM_HOME = "C:\ProgramData\datto-rmm"
+datto-rmm-cli doctor
+```
+
+Under `DATTO_RMM_HOME=/srv/datto-rmm`, the four dirs resolve to `/srv/datto-rmm/config`, `/srv/datto-rmm/data`, `/srv/datto-rmm/state`, and `/srv/datto-rmm/cache`.
+
+On Windows, set the same variable in PowerShell:
+
+```powershell
+$env:DATTO_RMM_HOME = "C:\srv\datto-rmm"
+datto-rmm-cli doctor
+```
+
+Under `$env:DATTO_RMM_HOME = "C:\srv\datto-rmm"`, the four dirs resolve to `C:\srv\datto-rmm\config`, `C:\srv\datto-rmm\data`, `C:\srv\datto-rmm\state`, and `C:\srv\datto-rmm\cache`.
+
+MCP servers do not receive CLI flags from the host. Put relocation in the host `env` block:
+
+```json
+{
+  "mcpServers": {
+    "datto-rmm": {
+      "command": "datto-rmm-mcp",
+      "env": {
+        "DATTO_RMM_HOME": "/srv/datto-rmm"
+      }
+    }
+  }
+}
+```
+
+Precedence matters in fleets: an ambient per-kind variable such as `DATTO_RMM_DATA_DIR` overrides an explicit `--home` for that kind. Use `DATTO_RMM_HOME` or the per-kind variables for durable fleet relocation; treat `--home` as the weaker per-invocation lever.
+
+Relocation is one-way. Unsetting `DATTO_RMM_HOME` does not move files back to platform defaults, and `doctor` cannot find credentials left under a former root. Move the files manually before unsetting relocation variables.
+
+Existing installs keep working because the platform-default rung matches the legacy layout. On the first auth write, stored secrets leave `config.toml` and are consolidated into `credentials.toml` under the data directory. Run `datto-rmm-cli doctor --fail-on warn` to check path and credential-location warnings in automation.
+
+### Local data
+
+Reads are saved locally by default: in `--data-source auto` mode every successful read is also written to the SQLite store (`data.db`, or `data-<hash>.db` per credential) in the data directory. GET responses are never cached on disk. Credentials live in `credentials.toml` in the data directory. The learn journal lives under `learn/` in the state directory. `datto-rmm-cli doctor` prints the resolved paths, every store file, and the response-cache size.
+
+None of it is encrypted. New files are created owner-only; beyond that the data relies on OS account permissions and full-disk encryption (FileVault, BitLocker, LUKS).
+
+- **Erase it:** `datto-rmm-cli local-data purge` lists the store files, response cache, and learn journal it would delete; add `--yes` to delete them, or `--only store|cache|journal` to narrow it. Config and credentials are kept.
+- **Run without a local copy:** set `DATTO_RMM_NO_LOCAL_DATA=1`. Reads go to the API (`--data-source live`; `--data-source local` still reads an existing store), the response cache is off (`--no-cache`), nothing new is written to the store, and `sync` and `workflow archive` refuse to run. Set it in an MCP host's `env` block and every command the server runs inherits it.
+- **Choose the read source without flags:** `DATTO_RMM_DATA_SOURCE=auto|live|local` sets the `--data-source` default; an explicit flag wins.
 
 ## Commands
 
@@ -359,24 +447,80 @@ Manage user
 - **`datto-rmm-cli user`** - Resets the authenticated user's API access and secret keys.
 
 
+### fleet
+
+
+- **`datto-rmm-cli fleet stale`** - Lists every device across all customer sites that hasn't checked in within a chosen window, so you catch dead agents before the customer does.
+
+- **`datto-rmm-cli fleet storms`** - Ranks the noisiest devices and sites by alert volume over a time window so the NOC can tune monitors instead of drowning in tickets.
+
+- **`datto-rmm-cli fleet patch-gaps`** - Ranks every device by missing-patch count across all sites so you remediate the most-exposed endpoints first.
+
+- **`datto-rmm-cli fleet av-gaps`** - Finds every device fleet-wide where antivirus is missing, disabled, or not running, so security gaps surface before an incident does.
+
+- **`datto-rmm-cli fleet sprawl`** - Rolls up audited software across the whole fleet to show how many installs of an app exist and the spread of versions, exposing license waste and unpatched copies.
+
+- **`datto-rmm-cli fleet warranty`** - Surfaces every device whose hardware warranty expires within a window, sorted by date and site, ready to drop into a QBR refresh plan.
+
+- **`datto-rmm-cli fleet scorecard`** - Produces a one-shot per-site health card fusing device counts, alert volume, patch coverage, AV coverage, warranty exposure, and agent drift for QBRs.
+
+- **`datto-rmm-cli fleet agent-drift`** - Shows which devices run out-of-date RMM agents across the fleet, ranked by how far behind the newest version they are.
+
+- **`datto-rmm-cli fleet orphans`** - Cross-references long-stale, suspended, or deleted devices that still count against a site so you stop billing and monitoring phantom endpoints.
+
+- **`datto-rmm-cli fleet resolve-storm`** - Bulk-resolves the open alerts on the noisiest devices and sites from the storm ranking, so Monday triage ends with a clean queue instead of a worklist.
+
+- **`datto-rmm-cli fleet job-results`** - Fetches every device's result for one quick job and rolls them into a single pass/fail table, so a 200-device push is verified in one command.
+
+- **`datto-rmm-cli fleet snapshot`** - Freezes the current synced fleet state into a labeled, dated archive so any number you report can be reproduced later as a receipt.
+
+- **`datto-rmm-cli fleet diff`** - Diffs two fleet snapshots (or a snapshot vs the live store) to show devices added or removed and warranty, patch, AV, and agent-version movement since the baseline.
+
+- **`datto-rmm-cli fleet device-timeline`** - Stitches one device's alerts and activity-log entries (which surface job, audit, and user actions) into a single chronological timeline from the local store.
+
+- **`datto-rmm-cli fleet sync-gaps`** - Verifies every synced resource pulled all pages by comparing stored row counts against the API's reported totals, so you can trust fleet numbers before reporting them.
+
+- **`datto-rmm-cli fleet udf`** - Rolls one device user-defined field up across every synced site: each distinct value with its device and site counts, how many devices leave it empty, and the devices behind one value or behind the gaps.
+
+
+
+
+### Self-learning loop
+
+This CLI caches per-question discovery so repeat queries skip the walk and structurally similar queries get answered via entity substitution. The loop also self-captures: every invocation is journaled locally, and failed-flag corrections plus fresh teaches surface as candidates on the next `recall` for confirm/reject judgment. Agents call `recall` before discovery and fire `teach &` after answering. See the `## Automatic learning` section in `SKILL.md` for the full protocol.
+
+- **`datto-rmm-cli recall <query>`** - Look up cached resources for a query before running discovery
+- **`datto-rmm-cli teach`** - Record a query -> resource mapping (silent on success, safe to background with `&`)
+- **`datto-rmm-cli learnings list`** - Inspect taught rows
+- **`datto-rmm-cli learnings forget <query>`** - Undo a teach
+- **`datto-rmm-cli learnings candidates`** - List auto-captured candidates awaiting confirm/reject
+- **`datto-rmm-cli learnings stats`** - Local loop metrics: recall hit rate, teach-to-reuse, playbook resolution, candidate counts
+- **`datto-rmm-cli teach-pattern`** - Install a query/resource template up front
+- **`datto-rmm-cli teach-lookup`** - Add an entity mapping (e.g. country code, team alias) for pattern substitution
+
+Pass `--no-learn` or set `DATTO_RMM_NO_LEARN=true` to disable the loop for deterministic flows.
+
+The local store's schema version stamp is one-way: once this version of `datto-rmm-cli` opens the database, older binaries refuse it with a version error  -  upgrade the binary rather than downgrading.
+
 ## Output Formats
 
 ```bash
 # Human-readable table (default in terminal, JSON when piped)
-datto-rmm-cli alert <id>
+datto-rmm-cli alert mock-value
 
 # JSON for scripting and agents
-datto-rmm-cli alert <id> --json
-
-# Filter to specific fields
-datto-rmm-cli alert <id> --json --select id,name,status
+datto-rmm-cli alert mock-value --json
+# Filter to specific fields by name
+datto-rmm-cli alert mock-value --json --select <field>[,<field>...]
 
 # Dry run  -  show the request without sending
-datto-rmm-cli alert <id> --dry-run
+datto-rmm-cli alert mock-value --dry-run
 
 # Agent mode  -  JSON + compact + no prompts in one flag
-datto-rmm-cli alert <id> --agent
+datto-rmm-cli alert mock-value --agent
 ```
+
+`--csv` prefixes a leading `'` on cells and header keys that start with `=`, `+`, `-`, `@`, a tab, or a line break (including fullwidth `＝＋－＠`) so a spreadsheet does not run them as formulas. Plain signed numbers such as `-5` and `+2.5e3` are left unchanged.
 
 ## Agent Usage
 
@@ -384,15 +528,15 @@ This CLI is designed for AI agent consumption:
 
 - **Non-interactive** - never prompts, every input is a flag
 - **Pipeable** - `--json` output to stdout, errors to stderr
-- **Filterable** - `--select id,name` returns only fields you need
+- **Filterable** - `--select <field>[,<field>...]` returns only fields you need
 - **Previewable** - `--dry-run` shows the request without sending
-- **Explicit retries** - add `--idempotent` to create retries and `--ignore-missing` to delete retries when a no-op success is acceptable
-- **Confirmable** - `--yes` for explicit confirmation of destructive actions
+- **Explicit retries** - add `--idempotent` to create retries and add `--ignore-missing` to delete retries when a no-op success is acceptable
+- **Explicit confirmation** - `--agent` does not imply `--yes`; pass `--yes` separately only after the target, arguments, and side effects are clear
 - **Piped input** - write commands can accept structured input when their help lists `--stdin`
 - **Offline-friendly** - sync/search commands can use the local SQLite store when available
 - **Agent-safe by default** - no colors or formatting unless `--human-friendly` is set
 
-Exit codes: `0` success, `2` usage error, `3` not found, `4` auth error, `5` API error, `7` rate limited, `10` config error.
+Exit codes: `0` success, `2` usage error, `3` not found, `4` auth error, `5` API error, `6` partial failure, `7` rate limited, `10` config error.
 
 ## Health Check
 
@@ -404,9 +548,11 @@ Verifies configuration, credentials, and connectivity to the API.
 
 ## Configuration
 
-Config file: `~/.config/datto-rmm-cli/config.toml`
+Run `datto-rmm-cli doctor` to see the resolved config, data, state, and cache directories. The platform-default config path is `~/.config/datto-rmm-cli/config.toml` on macOS/Linux and `%USERPROFILE%\.config\datto-rmm-cli\config.toml` on Windows; `--home`, `DATTO_RMM_HOME`, and per-kind env vars can relocate it.
 
 Static request headers can be configured under `headers`; per-command header overrides take precedence.
+
+`--ca-cert`, `DATTO_RMM_CA_CERT`, or `ca_cert` adds a PEM CA bundle to the system trust roots. `--tls-server-name`, `DATTO_RMM_TLS_SERVER_NAME`, or `tls_server_name` is the name checked against the certificate when the dialed address does not match it. Precedence is flag, then environment, then the config file. A config file other users can change does not supply these settings. Certificate verification failures are not retried.
 
 Environment variables:
 
@@ -414,11 +560,22 @@ Environment variables:
 | --- | --- | --- | --- |
 | `DATTO_RMM_API_KEY` | auth_flow_input | Yes | Set during initial auth setup. |
 | `DATTO_RMM_API_SECRET_KEY` | auth_flow_input | Yes | Set during initial auth setup. |
-| `DATTO_RMM_TOKEN` | per_call | No | Set to your API credential. |
+| `DATTO_RMM_TOKEN` | per_call | No | A pre-minted bearer token; when set, nothing is minted. |
+| `DATTO_RMM_PLATFORM` | config | No | Your region: pinotage, merlot (default), concord, vidal, zinfandel or syrah. |
+| `DATTO_RMM_API_URL` | config | No | The full API base for your region (host root or `.../api`); wins over `DATTO_RMM_PLATFORM`. |
+| `DATTO_RMM_BASE_URL` | config | No | The exact API base URL; wins over both. |
+| `DATTO_RMM_NO_CONFIG_WRITE` | config | No | `1` keeps every credential off disk: tokens are minted per run and `auth login` refuses. |
 
 ### agentcookie (optional)
 
 If you use agentcookie to sync secrets across machines, this CLI auto-adopts agentcookie-managed credentials with no extra setup. When the daemon writes to this CLI's config, `datto-rmm-cli doctor` reports `agentcookie: detected` and `auth-status` labels the source as `agentcookie`. Skip this section if you don't use agentcookie - the CLI works the same as any other.
+
+## Credential safety
+
+- Every API request, the token request and the bearer token go only to the scheme, host and port of the API base URL: `DATTO_RMM_BASE_URL`, or the host `DATTO_RMM_PLATFORM` or `DATTO_RMM_API_URL` names (default `https://merlot-api.centrastage.net/api`). The token request is `POST /auth/oauth/token` on that same host. A request that would carry a credential anywhere else, over plain http, or across a redirect to another host is refused before it is sent, and a next-page link moves only the page number.
+- Any output, file, store write or MCP result that would repeat `DATTO_RMM_API_KEY`, `DATTO_RMM_API_SECRET_KEY`, `DATTO_RMM_TOKEN`, a minted token or a credential a response carries (a site proxy password, the keys `resetApiKeys` issues) is replaced by a notice such as "[credkit: withheld from stdout: it carried a credential this program holds]", so rotate API keys in the Datto RMM web UI, where you can read the new pair. Responses are never cached on disk, and those response fields are replaced by `[redacted]` before a record reaches the local store, so a site with a proxy password still syncs.
+- Only `credentials.toml` (mode 0600) holds a credential. The API key and secret from the environment are never written to disk. A minted token is cached there (not at all under `DATTO_RMM_NO_CONFIG_WRITE=1`), bound to the host and API key it was minted for: another key mints its own, and a token is never sent to another platform.
+- `--dry-run` sends nothing and never mints a token. Over MCP, a call that changes Datto RMM returns a preview and sends only with `confirm: true`, and a tool argument can never name a file to read or write.
 
 ### Keeping credentials off disk (optional)
 
