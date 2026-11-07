@@ -61,7 +61,7 @@ func newOrganizationsAssuranceGetOrganizationAlertsOverviewCmd(flags *rootFlags)
 					}
 				}
 				if !validCategory {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagCategory, "category", allowedCategory)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagCategory, "category", allowedCategory))
 				}
 			}
 			path := "/organizations/{organizationId}/assurance/alerts/overview"

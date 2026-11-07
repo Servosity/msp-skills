@@ -66,6 +66,7 @@ func runArchive(t *testing.T, d *archiveDouble, extra ...string) (stdout, stderr
 	t.Helper()
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home) // os.UserHomeDir reads USERPROFILE on Windows
 	os.Unsetenv("PRINTING_PRESS_VERIFY")
 	t.Setenv("DATTO_RMM_CONFIG", filepath.Join(home, "config.toml"))
 	t.Setenv("DATTO_RMM_BASE_URL", d.srv.URL)

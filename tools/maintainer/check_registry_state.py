@@ -4,12 +4,15 @@
 The failure mode this blocks: an update/fleet branch cut from a stale local
 main carries an old skills.json; its whole-file rewrite then downgrades
 live_verified from 'live-verified' back to 'awaiting', destroying the
-verification receipt. Only verify_live.py revoke - which REMOVES the key -
-may take a skill out of live-verified.
+verification receipt. Once live-verified, always live-verified: only the
+owner's revoke (verify_live.py --revoke --owner-override "<reason>", which
+leaves a dated `revoked` record) may take a skill out of live-verified.
 
 Checks per slug, current file vs origin/main:
-  1. DOWNGRADE - base is live-verified, current still has the key but with any
-     other status. FAIL. (Key removed entirely = explicit revoke = allowed.)
+  1. DOWNGRADE - base is live-verified, current has any other status or no
+     live_verified key at all, and no owner `revoked` record. FAIL. A removed
+     key used to count as a revoke; that let a reprint that rewrote the entry
+     without it drop servosity's badge silently (#248, 2026-08-17).
   2. SHAPE - live_verified must be a dict or absent. null / strings FAIL
      (a null entry silently reads as awaiting in every consumer).
   3. BINDING - a live-verified badge records the code it verified
@@ -38,6 +41,7 @@ register()'s in-process guard.
 from __future__ import annotations
 
 import argparse
+import datetime as dt
 import json
 import re
 import subprocess
@@ -188,6 +192,31 @@ def _self_test() -> int:
         ok = clean is want_clean
         bad += 0 if ok else 1
         print(f"  {'ok  ' if ok else 'FAIL'} {label} -> {'clean' if clean else 'violation'}")
+    lvb = {"live_verified": {"status": "live-verified"}}
+    revoked = {"status": "awaiting", "revoked": {"date": "2026-11-06", "reason": "vendor retired the API"}}
+    downgrades = [
+        ("still live-verified", {"x": lvb}, True),
+        ("the entry rewritten without live_verified (servosity #248)", {"x": {}}, False),
+        ("status set back to awaiting", {"x": {"live_verified": {"status": "awaiting"}}}, False),
+        ("the owner's revoke, with a dated reason", {"x": {"live_verified": revoked}}, True),
+        ("a revoke record with a blank reason", {"x": {"live_verified": dict(
+            revoked, revoked={"date": "2026-11-06", "reason": " "})}}, False),
+        ("a revoke record with no date", {"x": {"live_verified": dict(
+            revoked, revoked={"reason": "r"})}}, False),
+        ("a revoke record with non-string date and reason", {"x": {"live_verified": dict(
+            revoked, revoked={"date": True, "reason": True})}}, False),
+        ("a revoke record with a date that is not YYYY-MM-DD", {"x": {"live_verified": dict(
+            revoked, revoked={"date": "yesterday", "reason": "r"})}}, False),
+        ("a revoke record with no status", {"x": {"live_verified": {"revoked": revoked["revoked"]}}}, False),
+        ("a revoke record under a status other than awaiting", {"x": {"live_verified": dict(
+            revoked, status="beta")}}, False),
+        ("the connector removed (not this gate's call)", {}, True),
+    ]
+    for label, cur, want_clean in downgrades:
+        clean = not downgrade_violations({"x": lvb}, cur, "base")
+        ok = clean is want_clean
+        bad += 0 if ok else 1
+        print(f"  {'ok  ' if ok else 'FAIL'} downgrade: {label} -> {'clean' if clean else 'violation'}")
     print("self-test:", "PASS" if not bad else f"FAIL ({bad})")
     return 0 if not bad else 1
 
@@ -195,6 +224,44 @@ def _self_test() -> int:
 def lv_status(entry: dict):
     lv = entry.get("live_verified")
     return lv.get("status") if isinstance(lv, dict) else None
+
+
+def owner_revoked(entry: dict) -> bool:
+    """The owner's revoke leaves exactly what verify_live.py --revoke writes:
+    {"status": "awaiting", "revoked": {"date": "YYYY-MM-DD", "reason": "<nonblank>"}}."""
+    lv = entry.get("live_verified")
+    if not isinstance(lv, dict) or lv.get("status") != "awaiting":
+        return False
+    r = lv.get("revoked")
+    if not isinstance(r, dict):
+        return False
+    date, reason = r.get("date"), r.get("reason")
+    if not (isinstance(reason, str) and reason.strip() and isinstance(date, str)):
+        return False
+    try:
+        dt.date.fromisoformat(date)
+    except ValueError:
+        return False
+    return re.fullmatch(r"\d{4}-\d{2}-\d{2}", date) is not None
+
+
+def downgrade_violations(base: dict, current: dict, label: str) -> list[str]:
+    out = []
+    for slug, base_entry in base.items():
+        if lv_status(base_entry) != "live-verified":
+            continue
+        cur_entry = current.get(slug)
+        if cur_entry is None:
+            continue  # slug removal is its own review concern, not this gate's
+        if lv_status(cur_entry) == "live-verified" or owner_revoked(cur_entry):
+            continue
+        now = "no live_verified key" if "live_verified" not in cur_entry else repr(lv_status(cur_entry))
+        out.append(
+            f"{slug}: live_verified DOWNGRADED from 'live-verified' ({label}) to {now} - once "
+            f"live-verified, always live-verified. Restore the {label} value; only the owner takes a "
+            f'badge off: verify_live.py --revoke --slug {slug} --owner-override "<reason>".'
+        )
+    return out
 
 
 def main() -> int:
@@ -212,7 +279,7 @@ def main() -> int:
              "CONTAINS the push, so comparing against it would compare the push with itself. A "
              "--base that cannot be read is an environment error (exit 2): substituting "
              "origin/main there would compare a push with itself.")
-    ap.add_argument("--self-test", action="store_true", help="prove the BINDING rule both ways")
+    ap.add_argument("--self-test", action="store_true", help="prove the BINDING and DOWNGRADE rules both ways")
     args = ap.parse_args()
     if args.self_test:
         return _self_test()
@@ -256,21 +323,7 @@ def main() -> int:
               "run (--allow-missing-baseline). Shape check only; onboard.py register() guard "
               "still applies.")
     if base is not None:
-        for slug, base_entry in base.items():
-            if lv_status(base_entry) != "live-verified":
-                continue
-            cur_entry = current.get(slug)
-            if cur_entry is None:
-                continue  # slug removal is its own review concern, not this gate's
-            if "live_verified" not in cur_entry:
-                continue  # key removed = explicit verify_live.py revoke
-            if lv_status(cur_entry) != "live-verified":
-                violations.append(
-                    f"{slug}: live_verified DOWNGRADED from 'live-verified' "
-                    f"({base_label}) to {lv_status(cur_entry)!r} - a stale-snapshot "
-                    "merge is destroying a verification receipt. Restore the "
-                    "origin/main value; only verify_live.py revoke may clear it."
-                )
+        violations += downgrade_violations(base, current, base_label)
 
     if violations:
         print("check_registry_state: FAIL")

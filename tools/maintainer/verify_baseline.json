@@ -34,28 +34,13 @@
    "read-only",
    "local-data"
   ],
-  "blumira": [
-   "mcp-http",
-   "read-only",
-   "local-data"
-  ],
   "cisco-duo": [
-   "write-gating",
-   "read-only",
-   "local-data"
-  ],
-  "cisco-meraki": [
    "write-gating",
    "read-only",
    "local-data"
   ],
   "connectsecure": [
    "write-gating",
-   "read-only",
-   "local-data"
-  ],
-  "connectwise-automate": [
-   "mcp-http",
    "read-only",
    "local-data"
   ],
@@ -67,11 +52,6 @@
   ],
   "connectwise-rmm": [
    "write-gating",
-   "read-only",
-   "local-data"
-  ],
-  "cork": [
-   "mcp-http",
    "read-only",
    "local-data"
   ],
@@ -87,11 +67,7 @@
    "local-data"
   ],
   "datto-rmm": [
-   "mcp-stdio",
-   "mcp-http",
-   "write-gating",
-   "read-only",
-   "local-data"
+   "mcp-stdio"
   ],
   "fortinet": [
    "read-only",
@@ -114,11 +90,6 @@
    "local-data"
   ],
   "levelio": [
-   "mcp-http",
-   "read-only",
-   "local-data"
-  ],
-  "microsoft-graph": [
    "mcp-http",
    "read-only",
    "local-data"
@@ -162,11 +133,6 @@
   "resourceguru": [
    "mcp-http",
    "write-gating",
-   "read-only",
-   "local-data"
-  ],
-  "riverside-fm": [
-   "mcp-http",
    "read-only",
    "local-data"
   ],

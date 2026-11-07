@@ -119,207 +119,207 @@ func newNetworksCameraCreateNetworkQualityRetentionProfileCmd(flags *rootFlags) 
 			}
 			if !stdinBody {
 				if !cmd.Flags().Changed("name") && bodyName == "" && !requiredInputWaived() {
-					return fmt.Errorf("required flag \"%s\" not set", "name")
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "name"))
 				}
 				if (cmd.Flags().Changed("video-settings-mv12-mv22-mv72-quality") || bodyVideoSettingsMV12MV22MV72Quality != "") || (cmd.Flags().Changed("video-settings-mv12-mv22-mv72-resolution") || bodyVideoSettingsMV12MV22MV72Resolution != "") || (cmd.Flags().Changed("video-settings-mv12-we-quality") || bodyVideoSettingsMV12WEQuality != "") || (cmd.Flags().Changed("video-settings-mv12-we-resolution") || bodyVideoSettingsMV12WEResolution != "") || (cmd.Flags().Changed("video-settings-mv13-quality") || bodyVideoSettingsMV13Quality != "") || (cmd.Flags().Changed("video-settings-mv13-resolution") || bodyVideoSettingsMV13Resolution != "") || (cmd.Flags().Changed("video-settings-mv13-m-quality") || bodyVideoSettingsMV13MQuality != "") || (cmd.Flags().Changed("video-settings-mv13-m-resolution") || bodyVideoSettingsMV13MResolution != "") || (cmd.Flags().Changed("video-settings-mv21-mv71-quality") || bodyVideoSettingsMV21MV71Quality != "") || (cmd.Flags().Changed("video-settings-mv21-mv71-resolution") || bodyVideoSettingsMV21MV71Resolution != "") || (cmd.Flags().Changed("video-settings-mv22-x-mv72-x-quality") || bodyVideoSettingsMV22XMV72XQuality != "") || (cmd.Flags().Changed("video-settings-mv22-x-mv72-x-resolution") || bodyVideoSettingsMV22XMV72XResolution != "") || (cmd.Flags().Changed("video-settings-mv23-quality") || bodyVideoSettingsMV23Quality != "") || (cmd.Flags().Changed("video-settings-mv23-resolution") || bodyVideoSettingsMV23Resolution != "") || (cmd.Flags().Changed("video-settings-mv23-m-quality") || bodyVideoSettingsMV23MQuality != "") || (cmd.Flags().Changed("video-settings-mv23-m-resolution") || bodyVideoSettingsMV23MResolution != "") || (cmd.Flags().Changed("video-settings-mv23-x-quality") || bodyVideoSettingsMV23XQuality != "") || (cmd.Flags().Changed("video-settings-mv23-x-resolution") || bodyVideoSettingsMV23XResolution != "") || (cmd.Flags().Changed("video-settings-mv32-quality") || bodyVideoSettingsMV32Quality != "") || (cmd.Flags().Changed("video-settings-mv32-resolution") || bodyVideoSettingsMV32Resolution != "") || (cmd.Flags().Changed("video-settings-mv33-quality") || bodyVideoSettingsMV33Quality != "") || (cmd.Flags().Changed("video-settings-mv33-resolution") || bodyVideoSettingsMV33Resolution != "") || (cmd.Flags().Changed("video-settings-mv33-m-quality") || bodyVideoSettingsMV33MQuality != "") || (cmd.Flags().Changed("video-settings-mv33-m-resolution") || bodyVideoSettingsMV33MResolution != "") || (cmd.Flags().Changed("video-settings-mv44-x-quality") || bodyVideoSettingsMV44XQuality != "") || (cmd.Flags().Changed("video-settings-mv44-x-resolution") || bodyVideoSettingsMV44XResolution != "") || (cmd.Flags().Changed("video-settings-mv52-quality") || bodyVideoSettingsMV52Quality != "") || (cmd.Flags().Changed("video-settings-mv52-resolution") || bodyVideoSettingsMV52Resolution != "") || (cmd.Flags().Changed("video-settings-mv53-x-quality") || bodyVideoSettingsMV53XQuality != "") || (cmd.Flags().Changed("video-settings-mv53-x-resolution") || bodyVideoSettingsMV53XResolution != "") || (cmd.Flags().Changed("video-settings-mv63-quality") || bodyVideoSettingsMV63Quality != "") || (cmd.Flags().Changed("video-settings-mv63-resolution") || bodyVideoSettingsMV63Resolution != "") || (cmd.Flags().Changed("video-settings-mv63-m-quality") || bodyVideoSettingsMV63MQuality != "") || (cmd.Flags().Changed("video-settings-mv63-m-resolution") || bodyVideoSettingsMV63MResolution != "") || (cmd.Flags().Changed("video-settings-mv63-x-quality") || bodyVideoSettingsMV63XQuality != "") || (cmd.Flags().Changed("video-settings-mv63-x-resolution") || bodyVideoSettingsMV63XResolution != "") || (cmd.Flags().Changed("video-settings-mv73-quality") || bodyVideoSettingsMV73Quality != "") || (cmd.Flags().Changed("video-settings-mv73-resolution") || bodyVideoSettingsMV73Resolution != "") || (cmd.Flags().Changed("video-settings-mv73-m-quality") || bodyVideoSettingsMV73MQuality != "") || (cmd.Flags().Changed("video-settings-mv73-m-resolution") || bodyVideoSettingsMV73MResolution != "") || (cmd.Flags().Changed("video-settings-mv73-x-quality") || bodyVideoSettingsMV73XQuality != "") || (cmd.Flags().Changed("video-settings-mv73-x-resolution") || bodyVideoSettingsMV73XResolution != "") || (cmd.Flags().Changed("video-settings-mv84-x-quality") || bodyVideoSettingsMV84XQuality != "") || (cmd.Flags().Changed("video-settings-mv84-x-resolution") || bodyVideoSettingsMV84XResolution != "") || (cmd.Flags().Changed("video-settings-mv93-quality") || bodyVideoSettingsMV93Quality != "") || (cmd.Flags().Changed("video-settings-mv93-resolution") || bodyVideoSettingsMV93Resolution != "") || (cmd.Flags().Changed("video-settings-mv93-m-quality") || bodyVideoSettingsMV93MQuality != "") || (cmd.Flags().Changed("video-settings-mv93-m-resolution") || bodyVideoSettingsMV93MResolution != "") || (cmd.Flags().Changed("video-settings-mv93-x-quality") || bodyVideoSettingsMV93XQuality != "") || (cmd.Flags().Changed("video-settings-mv93-x-resolution") || bodyVideoSettingsMV93XResolution != "") {
 					if (cmd.Flags().Changed("video-settings-mv12-mv22-mv72-quality") || bodyVideoSettingsMV12MV22MV72Quality != "") || (cmd.Flags().Changed("video-settings-mv12-mv22-mv72-resolution") || bodyVideoSettingsMV12MV22MV72Resolution != "") {
 						if !cmd.Flags().Changed("video-settings-mv12-mv22-mv72-quality") && bodyVideoSettingsMV12MV22MV72Quality == "" && !requiredInputWaived() {
-							return fmt.Errorf("required flag \"%s\" not set", "video-settings-mv12-mv22-mv72-quality")
+							return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "video-settings-mv12-mv22-mv72-quality"))
 						}
 						if !cmd.Flags().Changed("video-settings-mv12-mv22-mv72-resolution") && bodyVideoSettingsMV12MV22MV72Resolution == "" && !requiredInputWaived() {
-							return fmt.Errorf("required flag \"%s\" not set", "video-settings-mv12-mv22-mv72-resolution")
+							return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "video-settings-mv12-mv22-mv72-resolution"))
 						}
 					}
 					if (cmd.Flags().Changed("video-settings-mv12-we-quality") || bodyVideoSettingsMV12WEQuality != "") || (cmd.Flags().Changed("video-settings-mv12-we-resolution") || bodyVideoSettingsMV12WEResolution != "") {
 						if !cmd.Flags().Changed("video-settings-mv12-we-quality") && bodyVideoSettingsMV12WEQuality == "" && !requiredInputWaived() {
-							return fmt.Errorf("required flag \"%s\" not set", "video-settings-mv12-we-quality")
+							return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "video-settings-mv12-we-quality"))
 						}
 						if !cmd.Flags().Changed("video-settings-mv12-we-resolution") && bodyVideoSettingsMV12WEResolution == "" && !requiredInputWaived() {
-							return fmt.Errorf("required flag \"%s\" not set", "video-settings-mv12-we-resolution")
+							return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "video-settings-mv12-we-resolution"))
 						}
 					}
 					if (cmd.Flags().Changed("video-settings-mv13-quality") || bodyVideoSettingsMV13Quality != "") || (cmd.Flags().Changed("video-settings-mv13-resolution") || bodyVideoSettingsMV13Resolution != "") {
 						if !cmd.Flags().Changed("video-settings-mv13-quality") && bodyVideoSettingsMV13Quality == "" && !requiredInputWaived() {
-							return fmt.Errorf("required flag \"%s\" not set", "video-settings-mv13-quality")
+							return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "video-settings-mv13-quality"))
 						}
 						if !cmd.Flags().Changed("video-settings-mv13-resolution") && bodyVideoSettingsMV13Resolution == "" && !requiredInputWaived() {
-							return fmt.Errorf("required flag \"%s\" not set", "video-settings-mv13-resolution")
+							return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "video-settings-mv13-resolution"))
 						}
 					}
 					if (cmd.Flags().Changed("video-settings-mv13-m-quality") || bodyVideoSettingsMV13MQuality != "") || (cmd.Flags().Changed("video-settings-mv13-m-resolution") || bodyVideoSettingsMV13MResolution != "") {
 						if !cmd.Flags().Changed("video-settings-mv13-m-quality") && bodyVideoSettingsMV13MQuality == "" && !requiredInputWaived() {
-							return fmt.Errorf("required flag \"%s\" not set", "video-settings-mv13-m-quality")
+							return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "video-settings-mv13-m-quality"))
 						}
 						if !cmd.Flags().Changed("video-settings-mv13-m-resolution") && bodyVideoSettingsMV13MResolution == "" && !requiredInputWaived() {
-							return fmt.Errorf("required flag \"%s\" not set", "video-settings-mv13-m-resolution")
+							return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "video-settings-mv13-m-resolution"))
 						}
 					}
 					if (cmd.Flags().Changed("video-settings-mv21-mv71-quality") || bodyVideoSettingsMV21MV71Quality != "") || (cmd.Flags().Changed("video-settings-mv21-mv71-resolution") || bodyVideoSettingsMV21MV71Resolution != "") {
 						if !cmd.Flags().Changed("video-settings-mv21-mv71-quality") && bodyVideoSettingsMV21MV71Quality == "" && !requiredInputWaived() {
-							return fmt.Errorf("required flag \"%s\" not set", "video-settings-mv21-mv71-quality")
+							return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "video-settings-mv21-mv71-quality"))
 						}
 						if !cmd.Flags().Changed("video-settings-mv21-mv71-resolution") && bodyVideoSettingsMV21MV71Resolution == "" && !requiredInputWaived() {
-							return fmt.Errorf("required flag \"%s\" not set", "video-settings-mv21-mv71-resolution")
+							return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "video-settings-mv21-mv71-resolution"))
 						}
 					}
 					if (cmd.Flags().Changed("video-settings-mv22-x-mv72-x-quality") || bodyVideoSettingsMV22XMV72XQuality != "") || (cmd.Flags().Changed("video-settings-mv22-x-mv72-x-resolution") || bodyVideoSettingsMV22XMV72XResolution != "") {
 						if !cmd.Flags().Changed("video-settings-mv22-x-mv72-x-quality") && bodyVideoSettingsMV22XMV72XQuality == "" && !requiredInputWaived() {
-							return fmt.Errorf("required flag \"%s\" not set", "video-settings-mv22-x-mv72-x-quality")
+							return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "video-settings-mv22-x-mv72-x-quality"))
 						}
 						if !cmd.Flags().Changed("video-settings-mv22-x-mv72-x-resolution") && bodyVideoSettingsMV22XMV72XResolution == "" && !requiredInputWaived() {
-							return fmt.Errorf("required flag \"%s\" not set", "video-settings-mv22-x-mv72-x-resolution")
+							return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "video-settings-mv22-x-mv72-x-resolution"))
 						}
 					}
 					if (cmd.Flags().Changed("video-settings-mv23-quality") || bodyVideoSettingsMV23Quality != "") || (cmd.Flags().Changed("video-settings-mv23-resolution") || bodyVideoSettingsMV23Resolution != "") {
 						if !cmd.Flags().Changed("video-settings-mv23-quality") && bodyVideoSettingsMV23Quality == "" && !requiredInputWaived() {
-							return fmt.Errorf("required flag \"%s\" not set", "video-settings-mv23-quality")
+							return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "video-settings-mv23-quality"))
 						}
 						if !cmd.Flags().Changed("video-settings-mv23-resolution") && bodyVideoSettingsMV23Resolution == "" && !requiredInputWaived() {
-							return fmt.Errorf("required flag \"%s\" not set", "video-settings-mv23-resolution")
+							return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "video-settings-mv23-resolution"))
 						}
 					}
 					if (cmd.Flags().Changed("video-settings-mv23-m-quality") || bodyVideoSettingsMV23MQuality != "") || (cmd.Flags().Changed("video-settings-mv23-m-resolution") || bodyVideoSettingsMV23MResolution != "") {
 						if !cmd.Flags().Changed("video-settings-mv23-m-quality") && bodyVideoSettingsMV23MQuality == "" && !requiredInputWaived() {
-							return fmt.Errorf("required flag \"%s\" not set", "video-settings-mv23-m-quality")
+							return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "video-settings-mv23-m-quality"))
 						}
 						if !cmd.Flags().Changed("video-settings-mv23-m-resolution") && bodyVideoSettingsMV23MResolution == "" && !requiredInputWaived() {
-							return fmt.Errorf("required flag \"%s\" not set", "video-settings-mv23-m-resolution")
+							return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "video-settings-mv23-m-resolution"))
 						}
 					}
 					if (cmd.Flags().Changed("video-settings-mv23-x-quality") || bodyVideoSettingsMV23XQuality != "") || (cmd.Flags().Changed("video-settings-mv23-x-resolution") || bodyVideoSettingsMV23XResolution != "") {
 						if !cmd.Flags().Changed("video-settings-mv23-x-quality") && bodyVideoSettingsMV23XQuality == "" && !requiredInputWaived() {
-							return fmt.Errorf("required flag \"%s\" not set", "video-settings-mv23-x-quality")
+							return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "video-settings-mv23-x-quality"))
 						}
 						if !cmd.Flags().Changed("video-settings-mv23-x-resolution") && bodyVideoSettingsMV23XResolution == "" && !requiredInputWaived() {
-							return fmt.Errorf("required flag \"%s\" not set", "video-settings-mv23-x-resolution")
+							return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "video-settings-mv23-x-resolution"))
 						}
 					}
 					if (cmd.Flags().Changed("video-settings-mv32-quality") || bodyVideoSettingsMV32Quality != "") || (cmd.Flags().Changed("video-settings-mv32-resolution") || bodyVideoSettingsMV32Resolution != "") {
 						if !cmd.Flags().Changed("video-settings-mv32-quality") && bodyVideoSettingsMV32Quality == "" && !requiredInputWaived() {
-							return fmt.Errorf("required flag \"%s\" not set", "video-settings-mv32-quality")
+							return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "video-settings-mv32-quality"))
 						}
 						if !cmd.Flags().Changed("video-settings-mv32-resolution") && bodyVideoSettingsMV32Resolution == "" && !requiredInputWaived() {
-							return fmt.Errorf("required flag \"%s\" not set", "video-settings-mv32-resolution")
+							return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "video-settings-mv32-resolution"))
 						}
 					}
 					if (cmd.Flags().Changed("video-settings-mv33-quality") || bodyVideoSettingsMV33Quality != "") || (cmd.Flags().Changed("video-settings-mv33-resolution") || bodyVideoSettingsMV33Resolution != "") {
 						if !cmd.Flags().Changed("video-settings-mv33-quality") && bodyVideoSettingsMV33Quality == "" && !requiredInputWaived() {
-							return fmt.Errorf("required flag \"%s\" not set", "video-settings-mv33-quality")
+							return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "video-settings-mv33-quality"))
 						}
 						if !cmd.Flags().Changed("video-settings-mv33-resolution") && bodyVideoSettingsMV33Resolution == "" && !requiredInputWaived() {
-							return fmt.Errorf("required flag \"%s\" not set", "video-settings-mv33-resolution")
+							return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "video-settings-mv33-resolution"))
 						}
 					}
 					if (cmd.Flags().Changed("video-settings-mv33-m-quality") || bodyVideoSettingsMV33MQuality != "") || (cmd.Flags().Changed("video-settings-mv33-m-resolution") || bodyVideoSettingsMV33MResolution != "") {
 						if !cmd.Flags().Changed("video-settings-mv33-m-quality") && bodyVideoSettingsMV33MQuality == "" && !requiredInputWaived() {
-							return fmt.Errorf("required flag \"%s\" not set", "video-settings-mv33-m-quality")
+							return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "video-settings-mv33-m-quality"))
 						}
 						if !cmd.Flags().Changed("video-settings-mv33-m-resolution") && bodyVideoSettingsMV33MResolution == "" && !requiredInputWaived() {
-							return fmt.Errorf("required flag \"%s\" not set", "video-settings-mv33-m-resolution")
+							return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "video-settings-mv33-m-resolution"))
 						}
 					}
 					if (cmd.Flags().Changed("video-settings-mv44-x-quality") || bodyVideoSettingsMV44XQuality != "") || (cmd.Flags().Changed("video-settings-mv44-x-resolution") || bodyVideoSettingsMV44XResolution != "") {
 						if !cmd.Flags().Changed("video-settings-mv44-x-quality") && bodyVideoSettingsMV44XQuality == "" && !requiredInputWaived() {
-							return fmt.Errorf("required flag \"%s\" not set", "video-settings-mv44-x-quality")
+							return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "video-settings-mv44-x-quality"))
 						}
 						if !cmd.Flags().Changed("video-settings-mv44-x-resolution") && bodyVideoSettingsMV44XResolution == "" && !requiredInputWaived() {
-							return fmt.Errorf("required flag \"%s\" not set", "video-settings-mv44-x-resolution")
+							return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "video-settings-mv44-x-resolution"))
 						}
 					}
 					if (cmd.Flags().Changed("video-settings-mv52-quality") || bodyVideoSettingsMV52Quality != "") || (cmd.Flags().Changed("video-settings-mv52-resolution") || bodyVideoSettingsMV52Resolution != "") {
 						if !cmd.Flags().Changed("video-settings-mv52-quality") && bodyVideoSettingsMV52Quality == "" && !requiredInputWaived() {
-							return fmt.Errorf("required flag \"%s\" not set", "video-settings-mv52-quality")
+							return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "video-settings-mv52-quality"))
 						}
 						if !cmd.Flags().Changed("video-settings-mv52-resolution") && bodyVideoSettingsMV52Resolution == "" && !requiredInputWaived() {
-							return fmt.Errorf("required flag \"%s\" not set", "video-settings-mv52-resolution")
+							return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "video-settings-mv52-resolution"))
 						}
 					}
 					if (cmd.Flags().Changed("video-settings-mv53-x-quality") || bodyVideoSettingsMV53XQuality != "") || (cmd.Flags().Changed("video-settings-mv53-x-resolution") || bodyVideoSettingsMV53XResolution != "") {
 						if !cmd.Flags().Changed("video-settings-mv53-x-quality") && bodyVideoSettingsMV53XQuality == "" && !requiredInputWaived() {
-							return fmt.Errorf("required flag \"%s\" not set", "video-settings-mv53-x-quality")
+							return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "video-settings-mv53-x-quality"))
 						}
 						if !cmd.Flags().Changed("video-settings-mv53-x-resolution") && bodyVideoSettingsMV53XResolution == "" && !requiredInputWaived() {
-							return fmt.Errorf("required flag \"%s\" not set", "video-settings-mv53-x-resolution")
+							return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "video-settings-mv53-x-resolution"))
 						}
 					}
 					if (cmd.Flags().Changed("video-settings-mv63-quality") || bodyVideoSettingsMV63Quality != "") || (cmd.Flags().Changed("video-settings-mv63-resolution") || bodyVideoSettingsMV63Resolution != "") {
 						if !cmd.Flags().Changed("video-settings-mv63-quality") && bodyVideoSettingsMV63Quality == "" && !requiredInputWaived() {
-							return fmt.Errorf("required flag \"%s\" not set", "video-settings-mv63-quality")
+							return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "video-settings-mv63-quality"))
 						}
 						if !cmd.Flags().Changed("video-settings-mv63-resolution") && bodyVideoSettingsMV63Resolution == "" && !requiredInputWaived() {
-							return fmt.Errorf("required flag \"%s\" not set", "video-settings-mv63-resolution")
+							return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "video-settings-mv63-resolution"))
 						}
 					}
 					if (cmd.Flags().Changed("video-settings-mv63-m-quality") || bodyVideoSettingsMV63MQuality != "") || (cmd.Flags().Changed("video-settings-mv63-m-resolution") || bodyVideoSettingsMV63MResolution != "") {
 						if !cmd.Flags().Changed("video-settings-mv63-m-quality") && bodyVideoSettingsMV63MQuality == "" && !requiredInputWaived() {
-							return fmt.Errorf("required flag \"%s\" not set", "video-settings-mv63-m-quality")
+							return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "video-settings-mv63-m-quality"))
 						}
 						if !cmd.Flags().Changed("video-settings-mv63-m-resolution") && bodyVideoSettingsMV63MResolution == "" && !requiredInputWaived() {
-							return fmt.Errorf("required flag \"%s\" not set", "video-settings-mv63-m-resolution")
+							return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "video-settings-mv63-m-resolution"))
 						}
 					}
 					if (cmd.Flags().Changed("video-settings-mv63-x-quality") || bodyVideoSettingsMV63XQuality != "") || (cmd.Flags().Changed("video-settings-mv63-x-resolution") || bodyVideoSettingsMV63XResolution != "") {
 						if !cmd.Flags().Changed("video-settings-mv63-x-quality") && bodyVideoSettingsMV63XQuality == "" && !requiredInputWaived() {
-							return fmt.Errorf("required flag \"%s\" not set", "video-settings-mv63-x-quality")
+							return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "video-settings-mv63-x-quality"))
 						}
 						if !cmd.Flags().Changed("video-settings-mv63-x-resolution") && bodyVideoSettingsMV63XResolution == "" && !requiredInputWaived() {
-							return fmt.Errorf("required flag \"%s\" not set", "video-settings-mv63-x-resolution")
+							return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "video-settings-mv63-x-resolution"))
 						}
 					}
 					if (cmd.Flags().Changed("video-settings-mv73-quality") || bodyVideoSettingsMV73Quality != "") || (cmd.Flags().Changed("video-settings-mv73-resolution") || bodyVideoSettingsMV73Resolution != "") {
 						if !cmd.Flags().Changed("video-settings-mv73-quality") && bodyVideoSettingsMV73Quality == "" && !requiredInputWaived() {
-							return fmt.Errorf("required flag \"%s\" not set", "video-settings-mv73-quality")
+							return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "video-settings-mv73-quality"))
 						}
 						if !cmd.Flags().Changed("video-settings-mv73-resolution") && bodyVideoSettingsMV73Resolution == "" && !requiredInputWaived() {
-							return fmt.Errorf("required flag \"%s\" not set", "video-settings-mv73-resolution")
+							return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "video-settings-mv73-resolution"))
 						}
 					}
 					if (cmd.Flags().Changed("video-settings-mv73-m-quality") || bodyVideoSettingsMV73MQuality != "") || (cmd.Flags().Changed("video-settings-mv73-m-resolution") || bodyVideoSettingsMV73MResolution != "") {
 						if !cmd.Flags().Changed("video-settings-mv73-m-quality") && bodyVideoSettingsMV73MQuality == "" && !requiredInputWaived() {
-							return fmt.Errorf("required flag \"%s\" not set", "video-settings-mv73-m-quality")
+							return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "video-settings-mv73-m-quality"))
 						}
 						if !cmd.Flags().Changed("video-settings-mv73-m-resolution") && bodyVideoSettingsMV73MResolution == "" && !requiredInputWaived() {
-							return fmt.Errorf("required flag \"%s\" not set", "video-settings-mv73-m-resolution")
+							return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "video-settings-mv73-m-resolution"))
 						}
 					}
 					if (cmd.Flags().Changed("video-settings-mv73-x-quality") || bodyVideoSettingsMV73XQuality != "") || (cmd.Flags().Changed("video-settings-mv73-x-resolution") || bodyVideoSettingsMV73XResolution != "") {
 						if !cmd.Flags().Changed("video-settings-mv73-x-quality") && bodyVideoSettingsMV73XQuality == "" && !requiredInputWaived() {
-							return fmt.Errorf("required flag \"%s\" not set", "video-settings-mv73-x-quality")
+							return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "video-settings-mv73-x-quality"))
 						}
 						if !cmd.Flags().Changed("video-settings-mv73-x-resolution") && bodyVideoSettingsMV73XResolution == "" && !requiredInputWaived() {
-							return fmt.Errorf("required flag \"%s\" not set", "video-settings-mv73-x-resolution")
+							return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "video-settings-mv73-x-resolution"))
 						}
 					}
 					if (cmd.Flags().Changed("video-settings-mv84-x-quality") || bodyVideoSettingsMV84XQuality != "") || (cmd.Flags().Changed("video-settings-mv84-x-resolution") || bodyVideoSettingsMV84XResolution != "") {
 						if !cmd.Flags().Changed("video-settings-mv84-x-quality") && bodyVideoSettingsMV84XQuality == "" && !requiredInputWaived() {
-							return fmt.Errorf("required flag \"%s\" not set", "video-settings-mv84-x-quality")
+							return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "video-settings-mv84-x-quality"))
 						}
 						if !cmd.Flags().Changed("video-settings-mv84-x-resolution") && bodyVideoSettingsMV84XResolution == "" && !requiredInputWaived() {
-							return fmt.Errorf("required flag \"%s\" not set", "video-settings-mv84-x-resolution")
+							return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "video-settings-mv84-x-resolution"))
 						}
 					}
 					if (cmd.Flags().Changed("video-settings-mv93-quality") || bodyVideoSettingsMV93Quality != "") || (cmd.Flags().Changed("video-settings-mv93-resolution") || bodyVideoSettingsMV93Resolution != "") {
 						if !cmd.Flags().Changed("video-settings-mv93-quality") && bodyVideoSettingsMV93Quality == "" && !requiredInputWaived() {
-							return fmt.Errorf("required flag \"%s\" not set", "video-settings-mv93-quality")
+							return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "video-settings-mv93-quality"))
 						}
 						if !cmd.Flags().Changed("video-settings-mv93-resolution") && bodyVideoSettingsMV93Resolution == "" && !requiredInputWaived() {
-							return fmt.Errorf("required flag \"%s\" not set", "video-settings-mv93-resolution")
+							return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "video-settings-mv93-resolution"))
 						}
 					}
 					if (cmd.Flags().Changed("video-settings-mv93-m-quality") || bodyVideoSettingsMV93MQuality != "") || (cmd.Flags().Changed("video-settings-mv93-m-resolution") || bodyVideoSettingsMV93MResolution != "") {
 						if !cmd.Flags().Changed("video-settings-mv93-m-quality") && bodyVideoSettingsMV93MQuality == "" && !requiredInputWaived() {
-							return fmt.Errorf("required flag \"%s\" not set", "video-settings-mv93-m-quality")
+							return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "video-settings-mv93-m-quality"))
 						}
 						if !cmd.Flags().Changed("video-settings-mv93-m-resolution") && bodyVideoSettingsMV93MResolution == "" && !requiredInputWaived() {
-							return fmt.Errorf("required flag \"%s\" not set", "video-settings-mv93-m-resolution")
+							return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "video-settings-mv93-m-resolution"))
 						}
 					}
 					if (cmd.Flags().Changed("video-settings-mv93-x-quality") || bodyVideoSettingsMV93XQuality != "") || (cmd.Flags().Changed("video-settings-mv93-x-resolution") || bodyVideoSettingsMV93XResolution != "") {
 						if !cmd.Flags().Changed("video-settings-mv93-x-quality") && bodyVideoSettingsMV93XQuality == "" && !requiredInputWaived() {
-							return fmt.Errorf("required flag \"%s\" not set", "video-settings-mv93-x-quality")
+							return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "video-settings-mv93-x-quality"))
 						}
 						if !cmd.Flags().Changed("video-settings-mv93-x-resolution") && bodyVideoSettingsMV93XResolution == "" && !requiredInputWaived() {
-							return fmt.Errorf("required flag \"%s\" not set", "video-settings-mv93-x-resolution")
+							return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "video-settings-mv93-x-resolution"))
 						}
 					}
 				}
@@ -762,16 +762,13 @@ func newNetworksCameraCreateNetworkQualityRetentionProfileCmd(flags *rootFlags) 
 					envelope["partial_failure"] = partialFailure
 				}
 				if flags.dryRun {
-					envelope["dry_run"] = true
-					envelope["status"] = 0
-					envelope["success"] = false
+					markCompletedDryRun(envelope)
 				}
 				// Verify-mode synthetic envelope detection runs against RAW data
 				// (before --compact/--select filtering) so the sentinel field is
 				// guaranteed to be visible even if the operator passes a filter
-				// flag that would otherwise strip it. Surfaces a top-level
-				// verify_noop signal + flips success to false. Mirrors the dry_run
-				// shape above.
+				// flag that would otherwise strip it. A synthetic noop did not
+				// mutate, so it forces success false after a completed dry-run mark.
 				if len(data) > 0 {
 					var rawParsed any
 					if err := json.Unmarshal(data, &rawParsed); err == nil {

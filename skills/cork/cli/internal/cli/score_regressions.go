@@ -29,6 +29,7 @@ type scoreRegressionView struct {
 	ClientsMoved     int                  `json:"clients_moved"`
 	Regressions      []scoreRegressionRow `json:"regressions"`
 	HistoryTruncated int                  `json:"history_truncated"`
+	Unverified       int                  `json:"clients_unverified"`
 	Note             string               `json:"note,omitempty"`
 }
 
@@ -96,45 +97,28 @@ func newNovelScoreRegressionsCmd(flags *rootFlags) *cobra.Command {
 			cutoff := time.Now().Add(-window)
 			rows := make([]scoreRegressionRow, 0, len(clients))
 			examined := 0
+			unverified := 0
 			historyTruncated := 0
 			for ci := range clients {
 				c := clients[ci]
 				if c.Hidden && !flagIncludeHidden {
 					continue
 				}
-				examined++
-				// Cork returns score_history newest-first. Take the newest point
-				// overall and the oldest point still inside the window.
-				var newest, oldest *corkScorePoint
-				var newestT, oldestT time.Time
-				used := 0
-				for i := range c.ScoreHistory {
-					p := c.ScoreHistory[i]
-					t, parsed := corkParseTime(p.CreatedAt)
-					if !parsed {
-						continue
-					}
-					if newest == nil || t.After(newestT) {
-						newest = &c.ScoreHistory[i]
-						newestT = t
-					}
-					if t.Before(cutoff) {
-						continue
-					}
-					used++
-					if oldest == nil || t.Before(oldestT) {
-						oldest = &c.ScoreHistory[i]
-						oldestT = t
-					}
-				}
-				if newest == nil || oldest == nil || used < 2 {
-					// Not enough in-window history to assert a movement.
+				m := corkScoreMove(c.ScoreHistory, cutoff)
+				if !m.ok {
+					// Too little history to assert a movement either way.
+					unverified++
 					continue
 				}
-				if used == len(c.ScoreHistory) && oldestT.After(cutoff) {
-					// Every embedded point fell inside the window, so the real
-					// span is bounded by the ten-point payload, not by --since.
+				examined++
+				if !m.hasBase {
+					// No embedded point predates the window, so the real span is
+					// bounded by the ten-point payload, not by --since.
 					historyTruncated++
+				}
+				oldest, newest, used := m.then, m.now, m.used
+				if m.hasBase {
+					used++
 				}
 				delta := newest.Score - oldest.Score
 				if flagImproved {
@@ -173,15 +157,22 @@ func newNovelScoreRegressionsCmd(flags *rootFlags) *cobra.Command {
 				ClientsMoved:     moved,
 				Regressions:      rows,
 				HistoryTruncated: historyTruncated,
+				Unverified:       unverified,
 			}
 			direction := "dropped"
 			if flagImproved {
 				direction = "improved"
 			}
-			if examined == 0 {
+			if examined == 0 && unverified == 0 {
 				view.Note = "no clients in the local mirror; run: cork-cli sync --resources clients"
-			} else if moved == 0 {
+			} else if moved == 0 && examined > 0 {
 				view.Note = fmt.Sprintf("examined %d clients; none %s by at least %d points in the last %s", examined, direction, flagMinDrop, corkWindowLabel(flagSince, window))
+			}
+			if unverified > 0 {
+				if view.Note != "" {
+					view.Note += "; "
+				}
+				view.Note += fmt.Sprintf("%d client(s) had too little score history to compare and were not checked", unverified)
 			}
 			// Appended last so it cannot be overwritten by the branches above.
 			// Cork embeds only the ten most recent score points in the client
@@ -223,4 +214,45 @@ func newNovelScoreRegressionsCmd(flags *rootFlags) *cobra.Command {
 	cmd.Flags().BoolVar(&flagIncludeHidden, "include-hidden", false, "Include clients marked hidden in Cork")
 	cmd.Flags().BoolVar(&flagImproved, "improved", false, "Rank improvements instead of regressions")
 	return cmd
+}
+
+type corkMove struct {
+	then, now *corkScorePoint
+	used      int  // points inside the window
+	hasBase   bool // then is the last point before the window opened
+	ok        bool // two distinct points to compare (or a held score)
+}
+
+// corkScoreMove measures one client's movement across the window: from the score
+// at window open (the newest point before cutoff) to the newest point. Without a
+// pre-window point it falls back to the oldest in-window point, which needs a
+// second in-window point to compare against.
+func corkScoreMove(hist []corkScorePoint, cutoff time.Time) corkMove {
+	var m corkMove
+	var newestT, baseT, oldestInT time.Time
+	var oldestIn *corkScorePoint
+	for i := range hist {
+		t, ok := corkParseTime(hist[i].CreatedAt)
+		if !ok {
+			continue
+		}
+		if m.now == nil || t.After(newestT) {
+			m.now, newestT = &hist[i], t
+		}
+		if t.Before(cutoff) {
+			if !m.hasBase || t.After(baseT) {
+				m.then, baseT, m.hasBase = &hist[i], t, true
+			}
+			continue
+		}
+		m.used++
+		if oldestIn == nil || t.Before(oldestInT) {
+			oldestIn, oldestInT = &hist[i], t
+		}
+	}
+	if !m.hasBase {
+		m.then = oldestIn
+	}
+	m.ok = m.now != nil && m.then != nil && (m.hasBase || m.used >= 2)
+	return m
 }

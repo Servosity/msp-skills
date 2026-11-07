@@ -50,7 +50,7 @@ func newNetworksSwitchGetNetworkStackRoutingInterfacesCmd(flags *rootFlags) *cob
 					}
 				}
 				if !validMode {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagMode, "mode", allowedMode)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagMode, "mode", allowedMode))
 				}
 			}
 			if cmd.Flags().Changed("protocol") {
@@ -63,7 +63,7 @@ func newNetworksSwitchGetNetworkStackRoutingInterfacesCmd(flags *rootFlags) *cob
 					}
 				}
 				if !validProtocol {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagProtocol, "protocol", allowedProtocol)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagProtocol, "protocol", allowedProtocol))
 				}
 			}
 			path := "/networks/{networkId}/switch/stacks/{switchStackId}/routing/interfaces"

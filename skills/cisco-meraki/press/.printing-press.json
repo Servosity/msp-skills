@@ -1,0 +1,159 @@
+{
+  "schema_version": 2,
+  "generated_at": "2026-11-02T19:56:47.23155Z",
+  "printing_press_version": "4.35.1",
+  "api_name": "cisco-meraki",
+  "display_name": "Cisco Meraki",
+  "cli_name": "cisco-meraki-pp-cli",
+  "creator": {
+    "handle": "DamienStevens",
+    "name": "Damien Stevens"
+  },
+  "owner": "damienstevens",
+  "printer": "DamienStevens",
+  "printer_name": "Damien Stevens",
+  "spec_path": "spec.json",
+  "spec_format": "openapi3",
+  "spec_source": "official",
+  "spec_checksum": "sha256:b9966fbb3ea2b512724920ef59529d829c3337516d804746807ba55ea7415d3e",
+  "run_id": "20261102-142735-bdcf9713",
+  "category": "devices",
+  "description": "Every Meraki Dashboard operation, plus cross-org fleet views that read every page, built for MSPs running many client orgs.",
+  "mcp_binary": "cisco-meraki-pp-mcp",
+  "mcp_tool_count": 1035,
+  "mcp_ready": "full",
+  "api_version": "1.75.0",
+  "auth_type": "api_key",
+  "auth_preference": "meraki_api_key",
+  "auth_env_vars": [
+    "MERAKI_DASHBOARD_API_KEY"
+  ],
+  "auth_env_var_specs": [
+    {
+      "name": "MERAKI_DASHBOARD_API_KEY",
+      "kind": "per_call",
+      "required": true,
+      "sensitive": true
+    }
+  ],
+  "auth_key_url": "https://documentation.meraki.com/Platform_Management/Dashboard_Administration/Operate_and_Maintain/How-Tos/How_to_Use_the_Cisco_Meraki_Dashboard_API",
+  "novel_features": [
+    {
+      "name": "Fleet health rollup",
+      "command": "fleet health",
+      "description": "One worst-first row per client org with online, alerting, offline and dormant device counts, failed WAN uplinks, active alerts, and whether the org is reachable at all."
+    },
+    {
+      "name": "Down-now list",
+      "command": "fleet down",
+      "description": "Every offline or alerting device and every failed MX WAN uplink across all orgs, with org and network names and, for offline devices, how long since the device last reported."
+    },
+    {
+      "name": "Renewals radar",
+      "command": "fleet renewals",
+      "description": "License expirations (co-term, per-device or subscription, whichever each org uses) and end-of-sale and end-of-support hardware dates in one date-sorted list."
+    },
+    {
+      "name": "Cross-org change log",
+      "command": "fleet changes",
+      "description": "Configuration changes from every org in one list, filterable by admin, org, network and page, with old and new values."
+    },
+    {
+      "name": "Entity resolver",
+      "command": "fleet find",
+      "description": "Paste a MAC, IP, serial, network ID or name and get the org and network that own the matching device, inventory entry, MX uplink or, by MAC, client."
+    },
+    {
+      "name": "Cross-org fan-out with provenance",
+      "command": "fleet fanout",
+      "description": "Run any organization-scoped read against every org, fully paginated, with observed-at, item count, completeness and next-cursor metadata per org."
+    },
+    {
+      "name": "Fleet push",
+      "command": "fleet push",
+      "description": "Apply one settings change to many networks across orgs through action batches: it previews a per-network current-versus-new diff by default and sends batches only with --apply."
+    },
+    {
+      "name": "Admin access audit",
+      "command": "fleet admins",
+      "description": "Dashboard admins across every org grouped by email, flagging missing two-factor auth, API key holders and stale access, with an offboarding view per person."
+    },
+    {
+      "name": "Flap and downtime history",
+      "command": "fleet flaps",
+      "description": "Devices ranked by minutes offline, then by number of status changes, over a window of up to 31 days, across every org."
+    },
+    {
+      "name": "Change-to-outage correlation",
+      "command": "fleet blame",
+      "description": "For one network ID or device serial: each time it went offline or started alerting within --since (default 7 days, up to 31), the configuration changes made on that network just before."
+    }
+  ],
+  "novel_features_built": [
+    {
+      "name": "Fleet health rollup",
+      "command": "fleet health",
+      "description": "One worst-first row per client org with online, alerting, offline and dormant device counts, failed WAN uplinks, active alerts, and whether the org is reachable at all."
+    },
+    {
+      "name": "Down-now list",
+      "command": "fleet down",
+      "description": "Every offline or alerting device and every failed MX WAN uplink across all orgs, with org and network names and, for offline devices, how long since the device last reported."
+    },
+    {
+      "name": "Renewals radar",
+      "command": "fleet renewals",
+      "description": "License expirations (co-term, per-device or subscription, whichever each org uses) and end-of-sale and end-of-support hardware dates in one date-sorted list."
+    },
+    {
+      "name": "Cross-org change log",
+      "command": "fleet changes",
+      "description": "Configuration changes from every org in one list, filterable by admin, org, network and page, with old and new values."
+    },
+    {
+      "name": "Entity resolver",
+      "command": "fleet find",
+      "description": "Paste a MAC, IP, serial, network ID or name and get the org and network that own the matching device, inventory entry, MX uplink or, by MAC, client."
+    },
+    {
+      "name": "Cross-org fan-out with provenance",
+      "command": "fleet fanout",
+      "description": "Run any organization-scoped read against every org, fully paginated, with observed-at, item count, completeness and next-cursor metadata per org."
+    },
+    {
+      "name": "Fleet push",
+      "command": "fleet push",
+      "description": "Apply one settings change to many networks across orgs through action batches: it previews a per-network current-versus-new diff by default and sends batches only with --apply."
+    },
+    {
+      "name": "Admin access audit",
+      "command": "fleet admins",
+      "description": "Dashboard admins across every org grouped by email, flagging missing two-factor auth, API key holders and stale access, with an offboarding view per person."
+    },
+    {
+      "name": "Flap and downtime history",
+      "command": "fleet flaps",
+      "description": "Devices ranked by minutes offline, then by number of status changes, over a window of up to 31 days, across every org."
+    },
+    {
+      "name": "Change-to-outage correlation",
+      "command": "fleet blame",
+      "description": "For one network ID or device serial: each time it went offline or started alerting within --since (default 7 days, up to 31), the configuration changes made on that network just before."
+    }
+  ],
+  "verify": {
+    "mode": "mock",
+    "pass_rate": 100,
+    "passed": 1064,
+    "total": 1064,
+    "data_pipeline": true,
+    "verdict": "PASS"
+  },
+  "scorecard": {
+    "steinberger": {
+      "percentage": 94,
+      "grade": "A",
+      "total": 94
+    }
+  }
+}

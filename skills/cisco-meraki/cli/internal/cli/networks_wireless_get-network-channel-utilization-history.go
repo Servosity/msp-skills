@@ -57,7 +57,7 @@ func newNetworksWirelessGetNetworkChannelUtilizationHistoryCmd(flags *rootFlags)
 					}
 				}
 				if !validBand {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagBand, "band", allowedBand)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagBand, "band", allowedBand))
 				}
 			}
 			path := "/networks/{networkId}/wireless/channelUtilizationHistory"

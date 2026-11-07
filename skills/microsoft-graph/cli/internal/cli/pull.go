@@ -18,14 +18,16 @@ import (
 
 // pullResource describes one Graph collection to pull into the local store.
 type pullResource struct {
-	group    string                      // user-facing name for --only
-	storeKey string                      // generic resource_type for sync state
-	path     string                      // Graph path to list
-	params   map[string]string           // initial query params
-	upsert   func(json.RawMessage) error // store typed upsert (bound to the open store)
-	// embed enriches each item with association data before upsert
+	group    string            // user-facing name for --only
+	storeKey string            // generic resource_type for sync state
+	path     string            // Graph path to list
+	params   map[string]string // initial query params
+	// embed enriches each item with association data before it is stored
 	// (directory-roles: members; groups: members + owners). nil = no embed.
 	embed func(ctx context.Context, c *client.Client, item json.RawMessage) (json.RawMessage, error)
+	// skipPaged: Graph pages this collection with $skip, not only nextLink
+	// (graphGetAllSkipPages; handfix teams-phone-reads-every-page).
+	skipPaged bool
 }
 
 type pullSummary struct {
@@ -54,14 +56,22 @@ snapshot) see every record, not just the first page.
 
 Pulled resources: users (with assignedLicenses), groups (with members and
 owners embedded), directory-roles (with their members embedded), security
-alerts and incidents, licenses (subscribedSkus), devices, and
-managed-devices. Requires a valid token — run
+alerts and incidents, licenses (subscribedSkus), devices, managed-devices,
+and Teams Phone: phone-numbers (telephone number assignments) and teams-users
+(per-user voice configuration and effective Teams policy assignments). The
+Teams resources need TeamsTelephoneNumber.Read.All and
+TeamsUserConfiguration.Read.All; without them they report a per-resource error
+and the rest of the pull continues. Requires a valid token — run
 'microsoft-graph-cli auth login ...' or set MICROSOFT_GRAPH_TOKEN first.`, "\n"),
 		Example: strings.Trim(`
   microsoft-graph-cli pull
   microsoft-graph-cli pull --only users,licenses
-  microsoft-graph-cli pull --only security`, "\n"),
-		Annotations: map[string]string{"mcp:read-only": "true"},
+  microsoft-graph-cli pull --only security
+  microsoft-graph-cli pull --only phone-numbers,teams-users`, "\n"),
+		// Not read-only: pull replaces the local store's snapshots, so
+		// MICROSOFT_GRAPH_MCP_READ_ONLY drops it as it drops sync (it is on the
+		// MCP local-only list: no tenant state changes).
+		Annotations: map[string]string{},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// The verify harness drives every command with no credentials; a
 			// real pull would hit the network and fail. Short-circuit to a
@@ -89,56 +99,82 @@ managed-devices. Requires a valid token — run
 				{group: "users", storeKey: "users", path: "/users", params: map[string]string{
 					"$top":    "999",
 					"$select": "id,displayName,userPrincipalName,mail,jobTitle,department,accountEnabled,userType,createdDateTime,assignedLicenses",
-				}, upsert: st.UpsertUsers},
-				{group: "groups", storeKey: "groups", path: "/groups", params: map[string]string{"$top": "999"}, upsert: st.UpsertGroups, embed: embedGroupAssociations},
-				{group: "directory-roles", storeKey: "directory-roles", path: "/directoryRoles", upsert: st.UpsertDirectoryRoles, embed: embedRoleMembers},
-				{group: "security", storeKey: "security", path: "/security/alerts_v2", params: map[string]string{"$top": "999"}, upsert: st.UpsertSecurity},
-				{group: "security", storeKey: "security", path: "/security/incidents", params: map[string]string{"$top": "999"}, upsert: st.UpsertSecurity},
-				{group: "licenses", storeKey: "licenses", path: "/subscribedSkus", upsert: st.UpsertLicenses},
-				{group: "devices", storeKey: "devices", path: "/devices", params: map[string]string{"$top": "999"}, upsert: st.UpsertDevices},
-				{group: "managed-devices", storeKey: "managed-devices", path: "/deviceManagement/managedDevices", params: map[string]string{"$top": "999"}, upsert: st.UpsertManagedDevices},
+				}},
+				{group: "groups", storeKey: "groups", path: "/groups", params: map[string]string{"$top": "999"}, embed: embedGroupAssociations},
+				{group: "directory-roles", storeKey: "directory-roles", path: "/directoryRoles", embed: embedRoleMembers},
+				{group: "security", storeKey: "security", path: "/security/alerts_v2", params: map[string]string{"$top": "999"}},
+				{group: "security", storeKey: "security", path: "/security/incidents", params: map[string]string{"$top": "999"}},
+				{group: "licenses", storeKey: "licenses", path: "/subscribedSkus"},
+				{group: "devices", storeKey: "devices", path: "/devices", params: map[string]string{"$top": "999"}},
+				{group: "managed-devices", storeKey: "managed-devices", path: "/deviceManagement/managedDevices", params: map[string]string{"$top": "999"}},
+				// Teams Phone reads. numberAssignments documents $top up to 1000; userConfigurations
+				// documents no page-size maximum, so it takes the server's page size.
+				{group: "phone-numbers", storeKey: "phone-numbers", path: "/admin/teams/telephoneNumberManagement/numberAssignments", params: map[string]string{"$top": teamsSkipPageSize}, skipPaged: true},
+				{group: "teams-users", storeKey: "teams-users", path: "/admin/teams/userConfigurations"},
 			}
 
 			result := pullResult{}
 			ctx := cmd.Context()
+			// A completed pull replaces each resource's stored snapshot
+			// (handfix pull-replaces-snapshot): emptied arrays, deleted objects
+			// and revoked memberships leave the store. A resource is replaced
+			// only when every path behind its store key (security reads alerts
+			// and incidents) and every embedded association was read in full;
+			// otherwise its previous snapshot is kept and the error reported.
+			var keys []string
+			byKey := map[string][]pullResource{}
 			for _, r := range resources {
 				if !pullSelected(only, r.group) {
 					continue
 				}
-				items, err := graphGetAllPages(ctx, c, r.path, r.params)
-				if err != nil {
-					fmt.Fprintf(cmd.ErrOrStderr(), "pull: %s failed: %v\n", r.path, err)
-					result.Resources = append(result.Resources, pullSummary{Resource: r.path, Error: err.Error()})
-					continue
+				if _, seen := byKey[r.storeKey]; !seen {
+					keys = append(keys, r.storeKey)
 				}
-				count := 0
-				for _, item := range items {
-					toUpsert := item
-					if r.embed != nil {
-						if withAssoc, mErr := r.embed(ctx, c, item); mErr == nil {
-							toUpsert = withAssoc
-						} else {
-							fmt.Fprintf(cmd.ErrOrStderr(), "pull: embedding associations for %s failed: %v\n", r.group, mErr)
+				byKey[r.storeKey] = append(byKey[r.storeKey], r)
+			}
+			for _, key := range keys {
+				var items []json.RawMessage
+				var paths []string
+				var failed error
+				for _, r := range byKey[key] {
+					paths = append(paths, r.path)
+					read := graphGetAllPages
+					if r.skipPaged {
+						read = graphGetAllSkipPages
+					}
+					got, err := read(ctx, c, r.path, r.params)
+					for i := 0; err == nil && r.embed != nil && i < len(got); i++ {
+						if got[i], err = r.embed(ctx, c, got[i]); err != nil {
+							err = fmt.Errorf("embedding associations: %w", err)
 						}
 					}
-					if err := r.upsert(toUpsert); err != nil {
-						fmt.Fprintf(cmd.ErrOrStderr(), "pull: upsert into %s failed: %v\n", r.storeKey, err)
-						continue
+					if err != nil {
+						failed = fmt.Errorf("%s: %w", r.path, err)
+						break
 					}
-					count++
+					items = append(items, got...)
 				}
-				_ = st.SaveSyncState(r.storeKey, "", count)
-				result.Total += count
-				result.Resources = append(result.Resources, pullSummary{Resource: r.path, Count: count})
+				if failed == nil {
+					failed = st.ReplaceResources(key, items)
+				}
+				resource := strings.Join(paths, ",")
+				if failed != nil {
+					fmt.Fprintf(cmd.ErrOrStderr(), "pull: %s failed; the previous %s snapshot is kept: %v\n", resource, key, failed)
+					result.Resources = append(result.Resources, pullSummary{Resource: resource, Error: failed.Error()})
+					continue
+				}
+				_ = st.SaveSyncState(key, "", len(items))
+				result.Total += len(items)
+				result.Resources = append(result.Resources, pullSummary{Resource: resource, Count: len(items)})
 				if !flags.asJSON {
-					fmt.Fprintf(cmd.ErrOrStderr(), "pull: %-32s %d\n", r.path, count)
+					fmt.Fprintf(cmd.ErrOrStderr(), "pull: %-32s %d\n", resource, len(items))
 				}
 			}
 			return printJSONFiltered(cmd.OutOrStdout(), result, flags)
 		},
 	}
 	cmd.Flags().StringVar(&dbPath, "db", "", "Local store path (default: ~/.local/share/microsoft-graph-cli/data.db)")
-	cmd.Flags().StringSliceVar(&only, "only", nil, "Limit to these groups: users,groups,directory-roles,security,licenses,devices,managed-devices")
+	cmd.Flags().StringSliceVar(&only, "only", nil, "Limit to these groups: users,groups,directory-roles,security,licenses,devices,managed-devices,phone-numbers,teams-users")
 	return cmd
 }
 
@@ -160,37 +196,83 @@ func pullSelected(only []string, group string) bool {
 // absolute @odata.nextLink URL each page returns. The generated client's Get
 // joins a relative path to the base URL, so the nextLink is reduced to its
 // version-relative path plus query before each follow-up call — reusing the
-// client's auth, retry, and rate-limit handling.
+// client's auth, retry, and rate-limit handling, and keeping every page on the
+// configured host. A collection that cannot be read to its end is an error,
+// never a short list (Codex r1 class incomplete-read-as-complete): a page
+// after the first that is not a collection, a nextLink that does not parse, or
+// the page cap. A first response that is a bare array is its whole collection;
+// one that is not a collection at all (a dry-run preview) yields no items.
 func graphGetAllPages(ctx context.Context, c *client.Client, path string, params map[string]string) ([]json.RawMessage, error) {
+	return graphGetAllPagesWithHeaders(ctx, c, path, params, nil)
+}
+
+func graphGetAllPagesWithHeaders(ctx context.Context, c *client.Client, path string, params, headers map[string]string) ([]json.RawMessage, error) {
+	return graphReadPages(ctx, c, path, params, headers, false, nil)
+}
+
+// graphReadPages is the page walk behind graphGetAllPages under a read
+// policy: nil is the policy of pull, GetCollection and every other reader;
+// sync passes its own (graphRead, handfix sync-reads-every-page), under which
+// every page must be a collection, every nextLink must name the configured
+// host and a page not yet read, and --max-pages may stop the walk. continued
+// marks a walk that continues a collection already begun (GetCollection's
+// nextLink, a later $skip window): its first response is a page like any
+// other, so a bare array there is not the collection's end (class
+// incomplete-read-as-complete).
+func graphReadPages(ctx context.Context, c *client.Client, path string, params, headers map[string]string, continued bool, rd *graphRead) ([]json.RawMessage, error) {
+	const maxPages = 100000
 	var all []json.RawMessage
 	curPath := path
 	curParams := params
-	for page := 1; page <= 100000; page++ {
-		data, err := c.Get(ctx, curPath, curParams)
+	for page := 1; page <= maxPages; page++ {
+		data, err := rd.get(ctx, c, curPath, curParams, headers)
 		if err != nil {
 			return nil, err
 		}
 		var env struct {
-			Value []json.RawMessage `json:"value"`
-			Next  string            `json:"@odata.nextLink"`
+			Value *[]json.RawMessage `json:"value"`
+			Next  *string            `json:"@odata.nextLink"`
 		}
-		if err := json.Unmarshal(data, &env); err != nil {
-			// Not a collection envelope (e.g. a single object) — return what
-			// we have so far rather than erroring.
+		// A page without a value array is not an empty collection: `pull`
+		// replaces the snapshot with what it read, so {} or {"value":null} would
+		// erase it (Codex r2 class incomplete-read-as-complete).
+		if err := json.Unmarshal(data, &env); err != nil || env.Value == nil {
+			if page == 1 && !continued && rd == nil {
+				var bare []json.RawMessage
+				if json.Unmarshal(data, &bare) == nil && bare != nil {
+					return bare, nil
+				}
+				if c.DryRun {
+					return nil, nil // the dry-run preview, not a page
+				}
+			}
+			return nil, fmt.Errorf("%s: page %d is not a Graph collection (no value array)", path, rd.pageNumber(page))
+		}
+		all = append(all, *env.Value...)
+		next := ""
+		if env.Next != nil {
+			next = *env.Next
+		}
+		if next == "" {
+			if env.Next != nil && rd != nil {
+				return nil, fmt.Errorf("%s: page %d carries an empty @odata.nextLink; the collection was not read to its end", path, rd.pageNumber(page))
+			}
 			return all, nil
 		}
-		all = append(all, env.Value...)
-		if env.Next == "" {
-			return all, nil
-		}
-		u, err := url.Parse(env.Next)
+		u, err := url.Parse(next)
 		if err != nil {
+			return nil, fmt.Errorf("%s: page %d carries a nextLink that does not parse: %w", path, rd.pageNumber(page), err)
+		}
+		if err := rd.follow(path, next, u); err != nil {
+			return nil, err
+		}
+		if rd.capReached() {
 			return all, nil
 		}
 		curPath = graphRelPath(u.Path)
 		curParams = flattenQuery(u.Query())
 	}
-	return all, nil
+	return nil, fmt.Errorf("%s: more than %d pages; the collection was not read to its end", path, maxPages)
 }
 
 // graphRelPath strips the Graph version prefix from a nextLink path so it can be
@@ -288,7 +370,11 @@ func embedRoleMembers(ctx context.Context, c *client.Client, roleRaw json.RawMes
 	if id == "" {
 		return roleRaw, nil
 	}
-	members, err := graphGetAllPages(ctx, c, "/directoryRoles/"+url.PathEscape(id)+"/members", map[string]string{"$top": "999"})
+	// "List members of a directory role" returns a user's default projection
+	// (no accountEnabled or userType) and supports $select only, not $top.
+	members, err := graphGetAllPages(ctx, c, "/directoryRoles/"+url.PathEscape(id)+"/members", map[string]string{
+		"$select": "id,displayName,userPrincipalName,userType,accountEnabled",
+	})
 	if err != nil {
 		return roleRaw, err
 	}

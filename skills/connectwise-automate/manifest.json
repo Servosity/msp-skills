@@ -18,7 +18,12 @@
         "CONNECTWISE_AUTOMATE_BASE_URL": "${user_config.connectwise_automate_base_url}",
         "CONNECTWISE_AUTOMATE_CLIENT_ID": "${user_config.connectwise_automate_client_id}",
         "CONNECTWISE_AUTOMATE_SERVER": "${user_config.connectwise_automate_server}",
-        "CONNECTWISE_AUTOMATE_TOKEN": "${user_config.connectwise_automate_token}"
+        "CONNECTWISE_AUTOMATE_TOKEN": "${user_config.connectwise_automate_token}",
+        "CONNECTWISE_AUTOMATE_USER_AGENT": "${user_config.connectwise_automate_user_agent}",
+        "PRINTING_PRESS_CLIENT_PROFILE": "${user_config.printing_press_client_profile}",
+        "CONNECTWISE_AUTOMATE_MCP_READ_ONLY": "${user_config.connectwise_automate_mcp_read_only}",
+        "CONNECTWISE_AUTOMATE_NO_LOCAL_DATA": "${user_config.connectwise_automate_no_local_data}",
+        "CONNECTWISE_AUTOMATE_MCP_HTTP_TOKEN": "${user_config.connectwise_automate_mcp_http_token}"
       }
     }
   },
@@ -49,6 +54,40 @@
       "title": "ConnectWise Automate API base URL",
       "description": "Full API base URL. Leave blank: the CLI builds it from CONNECTWISE_AUTOMATE_SERVER. Set it only to point at a different host.",
       "required": false
+    },
+    "connectwise_automate_user_agent": {
+      "type": "string",
+      "title": "User-Agent header",
+      "description": "Overrides the User-Agent the CLI sends on ConnectWise Automate requests. Leave blank to use the CLI's own built-in User-Agent.",
+      "required": false
+    },
+    "printing_press_client_profile": {
+      "type": "string",
+      "title": "Client profile",
+      "description": "Binds this MCP server to one tenant-gated client profile, so every call answers for that customer. Leave blank to use the profile configured as default_client_profile.",
+      "required": false
+    },
+    "connectwise_automate_mcp_read_only": {
+      "type": "string",
+      "title": "Read-only MCP mode",
+      "description": "Optional. Set to exactly 1 to expose only read-only tools and refuse any non-GET execute call. Preset to 1; clear it only when you want the agent to run the tools this switch hides.",
+      "required": false,
+      "sensitive": false,
+      "default": "1"
+    },
+    "connectwise_automate_no_local_data": {
+      "type": "string",
+      "title": "Run without a local copy",
+      "description": "Optional. Set to 1 to keep no local copy of API responses: reads go to the API, the response cache is off, and sync refuses to run. Leave blank to keep the local store.",
+      "required": false,
+      "sensitive": false
+    },
+    "connectwise_automate_mcp_http_token": {
+      "type": "string",
+      "title": "MCP HTTP transport bearer token",
+      "description": "Required only when running the MCP server with --transport http (a remote/hosted deployment). Callers must send a matching Authorization: Bearer header. Not needed for the default local stdio transport that Claude Desktop uses.",
+      "required": false,
+      "sensitive": true
     }
   },
   "compatibility": {
@@ -59,11 +98,11 @@
       "win32"
     ]
   },
-  "printing_press_version": "4.24.0",
+  "printing_press_version": "4.35.1",
   "press_provenance": {
-    "printing_press_version": "4.24.0",
-    "generated_at": "2026-06-13T02:48:59.515774Z",
-    "spec_checksum": "sha256:4de6643313ca8582c779ba0ccf64c0ef0aeb101f431423753cfcc29d74f2f03d",
+    "printing_press_version": "4.35.1",
+    "generated_at": "2026-11-02T22:54:03.616488Z",
+    "spec_checksum": "sha256:9a1c348964d31681868b18842781b4a39bfc4b955e499cf8031e4b8a5320be07",
     "spec_format": "internal"
   }
 }

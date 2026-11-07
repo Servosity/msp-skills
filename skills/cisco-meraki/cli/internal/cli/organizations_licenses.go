@@ -11,7 +11,7 @@ import (
 func newOrganizationsLicensesCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "licenses",
-		Short:       "Get, create, and update licenses for organizations",
+		Short:       "Get and update licenses for organizations",
 		Annotations: map[string]string{"mcp:read-only": "true", "pp:parent-group": "true", "pp:typed-exit-codes": "0,2"},
 		RunE:        parentNoSubcommandRunE(flags),
 	}

@@ -51,9 +51,8 @@ func newNetworksClientsProvisionNetworkCmd(flags *rootFlags) *cobra.Command {
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:     "provision-network <networkId>",
-		Aliases: []string{"create"},
-		Short:   "Provisions a client with a name and policy. Clients can be provisioned before they associate to the network.",
+		Use:   "provision-network <networkId>",
+		Short: "Provisions a client with a name and policy. Clients can be provisioned before they associate to the network.",
 		Args: func(cmd *cobra.Command, args []string) error {
 			return endpointPositionalArgs(cmd, flags, args, cobra.MaximumNArgs(1))
 		},
@@ -94,85 +93,85 @@ func newNetworksClientsProvisionNetworkCmd(flags *rootFlags) *cobra.Command {
 			}
 			if !stdinBody {
 				if !cmd.Flags().Changed("clients") && bodyClients == "" && !requiredInputWaived() {
-					return fmt.Errorf("required flag \"%s\" not set", "clients")
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "clients"))
 				}
 				if !cmd.Flags().Changed("device-policy") && bodyDevicePolicy == "" && !requiredInputWaived() {
-					return fmt.Errorf("required flag \"%s\" not set", "device-policy")
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "device-policy"))
 				}
 				if (cmd.Flags().Changed("policies-by-ssid-0-device-policy") || bodyPoliciesBySsidV0DevicePolicy != "") || (cmd.Flags().Changed("policies-by-ssid-0-group-policy-id") || bodyPoliciesBySsidV0GroupPolicyId != "") || (cmd.Flags().Changed("policies-by-ssid-1-device-policy") || bodyPoliciesBySsidV1DevicePolicy != "") || (cmd.Flags().Changed("policies-by-ssid-1-group-policy-id") || bodyPoliciesBySsidV1GroupPolicyId != "") || (cmd.Flags().Changed("policies-by-ssid-10-device-policy") || bodyPoliciesBySsidV10DevicePolicy != "") || (cmd.Flags().Changed("policies-by-ssid-10-group-policy-id") || bodyPoliciesBySsidV10GroupPolicyId != "") || (cmd.Flags().Changed("policies-by-ssid-11-device-policy") || bodyPoliciesBySsidV11DevicePolicy != "") || (cmd.Flags().Changed("policies-by-ssid-11-group-policy-id") || bodyPoliciesBySsidV11GroupPolicyId != "") || (cmd.Flags().Changed("policies-by-ssid-12-device-policy") || bodyPoliciesBySsidV12DevicePolicy != "") || (cmd.Flags().Changed("policies-by-ssid-12-group-policy-id") || bodyPoliciesBySsidV12GroupPolicyId != "") || (cmd.Flags().Changed("policies-by-ssid-13-device-policy") || bodyPoliciesBySsidV13DevicePolicy != "") || (cmd.Flags().Changed("policies-by-ssid-13-group-policy-id") || bodyPoliciesBySsidV13GroupPolicyId != "") || (cmd.Flags().Changed("policies-by-ssid-14-device-policy") || bodyPoliciesBySsidV14DevicePolicy != "") || (cmd.Flags().Changed("policies-by-ssid-14-group-policy-id") || bodyPoliciesBySsidV14GroupPolicyId != "") || (cmd.Flags().Changed("policies-by-ssid-2-device-policy") || bodyPoliciesBySsidV2DevicePolicy != "") || (cmd.Flags().Changed("policies-by-ssid-2-group-policy-id") || bodyPoliciesBySsidV2GroupPolicyId != "") || (cmd.Flags().Changed("policies-by-ssid-3-device-policy") || bodyPoliciesBySsidV3DevicePolicy != "") || (cmd.Flags().Changed("policies-by-ssid-3-group-policy-id") || bodyPoliciesBySsidV3GroupPolicyId != "") || (cmd.Flags().Changed("policies-by-ssid-4-device-policy") || bodyPoliciesBySsidV4DevicePolicy != "") || (cmd.Flags().Changed("policies-by-ssid-4-group-policy-id") || bodyPoliciesBySsidV4GroupPolicyId != "") || (cmd.Flags().Changed("policies-by-ssid-5-device-policy") || bodyPoliciesBySsidV5DevicePolicy != "") || (cmd.Flags().Changed("policies-by-ssid-5-group-policy-id") || bodyPoliciesBySsidV5GroupPolicyId != "") || (cmd.Flags().Changed("policies-by-ssid-6-device-policy") || bodyPoliciesBySsidV6DevicePolicy != "") || (cmd.Flags().Changed("policies-by-ssid-6-group-policy-id") || bodyPoliciesBySsidV6GroupPolicyId != "") || (cmd.Flags().Changed("policies-by-ssid-7-device-policy") || bodyPoliciesBySsidV7DevicePolicy != "") || (cmd.Flags().Changed("policies-by-ssid-7-group-policy-id") || bodyPoliciesBySsidV7GroupPolicyId != "") || (cmd.Flags().Changed("policies-by-ssid-8-device-policy") || bodyPoliciesBySsidV8DevicePolicy != "") || (cmd.Flags().Changed("policies-by-ssid-8-group-policy-id") || bodyPoliciesBySsidV8GroupPolicyId != "") || (cmd.Flags().Changed("policies-by-ssid-9-device-policy") || bodyPoliciesBySsidV9DevicePolicy != "") || (cmd.Flags().Changed("policies-by-ssid-9-group-policy-id") || bodyPoliciesBySsidV9GroupPolicyId != "") {
 					if (cmd.Flags().Changed("policies-by-ssid-0-device-policy") || bodyPoliciesBySsidV0DevicePolicy != "") || (cmd.Flags().Changed("policies-by-ssid-0-group-policy-id") || bodyPoliciesBySsidV0GroupPolicyId != "") {
 						if !cmd.Flags().Changed("policies-by-ssid-0-device-policy") && bodyPoliciesBySsidV0DevicePolicy == "" && !requiredInputWaived() {
-							return fmt.Errorf("required flag \"%s\" not set", "policies-by-ssid-0-device-policy")
+							return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "policies-by-ssid-0-device-policy"))
 						}
 					}
 					if (cmd.Flags().Changed("policies-by-ssid-1-device-policy") || bodyPoliciesBySsidV1DevicePolicy != "") || (cmd.Flags().Changed("policies-by-ssid-1-group-policy-id") || bodyPoliciesBySsidV1GroupPolicyId != "") {
 						if !cmd.Flags().Changed("policies-by-ssid-1-device-policy") && bodyPoliciesBySsidV1DevicePolicy == "" && !requiredInputWaived() {
-							return fmt.Errorf("required flag \"%s\" not set", "policies-by-ssid-1-device-policy")
+							return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "policies-by-ssid-1-device-policy"))
 						}
 					}
 					if (cmd.Flags().Changed("policies-by-ssid-10-device-policy") || bodyPoliciesBySsidV10DevicePolicy != "") || (cmd.Flags().Changed("policies-by-ssid-10-group-policy-id") || bodyPoliciesBySsidV10GroupPolicyId != "") {
 						if !cmd.Flags().Changed("policies-by-ssid-10-device-policy") && bodyPoliciesBySsidV10DevicePolicy == "" && !requiredInputWaived() {
-							return fmt.Errorf("required flag \"%s\" not set", "policies-by-ssid-10-device-policy")
+							return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "policies-by-ssid-10-device-policy"))
 						}
 					}
 					if (cmd.Flags().Changed("policies-by-ssid-11-device-policy") || bodyPoliciesBySsidV11DevicePolicy != "") || (cmd.Flags().Changed("policies-by-ssid-11-group-policy-id") || bodyPoliciesBySsidV11GroupPolicyId != "") {
 						if !cmd.Flags().Changed("policies-by-ssid-11-device-policy") && bodyPoliciesBySsidV11DevicePolicy == "" && !requiredInputWaived() {
-							return fmt.Errorf("required flag \"%s\" not set", "policies-by-ssid-11-device-policy")
+							return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "policies-by-ssid-11-device-policy"))
 						}
 					}
 					if (cmd.Flags().Changed("policies-by-ssid-12-device-policy") || bodyPoliciesBySsidV12DevicePolicy != "") || (cmd.Flags().Changed("policies-by-ssid-12-group-policy-id") || bodyPoliciesBySsidV12GroupPolicyId != "") {
 						if !cmd.Flags().Changed("policies-by-ssid-12-device-policy") && bodyPoliciesBySsidV12DevicePolicy == "" && !requiredInputWaived() {
-							return fmt.Errorf("required flag \"%s\" not set", "policies-by-ssid-12-device-policy")
+							return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "policies-by-ssid-12-device-policy"))
 						}
 					}
 					if (cmd.Flags().Changed("policies-by-ssid-13-device-policy") || bodyPoliciesBySsidV13DevicePolicy != "") || (cmd.Flags().Changed("policies-by-ssid-13-group-policy-id") || bodyPoliciesBySsidV13GroupPolicyId != "") {
 						if !cmd.Flags().Changed("policies-by-ssid-13-device-policy") && bodyPoliciesBySsidV13DevicePolicy == "" && !requiredInputWaived() {
-							return fmt.Errorf("required flag \"%s\" not set", "policies-by-ssid-13-device-policy")
+							return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "policies-by-ssid-13-device-policy"))
 						}
 					}
 					if (cmd.Flags().Changed("policies-by-ssid-14-device-policy") || bodyPoliciesBySsidV14DevicePolicy != "") || (cmd.Flags().Changed("policies-by-ssid-14-group-policy-id") || bodyPoliciesBySsidV14GroupPolicyId != "") {
 						if !cmd.Flags().Changed("policies-by-ssid-14-device-policy") && bodyPoliciesBySsidV14DevicePolicy == "" && !requiredInputWaived() {
-							return fmt.Errorf("required flag \"%s\" not set", "policies-by-ssid-14-device-policy")
+							return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "policies-by-ssid-14-device-policy"))
 						}
 					}
 					if (cmd.Flags().Changed("policies-by-ssid-2-device-policy") || bodyPoliciesBySsidV2DevicePolicy != "") || (cmd.Flags().Changed("policies-by-ssid-2-group-policy-id") || bodyPoliciesBySsidV2GroupPolicyId != "") {
 						if !cmd.Flags().Changed("policies-by-ssid-2-device-policy") && bodyPoliciesBySsidV2DevicePolicy == "" && !requiredInputWaived() {
-							return fmt.Errorf("required flag \"%s\" not set", "policies-by-ssid-2-device-policy")
+							return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "policies-by-ssid-2-device-policy"))
 						}
 					}
 					if (cmd.Flags().Changed("policies-by-ssid-3-device-policy") || bodyPoliciesBySsidV3DevicePolicy != "") || (cmd.Flags().Changed("policies-by-ssid-3-group-policy-id") || bodyPoliciesBySsidV3GroupPolicyId != "") {
 						if !cmd.Flags().Changed("policies-by-ssid-3-device-policy") && bodyPoliciesBySsidV3DevicePolicy == "" && !requiredInputWaived() {
-							return fmt.Errorf("required flag \"%s\" not set", "policies-by-ssid-3-device-policy")
+							return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "policies-by-ssid-3-device-policy"))
 						}
 					}
 					if (cmd.Flags().Changed("policies-by-ssid-4-device-policy") || bodyPoliciesBySsidV4DevicePolicy != "") || (cmd.Flags().Changed("policies-by-ssid-4-group-policy-id") || bodyPoliciesBySsidV4GroupPolicyId != "") {
 						if !cmd.Flags().Changed("policies-by-ssid-4-device-policy") && bodyPoliciesBySsidV4DevicePolicy == "" && !requiredInputWaived() {
-							return fmt.Errorf("required flag \"%s\" not set", "policies-by-ssid-4-device-policy")
+							return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "policies-by-ssid-4-device-policy"))
 						}
 					}
 					if (cmd.Flags().Changed("policies-by-ssid-5-device-policy") || bodyPoliciesBySsidV5DevicePolicy != "") || (cmd.Flags().Changed("policies-by-ssid-5-group-policy-id") || bodyPoliciesBySsidV5GroupPolicyId != "") {
 						if !cmd.Flags().Changed("policies-by-ssid-5-device-policy") && bodyPoliciesBySsidV5DevicePolicy == "" && !requiredInputWaived() {
-							return fmt.Errorf("required flag \"%s\" not set", "policies-by-ssid-5-device-policy")
+							return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "policies-by-ssid-5-device-policy"))
 						}
 					}
 					if (cmd.Flags().Changed("policies-by-ssid-6-device-policy") || bodyPoliciesBySsidV6DevicePolicy != "") || (cmd.Flags().Changed("policies-by-ssid-6-group-policy-id") || bodyPoliciesBySsidV6GroupPolicyId != "") {
 						if !cmd.Flags().Changed("policies-by-ssid-6-device-policy") && bodyPoliciesBySsidV6DevicePolicy == "" && !requiredInputWaived() {
-							return fmt.Errorf("required flag \"%s\" not set", "policies-by-ssid-6-device-policy")
+							return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "policies-by-ssid-6-device-policy"))
 						}
 					}
 					if (cmd.Flags().Changed("policies-by-ssid-7-device-policy") || bodyPoliciesBySsidV7DevicePolicy != "") || (cmd.Flags().Changed("policies-by-ssid-7-group-policy-id") || bodyPoliciesBySsidV7GroupPolicyId != "") {
 						if !cmd.Flags().Changed("policies-by-ssid-7-device-policy") && bodyPoliciesBySsidV7DevicePolicy == "" && !requiredInputWaived() {
-							return fmt.Errorf("required flag \"%s\" not set", "policies-by-ssid-7-device-policy")
+							return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "policies-by-ssid-7-device-policy"))
 						}
 					}
 					if (cmd.Flags().Changed("policies-by-ssid-8-device-policy") || bodyPoliciesBySsidV8DevicePolicy != "") || (cmd.Flags().Changed("policies-by-ssid-8-group-policy-id") || bodyPoliciesBySsidV8GroupPolicyId != "") {
 						if !cmd.Flags().Changed("policies-by-ssid-8-device-policy") && bodyPoliciesBySsidV8DevicePolicy == "" && !requiredInputWaived() {
-							return fmt.Errorf("required flag \"%s\" not set", "policies-by-ssid-8-device-policy")
+							return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "policies-by-ssid-8-device-policy"))
 						}
 					}
 					if (cmd.Flags().Changed("policies-by-ssid-9-device-policy") || bodyPoliciesBySsidV9DevicePolicy != "") || (cmd.Flags().Changed("policies-by-ssid-9-group-policy-id") || bodyPoliciesBySsidV9GroupPolicyId != "") {
 						if !cmd.Flags().Changed("policies-by-ssid-9-device-policy") && bodyPoliciesBySsidV9DevicePolicy == "" && !requiredInputWaived() {
-							return fmt.Errorf("required flag \"%s\" not set", "policies-by-ssid-9-device-policy")
+							return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "policies-by-ssid-9-device-policy"))
 						}
 					}
 				}
@@ -437,7 +436,7 @@ func newNetworksClientsProvisionNetworkCmd(flags *rootFlags) *cobra.Command {
 				}
 			}
 			if !flags.dryRun && statusCode >= 200 && statusCode < 300 && (partialFailure == nil || flags.allowPartialFailure) {
-				writeMutationResponseToStore(cmd.Context(), "clients", data, "clients")
+				writeMutationResponseToStore(cmd.Context(), "clients", data, "")
 			}
 			if wantsHumanTable(cmd.OutOrStdout(), flags) {
 				// Check if response contains an array (directly or wrapped in "data")
@@ -488,16 +487,13 @@ func newNetworksClientsProvisionNetworkCmd(flags *rootFlags) *cobra.Command {
 					envelope["partial_failure"] = partialFailure
 				}
 				if flags.dryRun {
-					envelope["dry_run"] = true
-					envelope["status"] = 0
-					envelope["success"] = false
+					markCompletedDryRun(envelope)
 				}
 				// Verify-mode synthetic envelope detection runs against RAW data
 				// (before --compact/--select filtering) so the sentinel field is
 				// guaranteed to be visible even if the operator passes a filter
-				// flag that would otherwise strip it. Surfaces a top-level
-				// verify_noop signal + flips success to false. Mirrors the dry_run
-				// shape above.
+				// flag that would otherwise strip it. A synthetic noop did not
+				// mutate, so it forces success false after a completed dry-run mark.
 				if len(data) > 0 {
 					var rawParsed any
 					if err := json.Unmarshal(data, &rawParsed); err == nil {
@@ -524,7 +520,7 @@ func newNetworksClientsProvisionNetworkCmd(flags *rootFlags) *cobra.Command {
 					filtered, selectErr = filterFieldsChecked(filtered, flags.selectFields)
 					selectErr = selectErrorForDryRun(selectErr, flags, data)
 				} else if flags.compact {
-					filtered = compactFields(filtered, map[string]bool{"clientId": true, "name": true})
+					filtered = compactFields(filtered, map[string]bool{"groupPolicyId": true})
 				}
 				if len(filtered) > 0 {
 					var parsed any
@@ -564,7 +560,7 @@ func newNetworksClientsProvisionNetworkCmd(flags *rootFlags) *cobra.Command {
 			// partial failure would exit 0 for these output modes — the exact
 			// silent-swallow regression the surrounding patch is preventing
 			// for asJSON / piped output.
-			printErr := printOutputWithFlagsMeta(cmd.OutOrStdout(), data, flags, map[string]any{"source": "live"}, map[string]bool{"clientId": true, "name": true})
+			printErr := printOutputWithFlagsMeta(cmd.OutOrStdout(), data, flags, map[string]any{"source": "live"}, map[string]bool{"groupPolicyId": true})
 			if partialFailure != nil && !flags.allowPartialFailure {
 				return partialFailureErr(fmt.Errorf("partial failure in %s response: %s", "clients", partialFailure.Message))
 			}

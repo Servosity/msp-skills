@@ -13,7 +13,7 @@ never written to disk, never logged, never sent anywhere except the Blumira API.
 
 ## Default-safe behavior
 
-- **`--dry-run` is opt-in - use it.** Mutating commands send immediately unless you pass `--dry-run` first to preview the request without sending. Make your agent's policy: preview, show the exact command, get approval, then run the write.
+- **`--dry-run` is opt-in - use it.** From the CLI, mutating commands send immediately unless you pass `--dry-run` first to preview the request without sending. Over MCP, every write tool returns a preview and sends nothing until it is called again with `confirm` set to boolean true, and `BLUMIRA_MCP_READ_ONLY=1` refuses every write. Make your agent's policy: preview, show the exact command, get approval, then run the write.
 - **Read commands are always safe to run** (reports, rollups, search); they cannot
   change anything.
 - **Agent mode is explicit.** `--agent` produces JSON for scripting but does not

@@ -1,7 +1,7 @@
 {
   "api_name": "microsoft-graph",
   "base_url": "https://graph.microsoft.com/v1.0",
-  "description": "Microsoft Graph CLI for MSPs — the maintained single-binary successor to the retiring mgc, scoped to the M365/Entra directory, security, licensing, and device surface, with an offline SQLite store.",
+  "description": "The maintained single-binary successor to the retiring mgc — every MSP-relevant Microsoft Graph surface, plus an offline store that finds wasted licenses, privileged-access risks, and stale devices no single API call can.",
   "mcp_ready": "full",
   "http_transport": "standard",
   "auth": {
@@ -33,7 +33,7 @@
           "name": "id",
           "type": "string",
           "location": "path",
-          "description": "Device object id",
+          "description": "Device object id (e.g. 000005c3-b7a6-4c61-89fc-80bf5ccfc366)",
           "required": true
         },
         {
@@ -98,7 +98,7 @@
           "name": "id",
           "type": "string",
           "location": "path",
-          "description": "Directory role object id",
+          "description": "Directory role object id (e.g. 23f3b4b4-8a29-4420-8052-e4950273bbda)",
           "required": true
         },
         {
@@ -135,7 +135,7 @@
           "name": "id",
           "type": "string",
           "location": "path",
-          "description": "Directory role object id",
+          "description": "Directory role object id (e.g. 23f3b4b4-8a29-4420-8052-e4950273bbda)",
           "required": true
         },
         {
@@ -164,7 +164,7 @@
           "name": "id",
           "type": "string",
           "location": "path",
-          "description": "Group object id",
+          "description": "Group object id (e.g. 02bd9fd6-8f93-4758-87c3-1fb73740a315)",
           "required": true
         },
         {
@@ -229,7 +229,7 @@
           "name": "id",
           "type": "string",
           "location": "path",
-          "description": "Group object id",
+          "description": "Group object id (e.g. 02bd9fd6-8f93-4758-87c3-1fb73740a315)",
           "required": true
         },
         {
@@ -265,7 +265,7 @@
           "name": "id",
           "type": "string",
           "location": "path",
-          "description": "Group object id",
+          "description": "Group object id (e.g. 02bd9fd6-8f93-4758-87c3-1fb73740a315)",
           "required": true
         },
         {
@@ -294,7 +294,7 @@
           "name": "id",
           "type": "string",
           "location": "path",
-          "description": "SubscribedSku id (tenantId_skuId form)",
+          "description": "SubscribedSku id in tenantId_skuId form (e.g. 87d349ed-44d7-43e1-9a83-5f2406dee5bd_6fd2c87f-b296-42f0-b197-1e91e994b900)",
           "required": true
         },
         {
@@ -331,7 +331,7 @@
           "name": "id",
           "type": "string",
           "location": "path",
-          "description": "Managed device id",
+          "description": "Managed device id (e.g. 705c034c-034c-705c-4c03-5c704c035c70)",
           "required": true
         },
         {
@@ -387,6 +387,50 @@
       ]
     },
     {
+      "name": "phone-numbers_get",
+      "description": "Get one Teams telephone number assignment by its id (needs TeamsTelephoneNumber.Read.All). Required: id. Returns the NumberAssignment.",
+      "method": "GET",
+      "path": "/admin/teams/telephoneNumberManagement/numberAssignments/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "numberAssignment id (e.g. YmMyNjMyZTMtNzUwYy00N2Q3LWFlYWUtOWZlZTAzNWJjMGM3fCsxMjAyMzQ1Njc4OQ)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "phone-numbers_list",
+      "description": "List the tenant's Teams telephone numbers with type, activation and assignment (needs TeamsTelephoneNumber.Read.All). Optional: filter, top, skip. Returns array of NumberAssignment.",
+      "method": "GET",
+      "path": "/admin/teams/telephoneNumberManagement/numberAssignments",
+      "params": [
+        {
+          "name": "filter",
+          "wire_name": "$filter",
+          "type": "string",
+          "location": "query",
+          "description": "OData filter on any field but id and city, e.g. 'assignmentStatus eq 'unassigned'' or 'telephoneNumber eq '+12052582895''"
+        },
+        {
+          "name": "top",
+          "wire_name": "$top",
+          "type": "int",
+          "location": "query",
+          "description": "Max numbers per page (OData $top; Graph default 500, max 1000)"
+        },
+        {
+          "name": "skip",
+          "wire_name": "$skip",
+          "type": "int",
+          "location": "query",
+          "description": "Skip the first N numbers (OData $skip)"
+        }
+      ]
+    },
+    {
       "name": "security_alert",
       "description": "Get a security alert by id. Required: id. Optional: properties. Returns the Alert.",
       "method": "GET",
@@ -396,7 +440,7 @@
           "name": "id",
           "type": "string",
           "location": "path",
-          "description": "Alert id",
+          "description": "Alert id (e.g. da637551227677560813_-961444813)",
           "required": true
         },
         {
@@ -454,7 +498,7 @@
           "name": "id",
           "type": "string",
           "location": "path",
-          "description": "Incident id",
+          "description": "Incident id (e.g. 2972395)",
           "required": true
         },
         {
@@ -503,6 +547,64 @@
       ]
     },
     {
+      "name": "teams-users_get",
+      "description": "Get one user's Teams configuration: numbers, voice enablement and effective policy assignments (needs TeamsUserConfiguration.Read.All). Required: id. Optional: properties. Returns the TeamsUserConfiguration.",
+      "method": "GET",
+      "path": "/admin/teams/userConfigurations/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "User object id (e.g. 5c802b19-3600-83f1-1767-7b9edc7f38ab)",
+          "required": true
+        },
+        {
+          "name": "properties",
+          "wire_name": "$select",
+          "type": "string",
+          "location": "query",
+          "description": "Comma-separated properties to request (OData $select)"
+        }
+      ]
+    },
+    {
+      "name": "teams-users_list",
+      "description": "List Teams user configurations: numbers, voice enablement and effective policy assignments (needs TeamsUserConfiguration.Read.All). Optional: filter, top, orderby (plus 1 more). Returns array of TeamsUserConfiguration.",
+      "method": "GET",
+      "path": "/admin/teams/userConfigurations",
+      "params": [
+        {
+          "name": "filter",
+          "wire_name": "$filter",
+          "type": "string",
+          "location": "query",
+          "description": "OData filter, e.g. 'isEnterpriseVoiceEnabled eq true'"
+        },
+        {
+          "name": "top",
+          "wire_name": "$top",
+          "type": "int",
+          "location": "query",
+          "description": "Max users per page (OData $top)"
+        },
+        {
+          "name": "orderby",
+          "wire_name": "$orderby",
+          "type": "string",
+          "location": "query",
+          "description": "Sort expression, e.g. 'userPrincipalName'"
+        },
+        {
+          "name": "properties",
+          "wire_name": "$select",
+          "type": "string",
+          "location": "query",
+          "description": "Comma-separated properties to request (OData $select)"
+        }
+      ]
+    },
+    {
       "name": "users_get",
       "description": "Get a user by object id or userPrincipalName. Required: id. Optional: properties. Returns the User.",
       "method": "GET",
@@ -512,7 +614,7 @@
           "name": "id",
           "type": "string",
           "location": "path",
-          "description": "User object id or userPrincipalName",
+          "description": "User object id or userPrincipalName (e.g. 5c802b19-3600-83f1-1767-7b9edc7f38ab)",
           "required": true
         },
         {
@@ -534,7 +636,7 @@
           "name": "id",
           "type": "string",
           "location": "path",
-          "description": "User object id or userPrincipalName",
+          "description": "User object id or userPrincipalName (e.g. 5c802b19-3600-83f1-1767-7b9edc7f38ab)",
           "required": true
         }
       ]
@@ -607,7 +709,7 @@
           "name": "id",
           "type": "string",
           "location": "path",
-          "description": "User object id or userPrincipalName",
+          "description": "User object id or userPrincipalName (e.g. 5c802b19-3600-83f1-1767-7b9edc7f38ab)",
           "required": true
         },
         {
@@ -646,6 +748,68 @@
           "description": "Comma-separated Graph properties to request (OData $select)"
         }
       ]
+    }
+  ],
+  "novel_features": [
+    {
+      "name": "License waste finder",
+      "command": "licenses waste",
+      "description": "Surfaces every tenant SKU where you are paying for more seats than you use, ranked by unused seats."
+    },
+    {
+      "name": "Licensed-orphan audit",
+      "command": "licenses orphans",
+      "description": "Lists disabled and guest accounts that still hold paid SKUs — licenses you are paying for but nobody is using."
+    },
+    {
+      "name": "Privileged-access audit",
+      "command": "admins audit",
+      "description": "Lists every holder of a privileged directory role with the role name, account-enabled state, and guest/disabled risk flags."
+    },
+    {
+      "name": "Fresh-alert triage window",
+      "command": "security triage",
+      "description": "Counts the open security alerts created in a recent time window, grouped by severity and detection source."
+    },
+    {
+      "name": "Intune compliance drift",
+      "command": "managed-devices drift",
+      "description": "Flags Intune devices that are non-compliant, unencrypted, or have not checked in within a time window, attributed to their assigned user."
+    },
+    {
+      "name": "Whole-tenant posture rollup",
+      "command": "tenant snapshot",
+      "description": "One agent-readable summary of the tenant: user and guest counts, license waste, admin count, open high-severity alerts, and non-compliant device count."
+    },
+    {
+      "name": "License reassignment map",
+      "command": "licenses map",
+      "description": "Lists every user consuming a specific SKU, with account-enabled state and guest flags, so you can plan seat reclamation and reassignment."
+    },
+    {
+      "name": "Group sprawl audit",
+      "command": "groups risk",
+      "description": "Flags ownerless, empty, and guest-heavy groups across the tenant in one pass."
+    },
+    {
+      "name": "Third-party app consent audit",
+      "command": "apps consent",
+      "description": "Inventories every non-Microsoft enterprise application consented into the tenant and the access it holds, risk-ranked with over-privileged, admin-consented, privilege-escalation and user-consented flags."
+    },
+    {
+      "name": "Meeting transcript list (own tenant)",
+      "command": "transcripts list",
+      "description": "Lists the transcripts of one Teams meeting the signed-in user can already open, in the credential's own tenant only."
+    },
+    {
+      "name": "Meeting transcript download (own tenant)",
+      "command": "transcripts download",
+      "description": "Downloads one Teams meeting transcript as WebVTT to stdout or a named file, in the credential's own tenant only; nothing is kept on disk by the CLI."
+    },
+    {
+      "name": "All transcripts for one organizer (own tenant)",
+      "command": "transcripts all",
+      "description": "Lists every transcript from the meetings one user organized, in the credential's own tenant only (Graph offers this to application tokens only, behind an explicit opt-in)."
     }
   ]
 }
