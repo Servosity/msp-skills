@@ -885,8 +885,15 @@ pinned `git diff --binary`, not `git patch-id`, which ignores whitespace even in
 literals). It stays current across a rebase only when the fingerprint is unchanged and main's
 new commits touch nothing under the connector's directory, nothing in `release_matrix.py`'s
 `MACHINERY` list, no directory the change's other files live in, no hand-written part of a
-README or issue form the change also edits, and no registry entry of a slug it touches. So
-that another connector merging first does not cost a re-review, the three registries are
+README or issue form the change also edits, no registry entry of a slug it touches, and, in the
+three shared gate files (`security_suppressions.json`, `security_gate_baseline.json`,
+`verify_baseline.json`), no entry of a connector it touches or whose entries it edits, no entry
+that is not exactly one connector's (a slug-relative, `{slug}` or malformed suppression, a rule
+key, a top-level field) and nothing it cannot read per entry (it then names the file). An entry
+is one connector's when it names `skills/<dir>/...` (a suppression) or that connector's slug (a
+baseline). A change that itself edits a gate file outside one connector's entries keeps the
+whole file as a dependency. So that another connector merging first does not cost a re-review,
+the three registries and the three gate files are
 fingerprinted entry by entry, README.md and the issue forms by their hand-written parts only
 (the generator-owned regions masked with the generator's own patterns), and only the files a
 generator writes whole from sources (`catalog.json`, `docs/_data/catalog.json`,
