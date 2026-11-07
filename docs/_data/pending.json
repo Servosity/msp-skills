@@ -203,9 +203,9 @@
     "released_hash": "sha256:349288c8ab3ab6c503b421fa6ead1c08fe1148a00947468b7704192c86927d3d"
   },
   "cork": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.9",
-    "latest_tag": "cork-v0.1.8",
+    "latest_tag": "cork-v0.1.9",
     "current_hash": "sha256:9ac4a2262cca7a1ab169bf8bd547bf218a820df90b63a4ad27d0c5b7fa84a6bf",
     "released_hash": "sha256:9ac4a2262cca7a1ab169bf8bd547bf218a820df90b63a4ad27d0c5b7fa84a6bf"
   },
