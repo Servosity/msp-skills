@@ -11,6 +11,7 @@ import (
 	"compress/zlib"
 	"connectsecure-pp-cli/internal/cliutil"
 	"connectsecure-pp-cli/internal/config"
+	"connectsecure-pp-cli/internal/credkit"
 	"connectsecure-pp-cli/internal/platform"
 	"context"
 	"crypto/sha256"
@@ -334,6 +335,19 @@ func loadCACertPool(path string) (*x509.CertPool, error) {
 	return pool, nil
 }
 
+// guardedTransport is cliutil.OutboundGuard (the credential kit's outbound
+// guard) around tr, with tr kept so a streaming client can clone it with its
+// own header timeout and guard the clone. Hand-fix (handfixes.json
+// credkit-wiring).
+type guardedTransport struct {
+	http.RoundTripper
+	inner *http.Transport
+}
+
+func guardTransport(tr *http.Transport) http.RoundTripper {
+	return guardedTransport{RoundTripper: cliutil.OutboundGuard(tr), inner: tr}
+}
+
 func cloneDefaultHTTPTransport() (*http.Transport, error) {
 	base, ok := http.DefaultTransport.(*http.Transport)
 	if !ok || base == nil {
@@ -404,11 +418,16 @@ func StreamingHTTPClient(base *http.Client, headerTimeout time.Duration) *http.C
 	if base == nil {
 		tr := http.DefaultTransport.(*http.Transport).Clone()
 		tr.ResponseHeaderTimeout = headerTimeout
-		return &http.Client{Transport: tr}
+		return &http.Client{Transport: guardTransport(tr)} // Hand-fix (handfixes.json credkit-wiring)
 	}
 	clone := *base
 	clone.Timeout = 0
-	if t, ok := base.Transport.(*http.Transport); ok {
+	switch t := base.Transport.(type) {
+	case guardedTransport: // Hand-fix (handfixes.json credkit-wiring): the guarded API transport
+		tr := t.inner.Clone()
+		tr.ResponseHeaderTimeout = headerTimeout
+		clone.Transport = guardTransport(tr)
+	case *http.Transport:
 		tr := t.Clone()
 		tr.ResponseHeaderTimeout = headerTimeout
 		clone.Transport = tr
@@ -980,6 +999,9 @@ func NewPlainHTTPClient(timeout time.Duration, cfg *config.Config) (*http.Client
 		return nil, err
 	}
 	guardHTTPClient(c, "")
+	if tr, ok := c.Transport.(*http.Transport); ok {
+		c.Transport = guardTransport(tr) // Hand-fix (handfixes.json credkit-wiring)
+	}
 	return c, nil
 }
 
@@ -1213,8 +1235,6 @@ func New(cfg *config.Config, timeout time.Duration, rateLimit float64) *Client {
 	}
 	c.sweepExpiredCache()
 	if httpClient == nil {
-		// Hand-fix (handfixes.json secret-echo-decoded-funnel): the backstops withhold this client's credentials too.
-		c.holdCredentials()
 		return c
 	}
 	// CheckRedirect re-derives auth on each hop. Go's default replays the
@@ -1225,6 +1245,9 @@ func New(cfg *config.Config, timeout time.Duration, rateLimit float64) *Client {
 	// for Bearer/api_key, so post-redirect headers are byte-identical for
 	// static auth and freshly-signed for nonce-bound auth.
 	guardHTTPClient(httpClient, c.BaseURL)
+	if tr, ok := httpClient.Transport.(*http.Transport); ok {
+		httpClient.Transport = guardTransport(tr) // Hand-fix (handfixes.json credkit-wiring)
+	}
 	httpClient.CheckRedirect = func(req *http.Request, via []*http.Request) error {
 		if len(via) >= 10 {
 			// Match Go's defaultCheckRedirect: a plain error so Client.Do
@@ -1293,8 +1316,6 @@ func New(cfg *config.Config, timeout time.Duration, rateLimit float64) *Client {
 		}
 		return redirectPlaintextRefused(req, via, httpClient.Jar)
 	}
-	// Hand-fix (handfixes.json secret-echo-decoded-funnel): the backstops withhold this client's credentials too.
-	c.holdCredentials()
 	return c
 }
 
@@ -1727,7 +1748,7 @@ func (c *Client) writeCacheWithHeaders(path string, params map[string]string, he
 	ensureCachePerms(resourceDir, cacheFile)
 	// Drop the leftover inode so an already-open 0644 FD keeps the old body.
 	_ = os.Remove(cacheFile)
-	_ = os.WriteFile(cacheFile, []byte(data), 0o600)
+	_ = credkit.WriteFile(cacheFile, []byte(data), 0o600) // Hand-fix (handfixes.json credkit-wiring)
 	ensureCachePerms(resourceDir, cacheFile)
 	if c.platformSession != nil {
 		c.writePlatformCacheMetadata(cacheFile)
@@ -1840,7 +1861,7 @@ func (c *Client) writePlatformCacheMetadata(cacheFile string) {
 	}
 	data, err := json.Marshal(metadata)
 	if err == nil {
-		_ = os.WriteFile(cacheFile+".platform.json", data, 0o600)
+		_ = credkit.WriteFile(cacheFile+".platform.json", data, 0o600) // Hand-fix (handfixes.json credkit-wiring)
 	}
 }
 
@@ -2330,7 +2351,6 @@ func (c *Client) doInternal(ctx context.Context, method, path string, params map
 	// requires a network refresh will be re-fetched on the live request path,
 	// not during dry-run.
 	authHeader, err := c.authHeader(ctx)
-	cliutil.FunnelHold(authHeader) // Hand-fix (handfixes.json secret-echo-decoded-funnel): a minted token is held from here on
 	if err != nil {
 		return nil, 0, err
 	}
@@ -2600,7 +2620,7 @@ func (c *Client) doInternal(ctx context.Context, method, path string, params map
 						summary = connectsecureWithheldBody
 					}
 					summary = c.maskCredentialText(summary, authHeader)
-					return nil, resp.StatusCode, fmt.Errorf("%s %s: expected JSON, API returned HTML instead of JSON: %s", method, c.displayURL(path, authHeader), c.shownSummary(respBody, summary, authHeader))
+					return nil, resp.StatusCode, fmt.Errorf("%s %s: expected JSON, API returned HTML instead of JSON: %s", method, c.displayURL(path, authHeader), summary)
 				}
 			}
 			return json.RawMessage(sanitizeJSONResponse(respBody)), resp.StatusCode, nil
@@ -3250,16 +3270,12 @@ func (c *Client) maskCredentialText(text string, extraCredentials ...string) str
 	}
 	var masks []credentialMask
 	var secrets []string
-	// Hand-fix (handfixes.json secret-echo-decoded-funnel): every value the
-	// masks below cover is also held for the decoded check at the end.
-	var held []string
 	seen := map[string]struct{}{}
 	addValue := func(value string) {
 		value = strings.TrimSpace(value)
 		if value == "" {
 			return
 		}
-		held = append(held, value)
 		replacement := maskToken(value)
 		addMask := func(needle string) {
 			if needle == "" {
@@ -3311,10 +3327,7 @@ func (c *Client) maskCredentialText(text string, extraCredentials ...string) str
 	for _, mask := range masks {
 		masked = strings.ReplaceAll(masked, mask.needle, mask.replacement)
 	}
-	// Hand-fix (handfixes.json secret-echo-decoded-funnel): the press's own
-	// masks run first. If the text still carries a held value in any encoding
-	// the decoder recognizes, it is withheld whole.
-	return cliutil.FunnelWithhold(finishCredentialMask(masked, secrets), held)
+	return finishCredentialMask(masked, secrets)
 }
 
 // Encodings of shorter values collide with ordinary words and hex fragments.
@@ -4355,32 +4368,6 @@ func credentialQuotedPrintable(s string) string {
 		return s
 	}
 	return b.String()
-}
-
-// holdCredentials records every credential maskCredentialText covers with the
-// process-wide funnel (cliutil.FunnelHold), for the error backstops: the CLI's
-// error writers and the MCP server's error results. Hand-fix (handfixes.json secret-echo-decoded-funnel).
-func (c *Client) holdCredentials() {
-	_ = c.maskCredentialText(" ")
-}
-
-// shownErrorBody is the text an error shows of the server's answer (hand-fix
-// handfixes.json secret-echo-decoded-funnel): the WHOLE answer is masked and
-// checked for an echoed credential before the display cut, then the text that
-// will be shown is checked again.
-func (c *Client) shownErrorBody(body []byte, extraCredentials ...string) string {
-	whole := c.maskCredentialText(string(body), extraCredentials...)
-	return c.maskCredentialText(truncateBody([]byte(whole)), extraCredentials...)
-}
-
-// shownSummary funnels a summary of an answer, such as an HTML page's title
-// (hand-fix handfixes.json secret-echo-decoded-funnel): the whole answer is
-// checked first, then the summary as it will be shown.
-func (c *Client) shownSummary(body []byte, summary string, extraCredentials ...string) string {
-	if whole := c.maskCredentialText(string(body), extraCredentials...); cliutil.FunnelWithheld(whole) {
-		return whole
-	}
-	return c.maskCredentialText(summary, extraCredentials...)
 }
 
 func truncateBody(b []byte) string {

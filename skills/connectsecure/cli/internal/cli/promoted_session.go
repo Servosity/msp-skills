@@ -11,6 +11,7 @@ import (
 	"os"
 	"strings"
 
+	"connectsecure-pp-cli/internal/cliutil"
 	"github.com/spf13/cobra"
 )
 
@@ -55,6 +56,8 @@ func newSessionPromotedCmd(flags *rootFlags) *cobra.Command {
 				if flagClientAuthToken = strings.TrimSpace(string(raw)); flagClientAuthToken == "" {
 					return usageErr(fmt.Errorf("--client-auth-token -: stdin was empty"))
 				}
+				// Hand-fix (handfixes.json credkit-wiring): the token read from stdin is held before anything can print it.
+				cliutil.Hold("stdin", flagClientAuthToken)
 			}
 			c, err := flags.newClient()
 			if err != nil {

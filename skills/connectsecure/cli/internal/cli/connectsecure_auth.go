@@ -181,6 +181,8 @@ func connectsecureMintCached(ctx context.Context, c *client.Client) (connectsecu
 		if raw, err := os.ReadFile(path); err == nil { // #nosec G304 -- this CLI's own token cache: cache dir + sha256 hex name
 			var tok connectsecureToken
 			if json.Unmarshal(raw, &tok) == nil && tok.AccessToken != "" && time.Now().Before(tok.ExpiresAt) {
+				// Hand-fix (handfixes.json credkit-wiring): a cached JWT is held before anything can print it.
+				cliutil.Hold("minted:connectsecure-jwt", tok.AccessToken)
 				return tok, nil
 			}
 		}
@@ -191,7 +193,8 @@ func connectsecureMintCached(ctx context.Context, c *client.Client) (connectsecu
 	}
 	if pathErr == nil {
 		if raw, err := json.Marshal(tok); err == nil { // #nosec G117 -- the JWT cache is written 0600 in a 0700 dir by design
-			_ = cliutil.AtomicWritePrivateFile(path, raw, 0o600, 0o700) // cache miss next time is harmless
+			// Hand-fix (handfixes.json credkit-wiring): the JWT cache is a credential source, written outside the kit.
+			_ = cliutil.AtomicWriteCredentialFile(path, raw, 0o600, 0o700) // cache miss next time is harmless
 		}
 	}
 	return tok, nil
@@ -212,7 +215,7 @@ func connectsecureMint(ctx context.Context, c *client.Client) (connectsecureToke
 	cat := connectsecureClientAuthToken(cfg.ConnectsecureTenant, cfg.ClientID, cfg.ClientSecret)
 	req.Header.Set("Client-Auth-Token", cat)
 	req.Header.Set("Accept", "application/json")
-	hc := http.Client{Timeout: 30 * time.Second}
+	hc := http.Client{Timeout: 30 * time.Second, Transport: cliutil.OutboundGuard(nil)} // Hand-fix (handfixes.json credkit-wiring)
 	if c.HTTPClient != nil {
 		hc = *c.HTTPClient
 	}
@@ -254,6 +257,8 @@ func connectsecureMintResult(status int, body []byte, base string) (connectsecur
 	if err != nil {
 		return connectsecureToken{}, authErr(fmt.Errorf("%w; %s", err, connectsecureCredHint))
 	}
+	// Hand-fix (handfixes.json credkit-wiring): the minted JWT is held the moment it exists.
+	cliutil.Hold("minted:connectsecure-jwt", tok.AccessToken)
 	return tok, nil
 }
 

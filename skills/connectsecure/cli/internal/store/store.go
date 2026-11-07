@@ -28,6 +28,7 @@ import (
 	"unicode/utf8"
 
 	"connectsecure-pp-cli/internal/cliutil"
+	"connectsecure-pp-cli/internal/credsql"
 	_ "modernc.org/sqlite"
 )
 
@@ -130,13 +131,29 @@ func Open(dbPath string) (*Store, error) {
 // OpenReadOnlyContext so a cancelled command (SIGINT, deadline) interrupts the
 // SQLITE_BUSY retry during driver init instead of waiting out the full timeout.
 func OpenReadOnly(dbPath string) (*Store, error) {
-	return OpenReadOnlyContext(context.Background(), dbPath)
+	return openReadOnly(context.Background(), dbPath, 0)
+}
+
+// OpenReadOnlyValueCapped is OpenReadOnly with SQLITE_LIMIT_LENGTH set to
+// maxValueBytes on every connection (0: no cap), so no string or blob longer
+// than that is built or returned. Hand-fix (handfixes.json credkit-wiring): the MCP sql
+// tool's value cap, set when the connection opens because sqlite.Limit cannot
+// reach a kit-wrapped one.
+func OpenReadOnlyValueCapped(dbPath string, maxValueBytes int) (*Store, error) {
+	return openReadOnly(context.Background(), dbPath, maxValueBytes)
 }
 
 // OpenReadOnlyContext is OpenReadOnly with a caller-supplied context honored by
 // the driver-init SQLITE_BUSY retry.
 func OpenReadOnlyContext(ctx context.Context, dbPath string) (*Store, error) {
+	return openReadOnly(ctx, dbPath, 0)
+}
+
+func openReadOnly(ctx context.Context, dbPath string, maxValueBytes int) (*Store, error) {
 	dsn := "file:" + dbPath + "?mode=ro&_pragma=busy_timeout(5000)&_pragma=foreign_keys(ON)&_pragma=temp_store(MEMORY)&_pragma=mmap_size(0)"
+	if maxValueBytes > 0 { // Hand-fix (handfixes.json credkit-wiring)
+		dsn += "&" + credsql.LengthLimitParam + "=" + strconv.Itoa(maxValueBytes)
+	}
 	db, err := openReadOnlySQLite(ctx, dsn)
 	if err != nil {
 		return nil, fmt.Errorf("opening database (read-only): %w", err)
@@ -151,11 +168,14 @@ func openReadOnlySQLite(ctx context.Context, dsn string) (*sql.DB, error) {
 	if err := ensureSQLiteDriverInitialized(ctx, dsn); err != nil {
 		return nil, err
 	}
-	db, err := sql.Open("sqlite", dsn)
+	db, err := sql.Open(credsql.Driver, dsn) // Hand-fix (handfixes.json credkit-wiring)
 	if err != nil {
 		return nil, err
 	}
-	if err := db.PingContext(ctx); err != nil {
+	// Hand-fix (handfixes.json credkit-wiring): the statement modernc's Ping
+	// runs; the kit's connection does not forward Ping, so PingContext alone would open
+	// the file without reading it, and a missing -shm would not fail here.
+	if _, err := db.ExecContext(ctx, "select 1"); err != nil {
 		_ = db.Close()
 		return nil, err
 	}
@@ -189,7 +209,7 @@ func OpenWithContext(ctx context.Context, dbPath string) (*Store, error) {
 		return nil, err
 	}
 
-	db, err := sql.Open("sqlite", dsn)
+	db, err := sql.Open(credsql.Driver, dsn) // Hand-fix (handfixes.json credkit-wiring)
 	if err != nil {
 		return nil, fmt.Errorf("opening database: %w", err)
 	}
@@ -220,7 +240,7 @@ func rejectNewerSchemaBeforeJournalMode(ctx context.Context, dbPath string) erro
 	if err != nil {
 		return fmt.Errorf("stating database for schema preflight: %w", err)
 	}
-	probe, err := sql.Open("sqlite", "file:"+filepath.ToSlash(dbPath)+"?mode=ro&_pragma=busy_timeout(1000)&_pragma=mmap_size(0)")
+	probe, err := sql.Open(credsql.Driver, "file:"+filepath.ToSlash(dbPath)+"?mode=ro&_pragma=busy_timeout(1000)&_pragma=mmap_size(0)") // Hand-fix (handfixes.json credkit-wiring)
 	if err != nil {
 		return nil
 	}
@@ -313,7 +333,7 @@ func ensureSQLiteDriverInitialized(ctx context.Context, dsn string) error {
 		return nil
 	}
 
-	db, err := sql.Open("sqlite", dsn)
+	db, err := sql.Open(credsql.Driver, dsn) // Hand-fix (handfixes.json credkit-wiring)
 	if err != nil {
 		return fmt.Errorf("opening database for driver initialization: %w", err)
 	}
