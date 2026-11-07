@@ -503,7 +503,7 @@
       "type": "skill-md",
       "description": "Every Pax8 Partner API endpoint, plus an offline store that reconciles billing, tracks MRR, and catches usage overages no Pax8 tool surfaces. Trigger phrases: `reconcile pax8 billing`, `what is my pax8 mrr`, `list pax8 companies`, `check pax8 usage overages`, `pax8 customer 360`, `use pax8`, `run pax8-cli`.",
       "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/pax8/SKILL.md",
-      "digest": "sha256:19ab3c649a0e4300c987e54629224f3aac9c3ffdf7b2520e7a07d47b5953b81f"
+      "digest": "sha256:a0a1937aebdf4949455b116f7849af20f7f26c4a0317458bae2aa166db90d91a"
     },
     {
       "name": "pipedrive",

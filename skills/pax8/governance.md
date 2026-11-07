@@ -8,12 +8,13 @@
 ## What it authenticates as
 
 The skill drives the `pax8-cli` binary (and `pax8-mcp`),
-authenticating with `PAX8_AUDIENCE`, `PAX8_CLIENT_ID`, `PAX8_CLIENT_SECRET`, `PAX8_OAUTH_SCOPE`. Credentials are read from the environment only -
-never written to disk, never logged, never sent anywhere except the Pax8 API.
+authenticating with `PAX8_AUDIENCE`, `PAX8_CLIENT_ID`, `PAX8_CLIENT_SECRET`, `PAX8_OAUTH_SCOPE`. Credentials come from the environment or `pax8-cli auth login`; a minted token is kept only in the
+CLI's owner-only credential store (set `PAX8_NO_CONFIG_WRITE=1` to keep none on disk). They are
+never logged and never sent anywhere except Pax8's API and token endpoint.
 
 ## Default-safe behavior
 
-- **`--dry-run` is opt-in - use it.** Mutating commands send immediately unless you pass `--dry-run` first to preview the request without sending. Make your agent's policy: preview, show the exact command, get approval, then run the write.
+- **`--dry-run` is opt-in - use it.** Mutating commands send immediately unless you pass `--dry-run` first to preview the request without sending. Make your agent's policy: preview, show the exact command, get approval, then run the write. Over MCP, every write tool returns a preview and sends only when it is called again with `confirm: true`.
 - **Read commands are always safe to run** (reports, rollups, search); they cannot
   change anything.
 - **Agent mode is explicit.** `--agent` produces JSON for scripting but does not

