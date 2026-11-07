@@ -69,7 +69,7 @@ func newOrganizationsAssuranceGetOrganizationAlertsOverviewByTypeCmd(flags *root
 					}
 				}
 				if !validSortOrder {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagSortOrder, "sort-order", allowedSortOrder)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagSortOrder, "sort-order", allowedSortOrder))
 				}
 			}
 			if cmd.Flags().Changed("category") {
@@ -82,7 +82,7 @@ func newOrganizationsAssuranceGetOrganizationAlertsOverviewByTypeCmd(flags *root
 					}
 				}
 				if !validCategory {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagCategory, "category", allowedCategory)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagCategory, "category", allowedCategory))
 				}
 			}
 			if cmd.Flags().Changed("sort-by") {
@@ -95,7 +95,7 @@ func newOrganizationsAssuranceGetOrganizationAlertsOverviewByTypeCmd(flags *root
 					}
 				}
 				if !validSortBy {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagSortBy, "sort-by", allowedSortBy)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagSortBy, "sort-by", allowedSortBy))
 				}
 			}
 			path := "/organizations/{organizationId}/assurance/alerts/overview/byType"

@@ -184,6 +184,7 @@ This skill turns those into a 10-second sweep:
 - **`datto-rmm-cli fleet patch-gaps --min-missing 5`** - the most patch-exposed endpoints first.
 - **`datto-rmm-cli fleet warranty --within 60`** - hardware about to fall out of warranty, ready for a QBR.
 - **`datto-rmm-cli fleet scorecard "Acme Corporation"`** - a one-page client health card for the QBR.
+- **`datto-rmm-cli fleet udf udf7`** - one device user-defined field across every synced site: each value with its device and site counts, and how many devices leave it empty.
 
 See [pain-point.md](./pain-point.md) for the longer narrative.
 

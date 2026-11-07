@@ -8,6 +8,8 @@ import (
 	"bytes"
 	"strings"
 	"testing"
+
+	"cork-pp-cli/internal/cliutil/testenv"
 )
 
 // TestNovelVulnerabilitiesTriageHelpWires smoke-tests that the vulnerabilities triage command
@@ -15,6 +17,7 @@ import (
 // regressions (missing AddCommand, panicking RunE on --help, etc.) before
 // review. Keep this smoke test when adding behavior-specific cases.
 func TestNovelVulnerabilitiesTriageHelpWires(t *testing.T) {
+	testenv.Isolate(t)
 	cmd := RootCmd()
 	cmd.SetArgs([]string{"vulnerabilities", "triage", "--help"})
 	var out bytes.Buffer

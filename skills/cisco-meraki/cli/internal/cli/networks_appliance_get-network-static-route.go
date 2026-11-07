@@ -52,7 +52,7 @@ func newNetworksApplianceGetNetworkStaticRouteCmd(flags *rootFlags) *cobra.Comma
 				return err
 			}
 			params := map[string]string{}
-			data, prov, err := resolveReadWithStrategyAndResponsePath(cmd.Context(), c, flags, "live", "appliance", false, path, params, nil, "reservedIpRanges", cmd.ErrOrStderr())
+			data, prov, err := resolveReadWithStrategyAndResponsePath(cmd.Context(), c, flags, "live", "appliance", false, path, params, nil, "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}
@@ -79,7 +79,7 @@ func newNetworksApplianceGetNetworkStaticRouteCmd(flags *rootFlags) *cobra.Comma
 					filtered, selectErr = filterFieldsChecked(filtered, flags.selectFields)
 					selectErr = selectErrorForDryRun(selectErr, flags, data)
 				} else if flags.compact {
-					filtered = compactFields(filtered, nil)
+					filtered = compactFields(filtered, map[string]bool{"gatewayVlanId": true, "id": true, "name": true, "networkId": true})
 				}
 				wrapped, wrapErr := wrapWithProvenance(filtered, prov)
 				if wrapErr != nil {
@@ -111,7 +111,7 @@ func newNetworksApplianceGetNetworkStaticRouteCmd(flags *rootFlags) *cobra.Comma
 			if flags.csv || flags.plain {
 				formatData = outputData
 			}
-			return printOutputWithFlagsMeta(cmd.OutOrStdout(), formatData, flags, map[string]any{"source": "live"}, nil)
+			return printOutputWithFlagsMeta(cmd.OutOrStdout(), formatData, flags, map[string]any{"source": "live"}, map[string]bool{"gatewayVlanId": true, "id": true, "name": true, "networkId": true})
 		},
 	}
 

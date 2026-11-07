@@ -418,7 +418,7 @@ Governance: The skill reads your Avanan detections, scanned messages and files, 
 ### AWS (Billing)
 
 Page: [AWS](https://msp-skills.compoundingteams.com/skills/aws-billing.md)
-Verification: Awaiting live verification
+Verification: Live-verified by Servosity (maintainer) (2026-11-06)
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/aws-billing/install.sh)
 
 Ask "why did my AWS bill go up?" and get a plain-English answer: the service that moved, the linked account driving it, and the idle instances and orphaned volumes bleeding dollars - without learning Cost Explorer's dimension grammar. It syncs your bill into a local cache once, so every follow-up question is instant and free instead of $0.01 per Cost Explorer call.
@@ -676,7 +676,7 @@ Outcomes (question -> command your AI agent runs):
 
 FAQ:
 Q: Does this work with ChatGPT?
-A: Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way blumira-mcp runs, and shares MCP configuration with Codex: add blumira-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote (HTTP) server, this connector speaks stdio only, and the bridge it would need is paused until it is reprinted; the security note at the top of the install guide explains why. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
+A: Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way blumira-mcp runs, and shares MCP configuration with Codex: add blumira-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote server. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
 Q: Do I need to know how to code?
 A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
 Q: Is my Blumira data safe?
@@ -797,7 +797,7 @@ Outcomes (question -> command your AI agent runs):
 
 FAQ:
 Q: Does this work with ChatGPT?
-A: Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way cisco-meraki-mcp runs, and shares MCP configuration with Codex: add cisco-meraki-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote (HTTP) server, and this connector's HTTP mode is paused until it is reprinted; the security note at the top of the install guide explains why. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
+A: Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way cisco-meraki-mcp runs, and shares MCP configuration with Codex: add cisco-meraki-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote server. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
 Q: Do I need to know how to code?
 A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your Meraki API key once.
 Q: Is my Cisco Meraki data safe?
@@ -811,9 +811,9 @@ A: Meraki allows about ten calls per second per organization. The CLI paces itse
 Q: Does it work with the Canada, China, India, or FedRAMP dashboards?
 A: Yes. Set CISCO_MERAKI_BASE_URL to your region's API host, for example https://api.meraki.ca/api/v1 (Canada), https://api.meraki.cn/api/v1 (China), https://api.meraki.in/api/v1 (India), or https://api.gov-meraki.com/api/v1 (FedRAMP). Leave it unset for the global dashboard.
 Q: Can an agent change my clients' networks by accident?
-A: Writes send immediately when called, with no confirmation prompt, so keep autonomous agents to reads and --dry-run previews. The bulk tool, fleet push, previews a per-network diff by default and sends nothing unless you add --apply. See the safety model for which commands to keep behind a human. Set CISCO_MERAKI_MCP_READ_ONLY=1 on the MCP server and it refuses every write outright.
+A: From the CLI, writes send immediately when called, with no confirmation prompt. Over MCP, every write tool returns a preview and sends nothing until it is called again with confirm set to boolean true. Keep autonomous agents to reads and --dry-run previews. The bulk tool, fleet push, previews a per-network diff by default and sends nothing unless you add --apply. See the safety model for which commands to keep behind a human. Set CISCO_MERAKI_MCP_READ_ONLY=1 on the MCP server and it refuses every write outright.
 
-Governance: Reads - the fleet views, every GET, sync and search - change nothing in the Dashboard and are safe for an agent, with one exception: over thirty reads return live secrets or license keys (SSID pre-shared keys, identity PSK passphrases, SNMP community strings, site-to-site VPN peer secrets, BGP and OSPF passwords, Apple VPP tokens, license keys, webhook header templates and receiver URLs, the API request log, and the raw configuration change log and action batches, which record API request bodies) and the CLI does not redact them, so those belong behind a human. search, analytics and MCP sql read the local mirror, which keeps license keys and redacts credentials by field name and label - allow them only if that is acceptable. Routine config writes should be previewed with --dry-run and approved. Bulk pushes, reboots and port cycles, admin and SAML changes, API key generation, and deletes or unclaims should never run unattended. For an MCP agent that should never write, CISCO_MERAKI_MCP_READ_ONLY=1 makes the server refuse every non-GET call. The real ceiling is the API key: it can do whatever the Dashboard admin who generated it can do.
+Governance: Reads - the fleet views, every GET, sync and search - change nothing in the Dashboard and are safe for an agent, with one exception: over thirty reads return live secrets or license keys (SSID pre-shared keys, identity PSK passphrases, SNMP community strings, site-to-site VPN peer secrets, BGP and OSPF passwords, Apple VPP tokens, license keys, webhook header templates and receiver URLs, the API request log, and the raw configuration change log and action batches, which record API request bodies) and, apart from answers carrying a documented secret field such as an SSID psk or a VPN peer secret, which are withheld whole, the CLI does not redact them, so those belong behind a human. search, analytics and MCP sql read the local mirror, which keeps license keys and redacts credentials by field name and label - allow them only if that is acceptable. Routine config writes should be previewed with --dry-run and approved. Bulk pushes, reboots and port cycles, admin and SAML changes, API key generation, and deletes or unclaims should never run unattended. For an MCP agent that should never write, CISCO_MERAKI_MCP_READ_ONLY=1 makes the server refuse every non-GET call. The real ceiling is the API key: it can do whatever the Dashboard admin who generated it can do.
 
 ### Cisco Umbrella (Security)
 
@@ -1155,11 +1155,11 @@ Outcomes (question -> command your AI agent runs):
 
 FAQ:
 Q: Does this work with ChatGPT?
-A: Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way cork-mcp runs, and shares MCP configuration with Codex: add cork-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote (HTTP) server, this connector speaks stdio only, and the bridge it would need is paused until it is reprinted; the security note at the top of the install guide explains why. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
+A: Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way cork-mcp runs, and shares MCP configuration with Codex: add cork-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote (HTTP) server; the install guide explains why. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
 Q: Do I need to know how to code?
 A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your Cork API key once.
 Q: Is my Cork data safe?
-A: Your data stays on your machine. The CLI, MCP server, and the local mirror are all local, and the MCP server speaks stdio only so it opens no network listener. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills.
+A: Your data stays on your machine. The CLI, MCP server, and the local mirror are all local, and the MCP server speaks stdio by default so it opens no network listener unless you start its token-protected HTTP mode. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills.
 Q: What does it cost?
 A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
 Q: Will this hit my Cork API rate limits?
@@ -2280,14 +2280,16 @@ Outcomes (question -> command your AI agent runs):
 - Which groups are ownerless, empty, or guest-heavy across the tenant? -> microsoft-graph-cli groups risk --agent
 - Which third-party apps have been consented into the tenant, and which are over-privileged, admin-consented, or user-consented shadow IT? -> microsoft-graph-cli apps consent --agent
 - Where does this tenant stand overall - users, license waste, admins, alerts, device drift? -> microsoft-graph-cli tenant snapshot --agent
+- Which Teams Phone numbers does the tenant hold, and which are unassigned? -> microsoft-graph-cli phone-numbers list --agent
+- Which users have Enterprise Voice on, with which numbers and Teams policies? -> microsoft-graph-cli teams-users list --filter 'isEnterpriseVoiceEnabled eq true' --agent
 
 FAQ:
 Q: Does this work with ChatGPT?
-A: Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way microsoft-graph-mcp runs, and shares MCP configuration with Codex: add microsoft-graph-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote (HTTP) server, and this connector's HTTP mode is paused until it is reprinted; the security note at the top of the install guide explains why. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
+A: Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way microsoft-graph-mcp runs, and shares MCP configuration with Codex: add microsoft-graph-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote (HTTP) server, which msp-skills does not support yet; see the install guide. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
 Q: Do I need to know how to code?
 A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
 Q: Is my Microsoft 365 data safe?
-A: Your data stays on your machine. The CLI, MCP server, and the local SQLite mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills - the token is read from your environment and used only against the Microsoft Graph API.
+A: Your data stays on your machine. The CLI, MCP server, and the local SQLite mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills - the token is read from your environment or from the 0600 credentials file `auth login` writes, and is sent only to the Microsoft Graph API (and the client secret only to the Entra token endpoint).
 Q: Will this hit my Microsoft Graph throttling limits?
 A: The local mirror exists so reads stop hitting Graph. After the first `pull`, the cross-entity views (licenses waste/orphans/map, admins audit, security triage, managed-devices drift, groups risk, tenant snapshot) run against local SQLite with zero API calls. Live calls follow @odata.nextLink and respect a `--rate-limit` throttle, and pull treats resources your token can't reach as warnings, not failures.
 Q: Is this the replacement for the Microsoft Graph CLI (mgc) that's being retired?
@@ -2296,10 +2298,12 @@ Q: Does it use a delegated or app-only token?
 A: Either. Run `auth login --tenant <id> --client-id <id> --client-secret <secret>` to mint and cache an app-only (client-credentials) token for unattended MSP use, or export a pre-minted token as MICROSOFT_GRAPH_TOKEN. Read scopes such as Directory.Read.All, RoleManagement.Read.Directory, SecurityAlert.Read.All, and DeviceManagementManagedDevices.Read.All must be granted and admin-consented. App-only tokens have no /me, so `users me` is delegated-only.
 Q: How do I audit which third-party apps have been consented into a tenant?
 A: Run `microsoft-graph-cli apps consent --agent`. It inventories every non-Microsoft enterprise application (service principal) and the access it holds - joining service principals, delegated consent grants (oauth2PermissionGrants), and application/app-only permissions (appRoleAssignments) into one risk-ranked table. It flags over-privileged apps, admin-consented (tenant-wide) apps, privilege-escalation permissions, and user-consented shadow IT, all read-only. Microsoft's own first-party apps are counted but not listed so the report is just the consent you granted or inherited. Needs read scopes Application.Read.All, Directory.Read.All, and DelegatedPermissionGrant.Read.All.
+Q: Can it read Teams meeting transcripts?
+A: Only in your own tenant. An MSP's credentials can reach its clients' tenants, but a client's meetings are never the MSP's to read, so `transcripts list`, `transcripts download` and `transcripts all` refuse any token whose tenant is not MICROSOFT_GRAPH_HOME_TENANT, a user who signed in from another tenant (GDAP or guest), and an app-only token unless MICROSOFT_GRAPH_TRANSCRIPTS_APP_ONLY=1 and a Teams application access policy limits the app to named users. Nothing is kept on disk. Set MICROSOFT_GRAPH_MCP_NO_TRANSCRIPTS=1 to switch them off for MCP.
 Q: What does it cost?
 A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
 
-Governance: The skill drives the microsoft-graph-cli and microsoft-graph-mcp binaries, authenticating with a MICROSOFT_GRAPH_TOKEN read from the environment - never logged, never written to disk, never sent anywhere except the Microsoft Graph API. Every typed command is read-only: users, groups, directory roles, licenses, devices, managed devices, security alerts and incidents, third-party app consent (`apps consent`), and the cross-entity analytics change nothing. The single write path is the explicit `import` command (a JSONL-to-POST create path), which previews with `--dry-run`. The strongest control is the scope of the token you mint - grant read-only Graph scopes and the CLI can only read.
+Governance: The skill drives the microsoft-graph-cli and microsoft-graph-mcp binaries, authenticating with a MICROSOFT_GRAPH_TOKEN from the environment or the 0600 credentials file `auth login` writes - never logged, and sent only to the Microsoft Graph API. No command writes to your tenant: users, groups, directory roles, licenses, devices, managed devices, security alerts and incidents, third-party app consent (`apps consent`), Teams Phone numbers and user voice settings, and the cross-entity analytics only read. Teams meeting transcripts are read in your own tenant only and never stored. The strongest control is the scope of the token you mint - grant read-only Graph scopes and the CLI can only read.
 
 ### Mimecast (Security)
 
@@ -2949,7 +2953,7 @@ Governance: The skill is read-first: the seven GraphQL rollups (orgs, health, fa
 ### Riverside.fm (Marketing)
 
 Page: [Riverside.fm](https://msp-skills.compoundingteams.com/skills/riverside-fm.md)
-Verification: Awaiting live verification
+Verification: Live-verified by Servosity (maintainer) (2026-11-06)
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/riverside-fm/install.sh)
 
 Pull every transcript, audio track, and video out of your own Riverside.com account in one command - no Business plan, no API key, no clicking Studio then Project then Take for each file. Ask your agent to archive a whole studio, find a quote across every episode, or convert a transcript to WebVTT, and it runs the real command against the same internal API the web app already uses.
@@ -2978,9 +2982,9 @@ A: No. The official Riverside API requires a custom-priced Business plan. This C
 Q: Can this download other people's recordings?
 A: No. It authenticates as you, with your own browser session, and only reaches the studios and takes your account already has access to. It is scoped to exporting your own content, not scraping anyone else's.
 Q: Will this change anything in my Riverside account?
-A: The commands you use to export, search, and convert all read - they only download and transform your data. The CLI does include the generic import command, which can POST records from a local file via the API's create/upsert path; it is not part of any workflow in this skill, and an agent should treat it as a reviewed write. Nothing in this CLI deletes or publishes.
+A: The commands you use to export, search, and convert all read - they only download and transform your data. Nothing in this CLI writes to Riverside, deletes or publishes.
 
-Governance: The Riverside data commands in this skill read: they download, search, and convert data from your own account. The one mutating command is the generic import, which POSTs records from a local JSONL file via the API's create/upsert path and is not part of any export workflow here. The CLI authenticates with your own browser session cookies, read from your environment only, and can do only what your Riverside account already permits. The safe agent policy is to allow reads freely and keep a human on import and anything else the safety scanner flags as a write.
+Governance: The Riverside data commands in this skill read: they download, search, and convert data from your own account. No command changes anything in your Riverside account. The CLI authenticates with your own browser session cookies, read from your environment only, and can do only what your Riverside account already permits. The safe agent policy is to allow reads freely and keep a human on import and anything else the safety scanner flags as a write.
 
 ### RocketCyber (Security)
 

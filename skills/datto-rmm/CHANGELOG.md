@@ -4,6 +4,28 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.1.11] - unreleased
+
+### Changed
+- Regenerated on CLI Printing Press 4.34.2 (security advisory [GHSA-jh26-vhqh-692c](https://github.com/advisories/GHSA-jh26-vhqh-692c)) with mcp-go v0.57.0. MCP HTTP mode needs `DATTO_RMM_MCP_HTTP_TOKEN` (32+ characters), binds `127.0.0.1:7777` by default and needs TLS on any other address. Every MCP write previews and sends only with `confirm: true`. `DATTO_RMM_MCP_READ_ONLY`, `DATTO_RMM_NO_LOCAL_DATA`, `DATTO_RMM_MCP_HTTP_TOKEN` and `DATTO_RMM_USER_AGENT` are declared on every install channel; `DATTO_RMM_TOKEN` is no longer required by the Claude Desktop prompt.
+
+### Added
+- `fleet udf`: rolls one device user-defined field up across every synced site, with each value's device and site counts and how many devices leave it empty.
+
+### Security
+- **Credential handling now runs through the shared credential kit.** One tested implementation replaces this connector's own layer. A held key, secret, token or minted token is withheld from every output, file, store write and MCP result, and is sent only to the API base URL in use, never over plain http or across a redirect to another host. The fixed Datto OAuth client stays out of the held set, so ordinary output naming the word "public" still prints. A saved run profile's base-url password and query values, and a saved proxy password, are held at startup and sent nowhere. The notice is now "[credkit: withheld from stdout: it carried a credential this program holds]".
+
+### Fixed
+- **Long exports arrive whole.** `export` hands records to the kit whole, so an export past 20 KiB is not cut off.
+- **A site with a proxy password no longer fails `sync`.** The password is replaced by `[redacted]` before the record reaches the local store.
+- **A key pair works on its own again.** API commands and the MCP server mint a token from `DATTO_RMM_API_KEY` and `DATTO_RMM_API_SECRET_KEY` on first use; before, they answered 401 until `auth login`.
+- **`DATTO_RMM_PLATFORM` routes every request.** Before, it applied only in `auth login`, so a token minted on one platform was sent to the default.
+- **Sync, `--all` and `export` read every page**, following Datto's `pageDetails.nextPageUrl`. Before, sync stored only the first page of every list, and stored 0 users.
+- **One credential is in effect, and it decides everything.** `DATTO_RMM_TOKEN` in the environment comes first, then a configured API key, then what is stored. The `Authorization` sent and the local store used both follow that one choice, so a `[headers] Authorization` in a config file no longer goes out beside another credential, and two accounts no longer share a local store.
+- **`fleet sprawl --refresh` states what is installed now.** An uninstalled app leaves the counts, and so does a device the synced fleet no longer has. A device whose read failed keeps its last list and is named in a warning.
+- **A failure Datto reports inside a 200 response fails the read.** A populated `error` field, documented on activity log pages, now makes `fleet sync-gaps` report the partition incomplete, and fails a list read, with or without `--all`, and `export` instead of returning part of the list as all of it.
+- `fleet av-gaps`, `fleet device-timeline`, `fleet scorecard` and the local partitions read the documented Datto shapes and enums; one alert counts once.
+
 ## [0.1.10] - 2026-10-23
 
 ### Security

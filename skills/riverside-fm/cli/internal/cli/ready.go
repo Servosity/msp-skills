@@ -1,4 +1,5 @@
 // Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
+// pp:data-source live
 
 package cli
 
@@ -34,12 +35,10 @@ func newReadyCmd(flags *rootFlags) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			projData, err := c.Get("/api/v4/projects/studio/"+url.PathEscape(studio),
-				map[string]string{"offset": "0", "limit": "200", "sortBy": "createdAt", "orderBy": "desc"})
+			projects, err := listStudioProjects(cmd.Context(), c, studio)
 			if err != nil {
-				return classifyAPIError(err, flags)
+				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}
-			projects := extractProjects(projData)
 
 			type readyRow struct {
 				Studio       string  `json:"studio"`
@@ -53,23 +52,42 @@ func newReadyCmd(flags *rootFlags) *cobra.Command {
 			}
 			rows := []readyRow{}
 
+			// A take whose fetch failed is not "not ready": it is unknown. The
+			// output is a bare list with nowhere to say so, so any failed fetch
+			// exits non-zero (after the partial list) and names the first error.
+			fetches, failures := 0, 0
+			var firstErr error
+			fail := func(e error) {
+				failures++
+				if firstErr == nil {
+					firstErr = e
+				}
+			}
+
 			for _, proj := range projects {
-				tdata, err := c.Get("/api/v4/projects/"+url.PathEscape(proj.ID)+"/takes",
-					map[string]string{"offset": "0", "limit": "100"})
+				fetches++
+				takes, err := listProjectTakes(cmd.Context(), c, proj.ID)
 				if err != nil {
+					fail(fmt.Errorf("project %s takes: %w", proj.ID, err))
 					continue
 				}
-				takes := extractTakes(tdata)
 				for _, take := range takes {
-					adata, aerr := c.Get("/api/v4/take/"+url.PathEscape(take.SessionID)+"/assets", nil)
+					fetches++
+					adata, aerr := c.Get(cmd.Context(), "/api/v4/take/"+url.PathEscape(take.SessionID)+"/assets", nil)
 					if aerr != nil {
+						fail(fmt.Errorf("take %s assets: %w", take.SessionID, aerr))
 						continue
 					}
 					if !allTracksDone(adata) {
 						continue
 					}
-					ttData, tterr := c.Get("/api/v4/transcriptions/editableWithVoiceActivity/"+url.PathEscape(take.SessionID), nil)
-					if tterr != nil || !hasTranscriptContent(ttData) {
+					fetches++
+					ttData, tterr := c.Get(cmd.Context(), "/api/v4/transcriptions/editableWithVoiceActivity/"+url.PathEscape(take.SessionID), nil)
+					if tterr != nil {
+						fail(fmt.Errorf("take %s transcript: %w", take.SessionID, tterr))
+						continue
+					}
+					if !hasTranscriptContent(ttData) {
 						continue
 					}
 					rows = append(rows, readyRow{
@@ -85,21 +103,28 @@ func newReadyCmd(flags *rootFlags) *cobra.Command {
 				}
 			}
 
+			incomplete := func() error {
+				if failures == 0 {
+					return nil
+				}
+				return classifyAPIErrorOnly(fmt.Errorf("ready is incomplete: %d of %d fetches failed, so the takes behind them are missing from this list. First: %w", failures, fetches, firstErr))
+			}
+
 			if flags.asJSON || !isTerminal(cmd.OutOrStdout()) {
 				j, _ := json.MarshalIndent(rows, "", "  ")
 				fmt.Fprintln(cmd.OutOrStdout(), string(j))
-				return nil
+				return incomplete()
 			}
 			if len(rows) == 0 {
 				fmt.Fprintf(cmd.OutOrStdout(), "No fully-ready takes in studio %s.\n", studio)
-				return nil
+				return incomplete()
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), "%d ready takes in %s:\n", len(rows), studio)
 			for _, r := range rows {
 				fmt.Fprintf(cmd.OutOrStdout(), "  %s | %s | %s | %.1f min | %d participants\n",
 					r.SessionID, r.Title, r.Project, r.DurationMin, r.Participants)
 			}
-			return nil
+			return incomplete()
 		},
 	}
 

@@ -42,8 +42,64 @@ type fleetActivityLog struct {
 	DeviceID json.RawMessage `json:"deviceId"`
 	Entity   string          `json:"entity"`
 	Hostname string          `json:"hostname"`
-	Site     string          `json:"site"`
-	User     string          `json:"user"`
+	Site     fleetLogSite    `json:"site"`
+	User     fleetLogUser    `json:"user"`
+}
+
+// fleetLogSite is ActivityLog.site (vendor schema SiteBasicDto {id, name});
+// fleetLogUser is ActivityLog.user (UserDto {id, userName, firstName,
+// lastName}). Codex review r1 class "documented field type misread": both are
+// objects in Datto's spec and were read as strings, so every activity failed
+// to decode and vanished from the timeline. A bare string is still read as
+// the name (older stores).
+type fleetLogSite struct {
+	Name string
+}
+
+type fleetLogUser struct {
+	Name string
+}
+
+func (s *fleetLogSite) UnmarshalJSON(b []byte) error {
+	var v struct {
+		Name string `json:"name"`
+	}
+	name, err := fleetNameOrObject(b, &v, func() string { return v.Name })
+	s.Name = name
+	return err
+}
+
+func (u *fleetLogUser) UnmarshalJSON(b []byte) error {
+	var v struct {
+		UserName  string `json:"userName"`
+		FirstName string `json:"firstName"`
+		LastName  string `json:"lastName"`
+	}
+	name, err := fleetNameOrObject(b, &v, func() string {
+		if strings.TrimSpace(v.UserName) != "" {
+			return v.UserName
+		}
+		return strings.TrimSpace(v.FirstName + " " + v.LastName)
+	})
+	u.Name = name
+	return err
+}
+
+// fleetNameOrObject reads null, a string, or the documented object.
+func fleetNameOrObject(b []byte, obj any, name func() string) (string, error) {
+	switch t := strings.TrimSpace(string(b)); {
+	case t == "" || t == "null":
+		return "", nil
+	case strings.HasPrefix(t, `"`):
+		var s string
+		err := json.Unmarshal(b, &s)
+		return s, err
+	default:
+		if err := json.Unmarshal(b, obj); err != nil {
+			return "", err
+		}
+		return name(), nil
+	}
 }
 
 const fleetActivityLogsResource = "activity-logs"
@@ -119,15 +175,15 @@ func buildTimeline(alerts []fleetAlert, logs []fleetActivityLog, key string, day
 		if summary == "" {
 			summary = l.Entity
 		}
-		if l.User != "" {
-			summary += " (by " + l.User + ")"
+		if l.User.Name != "" {
+			summary += " (by " + l.User.Name + ")"
 		}
 		events = append(events, stamped{t: t, ev: timelineEvent{
 			Time:     t.UTC().Format(time.RFC3339),
 			Source:   "activity",
 			Category: l.Category,
 			Summary:  summary,
-			Site:     l.Site,
+			Site:     l.Site.Name,
 		}})
 	}
 

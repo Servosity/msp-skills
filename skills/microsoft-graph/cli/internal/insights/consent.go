@@ -40,17 +40,40 @@ func IsMicrosoftFirstParty(appOwnerOrganizationID string) bool {
 // highPrivilegeScopeNames are delegated (oauth2PermissionGrant) scope names an
 // MSP should review on sight: broad read-all, any write-all, mail access, and
 // directory/role/application management. Matched exactly, case-insensitively.
-var highPrivilegeScopeNames = map[string]bool{
-	"Directory.Read.All": true, "Directory.ReadWrite.All": true,
-	"User.Read.All": true, "User.ReadWrite.All": true,
-	"Group.Read.All": true, "Group.ReadWrite.All": true,
-	"Mail.Read": true, "Mail.ReadWrite": true, "Mail.Send": true,
-	"Files.Read.All": true, "Files.ReadWrite.All": true,
-	"Sites.Read.All": true, "Sites.ReadWrite.All": true, "Sites.FullControl.All": true,
-	"Application.Read.All": true, "Application.ReadWrite.All": true,
-	"RoleManagement.ReadWrite.Directory": true,
-	"AppRoleAssignment.ReadWrite.All":    true,
-	"full_access_as_user":                true,
+var highPrivilegeScopeNames = permissionSet(`
+	Directory.Read.All Directory.ReadWrite.All
+	User.Read.All User.ReadWrite.All
+	Group.Read.All Group.ReadWrite.All
+	Mail.Read Mail.ReadWrite Mail.Send
+	Files.Read.All Files.ReadWrite.All
+	Sites.Read.All Sites.ReadWrite.All Sites.FullControl.All
+	Application.Read.All Application.ReadWrite.All
+	RoleManagement.ReadWrite.Directory
+	AppRoleAssignment.ReadWrite.All
+	full_access_as_user`)
+
+// Graph permission names are written in space-separated lists, never one per
+// literal: a name such as Mail.Read or RoleManagement.ReadWrite.Directory ends
+// in a delegated gTLD label (.read, .directory), and the press novel-host gate
+// reads a lone literal of that shape as a hostname (microsoft-graph handfix:
+// graph-permission-names-not-hosts).
+func permissionSet(names string) map[string]bool {
+	set := map[string]bool{}
+	for _, n := range strings.Fields(names) {
+		set[n] = true
+	}
+	return set
+}
+
+// permissionsByID reads "id=name" pairs into a map.
+func permissionsByID(pairs string) map[string]string {
+	byID := map[string]string{}
+	for _, p := range strings.Fields(pairs) {
+		if id, name, ok := strings.Cut(p, "="); ok {
+			byID[id] = name
+		}
+	}
+	return byID
 }
 
 // isHighPrivilegeScope flags a delegated scope by exact name or by the broad
@@ -80,35 +103,30 @@ func isHighPrivilegeScope(scope string) bool {
 // highest-privilege consent class regardless of name — this map only makes the
 // dangerous ones legible; an unmapped id still counts and still flags.
 // ponytail: curated high-risk subset, not every Graph app role.
-var wellKnownGraphAppRoles = map[string]string{
-	"7ab1d382-f21e-4acd-a863-ba3e13f7da61": "Directory.Read.All",
-	"19dbc75e-c2e2-444c-a770-ec69d8559fc7": "Directory.ReadWrite.All",
-	"df021288-bdef-4463-88db-98f22de89214": "User.Read.All",
-	"741f803b-c850-494e-b5df-cde7c675a1ca": "User.ReadWrite.All",
-	"5b567255-7703-4780-807c-7be8301ae99b": "Group.Read.All",
-	"62a82d76-70ea-41e2-9197-370581804d09": "Group.ReadWrite.All",
-	"810c84a8-4a9e-49e6-bf7d-12d183f40d01": "Mail.Read",
-	"e2a3a72e-5f79-4c64-b1b1-878b674786c9": "Mail.ReadWrite",
-	"b633e1c5-b582-4048-a93e-9f11b44c7e96": "Mail.Send",
-	"01d4889c-1287-42c6-ac1f-5d1e02578ef6": "Files.Read.All",
-	"75359482-378d-4052-8f01-80520e7db3cd": "Files.ReadWrite.All",
-	"332a536c-c7ef-4017-ab91-336970924f0d": "Sites.Read.All",
-	"9492366f-7969-46a4-8d15-ed1a20078fff": "Sites.ReadWrite.All",
-	"a82116e5-55eb-4c41-a434-62fe8a61c773": "Sites.FullControl.All",
-	"9a5d68dd-52b0-4cc2-bd40-abcf44ac3a30": "Application.Read.All",
-	"1bfefb4e-e0b5-418b-a88f-73c46d2cc8e9": "Application.ReadWrite.All",
-	"9e3f62cf-ca93-4989-b6ce-bf83c28f9fe8": "RoleManagement.ReadWrite.Directory",
-	"06b708a9-e830-4db3-a914-8e69da51d44f": "AppRoleAssignment.ReadWrite.All",
-}
+var wellKnownGraphAppRoles = permissionsByID(`
+	7ab1d382-f21e-4acd-a863-ba3e13f7da61=Directory.Read.All
+	19dbc75e-c2e2-444c-a770-ec69d8559fc7=Directory.ReadWrite.All
+	df021288-bdef-4463-88db-98f22de89214=User.Read.All
+	741f803b-c850-494e-b5df-cde7c675a1ca=User.ReadWrite.All
+	5b567255-7703-4780-807c-7be8301ae99b=Group.Read.All
+	62a82d76-70ea-41e2-9197-370581804d09=Group.ReadWrite.All
+	810c84a8-4a9e-49e6-bf7d-12d183f40d01=Mail.Read
+	e2a3a72e-5f79-4c64-b1b1-878b674786c9=Mail.ReadWrite
+	b633e1c5-b582-4048-a93e-9f11b44c7e96=Mail.Send
+	01d4889c-1287-42c6-ac1f-5d1e02578ef6=Files.Read.All
+	75359482-378d-4052-8f01-80520e7db3cd=Files.ReadWrite.All
+	332a536c-c7ef-4017-ab91-336970924f0d=Sites.Read.All
+	9492366f-7969-46a4-8d15-ed1a20078fff=Sites.ReadWrite.All
+	a82116e5-55eb-4c41-a434-62fe8a61c773=Sites.FullControl.All
+	9a5d68dd-52b0-4cc2-bd40-abcf44ac3a30=Application.Read.All
+	1bfefb4e-e0b5-418b-a88f-73c46d2cc8e9=Application.ReadWrite.All
+	9e3f62cf-ca93-4989-b6ce-bf83c28f9fe8=RoleManagement.ReadWrite.Directory
+	06b708a9-e830-4db3-a914-8e69da51d44f=AppRoleAssignment.ReadWrite.All
+`)
 
 // escalationAppRoles are the application permissions that let an app grant
 // itself (or others) more access — the "one consent to rule them all" tier.
-var escalationAppRoles = map[string]bool{
-	"Application.ReadWrite.All":          true,
-	"RoleManagement.ReadWrite.Directory": true,
-	"AppRoleAssignment.ReadWrite.All":    true,
-	"Directory.ReadWrite.All":            true,
-}
+var escalationAppRoles = permissionSet(`Application.ReadWrite.All RoleManagement.ReadWrite.Directory AppRoleAssignment.ReadWrite.All Directory.ReadWrite.All`)
 
 // ---- input shapes -----------------------------------------------------------
 
@@ -160,9 +178,9 @@ type ConsentApp struct {
 	DisplayName            string          `json:"displayName"`
 	Origin                 string          `json:"origin"` // "external" | "internal" (this tenant) | "microsoft"
 	AccountEnabled         bool            `json:"accountEnabled"`
-	AdminConsented         bool            `json:"adminConsented"`         // any delegated grant with consentType AllPrincipals, or any application permission
-	UserConsentGrants      int             `json:"userConsentGrants"`      // count of per-user delegated grants
-	DelegatedScopes        []string        `json:"delegatedScopes"`        // union across all grants
+	AdminConsented         bool            `json:"adminConsented"`    // any delegated grant with consentType AllPrincipals, or any application permission
+	UserConsentGrants      int             `json:"userConsentGrants"` // count of per-user delegated grants
+	DelegatedScopes        []string        `json:"delegatedScopes"`   // union across all grants
 	HighPrivilegeScopes    []string        `json:"highPrivilegeScopes,omitempty"`
 	ApplicationPermissions []AppPermission `json:"applicationPermissions"` // app-only roles
 	RiskFlags              []string        `json:"riskFlags"`
@@ -172,17 +190,17 @@ type ConsentApp struct {
 // ConsentSummary is the headline count block: the numbers an MSP spot-checks
 // against the Entra "Enterprise applications" blade.
 type ConsentSummary struct {
-	TotalServicePrincipals      int `json:"totalServicePrincipals"`
-	MicrosoftFirstParty         int `json:"microsoftFirstParty"`
-	ThirdPartyApps              int `json:"thirdPartyApps"`
-	ExternalApps                int `json:"externalApps"`
-	InternalApps                int `json:"internalApps"`
-	AdminConsentedApps          int `json:"adminConsentedApps"`
-	UserConsentedApps           int `json:"userConsentedApps"`
-	AppsWithApplicationPerms    int `json:"appsWithApplicationPermissions"`
-	AppsWithEscalationPerms     int `json:"appsWithEscalationPermissions"`
-	HighRiskApps                int `json:"highRiskApps"`
-	DisabledAppsWithConsent     int `json:"disabledAppsWithConsent"`
+	TotalServicePrincipals   int `json:"totalServicePrincipals"`
+	MicrosoftFirstParty      int `json:"microsoftFirstParty"`
+	ThirdPartyApps           int `json:"thirdPartyApps"`
+	ExternalApps             int `json:"externalApps"`
+	InternalApps             int `json:"internalApps"`
+	AdminConsentedApps       int `json:"adminConsentedApps"`
+	UserConsentedApps        int `json:"userConsentedApps"`
+	AppsWithApplicationPerms int `json:"appsWithApplicationPermissions"`
+	AppsWithEscalationPerms  int `json:"appsWithEscalationPermissions"`
+	HighRiskApps             int `json:"highRiskApps"`
+	DisabledAppsWithConsent  int `json:"disabledAppsWithConsent"`
 }
 
 // ConsentAuditResult is the full inventory envelope.

@@ -6,7 +6,7 @@ Cork tells you a client's risk score moved but never why, and offers no way to a
 
 ## Install
 
-This CLI ships as a Claude Code Skill and MCP server in [Servosity/msp-skills](https://github.com/Servosity/msp-skills). The installer places the `cork-cli` and `cork-mcp` binaries in your user bin directory (it appends to PATH on Windows; on macOS and Linux it prints the `export` line to add if `~/.local/bin` is not already there). Registering the skill with your agent, and wiring `cork-mcp` into Claude Desktop or ChatGPT, are separate steps - see the [README](./README.md) install table and [mcp-install.md](./mcp-install.md).
+This CLI ships as a Claude Code Skill and MCP server in [Servosity/msp-skills](https://github.com/Servosity/msp-skills). The installer downloads the `cork-cli` and `cork-mcp` binaries into `~/.local/bin` (macOS / Linux) or `%LOCALAPPDATA%\Programs\msp-skills` (Windows). It does not register the skill with your agent and writes no MCP client config - see [mcp-install.md](./mcp-install.md) for that wire-up.
 
 1. macOS / Linux:
    ```bash
@@ -19,16 +19,40 @@ This CLI ships as a Claude Code Skill and MCP server in [Servosity/msp-skills](h
 3. Verify: `cork-cli --version`
 4. Ensure `~/.local/bin` (macOS / Linux) or `%LOCALAPPDATA%\Programs\msp-skills` (Windows) is on `$PATH`.
 
-If `--version` reports "command not found" after install, the install step did not put the binary on `$PATH`. Do not proceed with skill commands until verification succeeds.
+If `--version` reports "command not found" after install, the install step did not put the binary on `$PATH`. Do not proceed until verification succeeds.
 
 ### Pre-built binary
 
 Download a pre-built binary for your platform from the [latest release](https://github.com/Servosity/msp-skills/releases?q=cork). On macOS, clear the Gatekeeper quarantine: `xattr -d com.apple.quarantine <binary>`. On Unix, mark it executable: `chmod +x <binary>`.
 
+<!-- pp-hermes-install-anchor -->
+## Install for Hermes
+
+From the Hermes CLI:
+
+```bash
+hermes skills install Servosity/msp-skills/skills/cork --force
+```
+
+Inside a Hermes chat session:
+
+```bash
+/skills install Servosity/msp-skills/skills/cork --force
+```
+
+Hermes [speaks MCP natively](https://hermes-agent.nousresearch.com), so it can also use the `cork-mcp` server directly - same install path, same environment variables. Restart the Hermes session or gateway if the newly installed skill is not visible immediately.
+
+## Install for OpenClaw
+
+Tell your OpenClaw agent (copy this):
+
+> Install the cork skill from https://github.com/Servosity/msp-skills/tree/main/skills/cork. The skill defines how its required CLI (`cork-cli`) can be installed via the `openclaw:` frontmatter block.
+
+OpenClaw isn't generally available yet; the frontmatter wiring is pre-shipped and will activate the moment OpenClaw launches.
 
 ## Use with Claude Desktop
 
-This CLI ships an [MCPB](https://github.com/modelcontextprotocol/mcpb) bundle  -  Claude Desktop's standard format for one-click MCP extension installs (no JSON config required).
+This CLI ships an [MCPB](https://github.com/modelcontextprotocol/mcpb) bundle - Claude Desktop's standard format for one-click MCP extension installs (no JSON config required).
 
 To install:
 
@@ -36,7 +60,7 @@ To install:
 2. Double-click the `.mcpb` file. Claude Desktop opens and walks you through the install.
 3. Fill in `CORK_API_KEY` when Claude Desktop prompts you.
 
-Requires Claude Desktop 1.0.0 or later. A bundle carries the five platform binaries the builder downloads - macOS (`darwin-arm64`, `darwin-amd64`), Linux (`linux-arm64`, `linux-amd64`) and Windows (`windows-amd64`). Windows on ARM is released as a standalone binary but is not bundled, so use the manual config below there.
+Requires Claude Desktop 1.0.0 or later. Pre-built bundles ship for macOS Apple Silicon (`darwin-arm64`) and Windows (`amd64`, `arm64`); for other platforms, use the manual config below.
 
 <details>
 <summary>Manual JSON config (advanced)</summary>
@@ -45,10 +69,13 @@ If you can't use the MCPB bundle (older Claude Desktop, unsupported platform), i
 
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/cork/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/cork/install.sh)          # macOS / Linux
+```
+```powershell
+iwr -useb https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/cork/install.ps1 | iex            # Windows
 ```
 
-Add to your Claude Desktop config (`%APPDATA%\Claude\claude_desktop_config.json` on Windows, `~/Library/Application Support/Claude/claude_desktop_config.json` on macOS):
+Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS, `%APPDATA%\Claude\claude_desktop_config.json` on Windows):
 
 ```json
 {
@@ -65,6 +92,17 @@ Add to your Claude Desktop config (`%APPDATA%\Claude\claude_desktop_config.json`
 
 </details>
 
+### Remote MCP over HTTP
+
+`cork-mcp --transport http` (or `PP_MCP_TRANSPORT=http`) serves streamable HTTP at `http://127.0.0.1:7777/mcp`. It refuses to start until `CORK_MCP_HTTP_TOKEN` is set to at least 32 characters, and every request must send `Authorization: Bearer <token>`. The command below prints 64 hex characters and meets that minimum. Plain HTTP is allowed only on a loopback `--addr`; any other bind, including `:7777` (every interface), also needs `--tls-cert` and `--tls-key`. Requests with no `Origin` header are accepted, as are loopback origins (`localhost`, `127.0.0.1`, or `[::1]`, any port). Any other `Origin` is refused unless it is listed in `CORK_MCP_HTTP_ALLOWED_ORIGINS`, a comma-separated list of `scheme://host[:port]` values with no path. That list is not a CORS policy; the server does not emit CORS headers.
+
+```bash
+export CORK_MCP_HTTP_TOKEN="$(openssl rand -hex 32)"
+cork-mcp --transport http
+```
+
+Set `CORK_MCP_READ_ONLY=1` (exactly `1`) to drop mirrored commands that are not marked read-only and make the raw execute tool refuse state-changing calls. Commands marked local-write, which write only this CLI's own learn store, stay available.
+
 ## Authentication
 
 Cork uses a bearer API key. Mint one in the Cork platform under Admin then API Keys, choosing a name and an expiry. Set it as CORK_API_KEY, or store it with cork-cli auth set-token. One caveat worth knowing: an API key inherits the permissions of the user who created it, so a 403 on a distributor or integration endpoint usually means the key was minted by an operator without that scope, not that the key is wrong.
@@ -72,36 +110,31 @@ Cork uses a bearer API key. Mint one in the Cork platform under Admin then API K
 ## Quick Start
 
 ```bash
-# Confirm the binary, config path, and local database resolve before spending an API call
-cork-cli doctor --dry-run
+# Confirms the API key is set and the Cork API answers with it
+cork-cli doctor
 
-# Populate the local mirror; the client roster carries the score history and tenant map that cross-client commands read
-cork-cli sync --resources clients,warranties
+# Mirrors clients, integrations, invoices and warranties into local SQLite
+cork-cli sync
 
-# The Monday question: which clients moved backwards this week
-cork-cli score regressions --since 7d --agent
-
-# Build the patch queue ordered by what is actually being exploited
-cork-cli vulnerabilities triage --kev-only --limit 25 --agent
-
-# Catch connectors reporting healthy while their data has gone stale
+# Check data freshness before trusting any score
 cork-cli integrations health --stale-after 24h --agent
+
+# Which clients slipped this week, worst first
+cork-cli score regressions --since 7d --min-drop 10 --agent
 
 ```
 
 ## Unique Features
 
-These capabilities aren't available in any other tool for this API.
-
 ### Risk that compounds locally
-- **`score attribute`**  -  Explain why a client's Cork score moved, broken out by claims, compliance, coverage, and vulnerability impact.
+- **`score attribute`** - Explain why a client's Cork score moved, broken out by claims, compliance, coverage, and vulnerability impact.
 
   _Reach for this when someone asks why a client got worse, instead of pulling raw score points and eyeballing a trend._
 
   ```bash
   cork-cli score attribute 00000000-0000-0000-0000-000000000000 --since 30d --agent
   ```
-- **`score regressions`**  -  Rank every client by score change over a window, worst movers first.
+- **`score regressions`** - Rank every client by score change over a window, worst movers first.
 
   _Use this to open a book-of-business review; it answers 'who moved backwards' in one call instead of one call per client._
 
@@ -110,14 +143,14 @@ These capabilities aren't available in any other tool for this API.
   ```
 
 ### Exploitability over CVSS
-- **`vulnerabilities triage`**  -  Rank software products by exploitability (known-exploited first, then EPSS, then CVSS) with a blast-radius device count and client names resolved.
+- **`vulnerabilities triage`** - Rank software products by exploitability (known-exploited first, then EPSS, then CVSS) with a blast-radius device count and client names resolved.
 
   _Pick this over a raw vulnerability list when deciding what to patch first. Live-only: Cork's vulnerability rows carry no id so they cannot be mirrored locally, --limit counts products rather than individual findings, and a capped scan sets scan_cap_hit._
 
   ```bash
   cork-cli vulnerabilities triage --kev-only --min-epss 0.3 --limit 25 --agent
   ```
-- **`vulnerabilities exposure`**  -  List every affected client, device, product, and version for a single CVE id.
+- **`vulnerabilities exposure`** - List every affected client, device, product, and version for a single CVE id.
 
   _Use this the moment a specific CVE is named in an advisory or a client email; it is the only way to answer 'are we exposed'. Exit 3 means the scan succeeded and found no exposure, which is a negative answer rather than a failure. Live-only: vulnerability rows carry no id so there is no local mirror to read, and a capped scan sets scan_cap_hit, which is explicitly not a clean bill of health._
 
@@ -126,30 +159,37 @@ These capabilities aren't available in any other tool for this API.
   ```
 
 ### Data you can actually trust
-- **`compliance overdue`**  -  Surface compliance events that have blown their event type's remediation window, bucketed by age.
+- **`compliance overdue`** - Surface compliance events that have blown their event type's remediation window, bucketed by age.
 
   _Choose this over listing a client's events when you need the ones that are actively costing score, ordered by how late they are._
 
   ```bash
   cork-cli compliance overdue --bucket --agent
   ```
-- **`integrations health`**  -  Flag connectors that are down, degraded, or reporting healthy while their last sync has gone stale, and name the clients they feed.
+- **`integrations health`** - Flag connectors that are down, degraded, or reporting healthy while their last sync has gone stale, and name the clients they feed.
 
   _Run this before trusting any risk number; a silently stale connector makes every downstream score fiction._
 
   ```bash
   cork-cli integrations health --stale-after 24h --agent
   ```
-- **`coverage gaps`**  -  Diff the devices a connector reports against the devices attributed to the client to expose endpoints one tool sees and another misses.
+- **`coverage gaps`** - Diff the devices a connector reports against the devices attributed to the client to expose endpoints one tool sees and another misses.
 
   _Use this during onboarding verification or when coverage impact is dragging a score and you need the specific unmonitored endpoints. Exit 3 means there were no connector devices to diff, a negative answer rather than a failure; the command refuses outright rather than reporting gaps against a device baseline it could not read._
 
   ```bash
   cork-cli coverage gaps --client 00000000-0000-0000-0000-000000000000 --agent
   ```
+- **`compliance exclusions-due`** - List compliance exclusions and silenced alert rules whose review date has passed or that are flagged for review, across every client, oldest first.
+
+  _Run this before a compliance review or QBR: an exclusion nobody re-reviewed is a risk the score silently stopped counting. Live fan-out over clients; a capped scan sets scan_cap_hit and is not a clean bill of health._
+
+  ```bash
+  cork-cli compliance exclusions-due --agent
+  ```
 
 ### Commercial signal
-- **`warranties exposure`**  -  Rank unwarranted or lapsed clients by current risk so coverage conversations start with the ones that need it most.
+- **`warranties exposure`** - Rank unwarranted or lapsed clients by current risk so coverage conversations start with the ones that need it most.
 
   _Reach for this when preparing commercial outreach, rather than listing warranties and cross-checking risk by hand._
 
@@ -238,6 +278,15 @@ cork-cli doctor
 
 Under `CORK_HOME=/srv/cork`, the four dirs resolve to `/srv/cork/config`, `/srv/cork/data`, `/srv/cork/state`, and `/srv/cork/cache`.
 
+On Windows, set the same variable in PowerShell:
+
+```powershell
+$env:CORK_HOME = "C:\srv\cork"
+cork-cli doctor
+```
+
+Under `$env:CORK_HOME = "C:\srv\cork"`, the four dirs resolve to `C:\srv\cork\config`, `C:\srv\cork\data`, `C:\srv\cork\state`, and `C:\srv\cork\cache`.
+
 MCP servers do not receive CLI flags from the host. Put relocation in the host `env` block:
 
 ```json
@@ -258,6 +307,16 @@ Precedence matters in fleets: an ambient per-kind variable such as `CORK_DATA_DI
 Relocation is one-way. Unsetting `CORK_HOME` does not move files back to platform defaults, and `doctor` cannot find credentials left under a former root. Move the files manually before unsetting relocation variables.
 
 Existing installs keep working because the platform-default rung matches the legacy layout. On the first auth write, stored secrets leave `config.toml` and are consolidated into `credentials.toml` under the data directory. Run `cork-cli doctor --fail-on warn` to check path and credential-location warnings in automation.
+
+### Local data
+
+Reads are saved locally by default: in `--data-source auto` mode every successful read is also written to the SQLite store (`data.db`, or `data-<hash>.db` per credential) in the data directory. GET responses are cached for five minutes under `http/` in the cache directory. Credentials live in `credentials.toml` in the data directory. The learn journal lives under `learn/` in the state directory. `cork-cli doctor` prints the resolved paths, every store file, and the response-cache size.
+
+None of it is encrypted. New files are created owner-only; beyond that the data relies on OS account permissions and full-disk encryption (FileVault, BitLocker, LUKS).
+
+- **Erase it:** `cork-cli local-data purge` lists the store files, response cache, and learn journal it would delete; add `--yes` to delete them, or `--only store|cache|journal` to narrow it. Config and credentials are kept.
+- **Run without a local copy:** set `CORK_NO_LOCAL_DATA=1`. Reads go to the API (`--data-source live`; `--data-source local` still reads an existing store), the response cache is off (`--no-cache`), nothing new is written to the store, and `sync` and `workflow archive` refuse to run. Set it in an MCP host's `env` block and every command the server runs inherits it.
+- **Choose the read source without flags:** `CORK_DATA_SOURCE=auto|live|local` sets the `--data-source` default; an explicit flag wins.
 
 ## Commands
 
@@ -327,6 +386,50 @@ Manage warranties
 - **`cork-cli warranties`** - List active cyber warranty packages. To identify which clients lack coverage, check the warranty_status field in `Get Clients` results - clients with 'unwarranted' status have no active warranty.
 
 
+### compliance
+
+
+- **`cork-cli compliance overdue`** - Surface compliance events that have blown their event type's remediation window, bucketed by age.
+
+- **`cork-cli compliance exclusions-due`** - List compliance exclusions and silenced alert rules whose review date has passed or that are flagged for review, across every client, oldest first.
+
+
+### coverage
+
+
+- **`cork-cli coverage gaps`** - Diff the devices a connector reports against the devices attributed to the client to expose endpoints one tool sees and another misses.
+
+
+### integrations
+
+
+- **`cork-cli integrations health`** - Flag connectors that are down, degraded, or reporting healthy while their last sync has gone stale, and name the clients they feed.
+
+
+### score
+
+
+- **`cork-cli score attribute`** - Explain why a client's Cork score moved, broken out by claims, compliance, coverage, and vulnerability impact.
+
+- **`cork-cli score regressions`** - Rank every client by score change over a window, worst movers first.
+
+
+### vulnerabilities
+
+
+- **`cork-cli vulnerabilities triage`** - Rank software products by exploitability (known-exploited first, then EPSS, then CVSS) with a blast-radius device count and client names resolved.
+
+- **`cork-cli vulnerabilities exposure`** - List every affected client, device, product, and version for a single CVE id.
+
+
+### warranties
+
+
+- **`cork-cli warranties exposure`** - Rank unwarranted or lapsed clients by current risk so coverage conversations start with the ones that need it most.
+
+
+
+
 ### Self-learning loop
 
 This CLI caches per-question discovery so repeat queries skip the walk and structurally similar queries get answered via entity substitution. The loop also self-captures: every invocation is journaled locally, and failed-flag corrections plus fresh teaches surface as candidates on the next `recall` for confirm/reject judgment. Agents call `recall` before discovery and fire `teach &` after answering. See the `## Automatic learning` section in `SKILL.md` for the full protocol.
@@ -342,7 +445,7 @@ This CLI caches per-question discovery so repeat queries skip the walk and struc
 
 Pass `--no-learn` or set `CORK_NO_LEARN=true` to disable the loop for deterministic flows.
 
-The local store's schema version stamp is one-way: once this version of `cork-cli` opens the database, older binaries refuse it with a version error  -  upgrade the binary rather than downgrading.
+The local store's schema version stamp is one-way: once this version of `cork-cli` opens the database, older binaries refuse it with a version error - upgrade the binary rather than downgrading.
 
 ## Output Formats
 
@@ -355,12 +458,14 @@ cork-cli clients --json
 # Filter to specific fields
 cork-cli clients --json --select associated_tenants,created_at,hidden
 
-# Dry run  -  show the request without sending
+# Dry run - show the request without sending
 cork-cli clients --dry-run
 
-# Agent mode  -  JSON + compact + no prompts in one flag
+# Agent mode - JSON + compact + no prompts in one flag
 cork-cli clients --agent
 ```
+
+`--csv` prefixes a leading `'` on cells and header keys that start with `=`, `+`, `-`, `@`, a tab, or a line break (including fullwidth `＝＋－＠`) so a spreadsheet does not run them as formulas. Plain signed numbers such as `-5` and `+2.5e3` are left unchanged.
 
 ## Agent Usage
 
@@ -371,12 +476,12 @@ This CLI is designed for AI agent consumption:
 - **Filterable** - `--select <field>[,<field>...]` returns only fields you need
 - **Previewable** - `--dry-run` shows the request without sending
 - **Explicit retries** - add `--idempotent` to create retries and add `--ignore-missing` to delete retries when a no-op success is acceptable
-- **Confirmable** - `--yes` for explicit confirmation of destructive actions
+- **Explicit confirmation** - `--agent` does not imply `--yes`; pass `--yes` separately only after the target, arguments, and side effects are clear
 - **Piped input** - write commands can accept structured input when their help lists `--stdin`
 - **Offline-friendly** - sync/search commands can use the local SQLite store when available
 - **Agent-safe by default** - no colors or formatting unless `--human-friendly` is set
 
-Exit codes: `0` success, `2` usage error, `3` not found, `4` auth error, `5` API error, `7` rate limited, `10` config error.
+Exit codes: `0` success, `2` usage error, `3` not found, `4` auth error, `5` API error, `6` partial failure, `7` rate limited, `10` config error.
 
 ## Health Check
 
@@ -388,9 +493,11 @@ Verifies configuration, credentials, and connectivity to the API.
 
 ## Configuration
 
-Run `cork-cli doctor` to see the resolved config, data, state, and cache directories. The platform-default config path is `~/.config/cork-cli/config.toml` (`%USERPROFILE%\.config\cork-cli\config.toml` on Windows); `--home`, `CORK_HOME`, and per-kind env vars can relocate it.
+Run `cork-cli doctor` to see the resolved config, data, state, and cache directories. The platform-default config path is `~/.config/cork-cli/config.toml` on macOS/Linux and `%USERPROFILE%\.config\cork-cli\config.toml` on Windows; `--home`, `CORK_HOME`, and per-kind env vars can relocate it.
 
 Static request headers can be configured under `headers`; per-command header overrides take precedence.
+
+`--ca-cert`, `CORK_CA_CERT`, or `ca_cert` adds a PEM CA bundle to the system trust roots. `--tls-server-name`, `CORK_TLS_SERVER_NAME`, or `tls_server_name` is the name checked against the certificate when the dialed address does not match it. Precedence is flag, then environment, then the config file. A config file other users can change does not supply these settings. Certificate verification failures are not retried.
 
 Environment variables:
 
@@ -411,12 +518,6 @@ If you use agentcookie to sync secrets across machines, this CLI auto-adopts age
 - Run the `list` command to see available items
 
 ### API-specific
-- **401 with "Missing Authorization header"**  -  Set CORK_API_KEY, or run cork-cli auth set-token, then re-check with cork-cli doctor
-- **403 on distributor or integration endpoints while other commands work**  -  The key inherits its creator's permissions; mint a new key in Admin then API Keys as an operator who holds that scope
-- **score regressions returns nothing**  -  Run cork-cli sync --resources clients first; score regressions reads only the local mirror. warranties exposure prefers the mirrored roster but falls back to a live fetch, so it works either way
-- **A result looks complete but only covered part of the fleet**  -  Check scan_cap_hit and note in the JSON envelope. Capped commands stop at --max-scan-pages, --max-clients or --max-connectors and say so; raise the relevant cap to widen the sweep
-- **vulnerabilities exposure or coverage gaps exits 3**  -  Exit 3 from these two commands means the scan succeeded and matched nothing, not that it failed. Treat it as a negative answer, and check scan_cap_hit before reading it as a clean bill of health
-- **--data-source local appears to be ignored on vulnerabilities triage or exposure**  -  Expected: both commands are live-only because Cork's vulnerability rows carry no id and cannot be mirrored locally
-- **sync --resources vulnerabilities reports zero records**  -  Expected: Cork's vulnerability rows carry no id, so they cannot be mirrored locally. Use cork-cli vulnerabilities triage or vulnerabilities exposure, which query the API directly
-- **Results look stale or predate a recent change in Cork**  -  Re-run cork-cli sync --resources clients --full, and check connector freshness with cork-cli integrations health
-- **HTTP 429 during a wide sync or scan**  -  Cork does not publish rate limits. Narrow the sync with cork-cli sync --max-pages 2, then retry
+- **403 on a distributor or integration endpoint** - An API key inherits the permissions of the user who created it; mint the key from a user with that scope
+- **401 Unauthorized** - Set CORK_API_KEY to a current key (Cork platform: Admin, then API Keys) and run cork-cli doctor
+- **score attribute or score regressions return nothing** - Run cork-cli sync first; both read the local mirror

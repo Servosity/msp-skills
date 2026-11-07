@@ -56,7 +56,7 @@ func newNetworksSmGetNetworkTargetGroupCmd(flags *rootFlags) *cobra.Command {
 			if cmd.Flags().Changed("with-details") || flagWithDetails != false {
 				params["withDetails"] = formatCLIParamValue(flagWithDetails)
 			}
-			data, prov, err := resolveReadWithStrategyAndResponsePath(cmd.Context(), c, flags, "live", "sm", false, path, params, nil, "tags", cmd.ErrOrStderr())
+			data, prov, err := resolveReadWithStrategyAndResponsePath(cmd.Context(), c, flags, "live", "sm", false, path, params, nil, "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}
@@ -83,7 +83,7 @@ func newNetworksSmGetNetworkTargetGroupCmd(flags *rootFlags) *cobra.Command {
 					filtered, selectErr = filterFieldsChecked(filtered, flags.selectFields)
 					selectErr = selectErrorForDryRun(selectErr, flags, data)
 				} else if flags.compact {
-					filtered = compactFields(filtered, nil)
+					filtered = compactFields(filtered, map[string]bool{"id": true, "name": true})
 				}
 				wrapped, wrapErr := wrapWithProvenance(filtered, prov)
 				if wrapErr != nil {
@@ -115,7 +115,7 @@ func newNetworksSmGetNetworkTargetGroupCmd(flags *rootFlags) *cobra.Command {
 			if flags.csv || flags.plain {
 				formatData = outputData
 			}
-			return printOutputWithFlagsMeta(cmd.OutOrStdout(), formatData, flags, map[string]any{"source": "live"}, nil)
+			return printOutputWithFlagsMeta(cmd.OutOrStdout(), formatData, flags, map[string]any{"source": "live"}, map[string]bool{"id": true, "name": true})
 		},
 	}
 	cmd.Flags().BoolVar(&flagWithDetails, "with-details", false, "Boolean indicating if the the ids of the devices or users scoped by the target group should be included in the response")
