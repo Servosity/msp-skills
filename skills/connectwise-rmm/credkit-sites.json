@@ -1,0 +1,188 @@
+{
+ "sites": [
+  {
+   "file": "internal/credsql/credsql.go",
+   "func": "applyLengthLimit",
+   "what": "database/sql.DB.Conn",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "lends a connection already opened through credkit.SQLDriver to set SQLITE_LIMIT_LENGTH: it runs no statement and writes no value, and the hook only runs when the store opens, after Start"
+  },
+  {
+   "file": "internal/credsql/credsql.go",
+   "func": "applyLengthLimit",
+   "what": "database/sql.OpenDB",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "lends a connection already opened through credkit.SQLDriver to set SQLITE_LIMIT_LENGTH: it runs no statement and writes no value, and the hook only runs when the store opens, after Start"
+  },
+  {
+   "file": "internal/cliutil/credkit_guard.go",
+   "func": "readRegularFile",
+   "what": "os.ReadFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reads only the config, credential store and run profile files named by credwire.credentialFiles, inside Start, and the bytes go only to HoldBody"
+  },
+  {
+   "file": "internal/credwire/declarations.go",
+   "func": "compactStdinBody",
+   "what": "os.File.Stat",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "inside Start, before the kit reads stdin: stats this process's own stdin, writes nothing"
+  },
+  {
+   "file": "internal/credwire/declarations.go",
+   "func": "compactStdinBody",
+   "what": "writer:*os.File",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "inside Start, before the kit reads stdin: re-feeds this process's own stdin body (compacted JSON) through a pipe that becomes os.Stdin, which StdinFlags then holds"
+  },
+  {
+   "file": "internal/credwire/declarations.go",
+   "func": "compactStdinBody",
+   "what": "os.File.Write",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "writes the stdin body into the pipe that becomes os.Stdin, which StdinFlags then holds whole and line by line"
+  },
+  {
+   "file": "internal/credwire/declarations.go",
+   "func": "compactStdinBody",
+   "what": "os.File.Close",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "closes the write end of the stdin pipe above"
+  },
+  {
+   "file": "internal/client/connectwise_rmm_token.go",
+   "func": "NewAsioTokenRequest",
+   "what": "net/http.NewRequestWithContext",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the token request is sent only by clients whose Transport is credkit.Transport (cliutil.OutboundGuard): c.HTTPClient from client.New for the auto-mint, client.NewPlainHTTPClient for auth login and scopes"
+  },
+  {
+   "file": "internal/cli/deliver.go",
+   "func": "deliverWebhook",
+   "what": "call:dynamic",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "cliutil.OutboundGuard is credkit.Transport (a package variable, so the checker cannot resolve the call); OutboundGuard(nil) is credkit.Transport over http.DefaultTransport, so the webhook POST passes the kit's outbound guard"
+  },
+  {
+   "file": "internal/cli/deliver.go",
+   "func": "deliverWebhook",
+   "what": "net/http.RoundTripper.RoundTrip",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "cliutil.OutboundGuard is credkit.Transport (a package variable, so the checker cannot resolve the call); the RoundTrip is the kit's"
+  },
+  {
+   "file": "internal/cli/deliver.go",
+   "func": "deliverWebhook",
+   "what": "sink:net/http.RoundTripper",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "cliutil.OutboundGuard is credkit.Transport (a package variable, so the checker cannot resolve the call); the nil inner transport is the kit's own default (http.DefaultTransport) under its guard"
+  },
+  {
+   "file": "internal/cli/deliver_spacefast.go",
+   "func": "spacefastPublish",
+   "what": "net/http.Client{}",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "cliutil.OutboundGuard is credkit.Transport (a package variable, so the checker cannot resolve the call); the Spacefast client's Transport is OutboundGuard(nil), the kit's guard over http.DefaultTransport"
+  },
+  {
+   "file": "internal/cli/deliver_spacefast.go",
+   "func": "spacefastPublish",
+   "what": "call:dynamic",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "cliutil.OutboundGuard is credkit.Transport (a package variable, so the checker cannot resolve the call); the Spacefast client's Transport is the kit's guard"
+  },
+  {
+   "file": "internal/cli/deliver_spacefast.go",
+   "func": "spacefastPublish",
+   "what": "sink:net/http.RoundTripper",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "cliutil.OutboundGuard is credkit.Transport (a package variable, so the checker cannot resolve the call); the nil inner transport is the kit's own default (http.DefaultTransport) under its guard"
+  },
+  {
+   "file": "internal/client/client.go",
+   "func": "guardTransport",
+   "what": "sink:net/http.Transport",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "cliutil.OutboundGuard is credkit.Transport (a package variable, so the checker cannot resolve the call); guardTransport wraps the API client's cloned transport in it; the inner *http.Transport is kept only so StreamingHTTPClient can clone it and guard the clone"
+  },
+  {
+   "file": "internal/client/client.go",
+   "func": "guardTransport",
+   "what": "convert:net/http.RoundTripper.RoundTrip",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "cliutil.OutboundGuard is credkit.Transport (a package variable, so the checker cannot resolve the call); guardedTransport's RoundTrip is the embedded kit transport's"
+  },
+  {
+   "file": "internal/client/client.go",
+   "func": "guardTransport",
+   "what": "carrier",
+   "count": 3,
+   "kind": "exempt",
+   "reason": "cliutil.OutboundGuard is credkit.Transport (a package variable, so the checker cannot resolve the call); guardedTransport carries the kit transport and its inner *http.Transport, which nothing sends through except the kit"
+  },
+  {
+   "file": "internal/client/client.go",
+   "func": "guardTransport",
+   "what": "call:dynamic",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "cliutil.OutboundGuard is credkit.Transport (a package variable, so the checker cannot resolve the call); the call returns the kit's guard around tr"
+  },
+  {
+   "file": "internal/client/client.go",
+   "func": "StreamingHTTPClient",
+   "what": "net/http.Client{}",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the nil-base client's Transport is guardTransport(tr), the kit's guard (cliutil.OutboundGuard is credkit.Transport)"
+  },
+  {
+   "file": "internal/client/client.go",
+   "func": "StreamingHTTPClient",
+   "what": "net/http.Client.Transport",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "a guarded base gets guardTransport of its cloned inner transport; the one caller (Client.doInternal) passes c.HTTPClient, which New always guards, so the unguarded *http.Transport case is never taken"
+  },
+  {
+   "file": "internal/client/client.go",
+   "func": "NewPlainHTTPClient",
+   "what": "net/http.Client.Transport",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the probe/token client's transport is set to guardTransport(tr), the kit's guard (cliutil.OutboundGuard is credkit.Transport)"
+  },
+  {
+   "file": "internal/client/client.go",
+   "func": "New",
+   "what": "net/http.Client.Transport",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the API client's transport is set to guardTransport(tr), the kit's guard (cliutil.OutboundGuard is credkit.Transport)"
+  },
+  {
+   "file": "internal/config/config.go",
+   "func": "restoreCredentialsFile",
+   "what": "os.WriteFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "restores a credential source (the store or config this run read, so Start held it) through its symlink after a failed save; a credential source is written outside the kit, which would withhold it by contract"
+  }
+ ]
+}

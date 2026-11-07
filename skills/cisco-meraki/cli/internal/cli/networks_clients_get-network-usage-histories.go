@@ -66,7 +66,7 @@ func newNetworksClientsGetNetworkUsageHistoriesCmd(flags *rootFlags) *cobra.Comm
 				return usageErr(fmt.Errorf("missing required argument\nUsage: %s%s", cmd.CommandPath(), " <networkId>"))
 			}
 			if !cmd.Flags().Changed("clients") && flagClients == "" && !requiredInputWaived() {
-				return fmt.Errorf("required flag \"%s\" not set", "clients")
+				return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "clients"))
 			}
 			path := "/networks/{networkId}/clients/usageHistories"
 			if len(args) < 1 || args[0] == "" {

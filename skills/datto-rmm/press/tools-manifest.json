@@ -79,7 +79,7 @@
           "name": "variableId",
           "type": "int",
           "location": "path",
-          "description": "Variable id",
+          "description": "(e.g. 1001)",
           "required": true
         }
       ]
@@ -309,7 +309,7 @@
           "name": "variableId",
           "type": "int",
           "location": "path",
-          "description": "Variable id",
+          "description": "(e.g. 1001)",
           "required": true
         },
         {
@@ -328,7 +328,7 @@
     },
     {
       "name": "activity-logs_get-activities",
-      "description": "Fetches the activity logs. Optional: size, order, searchAfter (plus 9 more). Returns array of ActivityLog.",
+      "description": "Fetches the activity logs. Optional: size, order, searchAfter (plus 9 more). Returns the ActivityLogsPage.",
       "method": "GET",
       "path": "/v2/activity-logs",
       "params": [
@@ -416,14 +416,14 @@
           "name": "alertUid",
           "type": "string",
           "location": "path",
-          "description": "Alert uid",
+          "description": "(e.g. c2d3e4f5-a6b7-4c8d-9e0f-1a2b3c4d5e6f)",
           "required": true
         }
       ]
     },
     {
       "name": "alert_mute_alert",
-      "description": "Alerts can no longer be muted, as of the 8.9.0 release. Required: alertUid.",
+      "description": "Alerts can no longer be muted, as of the 8.9.0 release. Required: alertUid. Deprecated.",
       "method": "POST",
       "path": "/v2/alert/{alertUid}/mute",
       "params": [
@@ -431,7 +431,7 @@
           "name": "alertUid",
           "type": "string",
           "location": "path",
-          "description": "Alert uid",
+          "description": "(e.g. c2d3e4f5-a6b7-4c8d-9e0f-1a2b3c4d5e6f)",
           "required": true
         }
       ]
@@ -446,14 +446,14 @@
           "name": "alertUid",
           "type": "string",
           "location": "path",
-          "description": "Alert uid",
+          "description": "(e.g. c2d3e4f5-a6b7-4c8d-9e0f-1a2b3c4d5e6f)",
           "required": true
         }
       ]
     },
     {
       "name": "alert_unmute_alert",
-      "description": "Alerts can no longer be un-muted, as of the 8.9.0 release. Required: alertUid.",
+      "description": "Alerts can no longer be un-muted, as of the 8.9.0 release. Required: alertUid. Deprecated.",
       "method": "POST",
       "path": "/v2/alert/{alertUid}/unmute",
       "params": [
@@ -461,7 +461,7 @@
           "name": "alertUid",
           "type": "string",
           "location": "path",
-          "description": "Alert uid",
+          "description": "(e.g. c2d3e4f5-a6b7-4c8d-9e0f-1a2b3c4d5e6f)",
           "required": true
         }
       ]
@@ -476,7 +476,7 @@
           "name": "deviceUid",
           "type": "string",
           "location": "path",
-          "description": "Device uid",
+          "description": "(e.g. d1e2f3a4-b5c6-4d7e-8f90-a1b2c3d4e5f6)",
           "required": true
         }
       ]
@@ -491,7 +491,7 @@
           "name": "macAddress",
           "type": "string",
           "location": "path",
-          "description": "Mac address",
+          "description": "(e.g. 001A2B3C4D5E)",
           "required": true
         }
       ]
@@ -506,7 +506,7 @@
           "name": "deviceUid",
           "type": "string",
           "location": "path",
-          "description": "Device uid",
+          "description": "(e.g. d1e2f3a4-b5c6-4d7e-8f90-a1b2c3d4e5f6)",
           "required": true
         },
         {
@@ -533,7 +533,7 @@
           "name": "deviceUid",
           "type": "string",
           "location": "path",
-          "description": "Device uid",
+          "description": "(e.g. d1e2f3a4-b5c6-4d7e-8f90-a1b2c3d4e5f6)",
           "required": true
         }
       ]
@@ -548,7 +548,7 @@
           "name": "deviceUid",
           "type": "string",
           "location": "path",
-          "description": "Device uid",
+          "description": "(e.g. d1e2f3a4-b5c6-4d7e-8f90-a1b2c3d4e5f6)",
           "required": true
         }
       ]
@@ -563,7 +563,7 @@
           "name": "deviceId",
           "type": "int",
           "location": "path",
-          "description": "Device id",
+          "description": "(e.g. 1001)",
           "required": true
         }
       ]
@@ -578,7 +578,7 @@
           "name": "macAddress",
           "type": "string",
           "location": "path",
-          "description": "Mac address",
+          "description": "(e.g. 001A2B3C4D5E)",
           "required": true
         }
       ]
@@ -593,7 +593,7 @@
           "name": "deviceUid",
           "type": "string",
           "location": "path",
-          "description": "Device uid",
+          "description": "(e.g. d1e2f3a4-b5c6-4d7e-8f90-a1b2c3d4e5f6)",
           "required": true
         }
       ]
@@ -608,7 +608,7 @@
           "name": "deviceUid",
           "type": "string",
           "location": "path",
-          "description": "Device uid",
+          "description": "(e.g. d1e2f3a4-b5c6-4d7e-8f90-a1b2c3d4e5f6)",
           "required": true
         },
         {
@@ -641,7 +641,7 @@
           "name": "deviceUid",
           "type": "string",
           "location": "path",
-          "description": "Device uid",
+          "description": "(e.g. d1e2f3a4-b5c6-4d7e-8f90-a1b2c3d4e5f6)",
           "required": true
         },
         {
@@ -674,7 +674,7 @@
           "name": "deviceUid",
           "type": "string",
           "location": "path",
-          "description": "Device uid",
+          "description": "(e.g. d1e2f3a4-b5c6-4d7e-8f90-a1b2c3d4e5f6)",
           "required": true
         },
         {
@@ -710,14 +710,14 @@
           "name": "deviceUid",
           "type": "string",
           "location": "path",
-          "description": "The UID of the device to move to a different site",
+          "description": "The UID of the device to move to a different site (e.g. d1e2f3a4-b5c6-4d7e-8f90-a1b2c3d4e5f6)",
           "required": true
         },
         {
           "name": "siteUid",
           "type": "string",
           "location": "path",
-          "description": "The UID of the target site",
+          "description": "The UID of the target site (e.g. a3c4f1e2-5b6d-4e7f-8a9b-0c1d2e3f4a5b)",
           "required": true
         }
       ]
@@ -732,7 +732,7 @@
           "name": "deviceUid",
           "type": "string",
           "location": "path",
-          "description": "Device uid",
+          "description": "(e.g. d1e2f3a4-b5c6-4d7e-8f90-a1b2c3d4e5f6)",
           "required": true
         },
         {
@@ -2547,7 +2547,7 @@
           "name": "deviceUid",
           "type": "string",
           "location": "path",
-          "description": "Device uid",
+          "description": "(e.g. d1e2f3a4-b5c6-4d7e-8f90-a1b2c3d4e5f6)",
           "required": true
         },
         {
@@ -2608,7 +2608,7 @@
           "name": "jobUid",
           "type": "string",
           "location": "path",
-          "description": "Job uid",
+          "description": "(e.g. f6e5d4c3-b2a1-4098-8776-655443322110)",
           "required": true
         }
       ]
@@ -2623,7 +2623,7 @@
           "name": "jobUid",
           "type": "string",
           "location": "path",
-          "description": "Job uid",
+          "description": "(e.g. f6e5d4c3-b2a1-4098-8776-655443322110)",
           "required": true
         },
         {
@@ -2650,14 +2650,14 @@
           "name": "jobUid",
           "type": "string",
           "location": "path",
-          "description": "Job uid",
+          "description": "(e.g. f6e5d4c3-b2a1-4098-8776-655443322110)",
           "required": true
         },
         {
           "name": "deviceUid",
           "type": "string",
           "location": "path",
-          "description": "Device uid",
+          "description": "(e.g. d1e2f3a4-b5c6-4d7e-8f90-a1b2c3d4e5f6)",
           "required": true
         }
       ]
@@ -2672,14 +2672,14 @@
           "name": "jobUid",
           "type": "string",
           "location": "path",
-          "description": "Job uid",
+          "description": "(e.g. f6e5d4c3-b2a1-4098-8776-655443322110)",
           "required": true
         },
         {
           "name": "deviceUid",
           "type": "string",
           "location": "path",
-          "description": "Device uid",
+          "description": "(e.g. d1e2f3a4-b5c6-4d7e-8f90-a1b2c3d4e5f6)",
           "required": true
         }
       ]
@@ -2694,14 +2694,14 @@
           "name": "jobUid",
           "type": "string",
           "location": "path",
-          "description": "Job uid",
+          "description": "(e.g. f6e5d4c3-b2a1-4098-8776-655443322110)",
           "required": true
         },
         {
           "name": "deviceUid",
           "type": "string",
           "location": "path",
-          "description": "Device uid",
+          "description": "(e.g. d1e2f3a4-b5c6-4d7e-8f90-a1b2c3d4e5f6)",
           "required": true
         }
       ]
@@ -2790,7 +2790,7 @@
           "name": "siteUid",
           "type": "string",
           "location": "path",
-          "description": "Site uid",
+          "description": "(e.g. a3c4f1e2-5b6d-4e7f-8a9b-0c1d2e3f4a5b)",
           "required": true
         }
       ]
@@ -2805,7 +2805,7 @@
           "name": "siteUid",
           "type": "string",
           "location": "path",
-          "description": "Site uid",
+          "description": "(e.g. a3c4f1e2-5b6d-4e7f-8a9b-0c1d2e3f4a5b)",
           "required": true
         },
         {
@@ -2851,7 +2851,7 @@
           "name": "siteUid",
           "type": "string",
           "location": "path",
-          "description": "Site uid",
+          "description": "(e.g. a3c4f1e2-5b6d-4e7f-8a9b-0c1d2e3f4a5b)",
           "required": true
         },
         {
@@ -2884,7 +2884,7 @@
           "name": "siteUid",
           "type": "string",
           "location": "path",
-          "description": "Site uid",
+          "description": "(e.g. a3c4f1e2-5b6d-4e7f-8a9b-0c1d2e3f4a5b)",
           "required": true
         },
         {
@@ -2917,7 +2917,7 @@
           "name": "siteUid",
           "type": "string",
           "location": "path",
-          "description": "Site uid",
+          "description": "(e.g. a3c4f1e2-5b6d-4e7f-8a9b-0c1d2e3f4a5b)",
           "required": true
         },
         {
@@ -2950,7 +2950,7 @@
           "name": "siteUid",
           "type": "string",
           "location": "path",
-          "description": "Site uid",
+          "description": "(e.g. a3c4f1e2-5b6d-4e7f-8a9b-0c1d2e3f4a5b)",
           "required": true
         },
         {
@@ -2977,7 +2977,7 @@
           "name": "siteUid",
           "type": "string",
           "location": "path",
-          "description": "Site uid",
+          "description": "(e.g. a3c4f1e2-5b6d-4e7f-8a9b-0c1d2e3f4a5b)",
           "required": true
         },
         {
@@ -3004,7 +3004,7 @@
           "name": "siteUid",
           "type": "string",
           "location": "path",
-          "description": "Site uid",
+          "description": "(e.g. a3c4f1e2-5b6d-4e7f-8a9b-0c1d2e3f4a5b)",
           "required": true
         }
       ]
@@ -3019,7 +3019,7 @@
           "name": "siteUid",
           "type": "string",
           "location": "path",
-          "description": "Site uid",
+          "description": "(e.g. a3c4f1e2-5b6d-4e7f-8a9b-0c1d2e3f4a5b)",
           "required": true
         }
       ]
@@ -3034,7 +3034,7 @@
           "name": "siteUid",
           "type": "string",
           "location": "path",
-          "description": "Site uid",
+          "description": "(e.g. a3c4f1e2-5b6d-4e7f-8a9b-0c1d2e3f4a5b)",
           "required": true
         },
         {
@@ -3079,7 +3079,7 @@
           "name": "siteUid",
           "type": "string",
           "location": "path",
-          "description": "Site uid",
+          "description": "(e.g. a3c4f1e2-5b6d-4e7f-8a9b-0c1d2e3f4a5b)",
           "required": true
         },
         {
@@ -3112,14 +3112,14 @@
           "name": "siteUid",
           "type": "string",
           "location": "path",
-          "description": "Site uid",
+          "description": "(e.g. a3c4f1e2-5b6d-4e7f-8a9b-0c1d2e3f4a5b)",
           "required": true
         },
         {
           "name": "variableId",
           "type": "int",
           "location": "path",
-          "description": "Variable id",
+          "description": "(e.g. 1001)",
           "required": true
         }
       ]
@@ -3134,14 +3134,14 @@
           "name": "siteUid",
           "type": "string",
           "location": "path",
-          "description": "Site uid",
+          "description": "(e.g. a3c4f1e2-5b6d-4e7f-8a9b-0c1d2e3f4a5b)",
           "required": true
         },
         {
           "name": "variableId",
           "type": "int",
           "location": "path",
-          "description": "Variable id",
+          "description": "(e.g. 1001)",
           "required": true
         },
         {
@@ -3168,7 +3168,7 @@
           "name": "siteUid",
           "type": "string",
           "location": "path",
-          "description": "Site uid",
+          "description": "(e.g. a3c4f1e2-5b6d-4e7f-8a9b-0c1d2e3f4a5b)",
           "required": true
         },
         {
@@ -3212,6 +3212,88 @@
       "method": "POST",
       "path": "/v2/user/resetApiKeys",
       "params": []
+    }
+  ],
+  "novel_features": [
+    {
+      "name": "Fleet staleness sweep",
+      "command": "fleet stale",
+      "description": "Lists every device across all customer sites that hasn't checked in within a chosen window, so you catch dead agents before the customer does."
+    },
+    {
+      "name": "Alert storm ranking",
+      "command": "fleet storms",
+      "description": "Ranks the noisiest devices and sites by alert volume over a time window so the NOC can tune monitors instead of drowning in tickets."
+    },
+    {
+      "name": "Patch-compliance gaps",
+      "command": "fleet patch-gaps",
+      "description": "Ranks every device by missing-patch count across all sites so you remediate the most-exposed endpoints first."
+    },
+    {
+      "name": "AV/security posture gaps",
+      "command": "fleet av-gaps",
+      "description": "Finds every device fleet-wide where antivirus is missing, disabled, or not running, so security gaps surface before an incident does."
+    },
+    {
+      "name": "Software inventory rollup",
+      "command": "fleet sprawl",
+      "description": "Rolls up audited software across the whole fleet to show how many installs of an app exist and the spread of versions, exposing license waste and unpatched copies."
+    },
+    {
+      "name": "Warranty cliff",
+      "command": "fleet warranty",
+      "description": "Surfaces every device whose hardware warranty expires within a window, sorted by date and site, ready to drop into a QBR refresh plan."
+    },
+    {
+      "name": "QBR site scorecard",
+      "command": "fleet scorecard",
+      "description": "Produces a one-shot per-site health card fusing device counts, alert volume, patch coverage, AV coverage, warranty exposure, and agent drift for QBRs."
+    },
+    {
+      "name": "Agent-version drift",
+      "command": "fleet agent-drift",
+      "description": "Shows which devices run out-of-date RMM agents across the fleet, ranked by how far behind the newest version they are."
+    },
+    {
+      "name": "Ghost/orphan reconciliation",
+      "command": "fleet orphans",
+      "description": "Cross-references long-stale, suspended, or deleted devices that still count against a site so you stop billing and monitoring phantom endpoints."
+    },
+    {
+      "name": "Alert-storm bulk resolve",
+      "command": "fleet resolve-storm",
+      "description": "Bulk-resolves the open alerts on the noisiest devices and sites from the storm ranking, so Monday triage ends with a clean queue instead of a worklist."
+    },
+    {
+      "name": "Quick-job result rollup",
+      "command": "fleet job-results",
+      "description": "Fetches every device's result for one quick job and rolls them into a single pass/fail table, so a 200-device push is verified in one command."
+    },
+    {
+      "name": "Fleet snapshot receipt",
+      "command": "fleet snapshot",
+      "description": "Freezes the current synced fleet state into a labeled, dated archive so any number you report can be reproduced later as a receipt."
+    },
+    {
+      "name": "Fleet snapshot diff",
+      "command": "fleet diff",
+      "description": "Diffs two fleet snapshots (or a snapshot vs the live store) to show devices added or removed and warranty, patch, AV, and agent-version movement since the baseline."
+    },
+    {
+      "name": "Device timeline",
+      "command": "fleet device-timeline",
+      "description": "Stitches one device's alerts and activity-log entries (which surface job, audit, and user actions) into a single chronological timeline from the local store."
+    },
+    {
+      "name": "Sync completeness check",
+      "command": "fleet sync-gaps",
+      "description": "Verifies every synced resource pulled all pages by comparing stored row counts against the API's reported totals, so you can trust fleet numbers before reporting them."
+    },
+    {
+      "name": "UDF fleet query",
+      "command": "fleet udf",
+      "description": "Rolls one device user-defined field up across every synced site: each distinct value with its device and site counts, how many devices leave it empty, and the devices behind one value or behind the gaps."
     }
   ]
 }

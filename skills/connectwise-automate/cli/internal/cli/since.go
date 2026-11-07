@@ -1,4 +1,5 @@
 // Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
+// pp:data-source local
 
 package cli
 
@@ -27,8 +28,11 @@ Reads the local SQLite mirror — run 'sync' first.`, "\n"),
 		Example: strings.Trim(`
   connectwise-automate-cli since --hours 24 --agent
   connectwise-automate-cli since --hours 8 --agent`, "\n"),
-		Annotations: map[string]string{"mcp:read-only": "true"},
+		Annotations: map[string]string{"pp:data-source": "local", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := validateDataSourceStrategy(flags, "local"); err != nil {
+				return err
+			}
 			if dryRunOK(flags) {
 				return nil
 			}
@@ -37,19 +41,19 @@ Reads the local SQLite mirror — run 'sync' first.`, "\n"),
 				return err
 			}
 			defer s.Close()
-			alerts, err := loadResource(s, "alerts")
+			alerts, err := loadResource(cmd, flags, s, "alerts")
 			if err != nil {
 				return err
 			}
-			computers, err := loadResource(s, "computers")
+			computers, err := loadResource(cmd, flags, s, "computers")
 			if err != nil {
 				return err
 			}
-			patches, err := loadResource(s, "patching")
+			patches, err := loadResource(cmd, flags, s, "patching")
 			if err != nil {
 				return err
 			}
-			clients, err := loadResource(s, "clients")
+			clients, err := loadResource(cmd, flags, s, "clients")
 			if err != nil {
 				return err
 			}

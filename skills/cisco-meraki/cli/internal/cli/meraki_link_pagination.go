@@ -24,6 +24,7 @@ import (
 	"sync"
 
 	"cisco-meraki-pp-cli/internal/client"
+	"cisco-meraki-pp-cli/internal/cliutil"
 	"cisco-meraki-pp-cli/internal/platform"
 )
 
@@ -183,7 +184,7 @@ func init() {
 		}
 		base := c.HTTPClient.Transport
 		if base == nil {
-			base = http.DefaultTransport
+			base = cliutil.OutboundGuard(nil) // handfixes.json credkit-wiring: never an unguarded default
 		}
 		c.HTTPClient.Transport = linkCaptureTransport{base: base}
 		return nil

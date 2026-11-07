@@ -47,7 +47,7 @@ func newPhasrProfilesCmd(flags *rootFlags) *cobra.Command {
 			}
 			if !stdinBody {
 				if !cmd.Flags().Changed("object-id") && bodyObjectId == "" && !requiredInputWaived() {
-					return fmt.Errorf("required flag \"%s\" not set", "object-id")
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "object-id"))
 				}
 			}
 			path := "/v1.0/jsonrpc/phasr#getRecommendationProfiles"

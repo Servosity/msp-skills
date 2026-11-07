@@ -32,7 +32,7 @@ store; run 'microsoft-graph-cli pull' first.`, "\n"),
   microsoft-graph-cli licenses map ENTERPRISEPACK --agent
   microsoft-graph-cli licenses map SPE_E5 --json --select consumers.userPrincipalName,reclaimableSeats`, "\n"),
 		Annotations: map[string]string{
-			"mcp:read-only": "true",
+			"mcp:read-only": "true", "pp:data-source": "local",
 			"pp:happy-args": "sku=ENTERPRISEPACK",
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {

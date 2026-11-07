@@ -52,7 +52,7 @@ func newOrganizationsInventoryGetOrganizationDevicesSwapsBulkCmd(flags *rootFlag
 				return err
 			}
 			params := map[string]string{}
-			data, prov, err := resolveReadWithStrategyAndResponsePath(cmd.Context(), c, flags, "live", "inventory", false, path, params, nil, "swaps", cmd.ErrOrStderr())
+			data, prov, err := resolveReadWithStrategyAndResponsePath(cmd.Context(), c, flags, "live", "inventory", false, path, params, nil, "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}
@@ -79,7 +79,7 @@ func newOrganizationsInventoryGetOrganizationDevicesSwapsBulkCmd(flags *rootFlag
 					filtered, selectErr = filterFieldsChecked(filtered, flags.selectFields)
 					selectErr = selectErrorForDryRun(selectErr, flags, data)
 				} else if flags.compact {
-					filtered = compactFields(filtered, map[string]bool{"completedAt": true, "createdAt": true, "id": true, "status": true})
+					filtered = compactFields(filtered, map[string]bool{"jobId": true})
 				}
 				wrapped, wrapErr := wrapWithProvenance(filtered, prov)
 				if wrapErr != nil {
@@ -111,7 +111,7 @@ func newOrganizationsInventoryGetOrganizationDevicesSwapsBulkCmd(flags *rootFlag
 			if flags.csv || flags.plain {
 				formatData = outputData
 			}
-			return printOutputWithFlagsMeta(cmd.OutOrStdout(), formatData, flags, map[string]any{"source": "live"}, map[string]bool{"completedAt": true, "createdAt": true, "id": true, "status": true})
+			return printOutputWithFlagsMeta(cmd.OutOrStdout(), formatData, flags, map[string]any{"source": "live"}, map[string]bool{"jobId": true})
 		},
 	}
 

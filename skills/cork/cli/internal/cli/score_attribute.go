@@ -102,7 +102,7 @@ func newNovelScoreAttributeCmd(flags *rootFlags) *cobra.Command {
 				"created_after": cutoff.UTC().Format(time.RFC3339),
 			}, flagMaxScanPages)
 			if err != nil {
-				return classifyAPIError(err, flags)
+				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}
 
 			points := make([]corkScoreImpact, 0, len(raw))
@@ -113,10 +113,37 @@ func newNovelScoreAttributeCmd(flags *rootFlags) *cobra.Command {
 					undecoded++
 					continue
 				}
-				if _, ok := corkParseTime(p.CreatedAt); !ok {
+				// A server that ignores created_after must not widen the window.
+				if t, ok := corkParseTime(p.CreatedAt); !ok || t.Before(cutoff) {
 					continue
 				}
 				points = append(points, p)
+			}
+
+			// The score at window open is the newest point before cutoff; without
+			// it a move that landed inside the window reads as no move at all.
+			baseRaw, _, baseCapHit, err := corkFetchPages(ctx, c, path, map[string]string{
+				"created_before": cutoff.UTC().Format(time.RFC3339),
+			}, flagMaxScanPages)
+			if err != nil {
+				return classifyAPIError(cmd.OutOrStdout(), err, flags)
+			}
+			capHit = capHit || baseCapHit
+			var base *corkScoreImpact
+			var baseT time.Time
+			for _, r := range baseRaw {
+				var p corkScoreImpact
+				if json.Unmarshal(r, &p) != nil {
+					undecoded++
+					continue
+				}
+				if t, ok := corkParseTime(p.CreatedAt); ok && t.Before(cutoff) && (base == nil || t.After(baseT)) {
+					pb := p
+					base, baseT = &pb, t
+				}
+			}
+			if base != nil {
+				points = append(points, *base)
 			}
 
 			if len(points) == 0 && undecoded > 0 {

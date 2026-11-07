@@ -78,6 +78,12 @@
           "isSecret": true
         },
         {
+          "name": "CONNECTWISE_RMM_NO_LOCAL_DATA",
+          "description": "Optional. Set to 1 to keep no local copy of API responses: reads go to the API and the response cache is off.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
           "name": "PRINTING_PRESS_CLIENT_PROFILE",
           "description": "Leave blank. This connector registers no tenant-gated profile source, so the value is read but changes nothing; one MCP server serves the one API key it is given.",
           "isRequired": false,

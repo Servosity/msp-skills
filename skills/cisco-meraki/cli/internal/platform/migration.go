@@ -15,6 +15,8 @@ import (
 	"strings"
 
 	_ "modernc.org/sqlite"
+
+	"cisco-meraki-pp-cli/internal/credsql"
 )
 
 // LegacyMigrationState reports only artifact-level migration facts. Legacy
@@ -105,7 +107,7 @@ func AdoptVerifiedLegacyDatabase(ctx context.Context, session *Session, state *L
 		return errors.New("legacy database must differ from the profile-scoped destination")
 	}
 	if state.Database.Status == "backed_up" {
-		target, err := sql.Open("sqlite", readOnlySQLiteDSN(targetPath))
+		target, err := sql.Open(credsql.Driver, readOnlySQLiteDSN(targetPath)) // Hand-fix (handfixes.json credkit-wiring)
 		if err != nil {
 			return fmt.Errorf("open existing migration destination: %w", err)
 		}
@@ -119,7 +121,7 @@ func AdoptVerifiedLegacyDatabase(ctx context.Context, session *Session, state *L
 		return nil
 	}
 
-	source, err := sql.Open("sqlite", readOnlySQLiteDSN(sourcePath))
+	source, err := sql.Open(credsql.Driver, readOnlySQLiteDSN(sourcePath)) // Hand-fix (handfixes.json credkit-wiring)
 	if err != nil {
 		markLegacyDatabaseQuarantined(state)
 		return nil
@@ -135,7 +137,7 @@ func AdoptVerifiedLegacyDatabase(ctx context.Context, session *Session, state *L
 	}
 
 	if _, err := os.Lstat(targetPath); err == nil {
-		target, openErr := sql.Open("sqlite", readOnlySQLiteDSN(targetPath))
+		target, openErr := sql.Open(credsql.Driver, readOnlySQLiteDSN(targetPath)) // Hand-fix (handfixes.json credkit-wiring)
 		if openErr != nil {
 			return fmt.Errorf("open existing migration destination: %w", openErr)
 		}
@@ -163,7 +165,7 @@ func AdoptVerifiedLegacyDatabase(ctx context.Context, session *Session, state *L
 		_ = os.Remove(targetPath)
 		return fmt.Errorf("secure migrated database: %w", err)
 	}
-	target, err := sql.Open("sqlite", targetPath)
+	target, err := sql.Open(credsql.Driver, targetPath) // Hand-fix (handfixes.json credkit-wiring)
 	if err != nil {
 		_ = os.Remove(targetPath)
 		return fmt.Errorf("open migrated database: %w", err)

@@ -74,6 +74,83 @@ type coverageGapsView struct {
 // compared case-insensitively; names are only ever a fallback.
 func normIdent(s string) string { return strings.ToLower(strings.TrimSpace(s)) }
 
+// endpointOwners resolves which connected integration owns an associated
+// endpoint. An identifier is only unique inside one connector, so the owner
+// must be established, never guessed: the endpoint's integration uuid, else
+// its vendor key when exactly one connected integration carries that key.
+// Anything else (two same-vendor connectors, no integration identity, or a
+// connector list cut short so uniqueness cannot be known) is owner-unknown.
+type endpointOwners struct {
+	vendorOwner map[string]string // vendor key -> the one integration uuid carrying it
+}
+
+func newEndpointOwners(all []corkIntegration, listComplete bool) endpointOwners {
+	o := endpointOwners{vendorOwner: map[string]string{}}
+	if !listComplete {
+		return o
+	}
+	count := map[string]int{}
+	for _, in := range all {
+		if in.Vendor.Key == "" {
+			continue
+		}
+		count[in.Vendor.Key]++
+		o.vendorOwner[in.Vendor.Key] = in.UUID
+	}
+	for k, n := range count {
+		if n != 1 {
+			delete(o.vendorOwner, k)
+		}
+	}
+	return o
+}
+
+func (o endpointOwners) owner(e corkAssociatedEndpoint) (string, bool) {
+	if e.Integration.UUID != "" {
+		return e.Integration.UUID, true
+	}
+	if uuid, ok := o.vendorOwner[e.Integration.Vendor.Key]; ok && e.Integration.Vendor.Key != "" {
+		return uuid, true
+	}
+	return "", false
+}
+
+// Reverse-direction verdicts for one client device against one connector.
+const (
+	gapNotReported  = "attributed to this client, not reported by connector"
+	gapUnverified   = "unverified: only a client endpoint that does not name its connector matches this connector's report"
+	gapNoIdentifier = "unmatchable: the client's endpoint for this connector has no integration_identifier"
+)
+
+// deviceReportedBy reports whether connector in reports client device d. The
+// only evidence is in's own, freshly read device list: an endpoint owned by in
+// whose identifier is in reported. An endpoint record Cork still keeps is not
+// evidence that the connector still reports the device. When the answer is
+// no, gap says why.
+func deviceReportedBy(d corkClientDevice, in corkIntegration, reported map[string]struct{}, owners endpointOwners) (ok bool, gap string) {
+	gap = gapNotReported
+	noIdent, unverified := false, false
+	for _, e := range d.AssociatedEndpoints {
+		id := normIdent(e.IntegrationIdentifier)
+		_, inReport := reported[id]
+		owner, known := owners.owner(e)
+		switch {
+		case known && owner == in.UUID && id == "":
+			noIdent = true
+		case known && owner == in.UUID && inReport:
+			return true, ""
+		case !known && id != "" && inReport:
+			unverified = true
+		}
+	}
+	if unverified {
+		gap = gapUnverified
+	} else if noIdent {
+		gap = gapNoIdentifier
+	}
+	return false, gap
+}
+
 // coverageTruncationCause names why the sweep was cut short. Three different
 // conditions set scanCapHit and they have three different remedies, so blaming a
 // page limit for an undecodable-device truncation sends the operator to raise a
@@ -108,7 +185,9 @@ func newNovelCoverageGapsCmd(flags *rootFlags) *cobra.Command {
 			"and no endpoint compares the two sets. Devices are matched on\n" +
 			"associated_endpoints[].integration_identifier, an exact per-connector key, so\n" +
 			"the diff does not rely on name guessing; devices with no identifier on either\n" +
-			"side are reported as unmatched rather than silently assumed covered.\n\n" +
+			"side are reported as unmatched rather than silently assumed covered. It also\n" +
+			"runs the other way: a device the client owns that one of its connectors does\n" +
+			"not report (an RMM-managed machine with no EDR agent) is a gap.\n\n" +
 			"Use this command to find device-level coverage blind spots inside a client. Do\n" +
 			"NOT use this command to check whether a connector is down or stale; use\n" +
 			"'integrations health' instead.",
@@ -141,7 +220,7 @@ func newNovelCoverageGapsCmd(flags *rootFlags) *cobra.Command {
 			scanCapHit := false
 			rawDevices, _, devCap, err := corkFetchPages(ctx, c, "/clients/"+corkPathSeg(flagClient)+"/devices", nil, flagMaxScanPages)
 			if err != nil {
-				return classifyAPIError(err, flags)
+				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}
 			// A truncated baseline makes every unseen device look like a gap, so
 			// the cap must travel with the result rather than being discarded.
@@ -166,39 +245,10 @@ func newNovelCoverageGapsCmd(flags *rootFlags) *cobra.Command {
 				fmt.Fprintf(cmd.ErrOrStderr(), "warning: %d of %d client device(s) could not be decoded; gap results may overstate coverage loss\n", undecodable, len(rawDevices))
 			}
 
-			// Index the identifiers this client's devices are already known by,
-			// per integration.
-			type known struct {
-				device string
-				uuid   string
-			}
-			byIdent := map[string]known{}
-			identsPerIntegration := map[string]map[string]struct{}{}
-			for _, d := range clientDevices {
-				for _, e := range d.AssociatedEndpoints {
-					id := normIdent(e.IntegrationIdentifier)
-					if id == "" {
-						continue
-					}
-					byIdent[id] = known{device: d.Name, uuid: d.UUID}
-					igKey := e.Integration.UUID
-					if igKey == "" {
-						igKey = e.Integration.Vendor.Key
-					}
-					if igKey == "" {
-						continue
-					}
-					if identsPerIntegration[igKey] == nil {
-						identsPerIntegration[igKey] = map[string]struct{}{}
-					}
-					identsPerIntegration[igKey][id] = struct{}{}
-				}
-			}
-
 			// 2. What each connected integration reports.
 			rawIntegrations, _, intCap, err := corkFetchPages(ctx, c, "/integrations/connected", nil, flagMaxScanPages)
 			if err != nil {
-				return classifyAPIError(err, flags)
+				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}
 			scanCapHit = scanCapHit || intCap
 			integrations := make([]corkIntegration, 0, len(rawIntegrations))
@@ -209,6 +259,34 @@ func newNovelCoverageGapsCmd(flags *rootFlags) *cobra.Command {
 				}
 				integrations = append(integrations, in)
 			}
+			// Index the identifiers this client's devices are already known by,
+			// per owning integration. An identifier is only unique inside one
+			// connector (RMM "1" and EDR "1" are different machines), so a
+			// connector device is matched against that connector's endpoints
+			// only. An endpoint whose owner cannot be established goes to
+			// unownedIdents: it never clears a connector device, it only marks
+			// the gap as unverified.
+			owners := newEndpointOwners(integrations, !intCap)
+			identsPerIntegration := map[string]map[string]struct{}{}
+			unownedIdents := map[string]struct{}{}
+			for _, d := range clientDevices {
+				for _, e := range d.AssociatedEndpoints {
+					id := normIdent(e.IntegrationIdentifier)
+					if id == "" {
+						continue
+					}
+					owner, known := owners.owner(e)
+					if !known {
+						unownedIdents[id] = struct{}{}
+						continue
+					}
+					if identsPerIntegration[owner] == nil {
+						identsPerIntegration[owner] = map[string]struct{}{}
+					}
+					identsPerIntegration[owner][id] = struct{}{}
+				}
+			}
+
 			connectorsSkipped := 0
 			if flagMaxConnectors > 0 && len(integrations) > flagMaxConnectors {
 				connectorsSkipped = len(integrations) - flagMaxConnectors
@@ -226,8 +304,10 @@ func newNovelCoverageGapsCmd(flags *rootFlags) *cobra.Command {
 			// mirror, fall back to a live roster scan, and refuse if neither
 			// resolves the client.
 			clientTenants := map[string]struct{}{}
+			clientIntegrations := map[string]struct{}{}
 			clientName := ""
 			clientFound := false
+			rosterCap := false
 			absorbClient := func(cl corkClient) {
 				if cl.UUID != flagClient {
 					return
@@ -237,6 +317,9 @@ func newNovelCoverageGapsCmd(flags *rootFlags) *cobra.Command {
 				for _, t := range cl.Tenants {
 					if t.UUID != "" {
 						clientTenants[t.UUID] = struct{}{}
+					}
+					if t.Integration.UUID != "" {
+						clientIntegrations[t.Integration.UUID] = struct{}{}
 					}
 				}
 			}
@@ -251,9 +334,11 @@ func newNovelCoverageGapsCmd(flags *rootFlags) *cobra.Command {
 				}
 			}
 			if !clientFound {
-				rawRoster, _, _, rErr := corkFetchPages(ctx, c, "/clients", nil, flagMaxScanPages)
+				var rawRoster []json.RawMessage
+				var rErr error
+				rawRoster, _, rosterCap, rErr = corkFetchPages(ctx, c, "/clients", nil, flagMaxScanPages)
 				if rErr != nil {
-					return classifyAPIError(rErr, flags)
+					return classifyAPIError(cmd.OutOrStdout(), rErr, flags)
 				}
 				roster, _ := corkDecodeClients(rawRoster)
 				for _, cl := range roster {
@@ -261,7 +346,12 @@ func newNovelCoverageGapsCmd(flags *rootFlags) *cobra.Command {
 				}
 			}
 			if !clientFound {
-				return notFoundErr(fmt.Errorf("client %s was not found in the local mirror or the first %d page(s) of the live roster; without its tenant list every connector device would be misreported as a coverage gap", flagClient, flagMaxScanPages))
+				where := "the live roster"
+				if rosterCap {
+					// Truncated: the client may sit on an unread page.
+					where = fmt.Sprintf("the first %d page(s) of the live roster (more pages exist; raise --max-scan-pages)", flagMaxScanPages)
+				}
+				return notFoundErr(fmt.Errorf("client %s was not found in the local mirror or %s; without its tenant list every connector device would be misreported as a coverage gap", flagClient, where))
 			}
 			if len(clientTenants) == 0 {
 				return apiErr(fmt.Errorf("client %s has no associated integration tenants, so connector devices cannot be attributed to it; refusing to report coverage gaps that would include other clients' devices", flagClient))
@@ -287,6 +377,7 @@ func newNovelCoverageGapsCmd(flags *rootFlags) *cobra.Command {
 				if vendorLabel == "" {
 					vendorLabel = in.DisplayName
 				}
+				reported := map[string]struct{}{}
 				for _, r := range rawID {
 					var d corkIntegrationDevice
 					if json.Unmarshal(r, &d) != nil {
@@ -307,6 +398,9 @@ func newNovelCoverageGapsCmd(flags *rootFlags) *cobra.Command {
 					}
 					connectorDevices++
 					id := normIdent(d.IntegrationIdentifier)
+					if id != "" {
+						reported[id] = struct{}{}
+					}
 					if id == "" {
 						gaps = append(gaps, coverageGapRow{
 							Device:      d.Name,
@@ -317,8 +411,12 @@ func newNovelCoverageGapsCmd(flags *rootFlags) *cobra.Command {
 						})
 						continue
 					}
-					if _, ok := byIdent[id]; ok {
-						continue // already attributed to the client
+					if _, ok := identsPerIntegration[in.UUID][id]; ok {
+						continue // already attributed to the client, by this connector
+					}
+					gap := "reported by connector, not attributed to this client"
+					if _, ok := unownedIdents[id]; ok {
+						gap = "unverified: matches only a client endpoint that does not name its connector"
 					}
 					gaps = append(gaps, coverageGapRow{
 						Device:      d.Name,
@@ -326,7 +424,35 @@ func newNovelCoverageGapsCmd(flags *rootFlags) *cobra.Command {
 						Identifier:  d.IntegrationIdentifier,
 						SeenBy:      []string{vendorLabel},
 						MissingFrom: []string{"cork client device inventory"},
-						Gap:         "reported by connector, not attributed to this client",
+						Gap:         gap,
+					})
+				}
+				// The other direction: a device the client owns that this
+				// connector does not report. Only for a connector on the client
+				// (a tenant names it, or it reported a device in one) whose
+				// device list was read in full; a capped list is not evidence
+				// of absence.
+				_, onClient := clientIntegrations[in.UUID]
+				if devCapHit || (!onClient && len(reported) == 0) {
+					continue
+				}
+				for _, cd := range clientDevices {
+					ok, gap := deviceReportedBy(cd, in, reported, owners)
+					if ok {
+						continue
+					}
+					seenBy := make([]string, 0, len(cd.AssociatedEndpoints))
+					for _, e := range cd.AssociatedEndpoints {
+						if n := e.Integration.Vendor.Name; n != "" {
+							seenBy = append(seenBy, n)
+						}
+					}
+					gaps = append(gaps, coverageGapRow{
+						Device:      cd.Name,
+						DeviceUUID:  cd.UUID,
+						SeenBy:      seenBy,
+						MissingFrom: []string{vendorLabel},
+						Gap:         gap,
 					})
 				}
 			}
@@ -367,7 +493,7 @@ func newNovelCoverageGapsCmd(flags *rootFlags) *cobra.Command {
 					view.Note = fmt.Sprintf("no coverage gaps among the %d connector device(s) examined across %d connector(s), but the sweep was truncated (%s); this is not a clean bill of health — %s",
 						connectorDevices, walked, detail, remedy)
 				} else {
-					view.Note = fmt.Sprintf("no coverage gaps: %d connector device(s) across %d connector(s) all map to the client's %d attributed device(s)",
+					view.Note = fmt.Sprintf("no coverage gaps: %d connector device(s) across %d connector(s) all map to the client's %d attributed device(s), and each connector reports every one of them",
 						connectorDevices, walked, len(clientDevices))
 				}
 				if connectorDevices == 0 {

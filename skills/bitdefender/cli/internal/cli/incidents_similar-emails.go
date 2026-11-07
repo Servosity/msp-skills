@@ -46,7 +46,7 @@ func newIncidentsSimilarEmailsCmd(flags *rootFlags) *cobra.Command {
 			}
 			if !stdinBody {
 				if !cmd.Flags().Changed("email-id") && bodyEmailId == "" && !requiredInputWaived() {
-					return fmt.Errorf("required flag \"%s\" not set", "email-id")
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "email-id"))
 				}
 			}
 			path := "/v1.0/jsonrpc/incidents#getSimilarEmails"

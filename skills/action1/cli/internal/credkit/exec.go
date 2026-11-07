@@ -40,6 +40,7 @@ type heldRecord struct {
 	V       string   `json:"v,omitempty"`
 	A       []string `json:"a,omitempty"`
 	Unknown bool     `json:"unknown,omitempty"`
+	C       bool     `json:"c,omitempty"` // userCut: a Basic pair held with its user cut
 	// E: not a held value, but the environment variable E the parent handed
 	// over with this value (handOver). The values that make it one to hand
 	// over come down as held records of their own.
@@ -347,7 +348,7 @@ func heldRecords() []heldRecord {
 	}
 	out := make([]heldRecord, 0, len(reg.vals))
 	for v, e := range reg.vals {
-		r := heldRecord{B: []byte(v), A: e.allowed}
+		r := heldRecord{B: []byte(v), A: e.allowed, C: e.userCut}
 		if utf8.ValidString(v) {
 			r.V = v
 		}
@@ -398,9 +399,10 @@ func holdInherited(r io.Reader) {
 		}
 		e := reg.vals[v]
 		if e == nil {
-			e = &heldEntry{}
+			e = &heldEntry{userCut: r.C}
 			reg.vals[v] = e
 		}
+		e.userCut = e.userCut && r.C // held whole from either side: whole
 		e.allowed = append(e.allowed, r.A...)
 		reg.gen++
 	}

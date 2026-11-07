@@ -83,6 +83,11 @@ Credentials default to CONNECTWISE_RMM_CLIENT_ID (Client ID) and CONNECTWISE_RMM
 			if clientID == "" || clientSecret == "" {
 				return authErr(fmt.Errorf("client ID and secret required (set --client-id/--client-secret or CONNECTWISE_RMM_CLIENT_ID/CONNECTWISE_RMM_CLIENT_SECRET)"))
 			}
+			// Hand-fix (handfixes.json credkit-wiring): the client ID is held like the secret. --client-id is not a
+			// declared credential flag, because `endpoints create-agent-install-token --client-id` names a company.
+			if clientIDFromFlag {
+				cliutil.Hold("flag:--client-id", clientID)
+			}
 
 			cfg, err := config.Load(flags.configPath)
 			if err != nil {
@@ -96,9 +101,13 @@ Credentials default to CONNECTWISE_RMM_CLIENT_ID (Client ID) and CONNECTWISE_RMM
 				fmt.Fprintf(cmd.ErrOrStderr(), "POST %s\n(dry run - no request sent, nothing saved)\n", tokenURL)
 				return nil
 			}
-			tok, err := mintClientCredentialsToken(http.DefaultClient, tokenURL, clientID, clientSecret)
+			tokenHTTP, err := flags.oauthHTTPClient(cfg)
 			if err != nil {
-				return authErr(err)
+				return err
+			}
+			tok, err := mintClientCredentialsToken(tokenHTTP, tokenURL, clientID, clientSecret)
+			if err != nil {
+				return authTransportErr(err)
 			}
 
 			cfg.AuthHeaderVal = ""
@@ -156,6 +165,12 @@ func mintClientCredentialsToken(httpClient *http.Client, tokenURL, clientID, cli
 	if err != nil {
 		return nil, fmt.Errorf("building token request: %w", err)
 	}
+	// Hand-fix (handfixes.json credkit-wiring): the pair may go to the regional token host this config resolves.
+	config.HoldForAsioRegion(tokenURL, clientID, clientSecret)
+	req, err = client.GuardTokenRequest(httpClient, req, client.AsioTokenBody(req))
+	if err != nil {
+		return nil, err
+	}
 
 	resp, err := cliutil.OAuthTokenHTTPClient(httpClient).Do(req)
 	if err != nil {
@@ -174,6 +189,8 @@ func mintClientCredentialsToken(httpClient *http.Client, tokenURL, clientID, cli
 	if tok.AccessToken == "" {
 		return nil, fmt.Errorf("token response missing access_token")
 	}
+	// Hand-fix (handfixes.json credkit-wiring): a minted token is held before anything can print it.
+	cliutil.Hold("minted:access_token", tok.AccessToken)
 	return &tok, nil
 }
 
@@ -229,8 +246,8 @@ func newAuthStatusCmd(flags *rootFlags) *cobra.Command {
 				fmt.Fprintln(w, red("Not authenticated"))
 				fmt.Fprintln(w, "")
 				fmt.Fprintln(w, "Mint a token:")
-				fmt.Fprintln(w, "  export CONNECTWISE_RMM_CLIENT_ID=\"<client-id>\"")
-				fmt.Fprintln(w, "  export CONNECTWISE_RMM_CLIENT_SECRET=\"<client-secret>\"")
+				fmt.Fprintln(w, "  "+cliutil.EnvAssignHint(true, "CONNECTWISE_RMM_CLIENT_ID", "<client-id>"))
+				fmt.Fprintln(w, "  "+cliutil.EnvAssignHint(true, "CONNECTWISE_RMM_CLIENT_SECRET", "<client-secret>"))
 				fmt.Fprintf(w, "  connectwise-rmm-cli auth login\n")
 				return authErr(fmt.Errorf("no credentials configured"))
 			}
@@ -253,7 +270,13 @@ func newAuthSetTokenCmd(flags *rootFlags) *cobra.Command {
 		Long: "Save an API token to the credentials file (override the OAuth flow).\n\n" +
 			"The token is read from stdin so it never appears in process arguments or shell history.",
 		Example: "  echo \"$TOKEN\" | connectwise-rmm-cli auth set-token\n  connectwise-rmm-cli auth set-token < token-file",
-		Args:    cobra.NoArgs,
+		Args: func(cmd *cobra.Command, args []string) error {
+			// Hand-fix (handfixes.json credkit-wiring): a token typed as an argument is held before Cobra's refusal repeats it.
+			for _, a := range args {
+				cliutil.Hold("stdin", a)
+			}
+			return cobra.NoArgs(cmd, args)
+		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			token, err := readSecretFromStdin(cmd.InOrStdin())
 			if err != nil {

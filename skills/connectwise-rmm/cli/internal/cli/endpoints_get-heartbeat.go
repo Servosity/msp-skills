@@ -43,7 +43,7 @@ func newEndpointsGetHeartbeatCmd(flags *rootFlags) *cobra.Command {
 				return cmd.Help()
 			}
 			if !cmd.Flags().Changed("resources") && flagResources == "" && !requiredInputWaived() {
-				return fmt.Errorf("required flag \"%s\" not set", "resources")
+				return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "resources"))
 			}
 			path := "/api/platform/v2/device/endpoints/heartbeat"
 			c, err := flags.newClient()

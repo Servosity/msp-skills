@@ -1,0 +1,26 @@
+{
+  "schema_version": 2,
+  "generated_at": "2026-11-02T23:59:34.354065Z",
+  "printing_press_version": "4.35.1",
+  "api_name": "riverside-fm",
+  "display_name": "Riverside",
+  "cli_name": "riverside-fm-pp-cli",
+  "creator": {
+    "handle": "DamienStevens",
+    "name": "Damien Stevens"
+  },
+  "owner": "damienstevens",
+  "printer": "DamienStevens",
+  "printer_name": "Damien Stevens",
+  "spec_path": "spec.yaml",
+  "spec_format": "internal",
+  "spec_source": "sniffed",
+  "spec_checksum": "sha256:d48fe655419183ecc72c8a15ef2422512d19ca7510910b57dce65c2166b9b043",
+  "run_id": "20261102-235934",
+  "description": "The first programmatic way to download every transcript, audio track, and video from your own Riverside.com account — no Business plan or API key required.",
+  "mcp_binary": "riverside-fm-pp-mcp",
+  "mcp_tool_count": 19,
+  "mcp_ready": "partial",
+  "api_version": "0.1.0",
+  "auth_type": "cookie"
+}

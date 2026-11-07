@@ -32,12 +32,16 @@ func newNovelServicesDownCmd(flags *rootFlags) *cobra.Command {
 NOT use it to find installed software packages; use 'software find' instead.
 
 Services are not stored locally, so this fans out live to GET
-/services/{agent_id}/ for each synced agent, capped by --max-scan-agents.
-Read-only.`,
-		Example:     "  tactical-rmm-cli services down --name Spooler\n  tactical-rmm-cli services down --name wuauserv --max-scan-agents 100 --json",
-		Annotations: tRO(),
+/services/{agent_id}/ for each synced agent, capped by --max-scan-agents. Each
+call runs a services query on that agent (the server dispatches it to the
+endpoint and refreshes its cached service list), so over MCP it previews and
+runs only with confirm: true.`,
+		Example: "  tactical-rmm-cli services down --name Spooler\n  tactical-rmm-cli services down --name wuauserv --max-scan-agents 100 --json",
+		// tactical-rmm handfix agent-dispatch-needs-confirm: not mcp:read-only, so
+		// the MCP confirm gate previews it with --dry-run.
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if dryRunOK(flags) {
+				fmt.Fprintln(cmd.OutOrStdout(), "would query the Windows services of each synced agent (GET /services/{agent_id}/, capped by --max-scan-agents)")
 				return nil
 			}
 			if err := validateDataSourceStrategy(flags, "live"); err != nil {
@@ -101,7 +105,7 @@ Read-only.`,
 					}
 					continue
 				}
-				data, gerr := c.Get(cmd.Context(), "/services/"+url.PathEscape(id)+"/", nil)
+				data, gerr := c.GetMutating(cmd.Context(), "/services/"+url.PathEscape(id)+"/", nil)
 				scanned++
 				if gerr != nil {
 					fetchFailures++

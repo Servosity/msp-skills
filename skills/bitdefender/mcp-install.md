@@ -1,20 +1,14 @@
 # Bitdefender MCP - install for every agent that speaks MCP
 
-> **Security note (until this connector is reprinted).** Do not run HTTP mode
-> (`--transport http`), not even on localhost. This build checks a token, but it
-> predates the fix release's request size and time limits. The MCP tools can
-> also make changes with your credentials. Use the default stdio transport. If
-> you set up a tunnel for a remote agent, shut it down. A fix is on the way.
-
 This page wires the Bitdefender MCP server into any MCP client. If you use Claude
 Code, Codex CLI, or Cowork, install the Skill instead (see [README.md](./README.md)) -
 it's simpler. Everyone else: pick your agent below.
 
 **Two install classes.** *Local* agents (Claude Desktop, the ChatGPT desktop app,
-GitHub Copilot, Gemini CLI) launch `bitdefender-mcp` directly on your machine - no
-hosting. *Web-only* AI apps (ChatGPT on the web, Microsoft 365 Copilot / Copilot
-Studio, the Gemini app) need a remote server, which msp-skills does not support
-yet; see **Remote agents** below.
+GitHub Copilot, Gemini CLI) launch `bitdefender-mcp` directly on your machine
+- no hosting. *Web-only* AI apps (ChatGPT on the web, Microsoft 365 Copilot /
+Copilot Studio, the Gemini app) need a remote server, which msp-skills does not
+support yet; see **Web-only AI apps** below.
 
 ## Prerequisite: install the MCP binary
 
@@ -49,6 +43,7 @@ Add (or merge with your existing `mcpServers` block):
         "BITDEFENDER_USER_AGENT": "",
         "BITDEFENDER_MCP_READ_ONLY": "1",
         "BITDEFENDER_MCP_HTTP_TOKEN": "",
+        "BITDEFENDER_NO_LOCAL_DATA": "",
         "PRINTING_PRESS_CLIENT_PROFILE": ""
       }
     }
@@ -66,10 +61,7 @@ Quit Claude Desktop completely and reopen, then ask a question that needs the AP
 **My Account > Control Center API**. For an agent that should only read, keep the
 `"BITDEFENDER_MCP_READ_ONLY"` entry that is already in the `env` block at `"1"` (here and in
 any other agent's config below; do not add a second entry, because JSON keeps the last
-one): the generic `bitdefender_execute` tool then runs only
-GravityZone read methods and refuses writes and the Credential-tier reads (incident
-reads stay allowed, and XDR evidence can hold connection headers captured on the
-endpoint, so treat incident output as sensitive). The one-click `.mcpb` extension asks for the same switch as **Read-only MCP
+one): `bitdefender_execute`, `import` and the tools that write the local learn store are removed from the tool list, and `bitdefender_read` runs only an explicit list of GravityZone read methods, refusing the Credential and access reads (incident reads stay allowed; XDR evidence can hold connection headers captured on the endpoint, so treat incident output as sensitive). The one-click `.mcpb` extension asks for the same switch as **Read-only MCP
 server**: enter `1` there.
 
 ## ChatGPT desktop app (OpenAI)
@@ -77,14 +69,14 @@ server**: enter `1` there.
 The ChatGPT desktop app runs MCP servers locally (STDIO) and shares MCP
 configuration with Codex on the same machine
 ([OpenAI](https://learn.chatgpt.com/docs/extend/mcp)). Open **Settings**, select
-**MCP servers**, add a server, choose **STDIO**, and give `bitdefender-mcp` as the
-command (its full path if the app can't find it). The server reads the same
+**MCP servers**, add a server, choose **STDIO**, and give `bitdefender-mcp`
+as the command (its full path if the app can't find it). The server reads the same
 environment variables as the Claude Desktop block above. To keep them in a file,
 add the server once to Codex's `~/.codex/config.toml` (a
-`[mcp_servers.bitdefender]` table with `command = "bitdefender-mcp"` and an `env`
-table); the desktop app reads that file too.
+`[mcp_servers.bitdefender]` table with `command = "bitdefender-mcp"` and
+an `env` table); the desktop app reads that file too.
 
-ChatGPT on the web is a different case: see **Remote agents** below.
+ChatGPT on the web is a different case: see **Web-only AI apps** below.
 
 ## GitHub Copilot (VS Code)
 
@@ -107,6 +99,7 @@ Configuration**) and add:
         "BITDEFENDER_USER_AGENT": "",
         "BITDEFENDER_MCP_READ_ONLY": "1",
         "BITDEFENDER_MCP_HTTP_TOKEN": "",
+        "BITDEFENDER_NO_LOCAL_DATA": "",
         "PRINTING_PRESS_CLIENT_PROFILE": ""
       }
     }
@@ -133,6 +126,7 @@ Claude Desktop:
         "BITDEFENDER_USER_AGENT": "",
         "BITDEFENDER_MCP_READ_ONLY": "1",
         "BITDEFENDER_MCP_HTTP_TOKEN": "",
+        "BITDEFENDER_NO_LOCAL_DATA": "",
         "PRINTING_PRESS_CLIENT_PROFILE": ""
       }
     }
@@ -141,32 +135,48 @@ Claude Desktop:
 ```
 
 Restart Gemini CLI; the Bitdefender tools appear in its tool list. (The **Gemini app /
-web** is remote-only - see the remote section below.)
+web** needs a remote server - see **Web-only AI apps** below.)
 
 ---
 
-# Remote agents (paused until this connector is reprinted)
+# Web-only AI apps (not supported yet)
 
 **Not supported by msp-skills yet.** ChatGPT on the web, Microsoft 365 Copilot /
 Copilot Studio and the Gemini app reach MCP servers at a web address, not programs
-on your machine, so they would need `bitdefender-mcp` running in HTTP mode. Do not
-run HTTP mode with this build (see the security note at the top of this page), and
-do not put this server behind a tunnel or reverse proxy. If your team works in one
-of those apps, a
+on your machine, so they need a remote server. If your team works in one of those
+apps, a
 [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick)
 is the better pick; check that your AI app is on the gateway's setup list. The
-ChatGPT desktop app is different: it runs `bitdefender-mcp` locally (see above).
+ChatGPT desktop app is different: it runs `bitdefender-mcp` locally (see
+above).
 
-The HTTP-mode launch command is kept below for reference. It is commented out on
-purpose, so pasting it does nothing:
+## HTTP mode in this build (reference)
+
+This build's HTTP mode is documented here for reference; msp-skills does not
+support a web-only AI app on it yet. Keep stdio (the default) for every local
+agent above. HTTP mode serves
+`http://127.0.0.1:7777/mcp` by default and refuses to start until
+`BITDEFENDER_MCP_HTTP_TOKEN` is set to at least 32 characters; every request
+must send `Authorization: Bearer <token>`. Any address other than loopback also
+needs TLS. `BITDEFENDER_MCP_READ_ONLY=1` is strongly recommended for anything
+reachable from outside your machine:
 
 ```bash
-# BITDEFENDER_API_KEY=<value> BITDEFENDER_MCP_HTTP_TOKEN=<long-random-value> bitdefender-mcp --transport http
+export BITDEFENDER_MCP_HTTP_TOKEN="$(openssl rand -hex 32)"
+BITDEFENDER_API_KEY=<value> BITDEFENDER_MCP_READ_ONLY=1 bitdefender-mcp --transport http --addr <host>:7777 --tls-cert <cert.pem> --tls-key <key.pem>
 ```
 
 ```powershell
-# $env:BITDEFENDER_API_KEY="<value>"; $env:BITDEFENDER_MCP_HTTP_TOKEN="<long-random-value>"; bitdefender-mcp --transport http
+$env:BITDEFENDER_MCP_HTTP_TOKEN = -join ((1..32) | ForEach-Object { '{0:x2}' -f (Get-Random -Maximum 256) })
+$env:BITDEFENDER_API_KEY="<value>"; $env:BITDEFENDER_MCP_READ_ONLY="1"; bitdefender-mcp --transport http --addr <host>:7777 --tls-cert <cert.pem> --tls-key <key.pem>
 ```
+
+The endpoint is `https://<host>:7777/mcp`: the server answers Streamable HTTP at
+`/mcp` and returns 404 at the bare root. The server rejects any request without
+`Authorization: Bearer <token>`, so every client must send that header. A browser
+`Origin` other than loopback is refused unless listed in
+`BITDEFENDER_MCP_HTTP_ALLOWED_ORIGINS`. **Treat the token like a password** -
+whoever holds it can call every tool with your GravityZone API key.
 
 ---
 

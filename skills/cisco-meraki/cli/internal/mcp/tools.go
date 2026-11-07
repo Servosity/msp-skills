@@ -13,6 +13,7 @@ import (
 	"math"
 	"net/url"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -43,7 +44,10 @@ const (
 func RegisterTools(s *server.MCPServer) {
 	installFreshTenantGate(s)
 	// Code-orchestration mode — the full surface is covered by registry tools
-	// (<api>_search, <api>_get, and <api>_execute). Endpoint-mirror tools are suppressed.
+	// (<api>_search, <api>_get, <api>_read, and <api>_execute). Reads go
+	// through <api>_read. <api>_execute previews state-changing calls until
+	// confirm is boolean true, and is omitted when the spec has none.
+	// Endpoint-mirror tools are suppressed.
 	RegisterCodeOrchestrationTools(s)
 	// Intent tools — higher-level compositions declared in the spec or lifted from recipes.
 	RegisterIntents(s)
@@ -52,7 +56,7 @@ func RegisterTools(s *server.MCPServer) {
 		mcplib.NewTool("search",
 			mcplib.WithDescription("Full-text search across all synced data. Faster than paginating list endpoints. Requires sync first."),
 			mcplib.WithString("query", mcplib.Required(), mcplib.Description("Search query (supports FTS5 syntax: AND, OR, NOT, quotes for phrases)")),
-			mcplib.WithNumber("limit", mcplib.Description("Max results (default 25)")),
+			mcplib.WithNumber("limit", mcplib.Description("Max results (default 25, at most "+strconv.Itoa(bound.MaxItems)+")"), mcplib.Max(bound.MaxItems)),
 			mcplib.WithReadOnlyHintAnnotation(true),
 			mcplib.WithDestructiveHintAnnotation(false),
 		),
@@ -82,7 +86,27 @@ func RegisterTools(s *server.MCPServer) {
 
 	// Runtime Cobra-tree mirror — exposes every user-facing command that is
 	// not already covered by a typed endpoint or framework MCP tool.
-	cobratree.RegisterAll(s, cli.RootCmd(), cobratree.SiblingCLIPath)
+	cobratree.RegisterAll(s, cli.RootCmd(), cobratree.CachedSiblingCLIPath)
+	cobratree.RequireConfirmForMirroredWrites(s, cli.RootCmd()) // pp:handfix meraki-mcp-mirror-write-confirm
+
+	// The read-only switch covers every tool, so this runs after all
+	// registrations. Tools without readOnlyHint, including local-store
+	// writers, are removed.
+	if cliutil.IsMCPReadOnlyEnv() {
+		dropNonReadOnlyTools(s)
+	}
+}
+
+// dropNonReadOnlyTools removes every tool not annotated readOnlyHint=true.
+// A tool with no annotation fails closed.
+func dropNonReadOnlyTools(s *server.MCPServer) {
+	var drop []string
+	for name, entry := range s.ListTools() {
+		if hint := entry.Tool.Annotations.ReadOnlyHint; hint == nil || !*hint {
+			drop = append(drop, name)
+		}
+	}
+	s.DeleteTools(drop...)
 }
 
 type mcpParamBinding struct {
@@ -366,16 +390,8 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 			}
 		}
 
-		for k, v := range args {
-			if pathParams[k] || knownArgs[k] {
-				continue
-			}
-			switch method {
-			case "POST", "PUT", "PATCH":
-				bodyArgs[k] = v
-			default:
-				params[k] = formatMCPParamValue(v)
-			}
+		if err := rejectUndeclaredMCPArgs(args, knownArgs, pathParams); err != nil {
+			return mcpToolError(err.Error()), nil
 		}
 
 		// The public cursor argument is either an opaque MCP cursor or, on a
@@ -491,19 +507,19 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 			case strings.Contains(msg, "HTTP 400") && cliutil.LooksLikeAuthError(msg):
 				return mcpToolError("authentication error: " + cliutil.SanitizeErrorBody(msg) +
 					"\nhint: the API rejected the request — this usually means auth is missing or invalid." +
-					"\n      Set your API key with: export MERAKI_DASHBOARD_API_KEY=\"your-token-here\"" +
+					"\n      Set your API key with: " + cliutil.EnvAssignHint(true, "MERAKI_DASHBOARD_API_KEY", "your-token-here") +
 					"\n      Get a key at: https://documentation.meraki.com/Platform_Management/Dashboard_Administration/Operate_and_Maintain/How-Tos/How_to_Use_the_Cisco_Meraki_Dashboard_API" +
 					"\n      Run 'cisco-meraki-cli doctor' to check auth status."), nil
 			case strings.Contains(msg, "HTTP 401"):
 				return mcpToolError("authentication failed: " + cliutil.SanitizeErrorBody(msg) +
 					"\nhint: check your API key." +
-					"\n      Set your API key with: export MERAKI_DASHBOARD_API_KEY=\"your-token-here\"" +
+					"\n      Set your API key with: " + cliutil.EnvAssignHint(true, "MERAKI_DASHBOARD_API_KEY", "your-token-here") +
 					"\n      Get a key at: https://documentation.meraki.com/Platform_Management/Dashboard_Administration/Operate_and_Maintain/How-Tos/How_to_Use_the_Cisco_Meraki_Dashboard_API" +
 					"\n      Run 'cisco-meraki-cli doctor' to check auth status."), nil
 			case strings.Contains(msg, "HTTP 403"):
 				return mcpToolError("permission denied: " + cliutil.SanitizeErrorBody(msg) +
 					"\nhint: your credentials are valid but lack access to this resource. Check that they have the required permissions and match the API's expected auth scheme." +
-					"\n      Set your API key with: export MERAKI_DASHBOARD_API_KEY=\"your-token-here\"" +
+					"\n      Set your API key with: " + cliutil.EnvAssignHint(true, "MERAKI_DASHBOARD_API_KEY", "your-token-here") +
 					"\n      Get a key at: https://documentation.meraki.com/Platform_Management/Dashboard_Administration/Operate_and_Maintain/How-Tos/How_to_Use_the_Cisco_Meraki_Dashboard_API" +
 					"\n      Run 'cisco-meraki-cli doctor' to check auth status."), nil
 			case strings.Contains(msg, "HTTP 404"):
@@ -566,6 +582,163 @@ func mcpToolError(message string) *mcplib.CallToolResult {
 	return mcplib.NewToolResultError(bound.Text(message))
 }
 
+// Reserved transport arguments are accepted on every endpoint tool. They are
+// not request fields, so an unused one is ignored instead of copied onto the
+// wire. Declared bindings with these names still flow through knownArgs.
+func mcpReservedArg(name string) bool {
+	switch name {
+	case "cursor", "body_json", "body_base64", "content_type":
+		return true
+	default:
+		return false
+	}
+}
+
+func rejectUndeclaredMCPArgs(args map[string]any, knownArgs, pathParams map[string]bool) error {
+	var unknown []string
+	for name := range args {
+		if pathParams[name] || knownArgs[name] || mcpReservedArg(name) {
+			continue
+		}
+		unknown = append(unknown, name)
+	}
+	if len(unknown) == 0 {
+		return nil
+	}
+	sort.Strings(unknown)
+	candidates := mcpArgCandidates(knownArgs, pathParams)
+	parts := make([]string, len(unknown))
+	for i, name := range unknown {
+		parts[i] = formatUnknownMCPArg(name, suggestMCPArg(name, candidates))
+	}
+	return fmt.Errorf("%s", strings.Join(parts, "; "))
+}
+
+func mcpArgCandidates(knownArgs, pathParams map[string]bool) []string {
+	names := make([]string, 0, len(knownArgs)+len(pathParams))
+	seen := make(map[string]struct{}, len(knownArgs)+len(pathParams))
+	for name := range knownArgs {
+		if _, ok := seen[name]; ok {
+			continue
+		}
+		seen[name] = struct{}{}
+		names = append(names, name)
+	}
+	for name := range pathParams {
+		if _, ok := seen[name]; ok {
+			continue
+		}
+		seen[name] = struct{}{}
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
+}
+
+func formatUnknownMCPArg(name, suggestion string) string {
+	if suggestion == "" {
+		return fmt.Sprintf("unknown argument %q", name)
+	}
+	return fmt.Sprintf("unknown argument %q (did you mean %q?)", name, suggestion)
+}
+
+func suggestMCPArg(name string, candidates []string) string {
+	folded := mcpArgFold(name)
+	stripped := mcpArgStrip(folded)
+	best := ""
+	bestDist := 0
+	ambiguous := false
+	consider := func(cand string, dist int) {
+		if best == "" || dist < bestDist {
+			best = cand
+			bestDist = dist
+			ambiguous = false
+			return
+		}
+		if dist == bestDist && cand != best {
+			ambiguous = true
+		}
+	}
+	for _, cand := range candidates {
+		if cand == "" || cand == name {
+			continue
+		}
+		cf := mcpArgFold(cand)
+		if cf == folded {
+			consider(cand, 0)
+			continue
+		}
+		if stripped != "" && mcpArgStrip(cf) == stripped {
+			consider(cand, 0)
+			continue
+		}
+		dist := runeLevenshtein(folded, cf)
+		if mcpArgDistanceOK(folded, cf, dist) {
+			consider(cand, dist)
+		}
+	}
+	if ambiguous {
+		return ""
+	}
+	return best
+}
+
+func mcpArgFold(name string) string {
+	return strings.ReplaceAll(strings.ToLower(name), "-", "_")
+}
+
+func mcpArgStrip(folded string) string {
+	return strings.ReplaceAll(folded, "_", "")
+}
+
+func mcpArgDistanceOK(a, b string, dist int) bool {
+	if dist <= 0 {
+		return false
+	}
+	la, lb := len([]rune(a)), len([]rune(b))
+	if la < 3 || lb < 3 {
+		return false
+	}
+	if la >= 5 && lb >= 5 {
+		return dist <= 2
+	}
+	return dist <= 1
+}
+
+func runeLevenshtein(a, b string) int {
+	ar, br := []rune(a), []rune(b)
+	if len(ar) == 0 {
+		return len(br)
+	}
+	if len(br) == 0 {
+		return len(ar)
+	}
+	prev := make([]int, len(br)+1)
+	cur := make([]int, len(br)+1)
+	for j := range prev {
+		prev[j] = j
+	}
+	for i := 1; i <= len(ar); i++ {
+		cur[0] = i
+		for j := 1; j <= len(br); j++ {
+			cost := 1
+			if ar[i-1] == br[j-1] {
+				cost = 0
+			}
+			del, ins, sub := prev[j]+1, cur[j-1]+1, prev[j-1]+cost
+			cur[j] = del
+			if ins < cur[j] {
+				cur[j] = ins
+			}
+			if sub < cur[j] {
+				cur[j] = sub
+			}
+		}
+		prev, cur = cur, prev
+	}
+	return prev[len(br)]
+}
+
 func mcpToolPageResultText(method string, data json.RawMessage, pageConfig mcpPageConfig, cursor string) *mcplib.CallToolResult {
 	return mcpToolPageResultTextWithPlatform(method, data, pageConfig, cursor, "", false, nil)
 }
@@ -604,6 +777,9 @@ func newMCPConfig() (*config.Config, error) {
 
 func newMCPClientFromConfig(ctx context.Context, cfg *config.Config) (*client.Client, *platform.Session, error) {
 	c := client.New(cfg, 60*time.Second, defaultMCPRateLimit)
+	if tlsErr := c.TLSConfigError(); tlsErr != nil {
+		return nil, nil, tlsErr
+	}
 	// Agents calling through MCP need fresh data every call. The on-disk
 	// response cache survives across MCP server invocations, so a
 	// DELETE/PATCH followed by a GET would otherwise return the
@@ -635,14 +811,14 @@ const (
 	mcpStoreStatusReady   mcpStoreStatusKind = "ready"
 )
 
-func openMCPReadOnlyStore(path string) (*store.Store, *mcplib.CallToolResult) {
+func openMCPReadOnlyStore(path string, maxValueBytes int) (*store.Store, *mcplib.CallToolResult) {
 	if _, err := os.Stat(path); err != nil {
 		if os.IsNotExist(err) {
 			return nil, mcplib.NewToolResultError(mcpMissingStoreMessage(path))
 		}
 		return nil, mcplib.NewToolResultError(fmt.Sprintf("checking local data store %s: %v", path, err))
 	}
-	db, err := store.OpenReadOnly(path)
+	db, err := store.OpenReadOnlyValueCapped(path, maxValueBytes) // Hand-fix (handfixes.json credkit-wiring): sqlite.Limit cannot reach a kit-wrapped connection
 	if err != nil {
 		return nil, mcplib.NewToolResultError(fmt.Sprintf("opening local data store %s: %v. Run cisco-meraki-cli sync to refresh the store, or use live endpoint MCP tools for unsynced data.", path, err))
 	}
@@ -703,22 +879,33 @@ func handleSearch(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.Call
 	}
 
 	limit := 25
+	limitCapped := false
 	if v, ok := args["limit"].(float64); ok && v > 0 {
-		limit = int(v)
+		if v > float64(bound.MaxItems) {
+			limit = bound.MaxItems
+			limitCapped = true
+		} else {
+			limit = int(v)
+		}
 	}
 
 	path, err := mcpDBPath()
 	if err != nil {
 		return mcplib.NewToolResultError(fmt.Sprintf("resolving database: %v", err)), nil
 	}
-	db, toolErr := openMCPReadOnlyStore(path)
+	db, toolErr := openMCPReadOnlyStore(path, 0)
 	if toolErr != nil {
 		return toolErr, nil
 	}
 	defer db.Close()
 
-	results, err := db.Search(query, limit)
+	queryCtx, cancel := bound.WithSQLQueryDeadline(ctx)
+	defer cancel()
+	results, err := db.SearchContext(queryCtx, query, limit)
 	if err != nil {
+		if queryCtx.Err() != nil {
+			return mcplib.NewToolResultError(fmt.Sprintf("search cancelled: %v. MCP search queries are bounded to %s.", queryCtx.Err(), bound.SQLQueryTimeout)), nil
+		}
 		return mcplib.NewToolResultError(fmt.Sprintf("search failed: %v", err)), nil
 	}
 	storeStatus, err := mcpStoreStatus(db)
@@ -726,10 +913,10 @@ func handleSearch(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.Call
 		return mcplib.NewToolResultError(fmt.Sprintf("reading store status: %v", err)), nil
 	}
 
-	return toolResultJSON(mcpSearchEnvelope(results, storeStatus))
+	return toolResultJSON(mcpSearchEnvelope(results, storeStatus, limitCapped))
 }
 
-func mcpSearchEnvelope(results []json.RawMessage, storeStatus mcpStoreStatusKind) map[string]any {
+func mcpSearchEnvelope(results []json.RawMessage, storeStatus mcpStoreStatusKind, limitCapped bool) map[string]any {
 	if results == nil {
 		results = []json.RawMessage{}
 	}
@@ -738,6 +925,9 @@ func mcpSearchEnvelope(results []json.RawMessage, storeStatus mcpStoreStatusKind
 		"results":      results,
 		"store_status": storeStatus,
 		"resumable":    false,
+	}
+	if limitCapped {
+		out["limit_capped"] = true
 	}
 	if storeStatus == mcpStoreStatusPartial {
 		out["warning"] = "Local data may be incomplete because the latest sync attempt did not finish."
@@ -919,7 +1109,7 @@ func handleSQL(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.CallToo
 	if err != nil {
 		return mcplib.NewToolResultError(fmt.Sprintf("resolving database: %v", err)), nil
 	}
-	db, toolErr := openMCPReadOnlyStore(path)
+	db, toolErr := openMCPReadOnlyStore(path, mcpSQLMaxValueBytes)
 	if toolErr != nil {
 		return toolErr, nil
 	}
@@ -933,10 +1123,6 @@ func handleSQL(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.CallToo
 		return mcplib.NewToolResultError(mcpSQLQueryError(queryCtx, err)), nil
 	}
 	defer conn.Close()
-
-	if _, err := sqlite.Limit(conn, sqlite3.SQLITE_LIMIT_LENGTH, mcpSQLMaxValueBytes); err != nil {
-		return mcplib.NewToolResultError(fmt.Sprintf("setting SQL value length cap: %v", err)), nil
-	}
 
 	rows, err := conn.QueryContext(queryCtx, query)
 	if err != nil {

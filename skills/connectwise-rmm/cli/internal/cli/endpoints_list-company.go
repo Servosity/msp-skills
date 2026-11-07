@@ -17,7 +17,7 @@ func newEndpointsListCompanyCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "list-company <clientID>",
 		Short:   "List the endpoints of one company. Scope: platform.asset.read.",
-		Example: "  connectwise-rmm-cli endpoints list-company 436f6d6d-616e-6420-4944-6a200a0a2c75",
+		Example: "  connectwise-rmm-cli endpoints list-company 00000000-0000-0000-0000-000000000001",
 		Args: func(cmd *cobra.Command, args []string) error {
 			return endpointPositionalArgs(cmd, flags, args, cobra.MaximumNArgs(1))
 		},

@@ -22,7 +22,7 @@ func TestNovelClientsScorecard(t *testing.T) {
 		db := novelTestEnv(t)
 		seedResource(t, db, "agents", "a1", `{"agent_id":"a1","client_name":"Acme","status":"online","checks":{"failing":2},"has_patches_pending":1}`)
 		seedResource(t, db, "agents", "a2", `{"agent_id":"a2","client_name":"Acme","status":"offline","checks":{"failing":0},"has_patches_pending":0}`)
-		seedResource(t, db, "alerts", "al1", `{"client":"Acme","resolved":0}`)
+		seedResource(t, db, trmmAlertsResource, "al1", `{"client":"Acme","resolved":0}`)
 		out, _, err := runNovel(t, "clients", "scorecard")
 		if err != nil {
 			t.Fatalf("clients scorecard: %v", err)

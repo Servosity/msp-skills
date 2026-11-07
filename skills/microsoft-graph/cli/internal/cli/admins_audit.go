@@ -29,7 +29,7 @@ first (pull embeds each role's members).`, "\n"),
 		Example: strings.Trim(`
   microsoft-graph-cli admins audit --agent
   microsoft-graph-cli admins audit --json --select role,userPrincipalName,risk`, "\n"),
-		Annotations: map[string]string{"mcp:read-only": "true"},
+		Annotations: map[string]string{"mcp:read-only": "true", "pp:data-source": "local"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if dryRunOK(flags) {
 				return nil

@@ -3,7 +3,7 @@
 BIN_EXT := $(if $(filter windows,$(shell go env GOOS)),.exe,)
 
 build:
-	go build -o bin/cork-cli$(BIN_EXT) ./cmd/cork-cli
+	go build -trimpath -o bin/cork-cli$(BIN_EXT) ./cmd/cork-cli
 
 test:
 	go test ./...
@@ -18,7 +18,7 @@ clean:
 	rm -rf bin/
 
 build-mcp:
-	go build -o bin/cork-mcp$(BIN_EXT) ./cmd/cork-mcp
+	go build -trimpath -o bin/cork-mcp$(BIN_EXT) ./cmd/cork-mcp
 
 install-mcp:
 	go install ./cmd/cork-mcp

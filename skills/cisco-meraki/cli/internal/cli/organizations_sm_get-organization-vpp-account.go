@@ -52,7 +52,7 @@ func newOrganizationsSmGetOrganizationVppAccountCmd(flags *rootFlags) *cobra.Com
 				return err
 			}
 			params := map[string]string{}
-			data, prov, err := resolveReadWithStrategyAndResponsePath(cmd.Context(), c, flags, "live", "sm", false, path, params, nil, "assignableNetworkIds", cmd.ErrOrStderr())
+			data, prov, err := resolveReadWithStrategyAndResponsePath(cmd.Context(), c, flags, "live", "sm", false, path, params, nil, "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}
@@ -79,7 +79,7 @@ func newOrganizationsSmGetOrganizationVppAccountCmd(flags *rootFlags) *cobra.Com
 					filtered, selectErr = filterFieldsChecked(filtered, flags.selectFields)
 					selectErr = selectErrorForDryRun(selectErr, flags, data)
 				} else if flags.compact {
-					filtered = compactFields(filtered, nil)
+					filtered = compactFields(filtered, map[string]bool{"email": true, "id": true, "lastForceSyncedAt": true, "lastSyncedAt": true, "name": true, "vppAccountId": true, "vppLocationId": true, "vppLocationName": true})
 				}
 				wrapped, wrapErr := wrapWithProvenance(filtered, prov)
 				if wrapErr != nil {
@@ -111,7 +111,7 @@ func newOrganizationsSmGetOrganizationVppAccountCmd(flags *rootFlags) *cobra.Com
 			if flags.csv || flags.plain {
 				formatData = outputData
 			}
-			return printOutputWithFlagsMeta(cmd.OutOrStdout(), formatData, flags, map[string]any{"source": "live"}, nil)
+			return printOutputWithFlagsMeta(cmd.OutOrStdout(), formatData, flags, map[string]any{"source": "live"}, map[string]bool{"email": true, "id": true, "lastForceSyncedAt": true, "lastSyncedAt": true, "name": true, "vppAccountId": true, "vppLocationId": true, "vppLocationName": true})
 		},
 	}
 
