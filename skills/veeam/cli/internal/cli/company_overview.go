@@ -4,6 +4,7 @@ package cli
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -30,6 +31,7 @@ type companyOverview struct {
 	Note               string  `json:"note,omitempty"`
 }
 
+// pp:data-source local
 func newNovelCompanyOverviewCmd(flags *rootFlags) *cobra.Command {
 	var flagCompany, dbPath, flagRPO string
 
@@ -47,8 +49,11 @@ Reads only the local SQLite mirror — run `+"`veeam-cli sync`"+` first.`, "\n")
   veeam-cli company-overview --company "Contoso Ltd"
   veeam-cli company-overview --company 3fa85f64-5717-4562-b3fc-2c963f66afa6 --agent
   veeam-cli company-overview --company "Contoso Ltd" --rpo 4h`, "\n"),
-		Annotations: map[string]string{"mcp:read-only": "true"},
+		Annotations: map[string]string{"mcp:read-only": "true", "pp:data-source": "local"},
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := validateDataSourceStrategy(flags, "local"); err != nil {
+				return err
+			}
 			if len(args) == 0 && cmd.Flags().NFlag() == 0 {
 				return cmd.Help()
 			}
@@ -74,23 +79,33 @@ Reads only the local SQLite mirror — run `+"`veeam-cli sync`"+` first.`, "\n")
 				defer db.Close()
 			}
 
-			names := veeamCompanyNames(ctx, db)
-			orgUID, companyName, matched := "", target, false
-			for uid, name := range names {
-				if strings.EqualFold(name, target) || strings.EqualFold(uid, target) {
-					orgUID, companyName, matched = uid, name, true
-					break
-				}
+			names, err := veeamCompanyNames(ctx, db)
+			if err != nil {
+				return err
 			}
-			if orgUID == "" {
-				orgUID = target // treat the input as a uid
+			// A UID names one company; a display name may name several
+			// (Company.name is not unique), and then the match is refused.
+			orgUID, companyName, matched := target, target, false
+			if name, ok := names[strings.ToLower(target)]; ok {
+				orgUID, companyName, matched = strings.ToLower(target), name, true
+			} else {
+				var uids []string
+				for uid, name := range names {
+					if strings.EqualFold(name, target) {
+						uids = append(uids, uid)
+					}
+				}
+				sort.Strings(uids)
+				switch len(uids) {
+				case 0: // not a known name: treat the input as a uid
+				case 1:
+					orgUID, companyName, matched = uids[0], names[uids[0]], true
+				default:
+					return usageErr(fmt.Errorf("%d companies are named %q (%s): pass the organization uid instead", len(uids), target, strings.Join(uids, ", ")))
+				}
 			}
 			match := func(m veeamRow) bool {
-				org := vstr(m, "organizationUid")
-				if org == "" {
-					org = vstr(m, "mappedOrganizationUid")
-				}
-				return strings.EqualFold(org, orgUID)
+				return strings.EqualFold(veeamOrgOf(m), orgUID)
 			}
 
 			ov := companyOverview{Company: companyName, CompanyUID: orgUID, Matched: matched}
@@ -98,13 +113,10 @@ Reads only the local SQLite mirror — run `+"`veeam-cli sync`"+` first.`, "\n")
 			cutoff := now.Add(-rpo)
 			servers := map[string]bool{}
 
-			jobs, _ := veeamLoad(ctx, db,
-				"infrastructure-backup-servers-jobs",
-				"infrastructure-backup-agents-jobs",
-				"infrastructure-backup-agents-windows-jobs",
-				"infrastructure-backup-agents-linux-jobs",
-				"infrastructure-backup-agents-mac-jobs",
-			)
+			jobs, err := veeamLoad(ctx, db, veeamPathServerJobs, veeamPathAgentJobs)
+			if err != nil {
+				return err
+			}
 			for _, j := range jobs {
 				if !match(j) {
 					continue
@@ -124,14 +136,23 @@ Reads only the local SQLite mirror — run `+"`veeam-cli sync`"+` first.`, "\n")
 					ov.JobsRunning++
 				}
 			}
+			// Servers the company owns (BackupServer.organizationUid), plus
+			// any other server that runs one of its jobs.
+			inventory, err := veeamLoad(ctx, db, veeamPathBackupServers)
+			if err != nil {
+				return err
+			}
+			for _, s := range inventory {
+				if uid := vstr(s, "instanceUid"); uid != "" && match(s) {
+					servers[strings.ToLower(uid)] = true
+				}
+			}
 			ov.BackupServers = len(servers)
 
-			agents, _ := veeamLoad(ctx, db,
-				"infrastructure-backup-agents",
-				"infrastructure-backup-agents-windows",
-				"infrastructure-backup-agents-linux",
-				"infrastructure-backup-agents-mac",
-			)
+			agents, err := veeamLoad(ctx, db, veeamPathAgents)
+			if err != nil {
+				return err
+			}
 			for _, a := range agents {
 				if !match(a) {
 					continue
@@ -143,9 +164,12 @@ Reads only the local SQLite mirror — run `+"`veeam-cli sync`"+` first.`, "\n")
 				}
 			}
 
-			alarms, _ := veeamLoad(ctx, db, "alarms")
+			alarms, err := veeamLoad(ctx, db, veeamPathActiveAlarms)
+			if err != nil {
+				return err
+			}
 			for _, al := range alarms {
-				if !strings.EqualFold(vstr(al, "object.organizationUid"), orgUID) {
+				if !veeamAlarmActive(al) || !strings.EqualFold(vstr(al, "object.organizationUid"), orgUID) {
 					continue
 				}
 				ov.ActiveAlarms++
@@ -154,10 +178,10 @@ Reads only the local SQLite mirror — run `+"`veeam-cli sync`"+` first.`, "\n")
 				}
 			}
 
-			workloads, _ := veeamLoad(ctx, db,
-				"protected-workloads-computers-managed-by-backup-server",
-				"protected-workloads-computers-managed-by-console",
-			)
+			workloads, err := veeamLoad(ctx, db, veeamPathWorkloadsServer, veeamPathWorkloadsConsole)
+			if err != nil {
+				return err
+			}
 			for _, w := range workloads {
 				if !match(w) {
 					continue
@@ -169,10 +193,13 @@ Reads only the local SQLite mirror — run `+"`veeam-cli sync`"+` first.`, "\n")
 				}
 			}
 
-			usage, _ := veeamLoad(ctx, db, "licensing-usage-organizations", "organizations-companies-usage")
+			usage, err := veeamLoad(ctx, db, veeamPathLicenseUsage)
+			if err != nil {
+				return err
+			}
 			for _, u := range usage {
 				if strings.EqualFold(vstr(u, "organizationUid"), orgUID) {
-					ov.LicenseUsedPoints += vnum(u, "usedPoints")
+					ov.LicenseUsedPoints += veeamUsedPoints(u)
 				}
 			}
 

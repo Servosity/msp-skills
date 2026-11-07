@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"veeam-pp-cli/internal/cliutil"
+	"veeam-pp-cli/internal/store"
 
 	"github.com/spf13/cobra"
 )
@@ -28,6 +29,7 @@ type licenseUsageView struct {
 	Count         int               `json:"count"`
 }
 
+// pp:data-source local
 func newNovelLicenseUsageCmd(flags *rootFlags) *cobra.Command {
 	var dbPath string
 	var limit int
@@ -48,28 +50,46 @@ Reads the local SQLite mirror — run `+"`veeam-cli sync`"+` first. Pass
   veeam-cli license-usage
   veeam-cli license-usage --agent --select organizations.organization,organizations.used_points,organizations.delta
   veeam-cli license-usage --no-snapshot`, "\n"),
-		Annotations: map[string]string{"mcp:read-only": "true"},
+		Annotations: map[string]string{"mcp:read-only": "true", "pp:data-source": "local"},
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := validateDataSourceStrategy(flags, "local"); err != nil {
+				return err
+			}
 			if dryRunOK(flags) {
 				return nil
 			}
 			ctx := cmd.Context()
-			db, err := veeamOpenStore(ctx, dbPath)
+			// The MCP tool is read-only and VEEAM_NO_LOCAL_DATA=1 forbids store
+			// writes: neither records a snapshot, so neither moves the baseline.
+			recordSnapshots := !noSnapshot && !cliutil.IsVerifyEnv() && !cliutil.IsDogfoodEnv() && !cliutil.IsMCPChildEnv() && !localDataDisabled()
+			var db *store.Store
+			var err error
+			if recordSnapshots {
+				db, err = veeamOpenStore(ctx, dbPath)
+			} else {
+				db, _, err = veeamOpenStoreRead(dbPath)
+			}
 			if err != nil {
 				return fmt.Errorf("opening local store: %w", err)
 			}
 			defer db.Close()
 
-			rows, _ := veeamLoad(ctx, db, "licensing-usage-organizations", "organizations-companies-usage")
+			rows, err := veeamLoad(ctx, db, veeamPathLicenseUsage)
+			if err != nil {
+				return err
+			}
+			names, err := veeamCompanyNames(ctx, db)
+			if err != nil {
+				return err
+			}
 			now := time.Now()
-			recordSnapshots := !noSnapshot && !cliutil.IsVerifyEnv() && !cliutil.IsDogfoodEnv()
 
 			out := make([]licenseUsageOrg, 0, len(rows))
 			var total float64
 			for _, r := range rows {
 				uid := vstr(r, "organizationUid")
-				name := firstNonEmpty(vstr(r, "organizationName"), vstr(r, "name"), uid, "(organization)")
-				used := vnum(r, "usedPoints")
+				name := firstNonEmpty(names[strings.ToLower(uid)], uid, "(organization)")
+				used := veeamUsedPoints(r)
 				org := licenseUsageOrg{
 					Organization: name,
 					OrgUID:       uid,
@@ -77,12 +97,18 @@ Reads the local SQLite mirror — run `+"`veeam-cli sync`"+` first. Pass
 					UsedPoints:   used,
 				}
 				if uid != "" {
-					if prior, _, ok, derr := db.LatestUsageSnapshot(ctx, uid, now); derr == nil && ok {
+					prior, _, ok, err := db.LatestUsageSnapshot(ctx, uid, now)
+					if err != nil {
+						return fmt.Errorf("reading usage snapshot: %w", err)
+					}
+					if ok {
 						org.Delta = used - prior
 						org.HasPrior = true
 					}
 					if recordSnapshots {
-						_ = db.RecordUsageSnapshot(ctx, uid, used, now)
+						if err := db.RecordUsageSnapshot(ctx, uid, used, now); err != nil {
+							return fmt.Errorf("recording usage snapshot: %w", err)
+						}
 					}
 				}
 				out = append(out, org)

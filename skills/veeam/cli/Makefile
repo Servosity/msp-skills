@@ -1,7 +1,9 @@
 .PHONY: build test lint install clean
 
+BIN_EXT := $(if $(filter windows,$(shell go env GOOS)),.exe,)
+
 build:
-	go build -o bin/veeam-cli ./cmd/veeam-cli
+	go build -trimpath -o bin/veeam-cli$(BIN_EXT) ./cmd/veeam-cli
 
 test:
 	go test ./...
@@ -16,7 +18,7 @@ clean:
 	rm -rf bin/
 
 build-mcp:
-	go build -o bin/veeam-mcp ./cmd/veeam-mcp
+	go build -trimpath -o bin/veeam-mcp$(BIN_EXT) ./cmd/veeam-mcp
 
 install-mcp:
 	go install ./cmd/veeam-mcp
