@@ -161,11 +161,6 @@
    "read-only",
    "local-data"
   ],
-  "riverside-fm": [
-   "mcp-http",
-   "read-only",
-   "local-data"
-  ],
   "rootly": [
    "mcp-http",
    "write-gating",

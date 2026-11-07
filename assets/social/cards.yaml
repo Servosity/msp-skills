@@ -343,6 +343,9 @@ rewst:
   vendor: "Rewst"
   example_command: "Which workflows failed for this client?"
 
+riverside-fm:
+  vendor: "Riverside.fm"
+
 rocketcyber:
   vendor: "RocketCyber"
   example_command: "What broke across all my clients overnight?"
