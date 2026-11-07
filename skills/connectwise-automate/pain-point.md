@@ -26,6 +26,7 @@ cross-client questions directly:
 - **`alert-triage --min-priority 3`** - open alerts across every client, ranked and joined to computer, location, and client, so the morning starts with what actually needs a human.
 - **`fleet-health`** - every agent across every client in one roll-up: online/offline, last-contact age, and open-alert count.
 - **`os-inventory --eol-only`** - end-of-life operating systems across the fleet, flagged for the hardware-refresh and security conversation.
+- **`agent-versions --behind-only`** - every computer whose Automate agent is older than the newest version in the fleet, counted per client.
 
 ## Status
 

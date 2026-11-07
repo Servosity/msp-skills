@@ -636,7 +636,7 @@
       "first_party": false,
       "category": "RMM",
       "display_name": "ConnectWise Automate",
-      "cli_hash": "sha256:82c50b5f6439e25b563323766c7797e0e01c1c6beb2f5c37cc77b32f4cd6df4f",
+      "cli_hash": "sha256:e89ac89f3b0555981392b427c62da11510f5ea05b926011c78e5034beb386cd7",
       "template_version": 3,
       "version": "0.1.7",
       "cli_hash_at_release": "sha256:d8f6686a60d3d698925866b4d906dfc0e2ef64b2e7d14a8ae9014e3afad53e52",
