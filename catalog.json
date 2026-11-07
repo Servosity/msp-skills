@@ -1633,7 +1633,7 @@
       "skill_path": "skills/riverside-fm",
       "cli_binary": "riverside-fm-cli",
       "mcp_binary": "riverside-fm-mcp",
-      "version": "0.1.5",
+      "version": "0.1.6",
       "printing_press_version": "4.35.1",
       "license": "Apache-2.0",
       "vendor": "Riverside",
@@ -1644,7 +1644,7 @@
       "description": "Riverside API surface as MCP tools.",
       "verification": "live-verified",
       "verified_version": "0.1.5",
-      "verified_code": "current",
+      "verified_code": "changed",
       "category": "Marketing"
     },
     {
