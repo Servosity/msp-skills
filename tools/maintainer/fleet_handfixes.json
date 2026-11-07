@@ -317,6 +317,45 @@
      ]
     }
    ]
+  },
+  "sync-event-writer-serialized": {
+   "verdict": "replay",
+   "recipe": "sync-event-writer-serialized",
+   "reason": "Press 4.24.0 to 4.34.2 sync gives every --concurrency worker of its top-level pool the same writer (syncEventWriter, cmd.OutOrStdout() or in machine output cmd.ErrOrStderr()) and nothing serializes Write. os.Stdout tolerates that; the --deliver mirror (a bytes.Buffer) and the --receipt-file / --audit-dir capture (a running SHA-256) do not, so a sync with --concurrency above 1 can panic in bytes.Buffer.grow (seen on Windows CI, PR #655) or write a receipt whose hash does not match the output. Only the dependent-resource path wraps its writer (lockedWriter).",
+   "proof": "go test -race ./internal/cli on veeam: 28 races before the fix, 0 after. TestSyncWorkerPoolSerializesEventWrites (four workers, --dry-run, machine and human output) fails before the recipe and passes after on veeam (4.24.0), abnormal (4.34.2, machine-format branch) and warranty (4.34.2, per-resource tier routing); see the PR that added this record.",
+   "adopt": {
+    "file": "cli/internal/cli/sync.go",
+    "contains": "syncEventWriter := cmd.OutOrStdout()",
+    "entry": {
+     "class": "concurrent-writer",
+     "summary": "sync wraps the event writer its parallel workers share in syncSerialWriter (internal/cli/sync_event_writer.go), so two workers never call Write on it at once.",
+     "why": "The generated sync hands cmd.OutOrStdout() (or ErrOrStderr() in machine output) to every --concurrency worker, and each writes sync_start, progress and error events. os.Stdout tolerates that; the writers --deliver (a mirror into a bytes.Buffer) and --receipt-file / --audit-dir (a running SHA-256) install do not, nor does an in-process caller's buffer: Windows CI on PR #655 panicked in bytes.Buffer.grow from syncResource, and go test -race found 28 races on veeam. TestSyncWorkerPoolSerializesEventWrites pins it. A reprint regenerates sync.go and drops the wrap; tools/maintainer/replay_handfixes.py re-applies it (fleet_handfixes.json sync-event-writer-serialized).",
+     "status": "active",
+     "spec_encode_followup": "Press-side (mvanhorn/cli-printing-press#5369): the sync template should serialize the event writer its top-level worker pool shares, as its dependent path already does with lockedWriter.",
+     "asserts": [
+      {
+       "file": "cli/internal/cli/sync.go",
+       "contains": "syncEventWriter = &syncSerialWriter{w: syncEventWriter}",
+       "min_count": 1,
+       "code_only": true
+      },
+      {
+       "file": "cli/internal/cli/sync_event_writer.go",
+       "contains": "func (s *syncSerialWriter) Write(p []byte) (int, error) {",
+       "min_count": 1,
+       "code_only": true
+      },
+      {
+       "file": "cli/internal/cli/sync_event_writer_test.go",
+       "contains": "func TestSyncWorkerPoolSerializesEventWrites(t *testing.T) {",
+       "min_count": 1,
+       "code_only": true
+      }
+     ]
+    }
+   },
+   "gates": [],
+   "upstream": "mvanhorn/cli-printing-press#5369 (filed): sync's top-level worker pool shares an unserialized event writer"
   }
  },
  "floors": [

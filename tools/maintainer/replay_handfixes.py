@@ -32,6 +32,11 @@ one once against a press release:
 `keep_manual` names a connector whose entry under a shared id carries a part of
 its own: the entry is left alone and the ledger check decides.
 
+A replay id with `adopt` (a code shape and an entry) is added to the ledger of
+every connector that carries the shape and lacks the id, a fresh print with no
+ledger included, and then wired by its recipe (sync-event-writer-serialized:
+sync's worker pool shares one event writer).
+
 The registry's `floors` raise a module the press resolves below a patched
 version (go get, then go mod tidy) on a connector printed at or above the
 floor's `applies_from`, never below what --base already pinned. A floor the
@@ -1157,6 +1162,103 @@ def restore_entry_files(p: Plan, hid: str, entry: dict, dedupe: bool = False, sk
     return ok
 
 
+# sync's top-level worker pool hands one writer to every --concurrency worker
+# (mvanhorn/cli-printing-press#5369). The recipe wraps it once, where it is
+# made, in a writer that serializes Write; it knows the two generated shapes of
+# that spot and refuses any other.
+SEW_SYNC = "cli/internal/cli/sync.go"
+SEW_HELPER = "cli/internal/cli/sync_event_writer.go"
+SEW_TEST = "cli/internal/cli/sync_event_writer_test.go"
+SEW_SCOPE = "newSyncCmd"
+SEW_DECL = "\t\t\tsyncEventWriter := cmd.OutOrStdout()\n"
+SEW_MACHINE = (SEW_DECL + "\t\t\tmachineFormat := wantsMachineOutput(flags)\n"
+               "\t\t\tif machineFormat {\n"
+               "\t\t\t\tsyncEventWriter = cmd.ErrOrStderr()\n"
+               "\t\t\t}\n")
+SEW_WRAP = "syncEventWriter = &syncSerialWriter{w: syncEventWriter}"
+SEW_BLOCK = ("\t\t\t// {tag}: every sync worker\n"
+             "\t\t\t// writes its events here, and only os.Stdout is safe for concurrent writes.\n"
+             "\t\t\t" + SEW_WRAP + "\n")
+SEW_ASSIGN = re.compile(r"\bsyncEventWriter\s*(?::=|=(?!=))")
+
+
+def r_sync_event_writer(p: Plan, hid: str, entry: dict) -> dict:
+    """Serialize sync's shared event writer. Every check runs before the first
+    write, so a refused connector gets nothing from this recipe."""
+    site = "sync-event-writer"
+    s = p.read(SEW_SYNC)
+    if s is None:
+        p.hand(site, f"{SEW_SYNC}: missing, so the event writer sync's workers share cannot be serialized")
+        return {}
+    spans = func_spans(s, SEW_SCOPE)
+    if len(spans) != 1:
+        p.hand(site, f"{SEW_SYNC}: {SEW_SCOPE} is not one top-level function ({len(spans)} found)")
+        return {}
+    a, b = spans[0]
+    body = s[a:b]
+    code = code_only(SEW_SYNC, body)
+    assigns = [m.group(0) for m in SEW_ASSIGN.finditer(code)]
+    wraps = code.count(SEW_WRAP)
+    machine = body.count(SEW_MACHINE)
+    if body.count(SEW_DECL) != 1 or code.count("syncEventWriter := ") != 1:
+        p.hand(site, f"{SEW_SYNC}: {SEW_SCOPE} does not declare syncEventWriter once as cmd.OutOrStdout(), "
+                     f"the shape this recipe knows; serialize the writer its workers share by hand")
+        return {}
+    anchor = SEW_MACHINE if machine == 1 else SEW_DECL
+    known = 1 + (1 if machine == 1 else 0) + wraps  # the declaration, the machine-format branch, the wrap
+    if machine > 1 or wraps > 1 or len(assigns) != known:
+        p.hand(site, f"{SEW_SYNC}: syncEventWriter is assigned {len(assigns)} times in {SEW_SCOPE} "
+                     f"({wraps} serializing wrap(s), {machine} machine-format branch(es)); this recipe knows only "
+                     f"the generated declaration, its optional machine-format branch and its own wrap, so wire "
+                     f"this one by hand")
+        return {}
+    if wraps == 1 and anchor + SEW_BLOCK.replace("{tag}", tag(hid)) not in body:
+        p.hand(site, f"{SEW_SYNC}: the serializing wrap is there, but not directly after the code that makes "
+                     f"syncEventWriter, so a write could reach the bare writer first; move it by hand")
+        return {}
+    if not p.module:
+        p.hand(site, "cli/go.mod: no module path, so the regression test cannot import the store")
+        return {}
+    files = {}
+    for rel, template in ((SEW_HELPER, "sync_event_writer.go.tmpl"), (SEW_TEST, "sync_event_writer_test.go.tmpl")):
+        want = render(template, MODULE=p.module)
+        cur = p.read(rel)
+        if cur is not None and cur != want:
+            p.hand(site, f"{rel}: differs from tools/maintainer/handfix_replay/{template}; this file is the "
+                         f"template's, so merge the difference into the template or wire the fix by hand")
+            return {}
+        files[rel] = (cur, want)
+    # The hand-fix's files declare these names. Any other mention of one in the
+    # package (a declaration, or code that would bind to it) is named: matching
+    # identifiers, not parsing declarations, so no file shape can slip past.
+    names = ("syncSerialWriter", "syncOverlapWriter", "TestSyncWorkerPoolSerializesEventWrites")
+    clash = []
+    for f in sorted((p.cli / "internal" / "cli").glob("*.go")):
+        r = f"cli/internal/cli/{f.name}"
+        if r in (SEW_HELPER, SEW_TEST):
+            continue
+        text = code_only(r, p.read(r) or "")
+        if r == SEW_SYNC:
+            text = text.replace(SEW_WRAP, "")
+        clash += [f"{n} ({r})" for n in names if re.search(r"\b%s\b" % n, text)]
+    if clash:
+        p.hand(site, f"cli/internal/cli: already names {', '.join(clash)}; the hand-fix's files would not "
+                     f"build next to it, so wire it by hand")
+        return {}
+    for rel, (cur, want) in files.items():
+        if cur is None:
+            p.write(rel, want, "sync's shared event writer serializer" if rel == SEW_HELPER
+                    else "sync's worker-pool write test")
+    if wraps == 0:
+        p.edit(site, SEW_SYNC, "sync's workers share a serialized event writer", anchor,
+               anchor + SEW_BLOCK.replace("{tag}", tag(hid)), SEW_WRAP, SEW_SCOPE)
+    p.add_tests_from(SEW_TEST)
+    p.pin(hid, SEW_SYNC, SEW_WRAP)
+    p.pin(hid, SEW_HELPER, "func (s *syncSerialWriter) Write(p []byte) (int, error) {")
+    p.pin(hid, SEW_TEST, "func TestSyncWorkerPoolSerializesEventWrites(t *testing.T) {")
+    return {}
+
+
 RECIPES = {
     "derive-lock-canonical": r_derive_lock,
     "token-host-compare": r_token_host,
@@ -1165,7 +1267,12 @@ RECIPES = {
     "create-alias-removal": r_create_alias,
     "no-config-write": r_no_config_write,
     "manifest-env-union": r_manifest_env,
+    "sync-event-writer-serialized": r_sync_event_writer,
 }
+
+# Recipes that are run even when their entry's markers all hold: they check
+# the shape around the markers and change nothing where it is right.
+SHAPE_CHECKED = {"sync-event-writer-serialized": r_sync_event_writer}
 
 
 # --------------------------------------------------------------------------- #
@@ -1292,6 +1399,8 @@ def load_ledger(p: Plan) -> tuple[dict | None, str | None]:
 def plan_connector(root: Path, slug: str, base: str, registry: dict) -> Plan:
     p = Plan(root, slug, base, registry)
     data, raw = load_ledger(p)
+    shape = data
+    data = adopt(p, data, raw, registry)
     entries_out = []
     retired_records = list((data or {}).get("retired") or [])
     known = {r.get("id") for r in retired_records if isinstance(r, dict)}
@@ -1333,6 +1442,11 @@ def plan_connector(root: Path, slug: str, base: str, registry: dict) -> Plan:
             continue
         if verdict == "replay":
             p.gates += [(hid, g) for g in r.get("gates") or []]
+            if not failing_asserts(p, e.get("asserts", [])) and r.get("recipe") in SHAPE_CHECKED:
+                # Markers can hold while the code around them is wrong (a
+                # second assignment after the wrap), so this recipe checks its
+                # shape on every run; it writes nothing where it is applied.
+                SHAPE_CHECKED[r["recipe"]](p, hid, e)
             if not failing_asserts(p, e.get("asserts", [])):
                 for a in e.get("asserts", []):
                     if p.exists(a.get("file", "")):
@@ -1390,17 +1504,45 @@ def plan_connector(root: Path, slug: str, base: str, registry: dict) -> Plan:
         new["handfixes"] = entries_out
         if retired_records:
             new["retired"] = retired_records
-        ind, ea = detect_format(raw, data)
+        ind, ea = detect_format(raw, shape) if raw is not None else (1, True)
         if ind is None:
             p.hand("ledger", "handfixes.json does not round-trip as JSON with 1, 2 or 4-space indent; fix its "
                              "formatting first so this tool cannot rewrite unrelated lines")
         else:
             text = json.dumps(new, indent=ind, ensure_ascii=ea) + "\n"
             if text != raw:
-                p.write("handfixes.json", text, "ledger updated")
+                p.write("handfixes.json", text, "ledger updated" if raw is not None else "ledger created")
     if (p.cli / "go.mod").is_file():
         plan_floors(p)
     return p
+
+
+NEW_LEDGER_COMMENT = ("Connector-specific edits a cli-printing-press reprint must NOT clobber. check_handfixes.py "
+                      "asserts every marker below is still present (and every banned anti-pattern still absent) and "
+                      "fails CI if a reprint dropped one.")
+
+
+def adopt(p: Plan, data: dict | None, raw: str | None, registry: dict) -> dict | None:
+    """Add the entry of every replay id whose `adopt` shape this connector
+    carries and whose ledger lacks it (no entry, no retired record, not
+    keep_manual), so the recipe wires it below like any other replay. This is
+    how a fleet-wide fix reaches a fresh print, which has no entry yet; the
+    same predicate is the one check_handfixes.py demands. A connector without a
+    ledger gets one, in the shape apply_secret_funnel.py creates."""
+    if raw is not None and data is None:
+        return None  # unreadable ledger, already named by load_ledger
+    ids = chf.missing_adoptions(registry, p.slug, data, p.read)
+    if not ids:
+        return data
+    new = dict(data) if data is not None else {"slug": p.slug, "doc": "docs/reprint-survival.md",
+                                                "_comment": NEW_LEDGER_COMMENT, "handfixes": []}
+    entries = list(new.get("handfixes") or [])
+    for hid in ids:
+        entries.append(dict({"id": hid}, **json.loads(json.dumps(registry["handfixes"][hid]["adopt"]["entry"]))))
+        p.notes.append(f"adopt [{hid}]: this print carries the shape fleet_handfixes.json adopts "
+                       f"({registry['handfixes'][hid]['adopt']['file']}), so its entry is added")
+    new["handfixes"] = entries
+    return new
 
 
 def owned_ids(registry: dict) -> list[str]:
