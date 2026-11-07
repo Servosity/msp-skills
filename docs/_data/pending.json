@@ -665,10 +665,10 @@
     "released_hash": "sha256:1f866e4db965fc90ae9dce8ddce2a39cb011373b225a2da2be9edd5fe2b9c895"
   },
   "tactical-rmm": {
-    "state": "up-to-date",
+    "state": "binary-pending",
     "version": "0.1.7",
     "latest_tag": "tactical-rmm-v0.1.7",
-    "current_hash": "sha256:95c97c291b31986dd7ceddff9a7e7285914986831fac35a0b16ee5c604581bd9",
+    "current_hash": "sha256:1b48489d13a2d2708a5d631c26789235cc038afe3fb8d74befd45e84feb7ee5f",
     "released_hash": "sha256:95c97c291b31986dd7ceddff9a7e7285914986831fac35a0b16ee5c604581bd9"
   },
   "td-synnex": {
