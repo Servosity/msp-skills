@@ -55,7 +55,7 @@ func newCustomersListCmd(flags *rootFlags) *cobra.Command {
 					}
 				}
 				if !validFilterCustomerStatus {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagFilterCustomerStatus, "filter-customer-status", allowedFilterCustomerStatus)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagFilterCustomerStatus, "filter-customer-status", allowedFilterCustomerStatus))
 				}
 			}
 			path := "/accounts/{accountId}/customers"

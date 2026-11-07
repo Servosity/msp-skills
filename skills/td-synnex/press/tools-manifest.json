@@ -1,0 +1,2573 @@
+{
+  "api_name": "td-synnex",
+  "base_url": "https://ion.tdsynnex.com/api/v3",
+  "description": "The StreamOne ION v3 reseller API (customers, catalog, orders, subscriptions, carts, reports), plus a local licence book for renewals, margin and cross-distributor true-up.",
+  "mcp_ready": "full",
+  "http_transport": "standard",
+  "auth": {
+    "type": "bearer_token",
+    "header": "Authorization",
+    "env_vars": [
+      "TD_SYNNEX_ACCESS_TOKEN"
+    ],
+    "env_var_specs": [
+      {
+        "name": "TD_SYNNEX_ACCESS_TOKEN",
+        "kind": "per_call",
+        "required": false,
+        "sensitive": true,
+        "description": "StreamOne ION OAuth access token (2-hour lifetime). Optional when `auth mint` has stored a token in the credentials file; an env value overrides the stored one."
+      }
+    ],
+    "key_url": "https://ion.tdsynnex.com/"
+  },
+  "required_headers": [],
+  "tools": [
+    {
+      "name": "cart_items_create",
+      "description": "Add a plan to a cart. `planName` is the full plan resource name, for example accounts/{accountId}/products/IBMCognos/versions/17/plans/Analytics-on-Cloud-1-Month-Upfro. Source: https://docs.streamone.cloud/#create-cart-item Official spec: CreateCartItem (which confirms this path). Required: customerId, cartId, planName, quantity. Optional: addOns, currencyCode, payment (plus 2 more). Returns the new CartItem.",
+      "method": "POST",
+      "path": "/customers/{customerId}/carts/{cartId}/cartItems",
+      "params": [
+        {
+          "name": "customerId",
+          "type": "int",
+          "location": "path",
+          "description": "Customer ID.",
+          "required": true
+        },
+        {
+          "name": "cartId",
+          "type": "string",
+          "location": "path",
+          "description": "Cart ID.",
+          "required": true
+        },
+        {
+          "name": "add-ons-display-name",
+          "wire_name": "addOns.displayName",
+          "type": "string",
+          "location": "body",
+          "description": "Display name",
+          "required": true
+        },
+        {
+          "name": "add-ons-parent",
+          "wire_name": "addOns.parent",
+          "type": "string",
+          "location": "body",
+          "description": "Parent"
+        },
+        {
+          "name": "add-ons-parent-identifier",
+          "wire_name": "addOns.parentIdentifier",
+          "type": "string",
+          "location": "body",
+          "description": "Parent identifier"
+        },
+        {
+          "name": "add-ons-plan-id",
+          "wire_name": "addOns.planId",
+          "type": "string",
+          "location": "body",
+          "description": "Plan id",
+          "required": true
+        },
+        {
+          "name": "currencyCode",
+          "type": "string",
+          "location": "body",
+          "description": "Currency code"
+        },
+        {
+          "name": "payment-credit-card-name",
+          "wire_name": "payment.creditCardName",
+          "type": "string",
+          "location": "body",
+          "description": "Credit card name"
+        },
+        {
+          "name": "payment-payment-type",
+          "wire_name": "payment.paymentType",
+          "type": "string",
+          "location": "body",
+          "description": "Payment type"
+        },
+        {
+          "name": "planName",
+          "type": "string",
+          "location": "body",
+          "description": "Full plan resource name.",
+          "required": true
+        },
+        {
+          "name": "productType",
+          "type": "string",
+          "location": "body",
+          "description": "Product type"
+        },
+        {
+          "name": "quantity",
+          "type": "int",
+          "location": "body",
+          "description": "Quantity",
+          "required": true
+        },
+        {
+          "name": "status",
+          "type": "string",
+          "location": "body",
+          "description": "Cart item status, for example DRAFT."
+        }
+      ]
+    },
+    {
+      "name": "cart_items_delete",
+      "description": "Remove an item from a cart (the docs site's Cart Items intro mentions removing items). Source: official spec DeleteCartItem. Route checked 2026-10-14: unauthenticated request returns 401 (route exists). Required: customerId, cartId, cartItemId. Destructive.",
+      "method": "DELETE",
+      "path": "/customers/{customerId}/carts/{cartId}/cartItems/{cartItemId}",
+      "params": [
+        {
+          "name": "customerId",
+          "type": "int",
+          "location": "path",
+          "description": "Customer ID.",
+          "required": true
+        },
+        {
+          "name": "cartId",
+          "type": "string",
+          "location": "path",
+          "description": "Cart ID.",
+          "required": true
+        },
+        {
+          "name": "cartItemId",
+          "type": "string",
+          "location": "path",
+          "description": "Cart item ID.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "cart_items_get",
+      "description": "Get one cart item. Source: https://docs.streamone.cloud/#get-cart-item Official spec: GetCartItem. Required: customerId, cartId, cartItemId. Returns the CartItem.",
+      "method": "GET",
+      "path": "/customers/{customerId}/carts/{cartId}/cartItems/{cartItemId}",
+      "params": [
+        {
+          "name": "customerId",
+          "type": "int",
+          "location": "path",
+          "description": "Customer ID.",
+          "required": true
+        },
+        {
+          "name": "cartId",
+          "type": "string",
+          "location": "path",
+          "description": "Cart ID.",
+          "required": true
+        },
+        {
+          "name": "cartItemId",
+          "type": "string",
+          "location": "path",
+          "description": "Cart item ID.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "cart_items_list",
+      "description": "List the items in a cart with plan, quantity, prices, add-ons, term and checkout state. The response key is `cartitems` (lowercase i). Source: https://docs.streamone.cloud/#list-cart-items Official spec: ListCartItems. Required: customerId, cartId. Returns array of CartItem.",
+      "method": "GET",
+      "path": "/customers/{customerId}/carts/{cartId}/cartItems",
+      "params": [
+        {
+          "name": "customerId",
+          "type": "int",
+          "location": "path",
+          "description": "Customer ID.",
+          "required": true
+        },
+        {
+          "name": "cartId",
+          "type": "string",
+          "location": "path",
+          "description": "Cart ID.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "cart_items_update",
+      "description": "Update a cart item's quantity, plan, add-ons or payment. Source: https://docs.streamone.cloud/#update-cart-item Official spec: UpdateCartItem (which confirms this path). Required: customerId, cartId, cartItemId. Optional: addOns, currencyCode, payment (plus 4 more). Returns the updated CartItem.",
+      "method": "PUT",
+      "path": "/customers/{customerId}/carts/{cartId}/cartItems/{cartItemId}",
+      "params": [
+        {
+          "name": "customerId",
+          "type": "int",
+          "location": "path",
+          "description": "Customer ID.",
+          "required": true
+        },
+        {
+          "name": "cartId",
+          "type": "string",
+          "location": "path",
+          "description": "Cart ID.",
+          "required": true
+        },
+        {
+          "name": "cartItemId",
+          "type": "string",
+          "location": "path",
+          "description": "Cart item ID.",
+          "required": true
+        },
+        {
+          "name": "addOns",
+          "type": "array",
+          "location": "body",
+          "description": "Add-on plans for the item."
+        },
+        {
+          "name": "currencyCode",
+          "type": "string",
+          "location": "body",
+          "description": "Currency code"
+        },
+        {
+          "name": "payment-credit-card-name",
+          "wire_name": "payment.creditCardName",
+          "type": "string",
+          "location": "body",
+          "description": "Credit card name"
+        },
+        {
+          "name": "payment-payment-type",
+          "wire_name": "payment.paymentType",
+          "type": "string",
+          "location": "body",
+          "description": "Payment type"
+        },
+        {
+          "name": "planName",
+          "type": "string",
+          "location": "body",
+          "description": "Full plan resource name."
+        },
+        {
+          "name": "productType",
+          "type": "string",
+          "location": "body",
+          "description": "Product type"
+        },
+        {
+          "name": "quantity",
+          "type": "int",
+          "location": "body",
+          "description": "Quantity"
+        },
+        {
+          "name": "status",
+          "type": "string",
+          "location": "body",
+          "description": "Cart item status, for example DRAFT."
+        }
+      ]
+    },
+    {
+      "name": "carts_checkout",
+      "description": "Start the purchase of a cart, which places a real, billable order. Pass the final cart value (totalCalculatedValue) and the per-item provisioning attributes (for Microsoft: domainName, agreementDateAgreed, agreementUserId, agreementEmail, agreementFirstName, agreementLastName, agreementPhoneNumber, companyRegistrationId, customTermEndDate). Returns the resulting order. Source: https://docs.streamone.cloud/#checkout-cart Official spec: CheckoutCart. The docs site marks totalCalculatedValue and provisionData required; the official spec marks no body field required. Required: customerId, cartId. Optional: provisionData, totalCalculatedValue.",
+      "method": "POST",
+      "path": "/customers/{customerId}/carts/{cartId}:checkout",
+      "params": [
+        {
+          "name": "customerId",
+          "type": "int",
+          "location": "path",
+          "description": "Customer ID.",
+          "required": true
+        },
+        {
+          "name": "cartId",
+          "type": "string",
+          "location": "path",
+          "description": "Cart ID.",
+          "required": true
+        },
+        {
+          "name": "provisionData",
+          "type": "array",
+          "location": "body",
+          "description": "Provision data"
+        },
+        {
+          "name": "totalCalculatedValue",
+          "type": "float",
+          "location": "body",
+          "description": "Final cart value including discounts."
+        }
+      ]
+    },
+    {
+      "name": "carts_create",
+      "description": "Create a cart for a customer. Source: https://docs.streamone.cloud/#create-cart Official spec: CreateCart. Required: customerId. Optional: cartDisplayName, currencyCode, payment (plus 2 more). Returns the new Cart.",
+      "method": "POST",
+      "path": "/customers/{customerId}/carts",
+      "params": [
+        {
+          "name": "customerId",
+          "type": "int",
+          "location": "path",
+          "description": "Customer ID.",
+          "required": true
+        },
+        {
+          "name": "cartDisplayName",
+          "type": "string",
+          "location": "body",
+          "description": "Cart display name"
+        },
+        {
+          "name": "currencyCode",
+          "type": "string",
+          "location": "body",
+          "description": "Currency code"
+        },
+        {
+          "name": "payment-credit-card-name",
+          "wire_name": "payment.creditCardName",
+          "type": "string",
+          "location": "body",
+          "description": "Credit card name"
+        },
+        {
+          "name": "payment-payment-type",
+          "wire_name": "payment.paymentType",
+          "type": "string",
+          "location": "body",
+          "description": "Payment type"
+        },
+        {
+          "name": "status",
+          "type": "string",
+          "location": "body",
+          "description": "Status"
+        },
+        {
+          "name": "userName",
+          "type": "string",
+          "location": "body",
+          "description": "User name"
+        }
+      ]
+    },
+    {
+      "name": "carts_delete",
+      "description": "Clear or delete a cart. Source: official spec DeleteCart (not on the docs site). Route checked 2026-10-14: unauthenticated request returns 401 (route exists). Required: customerId, cartId. Destructive.",
+      "method": "DELETE",
+      "path": "/customers/{customerId}/carts/{cartId}",
+      "params": [
+        {
+          "name": "customerId",
+          "type": "int",
+          "location": "path",
+          "description": "Customer ID.",
+          "required": true
+        },
+        {
+          "name": "cartId",
+          "type": "string",
+          "location": "path",
+          "description": "Cart ID.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "carts_get",
+      "description": "Get one cart (a flat cart object per the official spec; the docs site sample wraps it in a `carts` array). Source: https://docs.streamone.cloud/#get-cart Official spec: GetCart. Required: customerId, cartId. Returns the Cart.",
+      "method": "GET",
+      "path": "/customers/{customerId}/carts/{cartId}",
+      "params": [
+        {
+          "name": "customerId",
+          "type": "int",
+          "location": "path",
+          "description": "Customer ID.",
+          "required": true
+        },
+        {
+          "name": "cartId",
+          "type": "string",
+          "location": "path",
+          "description": "Cart ID.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "carts_list",
+      "description": "List a customer's carts with status, payment type, currency and item count. Carts are customer-scoped: this path has no account ID. Paginate with pagination.limit and pagination.offset. Source: https://docs.streamone.cloud/#list-cart Official spec: ListCarts (status is required there and on the docs site). Required: customerId, status. Optional: pagination.limit (default: 100), pagination.offset, pagination.filter (plus 3 more). Returns array of Cart.",
+      "method": "GET",
+      "path": "/customers/{customerId}/carts",
+      "params": [
+        {
+          "name": "customerId",
+          "type": "int",
+          "location": "path",
+          "description": "Customer ID.",
+          "required": true
+        },
+        {
+          "name": "pagination.limit",
+          "type": "int",
+          "location": "query",
+          "description": "Number of carts to return."
+        },
+        {
+          "name": "pagination.offset",
+          "type": "int",
+          "location": "query",
+          "description": "Number of carts to skip."
+        },
+        {
+          "name": "pagination.filter",
+          "type": "string",
+          "location": "query",
+          "description": "Free-text filter, for example a cart display name."
+        },
+        {
+          "name": "pagination.sortBy",
+          "type": "string",
+          "location": "query",
+          "description": "Field to sort by."
+        },
+        {
+          "name": "pagination.sortOrder",
+          "type": "string",
+          "location": "query",
+          "description": "Sort direction."
+        },
+        {
+          "name": "pagination.userId",
+          "type": "int",
+          "location": "query",
+          "description": "User ID that owns the cart."
+        },
+        {
+          "name": "status",
+          "type": "string",
+          "location": "query",
+          "description": "Cart status filter.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "carts_update",
+      "description": "Update a cart's display name, payment, status or currency. Source: https://docs.streamone.cloud/#update-cart Official spec: UpdateCart. Required: customerId, cartId. Optional: cartDisplayName, currencyCode, payment (plus 2 more). Returns the updated Cart.",
+      "method": "PUT",
+      "path": "/customers/{customerId}/carts/{cartId}",
+      "params": [
+        {
+          "name": "customerId",
+          "type": "int",
+          "location": "path",
+          "description": "Customer ID.",
+          "required": true
+        },
+        {
+          "name": "cartId",
+          "type": "string",
+          "location": "path",
+          "description": "Cart ID.",
+          "required": true
+        },
+        {
+          "name": "cartDisplayName",
+          "type": "string",
+          "location": "body",
+          "description": "Cart display name"
+        },
+        {
+          "name": "currencyCode",
+          "type": "string",
+          "location": "body",
+          "description": "Currency code"
+        },
+        {
+          "name": "payment-credit-card-name",
+          "wire_name": "payment.creditCardName",
+          "type": "string",
+          "location": "body",
+          "description": "Credit card name"
+        },
+        {
+          "name": "payment-payment-type",
+          "wire_name": "payment.paymentType",
+          "type": "string",
+          "location": "body",
+          "description": "Payment type"
+        },
+        {
+          "name": "status",
+          "type": "string",
+          "location": "body",
+          "description": "Status"
+        },
+        {
+          "name": "userName",
+          "type": "string",
+          "location": "body",
+          "description": "User name"
+        }
+      ]
+    },
+    {
+      "name": "categories_list",
+      "description": "List product categories (Security, Cloud Services and others) with product counts and parent/child links. Source: https://docs.streamone.cloud/#list-categories Official spec: ListCategories. Required: accountId. Returns array of Category.",
+      "method": "GET",
+      "path": "/accounts/{accountId}/products/categories",
+      "params": [
+        {
+          "name": "accountId",
+          "type": "int",
+          "location": "path",
+          "description": "Reseller account ID (portal Quick Access \u003e Account Information).",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "charges_list",
+      "description": "List the account's pricing charge rules (markup/margin plans): charge name, plan type (FIXED_AMOUNT, FIXED_PERCENT, TIERED), whether the rate applies to customer or seller cost, tiers and currency. Source: official spec ListCharges (not on the docs site). Route checked 2026-10-14: unauthenticated request returns 401 (route exists). Required: accountId.",
+      "method": "GET",
+      "path": "/accounts/{accountId}/products/charges",
+      "params": [
+        {
+          "name": "accountId",
+          "type": "int",
+          "location": "path",
+          "description": "Reseller account ID (portal Quick Access \u003e Account Information).",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "cloud_profiles_get-customer",
+      "description": "Show which cloud providers a customer is linked to (Microsoft CSP, Google Workspace, Azure and others) with tenant ID, domain, GDAP status, GDAP roles and Microsoft Customer Agreement status for Azure/Microsoft providers. Source: https://docs.streamone.cloud/#get-customer-cloud-profiles Official spec: GetCustomerCloudProfiles (providerId optional there; the docs site marks it required). Required: accountId, customerId. Optional: providerId, enabledOnly. Returns the CloudProfiles.",
+      "method": "GET",
+      "path": "/accounts/{accountId}/customers/{customerId}/cloudProfiles",
+      "params": [
+        {
+          "name": "accountId",
+          "type": "int",
+          "location": "path",
+          "description": "Reseller account ID (portal Quick Access \u003e Account Information).",
+          "required": true
+        },
+        {
+          "name": "customerId",
+          "type": "int",
+          "location": "path",
+          "description": "Customer ID.",
+          "required": true
+        },
+        {
+          "name": "providerId",
+          "type": "string",
+          "location": "query",
+          "description": "Cloud provider ID in StreamOne ION, for example 30 for Microsoft CSP."
+        },
+        {
+          "name": "enabledOnly",
+          "type": "bool",
+          "location": "query",
+          "description": "When true, return only the customer's active cloud profiles."
+        }
+      ]
+    },
+    {
+      "name": "cloud_providers_get-customer",
+      "description": "Get the customer's association with one cloud provider: provisioned domain, status, partner tenant ID, MCA email status and options (key/value pairs such as autoRenew and termSettings, shown in the docs sample). For Microsoft, `azureCustomerInfo` is a JSON string from Partner Center that the docs sample shows carrying tenant admin UserCredentials (including a Password): treat the response as a secret. Source: https://docs.streamone.cloud/#get-customer-cloud-provider Official spec: GetCustomerCloudProvider. Required: accountId, customerId, providerId. Returns the CustomerCloudProvider.",
+      "method": "GET",
+      "path": "/accounts/{accountId}/customers/{customerId}/cloudProviders/{providerId}",
+      "params": [
+        {
+          "name": "accountId",
+          "type": "int",
+          "location": "path",
+          "description": "Reseller account ID (portal Quick Access \u003e Account Information).",
+          "required": true
+        },
+        {
+          "name": "customerId",
+          "type": "int",
+          "location": "path",
+          "description": "Customer ID.",
+          "required": true
+        },
+        {
+          "name": "providerId",
+          "type": "int",
+          "location": "path",
+          "description": "Cloud provider ID, for example 30 for Microsoft CSP.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "cloud_providers_link-customer",
+      "description": "Link a tenant the customer already owns at the cloud provider to the ION customer. Body `name` is accounts/{accountId}/customers/{customerId}/cloudProviders/{providerId} and `id` is the tenant ID. The docs header shows GET, but the endpoint table lists POST and the live host answers GET with 415 and POST with 401 (route-probe-2026-10-14.txt), so POST is used. Source: https://docs.streamone.cloud/#link-customer-cloud-provider Official spec: LinkCustomerCloudProvider. Required: accountId, customerId, providerId, id, name. Returns the new LinkResponse.",
+      "method": "POST",
+      "path": "/accounts/{accountId}/customers/{customerId}/cloudProviders/{providerId}:link",
+      "params": [
+        {
+          "name": "accountId",
+          "type": "int",
+          "location": "path",
+          "description": "Reseller account ID (portal Quick Access \u003e Account Information).",
+          "required": true
+        },
+        {
+          "name": "customerId",
+          "type": "int",
+          "location": "path",
+          "description": "Customer ID.",
+          "required": true
+        },
+        {
+          "name": "providerId",
+          "type": "int",
+          "location": "path",
+          "description": "Cloud provider ID, for example 30 for Microsoft CSP.",
+          "required": true
+        },
+        {
+          "name": "id",
+          "type": "string",
+          "location": "body",
+          "description": "Existing tenant ID.",
+          "required": true
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "accounts/{accountId}/customers/{customerId}/cloudProviders/{providerId}",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "cloud_providers_provision-customer",
+      "description": "Create a new tenant for the customer at the cloud provider (for example a Microsoft tenant for provider 30). The response returns the tenant admin username, a generated password and the login URL where the customer signs the Microsoft Customer Agreement: treat the response as a secret. The docs header shows GET, but the endpoint table lists POST and the live host answers GET with 415 and POST with 401 (route-probe-2026-10-14.txt), so POST is used. Source: https://docs.streamone.cloud/#create-customer-cloud-provider Official spec: CustomerCloudProviderProvision. Required: accountId, customerId, providerId, customerId. Optional: azureCustomerDetails.",
+      "method": "POST",
+      "path": "/accounts/{accountId}/customers/{customerId}/cloudProviders/{providerId}:provision",
+      "params": [
+        {
+          "name": "accountId",
+          "type": "int",
+          "location": "path",
+          "description": "Reseller account ID (portal Quick Access \u003e Account Information).",
+          "required": true
+        },
+        {
+          "name": "customerId",
+          "type": "int",
+          "location": "path",
+          "description": "Customer ID.",
+          "required": true
+        },
+        {
+          "name": "providerId",
+          "type": "int",
+          "location": "path",
+          "description": "Cloud provider ID, for example 30 for Microsoft CSP.",
+          "required": true
+        },
+        {
+          "name": "azure-customer-details-billing-profile-company-name",
+          "wire_name": "azureCustomerDetails.billingProfile.companyName",
+          "type": "string",
+          "location": "body",
+          "description": "Company name",
+          "required": true
+        },
+        {
+          "name": "azure-customer-details-billing-profile-default-address",
+          "wire_name": "azureCustomerDetails.billingProfile.defaultAddress",
+          "type": "object",
+          "location": "body",
+          "description": "Billing address (official spec CustomerCloudProviderDefaultAddress); pass it as one JSON object."
+        },
+        {
+          "name": "azure-customer-details-billing-profile-email",
+          "wire_name": "azureCustomerDetails.billingProfile.email",
+          "type": "string",
+          "location": "body",
+          "description": "Email",
+          "required": true
+        },
+        {
+          "name": "azure-customer-details-company-profile-domain",
+          "wire_name": "azureCustomerDetails.companyProfile.domain",
+          "type": "string",
+          "location": "body",
+          "description": "Tenant domain, for example contoso.onmicrosoft.com.",
+          "required": true
+        },
+        {
+          "name": "azure-customer-details-organization-registration-number",
+          "wire_name": "azureCustomerDetails.organizationRegistrationNumber",
+          "type": "string",
+          "location": "body",
+          "description": "Organization registration number"
+        },
+        {
+          "name": "customerId-2",
+          "wire_name": "customerId",
+          "type": "string",
+          "location": "body",
+          "description": "Customer id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "customer_orders_cancel-order",
+      "description": "Cancel an order. Allowed only while the order status is NEW or ON_HOLD, right after it was placed. No request body. Source: https://docs.streamone.cloud/#cancel-order Official spec: CancelOrder. Required: accountId, customerId, orderId. Returns the new Order.",
+      "method": "POST",
+      "path": "/accounts/{accountId}/customers/{customerId}/orders/{orderId}:cancel",
+      "params": [
+        {
+          "name": "accountId",
+          "type": "int",
+          "location": "path",
+          "description": "Reseller account ID (portal Quick Access \u003e Account Information).",
+          "required": true
+        },
+        {
+          "name": "customerId",
+          "type": "int",
+          "location": "path",
+          "description": "Customer ID.",
+          "required": true
+        },
+        {
+          "name": "orderId",
+          "type": "string",
+          "location": "path",
+          "description": "Order ID.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "customer_orders_create-order",
+      "description": "Place a real, billable order for a customer, or change an existing subscription. Every lifecycle change in ION is an order on this same endpoint: set each order item's `action` (CREATE or UPDATE) and pass `resourceId` (the vendor subscription ID) for updates, with name/value `attributes` from the product's provisioning template. Documented update attributes: operations=updateSubscription with a new `quantity` (licence count, also during renewal); operations=updateSubscription + renewalSetting (auto_on, cancel_at_renewal, renew_to_est); operations=updateSubscription + statusUpdate (suspended, active, deleted); operations=changeSubscription with a new skuId/planId (upgrade); operations=updateSubscription + friendlyName. Microsoft creates also take domainName and the agreement* attributes. Reserved Instance orders cannot be placed through the API. Sources: https://docs.streamone.cloud/#create-order , https://docs.streamone.cloud/#update-order , https://docs.streamone.cloud/#update-order-license-count , https://docs.streamone.cloud/#update-order-renewal-settings , https://docs.streamone.cloud/#update-order-delete-suspend-reactivate-subscription , https://docs.streamone.cloud/#update-order-upgrade-subscription-from-lower-tier-to-higher-tier , https://docs.streamone.cloud/#update-order-adding-entitlement-and-friendly-name Official spec: CreateOrder. Required: accountId, customerId, orderItems. Optional: displayName, name, referenceId. Returns the new Order.",
+      "method": "POST",
+      "path": "/accounts/{accountId}/customers/{customerId}/orders",
+      "params": [
+        {
+          "name": "accountId",
+          "type": "int",
+          "location": "path",
+          "description": "Reseller account ID (portal Quick Access \u003e Account Information).",
+          "required": true
+        },
+        {
+          "name": "customerId",
+          "type": "int",
+          "location": "path",
+          "description": "Customer ID.",
+          "required": true
+        },
+        {
+          "name": "displayName",
+          "type": "string",
+          "location": "body",
+          "description": "Display name"
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Name"
+        },
+        {
+          "name": "orderItems",
+          "type": "array",
+          "location": "body",
+          "description": "Order items",
+          "required": true
+        },
+        {
+          "name": "referenceId",
+          "type": "string",
+          "location": "body",
+          "description": "Reference id"
+        }
+      ]
+    },
+    {
+      "name": "customer_orders_get-order",
+      "description": "Get one order with its status, totals, order items, provisioning info and activity log. Source: https://docs.streamone.cloud/#get-order Official spec: GetOrder. Required: accountId, customerId, orderId. Returns the Order.",
+      "method": "GET",
+      "path": "/accounts/{accountId}/customers/{customerId}/orders/{orderId}",
+      "params": [
+        {
+          "name": "accountId",
+          "type": "int",
+          "location": "path",
+          "description": "Reseller account ID (portal Quick Access \u003e Account Information).",
+          "required": true
+        },
+        {
+          "name": "customerId",
+          "type": "int",
+          "location": "path",
+          "description": "Customer ID.",
+          "required": true
+        },
+        {
+          "name": "orderId",
+          "type": "string",
+          "location": "path",
+          "description": "Order ID.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "customer_orders_list",
+      "description": "List one customer's order history. Source: https://docs.streamone.cloud/#list-customer-orders Official spec: ListCustomerOrders. Required: accountId, customerId, pageSize (default: 100). Optional: pageToken, status. Returns array of Order.",
+      "method": "GET",
+      "path": "/accounts/{accountId}/customers/{customerId}/orders",
+      "params": [
+        {
+          "name": "accountId",
+          "type": "int",
+          "location": "path",
+          "description": "Reseller account ID (portal Quick Access \u003e Account Information).",
+          "required": true
+        },
+        {
+          "name": "customerId",
+          "type": "int",
+          "location": "path",
+          "description": "Customer ID.",
+          "required": true
+        },
+        {
+          "name": "pageSize",
+          "type": "int",
+          "location": "query",
+          "description": "Page size of the response.",
+          "required": true
+        },
+        {
+          "name": "pageToken",
+          "type": "string",
+          "location": "query",
+          "description": "Token for the page to return (nextPageToken from the previous page); empty returns the first page."
+        },
+        {
+          "name": "status",
+          "type": "string",
+          "location": "query",
+          "description": "Order status filter."
+        }
+      ]
+    },
+    {
+      "name": "customers_create",
+      "description": "Create an end customer. The official spec requires customerOrganization, customerAddress (street, city, state, zip, country), customerName, customerEmail and languageCode. The response includes a default customer user whose `password` field carries the generated initial password: treat the response as a secret. Source: https://docs.streamone.cloud/#create-customer Official spec: CreateCustomer. Required: accountId, customerAddress, customerEmail, customerName, customerOrganization, languageCode. Optional: customerPhone, customerTitle. Returns the new Customer.",
+      "method": "POST",
+      "path": "/accounts/{accountId}/customers",
+      "params": [
+        {
+          "name": "accountId",
+          "type": "int",
+          "location": "path",
+          "description": "Reseller account ID (portal Quick Access \u003e Account Information).",
+          "required": true
+        },
+        {
+          "name": "customer-address-city",
+          "wire_name": "customerAddress.city",
+          "type": "string",
+          "location": "body",
+          "description": "City",
+          "required": true
+        },
+        {
+          "name": "customer-address-country",
+          "wire_name": "customerAddress.country",
+          "type": "string",
+          "location": "body",
+          "description": "Two-letter country code.",
+          "required": true
+        },
+        {
+          "name": "customer-address-state",
+          "wire_name": "customerAddress.state",
+          "type": "string",
+          "location": "body",
+          "description": "State",
+          "required": true
+        },
+        {
+          "name": "customer-address-street",
+          "wire_name": "customerAddress.street",
+          "type": "string",
+          "location": "body",
+          "description": "Street",
+          "required": true
+        },
+        {
+          "name": "customer-address-suite",
+          "wire_name": "customerAddress.suite",
+          "type": "string",
+          "location": "body",
+          "description": "Suite"
+        },
+        {
+          "name": "customer-address-zip",
+          "wire_name": "customerAddress.zip",
+          "type": "string",
+          "location": "body",
+          "description": "Zip",
+          "required": true
+        },
+        {
+          "name": "customerEmail",
+          "type": "string",
+          "location": "body",
+          "description": "Primary contact email.",
+          "required": true
+        },
+        {
+          "name": "customerName",
+          "type": "string",
+          "location": "body",
+          "description": "Primary contact first and last name.",
+          "required": true
+        },
+        {
+          "name": "customerOrganization",
+          "type": "string",
+          "location": "body",
+          "description": "Customer organization name.",
+          "required": true
+        },
+        {
+          "name": "customerPhone",
+          "type": "string",
+          "location": "body",
+          "description": "Customer phone"
+        },
+        {
+          "name": "customerTitle",
+          "type": "string",
+          "location": "body",
+          "description": "Primary contact title, for example Ms."
+        },
+        {
+          "name": "languageCode",
+          "type": "string",
+          "location": "body",
+          "description": "ISO 639-1 language code, for example en.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "customers_get",
+      "description": "Get one end customer by ID. Source: https://docs.streamone.cloud/#get-customer Official spec: GetCustomer. Required: accountId, customerId. Returns the Customer.",
+      "method": "GET",
+      "path": "/accounts/{accountId}/customers/{customerId}",
+      "params": [
+        {
+          "name": "accountId",
+          "type": "int",
+          "location": "path",
+          "description": "Reseller account ID (portal Quick Access \u003e Account Information).",
+          "required": true
+        },
+        {
+          "name": "customerId",
+          "type": "int",
+          "location": "path",
+          "description": "Customer ID.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "customers_list",
+      "description": "List end customers under the reseller account, oldest first. The API rejects the call with 400 'At least one of page_size and page_token must be present' when both are missing, so pageSize is required. Each customer's `name` is its resource path (accounts/{accountId}/customers/{customerId}); the trailing segment is the customer ID. Source: https://docs.streamone.cloud/#list-customers Official spec: ListCustomers. Required: accountId, pageSize (default: 100). Optional: pageToken, filter.customerEmail, filter.customerName (plus 2 more). Returns array of Customer.",
+      "method": "GET",
+      "path": "/accounts/{accountId}/customers",
+      "params": [
+        {
+          "name": "accountId",
+          "type": "int",
+          "location": "path",
+          "description": "Reseller account ID (portal Quick Access \u003e Account Information).",
+          "required": true
+        },
+        {
+          "name": "pageSize",
+          "type": "int",
+          "location": "query",
+          "description": "Page size of the response.",
+          "required": true
+        },
+        {
+          "name": "pageToken",
+          "type": "string",
+          "location": "query",
+          "description": "Token for the page to return (nextPageToken from the previous page); empty returns the first page."
+        },
+        {
+          "name": "filter.customerEmail",
+          "type": "string",
+          "location": "query",
+          "description": "Email address of the customer's primary contact."
+        },
+        {
+          "name": "filter.customerName",
+          "type": "string",
+          "location": "query",
+          "description": "Primary contact name (first and last name)."
+        },
+        {
+          "name": "filter.customerStatus",
+          "type": "string",
+          "location": "query",
+          "description": "Customer status filter."
+        },
+        {
+          "name": "filter.languageCode",
+          "type": "string",
+          "location": "query",
+          "description": "Two-letter preferred language code, for example EN."
+        }
+      ]
+    },
+    {
+      "name": "customers_update",
+      "description": "Replace a customer's organization, address and contact details. Same body as create; the live API validates customerEmail, customerName and customerOrganization as required. Source: https://docs.streamone.cloud/#update-customer Official spec: UpdateCustomer. Required: accountId, customerId, customerAddress, customerEmail, customerName, customerOrganization, languageCode. Optional: customerPhone, customerTitle. Returns the updated Customer.",
+      "method": "PUT",
+      "path": "/accounts/{accountId}/customers/{customerId}",
+      "params": [
+        {
+          "name": "accountId",
+          "type": "int",
+          "location": "path",
+          "description": "Reseller account ID (portal Quick Access \u003e Account Information).",
+          "required": true
+        },
+        {
+          "name": "customerId",
+          "type": "int",
+          "location": "path",
+          "description": "Customer ID.",
+          "required": true
+        },
+        {
+          "name": "customer-address-city",
+          "wire_name": "customerAddress.city",
+          "type": "string",
+          "location": "body",
+          "description": "City",
+          "required": true
+        },
+        {
+          "name": "customer-address-country",
+          "wire_name": "customerAddress.country",
+          "type": "string",
+          "location": "body",
+          "description": "Two-letter country code.",
+          "required": true
+        },
+        {
+          "name": "customer-address-state",
+          "wire_name": "customerAddress.state",
+          "type": "string",
+          "location": "body",
+          "description": "State",
+          "required": true
+        },
+        {
+          "name": "customer-address-street",
+          "wire_name": "customerAddress.street",
+          "type": "string",
+          "location": "body",
+          "description": "Street",
+          "required": true
+        },
+        {
+          "name": "customer-address-suite",
+          "wire_name": "customerAddress.suite",
+          "type": "string",
+          "location": "body",
+          "description": "Suite"
+        },
+        {
+          "name": "customer-address-zip",
+          "wire_name": "customerAddress.zip",
+          "type": "string",
+          "location": "body",
+          "description": "Zip",
+          "required": true
+        },
+        {
+          "name": "customerEmail",
+          "type": "string",
+          "location": "body",
+          "description": "Primary contact email.",
+          "required": true
+        },
+        {
+          "name": "customerName",
+          "type": "string",
+          "location": "body",
+          "description": "Primary contact first and last name.",
+          "required": true
+        },
+        {
+          "name": "customerOrganization",
+          "type": "string",
+          "location": "body",
+          "description": "Customer organization name.",
+          "required": true
+        },
+        {
+          "name": "customerPhone",
+          "type": "string",
+          "location": "body",
+          "description": "Customer phone"
+        },
+        {
+          "name": "customerTitle",
+          "type": "string",
+          "location": "body",
+          "description": "Primary contact title, for example Ms."
+        },
+        {
+          "name": "languageCode",
+          "type": "string",
+          "location": "body",
+          "description": "ISO 639-1 language code, for example en.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "orders_list-account",
+      "description": "List the reseller's order history across all customers, with order items, prices, costs and margins. Filter by status, customers, providers or sub-accounts. Source: https://docs.streamone.cloud/#list-account-orders Official spec: ListAccountOrders. Required: accountId, pageSize (default: 100). Optional: pageToken, status, filter.excludeSubAccounts (plus 5 more). Returns array of Order.",
+      "method": "GET",
+      "path": "/accounts/{accountId}/orders",
+      "params": [
+        {
+          "name": "accountId",
+          "type": "int",
+          "location": "path",
+          "description": "Reseller account ID (portal Quick Access \u003e Account Information).",
+          "required": true
+        },
+        {
+          "name": "pageSize",
+          "type": "int",
+          "location": "query",
+          "description": "Page size of the response.",
+          "required": true
+        },
+        {
+          "name": "pageToken",
+          "type": "string",
+          "location": "query",
+          "description": "Token for the page to return (nextPageToken from the previous page); empty returns the first page."
+        },
+        {
+          "name": "status",
+          "type": "string",
+          "location": "query",
+          "description": "Order status filter."
+        },
+        {
+          "name": "filter.excludeSubAccounts",
+          "type": "bool",
+          "location": "query",
+          "description": "Exclude orders placed in sub-accounts."
+        },
+        {
+          "name": "filter.accountIdList",
+          "type": "string",
+          "location": "query",
+          "description": "Comma-separated account IDs to include, for example 111,112."
+        },
+        {
+          "name": "filter.customerIdList",
+          "type": "string",
+          "location": "query",
+          "description": "Comma-separated customer IDs to include, for example 102,204."
+        },
+        {
+          "name": "filter.providerNameList",
+          "type": "string",
+          "location": "query",
+          "description": "Comma-separated provider names to include, for example Microsoft,Azure."
+        },
+        {
+          "name": "sortBy",
+          "type": "string",
+          "location": "query",
+          "description": "Attribute to sort by, for example createTime or updateTime."
+        },
+        {
+          "name": "sortOrder",
+          "type": "string",
+          "location": "query",
+          "description": "Sort direction."
+        }
+      ]
+    },
+    {
+      "name": "pricing_get-product",
+      "description": "Price several products in one call for a price-book customer: price-book price, account cost, MSRP-style master price, currency and availability per product. This is a read despite the POST. Product identifiers are the comma-joined external IDs, for example 'GB,CFQ7TTC0LFLS,0002,One-Month commitment for monthly billing', grouped by provider resource name (accounts/{accountId}/cloudProviders/{providerId}). Source: https://docs.streamone.cloud/#get-product-pricing Official spec: GetProductPricing. Required: accountId. Optional: externalProductWithProvider, priceBookCustomerId. Returns array of PricingGetProductItem.",
+      "method": "POST",
+      "path": "/accounts/{accountId}/products:pricing",
+      "params": [
+        {
+          "name": "accountId",
+          "type": "int",
+          "location": "path",
+          "description": "Reseller account ID (portal Quick Access \u003e Account Information).",
+          "required": true
+        },
+        {
+          "name": "externalProductWithProvider",
+          "type": "array",
+          "location": "body",
+          "description": "External product with provider"
+        },
+        {
+          "name": "priceBookCustomerId",
+          "type": "int",
+          "location": "body",
+          "description": "Customer ID whose price book is used."
+        }
+      ]
+    },
+    {
+      "name": "products_disable",
+      "description": "Hide a catalog product for the account (toggles its visibility in the storefront). No request body. Source: official spec DisableProduct (not on the docs site). Route checked 2026-10-14: unauthenticated request returns 401 (route exists). Required: accountId, productId.",
+      "method": "POST",
+      "path": "/accounts/{accountId}/products/{productId}:disable",
+      "params": [
+        {
+          "name": "accountId",
+          "type": "int",
+          "location": "path",
+          "description": "Reseller account ID (portal Quick Access \u003e Account Information).",
+          "required": true
+        },
+        {
+          "name": "productId",
+          "type": "string",
+          "location": "path",
+          "description": "Product ID.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "products_enable",
+      "description": "Show a catalog product for the account (toggles its visibility in the storefront). No request body. Source: official spec EnableProduct (not on the docs site). Route checked 2026-10-14: unauthenticated request returns 401 (route exists). Required: accountId, productId.",
+      "method": "POST",
+      "path": "/accounts/{accountId}/products/{productId}:enable",
+      "params": [
+        {
+          "name": "accountId",
+          "type": "int",
+          "location": "path",
+          "description": "Reseller account ID (portal Quick Access \u003e Account Information).",
+          "required": true
+        },
+        {
+          "name": "productId",
+          "type": "string",
+          "location": "path",
+          "description": "Product ID.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "products_get",
+      "description": "Get one catalog product with marketing, definition (SKUs, plans, phases, prices), version history and deployment details. Pass priceBookCustomerId to price it for a customer's price book, and the exclude flags to trim the response. Source: https://docs.streamone.cloud/#get-product Official spec: GetProductDetails. Required: accountId, productId. Optional: language, priceBookCustomerId, productVersion (plus 6 more). Returns the Product.",
+      "method": "GET",
+      "path": "/accounts/{accountId}/products/{productId}",
+      "params": [
+        {
+          "name": "accountId",
+          "type": "int",
+          "location": "path",
+          "description": "Reseller account ID (portal Quick Access \u003e Account Information).",
+          "required": true
+        },
+        {
+          "name": "productId",
+          "type": "string",
+          "location": "path",
+          "description": "Product ID, for example AcronisCyberProtection-smp.",
+          "required": true
+        },
+        {
+          "name": "language",
+          "type": "string",
+          "location": "query",
+          "description": "Language of the product content."
+        },
+        {
+          "name": "priceBookCustomerId",
+          "type": "int",
+          "location": "query",
+          "description": "Customer ID whose price book prices the product."
+        },
+        {
+          "name": "productVersion",
+          "type": "string",
+          "location": "query",
+          "description": "Product version."
+        },
+        {
+          "name": "excludeFilter.excludePricing",
+          "type": "bool",
+          "location": "query",
+          "description": "Omit pricing information."
+        },
+        {
+          "name": "excludeFilter.excludeMarketing",
+          "type": "bool",
+          "location": "query",
+          "description": "Omit marketing information."
+        },
+        {
+          "name": "excludeFilter.excludeDefinition",
+          "type": "bool",
+          "location": "query",
+          "description": "Omit the product definition."
+        },
+        {
+          "name": "excludeFilter.excludeVersionHistory",
+          "type": "bool",
+          "location": "query",
+          "description": "Omit version history."
+        },
+        {
+          "name": "excludeFilter.excludeDeployment",
+          "type": "bool",
+          "location": "query",
+          "description": "Omit deployment information."
+        },
+        {
+          "name": "clientRole",
+          "type": "string",
+          "location": "query",
+          "description": "CUSTOMER (default) returns published product details; OWNER returns the owner's view."
+        }
+      ]
+    },
+    {
+      "name": "products_list",
+      "description": "List catalog products available to the reseller account, with SKUs, plans and list pricing in `definition.skus[].plans[]`. Responses are large; filter by name, SKU, add-on, cloud provider or manufacturer part number to narrow them. Source: https://docs.streamone.cloud/#list-products Official spec: ListcatalogProducts. Required: accountId, pageSize (default: 50). Optional: pageToken, language, filter.name (plus 8 more). Returns array of Product.",
+      "method": "GET",
+      "path": "/accounts/{accountId}/products",
+      "params": [
+        {
+          "name": "accountId",
+          "type": "int",
+          "location": "path",
+          "description": "Reseller account ID (portal Quick Access \u003e Account Information).",
+          "required": true
+        },
+        {
+          "name": "pageSize",
+          "type": "int",
+          "location": "query",
+          "description": "Requested page size; the server may return fewer.",
+          "required": true
+        },
+        {
+          "name": "pageToken",
+          "type": "string",
+          "location": "query",
+          "description": "Token for the page to return (nextPageToken from the previous page); empty returns the first page."
+        },
+        {
+          "name": "language",
+          "type": "string",
+          "location": "query",
+          "description": "Language of the product content, for example en."
+        },
+        {
+          "name": "filter.name",
+          "type": "string",
+          "location": "query",
+          "description": "Product name."
+        },
+        {
+          "name": "filter.skuExternalId",
+          "type": "string",
+          "location": "query",
+          "description": "External ID assigned to a SKU."
+        },
+        {
+          "name": "filter.addonExternalId",
+          "type": "string",
+          "location": "query",
+          "description": "External ID assigned to an add-on."
+        },
+        {
+          "name": "filter.skuId",
+          "type": "string",
+          "location": "query",
+          "description": "SKU ID."
+        },
+        {
+          "name": "filter.addonId",
+          "type": "string",
+          "location": "query",
+          "description": "Add-on ID."
+        },
+        {
+          "name": "filter.skuDisplayName",
+          "type": "string",
+          "location": "query",
+          "description": "SKU display name."
+        },
+        {
+          "name": "filter.addonDisplayName",
+          "type": "string",
+          "location": "query",
+          "description": "Add-on display name."
+        },
+        {
+          "name": "filter.cloudProviderId",
+          "type": "string",
+          "location": "query",
+          "description": "Cloud provider ID, for example 30."
+        },
+        {
+          "name": "filter.mfgPartNumber",
+          "type": "string",
+          "location": "query",
+          "description": "Manufacturer part number."
+        }
+      ]
+    },
+    {
+      "name": "programs_batch-update-product",
+      "description": "Configure which vendor programs apply to a product. Body product_programs carries programName (accounts/{accountId}/programs/{id}) and partnerName (accounts/{accountId}). Source: official spec BatchUpdateProductsPrograms (not on the docs site). Route checked 2026-10-14: unauthenticated request returns 401 (route exists). Required: accountId, productId. Optional: product_programs.",
+      "method": "PUT",
+      "path": "/accounts/{accountId}/products_programs/{productId}:batchUpdate",
+      "params": [
+        {
+          "name": "accountId",
+          "type": "int",
+          "location": "path",
+          "description": "Reseller account ID (portal Quick Access \u003e Account Information).",
+          "required": true
+        },
+        {
+          "name": "productId",
+          "type": "string",
+          "location": "path",
+          "description": "Product ID.",
+          "required": true
+        },
+        {
+          "name": "product-programs-partner-name",
+          "wire_name": "product_programs.partnerName",
+          "type": "string",
+          "location": "body",
+          "description": "accounts/{accountId}"
+        },
+        {
+          "name": "product-programs-program-name",
+          "wire_name": "product_programs.programName",
+          "type": "string",
+          "location": "body",
+          "description": "accounts/{accountId}/programs/{id}"
+        }
+      ]
+    },
+    {
+      "name": "programs_list",
+      "description": "List the vendor programs defined for the account and, with --product-name, whether each is attached to that product. Source: official spec ListPrograms (not on the docs site). Route checked 2026-10-14: unauthenticated request returns 401 (route exists). Required: accountId. Optional: productName.",
+      "method": "GET",
+      "path": "/accounts/{accountId}/products_programs",
+      "params": [
+        {
+          "name": "accountId",
+          "type": "int",
+          "location": "path",
+          "description": "Reseller account ID (portal Quick Access \u003e Account Information).",
+          "required": true
+        },
+        {
+          "name": "productName",
+          "type": "string",
+          "location": "query",
+          "description": "Product ID to report program attachment for."
+        }
+      ]
+    },
+    {
+      "name": "provision_templates_get",
+      "description": "Get one provisioning template by ID. Documented IDs include provisiontemplate30 (Microsoft create), provisiontemplate33 (Microsoft modify and manage subscription), provisiontemplate34 (Microsoft change plan), provisiontemplate55 (Microsoft renewal settings), provisiontemplate56 (Microsoft cancel), provisiontemplate01 (Google Workspace create) and provisiontemplate40 (Sophos create). Source: https://docs.streamone.cloud/#get-provisioning-info-by-template-id Official spec: GetProvisioningInfoByTemplateId. Required: accountId, templateId. Returns the ProvisionTemplates.",
+      "method": "GET",
+      "path": "/accounts/{accountId}/provisionTemplates/{templateId}",
+      "params": [
+        {
+          "name": "accountId",
+          "type": "int",
+          "location": "path",
+          "description": "Reseller account ID (portal Quick Access \u003e Account Information).",
+          "required": true
+        },
+        {
+          "name": "templateId",
+          "type": "string",
+          "location": "path",
+          "description": "Provisioning template ID, for example provisiontemplate30.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "provision_templates_list",
+      "description": "Get the JSON schemas that define the order-item attributes a vendor needs to create or update a subscription (Microsoft, Google, IBM, Sophos). Read these before building an order body. Source: https://docs.streamone.cloud/#get-provisioning-info-by-vendor-provider-or-action Official spec: GetProvisionTemplates. Required: accountId, vendor. Optional: provider, action. Returns the ProvisionTemplates.",
+      "method": "GET",
+      "path": "/accounts/{accountId}/provisionTemplates",
+      "params": [
+        {
+          "name": "accountId",
+          "type": "int",
+          "location": "path",
+          "description": "Reseller account ID (portal Quick Access \u003e Account Information).",
+          "required": true
+        },
+        {
+          "name": "vendor",
+          "type": "string",
+          "location": "query",
+          "description": "Vendor name.",
+          "required": true
+        },
+        {
+          "name": "provider",
+          "type": "string",
+          "location": "query",
+          "description": "Provider name."
+        },
+        {
+          "name": "action",
+          "type": "string",
+          "location": "query",
+          "description": "Order action the template describes."
+        }
+      ]
+    },
+    {
+      "name": "reports_delete",
+      "description": "Delete a saved report if the user has permission (the docs site's Reports intro lists deleting reports). Source: official spec DeleteReport. Route checked 2026-10-14: unauthenticated request returns 401 (route exists). Required: accountId, reportId. Destructive.",
+      "method": "DELETE",
+      "path": "/accounts/{accountId}/reports/{reportId}",
+      "params": [
+        {
+          "name": "accountId",
+          "type": "int",
+          "location": "path",
+          "description": "Reseller account ID (portal Quick Access \u003e Account Information).",
+          "required": true
+        },
+        {
+          "name": "reportId",
+          "type": "string",
+          "location": "path",
+          "description": "Report ID from the reports list.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "reports_get",
+      "description": "POST a report definition and get back its resolved structure (columns, currency, date ranges) without data, to preview a layout before running it. This is a read despite the POST. Source: https://docs.streamone.cloud/#get-report Official spec: GetReport. Required: accountId, reportId. Optional: accessTime, cacheMetadataProviderIds, category (plus 10 more). Returns the new Report.",
+      "method": "POST",
+      "path": "/accounts/{accountId}/reports/{reportId}/report",
+      "params": [
+        {
+          "name": "accountId",
+          "type": "int",
+          "location": "path",
+          "description": "Reseller account ID (portal Quick Access \u003e Account Information).",
+          "required": true
+        },
+        {
+          "name": "reportId",
+          "type": "string",
+          "location": "path",
+          "description": "Report ID from the reports list.",
+          "required": true
+        },
+        {
+          "name": "accessTime",
+          "type": "string",
+          "location": "body",
+          "description": "Access time"
+        },
+        {
+          "name": "cacheMetadataProviderIds",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Cache metadata provider ids"
+        },
+        {
+          "name": "category",
+          "type": "string",
+          "location": "body",
+          "description": "Category"
+        },
+        {
+          "name": "createTime",
+          "type": "string",
+          "location": "body",
+          "description": "Create time"
+        },
+        {
+          "name": "createdBy",
+          "type": "string",
+          "location": "body",
+          "description": "Created by"
+        },
+        {
+          "name": "displayName",
+          "type": "string",
+          "location": "body",
+          "description": "Display name"
+        },
+        {
+          "name": "lastUpdatedBy",
+          "type": "string",
+          "location": "body",
+          "description": "Last updated by"
+        },
+        {
+          "name": "options",
+          "type": "array",
+          "location": "body",
+          "description": "Options"
+        },
+        {
+          "name": "providerIds",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Provider ids"
+        },
+        {
+          "name": "reportId-2",
+          "wire_name": "reportId",
+          "type": "string",
+          "location": "body",
+          "description": "Report id"
+        },
+        {
+          "name": "reportModule",
+          "type": "string",
+          "location": "body",
+          "description": "Report module"
+        },
+        {
+          "name": "reportTemplateId",
+          "type": "string",
+          "location": "body",
+          "description": "Report template id"
+        },
+        {
+          "name": "specs-all-columns",
+          "wire_name": "specs.allColumns",
+          "type": "array",
+          "location": "body",
+          "description": "All columns"
+        },
+        {
+          "name": "specs-currency-option",
+          "wire_name": "specs.currencyOption",
+          "type": "object",
+          "location": "body",
+          "description": "Currency option"
+        },
+        {
+          "name": "specs-date-range-option-selected-range",
+          "wire_name": "specs.dateRangeOption.selectedRange",
+          "type": "object",
+          "location": "body",
+          "description": "Selected range"
+        },
+        {
+          "name": "specs-selected-columns",
+          "wire_name": "specs.selectedColumns",
+          "type": "array",
+          "location": "body",
+          "description": "Selected columns"
+        }
+      ]
+    },
+    {
+      "name": "reports_get-data",
+      "description": "Run a report: POST the report definition from the metadata endpoint (with the desired date range, currency and columns) and get back the definition plus `results.rows[].values[]`, one value per selected column. Values are typed (stringValue, moneyValue, floatValue). This is a read despite the POST. Source: https://docs.streamone.cloud/#get-report-data Official spec: GetReportData. Required: accountId, reportId. Optional: accessTime, cacheMetadataProviderIds, category (plus 10 more). Returns the new ReportData.",
+      "method": "POST",
+      "path": "/accounts/{accountId}/reports/{reportId}/data",
+      "params": [
+        {
+          "name": "accountId",
+          "type": "int",
+          "location": "path",
+          "description": "Reseller account ID (portal Quick Access \u003e Account Information).",
+          "required": true
+        },
+        {
+          "name": "reportId",
+          "type": "string",
+          "location": "path",
+          "description": "Report ID from the reports list.",
+          "required": true
+        },
+        {
+          "name": "accessTime",
+          "type": "string",
+          "location": "body",
+          "description": "Access time"
+        },
+        {
+          "name": "cacheMetadataProviderIds",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Cache metadata provider ids"
+        },
+        {
+          "name": "category",
+          "type": "string",
+          "location": "body",
+          "description": "Category"
+        },
+        {
+          "name": "createTime",
+          "type": "string",
+          "location": "body",
+          "description": "Create time"
+        },
+        {
+          "name": "createdBy",
+          "type": "string",
+          "location": "body",
+          "description": "Created by"
+        },
+        {
+          "name": "displayName",
+          "type": "string",
+          "location": "body",
+          "description": "Display name"
+        },
+        {
+          "name": "lastUpdatedBy",
+          "type": "string",
+          "location": "body",
+          "description": "Last updated by"
+        },
+        {
+          "name": "options",
+          "type": "array",
+          "location": "body",
+          "description": "Options"
+        },
+        {
+          "name": "providerIds",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Provider ids"
+        },
+        {
+          "name": "reportId-2",
+          "wire_name": "reportId",
+          "type": "string",
+          "location": "body",
+          "description": "Report id"
+        },
+        {
+          "name": "reportModule",
+          "type": "string",
+          "location": "body",
+          "description": "Report module"
+        },
+        {
+          "name": "reportTemplateId",
+          "type": "string",
+          "location": "body",
+          "description": "Report template id"
+        },
+        {
+          "name": "specs-all-columns",
+          "wire_name": "specs.allColumns",
+          "type": "array",
+          "location": "body",
+          "description": "All columns"
+        },
+        {
+          "name": "specs-currency-option",
+          "wire_name": "specs.currencyOption",
+          "type": "object",
+          "location": "body",
+          "description": "Currency option"
+        },
+        {
+          "name": "specs-date-range-option-selected-range",
+          "wire_name": "specs.dateRangeOption.selectedRange",
+          "type": "object",
+          "location": "body",
+          "description": "Selected range"
+        },
+        {
+          "name": "specs-selected-columns",
+          "wire_name": "specs.selectedColumns",
+          "type": "array",
+          "location": "body",
+          "description": "Selected columns"
+        }
+      ]
+    },
+    {
+      "name": "reports_get-data-csv",
+      "description": "Same request as the report data endpoint, but the data comes back as CSV wrapped in a JSON response (not a downloadable attachment). This is a read despite the POST. Source: https://docs.streamone.cloud/#get-report-data-csv Official spec: GetReportDataCsv (response fields results = CSV text, resultCount). Required: accountId, reportId. Optional: accessTime, cacheMetadataProviderIds, category (plus 10 more). Returns the new ReportsGetDataCsvResponse.",
+      "method": "POST",
+      "path": "/accounts/{accountId}/reports/{reportId}/reportDataCsv",
+      "params": [
+        {
+          "name": "accountId",
+          "type": "int",
+          "location": "path",
+          "description": "Reseller account ID (portal Quick Access \u003e Account Information).",
+          "required": true
+        },
+        {
+          "name": "reportId",
+          "type": "string",
+          "location": "path",
+          "description": "Report ID from the reports list.",
+          "required": true
+        },
+        {
+          "name": "accessTime",
+          "type": "string",
+          "location": "body",
+          "description": "Access time"
+        },
+        {
+          "name": "cacheMetadataProviderIds",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Cache metadata provider ids"
+        },
+        {
+          "name": "category",
+          "type": "string",
+          "location": "body",
+          "description": "Category"
+        },
+        {
+          "name": "createTime",
+          "type": "string",
+          "location": "body",
+          "description": "Create time"
+        },
+        {
+          "name": "createdBy",
+          "type": "string",
+          "location": "body",
+          "description": "Created by"
+        },
+        {
+          "name": "displayName",
+          "type": "string",
+          "location": "body",
+          "description": "Display name"
+        },
+        {
+          "name": "lastUpdatedBy",
+          "type": "string",
+          "location": "body",
+          "description": "Last updated by"
+        },
+        {
+          "name": "options",
+          "type": "array",
+          "location": "body",
+          "description": "Options"
+        },
+        {
+          "name": "providerIds",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Provider ids"
+        },
+        {
+          "name": "reportId-2",
+          "wire_name": "reportId",
+          "type": "string",
+          "location": "body",
+          "description": "Report id"
+        },
+        {
+          "name": "reportModule",
+          "type": "string",
+          "location": "body",
+          "description": "Report module"
+        },
+        {
+          "name": "reportTemplateId",
+          "type": "string",
+          "location": "body",
+          "description": "Report template id"
+        },
+        {
+          "name": "specs-all-columns",
+          "wire_name": "specs.allColumns",
+          "type": "array",
+          "location": "body",
+          "description": "All columns"
+        },
+        {
+          "name": "specs-currency-option",
+          "wire_name": "specs.currencyOption",
+          "type": "object",
+          "location": "body",
+          "description": "Currency option"
+        },
+        {
+          "name": "specs-date-range-option-selected-range",
+          "wire_name": "specs.dateRangeOption.selectedRange",
+          "type": "object",
+          "location": "body",
+          "description": "Selected range"
+        },
+        {
+          "name": "specs-selected-columns",
+          "wire_name": "specs.selectedColumns",
+          "type": "array",
+          "location": "body",
+          "description": "Selected columns"
+        }
+      ]
+    },
+    {
+      "name": "reports_get-details",
+      "description": "Retrieve the full report details with populated specs, returned as priceDetails and costDetails. Uses POST because the request can be very large; this is a read. Source: official spec GetReportDetails (not on the docs site). Route checked 2026-10-14: unauthenticated request returns 401 (route exists). Required: accountId, reportId. Optional: accessTime, cacheMetadataProviderIds, category (plus 10 more).",
+      "method": "POST",
+      "path": "/accounts/{accountId}/reports/{reportId}/details",
+      "params": [
+        {
+          "name": "accountId",
+          "type": "int",
+          "location": "path",
+          "description": "Reseller account ID (portal Quick Access \u003e Account Information).",
+          "required": true
+        },
+        {
+          "name": "reportId",
+          "type": "string",
+          "location": "path",
+          "description": "Report ID from the reports list.",
+          "required": true
+        },
+        {
+          "name": "accessTime",
+          "type": "string",
+          "location": "body",
+          "description": "Access time"
+        },
+        {
+          "name": "cacheMetadataProviderIds",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Cache metadata provider ids"
+        },
+        {
+          "name": "category",
+          "type": "string",
+          "location": "body",
+          "description": "Category"
+        },
+        {
+          "name": "createTime",
+          "type": "string",
+          "location": "body",
+          "description": "Create time"
+        },
+        {
+          "name": "createdBy",
+          "type": "string",
+          "location": "body",
+          "description": "Created by"
+        },
+        {
+          "name": "displayName",
+          "type": "string",
+          "location": "body",
+          "description": "Display name"
+        },
+        {
+          "name": "lastUpdatedBy",
+          "type": "string",
+          "location": "body",
+          "description": "Last updated by"
+        },
+        {
+          "name": "options",
+          "type": "array",
+          "location": "body",
+          "description": "Options"
+        },
+        {
+          "name": "providerIds",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Provider ids"
+        },
+        {
+          "name": "reportId-2",
+          "wire_name": "reportId",
+          "type": "string",
+          "location": "body",
+          "description": "Report id"
+        },
+        {
+          "name": "reportModule",
+          "type": "string",
+          "location": "body",
+          "description": "Report module"
+        },
+        {
+          "name": "reportTemplateId",
+          "type": "string",
+          "location": "body",
+          "description": "Report template id"
+        },
+        {
+          "name": "specs-all-columns",
+          "wire_name": "specs.allColumns",
+          "type": "array",
+          "location": "body",
+          "description": "All columns"
+        },
+        {
+          "name": "specs-currency-option",
+          "wire_name": "specs.currencyOption",
+          "type": "object",
+          "location": "body",
+          "description": "Currency option"
+        },
+        {
+          "name": "specs-date-range-option-selected-range",
+          "wire_name": "specs.dateRangeOption.selectedRange",
+          "type": "object",
+          "location": "body",
+          "description": "Selected range"
+        },
+        {
+          "name": "specs-selected-columns",
+          "wire_name": "specs.selectedColumns",
+          "type": "array",
+          "location": "body",
+          "description": "Selected columns"
+        }
+      ]
+    },
+    {
+      "name": "reports_get-metadata",
+      "description": "Get a report's structure without data: all and selected columns, column filters, date-range options, currencies, conversion rates and data-import status. Edit the returned object (for example specs.dateRangeOption.selectedRange) and POST it to the report's data endpoint to run it. Source: https://docs.streamone.cloud/#get-report-metadata Official spec: GetReportMetadata (query includeMetadata; the docs site shows include_metadata). Required: accountId, reportId. Optional: includeMetadata. Returns the Report.",
+      "method": "GET",
+      "path": "/accounts/{accountId}/reports/{reportId}",
+      "params": [
+        {
+          "name": "accountId",
+          "type": "int",
+          "location": "path",
+          "description": "Reseller account ID (portal Quick Access \u003e Account Information).",
+          "required": true
+        },
+        {
+          "name": "reportId",
+          "type": "string",
+          "location": "path",
+          "description": "Report ID from the reports list.",
+          "required": true
+        },
+        {
+          "name": "includeMetadata",
+          "type": "bool",
+          "location": "query",
+          "description": "Include detailed metadata."
+        }
+      ]
+    },
+    {
+      "name": "reports_list",
+      "description": "List the predefined and saved reports available to the account (billing, customer, subscription reports) with their IDs, category, template and providers. Source: https://docs.streamone.cloud/#list-reports Official spec: ListReports. Required: accountId. Optional: module. Returns array of ReportSummary.",
+      "method": "GET",
+      "path": "/accounts/{accountId}/reports",
+      "params": [
+        {
+          "name": "accountId",
+          "type": "int",
+          "location": "path",
+          "description": "Reseller account ID (portal Quick Access \u003e Account Information).",
+          "required": true
+        },
+        {
+          "name": "module",
+          "type": "string",
+          "location": "query",
+          "description": "Reports module, for example REPORTS_REPORTS_MODULE."
+        }
+      ]
+    },
+    {
+      "name": "reports_save",
+      "description": "Update a saved report's settings (columns, filters, date range, currency) by POSTing the edited report definition. Returns the report ID. Source: official spec SaveReport (not on the docs site). Route checked 2026-10-14: unauthenticated request returns 401 (route exists). Required: accountId, reportId. Optional: accessTime, cacheMetadataProviderIds, category (plus 10 more).",
+      "method": "POST",
+      "path": "/accounts/{accountId}/reports/{reportId}",
+      "params": [
+        {
+          "name": "accountId",
+          "type": "int",
+          "location": "path",
+          "description": "Reseller account ID (portal Quick Access \u003e Account Information).",
+          "required": true
+        },
+        {
+          "name": "reportId",
+          "type": "string",
+          "location": "path",
+          "description": "Report ID from the reports list.",
+          "required": true
+        },
+        {
+          "name": "accessTime",
+          "type": "string",
+          "location": "body",
+          "description": "Access time"
+        },
+        {
+          "name": "cacheMetadataProviderIds",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Cache metadata provider ids"
+        },
+        {
+          "name": "category",
+          "type": "string",
+          "location": "body",
+          "description": "Category"
+        },
+        {
+          "name": "createTime",
+          "type": "string",
+          "location": "body",
+          "description": "Create time"
+        },
+        {
+          "name": "createdBy",
+          "type": "string",
+          "location": "body",
+          "description": "Created by"
+        },
+        {
+          "name": "displayName",
+          "type": "string",
+          "location": "body",
+          "description": "Display name"
+        },
+        {
+          "name": "lastUpdatedBy",
+          "type": "string",
+          "location": "body",
+          "description": "Last updated by"
+        },
+        {
+          "name": "options",
+          "type": "array",
+          "location": "body",
+          "description": "Options"
+        },
+        {
+          "name": "providerIds",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Provider ids"
+        },
+        {
+          "name": "reportId-2",
+          "wire_name": "reportId",
+          "type": "string",
+          "location": "body",
+          "description": "Report id"
+        },
+        {
+          "name": "reportModule",
+          "type": "string",
+          "location": "body",
+          "description": "Report module"
+        },
+        {
+          "name": "reportTemplateId",
+          "type": "string",
+          "location": "body",
+          "description": "Report template id"
+        },
+        {
+          "name": "specs-all-columns",
+          "wire_name": "specs.allColumns",
+          "type": "array",
+          "location": "body",
+          "description": "All columns"
+        },
+        {
+          "name": "specs-currency-option",
+          "wire_name": "specs.currencyOption",
+          "type": "object",
+          "location": "body",
+          "description": "Currency option"
+        },
+        {
+          "name": "specs-date-range-option-selected-range",
+          "wire_name": "specs.dateRangeOption.selectedRange",
+          "type": "object",
+          "location": "body",
+          "description": "Selected range"
+        },
+        {
+          "name": "specs-selected-columns",
+          "wire_name": "specs.selectedColumns",
+          "type": "array",
+          "location": "body",
+          "description": "Selected columns"
+        }
+      ]
+    },
+    {
+      "name": "subscriptions_get",
+      "description": "Get one subscription for a customer, including billing data. Pass --refresh to refresh the result from the provider. Source: https://docs.streamone.cloud/#get-customer-subscription-details Official spec: GetCustomerSubscriptionDetails. Required: accountId, customerId, subscriptionId. Optional: refresh. Returns the Subscription.",
+      "method": "GET",
+      "path": "/accounts/{accountId}/customers/{customerId}/subscriptions/{subscriptionId}",
+      "params": [
+        {
+          "name": "accountId",
+          "type": "int",
+          "location": "path",
+          "description": "Reseller account ID (portal Quick Access \u003e Account Information).",
+          "required": true
+        },
+        {
+          "name": "customerId",
+          "type": "int",
+          "location": "path",
+          "description": "Customer ID.",
+          "required": true
+        },
+        {
+          "name": "subscriptionId",
+          "type": "string",
+          "location": "path",
+          "description": "Subscription ID.",
+          "required": true
+        },
+        {
+          "name": "refresh",
+          "type": "bool",
+          "location": "query",
+          "description": "Refresh the subscription from the provider before returning it."
+        }
+      ]
+    },
+    {
+      "name": "subscriptions_list",
+      "description": "List subscriptions across the account (or one customer with customerId): licence counts, status, term, billing cycle, start/end/renewal dates, auto-renew, price, cost, margin and CCP product/SKU/plan IDs. Paginate with --pagination-limit and --pagination-offset (pagination.limit and pagination.offset on the wire; ION documents a limit as required); the response's paginationResponse.totalSize is the filtered total. Status values include ACCEPTED, ACTIVE, CANCELLED, DELETED, EXPIRED, SUSPENDED and others. Source: https://docs.streamone.cloud/#list-customer-subscriptions Official spec: ListCustomerSubscriptions (query names customerId and subscriptionId; the docs site spells them customerID and subscriptionID). Required: accountId. Optional: customerId, subscriptionId, resellerId (plus 29 more). Returns the SubscriptionList.",
+      "method": "GET",
+      "path": "/accounts/{accountId}/subscriptions",
+      "params": [
+        {
+          "name": "accountId",
+          "type": "int",
+          "location": "path",
+          "description": "Reseller account ID (portal Quick Access \u003e Account Information).",
+          "required": true
+        },
+        {
+          "name": "customerId",
+          "type": "string",
+          "location": "query",
+          "description": "Customer ID to filter by."
+        },
+        {
+          "name": "subscriptionId",
+          "type": "string",
+          "location": "query",
+          "description": "Subscription ID to filter by."
+        },
+        {
+          "name": "resellerId",
+          "type": "string",
+          "location": "query",
+          "description": "Reseller ID to filter by."
+        },
+        {
+          "name": "providerId",
+          "type": "string",
+          "location": "query",
+          "description": "Cloud provider ID to filter by."
+        },
+        {
+          "name": "subscriptionStatus",
+          "type": "string",
+          "location": "query",
+          "description": "Subscription status, for example ACTIVE or SUSPENDED."
+        },
+        {
+          "name": "startDateRange.relativeDateRange",
+          "type": "string",
+          "location": "query",
+          "description": "Relative start-date window, for example MONTH_TO_DATE, LAST_MONTH, YEAR_TO_DATE."
+        },
+        {
+          "name": "startDateRange.fixedDateRange.startDate",
+          "type": "string",
+          "location": "query",
+          "description": "Start of a fixed start-date window (RFC 3339)."
+        },
+        {
+          "name": "startDateRange.fixedDateRange.endDate",
+          "type": "string",
+          "location": "query",
+          "description": "End of a fixed start-date window (RFC 3339)."
+        },
+        {
+          "name": "endDate",
+          "type": "string",
+          "location": "query",
+          "description": "Subscription end time (RFC 3339)."
+        },
+        {
+          "name": "endDateRange.relativeDateRange",
+          "type": "string",
+          "location": "query",
+          "description": "Relative end-date window, for example LAST_QUARTER."
+        },
+        {
+          "name": "endDateRange.fixedDateRange.startDate",
+          "type": "string",
+          "location": "query",
+          "description": "Start of a fixed end-date window (RFC 3339)."
+        },
+        {
+          "name": "endDateRange.fixedDateRange.endDate",
+          "type": "string",
+          "location": "query",
+          "description": "End of a fixed end-date window (RFC 3339)."
+        },
+        {
+          "name": "billingTerm",
+          "type": "string",
+          "location": "query",
+          "description": "Billing term, for example Monthly or Annually."
+        },
+        {
+          "name": "totalLicense",
+          "type": "string",
+          "location": "query",
+          "description": "Total licence count to filter by."
+        },
+        {
+          "name": "ccpProductId",
+          "type": "string",
+          "location": "query",
+          "description": "Product ID in the ION catalog."
+        },
+        {
+          "name": "providerProductId",
+          "type": "string",
+          "location": "query",
+          "description": "Product ID in the provider catalog."
+        },
+        {
+          "name": "customerPo",
+          "type": "string",
+          "location": "query",
+          "description": "End customer purchase order."
+        },
+        {
+          "name": "resellerPo",
+          "type": "string",
+          "location": "query",
+          "description": "Reseller purchase order."
+        },
+        {
+          "name": "pagination.limit",
+          "type": "int",
+          "location": "query",
+          "description": "Number of results to return."
+        },
+        {
+          "name": "pagination.offset",
+          "type": "int",
+          "location": "query",
+          "description": "Number of results to skip."
+        },
+        {
+          "name": "pagination.filter",
+          "type": "string",
+          "location": "query",
+          "description": "Free-text custom filter."
+        },
+        {
+          "name": "pagination.sortBy",
+          "type": "string",
+          "location": "query",
+          "description": "Field to sort by."
+        },
+        {
+          "name": "pagination.sortOrder",
+          "type": "string",
+          "location": "query",
+          "description": "Sort direction."
+        },
+        {
+          "name": "pagination.userId",
+          "type": "int",
+          "location": "query",
+          "description": "User ID filter."
+        },
+        {
+          "name": "customField.field",
+          "type": "string",
+          "location": "query",
+          "description": "Customer custom-field key to filter on, for example domainName."
+        },
+        {
+          "name": "customField.value",
+          "type": "string",
+          "location": "query",
+          "description": "Value for customField.field."
+        },
+        {
+          "name": "cloudProviderName",
+          "type": "string",
+          "location": "query",
+          "description": "Cloud provider name, for example AWS or GCP."
+        },
+        {
+          "name": "customerName",
+          "type": "string",
+          "location": "query",
+          "description": "Customer name."
+        },
+        {
+          "name": "subscriptionName",
+          "type": "string",
+          "location": "query",
+          "description": "Subscription name."
+        },
+        {
+          "name": "resourceType",
+          "type": "string",
+          "location": "query",
+          "description": "Resource type, for example AZURE::Subscription or ACRONIS::Tenant."
+        },
+        {
+          "name": "accountName",
+          "type": "string",
+          "location": "query",
+          "description": "Account name."
+        },
+        {
+          "name": "billingCycle",
+          "type": "string",
+          "location": "query",
+          "description": "Billing cycle, for example monthly."
+        }
+      ]
+    },
+    {
+      "name": "verticals_list",
+      "description": "List the industry verticals (Commercial, Corporate, Education, Charity and others) used to segment products and pricing. Source: https://docs.streamone.cloud/#list-verticals Official spec: ListVerticals. Required: accountId. Returns array of Vertical.",
+      "method": "GET",
+      "path": "/accounts/{accountId}/products/verticals",
+      "params": [
+        {
+          "name": "accountId",
+          "type": "int",
+          "location": "path",
+          "description": "Reseller account ID (portal Quick Access \u003e Account Information).",
+          "required": true
+        }
+      ]
+    }
+  ],
+  "novel_features": [
+    {
+      "name": "Renewal window",
+      "command": "subscriptions renewals",
+      "description": "See every subscription renewing or ending in the next N days across the whole book, soonest first, with auto-renew-off ones flagged."
+    },
+    {
+      "name": "Book margin",
+      "command": "margin",
+      "description": "See monthly cost vs price and margin per customer or per SKU, with negative, zero and below-MSRP rows flagged."
+    },
+    {
+      "name": "Licence-position export",
+      "command": "position export",
+      "description": "Export your TD SYNNEX licences as normalized, schema-versioned rows (customer, SKU key, seats, monthly cost and price, renewal) for a PSA or a true-up; tenant and domain columns stay blank because ION subscriptions do not carry them."
+    },
+    {
+      "name": "Cross-distributor true-up",
+      "command": "position trueup",
+      "description": "Compare seats per customer and SKU across TD SYNNEX and Pax8, Sherweb or PSA export files mapped into the licence-position columns, with unmatched rows listed instead of guessed."
+    },
+    {
+      "name": "Subscription change feed",
+      "command": "subscriptions changes",
+      "description": "List seat, renewal, status, tier and friendly-name changes requested through ION orders in a past window, decoded from the order attributes; failed orders are left out and changes made outside ION are not visible."
+    },
+    {
+      "name": "Stuck orders",
+      "command": "orders stuck",
+      "description": "Find orders still NEW, IN_PROGRESS, CONFIRMED or ON_HOLD past an age threshold, plus recent errors, with a flag for the ones you can still cancel."
+    },
+    {
+      "name": "Customer 360",
+      "command": "customers show",
+      "description": "One view of a customer from the local store: profile, subscriptions with seats and monthly cost and price, open orders and recent changes, plus the cloud-profiles command for live GDAP/MCA status."
+    }
+  ]
+}

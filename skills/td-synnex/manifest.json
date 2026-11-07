@@ -23,7 +23,8 @@
         "TD_SYNNEX_MCP_HTTP_TOKEN": "${user_config.td_synnex_mcp_http_token}",
         "TD_SYNNEX_USER_AGENT": "${user_config.td_synnex_user_agent}",
         "TD_SYNNEX_TAIL_MAX_PAGES": "${user_config.td_synnex_tail_max_pages}",
-        "PRINTING_PRESS_CLIENT_PROFILE": "${user_config.printing_press_client_profile}"
+        "PRINTING_PRESS_CLIENT_PROFILE": "${user_config.printing_press_client_profile}",
+        "TD_SYNNEX_NO_LOCAL_DATA": "${user_config.td_synnex_no_local_data}"
       }
     }
   },
@@ -91,6 +92,13 @@
       "description": "Only used when the MCP server is bound to a tenant-gated client profile. This connector registers no tenant-gated source, so leave it blank.",
       "sensitive": true,
       "required": false
+    },
+    "td_synnex_no_local_data": {
+      "type": "string",
+      "title": "Keep no local data",
+      "description": "Optional: set to 1 to keep no local copy of StreamOne ION data (no response cache, no store writes, sync refused).",
+      "sensitive": false,
+      "required": false
     }
   },
   "compatibility": {
@@ -101,10 +109,10 @@
       "win32"
     ]
   },
-  "printing_press_version": "4.33.5",
+  "printing_press_version": "4.35.1",
   "press_provenance": {
-    "printing_press_version": "4.33.5",
-    "generated_at": "2026-10-14T12:40:47.052625Z",
+    "printing_press_version": "4.35.1",
+    "generated_at": "2026-11-03T00:46:58.399125Z",
     "spec_checksum": "sha256:5d3591afc14288dee95aca860bce58c3ad678b206eb85e681832d897a3ae0166",
     "spec_format": "openapi3"
   }

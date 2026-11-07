@@ -1961,7 +1961,7 @@
       "cli_binary": "td-synnex-cli",
       "mcp_binary": "td-synnex-mcp",
       "version": "0.1.2",
-      "printing_press_version": "4.33.5",
+      "printing_press_version": "4.35.1",
       "license": "Apache-2.0",
       "vendor": "TD SYNNEX",
       "vendor_trademark_owner": "TD SYNNEX Corporation",

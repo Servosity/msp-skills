@@ -64,7 +64,7 @@ func newCartsListCmd(flags *rootFlags) *cobra.Command {
 				return usageErr(fmt.Errorf("missing required argument\nUsage: %s%s", cmd.CommandPath(), " <customerId>"))
 			}
 			if !cmd.Flags().Changed("status") && flagStatus == "" && !requiredInputWaived() {
-				return fmt.Errorf("required flag \"%s\" not set", "status")
+				return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "status"))
 			}
 			if cmd.Flags().Changed("pagination-sort-order") {
 				allowedPaginationSortOrder := []string{"ASC", "DESC", "SORT_ORDER_UNSPECIFIED"}
@@ -76,7 +76,7 @@ func newCartsListCmd(flags *rootFlags) *cobra.Command {
 					}
 				}
 				if !validPaginationSortOrder {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagPaginationSortOrder, "pagination-sort-order", allowedPaginationSortOrder)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagPaginationSortOrder, "pagination-sort-order", allowedPaginationSortOrder))
 				}
 			}
 			if cmd.Flags().Changed("status") {
@@ -89,7 +89,7 @@ func newCartsListCmd(flags *rootFlags) *cobra.Command {
 					}
 				}
 				if !validStatus {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagStatus, "status", allowedStatus)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagStatus, "status", allowedStatus))
 				}
 			}
 			path := "/customers/{customerId}/carts"
