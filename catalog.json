@@ -229,7 +229,7 @@
     {
       "name": "aws-billing",
       "system": "AWS billing & Cost Explorer - plain-English bill breakdowns and waste flags",
-      "status": "beta",
+      "status": "live-verified",
       "skill_path": "skills/aws-billing",
       "cli_binary": "aws-billing-cli",
       "mcp_binary": "aws-billing-mcp",
@@ -242,7 +242,9 @@
       "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/aws-billing/install.sh)",
       "install_mcp_doc": "skills/aws-billing/mcp-install.md",
       "description": "Get a non-expert from zero to a Slack-delivered, plain-English, waste-flagged AWS bill breakdown, and cache it so you don't pay per Cost Explorer call.",
-      "verification": "awaiting",
+      "verification": "live-verified",
+      "verified_version": "0.1.9",
+      "verified_code": "current",
       "category": "Billing"
     },
     {
@@ -1627,7 +1629,7 @@
     {
       "name": "riverside-fm",
       "system": "Riverside.fm - export transcripts, audio, and video from your recording studio",
-      "status": "beta",
+      "status": "live-verified",
       "skill_path": "skills/riverside-fm",
       "cli_binary": "riverside-fm-cli",
       "mcp_binary": "riverside-fm-mcp",
@@ -1640,7 +1642,9 @@
       "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/riverside-fm/install.sh)",
       "install_mcp_doc": "skills/riverside-fm/mcp-install.md",
       "description": "Riverside API surface as MCP tools.",
-      "verification": "awaiting",
+      "verification": "live-verified",
+      "verified_version": "0.1.5",
+      "verified_code": "current",
       "category": "Marketing"
     },
     {

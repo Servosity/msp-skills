@@ -418,7 +418,7 @@ Governance: The skill reads your Avanan detections, scanned messages and files, 
 ### AWS (Billing)
 
 Page: [AWS](https://msp-skills.compoundingteams.com/skills/aws-billing.md)
-Verification: Awaiting live verification
+Verification: Live-verified by Servosity (maintainer) (2026-11-06)
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/aws-billing/install.sh)
 
 Ask "why did my AWS bill go up?" and get a plain-English answer: the service that moved, the linked account driving it, and the idle instances and orphaned volumes bleeding dollars - without learning Cost Explorer's dimension grammar. It syncs your bill into a local cache once, so every follow-up question is instant and free instead of $0.01 per Cost Explorer call.
@@ -2949,7 +2949,7 @@ Governance: The skill is read-first: the seven GraphQL rollups (orgs, health, fa
 ### Riverside.fm (Marketing)
 
 Page: [Riverside.fm](https://msp-skills.compoundingteams.com/skills/riverside-fm.md)
-Verification: Awaiting live verification
+Verification: Live-verified by Servosity (maintainer) (2026-11-06)
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/riverside-fm/install.sh)
 
 Pull every transcript, audio track, and video out of your own Riverside.com account in one command - no Business plan, no API key, no clicking Studio then Project then Take for each file. Ask your agent to archive a whole studio, find a quote across every episode, or convert a transcript to WebVTT, and it runs the real command against the same internal API the web app already uses.
