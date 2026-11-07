@@ -36,8 +36,12 @@ var resourceReadPaths = map[string]string{ // #nosec G101 -- endpoint paths, not
 }
 
 var resourceDetailPaths = map[string]string{ // #nosec G101 -- endpoint paths, not credentials.
-	"endpoints": "/api/platform/v1/device/endpoints/{endpointID}",
-	"tickets":   "/api/platform/v1/service/ticketing/tickets/{id}",
+	"companies":     "/api/platform/v1/company/companies/{companyId}",
+	"custom_fields": "/api/platform/v1/custom-field/definitions/{definitionID}",
+	"endpoints":     "/api/platform/v1/device/endpoints/{endpointID}",
+	"patches":       "/api/platform/v1/patching/{endpointID}/patches",
+	"sites":         "/api/platform/v1/company/sites/{siteId}",
+	"tickets":       "/api/platform/v1/service/ticketing/tickets/{id}",
 }
 
 var resourceWritePaths = map[string]string{ // #nosec G101 -- endpoint paths, not credentials.

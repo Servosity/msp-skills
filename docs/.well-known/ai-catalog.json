@@ -210,7 +210,7 @@
       "displayName": "AWS",
       "type": "text/markdown; profile=\"urn:air:agent-skills\"",
       "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/aws-billing/SKILL.md",
-      "description": "Get a non-expert from zero to a plain-English, waste-flagged AWS bill breakdown - per-account, month-over-month, with dollar-ranked waste - and cache it locally so you don't pay per Cost Explorer call. Trigger phrases: `what's my aws bill`, `break down my aws costs`, `why did my aws bill go up`, `find aws waste`, `which account is driving my aws spend`, `post my aws bill to slack`, `set up aws billing access`, `use aws-billing`, `run aws-billing-cli`.",
+      "description": "Get a non-expert from zero to a Slack-delivered, plain-English, waste-flagged AWS bill breakdown, and cache it so you don't pay per Cost Explorer call. Trigger phrases: `what's my aws bill`, `break down my aws costs`, `why did my aws bill go up`, `find aws waste`, `which account is driving my aws spend`, `post my aws bill to slack`, `set up aws billing access`, `use aws-billing`, `run aws-billing-cli`.",
       "tags": [
         "Billing"
       ],
@@ -503,7 +503,7 @@
       "displayName": "ConnectWise Automate",
       "type": "text/markdown; profile=\"urn:air:agent-skills\"",
       "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/connectwise-automate/SKILL.md",
-      "description": "Use when the user asks to check ConnectWise Automate fleet health, find stale or offline agents, report patch compliance by client, triage open alerts across clients, inventory end-of-life OSes, or see what changed overnight across an RMM fleet. Syncs your whole Automate server into a local SQLite mirror so it answers cross-client questions the per-server console can't. Trigger phrases: `connectwise automate fleet health`, `stale automate agents`, `automate patch compliance by client`, `triage automate alerts`, `use connectwise automate`, `run connectwise-automate-cli`.",
+      "description": "Every ConnectWise Automate endpoint plus a local SQLite mirror that answers cross-client fleet questions the per-server web UI can't. Trigger phrases: `automate fleet health`, `which automate agents are offline`, `automate patch compliance by client`, `triage automate alerts`, `connectwise automate computers`, `use connectwise-automate`, `run connectwise-automate`.",
       "tags": [
         "RMM"
       ],
@@ -698,6 +698,26 @@
       }
     },
     {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:datto-saas",
+      "displayName": "Datto SaaS Protection",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/datto-saas/SKILL.md",
+      "description": "Fleet-wide Datto SaaS Protection answers - unprotected seats, failing backups, exit inventories - from a local mirror in one ask.",
+      "tags": [
+        "Backup/DR"
+      ],
+      "representativeQueries": [
+        "Which seats across every client are unprotected, newest first?",
+        "Where does Datto's seatsUsed disagree with billable and Active seats, per client?",
+        "Which clients rank worst on backup coverage and short backup windows?",
+        "How many seats does each client have, by seat type and state?",
+        "Give me one seat table for the whole fleet with each client's domains and subscription ids."
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/datto-saas.md"
+      }
+    },
+    {
       "identifier": "urn:air:msp-skills.compoundingteams.com:skills:dnsfilter",
       "displayName": "DNSFilter",
       "type": "text/markdown; profile=\"urn:air:agent-skills\"",
@@ -775,6 +795,26 @@
       ],
       "metadata": {
         "page": "https://msp-skills.compoundingteams.com/skills/dropsuite.md"
+      }
+    },
+    {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:eset-protect",
+      "displayName": "ESET PROTECT",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/eset-protect/SKILL.md",
+      "description": "Devices, detections, incidents and response actions across every ESET PROTECT client.",
+      "tags": [
+        "Security"
+      ],
+      "representativeQueries": [
+        "Which customers have devices that need attention, are muted or stopped checking in?",
+        "What should my techs work first this morning, detections and open incidents together?",
+        "Which customers and devices are exposed to this CVE, and is a patch available?",
+        "Give me one customer's quarter: device health, detections, incidents, top CVEs and patches",
+        "Which devices have not checked in for two weeks, most stale first?"
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/eset-protect.md"
       }
     },
     {

@@ -1,0 +1,63 @@
+{
+  "/agent": [
+    "location.latitude",
+    "location.longitude",
+    "organization.name",
+    "status.last_change",
+    "status.value",
+    "version.agent"
+  ],
+  "/agent/{agent_id}/activity-log": [
+    "description",
+    "device_id",
+    "timestamp",
+    "type",
+    "user"
+  ],
+  "/agent/{agent_id}/device": [
+    "authentication_status",
+    "details.serial",
+    "display_name",
+    "first_seen_on",
+    "id",
+    "importance",
+    "last_status_change",
+    "model",
+    "os.name",
+    "snmp_status",
+    "status",
+    "type",
+    "type.label",
+    "user_data.model",
+    "user_data.vendor",
+    "vendor"
+  ],
+  "/agent/{agent_id}/device/eye/tcp": [
+    "device_id",
+    "id",
+    "last_update",
+    "port",
+    "status"
+  ],
+  "/agent/{agent_id}/history/network/speed": [
+    "timestamp",
+    "values"
+  ],
+  "/agent/{agent_id}/ip-conflict": [
+    "conflicting_devices",
+    "ip"
+  ],
+  "/agent/{agent_id}/network-topology": [
+    "edges",
+    "edges.from",
+    "edges.to"
+  ],
+  "/alert-profile": [
+    "id",
+    "is_enabled"
+  ],
+  "/alert-profile/binding/agent/{agent_id}/device": [
+    "alert_profile_id",
+    "device_id"
+  ]
+}

@@ -61,7 +61,7 @@ func newNetworksWirelessGetNetworkClientConnectivityEventsCmd(flags *rootFlags) 
 					}
 				}
 				if !validSortOrder {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagSortOrder, "sort-order", allowedSortOrder)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagSortOrder, "sort-order", allowedSortOrder))
 				}
 			}
 			if cmd.Flags().Changed("band") {
@@ -74,7 +74,7 @@ func newNetworksWirelessGetNetworkClientConnectivityEventsCmd(flags *rootFlags) 
 					}
 				}
 				if !validBand {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagBand, "band", allowedBand)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagBand, "band", allowedBand))
 				}
 			}
 			path := "/networks/{networkId}/wireless/clients/{clientId}/connectivityEvents"

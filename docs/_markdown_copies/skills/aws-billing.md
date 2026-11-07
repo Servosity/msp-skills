@@ -6,7 +6,7 @@
 > under Apache-2.0 - built for the MSP community, vendor-neutral by design.
 > Not affiliated with, endorsed by, or sponsored by Amazon.com, Inc. or its affiliates.
 
-**Passes all 4 mechanical gates** (build · command-surface · claims · install). Awaiting its first MSP receipt - [be the first, 60 seconds →](https://msp-skills.compoundingteams.com/verified/#receipt).
+**✓ Live-verified by Servosity (maintainer)** against a production tenant · 2026-11-06.
 
 Yes - there is an MCP server for AWS. It's free, open source, and runs on your own machine, so your client data stays local unless you route it somewhere yourself. It connects AWS to Claude, ChatGPT, Copilot, or any MCP-capable agent, and installs in about 60 seconds.
 
@@ -133,7 +133,7 @@ No - that is the point of the local cache. 'sync' pulls your cost data once (eac
 
 ### Do I need the aws CLI installed?
 
-No. The binary signs its own AWS requests (SigV4) using the native credential chain - environment variables, a shared --profile-aws, SSO, assume-role, or instance metadata. There is nothing to paste and no aws CLI dependency.
+No. The binary signs its own AWS requests (SigV4) using the native credential chain - environment variables, a shared --profile-aws, SSO, or assume-role (EC2 instance-metadata credentials are not used; on EC2 use a profile, SSO or environment keys). There is nothing to paste and no aws CLI dependency.
 
 ### Does it work from a member account, or only the payer?
 
@@ -149,7 +149,7 @@ Run more than one Billing tool, or comparing options? These connectors work the 
 
 ## Status
 
-Beta. Validated against the AWS API surface and being validated with MSPs running it live against their own production tenants in our weekly **[Build Sessions](https://compoundingteams.com/build-sessions)**.
+Live-verified. Confirmed by Servosity (maintainer) against their own production tenant. More MSPs run it live in our weekly **[Build Sessions](https://compoundingteams.com/build-sessions)**.
 
 Build Sessions are free and stay free - [The Build Room](https://compoundingteams.com) is where the deep work happens.
 

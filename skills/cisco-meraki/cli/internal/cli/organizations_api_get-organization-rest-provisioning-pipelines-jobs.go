@@ -54,7 +54,7 @@ func newOrganizationsApiGetOrganizationRestProvisioningPipelinesJobsCmd(flags *r
 					}
 				}
 				if !validStatus {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagStatus, "status", allowedStatus)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagStatus, "status", allowedStatus))
 				}
 			}
 			path := "/organizations/{organizationId}/api/rest/provisioning/pipelines/jobs"

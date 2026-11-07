@@ -3,7 +3,7 @@
   "name": "io.github.Servosity/riverside-fm-mcp",
   "title": "Riverside MCP",
   "description": "Riverside API surface as MCP tools.",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "icons": [
     {
       "src": "https://raw.githubusercontent.com/servosity/msp-skills/main/docs/assets/social/riverside-fm/riverside-fm-512x512.png",
@@ -21,8 +21,8 @@
   "packages": [
     {
       "registryType": "mcpb",
-      "identifier": "https://github.com/servosity/msp-skills/releases/download/riverside-fm-v0.1.5/riverside-fm-mcp.mcpb",
-      "version": "0.1.5",
+      "identifier": "https://github.com/servosity/msp-skills/releases/download/riverside-fm-v0.1.6/riverside-fm-mcp.mcpb",
+      "version": "0.1.6",
       "fileSha256": "PLACEHOLDER_SHA256_FILLED_BY_CI",
       "transport": {
         "type": "stdio"
@@ -38,6 +38,42 @@
         {
           "name": "RIVERSIDE_FM_NO_CONFIG_WRITE",
           "description": "Set to 1 to keep credentials off disk. The rotated session cookie is kept in memory for the run and never written back to config.toml; an existing config file is read but not updated. Leave blank for the default cached behaviour.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "RIVERSIDE_FM_MCP_READ_ONLY",
+          "description": "Set to exactly 1 to hide compute_per_speaker_talktime_stats and every tool that writes the local learning store (teach, teach-pattern, teach-lookup, teach-playbook, playbook amend, learnings confirm, learnings forget and learnings reject). No tool changes anything in your Riverside account either way. Any other value, including true or yes, leaves every tool enabled. Leave blank for the full tool set.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "RIVERSIDE_FM_NO_LOCAL_DATA",
+          "description": "Optional. Set to exactly 1 to keep no local copy of Riverside data: reads go to the API, the response cache is off, and nothing new is written to the local store. Leave blank to keep the local copy.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "RIVERSIDE_FM_MCP_HTTP_TOKEN",
+          "description": "Required only when running the MCP server with --transport http. Callers must send a matching Authorization: Bearer header. Not needed for the default local stdio transport that Claude Desktop uses.",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "RIVERSIDE_FM_SKIP_TLS_VERIFY",
+          "description": "Optional. Set to 1 only to reach a test server with a self-signed certificate. Leave blank to verify certificates.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "RIVERSIDE_FM_USER_AGENT",
+          "description": "Overrides the User-Agent the CLI sends. Leave blank to use the built-in one.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "PRINTING_PRESS_CLIENT_PROFILE",
+          "description": "Has no effect for this connector unless you saved a client profile. Leave blank.",
           "isRequired": false,
           "isSecret": false
         }

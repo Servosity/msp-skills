@@ -4,6 +4,7 @@
 package config
 
 import (
+	"net/url"
 	"strings"
 
 	"connectwise-rmm-pp-cli/internal/cliutil"
@@ -19,6 +20,38 @@ var asioRegionByClientIDPrefix = map[string]string{
 	"0e30": AsioNABaseURL,
 	"0e31": "https://openapi.service.euplatform.connectwise.com",
 	"0e32": "https://openapi.service.auplatform.connectwise.com",
+}
+
+// asioRegionSource names, per regional host, the credential kit source whose
+// declared origin is that host alone (internal/credwire Declarations.Origins).
+var asioRegionSource = map[string]string{
+	AsioNABaseURL: "minted:asio-region-na",
+	"https://openapi.service.euplatform.connectwise.com": "minted:asio-region-eu",
+	"https://openapi.service.auplatform.connectwise.com": "minted:asio-region-au",
+}
+
+// HoldForAsioRegion binds credentials to the Asio regional host target names,
+// and to nothing else. Hand-fix (handfixes.json credkit-wiring): the kit pins
+// every credential to the configured base URL's origin, but this connector
+// sends to the host the config really resolves (the client ID's region when no
+// base URL is set, or a token URL on another regional host). Callers pass only
+// a target derived from that config (Config.BaseURL, AsioTokenURL), never a
+// response or redirect; a target that is not exactly one of the three https
+// regional origins binds nothing, so it stays refused.
+func HoldForAsioRegion(target string, values ...string) {
+	u, err := url.Parse(strings.TrimSpace(target))
+	if err != nil || u.Scheme != "https" || u.User != nil {
+		return
+	}
+	source, ok := asioRegionSource["https://"+strings.ToLower(u.Host)]
+	if !ok {
+		return
+	}
+	for _, v := range values {
+		if strings.TrimSpace(v) != "" {
+			cliutil.Hold(source, v)
+		}
+	}
 }
 
 // AsioRegionBaseURL returns the regional host for a client ID, or "" when the

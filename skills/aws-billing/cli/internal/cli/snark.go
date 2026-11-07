@@ -37,7 +37,7 @@ func snarkLine(on bool, signal string, idx int) string {
 			"Running at 2% CPU. That's not a workload, that's a houseplant with an EBS volume.",
 		},
 		"orphan": {
-			"An orphaned snapshot: a tiny monument to a volume that no longer loves you, still on the bill.",
+			"A year-old snapshot: a tiny monument to a volume you may have forgotten, still on the bill.",
 			"Unattached EBS — storage for data nobody asked for, billed forever. Very on-brand.",
 			"This Elastic IP is associated with nothing and costs you anyway. The cloud's purest grift.",
 		},

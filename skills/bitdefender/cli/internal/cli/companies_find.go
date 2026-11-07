@@ -46,7 +46,7 @@ func newCompaniesFindCmd(flags *rootFlags) *cobra.Command {
 			}
 			if !stdinBody {
 				if !cmd.Flags().Changed("name-filter") && bodyNameFilter == "" && !requiredInputWaived() {
-					return fmt.Errorf("required flag \"%s\" not set", "name-filter")
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "name-filter"))
 				}
 			}
 			path := "/v1.0/jsonrpc/companies#findCompaniesByName"

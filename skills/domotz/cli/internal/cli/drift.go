@@ -77,7 +77,7 @@ func newNovelDriftCmd(flags *rootFlags) *cobra.Command {
 				return usageErr(fmt.Errorf("an agent id is required (positional <agent-id> or --agent-id)"))
 			}
 
-			db, err := novelOpenStoreChecked(cmd, flags, dbPath, "device")
+			db, err := novelOpenStoreChecked(cmd, flags, dbPath, "agent_device", "agent", "agent_device")
 			if err != nil {
 				return err
 			}
@@ -130,11 +130,11 @@ func loadDriftState(ctx context.Context, db *store.Store, agentID string) (map[s
 	rows, err := queryFleetRows(ctx, db, `
 SELECT
   id,
-  json_extract(data, '$.display_name') AS display_name,
-  json_extract(data, '$.status')       AS status,
-  json_extract(data, '$.type.label')   AS type,
-  json_extract(data, '$.first_seen_on') AS first_seen_on
-FROM "device" WHERE agent_id = ?`, agentID)
+  `+deviceField("", "display_name")+`  AS display_name,
+  `+deviceField("", "status")+`        AS status,
+  `+deviceField("", "type")+`          AS type,
+  `+deviceField("", "first_seen_on")+` AS first_seen_on
+FROM `+fleetDeviceSource+` WHERE agent_id = ?`, agentID)
 	if err != nil {
 		return nil, err
 	}

@@ -54,6 +54,17 @@ Joins the synced agents and alerts in the local store, grouped by client.`,
 			if s := novelLocalRead(cmd, flags, "agents"); s != nil {
 				defer s.Close()
 				ctx := cmd.Context()
+				// tactical-rmm handfix entity-inventory-from-own-list: every synced
+				// client gets a row (GET /clients/), agents or not.
+				if rows, qe := s.DB().QueryContext(ctx, "SELECT json_extract(data,'$.name') FROM resources WHERE resource_type='clients' ORDER BY 1"); qe == nil {
+					for rows.Next() {
+						var c sql.NullString
+						if rows.Scan(&c) == nil && c.String != "" {
+							get(c.String)
+						}
+					}
+					_ = rows.Close()
+				}
 				// Agent-derived signals grouped by client.
 				aq := `SELECT
 					COALESCE(json_extract(data,'$.client_name'),'(unknown)') c,
@@ -80,8 +91,8 @@ Joins the synced agents and alerts in the local store, grouped by client.`,
 				}
 				// Open alerts grouped by client.
 				alq := `SELECT COALESCE(json_extract(data,'$.client'),'(unknown)') c, COUNT(*)
-					FROM resources WHERE resource_type='alerts' AND COALESCE(json_extract(data,'$.resolved'),0)=0 GROUP BY c`
-				if rows, qe := s.DB().QueryContext(ctx, alq); qe == nil {
+					FROM resources WHERE resource_type=? AND ` + trmmAlertActiveSQL + ` GROUP BY c`
+				if rows, qe := s.DB().QueryContext(ctx, alq, trmmAlertsResource); qe == nil {
 					for rows.Next() {
 						var c sql.NullString
 						var n sql.NullInt64

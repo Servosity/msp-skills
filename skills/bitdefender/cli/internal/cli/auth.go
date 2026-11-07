@@ -12,6 +12,7 @@ import (
 
 	"bitdefender-pp-cli/internal/cliutil"
 	"bitdefender-pp-cli/internal/config"
+	"bitdefender-pp-cli/internal/credkit"
 	"github.com/spf13/cobra"
 )
 
@@ -46,7 +47,7 @@ func newAuthSetupCmd(_ *rootFlags) *cobra.Command {
 			fmt.Fprintln(w, "  In GravityZone Control Center open the user menu > My Account > API keys > Add, select the APIs (Network, Companies, Licensing, Incidents, Quarantine, Reports, ...) the key may use, and copy the key. Export it as BITDEFENDER_API_KEY and set BITDEFENDER_BASE_URL to the Access URL shown under Control Center API.")
 			fmt.Fprintln(w, "")
 			fmt.Fprintln(w, "Then set:")
-			fmt.Fprintln(w, "  export BITDEFENDER_API_KEY=\"your-token-here\"")
+			fmt.Fprintln(w, "  "+cliutil.EnvAssignHint(true, "BITDEFENDER_API_KEY", "your-token-here"))
 			fmt.Fprintln(w, "  echo \"$TOKEN\" | bitdefender-cli auth set-token")
 			if !launch {
 				return nil
@@ -80,7 +81,7 @@ func openSetupURL(url string) error {
 	default:
 		return fmt.Errorf("unsupported OS: %s", runtime.GOOS)
 	}
-	return c.Start()
+	return credkit.StartCommand(c) // Hand-fix (handfixes.json credkit-wiring)
 }
 
 func newAuthStatusCmd(flags *rootFlags) *cobra.Command {
@@ -141,7 +142,7 @@ func newAuthStatusCmd(flags *rootFlags) *cobra.Command {
 				fmt.Fprintln(w, red("Not authenticated"))
 				fmt.Fprintln(w, "")
 				fmt.Fprintln(w, "Set your token:")
-				fmt.Fprintln(w, "  export BITDEFENDER_API_KEY=\"your-token-here\"")
+				fmt.Fprintln(w, "  "+cliutil.EnvAssignHint(true, "BITDEFENDER_API_KEY", "your-token-here"))
 				fmt.Fprintf(w, "  echo \"$TOKEN\" | bitdefender-cli auth set-token\n")
 				return authErr(fmt.Errorf("no credentials configured"))
 			}
@@ -152,7 +153,7 @@ func newAuthStatusCmd(flags *rootFlags) *cobra.Command {
 			if _, line, expired, ok := jwtCredentialExpiry(jwtExpirySource(cfg)); ok {
 				fmt.Fprintf(w, "  Token expires: %s\n", line)
 				if expired {
-					fmt.Fprintf(w, "  %s\n", "Set the Basic credential with: export BITDEFENDER_API_KEY=\"your-token-here\"")
+					fmt.Fprintf(w, "  %s\n", "Set the Basic credential with: "+cliutil.EnvAssignHint(true, "BITDEFENDER_API_KEY", "your-token-here"))
 				}
 			}
 			return nil

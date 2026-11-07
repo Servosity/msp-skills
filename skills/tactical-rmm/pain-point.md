@@ -33,7 +33,7 @@ the raw dump:
 - **`triage --limit 20`** - the agents that need attention first, ranked across
   offline state, failing checks, reboots, and patches.
 - **`patch posture --by client`** - pending Windows updates and the reboots they'll
-  need, rolled up per client or site, before patch night.
+  need, rolled up per client, or per site within its client, before patch night.
 - **`agents stale --days 7`** - endpoints that quietly stopped checking in, with
   client and site, before they become a gap.
 - **`since "2h"`** - what moved across the fleet since you last looked: new alerts,

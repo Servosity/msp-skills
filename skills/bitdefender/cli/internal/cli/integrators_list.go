@@ -44,7 +44,7 @@ func newIntegratorsListCmd(flags *rootFlags) *cobra.Command {
 			}
 			if !stdinBody {
 				if !cmd.Flags().Changed("integration-id") && bodyIntegrationId == "" && !requiredInputWaived() {
-					return fmt.Errorf("required flag \"%s\" not set", "integration-id")
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "integration-id"))
 				}
 			}
 			path := "/v1.0/jsonrpc/network#getIntegrators"

@@ -50,15 +50,17 @@ func newNovelFleetHealthCmd(flags *rootFlags) *cobra.Command {
 					"agents_with_failing": tQInt(ctx, db, a+" AND COALESCE(json_extract(data,'$.checks.failing'),0)>0"),
 				}
 				res["alerts"] = map[string]interface{}{
-					"active": tQInt(ctx, db, "SELECT COUNT(*) FROM resources WHERE resource_type='alerts' AND COALESCE(json_extract(data,'$.resolved'),0)=0"),
+					"active": tQInt(ctx, db, "SELECT COUNT(*) FROM resources WHERE resource_type='"+trmmAlertsResource+"' AND "+trmmAlertActiveSQL),
 					"by_severity": map[string]int{
-						"info":    tQInt(ctx, db, "SELECT COUNT(*) FROM resources WHERE resource_type='alerts' AND json_extract(data,'$.severity')='info'"),
-						"warning": tQInt(ctx, db, "SELECT COUNT(*) FROM resources WHERE resource_type='alerts' AND json_extract(data,'$.severity')='warning'"),
-						"error":   tQInt(ctx, db, "SELECT COUNT(*) FROM resources WHERE resource_type='alerts' AND json_extract(data,'$.severity')='error'"),
+						"info":    tQInt(ctx, db, "SELECT COUNT(*) FROM resources WHERE resource_type='"+trmmAlertsResource+"' AND "+trmmAlertActiveSQL+" AND json_extract(data,'$.severity')='info'"),
+						"warning": tQInt(ctx, db, "SELECT COUNT(*) FROM resources WHERE resource_type='"+trmmAlertsResource+"' AND "+trmmAlertActiveSQL+" AND json_extract(data,'$.severity')='warning'"),
+						"error":   tQInt(ctx, db, "SELECT COUNT(*) FROM resources WHERE resource_type='"+trmmAlertsResource+"' AND "+trmmAlertActiveSQL+" AND json_extract(data,'$.severity')='error'"),
 					},
 				}
 				res["clients"] = tQInt(ctx, db, "SELECT COUNT(*) FROM resources WHERE resource_type='clients'")
-				res["sites"] = tQInt(ctx, db, "SELECT COUNT(DISTINCT json_extract(data,'$.site_name')) FROM resources WHERE resource_type='agents' AND json_extract(data,'$.site_name') IS NOT NULL")
+				// tactical-rmm handfix entity-inventory-from-own-list: sites from the
+				// synced site list (GET /clients/sites/), one row per site id.
+				res["sites"] = tQInt(ctx, db, "SELECT COUNT(*) FROM resources WHERE resource_type='clients-sites'")
 			}
 			return flags.printJSON(cmd, res)
 		},

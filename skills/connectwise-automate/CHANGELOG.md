@@ -4,6 +4,28 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.1.8] - unreleased
+
+### Security
+- **Rebuilt on press 4.35.1.** The MCP server's HTTP mode (`--transport http`, for remote agents) now serves `127.0.0.1:7777` by default, refuses to start until `CONNECTWISE_AUTOMATE_MCP_HTTP_TOKEN` is set (at least 32 characters), rejects any request without that bearer token, and needs TLS for any address other than loopback. [mcp-install.md](./mcp-install.md) documents it for reference; web-only AI apps are not supported yet.
+- **MCP tools that change your Automate server ask first.** Running a command on a computer, deploying or re-attempting patches, and `import` return a preview and run only when called with `confirm: true`. `apitoken_mint` and `apitoken_refresh` send nothing over MCP and name the CLI command instead: minting a token is human-in-the-loop only.
+- **One credential layer, shared across the fleet.** The CLI and the MCP server now run on the shared credential kit. Your token, clientId, the MCP HTTP token and every credential in config.toml or the credential store are held from start-up, and any output that would carry one (terminal, `--json`, MCP results, logs, the local store, the learn journal, files the program writes) is withheld whole. A credential goes only to the configured server over https, never across a redirect to another host. This replaces the connector's own masking layer.
+- **`apitoken mint` and `apitoken refresh` save the new token instead of printing it.** It goes to the credential store `auth set-token` uses, later commands use it (an exported `CONNECTWISE_AUTOMATE_TOKEN` still wins), and the output and the local store show where it was saved.
+- **`CONNECTWISE_AUTOMATE_CLIENT_ID` stays in your environment.** `auth set-token` no longer copies it into config.toml.
+- **The configured server is the only host that gets your credentials.** The client keeps the base URL it resolved at start-up and refuses a request aimed anywhere else, and `sync --path-context` can no longer set the server.
+
+### Fixed
+- **Fleet reports count the fleet the API last returned in full.** `sync` now records which records each complete, unfiltered sync returned. `fleet-health`, `client-rollup`, `alert-triage` and the other reports read only those, so a sync resumed after `--max-pages` keeps its first page, a record fetched by a later `get` is not counted as current, and a sync filtered with `--param` or `--resource-param` is never taken for the whole fleet. A report over a mirror no complete sync proves fails with the command that finishes it (or reports anyway with `--allow-partial-failure`).
+- **Two clients with the same name stay two clients.** Every report groups by the client's Id and shows `Name (#Id)` when names repeat, including when computers were synced without their clients. A Closed alert is not counted as open.
+- Windows 10 editions other than LTSC are flagged end-of-life in `os-inventory`.
+
+### Added
+- `agent-versions`: computers grouped by Automate agent version, newest first, with per-client counts; `--behind-only` lists the agents left behind.
+
+### Changed
+- `server info` is now `server get` (`server info` still works). The MCP tool is `server_get`.
+- The local mirror's `monitors` resource now holds `/MonitorStatistics`, and sensor checks moved to `monitors-sensor-checks`. Rows a 0.1.7 sync stored under `monitors` are sensor checks until you run `sync --full --resources monitors`.
+
 ## [0.1.7] - 2026-10-23
 
 ### Security

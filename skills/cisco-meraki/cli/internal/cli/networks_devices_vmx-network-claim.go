@@ -61,7 +61,7 @@ func newNetworksDevicesVmxNetworkClaimCmd(flags *rootFlags) *cobra.Command {
 			}
 			if !stdinBody {
 				if !cmd.Flags().Changed("size") && bodySize == "" && !requiredInputWaived() {
-					return fmt.Errorf("required flag \"%s\" not set", "size")
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "size"))
 				}
 			}
 			path := "/networks/{networkId}/devices/claim/vmx"

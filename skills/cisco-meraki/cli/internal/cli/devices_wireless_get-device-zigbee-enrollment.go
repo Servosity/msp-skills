@@ -52,7 +52,7 @@ func newDevicesWirelessGetDeviceZigbeeEnrollmentCmd(flags *rootFlags) *cobra.Com
 				return err
 			}
 			params := map[string]string{}
-			data, prov, err := resolveReadWithStrategyAndResponsePath(cmd.Context(), c, flags, "live", "wireless", false, path, params, nil, "doorLocks", cmd.ErrOrStderr())
+			data, prov, err := resolveReadWithStrategyAndResponsePath(cmd.Context(), c, flags, "live", "wireless", false, path, params, nil, "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}
@@ -79,7 +79,7 @@ func newDevicesWirelessGetDeviceZigbeeEnrollmentCmd(flags *rootFlags) *cobra.Com
 					filtered, selectErr = filterFieldsChecked(filtered, flags.selectFields)
 					selectErr = selectErrorForDryRun(selectErr, flags, data)
 				} else if flags.compact {
-					filtered = compactFields(filtered, map[string]bool{"doorLockId": true, "enrolledAt": true, "lastSeenAt": true, "name": true, "shortId": true, "status": true})
+					filtered = compactFields(filtered, map[string]bool{"enrollmentId": true, "enrollmentStartedAt": true, "status": true, "url": true})
 				}
 				wrapped, wrapErr := wrapWithProvenance(filtered, prov)
 				if wrapErr != nil {
@@ -111,7 +111,7 @@ func newDevicesWirelessGetDeviceZigbeeEnrollmentCmd(flags *rootFlags) *cobra.Com
 			if flags.csv || flags.plain {
 				formatData = outputData
 			}
-			return printOutputWithFlagsMeta(cmd.OutOrStdout(), formatData, flags, map[string]any{"source": "live"}, map[string]bool{"doorLockId": true, "enrolledAt": true, "lastSeenAt": true, "name": true, "shortId": true, "status": true})
+			return printOutputWithFlagsMeta(cmd.OutOrStdout(), formatData, flags, map[string]any{"source": "live"}, map[string]bool{"enrollmentId": true, "enrollmentStartedAt": true, "status": true, "url": true})
 		},
 	}
 

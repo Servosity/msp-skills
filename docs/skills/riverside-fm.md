@@ -5,12 +5,12 @@ description: "Riverside API surface as MCP tools."
 permalink: /skills/riverside-fm/
 skill_name: "Riverside.fm MCP"
 image: /assets/social/riverside-fm/wide-1200x630.png
-verification: awaiting
+verification: live-verified
 faqs:
   - q: "Is there an MCP server for Riverside.fm?"
     a: "Yes - this one. A free, open source MCP server and Claude Code Skill for Riverside.fm, built for MSPs. It runs locally on your machine, works with Claude, ChatGPT, Copilot, and any MCP-capable agent, and installs in about 60 seconds."
   - q: "Is the Riverside.fm MCP server safe for client data?"
-    a: "Yes, by design - and the exceptions are ones you switch on yourself. The CLI, the MCP server, and any local data mirror run on your own machine, and nothing is sent to MSP Skills or any third party unless you ask for it. Two paths can move data off the machine, both opt-in: `--deliver webhook:<url>` posts a command's output to a URL you name; `RIVERSIDE_FM_FEEDBACK_AUTO_SEND=true` posts feedback you typed to the URL in `RIVERSIDE_FM_FEEDBACK_ENDPOINT` (with no endpoint set, `feedback` only writes a local file). Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page."
+    a: "Yes, by design - and the exceptions are ones you switch on yourself. The CLI, the MCP server, and any local data mirror run on your own machine, and nothing is sent to MSP Skills or any third party unless you ask for it. Three paths can move data off the machine, all opt-in: `--deliver webhook:<url>` posts a command's output to a URL you name; `RIVERSIDE_FM_FEEDBACK_AUTO_SEND=true` posts feedback you typed to the URL in `RIVERSIDE_FM_FEEDBACK_ENDPOINT` (with no endpoint set, `feedback` only writes a local file); `--transport http` opens a local MCP listener you then choose whether to expose. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page."
   - q: "Does this work with ChatGPT?"
     a: "Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way riverside-fm-mcp runs, and shares MCP configuration with Codex: add riverside-fm-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote (HTTP) server, this connector speaks stdio only, and the bridge it would need is paused until it is reprinted; the security note at the top of the install guide explains why. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list."
   - q: "Do I need to know how to code?"
@@ -24,7 +24,7 @@ faqs:
   - q: "Can this download other people's recordings?"
     a: "No. It authenticates as you, with your own browser session, and only reaches the studios and takes your account already has access to. It is scoped to exporting your own content, not scraping anyone else's."
   - q: "Will this change anything in my Riverside account?"
-    a: "The commands you use to export, search, and convert all read - they only download and transform your data. The CLI does include the generic import command, which can POST records from a local file via the API's create/upsert path; it is not part of any workflow in this skill, and an agent should treat it as a reviewed write. Nothing in this CLI deletes or publishes."
+    a: "The commands you use to export, search, and convert all read - they only download and transform your data. Nothing in this CLI writes to Riverside, deletes or publishes."
 howto:
   - name: "Run the one-line installer"
     text: "macOS/Linux: bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/riverside-fm/install.sh) - Windows PowerShell: iwr -useb https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/riverside-fm/install.ps1 | iex"
@@ -38,9 +38,9 @@ howto:
 
 > Independent, open source, inspectable. Every line of code is on GitHub
 > under Apache-2.0 - built for the MSP community, vendor-neutral by design.
-> Not affiliated with, endorsed by, or sponsored by RiversideFM, Inc..
+> Not affiliated with, endorsed by, or sponsored by RiversideFM, Inc.
 
-**Passes all 4 mechanical gates** (build · command-surface · claims · install). Awaiting its first MSP receipt - [be the first, 60 seconds →](https://msp-skills.compoundingteams.com/verified/#receipt).
+**✓ Live-verified by Servosity (maintainer)** against a production tenant · 2026-11-06. Verified on v0.1.5; the current release has changed since.
 
 Yes - there is an MCP server for Riverside.fm. It's free, open source, and runs on your own machine, so your client data stays local unless you route it somewhere yourself. It connects Riverside.fm to Claude, ChatGPT, Copilot, or any MCP-capable agent, and installs in about 60 seconds.
 
@@ -129,11 +129,11 @@ After install, authenticate once with your Riverside.fm credentials, then verify
 
 | Tier | Examples | Recommended agent policy |
 | --- | --- | --- |
-| Read | bulk export, grab, search, transcripts convert, transcripts talktime, clips harvest, media refresh, ready, wait, sync - every download, search, and conversion command | Allow |
-| Write (routine) | import (POSTs records from a local JSONL via the API's create/upsert path); the endpoint-mirror capability checks the safety scanner flagged by verb name (ai can-create-event, takes get-assets, clips get-patches) are themselves read-only GETs | Preview with --dry-run, then a reviewed write |
+| Read | bulk export, grab, search, transcripts convert, transcripts talktime, clips harvest, media refresh, ready, wait - every download, search, and conversion command | Allow |
+| Write (routine) | none - no command sends a write to Riverside; the endpoint-mirror capability checks the safety scanner flagged by verb name (ai can-create-event, takes get-assets, clips get-patches) are themselves read-only GETs | Preview with --dry-run, then a reviewed write |
 | Destructive / config | none - this CLI exposes no delete, publish, or account-config command | Human-in-the-loop only |
 
-The Riverside data commands in this skill read: they download, search, and convert data from your own account. The one mutating command is the generic import, which POSTs records from a local JSONL file via the API's create/upsert path and is not part of any export workflow here. The CLI authenticates with your own browser session cookies, read from your environment only, and can do only what your Riverside account already permits. The safe agent policy is to allow reads freely and keep a human on import and anything else the safety scanner flags as a write. Full details in [governance.md](https://github.com/servosity/msp-skills/blob/main/skills/riverside-fm/governance.md).
+The Riverside data commands in this skill read: they download, search, and convert data from your own account. No command changes anything in your Riverside account. The CLI authenticates with your own browser session cookies, read from your environment only, and can do only what your Riverside account already permits. The safe agent policy is to allow reads freely and keep a human on import and anything else the safety scanner flags as a write. Full details in [governance.md](https://github.com/servosity/msp-skills/blob/main/skills/riverside-fm/governance.md).
 
 ## Frequently asked questions
 
@@ -143,7 +143,7 @@ Yes - this one. A free, open source MCP server and Claude Code Skill for Riversi
 
 ### Is the Riverside.fm MCP server safe for client data?
 
-Yes, by design - and the exceptions are ones you switch on yourself. The CLI, the MCP server, and any local data mirror run on your own machine, and nothing is sent to MSP Skills or any third party unless you ask for it. Two paths can move data off the machine, both opt-in: `--deliver webhook:<url>` posts a command's output to a URL you name; `RIVERSIDE_FM_FEEDBACK_AUTO_SEND=true` posts feedback you typed to the URL in `RIVERSIDE_FM_FEEDBACK_ENDPOINT` (with no endpoint set, `feedback` only writes a local file). Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page.
+Yes, by design - and the exceptions are ones you switch on yourself. The CLI, the MCP server, and any local data mirror run on your own machine, and nothing is sent to MSP Skills or any third party unless you ask for it. Three paths can move data off the machine, all opt-in: `--deliver webhook:<url>` posts a command's output to a URL you name; `RIVERSIDE_FM_FEEDBACK_AUTO_SEND=true` posts feedback you typed to the URL in `RIVERSIDE_FM_FEEDBACK_ENDPOINT` (with no endpoint set, `feedback` only writes a local file); `--transport http` opens a local MCP listener you then choose whether to expose. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page.
 
 ### Does this work with ChatGPT?
 
@@ -171,7 +171,7 @@ No. It authenticates as you, with your own browser session, and only reaches the
 
 ### Will this change anything in my Riverside account?
 
-The commands you use to export, search, and convert all read - they only download and transform your data. The CLI does include the generic import command, which can POST records from a local file via the API's create/upsert path; it is not part of any workflow in this skill, and an agent should treat it as a reviewed write. Nothing in this CLI deletes or publishes.
+The commands you use to export, search, and convert all read - they only download and transform your data. Nothing in this CLI writes to Riverside, deletes or publishes.
 
 
 ## More Marketing connectors
@@ -180,7 +180,7 @@ Run more than one Marketing tool, or comparing options? These connectors work th
 
 ## Status
 
-Beta. Validated against the Riverside.fm API surface and being validated with MSPs running it live against their own production tenants in our weekly **[Build Sessions](https://compoundingteams.com/build-sessions)**.
+Live-verified. Confirmed by Servosity (maintainer) against their own production tenant. Verified on v0.1.5; the current release has changed since. More MSPs run it live in our weekly **[Build Sessions](https://compoundingteams.com/build-sessions)**.
 
 Build Sessions are free and stay free - [The Build Room](https://compoundingteams.com) is where the deep work happens.
 

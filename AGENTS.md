@@ -107,6 +107,14 @@ version it ran, pass `--verified-version`; for an existing badge use `--bind`.
 Never copy `cli_hash_at_release` into a badge by hand: `check_registry_state.py`
 recomputes the hash from the tag and fails a binding that is not that code.
 
+**Once live-verified, always live-verified.** A badge comes off only when the
+owner asks, through `verify_live.py --revoke --slug <slug> --owner-override
+"<reason>"`, which leaves a dated `revoked` record. Never run it on your own
+judgment. `check_registry_state.py` fails CI on any change where a live-verified
+badge changes status or disappears without that record, including a registry
+entry rewritten without its `live_verified` key (how servosity lost its badge in
+#248).
+
 **Beta and live-verified are mutually exclusive.** A live-verified connector
 never says Beta. Flip and revoke only through `verify_live.py`, which moves the
 registry `status` and the README / pain-point Status paragraphs with the badge
@@ -189,9 +197,16 @@ publishes last. Three consequences an agent has to hold:
 
 - Sign commits (`git commit -s`); no em-dashes in committed files; run
   `bash tools/maintainer/verify_all.sh --changed` (or `--slug <slug>`) while
-  iterating, and the full `bash tools/maintainer/verify_all.sh` once on the final
-  commit after the last rebase. Its verdict (`.verify/verdict.json`) names the
-  head and base SHAs it checked. See `CONTRIBUTING.md`.
+  iterating, and once on the final commit after the last rebase. Those runs use
+  the scoped profile (decision D1): only the tool self-tests the change can
+  reach, the per-connector form of fleet checks where nothing shared changed,
+  and the connector's Linux build and tests on this machine's own architecture
+  (linux/arm64 on Apple silicon). CI is the authority for the x86 (linux/amd64)
+  build row and for every tool self-test: it runs both on every PR. `--full` (or
+  no arguments, the whole fleet) runs the full profile, emulated amd64 and every
+  self-test included. The verdict (`.verify/verdict.json`) names the head and
+  base SHAs it checked and which profile ran (`profile_kind`, `profile`). See
+  `CONTRIBUTING.md`.
 - CI builds only what a change-set touched, on PRs AND on pushes to `main`
   (`release_matrix.py --changed-only`; see `tools/maintainer/README.md`). A
   docs-only or catalog-bot commit builds nothing; a change to a matrix-row

@@ -4,11 +4,14 @@
 
 // Package mcp — code-orchestration thin surface.
 //
-// Three tools cover the entire API: <api>_search to discover endpoints,
-// <api>_get to inspect one GET endpoint, and <api>_execute to invoke one.
-// This collapses a large API (50+ endpoints)
-// to ~1K tokens of tool definitions while preserving full coverage — the
-// agent writes the composition logic in its own sandbox.
+// <api>_search discovers endpoints and <api>_get returns registry metadata
+// for one GET. <api>_read calls read-only endpoints (GET reads and
+// codegen-marked read-only POSTs). <api>_execute calls state-changing
+// endpoints and returns a preview until confirm is boolean true. A spec
+// with no state-changing endpoints registers the read tool and omits
+// execute. This collapses a large API (50+ endpoints) to a small tool
+// list while preserving full coverage — the agent writes the composition
+// logic in its own sandbox.
 //
 // Pattern source: Anthropic 2026-04-22 "Building agents that reach
 // production systems with MCP" — Cloudflare's MCP server covers ~2,500
@@ -37,7 +40,7 @@ import (
 func RegisterCodeOrchestrationTools(s *server.MCPServer) {
 	s.AddTool(
 		mcplib.NewTool("connectwise-rmm_search",
-			mcplib.WithDescription("Search the connectwise-rmm API for endpoints matching a natural-language query. Returns a ranked list of {endpoint_id, method, path, summary} entries. Call this first to find the endpoint to execute."),
+			mcplib.WithDescription("Search the connectwise-rmm API for endpoints matching a natural-language query. Returns a ranked list of {endpoint_id, method, path, summary} entries. Call this first to find the endpoint to read or execute."),
 			mcplib.WithString("query", mcplib.Required(), mcplib.Description("Natural-language description of what you want to do.")),
 			mcplib.WithNumber("limit", mcplib.Description("Max endpoints to return (default 10, max 100).")),
 			mcplib.WithReadOnlyHintAnnotation(true),
@@ -57,12 +60,26 @@ func RegisterCodeOrchestrationTools(s *server.MCPServer) {
 		),
 		handleCodeOrchGet,
 	)
-
+	s.AddTool(
+		mcplib.NewTool("connectwise-rmm_read",
+			mcplib.WithDescription("Call one read-only connectwise-rmm API endpoint by its endpoint_id (from connectwise-rmm_search). GET reads and read-only POSTs run immediately. Params are a JSON object; path placeholders and query strings are resolved automatically. State-changing endpoints, including deletes and mutating GETs, are rejected; use connectwise-rmm_execute."),
+			mcplib.WithString("endpoint_id", mcplib.Required(), mcplib.Description("Read-only endpoint identifier returned by connectwise-rmm_search (e.g., \"users.list\").")),
+			mcplib.WithObject("params", mcplib.Description("Parameters for the endpoint. Path placeholders match by name; remaining entries become the query string on GET or the JSON body on a read-only POST.")),
+			mcplib.WithReadOnlyHintAnnotation(true),
+			mcplib.WithDestructiveHintAnnotation(false),
+			mcplib.WithOpenWorldHintAnnotation(true),
+		),
+		handleCodeOrchRead,
+	)
 	s.AddTool(
 		mcplib.NewTool("connectwise-rmm_execute",
-			mcplib.WithDescription("Execute one connectwise-rmm API endpoint by its endpoint_id (from connectwise-rmm_search). Params are passed as a JSON object; path placeholders and query strings are resolved automatically."),
-			mcplib.WithString("endpoint_id", mcplib.Required(), mcplib.Description("Endpoint identifier returned by connectwise-rmm_search (e.g., \"users.list\").")),
+			mcplib.WithDescription("Call one state-changing connectwise-rmm API endpoint by its endpoint_id (from connectwise-rmm_search). DELETE and other mutating calls, including mutating GETs, return a preview and do not run until confirm is boolean true. Params are a JSON object; path placeholders and query strings are resolved automatically. Read-only endpoints are rejected; use connectwise-rmm_read."),
+			mcplib.WithString("endpoint_id", mcplib.Required(), mcplib.Description("State-changing endpoint identifier returned by connectwise-rmm_search (e.g., \"users.delete\").")),
 			mcplib.WithObject("params", mcplib.Description("Parameters for the endpoint. Path placeholders match by name; remaining entries become query string on GET or JSON body on DELETE/POST/PUT/PATCH.")),
+			mcplib.WithBoolean("confirm", mcplib.Description("Set to boolean true to perform the previewed call. Any other value, including the string \"true\", leaves the call as a preview and does not contact the API.")),
+			mcplib.WithReadOnlyHintAnnotation(false),
+			mcplib.WithDestructiveHintAnnotation(true),
+			mcplib.WithOpenWorldHintAnnotation(true),
 		),
 		handleCodeOrchExecute,
 	)
@@ -102,8 +119,18 @@ type codeOrchEndpoint struct {
 	// params object; a strict-mapping API rejects an object at the body
 	// root with HTTP 422 "Invalid json".
 	BodyIsArray bool
-	Mutating    bool
-	keywords    []string
+	// Page carries the GET list paging settings the per-endpoint tools use, so
+	// an over-budget list resumes inside the bounded page instead of handing
+	// the agent the server cursor for the following page (which skips the
+	// rows the bound dropped).
+	Page mcpPageConfig
+	// NeedsConfirm is the read-command classifier's write signal, plus every
+	// DELETE. It stays separate from Mutating: Mutating selects the GET
+	// transport that bypasses the response cache, including GETs the
+	// classifier does not treat as reads.
+	NeedsConfirm bool
+	Mutating     bool
+	keywords     []string
 }
 
 type codeOrchParamBinding struct {
@@ -125,6 +152,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("companies", "get-company", "Get a company by ID. Scope: platform.companies.read.", "/api/platform/v1/company/companies/{companyId}"),
 	},
@@ -137,6 +165,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("companies", "list", "List all companies (clients). Scope: platform.companies.read.", "/api/platform/v1/company/companies"),
 	},
@@ -149,6 +178,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "attributeIDs", WireName: "attributeIDs"}, {PublicName: "withDefaults", WireName: "withDefaults"}, {PublicName: "originType", WireName: "originType"}, {PublicName: "ownerID", WireName: "ownerID"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("custom_fields", "get-company", "Get custom field values of a company. Scope: platform.custom_fields_values.read.", "/api/platform/v1/company/companies/{companyId}/custom-fields"),
 	},
@@ -161,6 +191,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("custom_fields", "get-definition", "Get one custom field definition. Scope: platform.custom_fields_definitions.read.", "/api/platform/v1/custom-field/definitions/{definitionID}"),
 	},
@@ -173,6 +204,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "attributeIDs", WireName: "attributeIDs"}, {PublicName: "withDefaults", WireName: "withDefaults"}, {PublicName: "originType", WireName: "originType"}, {PublicName: "ownerID", WireName: "ownerID"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("custom_fields", "get-endpoint", "Get custom field values of an endpoint. Scope: platform.custom_fields_values.read.", "/api/platform/v1/device/endpoints/{endpointID}/custom-fields"),
 	},
@@ -185,6 +217,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "attributeIDs", WireName: "attributeIDs"}, {PublicName: "withDefaults", WireName: "withDefaults"}, {PublicName: "originType", WireName: "originType"}, {PublicName: "ownerID", WireName: "ownerID"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("custom_fields", "get-site", "Get custom field values of a site. Scope: platform.custom_fields_values.read.", "/api/platform/v1/company/sites/{siteId}/custom-fields"),
 	},
@@ -197,6 +230,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "entityType", WireName: "entityType"}, {PublicName: "originType", WireName: "originType"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("custom_fields", "list-definitions", "List custom field definitions. Scope: platform.custom_fields_definitions.read.", "/api/platform/v1/custom-field/definitions"),
 	},
@@ -210,6 +244,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
 		BodyIsArray:    true,
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("custom_fields", "set-company", "Set custom field values on a company. Scope: platform.custom_fields_values.write.", "/api/platform/v1/company/companies/{companyId}/custom-fields"),
 	},
@@ -223,6 +258,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
 		BodyIsArray:    true,
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("custom_fields", "set-endpoint", "Set custom field values on an endpoint. Scope: platform.custom_fields_values.write.", "/api/platform/v1/device/endpoints/{endpointID}/custom-fields"),
 	},
@@ -236,6 +272,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
 		BodyIsArray:    true,
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("custom_fields", "set-site", "Set custom field values on a site. Scope: platform.custom_fields_values.write.", "/api/platform/v1/company/sites/{siteId}/custom-fields"),
 	},
@@ -248,6 +285,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("device_groups", "list", "List all device groups (static, dynamic, predefined). Scope: platform.deviceGroups.read.", "/api/platform/v1/device-groups"),
 	},
@@ -260,6 +298,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("endpoints", "create-agent-install-token", "Get the agent install token for a company and site. Exposed API for Generate Token.", "/api/platform/v1/device/token"),
 	},
@@ -272,6 +311,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("endpoints", "get", "Get full details (hardware, OS, agent) of one endpoint. Scope: platform.asset.read.", "/api/platform/v1/device/endpoints/{endpointID}"),
 	},
@@ -284,6 +324,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("endpoints", "get-cpu-usage", "Get the latest CPU usage of an endpoint. Latest CPU usage. Required scope is not stated in the public sources.", "/api/platform/v2/device/endpoints/{endpointId}/cpu-usage"),
 	},
@@ -296,6 +337,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("endpoints", "get-disk-usage", "Get the latest disk usage of an endpoint. Latest disk usage. Required scope is not stated in the public sources.", "/api/platform/v2/device/endpoints/{endpointId}/disk-usage"),
 	},
@@ -308,6 +350,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "resourceType", WireName: "resourceType"}, {PublicName: "resources", WireName: "resources"}, {PublicName: "offlineLookback", WireName: "offlineLookback"}, {PublicName: "availability", WireName: "availability"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("endpoints", "get-heartbeat", "Check agent availability (online/offline, last seen) for up to 400 endpoints. Agent Last Seen API.", "/api/platform/v2/device/endpoints/heartbeat"),
 	},
@@ -320,6 +363,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "minute", WireName: "minute"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("endpoints", "get-memory-usage", "Get the latest memory usage of an endpoint. Latest memory usage; minute sets how many minutes of history to return.", "/api/platform/v2/device/endpoints/{endpointId}/memory-usage"),
 	},
@@ -332,6 +376,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "serviceName", WireName: "serviceName"}, {PublicName: "field", WireName: "field"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("endpoints", "get-services", "List Windows services or daemons on one endpoint. Service details for an endpoint; filter by serviceName.", "/api/platform/v2/device/companies/{companyId}/sites/{siteId}/endpoints/{endpointId}/services"),
 	},
@@ -344,6 +389,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams:  []codeOrchParamBinding{},
 		QueryParams:     []codeOrchParamBinding{{PublicName: "field", WireName: "field"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "cursor", WireName: "cursor"}, {PublicName: "sortBy", WireName: "sortBy"}, {PublicName: "filter", WireName: "filter"}},
 		HeaderParams:    []codeOrchParamBinding{},
+		NeedsConfirm:    false,
 		Mutating:        false,
 		HeaderOverrides: map[string]string{"X-Printing-Press-Replay-Safe": "true"},
 		keywords:        codeOrchKeywords("endpoints", "get-summary", "Fetch projected endpoint inventory for companies, sites, or endpoints (Device Summary API). Device Summary API.", "/api/platform/v2/device/categories/{category}/endpoints"),
@@ -357,6 +403,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("endpoints", "get-system-state", "Get last boot time and logged-on users of an endpoint. Scope: platform.devices.read.", "/api/platform/v1/device/endpoints/{endpointId}/system-state-info"),
 	},
@@ -369,6 +416,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("endpoints", "list", "List every managed endpoint for the partner. Scope: platform.asset.read.", "/api/platform/v1/device/endpoints"),
 	},
@@ -381,6 +429,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams:  []codeOrchParamBinding{},
 		QueryParams:     []codeOrchParamBinding{{PublicName: "field", WireName: "field"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "cursor", WireName: "cursor"}, {PublicName: "name", WireName: "name"}, {PublicName: "version", WireName: "version"}},
 		HeaderParams:    []codeOrchParamBinding{},
+		NeedsConfirm:    false,
 		Mutating:        false,
 		HeaderOverrides: map[string]string{"X-Printing-Press-Replay-Safe": "true"},
 		keywords:        codeOrchKeywords("endpoints", "list-applications", "List installed applications on a set of endpoints. Software inventory.", "/api/platform/v2/device/endpoints/applications"),
@@ -394,6 +443,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("endpoints", "list-company", "List the endpoints of one company. Scope: platform.asset.read.", "/api/platform/v1/device/clients/{clientID}/endpoints"),
 	},
@@ -406,6 +456,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("endpoints", "list-services", "List endpoint services for the partner. Scope: platform.asset.read.", "/api/platform/v1/device/services"),
 	},
@@ -418,6 +469,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("endpoints", "list-site", "List the endpoints of one site. Scope: platform.asset.read.", "/api/platform/v1/device/clients/{clientID}/sites/{siteID}/endpoints"),
 	},
@@ -430,6 +482,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("endpoints", "uninstall", "Uninstall (offboard) the agent from one or more endpoints. Scope: platform.agent.delete.", "/api/platform/v1/device/endpoints/uninstall"),
 	},
@@ -442,6 +495,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("hypervisors", "list-guests", "List guest VMs of a hypervisor host. Scope: platform.devices.read.", "/api/platform/v1/device/hypervisors/clients/{clientID}/sites/{siteID}/hosts/{hostID}/guests"),
 	},
@@ -454,6 +508,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("hypervisors", "list-hosts", "List monitored hypervisor hosts. Fetch hypervisors Hosts. Scope: platform.devices.read.", "/api/platform/v1/device/hypervisors/hosts"),
 	},
@@ -466,6 +521,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("patches", "get-endpoint", "Get patch compliance summary and patch list for an endpoint. Scope: platform.patching.read.", "/api/platform/v1/patching/{endpointID}/patches"),
 	},
@@ -478,6 +534,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams:  []codeOrchParamBinding{},
 		QueryParams:     []codeOrchParamBinding{{PublicName: "field", WireName: "field"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "cursor", WireName: "cursor"}},
 		HeaderParams:    []codeOrchParamBinding{},
+		NeedsConfirm:    false,
 		Mutating:        false,
 		HeaderOverrides: map[string]string{"X-Printing-Press-Replay-Safe": "true"},
 		keywords:        codeOrchKeywords("patches", "get-os-patch-compliance", "Get OS patch compliance summary for a set of endpoints. Bulk OS patch compliance.", "/api/platform/v2/os-patching/compliance/summary"),
@@ -491,6 +548,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams:  []codeOrchParamBinding{},
 		QueryParams:     []codeOrchParamBinding{{PublicName: "field", WireName: "field"}},
 		HeaderParams:    []codeOrchParamBinding{},
+		NeedsConfirm:    false,
 		Mutating:        false,
 		HeaderOverrides: map[string]string{"X-Printing-Press-Replay-Safe": "true"},
 		keywords:        codeOrchKeywords("patches", "get-os-patch-details", "Get OS patch details for a set of endpoints. Bulk OS patch details. Body {resourceType: endpoints, resources: [ids]}.", "/api/platform/v2/os-patching/patches/details"),
@@ -504,6 +562,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "field", WireName: "field"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("patches", "get-os-patch-inventory", "Get the partner-wide OS patch inventory. Every OS patch known across the partner. Scope: platform.ospatching.management.", "/api/platform/v2/os-patching/patches/inventory"),
 	},
@@ -516,6 +575,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams:  []codeOrchParamBinding{},
 		QueryParams:     []codeOrchParamBinding{{PublicName: "field", WireName: "field"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "cursor", WireName: "cursor"}},
 		HeaderParams:    []codeOrchParamBinding{},
+		NeedsConfirm:    false,
 		Mutating:        false,
 		HeaderOverrides: map[string]string{"X-Printing-Press-Replay-Safe": "true"},
 		keywords:        codeOrchKeywords("patches", "get-third-party-patch-compliance", "Get third-party (non-OS) patch compliance for a set of endpoints. Bulk third-party application patch compliance.", "/api/platform/v2/third-party-patching/compliance/summary"),
@@ -529,6 +589,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams:  []codeOrchParamBinding{},
 		QueryParams:     []codeOrchParamBinding{{PublicName: "field", WireName: "field"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "cursor", WireName: "cursor"}},
 		HeaderParams:    []codeOrchParamBinding{},
+		NeedsConfirm:    false,
 		Mutating:        false,
 		HeaderOverrides: map[string]string{"X-Printing-Press-Replay-Safe": "true"},
 		keywords:        codeOrchKeywords("patches", "get-third-party-patch-details", "Get third-party (non-OS) patch details for a set of endpoints. Bulk third-party application patch details.", "/api/platform/v2/third-party-patching/patch/details"),
@@ -542,6 +603,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("policies", "get-effective-policy", "Get the effective policy applied to an endpoint. Scope: platform.policies.read.", "/api/platform/v1/policy/clients/{clientID}/sites/{siteID}/endpoints/{endpointID}/effective-policy"),
 	},
@@ -554,6 +616,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("policies", "get-effective-policy-override", "Get policy overrides for an endpoint. Scope: platform.policies.read.", "/api/platform/v1/policy/clients/{clientID}/sites/{siteID}/endpoints/{endpointID}/effective-policy/override"),
 	},
@@ -566,6 +629,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("policies", "list-policy-categories", "List policy categories and subcategories. Scope: platform.policies.read.", "/api/platform/v1/policy/categories"),
 	},
@@ -578,6 +642,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("rate_limits", "get", "Get current rate limit.", "/v1/rate_limits"),
 	},
@@ -590,6 +655,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("scripts", "list", "List scripts created in the script editor (templateType fusionscript). Scope: platform.automation.read.", "/api/platform/v1/automation/scripts"),
 	},
@@ -602,6 +668,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("scripts", "list-custom-templates", "List custom task templates (templateType custom). Scope: platform.automation.read.", "/api/platform/v1/automation/tasks"),
 	},
@@ -614,6 +681,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("scripts", "list-shell", "List out-of-the-box global script templates (templateType script). Scope: platform.automation.read.", "/api/platform/v1/automation/shellScripts"),
 	},
@@ -626,6 +694,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("sites", "create", "Create a site under a company. Scope: platform.sites.write.", "/api/platform/v1/company/companies/{companyId}/sites"),
 	},
@@ -638,6 +707,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("sites", "get", "Get a site by ID. Scope: platform.sites.read.", "/api/platform/v1/company/sites/{siteId}"),
 	},
@@ -650,6 +720,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("sites", "list", "List all sites across every company. Scope: platform.sites.read.", "/api/platform/v1/company/sites"),
 	},
@@ -662,6 +733,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("sites", "list-company", "List the sites of one company. Scope: platform.sites.read.", "/api/platform/v1/company/companies/{companyId}/sites"),
 	},
@@ -675,6 +747,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
 		BodyIsArray:    true,
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("sites", "update", "Partially update a site. Scope: platform.sites.write.", "/api/platform/v1/company/companies/{companyId}/sites/{siteId}"),
 	},
@@ -687,6 +760,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("tasks", "get-instance-results", "Get per-endpoint results of one task run. Scope: platform.automation.read.", "/api/platform/v1/automation/tasks/{taskId}/instances/{instanceId}/results"),
 	},
@@ -699,6 +773,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "From", WireName: "From"}, {PublicName: "To", WireName: "To"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("tasks", "get-instance-summary", "Get the run history (instances) of a task. Scope: platform.automation.read.", "/api/platform/v1/automation/tasks/{taskId}/instances/summary"),
 	},
@@ -711,6 +786,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("tasks", "list-endpoint-summaries", "List tasks that ran on one endpoint. Scope: platform.automation.read.", "/api/platform/v1/automation/endpoints/{endpointId}/tasks/summary"),
 	},
@@ -723,6 +799,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "From", WireName: "From"}, {PublicName: "To", WireName: "To"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("tasks", "list-summaries", "List all scheduled tasks (the Scheduled Tasks page). Scope: platform.automation.read.", "/api/platform/v1/automation/tasks/summary"),
 	},
@@ -735,6 +812,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("tasks", "schedule", "Schedule a script or template to run on target endpoints. Scope: platform.automation.create.", "/api/platform/v1/automation/endpoints/schedule-tasks"),
 	},
@@ -747,6 +825,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("ticket_notes", "create", "Add a note to a ticket. This API creates a new note for the specified ticket in the system.", "/api/platform/v1/service/ticketing/tickets/{id}/notes"),
 	},
@@ -759,6 +838,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "detail", WireName: "detail"}, {PublicName: "extendedAttributeIds", WireName: "extendedAttributeIds"}, {PublicName: "visibility", WireName: "visibility"}, {PublicName: "createdBy", WireName: "createdBy"}, {PublicName: "createdAtFrom", WireName: "createdAtFrom"}, {PublicName: "createdAtTo", WireName: "createdAtTo"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("ticket_notes", "list", "List notes on a ticket. This API fetches the selected notes for a specific ticket from system and returns it.", "/api/platform/v1/service/ticketing/tickets/{id}/notes"),
 	},
@@ -771,6 +851,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("ticket_settings", "list-service-board-teams", "List teams of a service board. This API fetches all the team associations for a specific service-board. Scope: platform.", "/api/platform/v1/service/ticketing/service-boards/{id}/teams"),
 	},
@@ -783,6 +864,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "companyId", WireName: "companyId"}, {PublicName: "siteId", WireName: "siteId"}, {PublicName: "typeId", WireName: "typeId"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("ticket_settings", "list-service-boards", "List service boards.", "/api/platform/v1/service/ticketing/service-boards"),
 	},
@@ -795,6 +877,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("ticket_settings", "list-ticket-categories", "List ticket categories. This API returns all the ticket categories for a partner.", "/api/platform/v1/service/ticketing/categories"),
 	},
@@ -807,6 +890,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("ticket_settings", "list-ticket-priorities", "List ticket priorities. This API returns all the available priorities in the system.", "/api/platform/v1/service/ticketing/priorities"),
 	},
@@ -819,6 +903,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("ticket_settings", "list-ticket-sources", "List ticket sources. This API returns all the ticket sources for a partner.", "/api/platform/v1/service/ticketing/sources"),
 	},
@@ -831,6 +916,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("ticket_settings", "list-ticket-statuses", "List ticket statuses. This API returns all the available statuses in the system.", "/api/platform/v1/service/ticketing/statuses"),
 	},
@@ -843,6 +929,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("ticket_settings", "list-ticket-tags", "List ticket tags. This API returns all the available tags in the system, for partner with provided partnerId.", "/api/platform/v1/service/ticketing/tags"),
 	},
@@ -855,6 +942,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "entity", WireName: "entity"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("ticket_settings", "list-ticket-types", "List ticket types. This API returns all the available types in the system.", "/api/platform/v1/service/ticketing/types"),
 	},
@@ -867,6 +955,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("tickets", "create", "Create a service ticket. This API creates a new ticket in the system.", "/api/platform/v1/service/ticketing/tickets"),
 	},
@@ -879,6 +968,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("tickets", "get", "Get a service ticket. Fetches the ticket stored in the system against the provided id. Scope: platform.tickets.", "/api/platform/v1/service/ticketing/tickets/{id}"),
 	},
@@ -891,6 +981,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("tickets", "get-counts", "Get ticket counts. This API returns ticket counts Scope: platform.tickets.", "/api/platform/v1/service/ticketing/ticket-counts"),
 	},
@@ -903,6 +994,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "pageSize", WireName: "pageSize"}, {PublicName: "pageNum", WireName: "pageNum"}, {PublicName: "sortBy", WireName: "sortBy"}, {PublicName: "sortDir", WireName: "sortDir"}, {PublicName: "number", WireName: "number"}, {PublicName: "ticketIds", WireName: "ticketIds"}, {PublicName: "summary", WireName: "summary"}, {PublicName: "companyIds", WireName: "companyIds"}, {PublicName: "siteIds", WireName: "siteIds"}, {PublicName: "statusIds", WireName: "statusIds"}, {PublicName: "statusNames", WireName: "statusNames"}, {PublicName: "priorityIds", WireName: "priorityIds"}, {PublicName: "priorityNames", WireName: "priorityNames"}, {PublicName: "assigneeIds", WireName: "assigneeIds"}, {PublicName: "assigneeTeamIds", WireName: "assigneeTeamIds"}, {PublicName: "assigneeTeamNames", WireName: "assigneeTeamNames"}, {PublicName: "sourceIds", WireName: "sourceIds"}, {PublicName: "sourceNames", WireName: "sourceNames"}, {PublicName: "extendedAttributeIds", WireName: "extendedAttributeIds"}, {PublicName: "typeIds", WireName: "typeIds"}, {PublicName: "typeNames", WireName: "typeNames"}, {PublicName: "categoryIds", WireName: "categoryIds"}, {PublicName: "categoryNames", WireName: "categoryNames"}, {PublicName: "createdByIds", WireName: "createdByIds"}, {PublicName: "updatedByIds", WireName: "updatedByIds"}, {PublicName: "createdAtFrom", WireName: "createdAtFrom"}, {PublicName: "createdAtTo", WireName: "createdAtTo"}, {PublicName: "updatedAtFrom", WireName: "updatedAtFrom"}, {PublicName: "updatedAtTo", WireName: "updatedAtTo"}, {PublicName: "dueDateFrom", WireName: "dueDateFrom"}, {PublicName: "dueDateTo", WireName: "dueDateTo"}, {PublicName: "tagIds", WireName: "tagIds"}, {PublicName: "tagNames", WireName: "tagNames"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("tickets", "list", "List service tickets (filterable; page by passing --page-size and --page-num together).", "/api/platform/v1/service/ticketing/tickets"),
 	},
@@ -916,6 +1008,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
 		BodyIsArray:    true,
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("tickets", "update", "Update a service ticket with JSON Patch operations.", "/api/platform/v1/service/ticketing/tickets/{id}"),
 	},
@@ -965,6 +1058,10 @@ func codeOrchEndpointMetadata(ep *codeOrchEndpoint) map[string]any {
 		"method":      ep.Method,
 		"path":        ep.Path,
 		"summary":     ep.Summary,
+	}
+	// next_cursor comes back in params under this endpoint's page cursor name.
+	if ep.Page.CursorParam != "" {
+		out["cursor_param"] = ep.Page.CursorParam
 	}
 	return out
 }
@@ -1062,10 +1159,31 @@ func handleCodeOrchGet(ctx context.Context, req mcplib.CallToolRequest) (*mcplib
 }
 
 func codeOrchBlockedByMCPReadOnly(method string) bool {
-	return cliutil.IsMCPReadOnlyEnv() && method != "GET"
+	return cliutil.IsMCPReadOnlyEnv() && !strings.EqualFold(strings.TrimSpace(method), "GET")
+}
+
+// codeOrchRefuseForReadOnlySwitch reports calls the MCP read-only env must
+// reject before a client is built. Mutating GETs are writes even though the
+// verb is GET. _execute also refuses every non-GET, including read-only POSTs.
+func codeOrchRefuseForReadOnlySwitch(ep *codeOrchEndpoint, method string, executeTool bool) bool {
+	if !cliutil.IsMCPReadOnlyEnv() {
+		return false
+	}
+	if method == "DELETE" || ep.NeedsConfirm || ep.Mutating {
+		return true
+	}
+	return executeTool && codeOrchBlockedByMCPReadOnly(method)
+}
+
+func handleCodeOrchRead(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.CallToolResult, error) {
+	return codeOrchInvoke(ctx, req, false)
 }
 
 func handleCodeOrchExecute(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.CallToolResult, error) {
+	return codeOrchInvoke(ctx, req, true)
+}
+
+func codeOrchInvoke(ctx context.Context, req mcplib.CallToolRequest, executeTool bool) (*mcplib.CallToolResult, error) {
 	args := req.GetArguments()
 	id, ok := args["endpoint_id"].(string)
 	if !ok || id == "" {
@@ -1076,8 +1194,9 @@ func handleCodeOrchExecute(ctx context.Context, req mcplib.CallToolRequest) (*mc
 	if ep == nil {
 		return mcplib.NewToolResultError(fmt.Sprintf("unknown endpoint_id %q — call connectwise-rmm_search to discover valid ids", id)), nil
 	}
-	if codeOrchBlockedByMCPReadOnly(ep.Method) {
-		return mcplib.NewToolResultError(fmt.Sprintf("refusing %s %s while %s=1", ep.Method, id, cliutil.MCPReadOnlyEnvVar)), nil
+	method := codeOrchNormalizeMethod(ep.Method)
+	if codeOrchRefuseForReadOnlySwitch(ep, method, executeTool) {
+		return mcplib.NewToolResultError(fmt.Sprintf("refusing %s %s while %s=1", method, id, cliutil.MCPReadOnlyEnvVar)), nil
 	}
 
 	params, _ := args["params"].(map[string]any)
@@ -1136,6 +1255,27 @@ func handleCodeOrchExecute(ctx context.Context, req mcplib.CallToolRequest) (*mc
 		hdrs = nil
 	}
 
+	// An opaque MCP cursor from a bounded page resumes that page; a raw
+	// upstream cursor is sent as-is and anchors any local continuation.
+	mcpCursor, requestCursor := "", ""
+	if method == "GET" && ep.Page.CursorParam != "" {
+		// Offset- and page-numbered APIs take numbers here, so stringify before decoding.
+		if v, ok := params[ep.Page.CursorParam]; ok && v != nil {
+			if s := formatMCPParamValue(v); s != "" {
+				if upstream, err := bound.UpstreamCursor(s); err == nil {
+					mcpCursor, requestCursor = s, upstream
+					if upstream == "" {
+						delete(params, ep.Page.CursorParam)
+					} else {
+						params[ep.Page.CursorParam] = upstream
+					}
+				} else {
+					requestCursor = s
+				}
+			}
+		}
+	}
+
 	// Route params to their runtime slots. GET params are query strings;
 	// DELETE and the write methods split spec-declared query params from the
 	// remaining params used as the request body below. Hand-wired
@@ -1143,7 +1283,7 @@ func handleCodeOrchExecute(ctx context.Context, req mcplib.CallToolRequest) (*mc
 	// uninstall) takes a JSON body, which the generated query-only routing
 	// dropped.
 	query := map[string]string{}
-	if ep.Method == "GET" {
+	if method == "GET" {
 		for k, v := range params {
 			query[codeOrchWireQueryName(ep.QueryParams, k)] = formatMCPParamValue(v)
 		}
@@ -1168,8 +1308,52 @@ func handleCodeOrchExecute(ctx context.Context, req mcplib.CallToolRequest) (*mc
 		}
 		return codeOrchWriteBody(params)
 	}
+	// Confirm after path and query resolution so a path param or fixed query
+	// selector cannot retarget a read onto a gated endpoint without confirm.
+	// Only a top-level boolean true counts; the string "true" stays a preview.
+	resolvedPath := path
+
+	gated := codeOrchResolvedNeedsConfirm(ep, method, resolvedPath, query)
+	if cliutil.IsMCPReadOnlyEnv() && gated {
+		return mcplib.NewToolResultError(fmt.Sprintf("refusing %s %s while %s=1", method, id, cliutil.MCPReadOnlyEnvVar)), nil
+	}
+	if executeTool {
+		if !gated {
+
+			return mcplib.NewToolResultError(fmt.Sprintf("endpoint_id %q is read-only; call connectwise-rmm_read", id)), nil
+
+		}
+		if !codeOrchConfirmAccepted(args["confirm"]) {
+			previewBody := any(nil)
+			// Hand-wired (handfixes.json: code-orch-delete-body): the preview
+			// shows the DELETE body the confirmed call sends.
+			if method != "GET" && (method != "DELETE" || len(params) > 0) {
+				previewBody = writeBody()
+			}
+
+			preview := map[string]any{
+				"preview":               true,
+				"confirmation_required": true,
+				"endpoint_id":           ep.ID,
+				"method":                method,
+				"path":                  resolvedPath,
+				"query":                 query,
+				"body":                  previewBody,
+			}
+			text, previewErr := bound.JSON(preview)
+			if previewErr != nil {
+				return mcplib.NewToolResultError(fmt.Sprintf("encoding confirmation preview: %v", previewErr)), nil
+			}
+			return mcplib.NewToolResultText(text), nil
+		}
+	} else if gated {
+
+		return mcplib.NewToolResultError(fmt.Sprintf("resolved %s %s changes state; call connectwise-rmm_execute with confirm set to boolean true", method, resolvedPath)), nil
+
+	}
+	path = resolvedPath
 	var data json.RawMessage
-	switch ep.Method {
+	switch method {
 	case "GET":
 		if len(hdrs) > 0 {
 			if ep.Mutating {
@@ -1216,12 +1400,22 @@ func handleCodeOrchExecute(ctx context.Context, req mcplib.CallToolRequest) (*mc
 			data, _, err = c.Patch(ctx, path, body)
 		}
 	default:
-		return mcplib.NewToolResultError(fmt.Sprintf("unsupported method %q", ep.Method)), nil
+		return mcplib.NewToolResultError(fmt.Sprintf("unsupported method %q", method)), nil
 	}
 	if err != nil {
 		return mcplib.NewToolResultError(err.Error()), nil
 	}
-	text := bound.EndpointResponse(ep.Method, data)
+	var text string
+	if method == "GET" && (ep.Page.CursorParam != "" || ep.Page.NextCursorPath != "") {
+		text = bound.EndpointPageResponse(method, data, bound.PageOptions{
+			Cursor:         mcpCursor,
+			CursorParam:    ep.Page.CursorParam,
+			NextCursorPath: ep.Page.NextCursorPath,
+			RequestCursor:  requestCursor,
+		})
+	} else {
+		text = bound.EndpointResponse(method, data)
+	}
 	if platformSession != nil {
 		text = bound.WithMetadata(text, platformSession.OutputMetadata())
 	}
@@ -1288,4 +1482,198 @@ func codeOrchWireQueryName(queryParams []codeOrchParamBinding, name string) stri
 		}
 	}
 	return name
+}
+
+func codeOrchNormalizeMethod(method string) string {
+	return strings.ToUpper(strings.TrimSpace(method))
+}
+
+func codeOrchConfirmAccepted(v any) bool {
+	confirmed, ok := v.(bool)
+	return ok && confirmed
+}
+
+func codeOrchPreviewPath(path string, templateVars map[string]string) string {
+	if len(templateVars) == 0 || !strings.Contains(path, "{") {
+		return path
+	}
+	names := make([]string, 0, len(templateVars))
+	for name := range templateVars {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	for _, name := range names {
+		value := templateVars[name]
+		if name == "" || value == "" {
+			continue
+		}
+		path = strings.ReplaceAll(path, "{"+name+"}", neturl.PathEscape(value))
+	}
+	return path
+}
+
+func codeOrchResolvedNeedsConfirm(selected *codeOrchEndpoint, method, resolvedPath string, query map[string]string) bool {
+	method = codeOrchNormalizeMethod(method)
+	if method == "DELETE" || selected.NeedsConfirm || selected.Mutating {
+		return true
+	}
+	effective := codeOrchEffectiveQuery(resolvedPath, query)
+	resolvedBase := codeOrchPathBase(resolvedPath)
+	// A literal route is the destination when a placeholder route also
+	// matches. POST /reports/search stays a read even though POST
+	// /reports/{id} matches the same path.
+	selectedMatches := codeOrchRequestMatchesEndpoint(selected.Path, resolvedBase, effective)
+	selectedSpecificity := codeOrchPatternSpecificity(selected.Path)
+	for i := range codeOrchEndpoints {
+		other := &codeOrchEndpoints[i]
+		if other == selected {
+			continue
+		}
+		if !other.NeedsConfirm && !other.Mutating && codeOrchNormalizeMethod(other.Method) != "DELETE" {
+			continue
+		}
+		if codeOrchNormalizeMethod(other.Method) != method {
+			continue
+		}
+		if !codeOrchRequestMatchesEndpoint(other.Path, resolvedBase, effective) {
+			continue
+		}
+		if selectedMatches && selectedSpecificity > codeOrchPatternSpecificity(other.Path) {
+			continue
+		}
+		return true
+	}
+	return codeOrchFixedQueryOverridden(selected.Path, effective)
+}
+
+func codeOrchPatternSpecificity(pattern string) int {
+	base := strings.Trim(codeOrchPathBase(pattern), "/")
+	if base == "" {
+		return 0
+	}
+	score := 0
+	for _, seg := range strings.Split(base, "/") {
+		if len(seg) >= 2 && seg[0] == '{' && seg[len(seg)-1] == '}' {
+			continue
+		}
+		score++
+	}
+	return score
+}
+
+func codeOrchPathBase(path string) string {
+	if i := strings.Index(path, "?"); i >= 0 {
+		return path[:i]
+	}
+	return path
+}
+
+func codeOrchEffectiveQuery(path string, query map[string]string) neturl.Values {
+	vals := neturl.Values{}
+	if i := strings.Index(path, "?"); i >= 0 && i+1 < len(path) {
+		if parsed, err := neturl.ParseQuery(path[i+1:]); err == nil {
+			for key, items := range parsed {
+				for _, item := range items {
+					vals.Add(key, item)
+				}
+			}
+		}
+	}
+	for key, value := range query {
+		vals.Add(key, value)
+	}
+	return vals
+}
+
+func codeOrchFixedQueryOverridden(pattern string, effective neturl.Values) bool {
+	_, raw, ok := strings.Cut(pattern, "?")
+	if !ok || raw == "" {
+		return false
+	}
+	fixed, err := neturl.ParseQuery(raw)
+	if err != nil {
+		return false
+	}
+	for name, want := range fixed {
+		got, exists := effective[name]
+		if !exists {
+			continue
+		}
+		for _, value := range got {
+			matched := false
+			for _, allowed := range want {
+				if value == allowed {
+					matched = true
+					break
+				}
+			}
+			if !matched {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func codeOrchRequestMatchesEndpoint(pattern, resolvedBase string, effective neturl.Values) bool {
+	patternBase, patternQuery, _ := strings.Cut(pattern, "?")
+	if !codeOrchSegmentsMatch(patternBase, resolvedBase) {
+		return false
+	}
+	if patternQuery == "" {
+		return true
+	}
+	fixed, err := neturl.ParseQuery(patternQuery)
+	if err != nil {
+		return false
+	}
+	for key, want := range fixed {
+		got := effective[key]
+		if len(got) == 0 {
+			return false
+		}
+		for _, value := range want {
+			found := false
+			for _, have := range got {
+				if have == value {
+					found = true
+					break
+				}
+			}
+			if !found {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+func codeOrchSegmentsMatch(pattern, resolved string) bool {
+	pattern = strings.Trim(pattern, "/")
+	resolved = strings.Trim(resolved, "/")
+	if pattern == "" || resolved == "" {
+		return pattern == resolved
+	}
+	patternSegs := strings.Split(pattern, "/")
+	resolvedSegs := strings.Split(resolved, "/")
+	if len(patternSegs) != len(resolvedSegs) {
+		return false
+	}
+	for i := range patternSegs {
+		seg := patternSegs[i]
+		if len(seg) >= 2 && seg[0] == '{' && seg[len(seg)-1] == '}' {
+			if resolvedSegs[i] == "" {
+				return false
+			}
+			continue
+		}
+		got := resolvedSegs[i]
+		if unescaped, err := neturl.PathUnescape(got); err == nil {
+			got = unescaped
+		}
+		if seg != got {
+			return false
+		}
+	}
+	return true
 }

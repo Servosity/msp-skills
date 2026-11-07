@@ -47,7 +47,7 @@ func newSitesGetCmd(flags *rootFlags) *cobra.Command {
 				return err
 			}
 			params := map[string]string{}
-			data, prov, err := resolveReadWithStrategyAndResponsePath(cmd.Context(), c, flags, "auto", "sites", false, path, params, nil, "externalIds", cmd.ErrOrStderr())
+			data, prov, err := resolveReadWithStrategyAndResponsePath(cmd.Context(), c, flags, "auto", "sites", false, path, params, nil, "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}
@@ -74,7 +74,7 @@ func newSitesGetCmd(flags *rootFlags) *cobra.Command {
 					filtered, selectErr = filterFieldsChecked(filtered, flags.selectFields)
 					selectErr = selectErrorForDryRun(selectErr, flags, data)
 				} else if flags.compact {
-					filtered = compactFields(filtered, map[string]bool{"externalId": true, "id": true, "productId": true, "productInstanceId": true, "siteId": true})
+					filtered = compactFields(filtered, map[string]bool{"deleteTxnId": true, "friendlyName": true, "id": true, "industryCode": true, "name": true, "partnerId": true, "type": true})
 				}
 				wrapped, wrapErr := wrapWithProvenance(filtered, prov)
 				if wrapErr != nil {
@@ -106,7 +106,7 @@ func newSitesGetCmd(flags *rootFlags) *cobra.Command {
 			if flags.csv || flags.plain {
 				formatData = outputData
 			}
-			return printOutputWithFlagsMeta(cmd.OutOrStdout(), formatData, flags, map[string]any{"source": "live"}, map[string]bool{"externalId": true, "id": true, "productId": true, "productInstanceId": true, "siteId": true})
+			return printOutputWithFlagsMeta(cmd.OutOrStdout(), formatData, flags, map[string]any{"source": "live"}, map[string]bool{"deleteTxnId": true, "friendlyName": true, "id": true, "industryCode": true, "name": true, "partnerId": true, "type": true})
 		},
 	}
 
