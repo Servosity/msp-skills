@@ -70,21 +70,21 @@ func newOrganizationsAssuranceUpdateOrganizationAlertsProfileCmd(flags *rootFlag
 			}
 			if !stdinBody {
 				if !cmd.Flags().Changed("alert-types") && bodyAlertTypes == "" && !requiredInputWaived() {
-					return fmt.Errorf("required flag \"%s\" not set", "alert-types")
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "alert-types"))
 				}
 				if (cmd.Flags().Changed("configuration-alert-destinations-email") || bodyConfigurationAlertDestinationsEmail != "") || (cmd.Flags().Changed("configuration-alert-destinations-sms") || bodyConfigurationAlertDestinationsSms != "") || (cmd.Flags().Changed("configuration-alert-destinations-webhook") || bodyConfigurationAlertDestinationsWebhook != "") {
 					if !cmd.Flags().Changed("configuration-alert-destinations-email") && bodyConfigurationAlertDestinationsEmail == "" && !requiredInputWaived() {
-						return fmt.Errorf("required flag \"%s\" not set", "configuration-alert-destinations-email")
+						return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "configuration-alert-destinations-email"))
 					}
 					if !cmd.Flags().Changed("configuration-alert-destinations-webhook") && bodyConfigurationAlertDestinationsWebhook == "" && !requiredInputWaived() {
-						return fmt.Errorf("required flag \"%s\" not set", "configuration-alert-destinations-webhook")
+						return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "configuration-alert-destinations-webhook"))
 					}
 				}
 				if !cmd.Flags().Changed("name") && bodyName == "" && !requiredInputWaived() {
-					return fmt.Errorf("required flag \"%s\" not set", "name")
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "name"))
 				}
 				if !cmd.Flags().Changed("network-ids") && bodyNetworkIds == "" && !requiredInputWaived() {
-					return fmt.Errorf("required flag \"%s\" not set", "network-ids")
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "network-ids"))
 				}
 			}
 			path := "/organizations/{organizationId}/assurance/alerts/profiles/{profileId}"
@@ -284,16 +284,13 @@ func newOrganizationsAssuranceUpdateOrganizationAlertsProfileCmd(flags *rootFlag
 					envelope["partial_failure"] = partialFailure
 				}
 				if flags.dryRun {
-					envelope["dry_run"] = true
-					envelope["status"] = 0
-					envelope["success"] = false
+					markCompletedDryRun(envelope)
 				}
 				// Verify-mode synthetic envelope detection runs against RAW data
 				// (before --compact/--select filtering) so the sentinel field is
 				// guaranteed to be visible even if the operator passes a filter
-				// flag that would otherwise strip it. Surfaces a top-level
-				// verify_noop signal + flips success to false. Mirrors the dry_run
-				// shape above.
+				// flag that would otherwise strip it. A synthetic noop did not
+				// mutate, so it forces success false after a completed dry-run mark.
 				if len(data) > 0 {
 					var rawParsed any
 					if err := json.Unmarshal(data, &rawParsed); err == nil {

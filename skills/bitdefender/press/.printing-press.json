@@ -1,0 +1,132 @@
+{
+  "schema_version": 2,
+  "generated_at": "2026-11-02T19:39:13.887189Z",
+  "printing_press_version": "4.35.1",
+  "api_name": "bitdefender",
+  "display_name": "Bitdefender GravityZone",
+  "cli_name": "bitdefender-pp-cli",
+  "creator": {
+    "handle": "DamienStevens",
+    "name": "Damien Stevens"
+  },
+  "owner": "damienstevens",
+  "printer": "DamienStevens",
+  "printer_name": "Damien Stevens",
+  "spec_path": "spec.json",
+  "spec_format": "openapi3",
+  "spec_source": "official",
+  "spec_checksum": "sha256:0a868cc8813e1b6245efa5aa7f1a5f5b732a0314835f6ba4d759609f89aaa571",
+  "run_id": "20261102-142159-571f8a17",
+  "category": "monitoring",
+  "description": "140 GravityZone Public API methods as commands, plus fleet health, billing and incident views across child companies.",
+  "mcp_binary": "bitdefender-pp-mcp",
+  "mcp_tool_count": 141,
+  "mcp_ready": "full",
+  "api_version": "1.0",
+  "auth_type": "api_key",
+  "auth_preference": "apiKeyBasic",
+  "auth_env_vars": [
+    "BITDEFENDER_API_KEY"
+  ],
+  "auth_key_url": "https://www.bitdefender.com/business/support/en/77209-125277-public-api.html",
+  "auth_title": "GravityZone API key",
+  "novel_features": [
+    {
+      "name": "Fleet health rollup",
+      "command": "fleet health",
+      "description": "One ranked table of every child company's unmanaged, outdated, unscanned, policy-not-applied and isolated endpoints, saved as a dated snapshot."
+    },
+    {
+      "name": "Cross-tenant incident queue",
+      "command": "fleet incident-queue",
+      "description": "Open EDR/XDR incidents across all child companies, ranked by severity and age with unassigned and SLA-breach flags."
+    },
+    {
+      "name": "Partner tree",
+      "command": "companies tree",
+      "description": "Your own company plus every child company and sub-partner under it as one flat list with ids, type, parent and depth."
+    },
+    {
+      "name": "Billing table",
+      "command": "usage billing",
+      "description": "Per-company billable usage for a month with own share after the child rollup, month-over-month seat swings, and flags wherever a needed fetch failed."
+    },
+    {
+      "name": "RMM coverage gap",
+      "command": "fleet rmm-gap",
+      "description": "Joins an RMM device export to GravityZone inventory to list devices with no agent, discovered-but-unmanaged machines, and agents the RMM does not know."
+    },
+    {
+      "name": "Fleet changes",
+      "command": "fleet changes",
+      "description": "What changed between saved fleet health snapshots (needs at least two): new and removed endpoints, newly unmanaged, outdated or isolated machines, policy flips."
+    },
+    {
+      "name": "Cross-tenant threat correlation",
+      "command": "fleet threats",
+      "description": "The same quarantined file (SHA256) seen at two or more companies in a window, and which of those companies already blocklist it."
+    },
+    {
+      "name": "Fleet-wide endpoint locator",
+      "command": "fleet locate",
+      "description": "Find a machine by hostname, IP, MAC or label across every child company and get its endpoint id and company."
+    }
+  ],
+  "novel_features_built": [
+    {
+      "name": "Fleet health rollup",
+      "command": "fleet health",
+      "description": "One ranked table of every child company's unmanaged, outdated, unscanned, policy-not-applied and isolated endpoints, saved as a dated snapshot."
+    },
+    {
+      "name": "Cross-tenant incident queue",
+      "command": "fleet incident-queue",
+      "description": "Open EDR/XDR incidents across all child companies, ranked by severity and age with unassigned and SLA-breach flags."
+    },
+    {
+      "name": "Partner tree",
+      "command": "companies tree",
+      "description": "Your own company plus every child company and sub-partner under it as one flat list with ids, type, parent and depth."
+    },
+    {
+      "name": "Billing table",
+      "command": "usage billing",
+      "description": "Per-company billable usage for a month with own share after the child rollup, month-over-month seat swings, and flags wherever a needed fetch failed."
+    },
+    {
+      "name": "RMM coverage gap",
+      "command": "fleet rmm-gap",
+      "description": "Joins an RMM device export to GravityZone inventory to list devices with no agent, discovered-but-unmanaged machines, and agents the RMM does not know."
+    },
+    {
+      "name": "Fleet changes",
+      "command": "fleet changes",
+      "description": "What changed between saved fleet health snapshots (needs at least two): new and removed endpoints, newly unmanaged, outdated or isolated machines, policy flips."
+    },
+    {
+      "name": "Cross-tenant threat correlation",
+      "command": "fleet threats",
+      "description": "The same quarantined file (SHA256) seen at two or more companies in a window, and which of those companies already blocklist it."
+    },
+    {
+      "name": "Fleet-wide endpoint locator",
+      "command": "fleet locate",
+      "description": "Find a machine by hostname, IP, MAC or label across every child company and get its endpoint id and company."
+    }
+  ],
+  "verify": {
+    "mode": "mock",
+    "pass_rate": 100,
+    "passed": 60,
+    "total": 60,
+    "data_pipeline": true,
+    "verdict": "PASS"
+  },
+  "scorecard": {
+    "steinberger": {
+      "percentage": 87,
+      "grade": "A",
+      "total": 87
+    }
+  }
+}

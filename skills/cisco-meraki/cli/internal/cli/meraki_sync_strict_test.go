@@ -124,7 +124,9 @@ func TestSyncStrictFailsOnStuckPagination(t *testing.T) {
 	if !strings.Contains(out.String(), "stuck_pagination") {
 		t.Fatalf("stub did not trigger stuck pagination: %s", out.String())
 	}
-	if err == nil || !strings.Contains(err.Error(), "stopped before their last page") {
-		t.Fatalf("sync --strict after stuck pagination: err=%v, want the truncation failure", err)
+	// Press 4.35.1 reports an unfinished walk as a sync warning, so --strict
+	// fails on the warning count before the truncation count; either is a failure.
+	if err == nil || !(strings.Contains(err.Error(), "stopped before their last page") || strings.Contains(err.Error(), "completed with warnings")) {
+		t.Fatalf("sync --strict after stuck pagination: err=%v, want the truncation or warning failure", err)
 	}
 }

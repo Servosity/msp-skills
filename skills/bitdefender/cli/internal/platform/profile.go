@@ -20,6 +20,8 @@ import (
 	"strings"
 
 	"github.com/pelletier/go-toml/v2"
+
+	"bitdefender-pp-cli/internal/credkit"
 )
 
 const ProfileSchemaVersion = 1
@@ -313,15 +315,11 @@ func writePrivateFile(path string, data []byte) error {
 		_ = tmp.Close()
 		return err
 	}
-	if _, err := tmp.Write(data); err != nil {
-		_ = tmp.Close()
-		return err
-	}
-	if err := tmp.Sync(); err != nil {
-		_ = tmp.Close()
-		return err
-	}
 	if err := tmp.Close(); err != nil {
+		return err
+	}
+	// Hand-fix (handfixes.json credkit-wiring): the data is written through the credential kit.
+	if err := credkit.WriteFile(tmpName, data, 0o600); err != nil {
 		return err
 	}
 	return os.Rename(tmpName, path)

@@ -45,8 +45,10 @@ func TestNovelChecksFlapping(t *testing.T) {
 		}
 	})
 
-	t.Run("snapshot records current check statuses", func(t *testing.T) {
+	t.Run("snapshot with no synced agents records nothing and calls no API", func(t *testing.T) {
 		db := novelTestEnv(t)
+		stub := newCheckStub(t)
+		// A synced check row carries no per-agent status; it is not a source.
 		seedResource(t, db, "checks", "c1", `{"id":"c1","agent":"a1","status":"passing"}`)
 		out, _, err := runNovel(t, "checks", "flapping", "--snapshot")
 		if err != nil {
@@ -54,8 +56,11 @@ func TestNovelChecksFlapping(t *testing.T) {
 		}
 		var res map[string]any
 		assertJSON(t, out, &res)
-		if res["snapshot_recorded"].(float64) != 1 {
-			t.Errorf("snapshot_recorded = %v, want 1", res["snapshot_recorded"])
+		if res["snapshot_recorded"].(float64) != 0 {
+			t.Errorf("snapshot_recorded = %v, want 0", res["snapshot_recorded"])
+		}
+		if len(stub.seen) != 0 {
+			t.Errorf("no synced agents, yet the server saw %v", stub.seen)
 		}
 	})
 

@@ -233,6 +233,11 @@ func values(args []driver.NamedValue) []driver.Value {
 }
 
 func (s *sqlStmt) check(args []driver.NamedValue) error {
+	// A statement with no bound value is its text alone: a constant one
+	// is read from a table (consttable.go, exact).
+	if len(args) == 0 && constUnitClean([]byte(s.query)) {
+		return nil
+	}
 	if withheld(sqlUnit(s.query, args)) {
 		return withheldError{SinkSQLite}
 	}

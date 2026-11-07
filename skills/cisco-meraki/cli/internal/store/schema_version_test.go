@@ -2127,6 +2127,13 @@ func TestMigrate_V8ToV9AddsCandidatesAndEvents(t *testing.T) {
 	if notes != "hand-authored notes" {
 		t.Fatalf("preserved playbook notes = %q, want original", notes)
 	}
+	var ingress string
+	if err := s.DB().QueryRow(`SELECT ingress_surface FROM learning_playbooks WHERE query_family = 'family_X'`).Scan(&ingress); err != nil {
+		t.Fatalf("read upgraded ingress_surface: %v", err)
+	}
+	if ingress != "cli" {
+		t.Fatalf("upgraded ingress_surface = %q, want cli", ingress)
+	}
 
 	// v8 is past the FTS content pin (4) but before the tokenizer pin, so
 	// the trigram rebuild must replace the porter sentinel with leaves.
@@ -9711,5 +9718,1326 @@ func TestMigrate_AddsColumnsOnUpgrade_SyncState(t *testing.T) {
 		).Scan(&got); err != nil {
 			t.Fatalf("%s index missing from sync_state after migrate: %v", wantIdx, err)
 		}
+	}
+}
+
+func TestColumnNeedsBackfill(t *testing.T) {
+	known := map[string]map[string]struct{}{
+		"items": {"id": {}, "name": {}},
+	}
+	cases := []struct {
+		table  string
+		column string
+		want   bool
+	}{
+		{table: "missing", column: "name", want: false},
+		{table: "items", column: "name", want: false},
+		{table: "items", column: "note", want: true},
+		{table: "Items", column: "name", want: false},
+		{table: "items", column: "Name", want: true},
+	}
+	for _, tc := range cases {
+		if got := columnNeedsBackfill(known, tc.table, tc.column); got != tc.want {
+			t.Errorf("columnNeedsBackfill(%q, %q) = %v, want %v", tc.table, tc.column, got, tc.want)
+		}
+	}
+	if columnNeedsBackfill(nil, "items", "name") {
+		t.Fatal("nil map must not need a backfill")
+	}
+	markColumnPresent(known, "items", "note")
+	if columnNeedsBackfill(known, "items", "note") {
+		t.Fatal("marked column must not need a backfill")
+	}
+	markColumnPresent(known, "fresh", "id")
+	if columnNeedsBackfill(known, "fresh", "id") {
+		t.Fatal("column marked on a new table must be present")
+	}
+	noteBackfillProbe(context.Background())
+	noteBackfillAlter(context.Background())
+}
+
+func TestBackfillColumns_OneSnapshotPerOpen(t *testing.T) {
+	want := []struct{ table, column string }{
+		{"sync_state", "last_attempt_complete"},
+		{"sync_state", "scope_key"},
+		{"administered", "email"},
+		{"administered", "last_used_dashboard_at"},
+		{"administered", "name"},
+		{"administered", "created_at"},
+		{"administered", "suffix"},
+		{"administered", "feature_tier"},
+		{"administered", "is_add_on"},
+		{"administered", "is_free"},
+		{"administered", "product_class"},
+		{"administered", "product_type"},
+		{"administered", "sku"},
+		{"administered", "description"},
+		{"administered", "end_date"},
+		{"administered", "last_updated_at"},
+		{"administered", "renewal_requested"},
+		{"administered", "start_date"},
+		{"administered", "status"},
+		{"administered", "subscription_id"},
+		{"administered", "type"},
+		{"administered", "web_order_id"},
+		{"devices", "address"},
+		{"devices", "firmware"},
+		{"devices", "floor_plan_id"},
+		{"devices", "lan_ip"},
+		{"devices", "lat"},
+		{"devices", "lng"},
+		{"devices", "mac"},
+		{"devices", "model"},
+		{"devices", "name"},
+		{"devices", "network_id"},
+		{"devices", "notes"},
+		{"devices", "serial"},
+		{"devices", "url"},
+		{"devices_appliance", "devices_id"},
+		{"devices_appliance", "bare_id"},
+		{"blink_leds", "devices_id"},
+		{"blink_leds", "bare_id"},
+		{"devices_camera", "devices_id"},
+		{"devices_camera", "bare_id"},
+		{"cellular", "devices_id"},
+		{"cellular", "bare_id"},
+		{"devices_cellular_gateway", "devices_id"},
+		{"devices_cellular_gateway", "bare_id"},
+		{"devices_clients", "devices_id"},
+		{"devices_clients", "bare_id"},
+		{"live_tools", "devices_id"},
+		{"live_tools", "bare_id"},
+		{"lldp_cdp", "devices_id"},
+		{"lldp_cdp", "bare_id"},
+		{"loss_and_latency_history", "devices_id"},
+		{"loss_and_latency_history", "bare_id"},
+		{"management_interface", "devices_id"},
+		{"management_interface", "bare_id"},
+		{"reboot", "devices_id"},
+		{"reboot", "bare_id"},
+		{"devices_sensor", "devices_id"},
+		{"devices_sensor", "bare_id"},
+		{"devices_switch", "devices_id"},
+		{"devices_switch", "bare_id"},
+		{"devices_wireless", "devices_id"},
+		{"devices_wireless", "bare_id"},
+		{"networks", "enrollment_string"},
+		{"networks", "is_bound_to_config_template"},
+		{"networks", "name"},
+		{"networks", "notes"},
+		{"networks", "organization_id"},
+		{"networks", "time_zone"},
+		{"networks", "url"},
+		{"networks_alerts", "networks_id"},
+		{"networks_alerts", "bare_id"},
+		{"networks_appliance", "networks_id"},
+		{"networks_appliance", "bare_id"},
+		{"bind", "networks_id"},
+		{"bind", "bare_id"},
+		{"bluetooth_clients", "networks_id"},
+		{"bluetooth_clients", "bare_id"},
+		{"networks_camera", "networks_id"},
+		{"networks_camera", "bare_id"},
+		{"networks_campus_gateway", "networks_id"},
+		{"networks_campus_gateway", "bare_id"},
+		{"networks_cellular_gateway", "networks_id"},
+		{"networks_cellular_gateway", "bare_id"},
+		{"networks_clients", "networks_id"},
+		{"networks_clients", "bare_id"},
+		{"networks_devices", "networks_id"},
+		{"networks_devices", "bare_id"},
+		{"events", "networks_id"},
+		{"events", "bare_id"},
+		{"firmware_upgrades", "networks_id"},
+		{"firmware_upgrades", "bare_id"},
+		{"networks_floor_plans", "networks_id"},
+		{"networks_floor_plans", "bare_id"},
+		{"group_policies", "networks_id"},
+		{"group_policies", "bare_id"},
+		{"health", "networks_id"},
+		{"health", "bare_id"},
+		{"networks_insight", "networks_id"},
+		{"networks_insight", "bare_id"},
+		{"meraki_auth_users", "networks_id"},
+		{"meraki_auth_users", "bare_id"},
+		{"mqtt_brokers", "networks_id"},
+		{"mqtt_brokers", "bare_id"},
+		{"netflow", "networks_id"},
+		{"netflow", "bare_id"},
+		{"network_health", "networks_id"},
+		{"network_health", "bare_id"},
+		{"pii", "networks_id"},
+		{"pii", "bare_id"},
+		{"networks_policies", "networks_id"},
+		{"networks_policies", "bare_id"},
+		{"networks_sensor", "networks_id"},
+		{"networks_sensor", "bare_id"},
+		{"settings", "networks_id"},
+		{"settings", "bare_id"},
+		{"networks_sm", "networks_id"},
+		{"networks_sm", "bare_id"},
+		{"networks_snmp", "networks_id"},
+		{"networks_snmp", "bare_id"},
+		{"splash_login_attempts", "networks_id"},
+		{"splash_login_attempts", "bare_id"},
+		{"split", "networks_id"},
+		{"split", "bare_id"},
+		{"networks_switch", "networks_id"},
+		{"networks_switch", "bare_id"},
+		{"syslog_servers", "networks_id"},
+		{"syslog_servers", "bare_id"},
+		{"topology", "networks_id"},
+		{"topology", "bare_id"},
+		{"traffic", "networks_id"},
+		{"traffic", "bare_id"},
+		{"traffic_analysis", "networks_id"},
+		{"traffic_analysis", "bare_id"},
+		{"traffic_shaping", "networks_id"},
+		{"traffic_shaping", "bare_id"},
+		{"unbind", "networks_id"},
+		{"unbind", "bare_id"},
+		{"vlan_profiles", "networks_id"},
+		{"vlan_profiles", "bare_id"},
+		{"networks_webhooks", "networks_id"},
+		{"networks_webhooks", "bare_id"},
+		{"networks_wireless", "networks_id"},
+		{"networks_wireless", "bare_id"},
+		{"organizations", "name"},
+		{"organizations", "url"},
+		{"action_batches", "organizations_id"},
+		{"action_batches", "bare_id"},
+		{"adaptive_policy", "organizations_id"},
+		{"adaptive_policy", "bare_id"},
+		{"admins", "organizations_id"},
+		{"admins", "bare_id"},
+		{"organizations_alerts", "organizations_id"},
+		{"organizations_alerts", "bare_id"},
+		{"api", "organizations_id"},
+		{"api", "bare_id"},
+		{"api_requests", "organizations_id"},
+		{"api_requests", "parent_id"},
+		{"api_requests", "bare_id"},
+		{"organizations_appliance", "organizations_id"},
+		{"organizations_appliance", "bare_id"},
+		{"assurance", "organizations_id"},
+		{"assurance", "bare_id"},
+		{"branding_policies", "organizations_id"},
+		{"branding_policies", "bare_id"},
+		{"organizations_camera", "organizations_id"},
+		{"organizations_camera", "bare_id"},
+		{"organizations_campus_gateway", "organizations_id"},
+		{"organizations_campus_gateway", "bare_id"},
+		{"organizations_cellular_gateway", "organizations_id"},
+		{"organizations_cellular_gateway", "parent_id"},
+		{"organizations_cellular_gateway", "bare_id"},
+		{"claim", "organizations_id"},
+		{"claim", "bare_id"},
+		{"organizations_clients", "organizations_id"},
+		{"organizations_clients", "bare_id"},
+		{"clone", "organizations_id"},
+		{"clone", "bare_id"},
+		{"config_templates", "organizations_id"},
+		{"config_templates", "bare_id"},
+		{"configuration_changes", "organizations_id"},
+		{"configuration_changes", "parent_id"},
+		{"configuration_changes", "bare_id"},
+		{"organizations_devices", "organizations_id"},
+		{"organizations_devices", "parent_id"},
+		{"organizations_devices", "bare_id"},
+		{"early_access", "organizations_id"},
+		{"early_access", "bare_id"},
+		{"firmware", "organizations_id"},
+		{"firmware", "bare_id"},
+		{"organizations_floor_plans", "organizations_id"},
+		{"organizations_floor_plans", "bare_id"},
+		{"organizations_insight", "organizations_id"},
+		{"organizations_insight", "bare_id"},
+		{"integrations", "organizations_id"},
+		{"integrations", "parent_id"},
+		{"integrations", "bare_id"},
+		{"inventory", "organizations_id"},
+		{"inventory", "parent_id"},
+		{"inventory", "bare_id"},
+		{"licenses", "organizations_id"},
+		{"licenses", "parent_id"},
+		{"licenses", "bare_id"},
+		{"licensing", "organizations_id"},
+		{"licensing", "parent_id"},
+		{"licensing", "bare_id"},
+		{"login_security", "organizations_id"},
+		{"login_security", "bare_id"},
+		{"organizations_networks", "organizations_id"},
+		{"organizations_networks", "parent_id"},
+		{"organizations_networks", "bare_id"},
+		{"openapi_spec", "organizations_id"},
+		{"openapi_spec", "bare_id"},
+		{"organizations_policies", "organizations_id"},
+		{"organizations_policies", "bare_id"},
+		{"policy_objects", "organizations_id"},
+		{"policy_objects", "bare_id"},
+		{"saml", "organizations_id"},
+		{"saml", "bare_id"},
+		{"saml_roles", "organizations_id"},
+		{"saml_roles", "bare_id"},
+		{"sase", "organizations_id"},
+		{"sase", "bare_id"},
+		{"organizations_sensor", "organizations_id"},
+		{"organizations_sensor", "bare_id"},
+		{"organizations_sm", "organizations_id"},
+		{"organizations_sm", "bare_id"},
+		{"organizations_snmp", "organizations_id"},
+		{"organizations_snmp", "bare_id"},
+		{"spaces", "organizations_id"},
+		{"spaces", "bare_id"},
+		{"splash", "organizations_id"},
+		{"splash", "bare_id"},
+		{"summary", "organizations_id"},
+		{"summary", "parent_id"},
+		{"summary", "bare_id"},
+		{"organizations_switch", "organizations_id"},
+		{"organizations_switch", "bare_id"},
+		{"uplinks", "organizations_id"},
+		{"uplinks", "parent_id"},
+		{"uplinks", "bare_id"},
+		{"organizations_webhooks", "organizations_id"},
+		{"organizations_webhooks", "parent_id"},
+		{"organizations_webhooks", "bare_id"},
+		{"organizations_wireless", "organizations_id"},
+		{"organizations_wireless", "bare_id"},
+		{"wireless_controller", "organizations_id"},
+		{"wireless_controller", "bare_id"},
+	}
+	if len(want) < 2 {
+		t.Fatal("backfill fixture must list more than one column")
+	}
+
+	dbPath := filepath.Join(t.TempDir(), "data.db")
+	raw, err := sql.Open("sqlite", dbPath)
+	if err != nil {
+		t.Fatalf("open raw: %v", err)
+	}
+	if _, err := raw.Exec(`PRAGMA journal_mode = DELETE`); err != nil {
+		raw.Close()
+		t.Fatalf("journal_mode: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE sync_state (
+		resource_type TEXT PRIMARY KEY,
+		last_cursor TEXT,
+		last_synced_at DATETIME,
+		total_count INTEGER
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old sync_state: %v", err)
+	}
+	if _, err := raw.Exec(`INSERT INTO sync_state (resource_type, last_cursor) VALUES ('items', 'cursor-1')`); err != nil {
+		raw.Close()
+		t.Fatalf("seed sync_state: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "administered" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old administered: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "devices" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old devices: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "devices_appliance" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old devices_appliance: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "blink_leds" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old blink_leds: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "devices_camera" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old devices_camera: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "cellular" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old cellular: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "devices_cellular_gateway" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old devices_cellular_gateway: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "devices_clients" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old devices_clients: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "live_tools" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old live_tools: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "lldp_cdp" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old lldp_cdp: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "loss_and_latency_history" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old loss_and_latency_history: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "management_interface" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old management_interface: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "reboot" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old reboot: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "devices_sensor" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old devices_sensor: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "devices_switch" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old devices_switch: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "devices_wireless" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old devices_wireless: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "networks" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old networks: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "networks_alerts" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old networks_alerts: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "networks_appliance" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old networks_appliance: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "bind" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old bind: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "bluetooth_clients" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old bluetooth_clients: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "networks_camera" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old networks_camera: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "networks_campus_gateway" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old networks_campus_gateway: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "networks_cellular_gateway" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old networks_cellular_gateway: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "networks_clients" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old networks_clients: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "networks_devices" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old networks_devices: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "events" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old events: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "firmware_upgrades" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old firmware_upgrades: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "networks_floor_plans" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old networks_floor_plans: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "group_policies" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old group_policies: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "health" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old health: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "networks_insight" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old networks_insight: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "meraki_auth_users" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old meraki_auth_users: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "mqtt_brokers" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old mqtt_brokers: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "netflow" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old netflow: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "network_health" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old network_health: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "pii" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old pii: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "networks_policies" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old networks_policies: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "networks_sensor" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old networks_sensor: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "settings" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old settings: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "networks_sm" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old networks_sm: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "networks_snmp" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old networks_snmp: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "splash_login_attempts" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old splash_login_attempts: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "split" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old split: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "networks_switch" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old networks_switch: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "syslog_servers" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old syslog_servers: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "topology" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old topology: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "traffic" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old traffic: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "traffic_analysis" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old traffic_analysis: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "traffic_shaping" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old traffic_shaping: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "unbind" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old unbind: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "vlan_profiles" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old vlan_profiles: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "networks_webhooks" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old networks_webhooks: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "networks_wireless" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old networks_wireless: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "organizations" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old organizations: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "action_batches" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old action_batches: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "adaptive_policy" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old adaptive_policy: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "admins" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old admins: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "organizations_alerts" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old organizations_alerts: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "api" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old api: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "api_requests" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old api_requests: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "organizations_appliance" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old organizations_appliance: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "assurance" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old assurance: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "branding_policies" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old branding_policies: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "organizations_camera" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old organizations_camera: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "organizations_campus_gateway" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old organizations_campus_gateway: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "organizations_cellular_gateway" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old organizations_cellular_gateway: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "claim" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old claim: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "organizations_clients" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old organizations_clients: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "clone" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old clone: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "config_templates" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old config_templates: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "configuration_changes" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old configuration_changes: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "organizations_devices" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old organizations_devices: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "early_access" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old early_access: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "firmware" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old firmware: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "organizations_floor_plans" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old organizations_floor_plans: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "organizations_insight" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old organizations_insight: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "integrations" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old integrations: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "inventory" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old inventory: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "licenses" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old licenses: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "licensing" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old licensing: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "login_security" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old login_security: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "organizations_networks" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old organizations_networks: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "openapi_spec" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old openapi_spec: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "organizations_policies" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old organizations_policies: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "policy_objects" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old policy_objects: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "saml" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old saml: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "saml_roles" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old saml_roles: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "sase" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old sase: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "organizations_sensor" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old organizations_sensor: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "organizations_sm" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old organizations_sm: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "organizations_snmp" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old organizations_snmp: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "spaces" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old spaces: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "splash" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old splash: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "summary" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old summary: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "organizations_switch" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old organizations_switch: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "uplinks" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old uplinks: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "organizations_webhooks" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old organizations_webhooks: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "organizations_wireless" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old organizations_wireless: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "wireless_controller" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old wireless_controller: %v", err)
+	}
+	if err := raw.Close(); err != nil {
+		t.Fatalf("close raw: %v", err)
+	}
+
+	ctx, stats := contextWithBackfillStats(context.Background())
+	s, err := OpenWithContext(ctx, dbPath)
+	if err != nil {
+		t.Fatalf("open upgraded db: %v", err)
+	}
+	if stats.probes != 1 {
+		s.Close()
+		t.Fatalf("probes = %d, want 1 for %d columns", stats.probes, len(want))
+	}
+	if stats.alters != len(want) {
+		s.Close()
+		t.Fatalf("alters = %d, want %d (one per missing column, not per probe)", stats.alters, len(want))
+	}
+	for _, c := range want {
+		var name string
+		if err := s.DB().QueryRow(`SELECT name FROM pragma_table_xinfo(?) WHERE name = ?`, c.table, c.column).Scan(&name); err != nil {
+			s.Close()
+			t.Fatalf("%s.%s missing after backfill: %v", c.table, c.column, err)
+		}
+	}
+	var cursor string
+	if err := s.DB().QueryRow(`SELECT last_cursor FROM sync_state WHERE resource_type = 'items'`).Scan(&cursor); err != nil {
+		s.Close()
+		t.Fatalf("read upgraded sync_state: %v", err)
+	}
+	if cursor != "cursor-1" {
+		s.Close()
+		t.Fatalf("last_cursor = %q, want cursor-1", cursor)
+	}
+	var ingress string
+	if err := s.DB().QueryRow(`SELECT name FROM pragma_table_xinfo('learning_playbooks') WHERE name = 'ingress_surface'`).Scan(&ingress); err != nil {
+		s.Close()
+		t.Fatalf("missing learning_playbooks must be created with ingress_surface, not skipped: %v", err)
+	}
+	if err := s.Close(); err != nil {
+		t.Fatalf("close upgraded db: %v", err)
+	}
+
+	ctx, stats = contextWithBackfillStats(context.Background())
+	s, err = OpenWithContext(ctx, dbPath)
+	if err != nil {
+		t.Fatalf("reopen upgraded db: %v", err)
+	}
+	defer s.Close()
+	if stats.probes != 1 || stats.alters != 0 {
+		t.Fatalf("reopen probes=%d alters=%d, want 1 and 0", stats.probes, stats.alters)
+	}
+}
+
+func TestBackfillColumns_GeneratedColumnNotReAdded(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "data.db")
+	raw, err := sql.Open("sqlite", dbPath)
+	if err != nil {
+		t.Fatalf("open raw: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE sync_state (
+		resource_type TEXT PRIMARY KEY,
+		last_cursor TEXT,
+		last_synced_at DATETIME,
+		total_count INTEGER,
+		scope_key TEXT GENERATED ALWAYS AS ('') VIRTUAL
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create generated scope_key: %v", err)
+	}
+	if err := raw.Close(); err != nil {
+		t.Fatalf("close raw: %v", err)
+	}
+
+	ctx, stats := contextWithBackfillStats(context.Background())
+	s, err := OpenWithContext(ctx, dbPath)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	if stats.probes != 1 {
+		s.Close()
+		t.Fatalf("probes = %d, want 1", stats.probes)
+	}
+	if stats.alters != 1 {
+		s.Close()
+		t.Fatalf("alters = %d, want 1 (last_attempt_complete only; table_info would also retry scope_key)", stats.alters)
+	}
+	var hidden int
+	if err := s.DB().QueryRow(`SELECT hidden FROM pragma_table_xinfo('sync_state') WHERE name = 'scope_key'`).Scan(&hidden); err != nil {
+		s.Close()
+		t.Fatalf("scope_key visibility: %v", err)
+	}
+	if hidden != 2 && hidden != 3 {
+		s.Close()
+		t.Fatalf("scope_key hidden = %d, want a generated column", hidden)
+	}
+	var present string
+	if err := s.DB().QueryRow(`SELECT name FROM pragma_table_xinfo('sync_state') WHERE name = 'last_attempt_complete'`).Scan(&present); err != nil {
+		s.Close()
+		t.Fatalf("last_attempt_complete missing: %v", err)
+	}
+	if err := s.Close(); err != nil {
+		t.Fatalf("close: %v", err)
+	}
+
+	ctx, stats = contextWithBackfillStats(context.Background())
+	s, err = OpenWithContext(ctx, dbPath)
+	if err != nil {
+		t.Fatalf("reopen: %v", err)
+	}
+	defer s.Close()
+	if stats.probes != 1 || stats.alters != 0 {
+		t.Fatalf("reopen probes=%d alters=%d, want 1 and 0", stats.probes, stats.alters)
+	}
+}
+
+func TestBackfillColumns_FreshStoreDoesNotAlter(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "data.db")
+	ctx, stats := contextWithBackfillStats(context.Background())
+	s, err := OpenWithContext(ctx, dbPath)
+	if err != nil {
+		t.Fatalf("open fresh: %v", err)
+	}
+	if stats.probes != 1 || stats.alters != 0 {
+		s.Close()
+		t.Fatalf("fresh probes=%d alters=%d, want 1 and 0", stats.probes, stats.alters)
+	}
+	version, err := s.SchemaVersion()
+	if err != nil {
+		s.Close()
+		t.Fatalf("schema version: %v", err)
+	}
+	if version != StoreSchemaVersion {
+		s.Close()
+		t.Fatalf("user_version = %d, want %d", version, StoreSchemaVersion)
+	}
+	var scope string
+	if err := s.DB().QueryRow(`SELECT name FROM pragma_table_xinfo('sync_state') WHERE name = 'scope_key'`).Scan(&scope); err != nil {
+		s.Close()
+		t.Fatalf("fresh sync_state missing scope_key: %v", err)
+	}
+	if err := s.Close(); err != nil {
+		t.Fatalf("close fresh: %v", err)
+	}
+
+	ctx, stats = contextWithBackfillStats(context.Background())
+	s, err = OpenWithContext(ctx, dbPath)
+	if err != nil {
+		t.Fatalf("reopen fresh: %v", err)
+	}
+	defer s.Close()
+	if stats.probes != 1 || stats.alters != 0 {
+		t.Fatalf("reopen probes=%d alters=%d, want 1 and 0", stats.probes, stats.alters)
+	}
+}
+
+func TestSnapshotTableColumnsCanceled(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "data.db")
+	db, err := sql.Open("sqlite", dbPath)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer db.Close()
+	if _, err := db.Exec(`CREATE TABLE t (id TEXT)`); err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	conn, err := db.Conn(context.Background())
+	if err != nil {
+		t.Fatalf("conn: %v", err)
+	}
+	defer conn.Close()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	_, err = snapshotTableColumns(ctx, conn)
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("snapshot error = %v, want context.Canceled", err)
+	}
+}
+
+func TestAddColumnDuplicateAndInvalid(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "data.db")
+	db, err := sql.Open("sqlite", dbPath)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer db.Close()
+	if _, err := db.Exec(`CREATE TABLE sync_state (resource_type TEXT PRIMARY KEY)`); err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	conn, err := db.Conn(context.Background())
+	if err != nil {
+		t.Fatalf("conn: %v", err)
+	}
+	defer conn.Close()
+
+	ctx := context.Background()
+	if err := addColumn(ctx, conn, "sync_state", "resource_type", "TEXT"); err != nil {
+		t.Fatalf("duplicate column must be swallowed: %v", err)
+	}
+	err = addColumn(ctx, conn, "sync_state", "bad_pk", "INTEGER PRIMARY KEY")
+	if err == nil || strings.Contains(err.Error(), "duplicate column name") {
+		t.Fatalf("primary key add = %v, want a non-duplicate error", err)
+	}
+	err = addColumn(ctx, conn, "missing_table", "col", "TEXT")
+	if err == nil || !strings.Contains(err.Error(), "missing_table.col") {
+		t.Fatalf("missing table add = %v, want wrapped missing_table.col", err)
 	}
 }

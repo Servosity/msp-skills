@@ -18,6 +18,15 @@ import (
 func (s *Store) migrateExtras(ctx context.Context, conn *sql.Conn) error {
 	migrations := []string{
 		// Add CREATE TABLE IF NOT EXISTS statements here.
+		// Walk membership for the fleet reports (internal/cli/cwa_walk.go):
+		// the record IDs the last finished, unfiltered sync walk returned.
+		`CREATE TABLE IF NOT EXISTS cwa_walk (
+			resource_type TEXT PRIMARY KEY,
+			state TEXT NOT NULL,
+			next_cursor TEXT NOT NULL DEFAULT '',
+			pending TEXT NOT NULL DEFAULT '[]',
+			members TEXT NOT NULL DEFAULT '[]'
+		)`,
 	}
 	for _, m := range migrations {
 		if _, err := conn.ExecContext(ctx, m); err != nil {

@@ -64,7 +64,7 @@ func newOrganizationsApiRequestsGetOrganizationCmd(flags *rootFlags) *cobra.Comm
 					}
 				}
 				if !validMethod {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagMethod, "method", allowedMethod)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagMethod, "method", allowedMethod))
 				}
 			}
 			path := "/organizations/{organizationId}/apiRequests"

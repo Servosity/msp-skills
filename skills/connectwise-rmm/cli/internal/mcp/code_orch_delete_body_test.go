@@ -46,15 +46,32 @@ func TestCodeOrchExecuteSendsUninstallBody(t *testing.T) {
 	t.Setenv("CONNECTWISE_RMM_CLIENT_SECRET", "stub-secret")
 	t.Setenv("CONNECTWISE_RMM_MCP_READ_ONLY", "")
 
-	req := mcplib.CallToolRequest{Params: mcplib.CallToolParams{Arguments: map[string]any{
+	args := map[string]any{
 		"endpoint_id": "endpoints.uninstall",
 		"params": map[string]any{
 			"endpoints": []any{"7c9e6679-7425-40de-944b-e07fc1f90ae7"},
 			"feedback":  "decommissioned",
 			"reason":    "hardware retired",
 		},
-	}}}
-	res, err := handleCodeOrchExecute(context.Background(), req)
+	}
+	// Without confirm the call is a preview: nothing reaches the API.
+	res, err := handleCodeOrchExecute(context.Background(), mcplib.CallToolRequest{Params: mcplib.CallToolParams{Arguments: args}})
+	if err != nil || res == nil || gotMethod != "" {
+		t.Fatalf("unconfirmed uninstall: err=%v sent=%q, want a preview and no request", err, gotMethod)
+	}
+	// The preview shows the body the confirmed call will send (Codex r1 P2).
+	var preview struct {
+		Body map[string]any `json:"body"`
+	}
+	if len(res.Content) == 0 {
+		t.Fatal("unconfirmed uninstall returned no preview")
+	}
+	tc, _ := res.Content[0].(mcplib.TextContent)
+	if err := json.Unmarshal([]byte(tc.Text), &preview); err != nil || preview.Body["reason"] != "hardware retired" {
+		t.Fatalf("preview hides the uninstall body: %s", tc.Text)
+	}
+	args["confirm"] = true
+	res, err = handleCodeOrchExecute(context.Background(), mcplib.CallToolRequest{Params: mcplib.CallToolParams{Arguments: args}})
 	if err != nil || res == nil || res.IsError {
 		t.Fatalf("execute failed: err=%v result=%+v", err, res)
 	}
@@ -70,7 +87,7 @@ func TestCodeOrchExecuteSendsUninstallBody(t *testing.T) {
 	}
 }
 
-// TestCodeOrchTicketsListPairsPagingKeys: the execute twin of the CLI's
+// TestCodeOrchTicketsListPairsPagingKeys: the MCP read twin of the CLI's
 // tickets list pairing. A lone pageSize gains pageNum=1; a lone pageNum is
 // refused before any request.
 func TestCodeOrchTicketsListPairsPagingKeys(t *testing.T) {
@@ -91,10 +108,10 @@ func TestCodeOrchTicketsListPairsPagingKeys(t *testing.T) {
 	t.Setenv("CONNECTWISE_RMM_CLIENT_SECRET", "stub-secret")
 
 	call := func(params map[string]any) *mcplib.CallToolResult {
-		res, err := handleCodeOrchExecute(context.Background(), mcplib.CallToolRequest{Params: mcplib.CallToolParams{Arguments: map[string]any{
+		res, err := handleCodeOrchRead(context.Background(), mcplib.CallToolRequest{Params: mcplib.CallToolParams{Arguments: map[string]any{
 			"endpoint_id": "tickets.list", "params": params}}})
 		if err != nil {
-			t.Fatalf("execute: %v", err)
+			t.Fatalf("read: %v", err)
 		}
 		return res
 	}

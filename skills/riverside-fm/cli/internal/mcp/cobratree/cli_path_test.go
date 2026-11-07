@@ -19,15 +19,21 @@ func TestSiblingCLICandidatesPerOS(t *testing.T) {
 	dir := filepath.Dir(exe)
 	cases := []struct {
 		goos string
-		want []string
+		want []string // the leading candidates, in order
 	}{
 		{"windows", []string{filepath.Join(dir, "riverside-fm-cli.exe"), filepath.Join(dir, "riverside-fm-cli")}},
 		{"darwin", []string{filepath.Join(dir, "riverside-fm-cli")}},
 		{"linux", []string{filepath.Join(dir, "riverside-fm-cli")}},
 	}
 	for _, tc := range cases {
-		if got := siblingCLICandidates(tc.goos, exe); !reflect.DeepEqual(got, tc.want) {
-			t.Errorf("siblingCLICandidates(%q) = %v, want %v", tc.goos, got, tc.want)
+		got := siblingCLICandidates(tc.goos, "amd64", exe)
+		if len(got) < len(tc.want) || !reflect.DeepEqual(got[:len(tc.want)], tc.want) {
+			t.Errorf("siblingCLICandidates(%q) = %v, want it to start with %v", tc.goos, got, tc.want)
+		}
+		for _, c := range got {
+			if filepath.Dir(c) != dir {
+				t.Errorf("siblingCLICandidates(%q) left the bundle dir: %q", tc.goos, c)
+			}
 		}
 	}
 }

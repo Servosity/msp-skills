@@ -8,19 +8,24 @@ package cli
 import (
 	"bytes"
 	"encoding/json"
-	"path/filepath"
 	"testing"
 
+	"tactical-rmm-pp-cli/internal/cliutil"
+	"tactical-rmm-pp-cli/internal/cliutil/testenv"
 	"tactical-rmm-pp-cli/internal/store"
 )
 
-// novelTestEnv isolates the local store under a temp HOME so defaultDBPath
-// resolves to a per-test data.db. Returns the resolved db path.
+// novelTestEnv isolates every user directory (HOME and USERPROFILE) in the
+// press sandbox so defaultDBPath resolves to a per-test data.db on every OS. Returns the resolved db path.
 func novelTestEnv(t *testing.T) string {
 	t.Helper()
-	home := t.TempDir()
-	t.Setenv("HOME", home)
-	return filepath.Join(home, ".local", "share", "tactical-rmm-cli", "data.db")
+	// The store path depends on a package-level scope that every command's
+	// pre-run sets from its credential; an earlier in-process run leaves it
+	// set, so start unscoped and leave it unscoped (TestNovelTestEnvStartsUnscoped).
+	setDefaultDBScopeIdentity("", "", "")
+	t.Cleanup(func() { setDefaultDBScopeIdentity("", "", "") })
+	testenv.Isolate(t, cliutil.ConfigDir, cliutil.DataDir, cliutil.StateDir, cliutil.CacheDir)
+	return defaultDBPath("tactical-rmm-cli")
 }
 
 // seedResource opens (creating) the store at dbPath and upserts one row into
@@ -57,5 +62,28 @@ func assertJSON(t *testing.T, s string, v any) {
 	t.Helper()
 	if err := json.Unmarshal([]byte(s), v); err != nil {
 		t.Fatalf("output is not valid JSON: %v\n---\n%s", err, s)
+	}
+}
+
+// A store scope left by an earlier in-process run (a test that ran a command
+// with a credential) must not move the store a later test seeds away from the
+// one its command reads: novelTestEnv starts every test unscoped. CI's Windows
+// row skips the recorded known failures, which reorders the run and exposed
+// this as TestReportsCountClientsAndSitesFromTheirOwnLists reading an empty
+// store.
+func TestNovelTestEnvStartsUnscoped(t *testing.T) {
+	setDefaultDBScopeIdentity("trmmLeft"+"overScope-5c1d", "", "https://rmm.example.net")
+	db := novelTestEnv(t)
+	seedResource(t, db, "clients", "1", `{"id":1,"name":"Acme","agent_count":0}`)
+	out, _, err := runNovel(t, "fleet", "health")
+	if err != nil {
+		t.Fatalf("fleet health: %v", err)
+	}
+	var fh struct {
+		Clients int `json:"clients"`
+	}
+	assertJSON(t, out, &fh)
+	if fh.Clients != 1 {
+		t.Errorf("fleet health clients=%d, want 1: the seeded store and the store the command read differ", fh.Clients)
 	}
 }
