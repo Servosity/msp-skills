@@ -21,7 +21,7 @@ func newPbsJobsSyncConfigGetCmd(flags *rootFlags) *cobra.Command {
 		Args: func(cmd *cobra.Command, args []string) error {
 			return endpointPositionalArgs(cmd, flags, args, cobra.MaximumNArgs(1))
 		},
-		Annotations: map[string]string{"pp:endpoint": "pbs_jobs.sync-config-get", "pp:method": "GET", "pp:path": "https://localhost:8007/api2/json/config/sync/{id}", "pp:happy-args": "id=offsite-pull"},
+		Annotations: map[string]string{"pp:endpoint": "pbs_jobs.sync-config-get", "pp:method": "GET", "pp:path": "https://localhost:8007/api2/json/config/sync/{id}", "mcp:read-only": "true", "pp:happy-args": "id=offsite-pull"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
 				// A missing required positional is a usage error in every output
@@ -48,11 +48,7 @@ func newPbsJobsSyncConfigGetCmd(flags *rootFlags) *cobra.Command {
 				return err
 			}
 			params := map[string]string{}
-			var prov DataProvenance
-			data, err := c.GetMutating(cmd.Context(), path, params)
-			if err == nil {
-				prov = attachFreshness(DataProvenance{Source: "live"}, flags)
-			}
+			data, prov, err := resolveReadWithStrategyAndResponsePath(cmd.Context(), c, flags, "auto", "pbs_jobs", false, path, params, nil, "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}

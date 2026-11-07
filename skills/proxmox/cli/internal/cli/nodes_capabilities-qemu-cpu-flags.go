@@ -50,7 +50,7 @@ func newNodesCapabilitiesQemuCpuFlagsCmd(flags *rootFlags) *cobra.Command {
 					}
 				}
 				if !validAccel {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagAccel, "accel", allowedAccel)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagAccel, "accel", allowedAccel))
 				}
 			}
 			if cmd.Flags().Changed("arch") {
@@ -63,7 +63,7 @@ func newNodesCapabilitiesQemuCpuFlagsCmd(flags *rootFlags) *cobra.Command {
 					}
 				}
 				if !validArch {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagArch, "arch", allowedArch)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagArch, "arch", allowedArch))
 				}
 			}
 			path := "/nodes/{node}/capabilities/qemu/cpu-flags"

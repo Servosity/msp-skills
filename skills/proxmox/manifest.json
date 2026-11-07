@@ -27,7 +27,8 @@
         "PROXMOX_USER_AGENT": "${user_config.proxmox_user_agent}",
         "PROXMOX_MCP_READ_ONLY": "${user_config.proxmox_mcp_read_only}",
         "PROXMOX_MCP_HTTP_TOKEN": "${user_config.proxmox_mcp_http_token}",
-        "PRINTING_PRESS_CLIENT_PROFILE": "${user_config.printing_press_client_profile}"
+        "PRINTING_PRESS_CLIENT_PROFILE": "${user_config.printing_press_client_profile}",
+        "PROXMOX_NO_LOCAL_DATA": "${user_config.proxmox_no_local_data}"
       }
     }
   },
@@ -123,6 +124,13 @@
       "required": false,
       "sensitive": true,
       "default": ""
+    },
+    "proxmox_no_local_data": {
+      "type": "string",
+      "title": "Run without a local copy",
+      "description": "Optional. Set to 1 to keep no local copy of API responses: reads go to the API, store writes are off, and sync and workflow archive refuse to run. Leave blank to keep the local store.",
+      "required": false,
+      "sensitive": false
     }
   },
   "compatibility": {
@@ -133,11 +141,11 @@
       "win32"
     ]
   },
-  "printing_press_version": "4.33.5",
+  "printing_press_version": "4.35.1",
   "press_provenance": {
-    "printing_press_version": "4.33.5",
-    "generated_at": "2026-10-14T06:50:51.276965Z",
-    "spec_checksum": "sha256:090513f1bce9c6794f863e7f75394493ae0171ac788b7c59135a46e4cd3c095d",
+    "printing_press_version": "4.35.1",
+    "generated_at": "2026-11-03T01:46:47.706001Z",
+    "spec_checksum": "sha256:dde48161aa06fba908e4ac9572f9d922a3a248e0202cb8bfbd57fb495768600f",
     "spec_format": "openapi3"
   }
 }

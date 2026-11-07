@@ -52,7 +52,7 @@ func newBackupVzdumpDefaultsCmd(flags *rootFlags) *cobra.Command {
 			if cmd.Flags().Changed("storage") || flagStorage != "" {
 				params["storage"] = formatCLIParamValue(flagStorage)
 			}
-			data, prov, err := resolveReadWithStrategyAndResponsePath(cmd.Context(), c, flags, "live", "backup", false, path, params, nil, "exclude-path", cmd.ErrOrStderr())
+			data, prov, err := resolveReadWithStrategyAndResponsePath(cmd.Context(), c, flags, "live", "backup", false, path, params, nil, "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}

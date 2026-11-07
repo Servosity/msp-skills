@@ -1,10 +1,5 @@
 # Proxmox MCP - install for every agent that speaks MCP
 
-> **Security note (until this connector is reprinted).** Do not run HTTP mode
-> (`--transport http`), not even on localhost. This build checks a token, but it
-> predates the fix release's request size and time limits. The MCP tools can
-> also read your data with your credentials. Use the default stdio transport. If
-> you set up a tunnel for a remote agent, shut it down. A fix is on the way.
 
 This page wires the Proxmox MCP server into any MCP client. If you use Claude
 Code, Codex CLI, or Cowork, install the Skill instead (see [README.md](./README.md)) -
@@ -14,7 +9,7 @@ it's simpler. Everyone else: pick your agent below.
 GitHub Copilot, Gemini CLI) launch `proxmox-mcp` directly on your machine - no
 hosting. *Web-only* AI apps (ChatGPT on the web, Microsoft 365 Copilot / Copilot
 Studio, the Gemini app) need a remote server, which msp-skills does not support
-yet; see **Remote agents** below.
+yet; see **Web-only AI apps** below.
 
 ## Prerequisite: install the MCP binary
 
@@ -56,6 +51,7 @@ Add (or merge with your existing `mcpServers` block):
         "PROXMOX_USER_AGENT": "",
         "PROXMOX_MCP_READ_ONLY": "1",
         "PROXMOX_MCP_HTTP_TOKEN": "",
+        "PROXMOX_NO_LOCAL_DATA": "",
         "PRINTING_PRESS_CLIENT_PROFILE": ""
       }
     }
@@ -88,7 +84,7 @@ add the server once to Codex's `~/.codex/config.toml` (a `[mcp_servers.proxmox]`
 table with `command = "proxmox-mcp"` and an `env` table); the desktop app reads
 that file too.
 
-ChatGPT on the web is a different case: see **Remote agents** below.
+ChatGPT on the web is a different case: see **Web-only AI apps** below.
 
 ## GitHub Copilot (VS Code)
 
@@ -118,6 +114,7 @@ Configuration**) and add:
         "PROXMOX_USER_AGENT": "",
         "PROXMOX_MCP_READ_ONLY": "1",
         "PROXMOX_MCP_HTTP_TOKEN": "",
+        "PROXMOX_NO_LOCAL_DATA": "",
         "PRINTING_PRESS_CLIENT_PROFILE": ""
       }
     }
@@ -151,6 +148,7 @@ Claude Desktop:
         "PROXMOX_USER_AGENT": "",
         "PROXMOX_MCP_READ_ONLY": "1",
         "PROXMOX_MCP_HTTP_TOKEN": "",
+        "PROXMOX_NO_LOCAL_DATA": "",
         "PRINTING_PRESS_CLIENT_PROFILE": ""
       }
     }
@@ -163,24 +161,34 @@ web** is remote-only - see the remote section below.)
 
 ---
 
-# Remote agents (paused until this connector is reprinted)
+# Web-only AI apps (not supported yet)
 
 **Not supported by msp-skills yet.** ChatGPT on the web, Microsoft 365 Copilot /
 Copilot Studio and the Gemini app reach MCP servers at a web address, not programs
-on your machine, so they would need `proxmox-mcp` running in HTTP mode. Do not run
-HTTP mode with this build (see the security note at the top of this page), and do
-not put this server behind a tunnel or reverse proxy. If your team works in one of
-those apps, a
+on your machine, so they need a remote server. If your team works in one of those
+apps, a
 [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick)
 is the better pick; check that your AI app is on the gateway's setup list. The
 ChatGPT desktop app is different: it runs `proxmox-mcp` locally (see above).
 
-The HTTP-mode launch command is kept below for reference. It is commented out on
-purpose, so pasting it does nothing:
+## HTTP mode in this build (reference)
+
+This build's HTTP mode is documented here for reference; msp-skills does not
+support a web-only AI app on it yet. Keep stdio (the default) for every local
+agent above. HTTP mode serves `http://127.0.0.1:7777/mcp` by default and refuses
+to start until `PROXMOX_MCP_HTTP_TOKEN` is set; every request must send
+`Authorization: Bearer <token>`. Any address other than loopback also needs TLS:
 
 ```bash
-# PROXMOX_HOST=<pve-host> PROXMOX_API_TOKEN='<USER@REALM!TOKENID=SECRET>' PROXMOX_TLS_FINGERPRINT='<PVE certificate SHA-256>' PROXMOX_MCP_HTTP_TOKEN='<long random value>' proxmox-mcp --transport http
+export PROXMOX_MCP_HTTP_TOKEN="$(openssl rand -hex 32)"
+PROXMOX_API_TOKEN=<value> PROXMOX_HOST=<value> PROXMOX_PBS_API_TOKEN=<value> PROXMOX_PBS_HOST=<value> PROXMOX_TLS_FINGERPRINT=<value> PROXMOX_PBS_TLS_FINGERPRINT=<value> PROXMOX_BASE_URL=<value> PROXMOX_CLUSTER=<value> PROXMOX_CLUSTERS_FILE=<value> PROXMOX_USER_AGENT=<value> PROXMOX_MCP_READ_ONLY=<value> PROXMOX_NO_LOCAL_DATA=<value> PRINTING_PRESS_CLIENT_PROFILE=<value> proxmox-mcp --transport http --addr <host>:7777 --tls-cert <cert.pem> --tls-key <key.pem>
 ```
+
+The endpoint is `https://<host>:7777/mcp`: the server answers Streamable HTTP at
+`/mcp` and returns 404 at the bare root. The server rejects any request without
+`Authorization: Bearer <token>`, so every client must send that header. **Treat
+the token like a password** - whoever holds it can call every tool with your
+Proxmox credentials.
 
 ---
 

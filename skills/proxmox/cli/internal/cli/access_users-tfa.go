@@ -51,7 +51,7 @@ func newAccessUsersTfaCmd(flags *rootFlags) *cobra.Command {
 			if cmd.Flags().Changed("multiple") {
 				params["multiple"] = formatCLIParamValue(flagMultiple)
 			}
-			data, prov, err := resolveReadWithStrategyAndResponsePath(cmd.Context(), c, flags, "live", "access", false, path, params, nil, "types", cmd.ErrOrStderr())
+			data, prov, err := resolveReadWithStrategyAndResponsePath(cmd.Context(), c, flags, "live", "access", false, path, params, nil, "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}

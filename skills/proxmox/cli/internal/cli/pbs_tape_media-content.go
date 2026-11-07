@@ -37,7 +37,7 @@ func newPbsTapeMediaContentCmd(flags *rootFlags) *cobra.Command {
 					}
 				}
 				if !validBackupType {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagBackupType, "backup-type", allowedBackupType)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagBackupType, "backup-type", allowedBackupType))
 				}
 			}
 			path := "https://localhost:8007/api2/json/tape/media/content"

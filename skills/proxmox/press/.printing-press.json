@@ -1,0 +1,157 @@
+{
+  "schema_version": 2,
+  "generated_at": "2026-11-03T01:46:47.706001Z",
+  "printing_press_version": "4.35.1",
+  "api_name": "proxmox",
+  "display_name": "Proxmox VE + Backup Server",
+  "cli_name": "proxmox-pp-cli",
+  "creator": {
+    "handle": "DamienStevens",
+    "name": "Damien Stevens"
+  },
+  "owner": "damienstevens",
+  "printer": "DamienStevens",
+  "printer_name": "Damien Stevens",
+  "spec_path": "spec.yaml",
+  "spec_format": "openapi3",
+  "spec_source": "official",
+  "spec_checksum": "sha256:dde48161aa06fba908e4ac9572f9d922a3a248e0202cb8bfbd57fb495768600f",
+  "run_id": "20261102-162757-fa725a17",
+  "category": "cloud",
+  "description": "Read-only Proxmox VE + Backup Server CLI: per-guest backup verdicts across every cluster, no write calls to Proxmox.",
+  "mcp_binary": "proxmox-pp-mcp",
+  "mcp_tool_count": 384,
+  "mcp_public_tool_count": 3,
+  "mcp_ready": "full",
+  "api_version": "0.1.0",
+  "auth_type": "api_key",
+  "auth_preference": "PveApiToken",
+  "auth_env_vars": [
+    "PROXMOX_API_TOKEN"
+  ],
+  "auth_env_var_specs": [
+    {
+      "name": "PROXMOX_API_TOKEN",
+      "kind": "per_call",
+      "required": true,
+      "sensitive": true,
+      "description": "Proxmox VE API token as USER@REALM!TOKENID=SECRET (e.g. root@pam!cli=\u003cuuid\u003e); the CLI sends it as PVEAPIToken=..."
+    }
+  ],
+  "auth_additional_headers": [
+    {
+      "header": "Authorization",
+      "in": "header",
+      "scheme": "PbsApiToken",
+      "per_operation": true,
+      "env_var": {
+        "name": "PROXMOX_PBS_API_TOKEN",
+        "kind": "per_call",
+        "required": false,
+        "sensitive": true,
+        "description": "Proxmox Backup Server API token as USER@REALM!TOKENID:SECRET (colon before the secret); needed only for pbs-* commands and PBS columns"
+      }
+    }
+  ],
+  "endpoint_template_vars": [
+    "pbs_host",
+    "host"
+  ],
+  "endpoint_template_env_overrides": {
+    "pbs_host": "PROXMOX_PBS_HOST"
+  },
+  "endpoint_template_var_defaults": {
+    "host": "localhost"
+  },
+  "auth_key_url": "https://pve.proxmox.com/wiki/User_Management#pveum_tokens",
+  "auth_title": "Proxmox VE API token",
+  "novel_features": [
+    {
+      "name": "Fleet backup posture",
+      "command": "posture",
+      "description": "One verdict per guest across every client cluster: covered by an enabled job, age of the newest real restore point, PBS verify state, last backup attempt."
+    },
+    {
+      "name": "Coverage with reasons",
+      "command": "backup coverage",
+      "description": "Every guest or disk that no enabled backup job includes, with the reason: no job, disabled job only, excluded, or disk excluded."
+    },
+    {
+      "name": "Verify-failure spread",
+      "command": "verify-health",
+      "description": "Per PBS datastore and backup group: failed, never-verified and outdated snapshots, first failure, newest verified-good point, and namespaces no verify job reaches. Needs the PBS API."
+    },
+    {
+      "name": "Failure triage",
+      "command": "failures",
+      "description": "Failed and silently incomplete backup, verify, GC, sync and prune tasks in a time window, one row per failed guest or datastore with the reason line."
+    },
+    {
+      "name": "Fleet datastore runway",
+      "command": "capacity",
+      "description": "PBS datastores ranked by days until full, plus every PVE backup storage by percent used (only PBS forecasts), with garbage-collection state and a GC-deadlock warning."
+    },
+    {
+      "name": "Guest restore points",
+      "command": "restore-points",
+      "description": "Every restore point of one guest across its cluster's storages and PBS namespaces, with verify state, protection and encryption."
+    },
+    {
+      "name": "RPO evidence",
+      "command": "rpo",
+      "description": "Per guest over a past window: largest gap between restore points, scheduled runs with no restore point, and days with a verified-good point, rolled up per client."
+    }
+  ],
+  "novel_features_built": [
+    {
+      "name": "Fleet backup posture",
+      "command": "posture",
+      "description": "One verdict per guest across every client cluster: covered by an enabled job, age of the newest real restore point, PBS verify state, last backup attempt."
+    },
+    {
+      "name": "Coverage with reasons",
+      "command": "backup coverage",
+      "description": "Every guest or disk that no enabled backup job includes, with the reason: no job, disabled job only, excluded, or disk excluded."
+    },
+    {
+      "name": "Verify-failure spread",
+      "command": "verify-health",
+      "description": "Per PBS datastore and backup group: failed, never-verified and outdated snapshots, first failure, newest verified-good point, and namespaces no verify job reaches. Needs the PBS API."
+    },
+    {
+      "name": "Failure triage",
+      "command": "failures",
+      "description": "Failed and silently incomplete backup, verify, GC, sync and prune tasks in a time window, one row per failed guest or datastore with the reason line."
+    },
+    {
+      "name": "Fleet datastore runway",
+      "command": "capacity",
+      "description": "PBS datastores ranked by days until full, plus every PVE backup storage by percent used (only PBS forecasts), with garbage-collection state and a GC-deadlock warning."
+    },
+    {
+      "name": "Guest restore points",
+      "command": "restore-points",
+      "description": "Every restore point of one guest across its cluster's storages and PBS namespaces, with verify state, protection and encryption."
+    },
+    {
+      "name": "RPO evidence",
+      "command": "rpo",
+      "description": "Per guest over a past window: largest gap between restore points, scheduled runs with no restore point, and days with a verified-good point, rolled up per client."
+    }
+  ],
+  "verify": {
+    "mode": "mock",
+    "pass_rate": 100,
+    "passed": 322,
+    "total": 322,
+    "data_pipeline": true,
+    "verdict": "PASS"
+  },
+  "scorecard": {
+    "steinberger": {
+      "percentage": 92,
+      "grade": "A",
+      "total": 92
+    }
+  }
+}

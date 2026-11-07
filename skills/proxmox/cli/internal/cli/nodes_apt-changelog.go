@@ -58,7 +58,7 @@ func newNodesAptChangelogCmd(flags *rootFlags) *cobra.Command {
 				return usageErr(fmt.Errorf("missing required argument\nUsage: %s%s", cmd.CommandPath(), " <node>"))
 			}
 			if !cmd.Flags().Changed("name") && flagName == "" && !requiredInputWaived() {
-				return fmt.Errorf("required flag \"%s\" not set", "name")
+				return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "name"))
 			}
 			path := "/nodes/{node}/apt/changelog"
 			if len(args) < 1 || args[0] == "" {

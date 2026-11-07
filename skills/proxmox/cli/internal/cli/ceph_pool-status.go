@@ -56,7 +56,7 @@ func newCephPoolStatusCmd(flags *rootFlags) *cobra.Command {
 			if cmd.Flags().Changed("verbose") {
 				params["verbose"] = formatCLIParamValue(flagVerbose)
 			}
-			data, prov, err := resolveReadWithStrategyAndResponsePath(cmd.Context(), c, flags, "live", "ceph", false, path, params, nil, "application_list", cmd.ErrOrStderr())
+			data, prov, err := resolveReadWithStrategyAndResponsePath(cmd.Context(), c, flags, "live", "ceph", false, path, params, nil, "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}
@@ -83,7 +83,7 @@ func newCephPoolStatusCmd(flags *rootFlags) *cobra.Command {
 					filtered, selectErr = filterFieldsChecked(filtered, flags.selectFields)
 					selectErr = selectErrorForDryRun(selectErr, flags, data)
 				} else if flags.compact {
-					filtered = compactFields(filtered, nil)
+					filtered = compactFields(filtered, map[string]bool{"autoscale_status": true, "id": true, "name": true})
 				}
 				wrapped, wrapErr := wrapWithProvenance(filtered, prov)
 				if wrapErr != nil {
@@ -115,7 +115,7 @@ func newCephPoolStatusCmd(flags *rootFlags) *cobra.Command {
 			if flags.csv || flags.plain {
 				formatData = outputData
 			}
-			return printOutputWithFlagsMeta(cmd.OutOrStdout(), formatData, flags, map[string]any{"source": "live"}, nil)
+			return printOutputWithFlagsMeta(cmd.OutOrStdout(), formatData, flags, map[string]any{"source": "live"}, map[string]bool{"autoscale_status": true, "id": true, "name": true})
 		},
 	}
 	cmd.Flags().BoolVar(&flagVerbose, "verbose", false, "If enabled, will display additional data(eg. statistics). (default: 0)")

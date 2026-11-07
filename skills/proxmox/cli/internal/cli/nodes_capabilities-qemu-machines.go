@@ -49,7 +49,7 @@ func newNodesCapabilitiesQemuMachinesCmd(flags *rootFlags) *cobra.Command {
 					}
 				}
 				if !validArch {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagArch, "arch", allowedArch)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagArch, "arch", allowedArch))
 				}
 			}
 			path := "/nodes/{node}/capabilities/qemu/machines"

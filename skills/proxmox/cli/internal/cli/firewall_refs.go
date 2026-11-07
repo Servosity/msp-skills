@@ -32,7 +32,7 @@ func newFirewallRefsCmd(flags *rootFlags) *cobra.Command {
 					}
 				}
 				if !validType {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagType, "type", allowedType)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagType, "type", allowedType))
 				}
 			}
 			path := "/cluster/firewall/refs"
