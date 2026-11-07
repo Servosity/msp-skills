@@ -1,0 +1,686 @@
+{
+ "slug": "datto-saas",
+ "doc": "docs/reprint-survival.md",
+ "_comment": "Connector-specific edits a cli-printing-press reprint must NOT clobber. check_handfixes.py asserts every marker below is still present (and every banned anti-pattern still absent) and fails CI if a reprint dropped one.",
+ "handfixes": [
+  {
+   "id": "credkit-wiring",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "The shared credential kit (tools/maintainer/credkit, vendored at cli/internal/credkit) is wired by hand and replaces this connector's own holder, output chokepoint and funnel. internal/credwire/declarations.go holds the one Declarations literal; each main starts with credkit.Start and ends with credkit.Exit; the API, feedback, deliver and probe clients go through credkit.Transport (client.OutboundGuard); every file write outside the 0600 credential store and config goes through the kit, and the MCP stdio and HTTP servers pass credkit.MCPIn, MCPOut, MCPHTTP and MCPTools. The MCP server hands a child CLI its public and secret keys on stdin, because the kit starts no child with a held value in its environment. MCP tool arguments under the declared credential names (MCPArguments) are held by the kit from the raw frame, every duplicate arguments member included. A saved profile value under base-url gives up its password and credential query values, and the MCP child's stdin hand-off holds every value, each duplicate included, before it is decoded.",
+   "why": "One contract, one matcher and one set of sinks replace the connector-only copies, and a matcher fix reaches this connector by vendoring. This closes holder-coverage (no flag arity is guessed, a file that does not parse is read by the kit) and output-context (the kit judges decoded text, so filler does not split an echo). Tests: internal/credwire/leak_test.go, on the built binaries, seen failing on the pre-kit build.",
+   "spec_encode_followup": "Press-side: generate the kit wiring, the Declarations literal and the stdin hand-off.",
+   "asserts": [
+    {
+     "file": "cli/cmd/datto-saas-cli/main.go",
+     "contains": "credkit.Start(credwire.Declarations)",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/datto-saas-cli/main.go",
+     "contains": "credkit.Exit(code)",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/datto-saas-mcp/main.go",
+     "contains": "credkit.Start(credwire.Declarations)",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/datto-saas-mcp/main.go",
+     "contains": "credkit.Exit(run())",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/datto-saas-mcp/main.go",
+     "contains": "credkit.MCPIn(os.Stdin), credkit.MCPOut()",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "var Declarations = credkit.Declarations{",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "credentialFiles",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "cliutil.ReadCredentialHandoff()",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credkit_hold.go",
+     "contains": "func HoldConfigFile(data []byte) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credential_handoff.go",
+     "contains": "func CredentialHandoff(env []string) ([]string, io.Reader) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "env, credentials := cliutil.CredentialHandoff(childEnv)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "credkit.RunCommand(cmd)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "var OutboundGuard = credkit.Transport",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "clone.Transport = guardTransport(tr)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "httpClient.Transport = guardTransport(tr)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "_ = credkit.WriteFile(cacheFile, []byte(data), 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "credkit.AppendFile(p, append(line, '\\n'), 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deliver.go",
+     "contains": "credkit.WriteFile(tmp, body, 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/paths.go",
+     "contains": "func AtomicWriteCredentialFile(path string, data []byte, fileMode, dirMode os.FileMode) error {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestShortHeldValueNeverPrinted(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestMalformedConfigHeldBeforeAnythingPrints(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestDiscoveryCoversEveryFileLoadReads(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestChildGetsTheKeysOnStdin(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestWholeRunNeverEmitsAHeldCredential(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestArgvScanGuessesNoArity(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestFillerDoesNotSplitAnEcho(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/bulk_seat_guard.go",
+     "contains": "next = credkit.Transport(nil)",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/datto-saas-cli/main.go",
+     "contains": "credwire.HoldSetCredentialsArgs(append([]string(nil), os.Args[1:]...))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "cliutil.Hold(\"config:saas_secret_key\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/filelock.go",
+     "contains": "credkit.NewWriter(f, credkit.SinkFile).Write([]byte{0})",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "credkit.NewWriter(f, credkit.SinkFile).Write([]byte{'\\n'})",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestMCPArgumentCredentialIsHeld(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestCredentialStoreURLIsNotAnOrigin(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestProfileDuplicateKeyIsHeld(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestRealTLSKeysStartTheServer(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credkit_hold.go",
+     "contains": "func fixedSource(source string) credkit.Source"
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestStoreRefusalCarriesNoFileText("
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "MCPArguments: ",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "\"duplicate-arguments\":",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credential_handoff.go",
+     "contains": "for ok && dec.More() {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credkit_hold.go",
+     "contains": "for _, u := range found.baseURLs {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestProfileBaseURLIsHeld(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestHandoffDuplicateIsHeld(",
+     "code_only": true
+    }
+   ],
+   "hand_wired": {
+    "class-test": "Datto SaaS has one fixed host, so the manifest declares no URL variable and class_harness cannot point the binaries at its fake server. Proven instead by internal/credwire/leak_test.go on the built binaries, with DATTO_SAAS_BASE_URL aimed at a TLS stub that repeats every credential in every encoding."
+   }
+  },
+  {
+   "id": "credkit-sqlite-every-handle",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "Every SQLite handle goes through credkit.SQLDriver: internal/credsql registers the one driver and every sql.Open in store.go and platform/migration.go names it, the read-only opener included. The MCP sql value cap moved from sqlite.Limit on a held connection to a DSN parameter credsql applies as each connection opens. openReadOnlySQLite runs select 1 because the kit's connection does not forward Ping.",
+   "why": "A statement's text and bound values are a sink of their own, reads included.",
+   "spec_encode_followup": "Press-side: generate store, migration and MCP sql opens against one kit-wrapped driver name, and express the MCP sql value cap as a connection-open setting.",
+   "asserts": [
+    {
+     "file": "cli/internal/credsql/credsql.go",
+     "contains": "sql.Register(Driver, credkit.SQLDriver(cappedSQLite()))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "func OpenReadOnlyValueCapped(dbPath string, maxValueBytes int) (*Store, error) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "not_contains": "sql.Open(\"sqlite\""
+    },
+    {
+     "file": "cli/internal/platform/migration.go",
+     "not_contains": "sql.Open(\"sqlite\""
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "not_contains": "sqlite.Limit("
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "openMCPReadOnlyStore(path, mcpSQLMaxValueBytes)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools_test.go",
+     "contains": "func TestMCPSQLOversizedValueIsRefused(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "credkit-mcphttp-outermost",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "credkit.MCPHTTP writes every response the MCP HTTP server serves, refusals included. requireBearerAuthWithLimits runs a preflight that writes nothing, then credkit.MCPHTTP around a gate that answers the Origin, bearer and body-limit verdicts.",
+   "why": "With the kit wrapping only the inner handler, a refusal answers outside it.",
+   "spec_encode_followup": "Press-side: generate the MCP HTTP auth wrapper so its refusals are written by the inner, kit-wrapped handler and only a write-free preflight runs before credkit.MCPHTTP.",
+   "asserts": [
+    {
+     "file": "cli/cmd/datto-saas-mcp/main.go",
+     "contains": "kit := credkit.MCPHTTP(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/datto-saas-mcp/main.go",
+     "contains": "kit.ServeHTTP(w, r)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestMCPHTTPRefusalsPassTheKit(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "run-profile-allow-list",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "profiles.json is a credential source read at startup by cliutil.HoldProfileStoreFile, for each path a run could use: values under credential-named keys and the password and query values of any URL in any field are held. loadProfileStore keeps only values under a flag some command declares and that is not credential-like. It is not in the kit's Files list, because the kit holds every string of nested JSON and a profile named p would then refuse every later start.",
+   "why": "A profile can carry free text and URLs, and a hand-edited store is not bound by what profile save refuses.",
+   "spec_encode_followup": "Press-side: generate the run profile allow-list and the startup hold.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/profile.go",
+     "contains": "runProfileValueAllowed(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "cliutil.HoldProfileStoreFile(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credkit_hold.go",
+     "contains": "func HoldProfileStoreFile(path string) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestRunProfileCarriesOnlyTheAllowList(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credkit_hold.go",
+     "contains": "walkBody(dec, false, profileNameLevels, &found)"
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestProfileNameIsNotACredential("
+    }
+   ]
+  },
+  {
+   "id": "journal-credential-hardening",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "The learn journal minimizes what it keeps: an override session id is stored hashed (o:<hash>), argv_shape keeps only flag names the invoked command declares, and failed_flag is kept only when it is a near miss of a declared flag. Everything else that reaches a journal line passes the kit's file sink.",
+   "why": "A credential typed where a flag goes, or set as a session label, is not a value the kit has held, so the structural rules must keep it out on their own.",
+   "spec_encode_followup": "Press-side: generate the hashed session key and the declared-only argv shape.",
+   "asserts": [
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "func JournalFailedFlag(failed, suggested string, declared []string) string {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "\"o:\" + hashHarnessSession(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "not_contains": "HeldOutputEchoes"
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "learn.JournalFailedFlag(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal_credential_hardening_test.go",
+     "contains": "func TestJournalCredentialHardening(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal_credential_hardening_test.go",
+     "contains": "func TestJournalLineThatEchoesAHeldValueIsNotWritten(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/teach.go",
+     "contains": "missing --query (%d args, %d resources)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/teach_playbook.go",
+     "contains": "missing --query (%d args)",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "request-body-credentials-held",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "Every --stdin request body is read through cliutil.ReadRequestBody, which holds it with the kit (credkit.HoldBody: values under the declared CredentialFields at any depth, every occurrence of a duplicate key, every token of a body that is no document) before the command can preview or send it. Free text in a body is not a source (contract section 1).",
+   "why": "--stdin here is a JSON body, not a credential, so it is not a declared StdinFlag: the kit holds each line of a declared stdin, so a pretty-printed body refuses to start and a vendor answer repeating a plain field is withheld after the write happened.",
+   "spec_encode_followup": "Press-side: generate the --stdin read through one helper that holds the credential fields of the body.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/seats_bulk-change.go",
+     "contains": "cliutil.ReadRequestBody(os.Stdin)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/bulk_seat_change_flags.go",
+     "contains": "cliutil.ReadRequestBody(os.Stdin)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credkit_hold.go",
+     "contains": "func ReadRequestBody(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestStdinBodyIsHeldBeforeAPreview(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credkit_hold.go",
+     "contains": "credkit.HoldBody(data)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "CredentialFields: ",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestFreeTextURLHoldsNothing(",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "mcp-mirror-write-confirm",
+   "class": "write-safety",
+   "status": "active",
+   "summary": "Mirrored MCP tools that are not read-only preview and run only with confirm: true: sync, export, teach, the learnings, playbook and workflow-archive tools. Every argument the tool schema does not declare is refused by name first. A preview starts the child with every ordinary flag and DATTO_SAAS_MCP_CHILD=preview: it parses them, says so and exits in PersistentPreRunE, before the store, the journal or the API, so a bad flag still fails and nothing is touched.",
+   "why": "The press registers the Cobra-tree mirror with no confirm, so an agent call ran sync and wrote the local store at once. Only boolean true runs; the string \"true\" stays a preview; confirm is never forwarded to the CLI child. Tests: TestMirroredWriteNeedsBooleanConfirm, TestMirroredWritePreviewRunsNothingAndRefusesUndeclared, and TestMirroredWriteRunsNothingUntilConfirm on the built binaries.",
+   "spec_encode_followup": "Press-side: gate every non-read-only mirrored tool on confirm in cobratree.",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "cobratree.RequireConfirmForMirroredWrites(s, ",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/datto_confirm.go",
+     "contains": "func RequireConfirmForMirroredWrites(s *server.MCPServer, root *cobra.Command) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/datto_confirm_test.go",
+     "contains": "func TestMirroredWritePreviewRunsNothingAndRefusesUndeclared(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestMirroredWriteRunsNothingUntilConfirm(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "if cliutil.MCPPreviewChild() {",
+     "count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "cliutil.MCPChildEnvVar + \"=\" + cliutil.MCPChildPreview",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "mcp-write-preview-confirm",
+   "summary": "the only write, PUT .../bulkSeatChange, previews over MCP and sends only with confirm: true",
+   "why": "Press 4.34.2's endpoint-mirror MCP surface registered a raw seats_bulk-change tool that sent the billing change with no confirm. The spec now declares x-mcp {orchestration: code, endpoint_tools: hidden}, so the write is reachable only through datto-saas_execute, which previews until confirm is boolean true and refuses under DATTO_SAAS_MCP_READ_ONLY=1. Encoded in the spec (survives any reprint that keeps it); the test fails on a raw 4.34.2 endpoint-mirror render. Press 4.34.2 reprint (2026-10-27, first release).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "not_contains": "mcplib.NewTool(\"seats_bulk-change\""
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "RegisterCodeOrchestrationTools(s)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/bulk_seat_confirm_test.go",
+     "contains": "func TestMCPBulkSeatChangeSendsOnlyWithConfirm(",
+     "code_only": true
+    }
+   ],
+   "class": "write-safety"
+  },
+  {
+   "id": "doctor-verdict-tracks-reality",
+   "summary": "doctor probes a real GET endpoint with the real credential and refuses to dial a placeholder base_url, instead of reporting 'present, not verified'",
+   "why": "check_doctor_truth.py failed on the raw 4.34.2 render (healthy: 'present, not verified'; wrong-base: 'reachable (HTML body at /)'). Ported the fleet doctor_verdict.go (4.34.0 shape, doctorShippedBaseURL empty because https://api.datto.com/v1 is the real and only host) and applied replay_handfixes.py's doctor-verdict edits to doctor.go. Press 4.34.2 reprint (2026-10-27, first release). The HTTP 403 verdict carries a WARN prefix (fleet precedent: bitdefender, fortinet, sonicwall) so doctor --fail-on warn trips on it; doctor_verdict_test.go proves every non-2xx probe trips the gate (Codex r1 P2, 2026-10-27).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "func doctorProbeCredentials(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "func doctorBaseURLIsShippedPlaceholder(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "const doctorShippedBaseURL = \"\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorIsInfoKey(k)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorProbeCredentials(cmd.Context()",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorBaseURLIsShippedPlaceholder(cfg.BaseURL)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "report[\"credentials\"] = \"ERROR not verified: no credential is configured, so nothing was probed.\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "report[\"api\"] = \"not configured (base_url is a placeholder); set \" + doctorBaseURLEnv + \" to your own instance URL\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "not_contains": "present, not verified. Run `%s %s`"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "not_contains": "for _, v := range report {"
+    },
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "report[\"credentials\"] = fmt.Sprintf(\"WARN scope-limited (HTTP 403 from %s)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor_verdict_test.go",
+     "contains": "func TestDoctorNonSuccessCredentialProbeTripsFailOnWarn(",
+     "code_only": true
+    }
+   ],
+   "class": "doctor-truth"
+  },
+  {
+   "id": "bulk-seat-change-transport-guard",
+   "summary": "a client hook validates every PUT bulkSeatChange (case-sensitive enums, at most 100 ids), forwards only the canonical payload, refuses idempotency headers and redirects, for CLI and MCP alike",
+   "why": "Datto's seat-type and action enums are case-sensitive and it recommends at most 100 ids per call; the generated command and MCP path send whatever they are given, and http.Client resends a PUT body on a 307/308. The guard is a hand file wired through registerClientHook, so it covers both surfaces and survives regeneration; this entry catches a graft that forgets to port it. Press 4.34.2 reprint (2026-10-27, first release).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/bulk_seat_guard.go",
+     "contains": "registerClientHook(installBulkSeatGuard)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/bulk_seat_guard.go",
+     "contains": "func (g bulkSeatGuard) RoundTrip(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/bulk_seat_guard_test.go",
+     "contains": "func Test",
+     "code_only": true
+    }
+   ],
+   "class": "write-safety"
+  },
+  {
+   "id": "bulk-seat-change-preview-checks",
+   "summary": "seats bulk-change --dry-run runs the same canonical validation as a real send and refuses --idempotent",
+   "why": "--idempotent turns an HTTP 409 into success, which on a billing change would hide a failed send; a preview must reject exactly what a send rejects. Hand file over the generated command (PreRunE). Press 4.34.2 reprint (2026-10-27, first release).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/bulk_seat_change_flags.go",
+     "contains": "func checkBulkChangeInput(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/bulk_seat_change_flags.go",
+     "contains": "--idempotent is not supported for seats bulk-change",
+     "code_only": true
+    }
+   ],
+   "class": "write-safety"
+  },
+  {
+   "id": "bulk-change-discoverable-as-update",
+   "class": "mcp-discoverability",
+   "summary": "the MCP endpoint catalog describes seats.bulk-change as 'Update seats in bulk: ...', so datto-saas_search finds the only write for update, set-style queries",
+   "why": "The generated summary ('License, pause, or unlicense ...') carries no generic write verb, so an agent (and verify-msp-skills feature 4) searching datto-saas_search for update or change found no write endpoint and could not reach the confirm-gated write path. Edit in the generated code_orch.go (Summary and keywords); the press spec summary should carry the same text on the next reprint. Press 4.34.2 first release (2026-10-28).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "\"Update seats in bulk: license, pause, or unlicense up to 100 seats of one subscription in one call.\"",
+     "min_count": 2,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "mcp-search-bulk-seat-schema",
+   "class": "mcp-discoverability",
+   "summary": "datto-saas_search returns a params_schema for seats.bulk-change: the path ids, the seat_type and action_type enums and a non-empty ids array, built from the bulk guard's own value lists",
+   "why": "The press code-orchestration search returns no params_schema, so an agent (and verify-msp-skills feature 4) could not know the body the bulk guard accepts and got refused at send. The schema is built from saasSeatTypes, bulkSeatActions and maxBulkSeatIDs, and a test proves every value it allows passes the guard. Press 4.34.2 reprint (2026-10-28, first release).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "out[\"params_schema\"] = cli.BulkSeatChangeParamsSchema()",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/bulk_seat_schema.go",
+     "contains": "func BulkSeatChangeParamsSchema() map[string]any {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/bulk_seat_schema_test.go",
+     "contains": "func TestBulkSeatChangeParamsSchemaMatchesGuard(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/code_orch_params_schema_test.go",
+     "contains": "func TestCodeOrchSearchPublishesBulkSeatParamsSchema(",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "vendor-unique-store-keys",
+   "class": "wrong-result",
+   "summary": "Seats are stored under Datto's remoteId, not seatType+mainId, so a deleted-and-recreated user's two seats (the Archived, still-billable one and the new one, same mainId) both survive a sync in either order.",
+   "why": "Datto KB3600321361511 documents the duplicated seat; under the composite key the second upsert overwrote the first, so seats gaps, bulk-plan and reconcile lost a seat and sync still reported success (adversarial review r1). Press 4.34.2 (2026-10-28, first release).",
+   "status": "active",
+   "spec_encode_followup": "Set x-resource-id: remoteId on /saas/{saasCustomerId}/seats in the library spec so a reprint generates it.",
+   "asserts": [
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "\"seats\":        \"remoteId\",",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "\"seats\":        \"remoteId\",",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "not_contains": "\"seatType+mainId\""
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "not_contains": "\"seatType+mainId\""
+    },
+    {
+     "file": "cli/internal/cli/seat_identity_test.go",
+     "contains": "func TestStoreKeepsEverySeatDattoReturns(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  }
+ ]
+}

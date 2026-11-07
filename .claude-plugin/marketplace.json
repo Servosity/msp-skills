@@ -148,7 +148,7 @@
       "name": "aws-billing",
       "source": "./skills/aws-billing",
       "description": "Get a non-expert from zero to a Slack-delivered, plain-English, waste-flagged AWS bill breakdown \u2014 and cache it so you don't pay per Cost Explorer call.",
-      "version": "0.1.8",
+      "version": "0.1.9",
       "category": "billing",
       "tags": [
         "aws-billing",
@@ -386,7 +386,7 @@
       "name": "domotz",
       "source": "./skills/domotz",
       "description": "Every Domotz endpoint, plus a local SQLite fleet mirror that answers cross-site questions.",
-      "version": "0.1.7",
+      "version": "0.1.8",
       "category": "network-monitoring",
       "tags": [
         "domotz",
@@ -701,7 +701,7 @@
       "name": "pagerduty",
       "source": "./skills/pagerduty",
       "description": "Every PagerDuty incident, on-call and service operation from the terminal, plus a local SQLite mirror that answers cross-entity questions \u2014 MTTA/MTTR, on-call coverage gaps, responder load \u2014 that neither the API nor the web UI can.",
-      "version": "0.1.7",
+      "version": "0.1.8",
       "category": "incident-response",
       "tags": [
         "pagerduty",
@@ -1355,6 +1355,22 @@
       ]
     },
     {
+      "name": "eset-protect",
+      "source": "./skills/eset-protect",
+      "description": "Every ESET Connect endpoint in one binary, plus per-customer health, exposure and QBR reports built from a local mirror of your MSP tree.",
+      "version": "0.1.0",
+      "category": "security",
+      "tags": [
+        "eset-protect",
+        "eset",
+        "security",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
+    },
+    {
       "name": "blackpoint",
       "source": "./skills/blackpoint",
       "description": "CompassOne from the terminal: tenants, detections, assets, vulnerabilities, posture, reports and Cloud Response admin, plus a cross-tenant fleet view of open detections, stale agents and coverage gaps.",
@@ -1677,6 +1693,22 @@
         "windows-server",
         "windows server",
         "monitoring",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
+    },
+    {
+      "name": "datto-saas",
+      "source": "./skills/datto-saas",
+      "description": "Every Datto SaaS Protection (Backupify) client in one local database: seat audits, protection gaps, backup health ranking, exit inventories and plan-first bulk seat changes.",
+      "version": "0.1.0",
+      "category": "backup-dr",
+      "tags": [
+        "datto-saas",
+        "datto saas protection",
+        "backup-dr",
         "msp",
         "mcp",
         "claude-code",
