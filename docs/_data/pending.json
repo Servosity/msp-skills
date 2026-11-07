@@ -56,11 +56,11 @@
     "released_hash": "sha256:766008066e3d7fc70c3a388891ba171a47f202f9abdf561185595c4930392250"
   },
   "auvik": {
-    "state": "binary-pending",
-    "version": "0.2.8",
-    "latest_tag": "auvik-v0.2.8",
+    "state": "up-to-date",
+    "version": "0.2.9",
+    "latest_tag": "auvik-v0.2.9",
     "current_hash": "sha256:b574b5067e6cf0d07850cd37f0d025ac6b3b15e228f8154b265e85d92ee17161",
-    "released_hash": "sha256:4a4d97fd99b5f74d8daec9ed038a47deafefeede560d530af2354c7c966021bd"
+    "released_hash": "sha256:b574b5067e6cf0d07850cd37f0d025ac6b3b15e228f8154b265e85d92ee17161"
   },
   "avanan": {
     "state": "binary-pending",
@@ -294,11 +294,11 @@
     "released_hash": "sha256:7e821728f609847ee158daf6173a22df1c7735e78833537338d8cdcec7076adc"
   },
   "fortinet": {
-    "state": "binary-pending",
-    "version": "0.1.4",
+    "state": "version-pending",
+    "version": "0.1.5",
     "latest_tag": "fortinet-v0.1.4",
     "current_hash": "sha256:4c2f7de180f72e7ce5574ed9104993598a5cb08912227bfe87d164568c271824",
-    "released_hash": "sha256:f204ab34dff6297d76647d85c78dab72a59316a5882505f0effaa8f581ab7652"
+    "released_hash": "sha256:4c2f7de180f72e7ce5574ed9104993598a5cb08912227bfe87d164568c271824"
   },
   "google-workspace": {
     "state": "binary-pending",
@@ -637,11 +637,11 @@
     "released_hash": "sha256:0c0e6c833ff68f2a8e62d25809fa91dc6071ea2a6729dd9b996fa96a358c4ad0"
   },
   "sophos-central": {
-    "state": "binary-pending",
-    "version": "0.1.3",
+    "state": "version-pending",
+    "version": "0.1.4",
     "latest_tag": "sophos-central-v0.1.3",
     "current_hash": "sha256:3c34a58a3c091523bfd82e146e902af3b92320cc9eac1c7867fa6311f7b9b52c",
-    "released_hash": "sha256:39bdd318aa0b3259af4e71e2eb728cfadd7030873d4ea3c153672b8c739256d1"
+    "released_hash": "sha256:3c34a58a3c091523bfd82e146e902af3b92320cc9eac1c7867fa6311f7b9b52c"
   },
   "superops": {
     "state": "binary-pending",
@@ -731,7 +731,7 @@
     "state": "binary-pending",
     "version": "0.1.3",
     "latest_tag": "watchguard-v0.1.3",
-    "current_hash": "sha256:dee380c2569a4acf6793fc9ce0555e81d3a8079beff35886e291fa2d01254254",
+    "current_hash": "sha256:20b87e3236ad48cc489392756afff1a1a6d410bc2a2a5ca86201b6aa75b31eed",
     "released_hash": "sha256:f1b8f698de834b9c86bca4e3f98a0aa0797cfc789c64fa0f06a200a24e7e1e4e"
   },
   "windows-server": {
