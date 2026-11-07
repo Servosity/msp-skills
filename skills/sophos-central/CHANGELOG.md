@@ -6,6 +6,11 @@ All notable changes to this skill are documented here. Format follows
 
 ## [0.1.4] - unreleased
 
+### Security
+- **One shared credential guard covers every output.** The CLI and the MCP server now hold every credential they read or mint (environment, flags, the config and credential files, saved profiles, minted and refreshed tokens) and withhold any terminal line, file, store row, cache entry, MCP result, child process or outbound request that would carry one, with `[credkit: withheld from <sink>: it carried a credential this program holds]` in its place. A token endpoint error that repeats the client secret no longer shows it on `auth login`.
+- **Credentials go only to Sophos.** The API token goes only to the configured base URL, `*.central.sophos.com` and `id.sophos.com`; the client secret and refresh token only to the base URL and `id.sophos.com`. A token URL on any other host is refused.
+- **The CLI no longer prints a tamper protection password or a migration token.** `endpoints get-tamper-protection`, `endpoints set-tamper-protection` and the `migrations` commands print the withheld notice where the secret would be; the rest of the answer still prints. Read those secrets in the Sophos Central console.
+
 ### Changed
 - **Rebuilt on CLI Printing Press 4.35.1 (was 4.33.5).** See [GHSA-jh26-vhqh-692c](https://github.com/advisories/GHSA-jh26-vhqh-692c) for why the press was upgraded.
 - **The MCP server's HTTP mode for remote agents is back.** `sophos-central-mcp --transport http` refuses to start until `SOPHOS_CENTRAL_MCP_HTTP_TOKEN` (32 characters or more) is set, rejects any request without that bearer token, refuses a request body over 4 MiB or one that takes longer than 30 seconds to arrive, serves `http://127.0.0.1:7777/mcp` by default and needs `--tls-cert` and `--tls-key` for any other address. The remote-agent steps are back in `mcp-install.md`; stdio stays the default.
