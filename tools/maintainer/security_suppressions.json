@@ -3095,6 +3095,16 @@
       ],
       "press": "4.35.1",
       "reason": "threatdown, press 4.35.1 reprint, reviewed 2026-11-06. Credential kit wiring (hand-written), byte-identical to google-workspace's, riverside-fm's and cork's reviewed readRegular (same digest). It stats and reads a credential source the program reads anyway (its config, credentials.toml, saved profiles), named by the operator's own --config, --home or environment, so Start can hold every credential in it before anything prints. It refuses anything but a regular file and never writes. The MCP server refuses --config and --home."
+    },
+    {
+      "file": "skills/threatdown/cli/internal/credwire/declarations.go",
+      "rule": "G703",
+      "bind": "decl",
+      "sha256": [
+        "sha256:8c8df43ecf58060f577d7c4aa2dea14bfbdd86e3e204afaab5ea5aea9db05f83"
+      ],
+      "press": "4.35.1",
+      "reason": "threatdown, press 4.35.1 reprint, reviewed 2026-11-06. credential kit wiring (hand-written). holdConfigURLs opens a credential source the program reads anyway (its config or credential store, from the kit's declared runFiles, named by the operator's own --config or environment) so Start can hold the base_url and token_url it carries before anything prints. It refuses anything but a regular file, caps the read at 8 MiB (maxHeldConfigBytes), only parses TOML and never writes. The MCP server refuses file-path flags (check_mcp_file_flags). Same shape as the watchguard and google-workspace credwire G703 entries."
     }
   ]
 }
