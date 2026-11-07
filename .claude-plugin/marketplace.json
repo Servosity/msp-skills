@@ -1250,7 +1250,7 @@
       "name": "sonicwall",
       "source": "./skills/sonicwall",
       "description": "Cyber-insurance posture for a whole SonicWall fleet: firmware, advisories, MFA, SSL-VPN exposure and licences, one row per firewall.",
-      "version": "0.1.3",
+      "version": "0.1.4",
       "category": "security",
       "tags": [
         "sonicwall",
