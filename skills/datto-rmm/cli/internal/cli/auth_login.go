@@ -2,14 +2,16 @@
 //
 // Hand-authored: Datto RMM's primary auth path. The API issues ~100h bearer
 // tokens via an OAuth2 password grant from an API key + secret key. `auth
-// login` performs that exchange explicitly and saves the token; normal API
-// commands also mint on demand via config.EnsureDattoToken in newClient.
+// login` performs that exchange explicitly and saves the token to the
+// credential store, bound to the host and API key it was minted for; normal
+// API commands also mint on demand (credkit_client.go mintForClient).
 package cli
 
 import (
 	"fmt"
 	"time"
 
+	"datto-rmm-pp-cli/internal/client"
 	"datto-rmm-pp-cli/internal/cliutil"
 	"datto-rmm-pp-cli/internal/config"
 
@@ -22,7 +24,7 @@ func newAuthLoginCmd(flags *rootFlags) *cobra.Command {
 		Short: "Mint and save an OAuth token from your Datto RMM API key + secret key",
 		Example: "  export DATTO_RMM_API_KEY=... DATTO_RMM_API_SECRET_KEY=... DATTO_RMM_PLATFORM=merlot\n" +
 			"  datto-rmm-cli auth login",
-		Annotations: map[string]string{"mcp:read-only": "true"},
+		Annotations: map[string]string{"mcp:read-only": "false"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Dials out to the OAuth endpoint, so short-circuit under the
 			// verifier (it sets PRINTING_PRESS_VERIFY=1) per the side-effect rule.
@@ -42,36 +44,55 @@ func newAuthLoginCmd(flags *rootFlags) *cobra.Command {
 			if err != nil {
 				return configErr(err)
 			}
-			if err := config.ResolveDattoBaseURL(cfg); err != nil {
-				return configErr(err)
+			if cfg.CredentialRouteBlocked() {
+				return configErr(cfg.CredentialRefusalError())
 			}
 			if cfg.DattoRmmApiKey == "" || cfg.DattoRmmApiSecretKey == "" {
 				return authErr(fmt.Errorf("set DATTO_RMM_API_KEY and DATTO_RMM_API_SECRET_KEY (and DATTO_RMM_PLATFORM or DATTO_RMM_API_URL) before running auth login"))
 			}
+			binding := config.DattoTokenBinding(cfg.BaseURL, cfg.DattoRmmApiKey)
+			if binding == "" {
+				return configErr(fmt.Errorf("the Datto RMM base URL is not an http(s) URL with a plain host; set DATTO_RMM_PLATFORM or DATTO_RMM_BASE_URL"))
+			}
+			// datto-rmm handfix dry-run-never-mints: --dry-run names the
+			// request and sends nothing.
+			if flags.dryRun {
+				fmt.Fprintf(cmd.OutOrStdout(), "would POST %s/auth/oauth/token (password grant) and save the token; nothing sent (--dry-run)\n", config.DattoOrigin(cfg.BaseURL))
+				return nil
+			}
 
-			token, expiresIn, err := config.MintDattoToken(cmd.Context(), cfg.BaseURL, cfg.DattoRmmApiKey, cfg.DattoRmmApiSecretKey)
+			// The token client honors the configured TLS settings
+			// (DATTO_RMM_CA_CERT, DATTO_RMM_TLS_SERVER_NAME) and the dial guard,
+			// as the API client does (tests-helper finding
+			// auth-login-ignores-tls-settings: a bare http.Client refused a
+			// host the API commands reach through the configured CA).
+			hc, err := client.NewPlainHTTPClient(30*time.Second, cfg)
+			if err != nil {
+				return configErr(err)
+			}
+			token, expiresIn, err := config.MintDattoToken(cmd.Context(), config.NewDattoTokenClient(cfg.BaseURL, hc.Transport), cfg.BaseURL, cfg.DattoRmmApiKey, cfg.DattoRmmApiSecretKey)
 			if err != nil {
 				return authErr(err)
 			}
 
-			expiry := cfg.TokenExpiry
+			expiry := time.Time{}
 			if expiresIn > 0 {
 				expiry = time.Now().Add(time.Duration(expiresIn) * time.Second)
 			}
 			// Clear any legacy auth_header so AuthHeader() uses the fresh token.
 			cfg.AuthHeaderVal = ""
-			if err := cfg.SaveTokens(cfg.ClientID, cfg.ClientSecret, token, cfg.RefreshToken, expiry); err != nil {
+			if err := cfg.SaveTokens(binding, "", token, "", expiry); err != nil {
 				return configErr(fmt.Errorf("saving token: %w", err))
 			}
-
+			savePath := credentialSavePath(cfg)
 			if flags.asJSON {
 				return printJSONFiltered(cmd.OutOrStdout(), map[string]any{
-					"authenticated": true,
-					"expires_in":    expiresIn,
-					"config_path":   cfg.Path,
+					"authenticated":    true,
+					"expires_in":       expiresIn,
+					"credentials_path": savePath,
 				}, flags)
 			}
-			fmt.Fprintf(cmd.OutOrStdout(), "Authenticated. Token saved to %s (expires in ~%dh).\n", cfg.Path, expiresIn/3600)
+			fmt.Fprintf(cmd.OutOrStdout(), "Authenticated. Token saved to %s (expires in ~%dh).\n", savePath, expiresIn/3600)
 			return nil
 		},
 	}

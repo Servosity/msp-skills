@@ -63,7 +63,7 @@ func newOrganizationsCampusGatewayGetOrganizationClustersTunnelableCmd(flags *ro
 				return usageErr(fmt.Errorf("missing required argument\nUsage: %s%s", cmd.CommandPath(), " <organizationId>"))
 			}
 			if !cmd.Flags().Changed("from-network-ids") && flagFromNetworkIds == "" && !requiredInputWaived() {
-				return fmt.Errorf("required flag \"%s\" not set", "from-network-ids")
+				return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "from-network-ids"))
 			}
 			path := "/organizations/{organizationId}/campusGateway/clusters/tunnelable"
 			if len(args) < 1 || args[0] == "" {

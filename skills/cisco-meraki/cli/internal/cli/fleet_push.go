@@ -54,13 +54,13 @@ type pushTargetFilter struct {
 }
 
 func (f pushTargetFilter) keep(id, name string, tags, productTypes []string) bool {
-	if len(f.networks) > 0 && !containsFold(f.networks, id) && !containsFold(f.networks, name) {
+	if len(f.networks) > 0 && !containsExact(f.networks, id) && !containsExact(f.networks, name) {
 		return false
 	}
-	if f.tag != "" && !containsFold(tags, f.tag) {
+	if f.tag != "" && !containsExact(tags, f.tag) {
 		return false
 	}
-	if f.productType != "" && !containsFold(productTypes, f.productType) {
+	if f.productType != "" && !containsExact(productTypes, f.productType) {
 		return false
 	}
 	return true
@@ -80,13 +80,34 @@ func pushFilterValues(values []string) []string {
 	return out
 }
 
-func containsFold(list []string, v string) bool {
+// containsExact matches a selector value exactly (surrounding spaces aside).
+// A write selects only what the operator named: Meraki tags are
+// case-sensitive (spec.json GET /organizations/{organizationId}/networks,
+// tags), and IDs and names are compared as given (handfixes.json:
+// meraki-push-selection-exact).
+func containsExact(list []string, v string) bool {
 	for _, s := range list {
-		if strings.EqualFold(strings.TrimSpace(s), v) {
+		if strings.TrimSpace(s) == v {
 			return true
 		}
 	}
 	return false
+}
+
+// pushOrgsExact narrows the shared, case-insensitive --org filter to orgs
+// whose ID or name equals a selector exactly, so a push never reaches a
+// second org whose name differs only in case. No --org keeps every org.
+func pushOrgsExact(orgs []fleetOrg, values []string) []fleetOrg {
+	if len(values) == 0 {
+		return orgs
+	}
+	out := make([]fleetOrg, 0, len(orgs))
+	for _, o := range orgs {
+		if containsExact(values, o.ID) || containsExact(values, o.Name) {
+			out = append(out, o)
+		}
+	}
+	return out
 }
 
 // diffSettings compares each top-level key of the desired body with the
@@ -384,6 +405,7 @@ Do NOT use this command to read data across orgs; use 'fleet fanout' instead.`),
 			if err != nil {
 				return err
 			}
+			orgs = pushOrgsExact(orgs, orgFilter)
 			filter := pushTargetFilter{networks: networkFilter, tag: tag, productType: productType}
 			outcomes := fanOrgs(ctx, orgs, func(ctx context.Context, o fleetOrg) ([]pushRow, error) {
 				return planOrgPush(ctx, c, o, p, body, filter)

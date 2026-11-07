@@ -3,6 +3,7 @@
 package mcp
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -27,7 +28,7 @@ func TestMCPClientHonoursTheConfigEnvVar(t *testing.T) {
 	// Guard against a stray ambient override changing the assertion.
 	os.Unsetenv("RIVERSIDE_FM_BASE_URL")
 
-	c, err := newMCPClient()
+	c, _, err := newMCPClient(context.Background())
 	if err != nil {
 		t.Fatalf("resolving the MCP config: %v", err)
 	}

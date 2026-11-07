@@ -1539,6 +1539,18 @@ def self_test() -> int:
         print(f"  [{'PASS' if ok else 'FAIL'}] {mode} (allowlist expected: {expected}): "
               + "; ".join(f"{k} {v[0]}" for k, v in got.items()) + (" (token leaked into the record)" if leaked else ""))
     bad += redaction_self_test()
+    req = lambda m, p: {"method": m, "path": p, "header_names": [], "body_head": ""}
+    for reqs, method, tmpl, want in (
+        ([req("POST", "/v2/roles")], "POST", "https://{region}.iam.eset.systems/v2/roles", 1),
+        ([req("POST", "/v2/roles/x")], "POST", "https://{region}.iam.eset.systems/v2/roles", 0),
+        ([req("POST", "/v2/users")], "POST", "https://{region}.iam.eset.systems/v2/roles", 0),
+        ([req("POST", "/v1/items/42")], "POST", "/v1/items/{id}", 1),
+        ([req("GET", "/v1/items/42")], "POST", "/v1/items/{id}", 0),
+    ):
+        got = len(endpoint_requests(reqs, method, tmpl))
+        ok = got == want
+        bad += not ok
+        print(f"  [{'PASS' if ok else 'FAIL'}] endpoint_requests {method} {tmpl} vs {reqs[0]['path']}: {got} (want {want})")
     bad += dsm_self_test()
     bad += vcenter_self_test()
     bad += kit_tls_self_test()
@@ -1881,6 +1893,9 @@ def endpoint_requests(reqs: list[dict], method: str, path: str) -> list[dict]:
     path) a request path ending in that path, placeholders matching one
     segment. A fragment (JSON-RPC '#method') is never sent, so it is dropped."""
     template = (path or "").split("#", 1)[0].split("?", 1)[0].rstrip("/")
+    # An absolute template (one host per service, e.g. https://{region}.iam.x/v2/roles)
+    # reaches the fake vendor as its path only.
+    template = re.sub(r"^[A-Za-z][A-Za-z0-9+.-]*://[^/]*", "", template)
     rx = None
     if template and template != "?":
         rx = re.compile(re.sub(r"\\\{[^}/]+\\\}", "[^/]+", re.escape(template)) + "/?$")

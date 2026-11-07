@@ -66,7 +66,7 @@ func newOrganizationsPoliciesGetOrganizationAssignmentsByClientCmd(flags *rootFl
 				return usageErr(fmt.Errorf("missing required argument\nUsage: %s%s", cmd.CommandPath(), " <organizationId>"))
 			}
 			if !cmd.Flags().Changed("network-ids") && flagNetworkIds == "" && !requiredInputWaived() {
-				return fmt.Errorf("required flag \"%s\" not set", "network-ids")
+				return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "network-ids"))
 			}
 			path := "/organizations/{organizationId}/policies/assignments/byClient"
 			if len(args) < 1 || args[0] == "" {

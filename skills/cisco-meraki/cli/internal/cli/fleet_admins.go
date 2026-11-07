@@ -76,7 +76,7 @@ func summarizeAdmins(byOrg map[fleetOrg][]rawAdmin, staleAfter time.Duration, no
 			if a.HasAPIKey {
 				p.HasAPIKey = true
 			}
-			if a.LastActive > p.LastActive {
+			if merakiTimeAfter(a.LastActive, p.LastActive) {
 				p.LastActive = a.LastActive
 			}
 		}

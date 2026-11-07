@@ -60,7 +60,7 @@ func newNetworksBluetoothClientsGetNetworkNetworksCmd(flags *rootFlags) *cobra.C
 			if cmd.Flags().Changed("connectivity-history-timespan") || flagConnectivityHistoryTimespan != 0 {
 				params["connectivityHistoryTimespan"] = formatCLIParamValue(flagConnectivityHistoryTimespan)
 			}
-			data, prov, err := resolveReadWithStrategyAndResponsePath(cmd.Context(), c, flags, "live", "bluetooth-clients", false, path, params, nil, "tags", cmd.ErrOrStderr())
+			data, prov, err := resolveReadWithStrategyAndResponsePath(cmd.Context(), c, flags, "live", "bluetooth-clients", false, path, params, nil, "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}
@@ -87,7 +87,7 @@ func newNetworksBluetoothClientsGetNetworkNetworksCmd(flags *rootFlags) *cobra.C
 					filtered, selectErr = filterFieldsChecked(filtered, flags.selectFields)
 					selectErr = selectErrorForDryRun(selectErr, flags, data)
 				} else if flags.compact {
-					filtered = compactFields(filtered, nil)
+					filtered = compactFields(filtered, map[string]bool{"deviceName": true, "id": true, "name": true, "networkId": true})
 				}
 				wrapped, wrapErr := wrapWithProvenance(filtered, prov)
 				if wrapErr != nil {
@@ -119,7 +119,7 @@ func newNetworksBluetoothClientsGetNetworkNetworksCmd(flags *rootFlags) *cobra.C
 			if flags.csv || flags.plain {
 				formatData = outputData
 			}
-			return printOutputWithFlagsMeta(cmd.OutOrStdout(), formatData, flags, map[string]any{"source": "live"}, nil)
+			return printOutputWithFlagsMeta(cmd.OutOrStdout(), formatData, flags, map[string]any{"source": "live"}, map[string]bool{"deviceName": true, "id": true, "name": true, "networkId": true})
 		},
 	}
 	cmd.Flags().BoolVar(&flagIncludeConnectivityHistory, "include-connectivity-history", false, "Include the connectivity history for this client")
