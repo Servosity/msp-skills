@@ -837,6 +837,46 @@
      "min_count": 1
     }
    ]
+  },
+  {
+   "id": "sync-follows-auvik-paging",
+   "class": "sync",
+   "summary": "sync walks every Auvik list page by page: page[first] as the page size, the page[after] cursor taken from links.next, and no page[last] on the request. Without it every sync stopped at page one, reported sync_complete, and a --full sync pruned every mirrored row past the first 100.",
+   "status": "active",
+   "spec-encode": "The press emits empty determinePaginationDefaults and resourceSupportsPagination switches for this spec because Auvik's JSON:API paging (page[first]/page[after] with links.next) is not a pagination shape the profiler detects. Ask upstream to detect page[first]+page[after] as a cursor paginator; until then this hand-fix is the guard.",
+   "why": "Codex round 1 of the 4.35.1 reprint review; executed against the built binary with a two-page fake (.review/probe-sync): before the fix one request, total 2, the page-two device absent from search; after it two requests and all three devices stored. The same empty switches ship on main's 4.30.2 build.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "HAND-FIX(auvik-sync-paging)",
+     "min_count": 3,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "cursorParam: \"page[after]\", cursorType: \"cursor\", limitParam: \"page[first]\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "delete(params, \"page[last]\")",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "if _, ok := auvikForwardPageSize(resource); ok {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auvik_sync_paging_test.go",
+     "contains": "func TestFullSyncFollowsLinksNextAndKeepsLaterPages(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
   }
  ],
  "retired": [

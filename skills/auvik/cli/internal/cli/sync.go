@@ -612,6 +612,9 @@ func syncResource(ctx context.Context, c interface {
 		}
 
 		if resourceSupportsPagination(resource) {
+			// HAND-FIX(auvik-sync-paging): page[last] pages backward from the
+			// end; beside page[first] it asks for both ends of the list at once.
+			delete(params, "page[last]")
 			if pageSize.limitParam != "" {
 				params[pageSize.limitParam] = strconv.Itoa(pageSize.limit)
 			}
@@ -1175,6 +1178,11 @@ func cursorPageHasContinuation(cursorType string, hasMore bool, nextCursor strin
 // determinePaginationDefaults returns the pagination parameter names to use.
 // Values are detected from the API spec by the profiler at generation time.
 func determinePaginationDefaults(resource string) paginationDefaults {
+	// HAND-FIX(auvik-sync-paging): Auvik pages forward with page[first]=N and
+	// a page[after] cursor taken from links.next (auvik-v1 JSON:API paging).
+	if first, ok := auvikForwardPageSize(resource); ok {
+		return paginationDefaults{cursorParam: "page[after]", cursorType: "cursor", limitParam: "page[first]", limit: first}
+	}
 	switch resource {
 	}
 	return paginationDefaults{
@@ -1215,9 +1223,27 @@ func nextSyncPageNumber(cursor string) string {
 }
 
 func resourceSupportsPagination(resource string) bool {
+	// HAND-FIX(auvik-sync-paging): every resource whose list declares page[first].
+	if _, ok := auvikForwardPageSize(resource); ok {
+		return true
+	}
 	switch resource {
 	}
 	return false
+}
+
+// auvikForwardPageSize reports the declared page[first] size for a resource
+// whose Auvik list pages forward. HAND-FIX(auvik-sync-paging).
+func auvikForwardPageSize(resource string) (int, bool) {
+	first, ok := syncResourceParamDefaults(resource)["page[first]"]
+	if !ok {
+		return 0, false
+	}
+	n, err := strconv.Atoi(first)
+	if err != nil || n <= 0 {
+		n = 100
+	}
+	return n, true
 }
 
 // syncResourceSinceParam returns the query parameter name this resource's
