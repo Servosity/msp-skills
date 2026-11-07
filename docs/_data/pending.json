@@ -497,11 +497,11 @@
     "released_hash": "sha256:7825394c1dda9b9e3eba04af2059229523370c7fa525a857db3bb0317be2bd5f"
   },
   "pax8": {
-    "state": "binary-pending",
-    "version": "0.1.8",
-    "latest_tag": "pax8-v0.1.8",
+    "state": "up-to-date",
+    "version": "0.1.9",
+    "latest_tag": "pax8-v0.1.9",
     "current_hash": "sha256:035eaa93381e1e6de54b9e942fa3e4929b2afd913530b51140952d4e6413973a",
-    "released_hash": "sha256:35e893648e443c4c5adea05fe66531fc895c0e9db84fe9a63d6959876d5468df"
+    "released_hash": "sha256:035eaa93381e1e6de54b9e942fa3e4929b2afd913530b51140952d4e6413973a"
   },
   "pipedrive": {
     "state": "binary-pending",
@@ -665,11 +665,11 @@
     "released_hash": "sha256:1f866e4db965fc90ae9dce8ddce2a39cb011373b225a2da2be9edd5fe2b9c895"
   },
   "tactical-rmm": {
-    "state": "binary-pending",
-    "version": "0.1.7",
+    "state": "version-pending",
+    "version": "0.1.8",
     "latest_tag": "tactical-rmm-v0.1.7",
     "current_hash": "sha256:3ec49c78fb8d15ccbf80b22c9e80e3c2555501cb526dc0a7bc554a11d999d02b",
-    "released_hash": "sha256:95c97c291b31986dd7ceddff9a7e7285914986831fac35a0b16ee5c604581bd9"
+    "released_hash": "sha256:3ec49c78fb8d15ccbf80b22c9e80e3c2555501cb526dc0a7bc554a11d999d02b"
   },
   "td-synnex": {
     "state": "binary-pending",
@@ -752,7 +752,7 @@
     "state": "binary-pending",
     "version": "0.1.9",
     "latest_tag": "xero-v0.1.9",
-    "current_hash": "sha256:05a327149057adf0f3e24e242348dde6a9cdb5bf06a82406a7818ff217d97d5d",
+    "current_hash": "sha256:a05ee08b697de2a8e48cecb81b60785e3589d4c5c9c74048996339de1b397442",
     "released_hash": "sha256:0b4e049d840c594ca1b104a70e4487dba643aeaf968057e4925d7eafc17231d5"
   },
   "zammad": {
