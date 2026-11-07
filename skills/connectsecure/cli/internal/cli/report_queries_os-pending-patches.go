@@ -45,7 +45,7 @@ func newReportQueriesOsPendingPatchesCmd(flags *rootFlags) *cobra.Command {
 				return cmd.Help()
 			}
 			if !cmd.Flags().Changed("num-days") && flagNumDays == 0 && !requiredInputWaived() {
-				return fmt.Errorf("required flag \"%s\" not set", "num-days")
+				return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "num-days"))
 			}
 			path := "/r/report_queries/os_pending_patches"
 			c, err := flags.newClient()

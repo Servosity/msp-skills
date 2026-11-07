@@ -36,9 +36,9 @@ var whichIndex = []whichEntry{
 	{Command: "ad-hygiene", Description: "Reads the synced local store (run sync first): per client, risky Active Directory accounts (password never expires, not required, no MFA, stale logon), weak password policies and Azure secure score.", Group: "Scan coverage", WhyItMatters: "Use it for identity-risk reviews across all clients without paging through each AD report."},
 	{Command: "asset-windows-compatibility", Description: "Retrieve asset windows compatibility", Group: "asset-windows-compatibility", WhyItMatters: "Retrieve asset windows compatibility"}, // pp:which-promoted
 	{Command: "compliance", Description: "Retrieve Compliance Types", Group: "compliance", WhyItMatters: "Retrieve Compliance Types"}, // pp:which-promoted
-	{Command: "cve", Description: "Retrieve records", Group: "cve", WhyItMatters: "Retrieve records"},                                 // pp:which-promoted
-	{Command: "session", Description: "Authorize", Group: "session", WhyItMatters: "Authorize"},                                       // pp:which-promoted
-	{Command: "users", Description: "Retrieve Users", Group: "users", WhyItMatters: "Retrieve Users"},                                 // pp:which-promoted
+	{Command: "cve", Description: "Retrieve records", Group: "cve", WhyItMatters: "Retrieve records"}, // pp:which-promoted
+	{Command: "session", Description: "Authorize", Group: "session", WhyItMatters: "Authorize"}, // pp:which-promoted
+	{Command: "users", Description: "Retrieve Users", Group: "users", WhyItMatters: "Retrieve Users"}, // pp:which-promoted
 }
 
 // whichMatch pairs an index entry with its ranking score for a query.

@@ -47,13 +47,13 @@ func newReportQueriesComplianceCheckCountBySectionCmd(flags *rootFlags) *cobra.C
 				return cmd.Help()
 			}
 			if !cmd.Flags().Changed("platform") && flagPlatform == "" && !requiredInputWaived() {
-				return fmt.Errorf("required flag \"%s\" not set", "platform")
+				return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "platform"))
 			}
 			if !cmd.Flags().Changed("compliance-status") && flagComplianceStatus == "" && !requiredInputWaived() {
-				return fmt.Errorf("required flag \"%s\" not set", "compliance-status")
+				return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "compliance-status"))
 			}
 			if !cmd.Flags().Changed("compliance-type") && flagComplianceType == "" && !requiredInputWaived() {
-				return fmt.Errorf("required flag \"%s\" not set", "compliance-type")
+				return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "compliance-type"))
 			}
 			path := "/r/report_queries/compliance_check_count_by_section"
 			c, err := flags.newClient()

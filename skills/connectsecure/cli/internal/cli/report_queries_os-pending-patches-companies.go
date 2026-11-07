@@ -45,7 +45,7 @@ func newReportQueriesOsPendingPatchesCompaniesCmd(flags *rootFlags) *cobra.Comma
 				return cmd.Help()
 			}
 			if !cmd.Flags().Changed("os-name") && flagOsName == "" && !requiredInputWaived() {
-				return fmt.Errorf("required flag \"%s\" not set", "os-name")
+				return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "os-name"))
 			}
 			path := "/r/report_queries/os_pending_patches_companies"
 			c, err := flags.newClient()

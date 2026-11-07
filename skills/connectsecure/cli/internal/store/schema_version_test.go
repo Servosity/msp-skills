@@ -2141,6 +2141,13 @@ func TestMigrate_V8ToV9AddsCandidatesAndEvents(t *testing.T) {
 	if notes != "hand-authored notes" {
 		t.Fatalf("preserved playbook notes = %q, want original", notes)
 	}
+	var ingress string
+	if err := s.DB().QueryRow(`SELECT ingress_surface FROM learning_playbooks WHERE query_family = 'family_X'`).Scan(&ingress); err != nil {
+		t.Fatalf("read upgraded ingress_surface: %v", err)
+	}
+	if ingress != "cli" {
+		t.Fatalf("upgraded ingress_surface = %q, want cli", ingress)
+	}
 
 	// v8 is past the FTS content pin (4) but before the tokenizer pin, so
 	// the trigram rebuild must replace the porter sentinel with leaves.
@@ -6605,27 +6612,14 @@ func TestMigrate_AddsColumnsOnUpgrade_ReportBuilder(t *testing.T) {
 	}
 
 	for _, want := range []string{
-		"global",
-		"message",
 		"status",
-		"company_id",
-		"company_logo",
-		"company_logo_url",
-		"cover_page",
-		"is_global",
-		"reporttype",
-		"tenantid",
-		"updated",
-		"watermark",
 	} {
 		if !hasColumn[want] {
 			t.Fatalf("%s column missing from report_builder after migrate", want)
 		}
 	}
 
-	for _, wantIdx := range []string{
-		"idx_report_builder_company_id",
-	} {
+	for _, wantIdx := range []string{} {
 		var got string
 		if err := s.DB().QueryRow(
 			`SELECT name FROM sqlite_master WHERE type='index' AND name=?`,
@@ -7233,8 +7227,6 @@ func TestMigrate_AddsColumnsOnUpgrade_ReportQueries(t *testing.T) {
 		"total_firewall_assets",
 		"destination",
 		"target_user_count",
-		"parent_id",
-		"bare_id",
 	} {
 		if !hasColumn[want] {
 			t.Fatalf("%s column missing from report_queries after migrate", want)
@@ -7280,8 +7272,6 @@ func TestMigrate_AddsColumnsOnUpgrade_ReportQueries(t *testing.T) {
 		"idx_report_queries_sv_company_id",
 		"idx_report_queries_category_id",
 		"idx_report_queries_tag_rule_id",
-		"idx_report_queries_parent_id",
-		"idx_report_queries_bare_id",
 	} {
 		var got string
 		if err := s.DB().QueryRow(
@@ -7880,5 +7870,1972 @@ func TestMigrate_AddsColumnsOnUpgrade_SyncState(t *testing.T) {
 		).Scan(&got); err != nil {
 			t.Fatalf("%s index missing from sync_state after migrate: %v", wantIdx, err)
 		}
+	}
+}
+
+func TestColumnNeedsBackfill(t *testing.T) {
+	known := map[string]map[string]struct{}{
+		"items": {"id": {}, "name": {}},
+	}
+	cases := []struct {
+		table  string
+		column string
+		want   bool
+	}{
+		{table: "missing", column: "name", want: false},
+		{table: "items", column: "name", want: false},
+		{table: "items", column: "note", want: true},
+		{table: "Items", column: "name", want: false},
+		{table: "items", column: "Name", want: true},
+	}
+	for _, tc := range cases {
+		if got := columnNeedsBackfill(known, tc.table, tc.column); got != tc.want {
+			t.Errorf("columnNeedsBackfill(%q, %q) = %v, want %v", tc.table, tc.column, got, tc.want)
+		}
+	}
+	if columnNeedsBackfill(nil, "items", "name") {
+		t.Fatal("nil map must not need a backfill")
+	}
+	markColumnPresent(known, "items", "note")
+	if columnNeedsBackfill(known, "items", "note") {
+		t.Fatal("marked column must not need a backfill")
+	}
+	markColumnPresent(known, "fresh", "id")
+	if columnNeedsBackfill(known, "fresh", "id") {
+		t.Fatal("column marked on a new table must be present")
+	}
+	noteBackfillProbe(context.Background())
+	noteBackfillAlter(context.Background())
+}
+
+func TestBackfillColumns_OneSnapshotPerOpen(t *testing.T) {
+	want := []struct{ table, column string }{
+		{"sync_state", "last_attempt_complete"},
+		{"sync_state", "scope_key"},
+		{"agent_credentials_mapping", "status"},
+		{"agent_credentials_mapping", "agent_id"},
+		{"agent_credentials_mapping", "company_id"},
+		{"agent_credentials_mapping", "created"},
+		{"agent_credentials_mapping", "credentials_id"},
+		{"agent_credentials_mapping", "tenantid"},
+		{"agent_credentials_mapping", "updated"},
+		{"agent_discoverysettings_mapping", "status"},
+		{"agent_discoverysettings_mapping", "agent_id"},
+		{"agent_discoverysettings_mapping", "company_id"},
+		{"agent_discoverysettings_mapping", "created"},
+		{"agent_discoverysettings_mapping", "discovery_settings_id"},
+		{"agent_discoverysettings_mapping", "tenantid"},
+		{"agent_discoverysettings_mapping", "updated"},
+		{"agents", "status"},
+		{"agents", "ad_audit_enabled"},
+		{"agents", "ad_controller"},
+		{"agents", "agent_type"},
+		{"agents", "agent_version"},
+		{"agents", "company_id"},
+		{"agents", "company_ref_id"},
+		{"agents", "created"},
+		{"agents", "deprecated_time"},
+		{"agents", "host_name"},
+		{"agents", "installed_by"},
+		{"agents", "ip"},
+		{"agents", "is_deprecated"},
+		{"agents", "kernel"},
+		{"agents", "last_ping_time"},
+		{"agents", "last_reported"},
+		{"agents", "last_scanned_time"},
+		{"agents", "mac"},
+		{"agents", "max_thread_count"},
+		{"agents", "name"},
+		{"agents", "nmap_interface"},
+		{"agents", "old_id"},
+		{"agents", "os_name"},
+		{"agents", "os_platform"},
+		{"agents", "os_type"},
+		{"agents", "os_version"},
+		{"agents", "reported"},
+		{"agents", "tenantid"},
+		{"agents", "updated"},
+		{"app_baseline_plan_assets", "status"},
+		{"app_baseline_plan_assets", "action"},
+		{"app_baseline_plan_assets", "company_id"},
+		{"app_baseline_plan_assets", "company_name"},
+		{"app_baseline_plan_assets", "host_name"},
+		{"app_baseline_plan_assets", "importance"},
+		{"app_baseline_plan_assets", "ip"},
+		{"app_baseline_plan_assets", "is_global"},
+		{"app_baseline_plan_assets", "os_type"},
+		{"app_baseline_plan_assets", "product"},
+		{"app_baseline_plan_assets", "tenantid"},
+		{"app_baseline_plan_company", "status"},
+		{"app_baseline_plan_company", "action"},
+		{"app_baseline_plan_company", "asset_count"},
+		{"app_baseline_plan_company", "companies"},
+		{"app_baseline_plan_company", "company_id"},
+		{"app_baseline_plan_company", "is_global"},
+		{"app_baseline_plan_company", "os_type"},
+		{"app_baseline_plan_company", "product"},
+		{"app_baseline_plan_company", "tenantid"},
+		{"app_baseline_plan_company", "type"},
+		{"app_baseline_plan_global", "status"},
+		{"app_baseline_plan_global", "action"},
+		{"app_baseline_plan_global", "asset_count"},
+		{"app_baseline_plan_global", "companies"},
+		{"app_baseline_plan_global", "company_id"},
+		{"app_baseline_plan_global", "is_global"},
+		{"app_baseline_plan_global", "os_type"},
+		{"app_baseline_plan_global", "product"},
+		{"app_baseline_plan_global", "tenantid"},
+		{"app_baseline_plan_global", "type"},
+		{"application_baseline_rules", "status"},
+		{"application_baseline_rules", "company_id"},
+		{"application_baseline_rules", "created"},
+		{"application_baseline_rules", "is_global"},
+		{"application_baseline_rules", "name"},
+		{"application_baseline_rules", "old_company_id"},
+		{"application_baseline_rules", "old_id"},
+		{"application_baseline_rules", "os_name"},
+		{"application_baseline_rules", "os_type"},
+		{"application_baseline_rules", "tenantid"},
+		{"application_baseline_rules", "type"},
+		{"application_baseline_rules", "updated"},
+		{"asset_firewall_policy", "status"},
+		{"asset_firewall_policy", "asset_id"},
+		{"asset_firewall_policy", "company_id"},
+		{"asset_firewall_policy", "created"},
+		{"asset_firewall_policy", "last_updated"},
+		{"asset_firewall_policy", "path"},
+		{"asset_firewall_policy", "policy_status"},
+		{"asset_firewall_policy", "policy_type"},
+		{"asset_firewall_policy", "tenantid"},
+		{"asset_firewall_policy", "updated"},
+		{"asset_installed_drivers", "status"},
+		{"asset_installed_drivers", "asset_id"},
+		{"asset_installed_drivers", "company_id"},
+		{"asset_installed_drivers", "created"},
+		{"asset_installed_drivers", "description"},
+		{"asset_installed_drivers", "device_name"},
+		{"asset_installed_drivers", "inf"},
+		{"asset_installed_drivers", "manufacturer"},
+		{"asset_installed_drivers", "provider"},
+		{"asset_installed_drivers", "tenantid"},
+		{"asset_installed_drivers", "updated"},
+		{"asset_installed_drivers", "version"},
+		{"asset_interface", "status"},
+		{"asset_interface", "address"},
+		{"asset_interface", "asset_id"},
+		{"asset_interface", "broadcast"},
+		{"asset_interface", "company_id"},
+		{"asset_interface", "created"},
+		{"asset_interface", "description"},
+		{"asset_interface", "friendly_name"},
+		{"asset_interface", "interface"},
+		{"asset_interface", "linkspeed"},
+		{"asset_interface", "mac"},
+		{"asset_interface", "mask"},
+		{"asset_interface", "name"},
+		{"asset_interface", "tenantid"},
+		{"asset_interface", "updated"},
+		{"asset_msdt", "status"},
+		{"asset_msdt", "asset_id"},
+		{"asset_msdt", "company_id"},
+		{"asset_msdt", "created"},
+		{"asset_msdt", "isvul"},
+		{"asset_msdt", "key"},
+		{"asset_msdt", "name"},
+		{"asset_msdt", "path"},
+		{"asset_msdt", "remediation"},
+		{"asset_msdt", "tenantid"},
+		{"asset_msdt", "type"},
+		{"asset_msdt", "updated"},
+		{"asset_ports", "status"},
+		{"asset_ports", "asset_id"},
+		{"asset_ports", "company_id"},
+		{"asset_ports", "created"},
+		{"asset_ports", "is_secure"},
+		{"asset_ports", "port"},
+		{"asset_ports", "product"},
+		{"asset_ports", "protocol"},
+		{"asset_ports", "service"},
+		{"asset_ports", "tenantid"},
+		{"asset_ports", "updated"},
+		{"asset_ports", "vul_count"},
+		{"asset_security_report_data", "status"},
+		{"asset_security_report_data", "asset_id"},
+		{"asset_security_report_data", "company_id"},
+		{"asset_security_report_data", "created"},
+		{"asset_security_report_data", "evidence"},
+		{"asset_security_report_data", "name"},
+		{"asset_security_report_data", "tenantid"},
+		{"asset_security_report_data", "updated"},
+		{"asset_security_report_data", "value"},
+		{"asset_shares", "status"},
+		{"asset_shares", "asset_id"},
+		{"asset_shares", "company_id"},
+		{"asset_shares", "created"},
+		{"asset_shares", "description"},
+		{"asset_shares", "name"},
+		{"asset_shares", "path"},
+		{"asset_shares", "tenantid"},
+		{"asset_shares", "updated"},
+		{"asset_storages", "status"},
+		{"asset_storages", "asset_id"},
+		{"asset_storages", "company_id"},
+		{"asset_storages", "created"},
+		{"asset_storages", "device_id"},
+		{"asset_storages", "encrypted"},
+		{"asset_storages", "file_system"},
+		{"asset_storages", "free_space"},
+		{"asset_storages", "mountpoint"},
+		{"asset_storages", "size"},
+		{"asset_storages", "tenantid"},
+		{"asset_storages", "type"},
+		{"asset_storages", "updated"},
+		{"asset_storages", "used"},
+		{"asset_unqouted_services", "status"},
+		{"asset_unqouted_services", "asset_id"},
+		{"asset_unqouted_services", "company_id"},
+		{"asset_unqouted_services", "created"},
+		{"asset_unqouted_services", "display_name"},
+		{"asset_unqouted_services", "name"},
+		{"asset_unqouted_services", "path"},
+		{"asset_unqouted_services", "service_type"},
+		{"asset_unqouted_services", "start_type"},
+		{"asset_unqouted_services", "tenantid"},
+		{"asset_unqouted_services", "unique_id"},
+		{"asset_unqouted_services", "updated"},
+		{"asset_user_shares", "status"},
+		{"asset_user_shares", "access_control_type"},
+		{"asset_user_shares", "asset_id"},
+		{"asset_user_shares", "company_id"},
+		{"asset_user_shares", "created"},
+		{"asset_user_shares", "file_system_rights"},
+		{"asset_user_shares", "identity_reference"},
+		{"asset_user_shares", "inheritance_flag"},
+		{"asset_user_shares", "is_inherited"},
+		{"asset_user_shares", "name"},
+		{"asset_user_shares", "propagation_flags"},
+		{"asset_user_shares", "tenantid"},
+		{"asset_user_shares", "updated"},
+		{"asset_video_info", "status"},
+		{"asset_video_info", "asset_id"},
+		{"asset_video_info", "color_depth"},
+		{"asset_video_info", "company_id"},
+		{"asset_video_info", "created"},
+		{"asset_video_info", "driver"},
+		{"asset_video_info", "driver_version"},
+		{"asset_video_info", "manufacturer"},
+		{"asset_video_info", "model"},
+		{"asset_video_info", "series"},
+		{"asset_video_info", "tenantid"},
+		{"asset_video_info", "updated"},
+		{"asset_video_info", "video_mode"},
+		{"asset_view", "status"},
+		{"asset_view", "ad_check"},
+		{"asset_view", "address_type"},
+		{"asset_view", "agent_id"},
+		{"asset_view", "agent_type"},
+		{"asset_view", "architecture"},
+		{"asset_view", "asset_category"},
+		{"asset_view", "asset_logon_time"},
+		{"asset_view", "asset_logon_user"},
+		{"asset_view", "asset_owner"},
+		{"asset_view", "asset_type"},
+		{"asset_view", "auth_scan_status"},
+		{"asset_view", "auto_update"},
+		{"asset_view", "avg_risk_score"},
+		{"asset_view", "cisa_vul"},
+		{"asset_view", "codename"},
+		{"asset_view", "company_id"},
+		{"asset_view", "company_name"},
+		{"asset_view", "cpu_core"},
+		{"asset_view", "created"},
+		{"asset_view", "cred_id"},
+		{"asset_view", "critical"},
+		{"asset_view", "custom_profile_id"},
+		{"asset_view", "custom_profile_name"},
+		{"asset_view", "deprecated_time"},
+		{"asset_view", "discovered"},
+		{"asset_view", "discovered_protocols"},
+		{"asset_view", "domain"},
+		{"asset_view", "epss_vul"},
+		{"asset_view", "hardware_model"},
+		{"asset_view", "high"},
+		{"asset_view", "host_name"},
+		{"asset_view", "icon"},
+		{"asset_view", "importance"},
+		{"asset_view", "ip"},
+		{"asset_view", "ip_extra"},
+		{"asset_view", "is_assessment"},
+		{"asset_view", "is_deprecated"},
+		{"asset_view", "is_firewall"},
+		{"asset_view", "kernel"},
+		{"asset_view", "last_discovered_time"},
+		{"asset_view", "logged_in_user"},
+		{"asset_view", "logged_user_time"},
+		{"asset_view", "low"},
+		{"asset_view", "mac"},
+		{"asset_view", "manufacturer"},
+		{"asset_view", "max_risk_score"},
+		{"asset_view", "medium"},
+		{"asset_view", "name"},
+		{"asset_view", "online_status"},
+		{"asset_view", "os_autoupdate"},
+		{"asset_view", "os_build"},
+		{"asset_view", "os_full_name"},
+		{"asset_view", "os_install_date"},
+		{"asset_view", "os_model"},
+		{"asset_view", "os_name"},
+		{"asset_view", "os_vendor"},
+		{"asset_view", "os_version"},
+		{"asset_view", "physical_memory"},
+		{"asset_view", "platform"},
+		{"asset_view", "security_grade"},
+		{"asset_view", "serial_number"},
+		{"asset_view", "settings_name"},
+		{"asset_view", "snmp_cred_id"},
+		{"asset_view", "system_type"},
+		{"asset_view", "tenantid"},
+		{"asset_view", "total_vul"},
+		{"asset_view", "updated"},
+		{"asset_view", "uptime"},
+		{"asset_view", "visible_name"},
+		{"asset_windows_compatibility", "asset_id"},
+		{"asset_windows_compatibility", "company_id"},
+		{"asset_windows_compatibility", "created"},
+		{"asset_windows_compatibility", "evidence"},
+		{"asset_windows_compatibility", "minimum_required"},
+		{"asset_windows_compatibility", "name"},
+		{"asset_windows_compatibility", "status"},
+		{"asset_windows_compatibility", "tenantid"},
+		{"asset_windows_compatibility", "updated"},
+		{"asset_windows_reboot_required", "status"},
+		{"asset_windows_reboot_required", "asset_id"},
+		{"asset_windows_reboot_required", "company_id"},
+		{"asset_windows_reboot_required", "created"},
+		{"asset_windows_reboot_required", "mtime"},
+		{"asset_windows_reboot_required", "name"},
+		{"asset_windows_reboot_required", "tenantid"},
+		{"asset_windows_reboot_required", "updated"},
+		{"assets", "affected_assets"},
+		{"assets", "affected_companies"},
+		{"assets", "critical_problems"},
+		{"assets", "epss_vuls"},
+		{"assets", "fix"},
+		{"assets", "high_problems"},
+		{"assets", "low_problems"},
+		{"assets", "medium_problems"},
+		{"assets", "offline_assets_count"},
+		{"assets", "online_assets_count"},
+		{"assets", "os_name"},
+		{"assets", "patch_status"},
+		{"assets", "product"},
+		{"assets", "remediation_action"},
+		{"assets", "severity"},
+		{"assets", "software_type"},
+		{"assets", "solution_id"},
+		{"assets", "total_count"},
+		{"assets", "total_problems"},
+		{"assets", "unknown_assets_count"},
+		{"assets", "url"},
+		{"assets", "view_evidence"},
+		{"attack_surface_domain", "status"},
+		{"attack_surface_domain", "company_id"},
+		{"attack_surface_domain", "created"},
+		{"attack_surface_domain", "domain"},
+		{"attack_surface_domain", "name"},
+		{"attack_surface_domain", "scanlater"},
+		{"attack_surface_domain", "tenantid"},
+		{"attack_surface_domain", "updated"},
+		{"attack_surface_results", "status"},
+		{"attack_surface_results", "attack_surface_domain_id"},
+		{"attack_surface_results", "company_id"},
+		{"attack_surface_results", "created"},
+		{"attack_surface_results", "name"},
+		{"attack_surface_results", "tenantid"},
+		{"attack_surface_results", "updated"},
+		{"attack_surface_results", "website"},
+		{"backup_software", "status"},
+		{"backup_software", "company_id"},
+		{"backup_software", "created"},
+		{"backup_software", "description"},
+		{"backup_software", "exculde"},
+		{"backup_software", "manufacturer"},
+		{"backup_software", "name"},
+		{"backup_software", "old_company_id"},
+		{"backup_software", "old_id"},
+		{"backup_software", "regex"},
+		{"backup_software", "tenantid"},
+		{"backup_software", "types"},
+		{"backup_software", "updated"},
+		{"backup_software", "year_of_release"},
+		{"bios_info", "status"},
+		{"bios_info", "asset_id"},
+		{"bios_info", "company_id"},
+		{"bios_info", "created"},
+		{"bios_info", "name"},
+		{"bios_info", "tenantid"},
+		{"bios_info", "updated"},
+		{"bios_info", "value"},
+		{"browser_extensions", "status"},
+		{"browser_extensions", "asset_id"},
+		{"browser_extensions", "browser_type"},
+		{"browser_extensions", "company_id"},
+		{"browser_extensions", "created"},
+		{"browser_extensions", "malicious"},
+		{"browser_extensions", "name"},
+		{"browser_extensions", "path"},
+		{"browser_extensions", "tenantid"},
+		{"browser_extensions", "unique_id"},
+		{"browser_extensions", "updated"},
+		{"browser_extensions", "version"},
+		{"ciphers_view", "status"},
+		{"ciphers_view", "asset_id"},
+		{"ciphers_view", "asset_type"},
+		{"ciphers_view", "company_id"},
+		{"ciphers_view", "company_name"},
+		{"ciphers_view", "created"},
+		{"ciphers_view", "host_name"},
+		{"ciphers_view", "ip"},
+		{"ciphers_view", "port"},
+		{"ciphers_view", "tenantid"},
+		{"ciphers_view", "updated"},
+		{"ciphers_view", "version"},
+		{"companies", "status"},
+		{"companies", "address_city"},
+		{"companies", "address_country"},
+		{"companies", "address_state"},
+		{"companies", "address_zipcode"},
+		{"companies", "created"},
+		{"companies", "customer_name"},
+		{"companies", "description"},
+		{"companies", "domain"},
+		{"companies", "is_assessment"},
+		{"companies", "is_deleted"},
+		{"companies", "is_migrated"},
+		{"companies", "name"},
+		{"companies", "old_id"},
+		{"companies", "source"},
+		{"companies", "source_id"},
+		{"companies", "tenantid"},
+		{"companies", "updated"},
+		{"company_mappings", "status"},
+		{"company_mappings", "company_id"},
+		{"company_mappings", "configuration"},
+		{"company_mappings", "configuration_id"},
+		{"company_mappings", "configuration_name"},
+		{"company_mappings", "consent_enabled"},
+		{"company_mappings", "created"},
+		{"company_mappings", "credential_id"},
+		{"company_mappings", "dest_company_id"},
+		{"company_mappings", "dest_company_name"},
+		{"company_mappings", "enable_notification"},
+		{"company_mappings", "integration_name"},
+		{"company_mappings", "no_notification"},
+		{"company_mappings", "old_company_id"},
+		{"company_mappings", "old_credential_id"},
+		{"company_mappings", "site_id"},
+		{"company_mappings", "site_name"},
+		{"company_mappings", "source_company_name"},
+		{"company_mappings", "tenantid"},
+		{"company_mappings", "updated"},
+		{"company_stats", "status"},
+		{"company_stats", "ad_last_scan_time"},
+		{"company_stats", "company_id"},
+		{"company_stats", "created"},
+		{"company_stats", "date"},
+		{"company_stats", "tenantid"},
+		{"company_stats", "total_assets"},
+		{"company_stats", "total_assets_external"},
+		{"company_stats", "updated"},
+		{"compliance", "name"},
+		{"compliance", "table_name"},
+		{"compliance_assessment", "status"},
+		{"compliance_assessment", "company_id"},
+		{"compliance_assessment", "completed_section"},
+		{"compliance_assessment", "completed_time"},
+		{"compliance_assessment", "created"},
+		{"compliance_assessment", "current_section"},
+		{"compliance_assessment", "template_name"},
+		{"compliance_assessment", "template_status"},
+		{"compliance_assessment", "tenantid"},
+		{"compliance_assessment", "type"},
+		{"compliance_assessment", "updated"},
+		{"credentials", "status"},
+		{"credentials", "address"},
+		{"credentials", "address_type"},
+		{"credentials", "asset_id"},
+		{"credentials", "company_id"},
+		{"credentials", "created"},
+		{"credentials", "credential_type"},
+		{"credentials", "failure_reason"},
+		{"credentials", "is_excluded"},
+		{"credentials", "is_valid"},
+		{"credentials", "name"},
+		{"credentials", "old_agent_id"},
+		{"credentials", "old_id"},
+		{"credentials", "os_type"},
+		{"credentials", "tenantid"},
+		{"credentials", "updated"},
+		{"custom_domains", "status"},
+		{"custom_domains", "base_url"},
+		{"custom_domains", "company_id"},
+		{"custom_domains", "configured_domain"},
+		{"custom_domains", "created"},
+		{"custom_domains", "failure_reason"},
+		{"custom_domains", "old_id"},
+		{"custom_domains", "tenantid"},
+		{"custom_domains", "updated"},
+		{"custom_profile", "status"},
+		{"custom_profile", "company_id"},
+		{"custom_profile", "created"},
+		{"custom_profile", "custom_profile_type"},
+		{"custom_profile", "is_global"},
+		{"custom_profile", "name"},
+		{"custom_profile", "old_company_id"},
+		{"custom_profile", "old_id"},
+		{"custom_profile", "profile_type"},
+		{"custom_profile", "profile_value"},
+		{"custom_profile", "protocols"},
+		{"custom_profile", "tenantid"},
+		{"custom_profile", "updated"},
+		{"custom_ticketing_template", "status"},
+		{"custom_ticketing_template", "company_id"},
+		{"custom_ticketing_template", "created"},
+		{"custom_ticketing_template", "template_name"},
+		{"custom_ticketing_template", "tenantid"},
+		{"custom_ticketing_template", "updated"},
+		{"discovery_settings", "status"},
+		{"discovery_settings", "address"},
+		{"discovery_settings", "address_type"},
+		{"discovery_settings", "company_id"},
+		{"discovery_settings", "created"},
+		{"discovery_settings", "custom_profile_id"},
+		{"discovery_settings", "discovery_settings_type"},
+		{"discovery_settings", "is_excluded"},
+		{"discovery_settings", "mac_address"},
+		{"discovery_settings", "mac_address_exclude"},
+		{"discovery_settings", "name"},
+		{"discovery_settings", "old_agent_id"},
+		{"discovery_settings", "old_company_id"},
+		{"discovery_settings", "old_id"},
+		{"discovery_settings", "old_profile_id"},
+		{"discovery_settings", "scan_later"},
+		{"discovery_settings", "target_ip"},
+		{"discovery_settings", "tenantid"},
+		{"discovery_settings", "updated"},
+		{"discovery_settings", "validate_ip"},
+		{"edr", "status"},
+		{"edr", "antivirus"},
+		{"edr", "company_id"},
+		{"edr", "created"},
+		{"edr", "edr_description"},
+		{"edr", "is_antirandsome"},
+		{"edr", "is_firewall"},
+		{"edr", "manufacturer"},
+		{"edr", "name"},
+		{"edr", "old_company_id"},
+		{"edr", "old_id"},
+		{"edr", "regex"},
+		{"edr", "tenantid"},
+		{"edr", "updated"},
+		{"edr", "year_of_release"},
+		{"event_set", "status"},
+		{"event_set", "created"},
+		{"event_set", "group_by"},
+		{"event_set", "is_default"},
+		{"event_set", "name"},
+		{"event_set", "old_id"},
+		{"event_set", "tenantid"},
+		{"event_set", "updated"},
+		{"firewall_groups", "status"},
+		{"firewall_groups", "asset_id"},
+		{"firewall_groups", "company_id"},
+		{"firewall_groups", "created"},
+		{"firewall_groups", "description"},
+		{"firewall_groups", "group_id"},
+		{"firewall_groups", "group_type"},
+		{"firewall_groups", "name"},
+		{"firewall_groups", "tenantid"},
+		{"firewall_groups", "updated"},
+		{"firewall_interfaces", "status"},
+		{"firewall_interfaces", "asset_id"},
+		{"firewall_interfaces", "company_id"},
+		{"firewall_interfaces", "created"},
+		{"firewall_interfaces", "description"},
+		{"firewall_interfaces", "interface_id"},
+		{"firewall_interfaces", "interface_type"},
+		{"firewall_interfaces", "ip"},
+		{"firewall_interfaces", "name"},
+		{"firewall_interfaces", "parent_interface"},
+		{"firewall_interfaces", "tenantid"},
+		{"firewall_interfaces", "updated"},
+		{"firewall_license", "status"},
+		{"firewall_license", "asset_id"},
+		{"firewall_license", "company_id"},
+		{"firewall_license", "created"},
+		{"firewall_license", "expires"},
+		{"firewall_license", "license_id"},
+		{"firewall_license", "name"},
+		{"firewall_license", "tenantid"},
+		{"firewall_license", "type"},
+		{"firewall_license", "updated"},
+		{"firewall_license", "version"},
+		{"firewall_rules", "status"},
+		{"firewall_rules", "action"},
+		{"firewall_rules", "asset_id"},
+		{"firewall_rules", "company_id"},
+		{"firewall_rules", "created"},
+		{"firewall_rules", "description"},
+		{"firewall_rules", "destination_port"},
+		{"firewall_rules", "name"},
+		{"firewall_rules", "protocol"},
+		{"firewall_rules", "rule_id"},
+		{"firewall_rules", "rule_type"},
+		{"firewall_rules", "source_port"},
+		{"firewall_rules", "tenantid"},
+		{"firewall_rules", "updated"},
+		{"firewall_users", "status"},
+		{"firewall_users", "asset_id"},
+		{"firewall_users", "company_id"},
+		{"firewall_users", "created"},
+		{"firewall_users", "description"},
+		{"firewall_users", "email"},
+		{"firewall_users", "name"},
+		{"firewall_users", "tenantid"},
+		{"firewall_users", "updated"},
+		{"firewall_users", "user_id"},
+		{"firewall_users", "user_type"},
+		{"firewall_zones", "status"},
+		{"firewall_zones", "asset_id"},
+		{"firewall_zones", "company_id"},
+		{"firewall_zones", "created"},
+		{"firewall_zones", "description"},
+		{"firewall_zones", "name"},
+		{"firewall_zones", "tenantid"},
+		{"firewall_zones", "updated"},
+		{"firewall_zones", "zone_id"},
+		{"firewall_zones", "zone_type"},
+		{"integration_credentials", "status"},
+		{"integration_credentials", "company_id"},
+		{"integration_credentials", "created"},
+		{"integration_credentials", "integration_name"},
+		{"integration_credentials", "name"},
+		{"integration_credentials", "old_company_id"},
+		{"integration_credentials", "old_id"},
+		{"integration_credentials", "tenantid"},
+		{"integration_credentials", "ticket_url"},
+		{"integration_credentials", "updated"},
+		{"integration_rules", "status"},
+		{"integration_rules", "created"},
+		{"integration_rules", "credential_id"},
+		{"integration_rules", "event_set_id"},
+		{"integration_rules", "integration_name"},
+		{"integration_rules", "is_default"},
+		{"integration_rules", "name"},
+		{"integration_rules", "old_credential_id"},
+		{"integration_rules", "old_id"},
+		{"integration_rules", "tenantid"},
+		{"integration_rules", "updated"},
+		{"jobs_view", "status"},
+		{"jobs_view", "agent_host_name"},
+		{"jobs_view", "agent_id"},
+		{"jobs_view", "agent_ip"},
+		{"jobs_view", "company_id"},
+		{"jobs_view", "company_name"},
+		{"jobs_view", "created"},
+		{"jobs_view", "description"},
+		{"jobs_view", "job_id"},
+		{"jobs_view", "name"},
+		{"jobs_view", "tenantid"},
+		{"jobs_view", "type"},
+		{"jobs_view", "updated"},
+		{"patching", "message"},
+		{"patching", "status"},
+		{"pii_scan_settings", "status"},
+		{"pii_scan_settings", "agent_id"},
+		{"pii_scan_settings", "company_id"},
+		{"pii_scan_settings", "created"},
+		{"pii_scan_settings", "data_store"},
+		{"pii_scan_settings", "name"},
+		{"pii_scan_settings", "old_agent_id"},
+		{"pii_scan_settings", "old_company_id"},
+		{"pii_scan_settings", "old_id"},
+		{"pii_scan_settings", "scan_type"},
+		{"pii_scan_settings", "tenantid"},
+		{"pii_scan_settings", "updated"},
+		{"report_builder", "status"},
+		{"report_jobs_view", "status"},
+		{"report_jobs_view", "company_id"},
+		{"report_jobs_view", "company_name"},
+		{"report_jobs_view", "created"},
+		{"report_jobs_view", "description"},
+		{"report_jobs_view", "job_id"},
+		{"report_jobs_view", "tenantid"},
+		{"report_jobs_view", "type"},
+		{"report_jobs_view", "updated"},
+		{"report_queries", "ad_connect_enabled"},
+		{"report_queries", "domain"},
+		{"report_queries", "tenant_id"},
+		{"report_queries", "tenant_name"},
+		{"report_queries", "total_records"},
+		{"report_queries", "account_disabled"},
+		{"report_queries", "ad_domains_id"},
+		{"report_queries", "ad_ous_id"},
+		{"report_queries", "company_id"},
+		{"report_queries", "company_mapping_id"},
+		{"report_queries", "created"},
+		{"report_queries", "displayname"},
+		{"report_queries", "distinguished_name"},
+		{"report_queries", "dns_host_name"},
+		{"report_queries", "domain_name"},
+		{"report_queries", "enabled"},
+		{"report_queries", "host_name"},
+		{"report_queries", "is_critical_system_object"},
+		{"report_queries", "is_managed"},
+		{"report_queries", "last_logon_timestamp"},
+		{"report_queries", "linked_ous"},
+		{"report_queries", "locked_out"},
+		{"report_queries", "mac"},
+		{"report_queries", "manufacturer"},
+		{"report_queries", "name"},
+		{"report_queries", "object_guid"},
+		{"report_queries", "os_name"},
+		{"report_queries", "os_version"},
+		{"report_queries", "password_expired"},
+		{"report_queries", "password_last_set"},
+		{"report_queries", "password_never_expires"},
+		{"report_queries", "password_not_required"},
+		{"report_queries", "sam_account_name"},
+		{"report_queries", "source"},
+		{"report_queries", "tenantid"},
+		{"report_queries", "updated"},
+		{"report_queries", "user_account_control"},
+		{"report_queries", "when_changed"},
+		{"report_queries", "when_created"},
+		{"report_queries", "domain_distinguished_name"},
+		{"report_queries", "domain_id"},
+		{"report_queries", "domain_sid"},
+		{"report_queries", "ads_path"},
+		{"report_queries", "canonical_name"},
+		{"report_queries", "company_name"},
+		{"report_queries", "display_name"},
+		{"report_queries", "gpc_files_sys_path"},
+		{"report_queries", "gpc_functionality_version"},
+		{"report_queries", "gpo_settings"},
+		{"report_queries", "gpo_status"},
+		{"report_queries", "instance_type"},
+		{"report_queries", "show_in_advance_view_only"},
+		{"report_queries", "usn_changed"},
+		{"report_queries", "usn_created"},
+		{"report_queries", "version_number"},
+		{"report_queries", "account_expire_date"},
+		{"report_queries", "account_lockout_time"},
+		{"report_queries", "bad_logon_count"},
+		{"report_queries", "cannot_change_password"},
+		{"report_queries", "country"},
+		{"report_queries", "department"},
+		{"report_queries", "description"},
+		{"report_queries", "email_address"},
+		{"report_queries", "last_bad_password_attempt"},
+		{"report_queries", "logon_count"},
+		{"report_queries", "mfa_enabled"},
+		{"report_queries", "ms_exch_user_account_control"},
+		{"report_queries", "other_mails"},
+		{"report_queries", "password_policies"},
+		{"report_queries", "sid"},
+		{"report_queries", "when_modified"},
+		{"report_queries", "category"},
+		{"report_queries", "common_name"},
+		{"report_queries", "empty"},
+		{"report_queries", "group_type"},
+		{"report_queries", "is_security_enabled"},
+		{"report_queries", "mail"},
+		{"report_queries", "mail_enabled"},
+		{"report_queries", "managed_by"},
+		{"report_queries", "object_sid"},
+		{"report_queries", "proxy_addresses"},
+		{"report_queries", "resource_behavior_options"},
+		{"report_queries", "resource_provisioning_options"},
+		{"report_queries", "scope"},
+		{"report_queries", "visibility"},
+		{"report_queries", "on_premises_sync_enabled"},
+		{"report_queries", "ou_name"},
+		{"report_queries", "complexity_enabled"},
+		{"report_queries", "lockout_duration"},
+		{"report_queries", "lockout_observation_window"},
+		{"report_queries", "lockout_threshold"},
+		{"report_queries", "max_password_age"},
+		{"report_queries", "min_password_age"},
+		{"report_queries", "min_password_length"},
+		{"report_queries", "password_history_count"},
+		{"report_queries", "reversible_encryption_enabled"},
+		{"report_queries", "role_template_id"},
+		{"report_queries", "user_count"},
+		{"report_queries", "role_display_name"},
+		{"report_queries", "role_id"},
+		{"report_queries", "user_display_name"},
+		{"report_queries", "user_distinguished_name"},
+		{"report_queries", "user_email_address"},
+		{"report_queries", "user_id"},
+		{"report_queries", "user_name"},
+		{"report_queries", "user_sid"},
+		{"report_queries", "build_in_admin"},
+		{"report_queries", "city"},
+		{"report_queries", "home_directory"},
+		{"report_queries", "home_drive"},
+		{"report_queries", "office_location"},
+		{"report_queries", "password_expiry_date"},
+		{"report_queries", "user_principal_name"},
+		{"report_queries", "access_granted"},
+		{"report_queries", "account_domain"},
+		{"report_queries", "account_name"},
+		{"report_queries", "agent_id"},
+		{"report_queries", "channel"},
+		{"report_queries", "client_address"},
+		{"report_queries", "client_name"},
+		{"report_queries", "computer_name"},
+		{"report_queries", "datetime"},
+		{"report_queries", "ds_name"},
+		{"report_queries", "event_id"},
+		{"report_queries", "event_type"},
+		{"report_queries", "file_name"},
+		{"report_queries", "ip_address"},
+		{"report_queries", "ip_port"},
+		{"report_queries", "keywords"},
+		{"report_queries", "level"},
+		{"report_queries", "link_name"},
+		{"report_queries", "new_object_dn"},
+		{"report_queries", "new_target_username"},
+		{"report_queries", "object_class"},
+		{"report_queries", "object_dn"},
+		{"report_queries", "old_object_dn"},
+		{"report_queries", "old_target_user_name"},
+		{"report_queries", "peer_mac"},
+		{"report_queries", "pid"},
+		{"report_queries", "process_name"},
+		{"report_queries", "provider_guid"},
+		{"report_queries", "provider_name"},
+		{"report_queries", "service_name"},
+		{"report_queries", "service_sid"},
+		{"report_queries", "session_name"},
+		{"report_queries", "ssid"},
+		{"report_queries", "status"},
+		{"report_queries", "subject_domain_name"},
+		{"report_queries", "subject_logon_id"},
+		{"report_queries", "subject_user_name"},
+		{"report_queries", "subject_user_sid"},
+		{"report_queries", "target_domain_name"},
+		{"report_queries", "target_info"},
+		{"report_queries", "target_server_name"},
+		{"report_queries", "target_sid"},
+		{"report_queries", "target_user_name"},
+		{"report_queries", "task"},
+		{"report_queries", "tid"},
+		{"report_queries", "critical_problems"},
+		{"report_queries", "high_problems"},
+		{"report_queries", "low_problems"},
+		{"report_queries", "medium_problems"},
+		{"report_queries", "total_application"},
+		{"report_queries", "affected_assets"},
+		{"report_queries", "affected_companies"},
+		{"report_queries", "affected_operating_systems"},
+		{"report_queries", "software_name"},
+		{"report_queries", "software_type"},
+		{"report_queries", "software_version"},
+		{"report_queries", "total_count"},
+		{"report_queries", "total_problems"},
+		{"report_queries", "affected_software"},
+		{"report_queries", "cvss_score"},
+		{"report_queries", "severity"},
+		{"report_queries", "title"},
+		{"report_queries", "unconfirmed"},
+		{"report_queries", "fix"},
+		{"report_queries", "software_id"},
+		{"report_queries", "url"},
+		{"report_queries", "ip"},
+		{"report_queries", "online_status"},
+		{"report_queries", "assessment_justification"},
+		{"report_queries", "compliance_id"},
+		{"report_queries", "evidence"},
+		{"report_queries", "evidence_quality"},
+		{"report_queries", "implementation_status"},
+		{"report_queries", "maturity"},
+		{"report_queries", "section"},
+		{"report_queries", "sub_section"},
+		{"report_queries", "test_type"},
+		{"report_queries", "asset_id"},
+		{"report_queries", "value"},
+		{"report_queries", "base_score"},
+		{"report_queries", "discovered"},
+		{"report_queries", "epss_score"},
+		{"report_queries", "exploitability_score"},
+		{"report_queries", "impact_score"},
+		{"report_queries", "last_discovered_time"},
+		{"report_queries", "port"},
+		{"report_queries", "vul_id"},
+		{"report_queries", "action"},
+		{"report_queries", "app_name"},
+		{"report_queries", "direction"},
+		{"report_queries", "grouping"},
+		{"report_queries", "icmp_types_codes"},
+		{"report_queries", "local_addresses"},
+		{"report_queries", "local_ports"},
+		{"report_queries", "profile_domain"},
+		{"report_queries", "profile_private"},
+		{"report_queries", "profile_public"},
+		{"report_queries", "protocol"},
+		{"report_queries", "remote_addresses"},
+		{"report_queries", "remote_ports"},
+		{"report_queries", "unique_id"},
+		{"report_queries", "chain"},
+		{"report_queries", "destination_addresses"},
+		{"report_queries", "destination_port"},
+		{"report_queries", "filter_name"},
+		{"report_queries", "interface_name"},
+		{"report_queries", "policy"},
+		{"report_queries", "source_address"},
+		{"report_queries", "source_port"},
+		{"report_queries", "address"},
+		{"report_queries", "hotfix_id"},
+		{"report_queries", "install_date"},
+		{"report_queries", "installed_by"},
+		{"report_queries", "installed_on"},
+		{"report_queries", "is_secure"},
+		{"report_queries", "product"},
+		{"report_queries", "service"},
+		{"report_queries", "vul_count"},
+		{"report_queries", "cmdline"},
+		{"report_queries", "cwd"},
+		{"report_queries", "root"},
+		{"report_queries", "state"},
+		{"report_queries", "uid"},
+		{"report_queries", "found"},
+		{"report_queries", "type"},
+		{"report_queries", "process_id"},
+		{"report_queries", "service_type"},
+		{"report_queries", "user_account"},
+		{"report_queries", "critical_vuls_count"},
+		{"report_queries", "diff_key"},
+		{"report_queries", "full_name"},
+		{"report_queries", "high_vuls_count"},
+		{"report_queries", "low_vuls_count"},
+		{"report_queries", "max_kb"},
+		{"report_queries", "medium_vuls_count"},
+		{"report_queries", "os"},
+		{"report_queries", "os_pid"},
+		{"report_queries", "platform"},
+		{"report_queries", "problem_key"},
+		{"report_queries", "publisher"},
+		{"report_queries", "script_output"},
+		{"report_queries", "uninstall_string"},
+		{"report_queries", "date"},
+		{"report_queries", "comment"},
+		{"report_queries", "directory"},
+		{"report_queries", "gid"},
+		{"report_queries", "group_name"},
+		{"report_queries", "logged_in"},
+		{"report_queries", "shell"},
+		{"report_queries", "username"},
+		{"report_queries", "ad_check"},
+		{"report_queries", "agent_type"},
+		{"report_queries", "architecture"},
+		{"report_queries", "asset_category"},
+		{"report_queries", "asset_logon_time"},
+		{"report_queries", "asset_logon_user"},
+		{"report_queries", "asset_owner"},
+		{"report_queries", "asset_type"},
+		{"report_queries", "auth_scan_status"},
+		{"report_queries", "auto_update"},
+		{"report_queries", "codename"},
+		{"report_queries", "configuration_id"},
+		{"report_queries", "cpu_core"},
+		{"report_queries", "cred_id"},
+		{"report_queries", "custom_profile_id"},
+		{"report_queries", "deprecated_time"},
+		{"report_queries", "discoverysettings_id"},
+		{"report_queries", "hardware_model"},
+		{"report_queries", "icon"},
+		{"report_queries", "importance"},
+		{"report_queries", "ip_extra"},
+		{"report_queries", "is_deprecated"},
+		{"report_queries", "is_firewall"},
+		{"report_queries", "kernel"},
+		{"report_queries", "last_ping_time"},
+		{"report_queries", "last_reset_time"},
+		{"report_queries", "logged_in_user"},
+		{"report_queries", "logged_user_time"},
+		{"report_queries", "os_autoupdate"},
+		{"report_queries", "os_build"},
+		{"report_queries", "os_full_name"},
+		{"report_queries", "os_install_date"},
+		{"report_queries", "os_model"},
+		{"report_queries", "os_vendor"},
+		{"report_queries", "physical_memory"},
+		{"report_queries", "scan_status"},
+		{"report_queries", "serial_number"},
+		{"report_queries", "snmp_cred_id"},
+		{"report_queries", "system_type"},
+		{"report_queries", "uptime"},
+		{"report_queries", "visible_name"},
+		{"report_queries", "activity_date_time"},
+		{"report_queries", "activity_display_name"},
+		{"report_queries", "correlation_id"},
+		{"report_queries", "logged_by_service"},
+		{"report_queries", "operation_type"},
+		{"report_queries", "result"},
+		{"report_queries", "result_reason"},
+		{"report_queries", "applies_to"},
+		{"report_queries", "capability_status"},
+		{"report_queries", "consumed_units"},
+		{"report_queries", "free_license"},
+		{"report_queries", "license_friendly_name"},
+		{"report_queries", "sku_id"},
+		{"report_queries", "sku_part_number"},
+		{"report_queries", "active_user_count"},
+		{"report_queries", "azure_tenant_id"},
+		{"report_queries", "created_date_time"},
+		{"report_queries", "current_score"},
+		{"report_queries", "licensed_user_count"},
+		{"report_queries", "max_score"},
+		{"report_queries", "issuer"},
+		{"report_queries", "not_valid_after"},
+		{"report_queries", "not_valid_before"},
+		{"report_queries", "pubkey_bits"},
+		{"report_queries", "pubkey_exponent"},
+		{"report_queries", "pubkey_modulus"},
+		{"report_queries", "pubkey_type"},
+		{"report_queries", "selfsignedcertificate"},
+		{"report_queries", "ssl_cert_expired"},
+		{"report_queries", "ssl_cert_expiring_in_30_days"},
+		{"report_queries", "subject"},
+		{"report_queries", "problem_count"},
+		{"report_queries", "compliance_status"},
+		{"report_queries", "asset_count"},
+		{"report_queries", "company_count"},
+		{"report_queries", "compliant_count"},
+		{"report_queries", "manual_compliant_count"},
+		{"report_queries", "manual_non_compliant_count"},
+		{"report_queries", "non_compliant_count"},
+		{"report_queries", "evidence_id"},
+		{"report_queries", "remediation_steps"},
+		{"report_queries", "remediation_type"},
+		{"report_queries", "total_compliant_count"},
+		{"report_queries", "checks"},
+		{"report_queries", "compliance_description"},
+		{"report_queries", "command"},
+		{"report_queries", "cron_file"},
+		{"report_queries", "total"},
+		{"report_queries", "description_count"},
+		{"report_queries", "credential_id"},
+		{"report_queries", "ticket_id"},
+		{"report_queries", "ticket_number"},
+		{"report_queries", "config_name"},
+		{"report_queries", "critical"},
+		{"report_queries", "grade"},
+		{"report_queries", "high"},
+		{"report_queries", "low"},
+		{"report_queries", "medium"},
+		{"report_queries", "extrainfo"},
+		{"report_queries", "problem_name"},
+		{"report_queries", "key"},
+		{"report_queries", "ou_display_name"},
+		{"report_queries", "ous_id"},
+		{"report_queries", "ous_name"},
+		{"report_queries", "parent_ou"},
+		{"report_queries", "epss_vuls"},
+		{"report_queries", "remediation_action"},
+		{"report_queries", "solution_id"},
+		{"report_queries", "total_vuls_count"},
+		{"report_queries", "first_vul_discovered"},
+		{"report_queries", "ip_addresses"},
+		{"report_queries", "last_vul_discovered"},
+		{"report_queries", "os_type"},
+		{"report_queries", "job_id"},
+		{"report_queries", "used_by"},
+		{"report_queries", "total_ports"},
+		{"report_queries", "ftp"},
+		{"report_queries", "http"},
+		{"report_queries", "https"},
+		{"report_queries", "imap"},
+		{"report_queries", "ldap"},
+		{"report_queries", "mongodb"},
+		{"report_queries", "mssql"},
+		{"report_queries", "mysql"},
+		{"report_queries", "netbios"},
+		{"report_queries", "other_asset_ports"},
+		{"report_queries", "pop3"},
+		{"report_queries", "postgres"},
+		{"report_queries", "rdp"},
+		{"report_queries", "rtsp"},
+		{"report_queries", "sftp"},
+		{"report_queries", "sip"},
+		{"report_queries", "smb_cifs"},
+		{"report_queries", "smtp"},
+		{"report_queries", "telnet"},
+		{"report_queries", "vnc"},
+		{"report_queries", "problem_group_id"},
+		{"report_queries", "cve"},
+		{"report_queries", "product_latest_version"},
+		{"report_queries", "cs_score"},
+		{"report_queries", "is_confirmed"},
+		{"report_queries", "is_suppressed"},
+		{"report_queries", "suppressed_till"},
+		{"report_queries", "reason"},
+		{"report_queries", "epss_score_between_90_85"},
+		{"report_queries", "epss_score_between_95_90"},
+		{"report_queries", "epss_score_grater_than_95"},
+		{"report_queries", "epss_score_less_than_85"},
+		{"report_queries", "is_patchable"},
+		{"report_queries", "affected_software_16_30_days"},
+		{"report_queries", "affected_software_8_15_days"},
+		{"report_queries", "affected_software_graterthan_30_days"},
+		{"report_queries", "affected_software_lessthan_7_days"},
+		{"report_queries", "asset_first_discovered_time"},
+		{"report_queries", "asset_last_discovered_time"},
+		{"report_queries", "asset_name"},
+		{"report_queries", "first_discovered_time"},
+		{"report_queries", "last_logon_user"},
+		{"report_queries", "remediation_closer_reason"},
+		{"report_queries", "resolution_days"},
+		{"report_queries", "software_diff_key"},
+		{"report_queries", "risk_score"},
+		{"report_queries", "config_file_mode"},
+		{"report_queries", "deny_unknown_status"},
+		{"report_queries", "fs_mount"},
+		{"report_queries", "max_kernel_policy_version"},
+		{"report_queries", "memory_protection_checking"},
+		{"report_queries", "mls_status"},
+		{"report_queries", "mode"},
+		{"report_queries", "policy_name"},
+		{"report_queries", "root_directory"},
+		{"report_queries", "permissions"},
+		{"report_queries", "approver_comments"},
+		{"report_queries", "suppress_comments"},
+		{"report_queries", "suppressed_on"},
+		{"report_queries", "suppression_status"},
+		{"report_queries", "unsuppress_comments"},
+		{"report_queries", "unsuppressed_on"},
+		{"report_queries", "vulnerabilities"},
+		{"report_queries", "ast_type"},
+		{"report_queries", "ostype"},
+		{"report_queries", "suppression_id_count"},
+		{"report_queries", "suppression_level"},
+		{"report_queries", "sv_asset_id"},
+		{"report_queries", "sv_company_id"},
+		{"report_queries", "cisa"},
+		{"report_queries", "cisa_name"},
+		{"report_queries", "fix_url"},
+		{"report_queries", "published_date"},
+		{"report_queries", "category_id"},
+		{"report_queries", "category_name"},
+		{"report_queries", "event_name"},
+		{"report_queries", "collection"},
+		{"report_queries", "tag_rule_id"},
+		{"report_queries", "total_assets"},
+		{"report_queries", "total_discovered_assets"},
+		{"report_queries", "total_external_assets"},
+		{"report_queries", "total_firewall_assets"},
+		{"report_queries", "destination"},
+		{"report_queries", "target_user_count"},
+		{"scheduler", "status"},
+		{"scheduler", "created"},
+		{"scheduler", "end_count"},
+		{"scheduler", "end_hour"},
+		{"scheduler", "end_until"},
+		{"scheduler", "end_val"},
+		{"scheduler", "is_active"},
+		{"scheduler", "is_global"},
+		{"scheduler", "name"},
+		{"scheduler", "password"},
+		{"scheduler", "patch_type"},
+		{"scheduler", "scheduler"},
+		{"scheduler", "tenantid"},
+		{"scheduler", "trigger_reboot"},
+		{"scheduler", "uniqueid"},
+		{"scheduler", "updated"},
+		{"suppress_vulnerability", "status"},
+		{"suppress_vulnerability", "approved_by"},
+		{"suppress_vulnerability", "approver_comments"},
+		{"suppress_vulnerability", "asset_id"},
+		{"suppress_vulnerability", "asset_name"},
+		{"suppress_vulnerability", "check_id"},
+		{"suppress_vulnerability", "company_id"},
+		{"suppress_vulnerability", "company_name"},
+		{"suppress_vulnerability", "created"},
+		{"suppress_vulnerability", "problem_id"},
+		{"suppress_vulnerability", "problem_name"},
+		{"suppress_vulnerability", "reason"},
+		{"suppress_vulnerability", "requested_by"},
+		{"suppress_vulnerability", "software_names"},
+		{"suppress_vulnerability", "solution_id"},
+		{"suppress_vulnerability", "suppress_comments"},
+		{"suppress_vulnerability", "suppressed_on"},
+		{"suppress_vulnerability", "suppressed_till"},
+		{"suppress_vulnerability", "suppression_status"},
+		{"suppress_vulnerability", "tenantid"},
+		{"suppress_vulnerability", "unsuppress_comments"},
+		{"suppress_vulnerability", "unsuppressed_on"},
+		{"suppress_vulnerability", "updated"},
+		{"suppress_vulnerability", "url"},
+		{"suppress_vulnerability", "vulnerabilities"},
+		{"tag_rules", "status"},
+		{"tag_rules", "collection"},
+		{"tag_rules", "company_id"},
+		{"tag_rules", "created"},
+		{"tag_rules", "description"},
+		{"tag_rules", "name"},
+		{"tag_rules", "old_company_id"},
+		{"tag_rules", "old_id"},
+		{"tag_rules", "risk_score"},
+		{"tag_rules", "tenantid"},
+		{"tag_rules", "updated"},
+		{"tags", "status"},
+		{"tags", "collection"},
+		{"tags", "company_id"},
+		{"tags", "created"},
+		{"tags", "name"},
+		{"tags", "risk_score"},
+		{"tags", "tag_rule_id"},
+		{"tags", "tenantid"},
+		{"tags", "type"},
+		{"tags", "updated"},
+		{"tags", "value"},
+		{"users", "created_date"},
+		{"users", "email"},
+		{"users", "excluded"},
+		{"users", "first_name"},
+		{"users", "included"},
+		{"users", "last_login"},
+		{"users", "last_name"},
+		{"users", "phone"},
+		{"users", "state"},
+		{"users", "user_name"},
+		{"windows_protection_status", "status"},
+		{"windows_protection_status", "asset_id"},
+		{"windows_protection_status", "company_id"},
+		{"windows_protection_status", "created"},
+		{"windows_protection_status", "device_id"},
+		{"windows_protection_status", "encrypted"},
+		{"windows_protection_status", "file_system"},
+		{"windows_protection_status", "free_space"},
+		{"windows_protection_status", "mountpoint"},
+		{"windows_protection_status", "size"},
+		{"windows_protection_status", "tenantid"},
+		{"windows_protection_status", "type"},
+		{"windows_protection_status", "updated"},
+		{"windows_protection_status", "used"},
+	}
+	if len(want) < 2 {
+		t.Fatal("backfill fixture must list more than one column")
+	}
+
+	dbPath := filepath.Join(t.TempDir(), "data.db")
+	raw, err := sql.Open("sqlite", dbPath)
+	if err != nil {
+		t.Fatalf("open raw: %v", err)
+	}
+	if _, err := raw.Exec(`PRAGMA journal_mode = DELETE`); err != nil {
+		raw.Close()
+		t.Fatalf("journal_mode: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE sync_state (
+		resource_type TEXT PRIMARY KEY,
+		last_cursor TEXT,
+		last_synced_at DATETIME,
+		total_count INTEGER
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old sync_state: %v", err)
+	}
+	if _, err := raw.Exec(`INSERT INTO sync_state (resource_type, last_cursor) VALUES ('items', 'cursor-1')`); err != nil {
+		raw.Close()
+		t.Fatalf("seed sync_state: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "agent_credentials_mapping" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old agent_credentials_mapping: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "agent_discoverysettings_mapping" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old agent_discoverysettings_mapping: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "agents" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old agents: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "app_baseline_plan_assets" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old app_baseline_plan_assets: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "app_baseline_plan_company" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old app_baseline_plan_company: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "app_baseline_plan_global" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old app_baseline_plan_global: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "application_baseline_rules" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old application_baseline_rules: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "asset_firewall_policy" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old asset_firewall_policy: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "asset_installed_drivers" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old asset_installed_drivers: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "asset_interface" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old asset_interface: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "asset_msdt" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old asset_msdt: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "asset_ports" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old asset_ports: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "asset_security_report_data" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old asset_security_report_data: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "asset_shares" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old asset_shares: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "asset_storages" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old asset_storages: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "asset_unqouted_services" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old asset_unqouted_services: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "asset_user_shares" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old asset_user_shares: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "asset_video_info" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old asset_video_info: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "asset_view" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old asset_view: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "asset_windows_compatibility" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old asset_windows_compatibility: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "asset_windows_reboot_required" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old asset_windows_reboot_required: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "assets" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old assets: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "attack_surface_domain" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old attack_surface_domain: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "attack_surface_results" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old attack_surface_results: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "backup_software" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old backup_software: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "bios_info" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old bios_info: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "browser_extensions" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old browser_extensions: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "ciphers_view" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old ciphers_view: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "companies" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old companies: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "company_mappings" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old company_mappings: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "company_stats" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old company_stats: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "compliance" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old compliance: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "compliance_assessment" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old compliance_assessment: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "credentials" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old credentials: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "custom_domains" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old custom_domains: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "custom_profile" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old custom_profile: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "custom_ticketing_template" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old custom_ticketing_template: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "discovery_settings" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old discovery_settings: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "edr" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old edr: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "event_set" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old event_set: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "firewall_groups" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old firewall_groups: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "firewall_interfaces" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old firewall_interfaces: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "firewall_license" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old firewall_license: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "firewall_rules" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old firewall_rules: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "firewall_users" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old firewall_users: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "firewall_zones" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old firewall_zones: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "integration_credentials" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old integration_credentials: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "integration_rules" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old integration_rules: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "jobs_view" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old jobs_view: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "patching" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old patching: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "pii_scan_settings" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old pii_scan_settings: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "report_builder" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old report_builder: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "report_jobs_view" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old report_jobs_view: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "report_queries" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old report_queries: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "scheduler" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old scheduler: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "suppress_vulnerability" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old suppress_vulnerability: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "tag_rules" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old tag_rules: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "tags" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old tags: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "users" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old users: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "windows_protection_status" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old windows_protection_status: %v", err)
+	}
+	if err := raw.Close(); err != nil {
+		t.Fatalf("close raw: %v", err)
+	}
+
+	ctx, stats := contextWithBackfillStats(context.Background())
+	s, err := OpenWithContext(ctx, dbPath)
+	if err != nil {
+		t.Fatalf("open upgraded db: %v", err)
+	}
+	if stats.probes != 1 {
+		s.Close()
+		t.Fatalf("probes = %d, want 1 for %d columns", stats.probes, len(want))
+	}
+	if stats.alters != len(want) {
+		s.Close()
+		t.Fatalf("alters = %d, want %d (one per missing column, not per probe)", stats.alters, len(want))
+	}
+	for _, c := range want {
+		var name string
+		if err := s.DB().QueryRow(`SELECT name FROM pragma_table_xinfo(?) WHERE name = ?`, c.table, c.column).Scan(&name); err != nil {
+			s.Close()
+			t.Fatalf("%s.%s missing after backfill: %v", c.table, c.column, err)
+		}
+	}
+	var cursor string
+	if err := s.DB().QueryRow(`SELECT last_cursor FROM sync_state WHERE resource_type = 'items'`).Scan(&cursor); err != nil {
+		s.Close()
+		t.Fatalf("read upgraded sync_state: %v", err)
+	}
+	if cursor != "cursor-1" {
+		s.Close()
+		t.Fatalf("last_cursor = %q, want cursor-1", cursor)
+	}
+	var ingress string
+	if err := s.DB().QueryRow(`SELECT name FROM pragma_table_xinfo('learning_playbooks') WHERE name = 'ingress_surface'`).Scan(&ingress); err != nil {
+		s.Close()
+		t.Fatalf("missing learning_playbooks must be created with ingress_surface, not skipped: %v", err)
+	}
+	if err := s.Close(); err != nil {
+		t.Fatalf("close upgraded db: %v", err)
+	}
+
+	ctx, stats = contextWithBackfillStats(context.Background())
+	s, err = OpenWithContext(ctx, dbPath)
+	if err != nil {
+		t.Fatalf("reopen upgraded db: %v", err)
+	}
+	defer s.Close()
+	if stats.probes != 1 || stats.alters != 0 {
+		t.Fatalf("reopen probes=%d alters=%d, want 1 and 0", stats.probes, stats.alters)
+	}
+}
+
+func TestBackfillColumns_GeneratedColumnNotReAdded(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "data.db")
+	raw, err := sql.Open("sqlite", dbPath)
+	if err != nil {
+		t.Fatalf("open raw: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE sync_state (
+		resource_type TEXT PRIMARY KEY,
+		last_cursor TEXT,
+		last_synced_at DATETIME,
+		total_count INTEGER,
+		scope_key TEXT GENERATED ALWAYS AS ('') VIRTUAL
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create generated scope_key: %v", err)
+	}
+	if err := raw.Close(); err != nil {
+		t.Fatalf("close raw: %v", err)
+	}
+
+	ctx, stats := contextWithBackfillStats(context.Background())
+	s, err := OpenWithContext(ctx, dbPath)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	if stats.probes != 1 {
+		s.Close()
+		t.Fatalf("probes = %d, want 1", stats.probes)
+	}
+	if stats.alters != 1 {
+		s.Close()
+		t.Fatalf("alters = %d, want 1 (last_attempt_complete only; table_info would also retry scope_key)", stats.alters)
+	}
+	var hidden int
+	if err := s.DB().QueryRow(`SELECT hidden FROM pragma_table_xinfo('sync_state') WHERE name = 'scope_key'`).Scan(&hidden); err != nil {
+		s.Close()
+		t.Fatalf("scope_key visibility: %v", err)
+	}
+	if hidden != 2 && hidden != 3 {
+		s.Close()
+		t.Fatalf("scope_key hidden = %d, want a generated column", hidden)
+	}
+	var present string
+	if err := s.DB().QueryRow(`SELECT name FROM pragma_table_xinfo('sync_state') WHERE name = 'last_attempt_complete'`).Scan(&present); err != nil {
+		s.Close()
+		t.Fatalf("last_attempt_complete missing: %v", err)
+	}
+	if err := s.Close(); err != nil {
+		t.Fatalf("close: %v", err)
+	}
+
+	ctx, stats = contextWithBackfillStats(context.Background())
+	s, err = OpenWithContext(ctx, dbPath)
+	if err != nil {
+		t.Fatalf("reopen: %v", err)
+	}
+	defer s.Close()
+	if stats.probes != 1 || stats.alters != 0 {
+		t.Fatalf("reopen probes=%d alters=%d, want 1 and 0", stats.probes, stats.alters)
+	}
+}
+
+func TestBackfillColumns_FreshStoreDoesNotAlter(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "data.db")
+	ctx, stats := contextWithBackfillStats(context.Background())
+	s, err := OpenWithContext(ctx, dbPath)
+	if err != nil {
+		t.Fatalf("open fresh: %v", err)
+	}
+	if stats.probes != 1 || stats.alters != 0 {
+		s.Close()
+		t.Fatalf("fresh probes=%d alters=%d, want 1 and 0", stats.probes, stats.alters)
+	}
+	version, err := s.SchemaVersion()
+	if err != nil {
+		s.Close()
+		t.Fatalf("schema version: %v", err)
+	}
+	if version != StoreSchemaVersion {
+		s.Close()
+		t.Fatalf("user_version = %d, want %d", version, StoreSchemaVersion)
+	}
+	var scope string
+	if err := s.DB().QueryRow(`SELECT name FROM pragma_table_xinfo('sync_state') WHERE name = 'scope_key'`).Scan(&scope); err != nil {
+		s.Close()
+		t.Fatalf("fresh sync_state missing scope_key: %v", err)
+	}
+	if err := s.Close(); err != nil {
+		t.Fatalf("close fresh: %v", err)
+	}
+
+	ctx, stats = contextWithBackfillStats(context.Background())
+	s, err = OpenWithContext(ctx, dbPath)
+	if err != nil {
+		t.Fatalf("reopen fresh: %v", err)
+	}
+	defer s.Close()
+	if stats.probes != 1 || stats.alters != 0 {
+		t.Fatalf("reopen probes=%d alters=%d, want 1 and 0", stats.probes, stats.alters)
+	}
+}
+
+func TestSnapshotTableColumnsCanceled(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "data.db")
+	db, err := sql.Open("sqlite", dbPath)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer db.Close()
+	if _, err := db.Exec(`CREATE TABLE t (id TEXT)`); err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	conn, err := db.Conn(context.Background())
+	if err != nil {
+		t.Fatalf("conn: %v", err)
+	}
+	defer conn.Close()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	_, err = snapshotTableColumns(ctx, conn)
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("snapshot error = %v, want context.Canceled", err)
+	}
+}
+
+func TestAddColumnDuplicateAndInvalid(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "data.db")
+	db, err := sql.Open("sqlite", dbPath)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer db.Close()
+	if _, err := db.Exec(`CREATE TABLE sync_state (resource_type TEXT PRIMARY KEY)`); err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	conn, err := db.Conn(context.Background())
+	if err != nil {
+		t.Fatalf("conn: %v", err)
+	}
+	defer conn.Close()
+
+	ctx := context.Background()
+	if err := addColumn(ctx, conn, "sync_state", "resource_type", "TEXT"); err != nil {
+		t.Fatalf("duplicate column must be swallowed: %v", err)
+	}
+	err = addColumn(ctx, conn, "sync_state", "bad_pk", "INTEGER PRIMARY KEY")
+	if err == nil || strings.Contains(err.Error(), "duplicate column name") {
+		t.Fatalf("primary key add = %v, want a non-duplicate error", err)
+	}
+	err = addColumn(ctx, conn, "missing_table", "col", "TEXT")
+	if err == nil || !strings.Contains(err.Error(), "missing_table.col") {
+		t.Fatalf("missing table add = %v, want wrapped missing_table.col", err)
 	}
 }

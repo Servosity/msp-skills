@@ -46,10 +46,10 @@ func newReportQueriesPortsAssetsDetailsCmd(flags *rootFlags) *cobra.Command {
 				return cmd.Help()
 			}
 			if !cmd.Flags().Changed("service-name") && flagServiceName == "" && !requiredInputWaived() {
-				return fmt.Errorf("required flag \"%s\" not set", "service-name")
+				return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "service-name"))
 			}
 			if !cmd.Flags().Changed("company-id") && flagCompanyId == "" && !requiredInputWaived() {
-				return fmt.Errorf("required flag \"%s\" not set", "company-id")
+				return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "company-id"))
 			}
 			path := "/r/report_queries/ports_assets_details"
 			c, err := flags.newClient()

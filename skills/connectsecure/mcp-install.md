@@ -1,11 +1,5 @@
 # ConnectSecure MCP - install for every agent that speaks MCP
 
-> **Security note (until this connector is reprinted).** Do not run HTTP mode
-> (`--transport http`), not even on localhost. This build checks a token, but it
-> predates the fix release's request size and time limits. The MCP tools can
-> also make changes with your credentials. Use the default stdio transport. If
-> you set up a tunnel for a remote agent, shut it down. A fix is on the way.
-
 This page wires the ConnectSecure MCP server into any MCP client. If you use Claude
 Code, Codex CLI, or Cowork, install the Skill instead (see [README.md](./README.md)) -
 it's simpler. Everyone else: pick your agent below.
@@ -14,7 +8,7 @@ it's simpler. Everyone else: pick your agent below.
 GitHub Copilot, Gemini CLI) launch `connectsecure-mcp` directly on your machine -
 no hosting. *Web-only* AI apps (ChatGPT on the web, Microsoft 365 Copilot /
 Copilot Studio, the Gemini app) need a remote server, which msp-skills does not
-support yet; see **Remote agents** below.
+support yet; see **Web-only AI apps** below.
 
 ## Prerequisite: install the MCP binary
 
@@ -53,7 +47,9 @@ Add (or merge with your existing `mcpServers` block):
         "CONNECTSECURE_MCP_READ_ONLY": "1",
         "CONNECTSECURE_USER_AGENT": "",
         "CONNECTSECURE_MCP_HTTP_TOKEN": "",
-        "PRINTING_PRESS_CLIENT_PROFILE": ""
+        "PRINTING_PRESS_CLIENT_PROFILE": "",
+        "CONNECTSECURE_NO_LOCAL_DATA": "",
+        "CONNECTSECURE_MCP_UPLOAD_ROOT": ""
       }
     }
   }
@@ -121,7 +117,9 @@ the secret never sits in the file:
         "CONNECTSECURE_MCP_READ_ONLY": "1",
         "CONNECTSECURE_USER_AGENT": "",
         "CONNECTSECURE_MCP_HTTP_TOKEN": "",
-        "PRINTING_PRESS_CLIENT_PROFILE": ""
+        "PRINTING_PRESS_CLIENT_PROFILE": "",
+        "CONNECTSECURE_NO_LOCAL_DATA": "",
+        "CONNECTSECURE_MCP_UPLOAD_ROOT": ""
       }
     }
   }
@@ -151,7 +149,9 @@ Claude Desktop:
         "CONNECTSECURE_MCP_READ_ONLY": "1",
         "CONNECTSECURE_USER_AGENT": "",
         "CONNECTSECURE_MCP_HTTP_TOKEN": "",
-        "PRINTING_PRESS_CLIENT_PROFILE": ""
+        "PRINTING_PRESS_CLIENT_PROFILE": "",
+        "CONNECTSECURE_NO_LOCAL_DATA": "",
+        "CONNECTSECURE_MCP_UPLOAD_ROOT": ""
       }
     }
   }
@@ -163,24 +163,33 @@ web** is remote-only - see the remote section below.)
 
 ---
 
-# Remote agents (paused until this connector is reprinted)
+# Web-only AI apps (not supported yet)
 
 **Not supported by msp-skills yet.** ChatGPT on the web, Microsoft 365 Copilot /
 Copilot Studio and the Gemini app reach MCP servers at a web address, not programs
-on your machine, so they would need `connectsecure-mcp` running in HTTP mode. Do
-not run HTTP mode with this build (see the security note at the top of this page),
-and do not put this server behind a tunnel or reverse proxy. If your team works in
-one of those apps, a
+on your machine, so they need a remote server. If your team works in one of those
+apps, a
 [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick)
 is the better pick; check that your AI app is on the gateway's setup list. The
 ChatGPT desktop app is different: it runs `connectsecure-mcp` locally (see above).
 
-The HTTP-mode launch command is kept below for reference. It is commented out on
-purpose, so pasting it does nothing:
+## HTTP mode in this build (reference)
+
+This build's HTTP mode is documented here for reference; msp-skills does not
+support a web-only AI app on it yet. Keep stdio (the default) for every local agent. HTTP mode serves
+`http://127.0.0.1:7777/mcp` by default and refuses to start until `CONNECTSECURE_MCP_HTTP_TOKEN` is
+set to a token of at least 32 characters; every request must send `Authorization: Bearer <token>`. Any address other
+than loopback also needs TLS:
 
 ```bash
-# CONNECTSECURE_BASE_URL=<value> CONNECTSECURE_TENANT=<value> CONNECTSECURE_CLIENT_ID=<value> CONNECTSECURE_CLIENT_SECRET=<value> CONNECTSECURE_ACCESS_TOKEN= CONNECTSECURE_USER_ID= CONNECTSECURE_MCP_READ_ONLY= CONNECTSECURE_USER_AGENT= CONNECTSECURE_MCP_HTTP_TOKEN=<value> PRINTING_PRESS_CLIENT_PROFILE= connectsecure-mcp --transport http
+export CONNECTSECURE_MCP_HTTP_TOKEN="$(openssl rand -hex 32)"
+CONNECTSECURE_BASE_URL=<value> CONNECTSECURE_TENANT=<value> CONNECTSECURE_CLIENT_ID=<value> CONNECTSECURE_CLIENT_SECRET=<value> CONNECTSECURE_ACCESS_TOKEN= CONNECTSECURE_USER_ID= CONNECTSECURE_MCP_READ_ONLY=1 CONNECTSECURE_USER_AGENT= PRINTING_PRESS_CLIENT_PROFILE= CONNECTSECURE_NO_LOCAL_DATA= CONNECTSECURE_MCP_UPLOAD_ROOT= connectsecure-mcp --transport http --addr <host>:7777 --tls-cert <cert.pem> --tls-key <key.pem>
 ```
+
+The endpoint is `https://<host>:7777/mcp`: the server answers Streamable HTTP at
+`/mcp` and returns 404 at the bare root. The server rejects any request without
+`Authorization: Bearer <token>`, so every client must send that header. **Treat
+the token like a password** - whoever holds it can call every tool with your ConnectSecure credentials.
 
 ---
 

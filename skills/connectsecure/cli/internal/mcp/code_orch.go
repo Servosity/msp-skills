@@ -4,11 +4,14 @@
 
 // Package mcp — code-orchestration thin surface.
 //
-// Three tools cover the entire API: <api>_search to discover endpoints,
-// <api>_get to inspect one GET endpoint, and <api>_execute to invoke one.
-// This collapses a large API (50+ endpoints)
-// to ~1K tokens of tool definitions while preserving full coverage — the
-// agent writes the composition logic in its own sandbox.
+// <api>_search discovers endpoints and <api>_get returns registry metadata
+// for one GET. <api>_read calls read-only endpoints (GET reads and
+// codegen-marked read-only POSTs). <api>_execute calls state-changing
+// endpoints and returns a preview until confirm is boolean true. A spec
+// with no state-changing endpoints registers the read tool and omits
+// execute. This collapses a large API (50+ endpoints) to a small tool
+// list while preserving full coverage — the agent writes the composition
+// logic in its own sandbox.
 //
 // Pattern source: Anthropic 2026-04-22 "Building agents that reach
 // production systems with MCP" — Cloudflare's MCP server covers ~2,500
@@ -37,7 +40,7 @@ import (
 func RegisterCodeOrchestrationTools(s *server.MCPServer) {
 	s.AddTool(
 		mcplib.NewTool("connectsecure_search",
-			mcplib.WithDescription("Search the connectsecure API for endpoints matching a natural-language query. Returns a ranked list of {endpoint_id, method, path, summary} entries. Call this first to find the endpoint to execute."),
+			mcplib.WithDescription("Search the connectsecure API for endpoints matching a natural-language query. Returns a ranked list of {endpoint_id, method, path, summary} entries. Call this first to find the endpoint to read or execute."),
 			mcplib.WithString("query", mcplib.Required(), mcplib.Description("Natural-language description of what you want to do.")),
 			mcplib.WithNumber("limit", mcplib.Description("Max endpoints to return (default 10, max 100).")),
 			mcplib.WithReadOnlyHintAnnotation(true),
@@ -57,12 +60,26 @@ func RegisterCodeOrchestrationTools(s *server.MCPServer) {
 		),
 		handleCodeOrchGet,
 	)
-
+	s.AddTool(
+		mcplib.NewTool("connectsecure_read",
+			mcplib.WithDescription("Call one read-only connectsecure API endpoint by its endpoint_id (from connectsecure_search). GET reads and read-only POSTs run immediately. Params are a JSON object; path placeholders and query strings are resolved automatically. State-changing endpoints, including deletes and mutating GETs, are rejected; use connectsecure_execute."),
+			mcplib.WithString("endpoint_id", mcplib.Required(), mcplib.Description("Read-only endpoint identifier returned by connectsecure_search (e.g., \"users.list\").")),
+			mcplib.WithObject("params", mcplib.Description("Parameters for the endpoint. Path placeholders match by name; remaining entries become the query string on GET or the JSON body on a read-only POST.")),
+			mcplib.WithReadOnlyHintAnnotation(true),
+			mcplib.WithDestructiveHintAnnotation(false),
+			mcplib.WithOpenWorldHintAnnotation(true),
+		),
+		handleCodeOrchRead,
+	)
 	s.AddTool(
 		mcplib.NewTool("connectsecure_execute",
-			mcplib.WithDescription("Execute one connectsecure API endpoint by its endpoint_id (from connectsecure_search). Params are passed as a JSON object; path placeholders and query strings are resolved automatically."),
-			mcplib.WithString("endpoint_id", mcplib.Required(), mcplib.Description("Endpoint identifier returned by connectsecure_search (e.g., \"users.list\").")),
+			mcplib.WithDescription("Call one state-changing connectsecure API endpoint by its endpoint_id (from connectsecure_search). DELETE and other mutating calls, including mutating GETs, return a preview and do not run until confirm is boolean true. Params are a JSON object; path placeholders and query strings are resolved automatically. Read-only endpoints are rejected; use connectsecure_read."),
+			mcplib.WithString("endpoint_id", mcplib.Required(), mcplib.Description("State-changing endpoint identifier returned by connectsecure_search (e.g., \"users.delete\").")),
 			mcplib.WithObject("params", mcplib.Description("Parameters for the endpoint. Path placeholders match by name; remaining entries become query string on GET/DELETE or JSON body on POST/PUT/PATCH.")),
+			mcplib.WithBoolean("confirm", mcplib.Description("Set to boolean true to perform the previewed call. Any other value, including the string \"true\", leaves the call as a preview and does not contact the API.")),
+			mcplib.WithReadOnlyHintAnnotation(false),
+			mcplib.WithDestructiveHintAnnotation(true),
+			mcplib.WithOpenWorldHintAnnotation(true),
 		),
 		handleCodeOrchExecute,
 	)
@@ -102,8 +119,23 @@ type codeOrchEndpoint struct {
 	// params object; a strict-mapping API rejects an object at the body
 	// root with HTTP 422 "Invalid json".
 	BodyIsArray bool
-	Mutating    bool
-	keywords    []string
+	// Multipart marks a multipart/form-data body. FileParams name the body
+	// params sent as file parts. Over MCP the agent passes base64-encoded file
+	// content for each (or a path confined to the opt-in upload root).
+	Multipart  bool
+	FileParams []string
+	// Page carries the GET list paging settings the per-endpoint tools use, so
+	// an over-budget list resumes inside the bounded page instead of handing
+	// the agent the server cursor for the following page (which skips the
+	// rows the bound dropped).
+	Page mcpPageConfig
+	// NeedsConfirm is the read-command classifier's write signal, plus every
+	// DELETE. It stays separate from Mutating: Mutating selects the GET
+	// transport that bypasses the response cache, including GETs the
+	// classifier does not treat as reads.
+	NeedsConfirm bool
+	Mutating     bool
+	keywords     []string
 }
 
 type codeOrchParamBinding struct {
@@ -125,6 +157,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("agent_credentials_mapping", "create", "Create agent credential mapping", "/w/company/agent_credentials_mapping"),
 	},
@@ -137,6 +170,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("agent_credentials_mapping", "delete", "Delete agent credential mapping", "/d/company/agent_credentials_mapping/{id}"),
 	},
@@ -149,6 +183,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("agent_credentials_mapping", "get", "Retrieve agent credential mapping", "/r/company/agent_credentials_mapping/{id}"),
 	},
@@ -161,6 +196,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("agent_credentials_mapping", "list", "Retrieve agent credentials mapping", "/r/company/agent_credentials_mapping"),
 	},
@@ -173,6 +210,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("agent_credentials_mapping", "update", "Update agent credential mapping", "/w/company/agent_credentials_mapping"),
 	},
@@ -185,6 +223,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("agent_discoverysettings_mapping", "create", "Create agent discoverysetting mapping", "/w/company/agent_discoverysettings_mapping"),
 	},
@@ -197,6 +236,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("agent_discoverysettings_mapping", "delete", "Delete agent discoverysetting mapping", "/d/company/agent_discoverysettings_mapping/{id}"),
 	},
@@ -209,6 +249,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("agent_discoverysettings_mapping", "get", "Retrieve agent discoverysetting mapping", "/r/company/agent_discoverysettings_mapping/{id}"),
 	},
@@ -221,6 +262,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("agent_discoverysettings_mapping", "list", "Retrieve agent discoverysettings mapping", "/r/company/agent_discoverysettings_mapping"),
 	},
@@ -233,6 +276,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("agent_discoverysettings_mapping", "update", "Update agent discoverysetting mapping", "/w/company/agent_discoverysettings_mapping"),
 	},
@@ -245,6 +289,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("agents", "get", "Retrieve agent", "/r/company/agents/{id}"),
 	},
@@ -257,6 +302,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("agents", "list", "Retrieve agents", "/r/company/agents"),
 	},
@@ -269,6 +316,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("agents", "reset", "Migrate Agents", "/w/company/reset_agents"),
 	},
@@ -281,6 +329,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "company_id", WireName: "company_id"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("agents", "uninstall-secret", "Get uninstall secret token", "/r/company/get_uninstall_secret"),
 	},
@@ -293,6 +342,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("app_baseline_plan_assets", "get", "Retrieve app baseline plan asset", "/r/company/app_baseline_plan_assets/{id}"),
 	},
@@ -305,6 +355,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("app_baseline_plan_assets", "list", "Retrieve app baseline plan assets", "/r/company/app_baseline_plan_assets"),
 	},
@@ -317,6 +369,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("app_baseline_plan_company", "get", "Retrieve app baseline plan company", "/r/company/app_baseline_plan_company/{id}"),
 	},
@@ -329,6 +382,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("app_baseline_plan_company", "list", "Retrieve app baseline plan company", "/r/company/app_baseline_plan_company"),
 	},
@@ -341,6 +396,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("app_baseline_plan_global", "get", "Retrieve app baseline plan global", "/r/company/app_baseline_plan_global/{id}"),
 	},
@@ -353,6 +409,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("app_baseline_plan_global", "list", "Retrieve app baseline plan global", "/r/company/app_baseline_plan_global"),
 	},
@@ -365,6 +423,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("application_baseline_rules", "create", "Create application baseline rule", "/w/company/application_baseline_rules"),
 	},
@@ -377,6 +436,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("application_baseline_rules", "delete", "Delete application baseline rule", "/d/company/application_baseline_rules/{id}"),
 	},
@@ -389,6 +449,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("application_baseline_rules", "get", "Retrieve application baseline rule", "/r/company/application_baseline_rules/{id}"),
 	},
@@ -401,6 +462,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("application_baseline_rules", "list", "Retrieve application baseline rules", "/r/company/application_baseline_rules"),
 	},
@@ -413,6 +476,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("application_baseline_rules", "update", "Update application baseline rule", "/w/company/application_baseline_rules"),
 	},
@@ -425,6 +489,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("asset_firewall_policy", "get", "Retrieve asset firewall policy", "/r/asset/asset_firewall_policy/{id}"),
 	},
@@ -437,6 +502,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("asset_firewall_policy", "list", "Retrieve asset firewall policy", "/r/asset/asset_firewall_policy"),
 	},
@@ -449,6 +516,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("asset_installed_drivers", "get", "Retrieve asset installed driver", "/r/asset/asset_installed_drivers/{id}"),
 	},
@@ -461,6 +529,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("asset_installed_drivers", "list", "Retrieve asset installed drivers", "/r/asset/asset_installed_drivers"),
 	},
@@ -473,6 +543,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("asset_interface", "get", "Retrieve asset interface", "/r/asset/asset_interface/{id}"),
 	},
@@ -485,6 +556,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("asset_interface", "list", "Retrieve asset interface", "/r/asset/asset_interface"),
 	},
@@ -497,6 +570,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("asset_msdt", "get", "Retrieve asset msdt", "/r/asset/asset_msdt/{id}"),
 	},
@@ -509,6 +583,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("asset_msdt", "list", "Retrieve asset msdt", "/r/asset/asset_msdt"),
 	},
@@ -521,6 +597,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("asset_ports", "get", "Retrieve asset port", "/r/asset/asset_ports/{id}"),
 	},
@@ -533,6 +610,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("asset_ports", "list", "Retrieve asset ports", "/r/asset/asset_ports"),
 	},
@@ -545,6 +624,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("asset_security_report_data", "get", "Retrieve asset security report datum", "/r/asset/asset_security_report_data/{id}"),
 	},
@@ -557,6 +637,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("asset_security_report_data", "list", "Retrieve asset security report data", "/r/asset/asset_security_report_data"),
 	},
@@ -569,6 +651,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("asset_shares", "get", "Retrieve asset share", "/r/asset/asset_shares/{id}"),
 	},
@@ -581,6 +664,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("asset_shares", "list", "Retrieve asset shares", "/r/asset/asset_shares"),
 	},
@@ -593,6 +678,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("asset_storages", "get", "Retrieve asset storage", "/r/asset/asset_storages/{id}"),
 	},
@@ -605,6 +691,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("asset_storages", "list", "Retrieve asset storages", "/r/asset/asset_storages"),
 	},
@@ -617,6 +705,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("asset_unqouted_services", "get", "Retrieve asset unqouted service", "/r/asset/asset_unqouted_services/{id}"),
 	},
@@ -629,6 +718,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("asset_unqouted_services", "list", "Retrieve asset unqouted services", "/r/asset/asset_unqouted_services"),
 	},
@@ -641,6 +732,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("asset_user_shares", "get", "Retrieve asset user share", "/r/asset/asset_user_shares/{id}"),
 	},
@@ -653,6 +745,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("asset_user_shares", "list", "Retrieve asset user shares", "/r/asset/asset_user_shares"),
 	},
@@ -665,6 +759,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("asset_video_info", "get", "Retrieve asset video info", "/r/asset/asset_video_info/{id}"),
 	},
@@ -677,6 +772,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("asset_video_info", "list", "Retrieve asset video info", "/r/asset/asset_video_info"),
 	},
@@ -689,6 +786,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("asset_view", "get", "Retrieve asset view", "/r/asset/asset_view/{id}"),
 	},
@@ -701,6 +799,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("asset_view", "list", "Retrieve asset view", "/r/asset/asset_view"),
 	},
@@ -713,6 +813,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("asset_windows_compatibility", "list", "Retrieve asset windows compatibility", "/r/company/asset_windows_compatibility"),
 	},
@@ -725,6 +827,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("asset_windows_reboot_required", "get", "Retrieve asset window reboot required", "/r/asset/asset_windows_reboot_required/{id}"),
 	},
@@ -737,6 +840,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("asset_windows_reboot_required", "list", "Retrieve asset windows reboot required", "/r/asset/asset_windows_reboot_required"),
 	},
@@ -749,6 +854,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{{PublicName: "X-TENANT-ID", WireName: "X-TENANT-ID"}},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("assets", "bulk-deprecate", "Bulk deprecate assets", "/w/company/bulk_deprecate"),
 	},
@@ -761,6 +867,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("assets", "create", "Create asset", "/w/asset/assets"),
 	},
@@ -773,6 +880,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("assets", "delete", "Delete asset", "/d/asset/assets/{id}"),
 	},
@@ -785,6 +893,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "having", WireName: "having"}, {PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("assets", "remediation-plan", "Retrieve records", "/r/asset/get_asset_remediation_plan"),
 	},
@@ -797,6 +907,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("assets", "update", "Update asset", "/w/asset/assets"),
 	},
@@ -809,6 +920,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("attack_surface_domain", "create", "Create attack surface domain", "/w/company/attack_surface_domain"),
 	},
@@ -821,6 +933,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("attack_surface_domain", "delete", "Delete attack surface domain", "/d/company/attack_surface_domain/{id}"),
 	},
@@ -833,6 +946,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("attack_surface_domain", "get", "Retrieve attack surface domain", "/r/company/attack_surface_domain/{id}"),
 	},
@@ -845,6 +959,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("attack_surface_domain", "list", "Retrieve attack surface domain", "/r/company/attack_surface_domain"),
 	},
@@ -857,6 +973,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("attack_surface_domain", "update", "Update attack surface domain", "/w/company/attack_surface_domain"),
 	},
@@ -869,6 +986,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("attack_surface_results", "get", "Retrieve attack surface result", "/r/company/attack_surface_results/{id}"),
 	},
@@ -881,6 +999,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("attack_surface_results", "list", "Retrieve attack surface results", "/r/company/attack_surface_results"),
 	},
@@ -893,6 +1013,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("backup_software", "create", "Create backup software", "/w/company/backup_software"),
 	},
@@ -905,6 +1026,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("backup_software", "delete", "Delete backup software", "/d/company/backup_software/{id}"),
 	},
@@ -917,6 +1039,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("backup_software", "get", "Retrieve backup software", "/r/company/backup_software/{id}"),
 	},
@@ -929,6 +1052,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("backup_software", "list", "Retrieve backup software", "/r/company/backup_software"),
 	},
@@ -941,6 +1066,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("backup_software", "update", "Update backup software", "/w/company/backup_software"),
 	},
@@ -953,6 +1079,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("bios_info", "get", "Retrieve bio info", "/r/asset/bios_info/{id}"),
 	},
@@ -965,6 +1092,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("bios_info", "list", "Retrieve bios info", "/r/asset/bios_info"),
 	},
@@ -977,6 +1106,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("browser_extensions", "get", "Retrieve browser extension", "/r/asset/browser_extensions/{id}"),
 	},
@@ -989,6 +1119,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("browser_extensions", "list", "Retrieve browser extensions", "/r/asset/browser_extensions"),
 	},
@@ -1001,6 +1133,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("ciphers_view", "get", "Retrieve cipher view", "/r/asset/ciphers_view/{id}"),
 	},
@@ -1013,6 +1146,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("ciphers_view", "list", "Retrieve ciphers view", "/r/asset/ciphers_view"),
 	},
@@ -1025,6 +1160,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("companies", "create", "Create company", "/w/company/companies"),
 	},
@@ -1037,6 +1173,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("companies", "delete", "Delete company", "/d/company/companies/{id}"),
 	},
@@ -1049,6 +1186,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("companies", "external-scan", "Scan external endpoint", "/w/company/external_scan"),
 	},
@@ -1061,6 +1199,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("companies", "get", "Retrieve company", "/r/company/companies/{id}"),
 	},
@@ -1073,6 +1212,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("companies", "list", "Retrieve companies", "/r/company/companies"),
 	},
@@ -1085,6 +1226,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("companies", "scan", "Scan Company", "/w/company/scan"),
 	},
@@ -1097,6 +1239,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("companies", "update", "Update company", "/w/company/companies"),
 	},
@@ -1109,6 +1252,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("company_mappings", "create", "Create company mapping", "/w/integration/company_mappings"),
 	},
@@ -1121,6 +1265,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("company_mappings", "delete", "Delete company mapping", "/d/integration/company_mappings/{id}"),
 	},
@@ -1133,6 +1278,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("company_mappings", "get", "Retrieve company mapping", "/r/integration/company_mappings/{id}"),
 	},
@@ -1145,6 +1291,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("company_mappings", "list", "Retrieve company mappings", "/r/integration/company_mappings"),
 	},
@@ -1157,6 +1305,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("company_mappings", "update", "Update company mapping", "/w/integration/company_mappings"),
 	},
@@ -1169,6 +1318,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("company_stats", "get", "Retrieve company stat", "/r/company/company_stats/{id}"),
 	},
@@ -1181,6 +1331,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("company_stats", "list", "Retrieve company stats", "/r/company/company_stats"),
 	},
@@ -1193,6 +1345,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("compliance", "types", "Retrieve Compliance Types", "/r/compliance/types"),
 	},
@@ -1205,6 +1358,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("compliance_assessment", "create", "Create compliance assessment", "/w/company/compliance_assessment"),
 	},
@@ -1217,6 +1371,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("compliance_assessment", "delete", "Delete compliance assessment", "/d/company/compliance_assessment/{id}"),
 	},
@@ -1229,6 +1384,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("compliance_assessment", "get", "Retrieve compliance assessment", "/r/company/compliance_assessment/{id}"),
 	},
@@ -1241,6 +1397,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("compliance_assessment", "list", "Retrieve compliance assessment", "/r/company/compliance_assessment"),
 	},
@@ -1253,6 +1411,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("compliance_assessment", "update", "Update compliance assessment", "/w/company/compliance_assessment"),
 	},
@@ -1265,6 +1424,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("credentials", "create", "Create credential", "/w/company/credentials"),
 	},
@@ -1277,6 +1437,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("credentials", "delete", "Delete credential", "/d/company/credentials/{id}"),
 	},
@@ -1289,6 +1450,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("credentials", "get", "Retrieve credential", "/r/company/credentials/{id}"),
 	},
@@ -1301,6 +1463,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("credentials", "list", "Retrieve credentials", "/r/company/credentials"),
 	},
@@ -1313,6 +1477,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("credentials", "update", "Update credential", "/w/company/credentials"),
 	},
@@ -1325,6 +1490,9 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		Multipart:      true,
+		FileParams:     []string{"ssl_cert", "ssl_privkey"},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("custom_domains", "create", "Custom Domain", "/w/company/custom_domain"),
 	},
@@ -1337,6 +1505,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("custom_domains", "get", "Retrieve custom domain", "/r/company/custom_domains/{id}"),
 	},
@@ -1349,6 +1518,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("custom_domains", "list", "Retrieve custom domains", "/r/company/custom_domains"),
 	},
@@ -1361,6 +1532,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("custom_profile", "create", "Create custom profile", "/w/company/custom_profile"),
 	},
@@ -1373,6 +1545,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("custom_profile", "delete", "Delete custom profile", "/d/company/custom_profile/{id}"),
 	},
@@ -1385,6 +1558,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("custom_profile", "get", "Retrieve custom profile", "/r/company/custom_profile/{id}"),
 	},
@@ -1397,6 +1571,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("custom_profile", "list", "Retrieve custom profile", "/r/company/custom_profile"),
 	},
@@ -1409,6 +1585,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("custom_profile", "update", "Update custom profile", "/w/company/custom_profile"),
 	},
@@ -1421,6 +1598,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("custom_ticketing_template", "create", "Create custom ticketing template", "/w/company/custom_ticketing_template"),
 	},
@@ -1433,6 +1611,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("custom_ticketing_template", "delete", "Delete custom ticketing template", "/d/company/custom_ticketing_template/{id}"),
 	},
@@ -1445,6 +1624,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("custom_ticketing_template", "get", "Retrieve custom ticketing template", "/r/company/custom_ticketing_template/{id}"),
 	},
@@ -1457,6 +1637,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("custom_ticketing_template", "list", "Retrieve custom ticketing template", "/r/company/custom_ticketing_template"),
 	},
@@ -1469,6 +1651,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("custom_ticketing_template", "update", "Update custom ticketing template", "/w/company/custom_ticketing_template"),
 	},
@@ -1481,6 +1664,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "cve", WireName: "cve"}, {PublicName: "limit", WireName: "limit"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("cve", "report", "Retrieve records", "/r/cve/report"),
 	},
@@ -1493,6 +1678,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("discovery_settings", "create", "Create discovery setting", "/w/company/discovery_settings"),
 	},
@@ -1505,6 +1691,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("discovery_settings", "delete", "Delete discovery setting", "/d/company/discovery_settings/{id}"),
 	},
@@ -1517,6 +1704,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("discovery_settings", "get", "Retrieve discovery setting", "/r/company/discovery_settings/{id}"),
 	},
@@ -1529,6 +1717,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("discovery_settings", "list", "Retrieve discovery settings", "/r/company/discovery_settings"),
 	},
@@ -1541,6 +1731,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("discovery_settings", "update", "Update discovery setting", "/w/company/discovery_settings"),
 	},
@@ -1553,6 +1744,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("edr", "create", "Create edr", "/w/company/edr"),
 	},
@@ -1565,6 +1757,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("edr", "delete", "Delete edr", "/d/company/edr/{id}"),
 	},
@@ -1577,6 +1770,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("edr", "get", "Retrieve edr", "/r/company/edr/{id}"),
 	},
@@ -1589,6 +1783,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("edr", "list", "Retrieve edr", "/r/company/edr"),
 	},
@@ -1601,6 +1797,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("edr", "update", "Update edr", "/w/company/edr"),
 	},
@@ -1613,6 +1810,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("event_set", "create", "Create event set", "/w/company/event_set"),
 	},
@@ -1625,6 +1823,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("event_set", "delete", "Delete event set", "/d/company/event_set/{id}"),
 	},
@@ -1637,6 +1836,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("event_set", "get", "Retrieve event set", "/r/company/event_set/{id}"),
 	},
@@ -1649,6 +1849,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("event_set", "list", "Retrieve event set", "/r/company/event_set"),
 	},
@@ -1661,6 +1863,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("event_set", "update", "Update event set", "/w/company/event_set"),
 	},
@@ -1673,6 +1876,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firewall_groups", "get", "Retrieve firewall group", "/r/asset/firewall_groups/{id}"),
 	},
@@ -1685,6 +1889,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firewall_groups", "list", "Retrieve firewall groups", "/r/asset/firewall_groups"),
 	},
@@ -1697,6 +1903,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firewall_interfaces", "get", "Retrieve firewall interface", "/r/asset/firewall_interfaces/{id}"),
 	},
@@ -1709,6 +1916,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firewall_interfaces", "list", "Retrieve firewall interfaces", "/r/asset/firewall_interfaces"),
 	},
@@ -1721,6 +1930,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firewall_license", "get", "Retrieve firewall license", "/r/asset/firewall_license/{id}"),
 	},
@@ -1733,6 +1943,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firewall_license", "list", "Retrieve firewall license", "/r/asset/firewall_license"),
 	},
@@ -1745,6 +1957,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firewall_rules", "get", "Retrieve firewall rule", "/r/asset/firewall_rules/{id}"),
 	},
@@ -1757,6 +1970,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firewall_rules", "list", "Retrieve firewall rules", "/r/asset/firewall_rules"),
 	},
@@ -1769,6 +1984,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firewall_users", "get", "Retrieve firewall user", "/r/asset/firewall_users/{id}"),
 	},
@@ -1781,6 +1997,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firewall_users", "list", "Retrieve firewall users", "/r/asset/firewall_users"),
 	},
@@ -1793,6 +2011,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firewall_zones", "get", "Retrieve firewall zone", "/r/asset/firewall_zones/{id}"),
 	},
@@ -1805,6 +2024,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firewall_zones", "list", "Retrieve firewall zones", "/r/asset/firewall_zones"),
 	},
@@ -1817,6 +2038,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("integration_credentials", "create", "Create integration credential", "/w/integration/integration_credentials"),
 	},
@@ -1829,6 +2051,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("integration_credentials", "delete", "Delete integration credential", "/d/integration/integration_credentials/{id}"),
 	},
@@ -1841,6 +2064,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("integration_credentials", "get", "Retrieve integration credential", "/r/integration/integration_credentials/{id}"),
 	},
@@ -1853,6 +2077,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("integration_credentials", "list", "Retrieve integration credentials", "/r/integration/integration_credentials"),
 	},
@@ -1865,6 +2091,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("integration_credentials", "update", "Update integration credential", "/w/integration/integration_credentials"),
 	},
@@ -1877,6 +2104,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("integration_rules", "create", "Create integration rule", "/w/integration/integration_rules"),
 	},
@@ -1889,6 +2117,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("integration_rules", "delete", "Delete integration rule", "/d/integration/integration_rules/{id}"),
 	},
@@ -1901,6 +2130,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("integration_rules", "get", "Retrieve integration rule", "/r/integration/integration_rules/{id}"),
 	},
@@ -1913,6 +2143,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("integration_rules", "list", "Retrieve integration rules", "/r/integration/integration_rules"),
 	},
@@ -1925,6 +2157,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("integration_rules", "update", "Update integration rule", "/w/integration/integration_rules"),
 	},
@@ -1937,6 +2170,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("jobs_view", "get", "Retrieve job view", "/r/company/jobs_view/{id}"),
 	},
@@ -1949,6 +2183,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("jobs_view", "list", "Retrieve jobs view", "/r/company/jobs_view"),
 	},
@@ -1961,6 +2197,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("patching", "patch-now", "Trigger application/OS patch (now or scheduled)", "/w/company/patch_now"),
 	},
@@ -1973,6 +2210,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "company_id", WireName: "company_id"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("patching", "settings", "Retrieve records", "/r/company/get_patch_settings"),
 	},
@@ -1985,6 +2223,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pii_scan_settings", "create", "Create pii scan setting", "/w/company/pii_scan_settings"),
 	},
@@ -1997,6 +2236,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pii_scan_settings", "delete", "Delete pii scan setting", "/d/company/pii_scan_settings/{id}"),
 	},
@@ -2009,6 +2249,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pii_scan_settings", "get", "Retrieve pii scan setting", "/r/company/pii_scan_settings/{id}"),
 	},
@@ -2021,6 +2262,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pii_scan_settings", "list", "Retrieve pii scan settings", "/r/company/pii_scan_settings"),
 	},
@@ -2033,6 +2276,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pii_scan_settings", "update", "Update pii scan setting", "/w/company/pii_scan_settings"),
 	},
@@ -2045,6 +2289,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_builder", "cover-page", "Report Settings", "/report_builder/cover_page"),
 	},
@@ -2057,6 +2302,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_builder", "create-job", "Create Report", "/report_builder/create_report_job"),
 	},
@@ -2069,6 +2315,9 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		Multipart:      true,
+		FileParams:     []string{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_builder", "download-default-template", "Report Settings", "/report_builder/download_default_template"),
 	},
@@ -2081,6 +2330,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "job_id", WireName: "job_id"}, {PublicName: "isGlobal", WireName: "isGlobal"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_builder", "report-link", "Download report", "/report_builder/get_report_link"),
 	},
@@ -2093,6 +2343,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "reporttype", WireName: "reporttype"}, {PublicName: "isGlobal", WireName: "isGlobal"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_builder", "standard-report-settings", "Report Settings", "/report_builder/get_standard_report_settings"),
 	},
@@ -2105,6 +2356,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "limit", WireName: "limit"}, {PublicName: "isGlobal", WireName: "isGlobal"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_builder", "standard-reports", "List standard report", "/report_builder/standard_reports"),
 	},
@@ -2117,6 +2370,9 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		Multipart:      true,
+		FileParams:     []string{"file"},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_builder", "update-cover-page", "Create Report", "/report_builder/cover_page"),
 	},
@@ -2129,6 +2385,9 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		Multipart:      true,
+		FileParams:     []string{"company_logo", "cover_page", "footerImage", "headerImage"},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_builder", "update-standard-report-settings", "Create Report", "/report_builder/update_standard_report_settings"),
 	},
@@ -2141,6 +2400,9 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams:  []codeOrchParamBinding{},
 		QueryParams:     []codeOrchParamBinding{},
 		HeaderParams:    []codeOrchParamBinding{},
+		Multipart:       true,
+		FileParams:      []string{"fileName"},
+		NeedsConfirm:    true,
 		Mutating:        false,
 		HeaderOverrides: map[string]string{"X-Printing-Press-Replay-Safe": "true"},
 		keywords:        codeOrchKeywords("report_builder", "upload-template", "Report Settings", "/report_builder/upload_template"),
@@ -2154,6 +2416,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_jobs_view", "get", "Retrieve report job view", "/r/company/report_jobs_view/{id}"),
 	},
@@ -2166,6 +2429,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_jobs_view", "list", "Retrieve report jobs view", "/r/company/report_jobs_view"),
 	},
@@ -2178,6 +2443,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "company_id", WireName: "company_id"}, {PublicName: "source", WireName: "source"}, {PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "ad-basic-info", "Retrieve ad basic info", "/report_queries/ad_basic_info"),
 	},
@@ -2190,6 +2457,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "ad-computers-view", "Retrieve ad computers view", "/report_queries/ad_computers_view"),
 	},
@@ -2202,6 +2471,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "company_id", WireName: "company_id"}, {PublicName: "source", WireName: "source"}, {PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "ad-domain-details", "Retrieve ad domain details", "/report_queries/ad_domain_details"),
 	},
@@ -2214,6 +2485,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "company_id", WireName: "company_id"}, {PublicName: "domains_id", WireName: "domains_id"}, {PublicName: "source", WireName: "source"}, {PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "ad-gpos-details", "Retrieve ad gpos details", "/report_queries/ad_gpos_details"),
 	},
@@ -2226,6 +2499,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "ad-gpos-view", "Retrieve ad gpos view", "/report_queries/ad_gpos_view"),
 	},
@@ -2238,6 +2513,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "company_id", WireName: "company_id"}, {PublicName: "object_guid", WireName: "object_guid"}, {PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "ad-group-computers", "Retrieve ad group computers", "/report_queries/ad_group_computers"),
 	},
@@ -2250,6 +2527,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "company_id", WireName: "company_id"}, {PublicName: "object_guid", WireName: "object_guid"}, {PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "ad-group-users", "Retrieve ad group users", "/report_queries/ad_group_users"),
 	},
@@ -2262,6 +2541,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "ad-groups-view", "Retrieve ad groups view", "/report_queries/ad_groups_view"),
 	},
@@ -2274,6 +2555,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "ad-ous-view", "Retrieve ad ous view", "/report_queries/ad_ous_view"),
 	},
@@ -2286,6 +2569,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "ad-password-policies", "Retrieve ad password policies", "/report_queries/ad_password_policies"),
 	},
@@ -2298,6 +2583,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "ad-roles", "Retrieve ad roles", "/report_queries/ad_roles"),
 	},
@@ -2310,6 +2597,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "company_id", WireName: "company_id"}, {PublicName: "object_guid", WireName: "object_guid"}, {PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "ad-roles-details", "Retrieve ad roles details", "/report_queries/ad_roles_details"),
 	},
@@ -2322,6 +2611,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "company_id", WireName: "company_id"}, {PublicName: "object_guid", WireName: "object_guid"}, {PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "ad-roles-member", "Retrieve ad roles member", "/report_queries/ad_roles_member"),
 	},
@@ -2334,6 +2625,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "ad-user-licenses", "Retrieve ad user licenses", "/report_queries/ad_user_licenses"),
 	},
@@ -2346,6 +2639,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "ad-users-view", "Retrieve ad users view", "/report_queries/ad_users_view"),
 	},
@@ -2358,6 +2653,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "adaudit", "Retrieve adaudit", "/report_queries/adaudit"),
 	},
@@ -2370,6 +2667,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "application-count", "Retrieve records", "/r/report_queries/application_count"),
 	},
@@ -2382,6 +2681,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "application-vulnerabilities", "Retrieve records", "/r/report_queries/application_vulnerabilities"),
 	},
@@ -2394,6 +2695,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "application-vulnerabilities-by-os", "Retrieve records", "/r/report_queries/application_vulnerabilities_by_os"),
 	},
@@ -2406,6 +2709,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "application-vulnerabilities-by-os-software-details", "Retrieve records", "/r/report_queries/application_vulnerabilities_by_os_software_details"),
 	},
@@ -2418,6 +2723,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "application-vulnerabilities-by-os-software-details-suppressed", "Retrieve records", "/r/report_queries/application_vulnerabilities_by_os_software_details_suppressed"),
 	},
@@ -2430,6 +2737,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "application-vulnerabilities-by-product", "Retrieve records", "/r/report_queries/application_vulnerabilities_by_product"),
 	},
@@ -2442,6 +2751,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "application-vulnerabilities-by-product-suppressed", "Retrieve records", "/r/report_queries/application_vulnerabilities_by_product_suppressed"),
 	},
@@ -2454,6 +2765,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "application-vulnerabilities-by-product-suppressed-tag", "Retrieve records", "/r/report_queries/application_vulnerabilities_by_product_suppressed_tag"),
 	},
@@ -2466,6 +2779,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "application-vulnerabilities-by-product-tag", "Retrieve records", "/r/report_queries/application_vulnerabilities_by_product_tag"),
 	},
@@ -2478,6 +2793,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "application-vulnerabilities-net", "Retrieve records", "/r/report_queries/application_vulnerabilities_net"),
 	},
@@ -2490,6 +2807,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "application-vulnerabilities-net-suppressed", "Retrieve records", "/r/report_queries/application_vulnerabilities_net_suppressed"),
 	},
@@ -2502,6 +2821,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "application-vulnerabilities-net-suppressed-tag", "Retrieve records", "/r/report_queries/application_vulnerabilities_net_suppressed_tag"),
 	},
@@ -2514,6 +2835,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "application-vulnerabilities-net-tag", "Retrieve records", "/r/report_queries/application_vulnerabilities_net_tag"),
 	},
@@ -2526,6 +2849,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "agent_type", WireName: "agent_type"}, {PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "application-vulnerabilities-os-patch", "Retrieve records", "/r/report_queries/application_vulnerabilities_os_patch"),
 	},
@@ -2538,6 +2863,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "id", WireName: "id"}, {PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "application-vulnerabilities-patching-asset-details", "Retrieve records", "/r/report_queries/application_vulnerabilities_patching_asset_details"),
 	},
@@ -2550,6 +2877,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "application-vulnerabilities-suppressed", "Retrieve records", "/r/report_queries/application_vulnerabilities_suppressed"),
 	},
@@ -2562,6 +2891,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "application-vulnerabilities-suppressed-by-os", "Retrieve records", "/r/report_queries/application_vulnerabilities_suppressed_by_os"),
 	},
@@ -2574,6 +2905,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "application-vulnerabilities-suppressed-tag", "Retrieve records", "/r/report_queries/application_vulnerabilities_suppressed_tag"),
 	},
@@ -2586,6 +2919,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "application-vulnerabilities-suppressed-tag-by-os", "Retrieve records", "/r/report_queries/application_vulnerabilities_suppressed_tag_by_os"),
 	},
@@ -2598,6 +2933,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "application-vulnerabilities-tag", "Retrieve records", "/r/report_queries/application_vulnerabilities_tag"),
 	},
@@ -2610,6 +2947,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "application-vulnerabilities-tag-by-os", "Retrieve records", "/r/report_queries/application_vulnerabilities_tag_by_os"),
 	},
@@ -2622,6 +2961,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "software_type", WireName: "software_type"}, {PublicName: "agent_type", WireName: "agent_type"}, {PublicName: "platform", WireName: "platform"}, {PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "application-vulnerabilities-v2", "Retrieve records", "/r/report_queries/application_vulnerabilities_v2"),
 	},
@@ -2634,6 +2975,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "asset_id", WireName: "asset_id"}, {PublicName: "platform", WireName: "platform"}, {PublicName: "compliance_type", WireName: "compliance_type"}, {PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "asset-compliance-details", "Retrieve records", "/r/report_queries/asset_compliance_details"),
 	},
@@ -2646,6 +2989,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "asset_id", WireName: "asset_id"}, {PublicName: "company_id", WireName: "company_id"}, {PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "asset-compliance-report-data", "Retrieve records", "/r/report_queries/asset_compliance_report_data"),
 	},
@@ -2658,6 +3003,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "asset-critical-vulnerabilities", "Retrieve records", "/r/report_queries/asset_critical_vulnerabilities"),
 	},
@@ -2670,6 +3017,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "asset-firewall-rules", "Retrieve asset firewall rules", "/report_queries/asset_firewall_rules"),
 	},
@@ -2682,6 +3031,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "asset-iptables-rules", "Retrieve asset iptables rules", "/report_queries/asset_iptables_rules"),
 	},
@@ -2694,6 +3045,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "asset-open-ports", "Retrieve asset open ports", "/report_queries/asset_open_ports"),
 	},
@@ -2706,6 +3059,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "asset-patches-info", "Retrieve asset patches info", "/report_queries/asset_patches_info"),
 	},
@@ -2718,6 +3073,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "asset-ports-view", "Retrieve records", "/r/report_queries/asset_ports_view"),
 	},
@@ -2730,6 +3087,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "asset-processes-running", "Retrieve asset processes running", "/report_queries/asset_processes_running"),
 	},
@@ -2742,6 +3101,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "asset-registry-misconfiguration", "Retrieve asset registry misconfiguration", "/report_queries/asset_registry_misconfiguration"),
 	},
@@ -2754,6 +3115,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "asset_id", WireName: "asset_id"}, {PublicName: "company_id", WireName: "company_id"}, {PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "asset-security-report-data", "Retrieve records", "/r/report_queries/asset_security_report_data"),
 	},
@@ -2766,6 +3129,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "asset-security-report-data-bulk", "Retrieve asset security report data", "/r/report_queries/asset_security_report_data_bulk"),
 	},
@@ -2778,6 +3143,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "asset-services", "Retrieve asset services", "/report_queries/asset_services"),
 	},
@@ -2790,6 +3157,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "asset-software", "Retrieve records", "/r/report_queries/asset_software"),
 	},
@@ -2802,6 +3171,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "asset-stats", "Retrieve asset stats", "/r/report_queries/asset_stats"),
 	},
@@ -2814,6 +3185,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "asset-users", "Retrieve asset users", "/report_queries/asset_users"),
 	},
@@ -2826,6 +3199,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "asset-wise-vulnerabilities", "Retrieve records", "/r/report_queries/asset_wise_vulnerabilities"),
 	},
@@ -2838,6 +3213,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "assets", "Retrieve assets", "/r/report_queries/assets"),
 	},
@@ -2850,6 +3227,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "assets-by-application", "Retrieve records", "/r/report_queries/assets_by_application"),
 	},
@@ -2862,6 +3241,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "assets-by-application-suppressed", "Retrieve records", "/r/report_queries/assets_by_application_suppressed"),
 	},
@@ -2874,6 +3255,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "azure-ad-logs", "Retrieve azure ad logs", "/report_queries/azure_ad_logs"),
 	},
@@ -2886,6 +3269,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "azure-licenses", "Retrieve azure licenses", "/report_queries/azure_licenses"),
 	},
@@ -2898,6 +3283,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "azure-secure-score", "Retrieve azure secure score", "/report_queries/azure_secure_score"),
 	},
@@ -2910,6 +3297,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "cert-info-view", "Retrieve records", "/r/report_queries/cert_info_view"),
 	},
@@ -2922,6 +3311,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "companies-by-application", "Retrieve records", "/r/report_queries/companies_by_application"),
 	},
@@ -2934,6 +3325,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "companies-by-application-suppressed", "Retrieve records", "/r/report_queries/companies_by_application_suppressed"),
 	},
@@ -2946,6 +3339,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "companies-by-problem-group", "Retrieve records", "/r/report_queries/companies_by_problem_group"),
 	},
@@ -2958,6 +3353,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "companies-by-problem-group-suppressed", "Retrieve records", "/r/report_queries/companies_by_problem_group_suppressed"),
 	},
@@ -2970,6 +3367,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "compliance_type", WireName: "compliance_type"}, {PublicName: "status", WireName: "status"}, {PublicName: "platform", WireName: "platform"}, {PublicName: "check_id", WireName: "check_id"}, {PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "compliance-asset-info", "Retrieve records", "/r/report_queries/compliance_asset_info"),
 	},
@@ -2982,6 +3381,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "platform", WireName: "platform"}, {PublicName: "section", WireName: "section"}, {PublicName: "compliance_type", WireName: "compliance_type"}, {PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "compliance-check-asset-count", "Retrieve records", "/r/report_queries/compliance_check_asset_count"),
 	},
@@ -2994,6 +3395,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "platform", WireName: "platform"}, {PublicName: "section", WireName: "section"}, {PublicName: "compliance_type", WireName: "compliance_type"}, {PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "compliance-check-company-count", "Retrieve records", "/r/report_queries/compliance_check_company_count"),
 	},
@@ -3006,6 +3409,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "platform", WireName: "platform"}, {PublicName: "compliance_type", WireName: "compliance_type"}, {PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "compliance-check-count", "Retrieve records", "/r/report_queries/compliance_check_count"),
 	},
@@ -3018,6 +3423,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "platform", WireName: "platform"}, {PublicName: "compliance_status", WireName: "compliance_status"}, {PublicName: "compliance_type", WireName: "compliance_type"}, {PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "compliance-check-count-by-section", "Retrieve records", "/r/report_queries/compliance_check_count_by_section"),
 	},
@@ -3030,6 +3437,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "compliance_type", WireName: "compliance_type"}, {PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "compliance-count", "Retrieve records", "/r/report_queries/compliance_count"),
 	},
@@ -3042,6 +3451,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "compliance_type", WireName: "compliance_type"}, {PublicName: "description", WireName: "description"}, {PublicName: "platform", WireName: "platform"}, {PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "compliance-internal-checks", "Retrieve records", "/r/report_queries/compliance_internal_checks"),
 	},
@@ -3054,6 +3465,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "platform", WireName: "platform"}, {PublicName: "compliance_type", WireName: "compliance_type"}, {PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "compliance-maturity", "Retrieve records", "/r/report_queries/compliance_maturity"),
 	},
@@ -3066,6 +3479,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "cron-jobs", "Retrieve cron jobs", "/report_queries/cron_jobs"),
 	},
@@ -3078,6 +3493,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "distinct-agents-name", "Retrieve records", "/r/report_queries/distinct_agents_name"),
 	},
@@ -3090,6 +3507,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "distinct-asset-ip", "Retrieve records", "/r/report_queries/distinct_asset_ip"),
 	},
@@ -3102,6 +3521,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "distinct-asset-name", "Retrieve records", "/r/report_queries/distinct_asset_name"),
 	},
@@ -3114,6 +3535,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "distinct-discovered-protocols", "Retrieve records", "/r/report_queries/distinct_discovered_protocols"),
 	},
@@ -3126,6 +3549,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "distinct-os", "Retrieve records", "/r/report_queries/distinct_os"),
 	},
@@ -3138,6 +3563,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "distinct-platform", "Retrieve records", "/r/report_queries/distinct_platform"),
 	},
@@ -3150,6 +3577,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "distinct-software", "Retrieve records", "/r/report_queries/distinct_software"),
 	},
@@ -3162,6 +3591,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "distinct-tags", "Retrieve records", "/r/report_queries/distinct_tags"),
 	},
@@ -3174,6 +3605,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "event-stats", "Retrieve event stats", "/report_queries/event_stats"),
 	},
@@ -3186,6 +3619,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "event-tickets", "Retrieve event tickets", "/report_queries/event_tickets"),
 	},
@@ -3198,6 +3633,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "external-asset-externalscan", "Retrieve records", "/r/report_queries/external_asset_externalscan"),
 	},
@@ -3210,6 +3647,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "external-asset-ports-data", "Retrieve records", "/r/report_queries/external_asset_ports_data"),
 	},
@@ -3222,6 +3661,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "external-asset-ssl-attack", "Retrieve records", "/r/report_queries/external_asset_ssl_attack"),
 	},
@@ -3234,6 +3675,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "external-asset-ssl-ciphers", "Retrieve records", "/r/report_queries/external_asset_ssl_ciphers"),
 	},
@@ -3246,6 +3689,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "external-asset-vulnerabilities", "Retrieve records", "/r/report_queries/external_asset_vulnerabilities"),
 	},
@@ -3258,6 +3703,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "problem_name", WireName: "problem_name"}, {PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "get-assets-by-problem", "Retrieve records", "/r/report_queries/get_assets_by_problem"),
 	},
@@ -3270,6 +3717,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "get-assets-problem", "Retrieve records", "/r/report_queries/get_assets_problem"),
 	},
@@ -3282,6 +3731,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "company_id", WireName: "company_id"}, {PublicName: "object_guid", WireName: "object_guid"}, {PublicName: "source", WireName: "source"}, {PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "get-computer-details", "Retrieve get computer details", "/report_queries/get_computer_details"),
 	},
@@ -3294,6 +3745,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "company_id", WireName: "company_id"}, {PublicName: "object_guid", WireName: "object_guid"}, {PublicName: "source", WireName: "source"}, {PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "get-groups-details", "Retrieve get groups details", "/report_queries/get_groups_details"),
 	},
@@ -3306,6 +3759,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "company_id", WireName: "company_id"}, {PublicName: "object_guid", WireName: "object_guid"}, {PublicName: "source", WireName: "source"}, {PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "get-ous-details", "Retrieve get ous details", "/report_queries/get_ous_details"),
 	},
@@ -3318,6 +3773,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "get-remediate-records", "Retrieve records", "/r/report_queries/get_remediate_records"),
 	},
@@ -3330,6 +3787,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "get-remediation", "Retrieve records", "/r/report_queries/get_remediation"),
 	},
@@ -3342,6 +3801,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "company_id", WireName: "company_id"}, {PublicName: "object_guid", WireName: "object_guid"}, {PublicName: "source", WireName: "source"}, {PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "get-user-details", "Retrieve get user details", "/report_queries/get_user_details"),
 	},
@@ -3354,6 +3815,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "job-details", "Retrieve job details", "/report_queries/job_details"),
 	},
@@ -3366,6 +3829,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "job-details-view", "Retrieve job details view", "/report_queries/job_details_view"),
 	},
@@ -3378,6 +3843,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "kernel-modules", "Retrieve kernel modules", "/report_queries/kernel_modules"),
 	},
@@ -3390,6 +3857,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "company_id", WireName: "company_id"}, {PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "lightweight-assets", "Retrieve records", "/r/report_queries/lightweight_assets"),
 	},
@@ -3402,6 +3871,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "notification-tickets-view", "Retrieve records", "/r/report_queries/notification_tickets_view"),
 	},
@@ -3414,6 +3885,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "notification-tickets-view-legacy", "Retrieve notification tickets view", "/report_queries/notification_tickets_view"),
 	},
@@ -3426,6 +3899,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "num_days", WireName: "num_days"}, {PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "os-pending-patches", "Retrieve records", "/r/report_queries/os_pending_patches"),
 	},
@@ -3438,6 +3913,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "os_name", WireName: "os_name"}, {PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "os-pending-patches-companies", "Retrieve records", "/r/report_queries/os_pending_patches_companies"),
 	},
@@ -3450,6 +3927,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "service_name", WireName: "service_name"}, {PublicName: "company_id", WireName: "company_id"}, {PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "ports-assets-details", "Retrieve records", "/r/report_queries/ports_assets_details"),
 	},
@@ -3462,6 +3941,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "ports-count", "Retrieve records", "/r/report_queries/ports_count"),
 	},
@@ -3474,6 +3955,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "ports-view", "Retrieve records", "/r/report_queries/ports_view"),
 	},
@@ -3486,6 +3969,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "problem-group-summary", "Retrieve records", "/r/report_queries/problem_group_summary"),
 	},
@@ -3498,6 +3983,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "problem-group-summary-asset-company-count", "Retrieve records", "/r/report_queries/problem_group_summary_asset_company_count"),
 	},
@@ -3510,6 +3997,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "problem_name", WireName: "problem_name"}, {PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "problems-info", "Retrieve records", "/r/report_queries/problems_info"),
 	},
@@ -3522,6 +4011,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "company_id", WireName: "company_id"}, {PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "problems-remediations-summary", "Retrieve records", "/r/report_queries/problems_remediations_summary"),
 	},
@@ -3534,6 +4025,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "problems-ssl-for-asset", "Retrieve records", "/r/report_queries/problems_ssl_for_asset"),
 	},
@@ -3546,6 +4039,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "problems-summary", "Retrieve records", "/r/report_queries/problems_summary"),
 	},
@@ -3558,6 +4053,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "problems-summary-asset-details", "Retrieve records", "/r/report_queries/problems_summary_asset_details"),
 	},
@@ -3570,6 +4067,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "problems-summary-global", "Retrieve records", "/r/report_queries/problems_summary_global"),
 	},
@@ -3582,6 +4081,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "problems-summary-group-by-companies", "Retrieve records", "/r/report_queries/problems_summary_group_by_companies"),
 	},
@@ -3594,6 +4095,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "problems-summary-tag", "Retrieve records", "/r/report_queries/problems_summary_tag"),
 	},
@@ -3606,6 +4109,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "registry-problems-company", "Retrieve records", "/r/report_queries/registry_problems_company"),
 	},
@@ -3618,6 +4123,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "registry-problems-remediation", "Retrieve records", "/r/report_queries/registry_problems_remediation"),
 	},
@@ -3630,6 +4137,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "asset_id", WireName: "asset_id"}, {PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "registry-problems-remediation-asset-details", "Retrieve records", "/r/report_queries/registry_problems_remediation_asset_details"),
 	},
@@ -3642,6 +4151,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "registry-problems-summary", "Retrieve records", "/r/report_queries/registry_problems_summary"),
 	},
@@ -3654,6 +4165,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "remediate-records", "Retrieve records", "/r/report_queries/remediate_records"),
 	},
@@ -3666,6 +4179,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "remediate-records-assets", "Retrieve records", "/r/report_queries/remediate_records_assets"),
 	},
@@ -3678,6 +4193,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "remediate-records-companies", "Retrieve records", "/r/report_queries/remediate_records_companies"),
 	},
@@ -3690,6 +4207,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "having", WireName: "having"}, {PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "remediate-records-days", "Retrieve records", "/r/report_queries/remediate_records_days"),
 	},
@@ -3702,6 +4221,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "remediated-registry-solution-plan", "Retrieve records", "/r/report_queries/remediated_registry_solution_plan"),
 	},
@@ -3714,6 +4235,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "software_name", WireName: "software_name"}, {PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "remediation-companies", "Retrieve records", "/r/report_queries/remediation_companies"),
 	},
@@ -3726,6 +4249,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "having", WireName: "having"}, {PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "remediation-plan-asset-details", "Retrieve records", "/r/report_queries/remediation_plan_asset_details"),
 	},
@@ -3738,6 +4263,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "having", WireName: "having"}, {PublicName: "software_type", WireName: "software_type"}, {PublicName: "epss_score", WireName: "epss_score"}, {PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "remediation-plan-asset-details-by-epss", "Retrieve records", "/r/report_queries/remediation_plan_asset_details_by_epss"),
 	},
@@ -3750,6 +4277,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "having", WireName: "having"}, {PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "remediation-plan-asset-epss-details", "Retrieve records", "/r/report_queries/remediation_plan_asset_epss_details"),
 	},
@@ -3762,6 +4291,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "company_id", WireName: "company_id"}, {PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "remediation-plan-by-company", "Retrieve records", "/r/report_queries/remediation_plan_by_company"),
 	},
@@ -3774,6 +4305,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "having", WireName: "having"}, {PublicName: "company_id", WireName: "company_id"}, {PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "remediation-plan-include-company", "Retrieve records", "/r/report_queries/remediation_plan_include_company"),
 	},
@@ -3786,6 +4319,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "having", WireName: "having"}, {PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "remediation-plan-include-company-days", "Retrieve records", "/r/report_queries/remediation_plan_include_company_days"),
 	},
@@ -3798,6 +4333,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "remediation-velocity-application", "Retrieve records", "/r/report_queries/remediation_velocity_application"),
 	},
@@ -3810,6 +4347,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "remediation-velocity-application-asset-details", "Retrieve records", "/r/report_queries/remediation_velocity_application_asset_details"),
 	},
@@ -3822,6 +4361,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "remediation-velocity-company", "Retrieve records", "/r/report_queries/remediation_velocity_company"),
 	},
@@ -3834,6 +4375,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "company_id", WireName: "company_id"}, {PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "resolved-remediation", "Retrieve records", "/r/report_queries/resolved_remediation"),
 	},
@@ -3846,6 +4389,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "risk-score", "Retrieve records", "/r/report_queries/risk_score"),
 	},
@@ -3858,6 +4403,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "selinux-settings", "Retrieve selinux settings", "/report_queries/selinux_settings"),
 	},
@@ -3870,6 +4417,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "suid-permissions", "Retrieve suid permissions", "/report_queries/suid_permissions"),
 	},
@@ -3882,6 +4431,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "suppress-vulnerability-problems", "Retrieve records", "/r/report_queries/suppress_vulnerability_problems"),
 	},
@@ -3894,6 +4445,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "suppress-vulnerability-problems-sid", "Retrieve records", "/r/report_queries/suppress_vulnerability_problems_sid"),
 	},
@@ -3906,6 +4459,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "suppress-vulnerability-solution", "Retrieve records", "/r/report_queries/suppress_vulnerability_solution"),
 	},
@@ -3918,6 +4473,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "suppressed-problems", "Retrieve records", "/r/report_queries/suppressed_problems"),
 	},
@@ -3930,6 +4487,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "sw-problems-remediations-view", "Retrieve records", "/r/report_queries/sw_problems_remediations_view"),
 	},
@@ -3942,6 +4501,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "sw-problems-remediations-view-assetwise", "Retrieve records", "/r/report_queries/sw_problems_remediations_view_assetwise"),
 	},
@@ -3954,6 +4515,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "sw-problems-remediations-view-vul", "Retrieve records", "/r/report_queries/sw_problems_remediations_view_vul"),
 	},
@@ -3966,6 +4529,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "system-events-view", "Retrieve system events view", "/report_queries/system_events_view"),
 	},
@@ -3978,6 +4543,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "system-events-view-ticketid", "Retrieve system events view", "/report_queries/system_events_view_ticketid"),
 	},
@@ -3990,6 +4557,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "tags-view", "Retrieve records", "/r/report_queries/tags_view"),
 	},
@@ -4002,6 +4571,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "total-asset-count", "Retrieve records", "/r/report_queries/total_asset_count"),
 	},
@@ -4014,6 +4585,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "ufw-firewall-rules", "Retrieve ufw firewall rules", "/report_queries/ufw_firewall_rules"),
 	},
@@ -4026,6 +4599,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "unconfirmed-key-check", "Retrieve records", "/r/report_queries/unconfirmed_key_check"),
 	},
@@ -4038,6 +4613,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "unconfirmed-open-ports-key-check", "Retrieve records", "/r/report_queries/unconfirmed_open_ports_key_check"),
 	},
@@ -4050,6 +4627,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "user-enabled-stats", "Retrieve user enabled stats", "/report_queries/user_enabled_stats"),
 	},
@@ -4062,6 +4641,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "user-event-stats", "Retrieve user event stats", "/report_queries/user_event_stats"),
 	},
@@ -4074,6 +4655,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "user-locked-stats", "Retrieve user locked stats", "/report_queries/user_locked_stats"),
 	},
@@ -4086,6 +4669,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "vulnerabilities-count", "Retrieve records", "/r/report_queries/vulnerabilities_count"),
 	},
@@ -4098,6 +4683,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "vulnerabilities-details", "Retrieve records", "/r/report_queries/vulnerabilities_details"),
 	},
@@ -4110,6 +4697,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("report_queries", "vulnerabilities-details-suppressed", "Retrieve records", "/r/report_queries/vulnerabilities_details_suppressed"),
 	},
@@ -4122,6 +4711,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("scheduler", "create", "Create scheduler", "/w/company/scheduler"),
 	},
@@ -4134,6 +4724,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("scheduler", "delete", "Delete scheduler", "/d/company/scheduler/{id}"),
 	},
@@ -4146,6 +4737,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("scheduler", "get", "Retrieve scheduler", "/r/company/scheduler/{id}"),
 	},
@@ -4158,6 +4750,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("scheduler", "list", "Retrieve scheduler", "/r/company/scheduler"),
 	},
@@ -4170,6 +4764,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("scheduler", "remove-schedule", "Update schedule", "/w/company/remove_schedule"),
 	},
@@ -4182,6 +4777,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("scheduler", "update", "Update scheduler", "/w/company/scheduler"),
 	},
@@ -4194,6 +4790,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("scheduler", "update-schedule", "Update schedule", "/w/company/update_schedule"),
 	},
@@ -4206,6 +4803,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{{PublicName: "Client-Auth-Token", WireName: "Client-Auth-Token"}},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("session", "authorize", "Authorize", "/w/authorize"),
 	},
@@ -4218,6 +4816,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("suppress_vulnerability", "create", "Create suppres vulnerability", "/w/asset/suppress_vulnerability"),
 	},
@@ -4230,6 +4829,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("suppress_vulnerability", "delete", "Delete suppres vulnerability", "/d/asset/suppress_vulnerability/{id}"),
 	},
@@ -4242,6 +4842,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("suppress_vulnerability", "get", "Retrieve suppres vulnerability", "/r/asset/suppress_vulnerability/{id}"),
 	},
@@ -4254,6 +4855,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("suppress_vulnerability", "list", "Retrieve suppress vulnerability", "/r/asset/suppress_vulnerability"),
 	},
@@ -4266,6 +4869,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("suppress_vulnerability", "update", "Update suppres vulnerability", "/w/asset/suppress_vulnerability"),
 	},
@@ -4278,6 +4882,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("tag_rules", "create", "Create tag rule", "/w/company/tag_rules"),
 	},
@@ -4290,6 +4895,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("tag_rules", "delete", "Delete tag rule", "/d/company/tag_rules/{id}"),
 	},
@@ -4302,6 +4908,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("tag_rules", "get", "Retrieve tag rule", "/r/company/tag_rules/{id}"),
 	},
@@ -4314,6 +4921,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("tag_rules", "list", "Retrieve tag rules", "/r/company/tag_rules"),
 	},
@@ -4326,6 +4935,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("tag_rules", "update", "Update tag rule", "/w/company/tag_rules"),
 	},
@@ -4338,6 +4948,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("tags", "create", "Create tag", "/w/company/tags"),
 	},
@@ -4350,6 +4961,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("tags", "delete", "Delete tag", "/d/company/tags/{id}"),
 	},
@@ -4362,6 +4974,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("tags", "get", "Retrieve tag", "/r/company/tags/{id}"),
 	},
@@ -4374,6 +4987,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("tags", "list", "Retrieve tags", "/r/company/tags"),
 	},
@@ -4386,6 +5001,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("tags", "update", "Update tag", "/w/company/tags"),
 	},
@@ -4398,6 +5014,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("users", "list", "Retrieve Users", "/r/user/get_users"),
 	},
@@ -4410,6 +5028,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("windows_protection_status", "get", "Retrieve window protection status", "/r/asset/windows_protection_status/{id}"),
 	},
@@ -4422,6 +5041,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "condition", WireName: "condition"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "order_by", WireName: "order_by"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("windows_protection_status", "list", "Retrieve windows protection status", "/r/asset/windows_protection_status"),
 	},
@@ -4471,6 +5092,17 @@ func codeOrchEndpointMetadata(ep *codeOrchEndpoint) map[string]any {
 		"method":      ep.Method,
 		"path":        ep.Path,
 		"summary":     ep.Summary,
+	}
+	// next_cursor comes back in params under this endpoint's page cursor name.
+	if ep.Page.CursorParam != "" {
+		out["cursor_param"] = ep.Page.CursorParam
+	}
+	if ep.Multipart {
+		out["multipart"] = map[string]any{
+			"file_params":    ep.FileParams,
+			"file_value":     "base64-encoded file content",
+			"filename_param": "optional <param>_filename sets the upload filename (servers may sniff format by extension); defaults to the parameter name",
+		}
 	}
 	return out
 }
@@ -4568,10 +5200,31 @@ func handleCodeOrchGet(ctx context.Context, req mcplib.CallToolRequest) (*mcplib
 }
 
 func codeOrchBlockedByMCPReadOnly(method string) bool {
-	return cliutil.IsMCPReadOnlyEnv() && method != "GET"
+	return cliutil.IsMCPReadOnlyEnv() && !strings.EqualFold(strings.TrimSpace(method), "GET")
+}
+
+// codeOrchRefuseForReadOnlySwitch reports calls the MCP read-only env must
+// reject before a client is built. Mutating GETs are writes even though the
+// verb is GET. _execute also refuses every non-GET, including read-only POSTs.
+func codeOrchRefuseForReadOnlySwitch(ep *codeOrchEndpoint, method string, executeTool bool) bool {
+	if !cliutil.IsMCPReadOnlyEnv() {
+		return false
+	}
+	if method == "DELETE" || ep.NeedsConfirm || ep.Mutating {
+		return true
+	}
+	return executeTool && codeOrchBlockedByMCPReadOnly(method)
+}
+
+func handleCodeOrchRead(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.CallToolResult, error) {
+	return codeOrchInvoke(ctx, req, false)
 }
 
 func handleCodeOrchExecute(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.CallToolResult, error) {
+	return codeOrchInvoke(ctx, req, true)
+}
+
+func codeOrchInvoke(ctx context.Context, req mcplib.CallToolRequest, executeTool bool) (*mcplib.CallToolResult, error) {
 	args := req.GetArguments()
 	id, ok := args["endpoint_id"].(string)
 	if !ok || id == "" {
@@ -4582,8 +5235,9 @@ func handleCodeOrchExecute(ctx context.Context, req mcplib.CallToolRequest) (*mc
 	if ep == nil {
 		return mcplib.NewToolResultError(fmt.Sprintf("unknown endpoint_id %q — call connectsecure_search to discover valid ids", id)), nil
 	}
-	if codeOrchBlockedByMCPReadOnly(ep.Method) {
-		return mcplib.NewToolResultError(fmt.Sprintf("refusing %s %s while %s=1", ep.Method, id, cliutil.MCPReadOnlyEnvVar)), nil
+	method := codeOrchNormalizeMethod(ep.Method)
+	if codeOrchRefuseForReadOnlySwitch(ep, method, executeTool) {
+		return mcplib.NewToolResultError(fmt.Sprintf("refusing %s %s while %s=1", method, id, cliutil.MCPReadOnlyEnvVar)), nil
 	}
 
 	params, _ := args["params"].(map[string]any)
@@ -4631,11 +5285,32 @@ func handleCodeOrchExecute(ctx context.Context, req mcplib.CallToolRequest) (*mc
 		hdrs = nil
 	}
 
+	// An opaque MCP cursor from a bounded page resumes that page; a raw
+	// upstream cursor is sent as-is and anchors any local continuation.
+	mcpCursor, requestCursor := "", ""
+	if method == "GET" && ep.Page.CursorParam != "" {
+		// Offset- and page-numbered APIs take numbers here, so stringify before decoding.
+		if v, ok := params[ep.Page.CursorParam]; ok && v != nil {
+			if s := formatMCPParamValue(v); s != "" {
+				if upstream, err := bound.UpstreamCursor(s); err == nil {
+					mcpCursor, requestCursor = s, upstream
+					if upstream == "" {
+						delete(params, ep.Page.CursorParam)
+					} else {
+						params[ep.Page.CursorParam] = upstream
+					}
+				} else {
+					requestCursor = s
+				}
+			}
+		}
+	}
+
 	// Route params to their runtime slots. GET/DELETE params are query
 	// strings; write methods split spec-declared query params from the
 	// remaining params used as the request body below.
 	query := map[string]string{}
-	if ep.Method == "GET" || ep.Method == "DELETE" {
+	if method == "GET" || method == "DELETE" {
 		for k, v := range params {
 			query[codeOrchWireQueryName(ep.QueryParams, k)] = formatMCPParamValue(v)
 		}
@@ -4660,8 +5335,50 @@ func handleCodeOrchExecute(ctx context.Context, req mcplib.CallToolRequest) (*mc
 		}
 		return codeOrchWriteBody(params)
 	}
+	// Confirm after path and query resolution so a path param or fixed query
+	// selector cannot retarget a read onto a gated endpoint without confirm.
+	// Only a top-level boolean true counts; the string "true" stays a preview.
+	resolvedPath := path
+
+	gated := codeOrchResolvedNeedsConfirm(ep, method, resolvedPath, query)
+	if cliutil.IsMCPReadOnlyEnv() && gated {
+		return mcplib.NewToolResultError(fmt.Sprintf("refusing %s %s while %s=1", method, id, cliutil.MCPReadOnlyEnvVar)), nil
+	}
+	if executeTool {
+		if !gated {
+
+			return mcplib.NewToolResultError(fmt.Sprintf("endpoint_id %q is read-only; call connectsecure_read", id)), nil
+
+		}
+		if !codeOrchConfirmAccepted(args["confirm"]) {
+			previewBody := any(nil)
+			if method != "GET" && method != "DELETE" {
+				previewBody = writeBody()
+			}
+
+			preview := map[string]any{
+				"preview":               true,
+				"confirmation_required": true,
+				"endpoint_id":           ep.ID,
+				"method":                method,
+				"path":                  resolvedPath,
+				"query":                 query,
+				"body":                  previewBody,
+			}
+			text, previewErr := bound.JSON(preview)
+			if previewErr != nil {
+				return mcplib.NewToolResultError(fmt.Sprintf("encoding confirmation preview: %v", previewErr)), nil
+			}
+			return mcplib.NewToolResultText(text), nil
+		}
+	} else if gated {
+
+		return mcplib.NewToolResultError(fmt.Sprintf("resolved %s %s changes state; call connectsecure_execute with confirm set to boolean true", method, resolvedPath)), nil
+
+	}
+	path = resolvedPath
 	var data json.RawMessage
-	switch ep.Method {
+	switch method {
 	case "GET":
 		if len(hdrs) > 0 {
 			if ep.Mutating {
@@ -4683,6 +5400,15 @@ func handleCodeOrchExecute(ctx context.Context, req mcplib.CallToolRequest) (*mc
 			data, _, err = c.DeleteWithParams(ctx, path, query)
 		}
 	case "POST":
+		if ep.Multipart {
+			fields, files, cleanupUploads, uploadErr := codeOrchMultipartParts(ep, params)
+			if uploadErr != nil {
+				return mcpToolError(uploadErr.Error()), nil
+			}
+			defer cleanupUploads()
+			data, _, err = c.PostMultipartWithHeaders(ctx, path, fields, files, hdrs)
+			break
+		}
 		body := writeBody()
 		if len(hdrs) > 0 {
 			data, _, err = c.PostWithHeaders(ctx, path, body, hdrs)
@@ -4690,6 +5416,15 @@ func handleCodeOrchExecute(ctx context.Context, req mcplib.CallToolRequest) (*mc
 			data, _, err = c.Post(ctx, path, body)
 		}
 	case "PUT":
+		if ep.Multipart {
+			fields, files, cleanupUploads, uploadErr := codeOrchMultipartParts(ep, params)
+			if uploadErr != nil {
+				return mcpToolError(uploadErr.Error()), nil
+			}
+			defer cleanupUploads()
+			data, _, err = c.PutMultipartWithHeaders(ctx, path, fields, files, hdrs)
+			break
+		}
 		body := writeBody()
 		if len(hdrs) > 0 {
 			data, _, err = c.PutWithHeaders(ctx, path, body, hdrs)
@@ -4697,6 +5432,15 @@ func handleCodeOrchExecute(ctx context.Context, req mcplib.CallToolRequest) (*mc
 			data, _, err = c.Put(ctx, path, body)
 		}
 	case "PATCH":
+		if ep.Multipart {
+			fields, files, cleanupUploads, uploadErr := codeOrchMultipartParts(ep, params)
+			if uploadErr != nil {
+				return mcpToolError(uploadErr.Error()), nil
+			}
+			defer cleanupUploads()
+			data, _, err = c.PatchMultipartWithHeaders(ctx, path, fields, files, hdrs)
+			break
+		}
 		body := writeBody()
 		if len(hdrs) > 0 {
 			data, _, err = c.PatchWithHeaders(ctx, path, body, hdrs)
@@ -4704,16 +5448,80 @@ func handleCodeOrchExecute(ctx context.Context, req mcplib.CallToolRequest) (*mc
 			data, _, err = c.Patch(ctx, path, body)
 		}
 	default:
-		return mcplib.NewToolResultError(fmt.Sprintf("unsupported method %q", ep.Method)), nil
+		return mcplib.NewToolResultError(fmt.Sprintf("unsupported method %q", method)), nil
 	}
 	if err != nil {
 		return mcplib.NewToolResultError(err.Error()), nil
 	}
-	text := bound.EndpointResponse(ep.Method, data)
+	var text string
+	if method == "GET" && (ep.Page.CursorParam != "" || ep.Page.NextCursorPath != "") {
+		text = bound.EndpointPageResponse(method, data, bound.PageOptions{
+			Cursor:         mcpCursor,
+			CursorParam:    ep.Page.CursorParam,
+			NextCursorPath: ep.Page.NextCursorPath,
+			RequestCursor:  requestCursor,
+		})
+	} else {
+		text = bound.EndpointResponse(method, data)
+	}
 	if platformSession != nil {
 		text = bound.WithMetadata(text, platformSession.OutputMetadata())
 	}
 	return mcplib.NewToolResultText(text), nil
+}
+
+// codeOrchMultipartParts splits params into form fields and file parts. Each
+// file param is resolved through resolveMCPMultipartFile, which stages the
+// caller-supplied content in a process-owned temp file (base64 content by
+// default; opt-in confined path mode) so an MCP caller cannot make the server
+// read an arbitrary local file.
+func codeOrchMultipartParts(ep *codeOrchEndpoint, params map[string]any) (map[string]string, map[string]string, func(), error) {
+	fields, files := map[string]string{}, map[string]string{}
+	var cleanups []func()
+	cleanup := func() {
+		for _, c := range cleanups {
+			c()
+		}
+	}
+	fileParam := func(name string) bool {
+		for _, fp := range ep.FileParams {
+			if fp == name {
+				return true
+			}
+		}
+		return false
+	}
+	// A "<fileparam>_filename" entry is a companion that names the upload; it is
+	// not itself a form field.
+	companion := func(name string) bool {
+		rest, ok := strings.CutSuffix(name, "_filename")
+		return ok && fileParam(rest)
+	}
+	for k, v := range params {
+		switch {
+		case fileParam(k):
+			// File params carry caller-supplied content/paths. Resolve them
+			// through the same confinement as the typed MCP tools so a client
+			// cannot make the server read an arbitrary local file.
+			filenameHint := ""
+			if fv, ok := params[k+"_filename"]; ok {
+				filenameHint = fmt.Sprintf("%v", fv)
+			}
+			staged, c, err := resolveMCPMultipartFile(k, filenameHint, v)
+			if err != nil {
+				cleanup()
+				return nil, nil, nil, err
+			}
+			cleanups = append(cleanups, c)
+			files[k] = staged
+		case companion(k):
+			// Consumed alongside its file param; never sent as a form field.
+			continue
+		default:
+			fields[k] = mcpMultipartFieldValue(v)
+		}
+	}
+	return fields, files, cleanup, nil
 }
 
 // codeOrchWriteBody returns the value handed to the client layer as the
@@ -4776,4 +5584,198 @@ func codeOrchWireQueryName(queryParams []codeOrchParamBinding, name string) stri
 		}
 	}
 	return name
+}
+
+func codeOrchNormalizeMethod(method string) string {
+	return strings.ToUpper(strings.TrimSpace(method))
+}
+
+func codeOrchConfirmAccepted(v any) bool {
+	confirmed, ok := v.(bool)
+	return ok && confirmed
+}
+
+func codeOrchPreviewPath(path string, templateVars map[string]string) string {
+	if len(templateVars) == 0 || !strings.Contains(path, "{") {
+		return path
+	}
+	names := make([]string, 0, len(templateVars))
+	for name := range templateVars {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	for _, name := range names {
+		value := templateVars[name]
+		if name == "" || value == "" {
+			continue
+		}
+		path = strings.ReplaceAll(path, "{"+name+"}", neturl.PathEscape(value))
+	}
+	return path
+}
+
+func codeOrchResolvedNeedsConfirm(selected *codeOrchEndpoint, method, resolvedPath string, query map[string]string) bool {
+	method = codeOrchNormalizeMethod(method)
+	if method == "DELETE" || selected.NeedsConfirm || selected.Mutating {
+		return true
+	}
+	effective := codeOrchEffectiveQuery(resolvedPath, query)
+	resolvedBase := codeOrchPathBase(resolvedPath)
+	// A literal route is the destination when a placeholder route also
+	// matches. POST /reports/search stays a read even though POST
+	// /reports/{id} matches the same path.
+	selectedMatches := codeOrchRequestMatchesEndpoint(selected.Path, resolvedBase, effective)
+	selectedSpecificity := codeOrchPatternSpecificity(selected.Path)
+	for i := range codeOrchEndpoints {
+		other := &codeOrchEndpoints[i]
+		if other == selected {
+			continue
+		}
+		if !other.NeedsConfirm && !other.Mutating && codeOrchNormalizeMethod(other.Method) != "DELETE" {
+			continue
+		}
+		if codeOrchNormalizeMethod(other.Method) != method {
+			continue
+		}
+		if !codeOrchRequestMatchesEndpoint(other.Path, resolvedBase, effective) {
+			continue
+		}
+		if selectedMatches && selectedSpecificity > codeOrchPatternSpecificity(other.Path) {
+			continue
+		}
+		return true
+	}
+	return codeOrchFixedQueryOverridden(selected.Path, effective)
+}
+
+func codeOrchPatternSpecificity(pattern string) int {
+	base := strings.Trim(codeOrchPathBase(pattern), "/")
+	if base == "" {
+		return 0
+	}
+	score := 0
+	for _, seg := range strings.Split(base, "/") {
+		if len(seg) >= 2 && seg[0] == '{' && seg[len(seg)-1] == '}' {
+			continue
+		}
+		score++
+	}
+	return score
+}
+
+func codeOrchPathBase(path string) string {
+	if i := strings.Index(path, "?"); i >= 0 {
+		return path[:i]
+	}
+	return path
+}
+
+func codeOrchEffectiveQuery(path string, query map[string]string) neturl.Values {
+	vals := neturl.Values{}
+	if i := strings.Index(path, "?"); i >= 0 && i+1 < len(path) {
+		if parsed, err := neturl.ParseQuery(path[i+1:]); err == nil {
+			for key, items := range parsed {
+				for _, item := range items {
+					vals.Add(key, item)
+				}
+			}
+		}
+	}
+	for key, value := range query {
+		vals.Add(key, value)
+	}
+	return vals
+}
+
+func codeOrchFixedQueryOverridden(pattern string, effective neturl.Values) bool {
+	_, raw, ok := strings.Cut(pattern, "?")
+	if !ok || raw == "" {
+		return false
+	}
+	fixed, err := neturl.ParseQuery(raw)
+	if err != nil {
+		return false
+	}
+	for name, want := range fixed {
+		got, exists := effective[name]
+		if !exists {
+			continue
+		}
+		for _, value := range got {
+			matched := false
+			for _, allowed := range want {
+				if value == allowed {
+					matched = true
+					break
+				}
+			}
+			if !matched {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func codeOrchRequestMatchesEndpoint(pattern, resolvedBase string, effective neturl.Values) bool {
+	patternBase, patternQuery, _ := strings.Cut(pattern, "?")
+	if !codeOrchSegmentsMatch(patternBase, resolvedBase) {
+		return false
+	}
+	if patternQuery == "" {
+		return true
+	}
+	fixed, err := neturl.ParseQuery(patternQuery)
+	if err != nil {
+		return false
+	}
+	for key, want := range fixed {
+		got := effective[key]
+		if len(got) == 0 {
+			return false
+		}
+		for _, value := range want {
+			found := false
+			for _, have := range got {
+				if have == value {
+					found = true
+					break
+				}
+			}
+			if !found {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+func codeOrchSegmentsMatch(pattern, resolved string) bool {
+	pattern = strings.Trim(pattern, "/")
+	resolved = strings.Trim(resolved, "/")
+	if pattern == "" || resolved == "" {
+		return pattern == resolved
+	}
+	patternSegs := strings.Split(pattern, "/")
+	resolvedSegs := strings.Split(resolved, "/")
+	if len(patternSegs) != len(resolvedSegs) {
+		return false
+	}
+	for i := range patternSegs {
+		seg := patternSegs[i]
+		if len(seg) >= 2 && seg[0] == '{' && seg[len(seg)-1] == '}' {
+			if resolvedSegs[i] == "" {
+				return false
+			}
+			continue
+		}
+		got := resolvedSegs[i]
+		if unescaped, err := neturl.PathUnescape(got); err == nil {
+			got = unescaped
+		}
+		if seg != got {
+			return false
+		}
+	}
+	return true
 }

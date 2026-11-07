@@ -215,18 +215,6 @@ var readCommandResources = map[string][]string{
 	"connectsecure-cli report_builder list":                                                                 {"report_builder"},
 	"connectsecure-cli report_builder get":                                                                  {"report_builder"},
 	"connectsecure-cli report_builder search":                                                               {"report_builder"},
-	"connectsecure-cli report_builder-download-default-template":                                            {"report_builder-download-default-template"},
-	"connectsecure-cli report_builder-download-default-template list":                                       {"report_builder-download-default-template"},
-	"connectsecure-cli report_builder-download-default-template get":                                        {"report_builder-download-default-template"},
-	"connectsecure-cli report_builder-download-default-template search":                                     {"report_builder-download-default-template"},
-	"connectsecure-cli report_builder-get-standard-report-settings":                                         {"report_builder-get-standard-report-settings"},
-	"connectsecure-cli report_builder-get-standard-report-settings list":                                    {"report_builder-get-standard-report-settings"},
-	"connectsecure-cli report_builder-get-standard-report-settings get":                                     {"report_builder-get-standard-report-settings"},
-	"connectsecure-cli report_builder-get-standard-report-settings search":                                  {"report_builder-get-standard-report-settings"},
-	"connectsecure-cli report_builder-standard-reports":                                                     {"report_builder-standard-reports"},
-	"connectsecure-cli report_builder-standard-reports list":                                                {"report_builder-standard-reports"},
-	"connectsecure-cli report_builder-standard-reports get":                                                 {"report_builder-standard-reports"},
-	"connectsecure-cli report_builder-standard-reports search":                                              {"report_builder-standard-reports"},
 	"connectsecure-cli report_jobs_view":                                                                    {"report_jobs_view"},
 	"connectsecure-cli report_jobs_view list":                                                               {"report_jobs_view"},
 	"connectsecure-cli report_jobs_view get":                                                                {"report_jobs_view"},
@@ -918,6 +906,14 @@ func autoRefreshIfStale(ctx context.Context, flags *rootFlags, resources []strin
 	defer func() {
 		meta.ElapsedMS = time.Since(started).Milliseconds()
 	}()
+	// A preview must not create or migrate the store. Read commands reach
+	// this hook before their own --dry-run short-circuit, and a missing
+	// store would otherwise be opened read-write so the refresh can run.
+	if flags.dryRun {
+		meta.Decision = "skipped"
+		meta.Reason = "dry_run"
+		return meta
+	}
 	if flags.dataSource != "auto" {
 		meta.Reason = "data_source_" + flags.dataSource
 		return meta
@@ -1070,7 +1066,8 @@ func runAutoRefresh(ctx context.Context, flags *rootFlags, db *store.Store, reso
 				}
 			}
 		}
-		if missing := unfilledRequiredSyncQueryParams(resource, nil, syncConditionalQueryParams(resource, effectiveSince, sortValue)); len(missing) > 0 {
+		// Latest-only refresh ignores a stored resume cursor; the first-page seed still counts as filled.
+		if missing := unfilledRequiredSyncQueryParams(resource, nil, syncConditionalQueryParams(resource, determinePaginationDefaults(resource), "", effectiveSince, sortValue)); len(missing) > 0 {
 			skippedMissing = append(skippedMissing, fmt.Sprintf("%s (%s)", resource, strings.Join(missing, ", ")))
 		}
 	}

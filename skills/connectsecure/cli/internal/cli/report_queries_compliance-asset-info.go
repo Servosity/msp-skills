@@ -48,16 +48,16 @@ func newReportQueriesComplianceAssetInfoCmd(flags *rootFlags) *cobra.Command {
 				return cmd.Help()
 			}
 			if !cmd.Flags().Changed("compliance-type") && flagComplianceType == "" && !requiredInputWaived() {
-				return fmt.Errorf("required flag \"%s\" not set", "compliance-type")
+				return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "compliance-type"))
 			}
 			if !cmd.Flags().Changed("status") && flagStatus == "" && !requiredInputWaived() {
-				return fmt.Errorf("required flag \"%s\" not set", "status")
+				return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "status"))
 			}
 			if !cmd.Flags().Changed("platform") && flagPlatform == "" && !requiredInputWaived() {
-				return fmt.Errorf("required flag \"%s\" not set", "platform")
+				return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "platform"))
 			}
 			if !cmd.Flags().Changed("check-id") && flagCheckId == "" && !requiredInputWaived() {
-				return fmt.Errorf("required flag \"%s\" not set", "check-id")
+				return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "check-id"))
 			}
 			path := "/r/report_queries/compliance_asset_info"
 			c, err := flags.newClient()

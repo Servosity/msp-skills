@@ -99,6 +99,17 @@ Add to your Claude Desktop config (`%APPDATA%\Claude\claude_desktop_config.json`
 
 </details>
 
+### Remote MCP over HTTP
+
+`connectsecure-mcp --transport http` (or `PP_MCP_TRANSPORT=http`) serves streamable HTTP at `http://127.0.0.1:7777/mcp`. It refuses to start until `CONNECTSECURE_MCP_HTTP_TOKEN` is set to at least 32 characters, and every request must send `Authorization: Bearer <token>`. The command below prints 64 hex characters and meets that minimum. Plain HTTP is allowed only on a loopback `--addr`; any other bind, including `:7777` (every interface), also needs `--tls-cert` and `--tls-key`. Requests with no `Origin` header are accepted, as are loopback origins (`localhost`, `127.0.0.1`, or `[::1]`, any port). Any other `Origin` is refused unless it is listed in `CONNECTSECURE_MCP_HTTP_ALLOWED_ORIGINS`, a comma-separated list of `scheme://host[:port]` values with no path. That list is not a CORS policy; the server does not emit CORS headers.
+
+```bash
+export CONNECTSECURE_MCP_HTTP_TOKEN="$(openssl rand -hex 32)"
+connectsecure-mcp --transport http
+```
+
+Set `CONNECTSECURE_MCP_READ_ONLY=1` (exactly `1`) to drop mirrored commands that are not marked read-only and make the raw execute tool refuse state-changing calls. Commands marked local-write, which write only this CLI's own learn store, stay available.
+
 ## Authentication
 
 ConnectSecure uses a token exchange, not OAuth. Set CONNECTSECURE_BASE_URL to your pod URL (Profile > API Documentation, for example https://pod106.myconnectsecure.com, not the portal login URL), plus CONNECTSECURE_TENANT (your portal login tenant), CONNECTSECURE_CLIENT_ID and CONNECTSECURE_CLIENT_SECRET (Settings > Users > user > API Key). The CLI calls POST /w/authorize with Client-Auth-Token set to base64 of tenant, a literal plus sign, client_id, a colon and client_secret, caches the returned JWT and user ID, and sends Authorization: Bearer plus X-USER-ID on every call. If you already have a token, set CONNECTSECURE_ACCESS_TOKEN and CONNECTSECURE_USER_ID instead.
@@ -276,6 +287,16 @@ Precedence matters in fleets: an ambient per-kind variable such as `CONNECTSECUR
 Relocation is one-way. Unsetting `CONNECTSECURE_HOME` does not move files back to platform defaults, and `doctor` cannot find credentials left under a former root. Move the files manually before unsetting relocation variables.
 
 Existing installs keep working because the platform-default rung matches the legacy layout. On the first auth write, stored secrets leave `config.toml` and are consolidated into `credentials.toml` under the data directory. Run `connectsecure-cli doctor --fail-on warn` to check path and credential-location warnings in automation.
+
+### Local data
+
+Reads are saved locally by default: in `--data-source auto` mode every successful read is also written to the SQLite store (`data.db`, or `data-<hash>.db` per credential) in the data directory. GET responses are cached for five minutes under `http/` in the cache directory. Credentials live in `credentials.toml` in the data directory. The learn journal lives under `learn/` in the state directory. `connectsecure-cli doctor` prints the resolved paths, every store file, and the response-cache size.
+
+None of it is encrypted. New files are created owner-only; beyond that the data relies on OS account permissions and full-disk encryption (FileVault, BitLocker, LUKS).
+
+- **Erase it:** `connectsecure-cli local-data purge` lists the store files, response cache, and learn journal it would delete; add `--yes` to delete them, or `--only store|cache|journal` to narrow it. Config and credentials are kept.
+- **Run without a local copy:** set `CONNECTSECURE_NO_LOCAL_DATA=1`. Reads go to the API (`--data-source live`; `--data-source local` still reads an existing store), the response cache is off (`--no-cache`), nothing new is written to the store, and `sync` and `workflow archive` refuse to run. Set it in an MCP host's `env` block and every command the server runs inherits it.
+- **Choose the read source without flags:** `CONNECTSECURE_DATA_SOURCE=auto|live|local` sets the `--data-source` default; an explicit flag wins.
 
 ## Commands
 

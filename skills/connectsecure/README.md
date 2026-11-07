@@ -16,11 +16,17 @@ Every ConnectSecure API operation, plus a local store that answers vulnerability
 
 ## Works with your agent
 
-> **Security note (until this connector is reprinted).** Do not run HTTP mode
-> (`--transport http`), not even on localhost. This build checks a token, but it
-> predates the fix release's request size and time limits. The MCP tools can
-> also make changes with your credentials. Use the default stdio transport. If
-> you set up a tunnel for a remote agent, shut it down. A fix is on the way.
+> **Security note.** Local agents use the default stdio transport and need no
+> network listener. HTTP mode (`--transport http`, for remote agents) refuses to
+> start until `CONNECTSECURE_MCP_HTTP_TOKEN` is set to a token of at least 32
+> characters, rejects any request without that bearer token, serves
+> `http://127.0.0.1:7777/mcp` by default, and needs `--tls-cert` and `--tls-key`
+> for any other address. It refuses a request body over 4 MiB or one that takes
+> longer than 30 seconds to arrive. Whoever holds the token can call every tool
+> with your ConnectSecure credentials, including `connectsecure_execute`, which
+> changes your tenant once called with `confirm: true`, so treat it like a
+> password, and set `CONNECTSECURE_MCP_READ_ONLY=1` on a remote host that only
+> needs to read. See [mcp-install.md](./mcp-install.md).
 
 The six agents MSP owners actually use (self-serve, works today):
 

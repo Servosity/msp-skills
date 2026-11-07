@@ -41,10 +41,10 @@ func newReportBuilderReportLinkCmd(flags *rootFlags) *cobra.Command {
 				return cmd.Help()
 			}
 			if !cmd.Flags().Changed("job-id") && flagJobId == "" && !requiredInputWaived() {
-				return fmt.Errorf("required flag \"%s\" not set", "job-id")
+				return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "job-id"))
 			}
 			if !cmd.Flags().Changed("is-global") && flagIsGlobal == "" && !requiredInputWaived() {
-				return fmt.Errorf("required flag \"%s\" not set", "is-global")
+				return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "is-global"))
 			}
 			path := "/report_builder/get_report_link"
 			c, err := flags.newClient()

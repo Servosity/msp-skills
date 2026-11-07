@@ -27,6 +27,8 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"connectsecure-pp-cli/internal/cliutil"
+	"connectsecure-pp-cli/internal/credsql"
 	_ "modernc.org/sqlite"
 )
 
@@ -53,14 +55,15 @@ func IsUUID(s string) bool {
 
 // StoreSchemaVersion is the on-disk schema version this binary understands.
 // It is stamped into SQLite's PRAGMA user_version on fresh databases and
-// checked on every open. Learn-enabled CLIs advance to v12 for the
-// parent-key storage-id migration, on top of v11's trigram resources_fts
-// rebuild (CJK substring search), v10's learn_candidates and learn_events
-// tables plus the latest-sync-attempt completion marker, the v8
-// learning_playbooks table, and the v6 canonical learn-loop tables
-// (including the v3 resources_fts rowid rehash and v4 resources_fts content
-// extraction).
-const StoreSchemaVersion = 12
+// checked on every open. Learn-enabled CLIs advance to v14
+// to record which surface wrote each learning_playbooks row, on top of v13's
+// checkpoint scope beside each resource, v12's
+// parent-key storage-id migration, v11's trigram resources_fts rebuild
+// (CJK substring search), v10's learn_candidates and learn_events tables
+// plus the latest-sync-attempt completion marker, the v8 learning_playbooks
+// table, and the v6 canonical learn-loop tables (including the v3
+// resources_fts rowid rehash and v4 resources_fts content extraction).
+const StoreSchemaVersion = 14
 
 // resourcesFTSContentSchemaVersion pins the schema bump that rewrote
 // resources_fts content from raw JSON to searchable leaf values. Keep this
@@ -128,13 +131,29 @@ func Open(dbPath string) (*Store, error) {
 // OpenReadOnlyContext so a cancelled command (SIGINT, deadline) interrupts the
 // SQLITE_BUSY retry during driver init instead of waiting out the full timeout.
 func OpenReadOnly(dbPath string) (*Store, error) {
-	return OpenReadOnlyContext(context.Background(), dbPath)
+	return openReadOnly(context.Background(), dbPath, 0)
+}
+
+// OpenReadOnlyValueCapped is OpenReadOnly with SQLITE_LIMIT_LENGTH set to
+// maxValueBytes on every connection (0: no cap), so no string or blob longer
+// than that is built or returned. Hand-fix (handfixes.json credkit-wiring): the MCP sql
+// tool's value cap, set when the connection opens because sqlite.Limit cannot
+// reach a kit-wrapped one.
+func OpenReadOnlyValueCapped(dbPath string, maxValueBytes int) (*Store, error) {
+	return openReadOnly(context.Background(), dbPath, maxValueBytes)
 }
 
 // OpenReadOnlyContext is OpenReadOnly with a caller-supplied context honored by
 // the driver-init SQLITE_BUSY retry.
 func OpenReadOnlyContext(ctx context.Context, dbPath string) (*Store, error) {
+	return openReadOnly(ctx, dbPath, 0)
+}
+
+func openReadOnly(ctx context.Context, dbPath string, maxValueBytes int) (*Store, error) {
 	dsn := "file:" + dbPath + "?mode=ro&_pragma=busy_timeout(5000)&_pragma=foreign_keys(ON)&_pragma=temp_store(MEMORY)&_pragma=mmap_size(0)"
+	if maxValueBytes > 0 { // Hand-fix (handfixes.json credkit-wiring)
+		dsn += "&" + credsql.LengthLimitParam + "=" + strconv.Itoa(maxValueBytes)
+	}
 	db, err := openReadOnlySQLite(ctx, dsn)
 	if err != nil {
 		return nil, fmt.Errorf("opening database (read-only): %w", err)
@@ -149,11 +168,14 @@ func openReadOnlySQLite(ctx context.Context, dsn string) (*sql.DB, error) {
 	if err := ensureSQLiteDriverInitialized(ctx, dsn); err != nil {
 		return nil, err
 	}
-	db, err := sql.Open("sqlite", dsn)
+	db, err := sql.Open(credsql.Driver, dsn) // Hand-fix (handfixes.json credkit-wiring)
 	if err != nil {
 		return nil, err
 	}
-	if err := db.PingContext(ctx); err != nil {
+	// Hand-fix (handfixes.json credkit-wiring): the statement modernc's Ping
+	// runs; the kit's connection does not forward Ping, so PingContext alone would open
+	// the file without reading it, and a missing -shm would not fail here.
+	if _, err := db.ExecContext(ctx, "select 1"); err != nil {
 		_ = db.Close()
 		return nil, err
 	}
@@ -168,6 +190,7 @@ func OpenWithContext(ctx context.Context, dbPath string) (*Store, error) {
 	if err := os.MkdirAll(filepath.Dir(dbPath), 0o700); err != nil {
 		return nil, fmt.Errorf("creating db directory: %w", err)
 	}
+	hardenOwnDataDir(filepath.Dir(dbPath))
 	hardenSQLiteFiles(dbPath)
 	ensureSQLiteJournalPrivate(dbPath)
 	defer hardenSQLiteFiles(dbPath)
@@ -186,7 +209,7 @@ func OpenWithContext(ctx context.Context, dbPath string) (*Store, error) {
 		return nil, err
 	}
 
-	db, err := sql.Open("sqlite", dsn)
+	db, err := sql.Open(credsql.Driver, dsn) // Hand-fix (handfixes.json credkit-wiring)
 	if err != nil {
 		return nil, fmt.Errorf("opening database: %w", err)
 	}
@@ -217,7 +240,7 @@ func rejectNewerSchemaBeforeJournalMode(ctx context.Context, dbPath string) erro
 	if err != nil {
 		return fmt.Errorf("stating database for schema preflight: %w", err)
 	}
-	probe, err := sql.Open("sqlite", "file:"+filepath.ToSlash(dbPath)+"?mode=ro&_pragma=busy_timeout(1000)&_pragma=mmap_size(0)")
+	probe, err := sql.Open(credsql.Driver, "file:"+filepath.ToSlash(dbPath)+"?mode=ro&_pragma=busy_timeout(1000)&_pragma=mmap_size(0)") // Hand-fix (handfixes.json credkit-wiring)
 	if err != nil {
 		return nil
 	}
@@ -253,6 +276,23 @@ func hardenSQLiteFiles(dbPath string) {
 		}
 		_ = os.Chmod(path, 0o600)
 	}
+}
+
+// hardenOwnDataDir drops group and other access from this CLI's own data
+// directory. MkdirAll leaves an existing directory's mode alone, so one created
+// world-listable by an older release would otherwise stay that way. It is
+// best-effort, follows no symlink, and skips a directory the operator chose:
+// a --db parent or an explicit per-kind data directory.
+func hardenOwnDataDir(dir string) {
+	own, err := cliutil.ResolveKindDir(cliutil.PathKindData)
+	if err != nil || own.Rung == "per-kind-env" || filepath.Clean(own.Dir) != filepath.Clean(dir) {
+		return
+	}
+	info, err := os.Lstat(dir)
+	if err != nil || !info.IsDir() || info.Mode().Perm()&0o077 == 0 {
+		return
+	}
+	_ = os.Chmod(dir, info.Mode().Perm()&0o700)
 }
 
 // ensureSQLiteJournalPrivate creates the cache-profile rollback journal before
@@ -293,7 +333,7 @@ func ensureSQLiteDriverInitialized(ctx context.Context, dsn string) error {
 		return nil
 	}
 
-	db, err := sql.Open("sqlite", dsn)
+	db, err := sql.Open(credsql.Driver, dsn) // Hand-fix (handfixes.json credkit-wiring)
 	if err != nil {
 		return fmt.Errorf("opening database for driver initialization: %w", err)
 	}
@@ -352,51 +392,95 @@ func (s *Store) SchemaVersion() (int, error) {
 	return v, nil
 }
 
-// ensureColumn adds a column to an existing table if it isn't already
-// present. It is the upgrade-path safety valve for schema additions:
-// CREATE TABLE IF NOT EXISTS is a no-op when the table already exists, so
-// columns added by newer binaries (e.g. parent_id from the dependent-
-// resources work) never land on databases created by older binaries —
-// which then trip "no such column" when a follow-on CREATE INDEX runs.
+// backfillStatsKey carries a *backfillStats on the context when a test
+// wants to observe how many schema probes and ALTERs one Open performed.
+// Production callers never set it. The counters are not safe to share
+// across goroutines; Open's migration runs on the caller's goroutine.
+type backfillStatsKey struct{}
+
+type backfillStats struct {
+	probes int
+	alters int
+}
+
+func contextWithBackfillStats(ctx context.Context) (context.Context, *backfillStats) {
+	stats := &backfillStats{}
+	return context.WithValue(ctx, backfillStatsKey{}, stats), stats
+}
+
+func noteBackfillProbe(ctx context.Context) {
+	if stats, ok := ctx.Value(backfillStatsKey{}).(*backfillStats); ok {
+		stats.probes++
+	}
+}
+
+func noteBackfillAlter(ctx context.Context) {
+	if stats, ok := ctx.Value(backfillStatsKey{}).(*backfillStats); ok {
+		stats.alters++
+	}
+}
+
+// snapshotTableColumns reads every existing table's columns once,
+// including generated columns. table_info omits VIRTUAL/STORED columns,
+// so a later Open would try to ADD a column CREATE TABLE already
+// declared (bare_id). Per-column sqlite_master and table_xinfo probes
+// made Open scale with the spec; one join does not.
 //
-// Skips silently if the table doesn't yet exist (fresh install — the
-// CREATE TABLE migration will create it with the column already declared)
-// or if the column already exists. Runs on the pinned migration
-// connection so it sees the writes performed by the in-flight BEGIN
-// IMMEDIATE transaction; using s.db here would route through the pool
-// and BUSY against the holding writer under concurrent migrators.
-func (s *Store) ensureColumn(ctx context.Context, conn *sql.Conn, table, column, decl string) error {
-	var name string
-	err := conn.QueryRowContext(ctx,
-		`SELECT name FROM sqlite_master WHERE type='table' AND name=?`, table,
-	).Scan(&name)
-	if err == sql.ErrNoRows {
-		return nil
-	}
+// A table absent from the map does not exist yet. Fresh installs create
+// it later in the migration with the column already declared.
+func snapshotTableColumns(ctx context.Context, conn *sql.Conn) (map[string]map[string]struct{}, error) {
+	noteBackfillProbe(ctx)
+	rows, err := conn.QueryContext(ctx, `
+		SELECT m.name, p.name
+		FROM sqlite_master AS m, pragma_table_xinfo(m.name) AS p
+		WHERE m.type = 'table'`)
 	if err != nil {
-		return fmt.Errorf("checking table %s: %w", table, err)
+		return nil, fmt.Errorf("reading table columns: %w", err)
 	}
+	defer rows.Close()
 
-	// table_info omits generated columns (VIRTUAL/STORED). table_xinfo
-	// reports them so a later Open does not re-ADD a column CREATE TABLE
-	// already declared, and so upgrades can see a prior ADD of bare_id.
-	var existing string
-	err = conn.QueryRowContext(ctx,
-		`SELECT name FROM pragma_table_xinfo(?) WHERE name=?`,
-		table, column,
-	).Scan(&existing)
-	if err == nil {
-		return nil
+	known := map[string]map[string]struct{}{}
+	for rows.Next() {
+		var table, column string
+		if err := rows.Scan(&table, &column); err != nil {
+			return nil, fmt.Errorf("reading table columns: %w", err)
+		}
+		markColumnPresent(known, table, column)
 	}
-	if err != sql.ErrNoRows {
-		return fmt.Errorf("table_xinfo %s: %w", table, err)
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("reading table columns: %w", err)
 	}
+	return known, nil
+}
 
+// columnNeedsBackfill reports whether table exists and lacks column.
+// Lookup is case-sensitive, matching SQLite's BINARY collation on the
+// name probes this replaced.
+func columnNeedsBackfill(known map[string]map[string]struct{}, table, column string) bool {
+	cols, ok := known[table]
+	if !ok {
+		return false
+	}
+	_, present := cols[column]
+	return !present
+}
+
+func markColumnPresent(known map[string]map[string]struct{}, table, column string) {
+	cols := known[table]
+	if cols == nil {
+		cols = map[string]struct{}{}
+		known[table] = cols
+	}
+	cols[column] = struct{}{}
+}
+
+// addColumn ALTERs a column onto a table the snapshot says is missing it.
+// A concurrent Open may have added the column between the snapshot and
+// this ALTER. SQLite returns SQLITE_ERROR with "duplicate column name",
+// which busy_timeout does not retry. The DB is in the desired state
+// regardless of who won.
+func addColumn(ctx context.Context, conn *sql.Conn, table, column, decl string) error {
 	if _, err := conn.ExecContext(ctx, fmt.Sprintf(`ALTER TABLE "%s" ADD COLUMN "%s" %s`, table, column, decl)); err != nil {
-		// A concurrent Open() may have added the column between our
-		// PRAGMA check and this ALTER. SQLite returns SQLITE_ERROR with
-		// "duplicate column name", which busy_timeout does not retry.
-		// The DB is now in the desired state regardless of who won.
 		if strings.Contains(err.Error(), "duplicate column name") {
 			return nil
 		}
@@ -412,18 +496,27 @@ func (s *Store) ensureColumn(ctx context.Context, conn *sql.Conn, table, column,
 // table. Idempotent: safe to call on fresh DBs (table-not-found short-
 // circuit) and on already-current DBs (column-exists short-circuit).
 //
-// Table names are emitted bare (no safeName) — ensureColumn double-quotes
-// them at SQL emit time and uses parameter binding for the sqlite_master
-// lookup, so the values flow as Go string literals first and SQL
-// identifiers second. Wrapping with safeName here would embed literal
-// double-quote characters into the Go string and break compilation for
-// any spec whose dependent-resource snake_cased name is a SQL reserved
-// word.
+// Table names are emitted bare (no safeName) — addColumn double-quotes
+// them at SQL emit time, so the values flow as Go string literals first
+// and SQL identifiers second. Wrapping with safeName here would embed
+// literal double-quote characters into the Go string and break
+// compilation for any spec whose dependent-resource snake_cased name is
+// a SQL reserved word.
 func (s *Store) backfillColumns(ctx context.Context, conn *sql.Conn) error {
+	known, err := snapshotTableColumns(ctx, conn)
+	if err != nil {
+		return err
+	}
 	for _, c := range []struct{ table, column, decl string }{
 		// Legacy checkpoints cannot prove lossless completion: even an empty
 		// cursor may have come from a capped or partially stored page.
 		{table: "sync_state", column: "last_attempt_complete", decl: "INTEGER NOT NULL DEFAULT 0"},
+		// scope_key is not part of the primary key: one row per resource, and a
+		// changed scope resets the cursor instead of keeping both tenants.
+		{table: "sync_state", column: "scope_key", decl: "TEXT NOT NULL DEFAULT ''"},
+		// Pre-v14 playbook rows have no surface. Default cli so existing
+		// notes stay on the trusted recall fields.
+		{table: "learning_playbooks", column: "ingress_surface", decl: "TEXT NOT NULL DEFAULT 'cli'"},
 		{table: "agent_credentials_mapping", column: "status", decl: "INTEGER"},
 		{table: "agent_credentials_mapping", column: "agent_id", decl: "INTEGER"},
 		{table: "agent_credentials_mapping", column: "company_id", decl: "INTEGER"},
@@ -1075,18 +1168,7 @@ func (s *Store) backfillColumns(ctx context.Context, conn *sql.Conn) error {
 		{table: "pii_scan_settings", column: "scan_type", decl: "TEXT"},
 		{table: "pii_scan_settings", column: "tenantid", decl: "INTEGER"},
 		{table: "pii_scan_settings", column: "updated", decl: "DATETIME"},
-		{table: "report_builder", column: "global", decl: "TEXT"},
-		{table: "report_builder", column: "message", decl: "TEXT"},
 		{table: "report_builder", column: "status", decl: "INTEGER"},
-		{table: "report_builder", column: "company_id", decl: "INTEGER"},
-		{table: "report_builder", column: "company_logo", decl: "TEXT"},
-		{table: "report_builder", column: "company_logo_url", decl: "TEXT"},
-		{table: "report_builder", column: "cover_page", decl: "TEXT"},
-		{table: "report_builder", column: "is_global", decl: "INTEGER"},
-		{table: "report_builder", column: "reporttype", decl: "TEXT"},
-		{table: "report_builder", column: "tenantid", decl: "INTEGER"},
-		{table: "report_builder", column: "updated", decl: "TEXT"},
-		{table: "report_builder", column: "watermark", decl: "TEXT"},
 		{table: "report_jobs_view", column: "status", decl: "INTEGER"},
 		{table: "report_jobs_view", column: "company_id", decl: "INTEGER"},
 		{table: "report_jobs_view", column: "company_name", decl: "TEXT"},
@@ -1560,8 +1642,6 @@ func (s *Store) backfillColumns(ctx context.Context, conn *sql.Conn) error {
 		{table: "report_queries", column: "total_firewall_assets", decl: "INTEGER"},
 		{table: "report_queries", column: "destination", decl: "TEXT"},
 		{table: "report_queries", column: "target_user_count", decl: "INTEGER"},
-		{table: "report_queries", column: "parent_id", decl: "TEXT"},
-		{table: "report_queries", column: "bare_id", decl: "TEXT GENERATED ALWAYS AS (substr(id, 1, coalesce(nullif(instr(id, char(0)), 0) - 1, length(id)))) VIRTUAL"},
 		{table: "scheduler", column: "status", decl: "INTEGER"},
 		{table: "scheduler", column: "created", decl: "DATETIME"},
 		{table: "scheduler", column: "end_count", decl: "TEXT"},
@@ -1653,9 +1733,14 @@ func (s *Store) backfillColumns(ctx context.Context, conn *sql.Conn) error {
 		{table: "sync_state", column: "last_synced_at", decl: "DATETIME"},
 		{table: "sync_state", column: "total_count", decl: "INTEGER DEFAULT 0"},
 	} {
-		if err := s.ensureColumn(ctx, conn, c.table, c.column, c.decl); err != nil {
+		if !columnNeedsBackfill(known, c.table, c.column) {
+			continue
+		}
+		noteBackfillAlter(ctx)
+		if err := addColumn(ctx, conn, c.table, c.column, c.decl); err != nil {
 			return err
 		}
+		markColumnPresent(known, c.table, c.column)
 	}
 	return nil
 }
@@ -1712,7 +1797,8 @@ func (s *Store) migrate(ctx context.Context) error {
 			last_cursor TEXT,
 			last_synced_at DATETIME,
 			total_count INTEGER DEFAULT 0,
-			last_attempt_complete INTEGER NOT NULL DEFAULT 0
+			last_attempt_complete INTEGER NOT NULL DEFAULT 0,
+			scope_key TEXT NOT NULL DEFAULT ''
 		)`,
 		resourcesFTSCreateSQL,
 		// CLI Printing Press: learn migrations
@@ -1815,6 +1901,7 @@ func (s *Store) migrate(ctx context.Context) error {
 			notes_text TEXT,
 			source TEXT NOT NULL DEFAULT 'taught',
 			confidence INTEGER NOT NULL DEFAULT 2,
+			ingress_surface TEXT NOT NULL DEFAULT 'cli',
 			created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			last_observed_at TIMESTAMP
 		)`,
@@ -3101,20 +3188,8 @@ func (s *Store) migrate(ctx context.Context) error {
 			"id" TEXT PRIMARY KEY,
 			"data" JSON NOT NULL,
 			"synced_at" DATETIME DEFAULT CURRENT_TIMESTAMP,
-			"global" TEXT,
-			"message" TEXT,
-			"status" INTEGER,
-			"company_id" INTEGER,
-			"company_logo" TEXT,
-			"company_logo_url" TEXT,
-			"cover_page" TEXT,
-			"is_global" INTEGER,
-			"reporttype" TEXT,
-			"tenantid" INTEGER,
-			"updated" TEXT,
-			"watermark" TEXT
+			"status" INTEGER
 		)`,
-		`CREATE INDEX IF NOT EXISTS "idx_report_builder_company_id" ON "report_builder"("company_id")`,
 		`CREATE TABLE IF NOT EXISTS "report_jobs_view" (
 			"id" TEXT PRIMARY KEY,
 			"data" JSON NOT NULL,
@@ -3598,9 +3673,7 @@ func (s *Store) migrate(ctx context.Context) error {
 			"total_external_assets" INTEGER,
 			"total_firewall_assets" INTEGER,
 			"destination" TEXT,
-			"target_user_count" INTEGER,
-			"parent_id" TEXT,
-			"bare_id" TEXT GENERATED ALWAYS AS (substr(id, 1, coalesce(nullif(instr(id, char(0)), 0) - 1, length(id)))) VIRTUAL
+			"target_user_count" INTEGER
 		)`,
 		`CREATE INDEX IF NOT EXISTS "idx_report_queries_tenant_id" ON "report_queries"("tenant_id")`,
 		`CREATE INDEX IF NOT EXISTS "idx_report_queries_ad_domains_id" ON "report_queries"("ad_domains_id")`,
@@ -3640,8 +3713,6 @@ func (s *Store) migrate(ctx context.Context) error {
 		`CREATE INDEX IF NOT EXISTS "idx_report_queries_sv_company_id" ON "report_queries"("sv_company_id")`,
 		`CREATE INDEX IF NOT EXISTS "idx_report_queries_category_id" ON "report_queries"("category_id")`,
 		`CREATE INDEX IF NOT EXISTS "idx_report_queries_tag_rule_id" ON "report_queries"("tag_rule_id")`,
-		`CREATE INDEX IF NOT EXISTS "idx_report_queries_parent_id" ON "report_queries"("parent_id")`,
-		`CREATE INDEX IF NOT EXISTS "idx_report_queries_bare_id" ON "report_queries"("bare_id")`,
 		`CREATE VIRTUAL TABLE IF NOT EXISTS "report_queries_fts" USING fts5(
 			"name",
 			"description",
@@ -4822,6 +4893,13 @@ func (s *Store) TypedListScan(resourceType string, fn func(id string, data json.
 }
 
 func (s *Store) Search(query string, limit int, resourceTypes ...string) ([]json.RawMessage, error) {
+	return s.SearchContext(context.Background(), query, limit, resourceTypes...)
+}
+
+func (s *Store) SearchContext(ctx context.Context, query string, limit int, resourceTypes ...string) ([]json.RawMessage, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	if limit <= 0 {
 		limit = 50
 	}
@@ -4875,7 +4953,7 @@ func (s *Store) Search(query string, limit int, resourceTypes ...string) ([]json
 			args = []any{matchQuery, limit}
 		}
 	}
-	rows, err := s.db.Query(q, args...)
+	rows, err := s.db.QueryContext(ctx, q, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -9153,24 +9231,13 @@ func (s *Store) UpsertPiiScanSettings(data json.RawMessage) error {
 // domain inserts per item without opening a per-item transaction.
 func (s *Store) upsertReportBuilderTx(tx *sql.Tx, id string, obj map[string]any, data json.RawMessage) error {
 	if _, err := tx.Exec(
-		`INSERT INTO "report_builder" ("id", "data", "synced_at", "global", "message", "status", "company_id", "company_logo", "company_logo_url", "cover_page", "is_global", "reporttype", "tenantid", "updated", "watermark")
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-		 ON CONFLICT("id") DO UPDATE SET "data" = excluded."data", "synced_at" = excluded."synced_at", "global" = excluded."global", "message" = excluded."message", "status" = excluded."status", "company_id" = excluded."company_id", "company_logo" = excluded."company_logo", "company_logo_url" = excluded."company_logo_url", "cover_page" = excluded."cover_page", "is_global" = excluded."is_global", "reporttype" = excluded."reporttype", "tenantid" = excluded."tenantid", "updated" = excluded."updated", "watermark" = excluded."watermark"`,
+		`INSERT INTO "report_builder" ("id", "data", "synced_at", "status")
+		 VALUES (?, ?, ?, ?)
+		 ON CONFLICT("id") DO UPDATE SET "data" = excluded."data", "synced_at" = excluded."synced_at", "status" = excluded."status"`,
 		id,
 		string(data),
 		time.Now().UTC().Format(time.RFC3339),
-		lookupFieldValue(obj, "global"),
-		lookupFieldValue(obj, "message"),
 		lookupFieldValue(obj, "status"),
-		lookupFieldValue(obj, "company_id"),
-		lookupFieldValue(obj, "company_logo"),
-		lookupFieldValue(obj, "company_logo_url"),
-		lookupFieldValue(obj, "cover_page"),
-		lookupFieldValue(obj, "is_global"),
-		lookupFieldValue(obj, "reporttype"),
-		lookupFieldValue(obj, "tenantid"),
-		lookupFieldValue(obj, "updated"),
-		lookupFieldValue(obj, "watermark"),
 	); err != nil {
 		return fmt.Errorf("insert into report_builder: %w", err)
 	}
@@ -9286,9 +9353,9 @@ func (s *Store) UpsertReportJobsView(data json.RawMessage) error {
 // domain inserts per item without opening a per-item transaction.
 func (s *Store) upsertReportQueriesTx(tx *sql.Tx, id string, obj map[string]any, data json.RawMessage) error {
 	if _, err := tx.Exec(
-		`INSERT INTO "report_queries" ("id", "data", "synced_at", "ad_connect_enabled", "domain", "tenant_id", "tenant_name", "total_records", "account_disabled", "ad_domains_id", "ad_ous_id", "company_id", "company_mapping_id", "created", "displayname", "distinguished_name", "dns_host_name", "domain_name", "enabled", "host_name", "is_critical_system_object", "is_managed", "last_logon_timestamp", "linked_ous", "locked_out", "mac", "manufacturer", "name", "object_guid", "os_name", "os_version", "password_expired", "password_last_set", "password_never_expires", "password_not_required", "sam_account_name", "source", "tenantid", "updated", "user_account_control", "when_changed", "when_created", "domain_distinguished_name", "domain_id", "domain_sid", "ads_path", "canonical_name", "company_name", "display_name", "gpc_files_sys_path", "gpc_functionality_version", "gpo_settings", "gpo_status", "instance_type", "show_in_advance_view_only", "usn_changed", "usn_created", "version_number", "account_expire_date", "account_lockout_time", "bad_logon_count", "cannot_change_password", "country", "department", "description", "email_address", "last_bad_password_attempt", "logon_count", "mfa_enabled", "ms_exch_user_account_control", "other_mails", "password_policies", "sid", "when_modified", "category", "common_name", "empty", "group_type", "is_security_enabled", "mail", "mail_enabled", "managed_by", "object_sid", "proxy_addresses", "resource_behavior_options", "resource_provisioning_options", "scope", "visibility", "on_premises_sync_enabled", "ou_name", "complexity_enabled", "lockout_duration", "lockout_observation_window", "lockout_threshold", "max_password_age", "min_password_age", "min_password_length", "password_history_count", "reversible_encryption_enabled", "role_template_id", "user_count", "role_display_name", "role_id", "user_display_name", "user_distinguished_name", "user_email_address", "user_id", "user_name", "user_sid", "build_in_admin", "city", "home_directory", "home_drive", "office_location", "password_expiry_date", "user_principal_name", "access_granted", "account_domain", "account_name", "agent_id", "channel", "client_address", "client_name", "computer_name", "datetime", "ds_name", "event_id", "event_type", "file_name", "ip_address", "ip_port", "keywords", "level", "link_name", "new_object_dn", "new_target_username", "object_class", "object_dn", "old_object_dn", "old_target_user_name", "peer_mac", "pid", "process_name", "provider_guid", "provider_name", "service_name", "service_sid", "session_name", "ssid", "status", "subject_domain_name", "subject_logon_id", "subject_user_name", "subject_user_sid", "target_domain_name", "target_info", "target_server_name", "target_sid", "target_user_name", "task", "tid", "critical_problems", "high_problems", "low_problems", "medium_problems", "total_application", "affected_assets", "affected_companies", "affected_operating_systems", "software_name", "software_type", "software_version", "total_count", "total_problems", "affected_software", "cvss_score", "severity", "title", "unconfirmed", "fix", "software_id", "url", "ip", "online_status", "assessment_justification", "compliance_id", "evidence", "evidence_quality", "implementation_status", "maturity", "section", "sub_section", "test_type", "asset_id", "value", "base_score", "discovered", "epss_score", "exploitability_score", "impact_score", "last_discovered_time", "port", "vul_id", "action", "app_name", "direction", "grouping", "icmp_types_codes", "local_addresses", "local_ports", "profile_domain", "profile_private", "profile_public", "protocol", "remote_addresses", "remote_ports", "unique_id", "chain", "destination_addresses", "destination_port", "filter_name", "interface_name", "policy", "source_address", "source_port", "address", "hotfix_id", "install_date", "installed_by", "installed_on", "is_secure", "product", "service", "vul_count", "cmdline", "cwd", "root", "state", "uid", "found", "type", "process_id", "service_type", "user_account", "critical_vuls_count", "diff_key", "full_name", "high_vuls_count", "low_vuls_count", "max_kb", "medium_vuls_count", "os", "os_pid", "platform", "problem_key", "publisher", "script_output", "uninstall_string", "date", "comment", "directory", "gid", "group_name", "logged_in", "shell", "username", "ad_check", "agent_type", "architecture", "asset_category", "asset_logon_time", "asset_logon_user", "asset_owner", "asset_type", "auth_scan_status", "auto_update", "codename", "configuration_id", "cpu_core", "cred_id", "custom_profile_id", "deprecated_time", "discoverysettings_id", "hardware_model", "icon", "importance", "ip_extra", "is_deprecated", "is_firewall", "kernel", "last_ping_time", "last_reset_time", "logged_in_user", "logged_user_time", "os_autoupdate", "os_build", "os_full_name", "os_install_date", "os_model", "os_vendor", "physical_memory", "scan_status", "serial_number", "snmp_cred_id", "system_type", "uptime", "visible_name", "activity_date_time", "activity_display_name", "correlation_id", "logged_by_service", "operation_type", "result", "result_reason", "applies_to", "capability_status", "consumed_units", "free_license", "license_friendly_name", "sku_id", "sku_part_number", "active_user_count", "azure_tenant_id", "created_date_time", "current_score", "licensed_user_count", "max_score", "issuer", "not_valid_after", "not_valid_before", "pubkey_bits", "pubkey_exponent", "pubkey_modulus", "pubkey_type", "selfsignedcertificate", "ssl_cert_expired", "ssl_cert_expiring_in_30_days", "subject", "problem_count", "compliance_status", "asset_count", "company_count", "compliant_count", "manual_compliant_count", "manual_non_compliant_count", "non_compliant_count", "evidence_id", "remediation_steps", "remediation_type", "total_compliant_count", "checks", "compliance_description", "command", "cron_file", "total", "description_count", "credential_id", "ticket_id", "ticket_number", "config_name", "critical", "grade", "high", "low", "medium", "extrainfo", "problem_name", "key", "ou_display_name", "ous_id", "ous_name", "parent_ou", "epss_vuls", "remediation_action", "solution_id", "total_vuls_count", "first_vul_discovered", "ip_addresses", "last_vul_discovered", "os_type", "job_id", "used_by", "total_ports", "ftp", "http", "https", "imap", "ldap", "mongodb", "mssql", "mysql", "netbios", "other_asset_ports", "pop3", "postgres", "rdp", "rtsp", "sftp", "sip", "smb_cifs", "smtp", "telnet", "vnc", "problem_group_id", "cve", "product_latest_version", "cs_score", "is_confirmed", "is_suppressed", "suppressed_till", "reason", "epss_score_between_90_85", "epss_score_between_95_90", "epss_score_grater_than_95", "epss_score_less_than_85", "is_patchable", "affected_software_16_30_days", "affected_software_8_15_days", "affected_software_graterthan_30_days", "affected_software_lessthan_7_days", "asset_first_discovered_time", "asset_last_discovered_time", "asset_name", "first_discovered_time", "last_logon_user", "remediation_closer_reason", "resolution_days", "software_diff_key", "risk_score", "config_file_mode", "deny_unknown_status", "fs_mount", "max_kernel_policy_version", "memory_protection_checking", "mls_status", "mode", "policy_name", "root_directory", "permissions", "approver_comments", "suppress_comments", "suppressed_on", "suppression_status", "unsuppress_comments", "unsuppressed_on", "vulnerabilities", "ast_type", "ostype", "suppression_id_count", "suppression_level", "sv_asset_id", "sv_company_id", "cisa", "cisa_name", "fix_url", "published_date", "category_id", "category_name", "event_name", "collection", "tag_rule_id", "total_assets", "total_discovered_assets", "total_external_assets", "total_firewall_assets", "destination", "target_user_count", "parent_id")
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-		 ON CONFLICT("id") DO UPDATE SET "data" = excluded."data", "synced_at" = excluded."synced_at", "ad_connect_enabled" = excluded."ad_connect_enabled", "domain" = excluded."domain", "tenant_id" = excluded."tenant_id", "tenant_name" = excluded."tenant_name", "total_records" = excluded."total_records", "account_disabled" = excluded."account_disabled", "ad_domains_id" = excluded."ad_domains_id", "ad_ous_id" = excluded."ad_ous_id", "company_id" = excluded."company_id", "company_mapping_id" = excluded."company_mapping_id", "created" = excluded."created", "displayname" = excluded."displayname", "distinguished_name" = excluded."distinguished_name", "dns_host_name" = excluded."dns_host_name", "domain_name" = excluded."domain_name", "enabled" = excluded."enabled", "host_name" = excluded."host_name", "is_critical_system_object" = excluded."is_critical_system_object", "is_managed" = excluded."is_managed", "last_logon_timestamp" = excluded."last_logon_timestamp", "linked_ous" = excluded."linked_ous", "locked_out" = excluded."locked_out", "mac" = excluded."mac", "manufacturer" = excluded."manufacturer", "name" = excluded."name", "object_guid" = excluded."object_guid", "os_name" = excluded."os_name", "os_version" = excluded."os_version", "password_expired" = excluded."password_expired", "password_last_set" = excluded."password_last_set", "password_never_expires" = excluded."password_never_expires", "password_not_required" = excluded."password_not_required", "sam_account_name" = excluded."sam_account_name", "source" = excluded."source", "tenantid" = excluded."tenantid", "updated" = excluded."updated", "user_account_control" = excluded."user_account_control", "when_changed" = excluded."when_changed", "when_created" = excluded."when_created", "domain_distinguished_name" = excluded."domain_distinguished_name", "domain_id" = excluded."domain_id", "domain_sid" = excluded."domain_sid", "ads_path" = excluded."ads_path", "canonical_name" = excluded."canonical_name", "company_name" = excluded."company_name", "display_name" = excluded."display_name", "gpc_files_sys_path" = excluded."gpc_files_sys_path", "gpc_functionality_version" = excluded."gpc_functionality_version", "gpo_settings" = excluded."gpo_settings", "gpo_status" = excluded."gpo_status", "instance_type" = excluded."instance_type", "show_in_advance_view_only" = excluded."show_in_advance_view_only", "usn_changed" = excluded."usn_changed", "usn_created" = excluded."usn_created", "version_number" = excluded."version_number", "account_expire_date" = excluded."account_expire_date", "account_lockout_time" = excluded."account_lockout_time", "bad_logon_count" = excluded."bad_logon_count", "cannot_change_password" = excluded."cannot_change_password", "country" = excluded."country", "department" = excluded."department", "description" = excluded."description", "email_address" = excluded."email_address", "last_bad_password_attempt" = excluded."last_bad_password_attempt", "logon_count" = excluded."logon_count", "mfa_enabled" = excluded."mfa_enabled", "ms_exch_user_account_control" = excluded."ms_exch_user_account_control", "other_mails" = excluded."other_mails", "password_policies" = excluded."password_policies", "sid" = excluded."sid", "when_modified" = excluded."when_modified", "category" = excluded."category", "common_name" = excluded."common_name", "empty" = excluded."empty", "group_type" = excluded."group_type", "is_security_enabled" = excluded."is_security_enabled", "mail" = excluded."mail", "mail_enabled" = excluded."mail_enabled", "managed_by" = excluded."managed_by", "object_sid" = excluded."object_sid", "proxy_addresses" = excluded."proxy_addresses", "resource_behavior_options" = excluded."resource_behavior_options", "resource_provisioning_options" = excluded."resource_provisioning_options", "scope" = excluded."scope", "visibility" = excluded."visibility", "on_premises_sync_enabled" = excluded."on_premises_sync_enabled", "ou_name" = excluded."ou_name", "complexity_enabled" = excluded."complexity_enabled", "lockout_duration" = excluded."lockout_duration", "lockout_observation_window" = excluded."lockout_observation_window", "lockout_threshold" = excluded."lockout_threshold", "max_password_age" = excluded."max_password_age", "min_password_age" = excluded."min_password_age", "min_password_length" = excluded."min_password_length", "password_history_count" = excluded."password_history_count", "reversible_encryption_enabled" = excluded."reversible_encryption_enabled", "role_template_id" = excluded."role_template_id", "user_count" = excluded."user_count", "role_display_name" = excluded."role_display_name", "role_id" = excluded."role_id", "user_display_name" = excluded."user_display_name", "user_distinguished_name" = excluded."user_distinguished_name", "user_email_address" = excluded."user_email_address", "user_id" = excluded."user_id", "user_name" = excluded."user_name", "user_sid" = excluded."user_sid", "build_in_admin" = excluded."build_in_admin", "city" = excluded."city", "home_directory" = excluded."home_directory", "home_drive" = excluded."home_drive", "office_location" = excluded."office_location", "password_expiry_date" = excluded."password_expiry_date", "user_principal_name" = excluded."user_principal_name", "access_granted" = excluded."access_granted", "account_domain" = excluded."account_domain", "account_name" = excluded."account_name", "agent_id" = excluded."agent_id", "channel" = excluded."channel", "client_address" = excluded."client_address", "client_name" = excluded."client_name", "computer_name" = excluded."computer_name", "datetime" = excluded."datetime", "ds_name" = excluded."ds_name", "event_id" = excluded."event_id", "event_type" = excluded."event_type", "file_name" = excluded."file_name", "ip_address" = excluded."ip_address", "ip_port" = excluded."ip_port", "keywords" = excluded."keywords", "level" = excluded."level", "link_name" = excluded."link_name", "new_object_dn" = excluded."new_object_dn", "new_target_username" = excluded."new_target_username", "object_class" = excluded."object_class", "object_dn" = excluded."object_dn", "old_object_dn" = excluded."old_object_dn", "old_target_user_name" = excluded."old_target_user_name", "peer_mac" = excluded."peer_mac", "pid" = excluded."pid", "process_name" = excluded."process_name", "provider_guid" = excluded."provider_guid", "provider_name" = excluded."provider_name", "service_name" = excluded."service_name", "service_sid" = excluded."service_sid", "session_name" = excluded."session_name", "ssid" = excluded."ssid", "status" = excluded."status", "subject_domain_name" = excluded."subject_domain_name", "subject_logon_id" = excluded."subject_logon_id", "subject_user_name" = excluded."subject_user_name", "subject_user_sid" = excluded."subject_user_sid", "target_domain_name" = excluded."target_domain_name", "target_info" = excluded."target_info", "target_server_name" = excluded."target_server_name", "target_sid" = excluded."target_sid", "target_user_name" = excluded."target_user_name", "task" = excluded."task", "tid" = excluded."tid", "critical_problems" = excluded."critical_problems", "high_problems" = excluded."high_problems", "low_problems" = excluded."low_problems", "medium_problems" = excluded."medium_problems", "total_application" = excluded."total_application", "affected_assets" = excluded."affected_assets", "affected_companies" = excluded."affected_companies", "affected_operating_systems" = excluded."affected_operating_systems", "software_name" = excluded."software_name", "software_type" = excluded."software_type", "software_version" = excluded."software_version", "total_count" = excluded."total_count", "total_problems" = excluded."total_problems", "affected_software" = excluded."affected_software", "cvss_score" = excluded."cvss_score", "severity" = excluded."severity", "title" = excluded."title", "unconfirmed" = excluded."unconfirmed", "fix" = excluded."fix", "software_id" = excluded."software_id", "url" = excluded."url", "ip" = excluded."ip", "online_status" = excluded."online_status", "assessment_justification" = excluded."assessment_justification", "compliance_id" = excluded."compliance_id", "evidence" = excluded."evidence", "evidence_quality" = excluded."evidence_quality", "implementation_status" = excluded."implementation_status", "maturity" = excluded."maturity", "section" = excluded."section", "sub_section" = excluded."sub_section", "test_type" = excluded."test_type", "asset_id" = excluded."asset_id", "value" = excluded."value", "base_score" = excluded."base_score", "discovered" = excluded."discovered", "epss_score" = excluded."epss_score", "exploitability_score" = excluded."exploitability_score", "impact_score" = excluded."impact_score", "last_discovered_time" = excluded."last_discovered_time", "port" = excluded."port", "vul_id" = excluded."vul_id", "action" = excluded."action", "app_name" = excluded."app_name", "direction" = excluded."direction", "grouping" = excluded."grouping", "icmp_types_codes" = excluded."icmp_types_codes", "local_addresses" = excluded."local_addresses", "local_ports" = excluded."local_ports", "profile_domain" = excluded."profile_domain", "profile_private" = excluded."profile_private", "profile_public" = excluded."profile_public", "protocol" = excluded."protocol", "remote_addresses" = excluded."remote_addresses", "remote_ports" = excluded."remote_ports", "unique_id" = excluded."unique_id", "chain" = excluded."chain", "destination_addresses" = excluded."destination_addresses", "destination_port" = excluded."destination_port", "filter_name" = excluded."filter_name", "interface_name" = excluded."interface_name", "policy" = excluded."policy", "source_address" = excluded."source_address", "source_port" = excluded."source_port", "address" = excluded."address", "hotfix_id" = excluded."hotfix_id", "install_date" = excluded."install_date", "installed_by" = excluded."installed_by", "installed_on" = excluded."installed_on", "is_secure" = excluded."is_secure", "product" = excluded."product", "service" = excluded."service", "vul_count" = excluded."vul_count", "cmdline" = excluded."cmdline", "cwd" = excluded."cwd", "root" = excluded."root", "state" = excluded."state", "uid" = excluded."uid", "found" = excluded."found", "type" = excluded."type", "process_id" = excluded."process_id", "service_type" = excluded."service_type", "user_account" = excluded."user_account", "critical_vuls_count" = excluded."critical_vuls_count", "diff_key" = excluded."diff_key", "full_name" = excluded."full_name", "high_vuls_count" = excluded."high_vuls_count", "low_vuls_count" = excluded."low_vuls_count", "max_kb" = excluded."max_kb", "medium_vuls_count" = excluded."medium_vuls_count", "os" = excluded."os", "os_pid" = excluded."os_pid", "platform" = excluded."platform", "problem_key" = excluded."problem_key", "publisher" = excluded."publisher", "script_output" = excluded."script_output", "uninstall_string" = excluded."uninstall_string", "date" = excluded."date", "comment" = excluded."comment", "directory" = excluded."directory", "gid" = excluded."gid", "group_name" = excluded."group_name", "logged_in" = excluded."logged_in", "shell" = excluded."shell", "username" = excluded."username", "ad_check" = excluded."ad_check", "agent_type" = excluded."agent_type", "architecture" = excluded."architecture", "asset_category" = excluded."asset_category", "asset_logon_time" = excluded."asset_logon_time", "asset_logon_user" = excluded."asset_logon_user", "asset_owner" = excluded."asset_owner", "asset_type" = excluded."asset_type", "auth_scan_status" = excluded."auth_scan_status", "auto_update" = excluded."auto_update", "codename" = excluded."codename", "configuration_id" = excluded."configuration_id", "cpu_core" = excluded."cpu_core", "cred_id" = excluded."cred_id", "custom_profile_id" = excluded."custom_profile_id", "deprecated_time" = excluded."deprecated_time", "discoverysettings_id" = excluded."discoverysettings_id", "hardware_model" = excluded."hardware_model", "icon" = excluded."icon", "importance" = excluded."importance", "ip_extra" = excluded."ip_extra", "is_deprecated" = excluded."is_deprecated", "is_firewall" = excluded."is_firewall", "kernel" = excluded."kernel", "last_ping_time" = excluded."last_ping_time", "last_reset_time" = excluded."last_reset_time", "logged_in_user" = excluded."logged_in_user", "logged_user_time" = excluded."logged_user_time", "os_autoupdate" = excluded."os_autoupdate", "os_build" = excluded."os_build", "os_full_name" = excluded."os_full_name", "os_install_date" = excluded."os_install_date", "os_model" = excluded."os_model", "os_vendor" = excluded."os_vendor", "physical_memory" = excluded."physical_memory", "scan_status" = excluded."scan_status", "serial_number" = excluded."serial_number", "snmp_cred_id" = excluded."snmp_cred_id", "system_type" = excluded."system_type", "uptime" = excluded."uptime", "visible_name" = excluded."visible_name", "activity_date_time" = excluded."activity_date_time", "activity_display_name" = excluded."activity_display_name", "correlation_id" = excluded."correlation_id", "logged_by_service" = excluded."logged_by_service", "operation_type" = excluded."operation_type", "result" = excluded."result", "result_reason" = excluded."result_reason", "applies_to" = excluded."applies_to", "capability_status" = excluded."capability_status", "consumed_units" = excluded."consumed_units", "free_license" = excluded."free_license", "license_friendly_name" = excluded."license_friendly_name", "sku_id" = excluded."sku_id", "sku_part_number" = excluded."sku_part_number", "active_user_count" = excluded."active_user_count", "azure_tenant_id" = excluded."azure_tenant_id", "created_date_time" = excluded."created_date_time", "current_score" = excluded."current_score", "licensed_user_count" = excluded."licensed_user_count", "max_score" = excluded."max_score", "issuer" = excluded."issuer", "not_valid_after" = excluded."not_valid_after", "not_valid_before" = excluded."not_valid_before", "pubkey_bits" = excluded."pubkey_bits", "pubkey_exponent" = excluded."pubkey_exponent", "pubkey_modulus" = excluded."pubkey_modulus", "pubkey_type" = excluded."pubkey_type", "selfsignedcertificate" = excluded."selfsignedcertificate", "ssl_cert_expired" = excluded."ssl_cert_expired", "ssl_cert_expiring_in_30_days" = excluded."ssl_cert_expiring_in_30_days", "subject" = excluded."subject", "problem_count" = excluded."problem_count", "compliance_status" = excluded."compliance_status", "asset_count" = excluded."asset_count", "company_count" = excluded."company_count", "compliant_count" = excluded."compliant_count", "manual_compliant_count" = excluded."manual_compliant_count", "manual_non_compliant_count" = excluded."manual_non_compliant_count", "non_compliant_count" = excluded."non_compliant_count", "evidence_id" = excluded."evidence_id", "remediation_steps" = excluded."remediation_steps", "remediation_type" = excluded."remediation_type", "total_compliant_count" = excluded."total_compliant_count", "checks" = excluded."checks", "compliance_description" = excluded."compliance_description", "command" = excluded."command", "cron_file" = excluded."cron_file", "total" = excluded."total", "description_count" = excluded."description_count", "credential_id" = excluded."credential_id", "ticket_id" = excluded."ticket_id", "ticket_number" = excluded."ticket_number", "config_name" = excluded."config_name", "critical" = excluded."critical", "grade" = excluded."grade", "high" = excluded."high", "low" = excluded."low", "medium" = excluded."medium", "extrainfo" = excluded."extrainfo", "problem_name" = excluded."problem_name", "key" = excluded."key", "ou_display_name" = excluded."ou_display_name", "ous_id" = excluded."ous_id", "ous_name" = excluded."ous_name", "parent_ou" = excluded."parent_ou", "epss_vuls" = excluded."epss_vuls", "remediation_action" = excluded."remediation_action", "solution_id" = excluded."solution_id", "total_vuls_count" = excluded."total_vuls_count", "first_vul_discovered" = excluded."first_vul_discovered", "ip_addresses" = excluded."ip_addresses", "last_vul_discovered" = excluded."last_vul_discovered", "os_type" = excluded."os_type", "job_id" = excluded."job_id", "used_by" = excluded."used_by", "total_ports" = excluded."total_ports", "ftp" = excluded."ftp", "http" = excluded."http", "https" = excluded."https", "imap" = excluded."imap", "ldap" = excluded."ldap", "mongodb" = excluded."mongodb", "mssql" = excluded."mssql", "mysql" = excluded."mysql", "netbios" = excluded."netbios", "other_asset_ports" = excluded."other_asset_ports", "pop3" = excluded."pop3", "postgres" = excluded."postgres", "rdp" = excluded."rdp", "rtsp" = excluded."rtsp", "sftp" = excluded."sftp", "sip" = excluded."sip", "smb_cifs" = excluded."smb_cifs", "smtp" = excluded."smtp", "telnet" = excluded."telnet", "vnc" = excluded."vnc", "problem_group_id" = excluded."problem_group_id", "cve" = excluded."cve", "product_latest_version" = excluded."product_latest_version", "cs_score" = excluded."cs_score", "is_confirmed" = excluded."is_confirmed", "is_suppressed" = excluded."is_suppressed", "suppressed_till" = excluded."suppressed_till", "reason" = excluded."reason", "epss_score_between_90_85" = excluded."epss_score_between_90_85", "epss_score_between_95_90" = excluded."epss_score_between_95_90", "epss_score_grater_than_95" = excluded."epss_score_grater_than_95", "epss_score_less_than_85" = excluded."epss_score_less_than_85", "is_patchable" = excluded."is_patchable", "affected_software_16_30_days" = excluded."affected_software_16_30_days", "affected_software_8_15_days" = excluded."affected_software_8_15_days", "affected_software_graterthan_30_days" = excluded."affected_software_graterthan_30_days", "affected_software_lessthan_7_days" = excluded."affected_software_lessthan_7_days", "asset_first_discovered_time" = excluded."asset_first_discovered_time", "asset_last_discovered_time" = excluded."asset_last_discovered_time", "asset_name" = excluded."asset_name", "first_discovered_time" = excluded."first_discovered_time", "last_logon_user" = excluded."last_logon_user", "remediation_closer_reason" = excluded."remediation_closer_reason", "resolution_days" = excluded."resolution_days", "software_diff_key" = excluded."software_diff_key", "risk_score" = excluded."risk_score", "config_file_mode" = excluded."config_file_mode", "deny_unknown_status" = excluded."deny_unknown_status", "fs_mount" = excluded."fs_mount", "max_kernel_policy_version" = excluded."max_kernel_policy_version", "memory_protection_checking" = excluded."memory_protection_checking", "mls_status" = excluded."mls_status", "mode" = excluded."mode", "policy_name" = excluded."policy_name", "root_directory" = excluded."root_directory", "permissions" = excluded."permissions", "approver_comments" = excluded."approver_comments", "suppress_comments" = excluded."suppress_comments", "suppressed_on" = excluded."suppressed_on", "suppression_status" = excluded."suppression_status", "unsuppress_comments" = excluded."unsuppress_comments", "unsuppressed_on" = excluded."unsuppressed_on", "vulnerabilities" = excluded."vulnerabilities", "ast_type" = excluded."ast_type", "ostype" = excluded."ostype", "suppression_id_count" = excluded."suppression_id_count", "suppression_level" = excluded."suppression_level", "sv_asset_id" = excluded."sv_asset_id", "sv_company_id" = excluded."sv_company_id", "cisa" = excluded."cisa", "cisa_name" = excluded."cisa_name", "fix_url" = excluded."fix_url", "published_date" = excluded."published_date", "category_id" = excluded."category_id", "category_name" = excluded."category_name", "event_name" = excluded."event_name", "collection" = excluded."collection", "tag_rule_id" = excluded."tag_rule_id", "total_assets" = excluded."total_assets", "total_discovered_assets" = excluded."total_discovered_assets", "total_external_assets" = excluded."total_external_assets", "total_firewall_assets" = excluded."total_firewall_assets", "destination" = excluded."destination", "target_user_count" = excluded."target_user_count", "parent_id" = excluded."parent_id"`,
+		`INSERT INTO "report_queries" ("id", "data", "synced_at", "ad_connect_enabled", "domain", "tenant_id", "tenant_name", "total_records", "account_disabled", "ad_domains_id", "ad_ous_id", "company_id", "company_mapping_id", "created", "displayname", "distinguished_name", "dns_host_name", "domain_name", "enabled", "host_name", "is_critical_system_object", "is_managed", "last_logon_timestamp", "linked_ous", "locked_out", "mac", "manufacturer", "name", "object_guid", "os_name", "os_version", "password_expired", "password_last_set", "password_never_expires", "password_not_required", "sam_account_name", "source", "tenantid", "updated", "user_account_control", "when_changed", "when_created", "domain_distinguished_name", "domain_id", "domain_sid", "ads_path", "canonical_name", "company_name", "display_name", "gpc_files_sys_path", "gpc_functionality_version", "gpo_settings", "gpo_status", "instance_type", "show_in_advance_view_only", "usn_changed", "usn_created", "version_number", "account_expire_date", "account_lockout_time", "bad_logon_count", "cannot_change_password", "country", "department", "description", "email_address", "last_bad_password_attempt", "logon_count", "mfa_enabled", "ms_exch_user_account_control", "other_mails", "password_policies", "sid", "when_modified", "category", "common_name", "empty", "group_type", "is_security_enabled", "mail", "mail_enabled", "managed_by", "object_sid", "proxy_addresses", "resource_behavior_options", "resource_provisioning_options", "scope", "visibility", "on_premises_sync_enabled", "ou_name", "complexity_enabled", "lockout_duration", "lockout_observation_window", "lockout_threshold", "max_password_age", "min_password_age", "min_password_length", "password_history_count", "reversible_encryption_enabled", "role_template_id", "user_count", "role_display_name", "role_id", "user_display_name", "user_distinguished_name", "user_email_address", "user_id", "user_name", "user_sid", "build_in_admin", "city", "home_directory", "home_drive", "office_location", "password_expiry_date", "user_principal_name", "access_granted", "account_domain", "account_name", "agent_id", "channel", "client_address", "client_name", "computer_name", "datetime", "ds_name", "event_id", "event_type", "file_name", "ip_address", "ip_port", "keywords", "level", "link_name", "new_object_dn", "new_target_username", "object_class", "object_dn", "old_object_dn", "old_target_user_name", "peer_mac", "pid", "process_name", "provider_guid", "provider_name", "service_name", "service_sid", "session_name", "ssid", "status", "subject_domain_name", "subject_logon_id", "subject_user_name", "subject_user_sid", "target_domain_name", "target_info", "target_server_name", "target_sid", "target_user_name", "task", "tid", "critical_problems", "high_problems", "low_problems", "medium_problems", "total_application", "affected_assets", "affected_companies", "affected_operating_systems", "software_name", "software_type", "software_version", "total_count", "total_problems", "affected_software", "cvss_score", "severity", "title", "unconfirmed", "fix", "software_id", "url", "ip", "online_status", "assessment_justification", "compliance_id", "evidence", "evidence_quality", "implementation_status", "maturity", "section", "sub_section", "test_type", "asset_id", "value", "base_score", "discovered", "epss_score", "exploitability_score", "impact_score", "last_discovered_time", "port", "vul_id", "action", "app_name", "direction", "grouping", "icmp_types_codes", "local_addresses", "local_ports", "profile_domain", "profile_private", "profile_public", "protocol", "remote_addresses", "remote_ports", "unique_id", "chain", "destination_addresses", "destination_port", "filter_name", "interface_name", "policy", "source_address", "source_port", "address", "hotfix_id", "install_date", "installed_by", "installed_on", "is_secure", "product", "service", "vul_count", "cmdline", "cwd", "root", "state", "uid", "found", "type", "process_id", "service_type", "user_account", "critical_vuls_count", "diff_key", "full_name", "high_vuls_count", "low_vuls_count", "max_kb", "medium_vuls_count", "os", "os_pid", "platform", "problem_key", "publisher", "script_output", "uninstall_string", "date", "comment", "directory", "gid", "group_name", "logged_in", "shell", "username", "ad_check", "agent_type", "architecture", "asset_category", "asset_logon_time", "asset_logon_user", "asset_owner", "asset_type", "auth_scan_status", "auto_update", "codename", "configuration_id", "cpu_core", "cred_id", "custom_profile_id", "deprecated_time", "discoverysettings_id", "hardware_model", "icon", "importance", "ip_extra", "is_deprecated", "is_firewall", "kernel", "last_ping_time", "last_reset_time", "logged_in_user", "logged_user_time", "os_autoupdate", "os_build", "os_full_name", "os_install_date", "os_model", "os_vendor", "physical_memory", "scan_status", "serial_number", "snmp_cred_id", "system_type", "uptime", "visible_name", "activity_date_time", "activity_display_name", "correlation_id", "logged_by_service", "operation_type", "result", "result_reason", "applies_to", "capability_status", "consumed_units", "free_license", "license_friendly_name", "sku_id", "sku_part_number", "active_user_count", "azure_tenant_id", "created_date_time", "current_score", "licensed_user_count", "max_score", "issuer", "not_valid_after", "not_valid_before", "pubkey_bits", "pubkey_exponent", "pubkey_modulus", "pubkey_type", "selfsignedcertificate", "ssl_cert_expired", "ssl_cert_expiring_in_30_days", "subject", "problem_count", "compliance_status", "asset_count", "company_count", "compliant_count", "manual_compliant_count", "manual_non_compliant_count", "non_compliant_count", "evidence_id", "remediation_steps", "remediation_type", "total_compliant_count", "checks", "compliance_description", "command", "cron_file", "total", "description_count", "credential_id", "ticket_id", "ticket_number", "config_name", "critical", "grade", "high", "low", "medium", "extrainfo", "problem_name", "key", "ou_display_name", "ous_id", "ous_name", "parent_ou", "epss_vuls", "remediation_action", "solution_id", "total_vuls_count", "first_vul_discovered", "ip_addresses", "last_vul_discovered", "os_type", "job_id", "used_by", "total_ports", "ftp", "http", "https", "imap", "ldap", "mongodb", "mssql", "mysql", "netbios", "other_asset_ports", "pop3", "postgres", "rdp", "rtsp", "sftp", "sip", "smb_cifs", "smtp", "telnet", "vnc", "problem_group_id", "cve", "product_latest_version", "cs_score", "is_confirmed", "is_suppressed", "suppressed_till", "reason", "epss_score_between_90_85", "epss_score_between_95_90", "epss_score_grater_than_95", "epss_score_less_than_85", "is_patchable", "affected_software_16_30_days", "affected_software_8_15_days", "affected_software_graterthan_30_days", "affected_software_lessthan_7_days", "asset_first_discovered_time", "asset_last_discovered_time", "asset_name", "first_discovered_time", "last_logon_user", "remediation_closer_reason", "resolution_days", "software_diff_key", "risk_score", "config_file_mode", "deny_unknown_status", "fs_mount", "max_kernel_policy_version", "memory_protection_checking", "mls_status", "mode", "policy_name", "root_directory", "permissions", "approver_comments", "suppress_comments", "suppressed_on", "suppression_status", "unsuppress_comments", "unsuppressed_on", "vulnerabilities", "ast_type", "ostype", "suppression_id_count", "suppression_level", "sv_asset_id", "sv_company_id", "cisa", "cisa_name", "fix_url", "published_date", "category_id", "category_name", "event_name", "collection", "tag_rule_id", "total_assets", "total_discovered_assets", "total_external_assets", "total_firewall_assets", "destination", "target_user_count")
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		 ON CONFLICT("id") DO UPDATE SET "data" = excluded."data", "synced_at" = excluded."synced_at", "ad_connect_enabled" = excluded."ad_connect_enabled", "domain" = excluded."domain", "tenant_id" = excluded."tenant_id", "tenant_name" = excluded."tenant_name", "total_records" = excluded."total_records", "account_disabled" = excluded."account_disabled", "ad_domains_id" = excluded."ad_domains_id", "ad_ous_id" = excluded."ad_ous_id", "company_id" = excluded."company_id", "company_mapping_id" = excluded."company_mapping_id", "created" = excluded."created", "displayname" = excluded."displayname", "distinguished_name" = excluded."distinguished_name", "dns_host_name" = excluded."dns_host_name", "domain_name" = excluded."domain_name", "enabled" = excluded."enabled", "host_name" = excluded."host_name", "is_critical_system_object" = excluded."is_critical_system_object", "is_managed" = excluded."is_managed", "last_logon_timestamp" = excluded."last_logon_timestamp", "linked_ous" = excluded."linked_ous", "locked_out" = excluded."locked_out", "mac" = excluded."mac", "manufacturer" = excluded."manufacturer", "name" = excluded."name", "object_guid" = excluded."object_guid", "os_name" = excluded."os_name", "os_version" = excluded."os_version", "password_expired" = excluded."password_expired", "password_last_set" = excluded."password_last_set", "password_never_expires" = excluded."password_never_expires", "password_not_required" = excluded."password_not_required", "sam_account_name" = excluded."sam_account_name", "source" = excluded."source", "tenantid" = excluded."tenantid", "updated" = excluded."updated", "user_account_control" = excluded."user_account_control", "when_changed" = excluded."when_changed", "when_created" = excluded."when_created", "domain_distinguished_name" = excluded."domain_distinguished_name", "domain_id" = excluded."domain_id", "domain_sid" = excluded."domain_sid", "ads_path" = excluded."ads_path", "canonical_name" = excluded."canonical_name", "company_name" = excluded."company_name", "display_name" = excluded."display_name", "gpc_files_sys_path" = excluded."gpc_files_sys_path", "gpc_functionality_version" = excluded."gpc_functionality_version", "gpo_settings" = excluded."gpo_settings", "gpo_status" = excluded."gpo_status", "instance_type" = excluded."instance_type", "show_in_advance_view_only" = excluded."show_in_advance_view_only", "usn_changed" = excluded."usn_changed", "usn_created" = excluded."usn_created", "version_number" = excluded."version_number", "account_expire_date" = excluded."account_expire_date", "account_lockout_time" = excluded."account_lockout_time", "bad_logon_count" = excluded."bad_logon_count", "cannot_change_password" = excluded."cannot_change_password", "country" = excluded."country", "department" = excluded."department", "description" = excluded."description", "email_address" = excluded."email_address", "last_bad_password_attempt" = excluded."last_bad_password_attempt", "logon_count" = excluded."logon_count", "mfa_enabled" = excluded."mfa_enabled", "ms_exch_user_account_control" = excluded."ms_exch_user_account_control", "other_mails" = excluded."other_mails", "password_policies" = excluded."password_policies", "sid" = excluded."sid", "when_modified" = excluded."when_modified", "category" = excluded."category", "common_name" = excluded."common_name", "empty" = excluded."empty", "group_type" = excluded."group_type", "is_security_enabled" = excluded."is_security_enabled", "mail" = excluded."mail", "mail_enabled" = excluded."mail_enabled", "managed_by" = excluded."managed_by", "object_sid" = excluded."object_sid", "proxy_addresses" = excluded."proxy_addresses", "resource_behavior_options" = excluded."resource_behavior_options", "resource_provisioning_options" = excluded."resource_provisioning_options", "scope" = excluded."scope", "visibility" = excluded."visibility", "on_premises_sync_enabled" = excluded."on_premises_sync_enabled", "ou_name" = excluded."ou_name", "complexity_enabled" = excluded."complexity_enabled", "lockout_duration" = excluded."lockout_duration", "lockout_observation_window" = excluded."lockout_observation_window", "lockout_threshold" = excluded."lockout_threshold", "max_password_age" = excluded."max_password_age", "min_password_age" = excluded."min_password_age", "min_password_length" = excluded."min_password_length", "password_history_count" = excluded."password_history_count", "reversible_encryption_enabled" = excluded."reversible_encryption_enabled", "role_template_id" = excluded."role_template_id", "user_count" = excluded."user_count", "role_display_name" = excluded."role_display_name", "role_id" = excluded."role_id", "user_display_name" = excluded."user_display_name", "user_distinguished_name" = excluded."user_distinguished_name", "user_email_address" = excluded."user_email_address", "user_id" = excluded."user_id", "user_name" = excluded."user_name", "user_sid" = excluded."user_sid", "build_in_admin" = excluded."build_in_admin", "city" = excluded."city", "home_directory" = excluded."home_directory", "home_drive" = excluded."home_drive", "office_location" = excluded."office_location", "password_expiry_date" = excluded."password_expiry_date", "user_principal_name" = excluded."user_principal_name", "access_granted" = excluded."access_granted", "account_domain" = excluded."account_domain", "account_name" = excluded."account_name", "agent_id" = excluded."agent_id", "channel" = excluded."channel", "client_address" = excluded."client_address", "client_name" = excluded."client_name", "computer_name" = excluded."computer_name", "datetime" = excluded."datetime", "ds_name" = excluded."ds_name", "event_id" = excluded."event_id", "event_type" = excluded."event_type", "file_name" = excluded."file_name", "ip_address" = excluded."ip_address", "ip_port" = excluded."ip_port", "keywords" = excluded."keywords", "level" = excluded."level", "link_name" = excluded."link_name", "new_object_dn" = excluded."new_object_dn", "new_target_username" = excluded."new_target_username", "object_class" = excluded."object_class", "object_dn" = excluded."object_dn", "old_object_dn" = excluded."old_object_dn", "old_target_user_name" = excluded."old_target_user_name", "peer_mac" = excluded."peer_mac", "pid" = excluded."pid", "process_name" = excluded."process_name", "provider_guid" = excluded."provider_guid", "provider_name" = excluded."provider_name", "service_name" = excluded."service_name", "service_sid" = excluded."service_sid", "session_name" = excluded."session_name", "ssid" = excluded."ssid", "status" = excluded."status", "subject_domain_name" = excluded."subject_domain_name", "subject_logon_id" = excluded."subject_logon_id", "subject_user_name" = excluded."subject_user_name", "subject_user_sid" = excluded."subject_user_sid", "target_domain_name" = excluded."target_domain_name", "target_info" = excluded."target_info", "target_server_name" = excluded."target_server_name", "target_sid" = excluded."target_sid", "target_user_name" = excluded."target_user_name", "task" = excluded."task", "tid" = excluded."tid", "critical_problems" = excluded."critical_problems", "high_problems" = excluded."high_problems", "low_problems" = excluded."low_problems", "medium_problems" = excluded."medium_problems", "total_application" = excluded."total_application", "affected_assets" = excluded."affected_assets", "affected_companies" = excluded."affected_companies", "affected_operating_systems" = excluded."affected_operating_systems", "software_name" = excluded."software_name", "software_type" = excluded."software_type", "software_version" = excluded."software_version", "total_count" = excluded."total_count", "total_problems" = excluded."total_problems", "affected_software" = excluded."affected_software", "cvss_score" = excluded."cvss_score", "severity" = excluded."severity", "title" = excluded."title", "unconfirmed" = excluded."unconfirmed", "fix" = excluded."fix", "software_id" = excluded."software_id", "url" = excluded."url", "ip" = excluded."ip", "online_status" = excluded."online_status", "assessment_justification" = excluded."assessment_justification", "compliance_id" = excluded."compliance_id", "evidence" = excluded."evidence", "evidence_quality" = excluded."evidence_quality", "implementation_status" = excluded."implementation_status", "maturity" = excluded."maturity", "section" = excluded."section", "sub_section" = excluded."sub_section", "test_type" = excluded."test_type", "asset_id" = excluded."asset_id", "value" = excluded."value", "base_score" = excluded."base_score", "discovered" = excluded."discovered", "epss_score" = excluded."epss_score", "exploitability_score" = excluded."exploitability_score", "impact_score" = excluded."impact_score", "last_discovered_time" = excluded."last_discovered_time", "port" = excluded."port", "vul_id" = excluded."vul_id", "action" = excluded."action", "app_name" = excluded."app_name", "direction" = excluded."direction", "grouping" = excluded."grouping", "icmp_types_codes" = excluded."icmp_types_codes", "local_addresses" = excluded."local_addresses", "local_ports" = excluded."local_ports", "profile_domain" = excluded."profile_domain", "profile_private" = excluded."profile_private", "profile_public" = excluded."profile_public", "protocol" = excluded."protocol", "remote_addresses" = excluded."remote_addresses", "remote_ports" = excluded."remote_ports", "unique_id" = excluded."unique_id", "chain" = excluded."chain", "destination_addresses" = excluded."destination_addresses", "destination_port" = excluded."destination_port", "filter_name" = excluded."filter_name", "interface_name" = excluded."interface_name", "policy" = excluded."policy", "source_address" = excluded."source_address", "source_port" = excluded."source_port", "address" = excluded."address", "hotfix_id" = excluded."hotfix_id", "install_date" = excluded."install_date", "installed_by" = excluded."installed_by", "installed_on" = excluded."installed_on", "is_secure" = excluded."is_secure", "product" = excluded."product", "service" = excluded."service", "vul_count" = excluded."vul_count", "cmdline" = excluded."cmdline", "cwd" = excluded."cwd", "root" = excluded."root", "state" = excluded."state", "uid" = excluded."uid", "found" = excluded."found", "type" = excluded."type", "process_id" = excluded."process_id", "service_type" = excluded."service_type", "user_account" = excluded."user_account", "critical_vuls_count" = excluded."critical_vuls_count", "diff_key" = excluded."diff_key", "full_name" = excluded."full_name", "high_vuls_count" = excluded."high_vuls_count", "low_vuls_count" = excluded."low_vuls_count", "max_kb" = excluded."max_kb", "medium_vuls_count" = excluded."medium_vuls_count", "os" = excluded."os", "os_pid" = excluded."os_pid", "platform" = excluded."platform", "problem_key" = excluded."problem_key", "publisher" = excluded."publisher", "script_output" = excluded."script_output", "uninstall_string" = excluded."uninstall_string", "date" = excluded."date", "comment" = excluded."comment", "directory" = excluded."directory", "gid" = excluded."gid", "group_name" = excluded."group_name", "logged_in" = excluded."logged_in", "shell" = excluded."shell", "username" = excluded."username", "ad_check" = excluded."ad_check", "agent_type" = excluded."agent_type", "architecture" = excluded."architecture", "asset_category" = excluded."asset_category", "asset_logon_time" = excluded."asset_logon_time", "asset_logon_user" = excluded."asset_logon_user", "asset_owner" = excluded."asset_owner", "asset_type" = excluded."asset_type", "auth_scan_status" = excluded."auth_scan_status", "auto_update" = excluded."auto_update", "codename" = excluded."codename", "configuration_id" = excluded."configuration_id", "cpu_core" = excluded."cpu_core", "cred_id" = excluded."cred_id", "custom_profile_id" = excluded."custom_profile_id", "deprecated_time" = excluded."deprecated_time", "discoverysettings_id" = excluded."discoverysettings_id", "hardware_model" = excluded."hardware_model", "icon" = excluded."icon", "importance" = excluded."importance", "ip_extra" = excluded."ip_extra", "is_deprecated" = excluded."is_deprecated", "is_firewall" = excluded."is_firewall", "kernel" = excluded."kernel", "last_ping_time" = excluded."last_ping_time", "last_reset_time" = excluded."last_reset_time", "logged_in_user" = excluded."logged_in_user", "logged_user_time" = excluded."logged_user_time", "os_autoupdate" = excluded."os_autoupdate", "os_build" = excluded."os_build", "os_full_name" = excluded."os_full_name", "os_install_date" = excluded."os_install_date", "os_model" = excluded."os_model", "os_vendor" = excluded."os_vendor", "physical_memory" = excluded."physical_memory", "scan_status" = excluded."scan_status", "serial_number" = excluded."serial_number", "snmp_cred_id" = excluded."snmp_cred_id", "system_type" = excluded."system_type", "uptime" = excluded."uptime", "visible_name" = excluded."visible_name", "activity_date_time" = excluded."activity_date_time", "activity_display_name" = excluded."activity_display_name", "correlation_id" = excluded."correlation_id", "logged_by_service" = excluded."logged_by_service", "operation_type" = excluded."operation_type", "result" = excluded."result", "result_reason" = excluded."result_reason", "applies_to" = excluded."applies_to", "capability_status" = excluded."capability_status", "consumed_units" = excluded."consumed_units", "free_license" = excluded."free_license", "license_friendly_name" = excluded."license_friendly_name", "sku_id" = excluded."sku_id", "sku_part_number" = excluded."sku_part_number", "active_user_count" = excluded."active_user_count", "azure_tenant_id" = excluded."azure_tenant_id", "created_date_time" = excluded."created_date_time", "current_score" = excluded."current_score", "licensed_user_count" = excluded."licensed_user_count", "max_score" = excluded."max_score", "issuer" = excluded."issuer", "not_valid_after" = excluded."not_valid_after", "not_valid_before" = excluded."not_valid_before", "pubkey_bits" = excluded."pubkey_bits", "pubkey_exponent" = excluded."pubkey_exponent", "pubkey_modulus" = excluded."pubkey_modulus", "pubkey_type" = excluded."pubkey_type", "selfsignedcertificate" = excluded."selfsignedcertificate", "ssl_cert_expired" = excluded."ssl_cert_expired", "ssl_cert_expiring_in_30_days" = excluded."ssl_cert_expiring_in_30_days", "subject" = excluded."subject", "problem_count" = excluded."problem_count", "compliance_status" = excluded."compliance_status", "asset_count" = excluded."asset_count", "company_count" = excluded."company_count", "compliant_count" = excluded."compliant_count", "manual_compliant_count" = excluded."manual_compliant_count", "manual_non_compliant_count" = excluded."manual_non_compliant_count", "non_compliant_count" = excluded."non_compliant_count", "evidence_id" = excluded."evidence_id", "remediation_steps" = excluded."remediation_steps", "remediation_type" = excluded."remediation_type", "total_compliant_count" = excluded."total_compliant_count", "checks" = excluded."checks", "compliance_description" = excluded."compliance_description", "command" = excluded."command", "cron_file" = excluded."cron_file", "total" = excluded."total", "description_count" = excluded."description_count", "credential_id" = excluded."credential_id", "ticket_id" = excluded."ticket_id", "ticket_number" = excluded."ticket_number", "config_name" = excluded."config_name", "critical" = excluded."critical", "grade" = excluded."grade", "high" = excluded."high", "low" = excluded."low", "medium" = excluded."medium", "extrainfo" = excluded."extrainfo", "problem_name" = excluded."problem_name", "key" = excluded."key", "ou_display_name" = excluded."ou_display_name", "ous_id" = excluded."ous_id", "ous_name" = excluded."ous_name", "parent_ou" = excluded."parent_ou", "epss_vuls" = excluded."epss_vuls", "remediation_action" = excluded."remediation_action", "solution_id" = excluded."solution_id", "total_vuls_count" = excluded."total_vuls_count", "first_vul_discovered" = excluded."first_vul_discovered", "ip_addresses" = excluded."ip_addresses", "last_vul_discovered" = excluded."last_vul_discovered", "os_type" = excluded."os_type", "job_id" = excluded."job_id", "used_by" = excluded."used_by", "total_ports" = excluded."total_ports", "ftp" = excluded."ftp", "http" = excluded."http", "https" = excluded."https", "imap" = excluded."imap", "ldap" = excluded."ldap", "mongodb" = excluded."mongodb", "mssql" = excluded."mssql", "mysql" = excluded."mysql", "netbios" = excluded."netbios", "other_asset_ports" = excluded."other_asset_ports", "pop3" = excluded."pop3", "postgres" = excluded."postgres", "rdp" = excluded."rdp", "rtsp" = excluded."rtsp", "sftp" = excluded."sftp", "sip" = excluded."sip", "smb_cifs" = excluded."smb_cifs", "smtp" = excluded."smtp", "telnet" = excluded."telnet", "vnc" = excluded."vnc", "problem_group_id" = excluded."problem_group_id", "cve" = excluded."cve", "product_latest_version" = excluded."product_latest_version", "cs_score" = excluded."cs_score", "is_confirmed" = excluded."is_confirmed", "is_suppressed" = excluded."is_suppressed", "suppressed_till" = excluded."suppressed_till", "reason" = excluded."reason", "epss_score_between_90_85" = excluded."epss_score_between_90_85", "epss_score_between_95_90" = excluded."epss_score_between_95_90", "epss_score_grater_than_95" = excluded."epss_score_grater_than_95", "epss_score_less_than_85" = excluded."epss_score_less_than_85", "is_patchable" = excluded."is_patchable", "affected_software_16_30_days" = excluded."affected_software_16_30_days", "affected_software_8_15_days" = excluded."affected_software_8_15_days", "affected_software_graterthan_30_days" = excluded."affected_software_graterthan_30_days", "affected_software_lessthan_7_days" = excluded."affected_software_lessthan_7_days", "asset_first_discovered_time" = excluded."asset_first_discovered_time", "asset_last_discovered_time" = excluded."asset_last_discovered_time", "asset_name" = excluded."asset_name", "first_discovered_time" = excluded."first_discovered_time", "last_logon_user" = excluded."last_logon_user", "remediation_closer_reason" = excluded."remediation_closer_reason", "resolution_days" = excluded."resolution_days", "software_diff_key" = excluded."software_diff_key", "risk_score" = excluded."risk_score", "config_file_mode" = excluded."config_file_mode", "deny_unknown_status" = excluded."deny_unknown_status", "fs_mount" = excluded."fs_mount", "max_kernel_policy_version" = excluded."max_kernel_policy_version", "memory_protection_checking" = excluded."memory_protection_checking", "mls_status" = excluded."mls_status", "mode" = excluded."mode", "policy_name" = excluded."policy_name", "root_directory" = excluded."root_directory", "permissions" = excluded."permissions", "approver_comments" = excluded."approver_comments", "suppress_comments" = excluded."suppress_comments", "suppressed_on" = excluded."suppressed_on", "suppression_status" = excluded."suppression_status", "unsuppress_comments" = excluded."unsuppress_comments", "unsuppressed_on" = excluded."unsuppressed_on", "vulnerabilities" = excluded."vulnerabilities", "ast_type" = excluded."ast_type", "ostype" = excluded."ostype", "suppression_id_count" = excluded."suppression_id_count", "suppression_level" = excluded."suppression_level", "sv_asset_id" = excluded."sv_asset_id", "sv_company_id" = excluded."sv_company_id", "cisa" = excluded."cisa", "cisa_name" = excluded."cisa_name", "fix_url" = excluded."fix_url", "published_date" = excluded."published_date", "category_id" = excluded."category_id", "category_name" = excluded."category_name", "event_name" = excluded."event_name", "collection" = excluded."collection", "tag_rule_id" = excluded."tag_rule_id", "total_assets" = excluded."total_assets", "total_discovered_assets" = excluded."total_discovered_assets", "total_external_assets" = excluded."total_external_assets", "total_firewall_assets" = excluded."total_firewall_assets", "destination" = excluded."destination", "target_user_count" = excluded."target_user_count"`,
 		id,
 		string(data),
 		time.Now().UTC().Format(time.RFC3339),
@@ -9756,7 +9823,6 @@ func (s *Store) upsertReportQueriesTx(tx *sql.Tx, id string, obj map[string]any,
 		lookupFieldValue(obj, "total_firewall_assets"),
 		lookupFieldValue(obj, "destination"),
 		lookupFieldValue(obj, "target_user_count"),
-		lookupFieldValue(obj, "parent_id"),
 	); err != nil {
 		return fmt.Errorf("insert into report_queries: %w", err)
 	}
@@ -10236,73 +10302,72 @@ func (s *Store) UpsertWindowsProtectionStatus(data json.RawMessage) error {
 // child path-item annotated with x-resource-id resolves the same as a flat
 // path-item.
 var resourceIDFieldOverrides = map[string]string{
-	"agent_credentials_mapping":       "id",
-	"agent_discoverysettings_mapping": "id",
-	"agents":                          "id",
-	"app_baseline_plan_assets":        "id",
-	"app_baseline_plan_company":       "id",
-	"app_baseline_plan_global":        "id",
-	"application_baseline_rules":      "id",
-	"asset_firewall_policy":           "id",
-	"asset_installed_drivers":         "id",
-	"asset_interface":                 "id",
-	"asset_msdt":                      "id",
-	"asset_ports":                     "id",
-	"asset_security_report_data":      "id",
-	"asset_shares":                    "id",
-	"asset_storages":                  "id",
-	"asset_unqouted_services":         "id",
-	"asset_user_shares":               "id",
-	"asset_video_info":                "id",
-	"asset_view":                      "id",
-	"asset_windows_compatibility":     "id",
-	"asset_windows_reboot_required":   "id",
-	"attack_surface_domain":           "id",
-	"attack_surface_results":          "id",
-	"backup_software":                 "id",
-	"bios_info":                       "id",
-	"browser_extensions":              "id",
-	"ciphers_view":                    "id",
-	"companies":                       "id",
-	"company_mappings":                "id",
-	"company_stats":                   "id",
-	"compliance":                      "name",
-	"compliance_assessment":           "id",
-	"credentials":                     "id",
-	"custom_domains":                  "id",
-	"custom_profile":                  "id",
-	"custom_ticketing_template":       "id",
-	"discovery_settings":              "id",
-	"edr":                             "id",
-	"event_set":                       "id",
-	"firewall_groups":                 "id",
-	"firewall_interfaces":             "id",
-	"firewall_license":                "id",
-	"firewall_rules":                  "id",
-	"firewall_users":                  "id",
-	"firewall_zones":                  "id",
-	"integration_credentials":         "id",
-	"integration_rules":               "id",
-	"jobs_view":                       "id",
-	"pii_scan_settings":               "id",
-	"report_builder-get-standard-report-settings":                                  "id",
-	"report_jobs_view":                                                             "id",
-	"report_queries":                                                               "id",
-	"report_queries_ad_computers_view":                                             "object_guid",            // Hand-fix (handfixes.json: report-queries-own-partition)
-	"report_queries_remediation_plan_by_company":                                   "company_id+solution_id", // Hand-fix (handfixes.json: per-client-report-keys)
-	"report_queries-ad-gpos-details":                                               "id",
-	"report_queries-ad-gpos-view":                                                  "object_guid", // Hand-fix (handfixes.json: per-client-report-keys)
-	"report_queries-ad-group-computers":                                            "object_guid", // Hand-fix (handfixes.json: per-client-report-keys)
-	"report_queries-ad-group-users":                                                "sid",
-	"report_queries-ad-groups-view":                                                "id",
-	"report_queries-ad-ous-view":                                                   "object_guid", // Hand-fix (handfixes.json: per-client-report-keys)
-	"report_queries-ad-password-policies":                                          "id",
-	"report_queries-ad-roles":                                                      "id",
-	"report_queries-ad-user-licenses":                                              "id",
-	"report_queries-ad-users-view":                                                 "id",
-	"report_queries-adaudit":                                                       "id",
-	"report_queries-application-vulnerabilities":                                   "id",
-	"report_queries-application-vulnerabilities-by-os":                             "id",
+	"agent_credentials_mapping":                        "id",
+	"agent_discoverysettings_mapping":                  "id",
+	"agents":                                           "id",
+	"app_baseline_plan_assets":                         "id",
+	"app_baseline_plan_company":                        "id",
+	"app_baseline_plan_global":                         "id",
+	"application_baseline_rules":                       "id",
+	"asset_firewall_policy":                            "id",
+	"asset_installed_drivers":                          "id",
+	"asset_interface":                                  "id",
+	"asset_msdt":                                       "id",
+	"asset_ports":                                      "id",
+	"asset_security_report_data":                       "id",
+	"asset_shares":                                     "id",
+	"asset_storages":                                   "id",
+	"asset_unqouted_services":                          "id",
+	"asset_user_shares":                                "id",
+	"asset_video_info":                                 "id",
+	"asset_view":                                       "id",
+	"asset_windows_compatibility":                      "id",
+	"asset_windows_reboot_required":                    "id",
+	"attack_surface_domain":                            "id",
+	"attack_surface_results":                           "id",
+	"backup_software":                                  "id",
+	"bios_info":                                        "id",
+	"browser_extensions":                               "id",
+	"ciphers_view":                                     "id",
+	"companies":                                        "id",
+	"company_mappings":                                 "id",
+	"company_stats":                                    "id",
+	"compliance":                                       "name",
+	"compliance_assessment":                            "id",
+	"credentials":                                      "id",
+	"custom_domains":                                   "id",
+	"custom_profile":                                   "id",
+	"custom_ticketing_template":                        "id",
+	"discovery_settings":                               "id",
+	"edr":                                              "id",
+	"event_set":                                        "id",
+	"firewall_groups":                                  "id",
+	"firewall_interfaces":                              "id",
+	"firewall_license":                                 "id",
+	"firewall_rules":                                   "id",
+	"firewall_users":                                   "id",
+	"firewall_zones":                                   "id",
+	"integration_credentials":                          "id",
+	"integration_rules":                                "id",
+	"jobs_view":                                        "id",
+	"pii_scan_settings":                                "id",
+	"report_jobs_view":                                 "id",
+	"report_queries":                                   "object_guid",            // Hand-fix (handfixes.json: per-client-report-keys)
+	"report_queries_ad_computers_view":                 "object_guid",            // Hand-fix (handfixes.json: report-queries-own-partition)
+	"report_queries_remediation_plan_by_company":       "company_id+solution_id", // Hand-fix (handfixes.json: per-client-report-keys)
+	"report_queries-ad-gpos-details":                   "id",
+	"report_queries-ad-gpos-view":                      "object_guid", // Hand-fix (handfixes.json: per-client-report-keys)
+	"report_queries-ad-group-computers":                "object_guid", // Hand-fix (handfixes.json: per-client-report-keys)
+	"report_queries-ad-group-users":                    "sid",
+	"report_queries-ad-groups-view":                    "id",
+	"report_queries-ad-ous-view":                       "object_guid", // Hand-fix (handfixes.json: per-client-report-keys)
+	"report_queries-ad-password-policies":              "id",
+	"report_queries-ad-roles":                          "id",
+	"report_queries-ad-user-licenses":                  "id",
+	"report_queries-ad-users-view":                     "id",
+	"report_queries-adaudit":                           "id",
+	"report_queries-application-vulnerabilities":       "id",
+	"report_queries-application-vulnerabilities-by-os": "id",
 	"report_queries-application-vulnerabilities-by-os-software-details":            "id",
 	"report_queries-application-vulnerabilities-by-os-software-details-suppressed": "id",
 	"report_queries-application-vulnerabilities-by-product":                        "id",
@@ -10398,9 +10463,10 @@ var resourceIDFieldOverrides = map[string]string{
 // parameter fingerprint. Unlisted resources still increment extractFailures
 // when an item has no usable id.
 var parameterKeyedResources = map[string]bool{
-	"cve":      true,
-	"patching": true,
-	"session":  true,
+	"cve":            true,
+	"patching":       true,
+	"report_builder": true,
+	"session":        true,
 }
 
 // Generic ID fields are split around the resource-specific suffix probe.
@@ -10415,7 +10481,7 @@ var genericDescriptiveIDFieldFallbacks = []string{"name", "slug", "key", "code"}
 // resourceIDBaseOverrides preserves the complete final collection name for
 // composed dependents whose child segment is itself multiword.
 var resourceIDBaseOverrides = map[string]string{
-	"report_queries": "registry_problems_remediation_asset_details",
+	"r_report_queries_registry_problems_remediation_asset_details": "registry_problems_remediation_asset_details",
 }
 
 // resourceParentKeyColumns identifies generated dependent resources whose
@@ -10423,7 +10489,7 @@ var resourceIDBaseOverrides = map[string]string{
 // many-to-many sub-collections collapse every parent association onto the
 // child's bare id and silently keep only the last synced parent.
 var resourceParentKeyColumns = map[string][]string{
-	"report_queries": {"parent_id"},
+	"r_report_queries_registry_problems_remediation_asset_details": {"parent_id"},
 }
 
 // ExtractResourceID resolves the bare resource id field that UpsertBatch
@@ -11837,6 +11903,50 @@ func (s *Store) SaveSyncProgress(resourceType, cursor string, count int) error {
 	return err
 }
 
+// SaveSyncStateInScope records a completed checkpoint for a walk that already
+// bound scopeKey. A row another walk has since rebound is left unchanged.
+func (s *Store) SaveSyncStateInScope(resourceType, scopeKey, cursor string, count int) error {
+	return s.SaveSyncStateAtInScope(resourceType, scopeKey, cursor, count, time.Now().UTC())
+}
+
+// SaveSyncStateAtInScope stores the watermark for a walk that already bound
+// scopeKey. A row another walk has since rebound is left unchanged.
+func (s *Store) SaveSyncStateAtInScope(resourceType, scopeKey, cursor string, count int, at time.Time) error {
+	return s.updateSyncCheckpointInScope(resourceType,
+		`UPDATE sync_state SET last_cursor = ?, last_synced_at = ?, total_count = ?, last_attempt_complete = 1
+		 WHERE resource_type = ? AND scope_key = ?`,
+		cursor, at.UTC().Format(time.RFC3339), count, resourceType, scopeKey,
+	)
+}
+
+// SaveSyncProgressInScope stores pagination progress for a walk that already
+// bound scopeKey and leaves the last completed watermark in place. A row
+// another walk has since rebound is left unchanged.
+func (s *Store) SaveSyncProgressInScope(resourceType, scopeKey, cursor string, count int) error {
+	return s.updateSyncCheckpointInScope(resourceType,
+		`UPDATE sync_state SET last_cursor = ?, total_count = ?, last_attempt_complete = 0
+		 WHERE resource_type = ? AND scope_key = ?`,
+		cursor, count, resourceType, scopeKey,
+	)
+}
+
+func (s *Store) updateSyncCheckpointInScope(resourceType, query string, args ...any) error {
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
+	res, err := s.db.Exec(query, args...)
+	if err != nil {
+		return err
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if n == 0 {
+		return fmt.Errorf("sync scope for %s changed before the checkpoint was saved", resourceType)
+	}
+	return nil
+}
+
 func (s *Store) GetSyncState(resourceType string) (cursor string, lastSynced time.Time, count int, err error) {
 	var savedCursor sql.NullString
 	var savedTime sql.NullTime
@@ -11873,6 +11983,115 @@ func (s *Store) GetSyncCursor(resourceType string) string {
 		return cursor.String
 	}
 	return ""
+}
+
+// BindSyncScope returns the checkpoint when scopeKey matches the stored scope.
+// A different scope drops the cursor and watermark so a later tenant cannot
+// resume the previous one. The primary key stays resource_type; scope_key is
+// recorded beside it so existing ON CONFLICT(resource_type) writers keep working.
+func (s *Store) BindSyncScope(resourceType, scopeKey string) (string, time.Time, int, error) {
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
+	return s.readSyncScope(resourceType, scopeKey, true)
+}
+
+// ReadSyncScope is the dry-run twin. A scope mismatch reports an empty
+// checkpoint and leaves the stored row alone.
+func (s *Store) ReadSyncScope(resourceType, scopeKey string) (string, time.Time, int, error) {
+	return s.readSyncScope(resourceType, scopeKey, false)
+}
+
+func (s *Store) readSyncScope(resourceType, scopeKey string, bind bool) (string, time.Time, int, error) {
+	var savedCursor sql.NullString
+	var savedTime sql.NullTime
+	var savedScope sql.NullString
+	var count int
+	err := s.db.QueryRow(
+		`SELECT last_cursor, last_synced_at, total_count, scope_key FROM sync_state WHERE resource_type = ?`,
+		resourceType,
+	).Scan(&savedCursor, &savedTime, &count, &savedScope)
+	if err == sql.ErrNoRows {
+		if !bind {
+			return "", time.Time{}, 0, nil
+		}
+		_, err = s.db.Exec(
+			`INSERT INTO sync_state (resource_type, last_cursor, last_synced_at, total_count, last_attempt_complete, scope_key)
+			 VALUES (?, '', NULL, 0, 0, ?)`,
+			resourceType, scopeKey,
+		)
+		return "", time.Time{}, 0, err
+	}
+	if err != nil {
+		return "", time.Time{}, 0, err
+	}
+	if savedScope.String == scopeKey {
+		return savedCursor.String, savedTime.Time, count, nil
+	}
+	if !bind {
+		return "", time.Time{}, 0, nil
+	}
+	_, err = s.db.Exec(
+		`UPDATE sync_state SET scope_key = ?, last_cursor = '', last_synced_at = NULL, total_count = 0, last_attempt_complete = 0 WHERE resource_type = ?`,
+		scopeKey, resourceType,
+	)
+	return "", time.Time{}, 0, err
+}
+
+// ClearSyncScopeIfCurrent drops the resume cursor when scopeKey is already
+// the stored scope. A different scope is left intact so a full sync cannot
+// wipe another tenant before that tenant's walk starts. No row stays absent.
+// Completion stays unset: the clear has not walked the resource, so a crash
+// before the walk must not read as a finished sync of zero rows.
+func (s *Store) ClearSyncScopeIfCurrent(resourceType, scopeKey string) error {
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
+	var savedScope sql.NullString
+	err := s.db.QueryRow(
+		`SELECT scope_key FROM sync_state WHERE resource_type = ?`,
+		resourceType,
+	).Scan(&savedScope)
+	if err == sql.ErrNoRows {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if savedScope.String != scopeKey {
+		return nil
+	}
+	_, err = s.db.Exec(
+		`UPDATE sync_state SET last_cursor = '', last_synced_at = ?, total_count = 0, last_attempt_complete = 0 WHERE resource_type = ?`,
+		time.Time{}.UTC().Format(time.RFC3339), resourceType,
+	)
+	return err
+}
+
+// MarkSyncAttemptIncompleteIfCurrent clears the completion flag when scopeKey
+// is already stored. Cursor, watermark, and count stay. A different scope and
+// a missing row are left alone so a failed parent lookup cannot reset another
+// tenant before a request is made.
+func (s *Store) MarkSyncAttemptIncompleteIfCurrent(resourceType, scopeKey string) error {
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
+	var savedScope sql.NullString
+	err := s.db.QueryRow(
+		`SELECT scope_key FROM sync_state WHERE resource_type = ?`,
+		resourceType,
+	).Scan(&savedScope)
+	if err == sql.ErrNoRows {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if savedScope.String != scopeKey {
+		return nil
+	}
+	_, err = s.db.Exec(
+		`UPDATE sync_state SET last_attempt_complete = 0 WHERE resource_type = ? AND scope_key = ?`,
+		resourceType, scopeKey,
+	)
+	return err
 }
 
 // ListIDs returns all IDs from a resource's domain table, or from the generic

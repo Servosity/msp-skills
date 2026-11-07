@@ -21,8 +21,8 @@ import (
 // Hand-fix (handfixes.json: report-queries-own-partition). Every generated
 // report-queries command must cache into its own report's partition (the one
 // sync writes), never the shared "report_queries" bucket. The exception is
-// registry-problems-remediation-asset-details: sync's dependent of that name
-// stores its per-asset rows under "report_queries".
+// registry-problems-remediation-asset-details: it reads the partition sync's
+// per-asset dependent writes (r_report_queries_registry_problems_remediation_asset_details since press 4.35.1).
 func TestReportQueriesCommandsUseOwnPartition(t *testing.T) {
 	files, err := filepath.Glob("report_queries_*.go")
 	if err != nil || len(files) < 150 {
@@ -35,7 +35,7 @@ func TestReportQueriesCommandsUseOwnPartition(t *testing.T) {
 		sub := strings.TrimSuffix(strings.TrimPrefix(f, "report_queries_"), ".go")
 		want := `"auto", "report_queries-` + sub + `", path`
 		if sub == "registry-problems-remediation-asset-details" {
-			want = `"auto", "report_queries", path`
+			want = `"auto", "r_report_queries_registry_problems_remediation_asset_details", path`
 		}
 		src, err := os.ReadFile(f)
 		if err != nil {
