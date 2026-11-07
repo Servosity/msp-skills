@@ -85,16 +85,16 @@ func TestComputerClientFallbacks(t *testing.T) {
 	clients := []map[string]any{obj(t, `{"Id": 7, "Name": "Acme Corp"}`)}
 	idx := clientNameIndex(clients)
 	// flat ClientName wins
-	if got := computerClient(obj(t, `{"ClientName":"Flat Inc"}`), idx); got != "Flat Inc" {
-		t.Errorf("flat ClientName = %q", got)
+	if got := computerClient(obj(t, `{"ClientName":"Flat Inc"}`), idx); got.name != "Flat Inc" {
+		t.Errorf("flat ClientName = %+v", got)
 	}
 	// nested Client object
-	if got := computerClient(obj(t, `{"Client":{"Id":1,"Name":"Nested LLC"}}`), idx); got != "Nested LLC" {
-		t.Errorf("nested Client = %q", got)
+	if got := computerClient(obj(t, `{"Client":{"Id":1,"Name":"Nested LLC"}}`), idx); got.name != "Nested LLC" {
+		t.Errorf("nested Client = %+v", got)
 	}
 	// join via ClientId
-	if got := computerClient(obj(t, `{"ClientId":7}`), idx); got != "Acme Corp" {
-		t.Errorf("join via ClientId = %q", got)
+	if got := computerClient(obj(t, `{"ClientId":7}`), idx); got.name != "Acme Corp" || got.key != "id:7" {
+		t.Errorf("join via ClientId = %+v", got)
 	}
 }
 
@@ -285,5 +285,77 @@ func TestSinceWindow(t *testing.T) {
 	}
 	if rep.PatchesInstalled != 1 {
 		t.Errorf("patches installed = %d, want 1", rep.PatchesInstalled)
+	}
+}
+
+// An alert that carries only ComputerId takes the computer's name, location and
+// client from the synced computer (the join alert-triage promises).
+func TestAlertTriageJoinsComputerName(t *testing.T) {
+	computers := []map[string]any{{"Id": float64(11), "ComputerName": "ACME-2", "ClientId": float64(1), "LocationName": "HQ"}}
+	clients := []map[string]any{{"Id": float64(1), "Name": "Acme"}}
+	alerts := []map[string]any{{"Id": float64(5), "ComputerId": float64(11), "Priority": float64(4), "Message": "disk full"}}
+	got := AlertTriage(alerts, computers, clients, 0)
+	if len(got) != 1 || got[0].Computer != "ACME-2" || got[0].Location != "HQ" || got[0].Client != "Acme" {
+		t.Fatalf("triage = %+v", got)
+	}
+}
+
+// Two documented Client records may share a Name; every report keys a client by
+// its Id, so they stay two rows (labelled with their Id) and no computer,
+// alert or patch is attributed to the other one.
+func TestClientsWithTheSameNameStayApart(t *testing.T) {
+	clients := []map[string]any{{"Id": float64(1), "Name": "Acme"}, {"Id": float64(2), "Name": "Acme"}, {"Id": float64(3), "Name": "Globex"}}
+	computers := []map[string]any{
+		{"Id": float64(10), "ClientId": float64(1), "ClientName": "Acme", "Status": "Online"},
+		{"Id": float64(20), "ClientId": float64(2), "ClientName": "Acme", "Status": "Offline"},
+	}
+	alerts := []map[string]any{{"Id": float64(5), "ComputerId": float64(20), "ClientName": "Acme", "Priority": float64(4), "Message": "x"}}
+	patches := []map[string]any{{"Id": float64(7), "ComputerId": float64(20), "ClientName": "Acme", "Status": "Failed"}}
+	locations := []map[string]any{{"Id": float64(9), "ClientId": float64(2), "ClientName": "Acme"}}
+
+	rollups := ClientRollups(computers, clients, locations, alerts, "")
+	got := map[string]ClientRollup{}
+	for _, r := range rollups {
+		got[r.Client] = r
+	}
+	a1, a2 := got["Acme (#1)"], got["Acme (#2)"]
+	if len(rollups) != 3 || a1.Computers != 1 || a1.Offline != 0 || a1.OpenAlerts != 0 || a1.Locations != 0 ||
+		a2.Computers != 1 || a2.Offline != 1 || a2.OpenAlerts != 1 || a2.Locations != 1 || got["Globex"].Client != "Globex" {
+		t.Fatalf("rollups = %+v", rollups)
+	}
+	health := FleetHealth(computers, clients, alerts, 30, time.Now())
+	if len(health) != 2 {
+		t.Fatalf("fleet-health merged clients: %+v", health)
+	}
+	pc := PatchCompliance(patches, computers, clients)
+	if len(pc) != 1 || pc[0].Client != "Acme (#2)" {
+		t.Fatalf("patch-compliance = %+v", pc)
+	}
+	tri := AlertTriage(alerts, computers, clients, 0)
+	if len(tri) != 1 || tri[0].Client != "Acme (#2)" {
+		t.Fatalf("alert-triage = %+v", tri)
+	}
+	av := AgentVersions(computers, clients, false)
+	if len(av.Versions) != 1 || av.Versions[0].Clients["Acme (#1)"] != 1 || av.Versions[0].Clients["Acme (#2)"] != 1 {
+		t.Fatalf("agent-versions = %+v", av)
+	}
+}
+
+// Windows 10 left support on 2025-10-14 (LTSB editions too); only the LTSC
+// 2019 and 2021 editions are still supported.
+func TestWindows10IsEndOfLife(t *testing.T) {
+	for os, want := range map[string]bool{
+		"Microsoft Windows 10 Pro":                  true,
+		"Microsoft Windows 10 Enterprise":           true,
+		"Microsoft Windows 10 Enterprise 2016 LTSB": true,
+		"Microsoft Windows 10 Enterprise LTSC 2021": false,
+		"Microsoft Windows 10 IoT Enterprise LTSC":  false,
+		"Microsoft Windows 11 Pro":                  false,
+		"Microsoft Windows Server 2019 Standard":    false,
+		"Microsoft Windows Server 2012 R2 Standard": true,
+	} {
+		if got := IsEOL(os); got != want {
+			t.Errorf("IsEOL(%q) = %v, want %v", os, got, want)
+		}
 	}
 }

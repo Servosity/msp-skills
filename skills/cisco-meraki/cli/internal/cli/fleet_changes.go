@@ -78,6 +78,11 @@ type changeFilter struct {
 	page    string
 }
 
+// sortChangesNewestFirst orders changes by instant, newest first.
+func sortChangesNewestFirst(rows []changeRow) {
+	sort.SliceStable(rows, func(i, j int) bool { return merakiTimeAfter(rows[i].TS, rows[j].TS) })
+}
+
 func (f changeFilter) keep(r changeRow) bool {
 	if t, ok := parseMerakiTime(r.TS); ok && t.Before(f.since) {
 		return false
@@ -124,10 +129,10 @@ func groupChanges(rows []changeRow, by string) []changeGroup {
 			order = append(order, k)
 		}
 		g.Changes++
-		if r.TS < g.FirstTS {
+		if merakiTimeAfter(g.FirstTS, r.TS) {
 			g.FirstTS = r.TS
 		}
-		if r.TS > g.LastTS {
+		if merakiTimeAfter(r.TS, g.LastTS) {
 			g.LastTS = r.TS
 		}
 		orgSets[k][r.OrganizationName] = true
@@ -382,7 +387,7 @@ Do NOT use this command to explain why a network or device went down; use 'fleet
 					kept = append(kept, r)
 				}
 			}
-			sort.SliceStable(kept, func(i, j int) bool { return kept[i].TS > kept[j].TS })
+			sortChangesNewestFirst(kept)
 			if groupBy != "" {
 				groups := groupChanges(kept, groupBy)
 				if limit > 0 && len(groups) > limit {

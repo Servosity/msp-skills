@@ -1,4 +1,5 @@
 // Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
+// pp:data-source live
 
 package cli
 
@@ -10,6 +11,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"riverside-fm-pp-cli/internal/cliutil"
 	"strings"
 	"time"
 
@@ -37,7 +39,7 @@ func newMediaRefreshCmd(flags *rootFlags) *cobra.Command {
 		Short:       "Refresh signed CloudFront URLs for project clips or production media; --prefetch downloads bodies before TTL.",
 		Long:        "Walks the production media board (--production) and/or project clip-assets (--project), captures the fresh CloudFront URLs, and optionally streams each asset to <out>/. Riverside's signed URLs are short-lived; this is the only way to refresh them in bulk.",
 		Example:     "  riverside-fm-cli media refresh --project 69fcda9fba030a19ae93a526 --prefetch --out ./media",
-		Annotations: map[string]string{"mcp:read-only": "true"},
+		Annotations: map[string]string{"mcp:read-only": "true", "mcp:write-flags": "out,prefetch"}, // --prefetch writes files; MCP gets the refresh only
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if dryRunOK(flags) {
 				return nil
@@ -58,26 +60,16 @@ func newMediaRefreshCmd(flags *rootFlags) *cobra.Command {
 				}
 			}
 
-			type mediaURL struct {
-				Kind        string  `json:"kind"` // "production-media" | "clip-asset"
-				Name        string  `json:"name"`
-				ID          string  `json:"id"`
-				URL         string  `json:"url"`
-				DurationSec float64 `json:"duration_sec,omitempty"`
-				LocalPath   string  `json:"local_path,omitempty"`
-				Bytes       int64   `json:"bytes,omitempty"`
-				Status      string  `json:"status,omitempty"`
-			}
-			out := []mediaURL{}
+			out := []mediaRow{}
 
 			if productionID != "" {
-				data, err := c.Get("/api/v4/production/"+url.PathEscape(productionID)+"/media", nil)
+				data, err := c.Get(cmd.Context(), "/api/v4/production/"+url.PathEscape(productionID)+"/media", nil)
 				if err != nil {
-					return classifyAPIError(err, flags)
+					return classifyAPIError(cmd.OutOrStdout(), err, flags)
 				}
 				items := extractProductionMedia(data)
 				for _, it := range items {
-					row := mediaURL{Kind: "production-media", Name: it.Name, ID: it.ID, URL: it.URL, DurationSec: it.Duration}
+					row := mediaRow{Kind: "production-media", Name: it.Name, ID: it.ID, URL: it.URL, DurationSec: it.Duration}
 					if prefetch && row.URL != "" {
 						fp := safeJoin(outDir, it.Name+"-"+it.ID+guessExt(it.URL))
 						if fp == "" {
@@ -100,20 +92,22 @@ func newMediaRefreshCmd(flags *rootFlags) *cobra.Command {
 
 			if projectID != "" {
 				// project -> exports list -> per-clip -> clip-assets
-				exportsData, err := c.Get("/api/v4/projects/"+url.PathEscape(projectID)+"/clips/exports",
-					map[string]string{"offset": "0", "limit": "200"})
+				clipIDs, err := listAll(cmd.Context(), c, "/api/v4/projects/"+url.PathEscape(projectID)+"/clips/exports", nil, 200,
+					extractClipIDsFromExports, func(id string) string { return id })
 				if err != nil {
-					return classifyAPIError(err, flags)
+					return classifyAPIError(cmd.OutOrStdout(), err, flags)
 				}
-				clipIDs := extractClipIDsFromExports(exportsData)
 				for _, cid := range clipIDs {
-					clipData, cerr := c.Get("/api/v4/clip/"+url.PathEscape(cid), nil)
+					clipData, cerr := c.Get(cmd.Context(), "/api/v4/clip/"+url.PathEscape(cid), nil)
 					if cerr != nil {
+						// Report it: a clip that silently vanished from the refresh would
+						// read as "nothing to refresh / prefetch" for that clip.
+						out = append(out, mediaRow{Kind: "clip-export", ID: cid, Status: "fetch-failed: " + cerr.Error()})
 						continue
 					}
 					urls := extractClipExportURLs(clipData)
 					for _, u := range urls {
-						row := mediaURL{Kind: "clip-export", Name: u.Name, ID: cid, URL: u.URL}
+						row := mediaRow{Kind: "clip-export", Name: u.Name, ID: cid, URL: u.URL}
 						if prefetch && row.URL != "" {
 							fp := safeJoin(outDir, u.Name+"-"+cid+guessExt(u.URL))
 							if fp == "" {
@@ -138,20 +132,14 @@ func newMediaRefreshCmd(flags *rootFlags) *cobra.Command {
 			if flags.asJSON || !isTerminal(cmd.OutOrStdout()) {
 				j, _ := json.MarshalIndent(out, "", "  ")
 				fmt.Fprintln(cmd.OutOrStdout(), string(j))
-				return nil
+			} else {
+				printMediaRows(cmd.OutOrStdout(), out)
 			}
-			if len(out) == 0 {
-				fmt.Fprintln(cmd.OutOrStdout(), "No media found.")
-				return nil
+			statuses := make([]string, len(out))
+			for i, r := range out {
+				statuses[i] = r.Status
 			}
-			for _, r := range out {
-				if r.LocalPath != "" {
-					fmt.Fprintf(cmd.OutOrStdout(), "%s %s (%s) -> %s (%d bytes) %s\n", r.Kind, r.Name, r.ID, r.LocalPath, r.Bytes, r.Status)
-				} else {
-					fmt.Fprintf(cmd.OutOrStdout(), "%s %s (%s) %s\n", r.Kind, r.Name, r.ID, truncate(r.URL, 110))
-				}
-			}
-			return nil
+			return rowsIncomplete("media refresh", statuses)
 		},
 	}
 
@@ -160,6 +148,32 @@ func newMediaRefreshCmd(flags *rootFlags) *cobra.Command {
 	cmd.Flags().BoolVar(&prefetch, "prefetch", false, "Download every asset body to --out before TTL expires")
 	cmd.Flags().StringVar(&outDir, "out", "", "Output directory when --prefetch (default ./media-refresh)")
 	return cmd
+}
+
+// mediaRow is one line of media refresh output.
+type mediaRow struct {
+	Kind        string  `json:"kind"` // "production-media" | "clip-asset"
+	Name        string  `json:"name"`
+	ID          string  `json:"id"`
+	URL         string  `json:"url"`
+	DurationSec float64 `json:"duration_sec,omitempty"`
+	LocalPath   string  `json:"local_path,omitempty"`
+	Bytes       int64   `json:"bytes,omitempty"`
+	Status      string  `json:"status,omitempty"`
+}
+
+func printMediaRows(w io.Writer, rows []mediaRow) {
+	if len(rows) == 0 {
+		fmt.Fprintln(w, "No media found.")
+		return
+	}
+	for _, r := range rows {
+		if r.LocalPath != "" {
+			fmt.Fprintf(w, "%s %s (%s) -> %s (%d bytes) %s\n", r.Kind, r.Name, r.ID, r.LocalPath, r.Bytes, r.Status)
+		} else {
+			fmt.Fprintf(w, "%s %s (%s) %s %s\n", r.Kind, r.Name, r.ID, truncate(r.URL, 110), r.Status)
+		}
+	}
 }
 
 type productionMediaItem struct {
@@ -241,7 +255,7 @@ func walkForURLs(v any, parentKey string, out *[]clipExportURL) {
 }
 
 func streamDownload(srcURL, destPath string) (int64, error) {
-	client := &http.Client{Timeout: 5 * time.Minute}
+	client := &http.Client{Timeout: 5 * time.Minute, Transport: cliutil.OutboundGuard(nil)}
 	resp, err := client.Get(srcURL)
 	if err != nil {
 		return 0, err
@@ -253,13 +267,18 @@ func streamDownload(srcURL, destPath string) (int64, error) {
 	// 0600, not os.Create's 0666-before-umask: what lands here is a customer's
 	// recorded audio or video. destPath is built by safeJoin, which proved it
 	// stays under the operator-chosen --out directory.
+	// The body is customer media from a signed CDN URL, sent no credential, and
+	// can run to gigabytes of binary, so it goes to its file outside the kit,
+	// whose file sink checks text units (handfixes.json credkit-wiring).
 	// #nosec G304 -- safeJoin-validated path under --out.
 	f, err := os.OpenFile(filepath.Clean(destPath), os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600)
 	if err != nil {
 		return 0, err
 	}
-	defer f.Close()
 	n, err := io.Copy(f, resp.Body)
+	if cerr := f.Close(); err == nil {
+		err = cerr
+	}
 	return n, err
 }
 

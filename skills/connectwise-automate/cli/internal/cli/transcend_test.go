@@ -11,6 +11,8 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"connectwise-automate-pp-cli/internal/cliutil"
+	"connectwise-automate-pp-cli/internal/cliutil/testenv"
 	"connectwise-automate-pp-cli/internal/store"
 )
 
@@ -20,7 +22,7 @@ import (
 // resolve the same path through defaultDBPath.
 func seedStore(t *testing.T) {
 	t.Helper()
-	t.Setenv("HOME", t.TempDir())
+	testenv.Isolate(t, cliutil.ConfigDir, cliutil.DataDir, cliutil.StateDir, cliutil.CacheDir)
 
 	dbPath := defaultDBPath("connectwise-automate-cli")
 	s, err := store.Open(dbPath)
@@ -32,20 +34,32 @@ func seedStore(t *testing.T) {
 	recentISO := time.Now().UTC().Add(-1 * time.Hour).Format(time.RFC3339)
 	staleISO := time.Now().UTC().AddDate(0, 0, -90).Format(time.RFC3339)
 
+	walked := map[string][]string{}
 	put := func(rt, id, body string) {
 		if err := s.Upsert(rt, id, json.RawMessage(body)); err != nil {
 			t.Fatalf("seed %s/%s: %v", rt, id, err)
 		}
+		walked[rt] = append(walked[rt], id)
 	}
 	put("clients", "1", `{"Id":1,"Name":"Acme Corp"}`)
 	put("clients", "2", `{"Id":2,"Name":"Globex"}`)
 	put("locations", "5", `{"Id":5,"ClientId":1,"Name":"Acme HQ"}`)
-	put("computers", "10", `{"Id":10,"ComputerName":"ACME-PC1","ClientId":1,"Status":"Online","OperatingSystemName":"Windows 11 Pro","LastContact":"`+recentISO+`"}`)
-	put("computers", "11", `{"Id":11,"ComputerName":"ACME-OLD","ClientId":1,"Status":"Offline","OperatingSystemName":"Windows 7 Pro","LastContact":"`+staleISO+`"}`)
+	put("computers", "10", `{"Id":10,"ComputerName":"ACME-PC1","ClientId":1,"Status":"Online","OperatingSystemName":"Windows 11 Pro","RemoteAgentVersion":"2023.10.1","LastContact":"`+recentISO+`"}`)
+	put("computers", "11", `{"Id":11,"ComputerName":"ACME-OLD","ClientId":1,"Status":"Offline","OperatingSystemName":"Windows 7 Pro","RemoteAgentVersion":"2023.9.110","LastContact":"`+staleISO+`"}`)
 	put("computers", "20", `{"Id":20,"ComputerName":"GLOBEX-SRV","ClientId":2,"Status":"Online","OperatingSystemName":"Windows Server 2012 R2","LastContact":"`+recentISO+`"}`)
 	put("alerts", "100", `{"Id":100,"ComputerId":11,"Priority":4,"Message":"disk full","CreatedDate":"`+recentISO+`"}`)
 	put("patching", "200", `{"Id":200,"ComputerId":10,"Status":"Installed","InstallDate":"`+recentISO+`"}`)
 	put("patching", "201", `{"Id":201,"ComputerId":11,"Status":"Failed","InstallDate":"`+recentISO+`"}`)
+	// Every seeded resource was walked to its end by an unfiltered sync (what
+	// a finished sync records), so the reports treat these rows as current.
+	for _, rt := range []string{"clients", "locations", "computers", "alerts", "patching"} {
+		if err := cwaWalkBegin(s, rt, true, ""); err != nil {
+			t.Fatalf("seed walk %s: %v", rt, err)
+		}
+		if err := cwaWalkEnd(s, rt, true, walked[rt], true, ""); err != nil {
+			t.Fatalf("seed walk %s: %v", rt, err)
+		}
+	}
 }
 
 // nospace strips whitespace so numeric "key": value assertions are insensitive
@@ -143,11 +157,23 @@ func TestSinceCommand(t *testing.T) {
 	}
 }
 
+func TestAgentVersionsCommand(t *testing.T) {
+	seedStore(t)
+	out := nospace(run(t, newNovelAgentVersionsCmd, "--behind-only"))
+	if !strings.Contains(out, `"newest":"2023.10.1"`) || !strings.Contains(out, `"behind":1`) || !strings.Contains(out, `"unknown":1`) {
+		t.Fatalf("agent-versions report wrong: %s", out)
+	}
+	if strings.Contains(out, `"version":"2023.10.1"`) || !strings.Contains(out, `"version":"2023.9.110"`) {
+		t.Fatalf("--behind-only should list only the older version: %s", out)
+	}
+}
+
 func TestTranscendCommandsTolerateEmptyStore(t *testing.T) {
 	t.Setenv("HOME", t.TempDir()) // no seed: empty/just-created store
 	builders := []func(*rootFlags) *cobra.Command{
 		newNovelFleetHealthCmd, newNovelStaleAgentsCmd, newNovelPatchComplianceCmd,
 		newNovelClientRollupCmd, newNovelAlertTriageCmd, newNovelOsInventoryCmd, newNovelSinceCmd,
+		newNovelAgentVersionsCmd,
 	}
 	for _, b := range builders {
 		flags := &rootFlags{asJSON: true}

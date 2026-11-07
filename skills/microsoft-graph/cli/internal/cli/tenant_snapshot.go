@@ -28,7 +28,7 @@ Requires a prior sync: run 'microsoft-graph-cli pull' first.`, "\n"),
 		Example: strings.Trim(`
   microsoft-graph-cli tenant snapshot --agent
   microsoft-graph-cli tenant snapshot --json`, "\n"),
-		Annotations: map[string]string{"mcp:read-only": "true"},
+		Annotations: map[string]string{"mcp:read-only": "true", "pp:data-source": "local"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if dryRunOK(flags) {
 				return nil

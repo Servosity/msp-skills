@@ -1,7 +1,7 @@
 {
   "api_name": "connectwise-automate",
   "base_url": "https://{server}/cwa/api/v1",
-  "description": "Sync your entire ConnectWise Automate fleet into local SQLite and answer cross-client questions the per-server web UI can't: fleet-wide health roll-ups, stale-agent sweeps, patch-compliance-by-client, and overnight drift.",
+  "description": "Every ConnectWise Automate endpoint plus a local SQLite mirror that answers cross-client fleet questions the per-server web UI can't",
   "mcp_ready": "full",
   "http_transport": "standard",
   "auth": {
@@ -698,7 +698,7 @@
       "params": []
     },
     {
-      "name": "server_info",
+      "name": "server_get",
       "description": "Server version and metadata. Returns the ServerInformation.",
       "method": "GET",
       "path": "/System/ServerInformation",

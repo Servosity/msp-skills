@@ -85,35 +85,32 @@ func newSearchCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "search <query>",
-		Short: "Full-text search across the locally synced mirror",
-		Long: `Search data using FTS5 full-text search on locally synced data.
+		Short: "Search locally synced data",
+		Long: `Search locally synced data using FTS5 full-text search.
 
-Meraki has no account-wide search endpoint (client search is per
-organization), so auto (default) and local mode both search the local
-mirror written by 'sync'. For a live lookup of a MAC, IP, serial or name
-across every org, use 'fleet find'.`,
-		Example: `  # Search the local mirror
-  cisco-meraki-cli search "error timeout"
+This API has no dedicated search endpoint, so live mode is unavailable.
+Run sync first to populate the local search index.`,
+		Example: `  # Search locally synced data
+  cisco-meraki-cli search "status"
 
-  # Force local search only
+  # Force local search explicitly
   cisco-meraki-cli search "status" --data-source local
   # Search a specific resource type locally
   cisco-meraki-cli search "status" --type administered --data-source local
   # JSON output for piping
-  cisco-meraki-cli search "critical" --json --limit 20`,
+  cisco-meraki-cli search "status" --json --limit 20`,
 		Annotations: map[string]string{"mcp:hidden": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
 				return cmd.Help()
 			}
 			query := args[0]
-			// ponytail: the only search endpoint is per organization
-			// (/organizations/{organizationId}/clients/search), so the
-			// generated live branch could never resolve; live mode errors and
-			// auto mode searches the mirror. Pinned by handfixes.json
-			// "meraki-search-auto-is-local".
+			// This API has no search endpoint.
 			if flags.dataSource == "live" {
-				return usageErr(fmt.Errorf("search has no live mode for Meraki (client search is per organization); use 'fleet find' for a live lookup, or --data-source local"))
+				return fmt.Errorf("this API has no search endpoint. Use --data-source local or --data-source auto to search locally synced data")
+			}
+			if flags.dataSource == "auto" {
+				fmt.Fprintf(cmd.ErrOrStderr(), "This API has no search endpoint. Searching local data.\n")
 			}
 
 			// Local FTS search
@@ -211,8 +208,8 @@ across every org, use 'fleet find'.`,
 			}
 
 			reason := "user_requested"
-			if flags.dataSource == "auto" {
-				reason = "no_live_search" // Meraki search is per organization
+			if flags.dataSource != "local" {
+				reason = "no_search_endpoint"
 			}
 			prov := localProvenance(db, "search", reason)
 

@@ -89,24 +89,26 @@ func newNovelIntegrationsHealthCmd(flags *rootFlags) *cobra.Command {
 			}
 			raw, _, capHit, err := corkFetchPages(ctx, c, "/integrations/connected", nil, flagMaxScanPages)
 			if err != nil {
-				return classifyAPIError(err, flags)
+				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}
 
 			// Map integration -> clients it feeds, via the tenants embedded on
 			// each locally mirrored client.
 			feeds := map[string][]string{}
+			feedsByVendor := map[string][]string{}
 			if db, ok, openErr := corkOpenStore(ctx, flagDB, cmd.ErrOrStderr(), cmd.OutOrStdout(), "clients"); openErr == nil && ok {
 				defer db.Close()
 				if clients, loadErr := corkLoadClients(ctx, db); loadErr == nil {
 					for _, cl := range clients {
 						for _, t := range cl.Tenants {
-							// Index by both integration uuid and vendor key so
-							// the lookup works whichever the connector reports.
-							for _, k := range []string{t.Integration.UUID, t.Integration.Vendor.Key} {
-								if k == "" {
-									continue
-								}
-								feeds[k] = append(feeds[k], cl.Name)
+							// Index by integration uuid. Two connectors can share a
+							// vendor key, so the vendor key is only a fallback for a
+							// tenant whose integration carries no uuid, and is only
+							// consulted for a connector that itself has no uuid.
+							if t.Integration.UUID != "" {
+								feeds[t.Integration.UUID] = append(feeds[t.Integration.UUID], cl.Name)
+							} else if t.Integration.Vendor.Key != "" {
+								feedsByVendor[t.Integration.Vendor.Key] = append(feedsByVendor[t.Integration.Vendor.Key], cl.Name)
 							}
 						}
 					}
@@ -175,8 +177,8 @@ func newNovelIntegrationsHealthCmd(flags *rootFlags) *cobra.Command {
 					continue
 				}
 				clientsFed := feeds[in.UUID]
-				if len(clientsFed) == 0 {
-					clientsFed = feeds[in.Vendor.Key]
+				if in.UUID == "" {
+					clientsFed = feedsByVendor[in.Vendor.Key]
 				}
 				// De-duplicate: a client with several tenants on one connector
 				// must not be counted once per tenant.

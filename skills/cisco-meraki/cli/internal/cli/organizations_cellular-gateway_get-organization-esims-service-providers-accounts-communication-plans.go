@@ -58,7 +58,7 @@ func newOrganizationsCellularGatewayGetOrganizationEsimsServiceProvidersAccounts
 				return usageErr(fmt.Errorf("missing required argument\nUsage: %s%s", cmd.CommandPath(), " <organizationId>"))
 			}
 			if !cmd.Flags().Changed("account-ids") && flagAccountIds == "" && !requiredInputWaived() {
-				return fmt.Errorf("required flag \"%s\" not set", "account-ids")
+				return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "account-ids"))
 			}
 			path := "/organizations/{organizationId}/cellularGateway/esims/serviceProviders/accounts/communicationPlans"
 			if len(args) < 1 || args[0] == "" {

@@ -23,25 +23,16 @@ import (
 // credential: the standard auth headers plus this connector's own.
 var redirectCredentialHeaders = []string{"Authorization", "Proxy-Authorization", "Cookie", "Cookie2", "clientId"}
 
-// redirectLeavesOrigin reports whether the next hop is on a different host or
-// port than the first request, or downgrades from https to http. Hosts compare
-// the way the network resolves them (sameHost) and an explicit default port
-// equals none, so https://API.example.com and https://api.example.com:443 stay
-// on the origin.
+// redirectLeavesOrigin reports whether the next hop has another scheme, host
+// or port than the first request: the origin the operator configured. Hosts
+// compare the way the network resolves them (sameHost) and an explicit default
+// port equals none, so https://API.example.com and https://api.example.com:443
+// stay on the origin; http up to https leaves it as surely as https down to
+// http (port 80 and port 443 are different endpoints).
 func redirectLeavesOrigin(next *url.URL, via []*http.Request) bool {
 	first := via[0].URL
-	if !sameHost(next.Hostname(), first.Hostname()) || explicitPort(next) != explicitPort(first) {
-		return true
-	}
-	if strings.EqualFold(next.Scheme, "https") {
-		return false
-	}
-	for _, hop := range via {
-		if strings.EqualFold(hop.URL.Scheme, "https") {
-			return true
-		}
-	}
-	return false
+	return !strings.EqualFold(next.Scheme, first.Scheme) || !sameHost(next.Hostname(), first.Hostname()) ||
+		explicitPort(next) != explicitPort(first)
 }
 
 // sameHost reports whether two URL hostnames name the same host. An IP literal

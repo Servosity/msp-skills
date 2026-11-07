@@ -54,7 +54,7 @@ func newDevicesCameraGetDeviceAnalyticsZoneHistoryCmd(flags *rootFlags) *cobra.C
 					}
 				}
 				if !validObjectType {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagObjectType, "object-type", allowedObjectType)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagObjectType, "object-type", allowedObjectType))
 				}
 			}
 			if cmd.Flags().Changed("object-type") {
