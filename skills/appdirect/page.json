@@ -12,7 +12,7 @@
       "cli": "appdirect-cli reconcile --since 30d --agent"
     },
     {
-      "instead": "Click through four console screens - users, subscriptions, invoices, opportunities - to brief one customer before a renewal call.",
+      "instead": "Click through four console screens - subscriptions, invoices and open opportunities - to brief one customer before a renewal call.",
       "say": "Show me everything on AppDirect company <companyId>.",
       "cli": "appdirect-cli company show <companyId>"
     }
@@ -36,7 +36,7 @@
       "command": "appdirect-cli subs changed --since 7d --json"
     },
     {
-      "question": "Show one customer's full picture - users, subscriptions, invoices, opportunities.",
+      "question": "Show one customer's full picture - subscriptions, invoices and open opportunities.",
       "command": "appdirect-cli company show <companyId>"
     },
     {
@@ -61,7 +61,7 @@
   "faqs": [
     {
       "q": "Does this work with ChatGPT?",
-      "a": "Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way appdirect-mcp runs, and shares MCP configuration with Codex: add appdirect-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote (HTTP) server, and this connector's HTTP mode is paused until it is reprinted; the security note at the top of the install guide explains why. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list."
+      "a": "Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way appdirect-mcp runs, and shares MCP configuration with Codex: add appdirect-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote server. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list."
     },
     {
       "q": "Do I need to know how to code?",
@@ -88,7 +88,7 @@
   "safety_tiers": [
     {
       "tier": "Read",
-      "examples": "payments unpaid, reconcile, subs changed, company show, pipeline, search, and every GET (companies, users, subscriptions, invoices, opportunities)",
+      "examples": "payments unpaid, reconcile, subs changed, company show, pipeline, search, and every GET (companies, subscriptions, invoices and open opportunities)",
       "policy": "Allow"
     },
     {

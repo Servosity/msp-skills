@@ -59,7 +59,7 @@ first to populate the local store.`),
   # Narrowed for agent triage
   appdirect-cli pipeline stale --days 30 --agent --select stale.name,stale.ownerEmail,stale.ageDays
 `, "\n"),
-		Annotations: map[string]string{"mcp:read-only": "true"},
+		Annotations: map[string]string{"mcp:read-only": "true", "pp:data-source": "local"}, // appdirect handfix: local analytics refuse --data-source live (Codex r1 P2)
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 && cmd.Flags().NFlag() == 0 {
 				return cmd.Help()

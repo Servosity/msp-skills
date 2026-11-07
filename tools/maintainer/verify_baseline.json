@@ -4,12 +4,6 @@
   "acronis": [
    "install"
   ],
-  "appdirect": [
-   "mcp-http",
-   "write-gating",
-   "read-only",
-   "local-data"
-  ],
   "atera": [
    "mcp-http",
    "write-gating",

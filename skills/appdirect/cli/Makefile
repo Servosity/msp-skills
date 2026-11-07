@@ -1,7 +1,9 @@
 .PHONY: build test lint install clean
 
+BIN_EXT := $(if $(filter windows,$(shell go env GOOS)),.exe,)
+
 build:
-	go build -o bin/appdirect-cli ./cmd/appdirect-cli
+	go build -trimpath -o bin/appdirect-cli$(BIN_EXT) ./cmd/appdirect-cli
 
 test:
 	go test ./...
@@ -16,7 +18,7 @@ clean:
 	rm -rf bin/
 
 build-mcp:
-	go build -o bin/appdirect-mcp ./cmd/appdirect-mcp
+	go build -trimpath -o bin/appdirect-mcp$(BIN_EXT) ./cmd/appdirect-mcp
 
 install-mcp:
 	go install ./cmd/appdirect-mcp

@@ -67,7 +67,7 @@ store.`),
   # Month-scale churn review, narrowed for agents
   appdirect-cli subs changed --since 30d --agent --select counts,inactive.companyName,inactive.status
 `, "\n"),
-		Annotations: map[string]string{"mcp:read-only": "true"},
+		Annotations: map[string]string{"mcp:read-only": "true", "pp:data-source": "local"}, // appdirect handfix: local analytics refuse --data-source live (Codex r1 P2)
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 && cmd.Flags().NFlag() == 0 {
 				return cmd.Help()
