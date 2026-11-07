@@ -66,7 +66,7 @@ func newOrganizationsAssuranceGetOrganizationAlertsOverviewByNetworkCmd(flags *r
 					}
 				}
 				if !validSortOrder {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagSortOrder, "sort-order", allowedSortOrder)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagSortOrder, "sort-order", allowedSortOrder))
 				}
 			}
 			if cmd.Flags().Changed("category") {
@@ -79,7 +79,7 @@ func newOrganizationsAssuranceGetOrganizationAlertsOverviewByNetworkCmd(flags *r
 					}
 				}
 				if !validCategory {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagCategory, "category", allowedCategory)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagCategory, "category", allowedCategory))
 				}
 			}
 			path := "/organizations/{organizationId}/assurance/alerts/overview/byNetwork"

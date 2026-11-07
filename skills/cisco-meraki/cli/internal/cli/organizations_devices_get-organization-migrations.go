@@ -55,7 +55,7 @@ func newOrganizationsDevicesGetOrganizationMigrationsCmd(flags *rootFlags) *cobr
 					}
 				}
 				if !validTarget {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagTarget, "target", allowedTarget)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagTarget, "target", allowedTarget))
 				}
 			}
 			path := "/organizations/{organizationId}/devices/controller/migrations"

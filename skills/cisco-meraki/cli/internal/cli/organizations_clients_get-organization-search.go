@@ -62,7 +62,7 @@ func newOrganizationsClientsGetOrganizationSearchCmd(flags *rootFlags) *cobra.Co
 				return usageErr(fmt.Errorf("missing required argument\nUsage: %s%s", cmd.CommandPath(), " <organizationId>"))
 			}
 			if !cmd.Flags().Changed("mac") && flagMac == "" && !requiredInputWaived() {
-				return fmt.Errorf("required flag \"%s\" not set", "mac")
+				return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "mac"))
 			}
 			path := "/organizations/{organizationId}/clients/search"
 			if len(args) < 1 || args[0] == "" {
@@ -78,7 +78,7 @@ func newOrganizationsClientsGetOrganizationSearchCmd(flags *rootFlags) *cobra.Co
 				"startingAfter": formatCLIParamValue(flagStartingAfter),
 				"endingBefore":  formatCLIParamValue(flagEndingBefore),
 				"mac":           formatCLIParamValue(flagMac),
-			}, map[string][]string{"perPage": {"per-page"}, "startingAfter": {"starting-after"}, "endingBefore": {"ending-before"}, "mac": {"mac"}}, "", "offset"), nil, flagAll, "", "offset", "perPage", 0, "", "", "records", cmd.ErrOrStderr())
+			}, map[string][]string{"perPage": {"per-page"}, "startingAfter": {"starting-after"}, "endingBefore": {"ending-before"}, "mac": {"mac"}}, "", "offset"), nil, flagAll, "", "offset", "perPage", 0, "", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}
@@ -105,7 +105,7 @@ func newOrganizationsClientsGetOrganizationSearchCmd(flags *rootFlags) *cobra.Co
 					filtered, selectErr = filterFieldsChecked(filtered, flags.selectFields)
 					selectErr = selectErrorForDryRun(selectErr, flags, data)
 				} else if flags.compact {
-					filtered = compactFields(filtered, map[string]bool{"status": true})
+					filtered = compactFields(filtered, map[string]bool{"clientId": true})
 				}
 				wrapped, wrapErr := wrapWithProvenance(filtered, prov)
 				if wrapErr != nil {
@@ -137,7 +137,7 @@ func newOrganizationsClientsGetOrganizationSearchCmd(flags *rootFlags) *cobra.Co
 			if flags.csv || flags.plain {
 				formatData = outputData
 			}
-			return printOutputWithFlagsMeta(cmd.OutOrStdout(), formatData, flags, map[string]any{"source": "live"}, map[string]bool{"status": true})
+			return printOutputWithFlagsMeta(cmd.OutOrStdout(), formatData, flags, map[string]any{"source": "live"}, map[string]bool{"clientId": true})
 		},
 	}
 	cmd.Flags().IntVar(&flagPerPage, "per-page", 0, "The number of entries per page returned. Acceptable range is 3 - 5. Default is 5.")

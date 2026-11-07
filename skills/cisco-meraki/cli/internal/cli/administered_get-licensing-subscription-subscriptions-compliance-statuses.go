@@ -42,7 +42,7 @@ func newAdministeredGetLicensingSubscriptionSubscriptionsComplianceStatusesCmd(f
 				return cmd.Help()
 			}
 			if !cmd.Flags().Changed("organization-ids") && flagOrganizationIds == "" && !requiredInputWaived() {
-				return fmt.Errorf("required flag \"%s\" not set", "organization-ids")
+				return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "organization-ids"))
 			}
 			path := "/administered/licensing/subscription/subscriptions/compliance/statuses"
 			c, err := flags.newClient()

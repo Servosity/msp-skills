@@ -44,11 +44,6 @@
    "read-only",
    "local-data"
   ],
-  "cisco-meraki": [
-   "write-gating",
-   "read-only",
-   "local-data"
-  ],
   "connectsecure": [
    "write-gating",
    "read-only",

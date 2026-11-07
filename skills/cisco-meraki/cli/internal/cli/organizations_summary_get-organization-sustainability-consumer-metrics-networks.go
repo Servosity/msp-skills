@@ -60,7 +60,7 @@ func newOrganizationsSummaryGetOrganizationSustainabilityConsumerMetricsNetworks
 			if cmd.Flags().Changed("timespan") || flagTimespan != 0.0 {
 				params["timespan"] = formatCLIParamValue(flagTimespan)
 			}
-			data, prov, err := resolveReadWithStrategyAndResponsePath(cmd.Context(), c, flags, "live", "summary", false, path, params, nil, "contents", cmd.ErrOrStderr())
+			data, prov, err := resolveReadWithStrategyAndResponsePath(cmd.Context(), c, flags, "live", "summary", false, path, params, nil, "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}
@@ -87,7 +87,7 @@ func newOrganizationsSummaryGetOrganizationSustainabilityConsumerMetricsNetworks
 					filtered, selectErr = filterFieldsChecked(filtered, flags.selectFields)
 					selectErr = selectErrorForDryRun(selectErr, flags, data)
 				} else if flags.compact {
-					filtered = compactFields(filtered, map[string]bool{"networkId": true})
+					filtered = compactFields(filtered, nil)
 				}
 				wrapped, wrapErr := wrapWithProvenance(filtered, prov)
 				if wrapErr != nil {
@@ -119,7 +119,7 @@ func newOrganizationsSummaryGetOrganizationSustainabilityConsumerMetricsNetworks
 			if flags.csv || flags.plain {
 				formatData = outputData
 			}
-			return printOutputWithFlagsMeta(cmd.OutOrStdout(), formatData, flags, map[string]any{"source": "live"}, map[string]bool{"networkId": true})
+			return printOutputWithFlagsMeta(cmd.OutOrStdout(), formatData, flags, map[string]any{"source": "live"}, nil)
 		},
 	}
 	cmd.Flags().StringVar(&flagT0, "t0", "", "The beginning of the timespan for the data. The maximum lookback period is 730 days from today.")
