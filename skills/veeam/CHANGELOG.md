@@ -4,7 +4,7 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
-## [0.1.8] - unreleased
+## [0.1.8] - 2026-11-07
 
 ### Security
 - **Rebuilt on press 4.35.1.** The MCP server's HTTP mode (`--transport http`, for remote agents) now serves `127.0.0.1:7777` by default, refuses to start until `VEEAM_MCP_HTTP_TOKEN` is set (at least 32 characters), rejects any request without that bearer token, refuses browser origins other than loopback, and needs TLS for any address other than loopback. stdio stays the default, and msp-skills does not support a web-only AI app on HTTP mode yet.

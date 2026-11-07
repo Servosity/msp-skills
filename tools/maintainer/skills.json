@@ -616,8 +616,8 @@
       "tagline": "See which vulnerabilities hit which assets at which clients, across your whole client base, in one command.",
       "cli_hash": "sha256:b4597b4033f2f6143ff1432854894413b8966dfe8ef8ca39f9f2b1ae4745f712",
       "template_version": 3,
-      "version": "0.1.4",
-      "cli_hash_at_release": "sha256:17bbc92b2313a3eb1d6b0291838ad042c99474c8815fb3db9b13ff04182bc070",
+      "version": "0.1.5",
+      "cli_hash_at_release": "sha256:b4597b4033f2f6143ff1432854894413b8966dfe8ef8ca39f9f2b1ae4745f712",
       "has_video": true,
       "live_verified": {
         "status": "awaiting",
@@ -2403,8 +2403,8 @@
       "has_video": true,
       "cli_hash": "sha256:5e53a3c88ce12a15e618ec800c001689d99ac53584cd72cb7d325e8e70eeb1a8",
       "template_version": 3,
-      "version": "0.1.2",
-      "cli_hash_at_release": "sha256:1da5f0729d40f51d836e48832dc7e9710d2a4b399568e86ec59ad99092ba5a49",
+      "version": "0.1.3",
+      "cli_hash_at_release": "sha256:5e53a3c88ce12a15e618ec800c001689d99ac53584cd72cb7d325e8e70eeb1a8",
       "live_verified": {
         "status": "awaiting",
         "date": null,
@@ -2522,8 +2522,8 @@
       "display_name": "Veeam",
       "cli_hash": "sha256:b76d3761f4e3e0853998a49ea9b8cc704164164eb19474420d58e7f57cdd53b8",
       "template_version": 3,
-      "version": "0.1.7",
-      "cli_hash_at_release": "sha256:11bfccb83ad66e7eb8d86183d3498bbd74af7341d13324810f015dae79c91b72",
+      "version": "0.1.8",
+      "cli_hash_at_release": "sha256:b76d3761f4e3e0853998a49ea9b8cc704164164eb19474420d58e7f57cdd53b8",
       "has_video": true,
       "live_verified": {
         "status": "awaiting",
@@ -2666,8 +2666,8 @@
       "tagline": "Answer AR/AP aging, reconciliation, and GL tie-out for a Xero org from the terminal - offline, in one call.",
       "cli_hash": "sha256:a05ee08b697de2a8e48cecb81b60785e3589d4c5c9c74048996339de1b397442",
       "template_version": 3,
-      "version": "0.1.9",
-      "cli_hash_at_release": "sha256:0b4e049d840c594ca1b104a70e4487dba643aeaf968057e4925d7eafc17231d5",
+      "version": "0.1.10",
+      "cli_hash_at_release": "sha256:a05ee08b697de2a8e48cecb81b60785e3589d4c5c9c74048996339de1b397442",
       "has_video": true,
       "live_verified": {
         "status": "awaiting",

@@ -4,7 +4,7 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
-## [0.1.3] - unreleased
+## [0.1.3] - 2026-11-07
 
 ### Security
 - **Rebuilt on press 4.35.1.** The MCP server's HTTP mode (`--transport http`, for remote agents) now serves `127.0.0.1:7777` by default, refuses to start until `TD_SYNNEX_MCP_HTTP_TOKEN` is set (at least 32 characters), rejects any request without that bearer token, refuses browser origins other than loopback unless listed in `TD_SYNNEX_MCP_HTTP_ALLOWED_ORIGINS`, and needs TLS for any address other than loopback. An unfilled Claude Desktop placeholder no longer counts as a token. Web-only AI apps (ChatGPT on the web, Microsoft 365 Copilot, the Gemini app) are not supported by msp-skills yet; the ChatGPT desktop app runs the connector locally ([mcp-install.md](./mcp-install.md)).
