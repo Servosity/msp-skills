@@ -71,6 +71,7 @@ func ncwHome(t *testing.T) string {
 	t.Helper()
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home) // os.UserHomeDir reads USERPROFILE on Windows
 	t.Setenv("DATTO_RMM_CONFIG", filepath.Join(home, "config.toml"))
 	return home
 }

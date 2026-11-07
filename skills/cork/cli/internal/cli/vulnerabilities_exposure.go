@@ -93,7 +93,7 @@ func newNovelVulnerabilitiesExposureCmd(flags *rootFlags) *cobra.Command {
 			}
 			raw, pages, capHit, err := corkFetchPages(ctx, c, "/vulnerabilities/software", params, flagMaxScanPages)
 			if err != nil {
-				return classifyAPIError(err, flags)
+				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}
 
 			clientNames := map[string]string{}

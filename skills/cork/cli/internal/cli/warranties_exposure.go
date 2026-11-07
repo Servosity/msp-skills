@@ -81,7 +81,7 @@ func newNovelWarrantiesExposureCmd(flags *rootFlags) *cobra.Command {
 			// Active warranties, keyed by client.
 			rawW, _, warrantyCapHit, err := corkFetchPages(ctx, c, "/warranties", nil, flagMaxScanPages)
 			if err != nil {
-				return classifyAPIError(err, flags)
+				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}
 			active := map[string]corkWarranty{}
 			badWarranties := 0
@@ -117,7 +117,7 @@ func newNovelWarrantiesExposureCmd(flags *rootFlags) *cobra.Command {
 			if len(clients) == 0 {
 				rawC, _, cCap, cErr := corkFetchPages(ctx, c, "/clients", nil, flagMaxScanPages)
 				if cErr != nil {
-					return classifyAPIError(cErr, flags)
+					return classifyAPIError(cmd.OutOrStdout(), cErr, flags)
 				}
 				clientCapHit = cCap
 				roster, undecodable := corkDecodeClients(rawC)

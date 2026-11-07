@@ -26,6 +26,7 @@ func TestDestructiveCommandsDoNotAnswerToCreate(t *testing.T) {
 		{"networks", "bind", "network"},
 		{"networks", "firmware-upgrades", "create-network-rollback"},
 		{"networks", "pii", "create-network-request"},
+		{"networks", "sm", "create-network-bypass-activation-lock-attempt"},
 		{"networks", "split", "network"},
 		{"networks", "unbind", "network"},
 		{"organizations", "action-batches", "create-organization-action-batch"},

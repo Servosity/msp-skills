@@ -11,7 +11,7 @@ import (
 func newNetworksClientsCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "clients",
-		Short:       "Get, create, and update clients for networks",
+		Short:       "Get and update clients for networks",
 		Annotations: map[string]string{"mcp:read-only": "true", "pp:parent-group": "true", "pp:typed-exit-codes": "0,2"},
 		RunE:        parentNoSubcommandRunE(flags),
 	}

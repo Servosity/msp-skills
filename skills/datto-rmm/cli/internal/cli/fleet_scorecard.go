@@ -66,7 +66,7 @@ func computeScorecard(siteKey string, devices []fleetDevice, alerts []fleetAlert
 		}
 
 		patchTotal++
-		if d.PatchManagement.PatchesApprovedPending+d.PatchManagement.PatchesNotApproved == 0 {
+		if patchIsHealthy(d.PatchManagement) {
 			patchOk++
 		}
 

@@ -1,0 +1,147 @@
+{
+  "schema_version": 2,
+  "generated_at": "2026-11-02T23:25:30.265787Z",
+  "printing_press_version": "4.35.1",
+  "api_name": "cork",
+  "display_name": "Cork",
+  "cli_name": "cork-pp-cli",
+  "creator": {
+    "handle": "geekbrownbear",
+    "name": "Abhi Saini"
+  },
+  "contributors": [
+    {
+      "handle": "DamienStevens",
+      "name": "Damien Stevens"
+    }
+  ],
+  "owner": "geekbrownbear",
+  "printer": "geekbrownbear",
+  "printer_name": "Abhi Saini",
+  "spec_path": "spec.json",
+  "spec_format": "openapi3",
+  "spec_source": "official",
+  "spec_checksum": "sha256:5ccf55c031e7ab2e8cd8ce6f9169f1682f35479148098aa250560e78566c8174",
+  "run_id": "20261102-232530",
+  "category": "monitoring",
+  "description": "Every Cork API operation, plus cross-client risk attribution, exploitability-first triage, and stale-connector detection that a stateless API mirror cannot do.",
+  "mcp_binary": "cork-pp-mcp",
+  "mcp_tool_count": 31,
+  "mcp_ready": "full",
+  "api_version": "v1.0.0",
+  "auth_type": "bearer_token",
+  "auth_preference": "bearerAuth",
+  "auth_env_vars": [
+    "CORK_API_KEY"
+  ],
+  "auth_key_url": "https://help.corkinc.com/articles/3092729300-cork-public-api-mcp-server",
+  "novel_features": [
+    {
+      "name": "Score movement attribution",
+      "command": "score attribute",
+      "description": "Explain why a client's Cork score moved, broken out by claims, compliance, coverage, and vulnerability impact."
+    },
+    {
+      "name": "Cross-client regression leaderboard",
+      "command": "score regressions",
+      "description": "Rank every client by score change over a window, worst movers first."
+    },
+    {
+      "name": "Exploitability-first patch queue",
+      "command": "vulnerabilities triage",
+      "description": "Rank software products by exploitability (known-exploited first, then EPSS, then CVSS) with a blast-radius device count and client names resolved."
+    },
+    {
+      "name": "CVE blast radius",
+      "command": "vulnerabilities exposure",
+      "description": "List every affected client, device, product, and version for a single CVE id."
+    },
+    {
+      "name": "Cure-period breach detector",
+      "command": "compliance overdue",
+      "description": "Surface compliance events that have blown their event type's remediation window, bucketed by age."
+    },
+    {
+      "name": "Silent connector staleness sweep",
+      "command": "integrations health",
+      "description": "Flag connectors that are down, degraded, or reporting healthy while their last sync has gone stale, and name the clients they feed."
+    },
+    {
+      "name": "Endpoint coverage gaps",
+      "command": "coverage gaps",
+      "description": "Diff the devices a connector reports against the devices attributed to the client to expose endpoints one tool sees and another misses."
+    },
+    {
+      "name": "Warranty exposure ranking",
+      "command": "warranties exposure",
+      "description": "Rank unwarranted or lapsed clients by current risk so coverage conversations start with the ones that need it most."
+    },
+    {
+      "name": "Exclusion review queue",
+      "command": "compliance exclusions-due",
+      "description": "List compliance exclusions and silenced alert rules whose review date has passed or that are flagged for review, across every client, oldest first."
+    }
+  ],
+  "novel_features_built": [
+    {
+      "name": "Score movement attribution",
+      "command": "score attribute",
+      "description": "Explain why a client's Cork score moved, broken out by claims, compliance, coverage, and vulnerability impact."
+    },
+    {
+      "name": "Cross-client regression leaderboard",
+      "command": "score regressions",
+      "description": "Rank every client by score change over a window, worst movers first."
+    },
+    {
+      "name": "Exploitability-first patch queue",
+      "command": "vulnerabilities triage",
+      "description": "Rank software products by exploitability (known-exploited first, then EPSS, then CVSS) with a blast-radius device count and client names resolved."
+    },
+    {
+      "name": "CVE blast radius",
+      "command": "vulnerabilities exposure",
+      "description": "List every affected client, device, product, and version for a single CVE id."
+    },
+    {
+      "name": "Cure-period breach detector",
+      "command": "compliance overdue",
+      "description": "Surface compliance events that have blown their event type's remediation window, bucketed by age."
+    },
+    {
+      "name": "Silent connector staleness sweep",
+      "command": "integrations health",
+      "description": "Flag connectors that are down, degraded, or reporting healthy while their last sync has gone stale, and name the clients they feed."
+    },
+    {
+      "name": "Endpoint coverage gaps",
+      "command": "coverage gaps",
+      "description": "Diff the devices a connector reports against the devices attributed to the client to expose endpoints one tool sees and another misses."
+    },
+    {
+      "name": "Warranty exposure ranking",
+      "command": "warranties exposure",
+      "description": "Rank unwarranted or lapsed clients by current risk so coverage conversations start with the ones that need it most."
+    },
+    {
+      "name": "Exclusion review queue",
+      "command": "compliance exclusions-due",
+      "description": "List compliance exclusions and silenced alert rules whose review date has passed or that are flagged for review, across every client, oldest first."
+    }
+  ],
+  "verify": {
+    "mode": "mock",
+    "pass_rate": 100,
+    "passed": 60,
+    "total": 60,
+    "data_pipeline": true,
+    "verdict": "PASS"
+  },
+  "scorecard": {
+    "steinberger": {
+      "percentage": 95,
+      "grade": "A",
+      "total": 95
+    }
+  }
+}

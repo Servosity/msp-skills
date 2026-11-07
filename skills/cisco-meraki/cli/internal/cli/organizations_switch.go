@@ -11,7 +11,7 @@ import (
 func newOrganizationsSwitchCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "switch",
-		Short:       "Get and create switch for organizations",
+		Short:       "Get switch for organizations",
 		Annotations: map[string]string{"mcp:read-only": "true", "pp:parent-group": "true", "pp:typed-exit-codes": "0,2"},
 		RunE:        parentNoSubcommandRunE(flags),
 	}
