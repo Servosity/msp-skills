@@ -1109,7 +1109,7 @@
    "id": "deliver-webhook-no-redirect",
    "status": "active",
    "summary": "--deliver webhook:<url> never follows a redirect; any 3xx is an error.",
-   "why": "Codex round 11 (2026-10-14): a 307/308 replays the POST body, so `credentials list --json --deliver webhook:<url>` could forward credential rows to whatever origin the webhook pointed at. TestWebhookDeliveryRefusesRedirect fails with deliver.go reverted. 4.35.1 reprint (2026-11-02): the press now sends the webhook POST with one http.DefaultTransport.RoundTrip, which never follows a redirect, and refuses any 3xx naming only the Location host; the CheckRedirect/ErrUseLastResponse assert is replaced by the native form. TestWebhookDeliveryRefusesRedirect still passes.",
+   "why": "Codex round 11 (2026-10-14): a 307/308 replays the POST body, so `credentials list --json --deliver webhook:<url>` could forward credential rows to whatever origin the webhook pointed at. TestWebhookDeliveryRefusesRedirect fails with deliver.go reverted. 4.35.1 reprint (2026-11-02): the press now sends the webhook POST with one http.DefaultTransport.RoundTrip, which never follows a redirect, and refuses any 3xx naming only the Location host; the CheckRedirect/ErrUseLastResponse assert is replaced by the native form. TestWebhookDeliveryRefusesRedirect still passes. Credential kit wiring (credkit-wiring): the same single RoundTrip now goes through cliutil.OutboundGuard (credkit.Transport), which still never follows a redirect.",
    "asserts": [
     {
      "file": "cli/internal/cli/deliver.go",
@@ -1123,7 +1123,7 @@
     },
     {
      "file": "cli/internal/cli/deliver.go",
-     "contains": "resp, err := http.DefaultTransport.RoundTrip(req)",
+     "contains": "resp, err := cliutil.OutboundGuard(nil).RoundTrip(req)",
      "code_only": true
     },
     {
@@ -1496,168 +1496,6 @@
    ]
   },
   {
-   "id": "secret-echo-decoded-funnel",
-   "class": "secret-echo",
-   "summary": "One decoded output funnel for every server text the client shows, applied by tools/maintainer/apply_secret_funnel.py: maskCredentialText still masks each held credential as written and URL-escaped, then withholds the WHOLE text if a held value survives in any view of it (control characters, JSON and JavaScript escapes, the identity escape, percent, HTML entities, tags, base64 and hex, searched breadth-first and capped by total work; cliutil.FunnelWithhold, shared byte-identical across the fleet). The API error body is checked whole before the display cut; the 2xx HTML summary and the token mint, refresh and auth login error bodies are funnelled when present; the client holds its credentials when built and its resolved auth header on every request; every command error before Cobra prints it, every JSON/agent error envelope, and every MCP error result pass the same funnel over everything the process holds. Success output is never funnelled.",
-   "why": "class_harness.py secret-echo drives the built CLI and MCP server against a fake server that reflects each configured credential in every encoding; before press 4.34.0 the generated masks cover only the raw, QueryEscape and PathEscape forms (cli-printing-press #5145), so a fresh print fails it. Press 4.34.0 (#5169) masks encoded forms too; the funnel stays for the connector's hand-written code (token endpoints, novel commands), which the generated masks never see. Matching encoded needles one at a time never converged in review, so the fix is a decode-then-check backstop that withholds the whole text and fails closed (text over 1 MiB or work past the cap is withheld). The withheld notice keeps the auth reading of an auth failure, so exit codes still classify. Known limits: values under 8 characters are only masked as written; case-changed, split-and-interleaved, compressed or encrypted echoes are not reconstructed. A reprint that drops these edits fails class_harness.py secret-echo in CI and these asserts; re-run tools/maintainer/apply_secret_funnel.py --slug <slug>.",
-   "status": "active",
-   "spec_encode_followup": "Press-side: cli-printing-press issue #5145 (encoded credential echo). The generated maskCredentialText should end in a decode-then-check backstop over every held credential, and the error-body and token-endpoint paths should check the whole body before the display cut.",
-   "asserts": [
-    {
-     "file": "cli/internal/cliutil/secret_funnel.go",
-     "contains": "func FunnelEchoes(text string, secrets []string) bool {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/secret_funnel_test.go",
-     "contains": "func TestFunnelRecognizesEveryEncodingOfAHeldSecret(t *testing.T) {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "contains": "held = append(held, value)",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "contains": "return cliutil.FunnelWithhold(finishCredentialMask(masked, secrets), held)",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "contains": "func (c *Client) shownErrorBody(body []byte, extraCredentials ...string) string {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "not_contains": "cliutil.SanitizeErrorBody(string(body))"
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "not_contains": "cliutil.SanitizeErrorBody(truncateBody(body))"
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "not_contains": "bodyText := truncateBody(respBody)"
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "contains": "c.shownSummary(respBody, summary, authHeader)",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "contains": "func (c *Client) shownSummary(body []byte, summary string, extraCredentials ...string) string {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cli/helpers.go",
-     "contains": "funnelShownError(err),",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cli/helpers.go",
-     "not_contains": "\"error\": err.Error(),"
-    },
-    {
-     "file": "cli/internal/cli/jobs.go",
-     "contains": "funnelShownError(err),",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cli/jobs.go",
-     "not_contains": "\"error\": err.Error(),"
-    },
-    {
-     "file": "cli/internal/cliutil/secret_funnel.go",
-     "contains": "var funnelSteps = []func(string) []string{",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/secret_funnel.go",
-     "contains": "funnelTextStep(funnelIdentityUnescape),",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/secret_funnel.go",
-     "contains": "func FunnelHeld(text string) string {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/secret_funnel_test.go",
-     "contains": "func TestFunnelCodexRound2(t *testing.T) {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cli/secret_funnel_cli.go",
-     "contains": "func funnelCommandErrors(root *cobra.Command) {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cli/secret_funnel_cli_test.go",
-     "contains": "func TestFunnelCommandErrorsWithholdsAnEchoedCredential(t *testing.T) {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cli/root.go",
-     "contains": "funnelCommandErrors(rootCmd)",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/cmd/connectsecure-mcp/main.go",
-     "contains": "server.WithToolHandlerMiddleware(funnelToolErrors),",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/cmd/connectsecure-mcp/secret_funnel_mcp.go",
-     "contains": "func funnelToolErrors(next server.ToolHandlerFunc) server.ToolHandlerFunc {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/cmd/connectsecure-mcp/secret_funnel_mcp_test.go",
-     "contains": "func TestFunnelToolErrorsWithholdsAnEchoedCredential(t *testing.T) {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "contains": "c.holdCredentials()",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "contains": "cliutil.FunnelHold(authHeader)",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "contains": "c.holdCredentials()",
-     "min_count": 2,
-     "code_only": true
-    }
-   ]
-  },
-  {
    "id": "chatgpt-desktop-local-web-unsupported",
    "summary": "README.md, mcp-install.md and page.json say the ChatGPT desktop app runs this connector locally (STDIO) and that ChatGPT on the web, Microsoft 365 Copilot / Copilot Studio and the Gemini app are not supported by msp-skills yet, with a link to the hosted-gateway comparison; no paid-plan list, no Developer Mode recipe, no 'ChatGPT connects only to remote servers'.",
    "why": "Docs fix approved 2026-11-03, following PR #502. OpenAI's MCP docs (https://learn.chatgpt.com/docs/extend/mcp) say the ChatGPT desktop app, Codex CLI and the IDE extension support MCP servers, add them as STDIO, and share MCP configuration; ChatGPT on the web uses remote MCP through plugins and does not read local Codex config. The old text listed ChatGPT plans, said ChatGPT connects only to remote servers, and on the reprinted connectors told users to host the connector over HTTPS for a Developer Mode connector and Copilot Studio; SECURITY.md pauses HTTP mode until each connector is reprinted. README.md, mcp-install.md and page.json are regenerated by msp-skills-publish onboard.py, whose template still writes the old ChatGPT text, so without this entry a re-onboard or reprint silently restores it.",
@@ -1707,6 +1545,379 @@
     {
      "file": "page.json",
      "not_contains": "connects only to remote"
+    }
+   ]
+  },
+  {
+   "id": "credkit-wiring",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "The shared credential kit (tools/maintainer/credkit, vendored at cli/internal/credkit) is wired by hand and replaces this connector's secret funnel. internal/credwire/declarations.go holds the one Declarations literal: SecretEnv CONNECTSECURE_CLIENT_SECRET, CLIENT_ID, ACCESS_TOKEN, MCP_HTTP_TOKEN and SPACEFAST_TOKEN; URLEnv the feedback endpoint and SPACEFAST_API_URL; Files the config and credential store the run uses (--config and --home through credkit.FlagValues), with every other config, store, profiles.json and JWT token cache (<cache dir>/connectsecure-token-*.json) held; StdinFlags --stdin (a JSON body compacted to one line, feedback prose handed back after Start); every session --client-auth-token value held at startup (holdClientAuthTokenFlag) and the stdin form held where session reads it; CredentialHeaders Client-Auth-Token; ResponseFields access_token (the /w/authorize JWT); BaseURL base_url / CONNECTSECURE_BASE_URL with a template default (https://{pod}.myconnectsecure.com) that allows no host; Origins the configured pod for every credential and the minted JWT, Spacefast's API for the Spacefast token and page key, nowhere for the MCP HTTP bearer. credkit.Start opens both mains and credkit.Exit ends them. Every sink is routed: the API client, the /w/authorize mint, the --deliver webhook and Spacefast through cliutil.OutboundGuard (credkit.Transport); the probe and feedback through credkit.Transport; the minted or cached JWT and every stdin token held the moment they exist; cache, response cache, journal, teach log, feedback, jobs, profile, platform profile, rate-limit lock, scope hash, download, export and MCP upload temp files through credkit.WriteFile, AppendFile, OpenFile and NewWriter; SQLite through internal/credsql (credkit.SQLDriver, the MCP sql value cap on the DSN); the MCP server through MCPTools, MCPIn, MCPOut and MCPHTTP; CLI children through RunCommand and StartCommand; terminal checks through credkit.Terminal. The credential store, config.toml, the JWT cache and the Spacefast page record are credential sources, written outside the kit with cliutil.AtomicWriteCredentialFile.",
+   "why": "One contract, one matcher and one set of sinks replace the connector-only funnel, and a matcher fix reaches this connector by vendoring. Retires secret-echo-decoded-funnel: replaced by the shared credential kit (entry removed; the ledger's retired list only takes retirements tools/maintainer/fleet_handfixes.json backs). The redaction helpers and the secrets guard stay. Tests: internal/credwire/leak_test.go on the built binaries, seen failing on the pre-kit build. TestMintedJWTNeverShown: the minted JWT was shown in companies list output (minted and cached) and an MCP read, and stored in the HTTP response cache and the SQLite store. TestStartupCredentialHeld: a config client_secret, a config header value, the credential store token, a token cache JWT and a profile Client-Auth-Token were each shown in the CLI and MCP flag errors. TestHeldCredentialRefusedOffOriginAndOverPlainHTTP: a webhook URL carrying the JWT opened a connection to another https origin and was sent over plain http, and a plain http loopback pod got the JWT. TestPlaceholderHostGetsNoCredential (class credential-sent-to-another-host) passed before and after: connectsecureBaseURLProblem already refuses the shipped your-pod default from every source, and the template BaseURL default keeps the kit from allowing that host too.",
+   "spec_encode_followup": "Press-side: generate the kit wiring (Declarations from the auth spec, Start and Exit in each main, kit sinks in the file, HTTP, SQL and MCP templates).",
+   "asserts": [
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "var Declarations = credkit.Declarations{",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "Files:         credentialFiles,",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "StdinFlags: []string{\"--stdin\"},",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "CredentialHeaders: []string{\"Client-Auth-Token\"},",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "ResponseFields: []string{\"access_token\"},",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "Default: \"https://{pod}.myconnectsecure.com\",",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "{Source: \"minted:connectsecure-jwt\", Allowed: []string{\"base_url\"}},",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "{Source: \"minted:spacefast-page-key\", Allowed: []string{\"https://api.spacefast.com\"}},",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "func holdClientAuthTokenFlag(args []string) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "credkit.Hold(\"flag:--client-auth-token\", v)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "caches, _ := filepath.Glob(filepath.Join(dir, \"connectsecure-token-*.json\"))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "func RestoreFeedbackStdin() {",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/connectsecure-cli/main.go",
+     "contains": "credkit.Start(credwire.Declarations)\n\tcredwire.RestoreFeedbackStdin()",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/connectsecure-cli/main.go",
+     "contains": "credkit.Exit(code)",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/connectsecure-mcp/main.go",
+     "contains": "credkit.Start(credwire.Declarations)\n\tcredkit.Exit(run())",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/connectsecure-mcp/main.go",
+     "contains": "server.WithToolHandlerMiddleware(credkit.MCPTools),",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/connectsecure-mcp/main.go",
+     "contains": "server.NewStdioServer(s).Listen(ctx, credkit.MCPIn(os.Stdin), credkit.MCPOut())",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/connectsecure-mcp/main.go",
+     "contains": "kit := credkit.MCPHTTP(",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/connectsecure-mcp/main.go",
+     "contains": "if credwire.StartupNamedConfigOrHome() {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credsql/credsql.go",
+     "contains": "sql.Register(Driver, credkit.SQLDriver(cappedSQLite()))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credkit_guard.go",
+     "contains": "var OutboundGuard = credkit.Transport",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credkit_guard.go",
+     "contains": "var Hold = credkit.Hold",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credkit_guard.go",
+     "contains": "var HoldBody = credkit.HoldBody",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "func guardTransport(tr *http.Transport) http.RoundTripper {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "return &http.Client{Transport: guardTransport(tr)}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "c.Transport = guardTransport(tr)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "httpClient.Transport = guardTransport(tr)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "_ = credkit.WriteFile(cacheFile, []byte(data), 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "_ = credkit.WriteFile(cacheFile+\".platform.json\", data, 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "not_contains": "FunnelHold("
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "not_contains": "funnelCommandErrors("
+    },
+    {
+     "file": "cli/internal/cli/connectsecure_auth.go",
+     "contains": "cliutil.Hold(\"minted:connectsecure-jwt\", tok.AccessToken)",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/connectsecure_auth.go",
+     "contains": "_ = cliutil.AtomicWriteCredentialFile(path, raw, 0o600, 0o700)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/connectsecure_auth.go",
+     "contains": "hc := http.Client{Timeout: 30 * time.Second, Transport: cliutil.OutboundGuard(nil)}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/promoted_session.go",
+     "contains": "cliutil.Hold(\"stdin\", flagClientAuthToken)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "cliutil.Hold(\"stdin\", token)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "return credkit.Terminal(f)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "if err := credkit.WriteFile(tempName, []byte(scopeHash+\"\\n\"), 0o600); err != nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/feedback.go",
+     "contains": "f, err := credkit.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/feedback.go",
+     "contains": "client := &http.Client{Timeout: 15 * time.Second, Transport: credkit.Transport(nil)}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/jobs.go",
+     "contains": "f, err := credkit.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/jobs.go",
+     "contains": "f, err := credkit.OpenFile(tmp, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deliver.go",
+     "contains": "if err := credkit.WriteFile(tmp, body, 0o600); err != nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deliver.go",
+     "contains": "resp, err := cliutil.OutboundGuard(nil).RoundTrip(req)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deliver_spacefast.go",
+     "contains": "return cliutil.AtomicWriteCredentialFile(filepath.Join(dir, name), data, 0o600, 0o700)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deliver_spacefast.go",
+     "contains": "cliutil.Hold(\"minted:spacefast-page-key\", prior.Key)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deliver_spacefast.go",
+     "contains": "Transport: cliutil.OutboundGuard(nil),",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/export.go",
+     "contains": "outKit = credkit.NewWriter(f, credkit.SinkFile)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "return credkit.StartCommand(c)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/teach.go",
+     "contains": "f, err := credkit.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/teach.go",
+     "contains": "return credkit.WriteFile(path, nil, 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/profile.go",
+     "contains": "if err := credkit.WriteFile(tmp, data, 0o600); err != nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credentials.go",
+     "contains": "if err := AtomicWriteCredentialFile(path, data, 0o600, 0o700); err != nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/paths.go",
+     "contains": "if err := credkit.WriteFile(tmpPath, data, fileMode); err != nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/probe.go",
+     "contains": "client = &http.Client{Timeout: defaultProbeTimeout, Transport: credkit.Transport(nil)}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/darwin_acl_darwin.go",
+     "contains": "err := credkit.RunCommand(cmd)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "cliutil.AtomicWriteCredentialFile(",
+     "min_count": 3,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cache/cache.go",
+     "contains": "_ = credkit.WriteFile(s.path(key), []byte(value), 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "if err := credkit.AppendFile(p, append(line, '\\n'), 0o600); err != nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/teach_log.go",
+     "contains": "f, err := credkit.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/platform/ratelimit.go",
+     "contains": "_ = credkit.WriteFile(path, []byte(strconv.FormatInt(time.Now().UnixNano(), 10)), 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/platform/profile.go",
+     "contains": "if err := credkit.WriteFile(tmpName, data, 0o600); err != nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/platform/migration.go",
+     "contains": "sql.Open(credsql.Driver,",
+     "min_count": 4,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "sql.Open(credsql.Driver,",
+     "min_count": 4,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "if err := credkit.WriteFile(path, data, 0o600); err != nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "db, err := store.OpenReadOnlyValueCapped(path, maxValueBytes)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "openMCPReadOnlyStore(path, mcpSQLMaxValueBytes)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "err := credkit.RunCommand(cmd)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestMintedJWTNeverShown(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestStartupCredentialHeld(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestHeldCredentialRefusedOffOriginAndOverPlainHTTP(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestPlaceholderHostGetsNoCredential(t *testing.T) {",
+     "code_only": true
     }
    ]
   }
