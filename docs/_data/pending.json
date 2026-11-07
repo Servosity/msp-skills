@@ -245,9 +245,9 @@
     "released_hash": "sha256:9bc5776f1f73c902167cff8c358837b42b83309fa4fbcdc58faf1205af95ccd8"
   },
   "datto-saas": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.0",
-    "latest_tag": null,
+    "latest_tag": "datto-saas-v0.1.0",
     "current_hash": "sha256:e3f9e9ee4bdd769314ca8878368439338ee3358d60f07c34b867c1eb8c656767",
     "released_hash": "sha256:e3f9e9ee4bdd769314ca8878368439338ee3358d60f07c34b867c1eb8c656767"
   },
