@@ -822,7 +822,7 @@
       "name": "riverside-fm",
       "source": "./skills/riverside-fm",
       "description": "The first programmatic way to download every transcript, audio track, and video from your own Riverside.com account \u2014 no Business plan or API key required.",
-      "version": "0.1.5",
+      "version": "0.1.6",
       "category": "marketing",
       "tags": [
         "riverside-fm",
