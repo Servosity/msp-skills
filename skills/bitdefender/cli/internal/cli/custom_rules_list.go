@@ -103,7 +103,7 @@ func newCustomRulesListCmd(flags *rootFlags) *cobra.Command {
 					filtered, selectErr = filterFieldsChecked(filtered, flags.selectFields)
 					selectErr = selectErrorForDryRun(selectErr, flags, data)
 				} else if flags.compact {
-					filtered = compactFields(filtered, map[string]bool{"companyId": true, "id": true, "name": true, "type": true})
+					filtered = compactFields(filtered, map[string]bool{"pagesCount": true})
 				}
 				wrapped, wrapErr := wrapWithProvenance(filtered, prov)
 				if wrapErr != nil {
@@ -135,7 +135,7 @@ func newCustomRulesListCmd(flags *rootFlags) *cobra.Command {
 			if flags.csv || flags.plain {
 				formatData = outputData
 			}
-			return printOutputWithFlagsMeta(cmd.OutOrStdout(), formatData, flags, map[string]any{"source": "live"}, map[string]bool{"companyId": true, "id": true, "name": true, "type": true})
+			return printOutputWithFlagsMeta(cmd.OutOrStdout(), formatData, flags, map[string]any{"source": "live"}, map[string]bool{"pagesCount": true})
 		},
 	}
 	cmd.Flags().StringVar(&bodyCompanyId, "company-id", "", "The ID of the company for which to retrieve the list of custom rules. Must be the valid ID of a company that you manage.")

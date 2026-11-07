@@ -1,0 +1,4157 @@
+{
+  "api_name": "bitdefender",
+  "base_url": "https://cloud.gravityzone.bitdefender.com/api",
+  "description": "140 GravityZone Public API methods as commands, plus fleet health, billing and incident views across child companies.",
+  "mcp_ready": "full",
+  "http_transport": "standard",
+  "mcp": {
+    "endpoint_tools": "hidden",
+    "orchestration": "code"
+  },
+  "auth": {
+    "type": "api_key",
+    "header": "Authorization",
+    "format": "Basic {BITDEFENDER_API_KEY}:",
+    "env_vars": [
+      "BITDEFENDER_API_KEY"
+    ],
+    "env_var_specs": [
+      {
+        "name": "BITDEFENDER_API_KEY",
+        "kind": "per_call",
+        "required": true,
+        "sensitive": true,
+        "inferred": true
+      }
+    ],
+    "key_url": "https://www.bitdefender.com/business/support/en/77209-125277-public-api.html"
+  },
+  "required_headers": [],
+  "tools": [
+    {
+      "name": "accounts_create",
+      "description": "Create a user account and assign it a password. Required: email, profile. Optional: companyId, password, phoneNumber (plus 3 more). Returns the new AccountsCreateResponse.",
+      "method": "POST",
+      "path": "/v1.0/jsonrpc/accounts#createAccount",
+      "params": [
+        {
+          "name": "companyId",
+          "type": "string",
+          "location": "body",
+          "description": "The company ID of the company you want to create the user under. If not specified, the account will be linked to the company that holds the API key used to send the request. Example companyId': '58541613aaed7090058b4567"
+        },
+        {
+          "name": "email",
+          "type": "string",
+          "location": "body",
+          "description": "The email address for the new account. No additional requirements. Example 'email': 'client@bitdefender.com'",
+          "required": true
+        },
+        {
+          "name": "password",
+          "type": "string",
+          "location": "body",
+          "description": "The password for the new account. If this value is omitted a password will be created and sent by email to the user The password should be at least twelve characters in length, and must contain at least one upper case character, one lower case character, one digit, one special character, and needs t..."
+        },
+        {
+          "name": "phoneNumber",
+          "type": "object",
+          "location": "body",
+          "description": "An object containing phone number information. Refer to phoneNumber. Example 'phoneNumber': { 'countryCode': '+40', 'subscriberNumber': '0000000000' },"
+        },
+        {
+          "name": "profile",
+          "type": "object",
+          "location": "body",
+          "description": "An object containing profile information. Refer to profile. Example 'profile': { 'fullName': 'Bitdefender User', 'language': 'en_US', 'timezone': 'Europe/Bucharest' },",
+          "required": true
+        },
+        {
+          "name": "rights",
+          "type": "object",
+          "location": "body",
+          "description": "An object containing the rights of a user account. Only use this parameter if the role parameter is included in your request and is assigned the value 5. In any other situation, the values assigned to the rights parameter are ignored. Refer to rights."
+        },
+        {
+          "name": "role",
+          "type": "int",
+          "location": "body",
+          "description": "The role of the new account. For more information regarding user roles and the associated rights, refer to User roles Possible values: 1 - Company Administrator Available for Customer companies. If this value is provided for a Partner company, the role is automatically set to 6."
+        },
+        {
+          "name": "targetIds",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "A list of IDs representing the targets to be managed by the user account. No additional requirements. Example 'targetIds': [ '585d2dc9aaed70820e8b45b4', '585d2dd5aaed70b8048b45ca' ]"
+        }
+      ]
+    },
+    {
+      "name": "accounts_delete",
+      "description": "Delete a specific user account. Required: accountId. Returns the new AccountsDeleteResponse.",
+      "method": "POST",
+      "path": "/v1.0/jsonrpc/accounts#deleteAccount",
+      "params": [
+        {
+          "name": "accountId",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the user account to be deleted.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "accounts_get",
+      "description": "Retrieve information for a specific GravityZone account. Optional: accountId. Returns the new AccountsGetResponse.",
+      "method": "POST",
+      "path": "/v1.0/jsonrpc/accounts#getAccountDetails",
+      "params": [
+        {
+          "name": "accountId",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the account you want to display information for. Default value: The ID of the GravityZone account used to generate the API key. Example 'accountId': '6718732309e2be32df0550c2'"
+        }
+      ]
+    },
+    {
+      "name": "accounts_list",
+      "description": "Display all the user accounts that belong to a company. Optional: companyId, page, perPage. Returns the new AccountsListResponse.",
+      "method": "POST",
+      "path": "/v1.0/jsonrpc/accounts#getAccountsList",
+      "params": [
+        {
+          "name": "companyId",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of company for which you want to display the accounts for. Default value: the company the API key used to make the request belongs to."
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "location": "body",
+          "description": "The results page number. Default value: 1."
+        },
+        {
+          "name": "perPage",
+          "type": "int",
+          "location": "body",
+          "description": "The number of items displayed in a page. Possible values: 1 - 100. Default value: 30."
+        }
+      ]
+    },
+    {
+      "name": "accounts_update",
+      "description": "Updates a user account identified through the account ID. Required: accountId. Optional: authenticationMethod, email, password (plus 5 more). Returns the new AccountsUpdateResponse.",
+      "method": "POST",
+      "path": "/v1.0/jsonrpc/accounts#updateAccount",
+      "params": [
+        {
+          "name": "accountId",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the target user account. No additional requirements. Example 'accountId' : '585d3d3faaed70970e8b45ed'",
+          "required": true
+        },
+        {
+          "name": "authenticationMethod",
+          "type": "int",
+          "location": "body",
+          "description": "The method of authentication required for the user to log in. Possible values: 0 - GravityZone Credentials 1 - Identity Provider 2 - GravityZone Identity Provider Example 'email': 'client@bitdefender.com'"
+        },
+        {
+          "name": "email",
+          "type": "string",
+          "location": "body",
+          "description": "The email address for the account. Must have a valid email format. Example 'email': 'client@bitdefender.com'"
+        },
+        {
+          "name": "password",
+          "type": "string",
+          "location": "body",
+          "description": "The password for the account. The password must be at least twelve characters in length, and must contain at least one upper case character, one lower case character, one digit, one special character, and needs to be different from previously used passwords. Example 'password': 'P@s4w0rd'"
+        },
+        {
+          "name": "phoneNumber",
+          "type": "object",
+          "location": "body",
+          "description": "An object containing phone number information For more information, refer to phoneNumber. Example 'phoneNumber': { 'countryCode': '+40', 'subscriberNumber': '0000000000' }"
+        },
+        {
+          "name": "profile",
+          "type": "object",
+          "location": "body",
+          "description": "An object containing profile information: fullName, timezone and language. For more information, refer to profile. Example 'profile': { 'fullName': 'Bitdefender User', 'language': 'en_US', 'timezone': 'Europe/Bucharest' }"
+        },
+        {
+          "name": "rights",
+          "type": "object",
+          "location": "body",
+          "description": "An object containing the rights of a user account. This object should be set only when role parameter has the value 5 - Custom. When set for other roles, the values will be ignored and replaced with the rights specific to that role. For more information, refer to rights."
+        },
+        {
+          "name": "role",
+          "type": "int",
+          "location": "body",
+          "description": "The new role of the user. These are the available roles: 1 - Company Administrator. Available for Customer companies. If this value is provided for a Partner company, the role is automatically set to 6. If this value is provided for a Customer company, the role is assigned as 1."
+        },
+        {
+          "name": "targetIds",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "A list of IDs representing the targets to be managed by the user account. No additional requirements. Example 'targetIds': [ '585d2dc9aaed70820e8b45b4', '585d2dd5aaed70b8048b45ca' ]"
+        }
+      ]
+    },
+    {
+      "name": "api_key_key-get",
+      "description": "Returns details about the API key used.",
+      "method": "POST",
+      "path": "/v1.0/jsonrpc/general#getApiKeyDetails",
+      "params": []
+    },
+    {
+      "name": "aws_ec2_company-by-account",
+      "description": "Retrieves information regarding the managed companies that have configured the Amazon EC2 integration with a specific AWS account. Required: accountId. Returns the new AwsEc2CompanyByAccountResponse.",
+      "method": "POST",
+      "path": "/v1.0/jsonrpc/integrations#getCompanyDetailsByAWSAccountId",
+      "params": [
+        {
+          "name": "accountId",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the AWS account",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "aws_ec2_configure",
+      "description": "Configures the Amazon EC2 integration using the provided Amazon Resource Name of a valid AWS Cross-Account Role. Required: crossAccountRoleArn. Optional: companyId, integrationName. Returns the new AwsEc2ConfigureResponse.",
+      "method": "POST",
+      "path": "/v1.0/jsonrpc/integrations#configureAmazonEC2IntegrationUsingCrossAccountRole",
+      "params": [
+        {
+          "name": "companyId",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the target company. Default value: the ID of the company that the API key used to make the request belongs to."
+        },
+        {
+          "name": "crossAccountRoleArn",
+          "type": "string",
+          "location": "body",
+          "description": "The Amazon Resource Name of a valid AWS Cross-Account Role.",
+          "required": true
+        },
+        {
+          "name": "integrationName",
+          "type": "string",
+          "location": "body",
+          "description": "Enter a name to identify this specific integration. Default value: the ID of the AWS account (awsAccountId)."
+        }
+      ]
+    },
+    {
+      "name": "aws_ec2_disable",
+      "description": "Disables a previously configured Amazon EC2 integration. Optional: companyId, integrationName. Returns the new AwsEc2DisableResponse.",
+      "method": "POST",
+      "path": "/v1.0/jsonrpc/integrations#disableAmazonEC2Integration",
+      "params": [
+        {
+          "name": "companyId",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the company. Default value: the ID of the company that the API key used to make the request belongs to."
+        },
+        {
+          "name": "integrationName",
+          "type": "string",
+          "location": "body",
+          "description": "The name of the integration to be deleted. WarningIf this parameter is not included in the request, all the integrations on the selected company will be deleted."
+        }
+      ]
+    },
+    {
+      "name": "aws_ec2_external-id",
+      "description": "Returns the last External ID that was generated using the generateAmazonEC2ExternalIdForCrossAccountRole method. Optional: companyId.",
+      "method": "POST",
+      "path": "/v1.0/jsonrpc/integrations#getAmazonEC2ExternalIdForCrossAccountRole",
+      "params": [
+        {
+          "name": "companyId",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the target company. The default value is the ID of the company linked to the user who generated the API key."
+        }
+      ]
+    },
+    {
+      "name": "aws_ec2_generate-external-id",
+      "description": "Generates an External ID. External IDs are required to configure AWS Cross-Account Roles, which you will need for Amazon EC2 integrations. Optional: companyId. Returns the new AwsEc2GenerateExternalIdResponse.",
+      "method": "POST",
+      "path": "/v1.0/jsonrpc/integrations#generateAmazonEC2ExternalIdForCrossAccountRole",
+      "params": [
+        {
+          "name": "companyId",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the target company. The default value is the ID of the company linked to the user who generated the API key."
+        }
+      ]
+    },
+    {
+      "name": "aws_ec2_hourly-usage",
+      "description": "Exposes the hourly usage for each Amazon instance category (micro, medium etc.). Optional: companyId, targetMonth. Returns the new AwsEc2HourlyUsageResponse.",
+      "method": "POST",
+      "path": "/v1.0/jsonrpc/integrations#getHourlyUsageForAmazonEC2Instances",
+      "params": [
+        {
+          "name": "companyId",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the company. The default value is the ID of the company linked to the user who..."
+        },
+        {
+          "name": "targetMonth",
+          "type": "string",
+          "location": "body",
+          "description": "The month for which the usage is returned. The month will be provided in the following format: mm/yyyy. The default value is the current month."
+        }
+      ]
+    },
+    {
+      "name": "blocklist_add",
+      "description": "Set up one or more rules that you can use to add items to blocklists. Required: rules, type. Optional: companyId, recursive. Returns the new BlocklistAddResponse.",
+      "method": "POST",
+      "path": "/v1.2/jsonrpc/incidents#addToBlocklist",
+      "params": [
+        {
+          "name": "companyId",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the company to which the Blocklist item belongs. Must be the valid ID of a managed company with a license that includes the Blocklist feature. For details on eligible licenses, refer to Security features."
+        },
+        {
+          "name": "recursive",
+          "type": "bool",
+          "location": "body",
+          "description": "Indicates whether the rules should be applied recursively to all companies managed by the company specified through companyId. When set to false, the rules are applied only to the company specified by companyId. Default value: true. No additional requirements. Example 'recursive': false"
+        },
+        {
+          "name": "rules",
+          "type": "array",
+          "location": "body",
+          "description": "Contains the list of rules you want to create and their assigned settings. You can only add rules that match the type specified in the type parameter. Refer to rules.",
+          "required": true
+        },
+        {
+          "name": "type",
+          "type": "string",
+          "location": "body",
+          "description": "Indicates the type of rules you want to create. Possible values: hash path connection Example 'type': 'hash'",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "blocklist_list",
+      "description": "Lists all items present in a Blocklist. Optional: companyId, page, perPage. Returns the new BlocklistListResponse.",
+      "method": "POST",
+      "path": "/v1.2/jsonrpc/incidents#getBlocklistItems",
+      "params": [
+        {
+          "name": "companyId",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the company to which the Blocklist item belongs. Must be the valid ID of a managed company. Default value: the company the API key used to make the request belongs to. Example 'companyId': '58541613aaed7090058b4567'"
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "location": "body",
+          "description": "The number of the results page currently displayed. Default value: 1 Example 'page': 1"
+        },
+        {
+          "name": "perPage",
+          "type": "int",
+          "location": "body",
+          "description": "The number of items displayed on a page. Possible values: 1 - 100. Default value: 30. Example 'perPage': 50"
+        }
+      ]
+    },
+    {
+      "name": "blocklist_remove",
+      "description": "Removes one or more items from the Blocklist, identified by their IDs. Required: ids. Optional: companyId. Returns the new BlocklistRemoveResponse.",
+      "method": "POST",
+      "path": "/v1.2/jsonrpc/incidents#removeFromBlocklist",
+      "params": [
+        {
+          "name": "companyId",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the company to which the Blocklist items belong. Must be the valid ID of a company that the user has access to. Default value: the company the API key used to make the request belongs to. Example 'companyId': '58541613aaed7090058b4567'"
+        },
+        {
+          "name": "ids",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "The IDs of the items you want to remove from the Blocklist. Must be the valid IDs of Blocklist items that you have access to. Example 'ids': [ '6605882651f1f25d2708d2d7', '6605882651f1f25d2708d2d8' ]",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "companies_activate",
+      "description": "Activates a suspended company. Required: companyId, recursive. Returns the new CompaniesActivateResponse.",
+      "method": "POST",
+      "path": "/v1.0/jsonrpc/companies#activateCompany",
+      "params": [
+        {
+          "name": "companyId",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the company to be activated.",
+          "required": true
+        },
+        {
+          "name": "recursive",
+          "type": "bool",
+          "location": "body",
+          "description": "rue if sub-companies should be activated as well",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "companies_create",
+      "description": "Creates a Customer or Partner company account. Required: name, type. Optional: accountEmail, accountFullName, accountLanguage (plus 12 more). Returns the new CompaniesCreateResponse.",
+      "method": "POST",
+      "path": "/v1.0/jsonrpc/companies#createCompany",
+      "params": [
+        {
+          "name": "accountEmail",
+          "type": "string",
+          "location": "body",
+          "description": "The email for the new user account to be linked to the new company. If the parameter canBeManagedByAbove is set to false, this parameter is mandatory."
+        },
+        {
+          "name": "accountFullName",
+          "type": "string",
+          "location": "body",
+          "description": "The full name of the new user account to be linked to the new company. This parameter is required when canBeManagedByAbove is set to false."
+        },
+        {
+          "name": "accountLanguage",
+          "type": "string",
+          "location": "body",
+          "description": "The user interface language for the new user account to be linked to the new company. The default value is en_US."
+        },
+        {
+          "name": "accountTimezone",
+          "type": "string",
+          "location": "body",
+          "description": "The timezone of the new user account to be linked to the new company. The default value is Europe/Bucharest."
+        },
+        {
+          "name": "address",
+          "type": "string",
+          "location": "body",
+          "description": "The company's physical address. The company address must not exceed 128 characters and must not contain HTML tags."
+        },
+        {
+          "name": "canBeManagedByAbove",
+          "type": "bool",
+          "location": "body",
+          "description": "An option defining whether the security of the new company can be managed by its Partner company. Available values: true or false. The default value is true. ImportantFor companies using MDR, this parameter must have the true value."
+        },
+        {
+          "name": "contactPerson",
+          "type": "object",
+          "location": "body",
+          "description": "Contains information regarding the company's designated contact person. The object contains the following fields: fullName - the person's first and last name. email - their business email address. ImportantThis field is mandatory when the contactPerson parameter is included in the request."
+        },
+        {
+          "name": "country",
+          "type": "string",
+          "location": "body",
+          "description": "The company's country of operation. The value must be in ISO 3166 format. No value is set for this parameter by default."
+        },
+        {
+          "name": "enforce2FA",
+          "type": "bool",
+          "location": "body",
+          "description": "A parameter that defines Two Factor Authentication (2FA) enforcement for all GravityZone user accounts in the company. The value is always true."
+        },
+        {
+          "name": "industry",
+          "type": "int",
+          "location": "body",
+          "description": "The industry the company operates in. Possible values: 0 - UNDEFINED 1 - AEROSPACE 101 - AEROSPACE_MANUFACTURING 102 - AEROSPACE_TECHNOLOGY_RESEARCH 2 - AGRICULTURE 201 - AGRICULTURE_CHEMICALS_FERTILIZERS 202 - AGRICULTURE_CROP_AND_ANIMAL_PRODUCTION 203 - AGRICULTURE_FARM_MACHINERY 204 - AGRICULTURE..."
+        },
+        {
+          "name": "licenseSubscription",
+          "type": "object",
+          "location": "body",
+          "description": "An object containing the license details: type, an integer representing the license or subscription type. Possible values: 1 (trial) 2 (license) 3 (monthly subscription) 4 (monthly license trial) 5 (monthly subscription trial) 6 (FRAT subscription) licenseKey, a string representing a valid license k..."
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "The company name. Must be unique. The company name must not exceed 64 characters.",
+          "required": true
+        },
+        {
+          "name": "parentId",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the Partner company directly managing the newly created company."
+        },
+        {
+          "name": "phone",
+          "type": "string",
+          "location": "body",
+          "description": "The company's phone number. The phone number must not exceed 32 characters."
+        },
+        {
+          "name": "skip2FAPeriod",
+          "type": "int",
+          "location": "body",
+          "description": "The period, defined in days, for which the users of the company can have their devices exempted from providing a two-factor code at authentication. Available values: 0 1 3 7 14 30 90"
+        },
+        {
+          "name": "state",
+          "type": "string",
+          "location": "body",
+          "description": "The company’s state or primary administrative subdivision of operation. The value must be in ISO 3166 format. No value is set for this parameter by default."
+        },
+        {
+          "name": "type",
+          "type": "int",
+          "location": "body",
+          "description": "The company type. Available values: 0 for Partner companies 1 for Customer companies",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "companies_delete",
+      "description": "Deletes a company. Required: companyId. Returns the new CompaniesDeleteResponse.",
+      "method": "POST",
+      "path": "/v1.0/jsonrpc/companies#deleteCompany",
+      "params": [
+        {
+          "name": "companyId",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the company to be deleted.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "companies_find",
+      "description": "Searches for all managed companies containing the specified string in their name. Required: nameFilter. Optional: exactMatch, maxResults. Returns the new CompaniesFindResponse.",
+      "method": "POST",
+      "path": "/v1.0/jsonrpc/companies#findCompaniesByName",
+      "params": [
+        {
+          "name": "exactMatch",
+          "type": "bool",
+          "location": "body",
+          "description": "Specifies whether to perform an exact, case-insensitive match for the company name specified in nameFilter. Possible values: true: Ignores maxResults and returns a single record matching nameFilter exactly (case-insensitive), or an empty array if no match is found."
+        },
+        {
+          "name": "maxResults",
+          "type": "int",
+          "location": "body",
+          "description": "Determines the maximum number of entries returned by the request. Possible values: 1 - 100. Default value: 25."
+        },
+        {
+          "name": "nameFilter",
+          "type": "string",
+          "location": "body",
+          "description": "The string to be searched in the company name. Use the asterisk symbol (*) in front of the keyword to search its appearance anywhere in the name. If omitted, only results where the name starts with the keyword will be returned.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "companies_get",
+      "description": "Retrieves the details of a company that you manage. Optional: companyId. Returns the new CompaniesGetResponse.",
+      "method": "POST",
+      "path": "/v1.0/jsonrpc/companies#getCompanyDetails",
+      "params": [
+        {
+          "name": "companyId",
+          "type": "string",
+          "location": "body",
+          "description": "The company's ID. The default value is the ID of the company linked to the user who generated the API key."
+        }
+      ]
+    },
+    {
+      "name": "companies_get-by-user",
+      "description": "Retrieves the details of a company linked to an account identified through the given username. Required: username. Optional: password. Returns the new CompaniesGetByUserResponse.",
+      "method": "POST",
+      "path": "/v1.0/jsonrpc/companies#getCompanyDetailsByUser",
+      "params": [
+        {
+          "name": "password",
+          "type": "string",
+          "location": "body",
+          "description": "The password of the specified username. This parameter is required only when the searched company is not in the target companies of the user who makes the API call."
+        },
+        {
+          "name": "username",
+          "type": "string",
+          "location": "body",
+          "description": "The username linked to the searched company. NoteThis parameter is invalid when used for a service account. For details about service accounts, refer to Service API keys.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "companies_list",
+      "description": "Returns the list of companies under a parent company or from a company folder. Optional: filters, parentId.",
+      "method": "POST",
+      "path": "/v1.0/jsonrpc/network#getCompaniesList",
+      "params": [
+        {
+          "name": "filters",
+          "type": "object",
+          "location": "body",
+          "description": "The filters to apply on the returned list. The filtering criteria are: companyType: 0 - partner companies, 1 - customer companies licenseType: 1 - companies with trial license key, 2 - companies with yearly license key, 3 - companies with monthly license key"
+        },
+        {
+          "name": "parentId",
+          "type": "string",
+          "location": "body",
+          "description": "The parent company's ID or the company folder's ID. The default value is the ID of the parent company."
+        }
+      ]
+    },
+    {
+      "name": "companies_suspend",
+      "description": "Suspends an active company account, with the following implications:. Required: companyId, recursive. Returns the new CompaniesSuspendResponse.",
+      "method": "POST",
+      "path": "/v1.0/jsonrpc/companies#suspendCompany",
+      "params": [
+        {
+          "name": "companyId",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the company to be suspended.",
+          "required": true
+        },
+        {
+          "name": "recursive",
+          "type": "bool",
+          "location": "body",
+          "description": "True if sub-companies should be suspended as well.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "companies_update",
+      "description": "Updates the details of a company that you manage. Optional: address, contactPerson, country (plus 10 more). Returns the new CompaniesUpdateResponse.",
+      "method": "POST",
+      "path": "/v1.0/jsonrpc/companies#updateCompanyDetails",
+      "params": [
+        {
+          "name": "address",
+          "type": "string",
+          "location": "body",
+          "description": "The company's address. It must not exceed 128 characters and must not contain HTML tags. If not set, the company's address will not be changed."
+        },
+        {
+          "name": "contactPerson",
+          "type": "object",
+          "location": "body",
+          "description": "Information regarding the company's designated contact person. The object contains the following fields: fullName (String) - the person's first and last name. email (String) - their business email address."
+        },
+        {
+          "name": "country",
+          "type": "string",
+          "location": "body",
+          "description": "The company's new country of operation. The value must be in ISO 3166 format. If not set, the company's country will not be changed."
+        },
+        {
+          "name": "customFields",
+          "type": "object",
+          "location": "body",
+          "description": "An object containing the custom fields' values for the company. To delete the custom fields, set it as an empty array. ImportantYou cannot change custom field values for your own company (the company linked to the API key that generated the request)."
+        },
+        {
+          "name": "duplicateClosedIncidentsOnUpdate",
+          "type": "bool",
+          "location": "body",
+          "description": "When set to: true: Updates found on a closed incident trigger the creation of a new incident. false: If updates are detected on a closed incident, the incident is reopened. If not configured, it retains the value set prior to the update."
+        },
+        {
+          "name": "id",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the company to be updated. The default value is the ID of the company linked to the user who generated the API key. The value must be a 24-character hexadecimal string."
+        },
+        {
+          "name": "industry",
+          "type": "int",
+          "location": "body",
+          "description": "The industry the company operates in. Possible values: 0 - UNDEFINED 1 - AEROSPACE 101 - AEROSPACE_MANUFACTURING 102 - AEROSPACE_TECHNOLOGY_RESEARCH 2 - AGRICULTURE 201 - AGRICULTURE_CHEMICALS_FERTILIZERS 202 - AGRICULTURE_CROP_AND_ANIMAL_PRODUCTION 203 - AGRICULTURE_FARM_MACHINERY 204 - AGRICULTURE..."
+        },
+        {
+          "name": "mdrContactInformation",
+          "type": "object",
+          "location": "body",
+          "description": "The company's designated emergency contact details, intended for use by the MDR team during security events or incidents. The object may contain the following fields: phoneNumber (Object): The company's contact details needed to reach the organization by phone."
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "The company's new name. It must be unique. It must not exceed 64 characters. If not set, the company's name will not be changed."
+        },
+        {
+          "name": "phone",
+          "type": "string",
+          "location": "body",
+          "description": "The company's new phone number. It must not exceed 32 characters. If not set, the company's phone number will not be changed."
+        },
+        {
+          "name": "skip2FAPeriod",
+          "type": "int",
+          "location": "body",
+          "description": "The period, defined in days, for which the users of the company can have their devices exempted from providing a two-factor code at authentication. Available values: 0 1 3 7 14 30 90"
+        },
+        {
+          "name": "state",
+          "type": "string",
+          "location": "body",
+          "description": "The company's state or primary administrative subdivision of operation. The value must be in ISO 3166 format. If not set, the company's state will not be changed."
+        },
+        {
+          "name": "type",
+          "type": "int",
+          "location": "body",
+          "description": "The company type. Available values: 0 for Partner companies, 1 for Customer companies. If not set, the company type will not be changed. ImportantYou cannot change the type of your own company (the company linked to the API key that generated the request)."
+        }
+      ]
+    },
+    {
+      "name": "company_folders_create",
+      "description": "Creates a new folder under an existing folder or company. Required: folderName. Optional: parentId. Returns the new CompanyFoldersCreateResponse.",
+      "method": "POST",
+      "path": "/v1.0/jsonrpc/network#createCompanyFolder",
+      "params": [
+        {
+          "name": "folderName",
+          "type": "string",
+          "location": "body",
+          "description": "The name for the new folder.",
+          "required": true
+        },
+        {
+          "name": "parentId",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the parent company or folder (if the case). The default value is the ID of the parent company."
+        }
+      ]
+    },
+    {
+      "name": "company_folders_delete",
+      "description": "Deletes a company folder. Required: folderId. Returns the new CompanyFoldersDeleteResponse.",
+      "method": "POST",
+      "path": "/v1.0/jsonrpc/network#deleteCompanyFolder",
+      "params": [
+        {
+          "name": "folderId",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the company folder to be deleted.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "company_folders_list",
+      "description": "Returns the list of company folders under a company or under a company folder. Optional: parentId.",
+      "method": "POST",
+      "path": "/v1.0/jsonrpc/network#getCompanyFoldersList",
+      "params": [
+        {
+          "name": "parentId",
+          "type": "string",
+          "location": "body",
+          "description": "The parent company's ID or the parent folder's ID. The default value is the ID of the parent company."
+        }
+      ]
+    },
+    {
+      "name": "company_folders_move",
+      "description": "Moves a company or company folder under a parent company or company folder. Required: id, newParentId. Returns the new CompanyFoldersMoveResponse.",
+      "method": "POST",
+      "path": "/v1.0/jsonrpc/network#moveCompanyOrCompanyFolder",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the company or company folder to be moved.",
+          "required": true
+        },
+        {
+          "name": "newParentId",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the new parent company of company folder.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "custom_fields_create",
+      "description": "Creates a custom field definition. Required: name. Returns the new CustomFieldsCreateResponse.",
+      "method": "POST",
+      "path": "/v1.0/jsonrpc/companies#createCustomFieldDefinition",
+      "params": [
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "The name of the custom field.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "custom_fields_delete",
+      "description": "Deletes a custom field definition. Required: id. Returns the new CustomFieldsDeleteResponse.",
+      "method": "POST",
+      "path": "/v1.0/jsonrpc/companies#deleteCustomFieldDefinition",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the custom field to be deleted",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "custom_fields_list",
+      "description": "Retrieves the custom fields definitions. Returns the new CustomFieldsListResponse.",
+      "method": "POST",
+      "path": "/v1.0/jsonrpc/companies#getCustomFieldsDefinitions",
+      "params": []
+    },
+    {
+      "name": "custom_fields_update",
+      "description": "Updates a custom field definition. Required: id, name. Returns the new CustomFieldsUpdateResponse.",
+      "method": "POST",
+      "path": "/v1.0/jsonrpc/companies#updateCustomFieldDefinition",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the custom field",
+          "required": true
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Custom field name",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "custom_rules_create",
+      "description": "Create a custom rule. Required: name, settings. Optional: companyId, description, returnRuleId (plus 4 more). Returns the new CustomRulesCreateResponse.",
+      "method": "POST",
+      "path": "/v1.0/jsonrpc/incidents#createCustomRule",
+      "params": [
+        {
+          "name": "companyId",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the company the custom rule will belong to. Must be the valid ID of a company that you manage. Default value: The ID of the company the API key used to make the request. Example 'companyId': '58541613aaed7090058b4567'"
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "location": "body",
+          "description": "The description of the rule. This parameter cannot begin with a whitespace character, cannot include the characters \u003c, \u003e, ', or ', and must be no longer than 1024 characters. Example 'description': 'Detection Rule via API Description'"
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "The name of the rule to be created. This parameter cannot begin with a whitespace character, cannot include the characters \u003c, \u003e, ', or ', and must be no longer than 128 characters. Also, it cannot be duplicated within the same company. Example 'name': 'Detection Rule via API'",
+          "required": true
+        },
+        {
+          "name": "returnRuleId",
+          "type": "bool",
+          "location": "body",
+          "description": "Indicates if the request will return the ID of the new rule. Possible values: true, will return the ID of the newly created rule, if the request is successful. false, will not return the ID of the newly created rule. Instead, it will return a Boolean value. Default value: false."
+        },
+        {
+          "name": "settings",
+          "type": "object",
+          "location": "body",
+          "description": "The settings associated with the rule. Refer to settings. Example Basic rule: 'settings': { 'status': 0, 'severity': 1, 'target': 'file', 'automaticActions': [ { 'type': 1, 'enabled': true } ], 'criteriaList': [ { 'field': 'File.Name', 'relation': 'is', 'value': 'abcd' } ], 'filters': [ { 'field': '...",
+          "required": true
+        },
+        {
+          "name": "subtype",
+          "type": "int",
+          "location": "body",
+          "description": "Specifies whether the rule is YARA-based or Basic. Possible values: 0 - Basic 1 - YARA Default value: 0. ImportantIf type is 2, the subtype parameter must be set to 0. Example 'subtype': 1"
+        },
+        {
+          "name": "tags",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "The list of associated rule tags. Each string must: Not contain \u003c, \u003e, ', or ' Be at least 2 characters long and no longer than 128 characters Not start with a whitespace character Be unique in the array Example 'tags': [ 'api', 'detection' ]"
+        },
+        {
+          "name": "targets",
+          "type": "object",
+          "location": "body",
+          "description": "Contains either: companiesIds, which lists the IDs of the companies to which the custom rule applies, or endpointTags, which lists the tags, of which each endpoint targeted by the custom rule must have at least one assigned. Refer to targets."
+        },
+        {
+          "name": "type",
+          "type": "int",
+          "location": "body",
+          "description": "The type of the rule to be created: detection or exclusion. Possible values: 1 - Detection 2 - Exclusion Default value: 2. ImportantIf type is 2, the subtype parameter must be set to 0. Example 'type': 1"
+        }
+      ]
+    },
+    {
+      "name": "custom_rules_delete",
+      "description": "Delete a custom rule. Required: ruleId. Optional: type. Returns the new CustomRulesDeleteResponse.",
+      "method": "POST",
+      "path": "/v1.0/jsonrpc/incidents#deleteCustomRule",
+      "params": [
+        {
+          "name": "ruleId",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the rule to be deleted. The value must be a 24-character hexadecimal string.",
+          "required": true
+        },
+        {
+          "name": "type",
+          "type": "int",
+          "location": "body",
+          "description": "The type of the rule to be deleted. Possible values: 1 - Detection 2 - Exclusion Default value: 2."
+        }
+      ]
+    },
+    {
+      "name": "custom_rules_list",
+      "description": "Retrieves the list of custom rules for a specified company. Optional: companyId, page, perPage (plus 2 more). Returns the new CustomRulesListResponse.",
+      "method": "POST",
+      "path": "/v1.0/jsonrpc/incidents#getCustomRulesList",
+      "params": [
+        {
+          "name": "companyId",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the company for which to retrieve the list of custom rules. Must be the valid ID of a company that you manage. Defaults to the ID of the company associated with the user making the API request. Example 'companyId': '61827b8036492c2fc0718722'"
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "location": "body",
+          "description": "The results page number. Default value: 1. Example 'page': 2"
+        },
+        {
+          "name": "perPage",
+          "type": "int",
+          "location": "body",
+          "description": "The number of results displayed per page. The upper limit is 100 items per page. Default value: 30. Example 'perPage': 1"
+        },
+        {
+          "name": "subtypes",
+          "type": "array",
+          "location": "body",
+          "description": "Indicates if the retrieved rules should be YARA-based, Basic, or both. Can be used only when type is 1. Possible values: [0] - Only Basic rules will be retrieved. [1] - Only YARA rules will be retrieved. [0, 1] - Both Basic and YARA rules will be retrieved. Default value: [0, 1]."
+        },
+        {
+          "name": "type",
+          "type": "int",
+          "location": "body",
+          "description": "Specifies the type of custom rules to retrieve: detection or exclusion. Possible values: 1 - Detection 2 - Exclusion Default value: 2. Example 'type': 1"
+        }
+      ]
+    },
+    {
+      "name": "custom_rules_update",
+      "description": "Edit any existing custom exclusion or detection rule by referencing its Rule ID. Required: name, ruleId, settings. Optional: description, tags, targets (plus 1 more). Returns the new CustomRulesUpdateResponse.",
+      "method": "POST",
+      "path": "/v1.0/jsonrpc/incidents#updateCustomRule",
+      "params": [
+        {
+          "name": "description",
+          "type": "string",
+          "location": "body",
+          "description": "The new description of the rule. This parameter cannot begin with a whitespace character, cannot include the characters \u003c, \u003e, ', or ', and must be no longer than 1024 characters. Example 'description': 'Detection Rule via API - Description'"
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "The rule’s new name This parameter cannot begin with a whitespace character, cannot include the characters \u003c, \u003e, ', or ', and must be no longer than 128 characters. Also, it cannot be duplicated within the same company. Example 'name': 'Detection Rule via API'",
+          "required": true
+        },
+        {
+          "name": "ruleId",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the rule to be updated. This parameter should consist of exactly 24 hexadecimal characters. Example 'ruleId': '6182a7e26f59d3072a1e8fc5'",
+          "required": true
+        },
+        {
+          "name": "settings",
+          "type": "object",
+          "location": "body",
+          "description": "The settings associated with the rule. Refer to settings. Example Basic rule: 'settings': { 'status': 0, 'severity': 1, 'target': 'file', 'automaticActions': [ { 'type': 1, 'enabled': true } ], 'criteriaList': [ { 'field': 'File.Name', 'relation': 'is', 'value': 'abcd' } ], 'filters': [ { 'field': '...",
+          "required": true
+        },
+        {
+          "name": "tags",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "The new list of associated rule tags. Each string must: Not contain \u003c, \u003e, ', or ' Be at least 2 characters long and no longer than 128 characters Not start with a whitespace character Be unique in the array Example 'tags': [ 'TAG 1', 'TAG 2' ]"
+        },
+        {
+          "name": "targets",
+          "type": "object",
+          "location": "body",
+          "description": "Contains either: companiesIds, which lists the IDs of the companies to which the custom rule applies, or endpointTags, which lists the tags, of which each endpoint targeted by the custom rule must have at least one assigned. Refer to targets."
+        },
+        {
+          "name": "type",
+          "type": "int",
+          "location": "body",
+          "description": "The type of the rule to be updated. Possible values: 1 - Detection 2 - Exclusion Default value: 2. Example 'type': 1"
+        }
+      ]
+    },
+    {
+      "name": "email_verification_send",
+      "description": "Send a verification code to a specific email address and verify that a user has access to it. This is done to allow the email to be used as contact information or to be assigned to a specific account. Required: email, purpose. Returns the new EmailVerificationSendResponse.",
+      "method": "POST",
+      "path": "/v1.0/jsonrpc/general#generateEmailVerificationCode",
+      "params": [
+        {
+          "name": "email",
+          "type": "string",
+          "location": "body",
+          "description": "The email address where the verification code will be sent.",
+          "required": true
+        },
+        {
+          "name": "purpose",
+          "type": "int",
+          "location": "body",
+          "description": "Determines the purpose of the verification code. Possible values: 1 - The code is used to confirm MDR contact information. The value is to be added to the emailVerificationCode field in the mdrContactInformation object when using the updateCompanyDetails method.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "endpoint_tags_list",
+      "description": "Returns details about the endpoint tags associated with the specified companies. Optional: companyIds, order, orderBy (plus 2 more).",
+      "method": "POST",
+      "path": "/v1.0/jsonrpc/network#getEndpointTags",
+      "params": [
+        {
+          "name": "companyIds",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "The IDs of the companies for which the endpoint tags will be returned. Each string in the array should consist of exactly 24 hexadecimal characters. By default, this parameter is an array with the ID of the company associated with the API request. Example 'companyIds': [ '66a0fe708d3a52774522b442' ]"
+        },
+        {
+          "name": "order",
+          "type": "string",
+          "location": "body",
+          "description": "The sort order. Possible values: ASC: Endpoint tags are returned in ascending order depending on the selected criterion: created: From oldest to newest. name: Alphabetical order from A to Z. type: Custom tags before Automatic tags."
+        },
+        {
+          "name": "orderBy",
+          "type": "string",
+          "location": "body",
+          "description": "The criterion used to sort the returned endpoint tags. Possible values: name: Endpoint tags will be sorted by tag name. type: Endpoint tags will be sorted by type: Custom or Automatic. created: Endpoint tags will be sorted by their creation date. Default value: created. Example 'orderBy': 'name'"
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "location": "body",
+          "description": "The results page number. Default value: 1. Example 'page': 2"
+        },
+        {
+          "name": "perPage",
+          "type": "int",
+          "location": "body",
+          "description": "The number of results displayed per page. The upper limit is 100 items per page. Default value: 30. Example 'perPage': 1"
+        }
+      ]
+    },
+    {
+      "name": "endpoints_assign-policy",
+      "description": "Assign a policy to one or more endpoints. This method works on all endpoint types, including containers. The policy is not assigned to targets that have an enforced policy. Required: targetIds. Optional: forcePolicyInheritance, inheritFromAbove, policyId. Returns the new EndpointsAssignPolicyResponse.",
+      "method": "POST",
+      "path": "/v1.0/jsonrpc/network#assignPolicy",
+      "params": [
+        {
+          "name": "forcePolicyInheritance",
+          "type": "bool",
+          "location": "body",
+          "description": "If true, the policy is also assigned to all the child endpoints of the selected targets. To use this parameter, policyId must be included in the request. Default value: false. Example 'forcePolicyInheritance': true"
+        },
+        {
+          "name": "inheritFromAbove",
+          "type": "bool",
+          "location": "body",
+          "description": "If true, the target endpoints will inherit the policy of the parent containers. If a specific endpoint does not have a parent or the parent does not have any specific policy assigned, it will receive the default policy."
+        },
+        {
+          "name": "policyId",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the policy you want to assign. If not included in the request, the inheritFromAbove must be present in the request and set to true. No additional requirements. Example 'policyId': '55828d66b1a43de92c71****'"
+        },
+        {
+          "name": "targetIds",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "The IDs of the endpoints you want to assign the policy to. No additional requirements. Example 'targetIds': [ '56728d66b1a43de92c7****', '69738d66b1a43de92c71****' ]",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "endpoints_delete",
+      "description": "Deletes an endpoint. Required: endpointId. Returns the new EndpointsDeleteResponse.",
+      "method": "POST",
+      "path": "/v1.0/jsonrpc/network#deleteEndpoint",
+      "params": [
+        {
+          "name": "endpointId",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the endpoint",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "endpoints_get",
+      "description": "Retrieves comprehensive information about a specific endpoint managed in GravityZone. Required: endpointId. Optional: options. Returns the new EndpointsGetResponse.",
+      "method": "POST",
+      "path": "/v1.0/jsonrpc/network#getManagedEndpointDetails",
+      "params": [
+        {
+          "name": "endpointId",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the endpoint for which the details will be returned. Must be a valid ID, belonging to a managed endpoint. TipYou can use the getEndpointsList method to get a list of managed endpoints by including the isManaged parameter and setting it to true.",
+          "required": true
+        },
+        {
+          "name": "options",
+          "type": "object",
+          "location": "body",
+          "description": "A set of options that control what information is present in the response. For more information on this object, refer to options. Example 'options': { 'includeScanLogs': true, 'includeLastLoggedUsers': true }"
+        }
+      ]
+    },
+    {
+      "name": "endpoints_kill-process",
+      "description": "Terminate an active process using its process ID, its path, the endpoint where it is running, and, if available, the ID of the incident it generated. Required: endpointId, path, processId. Optional: incidentId. Returns the new EndpointsKillProcessResponse.",
+      "method": "POST",
+      "path": "/v1.0/jsonrpc/network#killProcess",
+      "params": [
+        {
+          "name": "endpointId",
+          "type": "string",
+          "location": "body",
+          "description": "The endpoint (or node) where the process is running. No additional requirements. Example 'endpointId': '66a0fe708d3a52774522b442'",
+          "required": true
+        },
+        {
+          "name": "incidentId",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the incident generated as a result of this process. No additional requirements. Example 'incidentId': '66a251423506b508d2fefb05"
+        },
+        {
+          "name": "path",
+          "type": "string",
+          "location": "body",
+          "description": "The location of the file that starts the process on the endpoint where it is stored. Must be in the proper path format and lead to an existing file.",
+          "required": true
+        },
+        {
+          "name": "processId",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the process you want to terminate. No additional requirements. Example 'processId': 12228",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "endpoints_list",
+      "description": "Returns the list of endpoints. Optional: filters, isManaged, options (plus 3 more).",
+      "method": "POST",
+      "path": "/v1.1/jsonrpc/network#getEndpointsList",
+      "params": [
+        {
+          "name": "filters",
+          "type": "object",
+          "location": "body",
+          "description": "The parameters used to customize the type of endpoints you want to retrieve. For information regarding the available filters and how to use them, refer to Available Filters."
+        },
+        {
+          "name": "isManaged",
+          "type": "bool",
+          "location": "body",
+          "description": "The flag to list managed or unmanaged endpoints. By default, the parameter is not set and the method returns all the managed and unmanaged endpoints. If set on True, the method returns only managed endpoints."
+        },
+        {
+          "name": "options",
+          "type": "object",
+          "location": "body",
+          "description": "A set of options that control what information is present in the response."
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "location": "body",
+          "description": "The results page number.. Default value: 1."
+        },
+        {
+          "name": "parentId",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the target company or group. If not specified, the method returns items that are in the targets of the company linked to the API key. NoteTo retrieve information on Active Directory endpoints, use the getNetworkInventoryItems method."
+        },
+        {
+          "name": "perPage",
+          "type": "int",
+          "location": "body",
+          "description": "Number of items per page to be returned. Possible values: 1 - 1000. Default value: 30."
+        }
+      ]
+    },
+    {
+      "name": "endpoints_move",
+      "description": "Moves a list of endpoints to a custom group. Required: endpointIds, groupId. Returns the new EndpointsMoveResponse.",
+      "method": "POST",
+      "path": "/v1.0/jsonrpc/network#moveEndpoints",
+      "params": [
+        {
+          "name": "endpointIds",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "The list of endpoints IDs",
+          "required": true
+        },
+        {
+          "name": "groupId",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the destination group",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "endpoints_move-to-company",
+      "description": "Moves a list of endpoints to another protected entity (move between companies). Required: destinationGroupId, endpointIds. Returns the new EndpointsMoveToCompanyResponse.",
+      "method": "POST",
+      "path": "/v1.0/jsonrpc/network#moveEndpointsBetweenCompanies",
+      "params": [
+        {
+          "name": "destinationGroupId",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the destination group",
+          "required": true
+        },
+        {
+          "name": "endpointIds",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "The list of endpoints IDs",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "endpoints_set-label",
+      "description": "Sets a new label to an endpoint. Required: endpointId, label. Returns the new EndpointsSetLabelResponse.",
+      "method": "POST",
+      "path": "/v1.0/jsonrpc/network#setEndpointLabel",
+      "params": [
+        {
+          "name": "endpointId",
+          "type": "string",
+          "location": "body",
+          "description": "The endpoint ID",
+          "required": true
+        },
+        {
+          "name": "label",
+          "type": "string",
+          "location": "body",
+          "description": "A string representing the label. The maximum allowed length is 64 characters. Enter an empty string to reset a previously set label.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "groups_create",
+      "description": "Creates a new custom group of endpoints. Required: groupName. Optional: parentId. Returns the new GroupsCreateResponse.",
+      "method": "POST",
+      "path": "/v1.0/jsonrpc/network#createCustomGroup",
+      "params": [
+        {
+          "name": "groupName",
+          "type": "string",
+          "location": "body",
+          "description": "The name for the new group",
+          "required": true
+        },
+        {
+          "name": "parentId",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the parent container. If the parentId refers to a company, the new group is created under the 'Computers and Groups' group of that company. The user's company is automatically selected if no value is passed for this parameter."
+        }
+      ]
+    },
+    {
+      "name": "groups_delete",
+      "description": "Deletes a custom group. Required: groupId. Optional: force. Returns the new GroupsDeleteResponse.",
+      "method": "POST",
+      "path": "/v1.0/jsonrpc/network#deleteCustomGroup",
+      "params": [
+        {
+          "name": "force",
+          "type": "bool",
+          "location": "body",
+          "description": "Force delete when group is not empty. By default, the parameter is set to False."
+        },
+        {
+          "name": "groupId",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the custom group to be deleted",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "groups_list",
+      "description": "Retrieves the list of groups under a specified group. Optional: parentId. Returns array of GroupsListItem.",
+      "method": "POST",
+      "path": "/v1.0/jsonrpc/network#getCustomGroupsList",
+      "params": [
+        {
+          "name": "parentId",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the parent group for which the child groups will be listed. 'Computers and Groups' and 'Deleted' groups are returned if the passed parameter is null or a company ID."
+        }
+      ]
+    },
+    {
+      "name": "groups_move",
+      "description": "Moves a custom group to another custom group. Required: groupId, parentId. Returns the new GroupsMoveResponse.",
+      "method": "POST",
+      "path": "/v1.0/jsonrpc/network#moveCustomGroup",
+      "params": [
+        {
+          "name": "groupId",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the custom group to be moved",
+          "required": true
+        },
+        {
+          "name": "parentId",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the destination custom group",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "incidents_assign",
+      "description": "Enables bulk assignment and reassignment of EDR and XDR incidents to eligible GravityZone users. Assignees can also be removed through the same method. Required: assigneeId, incidentIds, type. Returns the new IncidentsAssignResponse.",
+      "method": "POST",
+      "path": "/v1.0/jsonrpc/incidents#assignIncident",
+      "params": [
+        {
+          "name": "assigneeId",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the GravityZone user to be assigned to the incidents specified in incidentIds. When set to null, the current assignee is removed from all incidents specified in incidentIds. Must be a 24-character hexadecimal string representing an existing user ID within your company.",
+          "required": true
+        },
+        {
+          "name": "incidentIds",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "A list containing the internal IDs of the incidents to which a GravityZone user should be assigned. Each incident ID corresponds to the incident_id parameter from the New Incident and New extended incident event types. You must have access to all incidents specified in this parameter.",
+          "required": true
+        },
+        {
+          "name": "type",
+          "type": "string",
+          "location": "body",
+          "description": "The type of the target incidents. Possible values: incidents: Endpoint incidents from GravityZone Control Center. extendedIncidents: Organization incidents from GravityZone Control Center.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "incidents_get",
+      "description": "Retrieve information regarding a specific incident, by referencing its ID. Required: id. Returns the new IncidentsGetResponse.",
+      "method": "POST",
+      "path": "/v1.2/jsonrpc/incidents#getIncident",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the incident you want to retrieve information for. This ID is included in the URL of the incident details page from GravityZone Control Center. The value must be the ID of an incident accessible to you. It should contain exactly 24 hexadecimal characters.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "incidents_get-many",
+      "description": "Retrieve information on multiple incidents, by referencing their IDs. Required: ids. Returns the new IncidentsGetManyResponse.",
+      "method": "POST",
+      "path": "/v1.2/jsonrpc/incidents#getIncidentsByIds",
+      "params": [
+        {
+          "name": "ids",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "The IDs of the incidents you want to retrieve information for. The list must be non-empty and can contain up to 10 IDs. Each string must be the valid ID of an incident you have access to. Each string should consist of exactly 24 hexadecimal characters.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "incidents_list",
+      "description": "Retrieves details about Endpoint and Organization incidents for a specified company based on the applied filters. Optional: filters, options, page (plus 1 more). Returns the new IncidentsListResponse.",
+      "method": "POST",
+      "path": "/v1.2/jsonrpc/incidents#getIncidentsList",
+      "params": [
+        {
+          "name": "filters",
+          "type": "object",
+          "location": "body",
+          "description": "The criteria used to filter the returned incidents. For more information, refer to filters. Example 'filters': { 'companyId': '61827b8036492c2fc0718722', 'endpointId': '7f127b8036492c2fc071823d', 'status': [ 'open', 'closed', 'in_progress', 'false_positive' ], 'incidentType': [ 'incident', 'extended..."
+        },
+        {
+          "name": "options",
+          "type": "object",
+          "location": "body",
+          "description": "Additional criteria used to filter the returned incidents. For more information, refer to options. Example 'options': { 'includeChildCompanies': true, 'sortBy': 'lastIncidentChange' }"
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "location": "body",
+          "description": "The page number to return from the complete set of result pages. Default value: 1. This value must be minimum 1. Example 'page': 2"
+        },
+        {
+          "name": "perPage",
+          "type": "int",
+          "location": "body",
+          "description": "The number of items returned per page. Possible values: 10 - 10000. Default value: 30. Example 'perPage': 2000"
+        }
+      ]
+    },
+    {
+      "name": "incidents_note",
+      "description": "Assigns a note to an incident. Required: incidentId, note, type. Returns the new IncidentsNoteResponse.",
+      "method": "POST",
+      "path": "/v1.1/jsonrpc/incidents#updateIncidentNote",
+      "params": [
+        {
+          "name": "incidentId",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the incident, obtained from the Event Push details. The value corresponds to the incident_id parameter from New incident and New extended incident event types.",
+          "required": true
+        },
+        {
+          "name": "note",
+          "type": "string",
+          "location": "body",
+          "description": "The text to be included in the note. A maximum of 50,000 characters is allowed for the note. All whitespace or empty note values are not supported. NoteIf the incident already has a note assigned to it, it will be overwritten.",
+          "required": true
+        },
+        {
+          "name": "type",
+          "type": "string",
+          "location": "body",
+          "description": "The type of the target incident. Possible values: incidents: Endpoint incident from GravityZone Control Center extendedIncidents: Organization incident from GravityZone Control Center",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "incidents_set-priority",
+      "description": "Change the priority of an incident. Required: incidentId, priority, type. Returns the new IncidentsSetPriorityResponse.",
+      "method": "POST",
+      "path": "/v1.0/jsonrpc/incidents#changeIncidentPriority",
+      "params": [
+        {
+          "name": "incidentId",
+          "type": "string",
+          "location": "body",
+          "description": "The internal ID of the incident whose priority you want to modify. Corresponds to the incident_id parameter from the New Incident and New extended incident event types. Must be a 24-character hexadecimal string.",
+          "required": true
+        },
+        {
+          "name": "priority",
+          "type": "int",
+          "location": "body",
+          "description": "The priority to be assigned to the incident. Possible values: 0: Unassigned 1: Low 2: Medium 3: High 4: Critical",
+          "required": true
+        },
+        {
+          "name": "type",
+          "type": "string",
+          "location": "body",
+          "description": "The type of the target incident. Possible values: incidents: Endpoint incident from GravityZone Control Center. extendedIncidents: Organization incident from GravityZone Control Center.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "incidents_set-status",
+      "description": "Changes the status of an incident. Required: incidentId, status, type. Returns the new IncidentsSetStatusResponse.",
+      "method": "POST",
+      "path": "/v1.0/jsonrpc/incidents#changeIncidentStatus",
+      "params": [
+        {
+          "name": "incidentId",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the incident, obtained from the Event Push details. The value corresponds to the incident_id parameter from New Incident and New extended incident event types.",
+          "required": true
+        },
+        {
+          "name": "status",
+          "type": "int",
+          "location": "body",
+          "description": "The status to be assigned to the incident. Possible values: 1: Open 2: Investigating 3: Closed: Confirmed incident 4: Closed: False positive",
+          "required": true
+        },
+        {
+          "name": "type",
+          "type": "string",
+          "location": "body",
+          "description": "The type of the target incident. Possible values: incidents: Endpoint incident from GravityZone Control Center. extendedIncidents: Organization incident from GravityZone Control Center.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "incidents_similar-emails",
+      "description": "Retrieve emails similar to a given email, scoped to the same company. Required: emailId. Optional: page, perPage. Returns the new IncidentsSimilarEmailsResponse.",
+      "method": "POST",
+      "path": "/v1.0/jsonrpc/incidents#getSimilarEmails",
+      "params": [
+        {
+          "name": "emailId",
+          "type": "string",
+          "location": "body",
+          "description": "The external ID of the reference email used to identify similar emails. NoteIn the response returned by this method, the external email ID appears as mailId for each identified email. The value of this parameter cannot be an empty string or '0'.",
+          "required": true
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "location": "body",
+          "description": "The results page number. Default value: 1. Example 'page': 2"
+        },
+        {
+          "name": "perPage",
+          "type": "int",
+          "location": "body",
+          "description": "The number of results displayed per page. The upper limit is 1000 items per page. Default value: 1000. Example 'perPage': 1"
+        }
+      ]
+    },
+    {
+      "name": "integrations_create",
+      "description": "Create a new integration under the Integrations hub. Required: name, specifics, type. Optional: companyId. Returns the new IntegrationsCreateResponse.",
+      "method": "POST",
+      "path": "/v1.0/jsonrpc/integrations#createIntegration",
+      "params": [
+        {
+          "name": "companyId",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the company you want to configure the integration for. No additional requirements. Default value: The ID of the company the API key used to make the request belongs to. Example 'companyId': '677e745dd121e7cec70444fe'"
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "The name of the integration. The value must be between 1 and 128 characters Example 'name': 'integrationjDAAdvXoYt77FP6Eu4O3'",
+          "required": true
+        },
+        {
+          "name": "specifics",
+          "type": "object",
+          "location": "body",
+          "description": "The configuration settings for the integration. Refer to specifics. Example 'specifics': { 'hostname': 'LMzsN5Arp7.com', 'port': 443, 'username': 'username', 'password': 'password', 'retryAuthentication': true, 'retryAuthenticationTimeToWait': 10, 'retryAuthenticationMaxAttempts': 6, 'verifyTLSCerti...",
+          "required": true
+        },
+        {
+          "name": "type",
+          "type": "int",
+          "location": "body",
+          "description": "The type of the integration. Possible values: 1 - VMware Integration Example 'type': 1",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "integrations_delete",
+      "description": "Delete a specific integration that was configured under the Integrations hub from a target company. Required: integrationId. Returns the new IntegrationsDeleteResponse.",
+      "method": "POST",
+      "path": "/v1.0/jsonrpc/integrations#deleteIntegration",
+      "params": [
+        {
+          "name": "integrationId",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the integration you want to delete. The user making the request must have Network administrator rights for the company the ID belongs to. Example 'integrationId': '67a09cb42639eb963f016972'",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "integrations_get",
+      "description": "Request information about an integration configured under the Integrations hub. Required: integrationId. Returns the new IntegrationsGetResponse.",
+      "method": "POST",
+      "path": "/v1.0/jsonrpc/integrations#getIntegrationDetails",
+      "params": [
+        {
+          "name": "integrationId",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the integration you want to get information for. No additional requirements. Example 'integrationId': '678f89ef8fe5bb14010b3242'",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "integrations_list",
+      "description": "Allows you to get a list of all the integrations configured on a specific company under the Integrations hub. Optional: companyId, page, perPage. Returns array of IntegrationsListItem.",
+      "method": "POST",
+      "path": "/v1.0/jsonrpc/integrations#getConfiguredIntegrations",
+      "params": [
+        {
+          "name": "companyId",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the company that you want to retrieve configurations for. The user making the request must have Network administrator rights for The company the ID belongs to. Default value: The ID of the company associated with the API key used for the request."
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "location": "body",
+          "description": "The results page number. Default value: 1."
+        },
+        {
+          "name": "perPage",
+          "type": "int",
+          "location": "body",
+          "description": "The number of results displayed per page. The upper limit is 100 items per page. Default value: 30."
+        }
+      ]
+    },
+    {
+      "name": "integrations_manage",
+      "description": "Enable or disable an integration configured under the Integrations hub. Required: integrationId. Returns the new IntegrationsManageResponse.",
+      "method": "POST",
+      "path": "/v1.0/jsonrpc/integrations#manageIntegration",
+      "params": [
+        {
+          "name": "integrationId",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the integration you want to enable or disable. No additional requirements. Example 'id': 'b675cb3d-c884-444f-b339-b427bd82340b'",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "integrations_update",
+      "description": "Update an integration configured under the Integrations hub. Required: integrationId. Optional: name, specifics. Returns the new IntegrationsUpdateResponse.",
+      "method": "POST",
+      "path": "/v1.0/jsonrpc/integrations#updateIntegration",
+      "params": [
+        {
+          "name": "integrationId",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the integration you want to update. No additional requirements. Example 'integrationId': '6788dd3aae9178700406b8ca'",
+          "required": true
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "The new name for the integration. No additional requirements. Example 'name': 'edited05M353Nwh9Dn9BbCkSoD'"
+        },
+        {
+          "name": "specifics",
+          "type": "object",
+          "location": "body",
+          "description": "The configuration settings for the integration. Refer to speficics. Example 'specifics': { 'hostname': 'K6Qxish1dN.com', 'port': 555, 'username': 'updated_username', 'password': 'updated_password', 'retryAuthentication': false, 'retryAuthenticationTimeToWait': 6, 'retryAuthenticationMaxAttempts': 4,..."
+        }
+      ]
+    },
+    {
+      "name": "integrators_add",
+      "description": "Assign an endpoint as an integrator for a specific integration. Required: integrationId, targetIds. Returns the new IntegratorsAddResponse.",
+      "method": "POST",
+      "path": "/v1.0/jsonrpc/network#addIntegrators",
+      "params": [
+        {
+          "name": "integrationId",
+          "type": "array",
+          "location": "body",
+          "description": "The ID of the integration you want to assign the endpoint as an integrator for. No additional requirements. Example 'id': 'b675cb3d-c884-444f-b339-b427bd82340b'",
+          "required": true
+        },
+        {
+          "name": "targetIds",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "The ID of the endpoints you want to set as integrators. The endpoint must belong to the same company where the integration is configured. Example 'targetIds': [ '67fcfc57f021e56c3b9a0ee2' ]",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "integrators_list",
+      "description": "Retrieve a list of integrators configured for a specific integration. Required: integrationId. Returns the new IntegratorsListResponse.",
+      "method": "POST",
+      "path": "/v1.0/jsonrpc/network#getIntegrators",
+      "params": [
+        {
+          "name": "integrationId",
+          "type": "array",
+          "location": "body",
+          "description": "The ID of the integration you want to retrieve the list of integrators for. No additional requirements. Example 'id': 'b675cb3d-c884-444f-b339-b427bd82340b'",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "integrators_remove",
+      "description": "Unassign a specific endpoint as an integrator. The endpoint remains available, but it will no longer serve as the integrator. Required: targetIds. Returns the new IntegratorsRemoveResponse.",
+      "method": "POST",
+      "path": "/v1.0/jsonrpc/network#removeIntegrators",
+      "params": [
+        {
+          "name": "targetIds",
+          "type": "array",
+          "location": "body",
+          "description": "The ID of the endpoint that you want to unassigned as an integrator. No additional requirements. Example 'targetIds': [ '67fcffe8bf190f9d03b3487e' ]",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "inventory_list",
+      "description": "Returns network inventory items. Optional: filters, options, page (plus 2 more).",
+      "method": "POST",
+      "path": "/v1.1/jsonrpc/network#getNetworkInventoryItems",
+      "params": [
+        {
+          "name": "filters",
+          "type": "object",
+          "location": "body",
+          "description": "The filters you want to use when querying the endpoints list. You can find a full list of available filters and instructions on how to use them, under Available Filters."
+        },
+        {
+          "name": "options",
+          "type": "object",
+          "location": "body",
+          "description": "Use this set of options that to control what information is included in the request. For more information, refer to Available Options."
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "location": "body",
+          "description": "The results page number. Default page number is 1."
+        },
+        {
+          "name": "parentId",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the target company or group. If not specified, the default value applies. Default value: the ID of the company that the API key used to make the request belongs to."
+        },
+        {
+          "name": "perPage",
+          "type": "int",
+          "location": "body",
+          "description": "Number of items per page to be returned. Possible values: 1 - 1000. Default value: 30 items per page."
+        }
+      ]
+    },
+    {
+      "name": "inventory_roots",
+      "description": "Returns the root containers for a company. A root container refers to special groups, such as: Companies, Network, Computers and Groups. Optional: companyId.",
+      "method": "POST",
+      "path": "/v1.0/jsonrpc/network#getRootContainers",
+      "params": [
+        {
+          "name": "companyId",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the company for which the method will return the root containers. If null, the id of company linked to the API access key will be considered."
+        }
+      ]
+    },
+    {
+      "name": "investigation_collect-package",
+      "description": "Initiate a forensic collection task on an endpoint. The endpoint collects a predefined investigation package and uploads it to a centralized storage location in GravityZone for further analysis. For details on the data gathered as part of an investigation package, refer to Investigation Package data. Required: targetId. Returns the new InvestigationCollectPackageResponse.",
+      "method": "POST",
+      "path": "/v1.0/jsonrpc/investigation#collectInvestigationPackage",
+      "params": [
+        {
+          "name": "targetId",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the managed endpoint targeted by the investigation package collection task. The string should be a valid managed endpoint ID containing exactly 24 hexadecimal characters.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "investigation_file-url",
+      "description": "Check the status of a task started through the collectInvestigationPackage method. Once the task has been completed, you can also retrieve the download URL for the investigation package uploaded in GravityZone using this method. Required: activityId, targetId. Returns the new InvestigationFileUrlResponse.",
+      "method": "POST",
+      "path": "/v1.0/jsonrpc/investigation#getInvestigationFileUrl",
+      "params": [
+        {
+          "name": "activityId",
+          "type": "string",
+          "location": "body",
+          "description": "The investigation activity ID returned by collectInvestigationPackage. Must be the valid ID of a collectInvestigationPackage task previously initiated for the endpoint specified through targetId. The string should contain exactly 24 hexadecimal characters.",
+          "required": true
+        },
+        {
+          "name": "targetId",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the endpoint for which the package retrieval was previously initiated using collectInvestigationPackage. The string should be a valid managed endpoint ID containing exactly 24 hexadecimal characters.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "investigation_kill-process",
+      "description": "Initiate a task that terminates a running process on a managed endpoint. Required: targetId. Optional: path, processId. Returns the new InvestigationKillProcessResponse.",
+      "method": "POST",
+      "path": "/v1.0/jsonrpc/investigation#killProcess",
+      "params": [
+        {
+          "name": "path",
+          "type": "string",
+          "location": "body",
+          "description": "The file system path to the process to kill. Must be a valid file system path. If processId is set, this parameter must correspond to the executable path of the process whose PID matches the value of processId."
+        },
+        {
+          "name": "processId",
+          "type": "int",
+          "location": "body",
+          "description": "The unique process identifier (PID) of the process to terminate. Must be non-negative. If path is set, this parameter must correspond to the PID of the process whose executable path matches the value of path."
+        },
+        {
+          "name": "targetId",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the managed endpoint where the target process is running. Must be the valid ID of an endpoint in your network that is protected by BEST. The string should contain exactly 24 hexadecimal characters.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "investigation_retrieve-file",
+      "description": "Retrieve a file from an endpoint within your company and upload it as an archive to a centralized storage location in GravityZone, where it can be downloaded for further analysis. Required: path, targetId. Returns the new InvestigationRetrieveFileResponse.",
+      "method": "POST",
+      "path": "/v1.0/jsonrpc/investigation#startRetrieveInvestigationFileFromEndpoint",
+      "params": [
+        {
+          "name": "path",
+          "type": "string",
+          "location": "body",
+          "description": "The full path to the file to collect. Must be a valid file path.",
+          "required": true
+        },
+        {
+          "name": "targetId",
+          "type": "string",
+          "location": "body",
+          "description": "The unique identifier of the managed endpoint from which the investigation file will be retrieved. The string should be the valid ID of an endpoint within your company. It should contain exactly 24 hexadecimal characters.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "investigation_run-command",
+      "description": "Remotely execute a command on an endpoint and upload the resulting output as a log file to the GravityZone centralized storage. Required: command, targetId. Returns the new InvestigationRunCommandResponse.",
+      "method": "POST",
+      "path": "/v1.0/jsonrpc/investigation#startCommandExecutionOnEndpoint",
+      "params": [
+        {
+          "name": "command",
+          "type": "string",
+          "location": "body",
+          "description": "The shell command to execute on the endpoint. Maximum length: 10,000 characters.",
+          "required": true
+        },
+        {
+          "name": "targetId",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the endpoint on which you want to execute a command. The string should be the valid ID of an endpoint protected by BEST within your company. It should contain exactly 24 hexadecimal characters.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "isolation_isolate",
+      "description": "Creates one or more tasks to isolate the specified endpoint or endpoints. Required: endpointIds. Returns the new IsolationIsolateResponse.",
+      "method": "POST",
+      "path": "/v1.2/jsonrpc/incidents#createIsolateEndpointTask",
+      "params": [
+        {
+          "name": "endpointIds",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "The IDs of the endpoints to be isolated. Each string in the array should consist of exactly 24 hexadecimal characters. The array is limited to a maximum of 1000 items. If any endpoint ID in the array is invalid, no endpoints will be isolated.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "isolation_restore",
+      "description": "Creates one or more tasks to restore the specified endpoint or endpoints from isolation. Required: endpointIds. Returns the new IsolationRestoreResponse.",
+      "method": "POST",
+      "path": "/v1.2/jsonrpc/incidents#createRestoreEndpointFromIsolationTask",
+      "params": [
+        {
+          "name": "endpointIds",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "The IDs of the endpoints to be restored from isolation. Each string in the array should consist of exactly 24 hexadecimal characters. The array is limited to a maximum of 1000 items. If any endpoint ID in the array is invalid, no endpoints will be restored from isolation.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "license_add-product-key",
+      "description": "Adds a license or add-on key to the existing list of licenses and add-on keys. Required: licenseKey. Optional: companyId, mdrContactInformation, replaceIncompatibleKeys. Returns the new LicenseAddProductKeyResponse.",
+      "method": "POST",
+      "path": "/v1.0/jsonrpc/licensing#addProductKey",
+      "params": [
+        {
+          "name": "companyId",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the company whose license will be set. If no value is passed, the user's company will be selected."
+        },
+        {
+          "name": "licenseKey",
+          "type": "string",
+          "location": "body",
+          "description": "The license key to be set. It can be an add-on or a base license.",
+          "required": true
+        },
+        {
+          "name": "mdrContactInformation",
+          "type": "object",
+          "location": "body",
+          "description": "An object containing the company's designated emergency contact details, intended for use by the MDR team during security events or incidents."
+        },
+        {
+          "name": "replaceIncompatibleKeys",
+          "type": "bool",
+          "location": "body",
+          "description": "If true, all existing base licenses or add-ons that are not compatible with the current license key will be removed and the new license will be added to the existing base licenses or add-on keys. The default value is true."
+        }
+      ]
+    },
+    {
+      "name": "license_get",
+      "description": "Retrieves the license information for a company. Optional: companyId, page, perPage (plus 1 more). Returns the new LicenseGetResponse.",
+      "method": "POST",
+      "path": "/v1.0/jsonrpc/licensing#getLicenseInfo",
+      "params": [
+        {
+          "name": "companyId",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the company for which the license information is retrieved. The default value is the ID of the company linked to the user who generated the API key."
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "location": "body",
+          "description": "The results page number. Default value: 1."
+        },
+        {
+          "name": "perPage",
+          "type": "int",
+          "location": "body",
+          "description": "The number of results displayed per page. The upper limit is 100 items per page. Default value: 30."
+        },
+        {
+          "name": "returnAllProducts",
+          "type": "bool",
+          "location": "body",
+          "description": "If true, information about all the products of the given company will be included in the response. The default value is false."
+        }
+      ]
+    },
+    {
+      "name": "license_remove-product-key",
+      "description": "Removes a license key from the given company. Required: licenseKey. Optional: companyId. Returns the new LicenseRemoveProductKeyResponse.",
+      "method": "POST",
+      "path": "/v1.0/jsonrpc/licensing#removeProductKey",
+      "params": [
+        {
+          "name": "companyId",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the company. The default value is the ID of the company linked to the user who..."
+        },
+        {
+          "name": "licenseKey",
+          "type": "string",
+          "location": "body",
+          "description": "The key of the license to be removed",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "license_set-key",
+      "description": "Sets a standalone or an add-on license key for a company. Required: licenseKey. Optional: companyId, mdrContactInformation. Returns the new LicenseSetKeyResponse.",
+      "method": "POST",
+      "path": "/v1.0/jsonrpc/licensing#setLicenseKey",
+      "params": [
+        {
+          "name": "companyId",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the company whose license will be set. If no value is passed, the user's company will be selected."
+        },
+        {
+          "name": "licenseKey",
+          "type": "string",
+          "location": "body",
+          "description": "The license key to be set.",
+          "required": true
+        },
+        {
+          "name": "mdrContactInformation",
+          "type": "object",
+          "location": "body",
+          "description": "An object containing the company's designated emergency contact details, intended for use by the MDR team during security events or incidents."
+        }
+      ]
+    },
+    {
+      "name": "license_set-monthly-subscription",
+      "description": "Enables monthly subscription for a company. Required: companyId. Optional: additionalProductTypes, assignedProductType, assignedProtectionModel (plus 22 more). Returns the new LicenseSetMonthlySubscriptionResponse.",
+      "method": "POST",
+      "path": "/v1.0/jsonrpc/licensing#setMonthlySubscription",
+      "params": [
+        {
+          "name": "additionalProductTypes",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "This parameter applies only to Partner companies. It is an array of integers representing the product types that the Partner can assign to its clients."
+        },
+        {
+          "name": "assignedProductType",
+          "type": "int",
+          "location": "body",
+          "description": "The product type assigned to the target company. Possible values: 0, for Endpoint Security 3, for Bitdefender EDR 5, for Bitdefender PHASR The default value is 0."
+        },
+        {
+          "name": "assignedProtectionModel",
+          "type": "string",
+          "location": "body",
+          "description": "assignedProtectionModel, a string representing the type of the protection model that the company will use. Possible values: aLaCarte mspSecureEssentials mspSecure mspSecurePlus mspSecureExtra Default value: depends on the protection models made available by the partner company."
+        },
+        {
+          "name": "autoRenewPeriod",
+          "type": "int",
+          "location": "body",
+          "description": "The license validity in months, after auto renewal. This parameter can be set when license subscription type has the value 3 (monthly subscription). The default value is 12, provided endSubscription is set. For no auto-renewal use 0."
+        },
+        {
+          "name": "companyId",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the company that will inherit license seats from the parent company.",
+          "required": true
+        },
+        {
+          "name": "edrDataRetention",
+          "type": "int",
+          "location": "body",
+          "description": "An integer indicating how long EDR data retention is stored. It is only returned if manageEventCorrelator is set to true. Possible values: 0 - Data retention is not enabled. 1 - Data retention is enabled for 90 days. 2 - Data retention is enabled for 180 days."
+        },
+        {
+          "name": "endSubscription",
+          "type": "string",
+          "location": "body",
+          "description": "The UTC end date for the product subscription. This parameter can be set when license subscription type has the value 3 (monthly subscription). To unset endSubscription use empty string: ''."
+        },
+        {
+          "name": "imDataRetention",
+          "type": "int",
+          "location": "body",
+          "description": "The number of days the events will be stored for. It is only returned if manageIntegrityMonitoring is true. Possible values: 0 (7 days retention), 1 (90 days retention), 2 (180 days retention), 3 (365 days retention). The default value is 0 (7 days retention)."
+        },
+        {
+          "name": "licensedServices",
+          "type": "object",
+          "location": "body",
+          "description": "An object containing service settings for the company. This parameter makes sense only when creating a company with license of type 3. If omitted, the service will be unavailable. mdrServiceOwnUse, an integer representing which MDR Service type is enabled for the company's own use."
+        },
+        {
+          "name": "manageAiSpm",
+          "type": "bool",
+          "location": "body",
+          "description": "True for allowing the company to use the AI Visibility and Control service, False otherwise. If the property is not present, the current value is not changed."
+        },
+        {
+          "name": "manageComplianceManager",
+          "type": "bool",
+          "location": "body",
+          "description": "True for allowing the company to use the Compliance Manager service, False otherwise. If the property is not present, the current value is not changed. This parameter is available when assignedProductType is set to 0 (Endpoint Security) or 5 (Bitdefender PHASR)."
+        },
+        {
+          "name": "manageContainerProtection",
+          "type": "bool",
+          "location": "body",
+          "description": "True for allowing the company to use the Container Protection service, False otherwise. If the property is not present, the current value is not changed. ImportantThis setting can only be set to true if assignedProtectionModel has the aLaCarte value assigned."
+        },
+        {
+          "name": "manageEASM",
+          "type": "bool",
+          "location": "body",
+          "description": "True for allowing the company to use the EASM service, False otherwise. If the property is not present, the current value is not changed. This parameter is available when assignedProductType is set to 0 (Endpoint Security) or 5 (Bitdefender PHASR)."
+        },
+        {
+          "name": "manageEncryption",
+          "type": "bool",
+          "location": "body",
+          "description": "True for allowing the company to use the Full Disk Encryption service, False otherwise. If the property is not present, the current value is not changed."
+        },
+        {
+          "name": "manageEventCorrelator",
+          "type": "bool",
+          "location": "body",
+          "description": "True for allowing the company to use the Endpoint Detection and Response (EDR) service, False otherwise. If the property is not present, the current value is not changed. EDR requires Sandbox Analyzer and HyperDetect to be enabled."
+        },
+        {
+          "name": "manageExchange",
+          "type": "bool",
+          "location": "body",
+          "description": "True for allowing the company to use the Security for Exchange service, False otherwise. If the property is not present, the current value is not changed."
+        },
+        {
+          "name": "manageExtendedEmailSecurity",
+          "type": "bool",
+          "location": "body",
+          "description": "True for allowing the company to use the Extended Email Security service, False otherwise. If the property is not present, the current value is not changed."
+        },
+        {
+          "name": "manageHyperDetect",
+          "type": "bool",
+          "location": "body",
+          "description": "True for allowing the company to use the HyperDetect service, False otherwise. If the property is not present, the current value is not changed."
+        },
+        {
+          "name": "manageIntegrityMonitoring",
+          "type": "bool",
+          "location": "body",
+          "description": "True for allowing the company to use the Integrity Monitoring service, False otherwise. If the property is not present, the current value is not changed."
+        },
+        {
+          "name": "manageMobileSecurity",
+          "type": "bool",
+          "location": "body",
+          "description": "True for allowing the company to use the Mobile Security service, False otherwise. If the property is not present, the current value is not changed."
+        },
+        {
+          "name": "managePHASR",
+          "type": "bool",
+          "location": "body",
+          "description": "True for allowing the company to use the PHASR service, False otherwise. If the property is not present, the current value is not changed. NoteThis parameter can not be used if any of the managePHASR and managePHASRResell settings under the ownUse and resell object parameters exist."
+        },
+        {
+          "name": "managePatchManagement",
+          "type": "bool",
+          "location": "body",
+          "description": "True for allowing the company to use the Patch Management service, False otherwise. If the property is not present, the current value is not changed. This parameter is available when assignedProductType is set to 0 (Endpoint Security) or 5 (Bitdefender PHASR)."
+        },
+        {
+          "name": "manageRemoteEnginesScanning",
+          "type": "bool",
+          "location": "body",
+          "description": "True for allowing the company to use the Security for Virtualized Environments service, False otherwise. If the property is not present, the current value is not changed. ImportantThis setting can only be set to true if assignedProtectionModel has the aLaCarte value assigned."
+        },
+        {
+          "name": "manageSandboxAnalyzer",
+          "type": "bool",
+          "location": "body",
+          "description": "True for allowing the company to use the Sandbox Analyzer service, False otherwise. If the property is not present, the current value is not changed."
+        },
+        {
+          "name": "removeReservedSlots",
+          "type": "bool",
+          "location": "body",
+          "description": "True for allowing dynamic provisioning of license seats to this company and its clients, False otherwise. Default value is False."
+        },
+        {
+          "name": "reservedSlots",
+          "type": "int",
+          "location": "body",
+          "description": "The number of seats ensured for the target company from the parent's company total amount of seats. The default value is 0, meaning that no seats will be reserved. If no value is passed, the parameter preserves its previous value."
+        }
+      ]
+    },
+    {
+      "name": "live_search_run",
+      "description": "Create tasks that retrieve information about events and system statistics directly from online endpoints. The task uses Osquery, an operating system instrumentation framework that uses the SQLite query language. Required: companyId, query, s3UploadConfig. Optional: endpoints, operatingSystems. Returns the new LiveSearchRunResponse.",
+      "method": "POST",
+      "path": "/v1.0/jsonrpc/network#runLiveSearchQuery",
+      "params": [
+        {
+          "name": "companyId",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the company that the target endpoints belong to. No additional requirements. Example 'companyId': '669659908c2fa1ace601****'",
+          "required": true
+        },
+        {
+          "name": "endpoints",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "A list of endpoint IDs. Determines where the query is ran. The ID must belong to an endpoint managed by the target company. Default value: all endpoints in the target company. NoteThe default value is automatically used when the array does not contain any values."
+        },
+        {
+          "name": "operatingSystems",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "The operating system of the target endpoints. TipThis parameter is best suited to run a query on all the endpoints of the target company that use a specific operating system. To do this, leave the endpoints array blank. No additional requirements."
+        },
+        {
+          "name": "query",
+          "type": "string",
+          "location": "body",
+          "description": "The query that will run on all endpoints. Refer to this KB article for more information on queries. Example 'query': 'select * from time;'",
+          "required": true
+        },
+        {
+          "name": "s3UploadConfig",
+          "type": "object",
+          "location": "body",
+          "description": "The S3 bucket where the returned data is stored. Refer to s3UploadConfig Example 's3UploadConfig': { 'bucket': 'test-bucket-name', 'region': 'eu-north-1', 'roleArn': 'arn:aws:iam::000000000000:role/role-name', 'externalId': '000000000000000000000' }",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "maintenance_windows_approved-patches",
+      "description": "Returns a list of manually approved patches from the endpoints of a specific company. Optional: companyId.",
+      "method": "POST",
+      "path": "/v1.0/jsonrpc/maintenanceWindows#getManuallyApprovedPatches",
+      "params": [
+        {
+          "name": "companyId",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the company you want to retrieve the patches for. Default value: the company the API key used to make the request belongs to."
+        }
+      ]
+    },
+    {
+      "name": "maintenance_windows_assign",
+      "description": "Assigns a set of maintenance windows to a policy. Required: maintenanceWindowIds, policyId. Returns the new MaintenanceWindowsAssignResponse.",
+      "method": "POST",
+      "path": "/v1.0/jsonrpc/maintenanceWindows#assignMaintenanceWindows",
+      "params": [
+        {
+          "name": "maintenanceWindowIds",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "The list of maintenance windows identified by ID to assign to the policy. NoteThe maintenance window must be from the same company as the policy. maintenanceWindowIds array can contain only 1 maintenance window of each type.",
+          "required": true
+        },
+        {
+          "name": "policyId",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the policy to assign the maintenance windows to.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "maintenance_windows_create",
+      "description": "Creates a maintenance window which you can use in Patch Management. Required: allowChangeByOtherUsers, name, settings. Optional: companyId. Returns the new MaintenanceWindowsCreateResponse.",
+      "method": "POST",
+      "path": "/v1.0/jsonrpc/maintenanceWindows#createPatchManagementMaintenanceWindow",
+      "params": [
+        {
+          "name": "allowChangeByOtherUsers",
+          "type": "bool",
+          "location": "body",
+          "description": "Indicates if the target is a Customer company. No additional requirements. Example 'allowChangeByOtherUsers': '1'",
+          "required": true
+        },
+        {
+          "name": "companyId",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the company where you want the maintenance window created. Default value: The ID of the company linked to the user who generated the API key. Requirements: The user must have Manage Company rights for the selected company."
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "The name you want to assign to the Patch Management window. Possible values: Must be between 1 and 80 characters. Must be unique. Example 'name': 'QXPzQWvgtqtI4FlCRSU9z'",
+          "required": true
+        },
+        {
+          "name": "settings",
+          "type": "array",
+          "location": "body",
+          "description": "Use this array to configure Patch Management settings for the maintenance window you are creating. Refer to Objects Example 'settings': { 'downloadSettings': {...}, 'installPatchesSettings': {...}, 'scanPatchesSettings': {...} },",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "maintenance_windows_delete",
+      "description": "Deletes a maintenance window. Required: id. Returns the new MaintenanceWindowsDeleteResponse.",
+      "method": "POST",
+      "path": "/v1.0/jsonrpc/maintenanceWindows#deleteMaintenanceWindow",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the maintenance window to be deleted.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "maintenance_windows_get",
+      "description": "Retrieves all the information related to a maintenance window. It can only apply to your own company or companies that can be managed from above. Required: id. Returns the new MaintenanceWindowsGetResponse.",
+      "method": "POST",
+      "path": "/v1.0/jsonrpc/maintenanceWindows#getMaintenanceWindowDetails",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the queried maintenance window",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "maintenance_windows_list",
+      "description": "Will display a list of available Maintenance Windows for a company. It only applies for companies where the user has visibility. Optional: companyId, page, perPage (plus 1 more). Returns the new MaintenanceWindowsListResponse.",
+      "method": "POST",
+      "path": "/v1.0/jsonrpc/maintenanceWindows#getMaintenanceWindowsList",
+      "params": [
+        {
+          "name": "companyId",
+          "type": "string",
+          "location": "body",
+          "description": "Company identifier"
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "location": "body",
+          "description": "The results page number. The default value is 1."
+        },
+        {
+          "name": "perPage",
+          "type": "int",
+          "location": "body",
+          "description": "The number of items displayed in a page. The upper limit is 100 items per page. Default value: 30 items per page"
+        },
+        {
+          "name": "type",
+          "type": "int",
+          "location": "body",
+          "description": "The type of maintenance windows to retrieve. If not provided, all windows will be retrieved. The only available value is 0 - Patch Management."
+        }
+      ]
+    },
+    {
+      "name": "maintenance_windows_unassign",
+      "description": "Unassigns a set of maintenance windows from a policy. Required: maintenanceWindowIds, policyId. Returns the new MaintenanceWindowsUnassignResponse.",
+      "method": "POST",
+      "path": "/v1.0/jsonrpc/maintenanceWindows#unassignMaintenanceWindows",
+      "params": [
+        {
+          "name": "maintenanceWindowIds",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "The list of IDs belonging to the maintenance windows that will be unassigned from the policy. NotemaintenanceWindowIds array can contain only 1 maintenance window of each type.",
+          "required": true
+        },
+        {
+          "name": "policyId",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the policy to unassign the maintenance windows from. NoteThe policyId must belong to a company where the user has visibility.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "maintenance_windows_update",
+      "description": "Modifies a patch management maintenance window. Required: allowChangeByOtherUsers, id, name, settings. Optional: companyId. Returns the new MaintenanceWindowsUpdateResponse.",
+      "method": "POST",
+      "path": "/v1.0/jsonrpc/maintenanceWindows#updatePatchManagementMaintenanceWindow",
+      "params": [
+        {
+          "name": "allowChangeByOtherUsers",
+          "type": "bool",
+          "location": "body",
+          "description": "Indicates if the target is a Customer company. No additional requirements. Example 'allowChangeByOtherUsers': '1'",
+          "required": true
+        },
+        {
+          "name": "companyId",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the company where you want the maintenance window created. Default value: The ID of the company linked to the user who generated the API key. Requirements: The user must have Manage Company rights for the selected company."
+        },
+        {
+          "name": "id",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the maintenance window (inside params, alongside settings) No additional requirements. Example 'id': '61974ab63bdfe97a6c34fe4d'",
+          "required": true
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "The name you want to assign to the Patch Management window. Possible values: Must be between 1 and 80 characters. Must be unique. Example 'name': 'QXPzQWvgtqtI4FlCRSU9z'",
+          "required": true
+        },
+        {
+          "name": "settings",
+          "type": "array",
+          "location": "body",
+          "description": "Use this array to configure Patch Management settings for the maintenance window you are creating. Refer to Objects Example 'settings': { 'downloadSettings': {...}, 'installPatchesSettings': {...}, 'scanPatchesSettings': {...} },",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "notifications_configure",
+      "description": "Configures the notification settings for a given user account. Optional: accountId, deleteAfter, emailAddresses (plus 4 more). Returns the new NotificationsConfigureResponse.",
+      "method": "POST",
+      "path": "/v1.0/jsonrpc/accounts#configureNotificationsSettings",
+      "params": [
+        {
+          "name": "accountId",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the account for which the notification settings are configured. If no value is provided, the settings will be applied to the account which generated the API key. NoteThis parameter is required when using a service API key."
+        },
+        {
+          "name": "deleteAfter",
+          "type": "int",
+          "location": "body",
+          "description": "The number of days after which generated notifications will be automatically deleted. Valid values are between 1 and 365. The default value is 30 days."
+        },
+        {
+          "name": "emailAddresses",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "A list of additional email addresses to be used when sending notifications."
+        },
+        {
+          "name": "includeDeviceFQDN",
+          "type": "bool",
+          "location": "body",
+          "description": "This option specifies whether the FQDN will be included in the notification sent by email, when it is available, or not. The value should be True to include the FQDN respectively False to not include it. The default value is False."
+        },
+        {
+          "name": "includeDeviceName",
+          "type": "bool",
+          "location": "body",
+          "description": "This option specifies whether the device name will be included in the notification sent by email, when it is available, or not. The value should be True to include the device name respectively False to not include it. The default value is False."
+        },
+        {
+          "name": "notificationsSettings",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "A list of objects containing the notification settings to be configured. Only the specified notifications will be updated. Existing values are preserved for omitted settings."
+        },
+        {
+          "name": "sendOnlyPlainTextEmail",
+          "type": "bool",
+          "location": "body",
+          "description": "This option specifies whether notification emails should be sent in plain text only. The value should be True to send emails in plain text, or False if you want to use HTML format."
+        }
+      ]
+    },
+    {
+      "name": "notifications_get",
+      "description": "Returns the notifications settings. Optional: accountId.",
+      "method": "POST",
+      "path": "/v1.0/jsonrpc/accounts#getNotificationsSettings",
+      "params": [
+        {
+          "name": "accountId",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the account for which the notifications settings are retrieved. If not provided, the method will retrieve the notifications settings for the account which has generated the API key. NoteThis parameter is required when using a service API key."
+        }
+      ]
+    },
+    {
+      "name": "packages_create",
+      "description": "Creates an installation package. Required: packageName. Optional: companyId, deploymentOptions, description (plus 6 more). Returns the new PackagesCreateResponse.",
+      "method": "POST",
+      "path": "/v1.0/jsonrpc/packages#createPackage",
+      "params": [
+        {
+          "name": "companyId",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the company. The default value is the ID of the company linked to the user who..."
+        },
+        {
+          "name": "deploymentOptions",
+          "type": "object",
+          "location": "body",
+          "description": "An object containing installation options: type, an integer indicating the entity to which the endpoint will connect to. This entity will deliver the installation kit and updates. Possible values are: 1 for regular deploy from the Bitdefender Update Server; 2 for deployments through a Relay."
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "location": "body",
+          "description": "The description of the package. If no value is passed, the description will be an empty string."
+        },
+        {
+          "name": "language",
+          "type": "string",
+          "location": "body",
+          "description": "The language of the package in the LL_CC format, where LL is the language and CC is the country. The supported languages are: en_US, es_ES, de_DE, fr_FR, ro_RO, pl_PL, pt_BR, it_IT, ru_RU. If not specified, the default value is en_US."
+        },
+        {
+          "name": "modules",
+          "type": "object",
+          "location": "body",
+          "description": "An object with the modules to be enabled/disabled. The keys can be: antimalware advancedThreatControl firewall contentControl NoteIf contentControl is present, it's value will automatically be assigned to the userControl, antiphishing, and trafficScan."
+        },
+        {
+          "name": "packageName",
+          "type": "string",
+          "location": "body",
+          "description": "The name of the package.",
+          "required": true
+        },
+        {
+          "name": "productType",
+          "type": "int",
+          "location": "body",
+          "description": "This parameter determines the operation mode of the security agent. Possible values: 0 - for Detection and prevention mode, default for full endpoint security agents. 3 - for EDR (Report only) mode, default for Bitdefender EDR agents. 5 - for PHASR Standalone mode."
+        },
+        {
+          "name": "roles",
+          "type": "object",
+          "location": "body",
+          "description": "An object containing the roles to be enabled or disabled: relay with the following possible values: 1 for enabling the Relay role, and 0 to disable it. By default, the Relay role is disabled. exchange with the following possible values: 1 for enabling the Exchange role, and 0 to disable it."
+        },
+        {
+          "name": "scanMode",
+          "type": "object",
+          "location": "body",
+          "description": "An object with the scan mode settings. Object description: The accepted keys are: type, vms, computers, and ec2 if the AWS integration is set up. The type value can be 1 (automatic) or 2 (for custom mode)."
+        },
+        {
+          "name": "settings",
+          "type": "object",
+          "location": "body",
+          "description": "An object with other settings of the package. The values can be: removeCompetitors, uninstallPassword, customInstallationPath, customGroupId. The value for removeCompetitors can be 1 (enabled) or 0 (disabled)."
+        }
+      ]
+    },
+    {
+      "name": "packages_delete",
+      "description": "Deletes a package identified through the provided package ID. Required: packageId. Returns the new PackagesDeleteResponse.",
+      "method": "POST",
+      "path": "/v1.0/jsonrpc/packages#deletePackage",
+      "params": [
+        {
+          "name": "packageId",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the package to be deleted.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "packages_get",
+      "description": "Retrieves information about the configuration of a specific package identified through the provided ID. Required: packageId. Returns the new PackagesGetResponse.",
+      "method": "POST",
+      "path": "/v1.0/jsonrpc/packages#getPackageDetails",
+      "params": [
+        {
+          "name": "packageId",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the package for which details should be retrieved.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "packages_install-links",
+      "description": "Returns the installation links and full kits for an installation package. Optional: companyId, packageName, ringId.",
+      "method": "POST",
+      "path": "/v1.0/jsonrpc/packages#getInstallationLinks",
+      "params": [
+        {
+          "name": "companyId",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the managed company. If the parameter is not included in the request, the installation links available for all managed companies will be returned."
+        },
+        {
+          "name": "packageName",
+          "type": "string",
+          "location": "body",
+          "description": "The name of the package. If the parameter is not included in the request, all packages will be returned."
+        },
+        {
+          "name": "ringId",
+          "type": "int",
+          "location": "body",
+          "description": "When included in the request, the metod will return the installation package associated with a specific staging ring. No additional requirements. Default value: 0 Possible values: 0 - Slow ring 3 - Production ring 4 - Test 1 ring 5 - Test 2 ring"
+        }
+      ]
+    },
+    {
+      "name": "packages_list",
+      "description": "Returns the list of available packages. Optional: companyId, page, perPage.",
+      "method": "POST",
+      "path": "/v1.0/jsonrpc/packages#getPackagesList",
+      "params": [
+        {
+          "name": "companyId",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the company for which the packages list is retrieved. The default value is the company of the user who has generated the API key. If not passed, the packages available to the company are returned."
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "location": "body",
+          "description": "The page number of results. Default page number is 1."
+        },
+        {
+          "name": "perPage",
+          "type": "int",
+          "location": "body",
+          "description": "The number of items displayed in a page."
+        }
+      ]
+    },
+    {
+      "name": "packages_update",
+      "description": "Update an installation package. Required: packageId, packageName. Optional: companyId, deploymentOptions, description (plus 6 more). Returns the new PackagesUpdateResponse.",
+      "method": "POST",
+      "path": "/v1.0/jsonrpc/packages#updatePackage",
+      "params": [
+        {
+          "name": "companyId",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the company. The default value is the ID of the company linked to the user who..."
+        },
+        {
+          "name": "deploymentOptions",
+          "type": "object",
+          "location": "body",
+          "description": "An object containing installation options: type, an integer indicating the entity to which the endpoint will connect to. This entity will deliver the installation kit and updates. Possible values are: 1 for regular deploy from the Bitdefender Update Server; 2 for deployments through a Relay."
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "location": "body",
+          "description": "The description of the package. If no value is passed, the description will be an empty string."
+        },
+        {
+          "name": "language",
+          "type": "string",
+          "location": "body",
+          "description": "The language of the package in the LL_CC format, where LL is the language and CC is the country. The supported languages are: en_US, es_ES, de_DE, fr_FR, ro_RO, pl_PL, pt_BR, it_IT, ru_RU. If not specified, the default value is en_US."
+        },
+        {
+          "name": "modules",
+          "type": "object",
+          "location": "body",
+          "description": "An object with the modules to be enabled/disabled. The keys can be: advancedThreatControl firewall contentControl NoteIf contentControl is present, it's value will automatically be assigned to the userControl, antiphishing, and trafficScan."
+        },
+        {
+          "name": "packageId",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the package.",
+          "required": true
+        },
+        {
+          "name": "packageName",
+          "type": "string",
+          "location": "body",
+          "description": "The name of the package.",
+          "required": true
+        },
+        {
+          "name": "productType",
+          "type": "int",
+          "location": "body",
+          "description": "This parameter determines the operation mode of the security agent. Possible values: 0 - for Detection and prevention mode, default for full endpoint security agents. 3 - for EDR (Report only) mode, default for Bitdefender EDR agents."
+        },
+        {
+          "name": "roles",
+          "type": "object",
+          "location": "body",
+          "description": "An object containing the roles to be enabled or disabled: relay with the following possible values: 1 for enabling the Relay role, and 0 to disable it. By default, the Relay role is disabled. exchange with the following possible values: 1 for enabling the Exchange role, and 0 to disable it."
+        },
+        {
+          "name": "scanMode",
+          "type": "object",
+          "location": "body",
+          "description": "An object with the scan mode settings. Object description: The accepted keys are: type, vms, computers, and ec2 if the AWS integration is set up. The type value can be 1 (automatic) or 2 (for custom mode)."
+        },
+        {
+          "name": "settings",
+          "type": "object",
+          "location": "body",
+          "description": "An object with other settings of the package. The values can be: removeCompetitors, uninstallPassword, customInstallationPath, customGroupId. The value for removeCompetitors can be 1 (enabled) or 0 (disabled)."
+        }
+      ]
+    },
+    {
+      "name": "patches_installed",
+      "description": "Request a list of installed patches that are associated to specific endpoints or a specific company. Optional: companyId, endpointsIds, filters (plus 2 more). Returns the new PatchesInstalledResponse.",
+      "method": "POST",
+      "path": "/v1.0/jsonrpc/patchManagement#getInstalledPatches",
+      "params": [
+        {
+          "name": "companyId",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the company for which you want to retrieve patch information for."
+        },
+        {
+          "name": "endpointsIds",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "The ID of the endpoint for which you want to retrieve patch information for. No additional requirements. Example 'endpointsIds': ['67bc4a36bf64962c160eb6e4', '67bc4a36bf64962c160eb6d6'],"
+        },
+        {
+          "name": "filters",
+          "type": "object",
+          "location": "body",
+          "description": "Determines the type of patches should be included in the response. Default value: If this parameter is not included in the request, all filters will be returned, regardless of type of severity level. Example 'filters':{ 'type': 0, 'severity': 1 },"
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "location": "body",
+          "description": "The results page number. Default value: 1."
+        },
+        {
+          "name": "perPage",
+          "type": "int",
+          "location": "body",
+          "description": "The number of results displayed per page. The upper limit is 100 items per page. Default value: 30."
+        }
+      ]
+    },
+    {
+      "name": "patches_missing",
+      "description": "Request a list of missing patches that are associated to specific endpoints or a specific company. Optional: companyId, endpointsIds, filters (plus 2 more). Returns the new PatchesMissingResponse.",
+      "method": "POST",
+      "path": "/v1.0/jsonrpc/patchManagement#getMissingPatches",
+      "params": [
+        {
+          "name": "companyId",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the company for which you want to retrieve patch information for."
+        },
+        {
+          "name": "endpointsIds",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "The ID of the endpoint for which you want to retrieve patch information for. No additional requirements. Example 'endpointsIds': ['67bc4a36bf64962c160eb6e4', '67bc4a36bf64962c160eb6d6'],"
+        },
+        {
+          "name": "filters",
+          "type": "object",
+          "location": "body",
+          "description": "Determines the type of patches should be included in the response. Default value: If this parameter is not included in the request, all filters will be returned, regardless of type of severity level. Example 'filters':{ 'type': 0, 'severity': 1 },"
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "location": "body",
+          "description": "The results page number. Default value: 1."
+        },
+        {
+          "name": "perPage",
+          "type": "int",
+          "location": "body",
+          "description": "The number of results displayed per page. The upper limit is 100 items per page. Default value: 30."
+        }
+      ]
+    },
+    {
+      "name": "phasr_apply",
+      "description": "Applies recommendations by ID and returns success and failure details for each one requested. Required: recommendationIds. Optional: companyId.",
+      "method": "POST",
+      "path": "/v1.0/jsonrpc/phasr#applyRecommendations",
+      "params": [
+        {
+          "name": "companyId",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the company the recommendations you want to apply belong to. Must be a valid company ID for which you have management rights to. Default value: The ID of the company associated with the API key used for the request. Example 'companyId': '67fe8595d4db0d536908ec92'"
+        },
+        {
+          "name": "recommendationIds",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "The IDs of the recommendations you want to apply. Must be valid recommendation IDs and must belong to the same company. Example 'recommendationIds': [ '68480f4e11e8dc005bb0f9e7', '6853e32b4783f7a2f15582c4', '6853e32b4783f7a2f15582cf' ]",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "phasr_edit-rules-access",
+      "description": "Restrict or allow access to behavioral profiles based on the recommendation generated by a specific PHASR rule. Required: action, ruleId, targets. Optional: companyId, targetType. Returns the new PhasrEditRulesAccessResponse.",
+      "method": "POST",
+      "path": "/v1.0/jsonrpc/phasr#editMonitoredRulesAccess",
+      "params": [
+        {
+          "name": "action",
+          "type": "int",
+          "location": "body",
+          "description": "The action that is to be taken on the specified behavioral profiles. Possible values: 0 - Allow access - Grants access for the specified behavioral profiles to the assets identified in the recommendation generated by the specified rule.",
+          "required": true
+        },
+        {
+          "name": "companyId",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the company the rule belongs to. Default value: The ID of the company associated with the API key used for the request. Example 'companyId': '68306c15c9b5cb3e920ffe22'"
+        },
+        {
+          "name": "ruleId",
+          "type": "int",
+          "location": "body",
+          "description": "The ID of the rule on which the recommendation is based. No additional requirements. Example 'ruleId': 1",
+          "required": true
+        },
+        {
+          "name": "targetType",
+          "type": "int",
+          "location": "body",
+          "description": "The type of the specified behavioral profiles. Possible values: 0 - Profile"
+        },
+        {
+          "name": "targets",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "A list of the IDs of the behavioral profiles to which you want to apply the recommendation generated by the specified rule. A behavioral profile ID is constructed by combining the identityId of a user with the resourceId of a device they are paired with.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "phasr_identities",
+      "description": "Retrieve all detected identities for a company. Optional: companyId, page, perPage (plus 1 more). Returns the new PhasrIdentitiesResponse.",
+      "method": "POST",
+      "path": "/v1.0/jsonrpc/phasr#getAllCompanyIdentities",
+      "params": [
+        {
+          "name": "companyId",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the company you want to retrieve identity information for. Must be a valid company ID for which you have management rights to. Default value: The ID of the company associated with the API key used for the request. Example 'companyId': '67fe8595d4db0d536908ec92'"
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "location": "body",
+          "description": "The results page number. Default value: 1."
+        },
+        {
+          "name": "perPage",
+          "type": "int",
+          "location": "body",
+          "description": "The number of results displayed per page. The upper limit is 100 items per page. Default value: 30."
+        },
+        {
+          "name": "searchString",
+          "type": "string",
+          "location": "body",
+          "description": "A text value used to search and return only the identities whose names match the specified string. No additional requirements. If not included, the response will include all identities. Example 'searchString': 'BDAdmin'"
+        }
+      ]
+    },
+    {
+      "name": "phasr_monitored-rules",
+      "description": "Displays all the monitored PHASR rules across all behavioral categories for a specific company. Optional: categories, companyId, page (plus 1 more). Returns the new PhasrMonitoredRulesResponse.",
+      "method": "POST",
+      "path": "/v1.0/jsonrpc/phasr#getMonitoredRules",
+      "params": [
+        {
+          "name": "categories",
+          "type": "array",
+          "location": "body",
+          "description": "Determines what type of rules are returned by the method. Possible values: 1 - Tampering tool 2 - Hack tool 3 - Remote tool 4 - Miner 5 - Lolbin Example 'categories': [1, 3, 5]"
+        },
+        {
+          "name": "companyId",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the company you want to retrieve the monitored rules for. Default value: The ID of the company associated with the API key used for the request. Example 'companyId': '68306c15c9b5cb3e920ffe22'"
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "location": "body",
+          "description": "The results page number. Default value: 1"
+        },
+        {
+          "name": "perPage",
+          "type": "int",
+          "location": "body",
+          "description": "The number of results displayed per page. The upper limit is 300 items per page. Default value: 30"
+        }
+      ]
+    },
+    {
+      "name": "phasr_profiles",
+      "description": "Retrieve information for the behavioral profiles that a specific recommendation applies to. Required: objectId. Optional: companyId, page, perPage. Returns the new PhasrProfilesResponse.",
+      "method": "POST",
+      "path": "/v1.0/jsonrpc/phasr#getRecommendationProfiles",
+      "params": [
+        {
+          "name": "companyId",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the company the targeted recommendation belongs to. Must be a valid company ID for which you have management rights to. Default value: The ID of the company associated with the API key used for the request. Example 'companyId': '456def456def456def456def'"
+        },
+        {
+          "name": "objectId",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the recommendation you want to retrieve the behavioral profiles for. Must be a valid recommendation ID. Example 'objectId': '123abc123abc123abc123abc'",
+          "required": true
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "location": "body",
+          "description": "The results page number. Default value: 1."
+        },
+        {
+          "name": "perPage",
+          "type": "int",
+          "location": "body",
+          "description": "The number of results displayed per page. The upper limit is 100 items per page. Default value: 30."
+        }
+      ]
+    },
+    {
+      "name": "phasr_recommendations",
+      "description": "Retrieve PHASR recommendations for a company. Optional: actionTaken, behavioralProfileIdentities, behavioralProfileResources (plus 11 more). Returns the new PhasrRecommendationsResponse.",
+      "method": "POST",
+      "path": "/v1.0/jsonrpc/phasr#getPhasrRecommendations",
+      "params": [
+        {
+          "name": "actionTaken",
+          "type": "array",
+          "location": "body",
+          "description": "When included, the response will only returns recommendations where a specific action was taken as a result of the recommendation. Possible values: 0 - Action needed. The user has to review the recommendations and take action on them. 1 - Applied."
+        },
+        {
+          "name": "behavioralProfileIdentities",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Only include recommendations for the identities associated with the specified identifiers. Values must be in a valid behavioral profile identities format."
+        },
+        {
+          "name": "behavioralProfileResources",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Only include recommendations for the resources associated with the specified identifiers. Values must be in a valid behavioral profile resource format."
+        },
+        {
+          "name": "categoryIds",
+          "type": "array",
+          "location": "body",
+          "description": "When included, the response will only returns recommendations of the specified type. Possible values: 1 - tampering tool 2 - hack tool 3 - remote tool 4 - miner 5 - lol bin Example 'categoryIds': [4, 3, 2]"
+        },
+        {
+          "name": "companyId",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the company you want to retrieve PHASR recommendations for. Must be a valid company ID for which you have management rights to. Default value: The ID of the company associated with the API key used for the request. Example 'companyId': '1234567890abcdef'"
+        },
+        {
+          "name": "createdOnMax",
+          "type": "string",
+          "location": "body",
+          "description": "Only include recommendations created before this specific date and time. The value must be in ISO 8601 date format. Example 'createdOnMax': '2025-06-06T13:21:00.704Z'"
+        },
+        {
+          "name": "createdOnMin",
+          "type": "string",
+          "location": "body",
+          "description": "Only include recommendations created after this specific date and time. The value must be in ISO 8601 date format. Example 'createdOnMin': '2025-05-07T13:21:00.704Z'"
+        },
+        {
+          "name": "dir",
+          "type": "string",
+          "location": "body",
+          "description": "Determines the direction in which the results are sorted: ascending or descending. Possible values: ASC DESC Example 'dir': 'ASC'"
+        },
+        {
+          "name": "objectId",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the specific recommendation you want to retrieve. Must be a valid recommendation ID. Example 'objectId': '68480f4e11e8dc005bb0f9e7',"
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "location": "body",
+          "description": "The results page number. Default value: 1."
+        },
+        {
+          "name": "perPage",
+          "type": "int",
+          "location": "body",
+          "description": "The number of results displayed per page. The upper limit is 100 items per page. Default value: 30."
+        },
+        {
+          "name": "ruleIds",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "The IDs of the rules for which you want to retrieve recommendations. The IDs must be in the {ruleId}-{type} format. Example 'ruleIds': ['696-0', '596-1']"
+        },
+        {
+          "name": "sort",
+          "type": "string",
+          "location": "body",
+          "description": "Determines the basis on which the recommendations will be ordered in the response. Possible values: attackSurfaceReduction createdOn Example 'sort': 'attackSurfaceReduction'"
+        },
+        {
+          "name": "type",
+          "type": "array",
+          "location": "body",
+          "description": "The type of the specific recommendation you want to retrieve. Possible values: 0 - Allow access. This retrieves allow recommendations. 1 - Restrict access. This retrieves restrict recommendations. 2 - Allow access request. This retrieves allow access requests. Example 'type': [0, 1, 2]"
+        }
+      ]
+    },
+    {
+      "name": "phasr_request-access-action",
+      "description": "Takes action on request access recommendations by either allowing or denying them. This method processes multiple recommendations in bulk and returns detailed status for each operation. Required: action, recommendationIds. Optional: companyId.",
+      "method": "POST",
+      "path": "/v1.0/jsonrpc/phasr#takeRequestAccessAction",
+      "params": [
+        {
+          "name": "action",
+          "type": "string",
+          "location": "body",
+          "description": "The available action for the recommendations. Must represent one of the allowed values: 'allow' or 'deny'",
+          "required": true
+        },
+        {
+          "name": "companyId",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the company the recommendations you want to apply belong to. Must be a valid company ID for which you have management rights to. Default value: The ID of the company associated with the API key used for the request. Example 'companyId': '67fe8595d4db0d536908ec92'"
+        },
+        {
+          "name": "recommendationIds",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "The IDs of the recommendations you want to apply. Must be valid recommendation IDs and must belong to the same company. Example 'recommendationIds': [ '68480f4e11e8dc005bb0f9e7', '6853e32b4783f7a2f15582c4', '6853e32b4783f7a2f15582cf' ]",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "phasr_resources",
+      "description": "Retrieve all detected resources for a company. Optional: companyId, page, perPage (plus 1 more). Returns the new PhasrResourcesResponse.",
+      "method": "POST",
+      "path": "/v1.0/jsonrpc/phasr#getAllCompanyResources",
+      "params": [
+        {
+          "name": "companyId",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the company you want to retrieve resource information for. Must be a valid company ID for which you have management rights to. Default value: The ID of the company associated with the API key used for the request. Example 'companyId': '67fe8595d4db0d536908ec92'"
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "location": "body",
+          "description": "The results page number. Default value: 1."
+        },
+        {
+          "name": "perPage",
+          "type": "int",
+          "location": "body",
+          "description": "The number of results displayed per page. The upper limit is 100 items per page. Default value: 30."
+        },
+        {
+          "name": "searchString",
+          "type": "string",
+          "location": "body",
+          "description": "A text value used to search and return only the resources whose names match the specified string. No additional requirements. If not included, the response will include all resources. Example 'searchString': 'AUTHORITY'"
+        }
+      ]
+    },
+    {
+      "name": "phasr_rule-data",
+      "description": "Retrieved detailed information regarding a specific PHASR rule and the behavioral profiles it applies to. Required: ruleId. Optional: companyId, page, perPage (plus 1 more). Returns the new PhasrRuleDataResponse.",
+      "method": "POST",
+      "path": "/v1.0/jsonrpc/phasr#getMonitoredRuleData",
+      "params": [
+        {
+          "name": "companyId",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the company to which the specified rule belongs. Default value: The ID of the company associated with the API key used for the request. Example 'companyId': '68306c15c9b5cb3e920ffe22'"
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "location": "body",
+          "description": "The results page number. Default value: 1."
+        },
+        {
+          "name": "perPage",
+          "type": "int",
+          "location": "body",
+          "description": "The number of results displayed per page. The upper limit is 100 items per page. Default value: 30."
+        },
+        {
+          "name": "profileType",
+          "type": "int",
+          "location": "body",
+          "description": "Determines the types of behavioral profiles that are included in the response. Possible values: 1 - Profiles using tools 2 - Profiles not using tools 3 - Profiles restricted by autopilot 4 - Profiles restricted by direct control Default value: If the parameter is not included in the request, all res..."
+        },
+        {
+          "name": "ruleId",
+          "type": "int",
+          "location": "body",
+          "description": "The ID of the rule you want to retrieve information for. No additional requirements. Example 'ruleId': 61",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "policies_get",
+      "description": "Retrieves all information related to a security policy. Required: policyId. Returns the new PoliciesGetResponse.",
+      "method": "POST",
+      "path": "/v1.1/jsonrpc/policies#getPolicyDetails",
+      "params": [
+        {
+          "name": "policyId",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the policy you want to get details for. Must be a valid policy ID that the user has access to managing. Example 'policyId' : '55828d66b1a43de92c712345'",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "policies_list",
+      "description": "Retrieves the list of available policies. Optional: companyId, page, perPage. Returns the new PoliciesListResponse.",
+      "method": "POST",
+      "path": "/v1.0/jsonrpc/policies#getPoliciesList",
+      "params": [
+        {
+          "name": "companyId",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the company for which the policies are retrieved.The default value is the company of the user who has generated the API key. If not passed, the policies available to the company are returned."
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "location": "body",
+          "description": "The page of results. The default value is 1."
+        },
+        {
+          "name": "perPage",
+          "type": "int",
+          "location": "body",
+          "description": "The number of items displayed in a page."
+        }
+      ]
+    },
+    {
+      "name": "policies_set-modules",
+      "description": "Enable or disable the settings associated to a specific policy. Required: policyId, settings. Returns the new PoliciesSetModulesResponse.",
+      "method": "POST",
+      "path": "/v1.0/jsonrpc/policies#setPolicyModulesState",
+      "params": [
+        {
+          "name": "policyId",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the policy you want to modify. The user making the request must have the managePoliciesRead and managePoliciesWrite user rights for the company the target policy belongs to. Example 'policyId': '683ee75b6c9598ab03098f92',",
+          "required": true
+        },
+        {
+          "name": "settings",
+          "type": "object",
+          "location": "body",
+          "description": "The setting you want to modify. This object contains the settings that will be changed as a result of this request and their new values.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "push_get",
+      "description": "Gets the push event settings. Returns the new PushGetResponse.",
+      "method": "POST",
+      "path": "/v1.0/jsonrpc/push#getPushEventSettings",
+      "params": []
+    },
+    {
+      "name": "push_reset-stats",
+      "description": "Resets the push event statistics and errors. Returns the new PushResetStatsResponse.",
+      "method": "POST",
+      "path": "/v1.0/jsonrpc/push#resetPushEventStats",
+      "params": []
+    },
+    {
+      "name": "push_set",
+      "description": "Sets the push event settings. Required: serviceSettings, serviceType, status, subscribeToEventTypes. Optional: subscribeToCompanies. Returns the new PushSetResponse.",
+      "method": "POST",
+      "path": "/v1.0/jsonrpc/push#setPushEventSettings",
+      "params": [
+        {
+          "name": "serviceSettings",
+          "type": "object",
+          "location": "body",
+          "description": "Specific settings for each service type. For information regarding the service settings, refer to Service Type Settings.",
+          "required": true
+        },
+        {
+          "name": "serviceType",
+          "type": "string",
+          "location": "body",
+          "description": "Type of the web service. Valid values: jsonRPC, splunk, cef, qradar, azureSentinel, and azureSentinelV2.",
+          "required": true
+        },
+        {
+          "name": "status",
+          "type": "int",
+          "location": "body",
+          "description": "0 - disabled, 1 - enabled",
+          "required": true
+        },
+        {
+          "name": "subscribeToCompanies",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "The list of companies under your management for which you want to receive the events. You need to mention your own company as well. The list cannot be empty. If the field is missing or has the null value, you will receive events for all companies you manage."
+        },
+        {
+          "name": "subscribeToEventTypes",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "List of event types to be sent to the web service.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "push_stats",
+      "description": "Gets the push event statistics and errors. Returns the new PushStatsResponse.",
+      "method": "POST",
+      "path": "/v1.0/jsonrpc/push#getPushEventStats",
+      "params": []
+    },
+    {
+      "name": "push_test",
+      "description": "Sends a test event. Required: eventType. Optional: data. Returns the new PushTestResponse.",
+      "method": "POST",
+      "path": "/v1.0/jsonrpc/push#sendTestPushEvent",
+      "params": [
+        {
+          "name": "data",
+          "type": "object",
+          "location": "body",
+          "description": "Test events are created from templates. This parameter can be used to overwrite data in the returned event example."
+        },
+        {
+          "name": "eventType",
+          "type": "string",
+          "location": "body",
+          "description": "The type of event you want to send a test for. Possible values: hwid-change - Hardware ID Change. This event is generated when the hardware ID of an endpoint from your network is changed. adcloud - Cloud AD Integration.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "quarantine_add-file",
+      "description": "Creates a new task to add a file to quarantine. Required: endpointIds, filePath. Returns the new QuarantineAddFileResponse.",
+      "method": "POST",
+      "path": "/v1.1/jsonrpc/quarantine/computers#createAddFileToQuarantineTask",
+      "params": [
+        {
+          "name": "endpointIds",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "A list with the IDs of target endpoints. You can specify a maximum of 100 targets at once. Only endpoints with security agents in Detection and prevention mode and an active EDR Sensor module are valid targets.",
+          "required": true
+        },
+        {
+          "name": "filePath",
+          "type": "string",
+          "location": "body",
+          "description": "The absolute file path on disk. This path can be at most 4096 characters in length and should have the format suitable to the target endpoint's operating system.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "quarantine_empty",
+      "description": "Creates a new task to empty the quarantine. Required: service (default: computers). Optional: includeSubCompanies. Returns the new QuarantineEmptyResponse.",
+      "method": "POST",
+      "path": "/v1.1/jsonrpc/quarantine/{service}#createEmptyQuarantineTask",
+      "params": [
+        {
+          "name": "service",
+          "type": "string",
+          "location": "path",
+          "description": "Quarantine service: computers (Computers and Virtual Machines) or exchange (Security for Exchange).",
+          "required": true
+        },
+        {
+          "name": "includeSubCompanies",
+          "type": "bool",
+          "location": "body",
+          "description": "Include the quarantined items for child companies. The default value for this parameter is false."
+        }
+      ]
+    },
+    {
+      "name": "quarantine_list",
+      "description": "Retrieves the list of quarantined items available for a company. Required: service (default: computers). Optional: companyId, endpointId, filters (plus 2 more). Returns the new QuarantineListResponse.",
+      "method": "POST",
+      "path": "/v1.0/jsonrpc/quarantine/{service}#getQuarantineItemsList",
+      "params": [
+        {
+          "name": "service",
+          "type": "string",
+          "location": "path",
+          "description": "Quarantine service: computers (Computers and Virtual Machines) or exchange (Security for Exchange).",
+          "required": true
+        },
+        {
+          "name": "companyId",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the company for which the quarantine items are retrieved. Default value: the company the API key used to make the request belongs to."
+        },
+        {
+          "name": "endpointId",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the computer for which you want to retrieve the quarantined items. If this parameter is not included in the request, the method returns the items quarantined in the entire network."
+        },
+        {
+          "name": "filters",
+          "type": "object",
+          "location": "body",
+          "description": "The filters to be used when querying the quarantine items list. For information regarding the available filters and how to use them, refer to Available Filters."
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "location": "body",
+          "description": "The results page. The default value is 1."
+        },
+        {
+          "name": "perPage",
+          "type": "int",
+          "location": "body",
+          "description": "The number of items displayed on a page. The upper limit is 100 items per page. Default value is 30 items per page."
+        }
+      ]
+    },
+    {
+      "name": "quarantine_release-exchange",
+      "description": "Creates a new task to release items from the quarantine to their intended recipients. Required: quarantineItemsIds. Returns the new QuarantineReleaseExchangeResponse.",
+      "method": "POST",
+      "path": "/v1.0/jsonrpc/quarantine/exchange#createReleaseQuarantineExchangeItemTask",
+      "params": [
+        {
+          "name": "quarantineItemsIds",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "The list of IDs for the quarantined items. You can restore maximum 100 items once.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "quarantine_remove",
+      "description": "Creates a new task to remove items from quarantine. Required: service (default: computers), quarantineItemsIds. Returns the new QuarantineRemoveResponse.",
+      "method": "POST",
+      "path": "/v1.1/jsonrpc/quarantine/{service}#createRemoveQuarantineItemTask",
+      "params": [
+        {
+          "name": "service",
+          "type": "string",
+          "location": "path",
+          "description": "Quarantine service: computers (Computers and Virtual Machines) or exchange (Security for Exchange).",
+          "required": true
+        },
+        {
+          "name": "quarantineItemsIds",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "The list of quarantine items IDs. The maximum number of items that can be removed once is 100. The ID must belong to a quarantine item that the user has permission to access.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "quarantine_restore",
+      "description": "Creates a new task to restore items from the quarantine. Required: quarantineItemsIds. Optional: addExclusionInPolicy, locationToRestore. Returns the new QuarantineRestoreResponse.",
+      "method": "POST",
+      "path": "/v1.1/jsonrpc/quarantine/computers#createRestoreQuarantineItemTask",
+      "params": [
+        {
+          "name": "addExclusionInPolicy",
+          "type": "bool",
+          "location": "body",
+          "description": "Exclude the files to be restored from future scans. Exclusions do not apply to items with the Default Policy assigned. The default value for this parameter is False."
+        },
+        {
+          "name": "locationToRestore",
+          "type": "string",
+          "location": "body",
+          "description": "The absolute path to the folder where the items will be restored. If the parameter is not set, the original location will be used."
+        },
+        {
+          "name": "quarantineItemsIds",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "The list of IDs for the quarantined items. You can restore maximum 100 items once.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "quarantine_restore-exchange",
+      "description": "Creates a new task to restore items from the quarantine for Exchange Servers. Required: password, quarantineItemsIds, username. Optional: email, ewsUrl. Returns the new QuarantineRestoreExchangeResponse.",
+      "method": "POST",
+      "path": "/v1.1/jsonrpc/quarantine/exchange#createRestoreQuarantineExchangeItemTask",
+      "params": [
+        {
+          "name": "email",
+          "type": "string",
+          "location": "body",
+          "description": "The email address of the Exchange user. This parameter is necessary when the email address is different from the username."
+        },
+        {
+          "name": "ewsUrl",
+          "type": "string",
+          "location": "body",
+          "description": "The Exchange Web Services URL .The EWS URL is necessary when the Exchange Autodiscovery does not work."
+        },
+        {
+          "name": "password",
+          "type": "string",
+          "location": "body",
+          "description": "The password of an Exchange user.",
+          "required": true
+        },
+        {
+          "name": "quarantineItemsIds",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "The list of IDs for the quarantined items. You can restore maximum 100 items once.",
+          "required": true
+        },
+        {
+          "name": "username",
+          "type": "string",
+          "location": "body",
+          "description": "The username of an Microsoft Exchange user. The username must include the domain name.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "reports_create",
+      "description": "Creates a new instant or scheduled report, based on the parameters received, and returns the ID of the new created report. Required: name, targetIds, type. Optional: emailList, options, scheduledInfo.",
+      "method": "POST",
+      "path": "/v1.0/jsonrpc/reports#createReport",
+      "params": [
+        {
+          "name": "emailList",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "A list of emails where to deliver the report. emailList should not be set for an instant report. You can only use this parameter if the scheduledInfo parameter is included in the request."
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "The name of the report.",
+          "required": true
+        },
+        {
+          "name": "options",
+          "type": "object",
+          "location": "body",
+          "description": "The object that defines the options for creating the report. For these reports, the options object should not be set: Endpoint Modules Status License Status Policy Compliance Security Server Status Upgrade Status MDR Service Status For more information, please check the details of the options object..."
+        },
+        {
+          "name": "scheduledInfo",
+          "type": "object",
+          "location": "body",
+          "description": "The object that defines the schedule to run the report. If the parameter is omitted, an instant report is generated. For more information, please check the details of the scheduledInfo object."
+        },
+        {
+          "name": "targetIds",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "A list with the IDs of the targets for which to create the report. The targets depend on the report type. For these reports, the target can be only the ID of the user's company or IDs of child companies within its hierarchy (endpoints, groups, or containers are not valid targets): Customer Status Ov...",
+          "required": true
+        },
+        {
+          "name": "type",
+          "type": "int",
+          "location": "body",
+          "description": "The type of report. One of the following values can be passed: 1 - Antiphishing Activity 2 - Blocked Applications 3 - Blocked Websites 4 - Customer Status Overview 5 - Data Protection 6 - Device Control Activity 7 - Endpoint Modules Status 8 - Endpoint Protection Status 9 - Firewall Activity 10 - Li...",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "reports_delete",
+      "description": "Deletes a report by its ID. Required: reportId. Returns the new ReportsDeleteResponse.",
+      "method": "POST",
+      "path": "/v1.0/jsonrpc/reports#deleteReport",
+      "params": [
+        {
+          "name": "reportId",
+          "type": "string",
+          "location": "body",
+          "description": "The report ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "reports_download-links",
+      "description": "Returns an Object with information regarding the report availability for download and the corresponding download links. Required: reportId.",
+      "method": "POST",
+      "path": "/v1.0/jsonrpc/reports#getDownloadLinks",
+      "params": [
+        {
+          "name": "reportId",
+          "type": "string",
+          "location": "body",
+          "description": "The report ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "reports_list",
+      "description": "Returns the list of scheduled reports, according to the parameters received. Optional: name, page, perPage (plus 1 more).",
+      "method": "POST",
+      "path": "/v1.0/jsonrpc/reports#getReportsList",
+      "params": [
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "The name of the report."
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "location": "body",
+          "description": "The results page number. Default page number is 1."
+        },
+        {
+          "name": "perPage",
+          "type": "int",
+          "location": "body",
+          "description": "The number of items displayed in a page."
+        },
+        {
+          "name": "type",
+          "type": "int",
+          "location": "body",
+          "description": "The report type. The available types are: 1 - Antiphishing Activity 2 - Blocked Applications 3 - Blocked Websites 4 - Customer Status Overview 5 - Data Protection 6 - Device Control Activity 7 - Endpoint Modules Status 8 - Endpoint Protection Status 9 - Firewall Activity 10 - License Status 12 - Mal..."
+        }
+      ]
+    },
+    {
+      "name": "response_actions_create",
+      "description": "Take response actions on user nodes generated in GravityZone XDR incidents or your own SOC-generated incidents. You can make the request based on an XDR incident ID, or based on user data specified in the node. Required: actionType. Optional: emailId, fileUrl, incidentId (plus 3 more). Returns the new ResponseActionsCreateResponse.",
+      "method": "POST",
+      "path": "/v1.0/jsonrpc/incidents#createResponseAction",
+      "params": [
+        {
+          "name": "actionType",
+          "type": "int",
+          "location": "body",
+          "description": "The type of action to be taken and the type of environment it will be applied to. Possible values: 1 - Reset credentials for a Microsoft 365 (Office 365) or Entra ID (Azure AD) user. 2 - Reset credentials for an Active Directory user.",
+          "required": true
+        },
+        {
+          "name": "emailId",
+          "type": "string",
+          "location": "body",
+          "description": "The email ID associated with the user node. For actionType 11, this is the ID of the reference email used to identify similar emails. When actionType is 11 and incidentId is used, if the incident contains exactly one email resource, emailId defaults to that email’s ID."
+        },
+        {
+          "name": "fileUrl",
+          "type": "string",
+          "location": "body",
+          "description": "The URL of the file to be deleted. ImportantSupported exclusively for actionType 10. No additional requirements. Example 'fileUrl': 'https://example-my.sharepoint.com/personal/xDocuments/x.txt.exe'"
+        },
+        {
+          "name": "incidentId",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the incident to which the user nodes belong. No additional requirements. Example 'incidentId': '5b680f6fb1a43d860a7b23c0'"
+        },
+        {
+          "name": "integrationIdentifiers",
+          "type": "string",
+          "location": "body",
+          "description": "The information required to identify the integration used for importing the user."
+        },
+        {
+          "name": "targets",
+          "type": "object",
+          "location": "body",
+          "description": "Supported exclusively for actionType 11. Indicates which similar Microsoft 365 (Office 365) emails should be deleted. Each email can be identified by user and email ID or by a similarity hash. When it is an Array of Objects: Each object contains userId and mailIds."
+        },
+        {
+          "name": "username",
+          "type": "string",
+          "location": "body",
+          "description": "The username involved in the event. This parameter must be a valid email for actionType 1, 3, 5, 6, 8, or 9. For actionType 2 or 4, this parameter must follow the domainusername format. The string must include a single backslash and consist of exactly two parts: the domain and the username."
+        }
+      ]
+    },
+    {
+      "name": "response_actions_status",
+      "description": "Request the status and the result of a response action. Required: actionId. Returns the new ResponseActionsStatusResponse.",
+      "method": "POST",
+      "path": "/v1.0/jsonrpc/incidents#getResponseActionStatus",
+      "params": [
+        {
+          "name": "actionId",
+          "type": "string",
+          "location": "body",
+          "description": "The action ID returned by the createResponseAction method. The value must be a 24-character hexadecimal string. Example 'actionId': '6912758f88df334ddbfb7e1a'",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "tasks_delete",
+      "description": "Delete a specific task, based on its ID. Required: taskId. Returns the new TasksDeleteResponse.",
+      "method": "POST",
+      "path": "/v1.0/jsonrpc/network#deleteTask",
+      "params": [
+        {
+          "name": "taskId",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the task you want to retrieve the status of. No additional requirements. Example 'taskId': '21a295eeb1a43d8b497b23b7',",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "tasks_gather-logs",
+      "description": "Create a task that collects diagnostic logs from an online endpoint. The task retrieves log files from the target endpoint and stores them according to the specified storage configuration: locally on the endpoint, on a network share, or in an S3-compatible bucket. Required: endpointId, logType, storageOptions. Returns the new TasksGatherLogsResponse.",
+      "method": "POST",
+      "path": "/v1.0/jsonrpc/network#runGatherLogsTask",
+      "params": [
+        {
+          "name": "endpointId",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the target endpoint to collect logs from. Must be a valid managed endpoint ID.",
+          "required": true
+        },
+        {
+          "name": "logType",
+          "type": "int",
+          "location": "body",
+          "description": "The type of logs to collect from the endpoints. 1, 2, or 3. Refer to logType values below.",
+          "required": true
+        },
+        {
+          "name": "storageOptions",
+          "type": "object",
+          "location": "body",
+          "description": "Defines where the collected logs are stored. Refer to storageOptions below.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "tasks_list-scans",
+      "description": "Returns the list of scan tasks. Optional: name, page, perPage (plus 1 more).",
+      "method": "POST",
+      "path": "/v1.0/jsonrpc/network#getScanTasksList",
+      "params": [
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "The name of the task. Filter the list of tasks by task name. Use the asterisk symbol (*) in front of the keyword to search its appearance anywhere in the name. If omitted, only results where the name starts with the keyword will be returned."
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "location": "body",
+          "description": "The results page number. Default page number is 1."
+        },
+        {
+          "name": "perPage",
+          "type": "int",
+          "location": "body",
+          "description": "The number of items displayed in a page."
+        },
+        {
+          "name": "status",
+          "type": "int",
+          "location": "body",
+          "description": "The status of the task. Available options are: 1 - Pending; 2 - In progress; 3 - Finished."
+        }
+      ]
+    },
+    {
+      "name": "tasks_reconfigure",
+      "description": "Creates a new Reconfigure Agent task. With this task you can choose which modules to install on target agents. Required: targetIds. Optional: modules, productType, roles (plus 2 more). Returns the new TasksReconfigureResponse.",
+      "method": "POST",
+      "path": "/v1.1/jsonrpc/network#createReconfigureClientTask",
+      "params": [
+        {
+          "name": "modules",
+          "type": "object",
+          "location": "body",
+          "description": "The modules to be enabled or disabled. The object contains the following fields: antimalware advancedThreatControl firewall contentControl deviceControl userControl antiphishing trafficScan powerUser encryption edrSensor advancedAntiExploit containerProtection patchManagement networkAttackDefense in..."
+        },
+        {
+          "name": "productType",
+          "type": "int",
+          "location": "body",
+          "description": "This parameter determines the operation mode of the security agent. Possible values: 0 - for Detection and prevention mode, default for full endpoint security agents. 3 - for EDR (Report only) mode, default for Bitdefender EDR agents. For additional information, refer to Parameter info."
+        },
+        {
+          "name": "roles",
+          "type": "object",
+          "location": "body",
+          "description": "The roles to be enabled or disabled on the agent: relay with the following possible values: 1 for enabled 0 for disabled (default) exchange with the following possible values: 1 for enabled 0 for disabled (default) This role is available only with a valid Security for Exchange license."
+        },
+        {
+          "name": "scanMode",
+          "type": "object",
+          "location": "body",
+          "description": "The settings for the scanning engines. The object contains the following fields: type, an Integer with one of the following values: 1 for automatic configuration (default) 2 for custom settings. This value requires the computers and vms fields If omitted, the default values will be used."
+        },
+        {
+          "name": "scheduler",
+          "type": "object",
+          "location": "body",
+          "description": "The task scheduler settings. The object contains the following fields: type, an Integer with one of the following values: 1 for immediate run (default) 2 for scheduled If type is 1, you can omit the other fields. recurrence, an Integer with one of the following values: 1 for hourly."
+        },
+        {
+          "name": "targetIds",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "The endpoint or container IDs, for which you want to reconfigure the agents.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "tasks_sandbox-submit",
+      "description": "Create a Sandbox Analyzer task and submit up to 5 files for analysis. The task pulls the files that need to be analyzed from a target endpoint, along with any other files that need to be invloved in the process. Required: samplePaths, targetId. Optional: commandLines, taskName. Returns the new TasksSandboxSubmitResponse.",
+      "method": "POST",
+      "path": "/v1.0/jsonrpc/network#createSubmitToSandboxAnalyzerTask",
+      "params": [
+        {
+          "name": "commandLines",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "This array contains multiple Strings that allow you customize how each file is processed in Sandbox Analyzer. Each string consists of two elements: The paths to the scripts that contain the instructions on how to process the file. The path of the file you want to apply the instructions to."
+        },
+        {
+          "name": "samplePaths",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "The paths to the files you want to submit for analysis. The Array can contain between 1 and 5 Strings. The values must have a valid path format and can have up to 1024 characters. Example 'samplePaths': [ 'C:first-script.ps1', 'C:executable.exe', 'C:text-file.txt' ]",
+          "required": true
+        },
+        {
+          "name": "targetId",
+          "type": "string",
+          "location": "body",
+          "description": "The endpoint id from which the task will be launched and where the files to be submitted are located. No additional requirements. Example 'targetId': '5d7244b10ea1de153817c072'",
+          "required": true
+        },
+        {
+          "name": "taskName",
+          "type": "string",
+          "location": "body",
+          "description": "The name you want to apply to the task. The string can have up to 512 characters. Default value: Submit to Sandbox Analyzer YYYY-MM-DD. Example 'taskName': 'Submit to Sandbox Task Example'"
+        }
+      ]
+    },
+    {
+      "name": "tasks_scan",
+      "description": "Creates a new scan task. Required: targetIds, type. Optional: customScanSettings, name, returnAllTaskIds (plus 1 more). Returns the new TasksScanResponse.",
+      "method": "POST",
+      "path": "/v1.0/jsonrpc/network#createScanTask",
+      "params": [
+        {
+          "name": "customScanSettings",
+          "type": "object",
+          "location": "body",
+          "description": "Object containing information such as scan depth and scan path(s). This object should be set only when type parameter has the value 4 - Custom scan. When set for other types, the values will be ignored."
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "The name of the task. If the parameter is not passed, the name will be automatically generated."
+        },
+        {
+          "name": "returnAllTaskIds",
+          "type": "bool",
+          "location": "body",
+          "description": "Indicates if the response will contain the IDs for all the tasks created as a result of the request. Possible values: true - will return an array of strings with the IDs of all the tasks created as a result of the request. false - will not return any task IDs. Default value: false."
+        },
+        {
+          "name": "returnTaskId",
+          "type": "bool",
+          "location": "body",
+          "description": "Deprecated. WarningWe recommend using the returnAllTaskIds parameter instead, to make sure all task IDs generated by the request are made available to you in the response. Indicates if the request will return the ID of the latest task created as a result of the request."
+        },
+        {
+          "name": "targetIds",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "A list with the IDs of the targets to scan. The target ID can designate an endpoint or a container.",
+          "required": true
+        },
+        {
+          "name": "type",
+          "type": "int",
+          "location": "body",
+          "description": "The type of scan. Available options are: 1 - quick scan; 2 - full scan; 3 - memory scan; 4 - custom scan",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "tasks_scan-by-mac",
+      "description": "Generate a scan task for managed endpoints identified by their MAC address. Required: macAddresses, type. Optional: customScanSettings, name, returnTaskId. Returns the new TasksScanByMacResponse.",
+      "method": "POST",
+      "path": "/v1.0/jsonrpc/network#createScanTaskByMac",
+      "params": [
+        {
+          "name": "customScanSettings",
+          "type": "object",
+          "location": "body",
+          "description": "Object containing information such as scan depth and scan path(s). This object should be set only when type parameter has the value 4 - Custom scan. When set for other types, the values will be ignored."
+        },
+        {
+          "name": "macAddresses",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "The list of mac addresses of the endpoints to be scanned. You can specify at most 100 MAC addresses at once.",
+          "required": true
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "The name of the task. If the parameter is not passed, the name will be generated automatically."
+        },
+        {
+          "name": "returnTaskId",
+          "type": "bool",
+          "location": "body",
+          "description": "Indicates if the request will return the ID of the new task. Possible values: true, will return the ID of the newly created task, if the request is successful. false, will not return the ID of the newly created task. Instead, it will return a Boolean value. Default value: False."
+        },
+        {
+          "name": "type",
+          "type": "int",
+          "location": "body",
+          "description": "The type of scan. Available options: 1 - quick scan; 2 - full scan; 3 - memory scan; 4 - custom scan",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "tasks_status",
+      "description": "Retrieves information about the status of a given task identified using its ID. Required: taskId. Optional: options, subtaskFilters. Returns the new TasksStatusResponse.",
+      "method": "POST",
+      "path": "/v1.1/jsonrpc/network#getTaskStatus",
+      "params": [
+        {
+          "name": "options-page",
+          "wire_name": "options.page",
+          "type": "int",
+          "location": "body",
+          "description": "The results page number. Default value: 1."
+        },
+        {
+          "name": "options-per-page",
+          "wire_name": "options.perPage",
+          "type": "int",
+          "location": "body",
+          "description": "Number of items per page to be returned. Possible values: 1 - 1000. Default value: 30."
+        },
+        {
+          "name": "options-return-subtasks",
+          "wire_name": "options.returnSubtasks",
+          "type": "bool",
+          "location": "body",
+          "description": "Determines if the response also includes information on individual subtasks. TipWhen a task is created for multiple endpoints, a subtask is created for each individual endpoint."
+        },
+        {
+          "name": "subtask-filters-ended-after",
+          "wire_name": "subtaskFilters.endedAfter",
+          "type": "string",
+          "location": "body",
+          "description": "When used, the response only includes information on tasks that have ended after a specific date and time."
+        },
+        {
+          "name": "subtask-filters-ended-before",
+          "wire_name": "subtaskFilters.endedBefore",
+          "type": "string",
+          "location": "body",
+          "description": "When used, the response only includes information on tasks that have ended before a specific date and time."
+        },
+        {
+          "name": "subtask-filters-status",
+          "wire_name": "subtaskFilters.status",
+          "type": "int",
+          "location": "body",
+          "description": "When included in the request, this field determines what subtasks are included in the request, based on their current status. Possible values: 1 - Pending 2 - In progress 3 - Finished"
+        },
+        {
+          "name": "taskId",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the task you want to retrieve the status of.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "usage_monthly",
+      "description": "Exposes the monthly usage for a company in a target month. Returns only usage from endpoints with the default product type - Endpoint Security. If usage from other product types is needed, refer to the getMonthlyUsagePerProductType method. Optional: companyId, companyRegistrationEndDate, companyRegistrationStartDate (plus 3 more).",
+      "method": "POST",
+      "path": "/v1.0/jsonrpc/licensing#getMonthlyUsage",
+      "params": [
+        {
+          "name": "companyId",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the company. The default value is the ID of the company linked to the user who..."
+        },
+        {
+          "name": "companyRegistrationEndDate",
+          "type": "string",
+          "location": "body",
+          "description": "Only return monthly usage for companies that were created before this date. NoteThe time used in the request is considered as UTC."
+        },
+        {
+          "name": "companyRegistrationStartDate",
+          "type": "string",
+          "location": "body",
+          "description": "Only return monthly usage for companies that were created after this date. NoteThe time used in the request is counted as UTC."
+        },
+        {
+          "name": "productType",
+          "type": "int",
+          "location": "body",
+          "description": "Return monthly usage for a specific product type. Possible values: 0 for Endpoint Security 3 for Bitdefender EDR 5 for Bitdefender PHASR"
+        },
+        {
+          "name": "targetMonth",
+          "type": "string",
+          "location": "body",
+          "description": "The month for which the usage is returned. It should have the following format: mm/yyyy. The default value is the current month."
+        },
+        {
+          "name": "usageCoverageType",
+          "type": "int",
+          "location": "body",
+          "description": "Only return monthly usage for companies created in a specific time interval. Use the companyRegistrationStartDate and companyRegistrationEndDate parameters to specify the time period you want to query. Possible values: 3."
+        }
+      ]
+    },
+    {
+      "name": "usage_monthly-by-product",
+      "description": "Exposes the monthly usage of a company in a target month. Returns the usage per product type, for all available product types. Optional: companyId, targetMonth.",
+      "method": "POST",
+      "path": "/v1.0/jsonrpc/licensing#getMonthlyUsagePerProductType",
+      "params": [
+        {
+          "name": "companyId",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the company. The default value is the ID of the company linked to the user who..."
+        },
+        {
+          "name": "targetMonth",
+          "type": "string",
+          "location": "body",
+          "description": "The month for which the usage is returned. It should have the following format: mm/yyyy. The default value is the current month."
+        }
+      ]
+    },
+    {
+      "name": "yara_scan",
+      "description": "Initiate an On-demand scan on the specified targets, using a YARA rule to detect files that match the rule conditions. Required: ruleId. Optional: paths. Returns the new YaraScanResponse.",
+      "method": "POST",
+      "path": "/v1.0/jsonrpc/incidents#startYaraScan",
+      "params": [
+        {
+          "name": "paths",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "The local directories that will be scanned. Each string in the array should be a valid absolute path on at least one of the endpoints that the YARA rule targets. The paths do not support wildcard characters, but they support system variables."
+        },
+        {
+          "name": "ruleId",
+          "type": "string",
+          "location": "body",
+          "description": "The ID of the YARA rule used to define the scan detection conditions. This parameter should consist of exactly 24 hexadecimal characters.",
+          "required": true
+        }
+      ]
+    }
+  ],
+  "novel_features": [
+    {
+      "name": "Fleet health rollup",
+      "command": "fleet health",
+      "description": "One ranked table of every child company's unmanaged, outdated, unscanned, policy-not-applied and isolated endpoints, saved as a dated snapshot."
+    },
+    {
+      "name": "Cross-tenant incident queue",
+      "command": "fleet incident-queue",
+      "description": "Open EDR/XDR incidents across all child companies, ranked by severity and age with unassigned and SLA-breach flags."
+    },
+    {
+      "name": "Partner tree",
+      "command": "companies tree",
+      "description": "Your own company plus every child company and sub-partner under it as one flat list with ids, type, parent and depth."
+    },
+    {
+      "name": "Billing table",
+      "command": "usage billing",
+      "description": "Per-company billable usage for a month with own share after the child rollup, month-over-month seat swings, and flags wherever a needed fetch failed."
+    },
+    {
+      "name": "RMM coverage gap",
+      "command": "fleet rmm-gap",
+      "description": "Joins an RMM device export to GravityZone inventory to list devices with no agent, discovered-but-unmanaged machines, and agents the RMM does not know."
+    },
+    {
+      "name": "Fleet changes",
+      "command": "fleet changes",
+      "description": "What changed between saved fleet health snapshots (needs at least two): new and removed endpoints, newly unmanaged, outdated or isolated machines, policy flips."
+    },
+    {
+      "name": "Cross-tenant threat correlation",
+      "command": "fleet threats",
+      "description": "The same quarantined file (SHA256) seen at two or more companies in a window, and which of those companies already blocklist it."
+    },
+    {
+      "name": "Fleet-wide endpoint locator",
+      "command": "fleet locate",
+      "description": "Find a machine by hostname, IP, MAC or label across every child company and get its endpoint id and company."
+    }
+  ]
+}

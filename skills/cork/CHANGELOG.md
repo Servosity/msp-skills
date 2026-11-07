@@ -4,6 +4,28 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.1.9] - unreleased
+
+### Changed
+- **Rebuilt on CLI Printing Press 4.35.1 (was 4.30.2).** See [GHSA-jh26-vhqh-692c](https://github.com/advisories/GHSA-jh26-vhqh-692c) for why the press was upgraded.
+- **`sync` resource names changed.** `integrations-connected` is now `integrations`, the old `integrations` (integration types you can connect) is now `integrations-available`, and `software-installer-packages` is now `software`. A script that runs `sync --resources integrations-connected` must use the new name.
+- **The MCP server has a token-protected HTTP mode.** `cork-mcp --transport http` refuses to start until `CORK_MCP_HTTP_TOKEN` is set, rejects any request without that bearer token, listens on `127.0.0.1:7777` by default and needs `--tls-cert` and `--tls-key` for any other address. stdio stays the default, and msp-skills does not support a web-only AI app on HTTP mode yet.
+- New install settings on every channel: `CORK_MCP_READ_ONLY` (preset to `1`: only read-only tools are listed), `CORK_NO_LOCAL_DATA` and `CORK_MCP_HTTP_TOKEN`.
+- New command `compliance exclusions-due`: the exclusions and silenced rules across your clients whose review date has passed or that Cork flags for review, oldest first.
+
+### Fixed
+- **MCP tools that change Cork data now preview first.** They return what they would send and send nothing until the call carries `confirm: true`.
+- `doctor` now checks your key against the real Cork API at the default address instead of reporting the default address as a placeholder.
+- `coverage gaps` matches a device identifier only inside the connector that owns it, and counts a device as covered by a connector only when that connector's own current device list carries it. A device the EDR no longer reports is now a gap, and a match that only an endpoint without a named connector supports is labelled `unverified` instead of being counted as covered.
+- `coverage gaps`, `compliance overdue` and the other sweeps say when a scan cap cut them short, and `integrations health` maps each connector to its client by integration uuid.
+- Dependent integration syncs (devices, tenants and users of a connected integration) now read the parent's `uuid`, so they return rows.
+- Packages and invoice line items are keyed by their real identity, so rows with the same display name no longer collapse into one.
+- The HTTP client refuses any redirect to a different scheme, host or port.
+- `score regressions` and `score attribute` measure from the score when the window opened, so a drop inside the window is reported. Clients with too little score history are listed as `clients_unverified` instead of counted as checked.
+
+### Security
+- **Credentials are held by the shared msp-skills credential kit.** The API key, a key in `config.toml` or the credential store, `--credential-fields` and the MCP `credential_fields` argument, `SPACEFAST_TOKEN` and a credential saved in a run profile are held from startup. Any output that would carry one, whole, in pieces or encoded (terminal, MCP results, files, the local store, logs, the learn journal and the feedback log), is withheld, and a held credential is never sent to a host other than the configured Cork API or over plain http.
+
 ## [0.1.8] - 2026-10-23
 
 ### Changed

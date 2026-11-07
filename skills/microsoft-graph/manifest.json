@@ -16,7 +16,15 @@
       "args": [],
       "env": {
         "MICROSOFT_GRAPH_BASE_URL": "${user_config.microsoft_graph_base_url}",
-        "MICROSOFT_GRAPH_TOKEN": "${user_config.microsoft_graph_token}"
+        "MICROSOFT_GRAPH_TOKEN": "${user_config.microsoft_graph_token}",
+        "MICROSOFT_GRAPH_HOME_TENANT": "${user_config.microsoft_graph_home_tenant}",
+        "MICROSOFT_GRAPH_TRANSCRIPTS_APP_ONLY": "${user_config.microsoft_graph_transcripts_app_only}",
+        "MICROSOFT_GRAPH_MCP_NO_TRANSCRIPTS": "${user_config.microsoft_graph_mcp_no_transcripts}",
+        "MICROSOFT_GRAPH_MCP_READ_ONLY": "${user_config.microsoft_graph_mcp_read_only}",
+        "MICROSOFT_GRAPH_NO_LOCAL_DATA": "${user_config.microsoft_graph_no_local_data}",
+        "MICROSOFT_GRAPH_USER_AGENT": "${user_config.microsoft_graph_user_agent}",
+        "PRINTING_PRESS_CLIENT_PROFILE": "${user_config.printing_press_client_profile}",
+        "MICROSOFT_GRAPH_MCP_HTTP_TOKEN": "${user_config.microsoft_graph_mcp_http_token}"
       }
     }
   },
@@ -34,6 +42,62 @@
       "description": "Base URL for the Microsoft Graph API. Leave the prefilled default unless your account uses a different regional or self-hosted host.",
       "required": false,
       "default": "https://graph.microsoft.com/v1.0"
+    },
+    "microsoft_graph_home_tenant": {
+      "type": "string",
+      "title": "Your own tenant ID (transcripts only)",
+      "description": "Optional. Your own Microsoft 365 tenant ID (Entra admin center > Overview > Tenant ID). The transcripts commands need it: they read meeting transcripts in this tenant only and refuse a token for any other tenant. Leave blank if you do not use transcripts.",
+      "required": false,
+      "sensitive": false
+    },
+    "microsoft_graph_transcripts_app_only": {
+      "type": "string",
+      "title": "Allow app-only transcripts",
+      "description": "Optional. Set to exactly 1 to let the transcripts commands use an app-only token in your own tenant. Do this only after a Teams application access policy limits the app to named users (New-CsApplicationAccessPolicy, then Grant-CsApplicationAccessPolicy). Leave blank to accept a signed-in user's token only.",
+      "required": false,
+      "sensitive": false
+    },
+    "microsoft_graph_mcp_no_transcripts": {
+      "type": "string",
+      "title": "Hide transcripts from MCP",
+      "description": "Optional. Set to exactly 1 to hide the transcripts tools from the MCP server and refuse them. Leave blank to keep the read-only transcripts tools.",
+      "required": false,
+      "sensitive": false
+    },
+    "microsoft_graph_mcp_read_only": {
+      "type": "string",
+      "title": "Read-only MCP mode",
+      "description": "Optional. Set to exactly 1 to expose only read-only tools and refuse any state-changing execute call. Leave blank to keep every tool available.",
+      "required": false,
+      "sensitive": false
+    },
+    "microsoft_graph_no_local_data": {
+      "type": "string",
+      "title": "Run without a local copy",
+      "description": "Optional. Set to 1 to keep no local copy of API responses: nothing new is written to the local store. Leave blank to keep the local store.",
+      "required": false,
+      "sensitive": false
+    },
+    "microsoft_graph_user_agent": {
+      "type": "string",
+      "title": "User-Agent header",
+      "description": "Overrides the User-Agent the CLI sends on Microsoft Graph requests. Leave blank to use the CLI's own built-in User-Agent.",
+      "required": false,
+      "sensitive": false
+    },
+    "printing_press_client_profile": {
+      "type": "string",
+      "title": "Client profile (optional)",
+      "description": "Only for tenant-gated multi-client deployments: binds the MCP server to an existing Printing Press client profile. Leave blank for a single-tenant install.",
+      "required": false,
+      "sensitive": true
+    },
+    "microsoft_graph_mcp_http_token": {
+      "type": "string",
+      "title": "MCP HTTP transport bearer token",
+      "description": "Required only when running the MCP server with --transport http (a remote/hosted deployment). Callers must send a matching Authorization: Bearer header. Not needed for the default local stdio transport that Claude Desktop uses.",
+      "required": false,
+      "sensitive": true
     }
   },
   "compatibility": {
@@ -44,11 +108,11 @@
       "win32"
     ]
   },
-  "printing_press_version": "4.24.0",
+  "printing_press_version": "4.34.2",
   "press_provenance": {
-    "printing_press_version": "4.24.0",
-    "generated_at": "2026-06-13T02:37:35.755345Z",
-    "spec_checksum": "sha256:19429c7cb9efa026879865ea19e42318bc3d22910869fbc6dc0384193c19b75c",
+    "printing_press_version": "4.34.2",
+    "generated_at": "2026-10-28T06:51:42.44178Z",
+    "spec_checksum": "sha256:186a52239485b4da2b005a622542bee755a40d18ec84f4534fdaa6892cc1dc2e",
     "spec_format": "internal"
   }
 }

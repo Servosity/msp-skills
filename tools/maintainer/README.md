@@ -8,9 +8,9 @@ the statusline, you do not need anything in this folder - see the root
 
 | Script | What it does |
 | --- | --- |
-| `verify_all.sh` | One command, one verdict: would CI pass, and is it ready for a PR? No arguments checks the full fleet; `--slug <s>` (repeatable) checks those skills; `--changed [--base origin/main]` checks what the branch changed, scoped by CI's own classifier (a shared-machinery change checks the whole fleet, as CI does). Heavy per-connector checks run for the connectors in scope, cheap fleet-wide checks for everything; a fleet failure only in other connectors is listed under `out_of_scope_failures`, never dropped. It checks the commit `git add -A` would make (git builds it in a private index; the developer's index is untouched), in a clean clone with no global git config. Writes `.verify/verdict.json` (checks, verdict, seconds, head, snapshot and base SHAs, scope). |
-| `verify_connector.sh` | The per-connector half of `verify_all.sh`. CI's whole Linux build row (build, vet, cross-compile, CLI claims, hand-fix ledger, MCP gate, doctor and `go test -count=1`, on linux/amd64 with cgo on) runs in that context: natively on such a host, else in a `golang:<toolchain>` linux/amd64 container, always on a Linux disk (a private Docker volume) holding a depth-1 clone of the commit plus working-tree changes, else it fails closed. The Windows predictors (vet, test compile and link, Unix-only test lint) run with cgo off over a copy of the Windows job's sparse checkout, inside the same container in Docker mode, and fail closed when turning cgo on would change any file Go compiles. Every Go command gets an explicit environment, nothing inherited. |
-| `verify_scope.py` | Scope, failure attribution and verdict for `verify_all.sh`, plus `cgo-context` (does cgo on vs off change what Go compiles), `ci-go` and `gowork` (the Go and go.work CI uses), `scanner-pins` (security-gate.yml's scanner pins) and `path-collisions` (paths some OS cannot check out, and content that points outside the repository); `--self-test` proves each. |
+| `verify_all.sh` | One command, one verdict: would CI pass, and is it ready for a PR? No arguments checks the full fleet; `--slug <s>` (repeatable) checks those skills; `--changed [--base origin/main]` checks what the branch changed, scoped by CI's own classifier (a shared-machinery change checks the whole fleet, as CI does). Heavy per-connector checks run for the connectors in scope, cheap fleet-wide checks for everything; a fleet failure only in other connectors is listed under `out_of_scope_failures`, never dropped. It checks the commit `git add -A` would make (git builds it in a private index; the developer's index is untouched), in a clean clone with no global git config. Writes `.verify/verdict.json` (checks, verdict, seconds, head, snapshot and base SHAs, scope, and the profile that ran). `--changed` and `--slug` run the SCOPED profile (decision D1): a maintainer self-test runs only when its tool, or a file it imports or names as code, changed (read from the code by `verify_scope.py plan`, never a list); a fleet check that takes `--slug` runs per connector in scope unless a file it reads that is not an in-scope connector's own changed; the Linux build row runs on this host's own architecture (a `arm64v8/golang` container on Apple silicon, not emulated amd64); the Windows predictors are plain cross-compiles on this host, windows/amd64 compiled once. CI is the authority for the linux/amd64 build row and every self-test, which it runs on every PR. No arguments, or `--full`, runs the FULL profile (every self-test, the emulated linux/amd64 container), exactly as before D1. The verdict's `profile_kind` and `profile` (self-tests run and skipped with the reason, fleet checks per connector or whole, Linux row and Windows predictor context) say which ran. |
+| `verify_connector.sh` | The per-connector half of `verify_all.sh`. CI's whole Linux build row (build, vet, cross-compile, CLI claims, hand-fix ledger, MCP gate, doctor and `go test -count=1`, on linux/amd64 with cgo on) runs in that context: natively on such a host, else in a `golang:<toolchain>` linux/amd64 container, always on a Linux disk (a private Docker volume) holding a depth-1 clone of the commit plus working-tree changes, else it fails closed. The Windows predictors (vet, test compile and link, Unix-only test lint) run with cgo off over a copy of the Windows job's sparse checkout, inside the same container in Docker mode (on this host in the scoped profile), and fail closed when turning cgo on would change any file Go compiles. In the scoped profile the build row runs on `VERIFY_LINUX_ARCH`, this host's own architecture. Every Go command gets an explicit environment, nothing inherited. |
+| `verify_scope.py` | Scope, failure attribution and verdict for `verify_all.sh`, `plan` and `deps` (what a change reaches: the self-tests and per-slug choices of the scoped profile), plus `cgo-context` (does cgo on vs off change what Go compiles), `ci-go` and `gowork` (the Go and go.work CI uses), `scanner-pins` (security-gate.yml's scanner pins) and `path-collisions` (paths some OS cannot check out, and content that points outside the repository); `--self-test` proves each. |
 | `check_no_pp_leak.py` | No connector's own `-pp-` name in a user-facing file, a Go string or a hand-fix `contains` marker (a `not_contains` marker is honored). Reads `cli/NOTICE` too. `--base` makes it a ratchet: lines already present at the base are listed, not blocking; CI runs the full audit (`--all`, no base) since the fleet went clean. |
 | `check_unix_test_asserts.py` | Lints connector tests for assertions that only hold on Unix (POSIX errno text, mode bits, `#!` stubs, files left open, GOOS-blind literals, a `time.Now()` key on `INSERT OR IGNORE`), the classes the Windows CI job used to find only after a PR. Ledgered known Windows failures are reported, not blocking. |
 | `build-catalog.py` | Regenerates `catalog.json`, the README catalog table and generated blocks, the docs site pages, the issue-form connector dropdowns, and each skill README's `.mcpb` pin. `--released-tags FILE` (catalog.yml passes the complete-published release list) keeps a pin from ever naming a tag whose release is a stranded draft or is missing an asset. |
@@ -41,12 +41,13 @@ the statusline, you do not need anything in this folder - see the root
 | `registry.py` | Shared loader for `skills.json` (the single source of truth for skills). |
 | `skills.json` | Per-skill metadata: owner/repo, binary names, vendor, status. |
 | `release_batch.sh` | Runs a release batch in a throwaway worktree, pushes the version stamp, and prints probe-gated tag commands. Never tags. |
-| `merge_when_green.py` | Merges one PR only when it is green on the exact commit, on current main: per-branch lock, squash, rebase, registry-aware conflict handling, log-classified CI failures, review approvals bound to the change, and a record of whether CodeRabbit reviewed that exact commit (a skip or rate-limit notice is not a review; `--coderabbit require` makes one mandatory). See [Merging, tagging and stamping](#merging-tagging-and-stamping). `--self-test` proves it against throwaway repos. |
+| `merge_when_green.py` | Merges one PR only when it is green on the exact commit, on current main: per-branch lock, squash, rebase, registry-aware conflict handling, log-classified CI failures, review approvals bound to the change, and a record of whether CodeRabbit reviewed that exact commit (a skip or rate-limit notice is not a review; `--coderabbit require` makes one mandatory). `train` merges several PRs in one CI cycle, one squash commit each. See [Merging, tagging and stamping](#merging-tagging-and-stamping). `--self-test` proves it against throwaway repos. |
 | `gen_coderabbit_config.py` | Writes `.coderabbit.yaml`: CodeRabbit `path_filters` that exclude untouched press template output (Go files with the press's DO-NOT-EDIT header that `handfixes.json` does not name) and nothing else, so every hand-fixed generated file, spec and hand-written file stays in review. Every pattern is checked against every file that must stay in review before it is written. `--check` (run by `ci_guards.sh`) fails on a stale file; `--stats`; `--self-test`. |
 | `resolve_registry.py` | Finishes a conflicted rebase or merge: per-entry three-way merge of `skills.json`, `marketplace.json` and `cards.yaml`, main's copy of derived files, regenerate, re-check, print the final registry diff. Stops on any other conflict. `--self-test`. |
 | `cut_tags.sh` | Cuts release tags one per push behind the pipeline probe and the CHANGELOG check; `--receipts` proves each release sealed complete and sweeps for drafts. `--self-test`. |
 | `stamp_release.py` | Stamps `cli_hash_at_release` from the tagged tree once a release has sealed, and dates its CHANGELOG heading. `catalog.yml` runs it in the post-release bot commit. `--self-test`. |
 | `check_release_pipeline.py` | Refuses a SHA (`--sha`) or a whole tag (`--tag T --sha S`) that must not be released. Run it before every `git tag`. |
+| `bot_self_check.py` | The catalog bot's push-time checks. Before it pushes, `catalog.yml` runs the checks CI runs against `github.event.before` on its own commit against the commit it builds on, and does not push if any fails; it marks the commit `[skip ci]` only when it builds no connector row. `--self-test` (run by `ci_guards.sh --self-test`) fails when a workflow gains a parent-comparing step this tool does not run. |
 | `burned_versions.json` | Version numbers a destroyed release already spent. Retired forever; never cut again. |
 | `hooks/pre-push` | Optional hook: refuses a release-tag push the probe refuses. Install with `git config core.hooksPath tools/maintainer/hooks`. |
 
@@ -618,7 +619,10 @@ skills changed since its merge-base, and a push to `main` builds the skills chan
 `docs/skills/`, the `.mcpb` pin in a skill README, ...) and build nothing, except that a bot
 commit which also stamps a sealed release (`stamp_release.py`) builds that one connector's
 row, as the stamp PR it replaces did; a hand edit to the same README builds that skill; a change to a matrix-row checker or a build-feeding workflow
-builds all 65. A Windows known-failures ledger edit builds exactly the skills whose exclusions
+builds all 65. A bot commit that builds no row carries `[skip ci]`, so it costs no CI run at all;
+before pushing it, the bot runs every check CI compares with `github.event.before`
+(`bot_self_check.py`), because the next push's `before` is the bot commit and CI would never
+compare the bot's change with what it replaced. A Windows known-failures ledger edit builds exactly the skills whose exclusions
 changed (an every-connector entry, or a missing or invalid revision, builds the fleet). A weekly full-matrix sweep (Sunday 06:00 UTC, also `workflow_dispatch`) bounds
 anything scoping could miss. Before 2026-09-07 every push to `main` built the whole fleet,
 which is ~210-240 runner-minutes per docs-only bot commit and, during a 21-tag release wave,
@@ -655,7 +659,10 @@ old scrollback is still checked against today's facts. It refuses the tag unless
   `check_release_assets.py --with-mcpb`, and seals last;
 - the tag is not already cut, here or on `origin`;
 - the version number is not retired in [`burned_versions.json`](./burned_versions.json);
-- `skills/<slug>/manifest.json` **at that commit** carries exactly the version the tag names.
+- `skills/<slug>/manifest.json` **at that commit** carries exactly the version the tag names;
+- that commit's message carries no GitHub skip instruction (`[skip ci]` and its variants). The
+  catalog bot marks its derived-files commits `[skip ci]`, and a tag push on one may run no
+  workflow at all. Tag the merge or release commit under it: the bot never changes a version.
 
 On success it prints the pinned `git tag` command it just endorsed, so a passing probe is the
 only place an endorsed tag command comes from. `release.py` deliberately prints no runnable
@@ -906,6 +913,50 @@ merged in a race, main's CI then green; 8 merged (or possibly merged), but main'
 unverified after a race, the head's checks changed between the final gate and the merge, a call
 timed out after the merge call, or the merge call or its proof did not complete or was interrupted
 (stop the chain and check main by hand); 130 interrupted before the merge call (nothing merged).
+
+**Merge trains: one CI cycle for several PRs.** `merge_when_green.py train 607 608 595` merges the
+PRs in that order, one squash commit per PR, with one CI wait for all of them. A merge holds the
+fleet's one merge lock for a whole CI run (18 to 43 minutes each on 2026-11-06), so merging one
+PR at a time cannot keep up with a queue of dozens. With one PR, `train N` runs exactly like
+`merge_when_green.py N`.
+
+- Car 1 is prepared exactly as a single run prepares it, on `origin/main`. Car i is prepared the
+  same way (squash, rebase, derived files, per-entry registry check, `.coderabbit.yaml`) on car
+  i-1's prepared commit, then pushed as that PR's head with the same lease rules.
+- Stacked bases. CI reads policy, baselines, fleet precedent, release links and the changed-path
+  scope from the PR's base (`pull_request.base.sha`). So before car i's head is pushed, its PR is
+  retargeted to car i-1's branch (already at car i-1's prepared commit); the push then runs every
+  `pull_request` workflow with base = the tree car i lands on, as merging one at a time would, and
+  from then on the PR's stored base (`baseRefOid`, which GitHub refreshes on a push, not live) must
+  read exactly car i-1's prepared commit. Nothing is inferred about what a car ahead changed. Right after car i-1's merge is proven,
+  car i is retargeted to `main` (GitHub's `edited` event runs no workflow here, and check runs
+  belong to the commit); the final gate then re-reads every check against the green verdict. A
+  base GitHub will not set, a failed retarget, a PR that reports another base (branch or commit)
+  during its wait, or a head that is already the prepared commit but was not pushed onto that base
+  by this train stops the train before that car: it and the cars behind it are not merged.
+- Car i's approvals are judged on its OWN change, the diff from car i-1 to car i, by the same
+  byte-identical and carry rules as a single run, with the cars ahead counted as `main`.
+- Before any push, `git merge-tree` checks that GitHub's squash of car i (it squashes onto the
+  merge base, which is `main`) lands exactly car i's prepared tree. Two new connectors that both
+  append to the registries do not; that car waits for the next pass, unpushed.
+- Every car's head must be green (the single run's wait and final gate). A red car j: cars ahead of
+  it may merge, car j and the cars behind it go back to their lanes (`back`, own or not at fault),
+  and their PR bases (first) and heads are put back to `main` and their own commits (read from the remote, so a push whose
+  acknowledgement failed is put back too). Only a head this train pushed is put back; a commit
+  someone else pushed on top is left as it is and reported (`restore_failed` in `--results`), as is
+  a head whose base could not be put back (pushing it then would run its CI on a car's branch).
+- Car i merges only while `main` is exactly car i-1's merge commit, with `--match-head-commit` on
+  car i's tested head. Right after each merge, the merge commit's tree must equal car i's tested
+  tree; anything else is exit 8 and nothing more merges. Anyone else moving `main` mid-train (the
+  catalog bot, a release stamp) stops the train before the next car; the rest are prepared again
+  on the new `main`, bounded by `--max-rebases`.
+
+`--results FILE` writes each PR's outcome as JSON: `merged` (with its merge commit), `failed` (a
+verdict, its exit code meaning what a single run's does), or `back` (no verdict; `own` says
+whether its own trouble sent it back). The process exit is the first car's, or 8 on a hard stop.
+A single run's exit-8 latch covers the whole train: once any car's merge call was made, an
+interrupt, an unexpected stop or a call timing out afterwards is exit 8, with each car's result
+still as proven.
 
 **`repo_lock.py`: one protocol with older copies.** `release.py` and `release_batch.sh` on older
 worktrees hold the same `msp-skills-locks/<name>.lock` with the original O_EXCL-and-pid copy, so

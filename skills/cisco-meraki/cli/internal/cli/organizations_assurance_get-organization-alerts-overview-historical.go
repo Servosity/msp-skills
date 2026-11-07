@@ -66,10 +66,10 @@ func newOrganizationsAssuranceGetOrganizationAlertsOverviewHistoricalCmd(flags *
 				return usageErr(fmt.Errorf("missing required argument\nUsage: %s%s", cmd.CommandPath(), " <organizationId>"))
 			}
 			if !cmd.Flags().Changed("segment-duration") && flagSegmentDuration == 0 && !requiredInputWaived() {
-				return fmt.Errorf("required flag \"%s\" not set", "segment-duration")
+				return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "segment-duration"))
 			}
 			if !cmd.Flags().Changed("ts-start") && flagTsStart == "" && !requiredInputWaived() {
-				return fmt.Errorf("required flag \"%s\" not set", "ts-start")
+				return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "ts-start"))
 			}
 			if cmd.Flags().Changed("category") {
 				allowedCategory := []string{"configuration", "connectivity", "device_health", "experience_metrics", "insights"}
@@ -81,7 +81,7 @@ func newOrganizationsAssuranceGetOrganizationAlertsOverviewHistoricalCmd(flags *
 					}
 				}
 				if !validCategory {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagCategory, "category", allowedCategory)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagCategory, "category", allowedCategory))
 				}
 			}
 			path := "/organizations/{organizationId}/assurance/alerts/overview/historical"

@@ -62,10 +62,10 @@ func newOrganizationsCameraGetOrganizationDetectionsHistoryByBoundaryByIntervalC
 				return usageErr(fmt.Errorf("missing required argument\nUsage: %s%s", cmd.CommandPath(), " <organizationId>"))
 			}
 			if !cmd.Flags().Changed("boundary-ids") && flagBoundaryIds == "" && !requiredInputWaived() {
-				return fmt.Errorf("required flag \"%s\" not set", "boundary-ids")
+				return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "boundary-ids"))
 			}
 			if !cmd.Flags().Changed("ranges") && flagRanges == "" && !requiredInputWaived() {
-				return fmt.Errorf("required flag \"%s\" not set", "ranges")
+				return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "ranges"))
 			}
 			path := "/organizations/{organizationId}/camera/detections/history/byBoundary/byInterval"
 			if len(args) < 1 || args[0] == "" {

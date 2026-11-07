@@ -71,6 +71,8 @@ children's, since child usage rolls up into the parent). Flags:
   agreement_mismatch  --agreements quantity differs from the main license's seats billed
                     (for a company without children, the larger of its usage and its
                     committed minimum; a partner is checked on its own share)
+  agreement_name_ambiguous  an --agreements row names a company by a name more than one
+                    company carries, so it is applied to none of them (use the id)
   minimum_usage_applies  the company's committed monthly minimum (minimumUsage) is above
                     its endpointMonthlyUsage, so the minimum is what gets billed
   prior_month_unavailable / own_share_unavailable / agreement_unchecked
@@ -80,7 +82,8 @@ otherwise its lowest product type (last month's when it has none this month);
 minimum_usage and both checks sit on that row. --agreements rows that match no company
 are listed in unmatched_agreements.
 Managed endpoint counts come from the latest 'fleet health' snapshot when one exists.
---agreements reads a CSV with a company (id or name) column and a quantity column.
+--agreements reads a CSV with a company (id or name) column and a quantity column; rows
+for the same company, by id or by name, add up.
 
 Use this command for billable usage counters per company for a month, own share after the
 child rollup, and month-over-month seat changes. Do NOT use this command for endpoint
@@ -260,6 +263,10 @@ func buildBillingRows(tree []gzCompany, cur, prior map[string]usageCounts, minim
 			children[co.ParentID] = append(children[co.ParentID], co.ID)
 		}
 	}
+	names := map[string]int{} // how many companies carry each lowercased name
+	for _, co := range tree {
+		names[strings.ToLower(co.Name)]++
+	}
 	rows := make([]billingRow, 0)
 	for _, co := range tree {
 		u, ok := cur[co.ID]
@@ -380,9 +387,9 @@ func buildBillingRows(tree []gzCompany, cur, prior map[string]usageCounts, minim
 				}
 			}
 			if pt == mainPT && agreed != nil {
-				q, ok := agreed[strings.ToLower(co.ID)]
-				if !ok {
-					q, ok = agreed[strings.ToLower(co.Name)]
+				q, ok, ambiguous := agreementFor(co, agreed, names)
+				if ambiguous {
+					r.Flags = append(r.Flags, "agreement_name_ambiguous")
 				}
 				if ok {
 					r.AgreementQty = &q
@@ -405,6 +412,25 @@ func buildBillingRows(tree []gzCompany, cur, prior map[string]usageCounts, minim
 		}
 	}
 	return rows
+}
+
+// agreementFor returns a company's agreed quantity: its id row plus its name
+// row, so one company listed both ways adds up the way duplicate rows do. A
+// name row that more than one company in the tree carries cannot say which
+// company it means: it is applied to none of them and reported as ambiguous.
+func agreementFor(co gzCompany, agreed map[string]int, names map[string]int) (q int, ok, ambiguous bool) {
+	id, name := strings.ToLower(co.ID), strings.ToLower(co.Name)
+	q, ok = agreed[id]
+	if name == id {
+		return q, ok, false
+	}
+	if v, hit := agreed[name]; hit {
+		if names[name] > 1 {
+			return q, ok, true
+		}
+		q, ok = q+v, true
+	}
+	return q, ok, false
 }
 
 // unmatchedAgreements returns the --agreements companies (lowercased id or

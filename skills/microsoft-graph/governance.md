@@ -8,50 +8,56 @@
 ## What it authenticates as
 
 The skill drives the `microsoft-graph-cli` binary (and `microsoft-graph-mcp`),
-authenticating with `MICROSOFT_GRAPH_TOKEN`. Credentials are read from the environment only -
-never written to disk, never logged, never sent anywhere except the Microsoft Graph API.
+authenticating with `MICROSOFT_GRAPH_TOKEN` from the environment, or with the token
+`auth login` mints and keeps in the 0600 credentials file in the data directory.
+Credentials are never logged and are sent only to the Microsoft Graph API; the client
+secret goes only to the Entra token endpoint. Any output that would repeat a credential
+is withheld.
 
 ## Default-safe behavior
 
-- **The typed commands are read-only.** Directory, licensing, security, device, and the
-  cross-entity analytics (`licenses waste`, `admins audit`, `apps consent`, `security triage`,
-  `managed-devices drift`, `groups risk`, `tenant snapshot`) only read - from the live
-  Graph API or the local SQLite mirror. They cannot change anything in your tenant.
-- **There is exactly one write path: `import`.** It issues a POST per JSONL record to
-  create objects via Graph. Pass `--dry-run` first to preview every request without
-  sending, then make your agent's policy: preview, show the exact command, get approval,
-  then run the write.
-- **Agent mode is explicit.** `--agent` produces JSON for scripting but does not
-  add any write gating - the preview-then-approve policy for `import` still applies. See
-  AGENTS.md.
+- **No command writes to your tenant.** Directory, licensing, security, device, Teams
+  Phone and the cross-entity analytics (`licenses waste`, `admins audit`, `apps consent`,
+  `security triage`, `managed-devices drift`, `groups risk`, `tenant snapshot`) only read -
+  from the live Graph API or the local SQLite mirror.
+- **Transcripts are own tenant only.** `transcripts list`, `transcripts download` and
+  `transcripts all` refuse any token whose tenant is not `MICROSOFT_GRAPH_HOME_TENANT`, a
+  user who signed in from another tenant (GDAP or guest), and an app-only token unless
+  `MICROSOFT_GRAPH_TRANSCRIPTS_APP_ONLY=1` and a Teams application access policy limits the
+  app to named users. Nothing is kept on disk; through MCP they return text and never write
+  a file, and `MICROSOFT_GRAPH_MCP_NO_TRANSCRIPTS=1` switches them off.
+- **Local writes stay local.** `auth login`, `profile save`, the learn commands and
+  `local-data purge --yes` change only this machine's credential file, profiles, learn store
+  or local data. `MICROSOFT_GRAPH_NO_LOCAL_DATA=1` keeps no local copy of API responses.
+- **MCP over HTTP needs a token.** `microsoft-graph-mcp --transport http` refuses to start
+  until `MICROSOFT_GRAPH_MCP_HTTP_TOKEN` is set, and any address other than loopback also
+  needs TLS. See mcp-install.md.
 
 ## Permission tiers
 
-The safe default for an autonomous agent is **read plus planned (dry-run) writes**;
-require a human for anything below the line.
-
 | Tier | What it does | Examples | Recommended agent policy |
 | --- | --- | --- | --- |
-| **Read** | Reports, rollups, audits, search. No change. | `licenses waste`, `licenses orphans`, `admins audit`, `apps consent`, `security triage`, `managed-devices drift`, `groups risk`, `tenant snapshot`, `users list`, `pull`, `search`, `export` | Allow |
-| **Write (import only)** | The sole create path: POST per JSONL record. | `import <resource> --input data.jsonl` | Preview with `--dry-run`, then an approved write |
-| **Credential / security** | Touches tokens, keys, MFA. | (none detected - `auth login` only mints/caches your own token locally) | Human-in-the-loop only |
-| **Destructive** | Irreversible data or config loss. | (none - the CLI exposes no delete or update path) | Human-in-the-loop only, explicit confirmation |
+| **Read** | Reports, rollups, audits, search. No change. | `licenses waste`, `licenses orphans`, `admins audit`, `apps consent`, `security triage`, `managed-devices drift`, `groups risk`, `tenant snapshot`, `users list`, `phone-numbers list`, `teams-users list`, `pull`, `search`, `export` | Allow |
+| **Sensitive read** | Meeting content, own tenant only, never stored. | `transcripts list`, `transcripts download`, `transcripts all` | Allow only for your own meetings; switch off for MCP with `MICROSOFT_GRAPH_MCP_NO_TRANSCRIPTS=1` |
+| **Local writes** | This machine only. | `auth login`, `auth logout`, `profile save`, `teach`, `local-data purge --yes` | Allow |
+| **Credential / security** | Touches tokens, keys, MFA in the tenant. | (none - `auth login` only mints and keeps your own token locally) | Human-in-the-loop only |
+| **Tenant writes / destructive** | Creates, changes or deletes tenant data. | (none - the CLI exposes no create, update or delete path) | Not applicable |
 
 ## How to lock it down
 
 - **Scope the credential** to only what your workflow needs. A read/report workflow
   does not need a credential that can run the Destructive or Credential tiers.
-- **Keep autonomous agents to Read + previewed writes.** Have a human approve the
-  actual write for Write tier and above - the gate lives in your agent's policy,
-  not in the binary's defaults.
+- **Keep transcripts for your own meetings.** Leave `MICROSOFT_GRAPH_TRANSCRIPTS_APP_ONLY`
+  unset unless a Teams application access policy limits the app, and set
+  `MICROSOFT_GRAPH_MCP_NO_TRANSCRIPTS=1` if your agents do not need them.
 - **Never let an agent run Credential, Destructive, or Admin tier commands
   unattended.** Treat them like a production database drop: human, reviewed, logged.
-- **Rotate the credential if it is ever exposed** (for example after bridging the
-  MCP server to a public endpoint for ChatGPT - see mcp-install.md).
+- **Rotate the credential if it is ever exposed**, and the MCP HTTP token with it if you
+  host the server for a remote agent (see mcp-install.md).
 
 ## Why an MSP owner can be comfortable
 
 The full source of the CLI and MCP server is in this repository under
 [`cli/`](./cli) (Apache-2.0). You supply the credential, the binary uses it against
 the Microsoft Graph API, and you can read every line of how it does so. The skill is
-read-first, plan-by-default, and scoped to your own account.
+read-only against your tenant and scoped to your own account.

@@ -15,13 +15,32 @@ import (
 	"testing"
 
 	"bitdefender-pp-cli/internal/cliutil"
+	"bitdefender-pp-cli/internal/credkit"
+	"net/http"
 
 	"bitdefender-pp-cli/internal/cliutil/testenv"
 	"github.com/spf13/cobra"
 )
 
 func TestMain(m *testing.M) {
+	// See cliutil.OutboundGuard: no test here runs credkit.Start. Hand-fix (handfixes.json credkit-wiring)
+	cliutil.OutboundGuard = func(rt http.RoundTripper) http.RoundTripper {
+		if rt == nil {
+			return lazyDefaultTransport{}
+		}
+		return rt
+	}
+	cliutil.Hold = func(credkit.Source, ...string) {}
+	cliutil.HoldBody = func([]byte) {}
 	os.Exit(testenv.RunSandboxed(m))
+}
+
+// lazyDefaultTransport sends with whatever http.DefaultTransport is when the
+// request goes out, as a client with no Transport does; tests swap it.
+type lazyDefaultTransport struct{}
+
+func (lazyDefaultTransport) RoundTrip(r *http.Request) (*http.Response, error) {
+	return http.DefaultTransport.RoundTrip(r)
 }
 
 func TestDeclaredAPISurfaceReachable(t *testing.T) {

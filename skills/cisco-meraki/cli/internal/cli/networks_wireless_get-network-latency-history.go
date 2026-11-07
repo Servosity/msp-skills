@@ -59,7 +59,7 @@ func newNetworksWirelessGetNetworkLatencyHistoryCmd(flags *rootFlags) *cobra.Com
 					}
 				}
 				if !validBand {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagBand, "band", allowedBand)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagBand, "band", allowedBand))
 				}
 			}
 			if cmd.Flags().Changed("access-category") {
@@ -72,7 +72,7 @@ func newNetworksWirelessGetNetworkLatencyHistoryCmd(flags *rootFlags) *cobra.Com
 					}
 				}
 				if !validAccessCategory {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagAccessCategory, "access-category", allowedAccessCategory)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagAccessCategory, "access-category", allowedAccessCategory))
 				}
 			}
 			path := "/networks/{networkId}/wireless/latencyHistory"

@@ -53,7 +53,7 @@ func newOrganizationsNetworksGetOrganizationGroupsOverviewByGroupCmd(flags *root
 					}
 				}
 				if !validSortBy {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagSortBy, "sort-by", allowedSortBy)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagSortBy, "sort-by", allowedSortBy))
 				}
 			}
 			path := "/organizations/{organizationId}/networks/groups/overview/byGroup"

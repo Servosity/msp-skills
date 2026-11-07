@@ -498,7 +498,7 @@
       "displayName": "ConnectWise Automate",
       "type": "text/markdown; profile=\"urn:air:agent-skills\"",
       "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/connectwise-automate/SKILL.md",
-      "description": "Use when the user asks to check ConnectWise Automate fleet health, find stale or offline agents, report patch compliance by client, triage open alerts across clients, inventory end-of-life OSes, or see what changed overnight across an RMM fleet. Syncs your whole Automate server into a local SQLite mirror so it answers cross-client questions the per-server console can't. Trigger phrases: `connectwise automate fleet health`, `stale automate agents`, `automate patch compliance by client`, `triage automate alerts`, `use connectwise automate`, `run connectwise-automate-cli`.",
+      "description": "Every ConnectWise Automate endpoint plus a local SQLite mirror that answers cross-client fleet questions the per-server web UI can't. Trigger phrases: `automate fleet health`, `which automate agents are offline`, `automate patch compliance by client`, `triage automate alerts`, `connectwise automate computers`, `use connectwise-automate`, `run connectwise-automate`.",
       "tags": [
         "RMM"
       ],

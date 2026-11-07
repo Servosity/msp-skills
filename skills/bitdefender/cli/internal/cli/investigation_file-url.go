@@ -45,10 +45,10 @@ func newInvestigationFileUrlCmd(flags *rootFlags) *cobra.Command {
 			}
 			if !stdinBody {
 				if !cmd.Flags().Changed("activity-id") && bodyActivityId == "" && !requiredInputWaived() {
-					return fmt.Errorf("required flag \"%s\" not set", "activity-id")
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "activity-id"))
 				}
 				if !cmd.Flags().Changed("target-id") && bodyTargetId == "" && !requiredInputWaived() {
-					return fmt.Errorf("required flag \"%s\" not set", "target-id")
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "target-id"))
 				}
 			}
 			path := "/v1.0/jsonrpc/investigation#getInvestigationFileUrl"

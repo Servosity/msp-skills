@@ -118,6 +118,12 @@ then passed; 8 the same race, and main's CI is red or could not be verified:
 stop the chain (GitHub's merge call cannot pin the base; the race is detected,
 verified and reported, not prevented: see the README).
 
+`train PR [PR...]` merges several PRs with one CI cycle, one squash commit
+each: car i is prepared on car i-1's prepared commit, its PR based on car i-1's
+branch while its CI runs (so CI reads the tree it lands on), judged on its own
+change, retargeted to main and merged only while main is car i-1's merge commit, and its merge commit's tree
+must be its tested tree (else exit 8). See the README's "Merge trains".
+
 Pure stdlib plus the `gh` CLI.
 """
 
@@ -866,8 +872,27 @@ class GitHub:
 
     def pr(self, n: int) -> dict:
         return json.loads(self._gh("pr", "view", str(n), "-R", self.slug, "--json",
-                                   "number,state,isDraft,headRefName,headRefOid,baseRefName,"
+                                   "number,state,isDraft,headRefName,headRefOid,baseRefName,baseRefOid,"
                                    "isCrossRepository,mergeable,title,url,mergeCommit").stdout)
+
+    def edit_base(self, n: int, base: str) -> None:
+        """Retarget the PR to `base` (a train car's base: the car ahead's branch, then main). GitHub sends
+        pull_request `edited`, which runs no workflow here (none lists it in `types:`), and leaves the
+        head's check runs as they are: they belong to the commit."""
+        self._gh("pr", "edit", str(n), "-R", self.slug, "--base", base)
+
+    def base_events(self, n: int) -> int:
+        """How many times the PR's base was changed or the PR reopened (its timeline). Either can re-describe the
+        base after a push (an edit refreshes baseRefOid) or start runs on another base (a reopen), so a stacked
+        car's count must not move after its push. filteredCount: totalCount ignores itemTypes."""
+        owner, name = self.slug.split("/", 1)
+        q = ("query($o:String!,$r:String!,$n:Int!){repository(owner:$o,name:$r){pullRequest(number:$n){"
+             "timelineItems(itemTypes:[BASE_REF_CHANGED_EVENT,REOPENED_EVENT]){filteredCount}}}}")
+        out = self._gh("api", "graphql", "-f", f"query={q}", "-f", f"o={owner}", "-f", f"r={name}", "-F", f"n={n}",
+                       "--jq", ".data.repository.pullRequest.timelineItems.filteredCount").stdout.strip()
+        if not out.isdigit():
+            raise Stop(EXIT_ERROR, f"unreadable timeline count for PR #{n}: {out[:80]!r}")
+        return int(out)
 
     def required_contexts(self) -> list[str]:
         """The branch-protection required contexts. Fails CLOSED: an error
@@ -1029,8 +1054,9 @@ class GitHub:
                 return ev
         return ev
 
-    def merge(self, n: int, sha: str) -> tuple[bool, str]:
-        p = self._gh("pr", "merge", str(n), "-R", self.slug, "--squash", "--match-head-commit", sha, check=False)
+    def merge(self, n: int, sha: str, subject: str | None = None, body: str | None = None) -> tuple[bool, str]:
+        msg = () if subject is None else ("--subject", subject, "--body", body or "")
+        p = self._gh("pr", "merge", str(n), "-R", self.slug, "--squash", "--match-head-commit", sha, *msg, check=False)
         return p.returncode == 0, (p.stdout + p.stderr).strip()
 
 
@@ -1220,6 +1246,15 @@ class Merger:
         self.merge_called = False  # from the merge call on, an unproven outcome is exit 8
         self.timeouts_at_merge = 0  # calls timed out before the merge call
         self.coderabbit_seen: tuple[str, str, str] | None = None  # (head, state, detail) at the final gate
+        # A train car whose prepared parent is not main's tip: GitHub would list every
+        # car ahead of it in the squash message, so it is given this car's own one.
+        self.merge_message: tuple[str, str] | None = None  # (subject, body)
+        self.merged_as: str | None = None  # the merge commit, once proven
+        # The base the PR must name at every read: main, or for a train car stacked on the car ahead, that
+        # car's branch at exactly its prepared commit (base_oid), so its CI reads the tree it lands on.
+        self.base_ref = "main"
+        self.base_oid: str | None = None
+        self.base_events: int | None = None  # a stacked car: the PR's base-change + reopen count before its push
 
     def say(self, msg: str) -> None:
         self.out(_printable(msg))
@@ -1274,7 +1309,9 @@ class Merger:
             raise Stop(EXIT_ERROR, f"{self.o.remote} reports no main branch")
         return out[0]
 
-    def _run(self) -> int:
+    def _start(self) -> tuple[dict, str, str]:
+        """The PR, its branch lock, a fetch (and this tool's freshness), the
+        head the run starts from, and the worktrees that have it checked out."""
         o = self.o
         pr = self._checked_pr()
         branch, head = pr["headRefName"], pr["headRefOid"]
@@ -1291,6 +1328,26 @@ class Merger:
         if remote_head != head:
             raise Stop(EXIT_REFUSED, f"the PR head moved while starting ({head[:12]} -> {remote_head[:12]}); re-run")
         self._check_branch_worktrees(branch, head, announce=True)
+        return pr, branch, head
+
+    def _push(self, new: str, current: str, branch: str) -> None:
+        """Push `new` as the PR head, leased to `current`, after checking again
+        everything that made the rewrite safe: the PR (still open, into main,
+        same head) and every worktree with the branch checked out (still
+        clean, idle, pushed). Exactly this one ref: push.followTags=true in
+        someone's config would otherwise add reachable annotated tags."""
+        o = self.o
+        self._checked_pr(current, branch)
+        self._check_branch_worktrees(branch, current)
+        self.git.run("-c", "push.followTags=false", "push", "--no-follow-tags",
+                     f"--force-with-lease=refs/heads/{branch}:{current}", o.remote,
+                     f"{new}:refs/heads/{branch}", cwd=self.wt or self.git.repo)
+        self.say(f"==> pushed {new[:12]} (lease {current[:12]})")
+        self._await_pushed_head(new, current)
+
+    def _run(self) -> int:
+        o = self.o
+        pr, branch, head = self._start()
         required = list(self.o.required) if self.o.required is not None else self.gh.required_contexts()
         self.say(f"==> required contexts: {', '.join(required) or '(none: main is not protected)'}")
         current = head
@@ -1325,18 +1382,7 @@ class Merger:
                 if o.dry_run:
                     self.say(f"==> [dry run] would push {new[:12]} to {branch} with --force-with-lease={current[:12]}")
                 else:
-                    # Everything that made the rewrite safe, checked again right
-                    # before it: the PR (still open, into main, same head) and every
-                    # worktree with the branch checked out (still clean, idle, pushed).
-                    self._checked_pr(current, branch)
-                    self._check_branch_worktrees(branch, current)
-                    # Exactly this one ref: push.followTags=true in someone's config
-                    # would otherwise add reachable annotated tags (unprobed releases).
-                    self.git.run("-c", "push.followTags=false", "push", "--no-follow-tags",
-                                 f"--force-with-lease=refs/heads/{branch}:{current}", o.remote,
-                                 f"{new}:refs/heads/{branch}", cwd=self.wt)
-                    self.say(f"==> pushed {new[:12]} (lease {current[:12]})")
-                    self._await_pushed_head(new, current)
+                    self._push(new, current, branch)
                     current = new
             if o.dry_run:
                 return self._dry_run_report(new, current, base, required, missing)
@@ -1386,8 +1432,14 @@ class Merger:
             raise Stop(EXIT_REFUSED, f"PR #{o.pr} is {pr.get('state')}, not OPEN")
         if pr.get("isDraft"):
             raise Stop(EXIT_REFUSED, f"PR #{o.pr} is a draft")
-        if pr.get("baseRefName") != "main":
-            raise Stop(EXIT_REFUSED, f"PR #{o.pr} targets {pr.get('baseRefName')}, not main; not merging")
+        if pr.get("baseRefName") != self.base_ref:
+            raise Stop(EXIT_REFUSED, f"PR #{o.pr} targets {pr.get('baseRefName')}, not {self.base_ref}; not merging")
+        if self.base_oid is not None and pr.get("baseRefOid") != self.base_oid:
+            raise Stop(EXIT_REFUSED, f"PR #{o.pr}'s base {self.base_ref} is at {str(pr.get('baseRefOid'))[:12]}, "
+                                     f"not {self.base_oid[:12]}; its CI would not be judging the tree it lands on")
+        if self.base_events is not None and self.gh.base_events(o.pr) != self.base_events:
+            raise Stop(EXIT_REFUSED, f"PR #{o.pr}'s base was changed (or the PR reopened) after its push; its checks "
+                                     "cannot be tied to the base it lands on")
         if pr.get("isCrossRepository"):
             raise Stop(EXIT_REFUSED, f"PR #{o.pr} is from a fork: this tool runs the branch's generators "
                                      "and pushes to the branch, so it handles same-repository branches only")
@@ -1859,11 +1911,13 @@ class Merger:
                           f"{tip[:12]} passes with the same tool versions")
 
     # -- merge and reports -------------------------------------------------- #
-    def _final_gate(self, sha: str, base: str, required: list[str], branch: str) -> list[list[str]] | None:
+    def _final_gate(self, sha: str, base: str, required: list[str], branch: str,
+                    main_tip: str | None = None) -> list[list[str]] | None:
         with self._deadline(self.o.timeout_s):
-            return self._final_gate_reads(sha, base, required, branch)
+            return self._final_gate_reads(sha, base, required, branch, main_tip)
 
-    def _final_gate_reads(self, sha: str, base: str, required: list[str], branch: str) -> list[list[str]] | None:
+    def _final_gate_reads(self, sha: str, base: str, required: list[str], branch: str,
+                          main_tip: str | None = None) -> list[list[str]] | None:
         """EVERY precondition of the merge, re-read in one place, as late as
         possible: `_run` calls `_merge` straight after it. Re-reads main (and,
         through `_fetch`, this tool's freshness against that main), the PR,
@@ -1876,12 +1930,15 @@ class Merger:
         Residual window: the seconds between these reads and GitHub executing
         the merge. Only server-side enforcement (a merge queue, or every
         aggregate check required) closes it; the after-merge comparison and
-        the parent/tree proof detect it."""
+        the parent/tree proof detect it.
+        `main_tip`: a train car's expected main (the car ahead's merge commit),
+        when its approval base `base` is the car ahead's prepared commit."""
         o = self.o
+        want = main_tip or base
         self._fetch(branch)
         tip = self.git.out("rev-parse", f"refs/remotes/{o.remote}/main")
-        if tip != base:
-            self.say(f"==> main moved during the wait ({base[:12]} -> {tip[:12]}); validating again")
+        if tip != want:
+            self.say(f"==> main moved during the wait ({want[:12]} -> {tip[:12]}); validating again")
             return None
         ok, missing = self._approvals(base, sha, record=True)
         if not ok:
@@ -1902,7 +1959,7 @@ class Merger:
         if pr.get("mergeable") == "CONFLICTING":
             raise Stop(EXIT_CONFLICT, "GitHub reports the PR as CONFLICTING")
         tip = self._remote_main()
-        if tip != base:
+        if tip != want:
             self.say(f"==> main moved to {tip[:12]} just before the merge; validating again")
             return None
         return now
@@ -1964,7 +2021,8 @@ class Merger:
             self.timeouts_at_merge = self._timeouts()
         self.merge_called = True
         try:
-            ok, text = self.gh.merge(o.pr, sha)
+            ok, text = (self.gh.merge(o.pr, sha) if self.merge_message is None
+                        else self.gh.merge(o.pr, sha, *self.merge_message))
             pr = self.gh.pr(o.pr)
             for _ in range(2):  # GitHub's PR read can lag a merge that succeeded
                 if not ok or pr.get("state") == "MERGED":
@@ -2018,6 +2076,8 @@ class Merger:
         parent = self.git.out("rev-parse", f"{merge}^1")
         want = expected_tree or self.git.out("rev-parse", f"{sha}^{{tree}}")
         same_tree = self.git.out("rev-parse", f"{merge}^{{tree}}") == want
+        if parent == base and same_tree:
+            self.merged_as = merge
         if parent == base and same_tree and note:
             self.say(f"MERGED #{o.pr} as {merge[:12]}: {note}; its tree is main's {base[:12]} plus exactly the "
                      f"green head {sha[:12]}'s change, as rebuilt and checked before the call"
@@ -2174,6 +2234,531 @@ class Merger:
             raise interrupt
         if problems:
             raise RuntimeError("; ".join(problems))
+
+
+# --------------------------------------------------------------------------- #
+# Merge trains: one CI cycle for several connector merges
+# --------------------------------------------------------------------------- #
+#
+# A train merges an ordered list of PRs, still ONE squash commit per PR, with
+# one CI cycle for all of them. Car 1 is prepared exactly as a single run
+# prepares it, on origin/main; car i on car i-1's prepared commit (squash,
+# rebase, regenerate, the per-entry registry check, .coderabbit.yaml), and each
+# is pushed as its own PR head with the same lease. Every car's full CI runs at
+# once on its own head.
+#
+# Stacked bases: CI reads policy, baselines, fleet precedent, pins and the
+# changed-path scope from the PR's base (pull_request.base.sha), so car i's PR
+# is retargeted to car i-1's branch (already at car i-1's prepared commit)
+# BEFORE car i's head is pushed: the push's synchronize event then runs every
+# pull_request workflow with base = the tree car i lands on, as a one-at-a-time
+# merge would, and GitHub's stored base for the PR (baseRefOid, refreshed by
+# that push) must read exactly car i-1's prepared commit from then on. Nothing has to be proven about what a car ahead changed. Right
+# after car i-1 merges (main's tree proven equal to car i-1's tested tree), car
+# i is retargeted to main; that `edited` event runs no workflow and leaves the
+# head's checks alone, and the final gate re-reads every check against the
+# green verdict before the merge call. A car whose base cannot be set (or read
+# back), a retarget that fails, a car whose PR reports another base during its
+# wait, or a head whose checks did not run on the intended base stops the
+# train before that car: it and the cars behind it are not merged.
+#
+# The approval check for car i judges car i's OWN change,
+# diff(car i-1's prepared commit, car i's), with the single run's rule
+# (approval_status: byte-identical fingerprint, and nothing "main" changed that
+# the change depends on, where "main" now includes the cars ahead of it).
+#
+# Merging, in order: car i merges only while origin/main is exactly car i-1's
+# merge commit (the train's base for car 1), whose tree was proven equal to car
+# i-1's tested tree. GitHub squashes car i onto that commit with merge base the
+# train's base, so before the call the same three-way merge is run locally
+# (git merge-tree) and must give exactly car i's tested tree; after the call the
+# merge commit's parent and tree are proven as in a single run. A merge commit
+# whose tree is not car i's tested tree, a race inside the call (exit 7 in a
+# single run: the tree on main was never tested) or anything unproven after a
+# merge call is exit 8, and nothing more merges.
+#
+# What only car 1 of a pass can give is a verdict: it sits on real main, so its
+# exit codes mean what a single run's mean. A later car's failure may be caused
+# by the cars ahead of it, so it never gets a verdict here: it goes back to its
+# own lane ("back"), which runs it alone. A car that fails while being prepared
+# is skipped (nothing was pushed, so the cars behind it are prepared on the car
+# ahead of it instead); a car red at the wait truncates the train there (the
+# cars behind it are built on it). Cars not at fault re-pass on the new main in
+# the same run, bounded by --max-rebases, which is how a main that moved (the
+# catalog bot commits docs/_data/pending.json about a minute after every
+# connector merge) is handled: the train stops before the next car and the rest
+# are prepared again on the new main. A car whose pushed head is stacked on a
+# car that did not merge has its PR head put back to the head it had when the
+# train started (its base first: back to main), so its own lane sees its own
+# branch again.
+
+TRAIN_RESULTS = ("merged", "failed", "back")
+
+
+@dataclass
+class Car:
+    m: Merger
+    branch: str = ""
+    title: str = ""
+    source: str = ""   # the PR head when the train started: what every pass prepares from
+    current: str = ""  # the PR head now
+    result: dict | None = None
+    # every commit this train pushed (or tried to) as its head -> (base branch, base commit, the PR's base-change
+    # and reopen count just before the push)
+    pushed: dict[str, tuple[str, str, int]] = field(default_factory=dict)
+    rebased: bool = False  # this train ran it on a base other than main (put back to main when it does not merge)
+
+
+class Train:
+    def __init__(self, git: Git, gh, opts: Options, prs: list[int], out: Callable[[str], None] = print,
+                 sleep: Callable[[float], None] = time.sleep, clock: Callable[[], float] = time.monotonic) -> None:
+        from dataclasses import replace
+        self.git, self.gh, self.o, self.out, self.sleep, self.clock = git, gh, opts, out, sleep, clock
+        self.cars = [Car(Merger(git, gh, replace(opts, pr=n), out=(lambda s, n=n: out(f"[#{n}] {s}")),
+                                sleep=sleep, clock=clock)) for n in prs]
+        self.hard_stop = False
+        self.wt: Path | None = None  # one private worktree for every car
+        self.tmp: Path | None = None
+
+    def say(self, msg: str) -> None:
+        self.out(_printable(msg))
+
+    def _done(self, car: Car, result: str, code: int, why: str, merge: str | None = None,
+              own: bool = False) -> None:
+        """Record a car's outcome. "merged"; "failed": a verdict (the car sat on
+        real main, or exit 8), its code meaning what a single run's means;
+        "back": no verdict, the car returns to its own lane, `own` True when
+        its own trouble sent it back (it then runs alone), False when it was
+        not at fault (it may ride the next train)."""
+        assert result in TRAIN_RESULTS
+        car.result = {"pr": car.m.o.pr, "branch": car.branch, "result": result, "code": code, "own": own,
+                      "why": _printable(why)[:2000], "merge": merge, "head": car.current}
+        self.say(f"TRAIN #{car.m.o.pr}: {result}{' (own)' if own else ''} (exit {code})"
+                 f"{' as ' + merge[:12] if merge else ''}: " + _printable(why)[:400])
+
+    def _own(self, car: Car, verdict: bool, code: int, why: str) -> None:
+        """A car's own failure: a verdict when it sat on real main, else back (own)."""
+        if verdict:
+            self._done(car, "failed", code, why)
+        else:
+            self._done(car, "back", code, why, own=True)
+
+    def _innocent(self, car: Car, code: int, why: str) -> None:
+        if car is self.cars[0]:  # the leader's own run: its code means what a single run's would
+            self._done(car, "failed", code, why)
+        else:
+            self._done(car, "back", code, why)
+
+    def _order(self, cars: list[Car]) -> list[Car]:
+        seen, out = set(), []
+        for c in sorted(cars, key=self.cars.index):
+            if id(c) not in seen:
+                seen.add(id(c))
+                out.append(c)
+        return out
+
+    def run(self) -> int:
+        interrupted: BaseException | None = None
+        why = ""
+        try:
+            self._run()
+        except KeyboardInterrupt as exc:
+            interrupted, why = exc, f"interrupted ({exc or 'SIGINT'})"
+        except Stop as s:
+            why = f"STOP ({s.code}): {s}"
+        except Exception as exc:  # anything unexpected stops the train; a car mid-merge is exit 8 below
+            why = f"internal error: {type(exc).__name__}: {exc}"
+        for car in self.cars:
+            if car.result is not None:
+                continue
+            if car.m.merge_called:  # interrupted or failed inside or after its merge call: unproven
+                self.hard_stop = True
+                self._done(car, "failed", EXIT_RACE_RED, f"{why or 'stopped'} after its merge call: the PR may be "
+                           "merged and nothing proved it; stop the chain and check main by hand")
+            else:
+                self._innocent(car, EXIT_INTERRUPTED if interrupted is not None else EXIT_ERROR,
+                               (why or "the train ended before this car") + "; not merged")
+        try:
+            self._restore()
+        except KeyboardInterrupt as exc:
+            interrupted = interrupted or exc
+        except Exception as exc:
+            self.say(f"WARN putting back the PR heads did not complete ({type(exc).__name__}: {str(exc)[:200]})")
+        try:
+            self._cleanup()
+        except KeyboardInterrupt as exc:
+            interrupted = interrupted or exc
+        except Exception as exc:
+            self.say(f"WARN cleanup did not complete ({type(exc).__name__}: {str(exc)[:200]})")
+        # A single run's latch, over the whole train: once any car's merge call was made, an interrupt, an
+        # unexpected stop or a call timing out afterwards is exit 8 (the results stay as proven per car).
+        called = [c.m for c in self.cars if c.m.merge_called]
+        if called and not self.hard_stop:
+            timed_out = self.cars[0].m._timeouts() > min(m.timeouts_at_merge for m in called)
+            if interrupted is not None or why or timed_out:
+                self.hard_stop = True
+                self.say("==> after the first merge call, " + ("a call timed out" if timed_out else
+                         f"the train was interrupted ({interrupted or 'SIGINT'})" if interrupted is not None else why))
+        lead = self.cars[0].result or {}
+        code = EXIT_RACE_RED if self.hard_stop else int(lead.get("code", EXIT_ERROR))
+        if self.hard_stop:
+            self.say("STOP (8): after a train's merge call, something is unproven (a merge, a tree left on main, "
+                     "or the run itself); nothing more was merged: stop the chain and check main by hand")
+        elif lead.get("result") != "merged" and not self.o.dry_run:
+            self.say(f"STOP ({code}): {lead.get('why', '')}")
+        return code
+
+    def _cleanup(self) -> None:
+        """Each car releases its branch lock; the shared private worktree is
+        removed once. Never `worktree prune` (other sessions' metadata)."""
+        stop: KeyboardInterrupt | None = None  # finish every step, then report the interrupt
+        for car in self.cars:
+            car.m.wt = car.m.tmp = None
+            try:
+                car.m._cleanup()
+            except KeyboardInterrupt as exc:
+                stop = stop or exc
+            except Exception as exc:
+                self.say(f"WARN cleanup of #{car.m.o.pr} did not complete ({type(exc).__name__}: {str(exc)[:200]})")
+        try:
+            if self.wt is not None:
+                self.git.run("rebase", "--abort", cwd=self.wt, check=False)
+                self.git.run("worktree", "remove", "--force", str(self.wt), check=False)
+        except KeyboardInterrupt as exc:
+            stop = stop or exc
+        finally:
+            if self.tmp is not None:
+                shutil.rmtree(self.tmp, ignore_errors=True)
+        if stop is not None:
+            raise stop
+
+    def _setup(self, car: Car) -> None:
+        pr, car.branch, car.source = car.m._start()
+        car.current = car.source
+        car.title = pr.get("title") or car.branch
+
+    def _run(self) -> None:
+        o = self.o
+        live: list[Car] = []
+        for car in self.cars:
+            try:
+                self._setup(car)
+                live.append(car)
+            except Stop as s:
+                self._own(car, car is self.cars[0], s.code, str(s))
+        if not live:
+            return
+        required = list(o.required) if o.required is not None else self.gh.required_contexts()
+        self.say(f"==> train of {len(live)}: {' '.join('#' + str(c.m.o.pr) for c in live)}; required contexts: "
+                 f"{', '.join(required) or '(none)'}")
+        passes = 0
+        while live and not self.hard_stop:
+            passes += 1
+            if passes > o.max_rebases + 1:
+                for car in live:
+                    self._innocent(car, EXIT_TIMEOUT, f"validated again {o.max_rebases} times and main or the "
+                                   "checks are still moving; try later")
+                return
+            live = self._order(self._pass(live, required))
+            if o.dry_run:
+                return
+
+    # -- one pass: prepare, push, wait, merge -------------------------------- #
+    def _pass(self, live: list[Car], required: list[str]) -> list[Car]:
+        """Returns the cars to try again on the new main (none at fault)."""
+        o, g = self.o, self.git
+        lead = live[0].m
+        lead._wait_for_catalog_bot()
+        lead._fetch(live[0].branch)
+        base0 = g.out("rev-parse", f"refs/remotes/{o.remote}/main")
+        self.say(f"==> pass on main {base0[:12]}")
+        chain: list[tuple[Car, str, str]] = []  # (car, prepared commit, the commit it was prepared on)
+        again: list[Car] = []
+        prev = base0
+        for car in live:
+            m = car.m
+            m.wt, m.tmp = self.wt, None  # one private worktree for the whole train
+            try:
+                m._fetch(car.branch)
+                now = g.out("rev-parse", f"refs/remotes/{o.remote}/{car.branch}")
+                if now != car.current:
+                    raise Stop(EXIT_REFUSED, f"the PR head moved to {now[:12]} (expected {car.current[:12]}); "
+                               "not merging")
+                new = m._prepare(car.source, prev, car.title)
+            except Stop as s:
+                self._own(car, not chain, s.code, str(s))
+                continue
+            finally:
+                if self.wt is None and m.wt is not None:
+                    self.wt, self.tmp = m.wt, m.tmp
+                m.tmp = None
+            want = chain[-1][0].branch if chain else "main"
+            if new == car.current and car.pushed.get(new, (None,) if chain else (want, prev))[:2] != (want, prev):
+                # its checks ran on whatever base the PR named when that commit was pushed; a car's CI must have
+                # run on the tree it lands on, and only a push made here, after setting the base, proves that
+                self.say(f"==> #{m.o.pr} skipped this pass: its head {new[:12]} is already the prepared commit, but "
+                         f"was not pushed onto {want} at {prev[:12]} by this train, so its checks may have read "
+                         "another base; it is prepared again once the cars ahead merged")
+                again.append(car)
+                continue
+            ok, missing = m._approvals(prev, new, record=False)
+            if not ok:
+                self._own(car, not chain, EXIT_APPROVAL, "a required approval is not current for this car's own "
+                          f"change (diff {prev[:12]}..{new[:12]}): " + "; ".join(missing)
+                          + f". Re-review it and record it with `approve {m.o.pr} --head ...`.")
+                continue
+            if chain:
+                lands, why = self._squash_lands(base0, prev, new)
+                if not lands:
+                    self.say(f"==> #{m.o.pr} skipped this pass: GitHub's squash of it onto the car ahead would not "
+                             f"land its tested tree ({why}); it is prepared again once the cars ahead merged")
+                    again.append(car)
+                    continue
+            m.say(f"==> train car {len(chain) + 1}: {new[:12]} on {prev[:12]}")
+            chain.append((car, new, prev))
+            prev = new
+        if not chain:
+            return again
+        lead._fetch(live[0].branch)
+        if g.out("rev-parse", f"refs/remotes/{o.remote}/main") != base0:
+            self.say("==> main moved while the train was prepared; preparing it again")
+            return [c for c, _n, _p in chain] + again
+        if o.dry_run:
+            for i, (car, new, prev) in enumerate(chain):
+                self._done(car, "back", EXIT_OK, f"[dry run] would set its PR base to "
+                           f"{chain[i - 1][0].branch if i else 'main'}, push {new[:12]} on {prev[:12]}, wait for "
+                           "every check on it, retarget it to main once the car ahead merged, and merge it in order")
+            for car in again:
+                self._done(car, "back", EXIT_OK, "[dry run] would be prepared again after the cars ahead merge")
+            return []
+        pushed: list[tuple[Car, str, str]] = []
+        for i, (car, new, prev) in enumerate(chain):
+            want = chain[i - 1][0].branch if i else "main"
+            try:
+                self._set_base(car, want)
+            except (Stop, rr.CallTimeout) as exc:
+                self._cut([c for c, _n, _p in chain[i:]], f"its PR base could not be set to {want} "
+                          f"({exc}); not pushed, not merged")
+                break
+            try:
+                if new != car.current:
+                    # before the push: its acknowledgement can fail after it landed
+                    car.pushed[new] = (want, prev, self.gh.base_events(car.m.o.pr) if i else 0)
+                    car.m._push(new, car.current, car.branch)
+                    car.current = new
+                if i:  # the synchronize set GitHub's stored base: from here on it must be the car ahead's commit,
+                    # and nothing may re-describe it (a base change or reopen after the push)
+                    car.m.base_oid, car.m.base_events = prev, car.pushed[new][2]
+                    car.m._checked_pr(new, car.branch)
+                pushed.append((car, new, prev))
+            except Stop as s:
+                self._own(car, i == 0, s.code, str(s))
+                again += [c for c, _n, _p in chain[i + 1:]]
+                break
+        green: list[tuple[Car, str, str]] = []
+        for i, (car, new, prev) in enumerate(pushed):
+            try:
+                r = car.m._wait_for_checks(new, prev, required)
+                if r == "green":  # still on the base its CI ran on (the car ahead's branch at its tested commit)
+                    car.m._checked_pr(new, car.branch)
+            except Stop as s:
+                self._own(car, i == 0, s.code, str(s))
+                again += [c for c, _n, _p in pushed[i + 1:]]
+                break
+            if r != "green":  # a stale base was shown: main moved under car 1, or the car ahead is not what it was
+                if i == 0:
+                    again += [c for c, _n, _p in pushed]
+                else:
+                    self._own(car, False, EXIT_CHECKS, "a failing check on this car matches the car ahead's")
+                    again += [c for c, _n, _p in pushed[i + 1:]]
+                break
+            green.append((car, new, prev))
+        main = base0
+        for i, (car, new, prev) in enumerate(green):
+            rest = [c for c, _n, _p in green[i + 1:]]
+            m = car.m
+            if i > 0:
+                try:  # the car ahead is on main, proven: this car's PR now targets main, as it merges into it
+                    self._set_base(car, "main")
+                except (Stop, rr.CallTimeout) as exc:
+                    self._cut([car] + rest + again, f"its PR could not be retargeted to main after #"
+                              f"{green[i - 1][0].m.o.pr} merged ({exc}); not merged")
+                    return []
+            try:
+                if i > 0:
+                    # GitHub's squash of this car onto main was checked at prepare (_squash_lands): main is now the
+                    # car ahead's merge commit, whose tree was just proven to be that car's prepared tree, and the
+                    # merge base is still the pass's main, so the same three trees give the same result
+                    m.merge_message = self._message(new, m.o.pr)
+                verdicts = m._final_gate(new, prev, required, car.branch, main_tip=main)
+            except Stop as s:
+                self._own(car, main == base0 and i == 0, s.code, str(s))
+                return again + rest
+            if verdicts is None:
+                return again + [car] + rest
+            t0 = m._timeouts()
+            try:
+                outcome = m._merge(new, main, verdicts, required, expected_tree=g.out("rev-parse", f"{new}^{{tree}}"))
+            except Stop as s:
+                self.hard_stop = True
+                why = str(s) if s.code == EXIT_RACE_RED else (
+                    f"{s} In a train this is exit 8: the tree on main after the merge is not a tree whose full CI "
+                    "run was seen green.")
+                self._done(car, "failed", EXIT_RACE_RED, why)
+                for c in rest + again:
+                    self._innocent(c, EXIT_RACE_RED, f"not merged: the train stopped at #{m.o.pr} (exit 8)")
+                return []
+            except KeyboardInterrupt:
+                raise
+            if outcome == "retry":
+                return again + [car] + rest
+            # merged_as is set only once _merge proved the merge commit's parent is `main` and its tree is this
+            # car's tested tree (any other outcome raised above); a call that timed out after the merge call
+            # latches exit 8, as in a single run
+            merge = m.merged_as or ""
+            if m._timeouts() > t0 or not merge:
+                self.hard_stop = True
+                self._done(car, "failed", EXIT_RACE_RED, f"merged as {merge[:12] or '?'}, but "
+                           + ("a call timed out after the merge call" if merge else "nothing proved the merge")
+                           + ": stop the chain and check main by hand")
+                for c in rest + again:
+                    self._innocent(c, EXIT_RACE_RED, f"not merged: the train stopped at #{m.o.pr} (exit 8)")
+                return []
+            self._done(car, "merged", EXIT_OK, f"on {main[:12]}, tree identical to its green head {new[:12]}",
+                       merge=merge)
+            car.current = new
+            main = merge
+            tip = m._remote_main()
+            if tip != main:
+                self.say(f"==> main moved after #{m.o.pr} merged ({main[:12]} -> {tip[:12]}); the train stops here "
+                         "and the rest are prepared again on the new main")
+                return again + rest
+        return again
+
+    def _set_base(self, car: Car, base: str) -> None:
+        """Make car's PR name `base` and read it back. Its Merger then asserts that name at every PR read. The
+        base COMMIT is asserted after the car's push (Train._pass): GitHub's baseRefOid is stored, set by an edit
+        or a push and never live, so only the push's own synchronize makes it the commit that CI reads."""
+        m = car.m
+        m.base_ref, m.base_oid, m.base_events = base, None, None
+        car.rebased = car.rebased or base != "main"  # whoever set it: restore puts it back
+        if self.gh.pr(m.o.pr).get("baseRefName") != base:
+            before = self.gh.base_events(m.o.pr) if base != "main" else None
+            car.rebased = True  # before the call: it can land and its answer fail
+            self.gh.edit_base(m.o.pr, base)
+            m.say(f"==> PR base set to {base}")
+            # the guard after the push compares this count, so it must include this edit (and prove GitHub counts it)
+            for _ in range(PUSH_LAG_READS if before is not None else 0):
+                if self.gh.base_events(m.o.pr) > before:
+                    break
+                self.sleep(PUSH_LAG_SLEEP_S)
+            else:
+                if before is not None:
+                    raise Stop(EXIT_REFUSED, "the PR's timeline does not show the base change, so a later change "
+                               "could not be seen either; not stacking it")
+        m._checked_pr(car.current, car.branch)
+
+    def _cut(self, cars: list[Car], why: str) -> None:
+        """Stop the train before these cars: none of them merges in this run, none is at fault."""
+        for c in self._order(cars):
+            if c.result is None:
+                self._innocent(c, EXIT_REFUSED, why)
+
+    def _squash_lands(self, base: str, ours: str, theirs: str) -> tuple[bool, str]:
+        """Whether GitHub's squash of `theirs` onto a main whose tree is `ours`'s
+        lands exactly `theirs`'s tree: the same three-way merge, run locally,
+        with the merge base GitHub will use (`base`, the pass's main: every car
+        and every merge commit before it descend from it)."""
+        g = self.git
+        p = g.run("merge-tree", "--write-tree", "--no-messages", f"--merge-base={base}", ours, theirs, check=False)
+        tree = (p.stdout.splitlines() or [""])[0].strip()
+        if p.returncode != 0:
+            paths = sorted({ln.split("\t")[-1] for ln in p.stdout.splitlines()[1:] if "\t" in ln})
+            return False, "conflicts in " + (", ".join(paths[:5]) or "the merge")
+        if tree != g.out("rev-parse", f"{theirs}^{{tree}}"):
+            return False, "the merged tree differs from the tested one in " + ", ".join(changed_paths(g, tree, theirs)[:5])
+        return True, ""
+
+    def _message(self, sha: str, n: int) -> tuple[str, str]:
+        """What a single run's merge would write for this car's one commit."""
+        subject = self.git.out("log", "-1", "--format=%s", sha)
+        body = self.git.run("log", "-1", "--format=%b", sha).stdout.rstrip("\n")
+        return f"{subject} (#{n})", body
+
+    def _restore(self) -> None:
+        """Put back the PR head of every car that did not merge and whose pushed
+        head sits on a commit that is not on main (it is stacked on a car
+        that did not merge, or on one that merged as a different squash
+        commit), so its own lane finds its own branch again."""
+        o, g = self.o, self.git
+        try:
+            g.run("fetch", "-q", "--no-tags", o.remote, f"+refs/heads/main:refs/remotes/{o.remote}/main")
+        except Stop:
+            return
+        main = f"refs/remotes/{o.remote}/main"
+        for car in self.cars:  # bases first: a head pushed while the base is a car's branch runs CI on that base
+            if (car.result or {}).get("result") == "merged" or not car.rebased:
+                continue
+            try:
+                if self.gh.pr(car.m.o.pr).get("baseRefName") != "main":
+                    self.gh.edit_base(car.m.o.pr, "main")
+                    if self.gh.pr(car.m.o.pr).get("baseRefName") != "main":
+                        raise Stop(EXIT_ERROR, "GitHub still reports another base")
+                    self.say(f"==> #{car.m.o.pr}: its PR base was put back to main")
+            except (Stop, rr.CallTimeout) as exc:
+                self.say(f"WARN #{car.m.o.pr}: could not put its PR base back to main ({exc}); its head is left "
+                         "as it is")
+                if car.result:
+                    car.result["restore_failed"] = True
+        for car in self.cars:
+            if (car.result or {}).get("result") == "merged" or not car.source:
+                continue
+            # what the remote holds, not what this run believes: a push can land and its acknowledgement fail
+            try:
+                g.run("fetch", "-q", "--no-tags", o.remote, f"+refs/heads/{car.branch}:refs/remotes/{o.remote}/{car.branch}")
+                head = g.out("rev-parse", f"refs/remotes/{o.remote}/{car.branch}")
+            except (Stop, rr.CallTimeout) as exc:
+                self.say(f"WARN #{car.m.o.pr}: could not read its PR head to put it back ({exc})")
+                if car.result:
+                    car.result["restore_failed"] = True
+                continue
+            car.current = head
+            if car.result:
+                car.result["head"] = head
+            if head == car.source:
+                continue
+            if head not in car.pushed:  # someone else's commit: never pushed over, whatever it sits on
+                self.say(f"WARN #{car.m.o.pr}: its PR head is {head[:12]}, which this train did not push; left "
+                         f"as it is (its own head was {car.source[:12]})")
+                if car.result:
+                    car.result["restore_failed"] = True
+                continue
+            parent = g.run("rev-parse", f"{head}^", check=False).stdout.strip()
+            if parent and g.is_ancestor(parent, main):
+                continue  # on main: as a single run would leave it
+            try:
+                base = self.gh.pr(car.m.o.pr).get("baseRefName")
+                if base != "main":  # a push now would run its CI on that base
+                    raise Stop(EXIT_REFUSED, f"its PR targets {base}, not main")
+                car.m._check_branch_worktrees(car.branch, head)
+                # leased to the head the remote holds; not through the PR API, which may still lag the push
+                g.run("-c", "push.followTags=false", "push", "--no-follow-tags",
+                      f"--force-with-lease=refs/heads/{car.branch}:{head}", o.remote,
+                      f"{car.source}:refs/heads/{car.branch}")
+                self.say(f"==> #{car.m.o.pr}: its PR head was put back to {car.source[:12]} (it was {head[:12]}, "
+                         f"stacked on {parent[:12]}, which is not on main)")
+                car.current = car.source
+                if car.result:
+                    car.result["head"] = car.source
+            except (Stop, rr.CallTimeout) as exc:
+                self.say(f"WARN #{car.m.o.pr}: could not put its PR head back to {car.source[:12]} ({exc}); it "
+                         f"is still {car.current[:12]}, stacked on a commit that is not on main")
+                if car.result:
+                    car.result["restore_failed"] = True
+
+    def results(self) -> list[dict]:
+        return [c.result or {"pr": c.m.o.pr, "result": "back", "code": EXIT_ERROR, "why": "no result"}
+                for c in self.cars]
 
 
 def verdicts_of(snap: dict) -> list[list[str]]:
@@ -2476,15 +3061,54 @@ class FakeGitHub:
         self.remaining_seen: list[float] = []  # what the deadline left, at each snapshot
         self.timeouts = 0
         self.merge_stalls = False
-        self._next = 1000
+        self._next = 1000 + 100000 * pr  # job ids stay distinct across a train's PRs
+        # A train car's merge: GitHub merges file CONTENTS three ways (merge base, main,
+        # head); the default tree-level merge refuses any path changed on both sides.
+        self.content_merge = False
+        self.tree_override: str | None = None
+        self.messages: list[tuple[str | None, str | None]] = []  # (subject, body) given to each merge call
+        self.after_merge_hook: Callable[["FakeGitHub"], None] | None = None  # e.g. the catalog bot's commit
         # CodeRabbit's evidence for a sha: a shape name (see coderabbit_evidence)
         # or a callable(sha) -> evidence dict. Default: it reviewed every head.
         self.coderabbit: str | Callable[[str], dict] = "reviewed"
         self.coderabbit_reads = 0
+        # The pull_request synchronize event, as GitHub sends it: the first read of a new head records the
+        # base the PR names then (branch, tip), and that is the base its CI reads (pull_request.base.sha).
+        self.event_base: dict[str, tuple[str, str]] = {}
+        self.base_edits: list[str] = []
+        self.timeline_base_events = 0  # BASE_REF_CHANGED + REOPENED events on the PR's timeline
+        self.timeline_counts_edits = True  # False: a GitHub whose timeline never shows a base change
+        # GitHub's baseRefOid is the PR's STORED base commit: set when the base is edited and when a new head is
+        # pushed (measured on PR 639: still main's 18:58 tip after main moved, until its next push), never live.
+        self.base_oid: str | None = None
+        self.refuse_base_edit: Callable[[str], bool] = lambda base: False  # a base GitHub will not set
+        self.edit_reruns = False  # a GitHub whose retarget re-runs the head's checks (verdicts change)
+        self.after_base_edit: Callable[["FakeGitHub"], None] | None = None
+        self.after_sync: Callable[["FakeGitHub"], None] | None = None  # right after a new head's synchronize
+
+    def base_events(self, n: int) -> int:
+        return self.timeline_base_events
+
+    def edit_base(self, n: int, base: str) -> None:
+        if self.refuse_base_edit(base):
+            raise Stop(EXIT_ERROR, f"gh pr edit failed: GraphQL: Proposed base {base} is not valid")
+        self.base_edits.append(base)
+        self.timeline_base_events += int(self.timeline_counts_edits)
+        self.base_ref = base
+        self.base_oid = self._tip(base)
+        if self.edit_reruns:
+            self._rerun_reads = 1
+        if self.after_base_edit:
+            self.after_base_edit(self)
 
     def _git(self, *a: str) -> str:
         return subprocess.run(["git", "--git-dir", str(self.origin), *a], capture_output=True, text=True,
                               env=self.env, check=True).stdout.strip()
+
+    def _tip(self, branch: str) -> str | None:  # None: no such branch on the origin
+        q = subprocess.run(["git", "--git-dir", str(self.origin), "rev-parse", "-q", "--verify", f"refs/heads/{branch}"],
+                           capture_output=True, text=True, env=self.env)
+        return q.stdout.strip() or None
 
     def pr(self, n: int) -> dict:
         head = self._git("rev-parse", f"refs/heads/{self.branch}") if self.state == "OPEN" else self.merged
@@ -2494,12 +3118,19 @@ class FakeGitHub:
                 head = self._seen_head
             else:
                 self._seen_head = head
+            if head not in self.event_base:
+                self.base_oid = self._tip(self.base_ref)
+                self.event_base[head] = (self.base_ref, self.base_oid)
+                if self.after_sync:
+                    self.after_sync(self)
         state = self.state
         if state == "MERGED" and self.pr_lag_after_merge > 0:
             self.pr_lag_after_merge -= 1
             state = "OPEN"
         return {"number": n, "state": state, "isDraft": False, "headRefName": self.branch, "headRefOid": head,
-                "baseRefName": self.base_ref, "isCrossRepository": False, "mergeable": "MERGEABLE", "title": self.title,
+                "baseRefName": self.base_ref,
+                "baseRefOid": self.base_oid,
+                "isCrossRepository": False, "mergeable": "MERGEABLE", "title": self.title,
                 "mergeCommit": {"oid": self.merge_oid} if self.merge_oid else None}
 
     def required_contexts(self) -> list[str]:
@@ -2540,6 +3171,9 @@ class FakeGitHub:
             if key not in cache:
                 cache[key] = self._check(sha, name)
         checks = [cache[(sha, nm, self.attempts[(sha, nm)])] for nm in self.names]
+        if getattr(self, "_rerun_reads", 0):  # the retarget started the head's checks again
+            self._rerun_reads -= 1
+            checks = [{**c, "status": "in_progress", "conclusion": None} for c in checks]
         by = {c["name"]: c for c in checks}
         runs = [{"name": run, "status": by[check]["status"], "event": "pull_request",
                  "conclusion": by[check]["conclusion"]} for run, check in (("CI", "guards"),
@@ -2588,8 +3222,9 @@ class FakeGitHub:
             return [], True
         return [{"id": 9, "name": "CI", "status": "completed", "conclusion": self.main_ci}], True
 
-    def merge(self, n: int, sha: str) -> tuple[bool, str]:
+    def merge(self, n: int, sha: str, subject: str | None = None, body: str | None = None) -> tuple[bool, str]:
         self.merge_calls += 1
+        self.messages.append((subject, body))
         if self.merge_stalls:
             rr.run_bounded(["sleep", "30"], timeout=1)  # the merge call hangs: killed at its bound
         if self.refuse_merges > 0:
@@ -2607,25 +3242,101 @@ class FakeGitHub:
         # As GitHub's squash: the head's change merged onto main as it is now
         # (a tree-level three-way merge; a path changed on both sides refuses).
         mb = self._git("merge-base", main, sha)
-        idx = self.origin.parent / f"fake-merge-index-{self.merge_calls}"
-        ienv = {**self.env, "GIT_INDEX_FILE": str(idx)}
-        try:
-            subprocess.run(["git", "--git-dir", str(self.origin), "read-tree", "-m", "-i", "--aggressive",
-                            mb, main, sha], capture_output=True, env=ienv, check=True)
-            w = subprocess.run(["git", "--git-dir", str(self.origin), "write-tree"], capture_output=True, text=True,
-                               env=ienv)
-        finally:
-            idx.unlink(missing_ok=True)
-        if w.returncode != 0:
-            return False, "Merge conflict between base and head."
-        tree = w.stdout.strip()
+        if self.content_merge:
+            w = subprocess.run(["git", "--git-dir", str(self.origin), "merge-tree", "--write-tree", "--no-messages",
+                                f"--merge-base={mb}", main, sha], capture_output=True, text=True, env=self.env)
+            if w.returncode != 0:
+                return False, "Merge conflict between base and head."
+            tree = w.stdout.splitlines()[0].strip()
+        else:
+            idx = self.origin.parent / f"fake-merge-index-{self.merge_calls}"
+            ienv = {**self.env, "GIT_INDEX_FILE": str(idx)}
+            try:
+                subprocess.run(["git", "--git-dir", str(self.origin), "read-tree", "-m", "-i", "--aggressive",
+                                mb, main, sha], capture_output=True, env=ienv, check=True)
+                w = subprocess.run(["git", "--git-dir", str(self.origin), "write-tree"], capture_output=True,
+                                   text=True, env=ienv)
+            finally:
+                idx.unlink(missing_ok=True)
+            if w.returncode != 0:
+                return False, "Merge conflict between base and head."
+            tree = w.stdout.strip()
+        if self.tree_override:  # a GitHub whose merge lands another tree than git's three-way merge
+            tree = self.tree_override
+        msg = f"{self.title} (#{n})" if subject is None else subject + ("\n\n" + body if body else "")
         p = subprocess.run(["git", "--git-dir", str(self.origin), "commit-tree", tree, "-p", main, "-m",
-                            f"{self.title} (#{n})"], capture_output=True, text=True, env=self.env, check=True)
+                            msg], capture_output=True, text=True, env=self.env, check=True)
         self._git("update-ref", "refs/heads/main", p.stdout.strip(), main)
         self.state, self.merged, self.merge_oid = "MERGED", sha, p.stdout.strip()
         if self.break_origin_after_merge:
             self.origin.rename(self.origin.with_name(self.origin.name + ".gone"))
+        if self.after_merge_hook:
+            self.after_merge_hook(self)
         return True, ""
+
+
+class FakeTrainGitHub:
+    """One scripted GitHub for a train: each PR is its own FakeGitHub over the
+    same bare origin; reads by commit go to the PR whose head it is."""
+
+    def __init__(self, fakes: list[FakeGitHub]) -> None:
+        self.f = {fk.n: fk for fk in fakes}
+        self.remaining: Callable[[], float] | None = None
+        for fk in fakes:
+            fk.content_merge = True
+
+    @property
+    def timeouts(self) -> int:
+        return sum(fk.timeouts for fk in self.f.values())
+
+    def _by_sha(self, sha: str) -> FakeGitHub:
+        for fk in self.f.values():
+            if fk.state == "OPEN" and fk._git("rev-parse", f"refs/heads/{fk.branch}") == sha or fk.merged == sha:
+                return fk
+        return next(iter(self.f.values()))
+
+    def pr(self, n: int) -> dict:
+        return self.f[n].pr(n)
+
+    def required_contexts(self) -> list[str]:
+        return ["security-gate"]
+
+    def edit_base(self, n: int, base: str) -> None:
+        self.f[n].edit_base(n, base)
+
+    def base_events(self, n: int) -> int:
+        return self.f[n].timeline_base_events
+
+    def snapshot(self, sha: str) -> dict:
+        return self._by_sha(sha).snapshot(sha)
+
+    def _by_job(self, job_id: int) -> FakeGitHub:
+        return self.f.get(job_id // 100000) or next(iter(self.f.values()))
+
+    def job_log(self, job_id: int) -> str:
+        return self._by_job(job_id).job_log(job_id)
+
+    def rerun_job(self, job_id: int) -> None:
+        self._by_job(job_id).rerun_job(job_id)
+
+    def check_on_commit(self, sha: str, name: str) -> dict | None:
+        for fk in self.f.values():
+            hit = fk.check_on_commit(sha, name)
+            if hit is not None:
+                return hit
+        return None
+
+    def catalog_busy(self) -> bool:
+        return False
+
+    def main_runs(self, sha: str) -> tuple[list[dict], bool]:
+        return next(iter(self.f.values())).main_runs(sha)
+
+    def coderabbit_evidence(self, n: int, sha: str) -> dict:
+        return self.f[n].coderabbit_evidence(n, sha)
+
+    def merge(self, n: int, sha: str, subject: str | None = None, body: str | None = None) -> tuple[bool, str]:
+        return self.f[n].merge(n, sha, subject, body)
 
 
 def _self_test() -> int:
@@ -4407,6 +5118,643 @@ def _self_test() -> int:
         fake.snapshots = 0
         rc, logs = merger(work, fake, require=())
         expect(rc in (EXIT_REFUSED,) and fake.merged is None, f"a head pushed by someone else mid-wait stops it (rc={rc})")
+
+        # Merge trains: one CI cycle, one squash commit per PR, each merge on the car ahead's proven tree.
+        print("merge trains:")
+
+        def train_world() -> tuple[Path, Path]:
+            origin, work, _b = world()
+            main_connector(work, "echo")  # a third connector on main
+            return origin, work
+
+        def fix_branch(work: Path, slug: str, also: Callable[[Path], None] | None = None) -> str:
+            """A reprint-like PR: its own connector's files and its own registry entry."""
+            br = f"fix/{slug}"
+            sh("git", "checkout", "-q", "main", cwd=work)
+            sh("git", "pull", "-q", "--ff-only", "origin", "main", cwd=work)
+            sh("git", "checkout", "-q", "-b", br, cwd=work)
+            (work / f"skills/{slug}/SKILL.md").write_text(f"# {slug}\n\nline one\nFIXED {slug}\nline three\n")
+            reg = json.loads((work / rr.SKILLS_JSON).read_text())
+            reg["skills"][slug]["version"] = "0.1.1"
+            (work / rr.SKILLS_JSON).write_text(json.dumps(reg, indent=2, ensure_ascii=True) + "\n")
+            if also:
+                also(work)
+            sh("git", "add", "-A", cwd=work)
+            sh("git", "commit", "-q", "-s", "-m", f"fix {slug} docs", cwd=work)
+            (work / f"skills/{slug}/cli/main.go").write_text(f'package main\n\nconst name = "{slug} v2"\n')
+            sh("git", "commit", "-q", "-s", "-am", f"{slug}: second commit", cwd=work)  # squashed by the train
+            sh("git", "push", "-q", "origin", br, cwd=work)
+            sh("git", "checkout", "-q", "main", cwd=work)
+            return sh("git", "rev-parse", br, cwd=work)
+
+        def train_cars(origin: Path, work: Path, slugs: tuple[str, ...], first_pr: int,
+                       responders: dict[str, Callable] | None = None) -> tuple[list[FakeGitHub], dict[str, str]]:
+            heads = {s: fix_branch(work, s) for s in slugs}
+            fakes = [FakeGitHub(origin, env, first_pr + i, f"fix/{s}", f"fix {s} docs",
+                                (responders or {}).get(s, green)) for i, s in enumerate(slugs)]
+            for fk, s in zip(fakes, slugs):
+                approve(work, fk, heads[s])
+            return fakes, heads
+
+        def run_train(work: Path, fakes: list[FakeGitHub], **kw) -> tuple[int, list[dict], list[str]]:
+            logs: list[str] = []
+            kw.setdefault("allow_stale_tools", True)
+            opts = Options(pr=fakes[0].n, poll_s=0, settle_s=0, timeout_s=60, bot_wait_s=0, **kw)
+            clk = [0.0]
+
+            def fake_sleep(s: float, c=clk) -> None:
+                c[0] += max(s, 1.0)
+            t = Train(Git(work, env), FakeTrainGitHub(fakes), opts, [fk.n for fk in fakes], out=logs.append,
+                      sleep=fake_sleep, clock=lambda c=clk: c[0])
+            return t.run(), t.results(), logs
+
+        def landed(origin: Path, since: str) -> list[str]:
+            return sh("git", "--git-dir", str(origin), "rev-list", "--reverse", "--first-parent",
+                      f"{since}..refs/heads/main", cwd=tmp).split()
+
+        def tree(origin: Path, rev: str) -> str:
+            return origin_rev(origin, f"{rev}^{{tree}}")
+
+        # TR1: a green 3-car train lands 3 squash commits, each with exactly the tree its own CI tested.
+        origin, work = train_world()
+        start = origin_rev(origin, "refs/heads/main")
+        fakes, heads = train_cars(origin, work, ("alpha", "delta", "echo"), 61)
+        rc, res, logs = run_train(work, fakes)
+        got = landed(origin, start)
+        expect(rc == 0 and [r["result"] for r in res] == ["merged"] * 3,
+               f"a green 3-car train merges all three (rc={rc}, {[r['result'] for r in res]})")
+        expect(len(got) == 3 and all(len(sh("git", "--git-dir", str(origin), "rev-list", "--parents", "-n1", c,
+                                            cwd=tmp).split()) == 2 for c in got),
+               "it lands exactly 3 commits on main, each an ordinary one-parent squash commit")
+        expect(len(got) == 3 and all(tree(origin, c) == tree(origin, fk.merged or "") for c, fk in zip(got, fakes)),
+               "each squash commit's tree is byte-identical to the head that car's full CI run saw green")
+        pushed_at = [i for i, s in enumerate(logs) if "==> pushed" in s]
+        merged_at = [i for i, s in enumerate(logs) if s.startswith("TRAIN #") and ": merged" in s]
+        expect(len(pushed_at) == 3 and merged_at and max(pushed_at) < min(merged_at)
+               and all(fk.snapshots > 0 for fk in fakes),
+               "all three heads were pushed and their CI waited for before the first merge (one CI cycle)")
+        if len(got) == 3:
+            p2 = sh("git", "--git-dir", str(origin), "rev-parse", f"{fakes[1].merged}^", cwd=tmp)
+            expect(p2 == fakes[0].merged, "car 2 was prepared on car 1's prepared commit")
+            subj = sh("git", "--git-dir", str(origin), "log", "-1", "--format=%s", got[1], cwd=tmp)
+            body2 = sh("git", "--git-dir", str(origin), "log", "-1", "--format=%B", got[1], cwd=tmp)
+            expect(subj == "fix delta docs (#62)" and "fix alpha" not in body2 and "Signed-off-by:" in body2,
+                   "car 2's squash message is its own commit's (subject plus (#PR), sign-off kept), not car 1's")
+            expect(fakes[0].messages == [(None, None)], "car 1 is merged with the same call as a single run")
+        expect(sum("carried to" in s for s in logs) == 3,
+               "each car's approval carried: its own change (diff from the car ahead) is the approved one")
+
+        # TR2: a red middle car: only the car ahead of it merges in that pass; the car behind it is not
+        # merged on top of it, and the PR heads stacked on unmerged cars are put back.
+        red = scripted({("guards", 1): ("failure", LOG_REAL_ELSEWHERE)})
+        origin, work = train_world()
+        start = origin_rev(origin, "refs/heads/main")
+        fakes, heads = train_cars(origin, work, ("alpha", "delta", "echo"), 64, {"delta": red})
+        rc, res, logs = run_train(work, fakes, max_rebases=0)
+        got = landed(origin, start)
+        expect(rc == 0 and [r["result"] for r in res] == ["merged", "back", "back"] and len(got) == 1
+               and res[1]["own"] and not res[2]["own"],
+               f"a red car 2 of 3: car 1 merges, car 2 goes back (its own red), car 3 goes back (not at fault) "
+               f"(rc={rc}, {[(r['result'], r['own']) for r in res]})")
+        expect(origin_rev(origin, "refs/heads/fix/delta") == heads["delta"]
+               and origin_rev(origin, "refs/heads/fix/echo") == heads["echo"],
+               "the PR heads of cars 2 and 3 (stacked on commits not on main) are put back to their own heads")
+        origin, work = train_world()
+        start = origin_rev(origin, "refs/heads/main")
+        fakes, heads = train_cars(origin, work, ("alpha", "delta", "echo"), 67, {"delta": red})
+        rc, res, logs = run_train(work, fakes)
+        got = landed(origin, start)
+        expect([r["result"] for r in res] == ["merged", "back", "merged"] and len(got) == 2
+               and fakes[2].merged and sh("git", "--git-dir", str(origin), "rev-parse", f"{fakes[2].merged}^",
+                                          cwd=tmp) == got[0]
+               and tree(origin, got[1]) == tree(origin, fakes[2].merged),
+               "with a re-pass allowed, car 3 is prepared again on main after car 1 and merges on its own green CI")
+
+        # TR3: main moves mid-train (the catalog bot's commit after car 1): the train stops before car 2.
+        def bot_commit(fk: FakeGitHub, w: Path = None) -> None:
+            main_commit(fk._w, lambda x: (x / "docs/guide.md").write_text("bot regenerated\n"),
+                        "chore: regenerate derived files [bot]")
+        for rebases, want in ((0, ["merged", "back", "back"]), (3, ["merged", "merged", "merged"])):
+            origin, work = train_world()
+            start = origin_rev(origin, "refs/heads/main")
+            fakes, heads = train_cars(origin, work, ("alpha", "delta", "echo"), 70 + rebases * 3)
+            fakes[0]._w = work
+            fakes[0].after_merge_hook = bot_commit
+            rc, res, logs = run_train(work, fakes, max_rebases=rebases)
+            got = landed(origin, start)
+            ok = [r["result"] for r in res] == want
+            if rebases == 0:
+                expect(ok and len(got) == 2 and any("main moved after #70 merged" in s for s in logs),
+                       f"main moved after car 1: nothing more merges in that pass (rc={rc}, "
+                       f"{[r['result'] for r in res]})")
+            else:
+                expect(ok and len(got) == 4 and fakes[1].merged
+                       and sh("git", "--git-dir", str(origin), "rev-parse", f"{fakes[1].merged}^", cwd=tmp) == got[1]
+                       and all(tree(origin, c) == tree(origin, fk.merged or "") for c, fk in
+                               zip((got[0], got[2], got[3]), fakes)),
+                       "the rest are prepared again on the new main (after the bot's commit) and merge on its "
+                       "tested trees")
+
+        # TR4: a car whose own change differs from its approval refuses; the cars around it still merge.
+        origin, work = train_world()
+        start = origin_rev(origin, "refs/heads/main")
+        fakes, heads = train_cars(origin, work, ("alpha", "delta", "echo"), 80)
+        sh("git", "checkout", "-q", "fix/delta", cwd=work)
+        (work / "skills/delta/SKILL.md").write_text("# delta\n\nline one\nFIXED delta \nline three\n")
+        sh("git", "commit", "-q", "-s", "-am", "one more byte", cwd=work)
+        sh("git", "push", "-q", "origin", "fix/delta", cwd=work)
+        sh("git", "checkout", "-q", "main", cwd=work)
+        moved = origin_rev(origin, "refs/heads/fix/delta")
+        rc, res, logs = run_train(work, fakes)
+        got = landed(origin, start)
+        expect([r["result"] for r in res] == ["merged", "back", "merged"] and res[1]["code"] == EXIT_APPROVAL
+               and res[1]["own"] and len(got) == 2 and origin_rev(origin, "refs/heads/fix/delta") == moved,
+               f"car 2's change differs from its approval: it is refused (exit 4) and never pushed; cars 1 and 3 "
+               f"merge ({[(r['result'], r['code']) for r in res]})")
+        expect(any("not byte-identical" in s for s in logs), "and the reason is the byte-exact fingerprint")
+        expect(sum("==> pass on main" in s for s in logs) == 1,
+               "car 2 is refused before its push (not after CI), so car 3 rides the same pass")
+        # TR4b: car 1 edits car 2's connector directory. Car 2 is judged on car 1 (the tree it lands on): its
+        # approval lapses there exactly as a one-at-a-time merge's would, before anything is pushed.
+        origin, work = train_world()
+        h1 = fix_branch(work, "alpha", also=lambda w: (w / "skills/delta/NOTES.md").write_text("alpha's note\n"))
+        h2 = fix_branch(work, "delta")
+        fakes = [FakeGitHub(origin, env, 83, "fix/alpha", "fix alpha docs", green),
+                 FakeGitHub(origin, env, 84, "fix/delta", "fix delta docs", green)]
+        approve(work, fakes[0], h1)
+        approve(work, fakes[1], h2)
+        rc, res, logs = run_train(work, fakes, max_rebases=0)
+        expect([(r["result"], r["own"], r["code"]) for r in res] == [("merged", False, 0), ("back", True, EXIT_APPROVAL)]
+               and origin_rev(origin, "refs/heads/fix/delta") == h2
+               and any("skills/delta/NOTES.md (this connector's directory)" in s for s in logs),
+               f"a car ahead that changes car 2's connector directory: car 2's approval lapses on it, unpushed "
+               f"({[(r['result'], r['own'], r['code']) for r in res]})")
+
+        # TR5: a car whose squash onto the car ahead would not land its tested tree (two new connectors
+        # both append to the registries) is skipped before any push, and the car behind it is prepared on
+        # the car ahead instead; it merges on the next pass.
+        origin, work = train_world()
+        start = origin_rev(origin, "refs/heads/main")
+        hb = new_connector_pr(work, extra_commit=False)
+        sh("git", "checkout", "-q", "-b", "skill/charlie", "main", cwd=work)
+        rr.add_connector(work, env, "charlie")
+        sh("git", "push", "-q", "origin", "skill/charlie", cwd=work)
+        sh("git", "checkout", "-q", "main", cwd=work)
+        hc = sh("git", "rev-parse", "skill/charlie", cwd=work)
+        ha = fix_branch(work, "echo")  # its registry entry is not next to the new connector's
+        fakes = [FakeGitHub(origin, env, 86, "skill/bravo", "skill: bravo", green),
+                 FakeGitHub(origin, env, 87, "skill/charlie", "skill: charlie", green),
+                 FakeGitHub(origin, env, 88, "fix/echo", "fix echo docs", green)]
+        for fk, h in zip(fakes, (hb, hc, ha)):
+            approve(work, fk, h)
+        rc, res, logs = run_train(work, fakes)
+        got = landed(origin, start)
+        skip_at = next((i for i, s in enumerate(logs) if "#87 skipped this pass" in s), None)
+        expect(rc == 0 and [r["result"] for r in res] == ["merged"] * 3 and len(got) == 3
+               and skip_at is not None and not any("[#87] ==> pushed" in s for s in logs[:skip_at])
+               and fakes[2].merged and sh("git", "--git-dir", str(origin), "rev-parse", f"{fakes[2].merged}^",
+                                          cwd=tmp) == fakes[0].merged,
+               f"a car GitHub could not squash onto the car ahead is skipped unpushed, the next car is prepared "
+               f"on the car ahead, and it merges on the next pass ({[r['result'] for r in res]})")
+        expect(len(got) == 3 and all(tree(origin, c) == tree(origin, fk.merged or "")
+                                     for c, fk in zip(got, (fakes[0], fakes[2], fakes[1]))),
+               "and every squash commit carries exactly its own tested tree")
+
+        # TR6: main moves INSIDE car 2's merge call: car 2's tree on main was never tested: exit 8, and
+        # nothing more merges (no re-pass).
+        origin, work = train_world()
+        start = origin_rev(origin, "refs/heads/main")
+        fakes, heads = train_cars(origin, work, ("alpha", "delta", "echo"), 89)
+        fakes[1]._w = work
+        fakes[1].before_merge = lambda fk: main_commit(fk._w, lambda x: (x / "docs/guide.md").write_text("race\n"),
+                                                        "lands inside the call")
+        rc, res, logs = run_train(work, fakes)
+        expect(rc == EXIT_RACE_RED and [r["result"] for r in res] == ["merged", "failed", "back"]
+               and res[1]["code"] == EXIT_RACE_RED and not fakes[2].merged and fakes[2].merge_calls == 0,
+               f"a race inside car 2's merge call is exit 8 and car 3 is not merged (rc={rc}, "
+               f"{[(r['result'], r['code']) for r in res]})")
+        # TR6b: the same race, and main's CI on the merge commit then passes: a single run says 7 (merged,
+        # main moved); in a train it is still exit 8: the tree on main is not a tree whose CI was seen green.
+        origin, work = train_world()
+        fakes, heads = train_cars(origin, work, ("alpha", "delta", "echo"), 140)
+        fakes[1]._w = work
+        fakes[1].main_ci = "success"
+        fakes[1].before_merge = lambda fk: main_commit(fk._w, lambda x: (x / "docs/guide.md").write_text("race\n"),
+                                                        "lands inside the call")
+        rc, res, logs = run_train(work, fakes)
+        expect(rc == EXIT_RACE_RED and [(r["result"], r["code"]) for r in res][:2] == [("merged", 0), ("failed", 8)]
+               and fakes[2].merge_calls == 0,
+               f"a race inside car 2's merge call with main's CI then green is still exit 8 in a train, and car 3 "
+               f"is not merged (rc={rc}, {[(r['result'], r['code']) for r in res]})")
+
+        # TR7: GitHub lands a tree other than the tested one (here: car 1's, car 2's change dropped): exit 8.
+        origin, work = train_world()
+        fakes, heads = train_cars(origin, work, ("alpha", "delta", "echo"), 92)
+        fakes[0].after_merge_hook = lambda fk, f2=fakes[1]: setattr(f2, "tree_override", fk._git(
+            "rev-parse", "refs/heads/main^{tree}"))
+        rc, res, logs = run_train(work, fakes)
+        expect(rc == EXIT_RACE_RED and [r["result"] for r in res] == ["merged", "failed", "back"]
+               and fakes[2].merge_calls == 0 and any("not the green one" in s for s in logs),
+               f"a merge commit whose tree is not car 2's tested tree is exit 8 and nothing more merges (rc={rc})")
+        # TR7b: a call times out after car 2's merge call (its merge itself proven): exit 8, as a single run's latch.
+        origin, work = train_world()
+        fakes, heads = train_cars(origin, work, ("alpha", "delta", "echo"), 150)
+        fakes[1].after_merge_hook = lambda fk: setattr(fk, "timeouts", fk.timeouts + 1)
+        rc, res, logs = run_train(work, fakes)
+        expect(rc == EXIT_RACE_RED and [(r["result"], r["code"]) for r in res][:2] == [("merged", 0), ("failed", 8)]
+               and fakes[2].merge_calls == 0 and any("timed out after the merge call" in s for s in logs),
+               f"a call that times out after car 2's merge call is exit 8 and car 3 is not merged (rc={rc}, "
+               f"{[(r['result'], r['code']) for r in res]})")
+
+        # Stacked bases. CI reads policy, baselines, precedent and pins from pull_request.base.sha. Each fake
+        # records the base GitHub would send in the synchronize event for each pushed head (event_base), and these
+        # responders are the CI-equivalent readers: they judge a head against THAT base and nothing else. No guard
+        # in the train looks at what a car ahead changed; the base is simply the tree the car lands on.
+        def ci_reads(fk: FakeGitHub, passes: Callable[[str, str], bool]) -> Callable[[str, str, int], tuple[str, str]]:
+            def r(sha: str, name: str, attempt: int) -> tuple[str, str]:
+                if name != "security-gate":
+                    return "success", LOG_OK
+                base = fk.event_base.get(sha, ("?", ""))[1]
+                return ("success", LOG_OK) if base and passes(base, sha) else ("failure", LOG_REAL_ELSEWHERE)
+            return r
+
+        def blob(origin: Path, rev: str, path: str) -> str:
+            q = subprocess.run(["git", "--git-dir", str(origin), "show", f"{rev}:{path}"], capture_output=True,
+                               env=env)
+            return q.stdout.decode("utf-8", "surrogateescape") if q.returncode == 0 else ""
+
+        # TRS1: in a green 3-car train, car 1's CI ran on main, car 2's on car 1's branch at exactly car 1's tested
+        # commit, car 3's on car 2's; every retarget to main happened after the car ahead merged, and each car's
+        # base tree is the tree main held when it merged.
+        origin, work = train_world()
+        start = origin_rev(origin, "refs/heads/main")
+        fakes, heads = train_cars(origin, work, ("alpha", "delta", "echo"), 200)
+        rc, res, logs = run_train(work, fakes)
+        got = landed(origin, start)
+        seen = [fk.event_base.get(fk.merged or "") for fk in fakes]
+        expect(rc == 0 and len(got) == 3 and seen == [("main", start), ("fix/alpha", fakes[0].merged),
+                                                      ("fix/delta", fakes[1].merged)],
+               f"stacked: each car's CI base is the car ahead's tested commit (car 1: main) ({seen})")
+        expect(len(got) == 3 and tree(origin, seen[1][1]) == tree(origin, got[0])
+               and tree(origin, seen[2][1]) == tree(origin, got[1]),
+               "and car 2's (car 3's) CI base tree is byte-identical to main's tree when it merged")
+        expect([fk.base_edits for fk in fakes] == [[], ["fix/alpha", "main"], ["fix/delta", "main"]]
+               and all(fk.base_ref == "main" for fk in fakes),
+               f"cars 2 and 3 were stacked before their push and retargeted to main before their merge "
+               f"({[fk.base_edits for fk in fakes]})")
+        at = {k: next((i for i, s in enumerate(logs) if s.startswith(k)), -1) for k in
+              ("TRAIN #200: merged", "[#201] ==> PR base set to main", "TRAIN #201: merged",
+               "[#202] ==> PR base set to main")}
+        expect(-1 not in at.values() and list(at.values()) == sorted(at.values()),
+               f"each retarget to main follows the car ahead's proven merge ({at})")
+
+        # TR10 (round 1): car 1 removes a security suppression; car 2 adds the finding it suppressed. Car 2's CI
+        # reads car 1's policy (its base), goes red there and is not merged; car 1 merges. Red on a car ahead,
+        # car 2 goes back (own) and runs alone, as any red car in a chain does.
+        def suppressions(text: str) -> Callable[[Path], None]:
+            return lambda w: (w / "tools/maintainer/security_suppressions.json").write_text(text)
+
+        def g204(w: Path) -> None:
+            (w / "skills/delta/cli/shell.go").write_text('package main\n\n// exec.Command(x) G204\n')
+        origin, work = train_world()
+        main_commit(work, suppressions('{"suppressions": ["fleet G204"]}\n'), "policy on main")
+        h1 = fix_branch(work, "alpha", also=suppressions('{"suppressions": []}\n'))
+        h2 = fix_branch(work, "delta", also=g204)
+        fakes = [FakeGitHub(origin, env, 160, "fix/alpha", "fix alpha docs", green),
+                 FakeGitHub(origin, env, 170, "fix/delta", "fix delta docs", green)]
+
+        def policy_passes(b: str, h: str, o: Path = origin) -> bool:
+            return ("G204" not in blob(o, h, "skills/delta/cli/shell.go")
+                    or "fleet G204" in blob(o, b, "tools/maintainer/security_suppressions.json"))
+        fakes[1].responder = ci_reads(fakes[1], policy_passes)
+        approve(work, fakes[0], h1)
+        approve(work, fakes[1], h2)
+        on_main = policy_passes(origin_rev(origin, "refs/heads/main"), h2)  # a car 2 CI that read main: green
+        rc, res, logs = run_train(work, fakes, max_rebases=0)
+        expect(on_main and [(r["result"], r["own"]) for r in res] == [("merged", False), ("back", True)]
+               and fakes[1].merged is None
+               and origin_rev(origin, "refs/heads/fix/delta") == h2,
+               f"policy (round 1): car 2's CI reads car 1's policy and is red; car 1 merges, "
+               f"car 2 does not ({[(r['result'], r['own']) for r in res]})")
+
+        # TR13 (rounds 2 and 3): the security gate's fleet precedent, run for real (check_security_gate's own
+        # FleetPrecedent and precedent_for, on a checkout of car 2's head, against the base GitHub sends). The base
+        # holds three other connectors' copies of car 2's annotated declaration; car 1 replaces its copy. In the
+        # round-3 form the copies on main are CRLF blobs and car 2 adds an LF blob with skills/delta/.gitattributes
+        # "*.go text eol=crlf", so its checkout bytes match them. Both forms: car 2's CI counts two copies on car 1
+        # (below the minimum) and is red; car 1 merges; nothing in the train compares any bytes.
+        import check_security_gate as csg  # noqa: E402  (the reader itself)
+        annotated_decl = "// Open reads p.\nfunc Open(p string) {\n\t_, _ = os.Open(p) // #nosec G304\n}\n"
+        other_decl = "func Other() int {\n\treturn 2\n}\n"
+
+        def xgo(slug: str, src: str, crlf: bool = False) -> Callable[[Path], None]:
+            def w(root: Path) -> None:
+                (root / f"skills/{slug}/cli/internal").mkdir(parents=True, exist_ok=True)
+                text = f"package internal\n\n{src}"
+                (root / f"skills/{slug}/cli/internal/x.go").write_bytes(
+                    (text.replace("\n", "\r\n") if crlf else text).encode())
+            return w
+
+        def precedent_passes(origin: Path, base: str, head: str) -> bool:
+            co = tmp / f"ci-checkout-{head[:12]}-{base[:12]}"
+            if not co.exists():
+                sh("git", "clone", "-q", "--no-checkout", str(origin), str(co), cwd=tmp)
+                sh("git", "checkout", "-q", "--detach", head, cwd=co)  # .gitattributes apply, as in CI's checkout
+            rel = "skills/delta/cli/internal/x.go"
+            n = csg.precedent_for("delta", rel, "5", csg.FleetPrecedent(base, repo=co))
+            return n >= csg.PRECEDENT_MIN
+        for case, crlf, alpha_src in (("copy removed (LF)", False, other_decl),
+                                      ("copy removed (CRLF base, eol=crlf checkout)", True, other_decl),
+                                      ("copy kept", False, annotated_decl)):
+            origin, work = train_world()
+            main_connector(work, "foxtrot")
+            for slug in ("alpha", "echo", "foxtrot"):
+                main_commit(work, xgo(slug, annotated_decl, crlf), f"{slug}'s copy on main")
+            start = origin_rev(origin, "refs/heads/main")
+            h1 = fix_branch(work, "alpha", also=xgo("alpha", alpha_src, crlf))
+
+            def delta_files(root: Path, c=crlf) -> None:
+                xgo("delta", annotated_decl)(root)
+                if c:
+                    (root / "skills/delta/.gitattributes").write_text("*.go text eol=crlf\n")
+            h2 = fix_branch(work, "delta", also=delta_files)
+            k = len(case)
+            fakes = [FakeGitHub(origin, env, 300 + k, "fix/alpha", "fix alpha docs", green),
+                     FakeGitHub(origin, env, 400 + k, "fix/delta", "fix delta docs", green)]
+            fakes[1].responder = ci_reads(fakes[1], lambda b, h, o=origin: precedent_passes(o, b, h))
+            approve(work, fakes[0], h1)
+            approve(work, fakes[1], h2)
+            on_main = precedent_passes(origin, start, h2)  # what a car 2 CI that read main would have said
+            rc, res, logs = run_train(work, fakes, max_rebases=0)
+            if case == "copy kept":
+                expect(rc == 0 and [r["result"] for r in res] == ["merged", "merged"] and len(landed(origin, start)) == 2,
+                       f"precedent, {case}: car 2's CI on car 1 still counts three copies; both merge "
+                       f"({[r['result'] for r in res]})")
+            else:
+                expect(on_main and [(r["result"], r["own"]) for r in res] == [("merged", False), ("back", True)]
+                       and fakes[1].merged is None and origin_rev(origin, "refs/heads/fix/delta") == h2,
+                       f"precedent, {case}: main's base would excuse car 2 (three copies: {on_main}), car 1's does not; "
+                       f"car 2 is red on its stacked base and not merged ({[(r['result'], r['own']) for r in res]})")
+
+        # TR14 (round 2): the pinned-artifacts check reads the repo-wide set of release links from the base: a link
+        # the base already carries must resolve (strict); one the change introduces gets the in-flight grace. Car 1
+        # introduces the link; car 2 carries it too. On car 1's base it is no longer introduced: car 2 is red.
+        # assembled, so the pinned-artifacts check does not read this fixture as a pin in this file
+        url = "https://github.com/Servosity/msp-skills/releases/" + "download/alpha-v9.9.9/alpha.mcpb"
+
+        def pin(slug: str) -> Callable[[Path], None]:
+            return lambda root: (root / f"skills/{slug}/NOTES.md").write_text(f"get it: {url}\n")
+
+        def pins_pass(origin: Path, base: str, head: str) -> bool:
+            on_base = subprocess.run(["git", "--git-dir", str(origin), "grep", "-q", "-F", url, base], env=env)
+            return on_base.returncode != 0  # carried by the base and unreleased: red; introduced: grace
+        origin, work = train_world()
+        h1 = fix_branch(work, "alpha", also=pin("alpha"))
+        h2 = fix_branch(work, "delta", also=pin("delta"))
+        fakes = [FakeGitHub(origin, env, 194, "fix/alpha", "fix alpha docs", green),
+                 FakeGitHub(origin, env, 195, "fix/delta", "fix delta docs", green)]
+        for fk in fakes:
+            fk.responder = ci_reads(fk, lambda b, h, o=origin: pins_pass(o, b, h))
+        approve(work, fakes[0], h1)
+        approve(work, fakes[1], h2)
+        rc, res, logs = run_train(work, fakes, max_rebases=0)
+        expect([(r["result"], r["own"]) for r in res] == [("merged", False), ("back", True)]
+               and fakes[1].merged is None,
+               f"pins (round 2): car 2's CI reads car 1's links and is red; car 1 merges ({[(r['result'], r['own']) for r in res]})")
+
+        # TRS2: GitHub will not set car 2's base: the train stops before car 2. Car 1 merges; cars 2 and 3 are
+        # neither pushed nor merged, not at fault, and their PR heads and bases are as they were.
+        for where in ("stack", "retarget"):
+            origin, work = train_world()
+            start = origin_rev(origin, "refs/heads/main")
+            fakes, heads = train_cars(origin, work, ("alpha", "delta", "echo"), 210 + 10 * (where == "retarget"))
+            fakes[1].refuse_base_edit = (lambda b: b == "fix/alpha") if where == "stack" else (lambda b: b == "main")
+            rc, res, logs = run_train(work, fakes)
+            r2 = [(r["result"], r["own"]) for r in res]
+            if where == "stack":
+                expect(rc == 0 and r2 == [("merged", False), ("back", False), ("back", False)]
+                       and len(landed(origin, start)) == 1
+                       and origin_rev(origin, "refs/heads/fix/delta") == heads["delta"]
+                       and origin_rev(origin, "refs/heads/fix/echo") == heads["echo"]
+                       and not any("[#211] ==> pushed" in s or "[#212] ==> pushed" in s for s in logs),
+                       f"a base GitHub will not set stops the train before that car, unpushed ({r2})")
+            else:
+                expect(rc == 0 and r2 == [("merged", False), ("back", False), ("back", False)]
+                       and len(landed(origin, start)) == 1 and fakes[1].merge_calls == 0 and fakes[2].merge_calls == 0
+                       and res[1].get("restore_failed") and fakes[1].base_ref == "fix/alpha"
+                       and origin_rev(origin, "refs/heads/fix/delta") != heads["delta"]
+                       and fakes[2].base_ref == "main" and origin_rev(origin, "refs/heads/fix/echo") == heads["echo"],
+                       f"a retarget to main that fails stops the train before that car; its head is left stacked (a "
+                       f"push onto a car's base would run CI there) and reported; car 3 is put back, base first "
+                       f"({r2}, restore_failed={res[1].get('restore_failed')}, bases {[fk.base_ref for fk in fakes]})")
+
+        # TRS3: a retarget that starts the head's checks again: the final gate sees them change and car 2 is
+        # not merged on the earlier verdict.
+        origin, work = train_world()
+        fakes, heads = train_cars(origin, work, ("alpha", "delta"), 230)
+        fakes[1].edit_reruns = True
+        rc, res, logs = run_train(work, fakes, max_rebases=0)
+        expect([r["result"] for r in res] == ["merged", "back"] and fakes[1].merge_calls == 0
+               and any("changed after the green verdict" in s for s in logs),
+               f"checks that change on the retarget are not merged on ({[r['result'] for r in res]})")
+
+        # TRS4: someone retargets car 2 back to main while its CI runs: GitHub now reports another base for it,
+        # so it is not merged and neither is the car behind it.
+        origin, work = train_world()
+        fakes, heads = train_cars(origin, work, ("alpha", "delta", "echo"), 240)
+        fakes[1].on_snapshot = lambda fk, sha, n: setattr(fk, "base_ref", "main")
+        rc, res, logs = run_train(work, fakes, max_rebases=0)
+        expect([r["result"] for r in res] == ["merged", "back", "back"] and fakes[1].merge_calls == 0
+               and fakes[2].merge_calls == 0 and any("targets main, not fix/alpha" in s for s in logs),
+               f"a car whose PR reports another base during its wait is not merged ({[r['result'] for r in res]})")
+
+        # TRS6: someone pushes X to car 1's branch right after car 2 is stacked on it, and puts car 1's commit
+        # back right after car 2's push. Car 1 is unharmed (its head is its tested commit again), but car 2's
+        # synchronize carried base X: its CI read X, not the tree it lands on. The PR's stored base says so (X), so
+        # car 2 is not merged; car 1 is.
+        origin, work = train_world()
+        fakes, heads = train_cars(origin, work, ("alpha", "delta"), 260)
+        clone6 = tmp / "trs6-clone"
+        tested: list[str] = []
+
+        def push_x(fk: FakeGitHub) -> None:
+            if fk.base_ref != "fix/alpha" or clone6.exists():
+                return
+            tested.append(fk._git("rev-parse", "refs/heads/fix/alpha"))
+            sh("git", "clone", "-q", "--branch", "fix/alpha", str(origin), str(clone6), cwd=tmp)
+            (clone6 / "skills/alpha/EXTRA.md").write_text("someone else's commit\n")
+            sh("git", "add", "-A", cwd=clone6)
+            sh("git", "-c", "user.name=m", "-c", "user.email=m@example.invalid", "commit", "-q", "-s", "-m", "X",
+               cwd=clone6)
+            sh("git", "push", "-q", "origin", "fix/alpha", cwd=clone6)
+
+        def put_back(fk: FakeGitHub) -> None:
+            if tested and fk.base_ref == "fix/alpha":
+                sh("git", "push", "-q", "-f", "origin", f"{tested[0]}:refs/heads/fix/alpha", cwd=clone6)
+                fk.after_sync = None
+        fakes[1].after_base_edit = push_x
+        fakes[1].after_sync = put_back
+        rc, res, logs = run_train(work, fakes, max_rebases=0)
+        x = sh("git", "-C", str(clone6), "rev-parse", "HEAD", cwd=tmp) if clone6.exists() else "?"
+        pushed2 = [h for h, (b, o) in fakes[1].event_base.items() if b == "fix/alpha"]
+        expect(res[0]["result"] == "merged" and fakes[1].merged is None and fakes[1].merge_calls == 0
+               and res[1]["result"] == "back" and pushed2 and fakes[1].event_base[pushed2[0]][1] == x
+               and any(f"is at {x[:12]}" in s for s in logs),
+               f"a car whose PR reports a base other than the car ahead's tested commit is not merged "
+               f"({[(r['result'], r['own']) for r in res]}, x {x[:12]})")
+
+        # TRS7 (round 4): TRS6, and then someone retargets car 2 to main and back after its push. The edits refresh
+        # GitHub's stored base to car 1's commit, hiding that car 2's synchronize carried X. Any base change (or
+        # reopen) on the PR after the train's push means its checks cannot be tied to the base: not merged.
+        origin, work = train_world()
+        fakes, heads = train_cars(origin, work, ("alpha", "delta"), 270)
+        clone7 = tmp / "trs7-clone"
+        tested7: list[str] = []
+
+        def push_x7(fk: FakeGitHub) -> None:
+            if fk.base_ref != "fix/alpha" or clone7.exists():
+                return
+            tested7.append(fk._git("rev-parse", "refs/heads/fix/alpha"))
+            sh("git", "clone", "-q", "--branch", "fix/alpha", str(origin), str(clone7), cwd=tmp)
+            (clone7 / "skills/alpha/EXTRA.md").write_text("someone else's commit\n")
+            sh("git", "add", "-A", cwd=clone7)
+            sh("git", "-c", "user.name=m", "-c", "user.email=m@example.invalid", "commit", "-q", "-s", "-m", "X",
+               cwd=clone7)
+            sh("git", "push", "-q", "origin", "fix/alpha", cwd=clone7)
+
+        def back_and_forth(fk: FakeGitHub) -> None:
+            if tested7 and fk.base_ref == "fix/alpha":
+                fk.after_sync = None
+                sh("git", "push", "-q", "-f", "origin", f"{tested7[0]}:refs/heads/fix/alpha", cwd=clone7)
+                fk.edit_base(fk.n, "main")
+                fk.edit_base(fk.n, "fix/alpha")
+        fakes[1].after_base_edit = push_x7
+        fakes[1].after_sync = back_and_forth
+        rc, res, logs = run_train(work, fakes, max_rebases=0)
+        x7 = sh("git", "-C", str(clone7), "rev-parse", "HEAD", cwd=tmp) if clone7.exists() else "?"
+        ran7 = [o for h, (b, o) in fakes[1].event_base.items() if b == "fix/alpha"]
+        expect(res[0]["result"] == "merged" and fakes[1].merged is None and fakes[1].merge_calls == 0
+               and ran7 == [x7] and fakes[1].base_oid != x7,
+               f"a base edited away and back after the push (stored base reads car 1's commit again, the run read "
+               f"X) is not merged ({[(r['result'], r['own']) for r in res]}, ran on {[o[:12] for o in ran7]})")
+
+        # TRS8 (round 4): someone else stacks car 2 on car 1's branch before the train does, and the train stops
+        # before car 2 (main moves after car 1). The train ran car 2 on a non-main base, so its restore puts the
+        # base back to main before it puts the head back: a head is never pushed back onto a car's branch.
+        origin, work = train_world()
+        fakes, heads = train_cars(origin, work, ("alpha", "delta"), 280)
+        fakes[0]._w = work
+        fakes[0].after_merge_hook = bot_commit
+
+        def stack_first(fk: FakeGitHub, f2=fakes[1]) -> None:
+            fk.after_sync = None
+            f2.base_ref = "fix/alpha"
+            f2.base_oid = f2._tip("fix/alpha")
+        fakes[0].after_sync = stack_first
+        rc, res, logs = run_train(work, fakes, max_rebases=0)
+        expect(res[0]["result"] == "merged" and res[1]["result"] == "back" and fakes[1].base_ref == "main"
+               and origin_rev(origin, "refs/heads/fix/delta") == heads["delta"]
+               and fakes[1].event_base.get(heads["delta"], ("main", ""))[0] == "main",
+               f"a car the train ran on a base someone else set is put back base first, then head "
+               f"(base {fakes[1].base_ref}, head back {origin_rev(origin, 'refs/heads/fix/delta') == heads['delta']})")
+
+        # TRS9: a GitHub whose timeline does not show the train's own stack edit: the guard behind TRS7 could not see
+        # a later edit either, so car 2 is not stacked (not pushed, not merged); car 1 merges.
+        origin, work = train_world()
+        fakes, heads = train_cars(origin, work, ("alpha", "delta"), 290)
+        fakes[1].timeline_counts_edits = False
+        rc, res, logs = run_train(work, fakes, max_rebases=0)
+        expect(res[0]["result"] == "merged" and (res[1]["result"], res[1]["own"]) == ("back", False)
+               and origin_rev(origin, "refs/heads/fix/delta") == heads["delta"] and fakes[1].base_ref == "main",
+               f"a timeline that does not show the stack edit: car 2 is not stacked, and its base is put back "
+               f"({[(r['result'], r['own']) for r in res]}, base {fakes[1].base_ref})")
+
+        # TRS5: a car whose head already is its prepared commit, but was not pushed onto the car ahead by this
+        # train (here: the PR stacks its commit on car 1's own commit and needs no squash, rebase or regeneration),
+        # is skipped unpushed: its checks ran on whatever base the PR named then.
+        origin, work = train_world()
+        sh("git", "checkout", "-q", "-b", "fix/alpha", "main", cwd=work)
+        (work / "skills/alpha/NOTES.md").write_text("alpha's note\n")
+        sh("git", "add", "-A", cwd=work)
+        sh("git", "commit", "-q", "-s", "-m", "alpha note", cwd=work)
+        sh("git", "checkout", "-q", "-b", "fix/delta", cwd=work)
+        (work / "skills/delta/NOTES.md").write_text("delta's note\n")
+        sh("git", "add", "-A", cwd=work)
+        sh("git", "commit", "-q", "-s", "-m", "delta note", cwd=work)
+        sh("git", "push", "-q", "origin", "fix/alpha", "fix/delta", cwd=work)
+        sh("git", "checkout", "-q", "main", cwd=work)
+        h1, h2 = sh("git", "rev-parse", "fix/alpha", cwd=work), sh("git", "rev-parse", "fix/delta", cwd=work)
+        fakes = [FakeGitHub(origin, env, 250, "fix/alpha", "alpha note", green),
+                 FakeGitHub(origin, env, 251, "fix/delta", "delta note", green)]
+        approve(work, fakes[0], h1)
+        approve(work, fakes[1], h2)
+        rc, res, logs = run_train(work, fakes, max_rebases=0)
+        expect(res[0]["result"] == "merged" and res[1]["result"] == "back" and fakes[1].base_edits == []
+               and origin_rev(origin, "refs/heads/fix/delta") == h2 and any("#251 skipped this pass" in s for s in logs),
+               f"a head that already is the prepared commit, pushed before the train stacked it, is skipped "
+               f"({[r['result'] for r in res]}, edits {fakes[1].base_edits})")
+
+        # TR15: putting a head back never removes someone else's commit. Car 2 is pushed stacked on car 1; while
+        # the train runs, another maintainer pushes U on top of it. The train refuses to merge U and leaves it.
+        origin, work = train_world()
+        fakes, heads = train_cars(origin, work, ("alpha", "delta"), 196)
+        clone = tmp / "tr15-clone"
+
+        def maintainer_push(fk: FakeGitHub) -> None:
+            sh("git", "clone", "-q", "--branch", "fix/delta", str(origin), str(clone), cwd=tmp)
+            (clone / "skills/delta/EXTRA.md").write_text("a maintainer's own commit\n")
+            sh("git", "add", "-A", cwd=clone)
+            sh("git", "-c", "user.name=m", "-c", "user.email=m@example.invalid", "commit", "-q", "-s", "-m", "U",
+               cwd=clone)
+            sh("git", "push", "-q", "origin", "fix/delta", cwd=clone)
+        fakes[0].after_merge_hook = maintainer_push
+        rc, res, logs = run_train(work, fakes, max_rebases=0)
+        u = sh("git", "-C", str(clone), "rev-parse", "HEAD", cwd=tmp).strip() if clone.exists() else "?"
+        expect(res[1]["result"] != "merged" and origin_rev(origin, "refs/heads/fix/delta") == u
+               and res[1].get("restore_failed"),
+               "a head someone else pushed on top of the car is left as it is and reported, never pushed over "
+               f"({res[1]['result']}, remote {origin_rev(origin, 'refs/heads/fix/delta')[:12]}, U {u[:12]})")
+
+        # TR11: the push lands but GitHub keeps reporting the old head past the wait: the car goes back and its
+        # PR head is put back from what the remote holds, not from what the train believed.
+        origin, work = train_world()
+        fakes, heads = train_cars(origin, work, ("alpha", "delta"), 180)
+        fakes[1].pr_head_lag_after_push = 10_000
+        rc, res, logs = run_train(work, fakes, max_rebases=0)
+        expect([r["result"] for r in res] == ["merged", "back"]
+               and origin_rev(origin, "refs/heads/fix/delta") == heads["delta"] and res[1]["head"] == heads["delta"],
+               f"a push GitHub never acknowledged is still put back to the car's own head "
+               f"(remote {origin_rev(origin, 'refs/heads/fix/delta')[:12]}, own {heads['delta'][:12]})")
+
+        # TR12: an interrupt after a proven merge (here: reading main after car 1 merged) is exit 8, as a single
+        # run's latch after its merge call; the results stay truthful (car 1 merged, car 2 not).
+        def interrupting(where: str):
+            orig = getattr(Train if where != "_remote_main" else Merger, where)
+
+            def boom(*a, **k):
+                raise KeyboardInterrupt("SIGTERM")
+            return orig, boom
+        for where in ("_remote_main", "_restore", "_cleanup"):
+            origin, work = train_world()
+            fakes, heads = train_cars(origin, work, ("alpha", "delta"), 190 + len(where))
+            owner = Merger if where == "_remote_main" else Train
+            orig, boom = interrupting(where)
+            if where == "_remote_main":
+                fakes[0].after_merge_hook = lambda fk, b=boom: setattr(Merger, "_remote_main", b)
+            else:
+                setattr(Train, where, boom)
+            try:
+                try:
+                    rc, res, logs = run_train(work, fakes)
+                except KeyboardInterrupt:
+                    rc, res, logs = -1, [], []
+            finally:
+                setattr(owner, where, orig)
+            expect(rc == EXIT_RACE_RED and res and res[0]["result"] == "merged" and res[0]["merge"]
+                   and (res[1]["result"] != "merged") == (where == "_remote_main"),
+                   f"an interrupt in {where} after car 1's proven merge is exit 8 with car 1 still reported merged "
+                   f"(rc={rc}, {[(r['result'], r['code']) for r in res]})")
+
     finally:
         for p in procs:
             if p.poll() is None:
@@ -4430,10 +5778,15 @@ def main(argv: list[str] | None = None) -> int:
     argv = sys.argv[1:] if argv is None else argv
     if "--self-test" in argv:
         return _self_test()
-    sub = argv[0] if argv and argv[0] in ("approve", "status") else None
+    sub = argv[0] if argv and argv[0] in ("approve", "status", "train") else None
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter,
                                  prog="merge_when_green.py" + (f" {sub}" if sub else ""))
-    ap.add_argument("pr", type=int)
+    if sub == "train":
+        ap.add_argument("prs", type=int, nargs="+", metavar="PR",
+                        help="the PRs in merge order; one PR runs exactly as `merge_when_green.py PR`")
+        ap.add_argument("--results", type=Path, help="write each PR's outcome here as JSON")
+    else:
+        ap.add_argument("pr", type=int)
     ap.add_argument("--repo", default=".", help="the clone to work in (default: the current checkout)")
     ap.add_argument("--remote", default="origin")
     ap.add_argument("--gh-repo", help="owner/repo on GitHub (default: read from the remote URL)")
@@ -4447,7 +5800,7 @@ def main(argv: list[str] | None = None) -> int:
         ap.add_argument("--evidence", type=Path, help="the review text; must end with 'VERDICT: APPROVED', no [P1]")
         ap.add_argument("--allow-stale-tools", action="store_true",
                         help="run even though this tool's code differs from origin/main's (not recommended)")
-    elif sub is None:
+    if sub in (None, "train"):
         ap.add_argument("--dry-run", action="store_true", help="print every step; push and merge nothing")
         ap.add_argument("--require-approval", action="append", metavar="NAME",
                         help="reviewer whose current approval is required (repeatable; default: codex)")
@@ -4501,13 +5854,30 @@ def _main(args: argparse.Namespace, sub: str | None) -> int:
         print(f"STOP ({s.code}): {s}")
         return s.code
     require: tuple[str, ...] = () if args.no_approval_required else tuple(args.require_approval or ("codex",))
-    opts = Options(pr=args.pr, dry_run=args.dry_run, remote=args.remote, require=require,
+    opts = Options(pr=args.prs[0] if sub == "train" else args.pr, dry_run=args.dry_run, remote=args.remote, require=require,
                    expect_workflows=tuple(args.expect_workflow or ("CI", "security-gate")),
                    timeout_s=args.timeout_min * 60, poll_s=args.poll_sec, settle_s=args.settle_sec,
                    max_rebases=args.max_rebases, allow_stale_tools=args.allow_stale_tools,
                    required=tuple(args.required_context) if args.required_context else None,
                    coderabbit=args.coderabbit, approval_before_ci=args.approval_before_ci)
-    return Merger(git, gh, opts).run()
+    if sub == "train" and len(dict.fromkeys(args.prs)) != len(args.prs):
+        print(f"STOP ({EXIT_REFUSED}): a PR is listed twice")
+        return EXIT_REFUSED
+    if sub == "train" and len(args.prs) > 1:
+        train = Train(git, gh, opts, list(args.prs))
+        code = train.run()
+        results = train.results()
+    else:
+        m = Merger(git, gh, opts)
+        code = m.run()
+        # merged only on a proven merge (parent and tree checked), never inferred from the exit code
+        results = [{"pr": opts.pr, "result": "merged" if m.merged_as else "failed", "code": code, "own": False,
+                    "why": "", "merge": m.merged_as, "head": None}]
+    if sub == "train" and args.results:
+        tmp = args.results.with_name(args.results.name + ".tmp")
+        tmp.write_text(json.dumps(results, indent=2) + "\n", encoding="utf-8")
+        os.replace(tmp, args.results)
+    return code
 
 
 if __name__ == "__main__":

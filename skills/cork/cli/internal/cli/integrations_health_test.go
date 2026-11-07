@@ -8,6 +8,8 @@ import (
 	"bytes"
 	"strings"
 	"testing"
+
+	"cork-pp-cli/internal/cliutil/testenv"
 )
 
 // TestNovelIntegrationsHealthHelpWires smoke-tests that the integrations health command
@@ -15,6 +17,7 @@ import (
 // regressions (missing AddCommand, panicking RunE on --help, etc.) before
 // review. Keep this smoke test when adding behavior-specific cases.
 func TestNovelIntegrationsHealthHelpWires(t *testing.T) {
+	testenv.Isolate(t)
 	cmd := RootCmd()
 	cmd.SetArgs([]string{"integrations", "health", "--help"})
 	var out bytes.Buffer

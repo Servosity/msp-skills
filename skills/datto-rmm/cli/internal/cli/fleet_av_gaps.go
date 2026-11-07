@@ -3,6 +3,7 @@
 package cli
 
 import (
+	"fmt"
 	"sort"
 	"strings"
 	"time"
@@ -23,13 +24,39 @@ type avView struct {
 	Antivirus avAVView `json:"antivirus"`
 }
 
-// normalizeAvStatus lowercases and replaces '-' and '_' with spaces so that
-// "not-running" matches "Not Running".
+// normalizeAvStatus is the one form every antivirus status is compared in:
+// lowercase letters and digits only, so the documented CamelCase enum
+// ("NotRunning") and every spelling of it ("not-running", "not running",
+// "not_running") are equal. datto-rmm handfix
+// fleet-posture-reads-the-documented-enums (Codex review r1 class "documented
+// enum misread"): separators used to become spaces, so "not-running" never
+// matched Datto's "NotRunning".
 func normalizeAvStatus(s string) string {
-	s = strings.ToLower(strings.TrimSpace(s))
-	s = strings.ReplaceAll(s, "-", " ")
-	s = strings.ReplaceAll(s, "_", " ")
-	return strings.Join(strings.Fields(s), " ")
+	var b strings.Builder
+	for _, r := range strings.ToLower(s) {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
+			b.WriteRune(r)
+		}
+	}
+	return b.String()
+}
+
+// dattoAvStatuses is Datto's documented Antivirus.antivirusStatus enum.
+var dattoAvStatuses = []string{"RunningAndUpToDate", "RunningAndNotUpToDate", "NotRunning", "NotDetected"}
+
+// validateAvStatusFilter refuses a --status value that is none of the
+// documented statuses: it would match no device and read as "no gaps".
+func validateAvStatusFilter(status string) error {
+	want := normalizeAvStatus(status)
+	if want == "" && strings.TrimSpace(status) == "" {
+		return nil
+	}
+	for _, s := range dattoAvStatuses {
+		if normalizeAvStatus(s) == want {
+			return nil
+		}
+	}
+	return fmt.Errorf("--status %q is not a Datto antivirus status; use one of not-running, not-detected, running-and-not-up-to-date, running-and-up-to-date", status)
 }
 
 // computeAvGaps returns non-deleted devices with an antivirus gap. With no
@@ -91,6 +118,9 @@ func newNovelFleetAvGapsCmd(flags *rootFlags) *cobra.Command {
 		Example: `  datto-rmm-cli fleet av-gaps
   datto-rmm-cli fleet av-gaps --status not-running --json`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := validateAvStatusFilter(status); err != nil {
+				return usageErr(err)
+			}
 			if dryRunOK(flags) {
 				return nil
 			}
@@ -128,7 +158,7 @@ func newNovelFleetAvGapsCmd(flags *rootFlags) *cobra.Command {
 			return flags.printTable(cmd, headers, rows)
 		},
 	}
-	cmd.Flags().StringVar(&status, "status", "", "Match a specific antivirus status (e.g. not-running); default flags anything not running")
+	cmd.Flags().StringVar(&status, "status", "", "Match one Datto antivirus status (not-running, not-detected, running-and-not-up-to-date, running-and-up-to-date); default flags anything not running and up to date")
 	cmd.Flags().StringVar(&dbPath, "db", "", "Database path")
 	return cmd
 }

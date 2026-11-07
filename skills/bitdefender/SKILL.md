@@ -42,7 +42,7 @@ register the skill with your agent and writes no MCP client config - see
 
 If `--version` reports "command not found" after install, the runtime cannot see the binary directory on `$PATH`. Do not proceed with skill commands until verification succeeds.
 
-140 GravityZone Partners and Cloud Public API methods are typed commands with --json and --dry-run; over MCP they are reached through bitdefender_search and bitdefender_execute. On top, fleet health, fleet incident-queue and usage billing walk the whole partner tree so an MSP sees every customer at once, and fleet changes diffs saved fleet health snapshots. Not yet verified against a live tenant.
+140 GravityZone Partners and Cloud Public API methods are typed commands with --json and --dry-run; over MCP, `bitdefender_search` finds a method, `bitdefender_read` runs reads, and `bitdefender_execute` runs only data-changing methods: it returns a preview and sends nothing until `confirm` is boolean true. On top, fleet health, fleet incident-queue and usage billing walk the whole partner tree so an MSP sees every customer at once, and fleet changes diffs saved fleet health snapshots. Not yet verified against a live tenant.
 
 ## When to Use This CLI
 
@@ -463,7 +463,7 @@ Global format flags share one contract on promoted, novel, sync, and `--deliver`
 
 - `--json`  -  one JSON document on stdout (sync progress events go to stderr)
 - `--compact`  -  keep identity/status/timestamp fields; does not change the document vs stream shape
-- `--csv` / `--plain`  -  tabular rows (collection envelopes unwrap to the row array)
+- `--csv` / `--plain`  -  tabular rows (collection envelopes unwrap to the row array). `--csv` prefixes `'` on a cell or header key that starts with `=`, `+`, `-`, `@`, tab, CR, or LF (fullwidth equivalents too) so a spreadsheet does not run it as a formula; a plain signed number such as `-5` or `+2.5e3` is unchanged.
 - `--quiet`  -  one identity value per row, no envelope
 
 - **Pipeable**  -  JSON on stdout, errors on stderr
@@ -519,6 +519,8 @@ Agents should treat the CLI's path resolver as part of the runtime contract:
   On Windows, use a Windows path with doubled backslashes in JSON, for example `"BITDEFENDER_HOME": "C:\\msp\\bitdefender"`.
 
 Fleet precedence: an inherited per-kind env var overrides an explicit `--home` for that kind. Use `BITDEFENDER_HOME` or per-kind vars as durable fleet levers, and use `--home` only for a single invocation. Relocation is not reversible by unsetting env vars; move files manually before clearing `BITDEFENDER_HOME`, or `doctor` will not find credentials left under the former root.
+
+Local data is unencrypted and relies on OS account permissions plus disk encryption. Reads in the default `--data-source auto` mode are written to the SQLite store; GET responses are cached for five minutes under the cache dir. `local-data purge` previews what it would erase (store files, response cache, learn journal) and deletes only with `--yes`; it is not exposed over MCP. `BITDEFENDER_NO_LOCAL_DATA=1` disables the response cache and store writes, turns `auto` reads into live reads, and blocks `sync` and `workflow archive`; `--data-source local` still reads an existing store, and `BITDEFENDER_DATA_SOURCE` sets the `--data-source` default.
 
 ## Automatic learning
 
@@ -745,10 +747,10 @@ Every command accepts `--deliver <sink>`. The output goes to the named sink in a
 | Sink | Effect |
 |------|--------|
 | `stdout` | Default; write to stdout only |
-| `file:<path>` | Atomically write output to `<path>` (tmp + rename). Binary-response commands write decoded payload bytes (not the base64 JSON envelope) and print a small JSON receipt on stdout; `--json`/`--csv` do not refuse when this sink is set. |
-| `webhook:<url>` | POST the output body to the URL (`application/json`) |
+| `file:<path>` | Atomically write output to `<path>` as a private 0600 file (exclusive randomly named temp in the destination directory, then rename; a planted symlink is not followed). Binary-response commands write decoded payload bytes (not the base64 JSON envelope) and print a small JSON receipt on stdout; `--json`/`--csv` do not refuse when this sink is set. |
+| `webhook:<url>` | POST the output body to the URL (`application/json`). Redirects are not followed; a 3xx response fails the delivery and the body is not sent to the `Location`. |
 
-Unknown schemes are refused with a structured error naming the supported set. Webhook failures return non-zero and log the URL + HTTP status on stderr.
+Unknown schemes are refused with a structured error naming the supported set. Webhook failures, including redirects, return non-zero and log the URL and HTTP status on stderr.
 
 ## Named Profiles
 
@@ -794,6 +796,8 @@ Parse `$ARGUMENTS`:
    claude mcp add bitdefender-mcp -- bitdefender-mcp
    ```
 3. Verify: `claude mcp list`
+
+For a remote host, `bitdefender-mcp --transport http` serves `http://127.0.0.1:7777/mcp` by default, refuses to start until `BITDEFENDER_MCP_HTTP_TOKEN` is set to at least 32 characters, and every request must send `Authorization: Bearer <token>` (`openssl rand -hex 32` prints 64 hex characters and meets that minimum). Any `--addr` other than loopback also needs `--tls-cert` and `--tls-key`. Requests with no `Origin` header and loopback origins are accepted; any other `Origin` is refused unless listed in `BITDEFENDER_MCP_HTTP_ALLOWED_ORIGINS` (comma-separated `scheme://host[:port]` values). With `BITDEFENDER_MCP_READ_ONLY=1` (exactly `1`), `bitdefender_execute`, `import` and the tools that write the local learn store are removed from the tool list, and `bitdefender_read` runs only an explicit list of GravityZone read methods, refusing the Credential and access reads (incident reads stay allowed; XDR evidence can hold connection headers captured on the endpoint, so treat incident output as sensitive).
 
 ## Direct Use
 
