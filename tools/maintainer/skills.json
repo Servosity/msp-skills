@@ -1536,7 +1536,7 @@
       "category": "Security",
       "display_name": "Microsoft Graph",
       "tagline": "Find wasted M365 licenses, audit global admins, and triage Defender alerts by asking.",
-      "cli_hash": "sha256:e67d67e8f9d8adc320933ae60d3fb14e88e8d1369e73d82bcd431be50570212a",
+      "cli_hash": "sha256:ce050813ad399cf9c1d4d1a5d50bdef87dbbc8cb8940851d72eb09aa7ee9052e",
       "template_version": 3,
       "version": "0.2.7",
       "cli_hash_at_release": "sha256:1c41ffd23925ad4a62ccfffd6490226c17aca5a22c18703d07578ffe3ce726a8",

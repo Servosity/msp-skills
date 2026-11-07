@@ -99,11 +99,6 @@
    "read-only",
    "local-data"
   ],
-  "microsoft-graph": [
-   "mcp-http",
-   "read-only",
-   "local-data"
-  ],
   "n-central": [
    "mcp-http",
    "read-only",

@@ -32,7 +32,7 @@ Requires managed devices synced: run 'microsoft-graph-cli pull' first.`, "\n"),
 		Example: strings.Trim(`
   microsoft-graph-cli managed-devices drift --days 30 --agent
   microsoft-graph-cli managed-devices drift --days 14 --json`, "\n"),
-		Annotations: map[string]string{"mcp:read-only": "true"},
+		Annotations: map[string]string{"mcp:read-only": "true", "pp:data-source": "local"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if dryRunOK(flags) {
 				return nil
