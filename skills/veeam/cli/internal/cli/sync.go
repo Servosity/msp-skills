@@ -150,6 +150,8 @@ Resource scoping:
 			if machineFormat {
 				syncEventWriter = cmd.ErrOrStderr()
 			}
+			// Hand-fix (handfixes.json sync-event-writer-serialized): the workers below write events concurrently.
+			syncEventWriter = &serialWriter{w: syncEventWriter}
 			// Snapshot before defaults expand, so an empty user filter stays empty
 			// and dependents inherit "sync everything" instead of the default list.
 			parentFilter := append([]string(nil), resources...)

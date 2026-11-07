@@ -1099,6 +1099,34 @@
     }
    ],
    "class": "docs"
+  },
+  {
+   "id": "sync-event-writer-serialized",
+   "class": "concurrent-writer",
+   "summary": "sync wraps the event writer its parallel workers share in serialWriter (internal/cli/veeam_sync_writer.go), so two workers never call Write on it at once.",
+   "why": "The generated sync hands cmd.OutOrStdout() (or ErrOrStderr() in machine mode) to --concurrency workers that each write sync_start and progress events. os.Stdout tolerates that; the writers --deliver (mirrorWriter copying into a bytes.Buffer) and --receipt-file / --audit-dir (platform outputCapture, a running SHA-256) install do not, and an in-process caller's buffer does not either. Windows CI on PR #655 panicked in bytes.Buffer.grow (slice bounds out of range) from sync.go syncResource; go test -race found 28 races in internal/cli. TestSyncWorkersSerializeEventWrites (310 overlapping writes before the fix) pins it. A reprint regenerates sync.go and drops the wrap.",
+   "status": "active",
+   "spec_encode_followup": "Press-side: the sync template should serialize the event writer it shares across workers (or give each worker a line-buffered writer).",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "syncEventWriter = &serialWriter{w: syncEventWriter}",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/veeam_sync_writer.go",
+     "contains": "func (s *serialWriter) Write(p []byte) (int, error) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/veeam_sync_writer_test.go",
+     "contains": "func TestSyncWorkersSerializeEventWrites(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
   }
  ],
  "retired": [
