@@ -32,7 +32,7 @@ func newCephClusterMetadataCmd(flags *rootFlags) *cobra.Command {
 					}
 				}
 				if !validScope {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagScope, "scope", allowedScope)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagScope, "scope", allowedScope))
 				}
 			}
 			path := "/cluster/ceph/metadata"
@@ -44,7 +44,7 @@ func newCephClusterMetadataCmd(flags *rootFlags) *cobra.Command {
 			if cmd.Flags().Changed("scope") {
 				params["scope"] = formatCLIParamValue(flagScope)
 			}
-			data, prov, err := resolveReadWithStrategyAndResponsePath(cmd.Context(), c, flags, "auto", "ceph", false, path, params, nil, "osd", cmd.ErrOrStderr())
+			data, prov, err := resolveReadWithStrategyAndResponsePath(cmd.Context(), c, flags, "auto", "ceph", false, path, params, nil, "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}
@@ -71,7 +71,7 @@ func newCephClusterMetadataCmd(flags *rootFlags) *cobra.Command {
 					filtered, selectErr = filterFieldsChecked(filtered, flags.selectFields)
 					selectErr = selectErrorForDryRun(selectErr, flags, data)
 				} else if flags.compact {
-					filtered = compactFields(filtered, map[string]bool{"id": true})
+					filtered = compactFields(filtered, nil)
 				}
 				wrapped, wrapErr := wrapWithProvenance(filtered, prov)
 				if wrapErr != nil {
@@ -103,7 +103,7 @@ func newCephClusterMetadataCmd(flags *rootFlags) *cobra.Command {
 			if flags.csv || flags.plain {
 				formatData = outputData
 			}
-			return printOutputWithFlagsMeta(cmd.OutOrStdout(), formatData, flags, map[string]any{"source": "live"}, map[string]bool{"id": true})
+			return printOutputWithFlagsMeta(cmd.OutOrStdout(), formatData, flags, map[string]any{"source": "live"}, nil)
 		},
 	}
 	cmd.Flags().StringVar(&flagScope, "scope", "", "Which metadata facet to return: 'all' enriches the per-daemon metadata with the PVE-side service state (presence of unit (one of: all, versions) (default: all)")

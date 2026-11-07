@@ -195,6 +195,7 @@ func isLoopbackHost(h string) bool {
 // value. The generator sends per-operation scheme headers raw.
 func pbsAuthValue(v string) string {
 	v = strings.TrimSpace(v)
+	cliutil.Hold("minted:authorization", cliutil.TokenSecret(v)) // handfixes.json credkit-wiring: a PBS secret startup did not hold is bound nowhere
 	if v == "" || strings.HasPrefix(v, "PBSAPIToken=") {
 		return v
 	}
@@ -236,6 +237,10 @@ func (c *Client) SetServicePins(pvePins, pbsPins []string) error {
 	}
 	var base *http.Transport
 	switch t := c.HTTPClient.Transport.(type) {
+	case pinnedGuard: // handfixes.json credkit-wiring: pins set before
+		base = t.pins.base
+	case guardedTransport: // handfixes.json credkit-wiring: the guarded API transport
+		base = t.inner
 	case *servicePinTransport:
 		base = t.base
 	case *http.Transport:
@@ -243,11 +248,27 @@ func (c *Client) SetServicePins(pvePins, pbsPins []string) error {
 	default:
 		return errors.New("cannot pin TLS fingerprints: unexpected HTTP transport")
 	}
+	// Clone keeps the press's TLS trust (--ca-cert, --tls-server-name); a pin
+	// replaces it for that service only (unpinned-service-keeps-press-tls-trust).
 	pve, pbs := base.Clone(), base.Clone()
-	pve.TLSClientConfig = strictPinConfig("PVE", pvePins)
-	pbs.TLSClientConfig = strictPinConfig("PBS", pbsPins)
-	c.HTTPClient.Transport = &servicePinTransport{base: base, pve: pve, pbs: pbs, isPBS: c.isPBSHost}
+	if cfg := strictPinConfig("PVE", pvePins); cfg != nil {
+		pve.TLSClientConfig = cfg
+	}
+	if cfg := strictPinConfig("PBS", pbsPins); cfg != nil {
+		pbs.TLSClientConfig = cfg
+	}
+	pins := &servicePinTransport{base: base, pve: pve, pbs: pbs, isPBS: c.isPBSHost}
+	// handfixes.json credkit-wiring: the credential kit's outbound guard stays
+	// outermost, so every request still passes it.
+	c.HTTPClient.Transport = pinnedGuard{RoundTripper: cliutil.OutboundGuard(pins), pins: pins}
 	return nil
+}
+
+// pinnedGuard is the kit's outbound guard around the per-service pins, with
+// the pins kept so a later SetServicePins starts from the same base.
+type pinnedGuard struct {
+	http.RoundTripper
+	pins *servicePinTransport
 }
 
 type servicePinTransport struct {
@@ -529,3 +550,7 @@ func (c *Client) getNoStore(ctx context.Context, path string, params, headers ma
 // stays complete (PBS reads use absolute URLs; every new endpoint is another
 // gap). A backup-assurance tool also must not answer from a 5-minute-old copy.
 const proxmoxNoResponseCache = true
+
+// PBSOrigin is pbsOrigin for the credential kit's wiring (handfixes.json
+// credkit-wiring): the one origin a Proxmox Backup Server token may go to.
+func PBSOrigin(host string) (string, error) { return pbsOrigin(host) }

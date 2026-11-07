@@ -59,10 +59,10 @@ func newPbsDatastoreGroupNotesCmd(flags *rootFlags) *cobra.Command {
 				return usageErr(fmt.Errorf("missing required argument\nUsage: %s%s", cmd.CommandPath(), " <store>"))
 			}
 			if !cmd.Flags().Changed("backup-id") && flagBackupId == "" && !requiredInputWaived() {
-				return fmt.Errorf("required flag \"%s\" not set", "backup-id")
+				return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "backup-id"))
 			}
 			if !cmd.Flags().Changed("backup-type") && flagBackupType == "" && !requiredInputWaived() {
-				return fmt.Errorf("required flag \"%s\" not set", "backup-type")
+				return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "backup-type"))
 			}
 			if cmd.Flags().Changed("backup-type") {
 				allowedBackupType := []string{"vm", "ct", "host"}
@@ -74,7 +74,7 @@ func newPbsDatastoreGroupNotesCmd(flags *rootFlags) *cobra.Command {
 					}
 				}
 				if !validBackupType {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagBackupType, "backup-type", allowedBackupType)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagBackupType, "backup-type", allowedBackupType))
 				}
 			}
 			path := "https://localhost:8007/api2/json/admin/datastore/{store}/group-notes"

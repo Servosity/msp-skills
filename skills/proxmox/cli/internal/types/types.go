@@ -21,6 +21,11 @@ type AccessDomainsItem struct {
 	Type    string `json:"type"`
 }
 
+type AccessGroupsGetResponse struct {
+	Comment string          `json:"comment"`
+	Members json.RawMessage `json:"members"`
+}
+
 type AccessGroupsItem struct {
 	Comment string `json:"comment"`
 	Groupid string `json:"groupid"`
@@ -106,6 +111,18 @@ type AccessTfaItem struct {
 	Userid         string          `json:"userid"`
 }
 
+type AccessUsersGetResponse struct {
+	Comment   string          `json:"comment"`
+	Email     string          `json:"email"`
+	Enable    bool            `json:"enable"`
+	Expire    int             `json:"expire"`
+	Firstname string          `json:"firstname"`
+	Groups    json.RawMessage `json:"groups"`
+	Keys      string          `json:"keys"`
+	Lastname  string          `json:"lastname"`
+	Tokens    json.RawMessage `json:"tokens"`
+}
+
 type AccessUsersItem struct {
 	Comment        string          `json:"comment"`
 	Email          string          `json:"email"`
@@ -120,6 +137,12 @@ type AccessUsersItem struct {
 	Tokens         json.RawMessage `json:"tokens"`
 	TotpLocked     bool            `json:"totp-locked"`
 	Userid         string          `json:"userid"`
+}
+
+type AccessUsersTfaResponse struct {
+	Realm string          `json:"realm"`
+	Types json.RawMessage `json:"types"`
+	User  string          `json:"user"`
 }
 
 type AccessUsersTokenGetResponse struct {
@@ -152,6 +175,46 @@ type AcmeChallengeSchemaItem struct {
 type AcmeDirectoriesItem struct {
 	Name string `json:"name"`
 	Url  string `json:"url"`
+}
+
+type BackupJobGetResponse struct {
+	All                    bool            `json:"all"`
+	Bwlimit                int             `json:"bwlimit"`
+	Comment                string          `json:"comment"`
+	Compress               string          `json:"compress"`
+	Dumpdir                string          `json:"dumpdir"`
+	Enabled                bool            `json:"enabled"`
+	Exclude                string          `json:"exclude"`
+	ExcludePath            json.RawMessage `json:"exclude-path"`
+	Fleecing               json.RawMessage `json:"fleecing"`
+	Id                     string          `json:"id"`
+	Ionice                 int             `json:"ionice"`
+	Lockwait               int             `json:"lockwait"`
+	Mailnotification       string          `json:"mailnotification"`
+	Mailto                 string          `json:"mailto"`
+	Mode                   string          `json:"mode"`
+	NextRun                int             `json:"next-run"`
+	Node                   string          `json:"node"`
+	NotesTemplate          string          `json:"notes-template"`
+	NotificationMode       string          `json:"notification-mode"`
+	PbsChangeDetectionMode string          `json:"pbs-change-detection-mode"`
+	Performance            json.RawMessage `json:"performance"`
+	Pigz                   int             `json:"pigz"`
+	Pool                   string          `json:"pool"`
+	Protected              bool            `json:"protected"`
+	PruneBackups           json.RawMessage `json:"prune-backups"`
+	Quiet                  bool            `json:"quiet"`
+	Remove                 bool            `json:"remove"`
+	RepeatMissed           bool            `json:"repeat-missed"`
+	Schedule               string          `json:"schedule"`
+	Script                 string          `json:"script"`
+	Stdexcludes            bool            `json:"stdexcludes"`
+	Stop                   bool            `json:"stop"`
+	Stopwait               int             `json:"stopwait"`
+	Storage                string          `json:"storage"`
+	Tmpdir                 string          `json:"tmpdir"`
+	Vmid                   string          `json:"vmid"`
+	Zstd                   int             `json:"zstd"`
 }
 
 type BackupJobIncludedVolumesItem struct {
@@ -207,6 +270,40 @@ type BackupNotBackedUpItem struct {
 	Vmid int    `json:"vmid"`
 }
 
+type BackupVzdumpDefaultsResponse struct {
+	All                    bool            `json:"all"`
+	Bwlimit                int             `json:"bwlimit"`
+	Compress               string          `json:"compress"`
+	Dumpdir                string          `json:"dumpdir"`
+	Exclude                string          `json:"exclude"`
+	ExcludePath            json.RawMessage `json:"exclude-path"`
+	Fleecing               string          `json:"fleecing"`
+	Ionice                 int             `json:"ionice"`
+	Lockwait               int             `json:"lockwait"`
+	Mailnotification       string          `json:"mailnotification"`
+	Mailto                 string          `json:"mailto"`
+	Mode                   string          `json:"mode"`
+	Node                   string          `json:"node"`
+	NotesTemplate          string          `json:"notes-template"`
+	NotificationMode       string          `json:"notification-mode"`
+	PbsChangeDetectionMode string          `json:"pbs-change-detection-mode"`
+	Performance            string          `json:"performance"`
+	Pigz                   int             `json:"pigz"`
+	Pool                   string          `json:"pool"`
+	Protected              bool            `json:"protected"`
+	PruneBackups           string          `json:"prune-backups"`
+	Quiet                  bool            `json:"quiet"`
+	Remove                 bool            `json:"remove"`
+	Script                 string          `json:"script"`
+	Stdexcludes            bool            `json:"stdexcludes"`
+	Stop                   bool            `json:"stop"`
+	Stopwait               int             `json:"stopwait"`
+	Storage                string          `json:"storage"`
+	Tmpdir                 string          `json:"tmpdir"`
+	Vmid                   string          `json:"vmid"`
+	Zstd                   int             `json:"zstd"`
+}
+
 type CephClusterFlagsItem struct {
 	Description string `json:"description"`
 	Name        string `json:"name"`
@@ -220,21 +317,12 @@ type CephClusterHealthMuteItem struct {
 	Ttl     string `json:"ttl"`
 }
 
-type CephClusterMetadataItem struct {
-	BackAddr         string `json:"back_addr"`
-	CephRelease      string `json:"ceph_release"`
-	CephVersion      string `json:"ceph_version"`
-	CephVersionShort string `json:"ceph_version_short"`
-	DeviceIds        string `json:"device_ids"`
-	DevicePaths      string `json:"device_paths"`
-	Devices          string `json:"devices"`
-	FrontAddr        string `json:"front_addr"`
-	Hostname         string `json:"hostname"`
-	Id               int    `json:"id"`
-	MemSwapKb        int    `json:"mem_swap_kb"`
-	MemTotalKb       int    `json:"mem_total_kb"`
-	OsdData          string `json:"osd_data"`
-	OsdObjectstore   string `json:"osd_objectstore"`
+type CephClusterMetadataResponse struct {
+	Mds  json.RawMessage `json:"mds"`
+	Mgr  json.RawMessage `json:"mgr"`
+	Mon  json.RawMessage `json:"mon"`
+	Node json.RawMessage `json:"node"`
+	Osd  json.RawMessage `json:"osd"`
 }
 
 type CephCmdSafetyResponse struct {
@@ -303,13 +391,9 @@ type CephOsdLvInfoResponse struct {
 	VgName       string `json:"vg_name"`
 }
 
-type CephOsdMetadataItem struct {
-	DevNode        string `json:"dev_node"`
-	Device         string `json:"device"`
-	PhysicalDevice string `json:"physical_device"`
-	Size           int    `json:"size"`
-	SupportDiscard bool   `json:"support_discard"`
-	Type           string `json:"type"`
+type CephOsdMetadataResponse struct {
+	Devices json.RawMessage `json:"devices"`
+	Osd     json.RawMessage `json:"osd"`
 }
 
 type CephOsdResponse struct {
@@ -337,6 +421,33 @@ type CephPoolItem struct {
 	Type                string          `json:"type"`
 }
 
+type CephPoolStatusResponse struct {
+	Application          string          `json:"application"`
+	ApplicationList      json.RawMessage `json:"application_list"`
+	AutoscaleStatus      json.RawMessage `json:"autoscale_status"`
+	CrushRule            string          `json:"crush_rule"`
+	FastRead             bool            `json:"fast_read"`
+	Hashpspool           bool            `json:"hashpspool"`
+	Id                   int             `json:"id"`
+	MinSize              int             `json:"min_size"`
+	Name                 string          `json:"name"`
+	NodeepScrub          bool            `json:"nodeep-scrub"`
+	Nodelete             bool            `json:"nodelete"`
+	Nopgchange           bool            `json:"nopgchange"`
+	Noscrub              bool            `json:"noscrub"`
+	Nosizechange         bool            `json:"nosizechange"`
+	PgAutoscaleMode      string          `json:"pg_autoscale_mode"`
+	PgNum                int             `json:"pg_num"`
+	PgNumMin             int             `json:"pg_num_min"`
+	PgpNum               int             `json:"pgp_num"`
+	Size                 int             `json:"size"`
+	Statistics           json.RawMessage `json:"statistics"`
+	TargetSize           string          `json:"target_size"`
+	TargetSizeRatio      float64         `json:"target_size_ratio"`
+	UseGmtHitset         bool            `json:"use_gmt_hitset"`
+	WriteFadviseDontneed bool            `json:"write_fadvise_dontneed"`
+}
+
 type CephReleasesItem struct {
 	Available   bool   `json:"available"`
 	IsDefault   bool   `json:"is-default"`
@@ -356,13 +467,11 @@ type ClusterApiVersionResponse struct {
 	Version string `json:"version"`
 }
 
-type ClusterConfigJoinItem struct {
-	Name        string `json:"name"`
-	Nodeid      int    `json:"nodeid"`
-	PveAddr     string `json:"pve_addr"`
-	PveFp       string `json:"pve_fp"`
-	QuorumVotes int    `json:"quorum_votes"`
-	Ring0Addr   string `json:"ring0_addr"`
+type ClusterConfigJoinResponse struct {
+	ConfigDigest  string          `json:"config_digest"`
+	Nodelist      json.RawMessage `json:"nodelist"`
+	PreferredNode string          `json:"preferred_node"`
+	Totem         json.RawMessage `json:"totem"`
 }
 
 type ClusterConfigNodesItem struct {
@@ -482,6 +591,43 @@ type ClusterStatusItem struct {
 	Quorate bool   `json:"quorate"`
 	Type    string `json:"type"`
 	Version int    `json:"version"`
+}
+
+type CtConfigResponse struct {
+	Arch         string          `json:"arch"`
+	Cmode        string          `json:"cmode"`
+	Console      bool            `json:"console"`
+	Cores        int             `json:"cores"`
+	Cpulimit     float64         `json:"cpulimit"`
+	Cpuunits     int             `json:"cpuunits"`
+	Debug        bool            `json:"debug"`
+	Description  string          `json:"description"`
+	DevN         string          `json:"dev[n]"`
+	Digest       string          `json:"digest"`
+	Entrypoint   string          `json:"entrypoint"`
+	Env          string          `json:"env"`
+	Features     string          `json:"features"`
+	Hookscript   string          `json:"hookscript"`
+	Hostname     string          `json:"hostname"`
+	Lock         string          `json:"lock"`
+	Lxc          json.RawMessage `json:"lxc"`
+	Memory       int             `json:"memory"`
+	MpN          string          `json:"mp[n]"`
+	Nameserver   string          `json:"nameserver"`
+	NetN         string          `json:"net[n]"`
+	Onboot       bool            `json:"onboot"`
+	Ostype       string          `json:"ostype"`
+	Protection   bool            `json:"protection"`
+	Rootfs       string          `json:"rootfs"`
+	Searchdomain string          `json:"searchdomain"`
+	Startup      string          `json:"startup"`
+	Swap         int             `json:"swap"`
+	Tags         string          `json:"tags"`
+	Template     bool            `json:"template"`
+	Timezone     string          `json:"timezone"`
+	Tty          int             `json:"tty"`
+	Unprivileged bool            `json:"unprivileged"`
+	UnusedN      string          `json:"unused[n]"`
 }
 
 type CtFeatureResponse struct {
@@ -681,12 +827,9 @@ type DisksListItem struct {
 	Wwn       string          `json:"wwn"`
 }
 
-type DisksLvmItem struct {
+type DisksLvmResponse struct {
 	Children json.RawMessage `json:"children"`
-	Free     int             `json:"free"`
 	Leaf     bool            `json:"leaf"`
-	Name     string          `json:"name"`
-	Size     int             `json:"size"`
 }
 
 type DisksLvmthinItem struct {
@@ -714,13 +857,21 @@ type DisksScanZfsItem struct {
 	Pool string `json:"pool"`
 }
 
-type DisksZfsGetItem struct {
-	Cksum float64 `json:"cksum"`
-	Msg   string  `json:"msg"`
-	Name  string  `json:"name"`
-	Read  float64 `json:"read"`
-	State string  `json:"state"`
-	Write float64 `json:"write"`
+type DisksSmartResponse struct {
+	Attributes json.RawMessage `json:"attributes"`
+	Health     string          `json:"health"`
+	Text       string          `json:"text"`
+	Type       string          `json:"type"`
+}
+
+type DisksZfsGetResponse struct {
+	Action   string          `json:"action"`
+	Children json.RawMessage `json:"children"`
+	Errors   string          `json:"errors"`
+	Name     string          `json:"name"`
+	Scan     string          `json:"scan"`
+	State    string          `json:"state"`
+	Status   string          `json:"status"`
 }
 
 type DisksZfsItem struct {
@@ -1218,6 +1369,17 @@ type NodesServicesStateResponse struct {
 	UnitState   string `json:"unit-state"`
 }
 
+type NodesStatusResponse struct {
+	BootInfo      json.RawMessage `json:"boot-info"`
+	Cpu           float64         `json:"cpu"`
+	Cpuinfo       json.RawMessage `json:"cpuinfo"`
+	CurrentKernel json.RawMessage `json:"current-kernel"`
+	Loadavg       json.RawMessage `json:"loadavg"`
+	Memory        json.RawMessage `json:"memory"`
+	Pveversion    string          `json:"pveversion"`
+	Rootfs        json.RawMessage `json:"rootfs"`
+}
+
 type NodesSyslogItem struct {
 	N int    `json:"n"`
 	T string `json:"t"`
@@ -1629,6 +1791,25 @@ type PbsConfigRemoteScanItem struct {
 type PbsConfigRemoteScanNamespacesItem struct {
 	Comment string `json:"comment"`
 	Ns      string `json:"ns"`
+}
+
+type PbsConfigS3GetResponse struct {
+	AccessKey            string          `json:"access-key"`
+	BurstIn              string          `json:"burst-in"`
+	BurstOut             string          `json:"burst-out"`
+	Endpoint             string          `json:"endpoint"`
+	Fingerprint          string          `json:"fingerprint"`
+	Id                   string          `json:"id"`
+	LimitActiveRequests  int             `json:"limit-active-requests"`
+	LimitPassiveRequests int             `json:"limit-passive-requests"`
+	PathStyle            bool            `json:"path-style"`
+	Port                 int             `json:"port"`
+	ProviderQuirks       json.RawMessage `json:"provider-quirks"`
+	PutRateLimit         int             `json:"put-rate-limit"`
+	RateIn               string          `json:"rate-in"`
+	RateOut              string          `json:"rate-out"`
+	Region               string          `json:"region"`
+	UseNodeProxy         bool            `json:"use-node-proxy"`
 }
 
 type PbsConfigS3Item struct {
@@ -2112,15 +2293,10 @@ type PbsNodesDisksListItem struct {
 	Wwn        string          `json:"wwn"`
 }
 
-type PbsNodesDisksSmartItem struct {
-	Flags      string  `json:"flags"`
-	Id         int     `json:"id"`
-	Name       string  `json:"name"`
-	Normalized float64 `json:"normalized"`
-	Raw        string  `json:"raw"`
-	Threshold  float64 `json:"threshold"`
-	Value      string  `json:"value"`
-	Worst      float64 `json:"worst"`
+type PbsNodesDisksSmartResponse struct {
+	Attributes json.RawMessage `json:"attributes"`
+	Status     string          `json:"status"`
+	Wearout    float64         `json:"wearout"`
 }
 
 type PbsNodesDisksZfsItem struct {
@@ -2209,6 +2385,21 @@ type PbsNodesServicesItem struct {
 	Service   string `json:"service"`
 	State     string `json:"state"`
 	UnitState string `json:"unit-state"`
+}
+
+type PbsNodesStatusResponse struct {
+	BootInfo      json.RawMessage `json:"boot-info"`
+	Cpu           float64         `json:"cpu"`
+	Cpuinfo       json.RawMessage `json:"cpuinfo"`
+	CurrentKernel json.RawMessage `json:"current-kernel"`
+	Info          json.RawMessage `json:"info"`
+	Kversion      string          `json:"kversion"`
+	Loadavg       json.RawMessage `json:"loadavg"`
+	Memory        json.RawMessage `json:"memory"`
+	Root          json.RawMessage `json:"root"`
+	Swap          json.RawMessage `json:"swap"`
+	Uptime        int             `json:"uptime"`
+	Wait          float64         `json:"wait"`
 }
 
 type PbsNodesSyslogItem struct {
@@ -2380,6 +2571,24 @@ type PbsTapeBackupItem struct {
 	MaxDepth         int             `json:"max-depth"`
 	NextMediaLabel   string          `json:"next-media-label"`
 	NextRun          int             `json:"next-run"`
+	NotificationMode string          `json:"notification-mode"`
+	NotifyUser       string          `json:"notify-user"`
+	Ns               string          `json:"ns"`
+	Pool             string          `json:"pool"`
+	Schedule         string          `json:"schedule"`
+	Store            string          `json:"store"`
+	WorkerThreads    int             `json:"worker-threads"`
+}
+
+type PbsTapeBackupJobConfigGetResponse struct {
+	Comment          string          `json:"comment"`
+	Drive            string          `json:"drive"`
+	EjectMedia       bool            `json:"eject-media"`
+	ExportMediaSet   bool            `json:"export-media-set"`
+	GroupFilter      json.RawMessage `json:"group-filter"`
+	Id               string          `json:"id"`
+	LatestOnly       bool            `json:"latest-only"`
+	MaxDepth         int             `json:"max-depth"`
 	NotificationMode string          `json:"notification-mode"`
 	NotifyUser       string          `json:"notify-user"`
 	Ns               string          `json:"ns"`
@@ -2589,12 +2798,9 @@ type PbsTapeScanDrivesItem struct {
 	Vendor string `json:"vendor"`
 }
 
-type PoolsGetItem struct {
-	Id      string `json:"id"`
-	Node    string `json:"node"`
-	Storage string `json:"storage"`
-	Type    string `json:"type"`
-	Vmid    int    `json:"vmid"`
+type PoolsGetResponse struct {
+	Comment string          `json:"comment"`
+	Members json.RawMessage `json:"members"`
 }
 
 type PoolsListItem struct {
@@ -2686,6 +2892,21 @@ type SdnControllersItem struct {
 type SdnFabricsAllResponse struct {
 	Fabrics json.RawMessage `json:"fabrics"`
 	Nodes   json.RawMessage `json:"nodes"`
+}
+
+type SdnFabricsFabricGetResponse struct {
+	Area                string          `json:"area"`
+	CsnpInterval        float64         `json:"csnp_interval"`
+	Digest              string          `json:"digest"`
+	HelloInterval       float64         `json:"hello_interval"`
+	Id                  string          `json:"id"`
+	Ip6Prefix           string          `json:"ip6_prefix"`
+	IpPrefix            string          `json:"ip_prefix"`
+	LockToken           string          `json:"lock-token"`
+	PersistentKeepalive float64         `json:"persistent_keepalive"`
+	Protocol            string          `json:"protocol"`
+	Redistribute        json.RawMessage `json:"redistribute"`
+	RouteFilter         string          `json:"route_filter"`
 }
 
 type SdnFabricsFabricItem struct {
@@ -2907,6 +3128,37 @@ type SdnVnetsItem struct {
 	Zone         string          `json:"zone"`
 }
 
+type SdnZonesGetResponse struct {
+	AdvertiseSubnets         bool            `json:"advertise-subnets"`
+	Bridge                   string          `json:"bridge"`
+	BridgeDisableMacLearning bool            `json:"bridge-disable-mac-learning"`
+	Controller               string          `json:"controller"`
+	Dhcp                     string          `json:"dhcp"`
+	Digest                   string          `json:"digest"`
+	DisableArpNdSuppression  bool            `json:"disable-arp-nd-suppression"`
+	Dns                      string          `json:"dns"`
+	Dnszone                  string          `json:"dnszone"`
+	Exitnodes                string          `json:"exitnodes"`
+	ExitnodesLocalRouting    bool            `json:"exitnodes-local-routing"`
+	ExitnodesPrimary         string          `json:"exitnodes-primary"`
+	Ipam                     string          `json:"ipam"`
+	Mac                      string          `json:"mac"`
+	Mtu                      int             `json:"mtu"`
+	Nodes                    string          `json:"nodes"`
+	Peers                    string          `json:"peers"`
+	Pending                  json.RawMessage `json:"pending"`
+	Reversedns               string          `json:"reversedns"`
+	RtImport                 string          `json:"rt-import"`
+	SecondaryControllers     json.RawMessage `json:"secondary-controllers"`
+	State                    string          `json:"state"`
+	Tag                      int             `json:"tag"`
+	Type                     string          `json:"type"`
+	VlanProtocol             string          `json:"vlan-protocol"`
+	VrfVxlan                 int             `json:"vrf-vxlan"`
+	VxlanPort                int             `json:"vxlan-port"`
+	Zone                     string          `json:"zone"`
+}
+
 type SdnZonesItem struct {
 	AdvertiseSubnets         bool            `json:"advertise-subnets"`
 	Bridge                   string          `json:"bridge"`
@@ -2971,10 +3223,13 @@ type StorageNodeIdentityResponse struct {
 	Type string `json:"type"`
 }
 
-type StorageNodeImportMetadataItem struct {
-	Key   string `json:"key"`
-	Type  string `json:"type"`
-	Value string `json:"value"`
+type StorageNodeImportMetadataResponse struct {
+	CreateArgs json.RawMessage `json:"create-args"`
+	Disks      json.RawMessage `json:"disks"`
+	Net        json.RawMessage `json:"net"`
+	Source     string          `json:"source"`
+	Type       string          `json:"type"`
+	Warnings   json.RawMessage `json:"warnings"`
 }
 
 type StorageNodeItem struct {
@@ -3147,6 +3402,11 @@ type VmConfigResponse struct {
 	Vmstate            string  `json:"vmstate"`
 	Vmstatestorage     string  `json:"vmstatestorage"`
 	Watchdog           string  `json:"watchdog"`
+}
+
+type VmFeatureResponse struct {
+	HasFeature bool            `json:"hasFeature"`
+	Nodes      json.RawMessage `json:"nodes"`
 }
 
 type VmFirewallAliasesItem struct {

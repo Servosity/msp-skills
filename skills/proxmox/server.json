@@ -106,6 +106,12 @@
           "description": "Leave blank. This connector registers no tenant-gated profile source, so the value is read but changes nothing; select client clusters with PROXMOX_CLUSTER or clusters.toml instead.",
           "isRequired": false,
           "isSecret": true
+        },
+        {
+          "name": "PROXMOX_NO_LOCAL_DATA",
+          "description": "Optional. Set to 1 to keep no local copy of API responses: reads go to the API, store writes are off, and sync and workflow archive refuse to run. Leave blank to keep the local store.",
+          "isRequired": false,
+          "isSecret": false
         }
       ]
     }

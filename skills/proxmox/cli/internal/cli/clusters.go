@@ -348,27 +348,12 @@ func applyClusterToClient(c *client.Client, cl clusterProfile) error {
 	}
 	// Always set a concrete base: a profile must never inherit PROXMOX_BASE_URL
 	// or PROXMOX_HOST from the shell, or its token would go to that host.
-	switch {
-	case cl.PVEBaseURL != "":
-		c.BaseURL = strings.TrimRight(cl.PVEBaseURL, "/")
-	case cl.PVEHost != "":
-		// Parsed the way validate parses it (it accepts https://pve1/), never by
-		// string surgery.
-		raw := cl.PVEHost
-		if !strings.Contains(raw, "://") {
-			raw = "https://" + raw
-		}
-		u, err := url.Parse(raw)
-		if err != nil || u.Hostname() == "" {
-			return fmt.Errorf("pve_host %q must be a host, host:port, or https://host:port", config.RedactUserinfo(cl.PVEHost))
-		}
-		port := u.Port()
-		if port == "" {
-			port = "8006"
-		}
-		c.BaseURL = "https://" + net.JoinHostPort(u.Hostname(), port) + "/api2/json"
-	default:
-		c.BaseURL = ""
+	base, err := clusterPVEBase(cl)
+	if err != nil {
+		return err
+	}
+	c.BaseURL = base
+	if base == "" {
 		cfg.ProxmoxApiToken = ""
 	}
 	cfg.BaseURL = c.BaseURL
@@ -386,6 +371,33 @@ func applyClusterToClient(c *client.Client, cl clusterProfile) error {
 		return err
 	}
 	return c.CheckServiceOrigins()
+}
+
+// clusterPVEBase is the Proxmox VE base URL a cluster entry names, or "" when
+// it names none. The credential kit's wiring binds the entry's token to the
+// same origin (ClusterTokenSources).
+func clusterPVEBase(cl clusterProfile) (string, error) {
+	switch {
+	case cl.PVEBaseURL != "":
+		return strings.TrimRight(cl.PVEBaseURL, "/"), nil
+	case cl.PVEHost != "":
+		// Parsed the way validate parses it (it accepts https://pve1/), never by
+		// string surgery.
+		raw := cl.PVEHost
+		if !strings.Contains(raw, "://") {
+			raw = "https://" + raw
+		}
+		u, err := url.Parse(raw)
+		if err != nil || u.Hostname() == "" {
+			return "", fmt.Errorf("pve_host %q must be a host, host:port, or https://host:port", config.RedactUserinfo(cl.PVEHost))
+		}
+		port := u.Port()
+		if port == "" {
+			port = "8006"
+		}
+		return "https://" + net.JoinHostPort(u.Hostname(), port) + "/api2/json", nil
+	}
+	return "", nil
 }
 
 // dropConfiguredAuthorization removes every credential-class entry from the

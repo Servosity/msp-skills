@@ -51,7 +51,7 @@ func newPbsNodesDisksListCmd(flags *rootFlags) *cobra.Command {
 					}
 				}
 				if !validUsageType {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagUsageType, "usage-type", allowedUsageType)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagUsageType, "usage-type", allowedUsageType))
 				}
 			}
 			path := "https://localhost:8007/api2/json/nodes/{node}/disks/list"

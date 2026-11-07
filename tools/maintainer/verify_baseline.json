@@ -112,9 +112,7 @@
    "local-data"
   ],
   "proxmox": [
-   "mcp-stdio",
-   "read-only",
-   "local-data"
+   "mcp-stdio"
   ],
   "quotewerks": [
    "read-only",
@@ -210,9 +208,6 @@
   ],
   "n-central": [
    "mcp-stdio"
-  ],
-  "proxmox": [
-   "write-gating"
   ],
   "zammad": [
    "write-gating"

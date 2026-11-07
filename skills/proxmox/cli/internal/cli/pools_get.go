@@ -49,7 +49,7 @@ func newPoolsGetCmd(flags *rootFlags) *cobra.Command {
 					}
 				}
 				if !validType {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagType, "type", allowedType)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagType, "type", allowedType))
 				}
 			}
 			path := "/pools/{poolid}"
@@ -65,7 +65,7 @@ func newPoolsGetCmd(flags *rootFlags) *cobra.Command {
 			if cmd.Flags().Changed("type") || flagType != "" {
 				params["type"] = formatCLIParamValue(flagType)
 			}
-			data, prov, err := resolveReadWithStrategyAndResponsePath(cmd.Context(), c, flags, "auto", "pools", false, path, params, nil, "members", cmd.ErrOrStderr())
+			data, prov, err := resolveReadWithStrategyAndResponsePath(cmd.Context(), c, flags, "auto", "pools", false, path, params, nil, "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}
@@ -92,7 +92,7 @@ func newPoolsGetCmd(flags *rootFlags) *cobra.Command {
 					filtered, selectErr = filterFieldsChecked(filtered, flags.selectFields)
 					selectErr = selectErrorForDryRun(selectErr, flags, data)
 				} else if flags.compact {
-					filtered = compactFields(filtered, map[string]bool{"id": true, "type": true})
+					filtered = compactFields(filtered, nil)
 				}
 				wrapped, wrapErr := wrapWithProvenance(filtered, prov)
 				if wrapErr != nil {
@@ -124,7 +124,7 @@ func newPoolsGetCmd(flags *rootFlags) *cobra.Command {
 			if flags.csv || flags.plain {
 				formatData = outputData
 			}
-			return printOutputWithFlagsMeta(cmd.OutOrStdout(), formatData, flags, map[string]any{"source": "live"}, map[string]bool{"id": true, "type": true})
+			return printOutputWithFlagsMeta(cmd.OutOrStdout(), formatData, flags, map[string]any{"source": "live"}, nil)
 		},
 	}
 	cmd.Flags().StringVar(&flagType, "type", "", "type (one of: qemu, lxc, storage)")

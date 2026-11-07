@@ -19,6 +19,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"proxmox-pp-cli/internal/client"
@@ -142,10 +143,50 @@ func (s pbsServices) of(ep string, pins ...string) []string {
 	return out
 }
 
+// joinUnknown: an endpoint named by a host this machine cannot resolve, with no
+// certificate pin in its service, has unknown identity: it may be any PBS on
+// its port, so it joins every one of them (fail closed: archives there are
+// then judged shared, never credited to one client). Call once, after every
+// link.
+func (s pbsServices) joinUnknown() {
+	pinned := map[string]bool{}
+	for t := range s {
+		if strings.HasPrefix(t, "fp:") {
+			pinned[s.find(t)] = true
+		}
+	}
+	port := func(t string) (string, string, bool) {
+		h, p, err := net.SplitHostPort(strings.TrimPrefix(t, "ep:"))
+		return h, p, strings.HasPrefix(t, "ep:") && err == nil
+	}
+	var unknown []string
+	for t := range s {
+		if h, _, ok := port(t); ok && hostUnknown(h) && !pinned[s.find(t)] {
+			unknown = append(unknown, t)
+		}
+	}
+	for _, t := range unknown {
+		_, tp, _ := port(t)
+		for u := range s {
+			if _, up, ok := port(u); ok && up == tp {
+				if a, b := s.find(t), s.find(u); a != b {
+					s[b] = a
+				}
+			}
+		}
+	}
+}
+
 func serviceTokens(ep string, pins ...string) []string {
 	var toks []string
 	if ep != "" {
-		toks = append(toks, "ep:"+strings.ToLower(ep))
+		if h, port, err := net.SplitHostPort(ep); err == nil {
+			for _, a := range hostAliases(h) {
+				toks = append(toks, "ep:"+net.JoinHostPort(a, port))
+			}
+		} else {
+			toks = append(toks, "ep:"+strings.ToLower(ep))
+		}
 	}
 	for _, p := range pins {
 		for _, f := range splitPins(p) {
@@ -159,11 +200,50 @@ func serviceTokens(ep string, pins ...string) []string {
 
 func overlaps(a, b []string) bool {
 	for _, x := range a {
-		if slices.Contains(b, x) {
-			return true
+		for _, y := range b {
+			if tokenMatch(x, y) {
+				return true
+			}
 		}
 	}
 	return false
+}
+
+// unknownHostMark prefixes the host of a share token whose server name did not
+// resolve on this machine (see netStorageID).
+const unknownHostMark = "?"
+
+// tokenMatch: equal tokens, or two share tokens of one type and path where
+// either server is unknown (an unresolved name may be any server).
+func tokenMatch(a, b string) bool {
+	if a == b {
+		return true
+	}
+	sa, ha, ra, okA := splitShareToken(a)
+	sb, hb, rb, okB := splitShareToken(b)
+	return okA && okB && sa == sb && ra == rb &&
+		(strings.HasPrefix(ha, unknownHostMark) || strings.HasPrefix(hb, unknownHostMark))
+}
+
+// splitShareToken splits scheme://host/rest; ok is false for other tokens.
+func splitShareToken(tok string) (scheme, host, rest string, ok bool) {
+	scheme, after, ok := strings.Cut(tok, "://")
+	if !ok {
+		return "", "", "", false
+	}
+	if i := strings.Index(after, "/"); i >= 0 {
+		return scheme, after[:i], after[i:], true
+	}
+	return scheme, after, "", true
+}
+
+// unresolvedShareHost names the server of an unknown-host share token.
+func unresolvedShareHost(tok string) (string, bool) {
+	_, h, _, ok := splitShareToken(tok)
+	if !ok || !strings.HasPrefix(h, unknownHostMark) {
+		return "", false
+	}
+	return strings.TrimPrefix(h, unknownHostMark), true
 }
 
 func normFingerprint(s string) string {
@@ -1273,6 +1353,7 @@ func markSharedPBS(ctx context.Context, flags *rootFlags, targets []fleetTarget)
 			own.svc.link(ref.server, ref.fingerprint)
 		}
 	}
+	own.svc.joinUnknown()
 	// scope: an unknown peer may write to any datastore of its PBS; a read one
 	// to the datastores its storages name.
 	scope := func(t fleetTarget, refs map[string]pbsStorageRef, unknown bool) peerScope {
@@ -1402,10 +1483,23 @@ func (t fleetTarget) netSharers(s storageInfo) []string {
 // them mounting the network storage s too (the confirmed part of netSharers).
 func (t fleetTarget) netMounters(s storageInfo) []string {
 	var out []string
-	for _, tok := range t.own.netOf[t.pveID][s.Storage] {
-		for pve, name := range t.own.net[tok] {
-			if pve != t.pveID && !slices.Contains(out, name) {
-				out = append(out, name)
+	for _, mine := range t.own.netOf[t.pveID][s.Storage] {
+		for tok, mounters := range t.own.net {
+			if !tokenMatch(mine, tok) {
+				continue
+			}
+			for pve, name := range mounters {
+				if pve == t.pveID {
+					continue
+				}
+				if h, ok := unresolvedShareHost(mine); ok {
+					name += " (share host " + h + " does not resolve on this machine)"
+				} else if h, ok := unresolvedShareHost(tok); ok {
+					name += " (share host " + h + " does not resolve on this machine)"
+				}
+				if !slices.Contains(out, name) {
+					out = append(out, name)
+				}
 			}
 		}
 	}
@@ -1455,35 +1549,93 @@ func fetchNetStorageIDs(ctx context.Context, c *client.Client) (map[string][]str
 // Ceph). Gluster: server and server2, each with the volume.
 func netStorageID(typ, server, server2, export, share, subdir, monhost, fsName, volume string) []string {
 	clean := func(p string) string { return strings.TrimSuffix(path.Clean("/"+p), "/") }
-	host := func(h string) string {
-		if hh, _, err := net.SplitHostPort(h); err == nil {
-			h = hh
-		}
-		return canonHost(h)
-	}
+	// Each server contributes one token per spelling it is reachable by (its
+	// name and every address it resolves to), so a share named by host in one
+	// cluster and by IP in another is still one share.
+	// A name that does not resolve here is an unknown server: its one token is
+	// marked (unknownHostMark) and overlaps every share of that type and path.
 	var out []string
+	add := func(scheme, h, rest string) {
+		if hostUnknown(h) {
+			out = append(out, scheme+"://"+unknownHostMark+canonHost(h)+rest)
+			return
+		}
+		for _, a := range hostAliases(h) {
+			out = append(out, scheme+"://"+a+rest)
+		}
+	}
 	switch typ {
 	case "nfs":
-		out = append(out, "nfs://"+canonHost(server)+clean(export))
+		add("nfs", server, clean(export))
 	case "cifs":
-		out = append(out, "cifs://"+canonHost(server)+strings.ToLower(clean(share)+clean(subdir)))
+		add("cifs", server, strings.ToLower(clean(share)+clean(subdir)))
 	case "cephfs":
 		for _, m := range strings.FieldsFunc(monhost, func(r rune) bool { return r == ' ' || r == ',' || r == ';' }) {
-			out = append(out, "cephfs://"+host(m)+"/"+fsName+clean(subdir))
+			if hh, _, err := net.SplitHostPort(m); err == nil {
+				m = hh
+			}
+			add("cephfs", m, "/"+fsName+clean(subdir))
 		}
 	case "glusterfs":
 		for _, h := range []string{server, server2} {
 			if h != "" {
-				out = append(out, "glusterfs://"+canonHost(h)+clean(volume))
+				add("glusterfs", h, clean(volume))
 			}
 		}
 	}
 	return out
 }
 
+// hostAliases is every spelling of one host for identity: canonHost of the
+// name, plus each address the name resolves to on this machine. Resolving can
+// only add spellings, so two clusters are judged to share a server more often,
+// never less (their archives are then not counted). A name that does not
+// resolve keeps its single spelling.
+func hostAliases(host string) []string {
+	h := canonHost(host)
+	if h == "" {
+		return nil
+	}
+	out := []string{h}
+	if net.ParseIP(h) != nil {
+		return out
+	}
+	for _, a := range resolveHostAddrs(h) {
+		if a = canonHost(a); a != "" && !slices.Contains(out, a) {
+			out = append(out, a)
+		}
+	}
+	return out
+}
+
+// hostUnknown: host is a name (not an address) that resolves to nothing on
+// this machine, so which server it is cannot be told.
+func hostUnknown(host string) bool {
+	h := canonHost(host)
+	return h != "" && net.ParseIP(h) == nil && len(resolveHostAddrs(h)) == 0
+}
+
+var hostAddrCache sync.Map // name -> []string
+
+// resolveHostAddrs looks a share or PBS host name up once per process, with a
+// short deadline (tests replace it with a table).
+var resolveHostAddrs = func(host string) []string {
+	if v, ok := hostAddrCache.Load(host); ok {
+		return v.([]string)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	addrs, err := net.DefaultResolver.LookupHost(ctx, host)
+	if err != nil {
+		addrs = nil
+	}
+	hostAddrCache.Store(host, addrs)
+	return addrs
+}
+
 // canonHost is one spelling per host: lowercase, no trailing dot, no IPv6
 // brackets, one form per IP address. Names and addresses of one server stay
-// two spellings: no Proxmox API resolves them.
+// two spellings here; hostAliases joins them where identity matters.
 func canonHost(host string) string {
 	h := strings.TrimSuffix(strings.ToLower(strings.Trim(strings.TrimSpace(host), "[]")), ".")
 	if ip := net.ParseIP(h); ip != nil {

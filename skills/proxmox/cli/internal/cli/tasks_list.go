@@ -59,7 +59,7 @@ func newTasksListCmd(flags *rootFlags) *cobra.Command {
 					}
 				}
 				if !validSource {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagSource, "source", allowedSource)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagSource, "source", allowedSource))
 				}
 			}
 			path := "/nodes/{node}/tasks"

@@ -59,10 +59,10 @@ func newCtRrdCmd(flags *rootFlags) *cobra.Command {
 				return usageErr(fmt.Errorf("missing required argument\nUsage: %s%s", cmd.CommandPath(), " <node> <vmid>"))
 			}
 			if !cmd.Flags().Changed("ds") && flagDs == "" && !requiredInputWaived() {
-				return fmt.Errorf("required flag \"%s\" not set", "ds")
+				return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "ds"))
 			}
 			if !cmd.Flags().Changed("timeframe") && flagTimeframe == "" && !requiredInputWaived() {
-				return fmt.Errorf("required flag \"%s\" not set", "timeframe")
+				return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "timeframe"))
 			}
 			if cmd.Flags().Changed("cf") {
 				allowedCf := []string{"AVERAGE", "MAX"}
@@ -74,7 +74,7 @@ func newCtRrdCmd(flags *rootFlags) *cobra.Command {
 					}
 				}
 				if !validCf {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagCf, "cf", allowedCf)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagCf, "cf", allowedCf))
 				}
 			}
 			if cmd.Flags().Changed("timeframe") {
@@ -87,7 +87,7 @@ func newCtRrdCmd(flags *rootFlags) *cobra.Command {
 					}
 				}
 				if !validTimeframe {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagTimeframe, "timeframe", allowedTimeframe)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagTimeframe, "timeframe", allowedTimeframe))
 				}
 			}
 			path := "/nodes/{node}/lxc/{vmid}/rrd"

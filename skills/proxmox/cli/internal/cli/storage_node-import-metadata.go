@@ -57,7 +57,7 @@ func newStorageNodeImportMetadataCmd(flags *rootFlags) *cobra.Command {
 				return usageErr(fmt.Errorf("missing required argument\nUsage: %s%s", cmd.CommandPath(), " <node> <storage>"))
 			}
 			if !cmd.Flags().Changed("volume") && flagVolume == "" && !requiredInputWaived() {
-				return fmt.Errorf("required flag \"%s\" not set", "volume")
+				return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "volume"))
 			}
 			path := "/nodes/{node}/storage/{storage}/import-metadata"
 			if len(args) < 1 || args[0] == "" {
@@ -76,7 +76,7 @@ func newStorageNodeImportMetadataCmd(flags *rootFlags) *cobra.Command {
 			if cmd.Flags().Changed("volume") || flagVolume != "" {
 				params["volume"] = formatCLIParamValue(flagVolume)
 			}
-			data, prov, err := resolveReadWithStrategyAndResponsePath(cmd.Context(), c, flags, "live", "storage", false, path, params, nil, "warnings", cmd.ErrOrStderr())
+			data, prov, err := resolveReadWithStrategyAndResponsePath(cmd.Context(), c, flags, "live", "storage", false, path, params, nil, "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}
@@ -103,7 +103,7 @@ func newStorageNodeImportMetadataCmd(flags *rootFlags) *cobra.Command {
 					filtered, selectErr = filterFieldsChecked(filtered, flags.selectFields)
 					selectErr = selectErrorForDryRun(selectErr, flags, data)
 				} else if flags.compact {
-					filtered = compactFields(filtered, map[string]bool{"key": true, "type": true})
+					filtered = compactFields(filtered, map[string]bool{"type": true})
 				}
 				wrapped, wrapErr := wrapWithProvenance(filtered, prov)
 				if wrapErr != nil {
@@ -135,7 +135,7 @@ func newStorageNodeImportMetadataCmd(flags *rootFlags) *cobra.Command {
 			if flags.csv || flags.plain {
 				formatData = outputData
 			}
-			return printOutputWithFlagsMeta(cmd.OutOrStdout(), formatData, flags, map[string]any{"source": "live"}, map[string]bool{"key": true, "type": true})
+			return printOutputWithFlagsMeta(cmd.OutOrStdout(), formatData, flags, map[string]any{"source": "live"}, map[string]bool{"type": true})
 		},
 	}
 	cmd.Flags().StringVar(&flagVolume, "volume", "", "Volume identifier for the guest archive/entry.")
