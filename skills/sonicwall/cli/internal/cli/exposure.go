@@ -194,9 +194,25 @@ func newNovelExposureCmd(flags *rootFlags) *cobra.Command {
 						}
 						if zones, wan, ok := posture.SSLVPNZones(raw); ok {
 							h.SSLVPNZones = zones
-							h.WANReachable = "no"
-							if wan {
+							if len(zones) == 0 {
+								h.WANReachable = "no"
+								return h, nil
+							}
+							// Zone names are free text: grade by security type (untrusted = internet-facing).
+							types, typesOK := map[string]string(nil), false
+							if typesRaw, terr := sonicOSGet(ctx, c, h.Serial, "/firewall/zones"); terr == nil {
+								types, typesOK = posture.ZoneSecurityTypes(typesRaw)
+							} else if !wan {
+								h.Error = errText(terr)
+							}
+							facing, known := posture.ZonesInternetFacing(zones, types, typesOK)
+							switch {
+							case facing:
 								h.WANReachable = "yes"
+							case known:
+								h.WANReachable = "no"
+							case h.Error == "":
+								h.Error = "the security type of a zone with SSL VPN enabled was not reported"
 							}
 						} else {
 							h.Error = "ssl-vpn zones: unexpected response shape"

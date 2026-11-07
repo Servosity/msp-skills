@@ -184,9 +184,28 @@ func evaluateDevice(ctx context.Context, c *client.Client, d fleetDevice, in pos
 		return finishRow(r)
 	}
 	r.SSLVPNZones = zones
-	r.SSLVPNWAN = posture.Pass
-	if wan {
-		r.SSLVPNWAN = posture.Warn
+	if len(zones) > 0 {
+		// Zone names are free text: grade by each zone's security type (untrusted = internet-facing).
+		types, typesOK := map[string]string(nil), false
+		if typesRaw, terr := sonicOSGet(ctx, c, d.SerialNumber, "/firewall/zones"); terr != nil {
+			if !wan {
+				fail("zones", terr)
+			}
+		} else if types, typesOK = posture.ZoneSecurityTypes(typesRaw); !typesOK && !wan {
+			r.Errors = append(r.Errors, "zones: unexpected response shape")
+		}
+		var known bool
+		if wan, known = posture.ZonesInternetFacing(zones, types, typesOK); !known {
+			r.Errors = append(r.Errors, "ssl-vpn zones: the security type of a zone with SSL VPN enabled was not reported, so internet exposure is unknown")
+		}
+		switch {
+		case wan:
+			r.SSLVPNWAN = posture.Warn
+		case known:
+			r.SSLVPNWAN = posture.Pass
+		}
+	} else {
+		r.SSLVPNWAN = posture.Pass
 	}
 	if len(zones) == 0 {
 		r.UserMFA = posture.Pass // SSL VPN is not enabled on any zone

@@ -147,11 +147,6 @@
    "read-only",
    "local-data"
   ],
-  "sonicwall": [
-   "write-gating",
-   "read-only",
-   "local-data"
-  ],
   "sophos-central": [
    "write-gating",
    "read-only",

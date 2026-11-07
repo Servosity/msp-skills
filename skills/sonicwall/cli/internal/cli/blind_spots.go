@@ -196,6 +196,20 @@ func newNovelBlindSpotsCmd(flags *rootFlags) *cobra.Command {
 			if err != nil {
 				return classifyReadError(cmd.OutOrStdout(), err, flags)
 			}
+			// Nothing to compare is never an all-clear (Codex review 2026-11-02 rounds 1-2): count the
+			// products the comparison actually covers (a serial, and a firewall or unclassified product
+			// unless --all-products), not every registered product.
+			compared := 0
+			for _, p := range products {
+				if strings.TrimSpace(p.SerNo) != "" && (allProducts || productClass(p) != "other") {
+					compared++
+				}
+			}
+			if compared == 0 {
+				nerr := notFoundErr(fmt.Errorf("MySonicWall returned %d registered products for this API key and none is a firewall with a serial number, so nothing was compared with NSM; check the key's account and MySonicWall API permission, or pass --all-products", len(products)))
+				writeAPIErrorEnvelope(cmd.OutOrStdout(), flags, nerr, ExitCode(nerr))
+				return nerr
+			}
 			devices, err := fetchFleet(ctx, c, "", "")
 			if err != nil {
 				return classifyReadError(cmd.OutOrStdout(), err, flags)
@@ -276,7 +290,7 @@ func newNovelBlindSpotsCmd(flags *rootFlags) *cobra.Command {
 			}
 			if len(rows) == 0 {
 				if partial == nil {
-					fmt.Fprintf(cmd.OutOrStdout(), "Every registered firewall (%d registered products checked) is visible in NSM.\n", len(products))
+					fmt.Fprintf(cmd.OutOrStdout(), "Every registered firewall (%d of %d registered products compared) is visible in NSM.\n", compared, len(products))
 				}
 				return partial
 			}

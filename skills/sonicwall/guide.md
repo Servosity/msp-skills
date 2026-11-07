@@ -97,7 +97,20 @@ Add to your Claude Desktop config (`%APPDATA%\Claude\claude_desktop_config.json`
 
 </details>
 
+### Remote MCP over HTTP
+
+`sonicwall-mcp --transport http` (or `PP_MCP_TRANSPORT=http`) serves streamable HTTP at `http://127.0.0.1:7777/mcp`. It refuses to start until `SONICWALL_MCP_HTTP_TOKEN` is set to at least 32 characters, and every request must send `Authorization: Bearer <token>`. The command below prints 64 hex characters and meets that minimum. Plain HTTP is allowed only on a loopback `--addr`; any other bind, including `:7777` (every interface), also needs `--tls-cert` and `--tls-key`. Requests with no `Origin` header are accepted, as are loopback origins (`localhost`, `127.0.0.1`, or `[::1]`, any port). Any other `Origin` is refused unless it is listed in `SONICWALL_MCP_HTTP_ALLOWED_ORIGINS`, a comma-separated list of `scheme://host[:port]` values with no path. That list is not a CORS policy; the server does not emit CORS headers.
+
+```bash
+export SONICWALL_MCP_HTTP_TOKEN="$(openssl rand -hex 32)"
+sonicwall-mcp --transport http
+```
+
+Set `SONICWALL_MCP_READ_ONLY=1` (exactly `1`) to drop mirrored commands that are not marked read-only and make the raw execute tool refuse state-changing calls. Commands marked local-write, which write only this CLI's own learn store, stay available.
+
 ## Authentication
+
+NSM commands need an NSM session token and MySonicWall commands need a MySonicWall API key; `nsm-login` turns the key into the token.
 
 You need one credential: a MySonicWall API key (MySonicWall > My Workspace > User Groups > User list > Generate My API Key; valid up to a year, and MSW API permission must be enabled for your user). Export it as SONICWALL_MSW_API_KEY; MySonicWall commands, licence checks and blind-spots read it from the environment on every run. NSM calls need a separate NSM session token minted from that key: run 'sonicwall-cli nsm-login' (add --tenant "<name or product group ID>" when the key sees more than one NSM tenant, the usual MSP case) and it performs SonicWall's three-step exchange and saves the token. The token lasts 8 hours with a 15-minute idle timeout; when NSM calls exit 4, rerun nsm-login. Exit 4 from MySonicWall commands means the key is missing or not permitted. If SONICWALL_NSM_TOKEN is set it overrides the saved token. EU portals: export SONICWALL_REGION=eucentral (default uswest). For the MCP server, pass SONICWALL_MSW_API_KEY (and SONICWALL_REGION when not uswest) in the server's env block.
 
@@ -113,8 +126,10 @@ sonicwall-cli doctor
 # Pull the fleet inventory and advisory matches into the local database
 sonicwall-cli sync --resources devices,devices-inventory-tenant,vulnerabilities,tenants
 
+
 # One insurance-posture row per firewall
 sonicwall-cli posture --agent
+
 
 # Which firewalls the SSL-VPN access-control advisory (CVE-2024-40766) hits, and which expose SSL-VPN on WAN
 sonicwall-cli exposure SNWLID-2024-0015
@@ -154,7 +169,7 @@ sonicwall-cli exposure SNWLID-2024-0015
   ```
 
 ### Patch and exposure
-- **`exposure`**  -  Rank the SonicWall PSIRT advisories NSM matched to your fleet, or name one advisory (SNWLID ID) to list every affected firewall and whether SSL-VPN is enabled on a zone whose name contains WAN; a CVE ID only matches when NSM's advisory text names it.
+- **`exposure`**  -  Rank the SonicWall PSIRT advisories NSM matched to your fleet, or name one advisory (SNWLID ID) to list every affected firewall and whether SSL-VPN is enabled on an internet-facing zone (security type untrusted; a name containing WAN counts only when the zone's type is not reported); a CVE ID only matches when NSM's advisory text names it.
 
   _Use it the moment a SonicWall advisory drops (for example CVE-2024-40766) to pick the firewalls that need tonight's change window._
 
@@ -180,6 +195,7 @@ sonicwall-cli exposure SNWLID-2024-0015
 
 ## Recipes
 
+
 ### Insurance evidence for one firewall
 
 ```bash
@@ -194,7 +210,7 @@ Pass, warn, fail or unknown for firmware, advisories, end of support, licences, 
 sonicwall-cli exposure SNWLID-2024-0015 --agent
 ```
 
-Lists firewalls matched to SonicWall advisory SNWLID-2024-0015 (CVE-2024-40766) and marks which have SSL-VPN enabled on a zone whose name contains WAN (custom-named internet zones are missed); an empty list for a CVE ID means no advisory text matched, not zero exposure.
+Lists firewalls matched to SonicWall advisory SNWLID-2024-0015 (CVE-2024-40766) and marks which have SSL-VPN enabled on an internet-facing zone (security type untrusted; a name containing WAN counts only when the zone's type is not reported, and any other zone of unreported type is unknown); an empty list for a CVE ID means no advisory text matched, not zero exposure.
 
 ### Lean inventory for an agent
 
@@ -259,6 +275,15 @@ sonicwall-cli doctor
 
 Under `SONICWALL_HOME=/srv/sonicwall`, the four dirs resolve to `/srv/sonicwall/config`, `/srv/sonicwall/data`, `/srv/sonicwall/state`, and `/srv/sonicwall/cache`.
 
+On Windows, set the same variable in PowerShell:
+
+```powershell
+$env:SONICWALL_HOME = "C:\srv\sonicwall"
+sonicwall-cli doctor
+```
+
+Under `$env:SONICWALL_HOME = "C:\srv\sonicwall"`, the four dirs resolve to `C:\srv\sonicwall\config`, `C:\srv\sonicwall\data`, `C:\srv\sonicwall\state`, and `C:\srv\sonicwall\cache`.
+
 MCP servers do not receive CLI flags from the host. Put relocation in the host `env` block:
 
 ```json
@@ -279,6 +304,16 @@ Precedence matters in fleets: an ambient per-kind variable such as `SONICWALL_DA
 Relocation is one-way. Unsetting `SONICWALL_HOME` does not move files back to platform defaults, and `doctor` cannot find credentials left under a former root. Move the files manually before unsetting relocation variables.
 
 Existing installs keep working because the platform-default rung matches the legacy layout. On the first auth write, stored secrets leave `config.toml` and are consolidated into `credentials.toml` under the data directory. Run `sonicwall-cli doctor --fail-on warn` to check path and credential-location warnings in automation.
+
+### Local data
+
+Reads are saved locally by default: in `--data-source auto` mode every successful read is also written to the SQLite store (`data.db`, or `data-<hash>.db` per credential) in the data directory. GET responses are cached for five minutes under `http/` in the cache directory. Credentials live in `credentials.toml` in the data directory. The learn journal lives under `learn/` in the state directory. `sonicwall-cli doctor` prints the resolved paths, every store file, and the response-cache size.
+
+None of it is encrypted. New files are created owner-only; beyond that the data relies on OS account permissions and full-disk encryption (FileVault, BitLocker, LUKS).
+
+- **Erase it:** `sonicwall-cli local-data purge` lists the store files, response cache, and learn journal it would delete; add `--yes` to delete them, or `--only store|cache|journal` to narrow it. Config and credentials are kept.
+- **Run without a local copy:** set `SONICWALL_NO_LOCAL_DATA=1`. Reads go to the API (`--data-source live`; `--data-source local` still reads an existing store), the response cache is off (`--no-cache`), nothing new is written to the store, and `sync` and `workflow archive` refuse to run. Set it in an MCP host's `env` block and every command the server runs inherits it.
+- **Choose the read source without flags:** `SONICWALL_DATA_SOURCE=auto|live|local` sets the `--data-source` default; an explicit flag wins.
 
 ## Commands
 
@@ -450,7 +485,7 @@ Manage vulnerabilities
 ### exposure
 
 
-- **`sonicwall-cli exposure`** - Rank the SonicWall PSIRT advisories NSM matched to your fleet, or name one advisory (SNWLID ID) to list every affected firewall and whether SSL-VPN is enabled on a zone whose name contains WAN; a CVE ID only matches when NSM's advisory text names it.
+- **`sonicwall-cli exposure`** - Rank the SonicWall PSIRT advisories NSM matched to your fleet, or name one advisory (SNWLID ID) to list every affected firewall and whether SSL-VPN is enabled on an internet-facing zone (security type untrusted; a name containing WAN counts only when the zone's type is not reported); a CVE ID only matches when NSM's advisory text names it.
 
 
 ### firmware
@@ -516,6 +551,8 @@ sonicwall-cli alerts list --dry-run
 sonicwall-cli alerts list --agent
 ```
 
+`--csv` prefixes a leading `'` on cells and header keys that start with `=`, `+`, `-`, `@`, a tab, or a line break (including fullwidth `＝＋－＠`) so a spreadsheet does not run them as formulas. Plain signed numbers such as `-5` and `+2.5e3` are left unchanged.
+
 ## Agent Usage
 
 This CLI is designed for AI agent consumption:
@@ -525,7 +562,7 @@ This CLI is designed for AI agent consumption:
 - **Filterable** - `--select <field>[,<field>...]` returns only fields you need
 - **Previewable** - `--dry-run` shows the request without sending
 - **Read-only** - no command changes firewall, NSM or MySonicWall configuration; the only POSTs are read-style queries and the NSM token exchange (`nsm-login`, `nsm-session`, `msw-tenants access-code`)
-- **Unknown is never pass** - posture, mfa-audit, firmware drift and licenses renewals mark anything they could not read as `unknown` (or list it in `fetch_failures`), and they and exposure exit 3 instead of returning an empty list when no NSM firewall matches the token and filter. exposure exits 6 when a firewall has no reported SonicOS version or the device inventory is unreadable; blind-spots exits 6 when NSM firewalls are missing from the MySonicWall registry the key reads, drops a product by default only when it is a known non-firewall family, and lists anything unrecognised with `product_class: unknown`
+- **Unknown is never pass** - posture, mfa-audit, firmware drift and licenses renewals mark anything they could not read as `unknown` (or list it in `fetch_failures`), and they and exposure exit 3 instead of returning an empty list when no NSM firewall matches the token and filter. exposure exits 6 when a firewall has no reported SonicOS version or the device inventory is unreadable; blind-spots exits 6 when NSM firewalls are missing from the MySonicWall registry the key reads, exits 3 when it compared no firewall (an empty registry, or no firewall with a serial number unless `--all-products`), drops a product by default only when it is a known non-firewall family, and lists anything unrecognised with `product_class: unknown`
 - **Offline-friendly** - sync/search commands can use the local SQLite store when available
 - **Agent-safe by default** - no colors or formatting unless `--human-friendly` is set
 
@@ -550,9 +587,11 @@ Checks configuration and paths, then verifies the NSM session token with one aut
 
 ## Configuration
 
-Run `sonicwall-cli doctor` to see the resolved config, data, state, and cache directories. The platform-default config path is `~/.config/sonicwall-cli/config.toml` (`%USERPROFILE%\.config\sonicwall-cli\config.toml` on Windows); `--home`, `SONICWALL_HOME`, and per-kind env vars can relocate it.
+Run `sonicwall-cli doctor` to see the resolved config, data, state, and cache directories. The platform-default config path is `~/.config/sonicwall-cli/config.toml` on macOS/Linux and `%USERPROFILE%\.config\sonicwall-cli\config.toml` on Windows; `--home`, `SONICWALL_HOME`, and per-kind env vars can relocate it.
 
 Static request headers can be configured under `headers`; per-command header overrides take precedence.
+
+`--ca-cert`, `SONICWALL_CA_CERT`, or `ca_cert` adds a PEM CA bundle to the system trust roots. `--tls-server-name`, `SONICWALL_TLS_SERVER_NAME`, or `tls_server_name` is the name checked against the certificate when the dialed address does not match it. Precedence is flag, then environment, then the config file. A config file other users can change does not supply these settings. Certificate verification failures are not retried.
 
 Environment variables:
 

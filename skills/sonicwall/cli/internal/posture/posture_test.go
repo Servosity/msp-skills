@@ -519,3 +519,45 @@ func TestLocalAccountsRedactedOrRepeatedNamesAreNotJoined(t *testing.T) {
 		t.Errorf("a numbered placeholder must not join as a group, got %+v", got)
 	}
 }
+
+// Zone names are free text; exposure follows the SonicOS security type
+// (Codex review 2026-11-02 round 1, unread zone type graded pass).
+func TestZonesInternetFacing(t *testing.T) {
+	types, ok := ZoneSecurityTypes(json.RawMessage(`{"zones":[{"name":"Internet","security_type":"untrusted"},{"name":"LAN","security_type":"trusted"},{"name":"Odd","security_type":"weird"}]}`))
+	if !ok || types["internet"] != "untrusted" || types["lan"] != "trusted" {
+		t.Fatalf("types = %v %v", types, ok)
+	}
+	if _, ok := ZoneSecurityTypes(json.RawMessage(`{}`)); ok {
+		t.Error("a zones body without the zones list must be unreadable")
+	}
+	if _, ok := ZoneSecurityTypes(json.RawMessage(`{"zones":[{"name":"A","security_type":"trusted"},{"name":"a","security_type":"untrusted"}]}`)); ok {
+		t.Error("a repeated zone name must make the list unreadable")
+	}
+	cases := []struct {
+		zones         []string
+		types         map[string]string
+		typesOK       bool
+		facing, known bool
+	}{
+		{[]string{"Internet"}, types, true, true, true},
+		{[]string{"LAN"}, types, true, false, true},
+		{[]string{"WAN"}, nil, false, true, true},
+		{[]string{"Internet"}, nil, false, false, false},
+		{[]string{"Odd"}, types, true, false, false},
+		{[]string{"Missing"}, types, true, false, false},
+		{[]string{"LAN", "Internet"}, types, true, true, true},
+		// A zone type that was read decides alone: a name containing WAN does not
+		// override it (Codex review 2026-11-06 round 1). The name is the fallback
+		// only when the type is unknown.
+		{[]string{"SWAN"}, map[string]string{"swan": "trusted"}, true, false, true},
+		{[]string{"WAN-Backup"}, map[string]string{"wan-backup": "public"}, true, false, true},
+		{[]string{"WAN"}, map[string]string{"wan": "untrusted"}, true, true, true},
+		{[]string{"WAN"}, map[string]string{}, true, true, true},
+	}
+	for _, c := range cases {
+		facing, known := ZonesInternetFacing(c.zones, c.types, c.typesOK)
+		if facing != c.facing || known != c.known {
+			t.Errorf("ZonesInternetFacing(%v, ok=%v) = (%v,%v), want (%v,%v)", c.zones, c.typesOK, facing, known, c.facing, c.known)
+		}
+	}
+}

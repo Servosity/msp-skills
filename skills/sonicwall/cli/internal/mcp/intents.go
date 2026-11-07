@@ -23,6 +23,8 @@ import (
 
 	mcplib "github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
+	"sonicwall-pp-cli/internal/cli"
+	"sonicwall-pp-cli/internal/cliutil"
 	"sonicwall-pp-cli/internal/mcp/cobratree"
 )
 
@@ -30,42 +32,60 @@ import (
 // This is called from RegisterTools when spec intents or recipe-lifted intents exist.
 func RegisterIntents(s *server.MCPServer) {
 	{
-		// Hand-wired (patch mcp-recipe-argv-not-flag-like): the recipe lifter named the
-		// advisory positional "slug" and copied the recipe's example advisory into the
-		// tool description; the tool runs the read-only 'exposure' command.
-		opts := []mcplib.ToolOption{
-			mcplib.WithDescription("Triage one SonicWall advisory across the fleet: list every firewall NSM matched to it and mark which have SSL-VPN enabled on a zone whose name contains WAN (custom-named internet zones are missed). Required: advisory, an SNWLID ID (exact match, e.g. SNWLID-2024-0015) or a CVE ID (matches only when NSM's advisory text names it, so an empty list for a CVE means no advisory text matched, not zero exposure). Needs an NSM token from nsm-login."),
-			mcplib.WithReadOnlyHintAnnotation(true),
-			mcplib.WithDestructiveHintAnnotation(false),
-			mcplib.WithOpenWorldHintAnnotation(true),
+		recipePath := []string{
+			"exposure",
+			"--agent",
 		}
-		opts = append(opts, mcplib.WithString("advisory", mcplib.Required(), mcplib.Description("SonicWall advisory ID (SNWLID-YYYY-NNNN) or CVE ID (CVE-YYYY-NNNNN) to triage.")))
-		s.AddTool(mcplib.NewTool("advisory_triage", opts...), handleAdvisoryTriage)
+		// A recipe must not re-expose a command the mirror walker would prune
+		// (Cobra-hidden or mcp:hidden) or that the MCP read-only switch would
+		// drop; otherwise a recipe wrapping, say, `share publish --remote` could
+		// surface a hidden, network-writing command over MCP.
+		if recipeTargetExposed(recipePath) {
+			opts := []mcplib.ToolOption{
+				// Hand-wired (handfixes.json mcp-recipe-argv-not-flag-like): the lifter named the advisory
+				// positional "slug" and copied the recipe's example advisory; the tool runs the read-only exposure command.
+				mcplib.WithDescription("Triage one SonicWall advisory across the fleet: list every firewall NSM matched to it and mark which have SSL-VPN enabled on an internet-facing zone (security type untrusted; a name containing WAN counts only when the zone's type is not reported, and any other zone of unreported type is unknown). Required: advisory, an SNWLID ID (exact match, e.g. SNWLID-2024-0015) or a CVE ID (matches only when NSM's advisory text names it, so an empty list for a CVE means no advisory text matched, not zero exposure). Needs an NSM token from nsm-login."),
+				mcplib.WithReadOnlyHintAnnotation(true),
+				mcplib.WithDestructiveHintAnnotation(false),
+				mcplib.WithOpenWorldHintAnnotation(true),
+			}
+			opts = append(opts, mcplib.WithString("advisory", mcplib.Required(), mcplib.Description("SonicWall advisory ID (SNWLID-YYYY-NNNN) or CVE ID (CVE-YYYY-NNNNN) to triage.")))
+			s.AddTool(mcplib.NewTool("advisory_triage", opts...), handleAdvisoryTriage)
+		}
 	}
 }
 
-// handleAdvisoryTriage runs the advisory_triage recipe intent: 'exposure <advisory> --agent'.
+// handleAdvisoryTriage runs the advisory_triage recipe intent: Lists firewalls matched to SonicWall advisory SNWLID-2024-0015 (CVE-2024-40766) and marks which have SSL-VPN enabled on an internet-facing zone (security type untrusted; a name containing WAN counts only when the zone's type is not reported, and any other zone of unreported type is unknown); an empty list for a CVE ID means no advisory text matched, not zero exposure.
 func handleAdvisoryTriage(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.CallToolResult, error) {
 	if recipeCLIPathErr != nil {
 		return mcplib.NewToolResultError(fmt.Sprintf("companion CLI binary not found: %v", recipeCLIPathErr)), nil
 	}
 
+	recipePath := []string{
+		"exposure",
+		"--agent",
+	}
+	// Re-check exposure at call time: the read-only switch may have flipped on
+	// since registration, and a handler must never run a hidden or read-only-
+	// blocked command even if its tool was registered earlier.
+	if !recipeTargetExposed(recipePath) {
+		return mcplib.NewToolResultError("tool is not available"), nil
+	}
+
 	input := req.GetArguments()
 	args := []string{}
-	args = append(args, "exposure")
-	if err := rejectFlagLikeRecipeValue("advisory", input["advisory"]); err != nil {
-		return mcplib.NewToolResultError(err.Error()), nil
-	}
+	recipeEnd := -1
+	args = appendRecipeStatic(args, "exposure", &recipeEnd)
 	var missingAdvisory bool
-	args, missingAdvisory = appendRecipePositional(args, input["advisory"], true)
+	args, missingAdvisory = appendRecipePositional(args, input["advisory"], true, &recipeEnd)
 	if missingAdvisory {
 		return mcplib.NewToolResultError("advisory is required"), nil
 	}
-	args = append(args, "--agent")
+	args = appendRecipeStatic(args, "--agent", &recipeEnd)
 
 	out, err := cobratree.RunCLICommand(ctx, recipeCLIPath, args)
 	if err != nil {
-		return mcplib.NewToolResultError(err.Error()), nil
+		return cobratree.ToolResultFromCLIFailure(out, err), nil
 	}
 	return cobratree.ToolResultFromCLICommand(out), nil
 }
@@ -76,18 +96,117 @@ var (
 )
 
 func init() {
+	// Uncached on purpose: init runs before a test can point the CLI path
+	// env var at a stand-in or reset the process memo, and a cached miss
+	// here would stick for every later registration.
 	recipeCLIPath, recipeCLIPathErr = cobratree.SiblingCLIPath()
 }
 
-func appendRecipePositional(args []string, value any, required bool) ([]string, bool) {
+// recipeCommandRoot is the live Cobra tree consulted for a recipe's target
+// command: its hidden / mcp:hidden / read-only annotations, and its write-sink
+// and read-path flag annotations. Recipe text does not carry these; the live
+// command does.
+var recipeCommandRoot = cli.RootCmd
+
+// recipeTargetExposed reports whether the command a recipe wraps may be surfaced
+// and run over MCP right now. When the recipe's target resolves to an in-tree
+// command, that command must not be hidden (itself or an ancestor, Cobra-hidden
+// or mcp:hidden) — otherwise the recipe would re-expose a surface the mirror
+// walker deliberately pruned. While the MCP read-only switch is on, the recipe
+// is withheld unless its target is provably safe: annotated mcp:read-only or
+// mcp:local-write. A recipe whose target does not resolve to an in-tree command
+// cannot be the hidden command, so it is not blocked on that basis when the
+// read-only switch is off, but it is still withheld under read-only (an
+// unverifiable target cannot be proven side-effect-free).
+func recipeTargetExposed(path []string) bool {
+	if recipeCommandRoot == nil {
+		return true
+	}
+	cmd := cobratree.CommandAtPath(recipeCommandRoot(), recipeCommandPath(path))
+	if cmd != nil && !cobratree.CommandExposableOverMCP(cmd) {
+		return false
+	}
+	if cliutil.IsMCPReadOnlyEnv() && !cobratree.CommandAllowedUnderMCPReadOnly(cmd) {
+		return false
+	}
+	return true
+}
+
+// recipeCommandPath keeps the Cobra command words. Static flags such as
+// --json are stored on the same slice and are not part of the command path.
+func recipeCommandPath(path []string) []string {
+	out := make([]string, 0, len(path))
+	for _, token := range path {
+		if token == "" || strings.HasPrefix(token, "-") {
+			break
+		}
+		out = append(out, token)
+	}
+	return out
+}
+
+func appendRecipePositional(args []string, value any, required bool, end *int) ([]string, bool) {
 	selected := recipeValueString(value)
 	if selected == "" {
 		return args, required
 	}
+	// A value that looks like a flag is placed after `--` so pflag keeps it
+	// as data. The same shape as joining `--key=value`: the CLI still runs,
+	// and the value cannot set another flag.
+	if recipePositionalNeedsSeparator(selected) && recipeSeparatorIndex(end) < 0 {
+		args = recipeMarkSeparator(args, end)
+	}
 	return append(args, selected), false
 }
 
-func appendRecipeStringFlag(args []string, name string, value any, defaultValue string, required bool, useEquals bool) ([]string, bool) {
+func recipePositionalNeedsSeparator(value string) bool {
+	return value != "-" && strings.HasPrefix(value, "-")
+}
+
+// recipeSeparatorIndex is the `--` this builder inserted. A flag value of
+// `--` is its own argv token and is not that separator.
+func recipeSeparatorIndex(end *int) int {
+	if end == nil {
+		return -1
+	}
+	return *end
+}
+
+func recipeMarkSeparator(args []string, end *int) []string {
+	if recipeSeparatorIndex(end) < 0 && end != nil {
+		*end = len(args)
+	}
+	return append(args, "--")
+}
+
+// Flags appended after a protected positional must land before `--`.
+// Everything after that separator is positional.
+func insertRecipeBeforeEndOfFlags(args []string, end *int, tokens ...string) []string {
+	i := recipeSeparatorIndex(end)
+	if i < 0 {
+		return append(args, tokens...)
+	}
+	out := make([]string, 0, len(args)+len(tokens))
+	out = append(out, args[:i]...)
+	out = append(out, tokens...)
+	out = append(out, args[i:]...)
+	if end != nil {
+		*end = i + len(tokens)
+	}
+	return out
+}
+
+func appendRecipeStatic(args []string, token string, end *int) []string {
+	if token == "--" {
+		return recipeMarkSeparator(args, end)
+	}
+	if token != "-" && strings.HasPrefix(token, "-") {
+		return insertRecipeBeforeEndOfFlags(args, end, token)
+	}
+	return append(args, token)
+}
+
+func appendRecipeStringFlag(args []string, name string, value any, defaultValue string, required bool, useEquals bool, end *int) ([]string, bool) {
 	selected := defaultValue
 	if value != nil {
 		selected = recipeValueString(value)
@@ -95,32 +214,19 @@ func appendRecipeStringFlag(args []string, name string, value any, defaultValue 
 	if selected == "" {
 		return args, required
 	}
-	// Hand-wired (patch mcp-recipe-argv-not-flag-like): always joined, so a
-	// value can never be parsed as a second flag; useEquals is kept only for
-	// the generated call sites.
-	return append(args, "--"+name+"="+selected), false
-}
-
-// rejectFlagLikeRecipeValue is hand-wired (patch mcp-recipe-argv-not-flag-like).
-// A recipe positional comes straight from the tool call and lands in argv ahead
-// of the recipe's own flags, so a value beginning with "-" would be parsed by
-// pflag as a flag (for example a denylisted root flag such as --home or
-// --deliver). Mirrors the rule cobratree already applies to mirrored tools'
-// structured positionals.
-func rejectFlagLikeRecipeValue(name string, value any) error {
-	if s := recipeValueString(value); s != "-" && strings.HasPrefix(s, "-") {
-		return fmt.Errorf("flag-like value %q not allowed for %s; pass a plain value", s, name)
+	if useEquals {
+		return insertRecipeBeforeEndOfFlags(args, end, "--"+name+"="+selected), false
 	}
-	return nil
+	return insertRecipeBeforeEndOfFlags(args, end, "--"+name, selected), false
 }
 
-func appendRecipeBoolFlag(args []string, name string, value any, defaultValue bool) []string {
+func appendRecipeBoolFlag(args []string, name string, value any, defaultValue bool, end *int) []string {
 	selected := defaultValue
 	if v, ok := value.(bool); ok {
 		selected = v
 	}
 	if selected {
-		return append(args, "--"+name)
+		return insertRecipeBeforeEndOfFlags(args, end, "--"+name)
 	}
 	return args
 }
