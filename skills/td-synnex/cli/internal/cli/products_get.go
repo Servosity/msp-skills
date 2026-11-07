@@ -57,7 +57,7 @@ func newProductsGetCmd(flags *rootFlags) *cobra.Command {
 					}
 				}
 				if !validClientRole {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagClientRole, "client-role", allowedClientRole)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagClientRole, "client-role", allowedClientRole))
 				}
 			}
 			path := "/accounts/{accountId}/products/{productId}"

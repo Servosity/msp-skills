@@ -28,6 +28,8 @@ import (
 	"unicode/utf8"
 
 	_ "modernc.org/sqlite"
+	"td-synnex-pp-cli/internal/cliutil"
+	"td-synnex-pp-cli/internal/credsql"
 )
 
 var uuidPattern = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)
@@ -53,14 +55,15 @@ func IsUUID(s string) bool {
 
 // StoreSchemaVersion is the on-disk schema version this binary understands.
 // It is stamped into SQLite's PRAGMA user_version on fresh databases and
-// checked on every open. Learn-enabled CLIs advance to v12 for the
-// parent-key storage-id migration, on top of v11's trigram resources_fts
-// rebuild (CJK substring search), v10's learn_candidates and learn_events
-// tables plus the latest-sync-attempt completion marker, the v8
-// learning_playbooks table, and the v6 canonical learn-loop tables
-// (including the v3 resources_fts rowid rehash and v4 resources_fts content
-// extraction).
-const StoreSchemaVersion = 12
+// checked on every open. Learn-enabled CLIs advance to v14
+// to record which surface wrote each learning_playbooks row, on top of v13's
+// checkpoint scope beside each resource, v12's
+// parent-key storage-id migration, v11's trigram resources_fts rebuild
+// (CJK substring search), v10's learn_candidates and learn_events tables
+// plus the latest-sync-attempt completion marker, the v8 learning_playbooks
+// table, and the v6 canonical learn-loop tables (including the v3
+// resources_fts rowid rehash and v4 resources_fts content extraction).
+const StoreSchemaVersion = 14
 
 // resourcesFTSContentSchemaVersion pins the schema bump that rewrote
 // resources_fts content from raw JSON to searchable leaf values. Keep this
@@ -131,10 +134,26 @@ func OpenReadOnly(dbPath string) (*Store, error) {
 	return OpenReadOnlyContext(context.Background(), dbPath)
 }
 
+// OpenReadOnlyValueCapped is OpenReadOnly with SQLITE_LIMIT_LENGTH set to
+// maxValueBytes on every connection (0: no cap), so no string or blob longer
+// than that is built or returned. Hand-fix (handfixes.json credkit-wiring): the MCP sql
+// tool's value cap, set when the connection opens because sqlite.Limit cannot
+// reach a kit-wrapped one.
+func OpenReadOnlyValueCapped(dbPath string, maxValueBytes int) (*Store, error) {
+	return openReadOnly(context.Background(), dbPath, maxValueBytes)
+}
+
 // OpenReadOnlyContext is OpenReadOnly with a caller-supplied context honored by
 // the driver-init SQLITE_BUSY retry.
 func OpenReadOnlyContext(ctx context.Context, dbPath string) (*Store, error) {
+	return openReadOnly(ctx, dbPath, 0)
+}
+
+func openReadOnly(ctx context.Context, dbPath string, maxValueBytes int) (*Store, error) {
 	dsn := "file:" + dbPath + "?mode=ro&_pragma=busy_timeout(5000)&_pragma=foreign_keys(ON)&_pragma=temp_store(MEMORY)&_pragma=mmap_size(0)"
+	if maxValueBytes > 0 { // Hand-fix (handfixes.json credkit-wiring)
+		dsn += "&" + credsql.LengthLimitParam + "=" + strconv.Itoa(maxValueBytes)
+	}
 	db, err := openReadOnlySQLite(ctx, dsn)
 	if err != nil {
 		return nil, fmt.Errorf("opening database (read-only): %w", err)
@@ -149,11 +168,14 @@ func openReadOnlySQLite(ctx context.Context, dsn string) (*sql.DB, error) {
 	if err := ensureSQLiteDriverInitialized(ctx, dsn); err != nil {
 		return nil, err
 	}
-	db, err := sql.Open("sqlite", dsn)
+	db, err := sql.Open(credsql.Driver, dsn) // Hand-fix (handfixes.json credkit-wiring)
 	if err != nil {
 		return nil, err
 	}
-	if err := db.PingContext(ctx); err != nil {
+	// Hand-fix (handfixes.json credkit-wiring): the statement modernc's Ping
+	// runs; the kit's connection does not forward Ping, so PingContext alone would open
+	// the file without reading it, and a missing -shm would not fail here.
+	if _, err := db.ExecContext(ctx, "select 1"); err != nil {
 		_ = db.Close()
 		return nil, err
 	}
@@ -168,6 +190,7 @@ func OpenWithContext(ctx context.Context, dbPath string) (*Store, error) {
 	if err := os.MkdirAll(filepath.Dir(dbPath), 0o700); err != nil {
 		return nil, fmt.Errorf("creating db directory: %w", err)
 	}
+	hardenOwnDataDir(filepath.Dir(dbPath))
 	hardenSQLiteFiles(dbPath)
 	ensureSQLiteJournalPrivate(dbPath)
 	defer hardenSQLiteFiles(dbPath)
@@ -186,7 +209,7 @@ func OpenWithContext(ctx context.Context, dbPath string) (*Store, error) {
 		return nil, err
 	}
 
-	db, err := sql.Open("sqlite", dsn)
+	db, err := sql.Open(credsql.Driver, dsn) // Hand-fix (handfixes.json credkit-wiring)
 	if err != nil {
 		return nil, fmt.Errorf("opening database: %w", err)
 	}
@@ -217,7 +240,7 @@ func rejectNewerSchemaBeforeJournalMode(ctx context.Context, dbPath string) erro
 	if err != nil {
 		return fmt.Errorf("stating database for schema preflight: %w", err)
 	}
-	probe, err := sql.Open("sqlite", "file:"+filepath.ToSlash(dbPath)+"?mode=ro&_pragma=busy_timeout(1000)&_pragma=mmap_size(0)")
+	probe, err := sql.Open(credsql.Driver, "file:"+filepath.ToSlash(dbPath)+"?mode=ro&_pragma=busy_timeout(1000)&_pragma=mmap_size(0)") // Hand-fix (handfixes.json credkit-wiring)
 	if err != nil {
 		return nil
 	}
@@ -253,6 +276,23 @@ func hardenSQLiteFiles(dbPath string) {
 		}
 		_ = os.Chmod(path, 0o600)
 	}
+}
+
+// hardenOwnDataDir drops group and other access from this CLI's own data
+// directory. MkdirAll leaves an existing directory's mode alone, so one created
+// world-listable by an older release would otherwise stay that way. It is
+// best-effort, follows no symlink, and skips a directory the operator chose:
+// a --db parent or an explicit per-kind data directory.
+func hardenOwnDataDir(dir string) {
+	own, err := cliutil.ResolveKindDir(cliutil.PathKindData)
+	if err != nil || own.Rung == "per-kind-env" || filepath.Clean(own.Dir) != filepath.Clean(dir) {
+		return
+	}
+	info, err := os.Lstat(dir)
+	if err != nil || !info.IsDir() || info.Mode().Perm()&0o077 == 0 {
+		return
+	}
+	_ = os.Chmod(dir, info.Mode().Perm()&0o700)
 }
 
 // ensureSQLiteJournalPrivate creates the cache-profile rollback journal before
@@ -293,7 +333,7 @@ func ensureSQLiteDriverInitialized(ctx context.Context, dsn string) error {
 		return nil
 	}
 
-	db, err := sql.Open("sqlite", dsn)
+	db, err := sql.Open(credsql.Driver, dsn) // Hand-fix (handfixes.json credkit-wiring)
 	if err != nil {
 		return fmt.Errorf("opening database for driver initialization: %w", err)
 	}
@@ -352,51 +392,95 @@ func (s *Store) SchemaVersion() (int, error) {
 	return v, nil
 }
 
-// ensureColumn adds a column to an existing table if it isn't already
-// present. It is the upgrade-path safety valve for schema additions:
-// CREATE TABLE IF NOT EXISTS is a no-op when the table already exists, so
-// columns added by newer binaries (e.g. parent_id from the dependent-
-// resources work) never land on databases created by older binaries —
-// which then trip "no such column" when a follow-on CREATE INDEX runs.
+// backfillStatsKey carries a *backfillStats on the context when a test
+// wants to observe how many schema probes and ALTERs one Open performed.
+// Production callers never set it. The counters are not safe to share
+// across goroutines; Open's migration runs on the caller's goroutine.
+type backfillStatsKey struct{}
+
+type backfillStats struct {
+	probes int
+	alters int
+}
+
+func contextWithBackfillStats(ctx context.Context) (context.Context, *backfillStats) {
+	stats := &backfillStats{}
+	return context.WithValue(ctx, backfillStatsKey{}, stats), stats
+}
+
+func noteBackfillProbe(ctx context.Context) {
+	if stats, ok := ctx.Value(backfillStatsKey{}).(*backfillStats); ok {
+		stats.probes++
+	}
+}
+
+func noteBackfillAlter(ctx context.Context) {
+	if stats, ok := ctx.Value(backfillStatsKey{}).(*backfillStats); ok {
+		stats.alters++
+	}
+}
+
+// snapshotTableColumns reads every existing table's columns once,
+// including generated columns. table_info omits VIRTUAL/STORED columns,
+// so a later Open would try to ADD a column CREATE TABLE already
+// declared (bare_id). Per-column sqlite_master and table_xinfo probes
+// made Open scale with the spec; one join does not.
 //
-// Skips silently if the table doesn't yet exist (fresh install — the
-// CREATE TABLE migration will create it with the column already declared)
-// or if the column already exists. Runs on the pinned migration
-// connection so it sees the writes performed by the in-flight BEGIN
-// IMMEDIATE transaction; using s.db here would route through the pool
-// and BUSY against the holding writer under concurrent migrators.
-func (s *Store) ensureColumn(ctx context.Context, conn *sql.Conn, table, column, decl string) error {
-	var name string
-	err := conn.QueryRowContext(ctx,
-		`SELECT name FROM sqlite_master WHERE type='table' AND name=?`, table,
-	).Scan(&name)
-	if err == sql.ErrNoRows {
-		return nil
-	}
+// A table absent from the map does not exist yet. Fresh installs create
+// it later in the migration with the column already declared.
+func snapshotTableColumns(ctx context.Context, conn *sql.Conn) (map[string]map[string]struct{}, error) {
+	noteBackfillProbe(ctx)
+	rows, err := conn.QueryContext(ctx, `
+		SELECT m.name, p.name
+		FROM sqlite_master AS m, pragma_table_xinfo(m.name) AS p
+		WHERE m.type = 'table'`)
 	if err != nil {
-		return fmt.Errorf("checking table %s: %w", table, err)
+		return nil, fmt.Errorf("reading table columns: %w", err)
 	}
+	defer rows.Close()
 
-	// table_info omits generated columns (VIRTUAL/STORED). table_xinfo
-	// reports them so a later Open does not re-ADD a column CREATE TABLE
-	// already declared, and so upgrades can see a prior ADD of bare_id.
-	var existing string
-	err = conn.QueryRowContext(ctx,
-		`SELECT name FROM pragma_table_xinfo(?) WHERE name=?`,
-		table, column,
-	).Scan(&existing)
-	if err == nil {
-		return nil
+	known := map[string]map[string]struct{}{}
+	for rows.Next() {
+		var table, column string
+		if err := rows.Scan(&table, &column); err != nil {
+			return nil, fmt.Errorf("reading table columns: %w", err)
+		}
+		markColumnPresent(known, table, column)
 	}
-	if err != sql.ErrNoRows {
-		return fmt.Errorf("table_xinfo %s: %w", table, err)
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("reading table columns: %w", err)
 	}
+	return known, nil
+}
 
+// columnNeedsBackfill reports whether table exists and lacks column.
+// Lookup is case-sensitive, matching SQLite's BINARY collation on the
+// name probes this replaced.
+func columnNeedsBackfill(known map[string]map[string]struct{}, table, column string) bool {
+	cols, ok := known[table]
+	if !ok {
+		return false
+	}
+	_, present := cols[column]
+	return !present
+}
+
+func markColumnPresent(known map[string]map[string]struct{}, table, column string) {
+	cols := known[table]
+	if cols == nil {
+		cols = map[string]struct{}{}
+		known[table] = cols
+	}
+	cols[column] = struct{}{}
+}
+
+// addColumn ALTERs a column onto a table the snapshot says is missing it.
+// A concurrent Open may have added the column between the snapshot and
+// this ALTER. SQLite returns SQLITE_ERROR with "duplicate column name",
+// which busy_timeout does not retry. The DB is in the desired state
+// regardless of who won.
+func addColumn(ctx context.Context, conn *sql.Conn, table, column, decl string) error {
 	if _, err := conn.ExecContext(ctx, fmt.Sprintf(`ALTER TABLE "%s" ADD COLUMN "%s" %s`, table, column, decl)); err != nil {
-		// A concurrent Open() may have added the column between our
-		// PRAGMA check and this ALTER. SQLite returns SQLITE_ERROR with
-		// "duplicate column name", which busy_timeout does not retry.
-		// The DB is now in the desired state regardless of who won.
 		if strings.Contains(err.Error(), "duplicate column name") {
 			return nil
 		}
@@ -412,18 +496,27 @@ func (s *Store) ensureColumn(ctx context.Context, conn *sql.Conn, table, column,
 // table. Idempotent: safe to call on fresh DBs (table-not-found short-
 // circuit) and on already-current DBs (column-exists short-circuit).
 //
-// Table names are emitted bare (no safeName) — ensureColumn double-quotes
-// them at SQL emit time and uses parameter binding for the sqlite_master
-// lookup, so the values flow as Go string literals first and SQL
-// identifiers second. Wrapping with safeName here would embed literal
-// double-quote characters into the Go string and break compilation for
-// any spec whose dependent-resource snake_cased name is a SQL reserved
-// word.
+// Table names are emitted bare (no safeName) — addColumn double-quotes
+// them at SQL emit time, so the values flow as Go string literals first
+// and SQL identifiers second. Wrapping with safeName here would embed
+// literal double-quote characters into the Go string and break
+// compilation for any spec whose dependent-resource snake_cased name is
+// a SQL reserved word.
 func (s *Store) backfillColumns(ctx context.Context, conn *sql.Conn) error {
+	known, err := snapshotTableColumns(ctx, conn)
+	if err != nil {
+		return err
+	}
 	for _, c := range []struct{ table, column, decl string }{
 		// Legacy checkpoints cannot prove lossless completion: even an empty
 		// cursor may have come from a capped or partially stored page.
 		{table: "sync_state", column: "last_attempt_complete", decl: "INTEGER NOT NULL DEFAULT 0"},
+		// scope_key is not part of the primary key: one row per resource, and a
+		// changed scope resets the cursor instead of keeping both tenants.
+		{table: "sync_state", column: "scope_key", decl: "TEXT NOT NULL DEFAULT ''"},
+		// Pre-v14 playbook rows have no surface. Default cli so existing
+		// notes stay on the trusted recall fields.
+		{table: "learning_playbooks", column: "ingress_surface", decl: "TEXT NOT NULL DEFAULT 'cli'"},
 		{table: "cart_items", column: "cart_name", decl: "TEXT"},
 		{table: "cart_items", column: "checked_out", decl: "TEXT"},
 		{table: "cart_items", column: "currency_code", decl: "TEXT"},
@@ -463,16 +556,6 @@ func (s *Store) backfillColumns(ctx context.Context, conn *sql.Conn) error {
 		{table: "charges", column: "pass_through", decl: "INTEGER"},
 		{table: "charges", column: "plan_type", decl: "TEXT"},
 		{table: "charges", column: "update_time", decl: "TEXT"},
-		{table: "cloud_profiles", column: "agreement_status", decl: "TEXT"},
-		{table: "cloud_profiles", column: "allow_delegated_access", decl: "INTEGER"},
-		{table: "cloud_profiles", column: "customer_domain", decl: "TEXT"},
-		{table: "cloud_profiles", column: "customer_tenant_id", decl: "TEXT"},
-		{table: "cloud_profiles", column: "display_name", decl: "TEXT"},
-		{table: "cloud_profiles", column: "enabled", decl: "INTEGER"},
-		{table: "cloud_profiles", column: "gdap_level", decl: "TEXT"},
-		{table: "cloud_profiles", column: "gdap_status", decl: "TEXT"},
-		{table: "cloud_profiles", column: "provider_id", decl: "TEXT"},
-		{table: "cloud_profiles", column: "short_name", decl: "TEXT"},
 		{table: "cloud_providers", column: "azure_customer_info", decl: "TEXT"},
 		{table: "cloud_providers", column: "cloud_provider_name", decl: "TEXT"},
 		{table: "cloud_providers", column: "display_name", decl: "TEXT"},
@@ -604,6 +687,7 @@ func (s *Store) backfillColumns(ctx context.Context, conn *sql.Conn) error {
 		{table: "subscriptions", column: "subscription_total_licenses", decl: "TEXT"},
 		{table: "subscriptions", column: "total", decl: "REAL"},
 		{table: "subscriptions", column: "unit_type", decl: "TEXT"},
+		{table: "subscriptions", column: "total_count", decl: "TEXT"},
 		{table: "verticals", column: "description", decl: "TEXT"},
 		{table: "verticals", column: "display_name", decl: "TEXT"},
 		{table: "verticals", column: "name", decl: "TEXT"},
@@ -611,9 +695,14 @@ func (s *Store) backfillColumns(ctx context.Context, conn *sql.Conn) error {
 		{table: "sync_state", column: "last_synced_at", decl: "DATETIME"},
 		{table: "sync_state", column: "total_count", decl: "INTEGER DEFAULT 0"},
 	} {
-		if err := s.ensureColumn(ctx, conn, c.table, c.column, c.decl); err != nil {
+		if !columnNeedsBackfill(known, c.table, c.column) {
+			continue
+		}
+		noteBackfillAlter(ctx)
+		if err := addColumn(ctx, conn, c.table, c.column, c.decl); err != nil {
 			return err
 		}
+		markColumnPresent(known, c.table, c.column)
 	}
 	return nil
 }
@@ -670,7 +759,8 @@ func (s *Store) migrate(ctx context.Context) error {
 			last_cursor TEXT,
 			last_synced_at DATETIME,
 			total_count INTEGER DEFAULT 0,
-			last_attempt_complete INTEGER NOT NULL DEFAULT 0
+			last_attempt_complete INTEGER NOT NULL DEFAULT 0,
+			scope_key TEXT NOT NULL DEFAULT ''
 		)`,
 		resourcesFTSCreateSQL,
 		// CLI Printing Press: learn migrations
@@ -773,6 +863,7 @@ func (s *Store) migrate(ctx context.Context) error {
 			notes_text TEXT,
 			source TEXT NOT NULL DEFAULT 'taught',
 			confidence INTEGER NOT NULL DEFAULT 2,
+			ingress_surface TEXT NOT NULL DEFAULT 'cli',
 			created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			last_observed_at TIMESTAMP
 		)`,
@@ -921,21 +1012,6 @@ func (s *Store) migrate(ctx context.Context) error {
 			"pass_through" INTEGER,
 			"plan_type" TEXT,
 			"update_time" TEXT
-		)`,
-		`CREATE TABLE IF NOT EXISTS "cloud_profiles" (
-			"id" TEXT PRIMARY KEY,
-			"data" JSON NOT NULL,
-			"synced_at" DATETIME DEFAULT CURRENT_TIMESTAMP,
-			"agreement_status" TEXT,
-			"allow_delegated_access" INTEGER,
-			"customer_domain" TEXT,
-			"customer_tenant_id" TEXT,
-			"display_name" TEXT,
-			"enabled" INTEGER,
-			"gdap_level" TEXT,
-			"gdap_status" TEXT,
-			"provider_id" TEXT,
-			"short_name" TEXT
 		)`,
 		`CREATE TABLE IF NOT EXISTS "cloud_providers" (
 			"id" TEXT PRIMARY KEY,
@@ -1131,7 +1207,8 @@ func (s *Store) migrate(ctx context.Context) error {
 			"subscription_status" TEXT,
 			"subscription_total_licenses" TEXT,
 			"total" REAL,
-			"unit_type" TEXT
+			"unit_type" TEXT,
+			"total_count" TEXT
 		)`,
 		`CREATE TABLE IF NOT EXISTS "verticals" (
 			"id" TEXT PRIMARY KEY,
@@ -1835,6 +1912,11 @@ func (s *Store) mergeIncomingResourceData(tx *sql.Tx, resourceType, id string, i
 }
 
 func (s *Store) upsertGenericResourceTx(tx *sql.Tx, resourceType, id string, data json.RawMessage) error {
+	// pp:handfix td-synnex (ion-book-one-account): a book row commits only for
+	// the account its list is recorded for, in this transaction.
+	if err := s.ionBookRowTx(tx, resourceType, id); err != nil {
+		return err
+	}
 	_, err := tx.Exec(
 		`INSERT INTO resources (id, resource_type, data, synced_at, updated_at)
 		 VALUES (?, ?, ?, ?, ?)
@@ -1970,7 +2052,6 @@ var typedListTableByResource = map[string]string{
 	"carts":           "carts",
 	"categories":      "categories",
 	"charges":         "charges",
-	"cloud_profiles":  "cloud_profiles",
 	"cloud_providers": "cloud_providers",
 	"customer_orders": "customer_orders",
 	"customers":       "customers",
@@ -2113,6 +2194,13 @@ func (s *Store) TypedListScan(resourceType string, fn func(id string, data json.
 }
 
 func (s *Store) Search(query string, limit int, resourceTypes ...string) ([]json.RawMessage, error) {
+	return s.SearchContext(context.Background(), query, limit, resourceTypes...)
+}
+
+func (s *Store) SearchContext(ctx context.Context, query string, limit int, resourceTypes ...string) ([]json.RawMessage, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	if limit <= 0 {
 		limit = 50
 	}
@@ -2166,7 +2254,7 @@ func (s *Store) Search(query string, limit int, resourceTypes ...string) ([]json
 			args = []any{matchQuery, limit}
 		}
 	}
-	rows, err := s.db.Query(q, args...)
+	rows, err := s.db.QueryContext(ctx, q, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -3165,72 +3253,6 @@ func (s *Store) UpsertCharges(data json.RawMessage) error {
 	return tx.Commit()
 }
 
-// upsertCloudProfilesTx writes the per-resource domain-table portion of a
-// cloud_profiles upsert inside an existing transaction. The caller is
-// responsible for the generic resources insert (via upsertGenericResourceTx)
-// and for committing the tx. Splitting this out lets UpsertBatch dispatch
-// domain inserts per item without opening a per-item transaction.
-func (s *Store) upsertCloudProfilesTx(tx *sql.Tx, id string, obj map[string]any, data json.RawMessage) error {
-	if _, err := tx.Exec(
-		`INSERT INTO "cloud_profiles" ("id", "data", "synced_at", "agreement_status", "allow_delegated_access", "customer_domain", "customer_tenant_id", "display_name", "enabled", "gdap_level", "gdap_status", "provider_id", "short_name")
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-		 ON CONFLICT("id") DO UPDATE SET "data" = excluded."data", "synced_at" = excluded."synced_at", "agreement_status" = excluded."agreement_status", "allow_delegated_access" = excluded."allow_delegated_access", "customer_domain" = excluded."customer_domain", "customer_tenant_id" = excluded."customer_tenant_id", "display_name" = excluded."display_name", "enabled" = excluded."enabled", "gdap_level" = excluded."gdap_level", "gdap_status" = excluded."gdap_status", "provider_id" = excluded."provider_id", "short_name" = excluded."short_name"`,
-		id,
-		string(data),
-		time.Now().UTC().Format(time.RFC3339),
-		lookupFieldValue(obj, "agreement_status"),
-		lookupFieldValue(obj, "allow_delegated_access"),
-		lookupFieldValue(obj, "customer_domain"),
-		lookupFieldValue(obj, "customer_tenant_id"),
-		lookupFieldValue(obj, "display_name"),
-		lookupFieldValue(obj, "enabled"),
-		lookupFieldValue(obj, "gdap_level"),
-		lookupFieldValue(obj, "gdap_status"),
-		lookupFieldValue(obj, "provider_id"),
-		lookupFieldValue(obj, "short_name"),
-	); err != nil {
-		return fmt.Errorf("insert into cloud_profiles: %w", err)
-	}
-
-	return nil
-}
-
-// UpsertCloudProfiles inserts or updates a cloud_profiles record with domain-specific columns.
-func (s *Store) UpsertCloudProfiles(data json.RawMessage) error {
-	obj, err := DecodeJSONObject(data)
-	if err != nil {
-		return fmt.Errorf("unmarshaling cloud_profiles: %w", err)
-	}
-
-	id := ResolveStorageID("cloud_profiles", obj)
-	if id == "" {
-		return fmt.Errorf("missing id for cloud_profiles")
-	}
-	storageID := resourceStorageID("cloud_profiles", id, obj)
-
-	s.lockForWrite()
-	defer s.unlockAfterWrite()
-	tx, err := s.db.Begin()
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback()
-
-	data = s.mergeIncomingResourceData(tx, "cloud_profiles", storageID, data)
-	if merged, err := DecodeJSONObject(data); err == nil {
-		obj = merged
-	}
-
-	if err := s.upsertGenericResourceTx(tx, "cloud_profiles", storageID, data); err != nil {
-		return err
-	}
-	if err := s.upsertCloudProfilesTx(tx, storageID, obj, data); err != nil {
-		return err
-	}
-
-	return tx.Commit()
-}
-
 // upsertCloudProvidersTx writes the per-resource domain-table portion of a
 // cloud_providers upsert inside an existing transaction. The caller is
 // responsible for the generic resources insert (via upsertGenericResourceTx)
@@ -3776,9 +3798,9 @@ func (s *Store) UpsertReports(data json.RawMessage) error {
 // domain inserts per item without opening a per-item transaction.
 func (s *Store) upsertSubscriptionsTx(tx *sql.Tx, id string, obj map[string]any, data json.RawMessage) error {
 	if _, err := tx.Exec(
-		`INSERT INTO "subscriptions" ("id", "data", "synced_at", "auto_renew", "billing_currency", "cancellation_allowed_until_date", "ccp_charge_id", "ccp_plan_id", "ccp_product_id", "ccp_sku_id", "cloud_provider_id", "cost", "currency", "customer_cost", "customer_id", "customer_name", "is_trial", "isv_id", "last_updated_date", "margin", "mfg_part_number", "msrp", "partner_name", "price", "renewal_date", "reseller_id", "resource_type", "subscription_billing_cycle", "subscription_billing_term", "subscription_billing_type", "subscription_display_name", "subscription_end_date", "subscription_id", "subscription_name", "subscription_offer_id", "subscription_product_id", "subscription_purchased_date", "subscription_renew_status", "subscription_sku_id", "subscription_start_date", "subscription_status", "subscription_total_licenses", "total", "unit_type")
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-		 ON CONFLICT("id") DO UPDATE SET "data" = excluded."data", "synced_at" = excluded."synced_at", "auto_renew" = excluded."auto_renew", "billing_currency" = excluded."billing_currency", "cancellation_allowed_until_date" = excluded."cancellation_allowed_until_date", "ccp_charge_id" = excluded."ccp_charge_id", "ccp_plan_id" = excluded."ccp_plan_id", "ccp_product_id" = excluded."ccp_product_id", "ccp_sku_id" = excluded."ccp_sku_id", "cloud_provider_id" = excluded."cloud_provider_id", "cost" = excluded."cost", "currency" = excluded."currency", "customer_cost" = excluded."customer_cost", "customer_id" = excluded."customer_id", "customer_name" = excluded."customer_name", "is_trial" = excluded."is_trial", "isv_id" = excluded."isv_id", "last_updated_date" = excluded."last_updated_date", "margin" = excluded."margin", "mfg_part_number" = excluded."mfg_part_number", "msrp" = excluded."msrp", "partner_name" = excluded."partner_name", "price" = excluded."price", "renewal_date" = excluded."renewal_date", "reseller_id" = excluded."reseller_id", "resource_type" = excluded."resource_type", "subscription_billing_cycle" = excluded."subscription_billing_cycle", "subscription_billing_term" = excluded."subscription_billing_term", "subscription_billing_type" = excluded."subscription_billing_type", "subscription_display_name" = excluded."subscription_display_name", "subscription_end_date" = excluded."subscription_end_date", "subscription_id" = excluded."subscription_id", "subscription_name" = excluded."subscription_name", "subscription_offer_id" = excluded."subscription_offer_id", "subscription_product_id" = excluded."subscription_product_id", "subscription_purchased_date" = excluded."subscription_purchased_date", "subscription_renew_status" = excluded."subscription_renew_status", "subscription_sku_id" = excluded."subscription_sku_id", "subscription_start_date" = excluded."subscription_start_date", "subscription_status" = excluded."subscription_status", "subscription_total_licenses" = excluded."subscription_total_licenses", "total" = excluded."total", "unit_type" = excluded."unit_type"`,
+		`INSERT INTO "subscriptions" ("id", "data", "synced_at", "auto_renew", "billing_currency", "cancellation_allowed_until_date", "ccp_charge_id", "ccp_plan_id", "ccp_product_id", "ccp_sku_id", "cloud_provider_id", "cost", "currency", "customer_cost", "customer_id", "customer_name", "is_trial", "isv_id", "last_updated_date", "margin", "mfg_part_number", "msrp", "partner_name", "price", "renewal_date", "reseller_id", "resource_type", "subscription_billing_cycle", "subscription_billing_term", "subscription_billing_type", "subscription_display_name", "subscription_end_date", "subscription_id", "subscription_name", "subscription_offer_id", "subscription_product_id", "subscription_purchased_date", "subscription_renew_status", "subscription_sku_id", "subscription_start_date", "subscription_status", "subscription_total_licenses", "total", "unit_type", "total_count")
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		 ON CONFLICT("id") DO UPDATE SET "data" = excluded."data", "synced_at" = excluded."synced_at", "auto_renew" = excluded."auto_renew", "billing_currency" = excluded."billing_currency", "cancellation_allowed_until_date" = excluded."cancellation_allowed_until_date", "ccp_charge_id" = excluded."ccp_charge_id", "ccp_plan_id" = excluded."ccp_plan_id", "ccp_product_id" = excluded."ccp_product_id", "ccp_sku_id" = excluded."ccp_sku_id", "cloud_provider_id" = excluded."cloud_provider_id", "cost" = excluded."cost", "currency" = excluded."currency", "customer_cost" = excluded."customer_cost", "customer_id" = excluded."customer_id", "customer_name" = excluded."customer_name", "is_trial" = excluded."is_trial", "isv_id" = excluded."isv_id", "last_updated_date" = excluded."last_updated_date", "margin" = excluded."margin", "mfg_part_number" = excluded."mfg_part_number", "msrp" = excluded."msrp", "partner_name" = excluded."partner_name", "price" = excluded."price", "renewal_date" = excluded."renewal_date", "reseller_id" = excluded."reseller_id", "resource_type" = excluded."resource_type", "subscription_billing_cycle" = excluded."subscription_billing_cycle", "subscription_billing_term" = excluded."subscription_billing_term", "subscription_billing_type" = excluded."subscription_billing_type", "subscription_display_name" = excluded."subscription_display_name", "subscription_end_date" = excluded."subscription_end_date", "subscription_id" = excluded."subscription_id", "subscription_name" = excluded."subscription_name", "subscription_offer_id" = excluded."subscription_offer_id", "subscription_product_id" = excluded."subscription_product_id", "subscription_purchased_date" = excluded."subscription_purchased_date", "subscription_renew_status" = excluded."subscription_renew_status", "subscription_sku_id" = excluded."subscription_sku_id", "subscription_start_date" = excluded."subscription_start_date", "subscription_status" = excluded."subscription_status", "subscription_total_licenses" = excluded."subscription_total_licenses", "total" = excluded."total", "unit_type" = excluded."unit_type", "total_count" = excluded."total_count"`,
 		id,
 		string(data),
 		time.Now().UTC().Format(time.RFC3339),
@@ -3823,6 +3845,7 @@ func (s *Store) upsertSubscriptionsTx(tx *sql.Tx, id string, obj map[string]any,
 		lookupFieldValue(obj, "subscription_total_licenses"),
 		lookupFieldValue(obj, "total"),
 		lookupFieldValue(obj, "unit_type"),
+		lookupFieldValue(obj, "total_count"),
 	); err != nil {
 		return fmt.Errorf("insert into subscriptions: %w", err)
 	}
@@ -4789,8 +4812,6 @@ func (s *Store) UpsertBatchDetailed(resourceType string, items []json.RawMessage
 			typedErr = s.upsertCategoriesTx(tx, storageID, obj, item)
 		case "charges":
 			typedErr = s.upsertChargesTx(tx, storageID, obj, item)
-		case "cloud_profiles":
-			typedErr = s.upsertCloudProfilesTx(tx, storageID, obj, item)
 		case "cloud_providers":
 			typedErr = s.upsertCloudProvidersTx(tx, storageID, obj, item)
 		case "customer_orders":
@@ -5044,6 +5065,50 @@ func (s *Store) SaveSyncProgress(resourceType, cursor string, count int) error {
 	return err
 }
 
+// SaveSyncStateInScope records a completed checkpoint for a walk that already
+// bound scopeKey. A row another walk has since rebound is left unchanged.
+func (s *Store) SaveSyncStateInScope(resourceType, scopeKey, cursor string, count int) error {
+	return s.SaveSyncStateAtInScope(resourceType, scopeKey, cursor, count, time.Now().UTC())
+}
+
+// SaveSyncStateAtInScope stores the watermark for a walk that already bound
+// scopeKey. A row another walk has since rebound is left unchanged.
+func (s *Store) SaveSyncStateAtInScope(resourceType, scopeKey, cursor string, count int, at time.Time) error {
+	return s.updateSyncCheckpointInScope(resourceType,
+		`UPDATE sync_state SET last_cursor = ?, last_synced_at = ?, total_count = ?, last_attempt_complete = 1
+		 WHERE resource_type = ? AND scope_key = ?`,
+		cursor, at.UTC().Format(time.RFC3339), count, resourceType, scopeKey,
+	)
+}
+
+// SaveSyncProgressInScope stores pagination progress for a walk that already
+// bound scopeKey and leaves the last completed watermark in place. A row
+// another walk has since rebound is left unchanged.
+func (s *Store) SaveSyncProgressInScope(resourceType, scopeKey, cursor string, count int) error {
+	return s.updateSyncCheckpointInScope(resourceType,
+		`UPDATE sync_state SET last_cursor = ?, total_count = ?, last_attempt_complete = 0
+		 WHERE resource_type = ? AND scope_key = ?`,
+		cursor, count, resourceType, scopeKey,
+	)
+}
+
+func (s *Store) updateSyncCheckpointInScope(resourceType, query string, args ...any) error {
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
+	res, err := s.db.Exec(query, args...)
+	if err != nil {
+		return err
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if n == 0 {
+		return fmt.Errorf("sync scope for %s changed before the checkpoint was saved", resourceType)
+	}
+	return nil
+}
+
 func (s *Store) GetSyncState(resourceType string) (cursor string, lastSynced time.Time, count int, err error) {
 	var savedCursor sql.NullString
 	var savedTime sql.NullTime
@@ -5080,6 +5145,115 @@ func (s *Store) GetSyncCursor(resourceType string) string {
 		return cursor.String
 	}
 	return ""
+}
+
+// BindSyncScope returns the checkpoint when scopeKey matches the stored scope.
+// A different scope drops the cursor and watermark so a later tenant cannot
+// resume the previous one. The primary key stays resource_type; scope_key is
+// recorded beside it so existing ON CONFLICT(resource_type) writers keep working.
+func (s *Store) BindSyncScope(resourceType, scopeKey string) (string, time.Time, int, error) {
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
+	return s.readSyncScope(resourceType, scopeKey, true)
+}
+
+// ReadSyncScope is the dry-run twin. A scope mismatch reports an empty
+// checkpoint and leaves the stored row alone.
+func (s *Store) ReadSyncScope(resourceType, scopeKey string) (string, time.Time, int, error) {
+	return s.readSyncScope(resourceType, scopeKey, false)
+}
+
+func (s *Store) readSyncScope(resourceType, scopeKey string, bind bool) (string, time.Time, int, error) {
+	var savedCursor sql.NullString
+	var savedTime sql.NullTime
+	var savedScope sql.NullString
+	var count int
+	err := s.db.QueryRow(
+		`SELECT last_cursor, last_synced_at, total_count, scope_key FROM sync_state WHERE resource_type = ?`,
+		resourceType,
+	).Scan(&savedCursor, &savedTime, &count, &savedScope)
+	if err == sql.ErrNoRows {
+		if !bind {
+			return "", time.Time{}, 0, nil
+		}
+		_, err = s.db.Exec(
+			`INSERT INTO sync_state (resource_type, last_cursor, last_synced_at, total_count, last_attempt_complete, scope_key)
+			 VALUES (?, '', NULL, 0, 0, ?)`,
+			resourceType, scopeKey,
+		)
+		return "", time.Time{}, 0, err
+	}
+	if err != nil {
+		return "", time.Time{}, 0, err
+	}
+	if savedScope.String == scopeKey {
+		return savedCursor.String, savedTime.Time, count, nil
+	}
+	if !bind {
+		return "", time.Time{}, 0, nil
+	}
+	_, err = s.db.Exec(
+		`UPDATE sync_state SET scope_key = ?, last_cursor = '', last_synced_at = NULL, total_count = 0, last_attempt_complete = 0 WHERE resource_type = ?`,
+		scopeKey, resourceType,
+	)
+	return "", time.Time{}, 0, err
+}
+
+// ClearSyncScopeIfCurrent drops the resume cursor when scopeKey is already
+// the stored scope. A different scope is left intact so a full sync cannot
+// wipe another tenant before that tenant's walk starts. No row stays absent.
+// Completion stays unset: the clear has not walked the resource, so a crash
+// before the walk must not read as a finished sync of zero rows.
+func (s *Store) ClearSyncScopeIfCurrent(resourceType, scopeKey string) error {
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
+	var savedScope sql.NullString
+	err := s.db.QueryRow(
+		`SELECT scope_key FROM sync_state WHERE resource_type = ?`,
+		resourceType,
+	).Scan(&savedScope)
+	if err == sql.ErrNoRows {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if savedScope.String != scopeKey {
+		return nil
+	}
+	_, err = s.db.Exec(
+		`UPDATE sync_state SET last_cursor = '', last_synced_at = ?, total_count = 0, last_attempt_complete = 0 WHERE resource_type = ?`,
+		time.Time{}.UTC().Format(time.RFC3339), resourceType,
+	)
+	return err
+}
+
+// MarkSyncAttemptIncompleteIfCurrent clears the completion flag when scopeKey
+// is already stored. Cursor, watermark, and count stay. A different scope and
+// a missing row are left alone so a failed parent lookup cannot reset another
+// tenant before a request is made.
+func (s *Store) MarkSyncAttemptIncompleteIfCurrent(resourceType, scopeKey string) error {
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
+	var savedScope sql.NullString
+	err := s.db.QueryRow(
+		`SELECT scope_key FROM sync_state WHERE resource_type = ?`,
+		resourceType,
+	).Scan(&savedScope)
+	if err == sql.ErrNoRows {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if savedScope.String != scopeKey {
+		return nil
+	}
+	_, err = s.db.Exec(
+		`UPDATE sync_state SET last_attempt_complete = 0 WHERE resource_type = ? AND scope_key = ?`,
+		resourceType, scopeKey,
+	)
+	return err
 }
 
 // ListIDs returns all IDs from a resource's domain table, or from the generic

@@ -40,9 +40,12 @@ func init() {
 		if _, done := c.HTTPClient.Transport.(redactingTransport); done {
 			return nil
 		}
+		// The API client's transport is guardTransport (the credential kit's
+		// outbound guard, credkit-wiring), so redaction runs on what the kit
+		// passed; a client with none still sends through the guard.
 		base := c.HTTPClient.Transport
 		if base == nil {
-			base = http.DefaultTransport
+			base = cliutil.OutboundGuard(nil)
 		}
 		hc := *c.HTTPClient
 		hc.Transport = redactingTransport{base: base}

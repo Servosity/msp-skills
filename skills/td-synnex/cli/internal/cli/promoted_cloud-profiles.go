@@ -67,7 +67,7 @@ func newCloudProfilesPromotedCmd(flags *rootFlags) *cobra.Command {
 			if cmd.Flags().Changed("enabled-only") || flagEnabledOnly != false {
 				params["enabledOnly"] = formatCLIParamValue(flagEnabledOnly)
 			}
-			data, prov, err := resolveReadWithStrategyAndResponsePath(cmd.Context(), c, flags, "live", "cloud_profiles", false, path, params, nil, "customerCloudProfiles", cmd.ErrOrStderr())
+			data, prov, err := resolveReadWithStrategyAndResponsePath(cmd.Context(), c, flags, "live", "cloud_profiles", false, path, params, nil, "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}
@@ -97,7 +97,7 @@ func newCloudProfilesPromotedCmd(flags *rootFlags) *cobra.Command {
 					filtered, selectErr = filterFieldsChecked(filtered, flags.selectFields)
 					selectErr = selectErrorForDryRun(selectErr, flags, data)
 				} else if flags.compact {
-					filtered = compactFields(filtered, map[string]bool{"agreementStatus": true, "customerTenantId": true, "displayName": true, "gdapStatus": true, "providerId": true, "shortName": true})
+					filtered = compactFields(filtered, map[string]bool{"customerId": true})
 				}
 				wrapped, wrapErr := wrapWithProvenance(filtered, prov)
 				if wrapErr != nil {
@@ -128,7 +128,7 @@ func newCloudProfilesPromotedCmd(flags *rootFlags) *cobra.Command {
 			if flags.csv || flags.plain {
 				formatData = outputData
 			}
-			return printOutputWithFlagsMeta(cmd.OutOrStdout(), formatData, flags, map[string]any{"source": "live"}, map[string]bool{"agreementStatus": true, "customerTenantId": true, "displayName": true, "gdapStatus": true, "providerId": true, "shortName": true})
+			return printOutputWithFlagsMeta(cmd.OutOrStdout(), formatData, flags, map[string]any{"source": "live"}, map[string]bool{"customerId": true})
 		},
 	}
 	cmd.Flags().StringVar(&flagProviderId, "provider-id", "", "Cloud provider ID in StreamOne ION, for example 30 for Microsoft CSP.")

@@ -309,7 +309,10 @@ func postIONForm(ctx context.Context, hc *http.Client, endpoint string, form url
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Set("Accept", "application/json")
-	nc := http.Client{}
+	// The credential kit's outbound guard sends the form (credkit-wiring): a
+	// copy of the API client keeps its transport, the ion redaction transport
+	// around guardTransport, and a nil client gets the guard directly.
+	nc := http.Client{Transport: cliutil.OutboundGuard(nil)}
 	if hc != nil {
 		nc = *hc
 	}
@@ -437,12 +440,13 @@ func newAuthMintCmd(flags *rootFlags) *cobra.Command {
 			"rescue file next to the config so you are never locked out.\n\n" +
 			"The refresh token is read from stdin (--refresh-token-stdin), else the token stored by the previous mint, " +
 			"else TD_SYNNEX_REFRESH_TOKEN (used only before the first mint; the stored token is always newer). Get the first one in the ION portal: Settings > Users > Edit > OAuth credentials " +
-			"> Request New Credentials. Token values are never printed unless --print-access-token is set. " +
+			"> Request New Credentials. Token values are never printed: --print-access-token adds the access token to the " +
+			"output, and the credential kit withholds any output that carries it (a withheld notice replaces it), so read " +
+			"the token from the credentials file or use TD_SYNNEX_ACCESS_TOKEN instead. " +
 			"Use --if-expiring from cron to refresh only when the stored access token is about to expire.",
 		Example: strings.Trim(`
   pbpaste | td-synnex-cli auth mint --refresh-token-stdin
-  td-synnex-cli auth mint --if-expiring 15m --json
-  OTHER_TOOL_TOKEN=$(td-synnex-cli auth mint --print-access-token --json | jq -r .access_token)`, "\n"),
+  td-synnex-cli auth mint --if-expiring 15m --json`, "\n"),
 		Annotations: map[string]string{"pp:data-source": "live"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg, err := config.Load(flags.configPath)
@@ -487,7 +491,7 @@ func newAuthMintCmd(flags *rootFlags) *cobra.Command {
 	}
 	cmd.Flags().BoolVar(&fromStdin, "refresh-token-stdin", false, "Read the refresh token from stdin (keeps it out of shell history)")
 	cmd.Flags().StringVar(&ifExpiring, "if-expiring", "", "Only mint when the stored access token expires within this window, for example 15m")
-	cmd.Flags().BoolVar(&printAccess, "print-access-token", false, "Also print the new access token (for exporting to other tools)")
+	cmd.Flags().BoolVar(&printAccess, "print-access-token", false, "Add the new access token to the output; the credential kit withholds output that carries it, so a withheld notice is printed instead")
 	return cmd
 }
 
@@ -553,6 +557,10 @@ func runIONMint(cmd *cobra.Command, flags *rootFlags, stdinToken string, checkEx
 	cfg.KeepFileEndpoint()
 	access := rawString(resp, "access_token")
 	newRefresh := rawString(resp, "refresh_token")
+	// Hand-fix (handfixes.json credkit-wiring): both minted tokens are held the
+	// moment they are parsed, before anything can print or store them.
+	holdMinted("minted:ion-access-token", access)
+	holdMinted("minted:ion-refresh-token", newRefresh)
 	ttl := rawSeconds(resp, "expires_in")
 	if ttl <= 0 {
 		ttl = 2 * time.Hour
@@ -606,7 +614,7 @@ func runIONMint(cmd *cobra.Command, flags *rootFlags, stdinToken string, checkEx
 	return nil
 }
 
-const ionRescueFile = "refresh-token.rescue"
+const ionRescueFile = cliutil.IONRescueFileName
 
 // rescueRefreshToken keeps a just-rotated refresh token reachable when the
 // credentials save failed: the old token is already spent. It writes a 0600
@@ -615,11 +623,13 @@ func rescueRefreshToken(refresh string, saveErr error) error {
 	write := func() (string, error) {
 		if dir, err := cliutil.ConfigDir(); err == nil {
 			path := filepath.Join(dir, ionRescueFile)
-			if err := cliutil.AtomicWritePrivateFile(path, []byte(refresh+"\n"), 0o600, 0o700); err == nil {
+			// Hand-fix (handfixes.json credkit-wiring): the rescue file is a credential
+			// source (internal/credwire holds it at startup), written outside the kit.
+			if err := cliutil.AtomicWriteCredentialFile(path, []byte(refresh+"\n"), 0o600, 0o700); err == nil {
 				return path, nil
 			}
 		}
-		f, err := os.CreateTemp("", "td-synnex-refresh-*.rescue") // CreateTemp opens 0600
+		f, err := os.CreateTemp("", cliutil.IONRescueTempPattern) // CreateTemp opens 0600
 		if err != nil {
 			return "", err
 		}
@@ -715,4 +725,13 @@ func newAuthCheckCmd(flags *rootFlags) *cobra.Command {
 		},
 	}
 	return cmd
+}
+
+// holdMinted holds a token auth mint received (credential leak contract
+// section 1: a value acquired while running is held before it reaches any
+// sink). An empty value holds nothing.
+func holdMinted(source, v string) {
+	if strings.TrimSpace(v) != "" {
+		cliutil.Hold(source, v)
+	}
 }

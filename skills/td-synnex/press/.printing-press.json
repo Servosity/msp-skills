@@ -1,0 +1,138 @@
+{
+  "schema_version": 2,
+  "generated_at": "2026-11-03T00:46:58.399125Z",
+  "printing_press_version": "4.35.1",
+  "api_name": "td-synnex",
+  "display_name": "TD SYNNEX StreamOne ION",
+  "cli_name": "td-synnex-pp-cli",
+  "creator": {
+    "handle": "DamienStevens",
+    "name": "Damien Stevens"
+  },
+  "owner": "damienstevens",
+  "printer": "DamienStevens",
+  "printer_name": "Damien Stevens",
+  "spec_path": "spec.yaml",
+  "spec_format": "openapi3",
+  "spec_source": "community",
+  "spec_checksum": "sha256:5d3591afc14288dee95aca860bce58c3ad678b206eb85e681832d897a3ae0166",
+  "run_id": "20261102-191417-9638dccc",
+  "category": "commerce",
+  "description": "The StreamOne ION v3 reseller API (customers, catalog, orders, subscriptions, carts, reports), plus a local licence book for renewals, margin and cross-distributor true-up.",
+  "mcp_binary": "td-synnex-pp-mcp",
+  "mcp_tool_count": 46,
+  "mcp_ready": "full",
+  "api_version": "3.0",
+  "auth_type": "bearer_token",
+  "auth_preference": "bearerAuth",
+  "auth_env_vars": [
+    "TD_SYNNEX_ACCESS_TOKEN"
+  ],
+  "auth_env_var_specs": [
+    {
+      "name": "TD_SYNNEX_ACCESS_TOKEN",
+      "kind": "per_call",
+      "required": false,
+      "sensitive": true,
+      "description": "StreamOne ION OAuth access token (2-hour lifetime). Optional when `auth mint` has stored a token in the credentials file; an env value overrides the stored one."
+    }
+  ],
+  "endpoint_template_vars": [
+    "accountId"
+  ],
+  "endpoint_template_env_overrides": {
+    "accountId": "TD_SYNNEX_ACCOUNT_ID"
+  },
+  "auth_key_url": "https://ion.tdsynnex.com/",
+  "auth_title": "StreamOne ION access token",
+  "auth_optional": true,
+  "novel_features": [
+    {
+      "name": "Renewal window",
+      "command": "subscriptions renewals",
+      "description": "See every subscription renewing or ending in the next N days across the whole book, soonest first, with auto-renew-off ones flagged."
+    },
+    {
+      "name": "Book margin",
+      "command": "margin",
+      "description": "See monthly cost vs price and margin per customer or per SKU, with negative, zero and below-MSRP rows flagged."
+    },
+    {
+      "name": "Licence-position export",
+      "command": "position export",
+      "description": "Export your TD SYNNEX licences as normalized, schema-versioned rows (customer, SKU key, seats, monthly cost and price, renewal) for a PSA or a true-up; tenant and domain columns stay blank because ION subscriptions do not carry them."
+    },
+    {
+      "name": "Cross-distributor true-up",
+      "command": "position trueup",
+      "description": "Compare seats per customer and SKU across TD SYNNEX and Pax8, Sherweb or PSA export files mapped into the licence-position columns, with unmatched rows listed instead of guessed."
+    },
+    {
+      "name": "Subscription change feed",
+      "command": "subscriptions changes",
+      "description": "List seat, renewal, status, tier and friendly-name changes requested through ION orders in a past window, decoded from the order attributes; failed orders are left out and changes made outside ION are not visible."
+    },
+    {
+      "name": "Stuck orders",
+      "command": "orders stuck",
+      "description": "Find orders still NEW, IN_PROGRESS, CONFIRMED or ON_HOLD past an age threshold, plus recent errors, with a flag for the ones you can still cancel."
+    },
+    {
+      "name": "Customer 360",
+      "command": "customers show",
+      "description": "One view of a customer from the local store: profile, subscriptions with seats and monthly cost and price, open orders and recent changes, plus the cloud-profiles command for live GDAP/MCA status."
+    }
+  ],
+  "novel_features_built": [
+    {
+      "name": "Renewal window",
+      "command": "subscriptions renewals",
+      "description": "See every subscription renewing or ending in the next N days across the whole book, soonest first, with auto-renew-off ones flagged."
+    },
+    {
+      "name": "Book margin",
+      "command": "margin",
+      "description": "See monthly cost vs price and margin per customer or per SKU, with negative, zero and below-MSRP rows flagged."
+    },
+    {
+      "name": "Licence-position export",
+      "command": "position export",
+      "description": "Export your TD SYNNEX licences as normalized, schema-versioned rows (customer, SKU key, seats, monthly cost and price, renewal) for a PSA or a true-up; tenant and domain columns stay blank because ION subscriptions do not carry them."
+    },
+    {
+      "name": "Cross-distributor true-up",
+      "command": "position trueup",
+      "description": "Compare seats per customer and SKU across TD SYNNEX and Pax8, Sherweb or PSA export files mapped into the licence-position columns, with unmatched rows listed instead of guessed."
+    },
+    {
+      "name": "Subscription change feed",
+      "command": "subscriptions changes",
+      "description": "List seat, renewal, status, tier and friendly-name changes requested through ION orders in a past window, decoded from the order attributes; failed orders are left out and changes made outside ION are not visible."
+    },
+    {
+      "name": "Stuck orders",
+      "command": "orders stuck",
+      "description": "Find orders still NEW, IN_PROGRESS, CONFIRMED or ON_HOLD past an age threshold, plus recent errors, with a flag for the ones you can still cancel."
+    },
+    {
+      "name": "Customer 360",
+      "command": "customers show",
+      "description": "One view of a customer from the local store: profile, subscriptions with seats and monthly cost and price, open orders and recent changes, plus the cloud-profiles command for live GDAP/MCA status."
+    }
+  ],
+  "verify": {
+    "mode": "mock",
+    "pass_rate": 100,
+    "passed": 87,
+    "total": 87,
+    "data_pipeline": true,
+    "verdict": "PASS"
+  },
+  "scorecard": {
+    "steinberger": {
+      "percentage": 94,
+      "grade": "A",
+      "total": 94
+    }
+  }
+}

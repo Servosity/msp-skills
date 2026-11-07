@@ -185,9 +185,6 @@
    "read-only",
    "local-data"
   ],
-  "td-synnex": [
-   "local-data"
-  ],
   "threatdown": [
    "write-gating",
    "read-only",

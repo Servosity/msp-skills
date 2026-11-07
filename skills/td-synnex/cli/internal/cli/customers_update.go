@@ -72,31 +72,31 @@ func newCustomersUpdateCmd(flags *rootFlags) *cobra.Command {
 			}
 			if !stdinBody {
 				if !cmd.Flags().Changed("customer-address-city") && bodyCustomerAddressCity == "" && !requiredInputWaived() {
-					return fmt.Errorf("required flag \"%s\" not set", "customer-address-city")
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "customer-address-city"))
 				}
 				if !cmd.Flags().Changed("customer-address-country") && bodyCustomerAddressCountry == "" && !requiredInputWaived() {
-					return fmt.Errorf("required flag \"%s\" not set", "customer-address-country")
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "customer-address-country"))
 				}
 				if !cmd.Flags().Changed("customer-address-state") && bodyCustomerAddressState == "" && !requiredInputWaived() {
-					return fmt.Errorf("required flag \"%s\" not set", "customer-address-state")
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "customer-address-state"))
 				}
 				if !cmd.Flags().Changed("customer-address-street") && bodyCustomerAddressStreet == "" && !requiredInputWaived() {
-					return fmt.Errorf("required flag \"%s\" not set", "customer-address-street")
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "customer-address-street"))
 				}
 				if !cmd.Flags().Changed("customer-address-zip") && bodyCustomerAddressZip == "" && !requiredInputWaived() {
-					return fmt.Errorf("required flag \"%s\" not set", "customer-address-zip")
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "customer-address-zip"))
 				}
 				if !cmd.Flags().Changed("customer-email") && bodyCustomerEmail == "" && !requiredInputWaived() {
-					return fmt.Errorf("required flag \"%s\" not set", "customer-email")
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "customer-email"))
 				}
 				if !cmd.Flags().Changed("customer-name") && bodyCustomerName == "" && !requiredInputWaived() {
-					return fmt.Errorf("required flag \"%s\" not set", "customer-name")
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "customer-name"))
 				}
 				if !cmd.Flags().Changed("customer-organization") && bodyCustomerOrganization == "" && !requiredInputWaived() {
-					return fmt.Errorf("required flag \"%s\" not set", "customer-organization")
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "customer-organization"))
 				}
 				if !cmd.Flags().Changed("language-code") && bodyLanguageCode == "" && !requiredInputWaived() {
-					return fmt.Errorf("required flag \"%s\" not set", "language-code")
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "language-code"))
 				}
 			}
 			path := "/accounts/{accountId}/customers/{customerId}"
@@ -244,16 +244,13 @@ func newCustomersUpdateCmd(flags *rootFlags) *cobra.Command {
 					envelope["partial_failure"] = partialFailure
 				}
 				if flags.dryRun {
-					envelope["dry_run"] = true
-					envelope["status"] = 0
-					envelope["success"] = false
+					markCompletedDryRun(envelope)
 				}
 				// Verify-mode synthetic envelope detection runs against RAW data
 				// (before --compact/--select filtering) so the sentinel field is
 				// guaranteed to be visible even if the operator passes a filter
-				// flag that would otherwise strip it. Surfaces a top-level
-				// verify_noop signal + flips success to false. Mirrors the dry_run
-				// shape above.
+				// flag that would otherwise strip it. A synthetic noop did not
+				// mutate, so it forces success false after a completed dry-run mark.
 				if len(data) > 0 {
 					var rawParsed any
 					if err := json.Unmarshal(data, &rawParsed); err == nil {

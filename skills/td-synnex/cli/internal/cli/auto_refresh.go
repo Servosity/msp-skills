@@ -134,6 +134,14 @@ func autoRefreshIfStale(ctx context.Context, flags *rootFlags, resources []strin
 	defer func() {
 		meta.ElapsedMS = time.Since(started).Milliseconds()
 	}()
+	// A preview must not create or migrate the store. Read commands reach
+	// this hook before their own --dry-run short-circuit, and a missing
+	// store would otherwise be opened read-write so the refresh can run.
+	if flags.dryRun {
+		meta.Decision = "skipped"
+		meta.Reason = "dry_run"
+		return meta
+	}
 	if flags.dataSource != "auto" {
 		meta.Reason = "data_source_" + flags.dataSource
 		return meta
@@ -286,7 +294,8 @@ func runAutoRefresh(ctx context.Context, flags *rootFlags, db *store.Store, reso
 				}
 			}
 		}
-		if missing := unfilledRequiredSyncQueryParams(resource, nil, syncConditionalQueryParams(resource, effectiveSince, sortValue)); len(missing) > 0 {
+		// Latest-only refresh ignores a stored resume cursor; the first-page seed still counts as filled.
+		if missing := unfilledRequiredSyncQueryParams(resource, nil, syncConditionalQueryParams(resource, determinePaginationDefaults(resource), "", effectiveSince, sortValue)); len(missing) > 0 {
 			skippedMissing = append(skippedMissing, fmt.Sprintf("%s (%s)", resource, strings.Join(missing, ", ")))
 		}
 	}

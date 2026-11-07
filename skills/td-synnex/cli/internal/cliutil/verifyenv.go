@@ -153,6 +153,16 @@ func IsMCPReadOnlyEnv() bool {
 	return true
 }
 
+// MCPChildEnvVar marks a process the MCP server spawned to run one CLI
+// command. The value must be exactly "1". Long-running commands treat it
+// like dogfood and return after one unit of work.
+const MCPChildEnvVar = "TD_SYNNEX_MCP_CHILD"
+
+// IsMCPChildEnv reports whether this process was spawned by the MCP server.
+func IsMCPChildEnv() bool {
+	return os.Getenv(MCPChildEnvVar) == "1"
+}
+
 // EnvOverride returns the named environment variable, treating an
 // unresolved MCPB `${user_config.*}` placeholder as unset. Hosts that
 // skip optional user_config keys leave the template text in the

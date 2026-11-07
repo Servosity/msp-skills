@@ -44,7 +44,7 @@ func newOrdersPromotedCmd(flags *rootFlags) *cobra.Command {
 					}
 				}
 				if !validStatus {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagStatus, "status", allowedStatus)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagStatus, "status", allowedStatus))
 				}
 			}
 			if cmd.Flags().Changed("sort-by") {
@@ -57,7 +57,7 @@ func newOrdersPromotedCmd(flags *rootFlags) *cobra.Command {
 					}
 				}
 				if !validSortBy {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagSortBy, "sort-by", allowedSortBy)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagSortBy, "sort-by", allowedSortBy))
 				}
 			}
 			if cmd.Flags().Changed("sort-order") {
@@ -70,7 +70,7 @@ func newOrdersPromotedCmd(flags *rootFlags) *cobra.Command {
 					}
 				}
 				if !validSortOrder {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagSortOrder, "sort-order", allowedSortOrder)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagSortOrder, "sort-order", allowedSortOrder))
 				}
 			}
 			c, err := flags.newClient()

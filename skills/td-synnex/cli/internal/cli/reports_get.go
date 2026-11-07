@@ -59,6 +59,9 @@ func newReportsGetCmd(flags *rootFlags) *cobra.Command {
 				return usageErr(fmt.Errorf("missing required argument\nUsage: %s%s", cmd.CommandPath(), " <accountId> <reportId>"))
 			}
 			if !stdinBody {
+				if len(args) > 1 && args[1] != "" && !cmd.Flags().Changed("report-id-2") {
+					bodyReportId2 = args[1]
+				}
 			}
 			path := "/accounts/{accountId}/reports/{reportId}/report"
 			if len(args) < 1 || args[0] == "" {
