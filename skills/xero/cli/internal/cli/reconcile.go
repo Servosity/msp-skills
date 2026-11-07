@@ -33,7 +33,7 @@ func newNovelReconcileCmd(flags *rootFlags) *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("opening store: %w", err)
 			}
-			defer db.Close()
+			defer closeXeroStore(db)
 			if !hintIfUnsynced(cmd, db, "") {
 				hintIfStale(cmd, db, "", flags.maxAge)
 			}
@@ -52,10 +52,10 @@ func newNovelReconcileCmd(flags *rootFlags) *cobra.Command {
 			}
 			out := [][]string{}
 			for _, o := range report.OutstandingInvoices {
-				out = append(out, []string{o.InvoiceNumber, o.Contact, money(o.AmountDue), money(o.AppliedGap)})
+				out = append(out, []string{o.InvoiceNumber, o.Contact, o.Currency + " " + money(o.AmountDue), money(o.AppliedGap)})
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), "Outstanding receivable: %s across %d invoices; %d orphan payment(s)\n",
-				money(report.TotalOutstanding), report.OutstandingCount, report.OrphanCount)
+				report.TotalOutstanding, report.OutstandingCount, report.OrphanCount)
 			return flags.printTable(cmd, []string{"invoice", "contact", "amount due", "applied gap"}, out)
 		},
 	}

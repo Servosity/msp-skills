@@ -38,7 +38,7 @@ func newNovelExposureCmd(flags *rootFlags) *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("opening store: %w", err)
 			}
-			defer db.Close()
+			defer closeXeroStore(db)
 			if !hintIfUnsynced(cmd, db, "") {
 				hintIfStale(cmd, db, "", flags.maxAge)
 			}
@@ -57,7 +57,7 @@ func newNovelExposureCmd(flags *rootFlags) *cobra.Command {
 			}
 			out := [][]string{}
 			for _, e := range exposures {
-				out = append(out, []string{e.Contact, money(e.TotalDue), money(e.OverdueDue), strconv.Itoa(e.InvoiceCount), strconv.Itoa(e.OverdueCount)})
+				out = append(out, []string{e.Contact, e.Currency + " " + money(e.TotalDue), e.Currency + " " + money(e.OverdueDue), strconv.Itoa(e.InvoiceCount), strconv.Itoa(e.OverdueCount)})
 			}
 			return flags.printTable(cmd, []string{"contact", "total due", "overdue due", "invoices", "overdue"}, out)
 		},

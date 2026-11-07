@@ -40,7 +40,7 @@ func newNovelAgingCmd(flags *rootFlags) *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("opening store: %w", err)
 			}
-			defer db.Close()
+			defer closeXeroStore(db)
 			if !hintIfUnsynced(cmd, db, "invoices") {
 				hintIfStale(cmd, db, "invoices", flags.maxAge)
 			}
@@ -55,9 +55,9 @@ func newNovelAgingCmd(flags *rootFlags) *cobra.Command {
 			}
 			out := [][]string{}
 			for _, b := range report.Buckets {
-				out = append(out, []string{b.Label, strconv.Itoa(b.Count), money(b.TotalDue)})
+				out = append(out, []string{b.Label, strconv.Itoa(b.Count), b.TotalDue.String()})
 			}
-			out = append(out, []string{"TOTAL", strconv.Itoa(report.InvoiceCount), money(report.TotalDue)})
+			out = append(out, []string{"TOTAL", strconv.Itoa(report.InvoiceCount), report.TotalDue.String()})
 			return flags.printTable(cmd, []string{report.Kind + " bucket (as of " + report.AsOf + ")", "count", "total due"}, out)
 		},
 	}

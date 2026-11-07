@@ -1,7 +1,9 @@
 .PHONY: build test lint install clean
 
+BIN_EXT := $(if $(filter windows,$(shell go env GOOS)),.exe,)
+
 build:
-	go build -o bin/xero-cli ./cmd/xero-cli
+	go build -trimpath -o bin/xero-cli$(BIN_EXT) ./cmd/xero-cli
 
 test:
 	go test ./...
@@ -16,7 +18,7 @@ clean:
 	rm -rf bin/
 
 build-mcp:
-	go build -o bin/xero-mcp ./cmd/xero-mcp
+	go build -trimpath -o bin/xero-mcp$(BIN_EXT) ./cmd/xero-mcp
 
 install-mcp:
 	go install ./cmd/xero-mcp
