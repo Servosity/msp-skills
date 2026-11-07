@@ -20,7 +20,7 @@ func newNovelWasteCmd(flags *rootFlags) *cobra.Command {
 		Use:         "waste",
 		Short:       "Find AWS waste — idle instances, orphaned storage, data-transfer bleed (read-only)",
 		Long:        "Surface wasted AWS spend without buying anything. Read-only: each finding includes the exact remediation step but the CLI never stops an instance or deletes a volume.",
-		Annotations: map[string]string{"mcp:read-only": "true"},
+		Annotations: map[string]string{"mcp:read-only": "true", "pp:parent-group": "true", "pp:typed-exit-codes": "0,2"},
 		RunE:        parentNoSubcommandRunE(flags),
 	}
 	cmd.AddCommand(newNovelWasteRankCmd(flags))
@@ -129,7 +129,7 @@ func newWasteEBSCmd(flags *rootFlags) *cobra.Command {
 func newWasteSnapshotsCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "snapshots",
-		Short:       "Orphaned or very old EBS snapshots (review for deletion)",
+		Short:       "EBS snapshots older than a year (review for deletion)",
 		Example:     "  aws-billing-cli waste snapshots --profile-aws dev",
 		Annotations: map[string]string{"mcp:read-only": "true"},
 	}

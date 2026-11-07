@@ -8,10 +8,10 @@
 ## What it authenticates as
 
 The skill drives the `domotz-cli` binary (and `domotz-mcp`),
-authenticating with `DOMOTZ_API_KEY` (or `DOMOTZ_PUBLIC_API_KEY`) and the
-`DOMOTZ_REGION` that selects your portal's API cell. Credentials are read from the
-environment only - never written to disk, never logged, never sent anywhere except
-the Domotz API.
+authenticating with `DOMOTZ_API_KEY` and the `DOMOTZ_REGION` that selects your
+portal's API cell. The key comes from the environment, or from the 0600 credentials
+file that `domotz-cli auth set-token` writes; it is never logged, is withheld from
+output, and is sent only to the Domotz API host for your region.
 
 ## Default-safe behavior
 

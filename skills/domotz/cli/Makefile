@@ -1,7 +1,9 @@
 .PHONY: build test lint install clean
 
+BIN_EXT := $(if $(filter windows,$(shell go env GOOS)),.exe,)
+
 build:
-	go build -o bin/domotz-cli ./cmd/domotz-cli
+	go build -trimpath -o bin/domotz-cli$(BIN_EXT) ./cmd/domotz-cli
 
 test:
 	go test ./...
@@ -16,7 +18,7 @@ clean:
 	rm -rf bin/
 
 build-mcp:
-	go build -o bin/domotz-mcp ./cmd/domotz-mcp
+	go build -trimpath -o bin/domotz-mcp$(BIN_EXT) ./cmd/domotz-mcp
 
 install-mcp:
 	go install ./cmd/domotz-mcp

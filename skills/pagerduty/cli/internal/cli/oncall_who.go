@@ -10,6 +10,7 @@ package cli
 import (
 	"fmt"
 	"io"
+	"slices"
 	"sort"
 	"strconv"
 	"text/tabwriter"
@@ -63,22 +64,59 @@ func newNovelOncallWhoCmd(flags *rootFlags) *cobra.Command {
 
 			res := pdOncallWhoResult{AsOf: time.Now().UTC().Format(time.RFC3339), Current: []pdOncallEntry{}, Next: []pdOncallEntry{}}
 
-			epFilter := flagEP
-			switch {
-			case flagService != "":
-				res.ScopeType, res.ScopeID = "service", flagService
+			// pagerduty handfix r1-requested-scope-ignored: every scope flag
+			// narrows the result, together (each is a set of escalation
+			// policy ids an entry must belong to); --team reads the policies
+			// the team owns from the synced escalation policies. A scope that
+			// resolves to nothing answers with nothing.
+			// pagerduty handfix resolved-ids-never-compared-to-names: a flag
+			// resolves to ids here, once (pdResolveIDs); after this, ids
+			// compare to ids only.
+			var epScopes [][]string
+			var policies []map[string]any
+			if flagEP != "" || flagTeam != "" {
+				var perr error
+				if policies, perr = pdLoadResource(cmd.Context(), "escalation_policies"); perr != nil {
+					return fmt.Errorf("reading escalation_policies from local store: %w", perr)
+				}
+			}
+			if flagEP != "" {
+				// A policy no synced policy row names may still be on an
+				// on-call entry (sync --resources oncalls).
+				refs := append([]map[string]any{}, policies...)
+				for _, oc := range oncalls {
+					refs = append(refs, pdMap(oc, "escalation_policy"))
+				}
+				epScopes = append(epScopes, pdResolveIDs(refs, flagEP))
+			}
+			if flagService != "" {
 				services, serr := pdLoadResource(cmd.Context(), "services")
 				if serr != nil {
 					return fmt.Errorf("reading services from local store: %w", serr)
 				}
-				if ep := pdServiceEscalationPolicy(services, flagService); ep != "" {
-					epFilter = ep
-				} else {
+				eps := pdServiceEscalationPolicies(services, flagService)
+				if len(eps) == 0 {
 					// Service not in store (or has no EP) → no resolvable on-call.
+					res.ScopeType, res.ScopeID = "service", flagService
 					return pdEmit(cmd, flags, res, func(w io.Writer) {
 						fmt.Fprintf(w, "Service %q not found in the local store, or it has no escalation policy. Run `pagerduty-cli sync` first.\n", flagService)
 					})
 				}
+				epScopes = append(epScopes, eps)
+			}
+			if flagTeam != "" {
+				eps := pdTeamEscalationPolicies(policies, flagTeam)
+				if len(eps) == 0 {
+					res.ScopeType, res.ScopeID = "team", flagTeam
+					return pdEmit(cmd, flags, res, func(w io.Writer) {
+						fmt.Fprintf(w, "Team %q owns no escalation policy in the local store. Run `pagerduty-cli sync` first.\n", flagTeam)
+					})
+				}
+				epScopes = append(epScopes, eps)
+			}
+			switch {
+			case flagService != "":
+				res.ScopeType, res.ScopeID = "service", flagService
 			case flagEP != "":
 				res.ScopeType, res.ScopeID = "escalation_policy", flagEP
 			case flagTeam != "":
@@ -87,7 +125,16 @@ func newNovelOncallWhoCmd(flags *rootFlags) *cobra.Command {
 				res.ScopeType, res.ScopeID = "user", flagUser
 			}
 
-			buildOncallWho(oncalls, epFilter, flagUser, time.Now(), &res)
+			var userScopes [][]string
+			if flagUser != "" {
+				var refs []map[string]any
+				for _, oc := range oncalls {
+					refs = append(refs, pdMap(oc, "user"))
+				}
+				userScopes = append(userScopes, pdResolveIDs(refs, flagUser))
+			}
+
+			buildOncallWho(oncalls, epScopes, userScopes, time.Now(), &res)
 
 			return pdEmit(cmd, flags, res, func(w io.Writer) {
 				if len(res.Current) == 0 && len(res.Next) == 0 {
@@ -120,34 +167,86 @@ func dash(s string) string {
 	return s
 }
 
-// pdServiceEscalationPolicy finds a service by id or name in the synced
-// services and returns its escalation policy id.
-func pdServiceEscalationPolicy(services []map[string]any, idOrName string) string {
-	for _, s := range services {
-		if pdString(s, "id") == idOrName || pdRefLabel(s) == idOrName || pdString(s, "name") == idOrName {
-			return pdString(pdMap(s, "escalation_policy"), "id")
+// pdResolveIDs resolves what the operator typed to ids among refs: a value that
+// is some ref's id is that id alone, however other refs are labeled; otherwise
+// it is the id of every ref with that name or summary (names are not unique).
+// No match is an empty scope, which answers with nothing.
+func pdResolveIDs(refs []map[string]any, idOrName string) []string {
+	out := []string{}
+	for _, r := range refs {
+		id := pdString(r, "id")
+		if id == "" {
+			continue
+		}
+		if id == idOrName {
+			return []string{id}
+		}
+		if pdRefLabel(r) == idOrName || pdString(r, "name") == idOrName {
+			out = append(out, id)
 		}
 	}
-	return ""
+	return out
+}
+
+// pdServiceEscalationPolicies finds the service (by id, or every service of
+// that name) in the synced services and returns their escalation policy ids.
+func pdServiceEscalationPolicies(services []map[string]any, idOrName string) []string {
+	var out []string
+	ids := pdResolveIDs(services, idOrName)
+	for _, s := range services {
+		if slices.Contains(ids, pdString(s, "id")) {
+			if ep := pdString(pdMap(s, "escalation_policy"), "id"); ep != "" {
+				out = append(out, ep)
+			}
+		}
+	}
+	return out
+}
+
+// pdTeamEscalationPolicies is the id of every synced escalation policy the
+// team (by id, or every team of that name) owns.
+func pdTeamEscalationPolicies(policies []map[string]any, idOrName string) []string {
+	var teams []map[string]any
+	for _, p := range policies {
+		teams = append(teams, pdSlice(p, "teams")...)
+	}
+	ids := pdResolveIDs(teams, idOrName)
+	var out []string
+	for _, p := range policies {
+		for _, t := range pdSlice(p, "teams") {
+			if slices.Contains(ids, pdString(t, "id")) {
+				if id := pdString(p, "id"); id != "" {
+					out = append(out, id)
+				}
+				break
+			}
+		}
+	}
+	return out
 }
 
 // buildOncallWho is the pure split-out for tests. It populates res.Current and
-// res.Next from on-call entries, applying the EP and user filters.
-func buildOncallWho(oncalls []map[string]any, epFilter, userFilter string, now time.Time, res *pdOncallWhoResult) {
+// res.Next from on-call entries in every one of epScopes (each a set of
+// escalation policy ids) and userScopes (each a set of user ids).
+func buildOncallWho(oncalls []map[string]any, epScopes, userScopes [][]string, now time.Time, res *pdOncallWhoResult) {
+	// pagerduty handfix r1-simultaneous-responders-dropped: a level hands on
+	// to every schedule and user it targets, so the next responder is kept per
+	// target (the schedule, or the user targeted directly), not per level.
 	type nextKey struct {
-		ep    string
-		level int
+		ep     string
+		level  int
+		target string
 	}
 	earliestNext := map[nextKey]pdOncallEntry{}
 
 	for _, oc := range oncalls {
 		epRef := pdMap(oc, "escalation_policy")
 		epID := pdString(epRef, "id")
-		if epFilter != "" && epID != epFilter && pdRefLabel(epRef) != epFilter {
+		if !pdInEveryScope(epScopes, epID) {
 			continue
 		}
 		userRef := pdMap(oc, "user")
-		if userFilter != "" && pdString(userRef, "id") != userFilter && pdRefLabel(userRef) != userFilter {
+		if !pdInEveryScope(userScopes, pdString(userRef, "id")) {
 			continue
 		}
 
@@ -181,7 +280,11 @@ func buildOncallWho(oncalls []map[string]any, epFilter, userFilter string, now t
 			continue
 		}
 		if hasStart && start.After(now) {
-			k := nextKey{ep: epID, level: level}
+			target := "schedule:" + pdString(pdMap(oc, "schedule"), "id")
+			if target == "schedule:" {
+				target = "user:" + entry.UserID
+			}
+			k := nextKey{ep: epID, level: level, target: target}
 			if cur, ok := earliestNext[k]; !ok || start.Before(mustTime(cur.Since)) {
 				earliestNext[k] = entry
 			}
@@ -200,6 +303,17 @@ func buildOncallWho(oncalls []map[string]any, epFilter, userFilter string, now t
 		}
 		return res.Next[i].Since < res.Next[j].Since
 	})
+}
+
+// pdInEveryScope reports whether the id is in every scope. Scopes hold resolved
+// ids and are compared to ids only.
+func pdInEveryScope(scopes [][]string, id string) bool {
+	for _, scope := range scopes {
+		if !slices.Contains(scope, id) {
+			return false
+		}
+	}
+	return true
 }
 
 func mustTime(s string) time.Time {

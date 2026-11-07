@@ -43,11 +43,7 @@ func seedFleetStore(t *testing.T) string {
 		`{"id":2,"agent_id":"100","display_name":"Lobby Cam","status":"OFFLINE","importance":"FLOATING","type":{"label":"Camera"},"user_data":{"vendor":"Axis","model":"P3245"},"os":{"name":""},"first_seen_on":"2026-05-30T06:00:00Z"}`,
 		`{"id":3,"agent_id":"200","display_name":"Edge Router","status":"DOWN","importance":"VITAL","type":{"label":"Router"},"user_data":{"vendor":"Ubiquiti","model":"UDM"},"os":{"name":"UniFiOS"},"first_seen_on":"2026-05-30T07:00:00Z"}`,
 	}
-	for _, d := range devices {
-		if err := db.UpsertDevice(json.RawMessage(d)); err != nil {
-			t.Fatalf("seed device: %v", err)
-		}
-	}
+	seedSyncedDevices(t, db, devices)
 
 	alerts := []string{
 		`{"id":10,"alert_profile_id":10,"name":"Down Alert","description":"device down","is_enabled":true,"tag":"critical","device_id":1}`,
@@ -58,6 +54,7 @@ func seedFleetStore(t *testing.T) string {
 			t.Fatalf("seed alert_profile: %v", err)
 		}
 	}
+	markSynced(t, db, "alert-profile")
 	return dbPath
 }
 
@@ -115,5 +112,37 @@ func TestFleetOfflineEmptyStore(t *testing.T) {
 	got := string(bytes.TrimSpace(out))
 	if got != "[]" {
 		t.Fatalf("empty store offline output = %q, want []", got)
+	}
+}
+
+// seedSyncedDevices stores devices the way `sync` does (domotz handfix
+// device-list-synced): agent_device rows of the generic resources table, each
+// carrying its agent's id as agent_id and parent_id.
+func seedSyncedDevices(t *testing.T, db *store.Store, devices []string) {
+	t.Helper()
+	items := make([]json.RawMessage, 0, len(devices))
+	for _, d := range devices {
+		var m map[string]any
+		if err := json.Unmarshal([]byte(d), &m); err != nil {
+			t.Fatalf("seed device: %v", err)
+		}
+		m["parent_id"] = m["agent_id"]
+		b, _ := json.Marshal(m)
+		items = append(items, b)
+	}
+	if _, _, err := db.UpsertBatch("agent_device", items); err != nil {
+		t.Fatalf("seed devices: %v", err)
+	}
+	markSynced(t, db, "agent", "agent_device")
+}
+
+// markSynced records a finished sync of each resource, as `sync` does, so
+// the novels' requireFinishedSync accepts the seeded rows.
+func markSynced(t *testing.T, db *store.Store, resources ...string) {
+	t.Helper()
+	for _, r := range resources {
+		if err := db.SaveSyncState(r, "", 0); err != nil {
+			t.Fatalf("seed sync state %s: %v", r, err)
+		}
 	}
 }
