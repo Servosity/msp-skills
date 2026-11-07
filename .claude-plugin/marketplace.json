@@ -731,7 +731,7 @@
       "name": "pax8",
       "source": "./skills/pax8",
       "description": "Every Pax8 Partner API endpoint, plus an offline store that reconciles billing, tracks MRR, and catches usage overages no Pax8 tool surfaces.",
-      "version": "0.1.8",
+      "version": "0.1.9",
       "category": "billing",
       "tags": [
         "pax8",
@@ -988,7 +988,7 @@
       "name": "tactical-rmm",
       "source": "./skills/tactical-rmm",
       "description": "Every Tactical RMM endpoint as a typed command, plus an offline SQLite mirror and cross-entity fleet queries the web UI can't express.",
-      "version": "0.1.7",
+      "version": "0.1.8",
       "category": "rmm",
       "tags": [
         "tactical-rmm",

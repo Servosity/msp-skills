@@ -4,7 +4,7 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
-## [0.1.9] - unreleased
+## [0.1.9] - 2026-11-07
 
 ### Changed
 - **Rebuilt on cli-printing-press 4.34.2.** The MCP server's `--transport http` mode refuses to start without `PAX8_MCP_HTTP_TOKEN`, binds `127.0.0.1:7777` by default and needs TLS off loopback.

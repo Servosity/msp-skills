@@ -1783,8 +1783,8 @@
       "tagline": "Reconcile Pax8 billing, track MRR, and catch usage overages before they hit the customer invoice",
       "cli_hash": "sha256:035eaa93381e1e6de54b9e942fa3e4929b2afd913530b51140952d4e6413973a",
       "template_version": 3,
-      "version": "0.1.8",
-      "cli_hash_at_release": "sha256:35e893648e443c4c5adea05fe66531fc895c0e9db84fe9a63d6959876d5468df",
+      "version": "0.1.9",
+      "cli_hash_at_release": "sha256:035eaa93381e1e6de54b9e942fa3e4929b2afd913530b51140952d4e6413973a",
       "has_video": true,
       "live_verified": {
         "status": "awaiting",
@@ -2377,8 +2377,8 @@
       "tagline": "Triage every agent, sweep patch posture, and run a script across a filtered cohort by asking.",
       "cli_hash": "sha256:1b48489d13a2d2708a5d631c26789235cc038afe3fb8d74befd45e84feb7ee5f",
       "template_version": 3,
-      "version": "0.1.7",
-      "cli_hash_at_release": "sha256:95c97c291b31986dd7ceddff9a7e7285914986831fac35a0b16ee5c604581bd9",
+      "version": "0.1.8",
+      "cli_hash_at_release": "sha256:3ec49c78fb8d15ccbf80b22c9e80e3c2555501cb526dc0a7bc554a11d999d02b",
       "has_video": true,
       "live_verified": {
         "status": "awaiting",
