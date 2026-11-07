@@ -75,7 +75,7 @@ func newObjectGetCmd(flags *rootFlags) *cobra.Command {
 					filtered, selectErr = filterFieldsChecked(filtered, flags.selectFields)
 					selectErr = selectErrorForDryRun(selectErr, flags, data)
 				} else if flags.compact {
-					filtered = compactFields(filtered, map[string]bool{"globalId": true, "id": true, "objectTypeAttributeId": true, "workspaceId": true})
+					filtered = compactFields(filtered, map[string]bool{"globalId": true, "id": true, "objectKey": true, "workspaceId": true})
 				}
 				wrapped, wrapErr := wrapWithProvenance(filtered, prov)
 				if wrapErr != nil {
@@ -107,7 +107,7 @@ func newObjectGetCmd(flags *rootFlags) *cobra.Command {
 			if flags.csv || flags.plain {
 				formatData = outputData
 			}
-			return printOutputWithFlagsMeta(cmd.OutOrStdout(), formatData, flags, map[string]any{"source": "live"}, map[string]bool{"globalId": true, "id": true, "objectTypeAttributeId": true, "workspaceId": true})
+			return printOutputWithFlagsMeta(cmd.OutOrStdout(), formatData, flags, map[string]any{"source": "live"}, map[string]bool{"globalId": true, "id": true, "objectKey": true, "workspaceId": true})
 		},
 	}
 

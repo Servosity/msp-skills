@@ -13,9 +13,18 @@ import (
 // one local database: sites mixed, and a --full sync of one pruned the other's
 // rows. Scope by credential AND resolved site URL. The MCP server resolves its
 // store path through this package too, so both binaries agree.
+//
+// A store named by the credential alone belongs to no site in particular, so
+// no site adopts one: the first site to run would take another client's rows.
 func init() {
 	config.StoreScopeIdentity = jsmStoreScopeIdentity
+	config.StoreScopeLegacyIdentity = func(*config.Config) string { return "" }
 }
+
+// jsmNoUnscopedClaim: an unscoped data.db with no .owner marker predates the
+// site scope, so no site claims it (claimLegacyUnscopedDB). A marker a site
+// already wrote is still honoured.
+var jsmNoUnscopedClaim = true
 
 func jsmStoreScopeIdentity(c *config.Config) string {
 	auth := c.AuthHeader()

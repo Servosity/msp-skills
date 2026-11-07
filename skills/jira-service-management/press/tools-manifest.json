@@ -1,0 +1,4303 @@
+{
+  "api_name": "jira-service-management",
+  "base_url": "https://{site}.atlassian.net/rest/servicedeskapi",
+  "description": "Every Jira Service Management Cloud request-API (servicedeskapi) and Assets endpoint in one binary, plus SLA breach radar, internal notes, ticket timelines, and CMDB-to-ticket joins.",
+  "mcp_ready": "full",
+  "http_transport": "standard",
+  "mcp": {
+    "endpoint_tools": "hidden",
+    "orchestration": "code"
+  },
+  "auth": {
+    "type": "api_key",
+    "header": "Authorization",
+    "format": "Basic {JIRA_SERVICE_MANAGEMENT_EMAIL}:{JIRA_SERVICE_MANAGEMENT_API_TOKEN}",
+    "env_vars": [
+      "JIRA_SERVICE_MANAGEMENT_EMAIL",
+      "JIRA_SERVICE_MANAGEMENT_API_TOKEN"
+    ],
+    "env_var_specs": [
+      {
+        "name": "JIRA_SERVICE_MANAGEMENT_EMAIL",
+        "kind": "per_call",
+        "required": true,
+        "sensitive": false,
+        "description": "Atlassian account email (Basic auth username)."
+      },
+      {
+        "name": "JIRA_SERVICE_MANAGEMENT_API_TOKEN",
+        "kind": "per_call",
+        "required": true,
+        "sensitive": true,
+        "description": "Atlassian API token from id.atlassian.com/manage-profile/security/api-tokens (Basic auth password)."
+      }
+    ],
+    "key_url": "https://id.atlassian.com/manage-profile/security/api-tokens"
+  },
+  "required_headers": [],
+  "tools": [
+    {
+      "name": "api-import_start",
+      "description": "Start configured imports. To see an ongoing import see the Progress resource. Required: id. Returns the new Progress.",
+      "method": "POST",
+      "path": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/import/start/{id}",
+      "base_url": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "The id of the import configuration that should be started",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "aql_find-objects",
+      "description": "Deprecated by Atlassian (removal date passed); use 'object find-by-aql'. This endpoint is deprecated and will be removed on 18th of September 2024. Please use POST `/object/aql` instead. Find objects based on Assets Query Language (AQL). Optional: qlQuery, page (default: 1), per_page (default: 25) (plus 4 more). Returns the ObjectListResult.",
+      "method": "GET",
+      "path": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/aql/objects",
+      "base_url": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1",
+      "params": [
+        {
+          "name": "qlQuery",
+          "type": "string",
+          "location": "query",
+          "description": "The query to determine which objects that should be fetched. E.g. objectType = 'Computer'. The empty AQL means all objects"
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "Which page to fetch when paginating through the response"
+        },
+        {
+          "name": "per_page",
+          "wire_name": "resultPerPage",
+          "type": "int",
+          "location": "query",
+          "description": "The amount of objects returned per page"
+        },
+        {
+          "name": "includeAttributes",
+          "type": "bool",
+          "location": "query",
+          "description": "Should the objects attributes be included in the response."
+        },
+        {
+          "name": "includeAttributesDeep",
+          "type": "int",
+          "location": "query",
+          "description": "How many levels of attributes should be included. E.g. consider an object A that has a reference to object B that has a reference to object C. If object A is included in the response and includeAttributesDeep=1 object A's reference to object B will be included in the attributes of object A but object B's reference to object C will not be included. However if the includeAttributesDeep=2 then object B's reference to object C will be included in object B's attributes"
+        },
+        {
+          "name": "includeTypeAttributes",
+          "type": "bool",
+          "location": "query",
+          "description": "Should the response include the object type attribute definition for each attribute that is returned with the objects"
+        },
+        {
+          "name": "includeExtendedInfo",
+          "type": "bool",
+          "location": "query",
+          "description": "Include information about open Jira issues. Should each object have information if open tickets are connected to the object?"
+        }
+      ]
+    },
+    {
+      "name": "assets_get-workspaces",
+      "description": "Returns a list of Assets workspace IDs. Include a workspace ID in the path to access the [Assets REST APIs](https://developer.atlassian.com/cloud/assets/rest). **Permissions required**: Any. Optional: offset (default: 0), limit (default: 50).",
+      "method": "GET",
+      "path": "/assets/workspace",
+      "params": [
+        {
+          "name": "offset",
+          "wire_name": "start",
+          "type": "int",
+          "location": "query",
+          "description": "The starting index of the returned workspace IDs. Base index: 0 See the Pagination section for more details."
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "The maximum number of workspace IDs to return per page. Default: 50 See the Pagination section for more details."
+        }
+      ]
+    },
+    {
+      "name": "config_create-referencetype",
+      "description": "Create a reference type (Assets). Required: name. Optional: color, description, displayName (plus 1 more). Returns the new ReferenceType.",
+      "method": "POST",
+      "path": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/config/referencetype",
+      "base_url": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1",
+      "params": [
+        {
+          "name": "color",
+          "type": "string",
+          "location": "body",
+          "description": "Color"
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "location": "body",
+          "description": "Description"
+        },
+        {
+          "name": "displayName",
+          "type": "string",
+          "location": "body",
+          "description": "Display name"
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Name",
+          "required": true
+        },
+        {
+          "name": "objectSchemaId",
+          "type": "string",
+          "location": "body",
+          "description": "Object schema id"
+        }
+      ]
+    },
+    {
+      "name": "config_create-statustype",
+      "description": "Create a new status. Required: category, name. Optional: description, displayName, objectSchemaId. Returns the new Status.",
+      "method": "POST",
+      "path": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/config/statustype",
+      "base_url": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1",
+      "params": [
+        {
+          "name": "category",
+          "type": "int",
+          "location": "body",
+          "description": "| Name | Value | Color | | ---- | ----- | ----- | | ACTIVE | 1 | Green | | INACTIVE | 0 | Red | | PENDING | 2 | Yellow |",
+          "required": true
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "location": "body",
+          "description": "Description"
+        },
+        {
+          "name": "displayName",
+          "type": "string",
+          "location": "body",
+          "description": "Display name"
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Name",
+          "required": true
+        },
+        {
+          "name": "objectSchemaId",
+          "type": "string",
+          "location": "body",
+          "description": "Object schema id"
+        }
+      ]
+    },
+    {
+      "name": "config_delete-statustype",
+      "description": "Delete an existing status. Required: id. Destructive.",
+      "method": "DELETE",
+      "path": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/config/statustype/{id}",
+      "base_url": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Status type id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "config_get-statustype",
+      "description": "Find a status by id. Required: id. Returns the Status.",
+      "method": "GET",
+      "path": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/config/statustype/{id}",
+      "base_url": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Status type id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "config_list-referencetypes",
+      "description": "Get reference type. Optional: objectSchemaId, includeAll. Returns array of ReferenceType.",
+      "method": "GET",
+      "path": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/config/referencetype",
+      "base_url": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1",
+      "params": [
+        {
+          "name": "objectSchemaId",
+          "type": "string",
+          "location": "query",
+          "description": "Include reference types for the object schema id. If supplied reference types for the object schema will be returned otherwise all global will be returned"
+        },
+        {
+          "name": "includeAll",
+          "type": "bool",
+          "location": "query",
+          "description": "Include all reference types. Defaults to false"
+        }
+      ]
+    },
+    {
+      "name": "config_list-statustypes",
+      "description": "Find all status. Optional: objectSchemaId. Returns array of Status.",
+      "method": "GET",
+      "path": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/config/statustype",
+      "base_url": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1",
+      "params": [
+        {
+          "name": "objectSchemaId",
+          "type": "string",
+          "location": "query",
+          "description": "Include statuses for the object schema id. If supplied statuses for the object schema will be returned otherwise all global will be returned"
+        }
+      ]
+    },
+    {
+      "name": "config_update-statustype",
+      "description": "Update an existing status. Required: id, category, name. Optional: description, displayName, objectSchemaId. Returns the updated Status.",
+      "method": "PUT",
+      "path": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/config/statustype/{id}",
+      "base_url": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Status type id",
+          "required": true
+        },
+        {
+          "name": "category",
+          "type": "int",
+          "location": "body",
+          "description": "| Name | Value | Color | | ---- | ----- | ----- | | ACTIVE | 1 | Green | | INACTIVE | 0 | Red | | PENDING | 2 | Yellow |",
+          "required": true
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "location": "body",
+          "description": "Description"
+        },
+        {
+          "name": "displayName",
+          "type": "string",
+          "location": "body",
+          "description": "Display name"
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Name",
+          "required": true
+        },
+        {
+          "name": "objectSchemaId",
+          "type": "string",
+          "location": "body",
+          "description": "Object schema id"
+        }
+      ]
+    },
+    {
+      "name": "customer_create",
+      "description": "This method adds a customer to the Jira Service Management instance by passing a JSON file including an email address and display name. The display name does not need to be unique. The record's identifiers, `name` and `key`, are automatically generated from the request details. **Permissions required**: Jira Administrator Global permission. Optional: strictConflictStatusCode, displayName, email (plus 1 more). Returns the new UserDto.",
+      "method": "POST",
+      "path": "/customer",
+      "params": [
+        {
+          "name": "strictConflictStatusCode",
+          "type": "bool",
+          "location": "query",
+          "description": "Optional boolean flag to return 409 Conflict status code for duplicate customer creation request"
+        },
+        {
+          "name": "displayName",
+          "type": "string",
+          "location": "body",
+          "description": "Customer's name for display in the UI."
+        },
+        {
+          "name": "email",
+          "type": "string",
+          "location": "body",
+          "description": "Customer's email address."
+        },
+        {
+          "name": "fullName",
+          "type": "string",
+          "location": "body",
+          "description": "Deprecated, please use 'displayName'."
+        }
+      ]
+    },
+    {
+      "name": "customer_create-skippermissioncheck",
+      "description": "Atlassian-internal endpoint (ASAP auth only); not callable with an API token. Creates a customer account on behalf of jsd-nutmeg. This endpoint is restricted to jsd-nutmeg via ASAP authentication. It provides the same capability as the public `POST /servicedeskapi/customer` endpoint, but does not require a User Context Token (UCT) or Connect app user - authorization is enforced entirely via the ASAP token. No user permission checks are performed; `null` is passed as the acting user to bypass the permission check in the underlying service. Optional: strictConflictStatusCode, displayName, email (plus 1 more). Returns the new UserDto.",
+      "method": "POST",
+      "path": "/customer/skip-permission-check",
+      "params": [
+        {
+          "name": "strictConflictStatusCode",
+          "type": "bool",
+          "location": "query",
+          "description": "Optional boolean flag; when `true`, returns 409 Conflict for duplicate email instead of the default 400."
+        },
+        {
+          "name": "displayName",
+          "type": "string",
+          "location": "body",
+          "description": "Customer's name for display in the UI."
+        },
+        {
+          "name": "email",
+          "type": "string",
+          "location": "body",
+          "description": "Customer's email address."
+        },
+        {
+          "name": "fullName",
+          "type": "string",
+          "location": "body",
+          "description": "Deprecated, please use 'displayName'."
+        }
+      ]
+    },
+    {
+      "name": "customer_revoke-portal-only-access-for-user",
+      "description": "This method revokes portal-only access for a particular user, removing their ability to log in to the Jira Service Management customer portal as a portal-only user. After revocation, the user cannot submit or view requests through the portal. **Permissions required:** Site administration (that is, member of the *site-admin* [group](https://confluence.atlassian.com/x/24xjL)).",
+      "method": "PUT",
+      "path": "/customer/user/{accountId}/revoke-portal-only-access",
+      "params": [
+        {
+          "name": "accountId",
+          "type": "string",
+          "location": "path",
+          "description": "The account ID of the user, which uniquely identifies the portal-only account. For example, *qm:a713c8ea-1075-4e30-9d96-891a7d181739:5ad6d3581db05e2a66fa80b*.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "global_update-schema-property",
+      "description": "Update general configuration for object schema. Required: id. Optional: allowOtherObjectSchema, quickCreateObjects, validateQuickCreate.",
+      "method": "POST",
+      "path": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/global/config/objectschema/{id}/property",
+      "base_url": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Object schema id",
+          "required": true
+        },
+        {
+          "name": "allowOtherObjectSchema",
+          "type": "bool",
+          "location": "body",
+          "description": "Allow other object schema"
+        },
+        {
+          "name": "quickCreateObjects",
+          "type": "bool",
+          "location": "body",
+          "description": "Quick create objects"
+        },
+        {
+          "name": "validateQuickCreate",
+          "type": "bool",
+          "location": "body",
+          "description": "Validate quick create"
+        }
+      ]
+    },
+    {
+      "name": "icon_get",
+      "description": "Load a single icon by id. Required: id. Returns the Icon.",
+      "method": "GET",
+      "path": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/icon/{id}",
+      "base_url": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "icon_list-global",
+      "description": "Return all global icons i.e. icons not associated with a particular object schema. Returns array of Icon.",
+      "method": "GET",
+      "path": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/icon/global",
+      "base_url": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1",
+      "params": []
+    },
+    {
+      "name": "icon_icon-png_download",
+      "description": "Load a single icon PNG by id. Required: id. Optional: size.",
+      "method": "GET",
+      "path": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/icon/{id}/icon.png",
+      "base_url": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Id",
+          "required": true
+        },
+        {
+          "name": "size",
+          "type": "int",
+          "location": "query",
+          "description": "Size"
+        }
+      ],
+      "header_overrides": [
+        {
+          "name": "Accept",
+          "value": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "importsource_get",
+      "description": "Retrieves a specific import source configuration by its ID. If scheduled imports are enabled, the response includes scheduling information. Required: id. Returns the ImportSourceResponse.",
+      "method": "GET",
+      "path": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/importsource/{id}",
+      "base_url": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "The unique identifier of the import source",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "importsource_configstatus_get",
+      "description": "Get the current status of the import configuration. Required: importSourceId.",
+      "method": "GET",
+      "path": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/importsource/{importSourceId}/configstatus",
+      "base_url": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1",
+      "params": [
+        {
+          "name": "importSourceId",
+          "type": "string",
+          "location": "path",
+          "description": "The importSourceId of the import source configuration for the external import",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "importsource_executions_cancel",
+      "description": "Cancel current on-going import. Required: importExecutionId, importSourceId. Destructive.",
+      "method": "DELETE",
+      "path": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/importsource/{importSourceId}/executions/{importExecutionId}",
+      "base_url": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1",
+      "params": [
+        {
+          "name": "importExecutionId",
+          "type": "string",
+          "location": "path",
+          "description": "The importExecutionId of the import",
+          "required": true
+        },
+        {
+          "name": "importSourceId",
+          "type": "string",
+          "location": "path",
+          "description": "The importSourceId of the import source configuration for the external import",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "importsource_executions_create-failed-history",
+      "description": "Creates a failed import history record for the specified import source and execution with the given failure reason. Required: importSourceId, executionId.",
+      "method": "POST",
+      "path": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/importsource/{importSourceId}/executions/{executionId}/history/failed",
+      "base_url": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1",
+      "params": [
+        {
+          "name": "importSourceId",
+          "type": "string",
+          "location": "path",
+          "description": "The importSourceId of the import source configuration for the external import",
+          "required": true
+        },
+        {
+          "name": "executionId",
+          "type": "string",
+          "location": "path",
+          "description": "The executionId of the import execution",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "importsource_executions_get-latest-status",
+      "description": "Get the status of the most recently created import execution. Required: importSourceId.",
+      "method": "GET",
+      "path": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/importsource/{importSourceId}/executions/status",
+      "base_url": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1",
+      "params": [
+        {
+          "name": "importSourceId",
+          "type": "string",
+          "location": "path",
+          "description": "The importSourceId of the import source configuration for the external import",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "importsource_executions_get-status",
+      "description": "Get the status of the import. Required: importExecutionId, importSourceId.",
+      "method": "GET",
+      "path": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/importsource/{importSourceId}/executions/{importExecutionId}/status",
+      "base_url": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1",
+      "params": [
+        {
+          "name": "importExecutionId",
+          "type": "string",
+          "location": "path",
+          "description": "The importExecutionId of the import",
+          "required": true
+        },
+        {
+          "name": "importSourceId",
+          "type": "string",
+          "location": "path",
+          "description": "The importSourceId of the import source configuration for the external import",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "importsource_executions_start",
+      "description": "Move to the data ingestion steps of external imports. Required: importSourceId.",
+      "method": "POST",
+      "path": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/importsource/{importSourceId}/executions",
+      "base_url": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1",
+      "params": [
+        {
+          "name": "importSourceId",
+          "type": "string",
+          "location": "path",
+          "description": "The importSourceId of the import source configuration for the external import",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "importsource_executions_submit-data",
+      "description": "Providing data to be ingested. Required: importExecutionId, importSourceId.",
+      "method": "POST",
+      "path": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/importsource/{importSourceId}/executions/{importExecutionId}/data",
+      "base_url": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1",
+      "params": [
+        {
+          "name": "importExecutionId",
+          "type": "string",
+          "location": "path",
+          "description": "The importExecutionId of the import",
+          "required": true
+        },
+        {
+          "name": "importSourceId",
+          "type": "string",
+          "location": "path",
+          "description": "The importSourceId of the import source configuration for the external import",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "importsource_executions_submit-progress",
+      "description": "Submit progress of ingesting data. Required: importExecutionId, importSourceId.",
+      "method": "PUT",
+      "path": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/importsource/{importSourceId}/executions/{importExecutionId}/progress",
+      "base_url": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1",
+      "params": [
+        {
+          "name": "importExecutionId",
+          "type": "string",
+          "location": "path",
+          "description": "The importExecutionId of the import",
+          "required": true
+        },
+        {
+          "name": "importSourceId",
+          "type": "string",
+          "location": "path",
+          "description": "The importSourceId of the import source configuration for the external import",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "importsource_importschedule_create",
+      "description": "Creates a new scheduled import configuration for the specified import source. Scheduled imports allow you to automate data imports on a recurring basis (daily, weekly, monthly) or run them once at a specific time. Required: importSourceId, runInterval, startTime. Optional: callbackUrl. Returns the new ImportScheduleResponse.",
+      "method": "POST",
+      "path": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/importsource/{importSourceId}/importschedule",
+      "base_url": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1",
+      "params": [
+        {
+          "name": "importSourceId",
+          "type": "string",
+          "location": "path",
+          "description": "The ID of the import source to schedule",
+          "required": true
+        },
+        {
+          "name": "callbackUrl",
+          "type": "string",
+          "location": "body",
+          "description": "Optional webhook URL to call after each scheduled import execution. The URL will receive a POST request with execution status."
+        },
+        {
+          "name": "runInterval",
+          "type": "string",
+          "location": "body",
+          "description": "The frequency of the scheduled import. ONCE: runs only at startTime. DAILY: runs every day at the specified time. WEEKLY: runs every 7 days. MONTHLY: runs on the same day of each month.",
+          "required": true
+        },
+        {
+          "name": "startTime",
+          "type": "string",
+          "location": "body",
+          "description": "The date and time when the first import should execute, in ISO 8601 format (e.g., '2024-01-15T02:00:00Z'). Must be in the future.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "importsource_importschedule_delete",
+      "description": "Deletes a scheduled import configuration. The import source will remain, but will no longer execute on a schedule. Required: importSourceId, importScheduleId. Destructive.",
+      "method": "DELETE",
+      "path": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/importsource/{importSourceId}/importschedule/{importScheduleId}",
+      "base_url": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1",
+      "params": [
+        {
+          "name": "importSourceId",
+          "type": "string",
+          "location": "path",
+          "description": "The ID of the import source",
+          "required": true
+        },
+        {
+          "name": "importScheduleId",
+          "type": "string",
+          "location": "path",
+          "description": "The ID of the import schedule to delete",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "importsource_importschedule_get",
+      "description": "Retrieves a specific scheduled import configuration by ID. Required: importSourceId, importScheduleId. Returns the ImportScheduleResponse.",
+      "method": "GET",
+      "path": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/importsource/{importSourceId}/importschedule/{importScheduleId}",
+      "base_url": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1",
+      "params": [
+        {
+          "name": "importSourceId",
+          "type": "string",
+          "location": "path",
+          "description": "The ID of the import source",
+          "required": true
+        },
+        {
+          "name": "importScheduleId",
+          "type": "string",
+          "location": "path",
+          "description": "The ID of the import schedule",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "importsource_importschedule_update",
+      "description": "Updates an existing scheduled import configuration. You can modify the start time, run interval, or callback URL. Required: importSourceId, importScheduleId, runInterval, startTime. Optional: callbackUrl. Returns the updated ImportScheduleResponse.",
+      "method": "PUT",
+      "path": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/importsource/{importSourceId}/importschedule/{importScheduleId}",
+      "base_url": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1",
+      "params": [
+        {
+          "name": "importSourceId",
+          "type": "string",
+          "location": "path",
+          "description": "The ID of the import source",
+          "required": true
+        },
+        {
+          "name": "importScheduleId",
+          "type": "string",
+          "location": "path",
+          "description": "The ID of the import schedule to update",
+          "required": true
+        },
+        {
+          "name": "callbackUrl",
+          "type": "string",
+          "location": "body",
+          "description": "Optional webhook URL to call after each scheduled import execution. The URL will receive a POST request with execution status."
+        },
+        {
+          "name": "runInterval",
+          "type": "string",
+          "location": "body",
+          "description": "The frequency of the scheduled import. ONCE: runs only at startTime. DAILY: runs every day at the specified time. WEEKLY: runs every 7 days. MONTHLY: runs on the same day of each month.",
+          "required": true
+        },
+        {
+          "name": "startTime",
+          "type": "string",
+          "location": "body",
+          "description": "The date and time when the first import should execute, in ISO 8601 format (e.g., '2024-01-15T02:00:00Z'). Must be in the future.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "importsource_mapping_get-progress",
+      "description": "Get the progress of an asynchronous schema and mapping operation. Required: importSourceId, resourceId.",
+      "method": "GET",
+      "path": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/importsource/{importSourceId}/mapping/progress/{resourceId}",
+      "base_url": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1",
+      "params": [
+        {
+          "name": "importSourceId",
+          "type": "string",
+          "location": "path",
+          "description": "The importSourceId of the import source configuration for the external import",
+          "required": true
+        },
+        {
+          "name": "resourceId",
+          "type": "string",
+          "location": "path",
+          "description": "The resourceId references the running schema and mapping operation",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "importsource_mapping_submit",
+      "description": "Provide object schema and mapping configuration for the external import. Required: importSourceId. Optional: async, mapping, schema.",
+      "method": "PUT",
+      "path": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/importsource/{importSourceId}/mapping",
+      "base_url": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1",
+      "params": [
+        {
+          "name": "importSourceId",
+          "type": "string",
+          "location": "path",
+          "description": "The uuid of the import source configuration for the external import",
+          "required": true
+        },
+        {
+          "name": "async",
+          "type": "bool",
+          "location": "query",
+          "description": "Execute the operation asynchronously"
+        },
+        {
+          "name": "mapping",
+          "type": "object",
+          "location": "body",
+          "description": "Object type and attribute mapping configuration for the import."
+        },
+        {
+          "name": "schema",
+          "type": "object",
+          "location": "body",
+          "description": "Object schema and status schema configuration for the import. Object types, child object types, attributes, and statuses support an optional `displayName`; reference attributes support an optional `referenceTypeDisplayName`."
+        }
+      ]
+    },
+    {
+      "name": "importsource_mapping_update",
+      "description": "Update object schema and mapping configuration for the external import. Required: importSourceId. Optional: async, mapping, schema. Partial update.",
+      "method": "PATCH",
+      "path": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/importsource/{importSourceId}/mapping",
+      "base_url": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1",
+      "params": [
+        {
+          "name": "importSourceId",
+          "type": "string",
+          "location": "path",
+          "description": "The uuid of the import source configuration for the external import",
+          "required": true
+        },
+        {
+          "name": "async",
+          "type": "bool",
+          "location": "query",
+          "description": "Execute the operation asynchronously"
+        },
+        {
+          "name": "mapping",
+          "type": "object",
+          "location": "body",
+          "description": "Object type and attribute mapping configuration for the import."
+        },
+        {
+          "name": "schema",
+          "type": "object",
+          "location": "body",
+          "description": "Object schema and status schema configuration for the import. Object types, child object types, attributes, and statuses support an optional `displayName`; reference attributes support an optional `referenceTypeDisplayName`."
+        }
+      ]
+    },
+    {
+      "name": "importsource_schedule_get-links",
+      "description": "Retrieve links for import schedule operations (create, get, update, delete). Returns a createSchedule link to POST a new schedule, and if a schedule already exists, returns a schedule link that can be used with GET, PUT, or DELETE operations. Required: importSourceId.",
+      "method": "GET",
+      "path": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/importsource/{importSourceId}/schedule",
+      "base_url": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1",
+      "params": [
+        {
+          "name": "importSourceId",
+          "type": "string",
+          "location": "path",
+          "description": "The importSourceId of the import source configuration for the external import",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "importsource_schema-and-mapping_get",
+      "description": "Get the current schema and mapping of the import configuration. Required: importSourceId. Returns the ImportSchemaAndMapping.",
+      "method": "GET",
+      "path": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/importsource/{importSourceId}/schema-and-mapping",
+      "base_url": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1",
+      "params": [
+        {
+          "name": "importSourceId",
+          "type": "string",
+          "location": "path",
+          "description": "The importSourceId of the import source configuration. For use with external imports only",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "importsource_token_generate",
+      "description": "Generate a Bearer token which can be used to authenticate against Assets `/importsource/` APIs, to take actions against the specified import source. Required: importSourceId.",
+      "method": "POST",
+      "path": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/importsource/{importSourceId}/token",
+      "base_url": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1",
+      "params": [
+        {
+          "name": "importSourceId",
+          "type": "string",
+          "location": "path",
+          "description": "importSourceId",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "insight_get-workspaces",
+      "description": "This endpoint is deprecated, please use /assets/workspace/. Optional: offset (default: 0), limit (default: 50). Returns array of InsightWorkspaceDto.",
+      "method": "GET",
+      "path": "/insight/workspace",
+      "params": [
+        {
+          "name": "offset",
+          "wire_name": "start",
+          "type": "int",
+          "location": "query",
+          "description": "Offset"
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Limit"
+        }
+      ]
+    },
+    {
+      "name": "instance_get-info",
+      "description": "This method retrieves information about the Jira Service Management instance such as software version, builds, and related links. **Permissions required**: None, the user does not need to be logged in. Returns the SoftwareInfoDto. (public)",
+      "method": "GET",
+      "path": "/info",
+      "no_auth": true,
+      "params": []
+    },
+    {
+      "name": "iql_find-objects",
+      "description": "Deprecated by Atlassian (removal date passed); use 'object find-by-aql'. This endpoint is deprecated and will be removed on 18th of September 2024. Please use POST `/object/aql` instead. Optional: iql, page (default: 1), per_page (default: 25) (plus 4 more). Returns the ObjectListResult.",
+      "method": "GET",
+      "path": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/iql/objects",
+      "base_url": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1",
+      "params": [
+        {
+          "name": "iql",
+          "type": "string",
+          "location": "query",
+          "description": "The query to determine which objects that should be fetched. E.g. objectType = 'Computer'. The empty AQL means all objects"
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "location": "query",
+          "description": "Which page to fetch when paginating through the response"
+        },
+        {
+          "name": "per_page",
+          "wire_name": "resultPerPage",
+          "type": "int",
+          "location": "query",
+          "description": "The amount of objects returned per page"
+        },
+        {
+          "name": "includeAttributes",
+          "type": "bool",
+          "location": "query",
+          "description": "Should the objects attributes be included in the response."
+        },
+        {
+          "name": "includeAttributesDeep",
+          "type": "int",
+          "location": "query",
+          "description": "How many levels of attributes should be included. E.g. consider an object A that has a reference to object B that has a reference to object C. If object A is included in the response and includeAttributesDeep=1 object A's reference to object B will be included in the attributes of object A but object B's reference to object C will not be included. However if the includeAttributesDeep=2 then object B's reference to object C will be included in object B's attributes"
+        },
+        {
+          "name": "includeTypeAttributes",
+          "type": "bool",
+          "location": "query",
+          "description": "Should the response include the object type attribute definition for each attribute that is returned with the objects"
+        },
+        {
+          "name": "includeExtendedInfo",
+          "type": "bool",
+          "location": "query",
+          "description": "Include information about open Jira issues. Should each object have information if open tickets are connected to the object?"
+        }
+      ]
+    },
+    {
+      "name": "knowledgebase_list-articles",
+      "description": "Returns articles which match the given query string across all service desks. **Permissions required**: Permission to access the [customer portal](https://confluence.atlassian.com/servicedeskcloud/configuring-the-customer-portal-732528918.html). Required: query, highlight (default: false). Optional: offset, limit, cursor (plus 1 more).",
+      "method": "GET",
+      "path": "/knowledgebase/article",
+      "params": [
+        {
+          "name": "query",
+          "type": "string",
+          "location": "query",
+          "description": "The string used to filter the articles (required).",
+          "required": true
+        },
+        {
+          "name": "highlight",
+          "type": "bool",
+          "location": "query",
+          "description": "If set to true matching query term in the title and excerpt will be highlighted using the `@@@hl@@@term@@@endhl@@@` syntax. Default: false.",
+          "required": true
+        },
+        {
+          "name": "offset",
+          "wire_name": "start",
+          "type": "int",
+          "location": "query",
+          "description": "(Deprecated) The starting index of the returned objects. Base index: 0."
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "The maximum number of items to return per page. Default: 50."
+        },
+        {
+          "name": "cursor",
+          "type": "string",
+          "location": "query",
+          "description": "Pointer to a set of search results, returned as part of the next or prev URL from the previous search call."
+        },
+        {
+          "name": "prev",
+          "type": "bool",
+          "location": "query",
+          "description": "Should navigate to the previous page. Defaulted to false. Set to true as part of prev URL from the previous search call."
+        }
+      ]
+    },
+    {
+      "name": "knowledgebase_view-article",
+      "description": "View knowledge base article. Required: pageId. (public)",
+      "method": "GET",
+      "path": "/knowledgebase/article/view/{pageId}",
+      "no_auth": true,
+      "params": [
+        {
+          "name": "pageId",
+          "type": "int",
+          "location": "path",
+          "description": "Page id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "object_count-by-aql",
+      "description": "This API provides the total count of objects that match a specified AQL query. Please note that this operation may incur performance latency. Required: qlQuery. Returns the new ObjectAqltotalCountResult.",
+      "method": "POST",
+      "path": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/object/aql/totalcount",
+      "base_url": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1",
+      "params": [
+        {
+          "name": "qlQuery",
+          "type": "string",
+          "location": "body",
+          "description": "The AQL that will filter the objects.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "object_create",
+      "description": "Create a new object in Assets. Required: attributes, objectTypeId. Optional: avatarUUID, hasAvatar. Returns the new Object.",
+      "method": "POST",
+      "path": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/object/create",
+      "base_url": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1",
+      "params": [
+        {
+          "name": "attributes",
+          "type": "array",
+          "location": "body",
+          "description": "Attributes",
+          "required": true
+        },
+        {
+          "name": "avatarUUID",
+          "type": "string",
+          "location": "body",
+          "description": "The UUID as retrieved by uploading an avatar."
+        },
+        {
+          "name": "hasAvatar",
+          "type": "bool",
+          "location": "body",
+          "description": "Has avatar"
+        },
+        {
+          "name": "objectTypeId",
+          "type": "string",
+          "location": "body",
+          "description": "The object type determines where the object should be stored and which attributes are available",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "object_delete",
+      "description": "Delete the referenced object. Required: id. Returns the Object. Destructive.",
+      "method": "DELETE",
+      "path": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/object/{id}",
+      "base_url": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "The object id to operate on",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "object_find-by-aql",
+      "description": "Fetch Objects by AQL. Required: qlQuery. Optional: startAt (default: 0), maxResults (default: 25), includeAttributes (default: true). Returns the new ObjectListInclTypeAttributesEntryResult.",
+      "method": "POST",
+      "path": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/object/aql",
+      "base_url": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1",
+      "params": [
+        {
+          "name": "startAt",
+          "type": "int",
+          "location": "query",
+          "description": "The starting index for the next page of results"
+        },
+        {
+          "name": "maxResults",
+          "type": "int",
+          "location": "query",
+          "description": "The maximum number of objects to return in this page of results. Actual number of results may be less, for example, if the last page of results is returned."
+        },
+        {
+          "name": "includeAttributes",
+          "type": "bool",
+          "location": "query",
+          "description": "Should the objects attributes be included in the response."
+        },
+        {
+          "name": "qlQuery",
+          "type": "string",
+          "location": "body",
+          "description": "The AQL that will fetch the objects.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "object_get",
+      "description": "Load one object. Required: id. Returns the Object.",
+      "method": "GET",
+      "path": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/object/{id}",
+      "base_url": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "The object id to operate on",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "object_list-connected-tickets",
+      "description": "Relation between Jira issues and Assets objects. Required: objectId. Returns the Tickets.",
+      "method": "GET",
+      "path": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/objectconnectedtickets/{objectId}/tickets",
+      "base_url": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1",
+      "params": [
+        {
+          "name": "objectId",
+          "type": "string",
+          "location": "path",
+          "description": "The id of the object to get connected tickets for",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "object_navlist-aql",
+      "description": "Retrieve a list of objects based on an AQL. Deprecated from 30 September 2024. Please use POST /object/aql instead. For more information please see https://developer.atlassian.com/changelog/#CHANGE-1661. Required: objectSchemaId, objectTypeId, qlQuery, resultsPerPage. Optional: asc, attributesToDisplay, includeAttributes (plus 4 more). Returns the new ObjectListResult.",
+      "method": "POST",
+      "path": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/object/navlist/aql",
+      "base_url": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1",
+      "params": [
+        {
+          "name": "asc",
+          "type": "int",
+          "location": "body",
+          "description": "Sort objects in ascending order or descending order based on the attribute identified by orderByTypeAttrId. 1 means ascending all other values mean descending. The preferred way is to not supply the asc parameter and use an order by in `qlQuery` instead."
+        },
+        {
+          "name": "attributes-to-display-attributes-to-display-ids",
+          "wire_name": "attributesToDisplay.attributesToDisplayIds",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "The identifier of the object type attributes to be displayed",
+          "required": true
+        },
+        {
+          "name": "includeAttributes",
+          "type": "bool",
+          "location": "body",
+          "description": "Should attribute values be included in the response."
+        },
+        {
+          "name": "iql",
+          "type": "string",
+          "location": "body",
+          "description": "**Required if `qlQuery` is not set.** Deprecated. Use `qlQuery` instead."
+        },
+        {
+          "name": "objectId",
+          "type": "string",
+          "location": "body",
+          "description": "Identifies an object that should be included in the result. The page will be calculated accordingly to include the object specified in the result set"
+        },
+        {
+          "name": "objectSchemaId",
+          "type": "string",
+          "location": "body",
+          "description": "Object schema id",
+          "required": true
+        },
+        {
+          "name": "objectTypeId",
+          "type": "string",
+          "location": "body",
+          "description": "Object type id",
+          "required": true
+        },
+        {
+          "name": "orderByTypeAttrId",
+          "type": "int",
+          "location": "body",
+          "description": "Which attribute should be used to order by. The preferred way is to use an order by in `qlQuery` and not pass this argument."
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "location": "body",
+          "description": "The requested page to be loaded for a paginated result. The default value is page = 1"
+        },
+        {
+          "name": "qlQuery",
+          "type": "string",
+          "location": "body",
+          "description": "The AQL that will fetch the objects. The object type parameter will be appended implicitly to this AQL",
+          "required": true
+        },
+        {
+          "name": "resultsPerPage",
+          "type": "int",
+          "location": "body",
+          "description": "How many objects should be returned in the request. It is used with page attribute for pagination.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "object_navlist-iql",
+      "description": "Deprecated by Atlassian (removal date passed); use 'object navlist-aql'. Deprecated. Use `/object/navlist/aql` instead. Required: objectSchemaId, objectTypeId, qlQuery, resultsPerPage. Optional: asc, attributesToDisplay, includeAttributes (plus 4 more). Returns the new ObjectListResult.",
+      "method": "POST",
+      "path": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/object/navlist/iql",
+      "base_url": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1",
+      "params": [
+        {
+          "name": "asc",
+          "type": "int",
+          "location": "body",
+          "description": "Sort objects in ascending order or descending order based on the attribute identified by orderByTypeAttrId. 1 means ascending all other values mean descending. The preferred way is to not supply the asc parameter and use an order by in `qlQuery` instead."
+        },
+        {
+          "name": "attributes-to-display-attributes-to-display-ids",
+          "wire_name": "attributesToDisplay.attributesToDisplayIds",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "The identifier of the object type attributes to be displayed",
+          "required": true
+        },
+        {
+          "name": "includeAttributes",
+          "type": "bool",
+          "location": "body",
+          "description": "Should attribute values be included in the response."
+        },
+        {
+          "name": "iql",
+          "type": "string",
+          "location": "body",
+          "description": "**Required if `qlQuery` is not set.** Deprecated. Use `qlQuery` instead."
+        },
+        {
+          "name": "objectId",
+          "type": "string",
+          "location": "body",
+          "description": "Identifies an object that should be included in the result. The page will be calculated accordingly to include the object specified in the result set"
+        },
+        {
+          "name": "objectSchemaId",
+          "type": "string",
+          "location": "body",
+          "description": "Object schema id",
+          "required": true
+        },
+        {
+          "name": "objectTypeId",
+          "type": "string",
+          "location": "body",
+          "description": "Object type id",
+          "required": true
+        },
+        {
+          "name": "orderByTypeAttrId",
+          "type": "int",
+          "location": "body",
+          "description": "Which attribute should be used to order by. The preferred way is to use an order by in `qlQuery` and not pass this argument."
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "location": "body",
+          "description": "The requested page to be loaded for a paginated result. The default value is page = 1"
+        },
+        {
+          "name": "qlQuery",
+          "type": "string",
+          "location": "body",
+          "description": "The AQL that will fetch the objects. The object type parameter will be appended implicitly to this AQL",
+          "required": true
+        },
+        {
+          "name": "resultsPerPage",
+          "type": "int",
+          "location": "body",
+          "description": "How many objects should be returned in the request. It is used with page attribute for pagination.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "object_update",
+      "description": "Update an existing object in Assets. Required: id, attributes, objectTypeId. Optional: avatarUUID, hasAvatar. Returns the updated Object.",
+      "method": "PUT",
+      "path": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/object/{id}",
+      "base_url": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "The object id to operate on",
+          "required": true
+        },
+        {
+          "name": "attributes",
+          "type": "array",
+          "location": "body",
+          "description": "Attributes",
+          "required": true
+        },
+        {
+          "name": "avatarUUID",
+          "type": "string",
+          "location": "body",
+          "description": "The UUID as retrieved by uploading an avatar."
+        },
+        {
+          "name": "hasAvatar",
+          "type": "bool",
+          "location": "body",
+          "description": "Has avatar"
+        },
+        {
+          "name": "objectTypeId",
+          "type": "string",
+          "location": "body",
+          "description": "The object type determines where the object should be stored and which attributes are available",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "object_attributes_list",
+      "description": "List all attributes for the given object. Required: id. Returns array of ObjectAttribute.",
+      "method": "GET",
+      "path": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/object/{id}/attributes",
+      "base_url": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "The object id to operate on",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "object_history_list",
+      "description": "Retrieve the history entries for this object. Required: id. Optional: asc. Returns array of ObjectHistory.",
+      "method": "GET",
+      "path": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/object/{id}/history",
+      "base_url": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "The object id to operate on",
+          "required": true
+        },
+        {
+          "name": "asc",
+          "type": "bool",
+          "location": "query",
+          "description": "Should the history be retrieved in ascending order"
+        }
+      ]
+    },
+    {
+      "name": "object_referenceinfo_list-references",
+      "description": "Find all references for an object. Required: id. Returns array of ObjectReferenceTypeInfo.",
+      "method": "GET",
+      "path": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/object/{id}/referenceinfo",
+      "base_url": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "The object id to operate on",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "objectschema_create",
+      "description": "Create a new object schema. Required: name, objectSchemaKey. Optional: description, displayName. Returns the new ObjectSchema.",
+      "method": "POST",
+      "path": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/objectschema/create",
+      "base_url": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1",
+      "params": [
+        {
+          "name": "description",
+          "type": "string",
+          "location": "body",
+          "description": "Description"
+        },
+        {
+          "name": "displayName",
+          "type": "string",
+          "location": "body",
+          "description": "Display name"
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Name",
+          "required": true
+        },
+        {
+          "name": "objectSchemaKey",
+          "type": "string",
+          "location": "body",
+          "description": "Object schema key",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "objectschema_delete",
+      "description": "Delete a schema. Required: id. Returns the ObjectSchema. Destructive.",
+      "method": "DELETE",
+      "path": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/objectschema/{id}",
+      "base_url": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "The object schema id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "objectschema_get",
+      "description": "Find a schema by id. Required: id. Returns the ObjectSchema.",
+      "method": "GET",
+      "path": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/objectschema/{id}",
+      "base_url": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "The object schema id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "objectschema_list",
+      "description": "Resource to find object schemas in Assets. Optional: query, offset (default: 0), maxResults (default: 25) (plus 1 more). Returns array of ObjectSchema.",
+      "method": "GET",
+      "path": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/objectschema/list",
+      "base_url": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1",
+      "params": [
+        {
+          "name": "query",
+          "type": "string",
+          "location": "query",
+          "description": "A case-insensitive query used to filter object schemas whose name or display name contains the value"
+        },
+        {
+          "name": "offset",
+          "wire_name": "startAt",
+          "type": "int",
+          "location": "query",
+          "description": "The starting index for the next page of results"
+        },
+        {
+          "name": "maxResults",
+          "type": "int",
+          "location": "query",
+          "description": "The maximum number of objects to return in this page of results. Actual number of results may be less, for example, if the last page of results is returned."
+        },
+        {
+          "name": "includeCounts",
+          "type": "bool",
+          "location": "query",
+          "description": "Should the object and object type count for schema be included in the response. If this parameter is false, object and object type count will return 0."
+        }
+      ]
+    },
+    {
+      "name": "objectschema_update",
+      "description": "Update an object schema. Required: id. Optional: description, displayName, name (plus 1 more). Returns the updated ObjectSchema.",
+      "method": "PUT",
+      "path": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/objectschema/{id}",
+      "base_url": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "The object schema id",
+          "required": true
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "location": "body",
+          "description": "Description"
+        },
+        {
+          "name": "displayName",
+          "type": "string",
+          "location": "body",
+          "description": "Display name"
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Name"
+        },
+        {
+          "name": "objectSchemaKey",
+          "type": "string",
+          "location": "body",
+          "description": "Object schema key"
+        }
+      ]
+    },
+    {
+      "name": "objectschema_attributes_list",
+      "description": "Find all object type attributes for this object schema. Required: id. Optional: onlyValueEditable (default: false), extended (default: false), query. Returns array of ObjectTypeAttribute.",
+      "method": "GET",
+      "path": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/objectschema/{id}/attributes",
+      "base_url": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "The object schema id",
+          "required": true
+        },
+        {
+          "name": "onlyValueEditable",
+          "type": "bool",
+          "location": "query",
+          "description": "Return only values that are associated with values that can be edited"
+        },
+        {
+          "name": "extended",
+          "type": "bool",
+          "location": "query",
+          "description": "Include the object type with each object type attribute"
+        },
+        {
+          "name": "query",
+          "type": "string",
+          "location": "query",
+          "description": "A case-insensitive query used to filter object type attributes whose name or display name contains the value"
+        }
+      ]
+    },
+    {
+      "name": "objectschema_objecttypes_list",
+      "description": "Find all object types for this object schema. Required: id. Optional: excludeAbstract (default: false). Returns array of ObjectType.",
+      "method": "GET",
+      "path": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/objectschema/{id}/objecttypes",
+      "base_url": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "The object schema id",
+          "required": true
+        },
+        {
+          "name": "excludeAbstract",
+          "type": "bool",
+          "location": "query",
+          "description": "If true, filters out Abstract Object Types from the results"
+        }
+      ]
+    },
+    {
+      "name": "objectschema_objecttypes_list-flat",
+      "description": "Find all object types for this object schema. Required: id. Optional: query, exclude, includeObjectCounts (default: false). Returns array of ObjectType.",
+      "method": "GET",
+      "path": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/objectschema/{id}/objecttypes/flat",
+      "base_url": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "The object schema id",
+          "required": true
+        },
+        {
+          "name": "query",
+          "type": "string",
+          "location": "query",
+          "description": "A case-insensitive query used to filter object types whose name or display name starts with the value"
+        },
+        {
+          "name": "exclude",
+          "type": "string",
+          "location": "query",
+          "description": "Exclude object types whose name or display name exactly matches this value, ignoring case"
+        },
+        {
+          "name": "includeObjectCounts",
+          "type": "bool",
+          "location": "query",
+          "description": "If true, the objectCount attribute is populated for each object type"
+        }
+      ]
+    },
+    {
+      "name": "objecttype_create",
+      "description": "Create a new object type. Required: iconId, name, objectSchemaId. Optional: abstractObjectType, description, displayName (plus 2 more). Returns the new ObjectType.",
+      "method": "POST",
+      "path": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/objecttype/create",
+      "base_url": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1",
+      "params": [
+        {
+          "name": "abstractObjectType",
+          "type": "bool",
+          "location": "body",
+          "description": "Abstract object type"
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "location": "body",
+          "description": "Description"
+        },
+        {
+          "name": "displayName",
+          "type": "string",
+          "location": "body",
+          "description": "Display name"
+        },
+        {
+          "name": "iconId",
+          "type": "string",
+          "location": "body",
+          "description": "Icon id",
+          "required": true
+        },
+        {
+          "name": "inherited",
+          "type": "bool",
+          "location": "body",
+          "description": "Describes if this object type is configured for inheritance i.e. it's children inherits the attributes of this object type"
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Name",
+          "required": true
+        },
+        {
+          "name": "objectSchemaId",
+          "type": "string",
+          "location": "body",
+          "description": "Object schema id",
+          "required": true
+        },
+        {
+          "name": "parentObjectTypeId",
+          "type": "string",
+          "location": "body",
+          "description": "The id of the parent object type"
+        }
+      ]
+    },
+    {
+      "name": "objecttype_delete",
+      "description": "Delete an object type. Required: id. Returns the ObjectType. Destructive.",
+      "method": "DELETE",
+      "path": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/objecttype/{id}",
+      "base_url": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "objecttype_get",
+      "description": "Find an object type by id. Required: id. Returns the ObjectType.",
+      "method": "GET",
+      "path": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/objecttype/{id}",
+      "base_url": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "objecttype_update",
+      "description": "Update an existing object type. Required: id. Optional: abstractObjectType, description, displayName (plus 3 more). Returns the updated ObjectType.",
+      "method": "PUT",
+      "path": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/objecttype/{id}",
+      "base_url": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Id",
+          "required": true
+        },
+        {
+          "name": "abstractObjectType",
+          "type": "bool",
+          "location": "body",
+          "description": "Abstract object type"
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "location": "body",
+          "description": "Description"
+        },
+        {
+          "name": "displayName",
+          "type": "string",
+          "location": "body",
+          "description": "Display name"
+        },
+        {
+          "name": "iconId",
+          "type": "string",
+          "location": "body",
+          "description": "Icon id"
+        },
+        {
+          "name": "inherited",
+          "type": "bool",
+          "location": "body",
+          "description": "Describes if this object type is configured for inheritance i.e. it's children inherits the attributes of this object type"
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Name"
+        }
+      ]
+    },
+    {
+      "name": "objecttype_attributes_list",
+      "description": "Find all attributes for this object type. Required: id. Optional: onlyValueEditable (default: false), orderByName (default: false), query (plus 4 more). Returns array of ObjectTypeAttribute.",
+      "method": "GET",
+      "path": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/objecttype/{id}/attributes",
+      "base_url": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Id",
+          "required": true
+        },
+        {
+          "name": "onlyValueEditable",
+          "type": "bool",
+          "location": "query",
+          "description": "Only value editable"
+        },
+        {
+          "name": "orderByName",
+          "type": "bool",
+          "location": "query",
+          "description": "Order by name"
+        },
+        {
+          "name": "query",
+          "type": "string",
+          "location": "query",
+          "description": "A comma-separated list of case-insensitive prefixes; an attribute is included when its name or display name starts with any value"
+        },
+        {
+          "name": "includeValuesExist",
+          "type": "bool",
+          "location": "query",
+          "description": "Include values exist"
+        },
+        {
+          "name": "excludeParentAttributes",
+          "type": "bool",
+          "location": "query",
+          "description": "Exclude parent attributes"
+        },
+        {
+          "name": "includeChildren",
+          "type": "bool",
+          "location": "query",
+          "description": "Include children"
+        },
+        {
+          "name": "orderByRequired",
+          "type": "bool",
+          "location": "query",
+          "description": "Order by required"
+        }
+      ]
+    },
+    {
+      "name": "objecttype_position_change",
+      "description": "Change position of this object type. Required: id, position. Optional: toObjectTypeId. Returns the new ObjectType.",
+      "method": "POST",
+      "path": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/objecttype/{id}/position",
+      "base_url": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Id",
+          "required": true
+        },
+        {
+          "name": "position",
+          "type": "int",
+          "location": "body",
+          "description": "The preffered position",
+          "required": true
+        },
+        {
+          "name": "toObjectTypeId",
+          "type": "string",
+          "location": "body",
+          "description": "The desired new parent of the object type"
+        }
+      ]
+    },
+    {
+      "name": "objecttypeattribute_create",
+      "description": "Create a new attribute on the given object type. Required: objectTypeId, name, type. Optional: additionalValue, defaultTypeId, description (plus 15 more). Returns the new ObjectTypeAttribute.",
+      "method": "POST",
+      "path": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/objecttypeattribute/{objectTypeId}",
+      "base_url": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1",
+      "params": [
+        {
+          "name": "objectTypeId",
+          "type": "string",
+          "location": "path",
+          "description": "The object type id that has this object type attribute associated with it",
+          "required": true
+        },
+        {
+          "name": "additionalValue",
+          "type": "string",
+          "location": "body",
+          "description": "Valid for Type Url, User, Object and Confluence. For Url (DISABLED, ENABLED), for Object (ReferenceTypeId), for User (SHOW_PROFILE, HIDE_PROFILE), for Confluence (Confluence Space Id). It is mandatory for Type = Object reference"
+        },
+        {
+          "name": "defaultTypeId",
+          "type": "int",
+          "location": "body",
+          "description": "| Id | Description (mandatory if type = Default) | | -- | ----------- | | -1 | None | | 0 | Text | | 1 | Integer | | 2 | Boolean | | 3 | Double | | 4 | Date | | 5 | Time | | 6 | DateTime | | 7 | Url | | 8 | Email | | 9 | Textarea | | 10 | Select | | 11 | IP Address |"
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "location": "body",
+          "description": "Description"
+        },
+        {
+          "name": "displayName",
+          "type": "string",
+          "location": "body",
+          "description": "Display name"
+        },
+        {
+          "name": "hidden",
+          "type": "bool",
+          "location": "body",
+          "description": "Hide the object type attributes for Assets Users"
+        },
+        {
+          "name": "includeChildObjectTypes",
+          "type": "bool",
+          "location": "body",
+          "description": "Valid for Type = Object reference and describes if children object types should be included in the selectable objects as well"
+        },
+        {
+          "name": "iql",
+          "type": "string",
+          "location": "body",
+          "description": "Deprecated. Use `qlQuery` instead. Valid for Type object reference."
+        },
+        {
+          "name": "label",
+          "type": "bool",
+          "location": "body",
+          "description": "Label"
+        },
+        {
+          "name": "maximumCardinality",
+          "type": "int",
+          "location": "body",
+          "description": "Valid for Type Email, Select, Object, User, Group, Version and Project"
+        },
+        {
+          "name": "minimumCardinality",
+          "type": "int",
+          "location": "body",
+          "description": "Valid for Type Email, Select, Object, User, Group, Version and Project"
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Name",
+          "required": true
+        },
+        {
+          "name": "options",
+          "type": "string",
+          "location": "body",
+          "description": "Valid for Type Select. A comma separated list of all chosable options"
+        },
+        {
+          "name": "qlQuery",
+          "type": "string",
+          "location": "body",
+          "description": "Valid for Type object reference. Allows specifying an AQL query to restrict which objects are selectable."
+        },
+        {
+          "name": "regexValidation",
+          "type": "string",
+          "location": "body",
+          "description": "Valid for Type Text and Email"
+        },
+        {
+          "name": "suffix",
+          "type": "string",
+          "location": "body",
+          "description": "Valid for Integer and Double object type attributes"
+        },
+        {
+          "name": "summable",
+          "type": "bool",
+          "location": "body",
+          "description": "Valid for Type Integer and Double. Should a sum be included in the view"
+        },
+        {
+          "name": "type",
+          "type": "int",
+          "location": "body",
+          "description": "| Value | Description| | ----- | ----------- | | 0 | Default| | 1 | Object reference| | 2 | User| | 4 | Group | | 7 | Status |",
+          "required": true
+        },
+        {
+          "name": "typeValue",
+          "type": "string",
+          "location": "body",
+          "description": "It is mandatory for Type = Object reference and should point to the referenced object type id"
+        },
+        {
+          "name": "typeValueMulti",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Valid for Type User. The Jira groups to restrict selection to"
+        },
+        {
+          "name": "uniqueAttribute",
+          "type": "bool",
+          "location": "body",
+          "description": "Should the values be unique for object attributes associated with this object type attribute"
+        }
+      ]
+    },
+    {
+      "name": "objecttypeattribute_delete",
+      "description": "Delete an existing object type attribute. Required: id. Destructive.",
+      "method": "DELETE",
+      "path": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/objecttypeattribute/{id}",
+      "base_url": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "The object type attribute id to be manipulated",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "objecttypeattribute_update",
+      "description": "Update an existing object type attribute. Required: id, objectTypeId. Optional: additionalValue, defaultTypeId, description (plus 17 more). Returns the updated ObjectTypeAttribute.",
+      "method": "PUT",
+      "path": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/objecttypeattribute/{objectTypeId}/{id}",
+      "base_url": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "The object type attribute to manipulate",
+          "required": true
+        },
+        {
+          "name": "objectTypeId",
+          "type": "string",
+          "location": "path",
+          "description": "The object type id that has this object type attribute associated with it",
+          "required": true
+        },
+        {
+          "name": "additionalValue",
+          "type": "string",
+          "location": "body",
+          "description": "Valid for Type Url, User, Object and Confluence. For Url (DISABLED, ENABLED), for Object (ReferenceTypeId), for User (SHOW_PROFILE, HIDE_PROFILE), for Confluence (Confluence Space Id). It is mandatory for Type = Object reference"
+        },
+        {
+          "name": "defaultTypeId",
+          "type": "int",
+          "location": "body",
+          "description": "| Id | Description (mandatory if type = Default) | | -- | ----------- | | -1 | None | | 0 | Text | | 1 | Integer | | 2 | Boolean | | 3 | Double | | 4 | Date | | 5 | Time | | 6 | DateTime | | 7 | Url | | 8 | Email | | 9 | Textarea | | 10 | Select | | 11 | IP Address |"
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "location": "body",
+          "description": "Description"
+        },
+        {
+          "name": "displayName",
+          "type": "string",
+          "location": "body",
+          "description": "Display name"
+        },
+        {
+          "name": "hidden",
+          "type": "bool",
+          "location": "body",
+          "description": "Hide the object type attributes for Assets Users"
+        },
+        {
+          "name": "includeChildObjectTypes",
+          "type": "bool",
+          "location": "body",
+          "description": "Valid for Type = Object reference and describes if children object types should be included in the selectable objects as well"
+        },
+        {
+          "name": "iql",
+          "type": "string",
+          "location": "body",
+          "description": "Deprecated. Use `qlQuery` instead. Valid for Type object reference."
+        },
+        {
+          "name": "label",
+          "type": "bool",
+          "location": "body",
+          "description": "Label"
+        },
+        {
+          "name": "maximumCardinality",
+          "type": "int",
+          "location": "body",
+          "description": "Valid for Type Email, Select, Object, User, Group, Version and Project"
+        },
+        {
+          "name": "minimumCardinality",
+          "type": "int",
+          "location": "body",
+          "description": "Valid for Type Email, Select, Object, User, Group, Version and Project"
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Name"
+        },
+        {
+          "name": "options",
+          "type": "string",
+          "location": "body",
+          "description": "Valid for Type Select. A comma separated list of all chosable options"
+        },
+        {
+          "name": "qlQuery",
+          "type": "string",
+          "location": "body",
+          "description": "Valid for Type object reference. Allows specifying an AQL query to restrict which objects are selectable."
+        },
+        {
+          "name": "regexValidation",
+          "type": "string",
+          "location": "body",
+          "description": "Valid for Type Text and Email"
+        },
+        {
+          "name": "suffix",
+          "type": "string",
+          "location": "body",
+          "description": "Valid for Integer and Double object type attributes"
+        },
+        {
+          "name": "summable",
+          "type": "bool",
+          "location": "body",
+          "description": "Valid for Type Integer and Double. Should a sum be included in the view"
+        },
+        {
+          "name": "type",
+          "type": "int",
+          "location": "body",
+          "description": "| Value | Description| | ----- | ----------- | | 0 | Default| | 1 | Object reference| | 2 | User| | 4 | Group | | 7 | Status |"
+        },
+        {
+          "name": "typeValue",
+          "type": "string",
+          "location": "body",
+          "description": "It is mandatory for Type = Object reference and should point to the referenced object type id"
+        },
+        {
+          "name": "typeValueMulti",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Valid for Type User. The Jira groups to restrict selection to"
+        },
+        {
+          "name": "uniqueAttribute",
+          "type": "bool",
+          "location": "body",
+          "description": "Should the values be unique for object attributes associated with this object type attribute"
+        }
+      ]
+    },
+    {
+      "name": "organization_create",
+      "description": "This method creates an organization by passing the name of the organization. **Permissions required**: Service desk administrator or agent. Note: Permission to create organizations can be switched to users with the Jira administrator permission, using the **[Organization management](https://confluence.atlassian.com/servicedeskcloud/setting-up-service-desk-users-732528877.html#Settingupservicedeskusers-manageorgsManageorganizations)** feature. Required: name. Returns the new OrganizationDto.",
+      "method": "POST",
+      "path": "/organization",
+      "params": [
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Name of the organization. Must contain 1-200 characters.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "organization_delete",
+      "description": "This method deletes an organization. Note that the organization is deleted regardless of other associations it may have. For example, associations with service desks. **Permissions required**: Jira administrator. Required: organizationId. Destructive.",
+      "method": "DELETE",
+      "path": "/organization/{organizationId}",
+      "params": [
+        {
+          "name": "organizationId",
+          "type": "int",
+          "location": "path",
+          "description": "The ID of the organization.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "organization_get",
+      "description": "This method returns details of an organization. Use this method to get organization details whenever your application component is passed an organization ID but needs to display other organization details. To get organization detail field values which are visible in Jira Service Management, see the [Customer Service Management REST API](https://developer.atlassian.com/cloud/customer-service-management/rest/v1/api-group-organization/#api-group-organization). **Permissions required**: Any **Response limitations**: Customers can only retrieve organization of which they are members. Required: organizationId.",
+      "method": "GET",
+      "path": "/organization/{organizationId}",
+      "params": [
+        {
+          "name": "organizationId",
+          "type": "int",
+          "location": "path",
+          "description": "The ID of the organization.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "organization_list",
+      "description": "This method returns a list of organizations in the Jira Service Management instance. Use this method when you want to present a list of organizations or want to locate an organization by name. **Permissions required**: Any. However, to fetch organizations based on `accountId` the user must have a Service Desk agent license. **Response limitations**: If the user is a customer, only those organizations of which the customer is a member are listed. Optional: offset, limit, accountId.",
+      "method": "GET",
+      "path": "/organization",
+      "params": [
+        {
+          "name": "offset",
+          "wire_name": "start",
+          "type": "int",
+          "location": "query",
+          "description": "The starting index of the returned objects."
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "The maximum number of organizations to return per page. Default: 50. See the Pagination section for more details."
+        },
+        {
+          "name": "accountId",
+          "type": "string",
+          "location": "query",
+          "description": "The account ID of the user, which uniquely identifies the user across all Atlassian products. For example, *5b10ac8d82e05b22cc7d4ef5*."
+        }
+      ]
+    },
+    {
+      "name": "organization_property_delete",
+      "description": "Removes an organization property. Organization properties are a type of entity property which are available to the API only, and not shown in Jira Service Management. [Learn more](https://developer.atlassian.com/cloud/jira/platform/jira-entity-properties/). For operations relating to organization detail field values which are visible in Jira Service Management, see the [Customer Service Management REST API](https://developer.atlassian.com/cloud/customer-service-management/rest/v1/api-group-organization/#api-group-organization). **Permissions required**: Service Desk Administrator or Agent. Note: Permission to manage organizations can be switched to users with the Jira administrator permission, using the **[Organization management](https://confluence.atlassian.com/servicedeskcloud/setting-up-service-desk-users-732528877.html#Settingupservicedeskusers-manageorgsManageorganizations)** feature. Required: organizationId, propertyKey. Destructive.",
+      "method": "DELETE",
+      "path": "/organization/{organizationId}/property/{propertyKey}",
+      "params": [
+        {
+          "name": "organizationId",
+          "type": "string",
+          "location": "path",
+          "description": "The ID of the organization from which the property will be removed.",
+          "required": true
+        },
+        {
+          "name": "propertyKey",
+          "type": "string",
+          "location": "path",
+          "description": "The key of the property to remove.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "organization_property_get",
+      "description": "Returns the value of an organization property. Use this method to obtain the JSON content for an organization's property. Organization properties are a type of entity property which are available to the API only, and not shown in Jira Service Management. [Learn more](https://developer.atlassian.com/cloud/jira/platform/jira-entity-properties/). To get organization detail field values which are visible in Jira Service Management, see the [Customer Service Management REST API](https://developer.atlassian.com/cloud/customer-service-management/rest/v1/api-group-organization/#api-group-organization). **Permissions required**: Any **Response limitations**: Customers can only access properties of organizations of which they are members. Required: organizationId, propertyKey.",
+      "method": "GET",
+      "path": "/organization/{organizationId}/property/{propertyKey}",
+      "params": [
+        {
+          "name": "organizationId",
+          "type": "string",
+          "location": "path",
+          "description": "The ID of the organization from which the property will be returned.",
+          "required": true
+        },
+        {
+          "name": "propertyKey",
+          "type": "string",
+          "location": "path",
+          "description": "The key of the property to return.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "organization_property_list-keys",
+      "description": "Returns the keys of all organization properties. Organization properties are a type of entity property which are available to the API only, and not shown in Jira Service Management. [Learn more](https://developer.atlassian.com/cloud/jira/platform/jira-entity-properties/). To get organization detail field values which are visible in Jira Service Management, see the [Customer Service Management REST API](https://developer.atlassian.com/cloud/customer-service-management/rest/v1/api-group-organization/#api-group-organization). **Permissions required**: Any **Response limitations**: Customers can only access properties of organizations of which they are members. Required: organizationId.",
+      "method": "GET",
+      "path": "/organization/{organizationId}/property",
+      "params": [
+        {
+          "name": "organizationId",
+          "type": "string",
+          "location": "path",
+          "description": "The ID of the organization from which keys will be returned.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "organization_property_set",
+      "description": "Sets the value of an organization property. Use this resource to store custom data against an organization. Organization properties are a type of entity property which are available to the API only, and not shown in Jira Service Management. [Learn more](https://developer.atlassian.com/cloud/jira/platform/jira-entity-properties/). To store organization detail field values which are visible in Jira Service Management, see the [Customer Service Management REST API](https://developer.atlassian.com/cloud/customer-service-management/rest/v1/api-group-organization/#api-group-organization). **Permissions required**: Service Desk Administrator or Agent. Note: Permission to manage organizations can be switched to users with the Jira administrator permission, using the **[Organization management](https://confluence.atlassian.com/servicedeskcloud/setting-up-service-desk-users-732528877.html#Settingupservicedeskusers-manageorgsManageorganizations)** feature. Required: organizationId, propertyKey.",
+      "method": "PUT",
+      "path": "/organization/{organizationId}/property/{propertyKey}",
+      "params": [
+        {
+          "name": "organizationId",
+          "type": "string",
+          "location": "path",
+          "description": "The ID of the organization on which the property will be set.",
+          "required": true
+        },
+        {
+          "name": "propertyKey",
+          "type": "string",
+          "location": "path",
+          "description": "The key of the organization's property. The maximum length of the key is 255 bytes.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "organization_user_add",
+      "description": "This method adds users to an organization. **Permissions required**: Service desk administrator or agent. Note: Permission to add users to an organization can be switched to users with the Jira administrator permission, using the **[Organization management](https://confluence.atlassian.com/servicedeskcloud/setting-up-service-desk-users-732528877.html#Settingupservicedeskusers-manageorgsManageorganizations)** feature. Required: organizationId. Optional: accountIds, organization-id-2, usernames.",
+      "method": "POST",
+      "path": "/organization/{organizationId}/user",
+      "params": [
+        {
+          "name": "organizationId",
+          "type": "int",
+          "location": "path",
+          "description": "The ID of the organization.",
+          "required": true
+        },
+        {
+          "name": "accountIds",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "List of customers, specific by account IDs, to add to or remove from the organization."
+        },
+        {
+          "name": "organization-id-2",
+          "wire_name": "organizationId",
+          "type": "int",
+          "location": "body",
+          "description": "The organizationId in which users need to be added"
+        },
+        {
+          "name": "usernames",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "This property is no longer available and will be removed from the documentation soon."
+        }
+      ]
+    },
+    {
+      "name": "organization_user_list",
+      "description": "This method returns all the users associated with an organization. Use this method where you want to provide a list of users for an organization or determine if a user is associated with an organization. **Permissions required**: Service desk administrator or agent. Required: organizationId. Optional: offset, limit.",
+      "method": "GET",
+      "path": "/organization/{organizationId}/user",
+      "params": [
+        {
+          "name": "organizationId",
+          "type": "int",
+          "location": "path",
+          "description": "The ID of the organization.",
+          "required": true
+        },
+        {
+          "name": "offset",
+          "wire_name": "start",
+          "type": "int",
+          "location": "query",
+          "description": "The starting index of the returned objects."
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "The maximum number of users to return per page. Default: 50. See the Pagination section for more details."
+        }
+      ]
+    },
+    {
+      "name": "organization_user_remove",
+      "description": "This method removes users from an organization. **Permissions required**: Service desk administrator or agent. Note: Permission to delete users from an organization can be switched to users with the Jira administrator permission, using the **[Organization management](https://confluence.atlassian.com/servicedeskcloud/setting-up-service-desk-users-732528877.html#Settingupservicedeskusers-manageorgsManageorganizations)** feature. Required: organizationId. Optional: accountIds, organization-id-2, usernames. Destructive.",
+      "method": "DELETE",
+      "path": "/organization/{organizationId}/user",
+      "params": [
+        {
+          "name": "organizationId",
+          "type": "int",
+          "location": "path",
+          "description": "The ID of the organization.",
+          "required": true
+        },
+        {
+          "name": "accountIds",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "List of customers, specific by account IDs, to add to or remove from the organization."
+        },
+        {
+          "name": "organization-id-2",
+          "wire_name": "organizationId",
+          "type": "int",
+          "location": "body",
+          "description": "The organizationId in which users need to be added"
+        },
+        {
+          "name": "usernames",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "This property is no longer available and will be removed from the documentation soon."
+        }
+      ]
+    },
+    {
+      "name": "progress_get-import",
+      "description": "Show ongoing import process. Required: id. Returns the Progress.",
+      "method": "GET",
+      "path": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/progress/category/imports/{id}",
+      "base_url": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "The id of the import source configuration that the progress should be fetched for",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "request_create",
+      "description": "This method creates a customer request in a service desk. The JSON request must include the service desk and customer request type, as well as any fields that are required for the request type. A list of the fields required by a customer request type can be obtained using servicedesk/{serviceDeskId}/requesttype/{requestTypeId}/field. The fields required for a customer request type depend on the user's permissions: * `raiseOnBehalfOf` is not available to Users who have the customer permission only. * `requestParticipants` is not available to Users who have the customer permission only or if the feature is turned off for customers. `requestFieldValues` is a map of Jira field IDs and their values. See Field input formats, for details of each field's JSON semantics and the values they can take. **Permissions required**: Permission to create requests in the specified service desk. Optional: channel, form, isAdfRequest (plus 5 more). Returns the new CustomerRequestDto.",
+      "method": "POST",
+      "path": "/request",
+      "params": [
+        {
+          "name": "channel",
+          "type": "string",
+          "location": "body",
+          "description": "(Experimental) Shows extra information for the request channel."
+        },
+        {
+          "name": "form-answers",
+          "wire_name": "form.answers",
+          "type": "object",
+          "location": "body",
+          "description": "JSON mapping of form field answers containing form field IDs and corresponding values."
+        },
+        {
+          "name": "isAdfRequest",
+          "type": "bool",
+          "location": "body",
+          "description": "(Experimental) Whether to accept rich text fields in Atlassian Document Format (ADF)."
+        },
+        {
+          "name": "raiseOnBehalfOf",
+          "type": "string",
+          "location": "body",
+          "description": "The `accountId` of the customer that the request is being raised on behalf of."
+        },
+        {
+          "name": "requestFieldValues",
+          "type": "object",
+          "location": "body",
+          "description": "JSON map of Jira field IDs and their values representing the content of the request."
+        },
+        {
+          "name": "requestParticipants",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "List of customers to participate in the request, as a list of `accountId` values."
+        },
+        {
+          "name": "requestTypeId",
+          "type": "string",
+          "location": "body",
+          "description": "ID of the request type for the request."
+        },
+        {
+          "name": "serviceDeskId",
+          "type": "string",
+          "location": "body",
+          "description": "ID of the service desk in which to create the request."
+        }
+      ]
+    },
+    {
+      "name": "request_get",
+      "description": "This method returns a customer request. **Permissions required**: Permission to access the specified service desk. **Response limitations**: For customers, only a request they created, was created on their behalf, or they are participating in will be returned. **Note:** `requestFieldValues` does not include hidden fields. To get a list of request type fields that includes hidden fields, see [/rest/servicedeskapi/servicedesk/{serviceDeskId}/requesttype/{requestTypeId}/field](https://developer.atlassian.com/cloud/jira/service-desk/rest/api-group-servicedesk/#api-rest-servicedeskapi-servicedesk-servicedeskid-requesttype-requesttypeid-field-get). Required: issueIdOrKey. Optional: expand.",
+      "method": "GET",
+      "path": "/request/{issueIdOrKey}",
+      "params": [
+        {
+          "name": "issueIdOrKey",
+          "type": "string",
+          "location": "path",
+          "description": "The ID or Key of the customer request to be returned",
+          "required": true
+        },
+        {
+          "name": "expand",
+          "type": "array",
+          "location": "query",
+          "description": "A multi-value parameter indicating which properties of the customer request to expand, where: * `serviceDesk` returns additional service desk details. * `requestType` returns additional customer request type details. * `participant` returns the participant details. * `sla` returns the SLA information. * `status` returns the status transitions, in chronological order. * `attachment` returns the attachments. * `action` returns the actions that the user can or cannot perform. * `comment` returns the comments. * `comment.attachment` returns the attachment details for each comment. * `comment.renderedBody` (Experimental) return the rendered body in HTML format (in addition to the raw body) for each comment."
+        }
+      ]
+    },
+    {
+      "name": "request_list",
+      "description": "This method returns all customer requests for the user executing the query. The returned customer requests are ordered chronologically by the latest activity on each request. For example, the latest status transition or comment. **Permissions required**: Permission to access the specified service desk. **Response limitations**: For customers, the list returned will include request they created (or were created on their behalf) or are participating in only. Optional: searchTerm, requestOwnership, requestStatus (plus 7 more).",
+      "method": "GET",
+      "path": "/request",
+      "params": [
+        {
+          "name": "searchTerm",
+          "type": "string",
+          "location": "query",
+          "description": "Filters customer requests where the request summary matches the `searchTerm`. [Wildcards](https://confluence.atlassian.com/display/JIRACORECLOUD/Search+syntax+for+text+fields) can be used in the `searchTerm` parameter."
+        },
+        {
+          "name": "requestOwnership",
+          "type": "array",
+          "location": "query",
+          "description": "Filters customer requests using the following values: * `OWNED_REQUESTS` returns customer requests where the user is the creator. * `PARTICIPATED_REQUESTS` returns customer requests where the user is a participant. * `ORGANIZATION` returns customer requests for an organization of which the user is a member when used in conjunction with `organizationId`. * `ALL_ORGANIZATIONS` returns customer requests that belong to all organizations of which the user is a member. * `APPROVER` returns customer requests where the user is an approver. Can be used in conjunction with `approvalStatus` to filter pending or complete approvals. * `ALL_REQUESTS` returns all customer requests. **Deprecated and will be removed, as the returned requests may change if more values are added in the future. Instead, explicitly list the desired filtering strategies.** Multiple values of the query parameter are supported. For example, `requestOwnership=OWNED_REQUESTS\u0026requestOwnership=PARTICIPATED_REQUESTS` will only return customer requests where the user is the creator or a participant. If not specified, filtering defaults to `OWNED_REQUESTS`, `PARTICIPATED_REQUESTS`, and `ALL_ORGANIZATIONS`."
+        },
+        {
+          "name": "requestStatus",
+          "type": "string",
+          "location": "query",
+          "description": "Filters customer requests where the request is closed, open, or either of the two where: * `CLOSED_REQUESTS` returns customer requests that are closed. * `OPEN_REQUESTS` returns customer requests that are open. * `ALL_REQUESTS` returns all customer requests."
+        },
+        {
+          "name": "approvalStatus",
+          "type": "string",
+          "location": "query",
+          "description": "Filters results to customer requests based on their approval status: * `MY_PENDING_APPROVAL` returns customer requests pending the user's approval. * `MY_HISTORY_APPROVAL` returns customer requests where the user was an approver. **Note**: Valid only when used with requestOwnership=APPROVER."
+        },
+        {
+          "name": "organizationId",
+          "type": "int",
+          "location": "query",
+          "description": "Filters customer requests that belong to a specific organization (note that the user must be a member of that organization). **Note**: Valid only when used with requestOwnership=ORGANIZATION."
+        },
+        {
+          "name": "serviceDeskId",
+          "type": "int",
+          "location": "query",
+          "description": "Filters customer requests by service desk."
+        },
+        {
+          "name": "requestTypeId",
+          "type": "int",
+          "location": "query",
+          "description": "Filters customer requests by request type. Note that the `serviceDeskId` must be specified for the service desk in which the request type belongs."
+        },
+        {
+          "name": "expand",
+          "type": "array",
+          "location": "query",
+          "description": "A multi-value parameter indicating which properties of the customer request to expand, where: * `serviceDesk` returns additional details for each service desk. * `requestType` returns additional details for each request type. * `participant` returns the participant details, if any, for each customer request. * `sla` returns the SLA information on each customer request. * `status` returns the status transitions, in chronological order, for each customer request. * `attachment` returns the attachments for the customer request. * `action` returns the actions that the user can or cannot perform on this customer request. * `comment` returns the comments, if any, for each customer request. * `comment.attachment` returns the attachment details, if any, for each comment. * `comment.renderedBody` (Experimental) returns the rendered body in HTML format (in addition to the raw body) for each comment."
+        },
+        {
+          "name": "offset",
+          "wire_name": "start",
+          "type": "int",
+          "location": "query",
+          "description": "The starting index of the returned objects."
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "The maximum number of items to return per page."
+        }
+      ]
+    },
+    {
+      "name": "request_validate",
+      "description": "Validates a customer request payload without creating (persisting) a request. This endpoint runs exactly the same structural and semantic validations as Create customer request - including ProForma form validation - but performs **no mutation**: no issue is created and no side effects (attachments, comments, analytics) run. The response is intentionally verbose and structured so that it can be consumed by automated agents (for example an LLM repairing an invalid payload): every failure carries a machine-readable location (field id / form entity) and a human-readable reason. A valid payload returns HTTP 200 with `valid: true`; an invalid payload returns HTTP 400 with `valid: false` together with the field, form and general validation errors. **Permissions required**: Permission to create requests in the specified service desk. Optional: channel, form, isAdfRequest (plus 5 more).",
+      "method": "POST",
+      "path": "/request/validate",
+      "params": [
+        {
+          "name": "channel",
+          "type": "string",
+          "location": "body",
+          "description": "(Experimental) Shows extra information for the request channel."
+        },
+        {
+          "name": "form-answers",
+          "wire_name": "form.answers",
+          "type": "object",
+          "location": "body",
+          "description": "JSON mapping of form field answers containing form field IDs and corresponding values."
+        },
+        {
+          "name": "isAdfRequest",
+          "type": "bool",
+          "location": "body",
+          "description": "(Experimental) Whether to accept rich text fields in Atlassian Document Format (ADF)."
+        },
+        {
+          "name": "raiseOnBehalfOf",
+          "type": "string",
+          "location": "body",
+          "description": "The `accountId` of the customer that the request is being raised on behalf of."
+        },
+        {
+          "name": "requestFieldValues",
+          "type": "object",
+          "location": "body",
+          "description": "JSON map of Jira field IDs and their values representing the content of the request."
+        },
+        {
+          "name": "requestParticipants",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "List of customers to participate in the request, as a list of `accountId` values."
+        },
+        {
+          "name": "requestTypeId",
+          "type": "string",
+          "location": "body",
+          "description": "ID of the request type for the request."
+        },
+        {
+          "name": "serviceDeskId",
+          "type": "string",
+          "location": "body",
+          "description": "ID of the service desk in which to create the request."
+        }
+      ]
+    },
+    {
+      "name": "request_approval_answer",
+      "description": "This method enables a user to **Approve** or **Decline** an approval on a customer request. The approval is assumed to be owned by the user making the call. **Permissions required**: User is assigned to the approval request. Required: issueIdOrKey, approvalId. Optional: decision. Returns the new ApprovalDto.",
+      "method": "POST",
+      "path": "/request/{issueIdOrKey}/approval/{approvalId}",
+      "params": [
+        {
+          "name": "issueIdOrKey",
+          "type": "string",
+          "location": "path",
+          "description": "The ID or key of the customer request to be updated.",
+          "required": true
+        },
+        {
+          "name": "approvalId",
+          "type": "int",
+          "location": "path",
+          "description": "The ID of the approval to be updated.",
+          "required": true
+        },
+        {
+          "name": "decision",
+          "type": "string",
+          "location": "body",
+          "description": "Response to the approval request."
+        }
+      ]
+    },
+    {
+      "name": "request_approval_get",
+      "description": "This method returns an approval. Use this method to determine the status of an approval and the list of approvers. **Permissions required**: Permission to view the customer request. Required: issueIdOrKey, approvalId.",
+      "method": "GET",
+      "path": "/request/{issueIdOrKey}/approval/{approvalId}",
+      "params": [
+        {
+          "name": "issueIdOrKey",
+          "type": "string",
+          "location": "path",
+          "description": "The ID or key of the customer request the approval is on.",
+          "required": true
+        },
+        {
+          "name": "approvalId",
+          "type": "int",
+          "location": "path",
+          "description": "The ID of the approval to be returned.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "request_approval_list",
+      "description": "This method returns all approvals on a customer request. **Permissions required**: Permission to view the customer request. Required: issueIdOrKey. Optional: offset, limit.",
+      "method": "GET",
+      "path": "/request/{issueIdOrKey}/approval",
+      "params": [
+        {
+          "name": "offset",
+          "wire_name": "start",
+          "type": "int",
+          "location": "query",
+          "description": "The starting index of the returned objects."
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "The maximum number of approvals to return per page. Default: 50. See the Pagination section for more details."
+        },
+        {
+          "name": "issueIdOrKey",
+          "type": "string",
+          "location": "path",
+          "description": "The ID or key of the customer request to be queried for its approvals.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "request_attachment_add",
+      "description": "This method creates a comment on a customer request using one or more attachment files (uploaded using [servicedeskapi/servicedesk/{serviceDeskId}/attachTemporaryFile](https://developer.atlassian.com/cloud/jira/service-desk/rest/api-group-servicedesk/#api-rest-servicedeskapi-servicedesk-servicedeskid-attachtemporaryfile-post)), with the visibility set by `public`. See * GET [servicedeskapi/request/{issueIdOrKey}/attachment](./#api-rest-servicedeskapi-request-issueidorkey-attachment-get) * GET [servicedeskapi/request/{issueIdOrKey}/comment/{commentId}/attachment](./#api-rest-servicedeskapi-request-issueidorkey-comment-commentid-attachment-get) **Permissions required**: Permission to add an attachment. **Request limitations**: Customers can set public visibility only. Required: issueIdOrKey. Optional: additionalComment, public, temporaryAttachmentIds. Returns the new AttachmentCreateResultDto.",
+      "method": "POST",
+      "path": "/request/{issueIdOrKey}/attachment",
+      "params": [
+        {
+          "name": "issueIdOrKey",
+          "type": "string",
+          "location": "path",
+          "description": "The ID or key of the customer request to which the attachment will be added.",
+          "required": true
+        },
+        {
+          "name": "additional-comment-body",
+          "wire_name": "additionalComment.body",
+          "type": "string",
+          "location": "body",
+          "description": "Content of the comment."
+        },
+        {
+          "name": "public",
+          "type": "bool",
+          "location": "body",
+          "description": "Controls whether the comment and its attachments are visible to customers"
+        },
+        {
+          "name": "temporaryAttachmentIds",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "List of IDs for the temporary attachments to be added to the customer request."
+        }
+      ]
+    },
+    {
+      "name": "request_attachment_download",
+      "description": "Returns the contents of an attachment. To return a thumbnail of the attachment, use [servicedeskapi/request/{issueIdOrKey}/attachment/{attachmentId}/thumbnail](./#api-rest-servicedeskapi-request-issueidorkey-attachment-attachmentid-thumbnail-get). **Permissions required:** For the issue containing the attachment: * *Browse projects* [project permission](https://confluence.atlassian.com/x/yodKLg) for the project that the issue is in. * If [issue-level security](https://confluence.atlassian.com/x/J4lKLg) is configured, issue-level security permission to view the issue.",
+      "method": "GET",
+      "path": "/request/{issueIdOrKey}/attachment/{attachmentId}",
+      "params": [
+        {
+          "name": "issueIdOrKey",
+          "type": "string",
+          "location": "path",
+          "description": "The ID or key for the customer request the attachment is associated with",
+          "required": true
+        },
+        {
+          "name": "attachmentId",
+          "type": "int",
+          "location": "path",
+          "description": "The ID for the attachment",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "request_attachment_get-thumbnail",
+      "description": "Returns the thumbnail of an attachment. To return the attachment contents, use servicedeskapi/request/{issueIdOrKey}/attachment/{attachmentId}. **Permissions required:** For the issue containing the attachment: * *Browse projects* [project permission](https://confluence.atlassian.com/x/yodKLg) for the project that the issue is in. * If [issue-level security](https://confluence.atlassian.com/x/J4lKLg) is configured, issue-level security permission to view the issue.",
+      "method": "GET",
+      "path": "/request/{issueIdOrKey}/attachment/{attachmentId}/thumbnail",
+      "params": [
+        {
+          "name": "issueIdOrKey",
+          "type": "string",
+          "location": "path",
+          "description": "The ID or key for the customer request the attachment is associated with",
+          "required": true
+        },
+        {
+          "name": "attachmentId",
+          "type": "int",
+          "location": "path",
+          "description": "The ID of the attachment.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "request_attachment_list",
+      "description": "This method returns all the attachments for a customer requests. **Permissions required**: Permission to view the customer request. **Response limitations**: Customers will only get a list of public attachments. Required: issueIdOrKey, offset (default: 0), limit (default: 50).",
+      "method": "GET",
+      "path": "/request/{issueIdOrKey}/attachment",
+      "params": [
+        {
+          "name": "issueIdOrKey",
+          "type": "string",
+          "location": "path",
+          "description": "The ID or key of the customer request from which the attachments will be listed.",
+          "required": true
+        },
+        {
+          "name": "offset",
+          "wire_name": "start",
+          "type": "int",
+          "location": "query",
+          "description": "The starting index of the returned attachment. Base index: 0. See the Pagination section for more details.",
+          "required": true
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "The maximum number of comments to return per page.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "request_comment_add",
+      "description": "This method creates a public or private (internal) comment on a customer request, with the comment visibility set by `public`. The user recorded as the author of the comment. **Permissions required**: User has Add Comments permission. **Request limitations**: Customers can set comments to public visibility only. Required: issueIdOrKey. Optional: body, public. Returns the new CommentDto.",
+      "method": "POST",
+      "path": "/request/{issueIdOrKey}/comment",
+      "params": [
+        {
+          "name": "issueIdOrKey",
+          "type": "string",
+          "location": "path",
+          "description": "The ID or key of the customer request to which the comment will be added.",
+          "required": true
+        },
+        {
+          "name": "body",
+          "type": "string",
+          "location": "body",
+          "description": "Content of the comment."
+        },
+        {
+          "name": "public",
+          "type": "bool",
+          "location": "body",
+          "description": "Indicates whether the comment is public (true) or private/internal (false)."
+        }
+      ]
+    },
+    {
+      "name": "request_comment_get",
+      "description": "This method returns details of a customer request's comment. **Permissions required**: Permission to view the customer request. **Response limitations**: Customers can only view public comments on requests where they are the reporter or a participant whereas agents can see both internal and public comments. Required: issueIdOrKey, commentId. Optional: expand.",
+      "method": "GET",
+      "path": "/request/{issueIdOrKey}/comment/{commentId}",
+      "params": [
+        {
+          "name": "issueIdOrKey",
+          "type": "string",
+          "location": "path",
+          "description": "The ID or key of the customer request that contains the comment.",
+          "required": true
+        },
+        {
+          "name": "commentId",
+          "type": "int",
+          "location": "path",
+          "description": "The ID of the comment to retrieve.",
+          "required": true
+        },
+        {
+          "name": "expand",
+          "type": "array",
+          "location": "query",
+          "description": "A multi-value parameter indicating which properties of the comment to expand: * `attachment` returns the attachment details, if any, for the comment. (If you want to get all attachments for a request, use servicedeskapi/request/{issueIdOrKey}/attachment.) * `renderedBody` (Experimental) returns the rendered body in HTML format (in addition to the raw body) of the comment."
+        }
+      ]
+    },
+    {
+      "name": "request_comment_list",
+      "description": "This method returns all comments on a customer request. No permissions error is provided if, for example, the user doesn't have access to the service desk or request, the method simply returns an empty response. **Permissions required**: Permission to view the customer request. **Response limitations**: Customers are returned public comments only. Required: issueIdOrKey. Optional: public, internal, expand (plus 2 more).",
+      "method": "GET",
+      "path": "/request/{issueIdOrKey}/comment",
+      "params": [
+        {
+          "name": "issueIdOrKey",
+          "type": "string",
+          "location": "path",
+          "description": "The ID or key of the customer request whose comments will be retrieved.",
+          "required": true
+        },
+        {
+          "name": "public",
+          "type": "bool",
+          "location": "query",
+          "description": "Specifies whether to return public comments or not. Default: true."
+        },
+        {
+          "name": "internal",
+          "type": "bool",
+          "location": "query",
+          "description": "Specifies whether to return internal comments or not. Default: true."
+        },
+        {
+          "name": "expand",
+          "type": "array",
+          "location": "query",
+          "description": "A multi-value parameter indicating which properties of the comment to expand: * `attachment` returns the attachment details, if any, for each comment. (If you want to get all attachments for a request, use servicedeskapi/request/{issueIdOrKey}/attachment.) * `renderedBody` (Experimental) returns the rendered body in HTML format (in addition to the raw body) for each comment."
+        },
+        {
+          "name": "offset",
+          "wire_name": "start",
+          "type": "int",
+          "location": "query",
+          "description": "The starting index of the returned comments. Base index: 0. See the Pagination section for more details."
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "The maximum number of comments to return per page."
+        }
+      ]
+    },
+    {
+      "name": "request_comment_list-attachments",
+      "description": "This method returns the attachments referenced in a comment. **Permissions required**: Permission to view the customer request. **Response limitations**: Customers can only view public comments, and retrieve their attachments, on requests where they are the reporter or a participant whereas agents can see both internal and public comments. Required: issueIdOrKey, commentId, X-ExperimentalApi (default: opt-in). Optional: offset, limit.",
+      "method": "GET",
+      "path": "/request/{issueIdOrKey}/comment/{commentId}/attachment",
+      "params": [
+        {
+          "name": "issueIdOrKey",
+          "type": "string",
+          "location": "path",
+          "description": "The ID or key of the customer request that contains the comment.",
+          "required": true
+        },
+        {
+          "name": "commentId",
+          "type": "int",
+          "location": "path",
+          "description": "The ID of the comment.",
+          "required": true
+        },
+        {
+          "name": "offset",
+          "wire_name": "start",
+          "type": "int",
+          "location": "query",
+          "description": "The starting index of the returned comments. Base index: 0. See the Pagination section for more details."
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "The maximum number of comments to return per page."
+        },
+        {
+          "name": "X-ExperimentalApi",
+          "type": "string",
+          "location": "header",
+          "description": "Opt-in header Atlassian requires on experimental operations.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "request_feedback_delete",
+      "description": "This method deletes the feedback of request using it's `requestKey` or `requestId` **Permissions required**: User must be the reporter or an Atlassian Connect app. Required: requestIdOrKey, X-ExperimentalApi (default: opt-in). Destructive.",
+      "method": "DELETE",
+      "path": "/request/{requestIdOrKey}/feedback",
+      "params": [
+        {
+          "name": "requestIdOrKey",
+          "type": "string",
+          "location": "path",
+          "description": "The id or the key of the request to post the feedback on",
+          "required": true
+        },
+        {
+          "name": "X-ExperimentalApi",
+          "type": "string",
+          "location": "header",
+          "description": "Opt-in header Atlassian requires on experimental operations.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "request_feedback_get",
+      "description": "This method retrieves a feedback of a request using it's `requestKey` or `requestId` **Permissions required**: User has view request permissions. Required: requestIdOrKey, X-ExperimentalApi (default: opt-in). Returns the CsatfeedbackFullDto.",
+      "method": "GET",
+      "path": "/request/{requestIdOrKey}/feedback",
+      "params": [
+        {
+          "name": "requestIdOrKey",
+          "type": "string",
+          "location": "path",
+          "description": "The id or the key of the request to post the feedback on",
+          "required": true
+        },
+        {
+          "name": "X-ExperimentalApi",
+          "type": "string",
+          "location": "header",
+          "description": "Opt-in header Atlassian requires on experimental operations.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "request_feedback_post",
+      "description": "This method adds a feedback on an request using it's `requestKey` or `requestId` **Permissions required**: User must be the reporter or an Atlassian Connect app. Required: requestIdOrKey, X-ExperimentalApi (default: opt-in). Optional: comment, rating, type. Returns the new CsatfeedbackFullDto.",
+      "method": "POST",
+      "path": "/request/{requestIdOrKey}/feedback",
+      "params": [
+        {
+          "name": "requestIdOrKey",
+          "type": "string",
+          "location": "path",
+          "description": "The id or the key of the request to post the feedback on",
+          "required": true
+        },
+        {
+          "name": "X-ExperimentalApi",
+          "type": "string",
+          "location": "header",
+          "description": "Opt-in header Atlassian requires on experimental operations.",
+          "required": true
+        },
+        {
+          "name": "comment-body",
+          "wire_name": "comment.body",
+          "type": "string",
+          "location": "body",
+          "description": "Content of the comment."
+        },
+        {
+          "name": "rating",
+          "type": "int",
+          "location": "body",
+          "description": "A numeric representation of the rating, this must be an integer value between 1 and 5."
+        },
+        {
+          "name": "type",
+          "type": "string",
+          "location": "body",
+          "description": "Indicates the type of feedback, supported values: `csat`."
+        }
+      ]
+    },
+    {
+      "name": "request_notification_get-subscription",
+      "description": "This method returns the notification subscription status of the user making the request. Use this method to determine if the user is subscribed to a customer request's notifications. **Permissions required**: Permission to view the customer request. Required: issueIdOrKey.",
+      "method": "GET",
+      "path": "/request/{issueIdOrKey}/notification",
+      "params": [
+        {
+          "name": "issueIdOrKey",
+          "type": "string",
+          "location": "path",
+          "description": "The ID or key of the customer request to be queried for subscription status.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "request_notification_subscribe",
+      "description": "This method subscribes the user to receiving notifications from a customer request. **Permissions required**: Permission to view the customer request. Required: issueIdOrKey.",
+      "method": "PUT",
+      "path": "/request/{issueIdOrKey}/notification",
+      "params": [
+        {
+          "name": "issueIdOrKey",
+          "type": "string",
+          "location": "path",
+          "description": "The ID or key of the customer request to be subscribed to.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "request_notification_unsubscribe",
+      "description": "This method unsubscribes the user from notifications from a customer request. **Permissions required**: Permission to view the customer request. Required: issueIdOrKey. Destructive.",
+      "method": "DELETE",
+      "path": "/request/{issueIdOrKey}/notification",
+      "params": [
+        {
+          "name": "issueIdOrKey",
+          "type": "string",
+          "location": "path",
+          "description": "The ID or key of the customer request to be unsubscribed from.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "request_participant_add",
+      "description": "This method adds participants to a customer request. **Permissions required**: Permission to manage participants on the customer request. Note, participants can be added when creating a customer request using the request resource, by defining the participants in the `requestParticipants` field. Required: issueIdOrKey. Optional: accountIds, usernames. Returns array of UserDto.",
+      "method": "POST",
+      "path": "/request/{issueIdOrKey}/participant",
+      "params": [
+        {
+          "name": "issueIdOrKey",
+          "type": "string",
+          "location": "path",
+          "description": "The ID or key of the customer request to have participants added.",
+          "required": true
+        },
+        {
+          "name": "accountIds",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "List of users, specified by account IDs, to add to or remove as participants in the request."
+        },
+        {
+          "name": "usernames",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "This property is no longer available and will be removed from the documentation soon."
+        }
+      ]
+    },
+    {
+      "name": "request_participant_list",
+      "description": "This method returns a list of all the participants on a customer request. **Permissions required**: Permission to view the customer request. Required: issueIdOrKey. Optional: offset, limit.",
+      "method": "GET",
+      "path": "/request/{issueIdOrKey}/participant",
+      "params": [
+        {
+          "name": "issueIdOrKey",
+          "type": "string",
+          "location": "path",
+          "description": "The ID or key of the customer request to be queried for its participants.",
+          "required": true
+        },
+        {
+          "name": "offset",
+          "wire_name": "start",
+          "type": "int",
+          "location": "query",
+          "description": "The starting index of the returned objects."
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "The maximum number of request types to return per page. Default: 50. See the Pagination section for more details."
+        }
+      ]
+    },
+    {
+      "name": "request_participant_remove",
+      "description": "This method removes participants from a customer request. **Permissions required**: Permission to manage participants on the customer request. Required: issueIdOrKey. Optional: accountIds, usernames. Returns array of UserDto. Destructive.",
+      "method": "DELETE",
+      "path": "/request/{issueIdOrKey}/participant",
+      "params": [
+        {
+          "name": "issueIdOrKey",
+          "type": "string",
+          "location": "path",
+          "description": "The ID or key of the customer request to have participants removed.",
+          "required": true
+        },
+        {
+          "name": "accountIds",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "List of users, specified by account IDs, to add to or remove as participants in the request."
+        },
+        {
+          "name": "usernames",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "This property is no longer available and will be removed from the documentation soon."
+        }
+      ]
+    },
+    {
+      "name": "request_sla_get",
+      "description": "This method returns the details for an SLA on a customer request. **Permissions required**: * Agent for the Service Desk containing the queried customer request, AND * Browse Projects permission on the project containing the customer request, including any restrictions imposed by issue security schemes or custom permission schemes on the specific issue. Required: issueIdOrKey, slaMetricId.",
+      "method": "GET",
+      "path": "/request/{issueIdOrKey}/sla/{slaMetricId}",
+      "params": [
+        {
+          "name": "issueIdOrKey",
+          "type": "string",
+          "location": "path",
+          "description": "The ID or key of the customer request whose SLAs will be retrieved.",
+          "required": true
+        },
+        {
+          "name": "slaMetricId",
+          "type": "int",
+          "location": "path",
+          "description": "The ID or key of the SLAs metric to be retrieved.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "request_sla_list",
+      "description": "This method returns all the SLA records on a customer request. A customer request can have zero or more SLAs. Each SLA can have recordings for zero or more 'completed cycles' and zero or 1 'ongoing cycle'. Each cycle includes information on when it started and stopped, and whether it breached the SLA goal. **Permissions required**: * Agent for the Service Desk containing the queried customer request, AND * Browse Projects permission on the project containing the customer request, including any restrictions imposed by issue security schemes or custom permission schemes on the specific issue. Required: issueIdOrKey. Optional: offset, limit.",
+      "method": "GET",
+      "path": "/request/{issueIdOrKey}/sla",
+      "params": [
+        {
+          "name": "issueIdOrKey",
+          "type": "string",
+          "location": "path",
+          "description": "The ID or key of the customer request whose SLAs will be retrieved.",
+          "required": true
+        },
+        {
+          "name": "offset",
+          "wire_name": "start",
+          "type": "int",
+          "location": "query",
+          "description": "The starting index of the returned objects."
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "The maximum number of request types to return per page. Default: 50. See the Pagination section for more details."
+        }
+      ]
+    },
+    {
+      "name": "request_status_list-history",
+      "description": "This method returns a list of all the statuses a customer Request has achieved. A status represents the state of an issue in its workflow. An issue can have one active status only. The list returns the status history in chronological order, most recent (current) status first. **Permissions required**: Permission to view the customer request. Required: issueIdOrKey. Optional: offset, limit.",
+      "method": "GET",
+      "path": "/request/{issueIdOrKey}/status",
+      "params": [
+        {
+          "name": "issueIdOrKey",
+          "type": "string",
+          "location": "path",
+          "description": "The ID or key of the customer request to be retrieved.",
+          "required": true
+        },
+        {
+          "name": "offset",
+          "wire_name": "start",
+          "type": "int",
+          "location": "query",
+          "description": "The starting index of the returned objects."
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "The maximum number of items to return per page."
+        }
+      ]
+    },
+    {
+      "name": "request_transition_list",
+      "description": "This method returns a list of transitions, the workflow processes that moves a customer request from one status to another, that the user can perform on a request. Use this method to provide a user with a list if the actions they can take on a customer request. **Permissions required**: Permission to view the customer request. Required: issueIdOrKey. Optional: offset, limit.",
+      "method": "GET",
+      "path": "/request/{issueIdOrKey}/transition",
+      "params": [
+        {
+          "name": "issueIdOrKey",
+          "type": "string",
+          "location": "path",
+          "description": "The ID or key of the customer request whose transitions will be retrieved.",
+          "required": true
+        },
+        {
+          "name": "offset",
+          "wire_name": "start",
+          "type": "int",
+          "location": "query",
+          "description": "The starting index of the returned objects."
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "The maximum number of items to return per page."
+        }
+      ]
+    },
+    {
+      "name": "request_transition_perform",
+      "description": "This method performs a customer transition for a given request and transition. An optional comment can be included to provide a reason for the transition. **Permissions required**: The user must be able to view the request and have the Transition Issues permission. If a comment is passed the user must have the Add Comments permission. Required: issueIdOrKey. Optional: additionalComment, id.",
+      "method": "POST",
+      "path": "/request/{issueIdOrKey}/transition",
+      "params": [
+        {
+          "name": "issueIdOrKey",
+          "type": "string",
+          "location": "path",
+          "description": "ID or key of the issue to transition",
+          "required": true
+        },
+        {
+          "name": "additional-comment-body",
+          "wire_name": "additionalComment.body",
+          "type": "string",
+          "location": "body",
+          "description": "Content of the comment."
+        },
+        {
+          "name": "id",
+          "type": "string",
+          "location": "body",
+          "description": "ID of the transition to be performed."
+        }
+      ]
+    },
+    {
+      "name": "requesttype_get-all-request-types",
+      "description": "This method returns all customer request types used in the Jira Service Management instance, optionally filtered by a query string. Use servicedeskapi/servicedesk/{serviceDeskId}/requesttype to find the customer request types supported by a specific service desk. The returned list of customer request types can be filtered using the `searchQuery` parameter. The parameter is matched against the customer request types' `name` or `description`. For example, searching for 'Install', 'Inst', 'Equi', or 'Equipment' will match a customer request type with the *name* 'Equipment Installation Request'. **Note:** This API by default will filter out request types hidden in the portal (i.e. request types without groups and request types where a user doesn't have permission) when `searchQuery` is provided, unless `includeHiddenRequestTypesInSearch` is set to true. Restricted request types will not be returned for those who aren't admins. **Permissions required**: Any. Required: X-ExperimentalApi (default: opt-in). Optional: searchQuery, serviceDeskId, offset (plus 4 more).",
+      "method": "GET",
+      "path": "/requesttype",
+      "params": [
+        {
+          "name": "searchQuery",
+          "type": "string",
+          "location": "query",
+          "description": "String to be used to filter the results."
+        },
+        {
+          "name": "serviceDeskId",
+          "type": "array",
+          "location": "query",
+          "description": "Filter the request types by service desk Ids provided. Multiple values of the query parameter are supported. For example, `serviceDeskId=1\u0026serviceDeskId=2` will return request types only for service desks 1 and 2."
+        },
+        {
+          "name": "offset",
+          "wire_name": "start",
+          "type": "int",
+          "location": "query",
+          "description": "The starting index of the returned objects."
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "The maximum number of items to return per page."
+        },
+        {
+          "name": "expand",
+          "type": "array",
+          "location": "query",
+          "description": "Expand"
+        },
+        {
+          "name": "includeHiddenRequestTypesInSearch",
+          "type": "bool",
+          "location": "query",
+          "description": "Whether to include hidden request types when searching with `searchQuery`."
+        },
+        {
+          "name": "restrictionStatus",
+          "type": "string",
+          "location": "query",
+          "description": "Request type restriction status (`open` or `restricted`) used to filter the results."
+        },
+        {
+          "name": "X-ExperimentalApi",
+          "type": "string",
+          "location": "header",
+          "description": "Opt-in header Atlassian requires on experimental operations.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "servicedesk_get",
+      "description": "This method returns a service desk. Use this method to get service desk details whenever your application component is passed a service desk ID but needs to display other service desk details. **Permissions required**: Permission to access the Service Desk. For example, being the Service Desk's Administrator or one of its Agents or Users. Required: serviceDeskId.",
+      "method": "GET",
+      "path": "/servicedesk/{serviceDeskId}",
+      "params": [
+        {
+          "name": "serviceDeskId",
+          "type": "string",
+          "location": "path",
+          "description": "The ID of the service desk to return. This can alternatively be a project identifier.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "servicedesk_list",
+      "description": "This method returns all the service desks in the Jira Service Management instance that the user has permission to access. Use this method where you need a list of service desks or need to locate a service desk by name or keyword. **Note:** This method will be slow if the instance has hundreds of service desks. If you want to fetch a single service desk by its ID, use [/rest/servicedeskapi/servicedesk/{serviceDeskId}](./#api-rest-servicedeskapi-servicedesk-servicedeskid-get) instead. **Permissions required**: Any. Optional: offset, limit.",
+      "method": "GET",
+      "path": "/servicedesk",
+      "params": [
+        {
+          "name": "offset",
+          "wire_name": "start",
+          "type": "int",
+          "location": "query",
+          "description": "The starting index of the returned objects."
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "The maximum number of items to return per page."
+        }
+      ]
+    },
+    {
+      "name": "servicedesk_attach-temporary-file_upload-temporary-file",
+      "description": "This method adds one or more temporary attachments to a service desk, which can then be permanently attached to a customer request using servicedeskapi/request/{issueIdOrKey}/attachment. **Note**: It is possible for a service desk administrator to turn off the ability to add attachments to a service desk. This method expects a multipart request. The media-type multipart/form-data is defined in RFC 1867. Most client libraries have classes that make dealing with multipart posts simple. For instance, in Java the Apache HTTP Components library provides [MultiPartEntity](http://hc.apache.org/httpcomponents-client-ga/httpmime/apidocs/org/apache/http/entity/mime/MultipartEntity.html). Because this method accepts multipart/form-data, it has XSRF protection on it. This means you must submit a header of X-Atlassian-Token: no-check with the request or it will be blocked. The name of the multipart/form-data parameter that contains the attachments must be `file`. For example, to upload a file called `myfile.txt` in the Service Desk with ID 10001 use curl -D- -u customer:customer -X POST -H 'X-ExperimentalApi: opt-in' -H 'X-Atlassian-Token: no-check' -F 'file=@myfile.txt' https://your-domain.atlassian.net/rest/servicedeskapi/servicedesk/10001/attachTemporaryFile **Permissions required**: Permission to add attachments in this Service Desk. Required: serviceDeskId, file.",
+      "method": "POST",
+      "path": "/servicedesk/{serviceDeskId}/attachTemporaryFile",
+      "params": [
+        {
+          "name": "serviceDeskId",
+          "type": "string",
+          "location": "path",
+          "description": "The ID of the Service Desk to which the file will be attached. This can alternatively be a project identifier.",
+          "required": true
+        },
+        {
+          "name": "file",
+          "type": "string",
+          "location": "body",
+          "description": "Path to the file to upload.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "servicedesk_customer_add",
+      "description": "Adds one or more customers to a service desk. If any of the passed customers are associated with the service desk, no changes will be made for those customers and the resource returns a 204 success code. **Permissions required**: Service desk administrator. Required: serviceDeskId. Optional: accountIds, usernames.",
+      "method": "POST",
+      "path": "/servicedesk/{serviceDeskId}/customer",
+      "params": [
+        {
+          "name": "serviceDeskId",
+          "type": "string",
+          "location": "path",
+          "description": "The ID of the service desk the customer list should be returned from. This can alternatively be a project identifier.",
+          "required": true
+        },
+        {
+          "name": "accountIds",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "List of users, specified by account IDs, to add to or remove from a service desk."
+        },
+        {
+          "name": "usernames",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "This property is no longer available and will be removed from the documentation soon."
+        }
+      ]
+    },
+    {
+      "name": "servicedesk_customer_add-skip-permission-check",
+      "description": "Atlassian-internal endpoint (ASAP auth only); not callable with an API token. Adds one or more customers to a service desk on behalf of jsd-nutmeg. This endpoint is restricted to jsd-nutmeg via ASAP authentication. It provides the same capability as the public {@code POST /servicedeskapi/servicedesk/{serviceDeskId}/customer} endpoint, but does not require a User Context Token (UCT) or Connect app user - authorization is enforced entirely via the ASAP token. No user permission checks are performed; `null` is passed as the acting user to bypass the permission check in the underlying service. If any of the passed customers are already associated with the service desk, no changes will be made for those customers and the resource returns a 204 success code. Required: serviceDeskId. Optional: accountIds, usernames.",
+      "method": "POST",
+      "path": "/servicedesk/{serviceDeskId}/customer/skip-permission-check",
+      "params": [
+        {
+          "name": "serviceDeskId",
+          "type": "string",
+          "location": "path",
+          "description": "The ID of the service desk to add customers to. This can alternatively be a project identifier.",
+          "required": true
+        },
+        {
+          "name": "accountIds",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "List of users, specified by account IDs, to add to or remove from a service desk."
+        },
+        {
+          "name": "usernames",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "This property is no longer available and will be removed from the documentation soon."
+        }
+      ]
+    },
+    {
+      "name": "servicedesk_customer_invite",
+      "description": "This method invites a customer to a specified service desk by sending them an email invitation, creating a new customer account if one does not already exist. The display name does not need to be unique. The record's identifiers, `name` and `key`, are automatically generated from the request details. **Permissions required**: Jira Administrator Global permission \u0026 Service desk administrator. Required: serviceDeskId, X-ExperimentalApi (default: opt-in). Optional: strictConflictStatusCode, displayName, email.",
+      "method": "POST",
+      "path": "/servicedesk/{serviceDeskId}/customer/invite",
+      "params": [
+        {
+          "name": "serviceDeskId",
+          "type": "string",
+          "location": "path",
+          "description": "The ID of the service desk to which the newly created customer should be added.",
+          "required": true
+        },
+        {
+          "name": "strictConflictStatusCode",
+          "type": "bool",
+          "location": "query",
+          "description": "Optional boolean flag to return 409 Conflict status code when a customer with the same email already exists."
+        },
+        {
+          "name": "X-ExperimentalApi",
+          "type": "string",
+          "location": "header",
+          "description": "Opt-in header Atlassian requires on experimental operations.",
+          "required": true
+        },
+        {
+          "name": "displayName",
+          "type": "string",
+          "location": "body",
+          "description": "Customer's name for display in the UI."
+        },
+        {
+          "name": "email",
+          "type": "string",
+          "location": "body",
+          "description": "Customer's email address."
+        }
+      ]
+    },
+    {
+      "name": "servicedesk_customer_list",
+      "description": "This method returns a list of the customers on a service desk. The returned list of customers can be filtered using the `query` parameter. The parameter is matched against customers' `displayName`, `name`, or `email`. For example, searching for 'John', 'Jo', 'Smi', or 'Smith' will match a user with display name 'John Smith'. **Permissions required**: Permission to view this Service Desk's customers. Required: serviceDeskId, X-ExperimentalApi (default: opt-in). Optional: query, offset, limit.",
+      "method": "GET",
+      "path": "/servicedesk/{serviceDeskId}/customer",
+      "params": [
+        {
+          "name": "serviceDeskId",
+          "type": "string",
+          "location": "path",
+          "description": "The ID of the service desk the customer list should be returned from. This can alternatively be a project identifier.",
+          "required": true
+        },
+        {
+          "name": "query",
+          "type": "string",
+          "location": "query",
+          "description": "The string used to filter the customer list."
+        },
+        {
+          "name": "offset",
+          "wire_name": "start",
+          "type": "int",
+          "location": "query",
+          "description": "The starting index of the returned objects."
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "The maximum number of users to return per page. Default: 50. See the Pagination section for more details."
+        },
+        {
+          "name": "X-ExperimentalApi",
+          "type": "string",
+          "location": "header",
+          "description": "Opt-in header Atlassian requires on experimental operations.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "servicedesk_customer_remove",
+      "description": "This method removes one or more customers from a service desk. The service desk must have closed access. If any of the passed customers are not associated with the service desk, no changes will be made for those customers and the resource returns a 204 success code. **Permissions required**: Services desk administrator. Required: serviceDeskId, X-ExperimentalApi (default: opt-in). Optional: accountIds, usernames. Destructive.",
+      "method": "DELETE",
+      "path": "/servicedesk/{serviceDeskId}/customer",
+      "params": [
+        {
+          "name": "serviceDeskId",
+          "type": "string",
+          "location": "path",
+          "description": "The ID of the service desk the customers should be removed from. This can alternatively be a project identifier.",
+          "required": true
+        },
+        {
+          "name": "X-ExperimentalApi",
+          "type": "string",
+          "location": "header",
+          "description": "Opt-in header Atlassian requires on experimental operations.",
+          "required": true
+        },
+        {
+          "name": "accountIds",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "List of users, specified by account IDs, to add to or remove from a service desk."
+        },
+        {
+          "name": "usernames",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "This property is no longer available and will be removed from the documentation soon."
+        }
+      ]
+    },
+    {
+      "name": "servicedesk_knowledgebase_list-articles",
+      "description": "Returns articles which match the given query and belong to the knowledge base linked to the service desk. **Permissions required**: Permission to access the service desk. Required: serviceDeskId, query. Optional: highlight (default: false), offset, limit (plus 2 more).",
+      "method": "GET",
+      "path": "/servicedesk/{serviceDeskId}/knowledgebase/article",
+      "params": [
+        {
+          "name": "serviceDeskId",
+          "type": "string",
+          "location": "path",
+          "description": "Service desk id",
+          "required": true
+        },
+        {
+          "name": "query",
+          "type": "string",
+          "location": "query",
+          "description": "The string used to filter the articles (required).",
+          "required": true
+        },
+        {
+          "name": "highlight",
+          "type": "bool",
+          "location": "query",
+          "description": "If set to true matching query term in the title and excerpt will be highlighted using the `@@@hl@@@term@@@endhl@@@` syntax. Default: false."
+        },
+        {
+          "name": "offset",
+          "wire_name": "start",
+          "type": "int",
+          "location": "query",
+          "description": "(Deprecated) The starting index of the returned objects. Base index: 0."
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "The maximum number of items to return per page. Default: 50. See the section for more details."
+        },
+        {
+          "name": "cursor",
+          "type": "string",
+          "location": "query",
+          "description": "Pointer to a set of search results, returned as part of the next or prev URL from the previous search call."
+        },
+        {
+          "name": "prev",
+          "type": "bool",
+          "location": "query",
+          "description": "Should navigate to the previous page. Defaulted to false. Set to true as part of prev URL from the previous search call."
+        }
+      ]
+    },
+    {
+      "name": "servicedesk_organization_add",
+      "description": "This method adds an organization to a service desk. If the organization ID is already associated with the service desk, no change is made and the resource returns a 204 success code. **Permissions required**: Service desk's agent. Required: serviceDeskId, organizationId. Optional: service-desk-id-2.",
+      "method": "POST",
+      "path": "/servicedesk/{serviceDeskId}/organization",
+      "params": [
+        {
+          "name": "serviceDeskId",
+          "type": "string",
+          "location": "path",
+          "description": "The ID of the service desk to which the organization will be added. This can alternatively be a project identifier.",
+          "required": true
+        },
+        {
+          "name": "organizationId",
+          "type": "int",
+          "location": "body",
+          "description": "List of organizations, specified by 'ID' field values, to add to or remove from the service desk.",
+          "required": true
+        },
+        {
+          "name": "service-desk-id-2",
+          "wire_name": "serviceDeskId",
+          "type": "string",
+          "location": "body",
+          "description": "Service desk Id for which, organization needs to be updated"
+        }
+      ]
+    },
+    {
+      "name": "servicedesk_organization_list",
+      "description": "This method returns a list of all organizations associated with a service desk. **Permissions required**: Service desk's agent. Required: serviceDeskId. Optional: offset, limit, accountId.",
+      "method": "GET",
+      "path": "/servicedesk/{serviceDeskId}/organization",
+      "params": [
+        {
+          "name": "serviceDeskId",
+          "type": "string",
+          "location": "path",
+          "description": "The ID of the service desk from which the organization list will be returned. This can alternatively be a project identifier.",
+          "required": true
+        },
+        {
+          "name": "offset",
+          "wire_name": "start",
+          "type": "int",
+          "location": "query",
+          "description": "The starting index of the returned objects."
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "The maximum number of items to return per page."
+        },
+        {
+          "name": "accountId",
+          "type": "string",
+          "location": "query",
+          "description": "The account ID of the user, which uniquely identifies the user across all Atlassian products. For example, *5b10ac8d82e05b22cc7d4ef5*."
+        }
+      ]
+    },
+    {
+      "name": "servicedesk_organization_remove",
+      "description": "This method removes an organization from a service desk. If the organization ID does not match an organization associated with the service desk, no change is made and the resource returns a 204 success code. **Permissions required**: Service desk's agent. Required: serviceDeskId, organizationId. Optional: service-desk-id-2. Destructive.",
+      "method": "DELETE",
+      "path": "/servicedesk/{serviceDeskId}/organization",
+      "params": [
+        {
+          "name": "serviceDeskId",
+          "type": "string",
+          "location": "path",
+          "description": "The ID of the service desk from which the organization will be removed. This can alternatively be a project identifier.",
+          "required": true
+        },
+        {
+          "name": "organizationId",
+          "type": "int",
+          "location": "body",
+          "description": "List of organizations, specified by 'ID' field values, to add to or remove from the service desk.",
+          "required": true
+        },
+        {
+          "name": "service-desk-id-2",
+          "wire_name": "serviceDeskId",
+          "type": "string",
+          "location": "body",
+          "description": "Service desk Id for which, organization needs to be updated"
+        }
+      ]
+    },
+    {
+      "name": "servicedesk_queue_get",
+      "description": "This method returns a specific queues in a service desk. To include a customer request count for the queue (in the `issueCount` field) in the response, set the query parameter `includeCount` to true (its default is false). **Permissions required**: service desk's Agent. Required: serviceDeskId, queueId. Optional: includeCount (default: false).",
+      "method": "GET",
+      "path": "/servicedesk/{serviceDeskId}/queue/{queueId}",
+      "params": [
+        {
+          "name": "serviceDeskId",
+          "type": "string",
+          "location": "path",
+          "description": "ID of the service desk whose queues will be returned. This can alternatively be a project identifier.",
+          "required": true
+        },
+        {
+          "name": "queueId",
+          "type": "int",
+          "location": "path",
+          "description": "ID of the required queue.",
+          "required": true
+        },
+        {
+          "name": "includeCount",
+          "type": "bool",
+          "location": "query",
+          "description": "Specifies whether to include each queue's customer request (issue) count in the response."
+        }
+      ]
+    },
+    {
+      "name": "servicedesk_queue_list",
+      "description": "This method returns the queues in a service desk. To include a customer request count for each queue (in the `issueCount` field) in the response, set the query parameter `includeCount` to true (its default is false). **Permissions required**: service desk's Agent. Required: serviceDeskId. Optional: includeCount (default: false), offset, limit.",
+      "method": "GET",
+      "path": "/servicedesk/{serviceDeskId}/queue",
+      "params": [
+        {
+          "name": "serviceDeskId",
+          "type": "string",
+          "location": "path",
+          "description": "ID of the service desk whose queues will be returned. This can alternatively be a project identifier.",
+          "required": true
+        },
+        {
+          "name": "includeCount",
+          "type": "bool",
+          "location": "query",
+          "description": "Specifies whether to include each queue's customer request (issue) count in the response."
+        },
+        {
+          "name": "offset",
+          "wire_name": "start",
+          "type": "int",
+          "location": "query",
+          "description": "The starting index of the returned objects."
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "The maximum number of items to return per page."
+        }
+      ]
+    },
+    {
+      "name": "servicedesk_queue_list-issues",
+      "description": "This method returns the customer requests in a queue. Only fields that the queue is configured to show are returned. For example, if a queue is configured to show description and due date, then only those two fields are returned for each customer request in the queue. **Permissions required**: Service desk's agent. Required: serviceDeskId, queueId. Optional: offset, limit.",
+      "method": "GET",
+      "path": "/servicedesk/{serviceDeskId}/queue/{queueId}/issue",
+      "params": [
+        {
+          "name": "serviceDeskId",
+          "type": "string",
+          "location": "path",
+          "description": "The ID of the service desk containing the queue to be queried. This can alternatively be a project identifier.",
+          "required": true
+        },
+        {
+          "name": "queueId",
+          "type": "int",
+          "location": "path",
+          "description": "The ID of the queue whose customer requests will be returned.",
+          "required": true
+        },
+        {
+          "name": "offset",
+          "wire_name": "start",
+          "type": "int",
+          "location": "query",
+          "description": "The starting index of the returned objects."
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "The maximum number of items to return per page."
+        }
+      ]
+    },
+    {
+      "name": "servicedesk_requesttype_check-permissions",
+      "description": "Returns: * a list of request type IDs where the given user has permission to administer. * a list of request type IDs where the given user has permission to submit the request. If no account ID is provided, the operation returns details for the logged in user. Note that: * invalid request type IDs are ignored. * a maximum of 50 request types can be checked. **Permissions required:** * *Administer Jira* or *Project Administrator* to check the permissions for other users. However, Connect apps can make a call from the app server to the product to obtain permission details for any user, without admin permission. This Connect app ability doesn't apply to calls made using AP.request() in a browser. (public)",
+      "method": "POST",
+      "path": "/servicedesk/{serviceDeskId}/requesttype/permissions/check",
+      "no_auth": true,
+      "params": [
+        {
+          "name": "serviceDeskId",
+          "type": "string",
+          "location": "path",
+          "description": "Service desk id",
+          "required": true
+        },
+        {
+          "name": "X-ExperimentalApi",
+          "type": "string",
+          "location": "header",
+          "description": "Opt-in header Atlassian requires on experimental operations.",
+          "required": true
+        },
+        {
+          "name": "accountId",
+          "type": "string",
+          "location": "body",
+          "description": "The account ID of a user."
+        },
+        {
+          "name": "permissions",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "List of requested permissions."
+        },
+        {
+          "name": "requestTypeIds",
+          "type": "array",
+          "location": "body",
+          "description": "List of request type IDs."
+        }
+      ]
+    },
+    {
+      "name": "servicedesk_requesttype_create",
+      "description": "This method enables a customer request type to be added to a service desk based on an issue type. Note that not all customer request type fields can be specified in the request and these fields are given the following default values: * Request type icon is given the headset icon. * Request type groups is left empty, which means this customer request type will not be visible on the [customer portal](https://confluence.atlassian.com/servicedeskcloud/configuring-the-customer-portal-732528918.html). * Request type status mapping is left empty, so the request type has no custom status mapping but inherits the status map from the issue type upon which it is based. * Request type field mapping is set to show the required fields as specified by the issue type used to create the customer request type. These fields can be updated by a service desk administrator using the **Request types** option in **Project settings**. Request Types are created in next-gen projects by creating Issue Types. Please use the Jira Cloud Platform Create issue type endpoint instead. **Permissions required**: Service desk's administrator. Required: serviceDeskId, X-ExperimentalApi (default: opt-in). Optional: description, helpText, issueTypeId (plus 1 more). Returns the new RequestTypeDto.",
+      "method": "POST",
+      "path": "/servicedesk/{serviceDeskId}/requesttype",
+      "params": [
+        {
+          "name": "serviceDeskId",
+          "type": "string",
+          "location": "path",
+          "description": "The ID of the service desk where the customer request type is to be created. This can alternatively be a project identifier.",
+          "required": true
+        },
+        {
+          "name": "X-ExperimentalApi",
+          "type": "string",
+          "location": "header",
+          "description": "Opt-in header Atlassian requires on experimental operations.",
+          "required": true
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "location": "body",
+          "description": "Description of the request type on the service desk."
+        },
+        {
+          "name": "helpText",
+          "type": "string",
+          "location": "body",
+          "description": "Help text for the request type on the service desk."
+        },
+        {
+          "name": "issueTypeId",
+          "type": "string",
+          "location": "body",
+          "description": "ID of the request type to add to the service desk."
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "body",
+          "description": "Name of the request type on the service desk."
+        }
+      ]
+    },
+    {
+      "name": "servicedesk_requesttype_delete",
+      "description": "This method deletes a customer request type from a service desk, and removes it from all customer requests. This only supports classic projects. **Permissions required**: Service desk administrator. Required: serviceDeskId, requestTypeId, X-ExperimentalApi (default: opt-in). Destructive.",
+      "method": "DELETE",
+      "path": "/servicedesk/{serviceDeskId}/requesttype/{requestTypeId}",
+      "params": [
+        {
+          "name": "serviceDeskId",
+          "type": "string",
+          "location": "path",
+          "description": "The ID or project identifier of the service desk.",
+          "required": true
+        },
+        {
+          "name": "requestTypeId",
+          "type": "int",
+          "location": "path",
+          "description": "The ID of the request type.",
+          "required": true
+        },
+        {
+          "name": "X-ExperimentalApi",
+          "type": "string",
+          "location": "header",
+          "description": "Opt-in header Atlassian requires on experimental operations.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "servicedesk_requesttype_delete-property",
+      "description": "Removes a property from a request type. Properties for a Request Type in next-gen are stored as Issue Type properties and therefore can also be deleted by calling the Jira Cloud Platform [Delete issue type property](https://developer.atlassian.com/cloud/jira/platform/rest/v3/#api-rest-api-3-issuetype-issueTypeId-properties-propertyKey-delete) endpoint. **Permissions required**: Jira project administrator with a Jira Service Management agent license. Required: serviceDeskId, requestTypeId, propertyKey, X-ExperimentalApi (default: opt-in). Destructive.",
+      "method": "DELETE",
+      "path": "/servicedesk/{serviceDeskId}/requesttype/{requestTypeId}/property/{propertyKey}",
+      "params": [
+        {
+          "name": "serviceDeskId",
+          "type": "string",
+          "location": "path",
+          "description": "The ID of the service desk which contains the request type.",
+          "required": true
+        },
+        {
+          "name": "requestTypeId",
+          "type": "int",
+          "location": "path",
+          "description": "The ID of the request type for which the property will be removed.",
+          "required": true
+        },
+        {
+          "name": "propertyKey",
+          "type": "string",
+          "location": "path",
+          "description": "The key of the property to remove.",
+          "required": true
+        },
+        {
+          "name": "X-ExperimentalApi",
+          "type": "string",
+          "location": "header",
+          "description": "Opt-in header Atlassian requires on experimental operations.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "servicedesk_requesttype_get",
+      "description": "This method returns a customer request type from a service desk. This operation can be accessed anonymously. **Permissions required**: Permission to access the service desk. Required: serviceDeskId, requestTypeId. Optional: expand. (public)",
+      "method": "GET",
+      "path": "/servicedesk/{serviceDeskId}/requesttype/{requestTypeId}",
+      "no_auth": true,
+      "params": [
+        {
+          "name": "serviceDeskId",
+          "type": "string",
+          "location": "path",
+          "description": "The ID of the service desk whose customer request type is to be returned. This can alternatively be a project identifier.",
+          "required": true
+        },
+        {
+          "name": "requestTypeId",
+          "type": "string",
+          "location": "path",
+          "description": "The ID of the customer request type to be returned.",
+          "required": true
+        },
+        {
+          "name": "expand",
+          "type": "array",
+          "location": "query",
+          "description": "Expand"
+        }
+      ]
+    },
+    {
+      "name": "servicedesk_requesttype_get-property",
+      "description": "Returns the value of the property from a request type. Properties for a Request Type in next-gen are stored as Issue Type properties and therefore also available by calling the Jira Cloud Platform [Get issue type property](https://developer.atlassian.com/cloud/jira/platform/rest/v3/#api-rest-api-3-issuetype-issueTypeId-properties-propertyKey-get) endpoint. **Permissions required**: User must have permission to view the request type. Required: serviceDeskId, requestTypeId, propertyKey, X-ExperimentalApi (default: opt-in).",
+      "method": "GET",
+      "path": "/servicedesk/{serviceDeskId}/requesttype/{requestTypeId}/property/{propertyKey}",
+      "params": [
+        {
+          "name": "serviceDeskId",
+          "type": "string",
+          "location": "path",
+          "description": "The ID of the service desk which contains the request type.",
+          "required": true
+        },
+        {
+          "name": "requestTypeId",
+          "type": "int",
+          "location": "path",
+          "description": "The ID of the request type from which the property will be retrieved.",
+          "required": true
+        },
+        {
+          "name": "propertyKey",
+          "type": "string",
+          "location": "path",
+          "description": "The key of the property to return.",
+          "required": true
+        },
+        {
+          "name": "X-ExperimentalApi",
+          "type": "string",
+          "location": "header",
+          "description": "Opt-in header Atlassian requires on experimental operations.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "servicedesk_requesttype_list",
+      "description": "This method returns all customer request types from a service desk. There are two parameters for filtering the returned list: * `groupId` which filters the results to items in the customer request type group. * `searchQuery` which is matched against request types' `name` or `description`. For example, the strings 'Install', 'Inst', 'Equi', or 'Equipment' will match a request type with the *name* 'Equipment Installation Request'. **Note:** This API by default will filter out request types hidden in the portal (i.e. request types without groups and request types where a user doesn't have permission) when `searchQuery` is provided, unless `includeHiddenRequestTypesInSearch` is set to true. Restricted request types will not be returned for those who aren't admins. **Permissions required**: Permission to access the service desk. Required: serviceDeskId. Optional: groupId, expand, searchQuery (plus 4 more).",
+      "method": "GET",
+      "path": "/servicedesk/{serviceDeskId}/requesttype",
+      "params": [
+        {
+          "name": "serviceDeskId",
+          "type": "string",
+          "location": "path",
+          "description": "The ID of the service desk whose customer request types are to be returned. This can alternatively be a project identifier.",
+          "required": true
+        },
+        {
+          "name": "groupId",
+          "type": "int",
+          "location": "query",
+          "description": "Filters results to those in a customer request type group."
+        },
+        {
+          "name": "expand",
+          "type": "array",
+          "location": "query",
+          "description": "Expand"
+        },
+        {
+          "name": "searchQuery",
+          "type": "string",
+          "location": "query",
+          "description": "The string to be used to filter the results."
+        },
+        {
+          "name": "offset",
+          "wire_name": "start",
+          "type": "int",
+          "location": "query",
+          "description": "The starting index of the returned objects."
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "The maximum number of items to return per page."
+        },
+        {
+          "name": "includeHiddenRequestTypesInSearch",
+          "type": "bool",
+          "location": "query",
+          "description": "Whether to include hidden request types when searching with `searchQuery`."
+        },
+        {
+          "name": "restrictionStatus",
+          "type": "string",
+          "location": "query",
+          "description": "Request type restriction status (`open` or `restricted`) used to filter the results."
+        }
+      ]
+    },
+    {
+      "name": "servicedesk_requesttype_list-fields",
+      "description": "This method returns the fields for a service desk's customer request type. Also, the following information about the user's permissions for the request type is returned: * `canRaiseOnBehalfOf` returns `true` if the user has permission to raise customer requests on behalf of other customers. Otherwise, returns `false`. * `canAddRequestParticipants` returns `true` if the user can add customer request participants. Otherwise, returns `false`. **Permissions required**: Permission to view the Service Desk. However, hidden fields would be visible to only Service desk's Administrator. Required: serviceDeskId, requestTypeId. Optional: expand.",
+      "method": "GET",
+      "path": "/servicedesk/{serviceDeskId}/requesttype/{requestTypeId}/field",
+      "params": [
+        {
+          "name": "serviceDeskId",
+          "type": "string",
+          "location": "path",
+          "description": "The ID of the service desk containing the request types whose fields are to be returned. This can alternatively be a project identifier.",
+          "required": true
+        },
+        {
+          "name": "requestTypeId",
+          "type": "int",
+          "location": "path",
+          "description": "The ID of the request types whose fields are to be returned.",
+          "required": true
+        },
+        {
+          "name": "expand",
+          "type": "array",
+          "location": "query",
+          "description": "Use expand to include additional information in the response. This parameter accepts `hiddenFields` that returns hidden fields associated with the request type."
+        }
+      ]
+    },
+    {
+      "name": "servicedesk_requesttype_list-property-keys",
+      "description": "Returns the keys of all properties for a request type. Properties for a Request Type in next-gen are stored as Issue Type properties and therefore the keys of all properties for a request type are also available by calling the Jira Cloud Platform [Get issue type property keys](https://developer.atlassian.com/cloud/jira/platform/rest/v3/#api-rest-api-3-issuetype-issueTypeId-properties-get) endpoint. **Permissions required**: The user must have permission to view the request type. Required: requestTypeId, serviceDeskId, X-ExperimentalApi (default: opt-in).",
+      "method": "GET",
+      "path": "/servicedesk/{serviceDeskId}/requesttype/{requestTypeId}/property",
+      "params": [
+        {
+          "name": "requestTypeId",
+          "type": "int",
+          "location": "path",
+          "description": "The ID of the request type for which keys will be retrieved.",
+          "required": true
+        },
+        {
+          "name": "serviceDeskId",
+          "type": "string",
+          "location": "path",
+          "description": "The ID of the service desk which contains the request type.",
+          "required": true
+        },
+        {
+          "name": "X-ExperimentalApi",
+          "type": "string",
+          "location": "header",
+          "description": "Opt-in header Atlassian requires on experimental operations.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "servicedesk_requesttype_set-property",
+      "description": "Sets the value of a request type property. Use this resource to store custom data against a request type. Properties for a Request Type in next-gen are stored as Issue Type properties and therefore can also be set by calling the Jira Cloud Platform [Set issue type property](https://developer.atlassian.com/cloud/jira/platform/rest/v3/#api-rest-api-3-issuetype-issueTypeId-properties-propertyKey-put) endpoint. **Permissions required**: Jira project administrator with a Jira Service Management agent license. Required: serviceDeskId, requestTypeId, propertyKey, X-ExperimentalApi (default: opt-in).",
+      "method": "PUT",
+      "path": "/servicedesk/{serviceDeskId}/requesttype/{requestTypeId}/property/{propertyKey}",
+      "params": [
+        {
+          "name": "serviceDeskId",
+          "type": "string",
+          "location": "path",
+          "description": "The ID of the service desk which contains the request type.",
+          "required": true
+        },
+        {
+          "name": "requestTypeId",
+          "type": "int",
+          "location": "path",
+          "description": "The ID of the request type on which the property will be set.",
+          "required": true
+        },
+        {
+          "name": "propertyKey",
+          "type": "string",
+          "location": "path",
+          "description": "The key of the request type property. The maximum length of the key is 255 bytes.",
+          "required": true
+        },
+        {
+          "name": "X-ExperimentalApi",
+          "type": "string",
+          "location": "header",
+          "description": "Opt-in header Atlassian requires on experimental operations.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "servicedesk_requesttypegroup_list",
+      "description": "This method returns a service desk's customer request type groups. Jira Service Management administrators can arrange the customer request type groups in an arbitrary order for display on the customer portal; the groups are returned in this order. **Permissions required**: Permission to view the service desk. Required: serviceDeskId. Optional: offset, limit.",
+      "method": "GET",
+      "path": "/servicedesk/{serviceDeskId}/requesttypegroup",
+      "params": [
+        {
+          "name": "serviceDeskId",
+          "type": "string",
+          "location": "path",
+          "description": "The ID of the service desk whose customer request type groups are to be returned. This can alternatively be a project identifier.",
+          "required": true
+        },
+        {
+          "name": "offset",
+          "wire_name": "start",
+          "type": "int",
+          "location": "query",
+          "description": "The starting index of the returned objects."
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "The maximum number of items to return per page."
+        }
+      ]
+    },
+    {
+      "name": "usage_get",
+      "description": "Assets object counts for the tenant, total and per schema. Returns array of SchemaUsageInfo.",
+      "method": "GET",
+      "path": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/usage",
+      "base_url": "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1",
+      "params": []
+    }
+  ]
+}

@@ -44,7 +44,7 @@ func newObjectCountByAqlCmd(flags *rootFlags) *cobra.Command {
 			}
 			if !stdinBody {
 				if !cmd.Flags().Changed("ql-query") && bodyQlQuery == "" && !requiredInputWaived() {
-					return fmt.Errorf("required flag \"%s\" not set", "ql-query")
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "ql-query"))
 				}
 			}
 			path := "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/object/aql/totalcount"

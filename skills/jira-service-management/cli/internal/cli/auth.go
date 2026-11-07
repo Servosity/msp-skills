@@ -13,6 +13,7 @@ import (
 	"github.com/spf13/cobra"
 	"jira-service-management-pp-cli/internal/cliutil"
 	"jira-service-management-pp-cli/internal/config"
+	"jira-service-management-pp-cli/internal/credkit"
 )
 
 func newAuthCmd(flags *rootFlags) *cobra.Command {
@@ -83,7 +84,7 @@ func openSetupURL(url string) error {
 	default:
 		return fmt.Errorf("unsupported OS: %s", runtime.GOOS)
 	}
-	return c.Start()
+	return credkit.StartCommand(c) // Hand-fix (handfixes.json credkit-wiring)
 }
 
 func newAuthStatusCmd(flags *rootFlags) *cobra.Command {

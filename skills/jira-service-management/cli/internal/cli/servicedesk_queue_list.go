@@ -55,7 +55,7 @@ func newServicedeskQueueListCmd(flags *rootFlags) *cobra.Command {
 				"includeCount": formatCLIParamValue(flagIncludeCount),
 				"start":        formatCLIParamValue(flagOffset),
 				"limit":        formatCLIParamValue(flagLimit),
-			}, map[string][]string{"includeCount": {"include-count"}, "start": {"offset"}, "limit": {"limit"}}, "offset", "offset"), nil, flagAll, "offset", "offset", "limit", 0, "", "", "values", cmd.ErrOrStderr())
+			}, map[string][]string{"includeCount": {"include-count"}, "start": {"offset"}, "limit": {"limit"}}, "start", "offset"), nil, flagAll, "start", "offset", "limit", 0, "", "", "values", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}

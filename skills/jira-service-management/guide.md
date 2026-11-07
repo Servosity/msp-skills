@@ -96,6 +96,17 @@ Add to your Claude Desktop config (`%APPDATA%\Claude\claude_desktop_config.json`
 
 </details>
 
+### Remote MCP over HTTP
+
+`jira-service-management-mcp --transport http` (or `PP_MCP_TRANSPORT=http`) serves streamable HTTP at `http://127.0.0.1:7777/mcp`. It refuses to start until `JIRA_SERVICE_MANAGEMENT_MCP_HTTP_TOKEN` is set to at least 32 characters, and every request must send `Authorization: Bearer <token>`. The command below prints 64 hex characters and meets that minimum. Plain HTTP is allowed only on a loopback `--addr`; any other bind, including `:7777` (every interface), also needs `--tls-cert` and `--tls-key`. Requests with no `Origin` header are accepted, as are loopback origins (`localhost`, `127.0.0.1`, or `[::1]`, any port). Any other `Origin` is refused unless it is listed in `JIRA_SERVICE_MANAGEMENT_MCP_HTTP_ALLOWED_ORIGINS`, a comma-separated list of `scheme://host[:port]` values with no path. That list is not a CORS policy; the server does not emit CORS headers.
+
+```bash
+export JIRA_SERVICE_MANAGEMENT_MCP_HTTP_TOKEN="$(openssl rand -hex 32)"
+jira-service-management-mcp --transport http
+```
+
+Set `JIRA_SERVICE_MANAGEMENT_MCP_READ_ONLY=1` (exactly `1`) to drop mirrored commands that are not marked read-only and make the raw execute tool refuse state-changing calls. Commands marked local-write, which write only this CLI's own learn store, stay available.
+
 ## Authentication
 
 Jira Service Management Cloud uses HTTP Basic auth with your Atlassian account email and an API token (create one at id.atlassian.com/manage-profile/security/api-tokens). Set JIRA_SERVICE_MANAGEMENT_SITE to your site subdomain (acme for acme.atlassian.net), JIRA_SERVICE_MANAGEMENT_EMAIL and JIRA_SERVICE_MANAGEMENT_API_TOKEN. Assets (CMDB) commands call api.atlassian.com, need a JSM Premium or Enterprise site, and also need JIRA_SERVICE_MANAGEMENT_CLOUD_ID and JIRA_SERVICE_MANAGEMENT_WORKSPACE_ID: run 'cmdb discover' to print them or 'cmdb discover --save' to store them in the config file for that site (saved ids never apply to another site). The same credential works for both APIs. What you can see follows your Jira permissions: agents see their desks' requests and internal notes, customers see only their own requests. Set the site rather than JIRA_SERVICE_MANAGEMENT_BASE_URL: a base-URL override also redirects Assets calls.
@@ -250,7 +261,7 @@ This CLI separates local files into four path kinds:
 |------|----------|
 | `config` | User-editable settings such as `config.toml` and saved profiles |
 | `data` | Durable local data: `credentials.toml`, `data.db`, cookies, browser-session proof files, and other auth sidecars |
-| `state` | Runtime state such as `teach.log` |
+| `state` | Runtime state such as persisted queries, jobs, and `teach.log` |
 | `cache` | Regenerable HTTP/cache files |
 
 Each kind resolves independently. The ladder is:
@@ -277,6 +288,15 @@ jira-service-management-cli doctor
 
 Under `JIRA_SERVICE_MANAGEMENT_HOME=/srv/jira-service-management`, the four dirs resolve to `/srv/jira-service-management/config`, `/srv/jira-service-management/data`, `/srv/jira-service-management/state`, and `/srv/jira-service-management/cache`.
 
+On Windows, set the same variable in PowerShell:
+
+```powershell
+$env:JIRA_SERVICE_MANAGEMENT_HOME = "C:\srv\jira-service-management"
+jira-service-management-cli doctor
+```
+
+Under `$env:JIRA_SERVICE_MANAGEMENT_HOME = "C:\srv\jira-service-management"`, the four dirs resolve to `C:\srv\jira-service-management\config`, `C:\srv\jira-service-management\data`, `C:\srv\jira-service-management\state`, and `C:\srv\jira-service-management\cache`.
+
 MCP servers do not receive CLI flags from the host. Put relocation in the host `env` block:
 
 ```json
@@ -297,6 +317,16 @@ Precedence matters in fleets: an ambient per-kind variable such as `JIRA_SERVICE
 Relocation is one-way. Unsetting `JIRA_SERVICE_MANAGEMENT_HOME` does not move files back to platform defaults, and `doctor` cannot find credentials left under a former root. Move the files manually before unsetting relocation variables.
 
 Existing installs keep working because the platform-default rung matches the legacy layout. On the first auth write, stored secrets leave `config.toml` and are consolidated into `credentials.toml` under the data directory. Run `jira-service-management-cli doctor --fail-on warn` to check path and credential-location warnings in automation.
+
+### Local data
+
+Reads are saved locally by default: in `--data-source auto` mode every successful read is also written to the SQLite store (`data.db`, or `data-<hash>.db` per credential and site) in the data directory. GET responses are cached for five minutes under `http/` in the cache directory. Credentials live in `credentials.toml` in the data directory. The learn journal lives under `learn/` in the state directory. `jira-service-management-cli doctor` prints the resolved paths, every store file, and the response-cache size.
+
+None of it is encrypted. New files are created owner-only; beyond that the data relies on OS account permissions and full-disk encryption (FileVault, BitLocker, LUKS).
+
+- **Erase it:** `jira-service-management-cli local-data purge` lists the store files, response cache, and learn journal it would delete; add `--yes` to delete them, or `--only store|cache|journal` to narrow it. Config and credentials are kept.
+- **Run without a local copy:** set `JIRA_SERVICE_MANAGEMENT_NO_LOCAL_DATA=1`. Reads go to the API (`--data-source live`; `--data-source local` still reads an existing store), the response cache is off (`--no-cache`), nothing new is written to the store, and `sync` and `workflow archive` refuse to run. Set it in an MCP host's `env` block and every command the server runs inherits it.
+- **Choose the read source without flags:** `JIRA_SERVICE_MANAGEMENT_DATA_SOURCE=auto|live|local` sets the `--data-source` default; an explicit flag wins.
 
 ## Commands
 
@@ -617,6 +647,8 @@ jira-service-management-cli servicedesk list --dry-run
 jira-service-management-cli servicedesk list --agent
 ```
 
+`--csv` prefixes a leading `'` on cells and header keys that start with `=`, `+`, `-`, `@`, a tab, or a line break (including fullwidth `＝＋－＠`) so a spreadsheet does not run them as formulas. Plain signed numbers such as `-5` and `+2.5e3` are left unchanged.
+
 ## Agent Usage
 
 This CLI is designed for AI agent consumption:
@@ -658,7 +690,9 @@ Verifies configuration, credentials, and connectivity to the API.
 
 Run `jira-service-management-cli doctor` to see the resolved config, data, state, and cache directories. The platform-default config path is `~/.config/jira-service-management-cli/config.toml` (`%USERPROFILE%\.config\jira-service-management-cli\config.toml` on Windows); `--home`, `JIRA_SERVICE_MANAGEMENT_HOME`, and per-kind env vars can relocate it.
 
-Static request headers can be configured under `headers`; per-command header overrides take precedence.
+Static request headers can be configured under `headers`; per-command header overrides take precedence. Configured headers are sent only to the configured origin: a redirect to another origin drops them, and a request carrying one is refused over plain `http` to a non-loopback host.
+
+`--ca-cert`, `JIRA_SERVICE_MANAGEMENT_CA_CERT`, or `ca_cert` adds a PEM CA bundle to the system trust roots. `--tls-server-name`, `JIRA_SERVICE_MANAGEMENT_TLS_SERVER_NAME`, or `tls_server_name` is the name checked against the certificate when the dialed address does not match it. Precedence is flag, then environment, then the config file. A config file other users can change does not supply these settings. Certificate verification failures are not retried.
 
 Environment variables:
 

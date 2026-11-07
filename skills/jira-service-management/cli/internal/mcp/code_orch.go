@@ -4,11 +4,14 @@
 
 // Package mcp — code-orchestration thin surface.
 //
-// Three tools cover the entire API: <api>_search to discover endpoints,
-// <api>_get to inspect one GET endpoint, and <api>_execute to invoke one.
-// This collapses a large API (50+ endpoints)
-// to ~1K tokens of tool definitions while preserving full coverage — the
-// agent writes the composition logic in its own sandbox.
+// <api>_search discovers endpoints and <api>_get returns registry metadata
+// for one GET. <api>_read calls read-only endpoints (GET reads and
+// codegen-marked read-only POSTs). <api>_execute calls state-changing
+// endpoints and returns a preview until confirm is boolean true. A spec
+// with no state-changing endpoints registers the read tool and omits
+// execute. This collapses a large API (50+ endpoints) to a small tool
+// list while preserving full coverage — the agent writes the composition
+// logic in its own sandbox.
 //
 // Pattern source: Anthropic 2026-04-22 "Building agents that reach
 // production systems with MCP" — Cloudflare's MCP server covers ~2,500
@@ -37,7 +40,7 @@ import (
 func RegisterCodeOrchestrationTools(s *server.MCPServer) {
 	s.AddTool(
 		mcplib.NewTool("jira-service-management_search",
-			mcplib.WithDescription("Search the jira-service-management API for endpoints matching a natural-language query. Returns a ranked list of {endpoint_id, method, path, summary} entries. Call this first to find the endpoint to execute."),
+			mcplib.WithDescription("Search the jira-service-management API for endpoints matching a natural-language query. Returns a ranked list of {endpoint_id, method, path, summary} entries. Call this first to find the endpoint to read or execute."),
 			mcplib.WithString("query", mcplib.Required(), mcplib.Description("Natural-language description of what you want to do.")),
 			mcplib.WithNumber("limit", mcplib.Description("Max endpoints to return (default 10, max 100).")),
 			mcplib.WithReadOnlyHintAnnotation(true),
@@ -57,12 +60,26 @@ func RegisterCodeOrchestrationTools(s *server.MCPServer) {
 		),
 		handleCodeOrchGet,
 	)
-
+	s.AddTool(
+		mcplib.NewTool("jira-service-management_read",
+			mcplib.WithDescription("Call one read-only jira-service-management API endpoint by its endpoint_id (from jira-service-management_search). GET reads and read-only POSTs run immediately. Params are a JSON object; path placeholders and query strings are resolved automatically. State-changing endpoints, including deletes and mutating GETs, are rejected; use jira-service-management_execute."),
+			mcplib.WithString("endpoint_id", mcplib.Required(), mcplib.Description("Read-only endpoint identifier returned by jira-service-management_search (e.g., \"users.list\").")),
+			mcplib.WithObject("params", mcplib.Description("Parameters for the endpoint. Path placeholders match by name; remaining entries become the query string on GET or the JSON body on a read-only POST.")),
+			mcplib.WithReadOnlyHintAnnotation(true),
+			mcplib.WithDestructiveHintAnnotation(false),
+			mcplib.WithOpenWorldHintAnnotation(true),
+		),
+		handleCodeOrchRead,
+	)
 	s.AddTool(
 		mcplib.NewTool("jira-service-management_execute",
-			mcplib.WithDescription("Execute one jira-service-management API endpoint by its endpoint_id (from jira-service-management_search). Params are passed as a JSON object; path placeholders and query strings are resolved automatically."),
-			mcplib.WithString("endpoint_id", mcplib.Required(), mcplib.Description("Endpoint identifier returned by jira-service-management_search (e.g., \"users.list\").")),
+			mcplib.WithDescription("Call one state-changing jira-service-management API endpoint by its endpoint_id (from jira-service-management_search). DELETE and other mutating calls, including mutating GETs, return a preview and do not run until confirm is boolean true. Params are a JSON object; path placeholders and query strings are resolved automatically. Read-only endpoints are rejected; use jira-service-management_read."),
+			mcplib.WithString("endpoint_id", mcplib.Required(), mcplib.Description("State-changing endpoint identifier returned by jira-service-management_search (e.g., \"users.delete\").")),
 			mcplib.WithObject("params", mcplib.Description("Parameters for the endpoint. Path placeholders match by name; remaining entries become query string on GET/DELETE or JSON body on POST/PUT/PATCH.")),
+			mcplib.WithBoolean("confirm", mcplib.Description("Set to boolean true to perform the previewed call. Any other value, including the string \"true\", leaves the call as a preview and does not contact the API.")),
+			mcplib.WithReadOnlyHintAnnotation(false),
+			mcplib.WithDestructiveHintAnnotation(true),
+			mcplib.WithOpenWorldHintAnnotation(true),
 		),
 		handleCodeOrchExecute,
 	)
@@ -102,8 +119,23 @@ type codeOrchEndpoint struct {
 	// params object; a strict-mapping API rejects an object at the body
 	// root with HTTP 422 "Invalid json".
 	BodyIsArray bool
-	Mutating    bool
-	keywords    []string
+	// Multipart marks a multipart/form-data body. FileParams name the body
+	// params sent as file parts. Over MCP the agent passes base64-encoded file
+	// content for each (or a path confined to the opt-in upload root).
+	Multipart  bool
+	FileParams []string
+	// Page carries the GET list paging settings the per-endpoint tools use, so
+	// an over-budget list resumes inside the bounded page instead of handing
+	// the agent the server cursor for the following page (which skips the
+	// rows the bound dropped).
+	Page mcpPageConfig
+	// NeedsConfirm is the read-command classifier's write signal, plus every
+	// DELETE. It stays separate from Mutating: Mutating selects the GET
+	// transport that bypasses the response cache, including GETs the
+	// classifier does not treat as reads.
+	NeedsConfirm bool
+	Mutating     bool
+	keywords     []string
 }
 
 type codeOrchParamBinding struct {
@@ -128,6 +160,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("api-import", "start", "Start configured imports. To see an ongoing import see the Progress resource", "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/import/start/{id}"),
 	},
@@ -140,6 +173,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "qlQuery", WireName: "qlQuery"}, {PublicName: "per_page", WireName: "resultPerPage"}, {PublicName: "includeAttributes", WireName: "includeAttributes"}, {PublicName: "includeAttributesDeep", WireName: "includeAttributesDeep"}, {PublicName: "includeTypeAttributes", WireName: "includeTypeAttributes"}, {PublicName: "includeExtendedInfo", WireName: "includeExtendedInfo"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "page", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("aql", "find-objects", "Deprecated by Atlassian (removal date passed); use 'object find-by-aql'.", "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/aql/objects"),
 	},
@@ -152,6 +187,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "limit", WireName: "limit"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "start", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("assets", "get-workspaces", "Returns a list of Assets workspace IDs.", "/assets/workspace"),
 	},
@@ -164,6 +201,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("config", "create-referencetype", "Create a reference type (Assets).", "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/config/referencetype"),
 	},
@@ -176,6 +214,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("config", "create-statustype", "Create a new status", "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/config/statustype"),
 	},
@@ -188,6 +227,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("config", "delete-statustype", "Delete an existing status", "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/config/statustype/{id}"),
 	},
@@ -200,6 +240,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("config", "get-statustype", "Find a status by id", "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/config/statustype/{id}"),
 	},
@@ -212,6 +253,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "objectSchemaId", WireName: "objectSchemaId"}, {PublicName: "includeAll", WireName: "includeAll"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("config", "list-referencetypes", "Get reference type", "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/config/referencetype"),
 	},
@@ -224,6 +266,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "objectSchemaId", WireName: "objectSchemaId"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("config", "list-statustypes", "Find all status", "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/config/statustype"),
 	},
@@ -236,6 +279,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("config", "update-statustype", "Update an existing status", "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/config/statustype/{id}"),
 	},
@@ -248,6 +292,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "strictConflictStatusCode", WireName: "strictConflictStatusCode"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("customer", "create", "This method adds a customer to the Jira Service Management instance by passing a JSON file including an email address", "/customer"),
 	},
@@ -260,6 +305,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "strictConflictStatusCode", WireName: "strictConflictStatusCode"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("customer", "create-skippermissioncheck", "Atlassian-internal endpoint (ASAP auth only); not callable with an API token.", "/customer/skip-permission-check"),
 	},
@@ -272,6 +318,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("customer", "revoke-portal-only-access-for-user", "This method revokes portal-only access for a particular user", "/customer/user/{accountId}/revoke-portal-only-access"),
 	},
@@ -284,6 +331,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("global", "update-schema-property", "Update general configuration for object schema", "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/global/config/objectschema/{id}/property"),
 	},
@@ -296,6 +344,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("icon", "get", "Load a single icon by id", "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/icon/{id}"),
 	},
@@ -308,6 +357,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("icon", "list-global", "Return all global icons i.e. icons not associated with a particular object schema", "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/icon/global"),
 	},
@@ -320,6 +370,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams:  []codeOrchParamBinding{},
 		QueryParams:     []codeOrchParamBinding{{PublicName: "size", WireName: "size"}},
 		HeaderParams:    []codeOrchParamBinding{},
+		NeedsConfirm:    false,
 		Mutating:        false,
 		HeaderOverrides: map[string]string{"Accept": "image/png"},
 		keywords:        codeOrchKeywords("icon", "download", "Load a single icon PNG by id", "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/icon/{id}/icon.png"),
@@ -333,6 +384,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("importsource", "get", "Retrieves a specific import source configuration by its ID.", "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/importsource/{id}"),
 	},
@@ -345,6 +397,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("importsource", "get", "Get the current status of the import configuration", "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/importsource/{importSourceId}/configstatus"),
 	},
@@ -357,6 +410,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("importsource", "cancel", "Cancel current on-going import", "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/importsource/{importSourceId}/executions/{importExecutionId}"),
 	},
@@ -369,6 +423,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("importsource", "create-failed-history", "Creates a failed import history record for the specified import source and execution with the given failure reason", "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/importsource/{importSourceId}/executions/{executionId}/history/failed"),
 	},
@@ -381,6 +436,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("importsource", "get-latest-status", "Get the status of the most recently created import execution", "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/importsource/{importSourceId}/executions/status"),
 	},
@@ -393,6 +449,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("importsource", "get-status", "Get the status of the import", "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/importsource/{importSourceId}/executions/{importExecutionId}/status"),
 	},
@@ -405,6 +462,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("importsource", "start", "Move to the data ingestion steps of external imports", "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/importsource/{importSourceId}/executions"),
 	},
@@ -417,6 +475,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("importsource", "submit-data", "Providing data to be ingested", "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/importsource/{importSourceId}/executions/{importExecutionId}/data"),
 	},
@@ -429,6 +488,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("importsource", "submit-progress", "Submit progress of ingesting data", "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/importsource/{importSourceId}/executions/{importExecutionId}/progress"),
 	},
@@ -441,6 +501,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("importsource", "create", "Creates a new scheduled import configuration for the specified import source.", "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/importsource/{importSourceId}/importschedule"),
 	},
@@ -453,6 +514,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("importsource", "delete", "Deletes a scheduled import configuration. The import source will remain, but will no longer execute on a schedule.", "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/importsource/{importSourceId}/importschedule/{importScheduleId}"),
 	},
@@ -465,6 +527,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("importsource", "get", "Retrieves a specific scheduled import configuration by ID", "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/importsource/{importSourceId}/importschedule/{importScheduleId}"),
 	},
@@ -477,6 +540,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("importsource", "update", "Updates an existing scheduled import configuration. You can modify the start time, run interval, or callback URL.", "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/importsource/{importSourceId}/importschedule/{importScheduleId}"),
 	},
@@ -489,6 +553,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("importsource", "get-progress", "Get the progress of an asynchronous schema and mapping operation", "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/importsource/{importSourceId}/mapping/progress/{resourceId}"),
 	},
@@ -501,6 +566,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "async", WireName: "async"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("importsource", "submit", "Provide object schema and mapping configuration for the external import", "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/importsource/{importSourceId}/mapping"),
 	},
@@ -513,6 +579,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "async", WireName: "async"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("importsource", "update", "Update object schema and mapping configuration for the external import", "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/importsource/{importSourceId}/mapping"),
 	},
@@ -525,6 +592,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("importsource", "get-links", "Retrieve links for import schedule operations (create, get, update, delete).", "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/importsource/{importSourceId}/schedule"),
 	},
@@ -537,6 +605,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("importsource", "get", "Get the current schema and mapping of the import configuration", "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/importsource/{importSourceId}/schema-and-mapping"),
 	},
@@ -549,6 +618,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("importsource", "generate", "Generate a Bearer token which can be used to authenticate against Assets `/importsource/` APIs", "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/importsource/{importSourceId}/token"),
 	},
@@ -561,6 +631,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "limit", WireName: "limit"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "start", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("insight", "get-workspaces", "This endpoint is deprecated, please use /assets/workspace/.", "/insight/workspace"),
 	},
@@ -573,6 +645,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("instance", "get-info", "This method retrieves information about the Jira Service Management instance such as software version, builds", "/info"),
 	},
@@ -585,6 +658,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "iql", WireName: "iql"}, {PublicName: "per_page", WireName: "resultPerPage"}, {PublicName: "includeAttributes", WireName: "includeAttributes"}, {PublicName: "includeAttributesDeep", WireName: "includeAttributesDeep"}, {PublicName: "includeTypeAttributes", WireName: "includeTypeAttributes"}, {PublicName: "includeExtendedInfo", WireName: "includeExtendedInfo"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "page", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("iql", "find-objects", "Deprecated by Atlassian (removal date passed); use 'object find-by-aql'.", "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/iql/objects"),
 	},
@@ -597,6 +672,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "query", WireName: "query"}, {PublicName: "highlight", WireName: "highlight"}, {PublicName: "offset", WireName: "start"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "prev", WireName: "prev"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "cursor", NextCursorPath: "cursor"},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("knowledgebase", "list-articles", "Returns articles which match the given query string across all service desks.", "/knowledgebase/article"),
 	},
@@ -609,6 +686,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("knowledgebase", "view-article", "View knowledge base article", "/knowledgebase/article/view/{pageId}"),
 	},
@@ -621,6 +699,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("object", "count-by-aql", "This API provides the total count of objects that match a specified AQL query.", "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/object/aql/totalcount"),
 	},
@@ -633,6 +712,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("object", "create", "Create a new object in Assets", "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/object/create"),
 	},
@@ -645,6 +725,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("object", "delete", "Delete the referenced object", "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/object/{id}"),
 	},
@@ -657,6 +738,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "startAt", WireName: "startAt"}, {PublicName: "maxResults", WireName: "maxResults"}, {PublicName: "includeAttributes", WireName: "includeAttributes"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("object", "find-by-aql", "Fetch Objects by AQL", "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/object/aql"),
 	},
@@ -669,6 +751,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("object", "get", "Load one object", "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/object/{id}"),
 	},
@@ -681,6 +764,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("object", "list-connected-tickets", "Relation between Jira issues and Assets objects", "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/objectconnectedtickets/{objectId}/tickets"),
 	},
@@ -693,6 +777,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("object", "navlist-aql", "Retrieve a list of objects based on an AQL. Deprecated from 30 September 2024. Please use POST /object/aql instead.", "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/object/navlist/aql"),
 	},
@@ -705,6 +790,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("object", "navlist-iql", "Deprecated by Atlassian (removal date passed); use 'object navlist-aql'. Deprecated. Use `/object/navlist/aql` instead.", "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/object/navlist/iql"),
 	},
@@ -717,6 +803,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("object", "update", "Update an existing object in Assets", "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/object/{id}"),
 	},
@@ -729,6 +816,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("object", "list", "List all attributes for the given object", "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/object/{id}/attributes"),
 	},
@@ -741,6 +829,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "asc", WireName: "asc"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("object", "list", "Retrieve the history entries for this object", "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/object/{id}/history"),
 	},
@@ -753,6 +842,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("object", "list-references", "Find all references for an object", "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/object/{id}/referenceinfo"),
 	},
@@ -765,6 +855,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("objectschema", "create", "Create a new object schema", "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/objectschema/create"),
 	},
@@ -777,6 +868,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("objectschema", "delete", "Delete a schema", "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/objectschema/{id}"),
 	},
@@ -789,6 +881,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("objectschema", "get", "Find a schema by id", "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/objectschema/{id}"),
 	},
@@ -801,6 +894,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "query", WireName: "query"}, {PublicName: "maxResults", WireName: "maxResults"}, {PublicName: "includeCounts", WireName: "includeCounts"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "startAt", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("objectschema", "list", "Resource to find object schemas in Assets", "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/objectschema/list"),
 	},
@@ -813,6 +908,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("objectschema", "update", "Update an object schema", "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/objectschema/{id}"),
 	},
@@ -825,6 +921,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "onlyValueEditable", WireName: "onlyValueEditable"}, {PublicName: "extended", WireName: "extended"}, {PublicName: "query", WireName: "query"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("objectschema", "list", "Find all object type attributes for this object schema", "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/objectschema/{id}/attributes"),
 	},
@@ -837,6 +934,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "excludeAbstract", WireName: "excludeAbstract"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("objectschema", "list", "Find all object types for this object schema", "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/objectschema/{id}/objecttypes"),
 	},
@@ -849,6 +947,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "query", WireName: "query"}, {PublicName: "exclude", WireName: "exclude"}, {PublicName: "includeObjectCounts", WireName: "includeObjectCounts"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("objectschema", "list-flat", "Find all object types for this object schema", "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/objectschema/{id}/objecttypes/flat"),
 	},
@@ -861,6 +960,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("objecttype", "create", "Create a new object type", "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/objecttype/create"),
 	},
@@ -873,6 +973,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("objecttype", "delete", "Delete an object type", "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/objecttype/{id}"),
 	},
@@ -885,6 +986,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("objecttype", "get", "Find an object type by id", "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/objecttype/{id}"),
 	},
@@ -897,6 +999,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("objecttype", "update", "Update an existing object type", "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/objecttype/{id}"),
 	},
@@ -909,6 +1012,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "onlyValueEditable", WireName: "onlyValueEditable"}, {PublicName: "orderByName", WireName: "orderByName"}, {PublicName: "query", WireName: "query"}, {PublicName: "includeValuesExist", WireName: "includeValuesExist"}, {PublicName: "excludeParentAttributes", WireName: "excludeParentAttributes"}, {PublicName: "includeChildren", WireName: "includeChildren"}, {PublicName: "orderByRequired", WireName: "orderByRequired"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("objecttype", "list", "Find all attributes for this object type", "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/objecttype/{id}/attributes"),
 	},
@@ -921,6 +1025,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("objecttype", "change", "Change position of this object type", "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/objecttype/{id}/position"),
 	},
@@ -933,6 +1038,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("objecttypeattribute", "create", "Create a new attribute on the given object type", "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/objecttypeattribute/{objectTypeId}"),
 	},
@@ -945,6 +1051,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("objecttypeattribute", "delete", "Delete an existing object type attribute", "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/objecttypeattribute/{id}"),
 	},
@@ -957,6 +1064,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("objecttypeattribute", "update", "Update an existing object type attribute", "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/objecttypeattribute/{objectTypeId}/{id}"),
 	},
@@ -969,6 +1077,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("organization", "create", "This method creates an organization by passing the name of the organization.", "/organization"),
 	},
@@ -981,6 +1090,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("organization", "delete", "This method deletes an organization. Note that the organization is deleted regardless of other associations it may have.", "/organization/{organizationId}"),
 	},
@@ -993,6 +1103,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("organization", "get", "This method returns details of an organization.", "/organization/{organizationId}"),
 	},
@@ -1005,6 +1116,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "limit", WireName: "limit"}, {PublicName: "accountId", WireName: "accountId"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "start", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("organization", "list", "This method returns a list of organizations in the Jira Service Management instance.", "/organization"),
 	},
@@ -1017,6 +1130,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("organization", "delete", "Removes an organization property.", "/organization/{organizationId}/property/{propertyKey}"),
 	},
@@ -1029,6 +1143,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("organization", "get", "Returns the value of an organization property.", "/organization/{organizationId}/property/{propertyKey}"),
 	},
@@ -1041,6 +1156,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("organization", "list-keys", "Returns the keys of all organization properties.", "/organization/{organizationId}/property"),
 	},
@@ -1053,6 +1169,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("organization", "set", "Sets the value of an organization property. Use this resource to store custom data against an organization.", "/organization/{organizationId}/property/{propertyKey}"),
 	},
@@ -1065,6 +1182,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("organization", "add", "This method adds users to an organization. **Permissions required**: Service desk administrator or agent.", "/organization/{organizationId}/user"),
 	},
@@ -1077,6 +1195,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "limit", WireName: "limit"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "start", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("organization", "list", "This method returns all the users associated with an organization.", "/organization/{organizationId}/user"),
 	},
@@ -1089,6 +1209,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("organization", "remove", "This method removes users from an organization. **Permissions required**: Service desk administrator or agent.", "/organization/{organizationId}/user"),
 	},
@@ -1101,6 +1222,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("progress", "get-import", "Show ongoing import process", "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/progress/category/imports/{id}"),
 	},
@@ -1113,6 +1235,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("request", "create", "This method creates a customer request in a service desk.", "/request"),
 	},
@@ -1125,6 +1248,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "expand", WireName: "expand", QueryArray: true, QueryStyle: "form", QueryExplode: true}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("request", "get", "This method returns a customer request. **Permissions required**: Permission to access the specified service desk.", "/request/{issueIdOrKey}"),
 	},
@@ -1137,6 +1261,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "searchTerm", WireName: "searchTerm"}, {PublicName: "requestOwnership", WireName: "requestOwnership", QueryArray: true, QueryStyle: "form", QueryExplode: true}, {PublicName: "requestStatus", WireName: "requestStatus"}, {PublicName: "approvalStatus", WireName: "approvalStatus"}, {PublicName: "organizationId", WireName: "organizationId"}, {PublicName: "serviceDeskId", WireName: "serviceDeskId"}, {PublicName: "requestTypeId", WireName: "requestTypeId"}, {PublicName: "expand", WireName: "expand", QueryArray: true, QueryStyle: "form", QueryExplode: true}, {PublicName: "limit", WireName: "limit"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "start", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("request", "list", "This method returns all customer requests for the user executing the query.", "/request"),
 	},
@@ -1149,6 +1275,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("request", "validate", "Validates a customer request payload without creating (persisting) a request.", "/request/validate"),
 	},
@@ -1161,6 +1288,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("request", "answer", "This method enables a user to **Approve** or **Decline** an approval on a customer request.", "/request/{issueIdOrKey}/approval/{approvalId}"),
 	},
@@ -1173,6 +1301,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("request", "get", "This method returns an approval. Use this method to determine the status of an approval and the list of approvers.", "/request/{issueIdOrKey}/approval/{approvalId}"),
 	},
@@ -1185,6 +1314,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "limit", WireName: "limit"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "start", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("request", "list", "This method returns all approvals on a customer request.", "/request/{issueIdOrKey}/approval"),
 	},
@@ -1197,6 +1328,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("request", "add", "This method creates a comment on a customer request using one or more attachment files (uploaded using", "/request/{issueIdOrKey}/attachment"),
 	},
@@ -1209,6 +1341,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("request", "download", "Returns the contents of an attachment.", "/request/{issueIdOrKey}/attachment/{attachmentId}"),
 	},
@@ -1221,6 +1354,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("request", "get-thumbnail", "Returns the thumbnail of an attachment.", "/request/{issueIdOrKey}/attachment/{attachmentId}/thumbnail"),
 	},
@@ -1233,6 +1367,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "limit", WireName: "limit"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "start", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("request", "list", "This method returns all the attachments for a customer requests.", "/request/{issueIdOrKey}/attachment"),
 	},
@@ -1245,6 +1381,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("request", "add", "This method creates a public or private (internal) comment on a customer request", "/request/{issueIdOrKey}/comment"),
 	},
@@ -1257,6 +1394,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "expand", WireName: "expand", QueryArray: true, QueryStyle: "form", QueryExplode: true}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("request", "get", "This method returns details of a customer request's comment.", "/request/{issueIdOrKey}/comment/{commentId}"),
 	},
@@ -1269,6 +1407,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "public", WireName: "public"}, {PublicName: "internal", WireName: "internal"}, {PublicName: "expand", WireName: "expand", QueryArray: true, QueryStyle: "form", QueryExplode: true}, {PublicName: "limit", WireName: "limit"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "start", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("request", "list", "This method returns all comments on a customer request.", "/request/{issueIdOrKey}/comment"),
 	},
@@ -1281,6 +1421,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "limit", WireName: "limit"}},
 		HeaderParams:   []codeOrchParamBinding{{PublicName: "X-ExperimentalApi", WireName: "X-ExperimentalApi", Default: "opt-in"}},
+		Page:           mcpPageConfig{CursorParam: "start", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("request", "list-attachments", "This method returns the attachments referenced in a comment.", "/request/{issueIdOrKey}/comment/{commentId}/attachment"),
 	},
@@ -1293,6 +1435,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{{PublicName: "X-ExperimentalApi", WireName: "X-ExperimentalApi", Default: "opt-in"}},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("request", "delete", "This method deletes the feedback of request using it's `requestKey` or `requestId` **Permissions required**", "/request/{requestIdOrKey}/feedback"),
 	},
@@ -1305,6 +1448,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{{PublicName: "X-ExperimentalApi", WireName: "X-ExperimentalApi", Default: "opt-in"}},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("request", "get", "This method retrieves a feedback of a request using it's `requestKey` or `requestId` **Permissions required**", "/request/{requestIdOrKey}/feedback"),
 	},
@@ -1317,6 +1461,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{{PublicName: "X-ExperimentalApi", WireName: "X-ExperimentalApi", Default: "opt-in"}},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("request", "post", "This method adds a feedback on an request using it's `requestKey` or `requestId` **Permissions required**", "/request/{requestIdOrKey}/feedback"),
 	},
@@ -1329,6 +1474,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("request", "get-subscription", "This method returns the notification subscription status of the user making the request.", "/request/{issueIdOrKey}/notification"),
 	},
@@ -1341,6 +1487,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("request", "subscribe", "This method subscribes the user to receiving notifications from a customer request.", "/request/{issueIdOrKey}/notification"),
 	},
@@ -1353,6 +1500,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("request", "unsubscribe", "This method unsubscribes the user from notifications from a customer request.", "/request/{issueIdOrKey}/notification"),
 	},
@@ -1365,6 +1513,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("request", "add", "This method adds participants to a customer request.", "/request/{issueIdOrKey}/participant"),
 	},
@@ -1377,6 +1526,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "limit", WireName: "limit"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "start", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("request", "list", "This method returns a list of all the participants on a customer request.", "/request/{issueIdOrKey}/participant"),
 	},
@@ -1389,6 +1540,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("request", "remove", "This method removes participants from a customer request.", "/request/{issueIdOrKey}/participant"),
 	},
@@ -1401,6 +1553,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("request", "get", "This method returns the details for an SLA on a customer request.", "/request/{issueIdOrKey}/sla/{slaMetricId}"),
 	},
@@ -1413,6 +1566,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "limit", WireName: "limit"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "start", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("request", "list", "This method returns all the SLA records on a customer request. A customer request can have zero or more SLAs.", "/request/{issueIdOrKey}/sla"),
 	},
@@ -1425,6 +1580,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "limit", WireName: "limit"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "start", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("request", "list-history", "This method returns a list of all the statuses a customer Request has achieved.", "/request/{issueIdOrKey}/status"),
 	},
@@ -1437,6 +1594,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "limit", WireName: "limit"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "start", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("request", "list", "This method returns a list of transitions", "/request/{issueIdOrKey}/transition"),
 	},
@@ -1449,6 +1608,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("request", "perform", "This method performs a customer transition for a given request and transition.", "/request/{issueIdOrKey}/transition"),
 	},
@@ -1461,6 +1621,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "searchQuery", WireName: "searchQuery"}, {PublicName: "serviceDeskId", WireName: "serviceDeskId", QueryArray: true, QueryStyle: "form", QueryExplode: true}, {PublicName: "limit", WireName: "limit"}, {PublicName: "expand", WireName: "expand", QueryArray: true, QueryStyle: "form", QueryExplode: true}, {PublicName: "includeHiddenRequestTypesInSearch", WireName: "includeHiddenRequestTypesInSearch"}, {PublicName: "restrictionStatus", WireName: "restrictionStatus"}},
 		HeaderParams:   []codeOrchParamBinding{{PublicName: "X-ExperimentalApi", WireName: "X-ExperimentalApi", Default: "opt-in"}},
+		Page:           mcpPageConfig{CursorParam: "start", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("requesttype", "get-all-request-types", "This method returns all customer request types used in the Jira Service Management instance", "/requesttype"),
 	},
@@ -1473,6 +1635,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("servicedesk", "get", "This method returns a service desk.", "/servicedesk/{serviceDeskId}"),
 	},
@@ -1485,6 +1648,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "limit", WireName: "limit"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "start", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("servicedesk", "list", "This method returns all the service desks in the Jira Service Management instance that the user has permission to", "/servicedesk"),
 	},
@@ -1497,6 +1662,9 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		Multipart:      true,
+		FileParams:     []string{"file"},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("servicedesk", "upload-temporary-file", "This method adds one or more temporary attachments to a service desk", "/servicedesk/{serviceDeskId}/attachTemporaryFile"),
 	},
@@ -1509,6 +1677,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("servicedesk", "add", "Adds one or more customers to a service desk.", "/servicedesk/{serviceDeskId}/customer"),
 	},
@@ -1521,6 +1690,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("servicedesk", "add-skip-permission-check", "Atlassian-internal endpoint (ASAP auth only); not callable with an API token.", "/servicedesk/{serviceDeskId}/customer/skip-permission-check"),
 	},
@@ -1533,6 +1703,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "strictConflictStatusCode", WireName: "strictConflictStatusCode"}},
 		HeaderParams:   []codeOrchParamBinding{{PublicName: "X-ExperimentalApi", WireName: "X-ExperimentalApi", Default: "opt-in"}},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("servicedesk", "invite", "This method invites a customer to a specified service desk by sending them an email invitation", "/servicedesk/{serviceDeskId}/customer/invite"),
 	},
@@ -1545,6 +1716,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "query", WireName: "query"}, {PublicName: "limit", WireName: "limit"}},
 		HeaderParams:   []codeOrchParamBinding{{PublicName: "X-ExperimentalApi", WireName: "X-ExperimentalApi", Default: "opt-in"}},
+		Page:           mcpPageConfig{CursorParam: "start", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("servicedesk", "list", "This method returns a list of the customers on a service desk.", "/servicedesk/{serviceDeskId}/customer"),
 	},
@@ -1557,6 +1730,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{{PublicName: "X-ExperimentalApi", WireName: "X-ExperimentalApi", Default: "opt-in"}},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("servicedesk", "remove", "This method removes one or more customers from a service desk. The service desk must have closed access.", "/servicedesk/{serviceDeskId}/customer"),
 	},
@@ -1569,6 +1743,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "query", WireName: "query"}, {PublicName: "highlight", WireName: "highlight"}, {PublicName: "offset", WireName: "start"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "prev", WireName: "prev"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "cursor", NextCursorPath: "cursor"},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("servicedesk", "list-articles", "Returns articles which match the given query and belong to the knowledge base linked to the service desk.", "/servicedesk/{serviceDeskId}/knowledgebase/article"),
 	},
@@ -1581,6 +1757,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("servicedesk", "add", "This method adds an organization to a service desk.", "/servicedesk/{serviceDeskId}/organization"),
 	},
@@ -1593,6 +1770,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "limit", WireName: "limit"}, {PublicName: "accountId", WireName: "accountId"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "start", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("servicedesk", "list", "This method returns a list of all organizations associated with a service desk.", "/servicedesk/{serviceDeskId}/organization"),
 	},
@@ -1605,6 +1784,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("servicedesk", "remove", "This method removes an organization from a service desk.", "/servicedesk/{serviceDeskId}/organization"),
 	},
@@ -1617,6 +1797,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "includeCount", WireName: "includeCount"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("servicedesk", "get", "This method returns a specific queues in a service desk.", "/servicedesk/{serviceDeskId}/queue/{queueId}"),
 	},
@@ -1629,6 +1810,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "includeCount", WireName: "includeCount"}, {PublicName: "limit", WireName: "limit"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "start", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("servicedesk", "list", "This method returns the queues in a service desk.", "/servicedesk/{serviceDeskId}/queue"),
 	},
@@ -1641,6 +1824,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "limit", WireName: "limit"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "start", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("servicedesk", "list-issues", "This method returns the customer requests in a queue. Only fields that the queue is configured to show are returned.", "/servicedesk/{serviceDeskId}/queue/{queueId}/issue"),
 	},
@@ -1653,6 +1838,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{{PublicName: "X-ExperimentalApi", WireName: "X-ExperimentalApi", Default: "opt-in"}},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("servicedesk", "check-permissions", "Returns: * a list of request type IDs where the given user has permission to administer.", "/servicedesk/{serviceDeskId}/requesttype/permissions/check"),
 	},
@@ -1665,6 +1851,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{{PublicName: "X-ExperimentalApi", WireName: "X-ExperimentalApi", Default: "opt-in"}},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("servicedesk", "create", "This method enables a customer request type to be added to a service desk based on an issue type.", "/servicedesk/{serviceDeskId}/requesttype"),
 	},
@@ -1677,6 +1864,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{{PublicName: "X-ExperimentalApi", WireName: "X-ExperimentalApi", Default: "opt-in"}},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("servicedesk", "delete", "This method deletes a customer request type from a service desk, and removes it from all customer requests.", "/servicedesk/{serviceDeskId}/requesttype/{requestTypeId}"),
 	},
@@ -1689,6 +1877,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{{PublicName: "X-ExperimentalApi", WireName: "X-ExperimentalApi", Default: "opt-in"}},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("servicedesk", "delete-property", "Removes a property from a request type.", "/servicedesk/{serviceDeskId}/requesttype/{requestTypeId}/property/{propertyKey}"),
 	},
@@ -1701,6 +1890,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "expand", WireName: "expand", QueryArray: true, QueryStyle: "form", QueryExplode: true}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("servicedesk", "get", "This method returns a customer request type from a service desk. This operation can be accessed anonymously.", "/servicedesk/{serviceDeskId}/requesttype/{requestTypeId}"),
 	},
@@ -1713,6 +1903,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{{PublicName: "X-ExperimentalApi", WireName: "X-ExperimentalApi", Default: "opt-in"}},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("servicedesk", "get-property", "Returns the value of the property from a request type.", "/servicedesk/{serviceDeskId}/requesttype/{requestTypeId}/property/{propertyKey}"),
 	},
@@ -1725,6 +1916,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "groupId", WireName: "groupId"}, {PublicName: "expand", WireName: "expand", QueryArray: true, QueryStyle: "form", QueryExplode: true}, {PublicName: "searchQuery", WireName: "searchQuery"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "includeHiddenRequestTypesInSearch", WireName: "includeHiddenRequestTypesInSearch"}, {PublicName: "restrictionStatus", WireName: "restrictionStatus"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "start", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("servicedesk", "list", "This method returns all customer request types from a service desk.", "/servicedesk/{serviceDeskId}/requesttype"),
 	},
@@ -1737,6 +1930,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "expand", WireName: "expand", QueryArray: true, QueryStyle: "form", QueryExplode: true}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("servicedesk", "list-fields", "This method returns the fields for a service desk's customer request type.", "/servicedesk/{serviceDeskId}/requesttype/{requestTypeId}/field"),
 	},
@@ -1749,6 +1943,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{{PublicName: "X-ExperimentalApi", WireName: "X-ExperimentalApi", Default: "opt-in"}},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("servicedesk", "list-property-keys", "Returns the keys of all properties for a request type.", "/servicedesk/{serviceDeskId}/requesttype/{requestTypeId}/property"),
 	},
@@ -1761,6 +1956,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{{PublicName: "X-ExperimentalApi", WireName: "X-ExperimentalApi", Default: "opt-in"}},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("servicedesk", "set-property", "Sets the value of a request type property. Use this resource to store custom data against a request type.", "/servicedesk/{serviceDeskId}/requesttype/{requestTypeId}/property/{propertyKey}"),
 	},
@@ -1773,6 +1969,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "limit", WireName: "limit"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "start", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("servicedesk", "list", "This method returns a service desk's customer request type groups.", "/servicedesk/{serviceDeskId}/requesttypegroup"),
 	},
@@ -1785,6 +1983,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("usage", "get", "Assets object counts for the tenant, total and per schema.", "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/usage"),
 	},
@@ -1834,6 +2033,17 @@ func codeOrchEndpointMetadata(ep *codeOrchEndpoint) map[string]any {
 		"method":      ep.Method,
 		"path":        ep.Path,
 		"summary":     ep.Summary,
+	}
+	// next_cursor comes back in params under this endpoint's page cursor name.
+	if ep.Page.CursorParam != "" {
+		out["cursor_param"] = ep.Page.CursorParam
+	}
+	if ep.Multipart {
+		out["multipart"] = map[string]any{
+			"file_params":    ep.FileParams,
+			"file_value":     "base64-encoded file content",
+			"filename_param": "optional <param>_filename sets the upload filename (servers may sniff format by extension); defaults to the parameter name",
+		}
 	}
 	return out
 }
@@ -1931,10 +2141,31 @@ func handleCodeOrchGet(ctx context.Context, req mcplib.CallToolRequest) (*mcplib
 }
 
 func codeOrchBlockedByMCPReadOnly(method string) bool {
-	return cliutil.IsMCPReadOnlyEnv() && method != "GET"
+	return cliutil.IsMCPReadOnlyEnv() && !strings.EqualFold(strings.TrimSpace(method), "GET")
+}
+
+// codeOrchRefuseForReadOnlySwitch reports calls the MCP read-only env must
+// reject before a client is built. Mutating GETs are writes even though the
+// verb is GET. _execute also refuses every non-GET, including read-only POSTs.
+func codeOrchRefuseForReadOnlySwitch(ep *codeOrchEndpoint, method string, executeTool bool) bool {
+	if !cliutil.IsMCPReadOnlyEnv() {
+		return false
+	}
+	if method == "DELETE" || ep.NeedsConfirm || ep.Mutating {
+		return true
+	}
+	return executeTool && codeOrchBlockedByMCPReadOnly(method)
+}
+
+func handleCodeOrchRead(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.CallToolResult, error) {
+	return codeOrchInvoke(ctx, req, false)
 }
 
 func handleCodeOrchExecute(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.CallToolResult, error) {
+	return codeOrchInvoke(ctx, req, true)
+}
+
+func codeOrchInvoke(ctx context.Context, req mcplib.CallToolRequest, executeTool bool) (*mcplib.CallToolResult, error) {
 	args := req.GetArguments()
 	id, ok := args["endpoint_id"].(string)
 	if !ok || id == "" {
@@ -1945,8 +2176,9 @@ func handleCodeOrchExecute(ctx context.Context, req mcplib.CallToolRequest) (*mc
 	if ep == nil {
 		return mcplib.NewToolResultError(fmt.Sprintf("unknown endpoint_id %q — call jira-service-management_search to discover valid ids", id)), nil
 	}
-	if codeOrchBlockedByMCPReadOnly(ep.Method) {
-		return mcplib.NewToolResultError(fmt.Sprintf("refusing %s %s while %s=1", ep.Method, id, cliutil.MCPReadOnlyEnvVar)), nil
+	method := codeOrchNormalizeMethod(ep.Method)
+	if codeOrchRefuseForReadOnlySwitch(ep, method, executeTool) {
+		return mcplib.NewToolResultError(fmt.Sprintf("refusing %s %s while %s=1", method, id, cliutil.MCPReadOnlyEnvVar)), nil
 	}
 
 	params, _ := args["params"].(map[string]any)
@@ -1994,11 +2226,32 @@ func handleCodeOrchExecute(ctx context.Context, req mcplib.CallToolRequest) (*mc
 		hdrs = nil
 	}
 
+	// An opaque MCP cursor from a bounded page resumes that page; a raw
+	// upstream cursor is sent as-is and anchors any local continuation.
+	mcpCursor, requestCursor := "", ""
+	if method == "GET" && ep.Page.CursorParam != "" {
+		// Offset- and page-numbered APIs take numbers here, so stringify before decoding.
+		if v, ok := params[ep.Page.CursorParam]; ok && v != nil {
+			if s := formatMCPParamValue(v); s != "" {
+				if upstream, err := bound.UpstreamCursor(s); err == nil {
+					mcpCursor, requestCursor = s, upstream
+					if upstream == "" {
+						delete(params, ep.Page.CursorParam)
+					} else {
+						params[ep.Page.CursorParam] = upstream
+					}
+				} else {
+					requestCursor = s
+				}
+			}
+		}
+	}
+
 	// Route params to their runtime slots. GET/DELETE params are query
 	// strings; write methods split spec-declared query params from the
 	// remaining params used as the request body below.
 	query := map[string]string{}
-	if ep.Method == "GET" || (ep.Method == "DELETE" && !jsmDeleteBodyEndpoints[ep.ID]) { // pp:handfix jsm-mcp-delete-body
+	if method == "GET" || (method == "DELETE" && !jsmDeleteBodyEndpoints[ep.ID]) { // pp:handfix jsm-mcp-delete-body
 		path = codeOrchSplitQuery(path, ep.QueryParams, params)
 		for k, v := range params {
 			query[codeOrchWireQueryName(ep.QueryParams, k)] = formatMCPParamValue(v)
@@ -2018,8 +2271,52 @@ func handleCodeOrchExecute(ctx context.Context, req mcplib.CallToolRequest) (*mc
 		}
 		return codeOrchWriteBody(params)
 	}
+	// Confirm after path and query resolution so a path param or fixed query
+	// selector cannot retarget a read onto a gated endpoint without confirm.
+	// Only a top-level boolean true counts; the string "true" stays a preview.
+	resolvedPath := path
+
+	resolvedPath = codeOrchPreviewPath(path, c.Config.TemplateVars)
+
+	gated := codeOrchResolvedNeedsConfirm(ep, method, resolvedPath, query)
+	if cliutil.IsMCPReadOnlyEnv() && gated {
+		return mcplib.NewToolResultError(fmt.Sprintf("refusing %s %s while %s=1", method, id, cliutil.MCPReadOnlyEnvVar)), nil
+	}
+	if executeTool {
+		if !gated {
+
+			return mcplib.NewToolResultError(fmt.Sprintf("endpoint_id %q is read-only; call jira-service-management_read", id)), nil
+
+		}
+		if !codeOrchConfirmAccepted(args["confirm"]) {
+			previewBody := any(nil)
+			if method != "GET" && method != "DELETE" {
+				previewBody = writeBody()
+			}
+
+			preview := map[string]any{
+				"preview":               true,
+				"confirmation_required": true,
+				"endpoint_id":           ep.ID,
+				"method":                method,
+				"path":                  resolvedPath,
+				"query":                 query,
+				"body":                  previewBody,
+			}
+			text, previewErr := bound.JSON(preview)
+			if previewErr != nil {
+				return mcplib.NewToolResultError(fmt.Sprintf("encoding confirmation preview: %v", previewErr)), nil
+			}
+			return mcplib.NewToolResultText(text), nil
+		}
+	} else if gated {
+
+		return mcplib.NewToolResultError(fmt.Sprintf("resolved %s %s changes state; call jira-service-management_execute with confirm set to boolean true", method, resolvedPath)), nil
+
+	}
+	path = resolvedPath
 	var data json.RawMessage
-	switch ep.Method {
+	switch method {
 	case "GET":
 		if len(hdrs) > 0 {
 			if ep.Mutating {
@@ -2043,6 +2340,15 @@ func handleCodeOrchExecute(ctx context.Context, req mcplib.CallToolRequest) (*mc
 			data, _, err = c.DeleteWithParams(ctx, path, query)
 		}
 	case "POST":
+		if ep.Multipart {
+			fields, files, cleanupUploads, uploadErr := codeOrchMultipartParts(ep, params)
+			if uploadErr != nil {
+				return mcpToolError(uploadErr.Error()), nil
+			}
+			defer cleanupUploads()
+			data, _, err = c.PostMultipartWithHeaders(ctx, path, fields, files, hdrs)
+			break
+		}
 		body := writeBody()
 		if len(hdrs) > 0 {
 			data, _, err = c.PostWithHeaders(ctx, path, body, hdrs)
@@ -2050,6 +2356,15 @@ func handleCodeOrchExecute(ctx context.Context, req mcplib.CallToolRequest) (*mc
 			data, _, err = c.Post(ctx, path, body)
 		}
 	case "PUT":
+		if ep.Multipart {
+			fields, files, cleanupUploads, uploadErr := codeOrchMultipartParts(ep, params)
+			if uploadErr != nil {
+				return mcpToolError(uploadErr.Error()), nil
+			}
+			defer cleanupUploads()
+			data, _, err = c.PutMultipartWithHeaders(ctx, path, fields, files, hdrs)
+			break
+		}
 		body := writeBody()
 		if len(hdrs) > 0 {
 			data, _, err = c.PutWithHeaders(ctx, path, body, hdrs)
@@ -2057,6 +2372,15 @@ func handleCodeOrchExecute(ctx context.Context, req mcplib.CallToolRequest) (*mc
 			data, _, err = c.Put(ctx, path, body)
 		}
 	case "PATCH":
+		if ep.Multipart {
+			fields, files, cleanupUploads, uploadErr := codeOrchMultipartParts(ep, params)
+			if uploadErr != nil {
+				return mcpToolError(uploadErr.Error()), nil
+			}
+			defer cleanupUploads()
+			data, _, err = c.PatchMultipartWithHeaders(ctx, path, fields, files, hdrs)
+			break
+		}
 		body := writeBody()
 		if len(hdrs) > 0 {
 			data, _, err = c.PatchWithHeaders(ctx, path, body, hdrs)
@@ -2064,16 +2388,80 @@ func handleCodeOrchExecute(ctx context.Context, req mcplib.CallToolRequest) (*mc
 			data, _, err = c.Patch(ctx, path, body)
 		}
 	default:
-		return mcplib.NewToolResultError(fmt.Sprintf("unsupported method %q", ep.Method)), nil
+		return mcplib.NewToolResultError(fmt.Sprintf("unsupported method %q", method)), nil
 	}
 	if err != nil {
 		return mcplib.NewToolResultError(err.Error()), nil
 	}
-	text := bound.EndpointResponse(ep.Method, data)
+	var text string
+	if method == "GET" && (ep.Page.CursorParam != "" || ep.Page.NextCursorPath != "") {
+		text = bound.EndpointPageResponse(method, data, bound.PageOptions{
+			Cursor:         mcpCursor,
+			CursorParam:    ep.Page.CursorParam,
+			NextCursorPath: ep.Page.NextCursorPath,
+			RequestCursor:  requestCursor,
+		})
+	} else {
+		text = bound.EndpointResponse(method, data)
+	}
 	if platformSession != nil {
 		text = bound.WithMetadata(text, platformSession.OutputMetadata())
 	}
 	return mcplib.NewToolResultText(text), nil
+}
+
+// codeOrchMultipartParts splits params into form fields and file parts. Each
+// file param is resolved through resolveMCPMultipartFile, which stages the
+// caller-supplied content in a process-owned temp file (base64 content by
+// default; opt-in confined path mode) so an MCP caller cannot make the server
+// read an arbitrary local file.
+func codeOrchMultipartParts(ep *codeOrchEndpoint, params map[string]any) (map[string]string, map[string]string, func(), error) {
+	fields, files := map[string]string{}, map[string]string{}
+	var cleanups []func()
+	cleanup := func() {
+		for _, c := range cleanups {
+			c()
+		}
+	}
+	fileParam := func(name string) bool {
+		for _, fp := range ep.FileParams {
+			if fp == name {
+				return true
+			}
+		}
+		return false
+	}
+	// A "<fileparam>_filename" entry is a companion that names the upload; it is
+	// not itself a form field.
+	companion := func(name string) bool {
+		rest, ok := strings.CutSuffix(name, "_filename")
+		return ok && fileParam(rest)
+	}
+	for k, v := range params {
+		switch {
+		case fileParam(k):
+			// File params carry caller-supplied content/paths. Resolve them
+			// through the same confinement as the typed MCP tools so a client
+			// cannot make the server read an arbitrary local file.
+			filenameHint := ""
+			if fv, ok := params[k+"_filename"]; ok {
+				filenameHint = fmt.Sprintf("%v", fv)
+			}
+			staged, c, err := resolveMCPMultipartFile(k, filenameHint, v)
+			if err != nil {
+				cleanup()
+				return nil, nil, nil, err
+			}
+			cleanups = append(cleanups, c)
+			files[k] = staged
+		case companion(k):
+			// Consumed alongside its file param; never sent as a form field.
+			continue
+		default:
+			fields[k] = mcpMultipartFieldValue(v)
+		}
+	}
+	return fields, files, cleanup, nil
 }
 
 // codeOrchWriteBody returns the value handed to the client layer as the
@@ -2147,4 +2535,198 @@ func codeOrchWireQueryName(queryParams []codeOrchParamBinding, name string) stri
 		}
 	}
 	return name
+}
+
+func codeOrchNormalizeMethod(method string) string {
+	return strings.ToUpper(strings.TrimSpace(method))
+}
+
+func codeOrchConfirmAccepted(v any) bool {
+	confirmed, ok := v.(bool)
+	return ok && confirmed
+}
+
+func codeOrchPreviewPath(path string, templateVars map[string]string) string {
+	if len(templateVars) == 0 || !strings.Contains(path, "{") {
+		return path
+	}
+	names := make([]string, 0, len(templateVars))
+	for name := range templateVars {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	for _, name := range names {
+		value := templateVars[name]
+		if name == "" || value == "" {
+			continue
+		}
+		path = strings.ReplaceAll(path, "{"+name+"}", neturl.PathEscape(value))
+	}
+	return path
+}
+
+func codeOrchResolvedNeedsConfirm(selected *codeOrchEndpoint, method, resolvedPath string, query map[string]string) bool {
+	method = codeOrchNormalizeMethod(method)
+	if method == "DELETE" || selected.NeedsConfirm || selected.Mutating {
+		return true
+	}
+	effective := codeOrchEffectiveQuery(resolvedPath, query)
+	resolvedBase := codeOrchPathBase(resolvedPath)
+	// A literal route is the destination when a placeholder route also
+	// matches. POST /reports/search stays a read even though POST
+	// /reports/{id} matches the same path.
+	selectedMatches := codeOrchRequestMatchesEndpoint(selected.Path, resolvedBase, effective)
+	selectedSpecificity := codeOrchPatternSpecificity(selected.Path)
+	for i := range codeOrchEndpoints {
+		other := &codeOrchEndpoints[i]
+		if other == selected {
+			continue
+		}
+		if !other.NeedsConfirm && !other.Mutating && codeOrchNormalizeMethod(other.Method) != "DELETE" {
+			continue
+		}
+		if codeOrchNormalizeMethod(other.Method) != method {
+			continue
+		}
+		if !codeOrchRequestMatchesEndpoint(other.Path, resolvedBase, effective) {
+			continue
+		}
+		if selectedMatches && selectedSpecificity > codeOrchPatternSpecificity(other.Path) {
+			continue
+		}
+		return true
+	}
+	return codeOrchFixedQueryOverridden(selected.Path, effective)
+}
+
+func codeOrchPatternSpecificity(pattern string) int {
+	base := strings.Trim(codeOrchPathBase(pattern), "/")
+	if base == "" {
+		return 0
+	}
+	score := 0
+	for _, seg := range strings.Split(base, "/") {
+		if len(seg) >= 2 && seg[0] == '{' && seg[len(seg)-1] == '}' {
+			continue
+		}
+		score++
+	}
+	return score
+}
+
+func codeOrchPathBase(path string) string {
+	if i := strings.Index(path, "?"); i >= 0 {
+		return path[:i]
+	}
+	return path
+}
+
+func codeOrchEffectiveQuery(path string, query map[string]string) neturl.Values {
+	vals := neturl.Values{}
+	if i := strings.Index(path, "?"); i >= 0 && i+1 < len(path) {
+		if parsed, err := neturl.ParseQuery(path[i+1:]); err == nil {
+			for key, items := range parsed {
+				for _, item := range items {
+					vals.Add(key, item)
+				}
+			}
+		}
+	}
+	for key, value := range query {
+		vals.Add(key, value)
+	}
+	return vals
+}
+
+func codeOrchFixedQueryOverridden(pattern string, effective neturl.Values) bool {
+	_, raw, ok := strings.Cut(pattern, "?")
+	if !ok || raw == "" {
+		return false
+	}
+	fixed, err := neturl.ParseQuery(raw)
+	if err != nil {
+		return false
+	}
+	for name, want := range fixed {
+		got, exists := effective[name]
+		if !exists {
+			continue
+		}
+		for _, value := range got {
+			matched := false
+			for _, allowed := range want {
+				if value == allowed {
+					matched = true
+					break
+				}
+			}
+			if !matched {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func codeOrchRequestMatchesEndpoint(pattern, resolvedBase string, effective neturl.Values) bool {
+	patternBase, patternQuery, _ := strings.Cut(pattern, "?")
+	if !codeOrchSegmentsMatch(patternBase, resolvedBase) {
+		return false
+	}
+	if patternQuery == "" {
+		return true
+	}
+	fixed, err := neturl.ParseQuery(patternQuery)
+	if err != nil {
+		return false
+	}
+	for key, want := range fixed {
+		got := effective[key]
+		if len(got) == 0 {
+			return false
+		}
+		for _, value := range want {
+			found := false
+			for _, have := range got {
+				if have == value {
+					found = true
+					break
+				}
+			}
+			if !found {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+func codeOrchSegmentsMatch(pattern, resolved string) bool {
+	pattern = strings.Trim(pattern, "/")
+	resolved = strings.Trim(resolved, "/")
+	if pattern == "" || resolved == "" {
+		return pattern == resolved
+	}
+	patternSegs := strings.Split(pattern, "/")
+	resolvedSegs := strings.Split(resolved, "/")
+	if len(patternSegs) != len(resolvedSegs) {
+		return false
+	}
+	for i := range patternSegs {
+		seg := patternSegs[i]
+		if len(seg) >= 2 && seg[0] == '{' && seg[len(seg)-1] == '}' {
+			if resolvedSegs[i] == "" {
+				return false
+			}
+			continue
+		}
+		got := resolvedSegs[i]
+		if unescaped, err := neturl.PathUnescape(got); err == nil {
+			got = unescaped
+		}
+		if seg != got {
+			return false
+		}
+	}
+	return true
 }

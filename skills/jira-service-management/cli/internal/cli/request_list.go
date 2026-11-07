@@ -52,7 +52,7 @@ func newRequestListCmd(flags *rootFlags) *cobra.Command {
 				"requestTypeId":  formatCLIParamValue(flagRequestTypeId),
 				"start":          formatCLIParamValue(flagOffset),
 				"limit":          formatCLIParamValue(flagLimit),
-			}, map[string][]string{"searchTerm": {"search-term"}, "requestStatus": {"request-status"}, "approvalStatus": {"approval-status"}, "organizationId": {"organization-id"}, "serviceDeskId": {"service-desk-id"}, "requestTypeId": {"request-type-id"}, "start": {"offset"}, "limit": {"limit"}}, "offset", "offset"), nil, flagAll, "offset", "offset", "limit", 0, "", "", "values", cmd.ErrOrStderr())
+			}, map[string][]string{"searchTerm": {"search-term"}, "requestStatus": {"request-status"}, "approvalStatus": {"approval-status"}, "organizationId": {"organization-id"}, "serviceDeskId": {"service-desk-id"}, "requestTypeId": {"request-type-id"}, "start": {"offset"}, "limit": {"limit"}}, "start", "offset"), nil, flagAll, "start", "offset", "limit", 0, "", "", "values", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}

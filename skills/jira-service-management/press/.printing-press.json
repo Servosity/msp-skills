@@ -1,0 +1,169 @@
+{
+  "schema_version": 2,
+  "generated_at": "2026-11-02T21:12:21.454182Z",
+  "printing_press_version": "4.35.1",
+  "api_name": "jira-service-management",
+  "display_name": "Jira Service Management",
+  "cli_name": "jira-service-management-pp-cli",
+  "creator": {
+    "handle": "DamienStevens",
+    "name": "Damien Stevens"
+  },
+  "owner": "damienstevens",
+  "printer": "DamienStevens",
+  "printer_name": "Damien Stevens",
+  "spec_path": "spec.json",
+  "spec_format": "internal",
+  "spec_source": "official",
+  "spec_checksum": "sha256:2057f3d0cb4189261f681e9f200b3e981a6f9327206c79ee79e4b03327ba57bf",
+  "run_id": "20261102-154411-87580361",
+  "category": "productivity",
+  "description": "Every Jira Service Management Cloud request-API (servicedeskapi) and Assets endpoint in one binary, plus SLA breach radar, internal notes, ticket timelines, and CMDB-to-ticket joins.",
+  "mcp_binary": "jira-service-management-pp-mcp",
+  "mcp_tool_count": 139,
+  "mcp_public_tool_count": 4,
+  "mcp_ready": "full",
+  "api_version": "1001.0.0-SNAPSHOT-112573a40464780190fd40abd3df936d5125833a",
+  "auth_type": "api_key",
+  "auth_preference": "basicAuth",
+  "auth_env_vars": [
+    "JIRA_SERVICE_MANAGEMENT_EMAIL",
+    "JIRA_SERVICE_MANAGEMENT_API_TOKEN"
+  ],
+  "auth_env_var_specs": [
+    {
+      "name": "JIRA_SERVICE_MANAGEMENT_EMAIL",
+      "kind": "per_call",
+      "required": true,
+      "sensitive": false,
+      "description": "Atlassian account email (Basic auth username)."
+    },
+    {
+      "name": "JIRA_SERVICE_MANAGEMENT_API_TOKEN",
+      "kind": "per_call",
+      "required": true,
+      "sensitive": true,
+      "description": "Atlassian API token from id.atlassian.com/manage-profile/security/api-tokens (Basic auth password)."
+    }
+  ],
+  "endpoint_template_vars": [
+    "site",
+    "cloudId",
+    "workspaceId"
+  ],
+  "endpoint_template_env_overrides": {
+    "cloudId": "JIRA_SERVICE_MANAGEMENT_CLOUD_ID",
+    "site": "JIRA_SERVICE_MANAGEMENT_SITE",
+    "workspaceId": "JIRA_SERVICE_MANAGEMENT_WORKSPACE_ID"
+  },
+  "auth_key_url": "https://id.atlassian.com/manage-profile/security/api-tokens",
+  "novel_features": [
+    {
+      "name": "SLA breach radar",
+      "command": "breaches",
+      "description": "Rank open tickets that have a running SLA across your queues by time remaining, breached first, each ticket counted once (paused-only SLAs skipped unless --include-paused)."
+    },
+    {
+      "name": "Customer/org roster",
+      "command": "roster",
+      "description": "Get the complete customer list for a desk and spot customers with no organization, customers in two organizations, empty organizations, and unattached organizations that hold this desk's customers."
+    },
+    {
+      "name": "Ticket timeline",
+      "command": "request timeline",
+      "description": "Read one ticket's whole story in order: comments labeled public or internal, status changes, approvals, participants and SLA state."
+    },
+    {
+      "name": "Internal note",
+      "command": "request note",
+      "description": "Add an agent-only internal note to a request: it always posts public=false and errors if JSM stores the comment as public."
+    },
+    {
+      "name": "Object-to-tickets",
+      "command": "cmdb tickets",
+      "description": "Go from a hostname, Assets key or AQL query to the matching Assets objects and every service desk ticket connected to them, with each ticket's SLA breach state. Needs Assets (JSM Premium or Enterprise) plus JIRA_SERVICE_MANAGEMENT_CLOUD_ID and JIRA_SERVICE_MANAGEMENT_WORKSPACE_ID; run 'cmdb discover --save' once per client site."
+    },
+    {
+      "name": "Inventory reconcile",
+      "command": "cmdb reconcile",
+      "description": "Diff an Assets object type against an RMM or PSA CSV export: missing from Assets, missing from inventory, and attribute mismatches. Needs Assets (JSM Premium or Enterprise) plus JIRA_SERVICE_MANAGEMENT_CLOUD_ID and JIRA_SERVICE_MANAGEMENT_WORKSPACE_ID; run 'cmdb discover --save' once per client site."
+    },
+    {
+      "name": "SLA breach rollup",
+      "command": "sla-report",
+      "description": "Breach rate, breached count, and median elapsed time vs median goal per desk, request type or SLA metric over a period. Reads the local store: run 'sync --resources request,servicedesk,requesttype' first; results are as of the last sync."
+    },
+    {
+      "name": "Per-client picture",
+      "command": "client",
+      "description": "One client organization's open tickets by status and request type, oldest open age, and how many are breaching. Reads the local store: run 'sync --resources organization,request,requesttype' first; counts are as of the last sync."
+    },
+    {
+      "name": "Assets discover",
+      "command": "cmdb discover",
+      "description": "Find your site's cloudId and Assets workspaceId (Assets requires JSM Premium or Enterprise) and optionally save them with --save so Assets commands work."
+    }
+  ],
+  "novel_features_built": [
+    {
+      "name": "SLA breach radar",
+      "command": "breaches",
+      "description": "Rank open tickets that have a running SLA across your queues by time remaining, breached first, each ticket counted once (paused-only SLAs skipped unless --include-paused)."
+    },
+    {
+      "name": "Customer/org roster",
+      "command": "roster",
+      "description": "Get the complete customer list for a desk and spot customers with no organization, customers in two organizations, empty organizations, and unattached organizations that hold this desk's customers."
+    },
+    {
+      "name": "Ticket timeline",
+      "command": "request timeline",
+      "description": "Read one ticket's whole story in order: comments labeled public or internal, status changes, approvals, participants and SLA state."
+    },
+    {
+      "name": "Internal note",
+      "command": "request note",
+      "description": "Add an agent-only internal note to a request: it always posts public=false and errors if JSM stores the comment as public."
+    },
+    {
+      "name": "Object-to-tickets",
+      "command": "cmdb tickets",
+      "description": "Go from a hostname, Assets key or AQL query to the matching Assets objects and every service desk ticket connected to them, with each ticket's SLA breach state. Needs Assets (JSM Premium or Enterprise) plus JIRA_SERVICE_MANAGEMENT_CLOUD_ID and JIRA_SERVICE_MANAGEMENT_WORKSPACE_ID; run 'cmdb discover --save' once per client site."
+    },
+    {
+      "name": "Inventory reconcile",
+      "command": "cmdb reconcile",
+      "description": "Diff an Assets object type against an RMM or PSA CSV export: missing from Assets, missing from inventory, and attribute mismatches. Needs Assets (JSM Premium or Enterprise) plus JIRA_SERVICE_MANAGEMENT_CLOUD_ID and JIRA_SERVICE_MANAGEMENT_WORKSPACE_ID; run 'cmdb discover --save' once per client site."
+    },
+    {
+      "name": "SLA breach rollup",
+      "command": "sla-report",
+      "description": "Breach rate, breached count, and median elapsed time vs median goal per desk, request type or SLA metric over a period. Reads the local store: run 'sync --resources request,servicedesk,requesttype' first; results are as of the last sync."
+    },
+    {
+      "name": "Per-client picture",
+      "command": "client",
+      "description": "One client organization's open tickets by status and request type, oldest open age, and how many are breaching. Reads the local store: run 'sync --resources organization,request,requesttype' first; counts are as of the last sync."
+    },
+    {
+      "name": "Assets discover",
+      "command": "cmdb discover",
+      "description": "Find your site's cloudId and Assets workspaceId (Assets requires JSM Premium or Enterprise) and optionally save them with --save so Assets commands work."
+    }
+  ],
+  "verify": {
+    "mode": "mock",
+    "pass_rate": 100,
+    "passed": 169,
+    "total": 169,
+    "data_pipeline": true,
+    "verdict": "PASS"
+  },
+  "scorecard": {
+    "steinberger": {
+      "percentage": 96,
+      "grade": "A",
+      "total": 96
+    }
+  }
+}

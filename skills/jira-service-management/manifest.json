@@ -24,7 +24,9 @@
         "JIRA_SERVICE_MANAGEMENT_MCP_READ_ONLY": "${user_config.jira_service_management_mcp_read_only}",
         "JIRA_SERVICE_MANAGEMENT_MCP_HTTP_TOKEN": "${user_config.jira_service_management_mcp_http_token}",
         "JIRA_SERVICE_MANAGEMENT_USER_AGENT": "${user_config.jira_service_management_user_agent}",
-        "PRINTING_PRESS_CLIENT_PROFILE": "${user_config.printing_press_client_profile}"
+        "PRINTING_PRESS_CLIENT_PROFILE": "${user_config.printing_press_client_profile}",
+        "JIRA_SERVICE_MANAGEMENT_NO_LOCAL_DATA": "${user_config.jira_service_management_no_local_data}",
+        "JIRA_SERVICE_MANAGEMENT_MCP_UPLOAD_ROOT": "${user_config.jira_service_management_mcp_upload_root}"
       }
     }
   },
@@ -99,6 +101,20 @@
       "description": "Only used when the MCP server is bound to a tenant-gated client profile. This connector registers no tenant-gated source, so leave it blank.",
       "required": false,
       "sensitive": true
+    },
+    "jira_service_management_no_local_data": {
+      "type": "string",
+      "title": "Run without a local copy",
+      "description": "Optional. Set to 1 to keep no local copy of API responses: reads go to the API, the response cache is off, and sync refuses to run. Leave blank to keep the local store.",
+      "required": false,
+      "sensitive": false
+    },
+    "jira_service_management_mcp_upload_root": {
+      "type": "string",
+      "title": "MCP upload folder (optional)",
+      "description": "Optional. Leave blank: MCP file uploads then take the file as base64 content and the server never opens a local path. Set it to a folder only to let MCP uploads read files from inside that folder.",
+      "required": false,
+      "sensitive": false
     }
   },
   "compatibility": {
@@ -109,11 +125,11 @@
       "win32"
     ]
   },
-  "printing_press_version": "4.33.5",
+  "printing_press_version": "4.35.1",
   "press_provenance": {
-    "printing_press_version": "4.33.5",
-    "generated_at": "2026-10-14T12:21:16.713464Z",
-    "spec_checksum": "sha256:34ddf4c2a3b3adf9e86526d4b24ba0603df67667a2bfa3e23822976e7d79973d",
+    "printing_press_version": "4.35.1",
+    "generated_at": "2026-11-02T21:12:21.454182Z",
+    "spec_checksum": "sha256:2057f3d0cb4189261f681e9f200b3e981a6f9327206c79ee79e4b03327ba57bf",
     "spec_format": "internal"
   }
 }

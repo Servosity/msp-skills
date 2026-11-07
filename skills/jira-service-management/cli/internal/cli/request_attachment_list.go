@@ -60,7 +60,7 @@ func newRequestAttachmentListCmd(flags *rootFlags) *cobra.Command {
 				return usageErr(fmt.Errorf("missing required argument\nUsage: %s%s", cmd.CommandPath(), " <issueIdOrKey>"))
 			}
 			if !cmd.Flags().Changed("offset") && flagOffset == "" && !requiredInputWaived() {
-				return fmt.Errorf("required flag \"%s\" not set", "offset")
+				return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "offset"))
 			}
 			path := "/request/{issueIdOrKey}/attachment"
 			if len(args) < 1 || args[0] == "" {
@@ -74,7 +74,7 @@ func newRequestAttachmentListCmd(flags *rootFlags) *cobra.Command {
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "live", "attachment", path, retainCLIQueryParams(cmd, map[string]string{
 				"start": formatCLIParamValue(flagOffset),
 				"limit": formatCLIParamValue(flagLimit),
-			}, map[string][]string{"start": {"offset"}, "limit": {"limit"}}, "offset", "offset"), nil, flagAll, "offset", "offset", "limit", 50, "", "", "values", cmd.ErrOrStderr())
+			}, map[string][]string{"start": {"offset"}, "limit": {"limit"}}, "start", "offset"), nil, flagAll, "start", "offset", "limit", 50, "", "", "values", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}

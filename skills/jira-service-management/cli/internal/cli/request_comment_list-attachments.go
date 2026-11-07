@@ -52,7 +52,7 @@ func newRequestCommentListAttachmentsCmd(flags *rootFlags) *cobra.Command {
 					}
 				}
 				if !validXExperimentalApi {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagXExperimentalApi, "x-experimental-api", allowedXExperimentalApi)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagXExperimentalApi, "x-experimental-api", allowedXExperimentalApi))
 				}
 			}
 			path := "/request/{issueIdOrKey}/comment/{commentId}/attachment"
@@ -77,7 +77,7 @@ func newRequestCommentListAttachmentsCmd(flags *rootFlags) *cobra.Command {
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "live", "comment", path, retainCLIQueryParams(cmd, map[string]string{
 				"start": formatCLIParamValue(flagOffset),
 				"limit": formatCLIParamValue(flagLimit),
-			}, map[string][]string{"start": {"offset"}, "limit": {"limit"}}, "offset", "offset"), headerOverrides, flagAll, "offset", "offset", "limit", 0, "", "", "values", cmd.ErrOrStderr())
+			}, map[string][]string{"start": {"offset"}, "limit": {"limit"}}, "start", "offset"), headerOverrides, flagAll, "start", "offset", "limit", 0, "", "", "values", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}

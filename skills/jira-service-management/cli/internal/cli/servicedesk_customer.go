@@ -11,7 +11,7 @@ import (
 func newServicedeskCustomerCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "customer",
-		Short:       "List, create, add, and remove customer for servicedesk",
+		Short:       "List, add, and remove customer for servicedesk",
 		Annotations: map[string]string{"mcp:read-only": "true", "pp:parent-group": "true", "pp:typed-exit-codes": "0,2"},
 		RunE:        parentNoSubcommandRunE(flags),
 	}

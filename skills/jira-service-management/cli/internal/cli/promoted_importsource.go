@@ -75,7 +75,7 @@ func newImportsourcePromotedCmd(flags *rootFlags) *cobra.Command {
 					filtered, selectErr = filterFieldsChecked(filtered, flags.selectFields)
 					selectErr = selectErrorForDryRun(selectErr, flags, data)
 				} else if flags.compact {
-					filtered = compactFields(filtered, map[string]bool{"id": true, "importSourceId": true, "importStatus": true, "parentImportSourceOTId": true})
+					filtered = compactFields(filtered, map[string]bool{"collectionId": true, "id": true, "importSourceModuleKey": true, "importStatus": true, "integratedImportTypeExtensionId": true, "integratedImportTypeId": true, "name": true, "objectSchemaId": true, "url": true})
 				}
 				wrapped, wrapErr := wrapWithProvenance(filtered, prov)
 				if wrapErr != nil {
@@ -106,7 +106,7 @@ func newImportsourcePromotedCmd(flags *rootFlags) *cobra.Command {
 			if flags.csv || flags.plain {
 				formatData = outputData
 			}
-			return printOutputWithFlagsMeta(cmd.OutOrStdout(), formatData, flags, map[string]any{"source": "live"}, map[string]bool{"id": true, "importSourceId": true, "importStatus": true, "parentImportSourceOTId": true})
+			return printOutputWithFlagsMeta(cmd.OutOrStdout(), formatData, flags, map[string]any{"source": "live"}, map[string]bool{"collectionId": true, "id": true, "importSourceModuleKey": true, "importStatus": true, "integratedImportTypeExtensionId": true, "integratedImportTypeId": true, "name": true, "objectSchemaId": true, "url": true})
 		},
 	}
 

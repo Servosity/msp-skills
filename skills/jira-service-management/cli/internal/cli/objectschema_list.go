@@ -36,7 +36,7 @@ func newObjectschemaListCmd(flags *rootFlags) *cobra.Command {
 				"startAt":       formatCLIParamValue(flagOffset),
 				"maxResults":    formatCLIParamValue(flagMaxResults),
 				"includeCounts": formatCLIParamValue(flagIncludeCounts),
-			}, map[string][]string{"query": {"query"}, "startAt": {"offset"}, "maxResults": {"max-results"}, "includeCounts": {"include-counts"}}, "offset", "offset"), nil, flagAll, "offset", "offset", "maxResults", 25, "", "", "values", cmd.ErrOrStderr())
+			}, map[string][]string{"query": {"query"}, "startAt": {"offset"}, "maxResults": {"max-results"}, "includeCounts": {"include-counts"}}, "startAt", "offset"), nil, flagAll, "startAt", "offset", "maxResults", 25, "", "", "values", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}

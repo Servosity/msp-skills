@@ -56,7 +56,7 @@ func newServicedeskRequesttypeListFieldsCmd(flags *rootFlags) *cobra.Command {
 				path = appendArrayQueryParam(path, "expand", flagExpand, "form", true)
 			}
 			params := map[string]string{}
-			data, prov, err := resolveReadWithStrategyAndResponsePath(cmd.Context(), c, flags, "live", "requesttype", false, path, params, nil, "requestTypeFields", cmd.ErrOrStderr())
+			data, prov, err := resolveReadWithStrategyAndResponsePath(cmd.Context(), c, flags, "live", "requesttype", false, path, params, nil, "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}
@@ -83,7 +83,7 @@ func newServicedeskRequesttypeListFieldsCmd(flags *rootFlags) *cobra.Command {
 					filtered, selectErr = filterFieldsChecked(filtered, flags.selectFields)
 					selectErr = selectErrorForDryRun(selectErr, flags, data)
 				} else if flags.compact {
-					filtered = compactFields(filtered, map[string]bool{"fieldId": true, "name": true})
+					filtered = compactFields(filtered, nil)
 				}
 				wrapped, wrapErr := wrapWithProvenance(filtered, prov)
 				if wrapErr != nil {
@@ -115,7 +115,7 @@ func newServicedeskRequesttypeListFieldsCmd(flags *rootFlags) *cobra.Command {
 			if flags.csv || flags.plain {
 				formatData = outputData
 			}
-			return printOutputWithFlagsMeta(cmd.OutOrStdout(), formatData, flags, map[string]any{"source": "live"}, map[string]bool{"fieldId": true, "name": true})
+			return printOutputWithFlagsMeta(cmd.OutOrStdout(), formatData, flags, map[string]any{"source": "live"}, nil)
 		},
 	}
 	cmd.Flags().StringVar(&flagExpand, "expand", "", "Use expand to include additional information in the response.")

@@ -94,8 +94,8 @@ func jsmSiteCloudID(ctx context.Context, c *Client, site string) (string, error)
 // which is unauthenticated: no credential is sent. A variable so tests can
 // stand in for the network.
 var jsmFetchTenantCloudID = func(ctx context.Context, hc *http.Client, site string) (string, error) {
-	if hc == nil {
-		hc = http.DefaultClient
+	if hc == nil { // Hand-fix (handfixes.json credkit-wiring): never an unguarded default client
+		return "", fmt.Errorf("no HTTP client")
 	}
 	ctx, cancel := context.WithTimeout(ctx, 20*time.Second)
 	defer cancel()
@@ -142,8 +142,8 @@ func jsmSiteWorkspaceIDs(ctx context.Context, c *Client, site, authorization str
 // stand in for the network.
 // ponytail: one page of 50; a site has one Assets workspace in practice.
 var jsmFetchSiteWorkspaceIDs = func(ctx context.Context, hc *http.Client, site, authorization string) ([]string, error) {
-	if hc == nil {
-		hc = http.DefaultClient
+	if hc == nil { // Hand-fix (handfixes.json credkit-wiring): never an unguarded default client
+		return nil, fmt.Errorf("no HTTP client")
 	}
 	ctx, cancel := context.WithTimeout(ctx, 20*time.Second)
 	defer cancel()

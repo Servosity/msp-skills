@@ -44,7 +44,7 @@ func newIqlPromotedCmd(flags *rootFlags) *cobra.Command {
 				"includeAttributesDeep": formatCLIParamValue(flagIncludeAttributesDeep),
 				"includeTypeAttributes": formatCLIParamValue(flagIncludeTypeAttributes),
 				"includeExtendedInfo":   formatCLIParamValue(flagIncludeExtendedInfo),
-			}, map[string][]string{"iql": {"iql"}, "page": {"page"}, "resultPerPage": {"per-page"}, "includeAttributes": {"include-attributes"}, "includeAttributesDeep": {"include-attributes-deep"}, "includeTypeAttributes": {"include-type-attributes"}, "includeExtendedInfo": {"include-extended-info"}}, "page", "page"), nil, flagAll, "page", "page", "per_page", 25, "", "", "", cmd.ErrOrStderr())
+			}, map[string][]string{"iql": {"iql"}, "page": {"page"}, "resultPerPage": {"per-page"}, "includeAttributes": {"include-attributes"}, "includeAttributesDeep": {"include-attributes-deep"}, "includeTypeAttributes": {"include-type-attributes"}, "includeExtendedInfo": {"include-extended-info"}}, "page", "page"), nil, flagAll, "page", "page", "resultPerPage", 25, "", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}

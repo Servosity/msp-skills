@@ -26,13 +26,22 @@ var fileInputFlags = map[string][]string{
 	"servicedesk attach-temporary-file upload-temporary-file": {"file"},
 }
 
+// hostSelectingFlags choose where the request, and so the Basic credential,
+// goes: --path-context site=<other> re-targets the configured token at another
+// client's site. That is the operator's choice (env or config), never a tool
+// argument, so no command takes them over MCP (handfix jsm-mcp-no-site-selection).
+var hostSelectingFlags = []string{"path-context"}
+
+// fileInputFlagNames is every flag the MCP mirror of cmd never takes: the
+// command's local-path inputs plus the host-selecting flags.
 func fileInputFlagNames(cmd *cobra.Command) []string {
 	if cmd == nil {
 		return nil
 	}
+	names := append([]string(nil), hostSelectingFlags...)
 	path := cmd.CommandPath()
 	if i := strings.IndexByte(path, ' '); i >= 0 {
-		return fileInputFlags[path[i+1:]]
+		names = append(names, fileInputFlags[path[i+1:]]...)
 	}
-	return nil
+	return names
 }

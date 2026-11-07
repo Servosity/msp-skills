@@ -1638,6 +1638,40 @@ func TestUpsertBatch_PopulatesImportsourceTable(t *testing.T) {
 	}
 }
 
+func TestSearchImportsourceQuotesFTSQuerySyntax(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "data.db")
+	s, err := Open(dbPath)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer s.Close()
+
+	items := []json.RawMessage{
+		json.RawMessage(`{"id": "typed-ip", "description": "10.0.0.1"}`),
+		json.RawMessage(`{"id": "typed-host", "description": "host.example.com"}`),
+		json.RawMessage(`{"id": "typed-multi", "description": "error with extra words before timeout"}`),
+	}
+	if stored, failed, err := s.UpsertBatch("importsource", items); err != nil {
+		t.Fatalf("UpsertBatch: %v", err)
+	} else if failed != 0 || stored != len(items) {
+		t.Fatalf("UpsertBatch stored=%d failed=%d, want stored=%d failed=0", stored, failed, len(items))
+	}
+
+	for _, query := range []string{
+		"10.0.0.1",
+		"host.example.com",
+		"error timeout",
+	} {
+		results, err := s.SearchImportsource(query, 10)
+		if err != nil {
+			t.Fatalf("SearchImportsource(%q): %v", query, err)
+		}
+		if len(results) == 0 {
+			t.Fatalf("SearchImportsource(%q) returned no results", query)
+		}
+	}
+}
+
 // TestUpsertBatch_PopulatesConfigstatusTable verifies that UpsertBatch
 // dispatches paginated items into both the generic resources table AND the
 // typed configstatus table. Regression for issue #268: before the fix, paginated
@@ -4013,6 +4047,82 @@ func TestUpsertBatch_KeysPositionByChildAndParent(t *testing.T) {
 	}
 	if parentMatches != 2 {
 		t.Fatalf("objecttype_id=parent_A count = %d, want 2", parentMatches)
+	}
+}
+
+// TestUpsertBatch_PopulatesObjecttypeattributeTable verifies that UpsertBatch
+// dispatches paginated items into both the generic resources table AND the
+// typed objecttypeattribute table. Regression for issue #268: before the fix, paginated
+// syncs only filled the generic resources table, so domain commands that
+// query the typed table saw zero rows.
+func TestUpsertBatch_PopulatesObjecttypeattributeTable(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "data.db")
+	s, err := Open(dbPath)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer s.Close()
+
+	items := []json.RawMessage{
+		json.RawMessage(`{"id": "test-001"}`),
+		json.RawMessage(`{"id": "test-002"}`),
+		json.RawMessage(`{"id": "test-003"}`),
+	}
+	if _, _, err := s.UpsertBatch("objecttypeattribute", items); err != nil {
+		t.Fatalf("UpsertBatch: %v", err)
+	}
+
+	db := s.DB()
+
+	var generic int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM resources WHERE resource_type = ?`, "objecttypeattribute").Scan(&generic); err != nil {
+		t.Fatalf("count resources: %v", err)
+	}
+	if generic != len(items) {
+		t.Fatalf("resources count = %d, want %d", generic, len(items))
+	}
+
+	var typed int
+	typedQuery := fmt.Sprintf(`SELECT COUNT(*) FROM "%s"`, "objecttypeattribute")
+	if err := db.QueryRow(typedQuery).Scan(&typed); err != nil {
+		t.Fatalf("count objecttypeattribute: %v", err)
+	}
+	if typed != len(items) {
+		t.Fatalf("objecttypeattribute count = %d, want %d (typed table not populated by UpsertBatch)", typed, len(items))
+	}
+}
+
+func TestSearchObjecttypeattributeQuotesFTSQuerySyntax(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "data.db")
+	s, err := Open(dbPath)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer s.Close()
+
+	items := []json.RawMessage{
+		json.RawMessage(`{"id": "typed-ip", "description": "10.0.0.1"}`),
+		json.RawMessage(`{"id": "typed-host", "description": "host.example.com"}`),
+		json.RawMessage(`{"id": "typed-multi", "description": "error with extra words before timeout"}`),
+	}
+	if stored, failed, err := s.UpsertBatch("objecttypeattribute", items); err != nil {
+		t.Fatalf("UpsertBatch: %v", err)
+	} else if failed != 0 || stored != len(items) {
+		t.Fatalf("UpsertBatch stored=%d failed=%d, want stored=%d failed=0", stored, failed, len(items))
+	}
+
+	for _, query := range []string{
+		"10.0.0.1",
+		"host.example.com",
+		"error timeout",
+	} {
+		results, err := s.SearchObjecttypeattribute(query, 10)
+		if err != nil {
+			t.Fatalf("SearchObjecttypeattribute(%q): %v", query, err)
+		}
+		if len(results) == 0 {
+			t.Fatalf("SearchObjecttypeattribute(%q) returned no results", query)
+		}
 	}
 }
 

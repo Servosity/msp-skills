@@ -1,0 +1,84 @@
+{
+ "sites": [
+  {
+   "file": "internal/cli/cmdb_reconcile.go",
+   "func": "openInventoryUnderMCP",
+   "what": "os.Root.OpenFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reads the RMM or PSA inventory CSV the user names for cmdb reconcile (an export of device names and serials), not a credential file; nothing read is written anywhere but the command's own output, which the kit checks"
+  },
+  {
+   "file": "internal/cli/cmdb_reconcile_open_unix.go",
+   "func": "openNoFollow",
+   "what": "os.OpenFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reads the RMM or PSA inventory CSV the user names for cmdb reconcile (an export of device names and serials), not a credential file; nothing read is written anywhere but the command's own output, which the kit checks"
+  },
+  {
+   "file": "internal/cli/cmdb_reconcile_open_windows.go",
+   "func": "openNoFollow",
+   "what": "os.Open",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reads the RMM or PSA inventory CSV the user names for cmdb reconcile (an export of device names and serials), not a credential file; nothing read is written anywhere but the command's own output, which the kit checks"
+  },
+  {
+   "file": "internal/client/jsm_request_guard.go",
+   "func": "var",
+   "what": "net/http.Client.Do",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "jsmFetchTenantCloudID and jsmFetchSiteWorkspaceIDs are package-level function values (test seams), which the checker counts as initializers; they run only from jsmBeforeRequest on a real send, after Start, and send only with hc, the API client's http.Client (c.HTTPClient), whose transport is guardTransport (cliutil.OutboundGuard, which is credkit.Transport); a nil client is refused, never replaced by http.DefaultClient"
+  },
+  {
+   "file": "internal/client/jsm_request_guard.go",
+   "func": "var",
+   "what": "net/http.NewRequestWithContext",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "jsmFetchTenantCloudID and jsmFetchSiteWorkspaceIDs are package-level function values (test seams), which the checker counts as initializers; they run only from jsmBeforeRequest on a real send, after Start, and send only with hc, the API client's http.Client (c.HTTPClient), whose transport is guardTransport (cliutil.OutboundGuard, which is credkit.Transport); a nil client is refused, never replaced by http.DefaultClient"
+  },
+  {
+   "file": "internal/credsql/credsql.go",
+   "func": "applyLengthLimit",
+   "what": "database/sql.DB.Conn",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "lends a connection already opened through credkit.SQLDriver to set SQLITE_LIMIT_LENGTH: it runs no statement and writes no value, and the hook only runs when a store opens, after Start"
+  },
+  {
+   "file": "internal/credsql/credsql.go",
+   "func": "applyLengthLimit",
+   "what": "database/sql.OpenDB",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "lends a connection already opened through credkit.SQLDriver to set SQLITE_LIMIT_LENGTH: it runs no statement and writes no value, and the hook only runs when a store opens, after Start"
+  },
+  {
+   "file": "internal/credwire/declarations.go",
+   "func": "takeStdinBody",
+   "what": "os.File.Stat",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reads stdin's mode inside Start's Files hook, before anything prints, so a terminal is not read; it writes nothing"
+  },
+  {
+   "file": "internal/credwire/declarations.go",
+   "func": "takeStdinBody",
+   "what": "writer:*os.File",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "os.Stdin read with io.ReadAll inside Start's Files hook: the --stdin body, whose credential fields credkit.HoldBody holds before anything prints, handed back on a new pipe after Start; nothing is written to it"
+  },
+  {
+   "file": "internal/credwire/declarations.go",
+   "func": "readRegular",
+   "what": "os.ReadFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reads only the credential sources credentialFiles names and the run-profile stores, inside Start, and the bytes go only to credkit.HoldBody and credkit.Hold"
+  }
+ ]
+}

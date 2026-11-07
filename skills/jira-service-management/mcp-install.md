@@ -1,11 +1,5 @@
 # Jira Service Management MCP - install for every agent that speaks MCP
 
-> **Security note (until this connector is reprinted).** Do not run HTTP mode
-> (`--transport http`), not even on localhost. This build checks a token, but it
-> predates the fix release's request size and time limits. The MCP tools can
-> also make changes with your credentials. Use the default stdio transport. If
-> you set up a tunnel for a remote agent, shut it down. A fix is on the way.
-
 This page wires the Jira Service Management MCP server into any MCP client. If you use Claude
 Code, Codex CLI, or Cowork, install the Skill instead (see [README.md](./README.md)) -
 it's simpler. Everyone else: pick your agent below.
@@ -14,7 +8,7 @@ it's simpler. Everyone else: pick your agent below.
 GitHub Copilot, Gemini CLI) launch `jira-service-management-mcp` directly on your
 machine - no hosting. *Web-only* AI apps (ChatGPT on the web, Microsoft 365
 Copilot / Copilot Studio, the Gemini app) need a remote server, which msp-skills
-does not support yet; see **Remote agents** below.
+does not support yet; see **Web-only AI apps** below.
 
 ## Prerequisite: install the MCP binary
 
@@ -55,7 +49,9 @@ Add (or merge with your existing `mcpServers` block):
         "JIRA_SERVICE_MANAGEMENT_MCP_READ_ONLY": "1",
         "JIRA_SERVICE_MANAGEMENT_MCP_HTTP_TOKEN": "<your-jira_service_management_mcp_http_token>",
         "JIRA_SERVICE_MANAGEMENT_USER_AGENT": "<your-jira_service_management_user_agent>",
-        "PRINTING_PRESS_CLIENT_PROFILE": "<your-printing_press_client_profile>"
+        "PRINTING_PRESS_CLIENT_PROFILE": "<your-printing_press_client_profile>",
+        "JIRA_SERVICE_MANAGEMENT_NO_LOCAL_DATA": "",
+        "JIRA_SERVICE_MANAGEMENT_MCP_UPLOAD_ROOT": ""
       }
     }
   }
@@ -80,7 +76,7 @@ above. To keep them in a file, add the server once to Codex's
 `command = "jira-service-management-mcp"` and an `env` table); the desktop app
 reads that file too.
 
-ChatGPT on the web is a different case: see **Remote agents** below.
+ChatGPT on the web is a different case: see **Web-only AI apps** below.
 
 ## GitHub Copilot (VS Code)
 
@@ -107,7 +103,9 @@ Configuration**) and add:
         "JIRA_SERVICE_MANAGEMENT_MCP_READ_ONLY": "1",
         "JIRA_SERVICE_MANAGEMENT_MCP_HTTP_TOKEN": "<your-jira_service_management_mcp_http_token>",
         "JIRA_SERVICE_MANAGEMENT_USER_AGENT": "<your-jira_service_management_user_agent>",
-        "PRINTING_PRESS_CLIENT_PROFILE": "<your-printing_press_client_profile>"
+        "PRINTING_PRESS_CLIENT_PROFILE": "<your-printing_press_client_profile>",
+        "JIRA_SERVICE_MANAGEMENT_NO_LOCAL_DATA": "",
+        "JIRA_SERVICE_MANAGEMENT_MCP_UPLOAD_ROOT": ""
       }
     }
   }
@@ -137,7 +135,9 @@ Claude Desktop:
         "JIRA_SERVICE_MANAGEMENT_MCP_READ_ONLY": "1",
         "JIRA_SERVICE_MANAGEMENT_MCP_HTTP_TOKEN": "<your-jira_service_management_mcp_http_token>",
         "JIRA_SERVICE_MANAGEMENT_USER_AGENT": "<your-jira_service_management_user_agent>",
-        "PRINTING_PRESS_CLIENT_PROFILE": "<your-printing_press_client_profile>"
+        "PRINTING_PRESS_CLIENT_PROFILE": "<your-printing_press_client_profile>",
+        "JIRA_SERVICE_MANAGEMENT_NO_LOCAL_DATA": "",
+        "JIRA_SERVICE_MANAGEMENT_MCP_UPLOAD_ROOT": ""
       }
     }
   }
@@ -145,33 +145,38 @@ Claude Desktop:
 ```
 
 Restart Gemini CLI; the Jira Service Management tools appear in its tool list. (The **Gemini app /
-web** is remote-only - see the remote section below.)
+web** needs a remote server - see **Web-only AI apps** below.)
 
 ---
 
-# Remote agents (paused until this connector is reprinted)
+# Web-only AI apps (not supported yet)
 
 **Not supported by msp-skills yet.** ChatGPT on the web, Microsoft 365 Copilot /
 Copilot Studio and the Gemini app reach MCP servers at a web address, not programs
-on your machine, so they would need `jira-service-management-mcp` running in HTTP
-mode. Do not run HTTP mode with this build (see the security note at the top of
-this page), and do not put this server behind a tunnel or reverse proxy. If your
-team works in one of those apps, a
+on your machine, so they need a remote server. If your team works in one of those
+apps, a
 [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick)
 is the better pick; check that your AI app is on the gateway's setup list. The
-ChatGPT desktop app is different: it runs `jira-service-management-mcp` locally
-(see above).
+ChatGPT desktop app is different: it runs `jira-service-management-mcp` locally (see above).
 
-The HTTP-mode launch command is kept below for reference. It is commented out on
-purpose, so pasting it does nothing:
+## HTTP mode in this build (reference)
+
+This build's HTTP mode is documented here for reference; msp-skills does not
+support a web-only AI app on it yet. Keep stdio (the default) for every local
+agent above. HTTP mode serves `http://127.0.0.1:7777/mcp` by default and refuses
+to start until `JIRA_SERVICE_MANAGEMENT_MCP_HTTP_TOKEN` is set; every request must send
+`Authorization: Bearer <token>`. Any address other than loopback also needs TLS:
 
 ```bash
-# JIRA_SERVICE_MANAGEMENT_MCP_HTTP_TOKEN=<long-random-token> JIRA_SERVICE_MANAGEMENT_SITE=<value> JIRA_SERVICE_MANAGEMENT_EMAIL=<value> JIRA_SERVICE_MANAGEMENT_API_TOKEN=<value> jira-service-management-mcp --transport http
+export JIRA_SERVICE_MANAGEMENT_MCP_HTTP_TOKEN="$(openssl rand -hex 32)"
+JIRA_SERVICE_MANAGEMENT_API_TOKEN=<value> JIRA_SERVICE_MANAGEMENT_CLOUD_ID=<value> JIRA_SERVICE_MANAGEMENT_EMAIL=<value> JIRA_SERVICE_MANAGEMENT_SITE=<value> JIRA_SERVICE_MANAGEMENT_WORKSPACE_ID=<value> JIRA_SERVICE_MANAGEMENT_BASE_URL=<value> JIRA_SERVICE_MANAGEMENT_MCP_READ_ONLY=<value> JIRA_SERVICE_MANAGEMENT_MCP_HTTP_TOKEN=<value> JIRA_SERVICE_MANAGEMENT_USER_AGENT=<value> PRINTING_PRESS_CLIENT_PROFILE=<value> jira-service-management-mcp --transport http --addr <host>:7777 --tls-cert <cert.pem> --tls-key <key.pem>
 ```
 
-```powershell
-# $env:JIRA_SERVICE_MANAGEMENT_MCP_HTTP_TOKEN="<long-random-token>"; $env:JIRA_SERVICE_MANAGEMENT_SITE="<value>"; $env:JIRA_SERVICE_MANAGEMENT_EMAIL="<value>"; $env:JIRA_SERVICE_MANAGEMENT_API_TOKEN="<value>"; jira-service-management-mcp --transport http
-```
+The endpoint is `https://<host>:7777/mcp`: the server answers Streamable HTTP at
+`/mcp` and returns 404 at the bare root. The server rejects any request without
+`Authorization: Bearer <token>`, so every client must send that header. **Treat
+the token like a password** - whoever holds it can call every tool with your
+Jira Service Management credentials.
 
 ---
 

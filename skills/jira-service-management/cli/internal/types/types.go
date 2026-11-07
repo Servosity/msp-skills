@@ -384,24 +384,6 @@ type ImportSourceResponse struct {
 	Url                             string          `json:"url"`
 }
 
-type ImportsourceGetItem struct {
-	Created                   string          `json:"created"`
-	Description               string          `json:"description"`
-	EmptyValues               string          `json:"emptyValues"`
-	Id                        string          `json:"id"`
-	ImportSourceId            string          `json:"importSourceId"`
-	ImportSourceOTAttrEntries json.RawMessage `json:"importSourceOTAttrEntries"`
-	ImportStatus              json.RawMessage `json:"importStatus"`
-	MatchIdentifierIgnoreCase bool            `json:"matchIdentifierIgnoreCase"`
-	ObjectType                json.RawMessage `json:"objectType"`
-	ParentImportSourceOTId    string          `json:"parentImportSourceOTId"`
-	Selector                  string          `json:"selector"`
-	SelectorIQL               string          `json:"selectorIQL"`
-	SelectorQlQuery           string          `json:"selectorQlQuery"`
-	UnknownValues             string          `json:"unknownValues"`
-	Updated                   string          `json:"updated"`
-}
-
 type IncludedFields struct {
 	ActuallyIncluded json.RawMessage `json:"actuallyIncluded"`
 	Excluded         json.RawMessage `json:"excluded"`
@@ -621,11 +603,7 @@ type ObjectIn struct {
 }
 
 type ObjectListInclTypeAttributesEntryResult struct {
-	IsLast               bool            `json:"isLast"`
-	Last                 bool            `json:"last"`
-	MaxResults           int             `json:"maxResults"`
 	ObjectTypeAttributes json.RawMessage `json:"objectTypeAttributes"`
-	StartAt              int             `json:"startAt"`
 	Total                int             `json:"total"`
 	Values               json.RawMessage `json:"values"`
 }
@@ -684,12 +662,8 @@ type ObjectSchemaIn struct {
 }
 
 type ObjectSchemaList struct {
-	IsLast     bool            `json:"isLast"`
-	Last       bool            `json:"last"`
-	MaxResults int             `json:"maxResults"`
-	StartAt    int             `json:"startAt"`
-	Total      int             `json:"total"`
-	Values     json.RawMessage `json:"values"`
+	Total  int             `json:"total"`
+	Values json.RawMessage `json:"values"`
 }
 
 type ObjectSchemaUpdate struct {
@@ -860,139 +834,88 @@ type PageOfChangelogs struct {
 }
 
 type PagedDTOApprovalDTO struct {
-	IsLastPage bool            `json:"isLastPage"`
-	Limit      int             `json:"limit"`
-	Size       int             `json:"size"`
-	Start      int             `json:"start"`
-	Values     json.RawMessage `json:"values"`
+	Limit  int             `json:"limit"`
+	Values json.RawMessage `json:"values"`
 }
 
 type PagedDTOArticleDTO struct {
-	IsLastPage bool            `json:"isLastPage"`
-	Limit      int             `json:"limit"`
-	Size       int             `json:"size"`
-	Start      int             `json:"start"`
-	Values     json.RawMessage `json:"values"`
+	Limit  int             `json:"limit"`
+	Values json.RawMessage `json:"values"`
 }
 
 type PagedDTOAssetsWorkspaceDTO struct {
-	IsLastPage bool            `json:"isLastPage"`
-	Limit      int             `json:"limit"`
-	Size       int             `json:"size"`
-	Start      int             `json:"start"`
-	Values     json.RawMessage `json:"values"`
+	Limit  int             `json:"limit"`
+	Values json.RawMessage `json:"values"`
 }
 
 type PagedDTOAttachmentDTO struct {
-	IsLastPage bool            `json:"isLastPage"`
-	Limit      int             `json:"limit"`
-	Size       int             `json:"size"`
-	Start      int             `json:"start"`
-	Values     json.RawMessage `json:"values"`
+	Limit  int             `json:"limit"`
+	Values json.RawMessage `json:"values"`
 }
 
 type PagedDTOCommentDTO struct {
-	IsLastPage bool            `json:"isLastPage"`
-	Limit      int             `json:"limit"`
-	Size       int             `json:"size"`
-	Start      int             `json:"start"`
-	Values     json.RawMessage `json:"values"`
+	Limit  int             `json:"limit"`
+	Values json.RawMessage `json:"values"`
 }
 
 type PagedDTOCustomerRequestDTO struct {
-	IsLastPage bool            `json:"isLastPage"`
-	Limit      int             `json:"limit"`
-	Size       int             `json:"size"`
-	Start      int             `json:"start"`
-	Values     json.RawMessage `json:"values"`
+	Limit  int             `json:"limit"`
+	Values json.RawMessage `json:"values"`
 }
 
 type PagedDTOCustomerRequestStatusDTO struct {
-	IsLastPage bool            `json:"isLastPage"`
-	Limit      int             `json:"limit"`
-	Size       int             `json:"size"`
-	Start      int             `json:"start"`
-	Values     json.RawMessage `json:"values"`
+	Limit  int             `json:"limit"`
+	Values json.RawMessage `json:"values"`
 }
 
 type PagedDTOCustomerTransitionDTO struct {
-	IsLastPage bool            `json:"isLastPage"`
-	Limit      int             `json:"limit"`
-	Size       int             `json:"size"`
-	Start      int             `json:"start"`
-	Values     json.RawMessage `json:"values"`
+	Limit  int             `json:"limit"`
+	Values json.RawMessage `json:"values"`
 }
 
 type PagedDTOInsightWorkspaceDTO struct {
-	IsLastPage bool            `json:"isLastPage"`
-	Limit      int             `json:"limit"`
-	Size       int             `json:"size"`
-	Start      int             `json:"start"`
-	Values     json.RawMessage `json:"values"`
+	Limit  int             `json:"limit"`
+	Values json.RawMessage `json:"values"`
 }
 
 type PagedDTOIssueBean struct {
-	IsLastPage bool            `json:"isLastPage"`
-	Limit      int             `json:"limit"`
-	Size       int             `json:"size"`
-	Start      int             `json:"start"`
-	Values     json.RawMessage `json:"values"`
+	Limit  int             `json:"limit"`
+	Values json.RawMessage `json:"values"`
 }
 
 type PagedDTOOrganizationDTO struct {
-	IsLastPage bool            `json:"isLastPage"`
-	Limit      int             `json:"limit"`
-	Size       int             `json:"size"`
-	Start      int             `json:"start"`
-	Values     json.RawMessage `json:"values"`
+	Limit  int             `json:"limit"`
+	Values json.RawMessage `json:"values"`
 }
 
 type PagedDTOQueueDTO struct {
-	IsLastPage bool            `json:"isLastPage"`
-	Limit      int             `json:"limit"`
-	Size       int             `json:"size"`
-	Start      int             `json:"start"`
-	Values     json.RawMessage `json:"values"`
+	Limit  int             `json:"limit"`
+	Values json.RawMessage `json:"values"`
 }
 
 type PagedDTORequestTypeDTO struct {
-	IsLastPage bool            `json:"isLastPage"`
-	Limit      int             `json:"limit"`
-	Size       int             `json:"size"`
-	Start      int             `json:"start"`
-	Values     json.RawMessage `json:"values"`
+	Limit  int             `json:"limit"`
+	Values json.RawMessage `json:"values"`
 }
 
 type PagedDTORequestTypeGroupDTO struct {
-	IsLastPage bool            `json:"isLastPage"`
-	Limit      int             `json:"limit"`
-	Size       int             `json:"size"`
-	Start      int             `json:"start"`
-	Values     json.RawMessage `json:"values"`
+	Limit  int             `json:"limit"`
+	Values json.RawMessage `json:"values"`
 }
 
 type PagedDTOServiceDeskDTO struct {
-	IsLastPage bool            `json:"isLastPage"`
-	Limit      int             `json:"limit"`
-	Size       int             `json:"size"`
-	Start      int             `json:"start"`
-	Values     json.RawMessage `json:"values"`
+	Limit  int             `json:"limit"`
+	Values json.RawMessage `json:"values"`
 }
 
 type PagedDTOSlaInformationDTO struct {
-	IsLastPage bool            `json:"isLastPage"`
-	Limit      int             `json:"limit"`
-	Size       int             `json:"size"`
-	Start      int             `json:"start"`
-	Values     json.RawMessage `json:"values"`
+	Limit  int             `json:"limit"`
+	Values json.RawMessage `json:"values"`
 }
 
 type PagedDTOUserDTO struct {
-	IsLastPage bool            `json:"isLastPage"`
-	Limit      int             `json:"limit"`
-	Size       int             `json:"size"`
-	Start      int             `json:"start"`
-	Values     json.RawMessage `json:"values"`
+	Limit  int             `json:"limit"`
+	Values json.RawMessage `json:"values"`
 }
 
 type PagedLinkDTO struct {
@@ -1336,7 +1259,6 @@ type StatusIn struct {
 
 type TenantUsageResponse struct {
 	PerSchemaUsageInfo json.RawMessage `json:"perSchemaUsageInfo"`
-	TotalObjectsCount  int             `json:"totalObjectsCount"`
 }
 
 type Ticket struct {

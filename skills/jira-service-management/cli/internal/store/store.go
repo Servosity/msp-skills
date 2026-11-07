@@ -27,6 +27,8 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"jira-service-management-pp-cli/internal/cliutil"
+	"jira-service-management-pp-cli/internal/credsql"
 	_ "modernc.org/sqlite"
 )
 
@@ -53,14 +55,15 @@ func IsUUID(s string) bool {
 
 // StoreSchemaVersion is the on-disk schema version this binary understands.
 // It is stamped into SQLite's PRAGMA user_version on fresh databases and
-// checked on every open. Learn-enabled CLIs advance to v12 for the
-// parent-key storage-id migration, on top of v11's trigram resources_fts
-// rebuild (CJK substring search), v10's learn_candidates and learn_events
-// tables plus the latest-sync-attempt completion marker, the v8
-// learning_playbooks table, and the v6 canonical learn-loop tables
-// (including the v3 resources_fts rowid rehash and v4 resources_fts content
-// extraction).
-const StoreSchemaVersion = 12
+// checked on every open. Learn-enabled CLIs advance to v14
+// to record which surface wrote each learning_playbooks row, on top of v13's
+// checkpoint scope beside each resource, v12's
+// parent-key storage-id migration, v11's trigram resources_fts rebuild
+// (CJK substring search), v10's learn_candidates and learn_events tables
+// plus the latest-sync-attempt completion marker, the v8 learning_playbooks
+// table, and the v6 canonical learn-loop tables (including the v3
+// resources_fts rowid rehash and v4 resources_fts content extraction).
+const StoreSchemaVersion = 14
 
 // resourcesFTSContentSchemaVersion pins the schema bump that rewrote
 // resources_fts content from raw JSON to searchable leaf values. Keep this
@@ -135,13 +138,29 @@ func Open(dbPath string) (*Store, error) {
 // OpenReadOnlyContext so a cancelled command (SIGINT, deadline) interrupts the
 // SQLITE_BUSY retry during driver init instead of waiting out the full timeout.
 func OpenReadOnly(dbPath string) (*Store, error) {
-	return OpenReadOnlyContext(context.Background(), dbPath)
+	return openReadOnly(context.Background(), dbPath, 0)
+}
+
+// OpenReadOnlyValueCapped is OpenReadOnly with SQLITE_LIMIT_LENGTH set to
+// maxValueBytes on every connection (0: no cap), so no string or blob longer
+// than that is built or returned. Hand-fix (handfixes.json credkit-wiring): the MCP sql
+// tool's value cap, set when the connection opens because sqlite.Limit cannot
+// reach a kit-wrapped one.
+func OpenReadOnlyValueCapped(dbPath string, maxValueBytes int) (*Store, error) {
+	return openReadOnly(context.Background(), dbPath, maxValueBytes)
 }
 
 // OpenReadOnlyContext is OpenReadOnly with a caller-supplied context honored by
 // the driver-init SQLITE_BUSY retry.
 func OpenReadOnlyContext(ctx context.Context, dbPath string) (*Store, error) {
+	return openReadOnly(ctx, dbPath, 0)
+}
+
+func openReadOnly(ctx context.Context, dbPath string, maxValueBytes int) (*Store, error) {
 	dsn := "file:" + dbPath + "?mode=ro&_pragma=busy_timeout(5000)&_pragma=foreign_keys(ON)&_pragma=temp_store(MEMORY)&_pragma=mmap_size(0)"
+	if maxValueBytes > 0 { // Hand-fix (handfixes.json credkit-wiring)
+		dsn += "&" + credsql.LengthLimitParam + "=" + strconv.Itoa(maxValueBytes)
+	}
 	db, err := openReadOnlySQLite(ctx, dsn)
 
 	// Writable directories stay on the first open so committed WAL frames
@@ -163,11 +182,14 @@ func openReadOnlySQLite(ctx context.Context, dsn string) (*sql.DB, error) {
 	if err := ensureSQLiteDriverInitialized(ctx, dsn); err != nil {
 		return nil, err
 	}
-	db, err := sql.Open("sqlite", dsn)
+	db, err := sql.Open(credsql.Driver, dsn) // Hand-fix (handfixes.json credkit-wiring)
 	if err != nil {
 		return nil, err
 	}
-	if err := db.PingContext(ctx); err != nil {
+	// Hand-fix (handfixes.json credkit-wiring): the statement modernc's Ping
+	// runs; the kit's connection does not forward Ping, so PingContext alone would open
+	// the file without reading it, and a missing -shm would not fail here.
+	if _, err := db.ExecContext(ctx, "select 1"); err != nil {
 		_ = db.Close()
 		return nil, err
 	}
@@ -197,6 +219,7 @@ func OpenWithContext(ctx context.Context, dbPath string) (*Store, error) {
 	if err := os.MkdirAll(filepath.Dir(dbPath), 0o700); err != nil {
 		return nil, fmt.Errorf("creating db directory: %w", err)
 	}
+	hardenOwnDataDir(filepath.Dir(dbPath))
 	hardenSQLiteFiles(dbPath)
 	defer hardenSQLiteFiles(dbPath)
 	if err := rejectNewerSchemaBeforeJournalMode(ctx, dbPath); err != nil {
@@ -214,7 +237,7 @@ func OpenWithContext(ctx context.Context, dbPath string) (*Store, error) {
 		return nil, err
 	}
 
-	db, err := sql.Open("sqlite", dsn)
+	db, err := sql.Open(credsql.Driver, dsn) // Hand-fix (handfixes.json credkit-wiring)
 	if err != nil {
 		return nil, fmt.Errorf("opening database: %w", err)
 	}
@@ -245,7 +268,7 @@ func rejectNewerSchemaBeforeJournalMode(ctx context.Context, dbPath string) erro
 	if err != nil {
 		return fmt.Errorf("stating database for schema preflight: %w", err)
 	}
-	probe, err := sql.Open("sqlite", "file:"+filepath.ToSlash(dbPath)+"?mode=ro&_pragma=busy_timeout(1000)&_pragma=mmap_size(0)")
+	probe, err := sql.Open(credsql.Driver, "file:"+filepath.ToSlash(dbPath)+"?mode=ro&_pragma=busy_timeout(1000)&_pragma=mmap_size(0)") // Hand-fix (handfixes.json credkit-wiring)
 	if err != nil {
 		return nil
 	}
@@ -281,6 +304,23 @@ func hardenSQLiteFiles(dbPath string) {
 		}
 		_ = os.Chmod(path, 0o600)
 	}
+}
+
+// hardenOwnDataDir drops group and other access from this CLI's own data
+// directory. MkdirAll leaves an existing directory's mode alone, so one created
+// world-listable by an older release would otherwise stay that way. It is
+// best-effort, follows no symlink, and skips a directory the operator chose:
+// a --db parent or an explicit per-kind data directory.
+func hardenOwnDataDir(dir string) {
+	own, err := cliutil.ResolveKindDir(cliutil.PathKindData)
+	if err != nil || own.Rung == "per-kind-env" || filepath.Clean(own.Dir) != filepath.Clean(dir) {
+		return
+	}
+	info, err := os.Lstat(dir)
+	if err != nil || !info.IsDir() || info.Mode().Perm()&0o077 == 0 {
+		return
+	}
+	_ = os.Chmod(dir, info.Mode().Perm()&0o700)
 }
 
 // ensureSQLiteJournalPrivate creates the cache-profile rollback journal before
@@ -320,7 +360,7 @@ func ensureSQLiteDriverInitialized(ctx context.Context, dsn string) error {
 		return nil
 	}
 
-	db, err := sql.Open("sqlite", dsn)
+	db, err := sql.Open(credsql.Driver, dsn) // Hand-fix (handfixes.json credkit-wiring)
 	if err != nil {
 		return fmt.Errorf("opening database for driver initialization: %w", err)
 	}
@@ -379,51 +419,95 @@ func (s *Store) SchemaVersion() (int, error) {
 	return v, nil
 }
 
-// ensureColumn adds a column to an existing table if it isn't already
-// present. It is the upgrade-path safety valve for schema additions:
-// CREATE TABLE IF NOT EXISTS is a no-op when the table already exists, so
-// columns added by newer binaries (e.g. parent_id from the dependent-
-// resources work) never land on databases created by older binaries —
-// which then trip "no such column" when a follow-on CREATE INDEX runs.
+// backfillStatsKey carries a *backfillStats on the context when a test
+// wants to observe how many schema probes and ALTERs one Open performed.
+// Production callers never set it. The counters are not safe to share
+// across goroutines; Open's migration runs on the caller's goroutine.
+type backfillStatsKey struct{}
+
+type backfillStats struct {
+	probes int
+	alters int
+}
+
+func contextWithBackfillStats(ctx context.Context) (context.Context, *backfillStats) {
+	stats := &backfillStats{}
+	return context.WithValue(ctx, backfillStatsKey{}, stats), stats
+}
+
+func noteBackfillProbe(ctx context.Context) {
+	if stats, ok := ctx.Value(backfillStatsKey{}).(*backfillStats); ok {
+		stats.probes++
+	}
+}
+
+func noteBackfillAlter(ctx context.Context) {
+	if stats, ok := ctx.Value(backfillStatsKey{}).(*backfillStats); ok {
+		stats.alters++
+	}
+}
+
+// snapshotTableColumns reads every existing table's columns once,
+// including generated columns. table_info omits VIRTUAL/STORED columns,
+// so a later Open would try to ADD a column CREATE TABLE already
+// declared (bare_id). Per-column sqlite_master and table_xinfo probes
+// made Open scale with the spec; one join does not.
 //
-// Skips silently if the table doesn't yet exist (fresh install — the
-// CREATE TABLE migration will create it with the column already declared)
-// or if the column already exists. Runs on the pinned migration
-// connection so it sees the writes performed by the in-flight BEGIN
-// IMMEDIATE transaction; using s.db here would route through the pool
-// and BUSY against the holding writer under concurrent migrators.
-func (s *Store) ensureColumn(ctx context.Context, conn *sql.Conn, table, column, decl string) error {
-	var name string
-	err := conn.QueryRowContext(ctx,
-		`SELECT name FROM sqlite_master WHERE type='table' AND name=?`, table,
-	).Scan(&name)
-	if err == sql.ErrNoRows {
-		return nil
-	}
+// A table absent from the map does not exist yet. Fresh installs create
+// it later in the migration with the column already declared.
+func snapshotTableColumns(ctx context.Context, conn *sql.Conn) (map[string]map[string]struct{}, error) {
+	noteBackfillProbe(ctx)
+	rows, err := conn.QueryContext(ctx, `
+		SELECT m.name, p.name
+		FROM sqlite_master AS m, pragma_table_xinfo(m.name) AS p
+		WHERE m.type = 'table'`)
 	if err != nil {
-		return fmt.Errorf("checking table %s: %w", table, err)
+		return nil, fmt.Errorf("reading table columns: %w", err)
 	}
+	defer rows.Close()
 
-	// table_info omits generated columns (VIRTUAL/STORED). table_xinfo
-	// reports them so a later Open does not re-ADD a column CREATE TABLE
-	// already declared, and so upgrades can see a prior ADD of bare_id.
-	var existing string
-	err = conn.QueryRowContext(ctx,
-		`SELECT name FROM pragma_table_xinfo(?) WHERE name=?`,
-		table, column,
-	).Scan(&existing)
-	if err == nil {
-		return nil
+	known := map[string]map[string]struct{}{}
+	for rows.Next() {
+		var table, column string
+		if err := rows.Scan(&table, &column); err != nil {
+			return nil, fmt.Errorf("reading table columns: %w", err)
+		}
+		markColumnPresent(known, table, column)
 	}
-	if err != sql.ErrNoRows {
-		return fmt.Errorf("table_xinfo %s: %w", table, err)
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("reading table columns: %w", err)
 	}
+	return known, nil
+}
 
+// columnNeedsBackfill reports whether table exists and lacks column.
+// Lookup is case-sensitive, matching SQLite's BINARY collation on the
+// name probes this replaced.
+func columnNeedsBackfill(known map[string]map[string]struct{}, table, column string) bool {
+	cols, ok := known[table]
+	if !ok {
+		return false
+	}
+	_, present := cols[column]
+	return !present
+}
+
+func markColumnPresent(known map[string]map[string]struct{}, table, column string) {
+	cols := known[table]
+	if cols == nil {
+		cols = map[string]struct{}{}
+		known[table] = cols
+	}
+	cols[column] = struct{}{}
+}
+
+// addColumn ALTERs a column onto a table the snapshot says is missing it.
+// A concurrent Open may have added the column between the snapshot and
+// this ALTER. SQLite returns SQLITE_ERROR with "duplicate column name",
+// which busy_timeout does not retry. The DB is in the desired state
+// regardless of who won.
+func addColumn(ctx context.Context, conn *sql.Conn, table, column, decl string) error {
 	if _, err := conn.ExecContext(ctx, fmt.Sprintf(`ALTER TABLE "%s" ADD COLUMN "%s" %s`, table, column, decl)); err != nil {
-		// A concurrent Open() may have added the column between our
-		// PRAGMA check and this ALTER. SQLite returns SQLITE_ERROR with
-		// "duplicate column name", which busy_timeout does not retry.
-		// The DB is now in the desired state regardless of who won.
 		if strings.Contains(err.Error(), "duplicate column name") {
 			return nil
 		}
@@ -439,18 +523,27 @@ func (s *Store) ensureColumn(ctx context.Context, conn *sql.Conn, table, column,
 // table. Idempotent: safe to call on fresh DBs (table-not-found short-
 // circuit) and on already-current DBs (column-exists short-circuit).
 //
-// Table names are emitted bare (no safeName) — ensureColumn double-quotes
-// them at SQL emit time and uses parameter binding for the sqlite_master
-// lookup, so the values flow as Go string literals first and SQL
-// identifiers second. Wrapping with safeName here would embed literal
-// double-quote characters into the Go string and break compilation for
-// any spec whose dependent-resource snake_cased name is a SQL reserved
-// word.
+// Table names are emitted bare (no safeName) — addColumn double-quotes
+// them at SQL emit time, so the values flow as Go string literals first
+// and SQL identifiers second. Wrapping with safeName here would embed
+// literal double-quote characters into the Go string and break
+// compilation for any spec whose dependent-resource snake_cased name is
+// a SQL reserved word.
 func (s *Store) backfillColumns(ctx context.Context, conn *sql.Conn) error {
+	known, err := snapshotTableColumns(ctx, conn)
+	if err != nil {
+		return err
+	}
 	for _, c := range []struct{ table, column, decl string }{
 		// Legacy checkpoints cannot prove lossless completion: even an empty
 		// cursor may have come from a capped or partially stored page.
 		{table: "sync_state", column: "last_attempt_complete", decl: "INTEGER NOT NULL DEFAULT 0"},
+		// scope_key is not part of the primary key: one row per resource, and a
+		// changed scope resets the cursor instead of keeping both tenants.
+		{table: "sync_state", column: "scope_key", decl: "TEXT NOT NULL DEFAULT ''"},
+		// Pre-v14 playbook rows have no surface. Default cli so existing
+		// notes stay on the trusted recall fields.
+		{table: "learning_playbooks", column: "ingress_surface", decl: "TEXT NOT NULL DEFAULT 'cli'"},
 		{table: "api_import", column: "actor", decl: "TEXT"},
 		{table: "api_import", column: "category", decl: "TEXT"},
 		{table: "api_import", column: "current_step", decl: "INTEGER"},
@@ -499,17 +592,29 @@ func (s *Store) backfillColumns(ctx context.Context, conn *sql.Conn) error {
 		{table: "icon", column: "url48", decl: "TEXT"},
 		{table: "icon_png", column: "icon_id", decl: "TEXT"},
 		{table: "icon_png", column: "bare_id", decl: "TEXT GENERATED ALWAYS AS (substr(id, 1, coalesce(nullif(instr(id, char(0)), 0) - 1, length(id)))) VIRTUAL"},
+		{table: "importsource", column: "collection_id", decl: "TEXT"},
 		{table: "importsource", column: "created", decl: "DATETIME"},
+		{table: "importsource", column: "date_format", decl: "TEXT"},
+		{table: "importsource", column: "date_time_format", decl: "TEXT"},
+		{table: "importsource", column: "default_concatenator", decl: "TEXT"},
+		{table: "importsource", column: "default_handle_compute_issue_values", decl: "TEXT"},
+		{table: "importsource", column: "default_handle_empty_values", decl: "TEXT"},
+		{table: "importsource", column: "default_handle_not_mapped_values", decl: "TEXT"},
+		{table: "importsource", column: "default_handle_null_values", decl: "TEXT"},
+		{table: "importsource", column: "default_handle_unknown_values", decl: "TEXT"},
 		{table: "importsource", column: "description", decl: "TEXT"},
-		{table: "importsource", column: "empty_values", decl: "TEXT"},
-		{table: "importsource", column: "import_source_id", decl: "TEXT"},
-		{table: "importsource", column: "match_identifier_ignore_case", decl: "INTEGER"},
-		{table: "importsource", column: "parent_import_source_ot_id", decl: "TEXT"},
-		{table: "importsource", column: "selector", decl: "TEXT"},
-		{table: "importsource", column: "selector_iql", decl: "TEXT"},
-		{table: "importsource", column: "selector_ql_query", decl: "TEXT"},
-		{table: "importsource", column: "unknown_values", decl: "TEXT"},
+		{table: "importsource", column: "import_execution_type", decl: "TEXT"},
+		{table: "importsource", column: "import_source_module_key", decl: "TEXT"},
+		{table: "importsource", column: "import_specific_configuration", decl: "TEXT"},
+		{table: "importsource", column: "integrated_import_type_extension_id", decl: "TEXT"},
+		{table: "importsource", column: "integrated_import_type_id", decl: "INTEGER"},
+		{table: "importsource", column: "is_import_source_scheduling_enabled", decl: "INTEGER"},
+		{table: "importsource", column: "name", decl: "TEXT"},
+		{table: "importsource", column: "object_schema_id", decl: "TEXT"},
+		{table: "importsource", column: "scheduled_import_details", decl: "TEXT"},
+		{table: "importsource", column: "token_generated", decl: "INTEGER"},
 		{table: "importsource", column: "updated", decl: "DATETIME"},
+		{table: "importsource", column: "url", decl: "TEXT"},
 		{table: "configstatus", column: "importsource_id", decl: "TEXT"},
 		{table: "configstatus", column: "bare_id", decl: "TEXT GENERATED ALWAYS AS (substr(id, 1, coalesce(nullif(instr(id, char(0)), 0) - 1, length(id)))) VIRTUAL"},
 		{table: "executions", column: "importsource_id", decl: "TEXT"},
@@ -539,14 +644,15 @@ func (s *Store) backfillColumns(ctx context.Context, conn *sql.Conn) error {
 		{table: "iql", column: "start_index", decl: "INTEGER"},
 		{table: "iql", column: "to_index", decl: "INTEGER"},
 		{table: "iql", column: "total_filter_count", decl: "INTEGER"},
-		{table: "object", column: "global_id", decl: "TEXT"},
-		{table: "object", column: "object_type_attribute_id", decl: "TEXT"},
-		{table: "object", column: "workspace_id", decl: "TEXT"},
 		{table: "object", column: "created", decl: "DATETIME"},
-		{table: "object", column: "key", decl: "TEXT"},
-		{table: "object", column: "reporter", decl: "TEXT"},
-		{table: "object", column: "title", decl: "TEXT"},
+		{table: "object", column: "global_id", decl: "TEXT"},
+		{table: "object", column: "has_avatar", decl: "INTEGER"},
+		{table: "object", column: "label", decl: "TEXT"},
+		{table: "object", column: "object_key", decl: "TEXT"},
+		{table: "object", column: "timestamp", decl: "REAL"},
 		{table: "object", column: "updated", decl: "DATETIME"},
+		{table: "object", column: "workspace_id", decl: "TEXT"},
+		{table: "object", column: "all_tickets_query", decl: "TEXT"},
 		{table: "object_attributes", column: "object_id", decl: "TEXT"},
 		{table: "object_attributes", column: "bare_id", decl: "TEXT GENERATED ALWAYS AS (substr(id, 1, coalesce(nullif(instr(id, char(0)), 0) - 1, length(id)))) VIRTUAL"},
 		{table: "history", column: "object_id", decl: "TEXT"},
@@ -588,6 +694,34 @@ func (s *Store) backfillColumns(ctx context.Context, conn *sql.Conn) error {
 		{table: "objecttype_attributes", column: "bare_id", decl: "TEXT GENERATED ALWAYS AS (substr(id, 1, coalesce(nullif(instr(id, char(0)), 0) - 1, length(id)))) VIRTUAL"},
 		{table: "position", column: "objecttype_id", decl: "TEXT"},
 		{table: "position", column: "bare_id", decl: "TEXT GENERATED ALWAYS AS (substr(id, 1, coalesce(nullif(instr(id, char(0)), 0) - 1, length(id)))) VIRTUAL"},
+		{table: "objecttypeattribute", column: "additional_value", decl: "TEXT"},
+		{table: "objecttypeattribute", column: "description", decl: "TEXT"},
+		{table: "objecttypeattribute", column: "display_name", decl: "TEXT"},
+		{table: "objecttypeattribute", column: "editable", decl: "INTEGER"},
+		{table: "objecttypeattribute", column: "global_id", decl: "TEXT"},
+		{table: "objecttypeattribute", column: "hidden", decl: "INTEGER"},
+		{table: "objecttypeattribute", column: "include_child_object_types", decl: "INTEGER"},
+		{table: "objecttypeattribute", column: "indexed", decl: "INTEGER"},
+		{table: "objecttypeattribute", column: "iql", decl: "TEXT"},
+		{table: "objecttypeattribute", column: "label", decl: "INTEGER"},
+		{table: "objecttypeattribute", column: "maximum_cardinality", decl: "INTEGER"},
+		{table: "objecttypeattribute", column: "minimum_cardinality", decl: "INTEGER"},
+		{table: "objecttypeattribute", column: "name", decl: "TEXT"},
+		{table: "objecttypeattribute", column: "object_attribute_exists", decl: "INTEGER"},
+		{table: "objecttypeattribute", column: "options", decl: "TEXT"},
+		{table: "objecttypeattribute", column: "position", decl: "INTEGER"},
+		{table: "objecttypeattribute", column: "ql_query", decl: "TEXT"},
+		{table: "objecttypeattribute", column: "reference_object_type_id", decl: "TEXT"},
+		{table: "objecttypeattribute", column: "regex_validation", decl: "TEXT"},
+		{table: "objecttypeattribute", column: "removable", decl: "INTEGER"},
+		{table: "objecttypeattribute", column: "sortable", decl: "INTEGER"},
+		{table: "objecttypeattribute", column: "suffix", decl: "TEXT"},
+		{table: "objecttypeattribute", column: "summable", decl: "INTEGER"},
+		{table: "objecttypeattribute", column: "system", decl: "INTEGER"},
+		{table: "objecttypeattribute", column: "type", decl: "INTEGER"},
+		{table: "objecttypeattribute", column: "type_value", decl: "TEXT"},
+		{table: "objecttypeattribute", column: "unique_attribute", decl: "INTEGER"},
+		{table: "objecttypeattribute", column: "workspace_id", decl: "TEXT"},
 		{table: "property", column: "organization_id", decl: "TEXT"},
 		{table: "property", column: "bare_id", decl: "TEXT GENERATED ALWAYS AS (substr(id, 1, coalesce(nullif(instr(id, char(0)), 0) - 1, length(id)))) VIRTUAL"},
 		{table: "user", column: "organization_id", decl: "TEXT"},
@@ -664,9 +798,14 @@ func (s *Store) backfillColumns(ctx context.Context, conn *sql.Conn) error {
 		{table: "sync_state", column: "last_synced_at", decl: "DATETIME"},
 		{table: "sync_state", column: "total_count", decl: "INTEGER DEFAULT 0"},
 	} {
-		if err := s.ensureColumn(ctx, conn, c.table, c.column, c.decl); err != nil {
+		if !columnNeedsBackfill(known, c.table, c.column) {
+			continue
+		}
+		noteBackfillAlter(ctx)
+		if err := addColumn(ctx, conn, c.table, c.column, c.decl); err != nil {
 			return err
 		}
+		markColumnPresent(known, c.table, c.column)
 	}
 	return nil
 }
@@ -723,7 +862,8 @@ func (s *Store) migrate(ctx context.Context) error {
 			last_cursor TEXT,
 			last_synced_at DATETIME,
 			total_count INTEGER DEFAULT 0,
-			last_attempt_complete INTEGER NOT NULL DEFAULT 0
+			last_attempt_complete INTEGER NOT NULL DEFAULT 0,
+			scope_key TEXT NOT NULL DEFAULT ''
 		)`,
 		resourcesFTSCreateSQL,
 		// CLI Printing Press: learn migrations
@@ -826,6 +966,7 @@ func (s *Store) migrate(ctx context.Context) error {
 			notes_text TEXT,
 			source TEXT NOT NULL DEFAULT 'taught',
 			confidence INTEGER NOT NULL DEFAULT 2,
+			ingress_surface TEXT NOT NULL DEFAULT 'cli',
 			created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			last_observed_at TIMESTAMP
 		)`,
@@ -976,18 +1117,50 @@ func (s *Store) migrate(ctx context.Context) error {
 			"id" TEXT PRIMARY KEY,
 			"data" JSON NOT NULL,
 			"synced_at" DATETIME DEFAULT CURRENT_TIMESTAMP,
+			"collection_id" TEXT,
 			"created" DATETIME,
+			"date_format" TEXT,
+			"date_time_format" TEXT,
+			"default_concatenator" TEXT,
+			"default_handle_compute_issue_values" TEXT,
+			"default_handle_empty_values" TEXT,
+			"default_handle_not_mapped_values" TEXT,
+			"default_handle_null_values" TEXT,
+			"default_handle_unknown_values" TEXT,
 			"description" TEXT,
-			"empty_values" TEXT,
-			"import_source_id" TEXT,
-			"match_identifier_ignore_case" INTEGER,
-			"parent_import_source_ot_id" TEXT,
-			"selector" TEXT,
-			"selector_iql" TEXT,
-			"selector_ql_query" TEXT,
-			"unknown_values" TEXT,
-			"updated" DATETIME
+			"import_execution_type" TEXT,
+			"import_source_module_key" TEXT,
+			"import_specific_configuration" TEXT,
+			"integrated_import_type_extension_id" TEXT,
+			"integrated_import_type_id" INTEGER,
+			"is_import_source_scheduling_enabled" INTEGER,
+			"name" TEXT,
+			"object_schema_id" TEXT,
+			"scheduled_import_details" TEXT,
+			"token_generated" INTEGER,
+			"updated" DATETIME,
+			"url" TEXT
 		)`,
+		`CREATE VIRTUAL TABLE IF NOT EXISTS "importsource_fts" USING fts5(
+			"description",
+			"name",
+			content='importsource',
+			content_rowid='rowid'
+		)`,
+		`CREATE TRIGGER IF NOT EXISTS "importsource_ai" AFTER INSERT ON "importsource" BEGIN
+			INSERT INTO "importsource_fts"(rowid, "description", "name")
+			VALUES (new.rowid,new."description", new."name");
+		END`,
+		`CREATE TRIGGER IF NOT EXISTS "importsource_ad" AFTER DELETE ON "importsource" BEGIN
+			INSERT INTO "importsource_fts"("importsource_fts", rowid, "description", "name")
+			VALUES ('delete', old.rowid,old."description", old."name");
+		END`,
+		`CREATE TRIGGER IF NOT EXISTS "importsource_au" AFTER UPDATE ON "importsource" BEGIN
+			INSERT INTO "importsource_fts"("importsource_fts", rowid, "description", "name")
+			VALUES ('delete', old.rowid,old."description", old."name");
+			INSERT INTO "importsource_fts"(rowid, "description", "name")
+			VALUES (new.rowid,new."description", new."name");
+		END`,
 		`CREATE TABLE IF NOT EXISTS "configstatus" (
 			"id" TEXT PRIMARY KEY,
 			"importsource_id" TEXT NOT NULL,
@@ -1075,14 +1248,15 @@ func (s *Store) migrate(ctx context.Context) error {
 			"id" TEXT PRIMARY KEY,
 			"data" JSON NOT NULL,
 			"synced_at" DATETIME DEFAULT CURRENT_TIMESTAMP,
-			"global_id" TEXT,
-			"object_type_attribute_id" TEXT,
-			"workspace_id" TEXT,
 			"created" DATETIME,
-			"key" TEXT,
-			"reporter" TEXT,
-			"title" TEXT,
-			"updated" DATETIME
+			"global_id" TEXT,
+			"has_avatar" INTEGER,
+			"label" TEXT,
+			"object_key" TEXT,
+			"timestamp" REAL,
+			"updated" DATETIME,
+			"workspace_id" TEXT,
+			"all_tickets_query" TEXT
 		)`,
 		`CREATE TABLE IF NOT EXISTS "object_attributes" (
 			"id" TEXT PRIMARY KEY,
@@ -1224,6 +1398,60 @@ func (s *Store) migrate(ctx context.Context) error {
 		)`,
 		`CREATE INDEX IF NOT EXISTS "idx_position_objecttype_id" ON "position"("objecttype_id")`,
 		`CREATE INDEX IF NOT EXISTS "idx_position_bare_id" ON "position"("bare_id")`,
+		`CREATE TABLE IF NOT EXISTS "objecttypeattribute" (
+			"id" TEXT PRIMARY KEY,
+			"data" JSON NOT NULL,
+			"synced_at" DATETIME DEFAULT CURRENT_TIMESTAMP,
+			"additional_value" TEXT,
+			"description" TEXT,
+			"display_name" TEXT,
+			"editable" INTEGER,
+			"global_id" TEXT,
+			"hidden" INTEGER,
+			"include_child_object_types" INTEGER,
+			"indexed" INTEGER,
+			"iql" TEXT,
+			"label" INTEGER,
+			"maximum_cardinality" INTEGER,
+			"minimum_cardinality" INTEGER,
+			"name" TEXT,
+			"object_attribute_exists" INTEGER,
+			"options" TEXT,
+			"position" INTEGER,
+			"ql_query" TEXT,
+			"reference_object_type_id" TEXT,
+			"regex_validation" TEXT,
+			"removable" INTEGER,
+			"sortable" INTEGER,
+			"suffix" TEXT,
+			"summable" INTEGER,
+			"system" INTEGER,
+			"type" INTEGER,
+			"type_value" TEXT,
+			"unique_attribute" INTEGER,
+			"workspace_id" TEXT
+		)`,
+		`CREATE VIRTUAL TABLE IF NOT EXISTS "objecttypeattribute_fts" USING fts5(
+			"description",
+			"label",
+			"name",
+			content='objecttypeattribute',
+			content_rowid='rowid'
+		)`,
+		`CREATE TRIGGER IF NOT EXISTS "objecttypeattribute_ai" AFTER INSERT ON "objecttypeattribute" BEGIN
+			INSERT INTO "objecttypeattribute_fts"(rowid, "description", "label", "name")
+			VALUES (new.rowid,new."description", new."label", new."name");
+		END`,
+		`CREATE TRIGGER IF NOT EXISTS "objecttypeattribute_ad" AFTER DELETE ON "objecttypeattribute" BEGIN
+			INSERT INTO "objecttypeattribute_fts"("objecttypeattribute_fts", rowid, "description", "label", "name")
+			VALUES ('delete', old.rowid,old."description", old."label", old."name");
+		END`,
+		`CREATE TRIGGER IF NOT EXISTS "objecttypeattribute_au" AFTER UPDATE ON "objecttypeattribute" BEGIN
+			INSERT INTO "objecttypeattribute_fts"("objecttypeattribute_fts", rowid, "description", "label", "name")
+			VALUES ('delete', old.rowid,old."description", old."label", old."name");
+			INSERT INTO "objecttypeattribute_fts"(rowid, "description", "label", "name")
+			VALUES (new.rowid,new."description", new."label", new."name");
+		END`,
 		`CREATE TABLE IF NOT EXISTS "property" (
 			"id" TEXT PRIMARY KEY,
 			"organization_id" TEXT NOT NULL,
@@ -2277,6 +2505,7 @@ var typedListTableByResource = map[string]string{
 	"objecttype":                "objecttype",
 	"objecttype_attributes":     "objecttype_attributes",
 	"position":                  "position",
+	"objecttypeattribute":       "objecttypeattribute",
 	"property":                  "property",
 	"user":                      "user",
 	"progress":                  "progress",
@@ -2429,6 +2658,13 @@ func (s *Store) TypedListScan(resourceType string, fn func(id string, data json.
 }
 
 func (s *Store) Search(query string, limit int, resourceTypes ...string) ([]json.RawMessage, error) {
+	return s.SearchContext(context.Background(), query, limit, resourceTypes...)
+}
+
+func (s *Store) SearchContext(ctx context.Context, query string, limit int, resourceTypes ...string) ([]json.RawMessage, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	if limit <= 0 {
 		limit = 50
 	}
@@ -2482,7 +2718,7 @@ func (s *Store) Search(query string, limit int, resourceTypes ...string) ([]json
 			args = []any{matchQuery, limit}
 		}
 	}
-	rows, err := s.db.Query(q, args...)
+	rows, err := s.db.QueryContext(ctx, q, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -3552,23 +3788,35 @@ func (s *Store) UpsertIconPng(data json.RawMessage) error {
 // domain inserts per item without opening a per-item transaction.
 func (s *Store) upsertImportsourceTx(tx *sql.Tx, id string, obj map[string]any, data json.RawMessage) error {
 	if _, err := tx.Exec(
-		`INSERT INTO "importsource" ("id", "data", "synced_at", "created", "description", "empty_values", "import_source_id", "match_identifier_ignore_case", "parent_import_source_ot_id", "selector", "selector_iql", "selector_ql_query", "unknown_values", "updated")
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-		 ON CONFLICT("id") DO UPDATE SET "data" = excluded."data", "synced_at" = excluded."synced_at", "created" = excluded."created", "description" = excluded."description", "empty_values" = excluded."empty_values", "import_source_id" = excluded."import_source_id", "match_identifier_ignore_case" = excluded."match_identifier_ignore_case", "parent_import_source_ot_id" = excluded."parent_import_source_ot_id", "selector" = excluded."selector", "selector_iql" = excluded."selector_iql", "selector_ql_query" = excluded."selector_ql_query", "unknown_values" = excluded."unknown_values", "updated" = excluded."updated"`,
+		`INSERT INTO "importsource" ("id", "data", "synced_at", "collection_id", "created", "date_format", "date_time_format", "default_concatenator", "default_handle_compute_issue_values", "default_handle_empty_values", "default_handle_not_mapped_values", "default_handle_null_values", "default_handle_unknown_values", "description", "import_execution_type", "import_source_module_key", "import_specific_configuration", "integrated_import_type_extension_id", "integrated_import_type_id", "is_import_source_scheduling_enabled", "name", "object_schema_id", "scheduled_import_details", "token_generated", "updated", "url")
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		 ON CONFLICT("id") DO UPDATE SET "data" = excluded."data", "synced_at" = excluded."synced_at", "collection_id" = excluded."collection_id", "created" = excluded."created", "date_format" = excluded."date_format", "date_time_format" = excluded."date_time_format", "default_concatenator" = excluded."default_concatenator", "default_handle_compute_issue_values" = excluded."default_handle_compute_issue_values", "default_handle_empty_values" = excluded."default_handle_empty_values", "default_handle_not_mapped_values" = excluded."default_handle_not_mapped_values", "default_handle_null_values" = excluded."default_handle_null_values", "default_handle_unknown_values" = excluded."default_handle_unknown_values", "description" = excluded."description", "import_execution_type" = excluded."import_execution_type", "import_source_module_key" = excluded."import_source_module_key", "import_specific_configuration" = excluded."import_specific_configuration", "integrated_import_type_extension_id" = excluded."integrated_import_type_extension_id", "integrated_import_type_id" = excluded."integrated_import_type_id", "is_import_source_scheduling_enabled" = excluded."is_import_source_scheduling_enabled", "name" = excluded."name", "object_schema_id" = excluded."object_schema_id", "scheduled_import_details" = excluded."scheduled_import_details", "token_generated" = excluded."token_generated", "updated" = excluded."updated", "url" = excluded."url"`,
 		id,
 		string(data),
 		time.Now().UTC().Format(time.RFC3339),
+		lookupFieldValue(obj, "collection_id"),
 		lookupFieldValue(obj, "created"),
+		lookupFieldValue(obj, "date_format"),
+		lookupFieldValue(obj, "date_time_format"),
+		lookupFieldValue(obj, "default_concatenator"),
+		lookupFieldValue(obj, "default_handle_compute_issue_values"),
+		lookupFieldValue(obj, "default_handle_empty_values"),
+		lookupFieldValue(obj, "default_handle_not_mapped_values"),
+		lookupFieldValue(obj, "default_handle_null_values"),
+		lookupFieldValue(obj, "default_handle_unknown_values"),
 		lookupFieldValue(obj, "description"),
-		lookupFieldValue(obj, "empty_values"),
-		lookupFieldValue(obj, "import_source_id"),
-		lookupFieldValue(obj, "match_identifier_ignore_case"),
-		lookupFieldValue(obj, "parent_import_source_ot_id"),
-		lookupFieldValue(obj, "selector"),
-		lookupFieldValue(obj, "selector_iql"),
-		lookupFieldValue(obj, "selector_ql_query"),
-		lookupFieldValue(obj, "unknown_values"),
+		lookupFieldValue(obj, "import_execution_type"),
+		lookupFieldValue(obj, "import_source_module_key"),
+		lookupFieldValue(obj, "import_specific_configuration"),
+		lookupFieldValue(obj, "integrated_import_type_extension_id"),
+		lookupFieldValue(obj, "integrated_import_type_id"),
+		lookupFieldValue(obj, "is_import_source_scheduling_enabled"),
+		lookupFieldValue(obj, "name"),
+		lookupFieldValue(obj, "object_schema_id"),
+		lookupFieldValue(obj, "scheduled_import_details"),
+		lookupFieldValue(obj, "token_generated"),
 		lookupFieldValue(obj, "updated"),
+		lookupFieldValue(obj, "url"),
 	); err != nil {
 		return fmt.Errorf("insert into importsource: %w", err)
 	}
@@ -4089,20 +4337,21 @@ func (s *Store) UpsertIql(data json.RawMessage) error {
 // domain inserts per item without opening a per-item transaction.
 func (s *Store) upsertObjectTx(tx *sql.Tx, id string, obj map[string]any, data json.RawMessage) error {
 	if _, err := tx.Exec(
-		`INSERT INTO "object" ("id", "data", "synced_at", "global_id", "object_type_attribute_id", "workspace_id", "created", "key", "reporter", "title", "updated")
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-		 ON CONFLICT("id") DO UPDATE SET "data" = excluded."data", "synced_at" = excluded."synced_at", "global_id" = excluded."global_id", "object_type_attribute_id" = excluded."object_type_attribute_id", "workspace_id" = excluded."workspace_id", "created" = excluded."created", "key" = excluded."key", "reporter" = excluded."reporter", "title" = excluded."title", "updated" = excluded."updated"`,
+		`INSERT INTO "object" ("id", "data", "synced_at", "created", "global_id", "has_avatar", "label", "object_key", "timestamp", "updated", "workspace_id", "all_tickets_query")
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		 ON CONFLICT("id") DO UPDATE SET "data" = excluded."data", "synced_at" = excluded."synced_at", "created" = excluded."created", "global_id" = excluded."global_id", "has_avatar" = excluded."has_avatar", "label" = excluded."label", "object_key" = excluded."object_key", "timestamp" = excluded."timestamp", "updated" = excluded."updated", "workspace_id" = excluded."workspace_id", "all_tickets_query" = excluded."all_tickets_query"`,
 		id,
 		string(data),
 		time.Now().UTC().Format(time.RFC3339),
-		lookupFieldValue(obj, "global_id"),
-		lookupFieldValue(obj, "object_type_attribute_id"),
-		lookupFieldValue(obj, "workspace_id"),
 		lookupFieldValue(obj, "created"),
-		lookupFieldValue(obj, "key"),
-		lookupFieldValue(obj, "reporter"),
-		lookupFieldValue(obj, "title"),
+		lookupFieldValue(obj, "global_id"),
+		lookupFieldValue(obj, "has_avatar"),
+		lookupFieldValue(obj, "label"),
+		lookupFieldValue(obj, "object_key"),
+		lookupFieldValue(obj, "timestamp"),
 		lookupFieldValue(obj, "updated"),
+		lookupFieldValue(obj, "workspace_id"),
+		lookupFieldValue(obj, "all_tickets_query"),
 	); err != nil {
 		return fmt.Errorf("insert into object: %w", err)
 	}
@@ -4678,6 +4927,90 @@ func (s *Store) UpsertPosition(data json.RawMessage) error {
 		return err
 	}
 	if err := s.upsertPositionTx(tx, storageID, obj, data); err != nil {
+		return err
+	}
+
+	return tx.Commit()
+}
+
+// upsertObjecttypeattributeTx writes the per-resource domain-table portion of a
+// objecttypeattribute upsert inside an existing transaction. The caller is
+// responsible for the generic resources insert (via upsertGenericResourceTx)
+// and for committing the tx. Splitting this out lets UpsertBatch dispatch
+// domain inserts per item without opening a per-item transaction.
+func (s *Store) upsertObjecttypeattributeTx(tx *sql.Tx, id string, obj map[string]any, data json.RawMessage) error {
+	if _, err := tx.Exec(
+		`INSERT INTO "objecttypeattribute" ("id", "data", "synced_at", "additional_value", "description", "display_name", "editable", "global_id", "hidden", "include_child_object_types", "indexed", "iql", "label", "maximum_cardinality", "minimum_cardinality", "name", "object_attribute_exists", "options", "position", "ql_query", "reference_object_type_id", "regex_validation", "removable", "sortable", "suffix", "summable", "system", "type", "type_value", "unique_attribute", "workspace_id")
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		 ON CONFLICT("id") DO UPDATE SET "data" = excluded."data", "synced_at" = excluded."synced_at", "additional_value" = excluded."additional_value", "description" = excluded."description", "display_name" = excluded."display_name", "editable" = excluded."editable", "global_id" = excluded."global_id", "hidden" = excluded."hidden", "include_child_object_types" = excluded."include_child_object_types", "indexed" = excluded."indexed", "iql" = excluded."iql", "label" = excluded."label", "maximum_cardinality" = excluded."maximum_cardinality", "minimum_cardinality" = excluded."minimum_cardinality", "name" = excluded."name", "object_attribute_exists" = excluded."object_attribute_exists", "options" = excluded."options", "position" = excluded."position", "ql_query" = excluded."ql_query", "reference_object_type_id" = excluded."reference_object_type_id", "regex_validation" = excluded."regex_validation", "removable" = excluded."removable", "sortable" = excluded."sortable", "suffix" = excluded."suffix", "summable" = excluded."summable", "system" = excluded."system", "type" = excluded."type", "type_value" = excluded."type_value", "unique_attribute" = excluded."unique_attribute", "workspace_id" = excluded."workspace_id"`,
+		id,
+		string(data),
+		time.Now().UTC().Format(time.RFC3339),
+		lookupFieldValue(obj, "additional_value"),
+		lookupFieldValue(obj, "description"),
+		lookupFieldValue(obj, "display_name"),
+		lookupFieldValue(obj, "editable"),
+		lookupFieldValue(obj, "global_id"),
+		lookupFieldValue(obj, "hidden"),
+		lookupFieldValue(obj, "include_child_object_types"),
+		lookupFieldValue(obj, "indexed"),
+		lookupFieldValue(obj, "iql"),
+		lookupFieldValue(obj, "label"),
+		lookupFieldValue(obj, "maximum_cardinality"),
+		lookupFieldValue(obj, "minimum_cardinality"),
+		lookupFieldValue(obj, "name"),
+		lookupFieldValue(obj, "object_attribute_exists"),
+		lookupFieldValue(obj, "options"),
+		lookupFieldValue(obj, "position"),
+		lookupFieldValue(obj, "ql_query"),
+		lookupFieldValue(obj, "reference_object_type_id"),
+		lookupFieldValue(obj, "regex_validation"),
+		lookupFieldValue(obj, "removable"),
+		lookupFieldValue(obj, "sortable"),
+		lookupFieldValue(obj, "suffix"),
+		lookupFieldValue(obj, "summable"),
+		lookupFieldValue(obj, "system"),
+		lookupFieldValue(obj, "type"),
+		lookupFieldValue(obj, "type_value"),
+		lookupFieldValue(obj, "unique_attribute"),
+		lookupFieldValue(obj, "workspace_id"),
+	); err != nil {
+		return fmt.Errorf("insert into objecttypeattribute: %w", err)
+	}
+
+	return nil
+}
+
+// UpsertObjecttypeattribute inserts or updates a objecttypeattribute record with domain-specific columns.
+func (s *Store) UpsertObjecttypeattribute(data json.RawMessage) error {
+	obj, err := DecodeJSONObject(data)
+	if err != nil {
+		return fmt.Errorf("unmarshaling objecttypeattribute: %w", err)
+	}
+
+	id := ResolveStorageID("objecttypeattribute", obj)
+	if id == "" {
+		return fmt.Errorf("missing id for objecttypeattribute")
+	}
+	storageID := resourceStorageID("objecttypeattribute", id, obj)
+
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	data = s.mergeIncomingResourceData(tx, "objecttypeattribute", storageID, data)
+	if merged, err := DecodeJSONObject(data); err == nil {
+		obj = merged
+	}
+
+	if err := s.upsertGenericResourceTx(tx, "objecttypeattribute", storageID, data); err != nil {
+		return err
+	}
+	if err := s.upsertObjecttypeattributeTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -6827,6 +7160,8 @@ func (s *Store) UpsertBatchDetailed(resourceType string, items []json.RawMessage
 			typedErr = s.upsertObjecttypeAttributesTx(tx, storageID, obj, item)
 		case "position":
 			typedErr = s.upsertPositionTx(tx, storageID, obj, item)
+		case "objecttypeattribute":
+			typedErr = s.upsertObjecttypeattributeTx(tx, storageID, obj, item)
 		case "property":
 			typedErr = s.upsertPropertyTx(tx, storageID, obj, item)
 		case "user":
@@ -6968,6 +7303,38 @@ func (s *Store) SearchConfig(query string, limit int) ([]json.RawMessage, error)
 	return results, rows.Err()
 }
 
+// SearchImportsource searches the importsource_fts index with optional filters.
+func (s *Store) SearchImportsource(query string, limit int) ([]json.RawMessage, error) {
+	if limit <= 0 {
+		limit = 50
+	}
+	matchQuery := FTSMatchQuery(query)
+	if matchQuery == "" {
+		return nil, nil
+	}
+	rows, err := s.db.Query(
+		`SELECT t.data FROM "importsource" t
+		 JOIN "importsource_fts" ON "importsource_fts".rowid = t.rowid
+		 WHERE "importsource_fts" MATCH ?
+		 ORDER BY "importsource_fts".rank LIMIT ?`,
+		matchQuery, limit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var results []json.RawMessage
+	for rows.Next() {
+		var data string
+		if err := rows.Scan(&data); err != nil {
+			return nil, err
+		}
+		results = append(results, json.RawMessage(data))
+	}
+	return results, rows.Err()
+}
+
 // SearchObjectschema searches the objectschema_fts index with optional filters.
 func (s *Store) SearchObjectschema(query string, limit int) ([]json.RawMessage, error) {
 	if limit <= 0 {
@@ -7032,6 +7399,38 @@ func (s *Store) SearchObjecttype(query string, limit int) ([]json.RawMessage, er
 	return results, rows.Err()
 }
 
+// SearchObjecttypeattribute searches the objecttypeattribute_fts index with optional filters.
+func (s *Store) SearchObjecttypeattribute(query string, limit int) ([]json.RawMessage, error) {
+	if limit <= 0 {
+		limit = 50
+	}
+	matchQuery := FTSMatchQuery(query)
+	if matchQuery == "" {
+		return nil, nil
+	}
+	rows, err := s.db.Query(
+		`SELECT t.data FROM "objecttypeattribute" t
+		 JOIN "objecttypeattribute_fts" ON "objecttypeattribute_fts".rowid = t.rowid
+		 WHERE "objecttypeattribute_fts" MATCH ?
+		 ORDER BY "objecttypeattribute_fts".rank LIMIT ?`,
+		matchQuery, limit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var results []json.RawMessage
+	for rows.Next() {
+		var data string
+		if err := rows.Scan(&data); err != nil {
+			return nil, err
+		}
+		results = append(results, json.RawMessage(data))
+	}
+	return results, rows.Err()
+}
+
 func (s *Store) SaveSyncState(resourceType, cursor string, count int) error {
 	return s.SaveSyncStateAt(resourceType, cursor, count, time.Now().UTC())
 }
@@ -7066,6 +7465,50 @@ func (s *Store) SaveSyncProgress(resourceType, cursor string, count int) error {
 		resourceType, cursor, count,
 	)
 	return err
+}
+
+// SaveSyncStateInScope records a completed checkpoint for a walk that already
+// bound scopeKey. A row another walk has since rebound is left unchanged.
+func (s *Store) SaveSyncStateInScope(resourceType, scopeKey, cursor string, count int) error {
+	return s.SaveSyncStateAtInScope(resourceType, scopeKey, cursor, count, time.Now().UTC())
+}
+
+// SaveSyncStateAtInScope stores the watermark for a walk that already bound
+// scopeKey. A row another walk has since rebound is left unchanged.
+func (s *Store) SaveSyncStateAtInScope(resourceType, scopeKey, cursor string, count int, at time.Time) error {
+	return s.updateSyncCheckpointInScope(resourceType,
+		`UPDATE sync_state SET last_cursor = ?, last_synced_at = ?, total_count = ?, last_attempt_complete = 1
+		 WHERE resource_type = ? AND scope_key = ?`,
+		cursor, at.UTC().Format(time.RFC3339), count, resourceType, scopeKey,
+	)
+}
+
+// SaveSyncProgressInScope stores pagination progress for a walk that already
+// bound scopeKey and leaves the last completed watermark in place. A row
+// another walk has since rebound is left unchanged.
+func (s *Store) SaveSyncProgressInScope(resourceType, scopeKey, cursor string, count int) error {
+	return s.updateSyncCheckpointInScope(resourceType,
+		`UPDATE sync_state SET last_cursor = ?, total_count = ?, last_attempt_complete = 0
+		 WHERE resource_type = ? AND scope_key = ?`,
+		cursor, count, resourceType, scopeKey,
+	)
+}
+
+func (s *Store) updateSyncCheckpointInScope(resourceType, query string, args ...any) error {
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
+	res, err := s.db.Exec(query, args...)
+	if err != nil {
+		return err
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if n == 0 {
+		return fmt.Errorf("sync scope for %s changed before the checkpoint was saved", resourceType)
+	}
+	return nil
 }
 
 func (s *Store) GetSyncState(resourceType string) (cursor string, lastSynced time.Time, count int, err error) {
@@ -7104,6 +7547,115 @@ func (s *Store) GetSyncCursor(resourceType string) string {
 		return cursor.String
 	}
 	return ""
+}
+
+// BindSyncScope returns the checkpoint when scopeKey matches the stored scope.
+// A different scope drops the cursor and watermark so a later tenant cannot
+// resume the previous one. The primary key stays resource_type; scope_key is
+// recorded beside it so existing ON CONFLICT(resource_type) writers keep working.
+func (s *Store) BindSyncScope(resourceType, scopeKey string) (string, time.Time, int, error) {
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
+	return s.readSyncScope(resourceType, scopeKey, true)
+}
+
+// ReadSyncScope is the dry-run twin. A scope mismatch reports an empty
+// checkpoint and leaves the stored row alone.
+func (s *Store) ReadSyncScope(resourceType, scopeKey string) (string, time.Time, int, error) {
+	return s.readSyncScope(resourceType, scopeKey, false)
+}
+
+func (s *Store) readSyncScope(resourceType, scopeKey string, bind bool) (string, time.Time, int, error) {
+	var savedCursor sql.NullString
+	var savedTime sql.NullTime
+	var savedScope sql.NullString
+	var count int
+	err := s.db.QueryRow(
+		`SELECT last_cursor, last_synced_at, total_count, scope_key FROM sync_state WHERE resource_type = ?`,
+		resourceType,
+	).Scan(&savedCursor, &savedTime, &count, &savedScope)
+	if err == sql.ErrNoRows {
+		if !bind {
+			return "", time.Time{}, 0, nil
+		}
+		_, err = s.db.Exec(
+			`INSERT INTO sync_state (resource_type, last_cursor, last_synced_at, total_count, last_attempt_complete, scope_key)
+			 VALUES (?, '', NULL, 0, 0, ?)`,
+			resourceType, scopeKey,
+		)
+		return "", time.Time{}, 0, err
+	}
+	if err != nil {
+		return "", time.Time{}, 0, err
+	}
+	if savedScope.String == scopeKey {
+		return savedCursor.String, savedTime.Time, count, nil
+	}
+	if !bind {
+		return "", time.Time{}, 0, nil
+	}
+	_, err = s.db.Exec(
+		`UPDATE sync_state SET scope_key = ?, last_cursor = '', last_synced_at = NULL, total_count = 0, last_attempt_complete = 0 WHERE resource_type = ?`,
+		scopeKey, resourceType,
+	)
+	return "", time.Time{}, 0, err
+}
+
+// ClearSyncScopeIfCurrent drops the resume cursor when scopeKey is already
+// the stored scope. A different scope is left intact so a full sync cannot
+// wipe another tenant before that tenant's walk starts. No row stays absent.
+// Completion stays unset: the clear has not walked the resource, so a crash
+// before the walk must not read as a finished sync of zero rows.
+func (s *Store) ClearSyncScopeIfCurrent(resourceType, scopeKey string) error {
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
+	var savedScope sql.NullString
+	err := s.db.QueryRow(
+		`SELECT scope_key FROM sync_state WHERE resource_type = ?`,
+		resourceType,
+	).Scan(&savedScope)
+	if err == sql.ErrNoRows {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if savedScope.String != scopeKey {
+		return nil
+	}
+	_, err = s.db.Exec(
+		`UPDATE sync_state SET last_cursor = '', last_synced_at = ?, total_count = 0, last_attempt_complete = 0 WHERE resource_type = ?`,
+		time.Time{}.UTC().Format(time.RFC3339), resourceType,
+	)
+	return err
+}
+
+// MarkSyncAttemptIncompleteIfCurrent clears the completion flag when scopeKey
+// is already stored. Cursor, watermark, and count stay. A different scope and
+// a missing row are left alone so a failed parent lookup cannot reset another
+// tenant before a request is made.
+func (s *Store) MarkSyncAttemptIncompleteIfCurrent(resourceType, scopeKey string) error {
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
+	var savedScope sql.NullString
+	err := s.db.QueryRow(
+		`SELECT scope_key FROM sync_state WHERE resource_type = ?`,
+		resourceType,
+	).Scan(&savedScope)
+	if err == sql.ErrNoRows {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if savedScope.String != scopeKey {
+		return nil
+	}
+	_, err = s.db.Exec(
+		`UPDATE sync_state SET last_attempt_complete = 0 WHERE resource_type = ? AND scope_key = ?`,
+		resourceType, scopeKey,
+	)
+	return err
 }
 
 // ListIDs returns all IDs from a resource's domain table, or from the generic
