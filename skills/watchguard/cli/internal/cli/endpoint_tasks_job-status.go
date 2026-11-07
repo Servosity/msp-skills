@@ -65,7 +65,7 @@ func newEndpointTasksJobStatusCmd(flags *rootFlags) *cobra.Command {
 				"$skip":   formatCLIParamValue(flagSkip),
 				"$count":  formatCLIParamValue(flagCount),
 				"$filter": formatCLIParamValue(flagFilter),
-			}, map[string][]string{"$top": {"top"}, "$skip": {"skip"}, "$count": {"count"}, "$filter": {"filter"}}, "skip", "offset"), nil, flagAll, "skip", "offset", "", 0, "", "", "", cmd.ErrOrStderr())
+			}, map[string][]string{"$top": {"top"}, "$skip": {"skip"}, "$count": {"count"}, "$filter": {"filter"}}, "$skip", "offset"), nil, flagAll, "$skip", "offset", "$top", 0, "", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}

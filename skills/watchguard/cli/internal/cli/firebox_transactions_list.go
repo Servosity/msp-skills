@@ -42,7 +42,7 @@ func newFireboxTransactionsListCmd(flags *rootFlags) *cobra.Command {
 				return cmd.Help()
 			}
 			if !cmd.Flags().Changed("tx-type") && flagTxType == "" && !requiredInputWaived() {
-				return fmt.Errorf("required flag \"%s\" not set", "tx-type")
+				return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "tx-type"))
 			}
 			if cmd.Flags().Changed("tx-type") {
 				allowedTxType := []string{"deployment"}
@@ -54,7 +54,7 @@ func newFireboxTransactionsListCmd(flags *rootFlags) *cobra.Command {
 					}
 				}
 				if !validTxType {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagTxType, "tx-type", allowedTxType)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagTxType, "tx-type", allowedTxType))
 				}
 			}
 			path := "/rest/firebox/management/v1/commands/{accountId}/transactions"

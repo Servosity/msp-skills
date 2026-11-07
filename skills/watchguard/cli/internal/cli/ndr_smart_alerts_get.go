@@ -57,7 +57,7 @@ func newNdrSmartAlertsGetCmd(flags *rootFlags) *cobra.Command {
 				return usageErr(fmt.Errorf("missing required argument\nUsage: %s%s", cmd.CommandPath(), " <smartAlertId>"))
 			}
 			if !cmd.Flags().Changed("tenant-name") && flagTenantName == "" && !requiredInputWaived() {
-				return fmt.Errorf("required flag \"%s\" not set", "tenant-name")
+				return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "tenant-name"))
 			}
 			path := "/rest/watchguard-ndr/smartalerts/v2/accounts/{accountId}/smartalerts/{smartAlertId}"
 			if len(args) < 1 || args[0] == "" {

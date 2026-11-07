@@ -35,7 +35,7 @@ func newFireboxDevicesPromotedCmd(flags *rootFlags) *cobra.Command {
 					}
 				}
 				if !validDeviceType {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagDeviceType, "device-type", allowedDeviceType)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagDeviceType, "device-type", allowedDeviceType))
 				}
 			}
 			c, err := flags.newClient()

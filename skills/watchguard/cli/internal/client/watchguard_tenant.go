@@ -95,6 +95,10 @@ func (c *Client) ScopedBearer(ctx context.Context, audience string) (string, tim
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("User-Agent", resolveClientCredentialsUserAgent())
 	req.SetBasicAuth(clientID, clientSecret)
+	// Codex round 1 P2: the same plaintext refusal as every other token request.
+	if req, err = GuardTokenRequest(c.HTTPClient, req, []byte(form.Encode())); err != nil {
+		return "", time.Time{}, err
+	}
 	apiKey := ""
 	if c.Config != nil {
 		apiKey = c.Config.WatchguardApiKey
@@ -115,6 +119,9 @@ func (c *Client) ScopedBearer(ctx context.Context, audience string) (string, tim
 	if err := json.Unmarshal(body, &tr); err != nil || tr.AccessToken == "" {
 		return "", time.Time{}, fmt.Errorf("token endpoint returned no access_token for the audience")
 	}
+	// Hand-fix (handfixes.json credkit-wiring): the audience-scoped bearer is held
+	// before anything can carry it, bound to the configured API origin.
+	cliutil.Hold("minted:scoped-token", tr.AccessToken, "Bearer "+tr.AccessToken)
 	ttl := time.Duration(tr.ExpiresIn) * time.Second
 	if ttl <= 0 {
 		ttl = 55 * time.Minute // documented lifetime is 3600 s
@@ -265,12 +272,28 @@ func originOf(raw string) string {
 	if err != nil || u.Host == "" {
 		return ""
 	}
-	return strings.ToLower(u.Scheme + "://" + u.Host)
+	// url.URL.String re-escapes an IPv6 zone (%25), so onOrigin can parse it back.
+	return (&url.URL{Scheme: u.Scheme, Host: u.Host}).String()
+}
+
+// onOrigin reports whether target is the configured API origin. Hand-fix
+// (handfixes.json: scoped-bearer-stays-on-origin): it uses the shared
+// comparator, never a lowercased string, which folded the IPv6 zone and let a
+// redirect to fe80::1%LAN0 get a bearer minted for fe80::1%lan0.
+func (t *scopeTransport) onOrigin(target *url.URL) bool {
+	if t.origin == "" || target == nil {
+		return false
+	}
+	o, err := url.Parse(t.origin)
+	if err != nil || o.Host == "" {
+		return false
+	}
+	return cliutil.SameOrigin(target, o)
 }
 
 func (t *scopeTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	// Off the API origin (a redirect, a stray absolute URL) nothing scoped is sent.
-	if t.origin == "" || originOf(req.URL.String()) != t.origin {
+	if !t.onOrigin(req.URL) {
 		if req.Header.Get(scopedAudienceHeader) == "" && !isScopedBearer(req.Header.Get("Authorization")) {
 			return t.base.RoundTrip(req)
 		}
@@ -356,7 +379,7 @@ func InstallScopeTransport(c *Client) error {
 	audience := strings.TrimSpace(cliutil.EnvOverride(AudienceEnvVar))
 	base := c.HTTPClient.Transport
 	if base == nil {
-		base = http.DefaultTransport
+		base = cliutil.OutboundGuard(nil) // Hand-fix (handfixes.json credkit-wiring): a nil transport is the kit's guard over the default
 	}
 	if _, wrapped := base.(*scopeTransport); !wrapped {
 		c.HTTPClient.Transport = &scopeTransport{base: base, c: c, origin: originOf(c.RequestBaseURL()), audience: audience}

@@ -58,7 +58,7 @@ func newNdrAssetsGetCmd(flags *rootFlags) *cobra.Command {
 				return usageErr(fmt.Errorf("missing required argument\nUsage: %s%s", cmd.CommandPath(), " <assetId>"))
 			}
 			if !cmd.Flags().Changed("tenant-name") && flagTenantName == "" && !requiredInputWaived() {
-				return fmt.Errorf("required flag \"%s\" not set", "tenant-name")
+				return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "tenant-name"))
 			}
 			path := "/rest/watchguard-ndr/assets/v2/accounts/{accountId}/assets/{assetId}"
 			if len(args) < 1 || args[0] == "" {

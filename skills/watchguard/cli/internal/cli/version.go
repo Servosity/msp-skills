@@ -20,7 +20,7 @@ func newVersionCmd() *cobra.Command {
 		Use:   "version",
 		Short: "Print version",
 		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Fprintf(cmd.OutOrStdout(), "%s %s\n", cmd.Root().Name(), version) // Hand-fix (handfixes.json: export-tail-honor-deliver)
+			fmt.Fprintf(cmd.OutOrStdout(), "%s %s\n", cmd.Root().Name(), version)
 		},
 	}
 }

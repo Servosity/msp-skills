@@ -38,7 +38,7 @@ func newEndpointUnmanagedDevicesPromotedCmd(flags *rootFlags) *cobra.Command {
 				"$skip":    formatCLIParamValue(flagSkip),
 				"$count":   formatCLIParamValue(flagCount),
 				"$orderby": formatCLIParamValue(flagOrderby),
-			}, map[string][]string{"$top": {"top"}, "$skip": {"skip"}, "$count": {"count"}, "$orderby": {"orderby"}}, "skip", "offset"), nil, flagAll, "skip", "offset", "", 0, "", "", "", cmd.ErrOrStderr())
+			}, map[string][]string{"$top": {"top"}, "$skip": {"skip"}, "$count": {"count"}, "$orderby": {"orderby"}}, "$skip", "offset"), nil, flagAll, "$skip", "offset", "$top", 0, "", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}

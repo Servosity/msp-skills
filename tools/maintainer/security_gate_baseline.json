@@ -81,7 +81,6 @@
       "threatdown",
       "threatlocker",
       "unifi-network",
-      "watchguard",
       "zammad"
     ],
     "mcp-write-tool-nondestructive": [

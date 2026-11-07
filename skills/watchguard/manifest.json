@@ -26,6 +26,7 @@
         "WATCHGUARD_USER_AGENT": "${user_config.watchguard_user_agent}",
         "WATCHGUARD_MCP_READ_ONLY": "${user_config.watchguard_mcp_read_only}",
         "WATCHGUARD_MCP_HTTP_TOKEN": "${user_config.watchguard_mcp_http_token}",
+        "WATCHGUARD_NO_LOCAL_DATA": "${user_config.watchguard_no_local_data}",
         "PRINTING_PRESS_CLIENT_PROFILE": "${user_config.printing_press_client_profile}"
       }
     }
@@ -102,6 +103,12 @@
       "sensitive": true,
       "required": false
     },
+    "watchguard_no_local_data": {
+      "type": "string",
+      "title": "Keep no local copy",
+      "description": "Set to exactly 1 to turn off the response cache and the local SQLite store: reads go to the WatchGuard Cloud API, nothing new is written to disk, and sync is blocked. Leave blank to keep the default local mirror.",
+      "required": false
+    },
     "printing_press_client_profile": {
       "type": "string",
       "title": "Client profile",
@@ -117,11 +124,11 @@
       "win32"
     ]
   },
-  "printing_press_version": "4.33.5",
+  "printing_press_version": "4.35.1",
   "press_provenance": {
-    "printing_press_version": "4.33.5",
-    "generated_at": "2026-10-14T07:40:42.747461Z",
-    "spec_checksum": "sha256:3d362d2cebdc04cc5ccaac10b934a96bc4da0fa8a358e1e1fd5a28f2e78965fa",
+    "printing_press_version": "4.35.1",
+    "generated_at": "2026-11-03T01:44:37.803836Z",
+    "spec_checksum": "sha256:e14620327c0151084e19ce4ca16074f585e428dcc4b08a069ebc5ced751e41e2",
     "spec_format": "openapi3"
   }
 }

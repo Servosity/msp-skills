@@ -96,6 +96,12 @@
           "isSecret": true
         },
         {
+          "name": "WATCHGUARD_NO_LOCAL_DATA",
+          "description": "Optional: set to 1 to turn off the response cache and local store (reads go to the API).",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
           "name": "PRINTING_PRESS_CLIENT_PROFILE",
           "description": "Not enforced by this connector (no tenant-gated profiles); leave unset. It does not limit which accounts a call can reach.",
           "isRequired": false,

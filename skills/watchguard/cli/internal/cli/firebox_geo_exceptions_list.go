@@ -34,7 +34,7 @@ func newFireboxGeoExceptionsListCmd(flags *rootFlags) *cobra.Command {
 				"limit":       formatCLIParamValue(flagLimit),
 				"query":       formatCLIParamValue(flagQuery),
 				"start_after": formatCLIParamValue(flagStartAfter),
-			}, map[string][]string{"limit": {"limit"}, "query": {"query"}, "start_after": {"start-after"}}, "", "offset"), nil, flagAll, "", "offset", "limit", 0, "", "", "objects", cmd.ErrOrStderr())
+			}, map[string][]string{"limit": {"limit"}, "query": {"query"}, "start_after": {"start-after"}}, "", "offset"), nil, flagAll, "", "offset", "limit", 0, "", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}
@@ -61,7 +61,7 @@ func newFireboxGeoExceptionsListCmd(flags *rootFlags) *cobra.Command {
 					filtered, selectErr = filterFieldsChecked(filtered, flags.selectFields)
 					selectErr = selectErrorForDryRun(selectErr, flags, data)
 				} else if flags.compact {
-					filtered = compactFields(filtered, nil)
+					filtered = compactFields(filtered, map[string]bool{"count": true})
 				}
 				wrapped, wrapErr := wrapWithProvenance(filtered, prov)
 				if wrapErr != nil {
@@ -93,7 +93,7 @@ func newFireboxGeoExceptionsListCmd(flags *rootFlags) *cobra.Command {
 			if flags.csv || flags.plain {
 				formatData = outputData
 			}
-			return printOutputWithFlagsMeta(cmd.OutOrStdout(), formatData, flags, map[string]any{"source": "live"}, nil)
+			return printOutputWithFlagsMeta(cmd.OutOrStdout(), formatData, flags, map[string]any{"source": "live"}, map[string]bool{"count": true})
 		},
 	}
 	cmd.Flags().IntVar(&flagLimit, "limit", 0, "Maximum number of exceptions to return in the the response.")

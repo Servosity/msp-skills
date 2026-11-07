@@ -11,7 +11,7 @@ import (
 func newAuthpointCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "authpoint",
-		Short:       "Get and create authpoint",
+		Short:       "Manage authpoint command groups",
 		Annotations: map[string]string{"mcp:read-only": "true", "pp:parent-group": "true", "pp:api-resource": "true", "pp:typed-exit-codes": "0,2"},
 		RunE:        parentNoSubcommandRunE(flags),
 	}
