@@ -21,11 +21,6 @@
    "read-only",
    "local-data"
   ],
-  "aws-billing": [
-   "mcp-http",
-   "read-only",
-   "local-data"
-  ],
   "axcient": [
    "mcp-http",
    "read-only",
@@ -92,17 +87,7 @@
    "local-data"
   ],
   "datto-rmm": [
-   "mcp-stdio",
-   "mcp-http",
-   "write-gating",
-   "read-only",
-   "local-data"
-  ],
-  "domotz": [
-   "mcp-http",
-   "write-gating",
-   "read-only",
-   "local-data"
+   "mcp-stdio"
   ],
   "fortinet": [
    "read-only",
@@ -136,12 +121,6 @@
   ],
   "n-central": [
    "mcp-http",
-   "read-only",
-   "local-data"
-  ],
-  "pagerduty": [
-   "mcp-http",
-   "write-gating",
    "read-only",
    "local-data"
   ],

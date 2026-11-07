@@ -21,12 +21,54 @@ import (
 )
 
 type syncSummary struct {
-	Accounts  int      `json:"accounts"`
-	CostLines int      `json:"cost_lines"`
-	Forecasts int      `json:"forecasts"`
-	Inventory int      `json:"inventory"`
-	Warnings  []string `json:"warnings,omitempty"`
-	Period    string   `json:"period"`
+	Accounts  int         `json:"accounts"`
+	CostLines int         `json:"cost_lines"`
+	Forecasts int         `json:"forecasts"`
+	Inventory int         `json:"inventory"`
+	Warnings  []string    `json:"warnings,omitempty"`
+	Period    string      `json:"period"`
+	Layers    []syncLayer `json:"layers"`
+}
+
+// syncLayer is the outcome of one AWS data layer a sync attempted (accounts,
+// costs, forecasts, inventory). A layer fails when its AWS call failed or any
+// row could not be stored, so "nothing synced" is never reported as "synced 0".
+type syncLayer struct {
+	Name  string `json:"name"`
+	OK    bool   `json:"ok"`
+	Error string `json:"error,omitempty"`
+}
+
+// record appends one layer outcome; the first error wins for that layer.
+func (s *syncSummary) record(name string, errs ...error) {
+	l := syncLayer{Name: name, OK: true}
+	for _, err := range errs {
+		if err != nil {
+			l.OK, l.Error = false, err.Error()
+			break
+		}
+	}
+	s.Layers = append(s.Layers, l)
+}
+
+// succeeded counts the layers that synced.
+func (s syncSummary) succeeded() int {
+	n := 0
+	for _, l := range s.Layers {
+		if l.OK {
+			n++
+		}
+	}
+	return n
+}
+
+// allFailed reports a sync in which every attempted layer failed. Callers fail
+// closed on it: an all-failed sync must not read as an empty account.
+func (s syncSummary) allFailed() error {
+	if len(s.Layers) == 0 || s.succeeded() > 0 {
+		return nil
+	}
+	return fmt.Errorf("sync failed: 0 of %d AWS data layer(s) synced (%s)", len(s.Layers), s.Layers[0].Error)
 }
 
 type awsSyncOpts struct {
@@ -61,7 +103,8 @@ What it syncs:
 
 Cost Explorer data is org-wide only from the management (payer) account; from a
 member account you see that account's own costs. Resource inventory works in any
-account. Credentials resolve from --profile-aws, the environment, SSO, or instance metadata.`,
+account. Credentials resolve from --profile-aws, the environment, or SSO (EC2
+instance-metadata credentials are not used).`,
 		Example: `  # Sync the last 3 months for the default profile
   aws-billing-cli sync
 
@@ -127,7 +170,10 @@ account. Credentials resolve from --profile-aws, the environment, SSO, or instan
 			}
 
 			if flags.asJSON {
-				return flags.printJSON(cmd, sum)
+				if err := flags.printJSON(cmd, sum); err != nil {
+					return err
+				}
+				return sum.allFailed()
 			}
 			w := cmd.OutOrStdout()
 			fmt.Fprintf(w, "Synced %s (profile=%s)\n", sum.Period, profileOrDefault(profile))
@@ -138,7 +184,7 @@ account. Credentials resolve from --profile-aws, the environment, SSO, or instan
 			for _, warn := range sum.Warnings {
 				fmt.Fprintf(cmd.ErrOrStderr(), "warning: %s\n", warn)
 			}
-			return nil
+			return sum.allFailed()
 		},
 	}
 
@@ -161,7 +207,11 @@ account. Credentials resolve from --profile-aws, the environment, SSO, or instan
 // `workflow archive`.
 func runAWSSync(ctx context.Context, o awsSyncOpts) (syncSummary, error) {
 	sum := syncSummary{Period: o.start + " to " + o.end}
-	if o.granularity == "" {
+	// The granularity Cost Explorer is asked for, and the one the answer is
+	// stored under: DAILY or MONTHLY, nothing else.
+	if strings.EqualFold(strings.TrimSpace(o.granularity), "DAILY") {
+		o.granularity = "DAILY"
+	} else {
 		o.granularity = "MONTHLY"
 	}
 	if o.dbPath == "" {
@@ -178,7 +228,31 @@ func runAWSSync(ctx context.Context, o awsSyncOpts) (syncSummary, error) {
 	}
 	defer db.Close()
 
-	// 1. Accounts (name resolution); access-denied is non-fatal.
+	// 0. The account every row is stored under (aws-billing handfix
+	// cost-cache-answers-only-its-request): the account the credentials
+	// resolve to. Without it nothing can be stored for the right account, so
+	// every layer fails.
+	scope, _, serr := client.CallerIdentity(ctx)
+	if serr == nil && scope == "" {
+		serr = fmt.Errorf("sts:GetCallerIdentity named no account")
+	}
+	if serr != nil {
+		serr = fmt.Errorf("resolving the AWS account of these credentials: %w", serr)
+		sum.Warnings = append(sum.Warnings, serr.Error())
+		sum.record("accounts", serr)
+		if !o.skipCost {
+			sum.record("costs", serr)
+			sum.record("forecasts", serr)
+		}
+		if !o.skipInventory {
+			sum.record("inventory", serr)
+		}
+		return sum, nil
+	}
+	_ = db.RecordScopeLabel(awsReadOpts{profile: o.profile}.profileLabel(), scope) // for --data-source local
+
+	// 1. Accounts (name resolution); access-denied is non-fatal. Only a
+	// complete list is stored, in place of the account's stored one.
 	nameByID := map[string]string{}
 	accts, aerr := client.ListAccounts(ctx)
 	if aerr != nil {
@@ -188,18 +262,31 @@ func runAWSSync(ctx context.Context, o awsSyncOpts) (syncSummary, error) {
 			sum.Warnings = append(sum.Warnings, "list accounts: "+aerr.Error())
 		}
 	}
-	for _, a := range accts {
-		a.ID = a.AccountID
-		nameByID[a.AccountID] = a.Name
-		data, _ := json.Marshal(a)
-		if err := db.UpsertAccounts(data); err == nil {
-			sum.Accounts++
+	var astoreErr error
+	if aerr == nil {
+		rows := make([]json.RawMessage, 0, len(accts))
+		for _, a := range accts {
+			nameByID[a.AccountID] = a.Name
+			a.ID = store.AccountRowPrefix(scope) + a.AccountID
+			data, merr := json.Marshal(a)
+			if merr != nil {
+				astoreErr = firstErr(astoreErr, fmt.Errorf("encoding row: %w", merr))
+				continue
+			}
+			rows = append(rows, data)
+		}
+		if astoreErr == nil {
+			if astoreErr = db.ReplaceAccountList(scope, rows); astoreErr == nil {
+				sum.Accounts = len(rows)
+			}
 		}
 	}
+	sum.record("accounts", aerr, astoreErr)
 
-	// 2. Cost lines: canonical account x service + service x usage-type.
+	// 2. Cost lines: canonical account x service + service x usage-type, each
+	// answer stored whole by period (storeCostAnswer).
 	if !o.skipCost {
-		canon, cerr := client.GetCostAndUsageGrouped(ctx, o.start, o.end, o.granularity, []string{"LINKED_ACCOUNT", "SERVICE"})
+		canon, cerr := client.GetCostAndUsageAnswer(ctx, o.start, o.end, o.granularity, costByAccountService.dims)
 		if cerr != nil {
 			if awsx.IsAccessDenied(cerr) {
 				sum.Warnings = append(sum.Warnings, "ce:GetCostAndUsage denied — no cost data synced (run 'aws-billing-cli iam-setup --tier core' and use a management-account profile)")
@@ -207,37 +294,43 @@ func runAWSSync(ctx context.Context, o awsSyncOpts) (syncSummary, error) {
 				sum.Warnings = append(sum.Warnings, "get cost and usage: "+cerr.Error())
 			}
 		}
-		for _, l := range canon {
-			l.AccountName = nameByID[l.AccountID]
-			l.ID = fmt.Sprintf("as|%s|%s|%s|%s", l.Granularity, l.PeriodStart, l.AccountID, l.Service)
-			data, _ := json.Marshal(l)
-			if err := db.UpsertCosts(data); err == nil {
-				sum.CostLines++
-			}
-		}
+		var cstoreErr error
 		if cerr == nil {
-			if ut, uerr := client.GetCostAndUsageGrouped(ctx, o.start, o.end, o.granularity, []string{"SERVICE", "USAGE_TYPE"}); uerr == nil {
-				for _, l := range ut {
-					l.ID = fmt.Sprintf("ut|%s|%s|%s|%s", l.Granularity, l.PeriodStart, l.Service, l.UsageType)
-					data, _ := json.Marshal(l)
-					if err := db.UpsertCosts(data); err == nil {
-						sum.CostLines++
-					}
-				}
+			for i := range canon.Lines {
+				canon.Lines[i].AccountName = nameByID[canon.Lines[i].AccountID]
+			}
+			if cstoreErr = storeCostAnswer(db, scope, costByAccountService, o.granularity, canon); cstoreErr == nil {
+				sum.CostLines += len(canon.Lines)
+			}
+			// The usage-type detail is secondary: the commands that need it
+			// check its coverage and fetch it live, so a failure here is a
+			// warning, never silent.
+			ut, uerr := client.GetCostAndUsageAnswer(ctx, o.start, o.end, o.granularity, costByServiceUsage.dims)
+			if uerr != nil {
+				sum.Warnings = append(sum.Warnings, "usage-type cost detail unavailable: "+uerr.Error())
+			} else if err := storeCostAnswer(db, scope, costByServiceUsage, o.granularity, ut); err != nil {
+				cstoreErr = firstErr(cstoreErr, err)
+			} else {
+				sum.CostLines += len(ut.Lines)
 			}
 		}
+		sum.record("costs", cerr, cstoreErr)
 
-		// 3. Forecast (best-effort).
+		// 3. Forecast (best-effort, but its outcome is reported).
 		fStart, fEnd := nextMonthRange()
-		if f, ferr := client.GetCostForecast(ctx, fStart, fEnd, "MONTHLY"); ferr == nil {
-			f.ID = "fc|" + f.PeriodStart
-			data, _ := json.Marshal(f)
-			if err := db.UpsertForecasts(data); err == nil {
+		f, ferr := client.GetCostForecast(ctx, fStart, fEnd, "MONTHLY")
+		if ferr == nil {
+			f.ID = "fc|" + scope + "|" + f.PeriodStart
+			f.AccountID = scope
+			ferr = upsertSynced(db.UpsertForecasts, f)
+			if ferr == nil {
 				sum.Forecasts++
 			}
-		} else if !awsx.IsAccessDenied(ferr) {
+		}
+		if ferr != nil {
 			sum.Warnings = append(sum.Warnings, "forecast unavailable: "+ferr.Error())
 		}
+		sum.record("forecasts", ferr)
 	}
 
 	// 4. Inventory (waste detection); works in any account.
@@ -250,15 +343,59 @@ func runAWSSync(ctx context.Context, o awsSyncOpts) (syncSummary, error) {
 				sum.Warnings = append(sum.Warnings, "inventory: "+ierr.Error())
 			}
 		}
-		for _, r := range inv {
-			r.ID = r.ResourceType + "|" + r.ResourceID
-			data, _ := json.Marshal(r)
-			if err := db.UpsertInventory(data); err == nil {
-				sum.Inventory++
-			}
-		}
+		n, istoreErr := storeInventoryScan(ctx, db, scope, client.Region, inv, ierr)
+		sum.Inventory += n
+		sum.record("inventory", ierr, istoreErr)
 	}
 	return sum, nil
+}
+
+// storeInventoryScan stores every row of an inventory scan of scope and
+// region and records the scan's outcome: complete only when the scan had no
+// failure, every row stored and the prune succeeded. A complete scan prunes
+// the rows of the scanned account and region it did not return
+// (inventory-scan-replaces-scope). It returns how many rows it stored.
+func storeInventoryScan(ctx context.Context, db *store.Store, scope, region string, inv []awsx.InventoryResource, scanErr error) (int, error) {
+	seen := map[string]bool{}
+	rows := make([]json.RawMessage, 0, len(inv))
+	for _, r := range inv {
+		r.ID = r.ResourceType + "|" + r.ResourceID
+		seen[r.ID] = true
+		if r.AccountID != scope {
+			err := fmt.Errorf("an inventory row of account %q in a scan of account %s", r.AccountID, scope)
+			_ = db.RecordInventoryScan(scope, region, false, err.Error())
+			return 0, err
+		}
+		data, err := json.Marshal(r)
+		if err != nil {
+			_ = db.RecordInventoryScan(scope, region, false, "encoding row: "+err.Error())
+			return 0, fmt.Errorf("encoding row: %w", err)
+		}
+		rows = append(rows, data)
+	}
+	// One transaction (Codex r2 class cache-answer-not-the-request): the
+	// rows, the prune of a complete scan and the scan's record together.
+	return db.ReplaceInventoryScan(scope, region, rows, seen, scanErr == nil, inventoryScanDetail(scanErr, nil))
+}
+
+// upsertSynced stores one synced row; a marshal or store failure is returned,
+// never dropped.
+func upsertSynced(upsert func(json.RawMessage) error, v any) error {
+	data, err := json.Marshal(v)
+	if err != nil {
+		return fmt.Errorf("encoding row: %w", err)
+	}
+	if err := upsert(data); err != nil {
+		return fmt.Errorf("storing row: %w", err)
+	}
+	return nil
+}
+
+func firstErr(a, b error) error {
+	if a != nil {
+		return a
+	}
+	return b
 }
 
 func profileOrDefault(p string) string {

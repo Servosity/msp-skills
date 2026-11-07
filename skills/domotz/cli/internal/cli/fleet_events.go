@@ -41,16 +41,12 @@ type fleetEventRow struct {
 	parsedAt    time.Time
 }
 
-// parseEventTime parses the activity-log timestamp shapes (RFC3339 with or
-// without fractional seconds, and the bare ISO form), returning the zero time
-// when unparseable so unknown rows sort last instead of corrupting the order.
+// parseEventTime reads an activity-log timestamp with the one shared parser
+// (parseDomotzTime), returning the zero time when unparseable so unknown rows
+// sort last instead of corrupting the order.
 func parseEventTime(s string) time.Time {
-	for _, layout := range []string{time.RFC3339Nano, time.RFC3339, "2006-01-02T15:04:05", "2006-01-02 15:04:05"} {
-		if t, err := time.Parse(layout, s); err == nil {
-			return t
-		}
-	}
-	return time.Time{}
+	t, _ := parseDomotzTime(s)
+	return t
 }
 
 // pp:data-source live
@@ -87,7 +83,7 @@ func newNovelFleetEventsCmd(flags *rootFlags) *cobra.Command {
 			}
 			agents, err := fleetAgentsLive(cmd.Context(), c)
 			if err != nil {
-				return classifyAPIError(err, flags)
+				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}
 
 			params := map[string]string{"from": cutoff.Format(time.RFC3339)}
@@ -138,7 +134,10 @@ func newNovelFleetEventsCmd(flags *rootFlags) *cobra.Command {
 			if limit > 0 && len(rows) > limit {
 				rows = rows[:limit]
 			}
-			return printJSONFiltered(cmd.OutOrStdout(), rows, flags)
+			if err := printJSONFiltered(cmd.OutOrStdout(), rows, flags); err != nil {
+				return err
+			}
+			return fanoutIncomplete(errs, len(agents))
 		},
 	}
 	cmd.Flags().StringVar(&flagSince, "since", "24h", "Time window for events (forms like 24h, 90m, or 7d)")

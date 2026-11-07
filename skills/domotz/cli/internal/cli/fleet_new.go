@@ -7,27 +7,61 @@ package cli
 
 import (
 	"fmt"
+	"sort"
 	"time"
 
 	"github.com/spf13/cobra"
 )
 
-// fleetNewQuery selects devices whose first_seen_on is at or after the cutoff,
-// newest first, labeled with site.
-const fleetNewQuery = `
+// fleetNewQuery selects every device with a first_seen_on, labeled with site;
+// newFleetDevices keeps those first seen at or after the cutoff, newest first.
+var fleetNewQuery = `
 SELECT
   COALESCE(NULLIF(a.display_name, ''), d.agent_id)        AS site,
   d.agent_id                                              AS agent_id,
-  json_extract(d.data, '$.display_name')                 AS display_name,
-  json_extract(d.data, '$.type.label')                   AS type,
-  json_extract(d.data, '$.user_data.vendor')             AS vendor,
-  json_extract(d.data, '$.status')                       AS status,
-  json_extract(d.data, '$.first_seen_on')                AS first_seen_on
-FROM "device" d
+  ` + deviceField("d", "display_name") + `  AS display_name,
+  ` + deviceField("d", "type") + `          AS type,
+  ` + deviceField("d", "vendor") + `        AS vendor,
+  ` + deviceField("d", "status") + `        AS status,
+  ` + deviceField("d", "first_seen_on") + ` AS first_seen_on
+FROM ` + fleetDeviceSource + ` d
 LEFT JOIN "agent" a ON a.id = d.agent_id
-WHERE json_extract(d.data, '$.first_seen_on') IS NOT NULL
-  AND json_extract(d.data, '$.first_seen_on') >= ?
-ORDER BY first_seen_on DESC`
+WHERE ` + deviceField("d", "first_seen_on") + ` IS NOT NULL
+ORDER BY site, display_name`
+
+// newFleetDevices keeps the rows first seen at or after cutoff, compared as
+// instants by the one shared parser (parseDomotzTime; Codex r1, domotz 4.34.2,
+// class time-compared-as-text: the SQL compared the strings, so a device
+// first seen 3h ago at +05:00 passed a 1h window and one first seen 30m ago at
+// -05:00 did not). A first_seen_on that does not parse cannot be shown to be
+// older than the window, so the device is kept (a rogue-device sweep fails
+// open toward reporting), sorted last; the rest sort newest first.
+func newFleetDevices(rows []map[string]any, cutoff time.Time) []map[string]any {
+	type seen struct {
+		row map[string]any
+		at  time.Time
+		ok  bool
+	}
+	kept := make([]seen, 0, len(rows))
+	for _, r := range rows {
+		at, ok := parseDomotzTime(asString(r["first_seen_on"]))
+		if ok && at.Before(cutoff) {
+			continue
+		}
+		kept = append(kept, seen{r, at, ok})
+	}
+	sort.SliceStable(kept, func(i, j int) bool {
+		if kept[i].ok != kept[j].ok {
+			return kept[i].ok
+		}
+		return kept[i].at.After(kept[j].at)
+	})
+	out := make([]map[string]any, 0, len(kept))
+	for _, k := range kept {
+		out = append(out, k.row)
+	}
+	return out
+}
 
 // pp:data-source local
 func newNovelFleetNewCmd(flags *rootFlags) *cobra.Command {
@@ -50,20 +84,19 @@ func newNovelFleetNewCmd(flags *rootFlags) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			// Domotz first_seen_on is an ISO-8601 / RFC3339 string; lexical
-			// comparison is correct for that format.
 			cutoffStr := cutoff.Format(time.RFC3339)
 
-			db, err := novelOpenStoreChecked(cmd, flags, dbPath, "device")
+			db, err := novelOpenStoreChecked(cmd, flags, dbPath, "agent_device", "agent", "agent_device")
 			if err != nil {
 				return err
 			}
 			defer db.Close()
 
-			rows, err := queryFleetRows(cmd.Context(), db, fleetNewQuery, cutoffStr)
+			rows, err := queryFleetRows(cmd.Context(), db, fleetNewQuery)
 			if err != nil {
 				return err
 			}
+			rows = newFleetDevices(rows, cutoff)
 			if wantsHumanTable(cmd.OutOrStdout(), flags) {
 				if len(rows) == 0 {
 					fmt.Fprintf(cmd.OutOrStdout(), "No devices first-seen since %s.\n", cutoffStr)

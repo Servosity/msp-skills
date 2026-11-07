@@ -1,7 +1,9 @@
 .PHONY: build test lint install clean
 
+BIN_EXT := $(if $(filter windows,$(shell go env GOOS)),.exe,)
+
 build:
-	go build -o bin/datto-rmm-cli ./cmd/datto-rmm-cli
+	go build -trimpath -o bin/datto-rmm-cli$(BIN_EXT) ./cmd/datto-rmm-cli
 
 test:
 	go test ./...
@@ -16,7 +18,7 @@ clean:
 	rm -rf bin/
 
 build-mcp:
-	go build -o bin/datto-rmm-mcp ./cmd/datto-rmm-mcp
+	go build -trimpath -o bin/datto-rmm-mcp$(BIN_EXT) ./cmd/datto-rmm-mcp
 
 install-mcp:
 	go install ./cmd/datto-rmm-mcp

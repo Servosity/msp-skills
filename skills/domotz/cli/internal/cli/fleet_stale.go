@@ -22,7 +22,7 @@ SELECT
   COALESCE(MAX(d.synced_at), a.synced_at)    AS last_synced,
   COUNT(d.id)                                AS devices
 FROM "agent" a
-LEFT JOIN "device" d ON d.agent_id = a.id
+LEFT JOIN ` + fleetDeviceSource + ` d ON d.agent_id = a.id
 GROUP BY a.id`
 
 // fleetStaleRow is the JSON row for one quiet (or measured) Collector.
@@ -38,12 +38,8 @@ type fleetStaleRow struct {
 // (CURRENT_TIMESTAMP "2006-01-02 15:04:05" and RFC3339), returning the zero
 // time when the value is empty or unparseable.
 func parseStoreTimestamp(s string) time.Time {
-	for _, layout := range []string{"2006-01-02 15:04:05", time.RFC3339, "2006-01-02T15:04:05"} {
-		if t, err := time.Parse(layout, s); err == nil {
-			return t
-		}
-	}
-	return time.Time{}
+	t, _ := parseDomotzTime(s)
+	return t
 }
 
 // pp:data-source local
@@ -65,7 +61,7 @@ func newNovelFleetStaleCmd(flags *rootFlags) *cobra.Command {
 			if dryRunOK(flags) {
 				return nil
 			}
-			db, err := novelOpenStoreChecked(cmd, flags, dbPath, "agent")
+			db, err := novelOpenStoreChecked(cmd, flags, dbPath, "agent", "agent", "agent_device")
 			if err != nil {
 				return err
 			}
