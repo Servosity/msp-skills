@@ -17,12 +17,18 @@ import (
 
 type Config struct {
 	BaseURL            string                      `toml:"base_url"`
+	CACert             string                      `toml:"ca_cert,omitempty"`
+	TLSServerName      string                      `toml:"tls_server_name,omitempty"`
 	AuthHeaderVal      string                      `toml:"auth_header"`
 	Headers            map[string]string           `toml:"headers,omitempty"`
 	AuthSource         string                      `toml:"-"`
 	CredentialSource   string                      `toml:"-"`
 	AgentcookieManaged bool                        `toml:"-"`
 	CredentialRefusals []cliutil.CredentialRefusal `toml:"-"`
+	// untrustedCredentialRoute is set when the config file other users can
+	// change names a different base URL than the CLI default. Credentials must
+	// not follow that URL. Unexported: never persisted.
+	untrustedCredentialRoute bool `toml:"-"`
 	// configOwner records which on-disk file parseConfigData populated this
 	// config from ("config-kind path" or "legacy config path") so the
 	// credential-source fallback below reports where config-stored
@@ -31,7 +37,10 @@ type Config struct {
 	// legacySourcePath records the legacy config path when Load fell
 	// back to it. Used by save() to scrub credential fields from the
 	// old location after relocation. Unexported: never persisted.
-	legacySourcePath      string
+	legacySourcePath string
+	// explicitConfig keeps save and logout on the credentials file Load
+	// reads for a profile. Unexported so a save cannot persist the flag.
+	explicitConfig        bool
 	AccessToken           string          `toml:"access_token"`
 	RefreshToken          string          `toml:"refresh_token"`
 	TokenExpiry           time.Time       `toml:"token_expiry"`
@@ -41,11 +50,6 @@ type Config struct {
 	envOverrides          map[string]bool `toml:"-"`
 	fileConfig            *Config         `toml:"-"`
 	MerakiDashboardApiKey string          `toml:"dashboard_api_key"`
-	// TemplateVars holds the runtime values for {placeholder} markers in
-	// BaseURL and the request path (e.g. Shopify's {shop}/{version}). Populated
-	// at Load() time from env vars; consumed by the client's buildURL helper.
-	// Stored as a serializable map so non-default values survive a config save.
-	TemplateVars map[string]string `toml:"template_vars,omitempty"`
 }
 
 func Load(configPath string) (*Config, error) {
@@ -63,118 +67,58 @@ func Load(configPath string) (*Config, error) {
 	cfg.Path = path
 
 	if explicitConfigFile {
-		// Keep non-secret settings from a readable config even when its permissions
-		// have drifted, but never trust credentials from that file. Canonicalizing
-		// first also makes a symlink inherit the target's permission verdict.
-		if real, evalErr := filepath.EvalSymlinks(path); evalErr == nil {
-			credentialPermErr := cliutil.VerifyCredsPerms(real)
-			parsed := *cfg
-			if err := readConfigFile(path, &parsed, "config-kind path"); err != nil {
-				if !os.IsNotExist(err) {
-					return nil, err
-				}
-			} else {
-				if credentialPermErr != nil && parsed.hasCredentialFields() {
-					parsed.addCredentialRefusal(cliutil.CredentialRefusal{
-						Source:             "config-kind path",
-						Path:               path,
-						Err:                credentialPermErr,
-						CredentialsPresent: true,
-					})
-					parsed.clearCredentialFields()
-				}
-				*cfg = parsed
-			}
+		// Keep non-secret settings from a readable config even when its
+		// permissions have drifted, but never trust credentials, headers, or a
+		// different base URL from that file. The permission verdict and the
+		// bytes come from the same open file.
+		if err := cfg.readExplicitConfig(path); err != nil {
+			return nil, err
 		}
 	} else {
 		legacyPath, err := LegacyConfigPath()
 		if err != nil {
 			return nil, err
 		}
-		data, sourcePath, err := cliutil.ReadFileWithLegacyFallback(path, legacyPath)
-		if err != nil {
-			if !os.IsNotExist(err) {
-				return nil, err
-			}
-		} else if real, evalErr := filepath.EvalSymlinks(sourcePath); evalErr == nil {
-			credentialPermErr := cliutil.VerifyCredsPerms(real)
-			owner := "config-kind path"
-			if sourcePath == legacyPath {
-				owner = "legacy config path"
-			}
-			parsed := *cfg
-			if err := parseConfigData(data, &parsed, sourcePath, owner); err != nil {
-				if sourcePath == legacyPath {
-					fmt.Fprintf(os.Stderr, "warning: legacy config parse skipped for %s: %v\n", sourcePath, err)
-				} else {
-					return nil, err
-				}
-			} else {
-				if credentialPermErr != nil && parsed.hasCredentialFields() {
-					parsed.addCredentialRefusal(cliutil.CredentialRefusal{
-						Source:             owner,
-						Path:               sourcePath,
-						Err:                credentialPermErr,
-						CredentialsPresent: true,
-					})
-					parsed.clearCredentialFields()
-				}
-				*cfg = parsed
-				if sourcePath == legacyPath {
-					cfg.legacySourcePath = legacyPath
-				}
-			}
+		if err := cfg.readDefaultConfig(path, legacyPath); err != nil {
+			return nil, err
 		}
 	}
 	cfg.Path = path
-	if cfg.AgentcookieManagedByExternalStore() {
-		cfg.markAgentcookieManaged()
-	} else {
-		var creds *cliutil.Credentials
-		var ok bool
-		credentialsRefused := false
-		if !cfg.hasCompleteCredentialFields() {
-			if explicitConfigFile {
-				var status cliutil.CredentialLoadStatus
-				creds, status, err = cliutil.LoadCredentialsForConfigWithStatus(path)
-				if err != nil {
-					return nil, err
-				}
-				ok = status.Loaded
-				if status.Refusal != nil {
-					cfg.addCredentialRefusal(*status.Refusal)
-					credentialsRefused = status.Refusal.CredentialsPresent
-				}
-			}
-			if (!ok || creds == nil || !creds.HasValues()) && !credentialsRefused {
-				var status cliutil.CredentialLoadStatus
-				creds, status, err = cliutil.LoadCredentialsWithStatus()
-				if err != nil {
-					return nil, err
-				}
-				ok = status.Loaded
-				if status.Refusal != nil {
-					cfg.addCredentialRefusal(*status.Refusal)
-				}
-			}
-			if ok && creds.HasValues() {
-				cfg.applyCredentials(creds)
-				if cfg.hasCredentialFields() {
-					cfg.AuthSource = "config"
-					cfg.CredentialSource = "credentials file"
-				}
-			}
-		}
+	cfg.explicitConfig = explicitConfigFile
+	if err := cfg.applyStoredCredentials(explicitConfigFile, path); err != nil {
+		return nil, err
+	}
+	// Label credentials that arrived from the config or credentials file
+	// before env overrides, so an env value still replaces them.
+	if cfg.AuthSource == "" && cfg.hasCredentialFields() {
+		cfg.AuthSource = "config"
 	}
 
 	cfg.snapshotFileConfig()
 
 	// Env var overrides
-	if v := cliutil.EnvOverride("MERAKI_DASHBOARD_API_KEY"); v != "" {
-		cfg.MerakiDashboardApiKey = v
-		cfg.markEnvOverride("MerakiDashboardApiKey")
-		cfg.AuthSource = "env:MERAKI_DASHBOARD_API_KEY"
-		cfg.CredentialSource = "env:MERAKI_DASHBOARD_API_KEY"
+	if v := strings.TrimSpace(cliutil.EnvOverride("CISCO_MERAKI_CA_CERT")); v != "" {
+		cfg.SetCACert(v)
+	}
+	if v := strings.TrimSpace(cliutil.EnvOverride("CISCO_MERAKI_TLS_SERVER_NAME")); v != "" {
+		cfg.SetTLSServerName(v)
+	}
+	if cfg.credentialRouteBlocked() {
+		if cfg.envHasCredential() {
+			cfg.addCredentialRefusal(cliutil.CredentialRefusal{
+				Source:             "config-kind path",
+				Path:               cfg.Path,
+				Err:                fmt.Errorf("untrusted config names base_url %q; credentials were not applied (chmod 600 %s, or set CISCO_MERAKI_BASE_URL)", cfg.BaseURL, cfg.Path),
+				CredentialsPresent: true,
+			})
+		}
+	} else {
+		if v := cliutil.EnvOverride("MERAKI_DASHBOARD_API_KEY"); v != "" {
+			cfg.MerakiDashboardApiKey = v
+			cfg.markEnvOverride("MerakiDashboardApiKey")
+			cfg.AuthSource = "env:MERAKI_DASHBOARD_API_KEY"
+			cfg.CredentialSource = "env:MERAKI_DASHBOARD_API_KEY"
+		}
 	}
 	// Label config-file-derived credentials so doctor can distinguish
 	// "credentials persisted on disk" from "no credentials at all" — without
@@ -217,21 +161,6 @@ func Load(configPath string) (*Config, error) {
 	// Base URL override (used by printing-press verify to point at mock/test servers)
 	if v := cliutil.EnvOverride("CISCO_MERAKI_BASE_URL"); v != "" {
 		cfg.BaseURL = v
-	}
-
-	// Endpoint template vars: resolve each {placeholder} in BaseURL or the
-	// GraphQL path against the matching env var. Populated even when values
-	// are empty so the client's buildURL helper can issue an actionable
-	// "export FOO_BAR=..." error instead of silently sending a request to a
-	// URL with literal "{shop}" in it. Under PRINTING_PRESS_VERIFY=1 (set by
-	// the printing-press verifier in every mock subprocess), an unset
-	// template var falls through to "<name>_placeholder" so dry-run legs
-	// reach Cobra instead of hitting buildURL's actionable error first.
-	// Placeholders with a spec-declared default (server-URL variables) skip
-	// the verify branch; the default is a real value that lets verify probe
-	// a real-shaped URL.
-	if cfg.TemplateVars == nil {
-		cfg.TemplateVars = map[string]string{}
 	}
 	return cfg, nil
 }
@@ -312,24 +241,311 @@ func (c *Config) CredentialRefusalError() error {
 	return fmt.Errorf("stored credentials refused: %s", strings.Join(summaries, "; "))
 }
 
-// normalizeEndpointTemplateValue cleans up a server-URL template value the
-// user has likely pasted from a browser address bar; drops the scheme prefix
-// and trailing slash so a placeholder like {domain} resolves to a bare host
-// whether the user typed `acme.example.com`, `https://acme.example.com`, or
-// `https://acme.example.com/`. Applied only to placeholders carrying a
-// spec-declared default (server-URL variables); path-positional placeholders
-// like {tenant} pass through unchanged because their accepted shapes are
-// API-specific.
-func normalizeEndpointTemplateValue(v string) string {
-	// Strip scheme prefix case-insensitively: users paste `HTTPS://` from
-	// some browsers' address bars, and Go's TrimPrefix is exact-match.
-	// Callers TrimSpace the env-var value before passing it in.
-	if len(v) >= 8 && strings.EqualFold(v[:8], "https://") {
-		v = v[8:]
-	} else if len(v) >= 7 && strings.EqualFold(v[:7], "http://") {
-		v = v[7:]
+func (c *Config) readExplicitConfig(path string) error {
+	opened, err := cliutil.ReadOpenedConfig(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
 	}
-	return strings.TrimRight(v, "/")
+	return c.acceptOpenedConfig(opened, path, "config-kind path", false)
+}
+
+func (c *Config) readDefaultConfig(primary, legacy string) error {
+	opened, source, err := openDefaultConfig(primary, legacy)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+	owner := "config-kind path"
+	fromLegacy := source == legacy
+	if fromLegacy {
+		owner = "legacy config path"
+	}
+	return c.acceptOpenedConfig(opened, source, owner, fromLegacy)
+}
+
+func openDefaultConfig(primary, legacy string) (cliutil.OpenedConfig, string, error) {
+	opened, err := cliutil.ReadOpenedConfig(primary)
+	if err == nil {
+		return opened, primary, nil
+	}
+	if !os.IsNotExist(err) || legacy == "" || legacy == primary {
+		return cliutil.OpenedConfig{}, primary, err
+	}
+	opened, err = cliutil.ReadOpenedConfig(legacy)
+	if err != nil {
+		return cliutil.OpenedConfig{}, legacy, err
+	}
+	return opened, legacy, nil
+}
+
+func (c *Config) acceptOpenedConfig(opened cliutil.OpenedConfig, path, owner string, fromLegacy bool) error {
+	defaultBase := c.BaseURL
+	parsed := *c
+	if err := parseConfigData(opened.Data, &parsed, path, owner); err != nil {
+		if fromLegacy {
+			fmt.Fprintf(os.Stderr, "warning: legacy config parse skipped for %s: %v\n", path, err)
+			return nil
+		}
+		return err
+	}
+	if opened.PermErr != nil && parsed.hasCredentialFields() {
+		parsed.addCredentialRefusal(cliutil.CredentialRefusal{
+			Source:             owner,
+			Path:               path,
+			Err:                opened.PermErr,
+			CredentialsPresent: true,
+		})
+		parsed.clearCredentialFields()
+	}
+	if opened.PermErr != nil {
+		parsed.dropUntrustedTLSSettings()
+		parsed.dropUntrustedRouting(defaultBase)
+	}
+	*c = parsed
+	if fromLegacy {
+		c.legacySourcePath = path
+	}
+	return nil
+}
+
+func (c *Config) dropUntrustedRouting(defaultBase string) {
+	c.Headers = nil
+	// A loose file must not choose the endpoint a stored secret is posted to.
+	// Same-server profiles still drop these; only the mode bits were untrusted.
+	if strings.TrimSpace(c.BaseURL) == strings.TrimSpace(defaultBase) {
+		return
+	}
+	if cliutil.CredentialOriginsMatch(c.BaseURL, defaultBase) {
+		return
+	}
+	c.untrustedCredentialRoute = true
+}
+
+func (c *Config) applyStoredCredentials(explicit bool, configPath string) error {
+	if c.AgentcookieManagedByExternalStore() {
+		c.markAgentcookieManaged()
+		return nil
+	}
+	if c.hasCompleteCredentialFields() {
+		return nil
+	}
+	if c.credentialRouteBlocked() {
+		return c.noteBlockedCredentialFiles(explicit, configPath)
+	}
+	var (
+		creds *cliutil.Credentials
+		ok    bool
+	)
+	credentialsRefused := false
+	if explicit {
+		var status cliutil.CredentialLoadStatus
+		var err error
+		creds, status, err = cliutil.LoadCredentialsForConfigWithStatus(configPath)
+		if err != nil {
+			return err
+		}
+		ok = status.Loaded
+		if status.Refusal != nil {
+			c.addCredentialRefusal(*status.Refusal)
+			credentialsRefused = status.Refusal.CredentialsPresent
+		}
+	}
+	if (!ok || creds == nil || !creds.HasValues()) && !credentialsRefused {
+		var status cliutil.CredentialLoadStatus
+		var err error
+		creds, status, err = cliutil.LoadCredentialsWithStatus()
+		if err != nil {
+			return err
+		}
+		ok = status.Loaded
+		if status.Refusal != nil {
+			c.addCredentialRefusal(*status.Refusal)
+		}
+		if ok && creds != nil && creds.HasValues() && explicit && !c.allowsGlobalCredential(creds) {
+			c.addCredentialRefusal(cliutil.CredentialRefusal{
+				Source:             "credentials file",
+				Path:               status.Path,
+				Err:                c.globalCredentialOriginError(creds),
+				CredentialsPresent: true,
+			})
+			ok = false
+		}
+	}
+	if ok && creds != nil && creds.HasValues() {
+		c.applyCredentials(creds)
+		if c.hasCredentialFields() {
+			c.AuthSource = "config"
+			c.CredentialSource = "credentials file"
+		}
+	}
+	return nil
+}
+
+func (c *Config) noteBlockedCredentialFiles(explicit bool, configPath string) error {
+	present := false
+	where := configPath
+	if explicit {
+		creds, status, err := cliutil.LoadCredentialsForConfigWithStatus(configPath)
+		if err != nil {
+			return err
+		}
+		if status.Refusal != nil {
+			c.addCredentialRefusal(*status.Refusal)
+			if status.Refusal.CredentialsPresent {
+				present = true
+				if status.Path != "" {
+					where = status.Path
+				}
+			}
+		}
+		if status.Loaded && creds != nil && creds.HasValues() {
+			present = true
+			if status.Path != "" {
+				where = status.Path
+			}
+		}
+	}
+	if !present {
+		creds, status, err := cliutil.LoadCredentialsWithStatus()
+		if err != nil {
+			return err
+		}
+		if status.Refusal != nil && status.Refusal.CredentialsPresent {
+			present = true
+			where = status.Path
+		}
+		if status.Loaded && creds != nil && creds.HasValues() {
+			present = true
+			where = status.Path
+		}
+	}
+	if !present {
+		return nil
+	}
+	c.addCredentialRefusal(cliutil.CredentialRefusal{
+		Source:             "credentials file",
+		Path:               where,
+		Err:                fmt.Errorf("untrusted config names base_url %q; credentials were not applied (chmod 600 %s, or set CISCO_MERAKI_BASE_URL)", c.BaseURL, configPath),
+		CredentialsPresent: true,
+	})
+	return nil
+}
+
+func (c *Config) credentialRouteBlocked() bool {
+	if c == nil || !c.untrustedCredentialRoute {
+		return false
+	}
+	return strings.TrimSpace(cliutil.EnvOverride("CISCO_MERAKI_BASE_URL")) == ""
+}
+
+// CredentialRouteBlocked reports that an untrusted profile named a different
+// server than the default and the operator did not set the base URL explicitly.
+// Callers must not mint or send a credential while this is true.
+func (c *Config) CredentialRouteBlocked() bool {
+	return c.credentialRouteBlocked()
+}
+
+func (c *Config) envHasCredential() bool {
+	if strings.TrimSpace(cliutil.EnvOverride("MERAKI_DASHBOARD_API_KEY")) != "" {
+		return true
+	}
+	return false
+}
+
+func (c *Config) allowsGlobalCredential(creds *cliutil.Credentials) bool {
+	if creds == nil {
+		return false
+	}
+	issued := strings.TrimSpace(creds.BaseURL)
+	if issued == "" {
+		var ok bool
+		issued, ok = c.trustedGlobalCredentialOrigin()
+		if !ok {
+			return false
+		}
+	}
+	return cliutil.CredentialOriginsMatch(issued, c.credentialTargetURL())
+}
+
+func (c *Config) credentialTargetURL() string {
+	if v := strings.TrimSpace(cliutil.EnvOverride("CISCO_MERAKI_BASE_URL")); v != "" {
+		return v
+	}
+	return c.BaseURL
+}
+
+func (c *Config) globalCredentialOriginError(creds *cliutil.Credentials) error {
+	target := c.credentialTargetURL()
+	issued := ""
+	if creds != nil {
+		issued = strings.TrimSpace(creds.BaseURL)
+	}
+	if issued == "" {
+		if raw, ok := c.trustedGlobalCredentialOrigin(); ok {
+			issued = raw
+		}
+	}
+	if issued == "" {
+		return fmt.Errorf("global credentials have no recorded server, so they were not applied to %s; run auth login --config %s", target, c.Path)
+	}
+	return fmt.Errorf("global credentials for %s were not applied to %s; run auth login --config %s", issued, target, c.Path)
+}
+
+func (c *Config) trustedGlobalCredentialOrigin() (string, bool) {
+	dir, err := cliutil.ConfigDir()
+	if err != nil {
+		return "", false
+	}
+	primary := filepath.Join(dir, "config.toml")
+	legacy, err := LegacyConfigPath()
+	if err != nil {
+		return "", false
+	}
+	opened, _, err := openDefaultConfig(primary, legacy)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return usableBuiltinOrigin()
+		}
+		return "", false
+	}
+	if opened.PermErr != nil {
+		return "", false
+	}
+	base := strings.TrimSpace(baseURLFromConfigBytes(opened.Data))
+	if base == "" {
+		return usableBuiltinOrigin()
+	}
+	if _, ok := cliutil.NormalizeCredentialOrigin(base); !ok {
+		return "", false
+	}
+	return base, true
+}
+
+func usableBuiltinOrigin() (string, bool) {
+	base := builtinBaseURL()
+	if _, ok := cliutil.NormalizeCredentialOrigin(base); !ok {
+		return "", false
+	}
+	return base, true
+}
+
+func builtinBaseURL() string {
+	return "https://api.meraki.com/api/v1"
+}
+
+func baseURLFromConfigBytes(data []byte) string {
+	var parsed struct {
+		BaseURL string `toml:"base_url"`
+	}
+	if err := toml.Unmarshal(data, &parsed); err != nil {
+		return ""
+	}
+	return parsed.BaseURL
 }
 
 func (c *Config) AuthHeader() string {
@@ -470,6 +686,7 @@ func (c *Config) clearCredentialFields() {
 
 func (c *Config) credentials() *cliutil.Credentials {
 	return &cliutil.Credentials{
+		BaseURL:               c.BaseURL,
 		AuthHeaderVal:         c.AuthHeaderVal,
 		AccessToken:           c.AccessToken,
 		RefreshToken:          c.RefreshToken,
@@ -507,13 +724,26 @@ func (c *Config) applyCredentials(creds *cliutil.Credentials) {
 	}
 }
 
-func (c *Config) saveCredentialsFirst() error {
+func (c *Config) credentialsFilePath() (string, error) {
+	if c.explicitConfig {
+		return cliutil.CredentialsFilePathForConfig(c.Path)
+	}
+	return cliutil.CredentialsFilePath()
+}
+
+func (c *Config) saveCredentialsFirst(credsPath string) error {
 	if c.AgentcookieManagedByExternalStore() {
 		c.markAgentcookieManaged()
 		return nil
 	}
 	persisted := c.configForSave()
-	if err := cliutil.SaveCredentials(persisted.credentials()); err != nil {
+	var err error
+	if c.explicitConfig {
+		err = cliutil.SaveExplicitCredentials(credsPath, persisted.credentials())
+	} else {
+		err = cliutil.SaveCredentials(persisted.credentials())
+	}
+	if err != nil {
 		return err
 	}
 	c.CredentialSource = "credentials file"
@@ -528,27 +758,117 @@ type credentialsSnapshot struct {
 	missing       bool
 }
 
+// credentialSaveBeforeLockHook runs after the lock path is chosen and before
+// it is acquired. Tests move a symlink in that window.
+var credentialSaveBeforeLockHook func()
+
 // Credentials and config are separate files. Publishing tokens first would
 // otherwise leave a new credentials.toml if the config write fails.
 func (c *Config) saveCredentialsThenConfig() error {
-	credsPath, err := cliutil.CredentialsFilePath()
-	if err != nil {
-		return err
-	}
-	if err := os.MkdirAll(filepath.Dir(credsPath), 0o700); err != nil {
-		return err
-	}
-	return cliutil.WithFileLock(credsPath, func() error {
+	return c.withCredentialFileLock(func(credsPath string) error {
 		return c.saveCredentialsThenConfigLocked(credsPath)
 	})
 }
 
+// withCredentialFileLock is the credential critical section. WithFileLock is
+// not reentrant: a caller that already holds this path must not save through
+// saveCredentialsThenConfig.
+func (c *Config) withCredentialFileLock(fn func(credsPath string) error) error {
+	requested := c.Path
+	if c.explicitConfig {
+		resolved, err := cliutil.ResolveConfigFilePath(requested)
+		if err != nil {
+			return err
+		}
+		if err := os.MkdirAll(filepath.Dir(resolved), 0o700); err != nil {
+			return err
+		}
+	}
+	// Resolve again now that the profile directory exists so the lock matches
+	// a reload through the same path.
+	_, _, lockPath, err := c.credentialSavePlan(requested)
+	if err != nil {
+		return err
+	}
+	if !c.explicitConfig {
+		if err := os.MkdirAll(filepath.Dir(lockPath), 0o700); err != nil {
+			return err
+		}
+	}
+	if credentialSaveBeforeLockHook != nil {
+		credentialSaveBeforeLockHook()
+	}
+	return cliutil.WithFileLock(lockPath, func() error {
+		resolved, credsPath, lockedLock, err := c.credentialSavePlan(requested)
+		if err != nil {
+			return err
+		}
+		if lockedLock != lockPath {
+			return fmt.Errorf("profile changed while locking credentials")
+		}
+		if c.explicitConfig {
+			c.Path = resolved
+		}
+		return fn(credsPath)
+	})
+}
+
+func (c *Config) retargetExplicitConfig() error {
+	if !c.explicitConfig {
+		return nil
+	}
+	resolved, err := cliutil.ResolveConfigFilePath(c.Path)
+	if err != nil {
+		return err
+	}
+	c.Path = resolved
+	return nil
+}
+
+func (c *Config) credentialSavePlan(requested string) (configPath, credsPath, lockPath string, err error) {
+	configPath = requested
+	if c.explicitConfig {
+		configPath, err = cliutil.ResolveConfigFilePath(requested)
+		if err != nil {
+			return "", "", "", err
+		}
+		credsPath, err = cliutil.CredentialsFilePathForConfig(configPath)
+	} else {
+		credsPath, err = cliutil.CredentialsFilePath()
+	}
+	if err != nil {
+		return "", "", "", err
+	}
+	if !c.explicitConfig {
+		return configPath, credsPath, credsPath, nil
+	}
+	lockPath, err = explicitProfileLockPath(credsPath)
+	if err != nil {
+		return "", "", "", err
+	}
+	return configPath, credsPath, lockPath, nil
+}
+
+// Every config that shares one credentials file has to take the same lock.
+// The lock file sits in the profile directory: a lock under data/ is created
+// by following a symlinked data directory.
+func explicitProfileLockPath(credsPath string) (string, error) {
+	dataDir := filepath.Dir(credsPath)
+	if filepath.Base(dataDir) != "data" {
+		return "", fmt.Errorf("unexpected credentials path %s", credsPath)
+	}
+	return filepath.Join(filepath.Dir(dataDir), ".credentials"), nil
+}
+
 func (c *Config) saveCredentialsThenConfigLocked(credsPath string) error {
+	if c.explicitConfig {
+		return c.saveExplicitCredentialsThenConfig(credsPath)
+	}
 	snap, err := snapshotCredentialsFile(credsPath)
 	if err != nil {
 		return err
 	}
-	if err := c.saveCredentialsFirst(); err != nil {
+	if err := c.saveCredentialsFirst(credsPath); err != nil {
 		return err
 	}
 	if err := c.save(); err != nil {
@@ -558,6 +878,44 @@ func (c *Config) saveCredentialsThenConfigLocked(credsPath string) error {
 		return err
 	}
 	return nil
+}
+
+func (c *Config) saveExplicitCredentialsThenConfig(credsPath string) error {
+	snap, err := snapshotExplicitCredentials(credsPath)
+	if err != nil {
+		return err
+	}
+	if err := c.saveCredentialsFirst(credsPath); err != nil {
+		return err
+	}
+	if err := c.save(); err != nil {
+		if restoreErr := restoreExplicitCredentials(snap); restoreErr != nil {
+			return fmt.Errorf("%w (credentials file %s was replaced; restore failed: %v)", err, credsPath, restoreErr)
+		}
+		return err
+	}
+	return nil
+}
+
+func snapshotExplicitCredentials(path string) (credentialsSnapshot, error) {
+	data, err := cliutil.ReadExplicitCredentialBytes(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return credentialsSnapshot{path: path, missing: true}, nil
+		}
+		return credentialsSnapshot{}, err
+	}
+	return credentialsSnapshot{path: path, data: data, perm: 0o600}, nil
+}
+
+func restoreExplicitCredentials(snap credentialsSnapshot) error {
+	if snap.path == "" {
+		return fmt.Errorf("credentials path unknown")
+	}
+	if snap.missing {
+		return cliutil.RemoveExplicitCredentials(snap.path)
+	}
+	return cliutil.WriteExplicitCredentialBytes(snap.path, snap.data)
 }
 
 func snapshotCredentialsFile(path string) (credentialsSnapshot, error) {
@@ -621,7 +979,7 @@ func restoreCredentialsFile(snap credentialsSnapshot) error {
 	if mode == 0 {
 		mode = 0o600
 	}
-	if err := cliutil.AtomicWritePrivateFile(snap.path, snap.data, mode, 0o700); err != nil {
+	if err := cliutil.AtomicWriteCredentialFile(snap.path, snap.data, mode, 0o700); err != nil { // Hand-fix (handfixes.json credkit-wiring): restores a credential source, outside the kit
 		return err
 	}
 	return os.Chmod(snap.path, mode)
@@ -715,10 +1073,34 @@ func (c *Config) ClearTokens() error {
 		// back; returning early would leave the secrets on disk.
 		return c.save()
 	}
-	if err := cliutil.RemoveCredentials(); err != nil {
+	if c.explicitConfig {
+		credsPath, err := c.credentialsFilePath()
+		if err != nil {
+			return err
+		}
+		if err := cliutil.RemoveExplicitCredentials(credsPath); err != nil {
+			return err
+		}
+	} else if err := cliutil.RemoveCredentials(); err != nil {
 		return err
 	}
 	return c.save()
+}
+
+func (c *Config) dropUntrustedTLSSettings() {
+	if c == nil {
+		return
+	}
+	if strings.TrimSpace(c.CACert) == "" && strings.TrimSpace(c.TLSServerName) == "" {
+		return
+	}
+	where := strings.TrimSpace(c.Path)
+	if where == "" {
+		where = "config file"
+	}
+	fmt.Fprintf(os.Stderr, "warning: ignoring ca_cert and tls_server_name from %s because other users can change it\n", where)
+	c.CACert = ""
+	c.TLSServerName = ""
 }
 
 func (c *Config) markEnvOverride(field string) {
@@ -726,6 +1108,16 @@ func (c *Config) markEnvOverride(field string) {
 		c.envOverrides = map[string]bool{}
 	}
 	c.envOverrides[field] = true
+}
+
+func (c *Config) SetCACert(value string) {
+	c.CACert = value
+	c.markEnvOverride("CACert")
+}
+
+func (c *Config) SetTLSServerName(value string) {
+	c.TLSServerName = value
+	c.markEnvOverride("TLSServerName")
 }
 
 // cloneStringMap returns an independent copy of m (nil stays nil). The fileConfig
@@ -750,13 +1142,18 @@ func (c *Config) snapshotFileConfig() {
 	// share them with c and silently track later mutations, defeating the
 	// isolation this snapshot exists to provide. Clone them.
 	snapshot.Headers = cloneStringMap(c.Headers)
-	snapshot.TemplateVars = cloneStringMap(c.TemplateVars)
 	c.fileConfig = &snapshot
 }
 
 func (c *Config) configForSave() Config {
 	out := *c
 	if c.fileConfig != nil {
+		if c.envOverrides["CACert"] {
+			out.CACert = c.fileConfig.CACert
+		}
+		if c.envOverrides["TLSServerName"] {
+			out.TLSServerName = c.fileConfig.TLSServerName
+		}
 		if c.envOverrides["MerakiDashboardApiKey"] {
 			out.MerakiDashboardApiKey = c.fileConfig.MerakiDashboardApiKey
 		}
@@ -789,6 +1186,11 @@ func (c *Config) updateFileConfigField(field string) {
 }
 
 func (c *Config) save() error {
+	// A symlink --config must stay a symlink. Replacing it would make the next
+	// load look for credentials beside the link instead of the resolved profile.
+	if err := c.retargetExplicitConfig(); err != nil {
+		return err
+	}
 	persisted := c.configForSave()
 	var persist any = persisted
 	if !c.AgentcookieManagedByExternalStore() {
@@ -798,7 +1200,7 @@ func (c *Config) save() error {
 	if err != nil {
 		return fmt.Errorf("marshaling config: %w", err)
 	}
-	if err := cliutil.AtomicWritePrivateFile(c.Path, data, 0o600, 0o700); err != nil {
+	if err := cliutil.AtomicWriteCredentialFile(c.Path, data, 0o600, 0o700); err != nil { // Hand-fix (handfixes.json credkit-wiring): the config file is a source, written outside the kit
 		return err
 	}
 	c.scrubLegacyCredentials()
@@ -812,7 +1214,6 @@ func (c *Config) save() error {
 	// so isolate the stored fileConfig the same way snapshotFileConfig does;
 	// otherwise later mutations to c's maps leak into the on-disk snapshot.
 	c.fileConfig.Headers = cloneStringMap(c.fileConfig.Headers)
-	c.fileConfig.TemplateVars = cloneStringMap(c.fileConfig.TemplateVars)
 	return nil
 }
 func (c *Config) scrubLegacyCredentials() {
@@ -841,22 +1242,24 @@ func (c *Config) scrubLegacyCredentials() {
 		fmt.Fprintf(os.Stderr, "warning: cannot marshal scrubbed legacy config: %v\n", err)
 		return
 	}
-	if err := cliutil.AtomicWritePrivateFile(c.legacySourcePath, scrubbedData, 0o600, 0o700); err != nil {
+	if err := cliutil.AtomicWriteCredentialFile(c.legacySourcePath, scrubbedData, 0o600, 0o700); err != nil { // Hand-fix (handfixes.json credkit-wiring): the legacy config is a source, written outside the kit
 		fmt.Fprintf(os.Stderr, "warning: cannot write scrubbed legacy config: %v\n", err)
 	}
 }
 
 type persistedConfig struct {
-	BaseURL      string            `toml:"base_url"`
-	Headers      map[string]string `toml:"headers,omitempty"`
-	TemplateVars map[string]string `toml:"template_vars,omitempty"`
+	BaseURL       string            `toml:"base_url"`
+	CACert        string            `toml:"ca_cert,omitempty"`
+	TLSServerName string            `toml:"tls_server_name,omitempty"`
+	Headers       map[string]string `toml:"headers,omitempty"`
 }
 
 func (c *Config) persisted() persistedConfig {
 	return persistedConfig{
-		BaseURL:      c.BaseURL,
-		Headers:      c.Headers,
-		TemplateVars: c.TemplateVars,
+		BaseURL:       c.BaseURL,
+		CACert:        c.CACert,
+		TLSServerName: c.TLSServerName,
+		Headers:       c.Headers,
 	}
 }
 

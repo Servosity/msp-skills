@@ -1,7 +1,9 @@
 .PHONY: build test lint install clean
 
+BIN_EXT := $(if $(filter windows,$(shell go env GOOS)),.exe,)
+
 build:
-	go build -o bin/riverside-fm-cli ./cmd/riverside-fm-cli
+	go build -trimpath -o bin/riverside-fm-cli$(BIN_EXT) ./cmd/riverside-fm-cli
 
 test:
 	go test ./...
@@ -16,7 +18,7 @@ clean:
 	rm -rf bin/
 
 build-mcp:
-	go build -o bin/riverside-fm-mcp ./cmd/riverside-fm-mcp
+	go build -trimpath -o bin/riverside-fm-mcp$(BIN_EXT) ./cmd/riverside-fm-mcp
 
 install-mcp:
 	go install ./cmd/riverside-fm-mcp

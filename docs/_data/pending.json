@@ -78,10 +78,10 @@
   },
   "axcient": {
     "state": "up-to-date",
-    "version": "0.2.17",
-    "latest_tag": "axcient-v0.2.17",
-    "current_hash": "sha256:5535dd795288cd58a284fa2833f64b89f3d6e3836ae5af54fa60c5d41724d6ba",
-    "released_hash": "sha256:5535dd795288cd58a284fa2833f64b89f3d6e3836ae5af54fa60c5d41724d6ba"
+    "version": "0.2.18",
+    "latest_tag": "axcient-v0.2.18",
+    "current_hash": "sha256:b018ad847db0966647a13f320473aea19dc2fc7fc23260e2cc8b650e41ada4cd",
+    "released_hash": "sha256:b018ad847db0966647a13f320473aea19dc2fc7fc23260e2cc8b650e41ada4cd"
   },
   "backup-radar": {
     "state": "up-to-date",
@@ -112,10 +112,10 @@
     "released_hash": "sha256:155771f8d3b1e4d9f245217a882941eaa9c9da87eb1fa45f6be9e553fab97e68"
   },
   "blumira": {
-    "state": "up-to-date",
+    "state": "binary-pending",
     "version": "0.1.6",
     "latest_tag": "blumira-v0.1.6",
-    "current_hash": "sha256:2b75c28984aa02654c2247d325e2155d24e83d07c669165f9059d2973630c86d",
+    "current_hash": "sha256:c3ec700244028cb3baf834c0f5efffd1f52c97487cb8f5d2686f9b183f11eb7b",
     "released_hash": "sha256:2b75c28984aa02654c2247d325e2155d24e83d07c669165f9059d2973630c86d"
   },
   "cipp": {
@@ -133,10 +133,10 @@
     "released_hash": "sha256:f047247fcf4fffc9ecdd12d9b0361b6dcbb961e7b4072cc7ca45e5542f99e0fa"
   },
   "cisco-meraki": {
-    "state": "up-to-date",
+    "state": "binary-pending",
     "version": "0.1.3",
     "latest_tag": "cisco-meraki-v0.1.3",
-    "current_hash": "sha256:17a5bcfa43f8a3e01413ae6c92a295f09577106b0b78bd57556d5e2c1a78132b",
+    "current_hash": "sha256:c4688df581013ddeda629022bcf11cd609d2c45043d184864b660deae22ce43c",
     "released_hash": "sha256:17a5bcfa43f8a3e01413ae6c92a295f09577106b0b78bd57556d5e2c1a78132b"
   },
   "cisco-umbrella": {
@@ -238,10 +238,10 @@
     "released_hash": "sha256:20ba7e2e78c5aee297696afa98967989fdf9b801c3e9c50f7ca049376468d130"
   },
   "datto-rmm": {
-    "state": "up-to-date",
+    "state": "binary-pending",
     "version": "0.1.10",
     "latest_tag": "datto-rmm-v0.1.10",
-    "current_hash": "sha256:e1a0e7b7680d88e0e04ecf57dce4caaff191aea6c792a183f3fecc9690455729",
+    "current_hash": "sha256:93652a449f7460fa8b56f566ac2e4374e866c0c5f12265083bfca72c711cb788",
     "released_hash": "sha256:e1a0e7b7680d88e0e04ecf57dce4caaff191aea6c792a183f3fecc9690455729"
   },
   "datto-saas": {
@@ -288,10 +288,10 @@
   },
   "exchange-online": {
     "state": "up-to-date",
-    "version": "0.1.0",
-    "latest_tag": "exchange-online-v0.1.0",
-    "current_hash": "sha256:f01c495a417e9e7986ed05bff2a2483f3b2c21df83b29221a184d76842689ce6",
-    "released_hash": "sha256:f01c495a417e9e7986ed05bff2a2483f3b2c21df83b29221a184d76842689ce6"
+    "version": "0.1.1",
+    "latest_tag": "exchange-online-v0.1.1",
+    "current_hash": "sha256:7e821728f609847ee158daf6173a22df1c7735e78833537338d8cdcec7076adc",
+    "released_hash": "sha256:7e821728f609847ee158daf6173a22df1c7735e78833537338d8cdcec7076adc"
   },
   "fortinet": {
     "state": "up-to-date",
@@ -386,10 +386,10 @@
   },
   "kaseya-vsa": {
     "state": "up-to-date",
-    "version": "0.1.1",
-    "latest_tag": "kaseya-vsa-v0.1.1",
-    "current_hash": "sha256:b538f81d6d30b29556181772e50c4f76a02c7c7499b18c775f5f3a64bff154ce",
-    "released_hash": "sha256:b538f81d6d30b29556181772e50c4f76a02c7c7499b18c775f5f3a64bff154ce"
+    "version": "0.1.2",
+    "latest_tag": "kaseya-vsa-v0.1.2",
+    "current_hash": "sha256:d9747f520d949166aa83a4b1d5fbe3a9919f70261c49840c48b3efb1f05a7447",
+    "released_hash": "sha256:d9747f520d949166aa83a4b1d5fbe3a9919f70261c49840c48b3efb1f05a7447"
   },
   "keeper": {
     "state": "up-to-date",
@@ -561,10 +561,10 @@
   },
   "riverside-fm": {
     "state": "up-to-date",
-    "version": "0.1.5",
-    "latest_tag": "riverside-fm-v0.1.5",
-    "current_hash": "sha256:8b77a0f5b34bfce88e8581ef0741da558daefda2e9ceffc3000b891c71df2ff9",
-    "released_hash": "sha256:8b77a0f5b34bfce88e8581ef0741da558daefda2e9ceffc3000b891c71df2ff9"
+    "version": "0.1.6",
+    "latest_tag": "riverside-fm-v0.1.6",
+    "current_hash": "sha256:1fba95931f2cfb1aa26c7d3bca39ed3cb0f7fa3a1f27aafc9093894bcfc44bcf",
+    "released_hash": "sha256:1fba95931f2cfb1aa26c7d3bca39ed3cb0f7fa3a1f27aafc9093894bcfc44bcf"
   },
   "rocketcyber": {
     "state": "up-to-date",

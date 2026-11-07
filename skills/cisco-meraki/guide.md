@@ -96,6 +96,17 @@ Add to your Claude Desktop config (`%APPDATA%\Claude\claude_desktop_config.json`
 
 </details>
 
+### Remote MCP over HTTP
+
+`cisco-meraki-mcp --transport http` (or `PP_MCP_TRANSPORT=http`) serves streamable HTTP at `http://127.0.0.1:7777/mcp`. It refuses to start until `CISCO_MERAKI_MCP_HTTP_TOKEN` is set to at least 32 characters, and every request must send `Authorization: Bearer <token>`. The command below prints 64 hex characters and meets that minimum. Plain HTTP is allowed only on a loopback `--addr`; any other bind, including `:7777` (every interface), also needs `--tls-cert` and `--tls-key`. Requests with no `Origin` header are accepted, as are loopback origins (`localhost`, `127.0.0.1`, or `[::1]`, any port). Any other `Origin` is refused unless it is listed in `CISCO_MERAKI_MCP_HTTP_ALLOWED_ORIGINS`, a comma-separated list of `scheme://host[:port]` values with no path. That list is not a CORS policy; the server does not emit CORS headers.
+
+```bash
+export CISCO_MERAKI_MCP_HTTP_TOKEN="$(openssl rand -hex 32)"
+cisco-meraki-mcp --transport http
+```
+
+Set `CISCO_MERAKI_MCP_READ_ONLY=1` (exactly `1`) to drop mirrored commands that are not marked read-only and make the raw execute tool refuse state-changing calls. Commands marked local-write, which write only this CLI's own learn store, stay available.
+
 ## Authentication
 
 Meraki uses one Dashboard API key, sent as the X-Cisco-Meraki-API-Key header. Enable API access for each organization (Organization > Settings > Dashboard API access), then generate a key under My Profile > API access. The key reaches every organization that admin can see, which is what the fleet commands fan out across. Export it as MERAKI_DASHBOARD_API_KEY or store it with auth set-token. Dashboards in Canada, China, India or FedRAMP need CISCO_MERAKI_BASE_URL set to that region's host.
@@ -281,6 +292,15 @@ cisco-meraki-cli doctor
 
 Under `CISCO_MERAKI_HOME=/srv/cisco-meraki`, the four dirs resolve to `/srv/cisco-meraki/config`, `/srv/cisco-meraki/data`, `/srv/cisco-meraki/state`, and `/srv/cisco-meraki/cache`.
 
+On Windows, set the same variable in PowerShell:
+
+```powershell
+$env:CISCO_MERAKI_HOME = "C:\srv\cisco-meraki"
+cisco-meraki-cli doctor
+```
+
+Under `$env:CISCO_MERAKI_HOME = "C:\srv\cisco-meraki"`, the four dirs resolve to `C:\srv\cisco-meraki\config`, `C:\srv\cisco-meraki\data`, `C:\srv\cisco-meraki\state`, and `C:\srv\cisco-meraki\cache`.
+
 MCP servers do not receive CLI flags from the host. Put relocation in the host `env` block:
 
 ```json
@@ -301,6 +321,16 @@ Precedence matters in fleets: an ambient per-kind variable such as `CISCO_MERAKI
 Relocation is one-way. Unsetting `CISCO_MERAKI_HOME` does not move files back to platform defaults, and `doctor` cannot find credentials left under a former root. Move the files manually before unsetting relocation variables.
 
 Existing installs keep working because the platform-default rung matches the legacy layout. On the first auth write, stored secrets leave `config.toml` and are consolidated into `credentials.toml` under the data directory. Run `cisco-meraki-cli doctor --fail-on warn` to check path and credential-location warnings in automation.
+
+### Local data
+
+Reads are saved locally by default: in `--data-source auto` mode every successful read is also written to the SQLite store (`data.db`, or `data-<hash>.db` per credential) in the data directory. GET responses are cached for five minutes under `http/` in the cache directory. Credentials live in `credentials.toml` in the data directory. The learn journal lives under `learn/` in the state directory. `cisco-meraki-cli doctor` prints the resolved paths, every store file, and the response-cache size.
+
+None of it is encrypted. New files are created owner-only; beyond that the data relies on OS account permissions and full-disk encryption (FileVault, BitLocker, LUKS).
+
+- **Erase it:** `cisco-meraki-cli local-data purge` lists the store files, response cache, and learn journal it would delete; add `--yes` to delete them, or `--only store|cache|journal` to narrow it. Config and credentials are kept.
+- **Run without a local copy:** set `CISCO_MERAKI_NO_LOCAL_DATA=1`. Reads go to the API (`--data-source live`; `--data-source local` still reads an existing store), the response cache is off (`--no-cache`), nothing new is written to the store, and `sync` and `workflow archive` refuse to run. Set it in an MCP host's `env` block and every command the server runs inherits it.
+- **Choose the read source without flags:** `CISCO_MERAKI_DATA_SOURCE=auto|live|local` sets the `--data-source` default; an explicit flag wins.
 
 ## Commands
 
@@ -406,6 +436,8 @@ cisco-meraki-cli devices get Q2QN-9J8L-SLPD --dry-run
 cisco-meraki-cli devices get Q2QN-9J8L-SLPD --agent
 ```
 
+`--csv` prefixes a leading `'` on cells and header keys that start with `=`, `+`, `-`, `@`, a tab, or a line break (including fullwidth `＝＋－＠`) so a spreadsheet does not run them as formulas. Plain signed numbers such as `-5` and `+2.5e3` are left unchanged.
+
 ## Agent Usage
 
 This CLI is designed for AI agent consumption:
@@ -439,6 +471,8 @@ Verifies configuration, credentials, and connectivity to the API.
 Run `cisco-meraki-cli doctor` to see the resolved config, data, state, and cache directories. The platform-default config path is `~/.config/cisco-meraki-cli/config.toml` (`%USERPROFILE%\.config\cisco-meraki-cli\config.toml` on Windows); `--home`, `CISCO_MERAKI_HOME`, and per-kind env vars can relocate it.
 
 Static request headers can be configured under `headers`; per-command header overrides take precedence.
+
+`--ca-cert`, `CISCO_MERAKI_CA_CERT`, or `ca_cert` adds a PEM CA bundle to the system trust roots. `--tls-server-name`, `CISCO_MERAKI_TLS_SERVER_NAME`, or `tls_server_name` is the name checked against the certificate when the dialed address does not match it. Precedence is flag, then environment, then the config file. A config file other users can change does not supply these settings. Certificate verification failures are not retried.
 
 Environment variables:
 

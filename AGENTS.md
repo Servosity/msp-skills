@@ -107,6 +107,14 @@ version it ran, pass `--verified-version`; for an existing badge use `--bind`.
 Never copy `cli_hash_at_release` into a badge by hand: `check_registry_state.py`
 recomputes the hash from the tag and fails a binding that is not that code.
 
+**Once live-verified, always live-verified.** A badge comes off only when the
+owner asks, through `verify_live.py --revoke --slug <slug> --owner-override
+"<reason>"`, which leaves a dated `revoked` record. Never run it on your own
+judgment. `check_registry_state.py` fails CI on any change where a live-verified
+badge changes status or disappears without that record, including a registry
+entry rewritten without its `live_verified` key (how servosity lost its badge in
+#248).
+
 **Beta and live-verified are mutually exclusive.** A live-verified connector
 never says Beta. Flip and revoke only through `verify_live.py`, which moves the
 registry `status` and the README / pain-point Status paragraphs with the badge

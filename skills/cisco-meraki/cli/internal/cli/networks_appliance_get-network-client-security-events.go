@@ -57,7 +57,7 @@ func newNetworksApplianceGetNetworkClientSecurityEventsCmd(flags *rootFlags) *co
 					}
 				}
 				if !validSortOrder {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagSortOrder, "sort-order", allowedSortOrder)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagSortOrder, "sort-order", allowedSortOrder))
 				}
 			}
 			path := "/networks/{networkId}/appliance/clients/{clientId}/security/events"

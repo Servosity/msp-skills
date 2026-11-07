@@ -4,6 +4,20 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.1.4] - unreleased
+
+### Security
+- **Rebuilt on Printing Press 4.35.1 ([GHSA-jh26-vhqh-692c](https://github.com/advisories/GHSA-jh26-vhqh-692c)).** The MCP server's HTTP mode now listens on `127.0.0.1:7777` by default, refuses to start until `CISCO_MERAKI_MCP_HTTP_TOKEN` is set (at least 32 characters), requires `Authorization: Bearer <token>` on every request, and needs `--tls-cert` and `--tls-key` for any address other than loopback. Remote agents (ChatGPT, Copilot Studio, the Gemini app) are supported again through a hosted HTTPS endpoint; see [mcp-install.md](./mcp-install.md).
+- **Every MCP write previews first.** The MCP tools that mirror `fleet push --apply` and `import`, and every other mirrored write, return a preview and send nothing until they are called again with `confirm` set to boolean true. Raw API calls are split into a read tool (GET only) and an execute tool that previews until `confirm: true`.
+
+### Added
+- `CISCO_MERAKI_NO_LOCAL_DATA=1` keeps no local copy of API responses: reads go to the API, the response cache is off and `sync` refuses to run. It is optional and declared on every install channel. `local-data purge` previews what it would erase and deletes only with `--yes`.
+
+### Fixed
+- **`fleet push` selects exactly what you asked for.** Meraki matches network tags case-sensitively, but `fleet push` folded case on tags, network IDs and names, product types and organization names, so `--network-tag Managed` also pushed to networks tagged `managed`. Every selector is now an exact match.
+- **Times are compared as instants.** `fleet admins` (latest sign-in), `fleet changes` (newest first) and grouped first/last times compared RFC 3339 timestamps as text, so two times with different UTC offsets could sort in the wrong order. They now compare the actual moment.
+- `networks sm create-network-bypass-activation-lock-attempt` no longer answers to the hidden alias `create`.
+
 ## [0.1.3] - 2026-10-23
 
 ### Fixed

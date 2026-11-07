@@ -255,6 +255,22 @@ func parseMerakiTime(s string) (time.Time, bool) {
 	return time.Time{}, false
 }
 
+// merakiTimeAfter reports whether timestamp a is later than b. Meraki
+// date-times may carry an offset, so instants are compared, never text; an
+// unparseable value falls back to text order (handfixes.json:
+// meraki-time-compare-parsed).
+func merakiTimeAfter(a, b string) bool {
+	ta, oka := parseMerakiTime(a)
+	tb, okb := parseMerakiTime(b)
+	switch {
+	case oka && okb:
+		return ta.After(tb)
+	case oka != okb:
+		return oka
+	}
+	return a > b
+}
+
 // humanDuration renders minutes as a compact 3d4h / 5h12m / 7m string.
 func humanDuration(d time.Duration) string {
 	if d < 0 {

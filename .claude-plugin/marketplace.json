@@ -164,7 +164,7 @@
       "name": "axcient",
       "source": "./skills/axcient",
       "description": "Every x360Recover endpoint, plus the fleet-wide backup-health answers the API alone can't give \u2014 offline, joined, and agent-ready.",
-      "version": "0.2.17",
+      "version": "0.2.18",
       "category": "backup-dr",
       "tags": [
         "axcient",
@@ -194,7 +194,7 @@
     {
       "name": "blumira",
       "source": "./skills/blumira",
-      "description": "Every Blumira finding, detection, and agent across your direct org and every MSP sub-account - in one offline-searchable store with cross-account triage and over-time trends no single API call can answer.",
+      "description": "Every Blumira finding, detection, and agent across your direct org and every MSP sub-account \u2014 in one offline-searchable store with cross-account triage and over-time trends no single API call can answer.",
       "version": "0.1.6",
       "category": "security",
       "tags": [
@@ -821,11 +821,12 @@
     {
       "name": "riverside-fm",
       "source": "./skills/riverside-fm",
-      "description": "Every Riverside.fm studio, take, transcript, and asset as one agent-native CLI plus a local SQLite mirror - bulk studio export with resume, priority-fallback download, transcript search and talktime, and signed-URL refresh the web app never exposes.",
-      "version": "0.1.5",
-      "category": "msp",
+      "description": "The first programmatic way to download every transcript, audio track, and video from your own Riverside.com account \u2014 no Business plan or API key required.",
+      "version": "0.1.6",
+      "category": "marketing",
       "tags": [
         "riverside-fm",
+        "riverside",
         "marketing",
         "msp",
         "mcp",
@@ -1170,7 +1171,7 @@
     {
       "name": "cisco-meraki",
       "source": "./skills/cisco-meraki",
-      "description": "Every Meraki Dashboard operation, plus cross-org fleet views that read every page, and a local mirror built for MSPs running many client orgs.",
+      "description": "Every Meraki Dashboard operation, plus cross-org fleet views that read every page, built for MSPs running many client orgs.",
       "version": "0.1.3",
       "category": "network-monitoring",
       "tags": [
@@ -1452,7 +1453,7 @@
       "name": "exchange-online",
       "source": "./skills/exchange-online",
       "description": "Exchange Online admin for MSPs over REST: forwarding audits, EWS posture, offboarding and quarantine across client tenants, no PowerShell session.",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "category": "security",
       "tags": [
         "exchange-online",
@@ -1483,7 +1484,7 @@
       "name": "kaseya-vsa",
       "source": "./skills/kaseya-vsa",
       "description": "Every VSA 10 API endpoint, plus a local fleet database that answers patch, health, and software questions across all your clients offline.",
-      "version": "0.1.1",
+      "version": "0.1.2",
       "category": "rmm",
       "tags": [
         "kaseya-vsa",

@@ -33,7 +33,7 @@ func newAdministeredGetLicensingSubscriptionEntitlementsCmd(flags *rootFlags) *c
 					}
 				}
 				if !validSubscriptionType {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagSubscriptionType, "subscription-type", allowedSubscriptionType)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagSubscriptionType, "subscription-type", allowedSubscriptionType))
 				}
 			}
 			path := "/administered/licensing/subscription/entitlements"
