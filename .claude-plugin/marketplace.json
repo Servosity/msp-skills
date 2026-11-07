@@ -195,7 +195,7 @@
       "name": "blumira",
       "source": "./skills/blumira",
       "description": "Every Blumira finding, detection, and agent across your direct org and every MSP sub-account \u2014 in one offline-searchable store with cross-account triage and over-time trends no single API call can answer.",
-      "version": "0.1.6",
+      "version": "0.1.7",
       "category": "security",
       "tags": [
         "blumira",
@@ -245,7 +245,7 @@
       "name": "connectwise-automate",
       "source": "./skills/connectwise-automate",
       "description": "Sync your entire ConnectWise Automate fleet into local SQLite and answer cross-client questions the per-server web UI can't: fleet-wide health roll-ups, stale-agent sweeps, patch-compliance-by-client, and overnight drift.",
-      "version": "0.1.7",
+      "version": "0.1.8",
       "category": "rmm",
       "tags": [
         "connectwise-automate",
@@ -1172,7 +1172,7 @@
       "name": "cisco-meraki",
       "source": "./skills/cisco-meraki",
       "description": "Every Meraki Dashboard operation, plus cross-org fleet views that read every page, built for MSPs running many client orgs.",
-      "version": "0.1.3",
+      "version": "0.1.4",
       "category": "network-monitoring",
       "tags": [
         "cisco-meraki",
@@ -1280,7 +1280,7 @@
       "name": "bitdefender",
       "source": "./skills/bitdefender",
       "description": "140 GravityZone API methods, plus fleet health, billing and incident views across child companies.",
-      "version": "0.1.4",
+      "version": "0.1.5",
       "category": "security",
       "tags": [
         "bitdefender",
