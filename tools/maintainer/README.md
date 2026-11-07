@@ -172,6 +172,17 @@ one once against a press release, and `replay_handfixes.py --slug <slug>` applie
   - `no-config-write` brings back the `### Keeping credentials off disk (optional)` section of
     `guide.md`, which onboard.py re-vendors from the press README, in front of the heading that followed
     it at `--base`; a reprinted guide.md that carries its own copy of the section is named, not replaced.
+  - `sync-event-writer-serialized` wraps the writer sync's top-level worker pool shares
+    (`syncEventWriter`) once, directly after the code that makes it (the press 4.34.x machine-format
+    branch, or the bare `cmd.OutOrStdout()` declaration on press 4.24.0), in `syncSerialWriter`, and
+    writes `sync_event_writer.go` and `sync_event_writer_test.go` from `handfix_replay/`. Any other shape (a
+    second assignment, a writer already wrapped another way, a moved wrap, a template file that drifted, a
+    name the package already declares) is named for a person, and the recipe writes nothing.
+- **adopt**: a replay id whose registry record carries `adopt` (`file`, `contains`, `entry`) is added to the
+  ledger of every connector that carries that code shape and lacks the id (no entry, no `retired` record,
+  not `keep_manual`), a print with no ledger included, and then wired by its recipe like any other.
+  `check_handfixes.py` uses the same predicate and fails such a connector, so a fresh print cannot ship the
+  defect unrecorded.
 - **delegated**: `secret-echo-decoded-funnel` belongs to `apply_secret_funnel.py`.
 - **floors**: a module the print resolves below a patched version (`golang.org/x/text` v0.42.0,
   `github.com/klauspost/compress` v1.18.7) is raised with `go get`, then `go mod tidy`, on a print at or

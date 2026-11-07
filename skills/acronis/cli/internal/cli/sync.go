@@ -184,6 +184,9 @@ Resource scoping:
 			if machineFormat {
 				syncEventWriter = cmd.ErrOrStderr()
 			}
+			// Hand-fix (handfixes.json sync-event-writer-serialized): every sync worker
+			// writes its events here, and only os.Stdout is safe for concurrent writes.
+			syncEventWriter = &syncSerialWriter{w: syncEventWriter}
 			if !c.DryRun {
 				if err := acronisSetMirrorState(db, false); err != nil {
 					return err
