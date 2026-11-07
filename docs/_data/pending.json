@@ -196,18 +196,18 @@
     "released_hash": "sha256:f43a4321aae0f06f0342101aec2d9e3d0c760b0cdf17d4e2cc8813617867dff8"
   },
   "connectwise-rmm": {
-    "state": "binary-pending",
-    "version": "0.1.3",
-    "latest_tag": "connectwise-rmm-v0.1.3",
+    "state": "up-to-date",
+    "version": "0.1.4",
+    "latest_tag": "connectwise-rmm-v0.1.4",
     "current_hash": "sha256:349288c8ab3ab6c503b421fa6ead1c08fe1148a00947468b7704192c86927d3d",
-    "released_hash": "sha256:1ae1c3d55cdaf4f0cfefd98d68ace836b2bac1cc288a7b59b5855e380032c5e7"
+    "released_hash": "sha256:349288c8ab3ab6c503b421fa6ead1c08fe1148a00947468b7704192c86927d3d"
   },
   "cork": {
-    "state": "binary-pending",
-    "version": "0.1.8",
+    "state": "version-pending",
+    "version": "0.1.9",
     "latest_tag": "cork-v0.1.8",
     "current_hash": "sha256:9ac4a2262cca7a1ab169bf8bd547bf218a820df90b63a4ad27d0c5b7fa84a6bf",
-    "released_hash": "sha256:79246ba3aa5d81621c7553a8b1ac7c2aceb65e0c73f0e12874f8b0627fac528b"
+    "released_hash": "sha256:9ac4a2262cca7a1ab169bf8bd547bf218a820df90b63a4ad27d0c5b7fa84a6bf"
   },
   "cove": {
     "state": "up-to-date",
@@ -238,11 +238,11 @@
     "released_hash": "sha256:20ba7e2e78c5aee297696afa98967989fdf9b801c3e9c50f7ca049376468d130"
   },
   "datto-rmm": {
-    "state": "binary-pending",
-    "version": "0.1.10",
-    "latest_tag": "datto-rmm-v0.1.10",
+    "state": "up-to-date",
+    "version": "0.1.11",
+    "latest_tag": "datto-rmm-v0.1.11",
     "current_hash": "sha256:9bc5776f1f73c902167cff8c358837b42b83309fa4fbcdc58faf1205af95ccd8",
-    "released_hash": "sha256:e1a0e7b7680d88e0e04ecf57dce4caaff191aea6c792a183f3fecc9690455729"
+    "released_hash": "sha256:9bc5776f1f73c902167cff8c358837b42b83309fa4fbcdc58faf1205af95ccd8"
   },
   "datto-saas": {
     "state": "never-released",
@@ -427,11 +427,11 @@
     "released_hash": "sha256:1554739697e63aa1a2e01a844d33bf29e042346aca2ab7da012436bf0dc629a2"
   },
   "microsoft-graph": {
-    "state": "binary-pending",
-    "version": "0.2.7",
+    "state": "version-pending",
+    "version": "0.2.8",
     "latest_tag": "microsoft-graph-v0.2.7",
     "current_hash": "sha256:4692d33ccf7a619fdacbc445a3dc58777a228a84a5a8a4bdab845f73b40e0434",
-    "released_hash": "sha256:1c41ffd23925ad4a62ccfffd6490226c17aca5a22c18703d07578ffe3ce726a8"
+    "released_hash": "sha256:4692d33ccf7a619fdacbc445a3dc58777a228a84a5a8a4bdab845f73b40e0434"
   },
   "mimecast": {
     "state": "binary-pending",
@@ -500,7 +500,7 @@
     "state": "binary-pending",
     "version": "0.1.8",
     "latest_tag": "pax8-v0.1.8",
-    "current_hash": "sha256:301c9cd7ab42b3be15979cfde67a7ce82916776a3c9b13232b2921932333a3e3",
+    "current_hash": "sha256:035eaa93381e1e6de54b9e942fa3e4929b2afd913530b51140952d4e6413973a",
     "released_hash": "sha256:35e893648e443c4c5adea05fe66531fc895c0e9db84fe9a63d6959876d5468df"
   },
   "pipedrive": {
