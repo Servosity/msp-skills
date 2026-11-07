@@ -6,7 +6,7 @@
 > under Apache-2.0 - built for the MSP community, vendor-neutral by design.
 > Not affiliated with, endorsed by, or sponsored by RiversideFM, Inc.
 
-**Passes all 4 mechanical gates** (build · command-surface · claims · install). Awaiting its first MSP receipt - [be the first, 60 seconds →](https://msp-skills.compoundingteams.com/verified/#receipt).
+**✓ Live-verified by Servosity (maintainer)** against a production tenant · 2026-11-06. Verified on v0.1.5; the current release has changed since.
 
 Yes - there is an MCP server for Riverside.fm. It's free, open source, and runs on your own machine, so your client data stays local unless you route it somewhere yourself. It connects Riverside.fm to Claude, ChatGPT, Copilot, or any MCP-capable agent, and installs in about 60 seconds.
 
@@ -144,7 +144,7 @@ Run more than one Marketing tool, or comparing options? These connectors work th
 
 ## Status
 
-Beta. Validated against the Riverside.fm API surface and being validated with MSPs running it live against their own production tenants in our weekly **[Build Sessions](https://compoundingteams.com/build-sessions)**.
+Live-verified. Confirmed by Servosity (maintainer) against their own production tenant. Verified on v0.1.5; the current release has changed since. More MSPs run it live in our weekly **[Build Sessions](https://compoundingteams.com/build-sessions)**.
 
 Build Sessions are free and stay free - [The Build Room](https://compoundingteams.com) is where the deep work happens.
 

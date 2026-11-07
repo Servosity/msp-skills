@@ -257,7 +257,7 @@
     },
     "aws-billing": {
       "system": "AWS billing & Cost Explorer - plain-English bill breakdowns and waste flags",
-      "status": "beta",
+      "status": "live-verified",
       "cli_binary": "aws-billing-cli",
       "mcp_binary": "aws-billing-mcp",
       "vendor": "Amazon Web Services",
@@ -271,10 +271,15 @@
       "cli_hash_at_release": "sha256:320dbeb3bde21a2ae26eb4e75bb967243b2555c1abcf92da539b12a91fb6b959",
       "has_video": true,
       "live_verified": {
-        "status": "awaiting",
-        "date": null,
-        "source": null,
-        "evidence": null
+        "status": "live-verified",
+        "date": "2026-11-06",
+        "source": "self",
+        "evidence": "Damien: verified live (reported 2026-11-06)",
+        "verified_by": "Servosity (maintainer)",
+        "issue_url": null,
+        "verified_version": "0.1.9",
+        "verified_cli_hash": "sha256:320dbeb3bde21a2ae26eb4e75bb967243b2555c1abcf92da539b12a91fb6b959",
+        "verified_basis": "latest-release-at-flip"
       }
     },
     "axcient": {
@@ -290,8 +295,8 @@
       "tagline": "Catch failed and stale Axcient backups, RPO breaches, and unbilled usage across every client by asking.",
       "cli_hash": "sha256:4500e424128e9599c1453e2f414e61379bdea572e51f2954d656a6620fdcb24a",
       "template_version": 3,
-      "version": "0.2.17",
-      "cli_hash_at_release": "sha256:5535dd795288cd58a284fa2833f64b89f3d6e3836ae5af54fa60c5d41724d6ba",
+      "version": "0.2.18",
+      "cli_hash_at_release": "sha256:b018ad847db0966647a13f320473aea19dc2fc7fc23260e2cc8b650e41ada4cd",
       "has_video": true,
       "live_verified": {
         "status": "live-verified",
@@ -725,12 +730,12 @@
       "cli_binary": "cork-cli",
       "mcp_binary": "cork-mcp",
       "vendor": "Cork",
-      "vendor_trademark_owner": "Cork Protection, Inc.",
+      "vendor_trademark_owner": "Cork Protection, Inc",
       "first_party": false,
       "category": "Security",
       "display_name": "Cork",
       "tagline": "Explain why a client's risk score moved, patch by what is actually exploited, and catch the connector that reports healthy while its data went stale.",
-      "cli_hash": "sha256:c88cb15e702a1307a94e78a7982df23e218c981631e6f38d3bcc007cbd8cb91a",
+      "cli_hash": "sha256:92b4bf6e34dcae5fe6098a5c6b0442b830fbde8af9532a4c64bcd31dbceeb9c1",
       "template_version": 3,
       "version": "0.1.8",
       "cli_hash_at_release": "sha256:79246ba3aa5d81621c7553a8b1ac7c2aceb65e0c73f0e12874f8b0627fac528b",
@@ -1031,8 +1036,8 @@
       "has_video": true,
       "cli_hash": "sha256:53448d87f5ae52473b5cc89b5b6de80805a92fdd3659057ff847f8d824974c30",
       "template_version": 3,
-      "version": "0.1.0",
-      "cli_hash_at_release": "sha256:f01c495a417e9e7986ed05bff2a2483f3b2c21df83b29221a184d76842689ce6",
+      "version": "0.1.1",
+      "cli_hash_at_release": "sha256:7e821728f609847ee158daf6173a22df1c7735e78833537338d8cdcec7076adc",
       "live_verified": {
         "status": "awaiting",
         "date": null,
@@ -1386,8 +1391,8 @@
       "has_video": true,
       "cli_hash": "sha256:08b7346e5e96f5e3acba0c200728562abbb1030980e69b1d62c6d6bf19dd1fbf",
       "template_version": 3,
-      "version": "0.1.1",
-      "cli_hash_at_release": "sha256:b538f81d6d30b29556181772e50c4f76a02c7c7499b18c775f5f3a64bff154ce",
+      "version": "0.1.2",
+      "cli_hash_at_release": "sha256:d9747f520d949166aa83a4b1d5fbe3a9919f70261c49840c48b3efb1f05a7447",
       "live_verified": {
         "status": "awaiting",
         "date": null,
@@ -1531,7 +1536,7 @@
       "category": "Security",
       "display_name": "Microsoft Graph",
       "tagline": "Find wasted M365 licenses, audit global admins, and triage Defender alerts by asking.",
-      "cli_hash": "sha256:e67d67e8f9d8adc320933ae60d3fb14e88e8d1369e73d82bcd431be50570212a",
+      "cli_hash": "sha256:ce050813ad399cf9c1d4d1a5d50bdef87dbbc8cb8940851d72eb09aa7ee9052e",
       "template_version": 3,
       "version": "0.2.7",
       "cli_hash_at_release": "sha256:1c41ffd23925ad4a62ccfffd6490226c17aca5a22c18703d07578ffe3ce726a8",
@@ -1983,7 +1988,7 @@
     },
     "riverside-fm": {
       "system": "Riverside.fm - export transcripts, audio, and video from your recording studio",
-      "status": "beta",
+      "status": "live-verified",
       "cli_binary": "riverside-fm-cli",
       "mcp_binary": "riverside-fm-mcp",
       "vendor": "Riverside",
@@ -1993,14 +1998,19 @@
       "display_name": "Riverside.fm",
       "cli_hash": "sha256:1fba95931f2cfb1aa26c7d3bca39ed3cb0f7fa3a1f27aafc9093894bcfc44bcf",
       "template_version": 3,
-      "version": "0.1.5",
-      "cli_hash_at_release": "sha256:8b77a0f5b34bfce88e8581ef0741da558daefda2e9ceffc3000b891c71df2ff9",
+      "version": "0.1.6",
+      "cli_hash_at_release": "sha256:1fba95931f2cfb1aa26c7d3bca39ed3cb0f7fa3a1f27aafc9093894bcfc44bcf",
       "has_video": true,
       "live_verified": {
-        "status": "awaiting",
-        "date": null,
-        "source": null,
-        "evidence": null
+        "status": "live-verified",
+        "date": "2026-11-06",
+        "source": "self",
+        "evidence": "Damien: verified live (reported 2026-11-06)",
+        "verified_by": "Servosity (maintainer)",
+        "issue_url": null,
+        "verified_version": "0.1.5",
+        "verified_cli_hash": "sha256:8b77a0f5b34bfce88e8581ef0741da558daefda2e9ceffc3000b891c71df2ff9",
+        "verified_basis": "latest-release-at-flip"
       }
     },
     "rocketcyber": {

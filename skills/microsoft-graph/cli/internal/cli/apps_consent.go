@@ -1,4 +1,5 @@
 // Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
+// pp:data-source live
 
 package cli
 
@@ -6,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -47,7 +49,7 @@ token with Application.Read.All + Directory.Read.All + DelegatedPermissionGrant.
   microsoft-graph-cli apps consent --agent
   microsoft-graph-cli apps consent --json --select displayName,riskScore,riskFlags
   microsoft-graph-cli apps consent --app-permissions=false --json`, "\n"),
-		Annotations: map[string]string{"mcp:read-only": "true"},
+		Annotations: map[string]string{"mcp:read-only": "true", "pp:data-source": "live"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if flags.dataSource == "local" {
 				return usageErr(fmt.Errorf("apps consent needs live Graph access (servicePrincipals/oauth2PermissionGrants/appRoleAssignments are not part of the local sync); use --data-source live or --data-source auto"))
@@ -65,9 +67,9 @@ token with Application.Read.All + Directory.Read.All + DelegatedPermissionGrant.
 				"$select": "id,appId,displayName,appOwnerOrganizationId,servicePrincipalType,accountEnabled,signInAudience,tags",
 				"$top":    "999",
 			}
-			sps, spTruncated, err := fetchGraphList(ctx, c, "/servicePrincipals", spParams)
+			sps, err := graphGetAllPages(ctx, c, "/servicePrincipals", spParams)
 			if err != nil {
-				return classifyAPIError(err, flags)
+				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}
 			// --dry-run already printed the primary request; stop before the
 			// dependent fan-out so a dry run shows one representative call.
@@ -76,9 +78,9 @@ token with Application.Read.All + Directory.Read.All + DelegatedPermissionGrant.
 			}
 
 			// 2. Delegated permission grants (oauth2PermissionGrants).
-			grants, grantsTruncated, err := fetchGraphList(ctx, c, "/oauth2PermissionGrants", map[string]string{"$top": "999"})
+			grants, err := graphGetAllPages(ctx, c, "/oauth2PermissionGrants", map[string]string{"$top": "999"})
 			if err != nil {
-				return classifyAPIError(err, flags)
+				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}
 
 			// Home tenant id (best-effort) so we can split internal vs external.
@@ -87,53 +89,36 @@ token with Application.Read.All + Directory.Read.All + DelegatedPermissionGrant.
 			// 3. Application (app-only) permissions per third-party SP — fanned
 			//    out over non-Microsoft principals only to bound the call count.
 			var roles []json.RawMessage
+			var unread []string
 			if appPermissions {
 				targets := thirdPartyServicePrincipalIDs(sps)
 				results, errs := cliutil.FanoutRun(ctx, targets,
 					func(id string) string { return id },
 					func(ctx context.Context, id string) ([]json.RawMessage, error) {
-						items, _, e := fetchGraphList(ctx, c, "/servicePrincipals/"+id+"/appRoleAssignments", map[string]string{"$top": "999"})
-						return items, e
+						return graphGetAllPages(ctx, c, "/servicePrincipals/"+id+"/appRoleAssignments", map[string]string{"$top": "999"})
 					})
 				cliutil.FanoutReportErrors(stderr, errs)
 				for _, r := range results {
 					roles = append(roles, r.Value...)
 				}
+				for _, e := range errs {
+					unread = append(unread, e.Source)
+				}
 			}
 
+			// Every collection is read through @odata.nextLink to the end; an app
+			// whose application permissions could not be read is named, so it
+			// never reads as holding none (Codex r1 class incomplete-read-as-complete).
 			result := insights.ConsentAudit(sps, grants, roles, homeTenant)
-			if spTruncated || grantsTruncated {
-				result.Note = strings.TrimSpace(result.Note + " WARNING: a collection returned the 999-row page ceiling and more pages exist; counts are a floor. Large-tenant paging is the upgrade path.")
+			if len(unread) > 0 {
+				sort.Strings(unread)
+				result.Note = strings.TrimSpace(result.Note + fmt.Sprintf(" WARNING: the application permissions of %d app(s) could not be read, so their flags are incomplete: %s", len(unread), strings.Join(unread, ", ")))
 			}
 			return printJSONFiltered(cmd.OutOrStdout(), result, flags)
 		},
 	}
 	cmd.Flags().BoolVar(&appPermissions, "app-permissions", true, "Fetch each third-party app's application (app-only) permissions (one call per app); disable to skip the fan-out")
 	return cmd
-}
-
-// fetchGraphList GETs a Graph collection and returns its items. Graph wraps
-// lists in {"value":[...]}; a bare array is also accepted. truncated is true
-// when the response carries an @odata.nextLink (more pages exist beyond the
-// single request this helper makes).
-func fetchGraphList(ctx context.Context, c *client.Client, path string, params map[string]string) (items []json.RawMessage, truncated bool, err error) {
-	data, err := c.GetWithHeaders(ctx, path, params, nil)
-	if err != nil {
-		return nil, false, err
-	}
-	// Bare array response.
-	if json.Unmarshal(data, &items) == nil {
-		return items, false, nil
-	}
-	// OData envelope {"value":[...], "@odata.nextLink": "..."}.
-	var env struct {
-		Value    []json.RawMessage `json:"value"`
-		NextLink string            `json:"@odata.nextLink"`
-	}
-	if json.Unmarshal(data, &env) == nil {
-		return env.Value, env.NextLink != "", nil
-	}
-	return nil, false, nil
 }
 
 // thirdPartyServicePrincipalIDs returns the ids of every non-Microsoft service
@@ -160,7 +145,7 @@ func thirdPartyServicePrincipalIDs(sps []json.RawMessage) []string {
 // tell homegrown apps from external vendors. Best-effort: returns "" on any
 // error (the audit then reads all non-Microsoft apps as external).
 func fetchHomeTenantID(ctx context.Context, c *client.Client) string {
-	orgs, _, err := fetchGraphList(ctx, c, "/organization", map[string]string{"$select": "id"})
+	orgs, err := graphGetAllPages(ctx, c, "/organization", map[string]string{"$select": "id"})
 	if err != nil || len(orgs) == 0 {
 		return ""
 	}

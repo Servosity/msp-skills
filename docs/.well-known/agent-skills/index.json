@@ -207,9 +207,9 @@
     {
       "name": "cork",
       "type": "skill-md",
-      "description": "Every Cork API operation as one CLI and MCP server, plus cross-client risk attribution, exploitability-first vulnerability triage, overdue-compliance detection, and stale-connector health checks that a stateless API mirror cannot answer in a single call. Trigger phrases: `which Cork clients got worse this week`, `why did this client's Cork score drop`, `what should we patch first in Cork`, `are we exposed to this CVE`, `which Cork integrations are stale`, `which clients have no cyber warranty`, `use cork`, `run cork`.",
+      "description": "Every Cork API operation as one CLI and MCP server, plus cross-client risk attribution, exploitability-first vulnerability triage, overdue-compliance detection, overdue exclusion reviews, and stale-connector health checks that a stateless API mirror cannot answer in a single call. Trigger phrases: `which Cork clients got worse this week`, `why did this client's Cork score drop`, `what should we patch first in Cork`, `are we exposed to this CVE`, `which Cork integrations are stale`, `which clients have no cyber warranty`, `use cork`, `run cork`.",
       "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/cork/SKILL.md",
-      "digest": "sha256:065259df3a046761e33bddb503747ccfc95fd988f1308ec3453f544d1d619e4f"
+      "digest": "sha256:a69ab7c86cf681b1b4b809940b8b5fbdda1b29a1493426100fb3d8e6ddc5ed4c"
     },
     {
       "name": "cove",
@@ -431,9 +431,9 @@
     {
       "name": "microsoft-graph",
       "type": "skill-md",
-      "description": "The maintained single-binary successor to the retiring mgc - every MSP-relevant Microsoft Graph surface, plus an offline store that finds wasted licenses, privileged-access risks, over-privileged third-party app consents, and stale devices no single API call can. Trigger phrases: `find unused microsoft 365 licenses`, `who has global admin in this tenant`, `audit third-party app consent`, `which apps can read our mail`, `triage microsoft defender alerts`, `list non-compliant intune devices`, `microsoft graph tenant snapshot`, `use microsoft-graph`, `run microsoft-graph`.",
+      "description": "The maintained single-binary successor to the retiring mgc - every MSP-relevant Microsoft Graph surface, plus an offline store that finds wasted licenses, privileged-access risks, over-privileged third-party app consents, and stale devices no single API call can. Trigger phrases: `find unused microsoft 365 licenses`, `who has global admin in this tenant`, `audit third-party app consent`, `which apps can read our mail`, `triage microsoft defender alerts`, `list non-compliant intune devices`, `microsoft graph tenant snapshot`, `list teams phone numbers`, `download my teams meeting transcript`, `use microsoft-graph`, `run microsoft-graph`.",
       "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/microsoft-graph/SKILL.md",
-      "digest": "sha256:9f8e697fb30431cc29283ecb9c04eb5eabd895f1a42a61d37468bedbddec44fd"
+      "digest": "sha256:7c7ae905fd159e67bac6a8fe5dad02d81a3d89b558d2d0f72b4ed549422d0a24"
     },
     {
       "name": "mimecast",

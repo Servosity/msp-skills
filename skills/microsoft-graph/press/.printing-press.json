@@ -1,7 +1,7 @@
 {
-  "schema_version": 1,
-  "generated_at": "2026-06-13T02:37:35.755345Z",
-  "printing_press_version": "4.24.0",
+  "schema_version": 2,
+  "generated_at": "2026-10-28T06:51:42.44178Z",
+  "printing_press_version": "4.34.2",
   "api_name": "microsoft-graph",
   "display_name": "Microsoft Graph",
   "cli_name": "microsoft-graph-pp-cli",
@@ -20,12 +20,12 @@
   "printer_name": "Damien Stevens",
   "spec_path": "spec.yaml",
   "spec_format": "internal",
-  "spec_checksum": "sha256:19429c7cb9efa026879865ea19e42318bc3d22910869fbc6dc0384193c19b75c",
-  "run_id": "20260605-224102",
+  "spec_checksum": "sha256:186a52239485b4da2b005a622542bee755a40d18ec84f4534fdaa6892cc1dc2e",
+  "run_id": "20261028-004906-b2c18428",
   "category": "cloud",
   "description": "The maintained single-binary successor to the retiring mgc — every MSP-relevant Microsoft Graph surface, plus an offline store that finds wasted licenses, privileged-access risks, and stale devices no single API call can.",
   "mcp_binary": "microsoft-graph-pp-mcp",
-  "mcp_tool_count": 22,
+  "mcp_tool_count": 26,
   "mcp_ready": "full",
   "api_version": "0.1.0",
   "auth_type": "bearer_token",
@@ -72,6 +72,103 @@
       "name": "Group sprawl audit",
       "command": "groups risk",
       "description": "Flags ownerless, empty, and guest-heavy groups across the tenant in one pass."
+    },
+    {
+      "name": "Third-party app consent audit",
+      "command": "apps consent",
+      "description": "Inventories every non-Microsoft enterprise application consented into the tenant and the access it holds, risk-ranked with over-privileged, admin-consented, privilege-escalation and user-consented flags."
+    },
+    {
+      "name": "Meeting transcript list (own tenant)",
+      "command": "transcripts list",
+      "description": "Lists the transcripts of one Teams meeting the signed-in user can already open, in the credential's own tenant only."
+    },
+    {
+      "name": "Meeting transcript download (own tenant)",
+      "command": "transcripts download",
+      "description": "Downloads one Teams meeting transcript as WebVTT to stdout or a named file, in the credential's own tenant only; nothing is kept on disk by the CLI."
+    },
+    {
+      "name": "All transcripts for one organizer (own tenant)",
+      "command": "transcripts all",
+      "description": "Lists every transcript from the meetings one user organized, in the credential's own tenant only (Graph offers this to application tokens only, behind an explicit opt-in)."
     }
-  ]
+  ],
+  "novel_features_built": [
+    {
+      "name": "License waste finder",
+      "command": "licenses waste",
+      "description": "Surfaces every tenant SKU where you are paying for more seats than you use, ranked by unused seats."
+    },
+    {
+      "name": "Licensed-orphan audit",
+      "command": "licenses orphans",
+      "description": "Lists disabled and guest accounts that still hold paid SKUs — licenses you are paying for but nobody is using."
+    },
+    {
+      "name": "Privileged-access audit",
+      "command": "admins audit",
+      "description": "Lists every holder of a privileged directory role with the role name, account-enabled state, and guest/disabled risk flags."
+    },
+    {
+      "name": "Fresh-alert triage window",
+      "command": "security triage",
+      "description": "Counts the open security alerts created in a recent time window, grouped by severity and detection source."
+    },
+    {
+      "name": "Intune compliance drift",
+      "command": "managed-devices drift",
+      "description": "Flags Intune devices that are non-compliant, unencrypted, or have not checked in within a time window, attributed to their assigned user."
+    },
+    {
+      "name": "Whole-tenant posture rollup",
+      "command": "tenant snapshot",
+      "description": "One agent-readable summary of the tenant: user and guest counts, license waste, admin count, open high-severity alerts, and non-compliant device count."
+    },
+    {
+      "name": "License reassignment map",
+      "command": "licenses map",
+      "description": "Lists every user consuming a specific SKU, with account-enabled state and guest flags, so you can plan seat reclamation and reassignment."
+    },
+    {
+      "name": "Group sprawl audit",
+      "command": "groups risk",
+      "description": "Flags ownerless, empty, and guest-heavy groups across the tenant in one pass."
+    },
+    {
+      "name": "Third-party app consent audit",
+      "command": "apps consent",
+      "description": "Inventories every non-Microsoft enterprise application consented into the tenant and the access it holds, risk-ranked with over-privileged, admin-consented, privilege-escalation and user-consented flags."
+    },
+    {
+      "name": "Meeting transcript list (own tenant)",
+      "command": "transcripts list",
+      "description": "Lists the transcripts of one Teams meeting the signed-in user can already open, in the credential's own tenant only."
+    },
+    {
+      "name": "Meeting transcript download (own tenant)",
+      "command": "transcripts download",
+      "description": "Downloads one Teams meeting transcript as WebVTT to stdout or a named file, in the credential's own tenant only; nothing is kept on disk by the CLI."
+    },
+    {
+      "name": "All transcripts for one organizer (own tenant)",
+      "command": "transcripts all",
+      "description": "Lists every transcript from the meetings one user organized, in the credential's own tenant only (Graph offers this to application tokens only, behind an explicit opt-in)."
+    }
+  ],
+  "verify": {
+    "mode": "mock",
+    "pass_rate": 100,
+    "passed": 60,
+    "total": 60,
+    "data_pipeline": true,
+    "verdict": "PASS"
+  },
+  "scorecard": {
+    "steinberger": {
+      "percentage": 96,
+      "grade": "A",
+      "total": 96
+    }
+  }
 }

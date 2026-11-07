@@ -53,7 +53,7 @@ Big install base, but an honest heads-up: Gemini CLI runs the local binary you j
 
 ### Fastest for Claude Desktop - one-click `.mcpb`
 
-[**Download Riverside MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/riverside-fm-v0.1.5/riverside-fm-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every Riverside release on the [releases page](https://github.com/servosity/msp-skills/releases?q=riverside-fm).)
+[**Download Riverside MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/riverside-fm-v0.1.6/riverside-fm-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every Riverside release on the [releases page](https://github.com/servosity/msp-skills/releases?q=riverside-fm).)
 
 Prefer the Claude Code plugin? Add the marketplace once, then install - works immediately, no directory listing required:
 
@@ -227,7 +227,7 @@ The strongest control is the **scope you grant the Riverside credentials** - the
 
 ## Status
 
-Beta. Validated against the Riverside API surface and being validated with MSPs running it live against their own production tenant in our weekly Build Sessions. RSVP at [compoundingteams.com/build-sessions](https://compoundingteams.com/build-sessions).
+Live-verified. Confirmed by Servosity (maintainer) against their own production tenant. More MSPs run it live in our weekly Build Sessions. RSVP at [compoundingteams.com/build-sessions](https://compoundingteams.com/build-sessions).
 
 ---
 

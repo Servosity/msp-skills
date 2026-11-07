@@ -8,6 +8,8 @@ import (
 	"bytes"
 	"strings"
 	"testing"
+
+	"cork-pp-cli/internal/cliutil/testenv"
 )
 
 // TestNovelCoverageGapsHelpWires smoke-tests that the coverage gaps command
@@ -15,6 +17,7 @@ import (
 // regressions (missing AddCommand, panicking RunE on --help, etc.) before
 // review. Keep this smoke test when adding behavior-specific cases.
 func TestNovelCoverageGapsHelpWires(t *testing.T) {
+	testenv.Isolate(t)
 	cmd := RootCmd()
 	cmd.SetArgs([]string{"coverage", "gaps", "--help"})
 	var out bytes.Buffer
