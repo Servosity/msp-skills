@@ -49,11 +49,6 @@
    "read-only",
    "local-data"
   ],
-  "connectsecure": [
-   "write-gating",
-   "read-only",
-   "local-data"
-  ],
   "connectwise-automate": [
    "mcp-http",
    "read-only",
