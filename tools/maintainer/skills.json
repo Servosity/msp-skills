@@ -295,8 +295,8 @@
       "tagline": "Catch failed and stale Axcient backups, RPO breaches, and unbilled usage across every client by asking.",
       "cli_hash": "sha256:4500e424128e9599c1453e2f414e61379bdea572e51f2954d656a6620fdcb24a",
       "template_version": 3,
-      "version": "0.2.17",
-      "cli_hash_at_release": "sha256:5535dd795288cd58a284fa2833f64b89f3d6e3836ae5af54fa60c5d41724d6ba",
+      "version": "0.2.18",
+      "cli_hash_at_release": "sha256:b018ad847db0966647a13f320473aea19dc2fc7fc23260e2cc8b650e41ada4cd",
       "has_video": true,
       "live_verified": {
         "status": "live-verified",
@@ -1036,8 +1036,8 @@
       "has_video": true,
       "cli_hash": "sha256:53448d87f5ae52473b5cc89b5b6de80805a92fdd3659057ff847f8d824974c30",
       "template_version": 3,
-      "version": "0.1.0",
-      "cli_hash_at_release": "sha256:f01c495a417e9e7986ed05bff2a2483f3b2c21df83b29221a184d76842689ce6",
+      "version": "0.1.1",
+      "cli_hash_at_release": "sha256:7e821728f609847ee158daf6173a22df1c7735e78833537338d8cdcec7076adc",
       "live_verified": {
         "status": "awaiting",
         "date": null,
@@ -1391,8 +1391,8 @@
       "has_video": true,
       "cli_hash": "sha256:08b7346e5e96f5e3acba0c200728562abbb1030980e69b1d62c6d6bf19dd1fbf",
       "template_version": 3,
-      "version": "0.1.1",
-      "cli_hash_at_release": "sha256:b538f81d6d30b29556181772e50c4f76a02c7c7499b18c775f5f3a64bff154ce",
+      "version": "0.1.2",
+      "cli_hash_at_release": "sha256:d9747f520d949166aa83a4b1d5fbe3a9919f70261c49840c48b3efb1f05a7447",
       "live_verified": {
         "status": "awaiting",
         "date": null,
