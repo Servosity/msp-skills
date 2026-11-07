@@ -168,7 +168,7 @@ Yes - it authenticates with SkyKick Partner API client credentials (your API use
 
 ## More Backup/DR connectors
 
-Run more than one Backup/DR tool, or comparing options? These connectors work the same way: [Acronis Cyber Protect Cloud](/skills/acronis/) · [Afi](/skills/afi/) · [Axcient x360Recover](/skills/axcient/) · [Backup Radar](/skills/backup-radar/) · [CloudAlly](/skills/cloudally/) · [Comet Backup](/skills/comet-backup/) · [Cove Data Protection](/skills/cove/) · [Datto BCDR](/skills/datto-bcdr/) · [Dropsuite](/skills/dropsuite/) · [Proxmox](/skills/proxmox/) · [Servosity](/skills/servosity/) · [Synology](/skills/synology/) · [Veeam](/skills/veeam/)
+Run more than one Backup/DR tool, or comparing options? These connectors work the same way: [Acronis Cyber Protect Cloud](/skills/acronis/) · [Afi](/skills/afi/) · [Axcient x360Recover](/skills/axcient/) · [Backup Radar](/skills/backup-radar/) · [CloudAlly](/skills/cloudally/) · [Comet Backup](/skills/comet-backup/) · [Cove Data Protection](/skills/cove/) · [Datto BCDR](/skills/datto-bcdr/) · [Datto SaaS Protection](/skills/datto-saas/) · [Dropsuite](/skills/dropsuite/) · [Proxmox](/skills/proxmox/) · [Servosity](/skills/servosity/) · [Synology](/skills/synology/) · [Veeam](/skills/veeam/)
 
 ## Status
 

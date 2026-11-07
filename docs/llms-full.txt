@@ -445,7 +445,7 @@ A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already us
 Q: Will this run up my Cost Explorer bill?
 A: No - that is the point of the local cache. 'sync' pulls your cost data once (each Cost Explorer request is about $0.01), then bill, compare, consolidated, waste, and ask answer from the local SQLite mirror for free. Pass --data-source live only when you want a fresh pull.
 Q: Do I need the aws CLI installed?
-A: No. The binary signs its own AWS requests (SigV4) using the native credential chain - environment variables, a shared --profile-aws, SSO, assume-role, or instance metadata. There is nothing to paste and no aws CLI dependency.
+A: No. The binary signs its own AWS requests (SigV4) using the native credential chain - environment variables, a shared --profile-aws, SSO, or assume-role (EC2 instance-metadata credentials are not used; on EC2 use a profile, SSO or environment keys). There is nothing to paste and no aws CLI dependency.
 Q: Does it work from a member account, or only the payer?
 A: Org-wide cost data (the consolidated rollup) needs a management/payer-account profile; from a member account you see only that account's own costs. Resource-level waste scans work in any account. Run 'aws-billing-cli doctor' to see exactly what your credentials can reach.
 Q: Can it change anything in my AWS account?
@@ -1331,6 +1331,39 @@ A: You need an API key and secret key from Setup > Users in your Datto RMM porta
 
 Governance: The skill reads your Datto RMM fleet and writes only when you ask it to - creating or updating variables, warranty and UDF data, sites, and quick jobs. Every fleet rollup, search, and lookup is read-only and always safe to run. Deleting variables or site proxy settings, bulk-resolving alert storms, and resetting your API keys are gated as destructive or credential operations and should stay human-in-the-loop.
 
+### Datto SaaS Protection (Backup/DR)
+
+Page: [Datto SaaS Protection](https://msp-skills.compoundingteams.com/skills/datto-saas.md)
+Verification: Awaiting live verification
+Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/datto-saas/install.sh)
+
+Ask which users across every client are not backed up, which clients' backups are slipping, and where Datto's seat count disagrees with what you bill, and get one answer for the whole fleet. Datto SaaS Protection reports client by client; this skill mirrors every client's domains and seats locally, so the fleet-wide seat audit becomes one command, and seat changes are planned before anything is sent.
+
+Outcomes (question -> command your AI agent runs):
+- Which seats across every client are unprotected, newest first? -> datto-saas-cli seats gaps --since 30d --agent
+- Where does Datto's seatsUsed disagree with billable and Active seats, per client? -> datto-saas-cli seats reconcile --only-flagged --agent
+- Which clients rank worst on backup coverage and short backup windows? -> datto-saas-cli backup-health --below 95 --agent
+- How many seats does each client have, by seat type and state? -> datto-saas-cli seats summary --agent
+- Give me one seat table for the whole fleet with each client's domains and subscription ids. -> datto-saas-cli seats roster --state Unprotected,Paused --agent
+- What do I need to know before a client leaves SaaS Protection? -> datto-saas-cli exit-inventory 123456 --data-source live --agent
+- Which batches would license this client's unprotected seats, without sending anything? -> datto-saas-cli seats bulk-plan --action License --state Unprotected --customer 123456 --agent
+
+FAQ:
+Q: Does this work with ChatGPT?
+A: Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so it needs the Datto SaaS Protection MCP server's token-protected HTTP mode hosted over HTTPS. Step-by-step in the install guide.
+Q: Do I need to know how to code?
+A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
+Q: Is my Datto SaaS Protection data safe?
+A: Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills.
+Q: Which Datto API key does it need?
+A: The Datto REST API key pair from the Partner Portal (Admin, Integrations, API Keys): DATTO_SAAS_PUBLIC_KEY and DATTO_SAAS_SECRET_KEY, sent as HTTP Basic auth to api.datto.com. One partner key sees every client you manage.
+Q: Can it change seats or billing on its own?
+A: Only one command writes: seats bulk-change, which licenses, pauses or unlicenses seats. Over MCP it returns a preview and sends only when confirm is true, and the read-only MCP mode refuses it. Plan the batches first with seats bulk-plan, which sends nothing.
+Q: What does it cost?
+A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
+
+Governance: The datto-saas skill reads your Datto SaaS Protection domains, seats, applications, backup stats and activity log, and keeps a local copy on your machine. It changes one thing at Datto: seats bulk-change licenses, pauses or unlicenses seats, which changes what is backed up and what you are billed, so keep it human-in-the-loop. Reads and seat plans are safe to allow.
+
 ### DNSFilter (Security)
 
 Page: [DNSFilter](https://msp-skills.compoundingteams.com/skills/dnsfilter.md)
@@ -1420,13 +1453,14 @@ Outcomes (question -> command your AI agent runs):
 - Give me one asset inventory across every site -> domotz-cli fleet inventory --csv
 - Where are IP conflicts across the fleet? -> domotz-cli fleet ip-conflicts --agent
 - Which devices can't be fully monitored (auth or SNMP gaps)? -> domotz-cli fleet unmonitored --agent
+- Which important devices could go down with nobody alerted? -> domotz-cli fleet unalerted --vital-only --agent
 - How many devices of each vendor do we manage? -> domotz-cli fleet breakdown --by vendor --agent
 - Which Collectors have gone quiet (stale sync)? -> domotz-cli fleet stale --agent
 - Find a hostname or IP anywhere in the synced fleet -> domotz-cli search "<query>"
 
 FAQ:
 Q: Does this work with ChatGPT?
-A: Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way domotz-mcp runs, and shares MCP configuration with Codex: add domotz-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote (HTTP) server, and this connector's HTTP mode is paused until it is reprinted; the security note at the top of the install guide explains why. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
+A: Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way domotz-mcp runs, and shares MCP configuration with Codex: add domotz-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote server. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
 Q: Do I need to know how to code?
 A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
 Q: Is my Domotz data safe?
@@ -1471,6 +1505,48 @@ Q: Can the AI change backups or restore data?
 A: No. Every command reads, and restore-test record only writes to a local ledger on your machine. The exception is a portal sign-in link: portal get-login-link, organizations get-support-sso-link, locate --sso-link and evidence --with-sso-link mint one, and a new organization link invalidates the previous one. Over MCP those calls return a preview and mint only when the agent repeats the call with confirm: true. For an agent that should only read, set DROPSUITE_MCP_READ_ONLY=1: the sign-in link tools are removed.
 
 Governance: The skill reads backup status, coverage, seats and organization settings for every client your reseller credential can see, and keeps health snapshots and a restore-test ledger on your machine. It cannot change a backup or run a restore. The one sensitive action is minting a portal sign-in link, which is credential tier: let an agent read freely, and keep a human on sign-in links.
+
+### ESET PROTECT (Security)
+
+Page: [ESET PROTECT](https://msp-skills.compoundingteams.com/skills/eset-protect.md)
+Verification: Awaiting live verification
+Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/eset-protect/install.sh)
+
+Ask your AI which customers have ESET devices that need attention, which machines stopped checking in, who is exposed to a new CVE, and what the morning detection queue looks like, across every customer at once. The CLI syncs your ESET PROTECT tree into a local SQLite mirror, rolls it up per customer, and shows the exact scan, isolate or release task before it is sent.
+
+Outcomes (question -> command your AI agent runs):
+- Which customers have devices that need attention, are muted or stopped checking in? -> eset-protect-cli fleet health
+- What should my techs work first this morning, detections and open incidents together? -> eset-protect-cli triage --since 24h --min-severity medium
+- Which customers and devices are exposed to this CVE, and is a patch available? -> eset-protect-cli exposure --cve CVE-2024-3400
+- Give me one customer's quarter: device health, detections, incidents, top CVEs and patches -> eset-protect-cli report customer "Acme Dental" --since 90d
+- Which devices have not checked in for two weeks, most stale first? -> eset-protect-cli fleet stale --days 14
+- Which security patches are still missing, ranked by the devices and CVE risk they fix? -> eset-protect-cli patches backlog --security-only
+- Is the same file hash showing up at more than one customer this week? -> eset-protect-cli detections spread --since 7d --min-customers 2
+- Isolate this machine from the network (show me the exact task first) -> eset-protect-cli respond isolate "FRONTDESK-01"
+
+FAQ:
+Q: Does this work with ChatGPT?
+A: Yes, on paid ChatGPT plans, if its connector settings can send a bearer token. ChatGPT connects to remote MCP servers over HTTPS, so you run eset-protect-mcp --transport http with ESET_PROTECT_MCP_HTTP_TOKEN set to at least 32 characters on an HTTPS host you control (it refuses to start without the token, and every request must send it). Step-by-step in the install guide.
+Q: Do I need to know how to code?
+A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
+Q: Is my ESET data safe?
+A: Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills.
+Q: What does it cost?
+A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
+Q: What ESET account do I need?
+A: A dedicated ESET Connect API user. A Superuser or Root creates it in ESET PROTECT Hub, ESET Business Account or ESET MSP Administrator 2 and turns on the Integrations toggle; the Superuser or Root account itself cannot be given API access. The new user accepts the invitation email and finishes account setup, and a Hub user must also sign in to ESET PROTECT Hub once. Set ESET_PROTECT_USERNAME and ESET_PROTECT_PASSWORD; the CLI exchanges them for a one-hour token.
+Q: Which region should I set?
+A: Set ESET_PROTECT_REGION to the region of your ESET PROTECT console: eu (the default), de, us, ca or jpn. The jpn region has no quarantine or Cloud Office user API, and no v2 detection list.
+Q: Will this hit ESET Connect rate limits?
+A: ESET Connect allows 10 calls per second for each set of credentials, account and source IP, and answers 429 above that; under its Fair Use Policy a very large burst is slowed to 2 requests per second and the rest is rejected with 50x. The CLI slows down and retries when it sees a 429; set --rate-limit 8 to stay under the limit from the start and keep sync --concurrency low. Slow requests answered with 202 and a response id are polled until --timeout runs out (60 seconds by default). ESET answers 504 to a query that is not ready within 120 seconds, so pass --timeout 3m for large queries and narrow the query if ESET still answers 504.
+Q: Can the AI isolate a machine or change a policy by itself?
+A: The respond commands only print the task unless you add --yes, and over MCP they only preview. Other write commands run when invoked on the command line unless you pass --dry-run. Over MCP, the generic eset-protect_execute tool can reach any state-changing ESET Connect endpoint, but it only previews the call until the call carries confirm: true. For a read-only agent, set ESET_PROTECT_MCP_READ_ONLY=1 in the MCP server's environment: no tool that changes ESET is offered and installer and enrollment links are refused. Keep your AI app's approval prompt on.
+Q: Does it work with on-premises ESET PROTECT?
+A: No. It signs in through the ESET Connect cloud API, so it works with ESET PROTECT (cloud). An on-premises ESET PROTECT server uses a different API and sign-in, which this connector does not support.
+Q: Does it replace the ESET PROTECT console?
+A: No. The console stays the place for policy editing, investigations in ESET Inspect and day-to-day administration. This skill answers the across-every-customer questions and runs previewed actions from your AI agent.
+
+Governance: The skill signs in as the ESET Connect API user you create, so that user's access rights are the real boundary. Reads, reports and the local mirror are safe to allow. Response actions (scan, isolate, release), policy and EDR rule changes, quarantine restores and deletes reach real customer machines and need a human to approve the exact request.
 
 ### Exchange Online (Security)
 
@@ -2154,7 +2230,7 @@ Governance: Read commands (drift, health, coverage, the stale/offline/failure ro
 ### Maxio (Billing)
 
 Page: [Maxio](https://msp-skills.compoundingteams.com/skills/maxio.md)
-Verification: Awaiting live verification
+Verification: Live-verified by Servosity (maintainer) (2026-11-06)
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/maxio/install.sh)
 
 Ask 'what's our MRR, and how did it move last quarter?' and get the New / Expansion / Contraction / Churn / Reactivation waterfall, net and gross revenue retention, per-customer revenue history, and a ranked list of accounts that need attention - in one command, computed offline from a local mirror of your Maxio Advanced Billing data. It is the revenue math the dashboard buries and the live, point-in-time API can't reconstruct after the fact.
@@ -2494,7 +2570,7 @@ Outcomes (question -> command your AI agent runs):
 
 FAQ:
 Q: Does this work with ChatGPT?
-A: Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way pagerduty-mcp runs, and shares MCP configuration with Codex: add pagerduty-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote (HTTP) server, and this connector's HTTP mode is paused until it is reprinted; the security note at the top of the install guide explains why. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
+A: Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way pagerduty-mcp runs, and shares MCP configuration with Codex: add pagerduty-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote server. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
 Q: Do I need to know how to code?
 A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
 Q: Is my PagerDuty data safe?
@@ -3132,7 +3208,7 @@ Governance: The skill drives the sentinelone-cli and sentinelone-mcp binaries, a
 ### Servosity (Backup/DR)
 
 Page: [Servosity](https://msp-skills.compoundingteams.com/skills/servosity.md)
-Verification: Awaiting live verification
+Verification: Live-verified by Servosity (maintainer) (2026-11-06)
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/servosity/install.sh)
 
 MSPs run Servosity as the backup and DR platform - M365, DR Server, and DR Desktop protection across a whole book of clients. Ask your AI "where is my attention needed today", "which backups went stale this week", or "build Acme's QBR backup section" and get fleet-wide answers the per-client dashboard can't compose: ranked attention sweeps, day-over-day drift, ready-to-send stale-backup follow-ups, and the whole book's QBR reports in one pass.

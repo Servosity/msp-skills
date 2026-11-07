@@ -10,6 +10,23 @@
 #                                                       # a bare slug works too)
 #   bash tools/maintainer/verify_all.sh --changed [--base origin/main]
 #                                                       # what this branch changed
+#   bash tools/maintainer/verify_all.sh --full [--changed | --slug S]
+#                                                       # the same scope, the FULL profile
+#
+# Profile. --changed and --slug run the SCOPED profile (decision D1,
+# 2026-11-06): only the maintainer self-tests a change can reach (the
+# dependency set is read from the code by verify_scope.py plan: Python
+# imports and every code file a tool names, never a hand-kept list), the
+# fleet-wide checks that take --slug for the connectors in scope (whole repo
+# when the change touches anything they read that is not an in-scope
+# connector's own file), the connector's Linux build row on this host's own
+# architecture (a linux/arm64 container on Apple silicon, not emulated amd64),
+# and the Windows predictors as plain cross-compiles on this host, compiling
+# windows/amd64 once. CI stays the authority for both things this leaves to
+# it: its native linux/amd64 build row and every self-test run on every PR.
+# No arguments, or --full, runs the FULL profile: exactly the pre-D1 run
+# (every self-test, the emulated linux/amd64 container). The verdict records
+# which profile ran and what it covered, so the two are never confused.
 #
 # Scope. --changed asks CI's own change-set classifier (release_matrix.py) what
 # the change touches, so a change to shared machinery (a workflow, a matrix-row
@@ -59,12 +76,14 @@ export GOENV=off GOWORK=off  # a CI-parity check sets the go.work CI's checkout 
 
 usage() {
   cat <<'USAGE'
-usage: bash tools/maintainer/verify_all.sh [--slug S]... [--changed] [--base REF]
+usage: bash tools/maintainer/verify_all.sh [--slug S]... [--changed] [--full] [--base REF]
                                            [--verdict FILE] [--jobs N] [--keep-logs] [SLUG...]
-  no arguments   the full fleet (every connector, every gate)
-  --slug S       these skills only (repeatable; a bare SLUG works too)
+  no arguments   the full fleet (every connector, every gate), FULL profile
+  --slug S       these skills only (repeatable; a bare SLUG works too), SCOPED profile
   --changed      what this branch changed against --base (default origin/main),
-                 scoped by CI's own classifier (release_matrix.py)
+                 scoped by CI's own classifier (release_matrix.py), SCOPED profile
+  --full         the FULL profile for that scope: every self-test, the emulated
+                 linux/amd64 build row (CI is the authority for both either way)
   --verdict F    where the machine-readable verdict goes (default .verify/verdict.json)
   --jobs N       connectors checked in parallel (default 3, or VERIFY_ALL_JOBS)
   --keep-logs    keep every check's log and print the folder
@@ -73,6 +92,7 @@ USAGE
 
 slugs=()
 changed=0
+full=0
 base="origin/main"
 verdict_path=".verify/verdict.json"
 jobs="${VERIFY_ALL_JOBS:-3}"
@@ -82,6 +102,7 @@ while [ $# -gt 0 ]; do
     --slug)      [ $# -ge 2 ] || { usage >&2; exit 2; }; slugs+=("$2"); shift 2 ;;
     --slug=*)    slugs+=("${1#--slug=}"); shift ;;
     --changed)   changed=1; shift ;;
+    --full)      full=1; shift ;;
     --base)      [ $# -ge 2 ] || { usage >&2; exit 2; }; base="$2"; shift 2 ;;
     --base=*)    base="${1#--base=}"; shift ;;
     --verdict)   [ $# -ge 2 ] || { usage >&2; exit 2; }; verdict_path="$2"; shift 2 ;;
@@ -151,6 +172,7 @@ if [ -z "${VERIFY_ALL_REAL_HEAD:-}" ]; then
   case "$verdict_path" in /*) ;; *) verdict_path="$(pwd)/$verdict_path" ;; esac
   inner=(--base "$base_sha" --verdict "$verdict_path" --jobs "$jobs")
   [ "$changed" -eq 1 ] && inner+=(--changed)
+  [ "$full" -eq 1 ] && inner+=(--full)
   [ "$keep" -eq 1 ] && inner+=(--keep-logs)
   for s in ${slugs[@]+"${slugs[@]}"}; do inner+=(--slug "$s"); done
   echo "verify_all: checking $snap$([ "$dirty" = 1 ] && echo " (HEAD $real_head + the working tree, as git add -A would commit it)")"
@@ -215,6 +237,35 @@ fi
 # A base the scoped checks diff against. The merge base matches CI's
 # BASE...HEAD; an unresolvable base is passed through so each check reports it.
 DIFF_BASE="${MB:-$base}"
+
+# The profile (D1). FULL: no arguments, or --full. SCOPED: --changed or --slug.
+if [ "$full" -eq 1 ] || { [ "$changed" -eq 0 ] && [ ${#slugs[@]} -eq 0 ]; }; then PROFILE=full; else PROFILE=scoped; fi
+export VERIFY_PROFILE="$PROFILE"
+# The maintainer self-tests, each as kind:entry under tools/maintainer (the
+# entry is the file or folder its dependency set is read from).
+SELFTESTS=()
+for t in registry.py check_handfixes.py mcpb_bundle.py check_release_assets.py check_release_pipeline.py \
+         release_matrix.py windows_known_failures.py verify_scope.py check_no_pp_leak.py \
+         check_unix_test_asserts.py check_press_metadata.py check_registry_state.py \
+         check_env_schema.py check_doctor_truth.py; do SELFTESTS+=("py:$t"); done
+SELFTESTS+=(selftest:check_install_docs.py pyI:check_security_gate.py pyI:resolve_registry.py \
+            pyI:merge_when_green.py pyI:stamp_release.py sh:cut_tags.sh py:check_command_tree.py \
+            sh:ci_guards.sh go:credkit_verify)
+# The fleet-wide checks CI runs whole that also take --slug.
+PER_SLUG=(check_env_schema.py check_mcp_registry.py check_handfixes.py check_press_metadata.py check_no_pp_leak.py)
+plan_args=()
+for e in "${SELFTESTS[@]}"; do plan_args+=(--selftest "tools/maintainer/${e#*:}"); done
+for e in "${PER_SLUG[@]}"; do plan_args+=(--fleet "tools/maintainer/$e"); done
+if ! python3 tools/maintainer/verify_scope.py plan --scope "$WORK/scope.json" "${plan_args[@]}" > "$WORK/plan.json" 2> "$WORK/plan.err"; then
+  cat "$WORK/plan.err" >&2
+  echo "VERIFY_ALL: FAIL - could not work out what the change reaches." >&2
+  exit 2
+fi
+pget() { # pget selftests|fleet <entry>: the plan's reason, empty when it does not reach / runs per slug
+  python3 -c 'import json,sys; v=json.load(open(sys.argv[1]))[sys.argv[2]][sys.argv[3]]; print(v or "")' "$WORK/plan.json" "$1" "$2"
+}
+python3 -c 'import json,sys; print("\n".join(json.load(open(sys.argv[1]))["slugs"]))' "$WORK/plan.json" | grep . > "$WORK/plan_slugs.txt"
+echo "  profile:    $PROFILE$([ "$PROFILE" = scoped ] && echo ' (D1: CI runs the linux/amd64 build row and every self-test; --full runs them here)')"
 
 # ------------------------------------------------------------- helpers ----
 in_scope() { grep -qxF "$1" "$WORK/affected.txt"; }
@@ -311,25 +362,53 @@ baseline_confirms() {
 
 warn_rec() { printf '  WARN  %s\n' "$1"; record "$1" repo "" warn 0 /dev/null; }
 
+# fleet_check <name> <kind> <show> <whole-repo flag or ""> <check.py> [args...]
+#   A fleet-wide check CI runs whole that also takes --slug. FULL profile:
+#   today's whole-repo run, unchanged. SCOPED: one run per connector in scope,
+#   unless the plan says it must see the whole repo (a file it reads changed
+#   that is not an in-scope connector's own); with no connector in scope and
+#   nothing it reads changed, it is skipped (CI runs it whole on every PR).
+fleet_check() {
+  local name="$1" kind="$2" show="$3" allf="$4" f="$5" why s
+  shift 5
+  if [ "$PROFILE" = scoped ]; then why="$(pget fleet "tools/maintainer/$f")"; else why=full; fi
+  if [ -n "$why" ]; then
+    [ "$why" = full ] || echo "    ($name runs whole: $why)"
+    gate "$name" "$kind" "" "$show" python3 "tools/maintainer/$f" ${allf:+"$allf"} "$@"
+  elif [ ! -s "$WORK/plan_slugs.txt" ]; then
+    printf '  SKIP  %s - no connector in scope and nothing it reads changed (CI runs it whole)\n' "$name"
+    record "$name" "$kind" "" skip 0 /dev/null
+  else
+    while IFS= read -r s; do
+      gate "$name" scoped "$s" "$show" python3 "tools/maintainer/$f" "$@" --slug "$s"
+    done < "$WORK/plan_slugs.txt"
+  fi
+}
+
 # ------------------------------------------------ maintainer self-tests ----
 echo "== Maintainer gate self-tests (each proved both directions) =="
-for t in registry.py check_handfixes.py mcpb_bundle.py check_release_assets.py check_release_pipeline.py \
-         release_matrix.py windows_known_failures.py verify_scope.py check_no_pp_leak.py \
-         check_unix_test_asserts.py check_press_metadata.py check_registry_state.py \
-         check_env_schema.py check_doctor_truth.py; do
-  gate "self-test $t" repo "" 0 python3 "tools/maintainer/$t" --self-test
+selftest() { # selftest kind:name - one self-test, as CI's guards job runs it
+  local kind="${1%%:*}" t="${1#*:}"
+  case "$kind" in
+    py)       gate "self-test $t" repo "" 0 python3 "tools/maintainer/$t" --self-test ;;
+    pyI)      gate "self-test $t" repo "" 0 python3 -I "tools/maintainer/$t" --self-test ;;
+    selftest) gate "self-test $t" repo "" 0 python3 "tools/maintainer/$t" --selftest ;;
+    sh)       gate "self-test $t" repo "" 0 bash "tools/maintainer/$t" --self-test ;;
+    go)       gate "self-test $t (both directions)" repo "" 0 sh -c "cd tools/maintainer/$t && go vet ./... && go test -race -count=1 ./..." ;;
+  esac
+}
+for e in "${SELFTESTS[@]}"; do
+  if [ "$PROFILE" = full ]; then selftest "$e"; continue; fi
+  why="$(pget selftests "tools/maintainer/${e#*:}")"
+  if [ -n "$why" ]; then
+    echo "    (runs: $why reaches it)"
+    selftest "$e"
+  else
+    n="self-test ${e#*:}"; [ "${e%%:*}" = go ] && n="$n (both directions)"  # the name it runs under
+    printf '  SKIP  %s - nothing this change touches reaches it (CI runs it on every PR)\n' "$n"
+    record "$n" repo "" skip 0 /dev/null
+  fi
 done
-gate "self-test check_install_docs.py" repo "" 0 python3 tools/maintainer/check_install_docs.py --selftest
-# security-gate.yml's own self-test step (summary, workflow pins and diff scope).
-gate "self-test check_security_gate.py" repo "" 0 python3 -I tools/maintainer/check_security_gate.py --self-test
-# ci.yml guards: #422's merge and release tools.
-for t in resolve_registry.py merge_when_green.py stamp_release.py; do
-  gate "self-test $t" repo "" 0 python3 -I "tools/maintainer/$t" --self-test
-done
-gate "self-test cut_tags.sh" repo "" 0 bash tools/maintainer/cut_tags.sh --self-test
-gate "self-test check_command_tree.py" repo "" 0 python3 tools/maintainer/check_command_tree.py --self-test
-gate "self-test ci_guards.sh" repo "" 0 bash tools/maintainer/ci_guards.sh --self-test
-gate "self-test credkit_verify (both directions)" repo "" 0 sh -c 'cd tools/maintainer/credkit_verify && go vet ./... && go test -race -count=1 ./...'
 matrix_sane() {
   python3 tools/maintainer/release_matrix.py \
     | python3 -c 'import json,sys; m=json.load(sys.stdin); assert m["skill"] and m["target"]'
@@ -339,7 +418,7 @@ gate "release matrix is valid JSON with skills + targets" repo "" 0 matrix_sane
 # ------------------------------------------------- fleet-wide (cheap) ----
 echo "== Fleet-wide gates (every skill) =="
 gate "registry state"       fleet "" 0 python3 tools/maintainer/check_registry_state.py --base "${BASE_SHA:-$base}"
-gate "MCP registry schema"  fleet "" 0 python3 tools/maintainer/check_mcp_registry.py
+fleet_check "MCP registry schema" fleet 0 "" check_mcp_registry.py
 gate "skill contract"       fleet "" 0 python3 tools/maintainer/check_skill_contract.py
 gate "markdown links"       fleet "" 0 python3 tools/maintainer/check_md_links.py
 gate "release contract"     fleet "" 0 python3 tools/maintainer/check_release_contract.py
@@ -350,7 +429,7 @@ gate "video assets"         fleet "" 0 python3 tools/maintainer/check_video_asse
 gate "AEO answer-first"     fleet "" 0 python3 tools/maintainer/check_aeo.py
 gate "surface coverage"     fleet "" 0 python3 tools/maintainer/check_surface_coverage.py
 gate "README media block"   fleet "" 0 python3 tools/maintainer/check_media_block.py
-gate "hand-fix ledgers"     fleet "" 0 python3 tools/maintainer/check_handfixes.py
+fleet_check "hand-fix ledgers" fleet 0 "" check_handfixes.py
 gate "copyright uniform"    fleet "" 0 python3 tools/maintainer/check_copyright.py
 gate "install docs"         fleet "" 0 python3 tools/maintainer/check_install_docs.py
 gate "repo hygiene guards"  fleet "" 0 bash tools/maintainer/ci_guards.sh
@@ -361,9 +440,9 @@ gate "repo hygiene guards"  fleet "" 0 bash tools/maintainer/ci_guards.sh
 # before any Windows check here could speak for it.
 gate "paths every OS can check out" repo "" 0 python3 tools/maintainer/verify_scope.py path-collisions
 # ci.yml guards: every connector, rules read from the base (findings carry [slug]).
-gate "manifest env schema" fleet "" 1 python3 tools/maintainer/check_env_schema.py --base "${BASE_SHA:-$base}"
+fleet_check "manifest env schema" fleet 1 "" check_env_schema.py --base "${BASE_SHA:-$base}"
 # ci.yml guards: press/ metadata where present, and the press floor for added connectors.
-gate "press metadata + floor" fleet "" 0 python3 tools/maintainer/check_press_metadata.py --base "${BASE_SHA:-$base}"
+fleet_check "press metadata + floor" fleet 0 "" check_press_metadata.py --base "${BASE_SHA:-$base}"
 if [ "$FULL" = true ]; then
   # Today's full-fleet flags: --strict promotes a stale pin to a failure.
   gate "pinned release artifacts" fleet "" 1 python3 tools/maintainer/check_pinned_artifacts.py --strict
@@ -397,18 +476,23 @@ gate "hand-fix ledger diff" repo "" 0 python3 tools/maintainer/check_handfixes.p
 if [ -n "$MB" ]; then
   gate "DCO sign-off" repo "" 0 env BASE="$MB" HEAD="$(jget head_sha)" bash tools/maintainer/check_dco.sh
 fi
-# Not in CI: the -pp- brand must not reach a user-facing surface. Every
-# connector, every time (the shared catalogs name all of them, and a branch can
-# touch any of them); --base makes it a ratchet, so the fleet's pre-existing
-# leaks are listed, never blocking, and only a new or changed line fails.
-gate "no -pp- leak" scoped "" 1 python3 tools/maintainer/check_no_pp_leak.py --all --base "$DIFF_BASE"
+# The -pp- brand must not reach a user-facing surface (CI's guards job runs
+# the full audit, --all, on every PR). FULL: every connector, every time;
+# SCOPED: whole when a shared catalog it reads changed, else per connector.
+# --base makes it a ratchet, so pre-existing leaks are listed, never
+# blocking, and only a new or changed line fails.
+fleet_check "no -pp- leak" scoped 1 --all check_no_pp_leak.py --base "$DIFF_BASE"
 
 # ------------------------------------------------ per-connector (heavy) ----
 echo "== Per-connector gates ($n_conn connector(s), $jobs at a time) =="
 # CI's Linux build row (build, vet, go test on linux/amd64 with cgo on) runs in
 # that context: natively on such a host, else in a linux/amd64 container,
 # else every connector's Linux checks fail closed. Decided once, here.
-linux_prepare() { # -> VERIFY_LINUX_MODE native | docker | none, VERIFY_LINUX_SRC (the snapshot)
+# SCOPED profile (D1): the same row on this host's OWN architecture, natively
+# on Linux, else in a container of that architecture (linux/arm64 on Apple
+# silicon), never emulated. CI's native linux/amd64 row stays the Linux
+# receipt (ruling 29); --full runs the emulated amd64 container here as well.
+linux_prepare() { # -> VERIFY_LINUX_MODE native | docker | none, VERIFY_LINUX_ARCH, VERIFY_LINUX_SRC (the snapshot)
   # The snapshot is what CI's build job checks out (actions/checkout: depth 1,
   # git metadata included) for the commit under test, on a LINUX disk
   # (case-sensitive, Linux permissions and locking).
@@ -431,7 +515,17 @@ linux_prepare() { # -> VERIFY_LINUX_MODE native | docker | none, VERIFY_LINUX_SR
   if mkdir "$WORK/fsprobe" && touch "$WORK/fsprobe/a" "$WORK/fsprobe/$(printf 'e\314\201')" \
      && [ ! -e "$WORK/fsprobe/A" ] && [ ! -e "$WORK/fsprobe/$(printf '\303\251')" ]; then fs_ok=1; fi
   rm -rf "$WORK/fsprobe"
-  if [ "$(uname -s)" = Linux ] && [ "$(id -u)" != 0 ] && [ "$fs_ok" = 1 ] && [ "$(go env GOARCH 2>/dev/null)" = amd64 ] \
+  # The row's architecture, and the image repository that carries it under a
+  # tag of its own (golang:<v> is amd64 for every --full run; an arm64 pull of
+  # that same tag would re-point it under a concurrent run).
+  VERIFY_LINUX_ARCH=amd64; VERIFY_LINUX_IMAGE=golang
+  if [ "$PROFILE" = scoped ]; then
+    case "$(uname -m)" in
+      arm64|aarch64) VERIFY_LINUX_ARCH=arm64; VERIFY_LINUX_IMAGE=arm64v8/golang ;;
+    esac
+  fi
+  export VERIFY_LINUX_ARCH VERIFY_LINUX_IMAGE
+  if [ "$(uname -s)" = Linux ] && [ "$(id -u)" != 0 ] && [ "$fs_ok" = 1 ] && [ "$(go env GOARCH 2>/dev/null)" = "$VERIFY_LINUX_ARCH" ] \
      && [ "$(CGO_ENABLED=1 go env CGO_ENABLED 2>/dev/null)" = 1 ] && command -v gcc >/dev/null 2>&1; then
     VERIFY_LINUX_MODE=native
     VERIFY_LINUX_SRC="$WORK/repo"
@@ -448,18 +542,18 @@ linux_prepare() { # -> VERIFY_LINUX_MODE native | docker | none, VERIFY_LINUX_SR
                    ${VERIFY_GO_RELEASES:+--releases "$VERIFY_GO_RELEASES"} | cut -f1 | sed 's/^go//'; done \
                | grep -v '^-$' | sort -u); do
       # The same tag can be cached for another platform (an arm64 pull):
-      # only an amd64 image is CI's context.
-      if [ "$(docker image inspect -f '{{.Architecture}}' "golang:${v}-bookworm" 2>/dev/null)" != amd64 ]; then
-        docker pull -q --platform linux/amd64 "golang:${v}-bookworm" >/dev/null 2>&1 \
-          || echo "  could not pull golang:${v}-bookworm for linux/amd64 (offline?): those connectors' Linux checks will fail"
+      # only an image of the row's architecture is its context.
+      if [ "$(docker image inspect -f '{{.Architecture}}' "$VERIFY_LINUX_IMAGE:${v}-bookworm" 2>/dev/null)" != "$VERIFY_LINUX_ARCH" ]; then
+        docker pull -q --platform "linux/$VERIFY_LINUX_ARCH" "$VERIFY_LINUX_IMAGE:${v}-bookworm" >/dev/null 2>&1 \
+          || echo "  could not pull $VERIFY_LINUX_IMAGE:${v}-bookworm for linux/$VERIFY_LINUX_ARCH (offline?): those connectors' Linux checks will fail"
       fi
-      [ -z "$img" ] && img="golang:${v}-bookworm"
+      [ -z "$img" ] && img="$VERIFY_LINUX_IMAGE:${v}-bookworm"
     done
     # The Windows predictors get caches of their own: only they write them, and
     # they run no connector code, so nothing a Linux test does can reach them.
-    for vol in msp-skills-verify-gomod msp-skills-verify-gocache-amd64 msp-skills-verify-gomod-win msp-skills-verify-gocache-win; do
+    for vol in msp-skills-verify-gomod "msp-skills-verify-gocache-$VERIFY_LINUX_ARCH" msp-skills-verify-gomod-win msp-skills-verify-gocache-win; do
       docker volume create "$vol" >/dev/null 2>&1
-      [ -n "$img" ] && docker run --rm --platform linux/amd64 -v "$vol:/v" "$img" \
+      [ -n "$img" ] && docker run --rm --platform "linux/$VERIFY_LINUX_ARCH" -v "$vol:/v" "$img" \
         sh -c '[ "$(stat -c %u:%g /v)" = "$1" ] || chown -R "$1" /v' sh "$VERIFY_LINUX_USER" >/dev/null 2>&1
     done
     # A private volume for this run, removed when it ends. It is filled from a
@@ -470,7 +564,7 @@ linux_prepare() { # -> VERIFY_LINUX_MODE native | docker | none, VERIFY_LINUX_SR
     local seed="$WORK/seed.git"
     # (safe.directory: the seed belongs to this host's user, which the
     # container's user is not when the caller is root)
-    in_volume() { docker run --rm -i --platform linux/amd64 --user "$VERIFY_LINUX_USER" -e HOME=/tmp \
+    in_volume() { docker run --rm -i --platform "linux/$VERIFY_LINUX_ARCH" --user "$VERIFY_LINUX_USER" -e HOME=/tmp \
                     -e GIT_CONFIG_COUNT=1 -e GIT_CONFIG_KEY_0=safe.directory -e GIT_CONFIG_VALUE_0='*' \
                     -v "$seed:/seed:ro" -v "$VERIFY_LINUX_VOLUME:/src" "$img" "$@"; }   # no -w: it resets /src to root
     if ! { [ -n "$img" ] \
@@ -478,7 +572,7 @@ linux_prepare() { # -> VERIFY_LINUX_MODE native | docker | none, VERIFY_LINUX_SR
            && git -C "$seed" fetch -q --depth 1 "file://$(pwd)" "$head" \
            && git -C "$seed" update-ref refs/heads/verify "$head" \
            && docker volume create "$VERIFY_LINUX_VOLUME" >/dev/null \
-           && docker run --rm --platform linux/amd64 -v "$VERIFY_LINUX_VOLUME:/src" "$img" chown "$VERIFY_LINUX_USER" /src \
+           && docker run --rm --platform "linux/$VERIFY_LINUX_ARCH" -v "$VERIFY_LINUX_VOLUME:/src" "$img" chown "$VERIFY_LINUX_USER" /src \
            && in_volume sh -c "git init -q /src && git -C /src fetch -q --depth 1 file:///seed refs/heads/verify \
                                && git -C /src checkout -q --detach FETCH_HEAD"; }; then
       echo "  could not snapshot the repository into a Linux volume: the Linux checks will fail"
@@ -493,7 +587,10 @@ linux_prepare() { # -> VERIFY_LINUX_MODE native | docker | none, VERIFY_LINUX_SR
     VERIFY_LINUX_SRC=""
   fi
   export VERIFY_LINUX_MODE VERIFY_LINUX_SRC
-  echo "  linux build row: $VERIFY_LINUX_MODE$([ "$VERIFY_LINUX_MODE" = docker ] && echo ' (linux/amd64 container on a Linux volume, golang:<go.mod toolchain>, cgo on)')"
+  echo "  linux build row: $VERIFY_LINUX_MODE, linux/$VERIFY_LINUX_ARCH$([ "$VERIFY_LINUX_MODE" = docker ] && echo " (container on a Linux volume, $VERIFY_LINUX_IMAGE:<go.mod toolchain>, cgo on)")"
+  if [ "$PROFILE" = scoped ]; then
+    echo "  windows predictors: GOOS=windows cross-compiles on this host, windows/amd64 compiled once"
+  fi
 }
 if [ "$n_conn" -gt 0 ]; then
   linux_prepare
@@ -698,6 +795,8 @@ if command -v claude >/dev/null 2>&1; then
   for d in skills/*/; do
     s="$(basename "$d")"
     [ -f "$d/.claude-plugin/plugin.json" ] || continue
+    # SCOPED: the skills in scope (each run reads only its own folder; CI validates all).
+    [ "$PROFILE" = full ] || in_scope "$s" || continue
     gate "plugin validate" fleet "$s" 0 claude plugin validate "skills/$s" --strict
   done
 else
@@ -811,11 +910,22 @@ echo ""
 echo "== Verdict =="
 rec_flags=(--expect "$NREC")
 [ "$REC_ERR" -eq 0 ] || rec_flags+=(--record-error)
+if [ "$PROFILE" = full ]; then
+  win_desc="windows/amd64 tree$([ "${VERIFY_LINUX_MODE:-}" = docker ] && echo ' in a linux/amd64 container' || echo ' on this host'), cgo off"
+else
+  win_desc="GOOS=windows cross-compiles on this host, cgo off, windows/amd64 compiled once"
+fi
+[ "$n_conn" -gt 0 ] || win_desc="not run: no connector in scope"
+linux_desc="not run: no connector in scope"
+[ -n "${VERIFY_LINUX_MODE:-}" ] && linux_desc="linux/${VERIFY_LINUX_ARCH:-amd64}, $VERIFY_LINUX_MODE$([ "$VERIFY_LINUX_MODE" = docker ] \
+  && [ "${VERIFY_LINUX_ARCH:-amd64}" = amd64 ] && [ "$(uname -m)" != x86_64 ] && echo ' (emulated)')"
 python3 tools/maintainer/verify_scope.py verdict --scope "$WORK/scope.json" --records "$REC" \
-  --out "$verdict_path" --seconds "$(( $(date +%s) - T0 ))" --started "$STARTED" "${rec_flags[@]}"
+  --out "$verdict_path" --seconds "$(( $(date +%s) - T0 ))" --started "$STARTED" "${rec_flags[@]}" \
+  --profile "$PROFILE" --plan "$WORK/plan.json" --linux-row "$linux_desc" --windows "$win_desc"
 rc=$?
 if [ "$rc" -eq 0 ]; then
-  echo "VERIFY_ALL: PASS - every blocking gate is green."
+  echo "VERIFY_ALL: PASS ($PROFILE profile) - every blocking gate is green.$([ "$PROFILE" = scoped ] \
+    && echo " CI's linux/amd64 row and every self-test still decide the PR.")"
 else
   echo "VERIFY_ALL: FAIL - fix the items marked FAIL above (the verdict lists them)." >&2
   rc=1

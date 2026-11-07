@@ -19,7 +19,11 @@ import (
 // (or the default path when empty), and emits unsynced/stale hints on stderr
 // for the command's primary resource. Use "" for commands that scan all
 // local resources.
-func novelOpenStoreChecked(cmd *cobra.Command, flags *rootFlags, dbPath, primaryResource string) (*store.Store, error) {
+//
+// reads names every resource the command reads; each must be backed by a
+// finished, unfiltered sync (requireFinishedSync, domotz handfix
+// incomplete-snapshot-read-as-complete) or the command refuses.
+func novelOpenStoreChecked(cmd *cobra.Command, flags *rootFlags, dbPath, primaryResource string, reads ...string) (*store.Store, error) {
 	if err := validateDataSourceStrategy(flags, "local"); err != nil {
 		return nil, err
 	}
@@ -28,6 +32,12 @@ func novelOpenStoreChecked(cmd *cobra.Command, flags *rootFlags, dbPath, primary
 		return nil, err
 	}
 	maybeEmitSyncHints(cmd, db, primaryResource, flags.maxAge)
+	for _, r := range reads {
+		if err := requireFinishedSync(db, r); err != nil {
+			_ = db.Close()
+			return nil, err
+		}
+	}
 	return db, nil
 }
 
