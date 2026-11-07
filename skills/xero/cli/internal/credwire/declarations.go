@@ -93,6 +93,17 @@ var Declarations = credkit.Declarations{
 		{Source: "minted:spacefast-page-key", Allowed: []string{"https://api.spacefast.com"}},
 	},
 	Identifiers: []credkit.Identifier{
+		// Xero's edge sets these on API and identity responses to anyone who
+		// connects, signed in or not. This connector sends no cookies (its HTTP
+		// clients have no cookie jar), so none authenticates anything it does;
+		// held, a 452-character ak_bmsc withheld ordinary output that shared any
+		// 8-character piece with it (edge_cookie_test.go).
+		{Source: "cookie:ak_bmsc", Reason: "Akamai Bot Manager cookie set by api.xero.com's edge on every response; authenticates nothing and this connector sends no cookies (no cookie jar)"},
+		{Source: "cookie:bm_sv", Reason: "Akamai Bot Manager cookie set by Xero's edge; authenticates nothing and this connector sends no cookies (no cookie jar)"},
+		{Source: "cookie:bm_sz", Reason: "Akamai Bot Manager cookie set by Xero's edge; authenticates nothing and this connector sends no cookies (no cookie jar)"},
+		{Source: "cookie:bm_mi", Reason: "Akamai Bot Manager cookie set by Xero's edge; authenticates nothing and this connector sends no cookies (no cookie jar)"},
+		{Source: "cookie:_abck", Reason: "Akamai Bot Manager cookie set by Xero's edge; authenticates nothing and this connector sends no cookies (no cookie jar)"},
+		{Source: "cookie:Device", Reason: "device-recognition cookie identity.xero.com sets on every response, the token endpoint included, before any sign-in; authenticates nothing and this connector sends no cookies (no cookie jar)"},
 		{Source: "config:base_url", Reason: "the API base URL; a credential inside it is held as userinfo and query:<name>"},
 		{Source: "config:ca_cert", Reason: "path to a PEM trust bundle, not a credential"},
 		{Source: "config:tls_server_name", Reason: "TLS server name override, a host name"},
