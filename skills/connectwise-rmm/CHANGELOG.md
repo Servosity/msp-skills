@@ -4,7 +4,7 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
-## [0.1.4] - unreleased
+## [0.1.4] - 2026-11-07
 
 ### Security
 - **Rebuilt on Printing Press 4.35.1.** The MCP server's HTTP mode (`connectwise-rmm-mcp --transport http`) now refuses to start until `CONNECTWISE_RMM_MCP_HTTP_TOKEN` is set to at least 32 characters, binds `127.0.0.1:7777` by default, needs `--tls-cert` and `--tls-key` for any other address, limits request size and time, and refuses a browser `Origin` that is not loopback or listed in `CONNECTWISE_RMM_MCP_HTTP_ALLOWED_ORIGINS`. The default stdio transport is unchanged. Remote agents (ChatGPT, Copilot Studio, the Gemini app) can use the hosted HTTPS path again; see [mcp-install.md](./mcp-install.md).

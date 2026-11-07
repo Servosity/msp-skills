@@ -4,7 +4,7 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
-## [0.1.11] - unreleased
+## [0.1.11] - 2026-11-07
 
 ### Changed
 - Regenerated on CLI Printing Press 4.34.2 (security advisory [GHSA-jh26-vhqh-692c](https://github.com/advisories/GHSA-jh26-vhqh-692c)) with mcp-go v0.57.0. MCP HTTP mode needs `DATTO_RMM_MCP_HTTP_TOKEN` (32+ characters), binds `127.0.0.1:7777` by default and needs TLS on any other address. Every MCP write previews and sends only with `confirm: true`. `DATTO_RMM_MCP_READ_ONLY`, `DATTO_RMM_NO_LOCAL_DATA`, `DATTO_RMM_MCP_HTTP_TOKEN` and `DATTO_RMM_USER_AGENT` are declared on every install channel; `DATTO_RMM_TOKEN` is no longer required by the Claude Desktop prompt.

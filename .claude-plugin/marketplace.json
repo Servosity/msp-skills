@@ -293,7 +293,7 @@
       "name": "cork",
       "source": "./skills/cork",
       "description": "Every Cork API operation, plus cross-client risk attribution, exploitability-first vulnerability triage, overdue-compliance detection, and stale-connector health checks that a stateless API mirror cannot answer in a single call.",
-      "version": "0.1.8",
+      "version": "0.1.9",
       "category": "security",
       "tags": [
         "cork",
@@ -370,7 +370,7 @@
       "name": "datto-rmm",
       "source": "./skills/datto-rmm",
       "description": "Every Datto RMM API operation, plus a local SQLite fleet store and fleet-wide analytics no other Datto tool has.",
-      "version": "0.1.10",
+      "version": "0.1.11",
       "category": "rmm",
       "tags": [
         "datto-rmm",
@@ -606,7 +606,7 @@
       "name": "microsoft-graph",
       "source": "./skills/microsoft-graph",
       "description": "The maintained single-binary successor to the retiring mgc \u2014 every MSP-relevant Microsoft Graph surface, plus an offline store that finds wasted licenses, privileged-access risks, and stale devices no single API call can.",
-      "version": "0.2.7",
+      "version": "0.2.8",
       "category": "security",
       "tags": [
         "microsoft-graph",
@@ -1095,7 +1095,7 @@
       "name": "connectwise-rmm",
       "source": "./skills/connectwise-rmm",
       "description": "66 ConnectWise RMM (Asio) partner API operations, plus a local fleet database, patch-compliance rollups, and script runs you can preview, schedule and watch in one command.",
-      "version": "0.1.3",
+      "version": "0.1.4",
       "category": "rmm",
       "tags": [
         "connectwise-rmm",

@@ -4,7 +4,7 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
-## [0.2.8] - unreleased
+## [0.2.8] - 2026-11-07
 
 ### Added
 - **Teams Phone reads.** `phone-numbers list` and `phone-numbers get` show the tenant's Teams telephone numbers with their type, activation and assignment (needs `TeamsTelephoneNumber.Read.All`). `teams-users list` and `teams-users get` show each user's Teams configuration: numbers, Enterprise Voice and effective Teams policy assignments. Both are read-only, read the whole collection (every page, not the first 500 numbers) and work in every tenant the credential reaches.

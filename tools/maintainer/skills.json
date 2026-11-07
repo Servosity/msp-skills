@@ -714,8 +714,8 @@
       "tagline": "Ask your ConnectWise RMM fleet which endpoints are stale, unpatched or failing scripts, across every company at once.",
       "cli_hash": "sha256:5da7c6300f87d0c6168b017afe5d869800758d2415ae250b96b4183e75b21123",
       "template_version": 3,
-      "version": "0.1.3",
-      "cli_hash_at_release": "sha256:1ae1c3d55cdaf4f0cfefd98d68ace836b2bac1cc288a7b59b5855e380032c5e7",
+      "version": "0.1.4",
+      "cli_hash_at_release": "sha256:349288c8ab3ab6c503b421fa6ead1c08fe1148a00947468b7704192c86927d3d",
       "has_video": true,
       "live_verified": {
         "status": "awaiting",
@@ -737,8 +737,8 @@
       "tagline": "Explain why a client's risk score moved, patch by what is actually exploited, and catch the connector that reports healthy while its data went stale.",
       "cli_hash": "sha256:92b4bf6e34dcae5fe6098a5c6b0442b830fbde8af9532a4c64bcd31dbceeb9c1",
       "template_version": 3,
-      "version": "0.1.8",
-      "cli_hash_at_release": "sha256:79246ba3aa5d81621c7553a8b1ac7c2aceb65e0c73f0e12874f8b0627fac528b",
+      "version": "0.1.9",
+      "cli_hash_at_release": "sha256:9ac4a2262cca7a1ab169bf8bd547bf218a820df90b63a4ad27d0c5b7fa84a6bf",
       "has_video": false,
       "install_auth_hint": "Then set your Cork API key: `export CORK_API_KEY=<your key>` (Cork portal > Settings > API Keys), and run `cork-cli doctor` to confirm it works",
       "live_verified": {
@@ -871,8 +871,8 @@
       "tagline": "Fleet-wide Datto RMM answers - stale agents, alert storms, patch and AV gaps - from a local mirror in one ask.",
       "cli_hash": "sha256:93652a449f7460fa8b56f566ac2e4374e866c0c5f12265083bfca72c711cb788",
       "template_version": 3,
-      "version": "0.1.10",
-      "cli_hash_at_release": "sha256:e1a0e7b7680d88e0e04ecf57dce4caaff191aea6c792a183f3fecc9690455729",
+      "version": "0.1.11",
+      "cli_hash_at_release": "sha256:9bc5776f1f73c902167cff8c358837b42b83309fa4fbcdc58faf1205af95ccd8",
       "has_video": true,
       "live_verified": {
         "status": "awaiting",
@@ -1538,8 +1538,8 @@
       "tagline": "Find wasted M365 licenses, audit global admins, and triage Defender alerts by asking.",
       "cli_hash": "sha256:ce050813ad399cf9c1d4d1a5d50bdef87dbbc8cb8940851d72eb09aa7ee9052e",
       "template_version": 3,
-      "version": "0.2.7",
-      "cli_hash_at_release": "sha256:1c41ffd23925ad4a62ccfffd6490226c17aca5a22c18703d07578ffe3ce726a8",
+      "version": "0.2.8",
+      "cli_hash_at_release": "sha256:4692d33ccf7a619fdacbc445a3dc58777a228a84a5a8a4bdab845f73b40e0434",
       "has_video": true,
       "live_verified": {
         "status": "awaiting",
