@@ -5,7 +5,7 @@ description: "Get a non-expert from zero to a Slack-delivered, plain-English, wa
 permalink: /skills/aws-billing/
 skill_name: "AWS MCP"
 image: /assets/social/aws-billing/wide-1200x630.png
-verification: awaiting
+verification: live-verified
 faqs:
   - q: "Is there an MCP server for AWS?"
     a: "Yes - this one. A free, open source MCP server and Claude Code Skill for AWS, built for MSPs. It runs locally on your machine, works with Claude, ChatGPT, Copilot, and any MCP-capable agent, and installs in about 60 seconds."
@@ -42,7 +42,7 @@ howto:
 > under Apache-2.0 - built for the MSP community, vendor-neutral by design.
 > Not affiliated with, endorsed by, or sponsored by Amazon.com, Inc. or its affiliates.
 
-**Passes all 4 mechanical gates** (build · command-surface · claims · install). Awaiting its first MSP receipt - [be the first, 60 seconds →](https://msp-skills.compoundingteams.com/verified/#receipt).
+**✓ Live-verified by Servosity (maintainer)** against a production tenant · 2026-11-06.
 
 Yes - there is an MCP server for AWS. It's free, open source, and runs on your own machine, so your client data stays local unless you route it somewhere yourself. It connects AWS to Claude, ChatGPT, Copilot, or any MCP-capable agent, and installs in about 60 seconds.
 
@@ -187,7 +187,7 @@ Run more than one Billing tool, or comparing options? These connectors work the 
 
 ## Status
 
-Beta. Validated against the AWS API surface and being validated with MSPs running it live against their own production tenants in our weekly **[Build Sessions](https://compoundingteams.com/build-sessions)**.
+Live-verified. Confirmed by Servosity (maintainer) against their own production tenant. More MSPs run it live in our weekly **[Build Sessions](https://compoundingteams.com/build-sessions)**.
 
 Build Sessions are free and stay free - [The Build Room](https://compoundingteams.com) is where the deep work happens.
 

@@ -13,11 +13,11 @@ func TestComputeScorecard(t *testing.T) {
 	devices := []fleetDevice{
 		{Hostname: "a1", SiteName: "Acme", SiteUID: "site-acme", Online: true, CagVersion: "4.5.0",
 			Antivirus:       fleetAntivirus{AntivirusStatus: "Running"},
-			PatchManagement: fleetPatch{PatchesApprovedPending: 0, PatchesNotApproved: 0},
+			PatchManagement: fleetPatch{PatchStatus: "FullyPatched", PatchesApprovedPending: 0, PatchesNotApproved: 0},
 			WarrantyDate:    "2026-06-15"}, // within 90
 		{Hostname: "a2", SiteName: "Acme", SiteUID: "site-acme", Online: false, CagVersion: "4.4.0",
 			Antivirus:       fleetAntivirus{AntivirusStatus: "Not Running"},
-			PatchManagement: fleetPatch{PatchesApprovedPending: 3},
+			PatchManagement: fleetPatch{PatchStatus: "ApprovedPending", PatchesApprovedPending: 3},
 			WarrantyDate:    "2030-01-01"}, // far out
 		{Hostname: "b1", SiteName: "Beta", SiteUID: "site-beta", Online: true, CagVersion: "4.5.0",
 			Antivirus: fleetAntivirus{AntivirusStatus: "Running"}},

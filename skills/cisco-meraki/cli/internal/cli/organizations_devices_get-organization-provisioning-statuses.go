@@ -58,7 +58,7 @@ func newOrganizationsDevicesGetOrganizationProvisioningStatusesCmd(flags *rootFl
 					}
 				}
 				if !validStatus {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagStatus, "status", allowedStatus)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagStatus, "status", allowedStatus))
 				}
 			}
 			if cmd.Flags().Changed("tags-filter-type") {
@@ -71,7 +71,7 @@ func newOrganizationsDevicesGetOrganizationProvisioningStatusesCmd(flags *rootFl
 					}
 				}
 				if !validTagsFilterType {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagTagsFilterType, "tags-filter-type", allowedTagsFilterType)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagTagsFilterType, "tags-filter-type", allowedTagsFilterType))
 				}
 			}
 			path := "/organizations/{organizationId}/devices/provisioning/statuses"

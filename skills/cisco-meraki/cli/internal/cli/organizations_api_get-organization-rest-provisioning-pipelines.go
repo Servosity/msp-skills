@@ -56,7 +56,7 @@ func newOrganizationsApiGetOrganizationRestProvisioningPipelinesCmd(flags *rootF
 					}
 				}
 				if !validSortOrder {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagSortOrder, "sort-order", allowedSortOrder)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagSortOrder, "sort-order", allowedSortOrder))
 				}
 			}
 			if cmd.Flags().Changed("status") {
@@ -69,7 +69,7 @@ func newOrganizationsApiGetOrganizationRestProvisioningPipelinesCmd(flags *rootF
 					}
 				}
 				if !validStatus {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagStatus, "status", allowedStatus)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagStatus, "status", allowedStatus))
 				}
 			}
 			path := "/organizations/{organizationId}/api/rest/provisioning/pipelines"
