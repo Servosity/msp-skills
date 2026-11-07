@@ -280,9 +280,9 @@
     "released_hash": "sha256:491fa94b7c357d0608a42a70c518e5eb25a78a2c7f049736119c3bf37f513825"
   },
   "eset-protect": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.0",
-    "latest_tag": null,
+    "latest_tag": "eset-protect-v0.1.0",
     "current_hash": "sha256:4dbb307b89b31ab70e91fc49f357519308af2698a8556d79a10dc2551500b767",
     "released_hash": "sha256:4dbb307b89b31ab70e91fc49f357519308af2698a8556d79a10dc2551500b767"
   },
