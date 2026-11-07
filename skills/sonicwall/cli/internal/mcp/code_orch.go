@@ -4,11 +4,14 @@
 
 // Package mcp — code-orchestration thin surface.
 //
-// Three tools cover the entire API: <api>_search to discover endpoints,
-// <api>_get to inspect one GET endpoint, and <api>_execute to invoke one.
-// This collapses a large API (50+ endpoints)
-// to ~1K tokens of tool definitions while preserving full coverage — the
-// agent writes the composition logic in its own sandbox.
+// <api>_search discovers endpoints and <api>_get returns registry metadata
+// for one GET. <api>_read calls read-only endpoints (GET reads and
+// codegen-marked read-only POSTs). <api>_execute calls state-changing
+// endpoints and returns a preview until confirm is boolean true. A spec
+// with no state-changing endpoints registers the read tool and omits
+// execute. This collapses a large API (50+ endpoints) to a small tool
+// list while preserving full coverage — the agent writes the composition
+// logic in its own sandbox.
 //
 // Pattern source: Anthropic 2026-04-22 "Building agents that reach
 // production systems with MCP" — Cloudflare's MCP server covers ~2,500
@@ -37,7 +40,7 @@ import (
 func RegisterCodeOrchestrationTools(s *server.MCPServer) {
 	s.AddTool(
 		mcplib.NewTool("sonicwall_search",
-			mcplib.WithDescription("Search the sonicwall API for endpoints matching a natural-language query. Returns a ranked list of {endpoint_id, method, path, summary} entries. Call this first to find the endpoint to execute."),
+			mcplib.WithDescription("Search the sonicwall API for endpoints matching a natural-language query. Returns a ranked list of {endpoint_id, method, path, summary} entries. Call this first to find the endpoint to read or execute."),
 			mcplib.WithString("query", mcplib.Required(), mcplib.Description("Natural-language description of what you want to do.")),
 			mcplib.WithNumber("limit", mcplib.Description("Max endpoints to return (default 10, max 100).")),
 			mcplib.WithReadOnlyHintAnnotation(true),
@@ -57,12 +60,26 @@ func RegisterCodeOrchestrationTools(s *server.MCPServer) {
 		),
 		handleCodeOrchGet,
 	)
-
+	s.AddTool(
+		mcplib.NewTool("sonicwall_read",
+			mcplib.WithDescription("Call one read-only sonicwall API endpoint by its endpoint_id (from sonicwall_search). GET reads and read-only POSTs run immediately. Params are a JSON object; path placeholders and query strings are resolved automatically. State-changing endpoints, including deletes and mutating GETs, are rejected; use sonicwall_execute."),
+			mcplib.WithString("endpoint_id", mcplib.Required(), mcplib.Description("Read-only endpoint identifier returned by sonicwall_search (e.g., \"users.list\").")),
+			mcplib.WithObject("params", mcplib.Description("Parameters for the endpoint. Path placeholders match by name; remaining entries become the query string on GET or the JSON body on a read-only POST.")),
+			mcplib.WithReadOnlyHintAnnotation(true),
+			mcplib.WithDestructiveHintAnnotation(false),
+			mcplib.WithOpenWorldHintAnnotation(true),
+		),
+		handleCodeOrchRead,
+	)
 	s.AddTool(
 		mcplib.NewTool("sonicwall_execute",
-			mcplib.WithDescription("Execute one sonicwall API endpoint by its endpoint_id (from sonicwall_search). Params are passed as a JSON object; path placeholders and query strings are resolved automatically."),
-			mcplib.WithString("endpoint_id", mcplib.Required(), mcplib.Description("Endpoint identifier returned by sonicwall_search (e.g., \"users.list\").")),
+			mcplib.WithDescription("Call one state-changing sonicwall API endpoint by its endpoint_id (from sonicwall_search). DELETE and other mutating calls, including mutating GETs, return a preview and do not run until confirm is boolean true. Params are a JSON object; path placeholders and query strings are resolved automatically. Read-only endpoints are rejected; use sonicwall_read."),
+			mcplib.WithString("endpoint_id", mcplib.Required(), mcplib.Description("State-changing endpoint identifier returned by sonicwall_search (e.g., \"users.delete\").")),
 			mcplib.WithObject("params", mcplib.Description("Parameters for the endpoint. Path placeholders match by name; remaining entries become query string on GET/DELETE or JSON body on POST/PUT/PATCH.")),
+			mcplib.WithBoolean("confirm", mcplib.Description("Set to boolean true to perform the previewed call. Any other value, including the string \"true\", leaves the call as a preview and does not contact the API.")),
+			mcplib.WithReadOnlyHintAnnotation(false),
+			mcplib.WithDestructiveHintAnnotation(true),
+			mcplib.WithOpenWorldHintAnnotation(true),
 		),
 		handleCodeOrchExecute,
 	)
@@ -102,8 +119,18 @@ type codeOrchEndpoint struct {
 	// params object; a strict-mapping API rejects an object at the body
 	// root with HTTP 422 "Invalid json".
 	BodyIsArray bool
-	Mutating    bool
-	keywords    []string
+	// Page carries the GET list paging settings the per-endpoint tools use, so
+	// an over-budget list resumes inside the bounded page instead of handing
+	// the agent the server cursor for the following page (which skips the
+	// rows the bound dropped).
+	Page mcpPageConfig
+	// NeedsConfirm is the read-command classifier's write signal, plus every
+	// DELETE. It stays separate from Mutating: Mutating selects the GET
+	// transport that bypasses the response cache, including GETs the
+	// classifier does not treat as reads.
+	NeedsConfirm bool
+	Mutating     bool
+	keywords     []string
 }
 
 type codeOrchParamBinding struct {
@@ -128,6 +155,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("alerts", "count", "Get alert count.", "/alert/count"),
 	},
@@ -140,6 +168,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("alerts", "list", "Get alerts log data.", "/alert/data"),
 	},
@@ -152,6 +181,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "sn", WireName: "sn"}, {PublicName: "timeLimit", WireName: "timeLimit"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("config_audit", "count", "To get config list count of device / devices for tenants.", "/configaudit/listconfigs/count"),
 	},
@@ -164,6 +194,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "sn1", WireName: "sn1"}, {PublicName: "h1", WireName: "h1"}, {PublicName: "sn2", WireName: "sn2"}, {PublicName: "h2", WireName: "h2"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("config_audit", "diff", "To get config diff.", "/configaudit/diff"),
 	},
@@ -176,6 +207,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "sn", WireName: "sn"}, {PublicName: "timeLimit", WireName: "timeLimit"}, {PublicName: "limit", WireName: "limit"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "page", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("config_audit", "list", "To get config list of device / devices for tenants.", "/configaudit/listconfigs"),
 	},
@@ -188,6 +221,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("device_groups", "get", "Gets device group information by group ID.", "/deviceGroups/{groupId}"),
 	},
@@ -200,6 +234,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "limit", WireName: "limit"}, {PublicName: "friendlyName", WireName: "friendlyName"}, {PublicName: "matchTagType", WireName: "matchTagType"}, {PublicName: "matchTags", WireName: "matchTags", QueryArray: true, QueryStyle: "form", QueryExplode: false}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "page", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("device_groups", "list", "Retrieves list of device groups by tenant.", "/deviceGroups/tenant"),
 	},
@@ -212,6 +248,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "probe", WireName: "probe"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("devices", "get", "Gets device information by device serial number.", "/devices/{serialNumber}"),
 	},
@@ -224,6 +261,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "limit", WireName: "limit"}, {PublicName: "matchTagType", WireName: "matchTagType"}, {PublicName: "matchTags", WireName: "matchTags", QueryArray: true, QueryStyle: "form", QueryExplode: false}, {PublicName: "sortField", WireName: "sortField"}, {PublicName: "sortOrder", WireName: "sortOrder"}, {PublicName: "isAssignedToGroup", WireName: "isAssignedToGroup"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "page", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("devices", "inventory", "Retrieves inventory list of device by tenant.", "/v2/devices/inventory/tenant"),
 	},
@@ -236,6 +275,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("devices", "lifecycle", "Gets product life cycle information by device serial number.", "/devices/productLifeCycle/{serialNumber}"),
 	},
@@ -248,6 +288,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "limit", WireName: "limit"}, {PublicName: "matchTagType", WireName: "matchTagType"}, {PublicName: "matchTags", WireName: "matchTags", QueryArray: true, QueryStyle: "form", QueryExplode: false}, {PublicName: "sortField", WireName: "sortField"}, {PublicName: "sortOrder", WireName: "sortOrder"}, {PublicName: "configModified", WireName: "configModified"}, {PublicName: "deployPending", WireName: "deployPending"}, {PublicName: "isAssignedToGroup", WireName: "isAssignedToGroup"}, {PublicName: "expired", WireName: "expired"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "page", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("devices", "list", "Retrieves list of device by tenant.", "/devices/tenant"),
 	},
@@ -260,6 +302,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("devices", "locations", "Gets Devices info aggregated on location.", "/devices/locations/summary"),
 	},
@@ -272,6 +315,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("devices", "online-status", "Gets online status information by device serial number.", "/devices/online-status/{serialNumber}"),
 	},
@@ -284,6 +328,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("devices", "summary", "Retrieves summary of device list by tenant id.", "/devices/summary"),
 	},
@@ -296,6 +341,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "period", WireName: "period"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("devices", "trend", "Retrieves trend of device list.", "/devices/trend"),
 	},
@@ -308,6 +354,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{{PublicName: "X-DEVICE-ID", WireName: "X-DEVICE-ID"}, {PublicName: "X-TEMPLATE-ID", WireName: "X-TEMPLATE-ID"}, {PublicName: "X-COMMIT-ID", WireName: "X-COMMIT-ID"}, {PublicName: "X-GMS-MODE", WireName: "X-GMS-MODE"}},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firewall", "access-rules", "Retrieve an IPv4 access rule policy. IPv4 access rules (from/to zone, action, source/destination, service, enable).", "/firewall/access-rules/ipv4"),
 	},
@@ -320,6 +367,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{{PublicName: "X-DEVICE-ID", WireName: "X-DEVICE-ID"}, {PublicName: "X-TEMPLATE-ID", WireName: "X-TEMPLATE-ID"}, {PublicName: "X-COMMIT-ID", WireName: "X-COMMIT-ID"}, {PublicName: "X-GMS-MODE", WireName: "X-GMS-MODE"}},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firewall", "address-objects", "Retrieve IPv4 address object configuration.", "/firewall/address-objects/ipv4"),
 	},
@@ -332,6 +380,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{{PublicName: "X-DEVICE-ID", WireName: "X-DEVICE-ID"}, {PublicName: "X-TEMPLATE-ID", WireName: "X-TEMPLATE-ID"}, {PublicName: "X-COMMIT-ID", WireName: "X-COMMIT-ID"}, {PublicName: "X-GMS-MODE", WireName: "X-GMS-MODE"}},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firewall", "administration", "Retrieve administration configuration.", "/firewall/administration/global"),
 	},
@@ -344,6 +393,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{{PublicName: "X-DEVICE-ID", WireName: "X-DEVICE-ID"}, {PublicName: "X-TEMPLATE-ID", WireName: "X-TEMPLATE-ID"}, {PublicName: "X-COMMIT-ID", WireName: "X-COMMIT-ID"}, {PublicName: "X-GMS-MODE", WireName: "X-GMS-MODE"}},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firewall", "license-report", "Retrieve License status.", "/firewall/reporting/license"),
 	},
@@ -356,6 +406,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{{PublicName: "X-DEVICE-ID", WireName: "X-DEVICE-ID"}, {PublicName: "X-TEMPLATE-ID", WireName: "X-TEMPLATE-ID"}, {PublicName: "X-COMMIT-ID", WireName: "X-COMMIT-ID"}, {PublicName: "X-GMS-MODE", WireName: "X-GMS-MODE"}},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firewall", "license-security-services", "Retrieve License status.", "/firewall/reporting/license/security-services"),
 	},
@@ -368,6 +419,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{{PublicName: "X-DEVICE-ID", WireName: "X-DEVICE-ID"}, {PublicName: "X-TEMPLATE-ID", WireName: "X-TEMPLATE-ID"}, {PublicName: "X-COMMIT-ID", WireName: "X-COMMIT-ID"}, {PublicName: "X-GMS-MODE", WireName: "X-GMS-MODE"}},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firewall", "local-groups", "Retrieve user local group configuration.", "/firewall/user/local/groups"),
 	},
@@ -380,6 +432,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{{PublicName: "X-DEVICE-ID", WireName: "X-DEVICE-ID"}, {PublicName: "X-TEMPLATE-ID", WireName: "X-TEMPLATE-ID"}, {PublicName: "X-COMMIT-ID", WireName: "X-COMMIT-ID"}, {PublicName: "X-GMS-MODE", WireName: "X-GMS-MODE"}},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firewall", "local-users", "Retrieve local user configuration. Local users with their one-time-password method (none, OTP via e-mail, or TOTP).", "/firewall/user/local/users"),
 	},
@@ -392,6 +445,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{{PublicName: "X-DEVICE-ID", WireName: "X-DEVICE-ID"}, {PublicName: "X-TEMPLATE-ID", WireName: "X-TEMPLATE-ID"}, {PublicName: "X-COMMIT-ID", WireName: "X-COMMIT-ID"}, {PublicName: "X-GMS-MODE", WireName: "X-GMS-MODE"}},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firewall", "security-services-status", "Retrieve security services status.", "/firewall/reporting/status/security-services"),
 	},
@@ -404,6 +458,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{{PublicName: "X-DEVICE-ID", WireName: "X-DEVICE-ID"}, {PublicName: "X-TEMPLATE-ID", WireName: "X-TEMPLATE-ID"}, {PublicName: "X-COMMIT-ID", WireName: "X-COMMIT-ID"}, {PublicName: "X-GMS-MODE", WireName: "X-GMS-MODE"}},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firewall", "sslvpn-access", "Retrieve SSL VPN server accesses configuration.", "/firewall/ssl-vpn/server/accesses"),
 	},
@@ -416,6 +471,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{{PublicName: "X-DEVICE-ID", WireName: "X-DEVICE-ID"}, {PublicName: "X-TEMPLATE-ID", WireName: "X-TEMPLATE-ID"}, {PublicName: "X-COMMIT-ID", WireName: "X-COMMIT-ID"}, {PublicName: "X-GMS-MODE", WireName: "X-GMS-MODE"}},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firewall", "sslvpn-portal", "Retrieve SSL VPN portal configuration.", "/firewall/ssl-vpn/portal"),
 	},
@@ -428,6 +484,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{{PublicName: "X-DEVICE-ID", WireName: "X-DEVICE-ID"}, {PublicName: "X-TEMPLATE-ID", WireName: "X-TEMPLATE-ID"}, {PublicName: "X-COMMIT-ID", WireName: "X-COMMIT-ID"}, {PublicName: "X-GMS-MODE", WireName: "X-GMS-MODE"}},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firewall", "sslvpn-server", "Retrieve SSL VPN server configuration.", "/firewall/ssl-vpn/server/base"),
 	},
@@ -440,6 +497,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{{PublicName: "X-DEVICE-ID", WireName: "X-DEVICE-ID"}, {PublicName: "X-TEMPLATE-ID", WireName: "X-TEMPLATE-ID"}, {PublicName: "X-COMMIT-ID", WireName: "X-COMMIT-ID"}, {PublicName: "X-GMS-MODE", WireName: "X-GMS-MODE"}},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firewall", "sslvpn-sessions", "Retrieve SSL VPN sessions statistics.", "/firewall/reporting/ssl-vpn/sessions"),
 	},
@@ -452,6 +510,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{{PublicName: "X-DEVICE-ID", WireName: "X-DEVICE-ID"}, {PublicName: "X-TEMPLATE-ID", WireName: "X-TEMPLATE-ID"}, {PublicName: "X-COMMIT-ID", WireName: "X-COMMIT-ID"}, {PublicName: "X-GMS-MODE", WireName: "X-GMS-MODE"}},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firewall", "system-status", "Retrieve system status.", "/firewall/reporting/status/system"),
 	},
@@ -464,6 +523,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{{PublicName: "X-DEVICE-ID", WireName: "X-DEVICE-ID"}, {PublicName: "X-TEMPLATE-ID", WireName: "X-TEMPLATE-ID"}, {PublicName: "X-COMMIT-ID", WireName: "X-COMMIT-ID"}, {PublicName: "X-GMS-MODE", WireName: "X-GMS-MODE"}},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firewall", "user-auth", "Retrieve user authentication base settings.", "/firewall/user/authentication/base"),
 	},
@@ -476,6 +536,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firmware", "available", "Gets new firmware information by device serial number.", "/devices/availableVersions/{serialNumber}"),
 	},
@@ -488,6 +549,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firmware", "available-list", "get available firmware list for serialNumber.", "/firmware/available_list/{serialNumber}"),
 	},
@@ -500,6 +562,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "readType", WireName: "readType"}, {PublicName: "releaseDate", WireName: "releaseDate"}, {PublicName: "releaseType", WireName: "releaseType"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firmware", "devices-on-version", "List the devices running a given firmware version.", "/firmware/version/{fwversion}/devices"),
 	},
@@ -512,6 +575,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firmware", "upgrade-history", "get firmware upgrade status history.", "/firmware/upgrade/history"),
 	},
@@ -524,6 +588,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firmware", "upgrade-status", "get latest firmware-upgrade status for serialNumber.", "/firmware/upgrade-status/{serialNumber}"),
 	},
@@ -536,6 +601,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "applicableDevicesOnly", WireName: "applicableDevicesOnly"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firmware", "version-list", "get firmware version list.", "/firmware/versionlist"),
 	},
@@ -548,6 +614,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("licenses", "expired", "Retrieves list of device with expired licenses by tenant.", "/v2/devices/licenses/expired"),
 	},
@@ -560,6 +627,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "service", WireName: "service"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("licenses", "expiring", "Gets License expiration summary.", "/devices/licenses/summary/expiration/{numberOfDays}"),
 	},
@@ -572,6 +640,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("licenses", "get", "Gets license information by device serial number.", "/v2/devices/licenses/{serialNumber}"),
 	},
@@ -584,6 +653,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("licenses", "service-status", "Gets whether license in enabled for this service of this serial number.", "/devices/licenses/status/{serialNumber}/{serviceCode}"),
 	},
@@ -596,6 +666,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("licenses", "services", "Gets status of services for a serial number.", "/devices/licenses/status/services/{serialNumber}"),
 	},
@@ -608,6 +679,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "activityId", WireName: "activityId"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("msw_activity", "detail", "View user activity log details.", "https://api.mysonicwall.com/api/user/activity-complete-details"),
 	},
@@ -620,6 +692,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("msw_activity", "export", "View user activity logs for all the users from organization.", "https://api.mysonicwall.com/api/user/export-activity-log-details"),
 	},
@@ -632,6 +705,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("msw_licenses", "usage-report", "License report.", "https://api.mysonicwall.com/api/mssp/getmsspusageReport"),
 	},
@@ -644,6 +718,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "TenantID", WireName: "TenantID"}, {PublicName: "serviceid", WireName: "serviceid"}, {PublicName: "serialnumber", WireName: "serialnumber"}, {PublicName: "Mode", WireName: "Mode"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("msw_products", "applicable-services", "Gets List of Applicable Products, Services and DataCenter Details for Provisioning a Prodduct or Editing a Provision.", "https://api.mysonicwall.com/api/mssp/applicable-mssp-product-services"),
 	},
@@ -656,6 +731,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "username", WireName: "username"}, {PublicName: "swLangCode", WireName: "swLangCode"}, {PublicName: "appName", WireName: "appName"}, {PublicName: "oemCode", WireName: "oemCode"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("msw_products", "firmware", "Get a product firmware versions, including latest available firmware.", "https://api.mysonicwall.com/api/downloads/{serialnumber}"),
 	},
@@ -668,6 +744,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("msw_products", "list", "Get a list of Products.", "https://api.mysonicwall.com/api/users/productlist-customer"),
 	},
@@ -680,6 +757,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "serial", WireName: "serial"}, {PublicName: "equoteid", WireName: "equoteid"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("msw_products", "services", "Get product details like license type, node counts and expiry date.", "https://api.mysonicwall.com/api/product/serviceInfo"),
 	},
@@ -692,6 +770,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "appName", WireName: "appName"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("msw_system", "version", "GET /api/version.", "https://api.mysonicwall.com/api/version"),
 	},
@@ -704,6 +783,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("msw_tenants", "access-code", "Get the access code to generate API keys from your cloud subscriptions. Step 2 of the NSM token exchange.", "https://api.mysonicwall.com/api/generate-cscAccessCode"),
 	},
@@ -716,6 +796,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "productGroupId", WireName: "productGroupId"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("msw_tenants", "address", "Get tenant address information.", "https://api.mysonicwall.com/api/products/get-tenant-address-info"),
 	},
@@ -728,6 +809,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "username", WireName: "username"}, {PublicName: "isforced", WireName: "isforced"}, {PublicName: "bisfromCSC2", WireName: "bisfromCSC2"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("msw_tenants", "cloud", "Get the list of tenantIds for all active cloud subscriptions. Step 1 of the NSM token exchange.", "https://api.mysonicwall.com/api/hgms/get-cloud-tenants"),
 	},
@@ -740,6 +822,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "userName", WireName: "userName"}, {PublicName: "productgroupid", WireName: "productgroupid"}, {PublicName: "callerService", WireName: "callerService"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("msw_tenants", "firewalls", "Returns a list of eligible firewalls for a given tenantId (productgroupId).", "https://api.mysonicwall.com/api/hgms/get-firewalls"),
 	},
@@ -752,6 +835,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "isforced", WireName: "isforced"}, {PublicName: "allMSSP", WireName: "allMSSP"}, {PublicName: "allTenant", WireName: "allTenant"}, {PublicName: "nonMSSPTenant", WireName: "nonMSSPTenant"}, {PublicName: "varsource", WireName: "varsource"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("msw_tenants", "list", "Get a list of tenants.", "https://api.mysonicwall.com/api/mssp/get-mssp-prefilter"),
 	},
@@ -764,6 +848,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("msw_users", "groups", "Get a list of user groups.", "https://api.mysonicwall.com/api/users/get-usergroup-details-for-users"),
 	},
@@ -776,6 +861,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "bRecAdded", WireName: "bRecAdded"}, {PublicName: "isFromMssp", WireName: "isFromMssp"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("msw_users", "list", "Get a list of users and associated user groups.", "https://api.mysonicwall.com/api/users/get-user-list"),
 	},
@@ -788,6 +874,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("nsm_session", "refresh", "Provides a new session token. Invalidates the old token.", "/auth/refreshSessionToken"),
 	},
@@ -800,6 +887,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("nsm_session", "sso", "GET SSO token from URL for user authentication. NSM will return Bearer Token after successful login.", "/auth/sso"),
 	},
@@ -812,6 +900,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("nsm_system", "health", "GET /healthcheck. Unauthenticated; returns status.info[0].message HEALTH OK when NSM is up.", "/healthcheck"),
 	},
@@ -824,6 +913,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("nsm_system", "status", "Show the system status.", "/system/status"),
 	},
@@ -836,6 +926,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("nsm_system", "version", "Get version. Unauthenticated; returns productName, version and buildVersion of the NSM SaaS instance.", "/appVersion"),
 	},
@@ -848,6 +939,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("tenants", "by-serial", "To get tenant by serial.", "/tenants/serial/{serial}"),
 	},
@@ -860,6 +952,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("tenants", "count", "To get tenants count.", "/tenants/count"),
 	},
@@ -872,6 +965,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("tenants", "default", "To get defaut tenant.", "/tenants/getDefaultTenant"),
 	},
@@ -884,6 +978,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("tenants", "get", "To get tenant by id.", "/tenants/id/{id}"),
 	},
@@ -896,6 +991,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "query", WireName: "query"}, {PublicName: "size", WireName: "size"}, {PublicName: "sortOrder", WireName: "sortOrder"}, {PublicName: "sortField", WireName: "sortField"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "page", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("tenants", "list", "To get all tenants.", "/tenants"),
 	},
@@ -908,6 +1005,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "firmwareVersion", WireName: "firmwareVersion"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("vulnerabilities", "by-firmware", "Get vulnerable devices by firmware version. Advisories that apply to one SonicOS firmware version string.", "/devices/vulnerableFirmware"),
 	},
@@ -920,6 +1018,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("vulnerabilities", "devices", "Get vulnerable devices by tenant IDs.", "/devices/vulnerable"),
 	},
@@ -932,6 +1031,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("vulnerabilities", "serials", "Get device serialNumbers with vulnerable exp by tenant IDs.", "/devices/vul-exp"),
 	},
@@ -981,6 +1081,10 @@ func codeOrchEndpointMetadata(ep *codeOrchEndpoint) map[string]any {
 		"method":      ep.Method,
 		"path":        ep.Path,
 		"summary":     ep.Summary,
+	}
+	// next_cursor comes back in params under this endpoint's page cursor name.
+	if ep.Page.CursorParam != "" {
+		out["cursor_param"] = ep.Page.CursorParam
 	}
 	return out
 }
@@ -1078,10 +1182,31 @@ func handleCodeOrchGet(ctx context.Context, req mcplib.CallToolRequest) (*mcplib
 }
 
 func codeOrchBlockedByMCPReadOnly(method string) bool {
-	return cliutil.IsMCPReadOnlyEnv() && method != "GET"
+	return cliutil.IsMCPReadOnlyEnv() && !strings.EqualFold(strings.TrimSpace(method), "GET")
+}
+
+// codeOrchRefuseForReadOnlySwitch reports calls the MCP read-only env must
+// reject before a client is built. Mutating GETs are writes even though the
+// verb is GET. _execute also refuses every non-GET, including read-only POSTs.
+func codeOrchRefuseForReadOnlySwitch(ep *codeOrchEndpoint, method string, executeTool bool) bool {
+	if !cliutil.IsMCPReadOnlyEnv() {
+		return false
+	}
+	if method == "DELETE" || ep.NeedsConfirm || ep.Mutating {
+		return true
+	}
+	return executeTool && codeOrchBlockedByMCPReadOnly(method)
+}
+
+func handleCodeOrchRead(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.CallToolResult, error) {
+	return codeOrchInvoke(ctx, req, false)
 }
 
 func handleCodeOrchExecute(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.CallToolResult, error) {
+	return codeOrchInvoke(ctx, req, true)
+}
+
+func codeOrchInvoke(ctx context.Context, req mcplib.CallToolRequest, executeTool bool) (*mcplib.CallToolResult, error) {
 	args := req.GetArguments()
 	id, ok := args["endpoint_id"].(string)
 	if !ok || id == "" {
@@ -1092,8 +1217,9 @@ func handleCodeOrchExecute(ctx context.Context, req mcplib.CallToolRequest) (*mc
 	if ep == nil {
 		return mcplib.NewToolResultError(fmt.Sprintf("unknown endpoint_id %q — call sonicwall_search to discover valid ids", id)), nil
 	}
-	if codeOrchBlockedByMCPReadOnly(ep.Method) {
-		return mcplib.NewToolResultError(fmt.Sprintf("refusing %s %s while %s=1", ep.Method, id, cliutil.MCPReadOnlyEnvVar)), nil
+	method := codeOrchNormalizeMethod(ep.Method)
+	if codeOrchRefuseForReadOnlySwitch(ep, method, executeTool) {
+		return mcplib.NewToolResultError(fmt.Sprintf("refusing %s %s while %s=1", method, id, cliutil.MCPReadOnlyEnvVar)), nil
 	}
 
 	params, _ := args["params"].(map[string]any)
@@ -1141,11 +1267,32 @@ func handleCodeOrchExecute(ctx context.Context, req mcplib.CallToolRequest) (*mc
 		hdrs = nil
 	}
 
+	// An opaque MCP cursor from a bounded page resumes that page; a raw
+	// upstream cursor is sent as-is and anchors any local continuation.
+	mcpCursor, requestCursor := "", ""
+	if method == "GET" && ep.Page.CursorParam != "" {
+		// Offset- and page-numbered APIs take numbers here, so stringify before decoding.
+		if v, ok := params[ep.Page.CursorParam]; ok && v != nil {
+			if s := formatMCPParamValue(v); s != "" {
+				if upstream, err := bound.UpstreamCursor(s); err == nil {
+					mcpCursor, requestCursor = s, upstream
+					if upstream == "" {
+						delete(params, ep.Page.CursorParam)
+					} else {
+						params[ep.Page.CursorParam] = upstream
+					}
+				} else {
+					requestCursor = s
+				}
+			}
+		}
+	}
+
 	// Route params to their runtime slots. GET/DELETE params are query
 	// strings; write methods split spec-declared query params from the
 	// remaining params used as the request body below.
 	query := map[string]string{}
-	if ep.Method == "GET" || ep.Method == "DELETE" {
+	if method == "GET" || method == "DELETE" {
 		path = codeOrchSplitQuery(path, ep.QueryParams, params)
 		for k, v := range params {
 			query[codeOrchWireQueryName(ep.QueryParams, k)] = formatMCPParamValue(v)
@@ -1165,8 +1312,52 @@ func handleCodeOrchExecute(ctx context.Context, req mcplib.CallToolRequest) (*mc
 		}
 		return codeOrchWriteBody(params)
 	}
+	// Confirm after path and query resolution so a path param or fixed query
+	// selector cannot retarget a read onto a gated endpoint without confirm.
+	// Only a top-level boolean true counts; the string "true" stays a preview.
+	resolvedPath := path
+
+	resolvedPath = codeOrchPreviewPath(path, c.Config.TemplateVars)
+
+	gated := codeOrchResolvedNeedsConfirm(ep, method, resolvedPath, query)
+	if cliutil.IsMCPReadOnlyEnv() && gated {
+		return mcplib.NewToolResultError(fmt.Sprintf("refusing %s %s while %s=1", method, id, cliutil.MCPReadOnlyEnvVar)), nil
+	}
+	if executeTool {
+		if !gated {
+
+			return mcplib.NewToolResultError(fmt.Sprintf("endpoint_id %q is read-only; call sonicwall_read", id)), nil
+
+		}
+		if !codeOrchConfirmAccepted(args["confirm"]) {
+			previewBody := any(nil)
+			if method != "GET" && method != "DELETE" {
+				previewBody = writeBody()
+			}
+
+			preview := map[string]any{
+				"preview":               true,
+				"confirmation_required": true,
+				"endpoint_id":           ep.ID,
+				"method":                method,
+				"path":                  resolvedPath,
+				"query":                 query,
+				"body":                  previewBody,
+			}
+			text, previewErr := bound.JSON(preview)
+			if previewErr != nil {
+				return mcplib.NewToolResultError(fmt.Sprintf("encoding confirmation preview: %v", previewErr)), nil
+			}
+			return mcplib.NewToolResultText(text), nil
+		}
+	} else if gated {
+
+		return mcplib.NewToolResultError(fmt.Sprintf("resolved %s %s changes state; call sonicwall_execute with confirm set to boolean true", method, resolvedPath)), nil
+
+	}
+	path = resolvedPath
 	var data json.RawMessage
-	switch ep.Method {
+	switch method {
 	case "GET":
 		if len(hdrs) > 0 {
 			if ep.Mutating {
@@ -1209,12 +1400,22 @@ func handleCodeOrchExecute(ctx context.Context, req mcplib.CallToolRequest) (*mc
 			data, _, err = c.Patch(ctx, path, body)
 		}
 	default:
-		return mcplib.NewToolResultError(fmt.Sprintf("unsupported method %q", ep.Method)), nil
+		return mcplib.NewToolResultError(fmt.Sprintf("unsupported method %q", method)), nil
 	}
 	if err != nil {
 		return mcplib.NewToolResultError(err.Error()), nil
 	}
-	text := bound.EndpointResponse(ep.Method, data)
+	var text string
+	if method == "GET" && (ep.Page.CursorParam != "" || ep.Page.NextCursorPath != "") {
+		text = bound.EndpointPageResponse(method, data, bound.PageOptions{
+			Cursor:         mcpCursor,
+			CursorParam:    ep.Page.CursorParam,
+			NextCursorPath: ep.Page.NextCursorPath,
+			RequestCursor:  requestCursor,
+		})
+	} else {
+		text = bound.EndpointResponse(method, data)
+	}
 	if platformSession != nil {
 		text = bound.WithMetadata(text, platformSession.OutputMetadata())
 	}
@@ -1292,4 +1493,198 @@ func codeOrchWireQueryName(queryParams []codeOrchParamBinding, name string) stri
 		}
 	}
 	return name
+}
+
+func codeOrchNormalizeMethod(method string) string {
+	return strings.ToUpper(strings.TrimSpace(method))
+}
+
+func codeOrchConfirmAccepted(v any) bool {
+	confirmed, ok := v.(bool)
+	return ok && confirmed
+}
+
+func codeOrchPreviewPath(path string, templateVars map[string]string) string {
+	if len(templateVars) == 0 || !strings.Contains(path, "{") {
+		return path
+	}
+	names := make([]string, 0, len(templateVars))
+	for name := range templateVars {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	for _, name := range names {
+		value := templateVars[name]
+		if name == "" || value == "" {
+			continue
+		}
+		path = strings.ReplaceAll(path, "{"+name+"}", neturl.PathEscape(value))
+	}
+	return path
+}
+
+func codeOrchResolvedNeedsConfirm(selected *codeOrchEndpoint, method, resolvedPath string, query map[string]string) bool {
+	method = codeOrchNormalizeMethod(method)
+	if method == "DELETE" || selected.NeedsConfirm || selected.Mutating {
+		return true
+	}
+	effective := codeOrchEffectiveQuery(resolvedPath, query)
+	resolvedBase := codeOrchPathBase(resolvedPath)
+	// A literal route is the destination when a placeholder route also
+	// matches. POST /reports/search stays a read even though POST
+	// /reports/{id} matches the same path.
+	selectedMatches := codeOrchRequestMatchesEndpoint(selected.Path, resolvedBase, effective)
+	selectedSpecificity := codeOrchPatternSpecificity(selected.Path)
+	for i := range codeOrchEndpoints {
+		other := &codeOrchEndpoints[i]
+		if other == selected {
+			continue
+		}
+		if !other.NeedsConfirm && !other.Mutating && codeOrchNormalizeMethod(other.Method) != "DELETE" {
+			continue
+		}
+		if codeOrchNormalizeMethod(other.Method) != method {
+			continue
+		}
+		if !codeOrchRequestMatchesEndpoint(other.Path, resolvedBase, effective) {
+			continue
+		}
+		if selectedMatches && selectedSpecificity > codeOrchPatternSpecificity(other.Path) {
+			continue
+		}
+		return true
+	}
+	return codeOrchFixedQueryOverridden(selected.Path, effective)
+}
+
+func codeOrchPatternSpecificity(pattern string) int {
+	base := strings.Trim(codeOrchPathBase(pattern), "/")
+	if base == "" {
+		return 0
+	}
+	score := 0
+	for _, seg := range strings.Split(base, "/") {
+		if len(seg) >= 2 && seg[0] == '{' && seg[len(seg)-1] == '}' {
+			continue
+		}
+		score++
+	}
+	return score
+}
+
+func codeOrchPathBase(path string) string {
+	if i := strings.Index(path, "?"); i >= 0 {
+		return path[:i]
+	}
+	return path
+}
+
+func codeOrchEffectiveQuery(path string, query map[string]string) neturl.Values {
+	vals := neturl.Values{}
+	if i := strings.Index(path, "?"); i >= 0 && i+1 < len(path) {
+		if parsed, err := neturl.ParseQuery(path[i+1:]); err == nil {
+			for key, items := range parsed {
+				for _, item := range items {
+					vals.Add(key, item)
+				}
+			}
+		}
+	}
+	for key, value := range query {
+		vals.Add(key, value)
+	}
+	return vals
+}
+
+func codeOrchFixedQueryOverridden(pattern string, effective neturl.Values) bool {
+	_, raw, ok := strings.Cut(pattern, "?")
+	if !ok || raw == "" {
+		return false
+	}
+	fixed, err := neturl.ParseQuery(raw)
+	if err != nil {
+		return false
+	}
+	for name, want := range fixed {
+		got, exists := effective[name]
+		if !exists {
+			continue
+		}
+		for _, value := range got {
+			matched := false
+			for _, allowed := range want {
+				if value == allowed {
+					matched = true
+					break
+				}
+			}
+			if !matched {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func codeOrchRequestMatchesEndpoint(pattern, resolvedBase string, effective neturl.Values) bool {
+	patternBase, patternQuery, _ := strings.Cut(pattern, "?")
+	if !codeOrchSegmentsMatch(patternBase, resolvedBase) {
+		return false
+	}
+	if patternQuery == "" {
+		return true
+	}
+	fixed, err := neturl.ParseQuery(patternQuery)
+	if err != nil {
+		return false
+	}
+	for key, want := range fixed {
+		got := effective[key]
+		if len(got) == 0 {
+			return false
+		}
+		for _, value := range want {
+			found := false
+			for _, have := range got {
+				if have == value {
+					found = true
+					break
+				}
+			}
+			if !found {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+func codeOrchSegmentsMatch(pattern, resolved string) bool {
+	pattern = strings.Trim(pattern, "/")
+	resolved = strings.Trim(resolved, "/")
+	if pattern == "" || resolved == "" {
+		return pattern == resolved
+	}
+	patternSegs := strings.Split(pattern, "/")
+	resolvedSegs := strings.Split(resolved, "/")
+	if len(patternSegs) != len(resolvedSegs) {
+		return false
+	}
+	for i := range patternSegs {
+		seg := patternSegs[i]
+		if len(seg) >= 2 && seg[0] == '{' && seg[len(seg)-1] == '}' {
+			if resolvedSegs[i] == "" {
+				return false
+			}
+			continue
+		}
+		got := resolvedSegs[i]
+		if unescaped, err := neturl.PathUnescape(got); err == nil {
+			got = unescaped
+		}
+		if seg != got {
+			return false
+		}
+	}
+	return true
 }

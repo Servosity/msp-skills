@@ -41,7 +41,7 @@ func newVulnerabilitiesByFirmwareCmd(flags *rootFlags) *cobra.Command {
 				return cmd.Help()
 			}
 			if !cmd.Flags().Changed("firmware-version") && flagFirmwareVersion == "" && !requiredInputWaived() {
-				return fmt.Errorf("required flag \"%s\" not set", "firmware-version")
+				return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "firmware-version"))
 			}
 			path := "/devices/vulnerableFirmware"
 			c, err := flags.newClient()

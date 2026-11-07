@@ -4,6 +4,18 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.1.4] - unreleased
+
+### Security
+- **Rebuilt on Printing Press 4.35.1 ([GHSA-jh26-vhqh-692c](https://github.com/advisories/GHSA-jh26-vhqh-692c)).** The MCP server's HTTP mode now listens on `127.0.0.1:7777` by default, refuses to start until `SONICWALL_MCP_HTTP_TOKEN` is set (at least 32 characters), requires `Authorization: Bearer <token>` on every request, and needs `--tls-cert` and `--tls-key` for any address other than loopback. Web-only AI apps (ChatGPT on the web, Copilot Studio, the Gemini app) are still not supported by msp-skills; [mcp-install.md](./mcp-install.md) documents HTTP mode for reference.
+- Each credential now goes only to its own service: the MySonicWall API key only to MySonicWall and the NSM token only to NSM, including when a request is redirected or a base URL override is set.
+- Over MCP, the tools that sign in or can change state (`nsm_login`, `nsm_get`, `import`, and the NSM token exchange and refresh endpoints) return a preview and run only when called again with `confirm` set to `true`.
+
+### Fixed
+- `posture` and `exposure` decide whether SSL-VPN is reachable from the internet by each zone's security type (`untrusted`), not its name: a WAN zone with any name is graded, and a trusted zone whose name contains WAN is not reported as exposed. A name containing WAN counts only when a zone's type is not reported.
+- `blind-spots` never reports "every registered firewall is visible" when nothing was compared: an empty registry, or one with no firewall to compare (pass `--all-products` to include access points and other products), exits 3 and says so.
+- `--tenant` no longer silently skips a firewall whose tenant NSM did not report (so `licenses renewals --tenant` could miss one): the command stops, says how many firewalls report no tenant, and suggests rerunning without `--tenant` or with `--serial`.
+
 ## [0.1.3] - 2026-10-23
 
 ### Changed

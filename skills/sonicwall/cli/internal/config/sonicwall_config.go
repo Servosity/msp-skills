@@ -10,6 +10,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"sonicwall-pp-cli/internal/credkit"
 )
 
 // NSMLogin records which NSM tenant the saved token belongs to. nsm-login
@@ -69,7 +71,7 @@ func (c *Config) SaveNSMLogin(l NSMLogin, token string) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		return err
 	}
-	return os.WriteFile(path, data, 0o600)
+	return credkit.WriteFile(path, data, 0o600) // Hand-fix (handfixes.json credkit-wiring)
 }
 
 // The NSM token rotates every 8 hours, and the default local database is

@@ -84,7 +84,15 @@ func fetchFleet(ctx context.Context, c *client.Client, tenant, serial string) ([
 		}
 	}
 	out := make([]fleetDevice, 0, len(all))
+	untenanted := 0
 	for _, d := range all {
+		if tenant != "" && strings.TrimSpace(d.TenantID) == "" {
+			// NSM's device_list documents tenantId as optional: a firewall that does not
+			// report it may belong to --tenant, so the scope cannot be decided (Codex review
+			// 2026-11-02 round 1, absent filter field silently excludes devices).
+			untenanted++
+			continue
+		}
 		if tenant != "" && !strings.EqualFold(d.TenantID, tenant) {
 			continue
 		}
@@ -92,6 +100,9 @@ func fetchFleet(ctx context.Context, c *client.Client, tenant, serial string) ([
 			continue
 		}
 		out = append(out, d)
+	}
+	if untenanted > 0 {
+		return nil, fmt.Errorf("%d of %d NSM firewalls report no tenantId, so --tenant %q cannot tell whether they belong to it; rerun without --tenant, or with --serial", untenanted, len(all), tenant)
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].SerialNumber < out[j].SerialNumber })
 	return out, nil

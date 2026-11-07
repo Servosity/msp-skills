@@ -37,7 +37,7 @@ func newTenantsListCmd(flags *rootFlags) *cobra.Command {
 					}
 				}
 				if !validSortOrder {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagSortOrder, "sort-order", allowedSortOrder)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagSortOrder, "sort-order", allowedSortOrder))
 				}
 			}
 			if cmd.Flags().Changed("sort-field") {
@@ -50,7 +50,7 @@ func newTenantsListCmd(flags *rootFlags) *cobra.Command {
 					}
 				}
 				if !validSortField {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagSortField, "sort-field", allowedSortField)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagSortField, "sort-field", allowedSortField))
 				}
 			}
 			path := "/tenants"

@@ -47,10 +47,10 @@ func newNsmSessionSsoCmd(flags *rootFlags) *cobra.Command {
 			}
 			if !stdinBody {
 				if !cmd.Flags().Changed("code") && bodyCode == "" && !requiredInputWaived() {
-					return fmt.Errorf("required flag \"%s\" not set", "code")
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "code"))
 				}
 				if !cmd.Flags().Changed("tenantserial") && bodyTenantserial == "" && !requiredInputWaived() {
-					return fmt.Errorf("required flag \"%s\" not set", "tenantserial")
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "tenantserial"))
 				}
 			}
 			path := "/auth/sso"

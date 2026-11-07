@@ -89,7 +89,7 @@ Do not use this CLI for:
   ```
 
 ### Patch and exposure
-- **`exposure`**  -  Rank the SonicWall PSIRT advisories NSM matched to your fleet, or name one advisory (SNWLID ID) to list every affected firewall and whether SSL-VPN is enabled on a zone whose name contains WAN; a CVE ID only matches when NSM's advisory text names it.
+- **`exposure`**  -  Rank the SonicWall PSIRT advisories NSM matched to your fleet, or name one advisory (SNWLID ID) to list every affected firewall and whether SSL-VPN is enabled on an internet-facing zone (security type untrusted; a name containing WAN counts only when the zone's type is not reported); a CVE ID only matches when NSM's advisory text names it.
 
   _Use it the moment a SonicWall advisory drops (for example CVE-2024-40766) to pick the firewalls that need tonight's change window._
 
@@ -112,6 +112,8 @@ Do not use this CLI for:
   ```bash
   sonicwall-cli posture changes --fleet --since 7d --agent
   ```
+
+`--ca-cert`, `SONICWALL_CA_CERT`, or `ca_cert` adds a PEM CA bundle to the system trust roots. `--tls-server-name`, `SONICWALL_TLS_SERVER_NAME`, or `tls_server_name` is the name checked against the certificate. Precedence is flag, then environment, then the config file. A config file other users can change does not supply these settings. `doctor` reports the trust in use and names the setting that fixes a chain or hostname failure.
 
 ## Command Reference
 
@@ -249,7 +251,7 @@ Do not use this CLI for:
 **exposure**
 
 
-- `sonicwall-cli exposure`  -  Rank the SonicWall PSIRT advisories NSM matched to your fleet, or name one advisory (SNWLID ID) to list every affected firewall and whether SSL-VPN is enabled on a zone whose name contains WAN; a CVE ID only matches when NSM's advisory text names it.
+- `sonicwall-cli exposure`  -  Rank the SonicWall PSIRT advisories NSM matched to your fleet, or name one advisory (SNWLID ID) to list every affected firewall and whether SSL-VPN is enabled on an internet-facing zone (security type untrusted; a name containing WAN counts only when the zone's type is not reported); a CVE ID only matches when NSM's advisory text names it.
 
 
 **firmware**
@@ -292,6 +294,7 @@ sonicwall-cli which "<capability in your own words>"
 
 ## Recipes
 
+
 ### Insurance evidence for one firewall
 
 ```bash
@@ -306,7 +309,7 @@ Pass, warn, fail or unknown for firmware, advisories, end of support, licences, 
 sonicwall-cli exposure SNWLID-2024-0015 --agent
 ```
 
-Lists firewalls matched to SonicWall advisory SNWLID-2024-0015 (CVE-2024-40766) and marks which have SSL-VPN enabled on a zone whose name contains WAN (custom-named internet zones are missed); an empty list for a CVE ID means no advisory text matched, not zero exposure.
+Lists firewalls matched to SonicWall advisory SNWLID-2024-0015 (CVE-2024-40766) and marks which have SSL-VPN enabled on an internet-facing zone (security type untrusted; a name containing WAN counts only when the zone's type is not reported, and any other zone of unreported type is unknown); an empty list for a CVE ID means no advisory text matched, not zero exposure.
 
 ### Lean inventory for an agent
 
@@ -346,7 +349,7 @@ Global format flags share one contract on promoted, novel, sync, and `--deliver`
 
 - `--json`  -  one JSON document on stdout (sync progress events go to stderr)
 - `--compact`  -  keep identity/status/timestamp fields; does not change the document vs stream shape
-- `--csv` / `--plain`  -  tabular rows (collection envelopes unwrap to the row array)
+- `--csv` / `--plain`  -  tabular rows (collection envelopes unwrap to the row array). `--csv` prefixes `'` on a cell or header key that starts with `=`, `+`, `-`, `@`, tab, CR, or LF (fullwidth `＝＋－＠` too) so a spreadsheet does not run it as a formula; a plain signed number such as `-5` or `+2.5e3` is unchanged.
 - `--quiet`  -  one identity value per row, no envelope
 
 - **Pipeable**  -  JSON on stdout, errors on stderr
@@ -355,12 +358,12 @@ Global format flags share one contract on promoted, novel, sync, and `--deliver`
   ```bash
   sonicwall-cli alerts list --agent --select hits,max_score,timestamp
   ```
-- **Previewable**  -  `--dry-run` shows the request without sending
+- **Previewable**  -  `--dry-run` shows the request without sending. A completed dry run exits 0 with `"success": true` and `"dry_run": true` and no HTTP `status`; validation failures still exit non-zero with `"success": false`.
 - **Offline-friendly**  -  sync/search commands can use the local SQLite store when available
 - **Non-interactive**  -  never prompts, every input is a flag
 - **Explicit confirmation**  -  `--agent` does not imply `--yes`; pass `--yes` separately only after the target, arguments, and side effects are clear
 - **Read-only**  -  no command changes firewall, NSM or MySonicWall configuration; the only POSTs are read-style queries and the NSM token exchange (`nsm-login`, `nsm-session`, `msw-tenants access-code`)
-- **Unknown is never pass**  -  posture, mfa-audit, firmware drift and licenses renewals mark anything they could not read as `unknown` (or list it in `fetch_failures`). A fan-out that could not check a firewall exits 6; `licenses renewals` exits with the underlying error (3, 4 or 5) when every lookup failed, so always read `fetch_failures`. When no NSM firewall matches the token and filter, posture, mfa-audit, firmware drift, licenses renewals and exposure exit 3 with a JSON error instead of an empty list. exposure exits 6 when a firewall has no reported SonicOS version (NSM cannot match advisories to it) or the device inventory is unreadable, and blind-spots exits 6 when NSM firewalls are missing from the MySonicWall registry the key reads; blind-spots drops a product by default only when it is a known non-firewall family and lists anything unrecognised with `product_class: unknown`
+- **Unknown is never pass**  -  posture, mfa-audit, firmware drift and licenses renewals mark anything they could not read as `unknown` (or list it in `fetch_failures`). A fan-out that could not check a firewall exits 6; `licenses renewals` exits with the underlying error (3, 4 or 5) when every lookup failed, so always read `fetch_failures`. When no NSM firewall matches the token and filter, posture, mfa-audit, firmware drift, licenses renewals and exposure exit 3 with a JSON error instead of an empty list. exposure exits 6 when a firewall has no reported SonicOS version (NSM cannot match advisories to it) or the device inventory is unreadable, and blind-spots exits 6 when NSM firewalls are missing from the MySonicWall registry the key reads and exits 3 when it compared no firewall (an empty registry, or no firewall with a serial number unless `--all-products`); blind-spots drops a product by default only when it is a known non-firewall family and lists anything unrecognised with `product_class: unknown`
 
 ### Response envelope
 
@@ -401,6 +404,8 @@ Agents should treat the CLI's path resolver as part of the runtime contract:
   ```
 
 Fleet precedence: an inherited per-kind env var overrides an explicit `--home` for that kind. Use `SONICWALL_HOME` or per-kind vars as durable fleet levers, and use `--home` only for a single invocation. Relocation is not reversible by unsetting env vars; move files manually before clearing `SONICWALL_HOME`, or `doctor` will not find credentials left under the former root.
+
+Local data is unencrypted and relies on OS account permissions plus disk encryption. Reads in the default `--data-source auto` mode are written to the SQLite store; GET responses are cached for five minutes under the cache dir. `local-data purge` previews what it would erase (store files, response cache, learn journal) and deletes only with `--yes`; it is not exposed over MCP. `SONICWALL_NO_LOCAL_DATA=1` disables the response cache and store writes, turns `auto` reads into live reads, and blocks `sync` and `workflow archive`; `--data-source local` still reads an existing store, and `SONICWALL_DATA_SOURCE` sets the `--data-source` default.
 
 ## Automatic learning
 
@@ -628,10 +633,10 @@ Every command accepts `--deliver <sink>`. The output goes to the named sink in a
 | Sink | Effect |
 |------|--------|
 | `stdout` | Default; write to stdout only |
-| `file:<path>` | Atomically write output to `<path>` (tmp + rename). Binary-response commands write decoded payload bytes (not the base64 JSON envelope) and print a small JSON receipt on stdout; `--json`/`--csv` do not refuse when this sink is set. |
-| `webhook:<url>` | POST the output body to the URL (`application/json`) |
+| `file:<path>` | Atomically write output to `<path>` as a private 0600 file (exclusive randomly named temp in the destination directory, then rename; a planted symlink is not followed). Binary-response commands write decoded payload bytes (not the base64 JSON envelope) and print a small JSON receipt on stdout; `--json`/`--csv` do not refuse when this sink is set. |
+| `webhook:<url>` | POST the output body to the URL (`application/json`). Redirects are not followed; a 3xx response fails the delivery and the body is not sent to the `Location`. |
 
-Unknown schemes are refused with a structured error naming the supported set. Webhook failures return non-zero and log the URL + HTTP status on stderr.
+Unknown schemes are refused with a structured error naming the supported set. Webhook failures, including redirects, return non-zero and log the URL and HTTP status on stderr.
 
 ## Named Profiles
 
@@ -679,6 +684,8 @@ Parse `$ARGUMENTS`:
    Add `--env SONICWALL_REGION=eucentral` for EU NSM portals.
 3. Run `sonicwall-cli nsm-login` before using NSM tools, and again whenever they exit 4 (8-hour token, 15-minute idle timeout); the MCP server reads the saved token.
 4. Verify: `claude mcp list`
+
+For a remote host, `sonicwall-mcp --transport http` requires `SONICWALL_MCP_HTTP_TOKEN` set to at least 32 characters (callers send `Authorization: Bearer <token>`; `openssl rand -hex 32` prints 64 hex characters and meets that minimum), serves `http://127.0.0.1:7777/mcp` by default, and needs `--tls-cert`/`--tls-key` for any non-loopback `--addr`. Requests with no `Origin` header are accepted. Loopback origins are accepted; any other `Origin` is refused unless listed in `SONICWALL_MCP_HTTP_ALLOWED_ORIGINS` (comma-separated `scheme://host[:port]` values). `SONICWALL_MCP_READ_ONLY=1` drops mirrored write commands (local-write commands that only touch the CLI's own learn store stay) and makes the raw execute tool refuse state-changing calls.
 
 ## Direct Use
 
