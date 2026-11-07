@@ -101,6 +101,9 @@ current across a rebase only when both hold:
     README or issue form the branch also edits, and no registry entry of a
     slug the branch touches.
 Automatic checks always re-run on the new commit regardless.
+With --approval-before-ci a run whose approvals are not current for the head
+it just pushed stops there (exit 4) instead of after the CI wait; CI keeps
+running, and a run after the approval is renewed waits on it.
 
 It refuses to run when its own code (and the modules it imports) differs from
 origin/main's copy: a stale checkout carries a stale registry and stale rules.
@@ -1194,6 +1197,12 @@ class Options:
     # that exact commit. Owner decision 2026-10-23: 12 of the last 30 merged PRs had
     # one, and a PR over 100 files can never get one.
     coderabbit: str = "report"
+    # Stop right after pushing a head whose required approvals are not current,
+    # instead of after its CI wait (the final gate would refuse it then). CI
+    # keeps running on the pushed head; a caller that renews the approval for
+    # that head runs again and waits on the run already going. Nothing is
+    # accepted that was not before: this only moves the same refusal earlier.
+    approval_before_ci: bool = False
 
 
 class Merger:
@@ -1331,6 +1340,11 @@ class Merger:
                     current = new
             if o.dry_run:
                 return self._dry_run_report(new, current, base, required, missing)
+            if missing and o.approval_before_ci:
+                raise Stop(EXIT_APPROVAL, f"pushed {current[:12]} on {base[:12]}, but a required approval is not "
+                           "current: " + "; ".join(missing) + f". CI keeps running on {current[:12]}; record the "
+                           f"approval for it (`approve {o.pr} --head {current}`) and run again, which waits on that "
+                           "run (--approval-before-ci: stopped before the CI wait, not after it)")
             result = self._wait_for_checks(current, base, required)
             if result == "rebase":
                 continue
@@ -2889,6 +2903,68 @@ def _self_test() -> int:
         said = []
         rc = carry_approval(Git(work, env), fake, fake.n, "owner", "x", out=said.append, allow_stale_tools=True)
         expect(rc == EXIT_REFUSED, f"--carry refuses a reviewer with no approval to carry (rc={rc})")
+        # T6d: --approval-before-ci moves the same refusal from after the CI wait to right after the push.
+        print("--approval-before-ci:")
+
+        def lapsed(n: int) -> tuple[Path, Path, FakeGitHub]:
+            origin, work, _b = world()
+            head = fix_pr(work)
+            fake = FakeGitHub(origin, env, n, "fix/alpha", "fix alpha docs", green)
+            approve(work, fake, head)
+            main_commit(work, lambda w: (w / "skills/alpha/cli/main.go").write_text('package main\n\nconst n = 2\n'),
+                        "main moves")
+            return origin, work, fake
+        origin, work, fake = lapsed(15)
+        rc, logs = merger(work, fake)
+        expect(rc == EXIT_APPROVAL and fake.snapshots > 0 and "green, but a required approval" in logs[-1],
+               f"without the flag a lapsed approval still stops only after the CI wait (rc={rc}, "
+               f"snapshots={fake.snapshots})")
+        origin, work, fake = lapsed(16)
+        rc, logs = merger(work, fake, approval_before_ci=True)
+        pushed = origin_rev(origin, "refs/heads/fix/alpha")
+        on_main = subprocess.run(["git", "--git-dir", str(origin), "merge-base", "--is-ancestor", "refs/heads/main",
+                                  pushed], env=env, capture_output=True).returncode == 0
+        expect(rc == EXIT_APPROVAL and fake.snapshots == 0 and fake.merged is None and on_main
+               and "required approval is not current" in logs[-1] and "before the CI wait" in logs[-1],
+               f"with the flag it pushes the rebased head and stops before any CI read (rc={rc}, "
+               f"snapshots={fake.snapshots})")
+        rc, logs = merger(work, fake, approval_before_ci=True)
+        expect(rc == EXIT_APPROVAL and fake.snapshots == 0 and origin_rev(origin, "refs/heads/fix/alpha") == pushed,
+               f"run again without renewing: the same refusal, still before the CI wait, nothing pushed (rc={rc})")
+        expect(approve(work, fake, pushed) == 0, "the approval is renewed for the pushed head")
+        rc, logs = merger(work, fake, approval_before_ci=True)
+        expect(rc == EXIT_OK and fake.snapshots > 0 and fake.merged == pushed
+               and not any(s.startswith("==> pushed") for s in logs),
+               f"after renewal it waits on the pushed head's CI and merges it, no new push (rc={rc})")
+        origin, work, fake = lapsed(17)
+        rc, logs = merger(work, fake, approval_before_ci=True, dry_run=True)
+        expect(rc == EXIT_APPROVAL and fake.merged is None and not any("before the CI wait" in s for s in logs)
+               and any("[dry run]" in s for s in logs),
+               f"a dry run reports as before (exit 4, nothing pushed), the flag does not change it (rc={rc})")
+        origin, work, _b = world()
+        fix_pr(work)
+        sh("git", "checkout", "-q", "fix/alpha", cwd=work)  # two commits: a squash and rebase, not the disjoint path
+        (work / "skills/alpha/NOTES.md").write_text("second commit\n")
+        sh("git", "add", "-A", cwd=work)
+        sh("git", "commit", "-q", "-s", "-m", "alpha notes", cwd=work)
+        sh("git", "push", "-q", "origin", "fix/alpha", cwd=work)
+        sh("git", "checkout", "-q", "main", cwd=work)
+        fake = FakeGitHub(origin, env, 18, "fix/alpha", "fix alpha docs", green)
+        approve(work, fake, origin_rev(origin, "refs/heads/fix/alpha"))
+        main_commit(work, lambda w: (w / "skills/delta/SKILL.md").write_text("# delta\nchanged on main\n"),
+                    "main moves")
+        rc, logs = merger(work, fake, approval_before_ci=True)
+        expect(rc == EXIT_OK and fake.merged is not None and any(s.startswith("==> pushed") for s in logs)
+               and any("carried" in s for s in logs),
+               f"an approval that carries across the rebase is not stopped by the flag: pushed, waited, merged (rc={rc})")
+        origin, work, fake = lapsed(19)
+        rc, logs = merger(work, fake, approval_before_ci=True)
+        pushed = origin_rev(origin, "refs/heads/fix/alpha")
+        expect(approve(work, fake, pushed, ev="Looks right.\n[P1] broken\nVERDICT: APPROVED\n") == EXIT_REFUSED,
+               "a renewal with a [P1] in its evidence is refused")
+        rc, logs = merger(work, fake, approval_before_ci=True)
+        expect(rc == EXIT_APPROVAL and fake.merged is None and fake.snapshots == 0,
+               f"so the next run still refuses before the CI wait (rc={rc})")
 
         origin, work, _b = world()
         head = fix_pr(work)
@@ -4376,6 +4452,10 @@ def main(argv: list[str] | None = None) -> int:
         ap.add_argument("--require-approval", action="append", metavar="NAME",
                         help="reviewer whose current approval is required (repeatable; default: codex)")
         ap.add_argument("--no-approval-required", action="store_true", help="merge on green checks alone")
+        ap.add_argument("--approval-before-ci", action="store_true",
+                        help="stop (exit 4) right after the push when a required approval is not current for the "
+                             "pushed head, instead of after its CI wait; CI keeps running, so a run after the "
+                             "approval is renewed waits on it. The final gate still checks every approval")
         ap.add_argument("--coderabbit", choices=("report", "require"), default="report",
                         help="report (default): record the head's CodeRabbit state (reviewed, skipped, "
                              "rate-limited, none) in the log, the state file and the MERGED line, never block; "
@@ -4426,7 +4506,7 @@ def _main(args: argparse.Namespace, sub: str | None) -> int:
                    timeout_s=args.timeout_min * 60, poll_s=args.poll_sec, settle_s=args.settle_sec,
                    max_rebases=args.max_rebases, allow_stale_tools=args.allow_stale_tools,
                    required=tuple(args.required_context) if args.required_context else None,
-                   coderabbit=args.coderabbit)
+                   coderabbit=args.coderabbit, approval_before_ci=args.approval_before_ci)
     return Merger(git, gh, opts).run()
 
 

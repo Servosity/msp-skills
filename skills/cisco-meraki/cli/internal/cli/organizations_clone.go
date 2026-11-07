@@ -11,7 +11,7 @@ import (
 func newOrganizationsCloneCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "clone",
-		Short:       "Create clone for organizations",
+		Short:       "Manage clone for organizations",
 		Annotations: map[string]string{"mcp:read-only": "true", "pp:parent-group": "true", "pp:typed-exit-codes": "0,2"},
 		RunE:        parentNoSubcommandRunE(flags),
 	}

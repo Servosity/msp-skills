@@ -1,7 +1,9 @@
 .PHONY: build test lint install clean
 
+BIN_EXT := $(if $(filter windows,$(shell go env GOOS)),.exe,)
+
 build:
-	go build -o bin/aws-billing-cli ./cmd/aws-billing-cli
+	go build -trimpath -o bin/aws-billing-cli$(BIN_EXT) ./cmd/aws-billing-cli
 
 test:
 	go test ./...
@@ -16,7 +18,7 @@ clean:
 	rm -rf bin/
 
 build-mcp:
-	go build -o bin/aws-billing-mcp ./cmd/aws-billing-mcp
+	go build -trimpath -o bin/aws-billing-mcp$(BIN_EXT) ./cmd/aws-billing-mcp
 
 install-mcp:
 	go install ./cmd/aws-billing-mcp

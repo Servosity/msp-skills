@@ -63,7 +63,7 @@ func newOrganizationsInventoryGetOrganizationDevicesCmd(flags *rootFlags) *cobra
 					}
 				}
 				if !validUsedState {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagUsedState, "used-state", allowedUsedState)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagUsedState, "used-state", allowedUsedState))
 				}
 			}
 			if cmd.Flags().Changed("tags-filter-type") {
@@ -76,7 +76,7 @@ func newOrganizationsInventoryGetOrganizationDevicesCmd(flags *rootFlags) *cobra
 					}
 				}
 				if !validTagsFilterType {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagTagsFilterType, "tags-filter-type", allowedTagsFilterType)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagTagsFilterType, "tags-filter-type", allowedTagsFilterType))
 				}
 			}
 			path := "/organizations/{organizationId}/inventory/devices"

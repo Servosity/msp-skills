@@ -98,6 +98,17 @@ Add to your Claude Desktop config (`%APPDATA%\Claude\claude_desktop_config.json`
 
 </details>
 
+### Remote MCP over HTTP
+
+`pagerduty-mcp --transport http` (or `PP_MCP_TRANSPORT=http`) serves streamable HTTP at `http://127.0.0.1:7777/mcp`. It refuses to start until `PAGERDUTY_MCP_HTTP_TOKEN` is set to at least 32 characters, and every request must send `Authorization: Bearer <token>`. The command below prints 64 hex characters and meets that minimum. Plain HTTP is allowed only on a loopback `--addr`; any other bind, including `:7777` (every interface), also needs `--tls-cert` and `--tls-key`. Requests with no `Origin` header are accepted, as are loopback origins (`localhost`, `127.0.0.1`, or `[::1]`, any port). Any other `Origin` is refused unless it is listed in `PAGERDUTY_MCP_HTTP_ALLOWED_ORIGINS`, a comma-separated list of `scheme://host[:port]` values with no path. That list is not a CORS policy; the server does not emit CORS headers.
+
+```bash
+export PAGERDUTY_MCP_HTTP_TOKEN="$(openssl rand -hex 32)"
+pagerduty-mcp --transport http
+```
+
+Set `PAGERDUTY_MCP_READ_ONLY=1` (exactly `1`) to drop mirrored commands that are not marked read-only and make the raw execute tool refuse state-changing calls. Commands marked local-write, which write only this CLI's own learn store, stay available.
+
 ## Authentication
 
 Authenticate with a PagerDuty REST API key in the Authorization header as `Token token=<key>`. Set it via the PAGERDUTY_API_KEY environment variable. Read-only by default  -  mutating commands require explicit flags and support --dry-run.
@@ -123,8 +134,6 @@ pagerduty-cli oncall who --service PXXXXXX
 ```
 
 ## Unique Features
-
-These capabilities aren't available in any other tool for this API.
 
 ### Local-store analytics that compounds
 - **`pulse`**  -  One offline call shows what's hot right now: open incidents bucketed by service, urgency and status with how long each has gone unacknowledged, sorted by SLA risk.
@@ -209,7 +218,6 @@ These capabilities aren't available in any other tool for this API.
 
 ## Recipes
 
-
 ### Triage the morning queue
 
 ```bash
@@ -253,6 +261,81 @@ Joins escalation policy, schedule and overrides to show who is on now, who is ne
 ## Usage
 
 Run `pagerduty-cli --help` for the full command reference and flag list.
+
+## Paths & environment variables
+
+This CLI separates local files into four path kinds:
+
+| Kind | Contents |
+|------|----------|
+| `config` | User-editable settings such as `config.toml` and saved profiles |
+| `data` | Durable local data: `credentials.toml`, `data.db`, cookies, browser-session proof files, and other auth sidecars |
+| `state` | Runtime state such as persisted queries, jobs, and `teach.log` |
+| `cache` | Regenerable HTTP/cache files |
+
+Each kind resolves independently. The ladder is:
+
+1. Per-kind env var: `PAGERDUTY_CONFIG_DIR`, `PAGERDUTY_DATA_DIR`, `PAGERDUTY_STATE_DIR`, or `PAGERDUTY_CACHE_DIR`
+2. `--home <dir>` for this invocation
+3. `PAGERDUTY_HOME` for a flat relocated root
+4. XDG env vars: `XDG_CONFIG_HOME`, `XDG_DATA_HOME`, `XDG_STATE_HOME`, `XDG_CACHE_HOME`
+5. Platform defaults matching existing installs
+
+For containers and agent sandboxes, prefer a single relocated root:
+
+```bash
+export PAGERDUTY_HOME=/srv/pagerduty
+pagerduty-cli doctor
+```
+
+On Windows (PowerShell):
+
+```powershell
+$env:PAGERDUTY_HOME = "C:\ProgramData\pagerduty"
+pagerduty-cli doctor
+```
+
+Under `PAGERDUTY_HOME=/srv/pagerduty`, the four dirs resolve to `/srv/pagerduty/config`, `/srv/pagerduty/data`, `/srv/pagerduty/state`, and `/srv/pagerduty/cache`.
+
+On Windows, set the same variable in PowerShell:
+
+```powershell
+$env:PAGERDUTY_HOME = "C:\srv\pagerduty"
+pagerduty-cli doctor
+```
+
+Under `$env:PAGERDUTY_HOME = "C:\srv\pagerduty"`, the four dirs resolve to `C:\srv\pagerduty\config`, `C:\srv\pagerduty\data`, `C:\srv\pagerduty\state`, and `C:\srv\pagerduty\cache`.
+
+MCP servers do not receive CLI flags from the host. Put relocation in the host `env` block:
+
+```json
+{
+  "mcpServers": {
+    "pagerduty": {
+      "command": "pagerduty-mcp",
+      "env": {
+        "PAGERDUTY_HOME": "/srv/pagerduty"
+      }
+    }
+  }
+}
+```
+
+Precedence matters in fleets: an ambient per-kind variable such as `PAGERDUTY_DATA_DIR` overrides an explicit `--home` for that kind. Use `PAGERDUTY_HOME` or the per-kind variables for durable fleet relocation; treat `--home` as the weaker per-invocation lever.
+
+Relocation is one-way. Unsetting `PAGERDUTY_HOME` does not move files back to platform defaults, and `doctor` cannot find credentials left under a former root. Move the files manually before unsetting relocation variables.
+
+Existing installs keep working because the platform-default rung matches the legacy layout. On the first auth write, stored secrets leave `config.toml` and are consolidated into `credentials.toml` under the data directory. Run `pagerduty-cli doctor --fail-on warn` to check path and credential-location warnings in automation.
+
+### Local data
+
+Reads are saved locally by default: in `--data-source auto` mode every successful read is also written to the SQLite store (`data.db`, or `data-<hash>.db` per credential) in the data directory. GET responses are never cached on disk. Credentials live in `credentials.toml` in the data directory. The learn journal lives under `learn/` in the state directory. `pagerduty-cli doctor` prints the resolved paths, every store file, and the response-cache size.
+
+None of it is encrypted. New files are created owner-only; beyond that the data relies on OS account permissions and full-disk encryption (FileVault, BitLocker, LUKS).
+
+- **Erase it:** `pagerduty-cli local-data purge` lists the store files, response cache, and learn journal it would delete; add `--yes` to delete them, or `--only store|cache|journal` to narrow it. Config and credentials are kept.
+- **Run without a local copy:** set `PAGERDUTY_NO_LOCAL_DATA=1`. Reads go to the API (`--data-source live`; `--data-source local` still reads an existing store), the response cache is off (`--no-cache`), nothing new is written to the store, and `sync` and `workflow archive` refuse to run. Set it in an MCP host's `env` block and every command the server runs inherits it.
+- **Choose the read source without flags:** `PAGERDUTY_DATA_SOURCE=auto|live|local` sets the `--data-source` default; an explicit flag wins.
 
 ## Commands
 
@@ -551,6 +634,13 @@ Cache Variables allow you to store event data on an Event Orchestration, which c
 For more information see the [API Concepts Document](https://developer.pagerduty.com/api-reference/)
 
 Scoped OAuth requires: `services.write`
+- **`pagerduty-cli event-orchestrations delete-external-data-cache-var-data-on-service-orch`** - Delete Data for an `external_data` type Cache Variable on a Service Event Orchestration.
+
+Use External Data type Cache Variables to store string, number, or boolean values via a dedicated API endpoint. These stored values can then be used in conditions or actions in Event Orchestration rules.
+
+For more information see the [Knowledge Base](https://support.pagerduty.com/main/docs/event-orchestration-cache-variables)
+
+Scoped OAuth requires: `services.write`
 - **`pagerduty-cli event-orchestrations delete-orchestration`** - Delete a Global Event Orchestration.
 
 Once deleted, you will no longer be able to ingest events into PagerDuty using this Orchestration's Routing Key.
@@ -563,6 +653,13 @@ Scoped OAuth requires: `event_orchestrations.write`
 Cache Variables allow you to store event data on an Event Orchestration, which can then be used in Event Orchestration rules as part of conditions or actions.
 
 For more information see the [API Concepts Document](https://developer.pagerduty.com/api-reference/)
+
+Scoped OAuth requires: `services.read`
+- **`pagerduty-cli event-orchestrations get-external-data-cache-var-data-on-service-orch`** - Get the data for an `external_data` type Cache Variable for a Service Event Orchestration.
+
+Use External Data type Cache Variables to store string, number, or boolean values via a dedicated API endpoint. These stored values can then be used in conditions or actions in Event Orchestration rules.
+
+For more information see the [Knowledge Base](https://support.pagerduty.com/main/docs/event-orchestration-cache-variables)
 
 Scoped OAuth requires: `services.read`
 - **`pagerduty-cli event-orchestrations get-orch-active-status`** - Get a Service Orchestration's active status.
@@ -612,6 +709,13 @@ Scoped OAuth requires: `event_orchestrations.write`
 Cache Variables allow you to store event data on an Event Orchestration, which can then be used in Event Orchestration rules as part of conditions or actions.
 
 For more information see the [API Concepts Document](https://developer.pagerduty.com/api-reference/)
+
+Scoped OAuth requires: `services.write`
+- **`pagerduty-cli event-orchestrations update-external-data-cache-var-data-on-service-orch`** - Update the data for an `external_data` type Cache Variable on a Service Event Orchestration.
+
+Use External Data type Cache Variables to store string, number, or boolean values via a dedicated API endpoint. These stored values can then be used in conditions or actions in Event Orchestration rules.
+
+For more information see the [Knowledge Base](https://support.pagerduty.com/main/docs/event-orchestration-cache-variables)
 
 Scoped OAuth requires: `services.write`
 - **`pagerduty-cli event-orchestrations update-orch-active-status`** - Update a Service Orchestration's active status.
@@ -1965,6 +2069,67 @@ Scoped OAuth requires: `workflow_integrations.read`
 Scoped OAuth requires: `workflow_integrations:connections.write`
 
 
+### audit
+
+
+- **`pagerduty-cli audit coverage`** - Flags services whose escalation chain is broken: empty tiers, single point of failure, expired or empty schedules, or no escalation policy at all.
+
+- **`pagerduty-cli audit schedule-gaps`** - Find future time windows where a schedule has nobody on call, before an incident finds the hole for you.
+
+
+### incidents
+
+
+- **`pagerduty-cli incidents timeline`** - Reconstructs one incident's full chronology  -  trigger, every ack, note, reassignment, escalation and resolve  -  with elapsed deltas between events.
+
+- **`pagerduty-cli incidents changes`** - For an incident, see the change events that shipped on the same service in the window right before it triggered, ranked by proximity.
+
+
+### insights
+
+
+- **`pagerduty-cli insights mttr`** - Mean time to acknowledge and resolve, computed from synced log-entry timestamps and grouped by service, team or priority.
+
+- **`pagerduty-cli insights responders`** - Per-responder page, ack and resolve counts plus the share of pages that landed off-hours (nights and weekends).
+
+- **`pagerduty-cli insights noisy`** - Ranks services by incident volume, auto-resolve rate and re-trigger/flapping rate over a window.
+
+- **`pagerduty-cli insights stale`** - Open incidents with no log activity past a threshold, grouped by responder and service  -  the ones quietly rotting.
+
+
+### oncall
+
+
+- **`pagerduty-cli oncall who`** - Resolves who is on call right now for a service or team, who is on next, and the exact handoff timestamp.
+
+- **`pagerduty-cli oncall hours`** - On-call hours per user over a time window, derived from synced schedule layers and overrides.
+
+
+### pulse
+
+
+- **`pagerduty-cli pulse`** - One offline call shows what's hot right now: open incidents bucketed by service, urgency and status with how long each has gone unacknowledged, sorted by SLA risk.
+
+
+
+
+### Self-learning loop
+
+This CLI caches per-question discovery so repeat queries skip the walk and structurally similar queries get answered via entity substitution. The loop also self-captures: every invocation is journaled locally, and failed-flag corrections plus fresh teaches surface as candidates on the next `recall` for confirm/reject judgment. Agents call `recall` before discovery and fire `teach &` after answering. See the `## Automatic learning` section in `SKILL.md` for the full protocol.
+
+- **`pagerduty-cli recall <query>`** - Look up cached resources for a query before running discovery
+- **`pagerduty-cli teach`** - Record a query -> resource mapping (silent on success, safe to background with `&`)
+- **`pagerduty-cli learnings list`** - Inspect taught rows
+- **`pagerduty-cli learnings forget <query>`** - Undo a teach
+- **`pagerduty-cli learnings candidates`** - List auto-captured candidates awaiting confirm/reject
+- **`pagerduty-cli learnings stats`** - Local loop metrics: recall hit rate, teach-to-reuse, playbook resolution, candidate counts
+- **`pagerduty-cli teach-pattern`** - Install a query/resource template up front
+- **`pagerduty-cli teach-lookup`** - Add an entity mapping (e.g. country code, team alias) for pattern substitution
+
+Pass `--no-learn` or set `PAGERDUTY_NO_LEARN=true` to disable the loop for deterministic flows.
+
+The local store's schema version stamp is one-way: once this version of `pagerduty-cli` opens the database, older binaries refuse it with a version error  -  upgrade the binary rather than downgrading.
+
 ## Output Formats
 
 ```bash
@@ -1973,9 +2138,8 @@ pagerduty-cli abilities list
 
 # JSON for scripting and agents
 pagerduty-cli abilities list --json
-
 # Filter to specific fields
-pagerduty-cli abilities list --json --select id,name,status
+pagerduty-cli abilities list --json --select abilities
 
 # Dry run  -  show the request without sending
 pagerduty-cli abilities list --dry-run
@@ -1984,21 +2148,23 @@ pagerduty-cli abilities list --dry-run
 pagerduty-cli abilities list --agent
 ```
 
+`--csv` prefixes a leading `'` on cells and header keys that start with `=`, `+`, `-`, `@`, a tab, or a line break (including fullwidth `＝＋－＠`) so a spreadsheet does not run them as formulas. Plain signed numbers such as `-5` and `+2.5e3` are left unchanged.
+
 ## Agent Usage
 
 This CLI is designed for AI agent consumption:
 
 - **Non-interactive** - never prompts, every input is a flag
 - **Pipeable** - `--json` output to stdout, errors to stderr
-- **Filterable** - `--select id,name` returns only fields you need
+- **Filterable** - `--select <field>[,<field>...]` returns only fields you need
 - **Previewable** - `--dry-run` shows the request without sending
-- **Explicit retries** - add `--idempotent` to create retries and `--ignore-missing` to delete retries when a no-op success is acceptable
-- **Confirmable** - `--yes` for explicit confirmation of destructive actions
+- **Explicit retries** - add `--idempotent` to create retries and add `--ignore-missing` to delete retries when a no-op success is acceptable
+- **Explicit confirmation** - `--agent` does not imply `--yes`; pass `--yes` separately only after the target, arguments, and side effects are clear
 - **Piped input** - write commands can accept structured input when their help lists `--stdin`
 - **Offline-friendly** - sync/search commands can use the local SQLite store when available
 - **Agent-safe by default** - no colors or formatting unless `--human-friendly` is set
 
-Exit codes: `0` success, `2` usage error, `3` not found, `4` auth error, `5` API error, `7` rate limited, `10` config error.
+Exit codes: `0` success, `2` usage error, `3` not found, `4` auth error, `5` API error, `6` partial failure, `7` rate limited, `10` config error.
 
 ## Health Check
 
@@ -2010,9 +2176,11 @@ Verifies configuration, credentials, and connectivity to the API.
 
 ## Configuration
 
-Config file: `~/.config/pagerduty-cli/config.toml`
+Run `pagerduty-cli doctor` to see the resolved config, data, state, and cache directories. The platform-default config path is `~/.config/pagerduty-cli/config.toml` on macOS/Linux and `%USERPROFILE%\.config\pagerduty-cli\config.toml` on Windows; `--home`, `PAGERDUTY_HOME`, and per-kind env vars can relocate it.
 
 Static request headers can be configured under `headers`; per-command header overrides take precedence.
+
+`--ca-cert`, `PAGERDUTY_CA_CERT`, or `ca_cert` adds a PEM CA bundle to the system trust roots. `--tls-server-name`, `PAGERDUTY_TLS_SERVER_NAME`, or `tls_server_name` is the name checked against the certificate when the dialed address does not match it. Precedence is flag, then environment, then the config file. A config file other users can change does not supply these settings. Certificate verification failures are not retried.
 
 Environment variables:
 
@@ -2023,6 +2191,14 @@ Environment variables:
 ### agentcookie (optional)
 
 If you use agentcookie to sync secrets across machines, this CLI auto-adopts agentcookie-managed credentials with no extra setup. When the daemon writes to this CLI's config, `pagerduty-cli doctor` reports `agentcookie: detected` and `auth-status` labels the source as `agentcookie`. Skip this section if you don't use agentcookie - the CLI works the same as any other.
+
+## Credential safety
+
+- The API key (`Authorization: Token token=<PAGERDUTY_API_KEY>`) and every request go only to the scheme, host and port of the configured base URL: `https://api.pagerduty.com` by default, or `PAGERDUTY_BASE_URL` (an EU account uses `https://api.eu.pagerduty.com`). A redirect to any other host is refused, so the key never reaches it.
+- Any output, file, local-store write, MCP result, child process or request that would repeat the key, a value the config or credential files hold, or a credential a request or response carries (a webhook or runner secret, an OAuth client secret, an Events API routing or integration key) is replaced whole by "[credkit: withheld from <sink>: it carried a credential this program holds]", where `<sink>` names where it was going. That is the shared credential kit, in any encoding it reads; a write to a file or the local store that repeats one is refused. Responses are never cached on disk, and credential-named fields are replaced by `[redacted]` before anything reaches the local store.
+- A program that lost part of its standard output exits 74 instead of 0. A key that also occurs in ordinary text (for example one repeated letter) is refused at startup with exit 78.
+- Only `credentials.toml` (mode 0600) holds a credential, or `config.toml` (also 0600) when agentcookie manages it or you put a key there yourself; `auth set-token` reads the key from stdin, never from an argument.
+- `--dry-run` sends nothing. Over MCP, `pagerduty_execute` (any PagerDuty endpoint, every write included) and `import` return a preview and send only with `confirm: true`; `pagerduty_get` and `pagerduty_read` refuse an endpoint that changes state; and a tool argument can never name a file to read or write.
 
 ## Troubleshooting
 **Authentication errors (exit code 4)**

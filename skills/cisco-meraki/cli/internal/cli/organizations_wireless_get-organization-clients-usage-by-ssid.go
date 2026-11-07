@@ -60,7 +60,7 @@ func newOrganizationsWirelessGetOrganizationClientsUsageBySsidCmd(flags *rootFla
 					}
 				}
 				if !validUsageUnits {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagUsageUnits, "usage-units", allowedUsageUnits)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagUsageUnits, "usage-units", allowedUsageUnits))
 				}
 			}
 			path := "/organizations/{organizationId}/wireless/clients/usage/bySsid"

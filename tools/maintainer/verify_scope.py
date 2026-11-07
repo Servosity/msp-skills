@@ -217,6 +217,9 @@ def resolve_scope(slugs: list[str], changed: bool, base: str) -> dict:
         "security_gate_slugs": security,
         "affected": sorted(affected),
         "changed_files": len(files),
+        # The branch's changed paths (None when unknown): what the scoped
+        # profile's self-test and per-slug choices are made from.
+        "changed_paths": cs[1] if cs is not None else None,
         "gate_logic_changed": gate_logic,
     }
 
@@ -447,8 +450,38 @@ def _tail(path: str, n: int = 40) -> list[str]:
     return lines[-n:]
 
 
+def build_profile(kind: str, scope: dict, records: list[dict], plan_: dict | None,
+                  linux_row: str, windows: str) -> dict:
+    """What the run covered, so a SCOPED verdict is never read as a FULL one."""
+    st = [r for r in records if r["name"].startswith("self-test ")]
+    fleet = {}
+    for e, why in ((plan_ or {}).get("fleet") or {}).items():
+        name = e.rsplit("/", 1)[-1]
+        fleet[name] = ("whole repo (FULL profile)" if kind == "full" else
+                       f"whole repo: {why}" if why else
+                       "per connector: " + (", ".join(plan_.get("slugs") or []) or "none in scope, skipped"))
+    return {
+        "kind": kind,
+        "equivalent_to_full": kind == "full",
+        "ci_is_authority_for": [] if kind == "full" else [
+            "the linux/amd64 build row (CI's native runner is the Linux receipt)",
+            "every maintainer self-test (CI's guards job runs all of them on every PR)",
+            "the fleet-wide checks, whole (CI's guards job)"],
+        "self_tests_ran": [r["name"][len("self-test "):] for r in st if r["status"] != "skip"],
+        "self_tests_skipped": [r["name"][len("self-test "):] for r in st if r["status"] == "skip"],
+        "self_test_reasons": {e.rsplit("/", 1)[-1]: why for e, why in ((plan_ or {}).get("selftests") or {}).items()
+                              if why} if kind != "full" else "every self-test (FULL profile)",
+        "fleet_checks": fleet,
+        # Each skill's own folder only; SCOPED validates the skills in scope.
+        "plugin_validate_skills": sorted({r["slug"] for r in records if r["name"] == "plugin validate" and r["slug"]}),
+        "connectors": scope.get("connectors") or [],
+        "linux_build_row": linux_row,
+        "windows_predictors": windows,
+    }
+
+
 def build_verdict(scope: dict, records: list[dict], seconds: float, started: str,
-                  known: set[str] | None = None) -> dict:
+                  known: set[str] | None = None, profile: dict | None = None) -> dict:
     affected = set(scope["affected"])
     known = known_names() if known is None else known
     checks, blocking, out_of_scope = [], [], []
@@ -488,6 +521,9 @@ def build_verdict(scope: dict, records: list[dict], seconds: float, started: str
         "schema": 1,
         "tool": "tools/maintainer/verify_all.sh",
         "verdict": "fail" if blocking else "pass",
+        # scoped | full (D1): a scoped pass is not a full one; "profile" says what it left to CI.
+        "profile_kind": (profile or {}).get("kind", "full"),
+        "profile": profile,
         "started_at": started,
         "finished_at": _dt.datetime.now(_dt.timezone.utc).replace(microsecond=0).isoformat(),
         "seconds": round(seconds, 1),
@@ -914,6 +950,332 @@ def repo_paths() -> list[str]:
 
 
 # --------------------------------------------------------------------------- #
+# What a change can reach: the scoped profile's self-test and per-slug picks
+# --------------------------------------------------------------------------- #
+#
+# A tool's dependency set is read from the code, never kept by hand, so a new
+# tool or a new import is covered without anyone editing a list. From an entry
+# (a tool, or a directory such as a Go module) it follows, transitively:
+#   - Python imports (ast), resolved next to the importing file and in
+#     tools/maintainer (the sys.path every tool sets up);
+#   - every path a code file names (Python string constants other than
+#     docstrings, the non-comment text of shell, Go and PowerShell): a repo
+#     path, or a path relative to the file's own folder, tools/maintainer or
+#     .github/workflows. A named directory inside tools/maintainer (a fixture
+#     folder, a vendored kit, a Go helper) or .github/workflows brings in every
+#     file under it.
+# Code (Python, shell, Go, PowerShell, go.mod/go.sum, a shebang script, a
+# workflow) is a dependency and is itself followed; a workflow and a
+# PowerShell script are read, never run, so they are leaves. Data (JSON, YAML
+# outside the workflows, Markdown) is a dependency only with data=True: the
+# self-tests prove the code with their own fixtures, and CI runs every one of
+# them on every PR, so a data-only change is CI's to catch. Over-reaching is
+# safe (a self-test runs that did not need to); only a missed edge is not.
+
+MAINT = "tools/maintainer"
+_CODE_SUFFIXES = {".py", ".sh", ".bash", ".go", ".ps1"}
+_CODE_NAMES = {"go.mod", "go.sum"}
+_LEAF_SUFFIXES = {".ps1", ".yml", ".yaml"}  # read as code, never run by a self-test here
+_TOKEN = re.compile(r"[A-Za-z0-9_.@+/-]+")
+# A string that is only a path: a folder or a file name with a suffix.
+_PATHISH = re.compile(r"[\w.@+-]*(?:/[\w.@+-]*)+|[\w@+-][\w.@+-]*\.[A-Za-z0-9]+")
+# A string that runs something: an interpreter or shell builtin at a word start.
+_SHELL_CMD = re.compile(r"(?:^|[\s;&|(`])(?:python3?|bash|sh|source|\.|exec|go)\s+[-\w./]")
+
+
+class _Repo:
+    """The repository's files, once: what a reference can resolve to."""
+
+    def __init__(self, paths: list[str] | None = None):
+        self.files = set(repo_paths() if paths is None else paths)
+        self.dirs: set[str] = set()
+        for f in self.files:
+            parts = f.split("/")
+            for i in range(1, len(parts)):
+                self.dirs.add("/".join(parts[:i]))
+
+    def under(self, d: str) -> list[str]:
+        return [f for f in self.files if f.startswith(d + "/")]
+
+
+def _is_code(rel: str) -> bool:
+    name = rel.rsplit("/", 1)[-1]
+    suffix = Path(name).suffix
+    if suffix in _CODE_SUFFIXES or name in _CODE_NAMES:
+        return True
+    if rel.startswith(".github/workflows/") and suffix in (".yml", ".yaml"):
+        return True
+    if suffix == "":
+        try:
+            with open(ROOT / rel, "rb") as fh:
+                return fh.read(2) == b"#!"
+        except OSError:
+            return False
+    return False
+
+
+def _norm_rel(p: str) -> str | None:
+    """A repo-relative path for `p` (relative to ROOT), or None outside it."""
+    parts: list[str] = []
+    for seg in p.split("/"):
+        if seg in ("", "."):
+            continue
+        if seg == "..":
+            if not parts:
+                return None
+            parts.pop()
+        else:
+            parts.append(seg)
+    return "/".join(parts) or None
+
+
+def _docstrings(tree) -> set[int]:
+    import ast
+    ids = set()
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)):
+            body = getattr(node, "body", [])
+            if body and isinstance(body[0], ast.Expr) and isinstance(body[0].value, ast.Constant) \
+                    and isinstance(body[0].value.value, str):
+                ids.add(id(body[0].value))
+    return ids
+
+
+def _py_refs(rel: str, text: str) -> tuple[list[str], list[str], list[str]]:
+    """(module names imported, string tokens, tokens of literal data tables)
+    of a Python file. A file that does not parse yields every token of its
+    text (fail toward reaching)."""
+    import ast
+    try:
+        tree = ast.parse(text)
+    except (SyntaxError, ValueError):
+        return [], _TOKEN.findall(text), []
+    mods: list[str] = []
+    toks: list[str] = []
+    skip = _docstrings(tree)
+    # A literal-only collection (a list, tuple, set or dict whose leaves are
+    # all constants, every string among them a path) that is NOT handed
+    # straight to a call is a data table the code matches against or a
+    # self-test's case table (release_matrix's MACHINERY names every tool; a
+    # case says which path is machinery), not a file the code runs or reads.
+    # An argv carries a word that is not a path ("bash", "--self-test") and is
+    # never one. ponytail: a literal list of scripts that a loop then RUNS reads
+    # as a table too; none exists today (every such name is also imported or
+    # named elsewhere), and the fleet checks' data reads keep tables (data=True).
+    def literal(n) -> bool:
+        if isinstance(n, ast.Constant):
+            # Every string in a table is a path: an argv's "bash" or "--flag" is not.
+            return not isinstance(n.value, str) or bool(_PATHISH.fullmatch(n.value))
+        if isinstance(n, (ast.List, ast.Tuple, ast.Set)):
+            return all(literal(e) for e in n.elts)
+        if isinstance(n, ast.Dict):
+            return all(k is not None and literal(k) for k in n.keys) and all(literal(v) for v in n.values)
+        return False
+
+    argv = {id(a) for n in ast.walk(tree) if isinstance(n, ast.Call) for a in list(n.args) + [k.value for k in n.keywords]}
+    tables: set[int] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.List, ast.Tuple, ast.Set, ast.Dict)) and id(node) not in argv \
+                and id(node) not in tables and literal(node):
+            n_leaves = 0
+            for sub in ast.walk(node):
+                tables.add(id(sub))
+                n_leaves += isinstance(sub, ast.Constant)
+            if n_leaves < 2:
+                tables -= {id(sub) for sub in ast.walk(node)}
+    table_toks = [n.value.strip() for n in ast.walk(tree) if id(n) in tables and isinstance(n, ast.Constant)
+                  and isinstance(n.value, str) and _TOKEN.fullmatch(n.value.strip())]
+    skip |= tables
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for a in node.names:
+                mods.append(a.name)
+        elif isinstance(node, ast.ImportFrom):
+            base = ("." * node.level) + (node.module or "")
+            mods.append(base)
+            for a in node.names:
+                mods.append((base + "." if node.module else base) + a.name)
+        elif isinstance(node, ast.Constant) and isinstance(node.value, str) and id(node) not in skip:
+            # A path the code uses is a whole constant ("x.py", "tools/maintainer/x.py",
+            # a Path part, an argv item); a file named inside prose (a message
+            # saying "run x.py") is not a dependency.
+            v = node.value.strip()
+            if v and _TOKEN.fullmatch(v):
+                toks.append(v)
+            else:
+                # A shell command line run through a shell: every token that
+                # names a file with a code suffix.
+                toks.extend(t for t in _TOKEN.findall(v) if Path(t).suffix in _CODE_SUFFIXES
+                            and _SHELL_CMD.search(v))
+    return mods, toks, table_toks
+
+
+def _text_refs(rel: str, text: str) -> list[str]:
+    """Tokens of a shell, Go or PowerShell file, full-line comments removed."""
+    out = []
+    for line in text.splitlines():
+        s = line.lstrip()
+        if s.startswith("#") and not s.startswith("#!") or s.startswith("//"):
+            continue
+        out.extend(_TOKEN.findall(line))
+    return out
+
+
+def _resolve_module(name: str, src_dir: str, repo: _Repo) -> list[str]:
+    level = len(name) - len(name.lstrip("."))
+    parts = [p for p in name.lstrip(".").split(".") if p]
+    roots = [src_dir] if level else [src_dir, MAINT]
+    out = []
+    for r in roots:
+        d = r
+        for _ in range(max(level - 1, 0)):
+            d = d.rsplit("/", 1)[0] if "/" in d else ""
+        stem = "/".join([d] + parts) if parts else d
+        for cand in (stem + ".py", stem + "/__init__.py"):
+            if cand in repo.files:
+                out.append(cand)
+    return out
+
+
+def _resolve_token(tok: str, src_dir: str, repo: _Repo) -> list[tuple[str, bool]]:
+    """Repo files a token in a code file under src_dir can name, each with
+    whether it came in through a named directory (a fixture folder)."""
+    tok = tok.strip(".,:;")
+    if not tok:
+        return []
+    cands: dict[str, bool] = {}
+    for base in ("", src_dir, MAINT):
+        rel = _norm_rel(f"{base}/{tok}" if base else tok)
+        if rel is None:
+            continue
+        if rel in repo.files:
+            cands.setdefault(rel, False)
+        elif rel in repo.dirs and (rel.startswith(MAINT + "/") or rel == ".github/workflows"
+                                   or rel.startswith(".github/workflows/")):
+            for g in repo.under(rel):
+                cands[g] = True
+    if "/" not in tok and (rel := f".github/workflows/{tok}") in repo.files:
+        cands.setdefault(rel, False)
+    return sorted(cands.items())
+
+
+def _edges(f: str, repo: _Repo) -> list[tuple[str, bool, bool]]:
+    """What one file names: (file, came through a named directory, named only
+    in a literal data table). Cached."""
+    cache = repo.__dict__.setdefault("_edges", {})
+    if f in cache:
+        return cache[f]
+    out: list[tuple[str, bool, bool]] = []
+    if Path(f).suffix not in _LEAF_SUFFIXES and _is_code(f):
+        try:
+            text = (ROOT / f).read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            text = ""
+        src_dir = f.rsplit("/", 1)[0] if "/" in f else ""
+        table: list[str] = []
+        if f.endswith(".py"):
+            mods, toks, table = _py_refs(f, text)
+            out += [(g, False, False) for m in mods for g in _resolve_module(m, src_dir, repo)]
+        else:
+            toks = _text_refs(f, text)
+        for t in set(toks):
+            out += [(g, d, False) for g, d in _resolve_token(t, src_dir, repo)]
+        for t in set(table) - set(toks):
+            out += [(g, d, True) for g, d in _resolve_token(t, src_dir, repo)]
+    cache[f] = out
+    return out
+
+
+def deps(entry: str, repo: _Repo, data: bool = False) -> set[str]:
+    """Every repo file `entry` (a file, or a directory such as a Go module)
+    depends on, itself included. Code is followed; a file inside a named
+    directory is always in (a fixture is the test's input); a data file named
+    on its own, and anything named only in a literal data table (a list the
+    code matches paths against, or reads), is in only with data=True."""
+    seen = {f for f in (repo.under(entry) if entry in repo.dirs else [entry]) if f in repo.files}
+    stack = list(seen)
+    while stack:
+        for g, via_dir, in_table in _edges(stack.pop(), repo):
+            # Under skills/ a named file is a connector's, which the per-slug
+            # checks own; a tool's self-test proves the tool on fixtures.
+            if g in seen or g.startswith("skills/") or (in_table and not data):
+                continue
+            if via_dir or data or _is_code(g):
+                seen.add(g)
+                stack.append(g)
+    return seen
+
+
+def plan(scope: dict, selftests: list[str], fleet: list[str], repo: _Repo | None = None) -> dict:
+    """The scoped profile's choices, each with its reason.
+
+    selftests  entry -> the changed file that reaches it (run), or None (skip).
+               An unknown change set runs every one.
+    fleet      entry -> None (run per slug, for the in-scope connectors) or
+               the reason it must see the whole repository: the scope is the
+               whole fleet, the change set is unknown, or a changed file the
+               check reads (code or data) is shared rather than one in-scope
+               connector's own. The registry counts as shared unless every
+               entry it changes belongs to an in-scope connector."""
+    repo = repo or _Repo()
+    changed = scope.get("changed_paths")
+    # A deleted file (or the old side of a rename) is not in the tree, but
+    # what still imports, runs or reads it depends on it all the more: it
+    # stays a node a reference can resolve to (with no edges of its own).
+    gone = {f for f in changed or [] if f not in repo.files and not (ROOT / f).exists()}
+    if gone:
+        repo = _Repo(sorted(repo.files | gone))
+    affected = set(scope.get("affected") or [])
+    reg = registry.skills()
+    # The per-slug runs take registry slugs; a skill folder in scope with no
+    # registry entry cannot be named that way, so those checks see it whole.
+    slugs = sorted(s for s in reg if s in affected or registry.source_dir(s) in affected)
+    mapped = {registry.source_dir(s) for s in slugs} | set(slugs)
+    unmapped = sorted(d for d in scope.get("touched") or [] if d not in mapped)
+    out: dict = {"selftests": {}, "fleet": {}, "slugs": slugs}
+    for e in selftests:
+        if changed is None:
+            out["selftests"][e] = "the change set is unknown"
+            continue
+        d = deps(e, repo)
+        hit = sorted(f for f in changed if f in d)
+        out["selftests"][e] = hit[0] if hit else None
+    reg_delta: set[str] | None | bool = False  # False: not read yet
+    for e in fleet:
+        if scope.get("full_fleet"):
+            out["fleet"][e] = "the scope is the whole fleet"
+            continue
+        if changed is None:
+            out["fleet"][e] = "the change set is unknown"
+            continue
+        if unmapped:
+            out["fleet"][e] = f"skills/{unmapped[0]} has no registry entry to run it by"
+            continue
+        d = deps(e, repo, data=True)
+        why = None
+        for f in changed:
+            who = _skill_of(f)
+            if who is not None:
+                if who in affected:
+                    continue  # an in-scope connector's own file: the per-slug run reads it
+                why = f"{f} belongs to {who}, which is not in scope"
+                break
+            if f == release_matrix.REGISTRY_PATH:
+                if reg_delta is False:
+                    reg_delta = release_matrix._registry_delta(scope.get("merge_base") or "", None) \
+                        if scope.get("merge_base") else None
+                if reg_delta is not None and reg_delta <= affected:
+                    continue
+                why = f"{f} changes entries outside the scope" if reg_delta is not None else f"{f}: unreadable diff"
+                break
+            if f in d:
+                why = f"{f} is read by this check and is not an in-scope connector's own file"
+                break
+        out["fleet"][e] = why
+    return out
+
+
+# --------------------------------------------------------------------------- #
 # CLI
 # --------------------------------------------------------------------------- #
 
@@ -940,6 +1302,10 @@ def main(argv: list[str]) -> int:
                     help="how many check results the caller wrote; any other count fails the verdict")
     vp.add_argument("--record-error", action="store_true",
                     help="the caller could not write a check result; fails the verdict")
+    vp.add_argument("--profile", choices=("scoped", "full"), default="full")
+    vp.add_argument("--plan", help="the plan verify_all.sh ran by")
+    vp.add_argument("--linux-row", default="")
+    vp.add_argument("--windows", default="")
     gg = sub.add_parser("gate-go")
     gg.add_argument("--releases")
     gr = sub.add_parser("go-releases")
@@ -953,6 +1319,13 @@ def main(argv: list[str]) -> int:
     gw = sub.add_parser("gowork")
     gw.add_argument("--dir", required=True)
     sub.add_parser("scanner-pins")
+    pp = sub.add_parser("plan")
+    pp.add_argument("--scope", required=True)
+    pp.add_argument("--selftest", action="append", default=[], help="a self-test's entry (file or folder)")
+    pp.add_argument("--fleet", action="append", default=[], help="a fleet check that takes --slug (its file)")
+    dp = sub.add_parser("deps")
+    dp.add_argument("entry")
+    dp.add_argument("--data", action="store_true")
     bp = sub.add_parser("baseline")
     bp.add_argument("--scope", required=True)
     bp.add_argument("--head-log", required=True)
@@ -1035,6 +1408,13 @@ def main(argv: list[str]) -> int:
     if a.cmd == "scope":
         print(json.dumps(resolve_scope(a.slug, a.changed, a.base), indent=1))
         return 0
+    if a.cmd == "deps":
+        print("\n".join(sorted(deps(a.entry, _Repo(), data=a.data))))
+        return 0
+    if a.cmd == "plan":
+        sc = json.loads(Path(a.scope).read_text(encoding="utf-8"))
+        print(json.dumps(plan(sc, a.selftest, a.fleet), indent=1))
+        return 0
     scope = json.loads(Path(a.scope).read_text(encoding="utf-8"))
     if a.cmd == "attribute":
         text = read_log(a.log)
@@ -1046,14 +1426,16 @@ def main(argv: list[str]) -> int:
         records.append({"name": f"verify harness: {a.expect} check result(s) written, {len(records)} recorded"
                         + (", and a write failed" if a.record_error else ""),
                         "kind": "repo", "slug": "", "status": "fail", "seconds": 0.0, "log": "/dev/null"})
-    v = build_verdict(scope, records, a.seconds, a.started)
+    plan_ = json.loads(Path(a.plan).read_text(encoding="utf-8")) if a.plan else None
+    v = build_verdict(scope, records, a.seconds, a.started,
+                      profile=build_profile(a.profile, scope, records, plan_, a.linux_row, a.windows))
     out = Path(a.out)
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(v, indent=1) + "\n", encoding="utf-8")
     for o in v["out_of_scope_failures"]:
         print(f"  OUT OF SCOPE  {o['check']}: fails for {', '.join(o['slugs'])} (listed in the verdict, "
               "not blocking this change)")
-    print(f"verdict: {v['verdict'].upper()} - {len(v['blocking_failures'])} blocking, "
+    print(f"verdict: {v['profile_kind'].upper()} profile, {v['verdict'].upper()} - {len(v['blocking_failures'])} blocking, "
           f"{len(v['out_of_scope_failures'])} out of scope, {v['counts']['pass']} passed "
           f"({v['seconds']:.0f}s) -> {out}")
     return 1 if v["verdict"] == "fail" else 0
@@ -1477,6 +1859,93 @@ def _self_test() -> int:
     expect(gate_go_spec(wf.format(v="${{ env.MISSING }}")) is None, "an env name the workflow does not define is unknown")
     expect(gate_go_spec(wf.format(v="${{ env.OTHER }}")) is None, "an env value that is not a Go version is unknown")
     expect(gate_go_spec(wf.format(v="${{ matrix.go }}")) is None, "a non-env expression is unknown (fail closed)")
+    print("dependency sets (scoped profile):")
+    global ROOT
+    real_root = ROOT
+    with tempfile.TemporaryDirectory() as td:
+        ROOT = Path(td)
+        tree = {
+            "tools/maintainer/a.py": '"""Docstring naming tools/maintainer/q.py."""\nimport b\n'
+                                     'MACHINERY = ("tools/maintainer/m1.py", "tools/maintainer/m2.py")\n'
+                                     'print("run tools/maintainer/p.py first")\nFIX = "fixtures"\nCFG = "conf.json"\n'
+                                     'ACME = "skills/acme/x.go"\n',
+            "tools/maintainer/b.py": 'CMD = ["bash", "tools/maintainer/s.sh", "--self-test"]\n',
+            "tools/maintainer/s.sh": "#!/bin/sh\n# lib2.sh is only a comment\n. tools/maintainer/lib.sh\n",
+            "tools/maintainer/lib.sh": "#!/bin/sh\n", "tools/maintainer/lib2.sh": "#!/bin/sh\n",
+            "tools/maintainer/m1.py": "", "tools/maintainer/m2.py": "", "tools/maintainer/p.py": "",
+            "tools/maintainer/q.py": "", "tools/maintainer/conf.json": "{}",
+            "tools/maintainer/fixtures/x.json": "{}", "skills/acme/x.go": "package x\n",
+            "skills/acme/README.md": "x", "skills/other/README.md": "x",
+        }
+        for k, v in tree.items():
+            (ROOT / k).parent.mkdir(parents=True, exist_ok=True)
+            (ROOT / k).write_text(v, encoding="utf-8")
+        repo = _Repo(list(tree))
+        try:
+            d = deps("tools/maintainer/a.py", repo)
+            dd = deps("tools/maintainer/a.py", repo, data=True)
+            expect("tools/maintainer/b.py" in d, "an imported module is a dependency")
+            expect("tools/maintainer/s.sh" in d and "tools/maintainer/lib.sh" in d,
+                   "a script named in an argv, and what that script sources, are dependencies (transitive)")
+            expect("tools/maintainer/lib2.sh" not in d, "a file named only in a shell comment is not")
+            expect("tools/maintainer/fixtures/x.json" in d, "a named fixture folder brings in every file in it")
+            expect("tools/maintainer/p.py" not in d and "tools/maintainer/q.py" not in d,
+                   "a file named in prose or a docstring is not a dependency")
+            expect("tools/maintainer/m1.py" not in d and "tools/maintainer/m1.py" in dd,
+                   "a path-only data table is not code it runs, but is data the fleet checks read")
+            expect("tools/maintainer/conf.json" not in d and "tools/maintainer/conf.json" in dd,
+                   "a named data file is a dependency only for the data-reading fleet checks")
+            expect("skills/acme/x.go" not in d and "skills/acme/x.go" not in dd,
+                   "a connector's file is never a tool's dependency (the per-slug checks own it)")
+            sc = {"affected": ["acme"], "touched": [], "full_fleet": False}
+            st = ["tools/maintainer/a.py", "tools/maintainer/p.py"]
+            pl = plan(dict(sc, changed_paths=["skills/acme/x.go", "skills/acme/README.md"]), st,
+                      ["tools/maintainer/a.py"], repo)
+            expect(pl["selftests"] == {"tools/maintainer/a.py": None, "tools/maintainer/p.py": None},
+                   "a connector-only change reaches no self-test")
+            expect(pl["fleet"]["tools/maintainer/a.py"] is None,
+                   "a connector-only change runs the per-slug fleet checks per connector")
+            pl = plan(dict(sc, changed_paths=["tools/maintainer/lib.sh"]), st, [], repo)
+            expect(pl["selftests"]["tools/maintainer/a.py"] == "tools/maintainer/lib.sh"
+                   and pl["selftests"]["tools/maintainer/p.py"] is None,
+                   "a change to a sourced script reaches the tool that runs it, and only that one")
+            # A DELETED file (or one side of a rename) is still a dependency of what imports or names it.
+            (ROOT / "tools/maintainer/gone.py").write_text("", encoding="utf-8")
+            (ROOT / "tools/maintainer/gone.sh").write_text("", encoding="utf-8")
+            (ROOT / "tools/maintainer/b.py").write_text(
+                'import gone\nCMD = ["bash", "tools/maintainer/s.sh", "--self-test"]\n', encoding="utf-8")
+            (ROOT / "tools/maintainer/s.sh").write_text("#!/bin/sh\n. tools/maintainer/lib.sh\nsh tools/maintainer/gone.sh\n",
+                                                        encoding="utf-8")
+            for gone in ("tools/maintainer/gone.py", "tools/maintainer/gone.sh"):
+                (ROOT / "tools/maintainer/gone.py").unlink(missing_ok=True)
+                (ROOT / "tools/maintainer/gone.sh").unlink(missing_ok=True)
+                pl = plan(dict(sc, changed_paths=[gone]), st, ["tools/maintainer/a.py"], _Repo(list(tree)))
+                expect(pl["selftests"]["tools/maintainer/a.py"] == gone and bool(pl["fleet"]["tools/maintainer/a.py"]),
+                       f"deleting {gone.rsplit('/', 1)[-1]}, which a tool still imports or runs, reaches that tool")
+            pl = plan(dict(sc, changed_paths=None), st, ["tools/maintainer/a.py"], repo)
+            expect(all(pl["selftests"].values()) and pl["fleet"]["tools/maintainer/a.py"],
+                   "an unknown change set runs every self-test and every fleet check whole")
+            for ch, label in ((["tools/maintainer/conf.json"], "a changed data file the check reads"),
+                              (["skills/other/README.md"], "a changed connector outside the scope")):
+                pl = plan(dict(sc, changed_paths=ch), [], ["tools/maintainer/a.py"], repo)
+                expect(bool(pl["fleet"]["tools/maintainer/a.py"]), f"{label} runs the fleet check whole")
+            pl = plan(dict(sc, changed_paths=["skills/acme/x.go"], full_fleet=True), [], ["tools/maintainer/a.py"], repo)
+            expect(bool(pl["fleet"]["tools/maintainer/a.py"]), "a whole-fleet scope runs the fleet check whole")
+        finally:
+            ROOT = real_root
+    recs = [{"name": "self-test a.py", "kind": "repo", "slug": "", "status": "pass", "seconds": 1.0, "log": "/dev/null"},
+            {"name": "self-test b.py", "kind": "repo", "slug": "", "status": "skip", "seconds": 0.0, "log": "/dev/null"}]
+    sc0 = {"affected": [], "full_fleet": False, "head_sha": "h", "dirty": False, "base_ref": "b", "base_sha": "b",
+           "merge_base": "m", "connectors": ["acme"]}
+    pr = build_profile("scoped", sc0, recs, {"selftests": {"tools/maintainer/a.py": "x.py"}, "fleet": {}, "slugs": []},
+                       "linux/arm64, docker", "host")
+    v0 = build_verdict(sc0, recs, 1.0, "", known=set(), profile=pr)
+    expect(v0["profile_kind"] == "scoped" and not pr["equivalent_to_full"] and pr["ci_is_authority_for"]
+           and pr["self_tests_ran"] == ["a.py"] and pr["self_tests_skipped"] == ["b.py"],
+           "a scoped verdict says so, names what CI is the authority for, and lists the self-tests run and skipped")
+    pf = build_profile("full", sc0, recs, None, "linux/amd64, docker (emulated)", "x")
+    expect(pf["equivalent_to_full"] and not pf["ci_is_authority_for"], "a full verdict says it is the full profile")
+
     rx = gate_logic_re()
     expect(all(rx.match(p) for p in GATE_LOGIC_FALLBACK) and rx.pattern != "^(" + "|".join(
         re.escape(p) for p in GATE_LOGIC_FALLBACK) + ")$",

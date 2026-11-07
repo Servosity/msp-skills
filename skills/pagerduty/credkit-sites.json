@@ -1,0 +1,116 @@
+{
+ "sites": [
+  {
+   "file": "internal/cliutil/credkit_hold.go",
+   "func": "HoldFile",
+   "what": "os.ReadFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reads a config or credential file only to hold its credentials with the kit, for a file Declarations.Files leaves out so its base_url cannot become an allowed origin"
+  },
+  {
+   "file": "cmd/pagerduty-mcp/pd_tls_key_hold.go",
+   "func": "holdTLSKey",
+   "what": "os.DirFS",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reads the --tls-key file only to hold its key material with the kit"
+  },
+  {
+   "file": "internal/cli/pd_profile_hold.go",
+   "func": "readRegularFile",
+   "what": "os.ReadFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reads a run profile store only to hold its credential values; Declarations.Files leaves it out so its JSON strings cannot refuse a start"
+  },
+  {
+   "file": "internal/credsql/credsql.go",
+   "func": "applyLengthLimit",
+   "what": "database/sql.OpenDB",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "runs one limit statement on the driver connection the kit's driver is opening, inside credkit.SQLDriver; nothing else reaches this handle"
+  },
+  {
+   "file": "internal/cli/pagerduty_guard.go",
+   "func": "installPin",
+   "what": "net/http.DefaultTransport",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the base transport beneath the origin pin; client.doInternal sends every request through OutboundGuard (credkit.Transport) around it"
+  },
+  {
+   "file": "internal/cli/pagerduty_guard.go",
+   "func": "installPin",
+   "what": "net/http.Client.Transport",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "installs the origin pin; client.doInternal sends every request through OutboundGuard (credkit.Transport) around it"
+  },
+  {
+   "file": "internal/cli/pagerduty_guard.go",
+   "func": "installPin",
+   "what": "convert:pagerduty-pp-cli/internal/cli.originPinTripper.RoundTrip",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the origin pin, wrapped by credkit.Transport on every send (client.doInternal OutboundGuard)"
+  },
+  {
+   "file": "internal/cli/pagerduty_guard.go",
+   "func": "installPin",
+   "what": "convert:pagerduty-pp-cli/internal/cli.dryRunTripper.RoundTrip",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "under --dry-run it refuses every request and sends nothing"
+  },
+  {
+   "file": "internal/cli/pagerduty_guard.go",
+   "func": "originPinTripper.RoundTrip",
+   "what": "net/http.RoundTripper.RoundTrip",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the pin passes an allowed request to the base transport; credkit.Transport wraps the pin on every send"
+  },
+  {
+   "file": "internal/cli/pagerduty_oncall_identity.go",
+   "func": "stampOncallKeys",
+   "what": "net/http.Client.Transport",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "puts the on-call key stamp beneath the origin pin; credkit.Transport wraps the pin on every send"
+  },
+  {
+   "file": "internal/cli/pagerduty_oncall_identity.go",
+   "func": "stampOncallKeys",
+   "what": "convert:pagerduty-pp-cli/internal/cli.oncallKeyTripper.RoundTrip",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the on-call key stamp beneath the origin pin; credkit.Transport wraps the pin on every send"
+  },
+  {
+   "file": "internal/cli/pagerduty_oncall_identity.go",
+   "func": "stampOncallKeys",
+   "what": "convert:pagerduty-pp-cli/internal/cli.originPinTripper.RoundTrip",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "re-installs the origin pin with the stamp beneath it; credkit.Transport wraps the pin on every send"
+  },
+  {
+   "file": "internal/cli/pagerduty_oncall_identity.go",
+   "func": "oncallKeyTripper.RoundTrip",
+   "what": "net/http.RoundTripper.RoundTrip",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "passes the request on beneath the origin pin; credkit.Transport wraps the pin on every send"
+  },
+  {
+   "file": "internal/credsql/credsql.go",
+   "func": "applyLengthLimit",
+   "what": "database/sql.DB.Conn",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "a connection hook that sets the SQLite length limit on the connection it was lent; it runs when a connection opens, after Start, and sends and prints nothing"
+  }
+ ]
+}

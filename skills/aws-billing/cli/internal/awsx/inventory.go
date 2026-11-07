@@ -13,6 +13,7 @@ import (
 	cwtypes "github.com/aws/aws-sdk-go-v2/service/cloudwatch/types"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 )
 
 // idleCPUThreshold is the average CPU% below which a running instance is
@@ -29,11 +30,26 @@ type InventoryOptions struct {
 // CollectInventory walks EC2 instances, EBS volumes, snapshots, Elastic IPs,
 // and S3 buckets in the current account/region, flagging waste candidates with
 // an estimated monthly dollar figure. Read-only.
+//
+// aws-billing handfix (inventory-failures-reported): every failure is
+// returned, never dropped, beside whatever was collected: a CloudWatch call
+// that failed leaves an instance's idle check undone, and an S3 listing that
+// failed leaves the buckets out, so the scan is incomplete and reads as such
+// (a caller treats a non-nil error as an incomplete scan).
 func (c *Client) CollectInventory(ctx context.Context, opts InventoryOptions) ([]InventoryResource, error) {
 	if opts.CPUDays <= 0 {
 		opts.CPUDays = 14
 	}
-	account, _, _ := c.CallerIdentity(ctx)
+	// Every row is stored under this account (Codex r1 class
+	// cache-answer-not-the-request): a scan whose account is unknown is not
+	// stored at all.
+	account, _, err := c.CallerIdentity(ctx)
+	if err == nil && account == "" {
+		err = fmt.Errorf("sts:GetCallerIdentity named no account")
+	}
+	if err != nil {
+		return nil, fmt.Errorf("resolving the account to scan: %w", err)
+	}
 
 	var out []InventoryResource
 
@@ -51,7 +67,7 @@ func (c *Client) CollectInventory(ctx context.Context, opts InventoryOptions) ([
 	}
 	out = append(out, vols...)
 
-	// Snapshots (owned by this account) — orphaned if source volume is gone.
+	// Snapshots (owned by this account): waste by age (collectSnapshots).
 	snaps, err := c.collectSnapshots(ctx, account, volumeIDs)
 	if err != nil {
 		return nil, fmt.Errorf("describe snapshots: %w", err)
@@ -67,17 +83,17 @@ func (c *Client) CollectInventory(ctx context.Context, opts InventoryOptions) ([
 
 	// EC2 instances (idle detection via CloudWatch unless skipped)
 	insts, err := c.collectInstances(ctx, account, opts)
-	if err != nil {
-		return nil, fmt.Errorf("describe instances: %w", err)
-	}
 	out = append(out, insts...)
-
-	// S3 buckets (informational inventory; size best-effort)
-	buckets, err := c.collectBuckets(ctx, account)
-	if err == nil { // S3 list is best-effort; don't fail the whole scan
-		out = append(out, buckets...)
+	if err != nil {
+		return out, fmt.Errorf("describe instances: %w", err)
 	}
 
+	// S3 buckets (informational inventory; no waste is computed for them)
+	buckets, err := c.collectBuckets(ctx, account)
+	if err != nil {
+		return out, fmt.Errorf("list buckets: %w", err)
+	}
+	out = append(out, buckets...)
 	return out, nil
 }
 
@@ -140,6 +156,14 @@ func (c *Client) collectVolumes(ctx context.Context, account string) ([]Inventor
 }
 
 func (c *Client) collectSnapshots(ctx context.Context, account string, liveVolumes map[string]bool) ([]InventoryResource, error) {
+	// Codex r1 class wrong-field-from-a-documented-response: the EC2 Snapshot
+	// type documents that "snapshots created by a copy snapshot operation
+	// have an arbitrary volume ID that you should not use for any purpose",
+	// so a snapshot whose volume ID names no volume here is not evidence of an
+	// orphan (a cross-region or retained backup copy reads exactly so). The
+	// volume ID is kept as information (attrs source_volume, and
+	// source_volume_found when it names a volume of this region); waste is
+	// the snapshot's age alone.
 	var res []InventoryResource
 	p := ec2.NewDescribeSnapshotsPaginator(c.EC2, &ec2.DescribeSnapshotsInput{
 		OwnerIds: []string{"self"},
@@ -165,15 +189,11 @@ func (c *Client) collectSnapshots(ctx context.Context, account string, liveVolum
 				State:          string(s.State),
 				MonthlyCostUSD: round2(cost),
 				Attrs: tagsToJSON(mergeAttrs(tags, map[string]string{
-					"source_volume": srcVol, "size_gb": fmt.Sprintf("%.0f", size), "age_days": fmt.Sprintf("%d", ageDays),
+					"source_volume": srcVol, "source_volume_found": fmt.Sprintf("%t", liveVolumes[srcVol]),
+					"size_gb": fmt.Sprintf("%.0f", size), "age_days": fmt.Sprintf("%d", ageDays),
 				})),
 			}
-			orphaned := srcVol != "" && srcVol != "vol-ffffffff" && !liveVolumes[srcVol]
-			switch {
-			case orphaned:
-				r.MonthlyWasteUSD = round2(cost)
-				r.WasteReason = "orphaned snapshot (source volume no longer exists)"
-			case ageDays > 365:
+			if ageDays > 365 {
 				r.MonthlyWasteUSD = round2(cost)
 				r.WasteReason = fmt.Sprintf("snapshot older than 1 year (%d days) — review for deletion", ageDays)
 			}
@@ -217,6 +237,8 @@ func (c *Client) collectAddresses(ctx context.Context, account string) ([]Invent
 
 func (c *Client) collectInstances(ctx context.Context, account string, opts InventoryOptions) ([]InventoryResource, error) {
 	var res []InventoryResource
+	var cwFailed int
+	var cwErr error
 	p := ec2.NewDescribeInstancesPaginator(c.EC2, &ec2.DescribeInstancesInput{})
 	for p.HasMorePages() {
 		page, err := p.NextPage(ctx)
@@ -243,7 +265,11 @@ func (c *Client) collectInstances(ctx context.Context, account string, opts Inve
 					Attrs:          tagsToJSON(mergeAttrs(tags, map[string]string{"instance_type": itype, "price_known": fmt.Sprintf("%t", known)})),
 				}
 				if state == "running" && !opts.SkipCPU {
-					avg, ok := c.avgCPU(ctx, id, opts.CPUDays)
+					avg, ok, cerr := c.avgCPU(ctx, id, opts.CPUDays)
+					if cerr != nil {
+						cwFailed++
+						cwErr = firstError(cwErr, cerr)
+					}
 					if ok && avg < idleCPUThreshold {
 						if known {
 							r.MonthlyWasteUSD = round2(monthly)
@@ -255,12 +281,23 @@ func (c *Client) collectInstances(ctx context.Context, account string, opts Inve
 			}
 		}
 	}
+	if cwErr != nil {
+		return res, fmt.Errorf("idle check incomplete: CloudWatch GetMetricStatistics failed for %d running instance(s): %w", cwFailed, cwErr)
+	}
 	return res, nil
 }
 
+func firstError(a, b error) error {
+	if a != nil {
+		return a
+	}
+	return b
+}
+
 // avgCPU returns the average CPUUtilization for an instance over the trailing
-// window. ok=false when no datapoints (instance too new or metrics off).
-func (c *Client) avgCPU(ctx context.Context, instanceID string, days int) (float64, bool) {
+// window. ok=false when no datapoints (instance too new or metrics off); a
+// failed call is returned as err, never read as "no datapoints".
+func (c *Client) avgCPU(ctx context.Context, instanceID string, days int) (float64, bool, error) {
 	end := time.Now().UTC()
 	start := end.Add(-time.Duration(days) * 24 * time.Hour)
 	out, err := c.CW.GetMetricStatistics(ctx, &cloudwatch.GetMetricStatisticsInput{
@@ -272,35 +309,51 @@ func (c *Client) avgCPU(ctx context.Context, instanceID string, days int) (float
 		Period:     aws.Int32(86400),
 		Statistics: []cwtypes.Statistic{cwtypes.StatisticAverage},
 	})
-	if err != nil || len(out.Datapoints) == 0 {
-		return 0, false
+	if err != nil {
+		return 0, false, err
+	}
+	if len(out.Datapoints) == 0 {
+		return 0, false, nil
 	}
 	var sum float64
 	for _, dp := range out.Datapoints {
 		sum += aws.ToFloat64(dp.Average)
 	}
-	return sum / float64(len(out.Datapoints)), true
+	return sum / float64(len(out.Datapoints)), true, nil
 }
 
+// collectBuckets lists the account's buckets (Codex r1 class
+// wrong-resource-region): ListBuckets is account-wide, and S3 includes each
+// bucket's own BucketRegion only when the request carries a parameter (the S3
+// Bucket type), so the request is the paginated form (MaxBuckets, the form
+// the ListBuckets reference requires above the 10,000-bucket quota) and each
+// row carries its bucket's region, never the scan region.
 func (c *Client) collectBuckets(ctx context.Context, account string) ([]InventoryResource, error) {
-	out, err := c.S3.ListBuckets(ctx, nil)
-	if err != nil {
-		return nil, err
-	}
 	var res []InventoryResource
-	for _, b := range out.Buckets {
-		name := aws.ToString(b.Name)
-		res = append(res, InventoryResource{
-			ResourceType:   "s3",
-			ResourceID:     name,
-			AccountID:      account,
-			Region:         c.Region,
-			State:          "active",
-			MonthlyCostUSD: 0, // size-based cost requires per-bucket CloudWatch; informational only
-			Attrs:          tagsToJSON(map[string]string{"created": aws.ToTime(b.CreationDate).Format("2006-01-02")}),
-		})
+	p := s3.NewListBucketsPaginator(c.S3, &s3.ListBucketsInput{MaxBuckets: aws.Int32(1000)})
+	for p.HasMorePages() {
+		page, err := p.NextPage(ctx)
+		if err != nil {
+			return nil, err
+		}
+		for _, b := range page.Buckets {
+			res = append(res, bucketResource(b.Name, b.BucketRegion, b.CreationDate, account))
+		}
 	}
 	return res, nil
+}
+
+func bucketResource(nameP, regionP *string, created *time.Time, account string) InventoryResource {
+	name := aws.ToString(nameP)
+	return InventoryResource{
+		ResourceType:   "s3",
+		ResourceID:     name,
+		AccountID:      account,
+		Region:         aws.ToString(regionP),
+		State:          "active",
+		MonthlyCostUSD: 0, // size-based cost requires per-bucket CloudWatch; informational only
+		Attrs:          tagsToJSON(map[string]string{"created": aws.ToTime(created).Format("2006-01-02")}),
+	}
 }
 
 func mergeAttrs(base map[string]string, extra map[string]string) map[string]string {

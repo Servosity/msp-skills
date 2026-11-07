@@ -53,7 +53,7 @@ func newOrganizationsDevicesGetOrganizationUplinksLossAndLatencyCmd(flags *rootF
 					}
 				}
 				if !validUplink {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagUplink, "uplink", allowedUplink)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagUplink, "uplink", allowedUplink))
 				}
 			}
 			path := "/organizations/{organizationId}/devices/uplinksLossAndLatency"

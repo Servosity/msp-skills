@@ -11,9 +11,9 @@ func TestComputeSyncGaps(t *testing.T) {
 		"account":             12,
 	}
 	states := map[string]syncStateRow{
-		"account-devices":     {lastSyncedAt: "2026-06-05T00:00:00Z", totalCount: 100},
-		"account-alerts-open": {lastSyncedAt: "2026-06-05T00:00:00Z", totalCount: 55},
-		"activity-logs":       {lastSyncedAt: "2026-06-01T00:00:00Z", totalCount: 9},
+		"account-devices":     {lastSyncedAt: "2026-06-05T00:00:00Z", totalCount: 100, complete: true},
+		"account-alerts-open": {lastSyncedAt: "2026-06-05T00:00:00Z", totalCount: 55, complete: true},
+		"activity-logs":       {lastSyncedAt: "2026-06-01T00:00:00Z", totalCount: 9, complete: true},
 	}
 
 	rows := computeSyncGaps(rowCounts, states)
