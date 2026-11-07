@@ -417,6 +417,9 @@ var writeThroughNestedEnvelopeKeys = []string{"data", "Data", "result", "Result"
 // FTS search covers everything the user has looked up — not just explicit syncs.
 // Best-effort: failures are silently ignored (the live result already succeeded).
 func writeThroughCache(ctx context.Context, resourceType string, data json.RawMessage) {
+	if localDataDisabled() {
+		return
+	}
 	db, err := store.OpenWithContext(ctx, defaultDBPath("cisco-meraki-cli"))
 	if err != nil {
 		return

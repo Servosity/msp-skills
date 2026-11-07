@@ -50,7 +50,7 @@ func newOrganizationsWebhooksGetOrganizationAlertTypesCmd(flags *rootFlags) *cob
 					}
 				}
 				if !validProductType {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagProductType, "product-type", allowedProductType)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagProductType, "product-type", allowedProductType))
 				}
 			}
 			path := "/organizations/{organizationId}/webhooks/alertTypes"

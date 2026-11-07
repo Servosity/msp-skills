@@ -1171,7 +1171,7 @@
     {
       "name": "cisco-meraki",
       "source": "./skills/cisco-meraki",
-      "description": "Every Meraki Dashboard operation, plus cross-org fleet views that read every page, and a local mirror built for MSPs running many client orgs.",
+      "description": "Every Meraki Dashboard operation, plus cross-org fleet views that read every page, built for MSPs running many client orgs.",
       "version": "0.1.3",
       "category": "network-monitoring",
       "tags": [

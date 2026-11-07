@@ -52,7 +52,7 @@ func newNetworksWebhooksGetNetworkPayloadTemplateCmd(flags *rootFlags) *cobra.Co
 				return err
 			}
 			params := map[string]string{}
-			data, prov, err := resolveReadWithStrategyAndResponsePath(cmd.Context(), c, flags, "live", "webhooks", false, path, params, nil, "headers", cmd.ErrOrStderr())
+			data, prov, err := resolveReadWithStrategyAndResponsePath(cmd.Context(), c, flags, "live", "webhooks", false, path, params, nil, "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}
@@ -79,7 +79,7 @@ func newNetworksWebhooksGetNetworkPayloadTemplateCmd(flags *rootFlags) *cobra.Co
 					filtered, selectErr = filterFieldsChecked(filtered, flags.selectFields)
 					selectErr = selectErrorForDryRun(selectErr, flags, data)
 				} else if flags.compact {
-					filtered = compactFields(filtered, map[string]bool{"name": true})
+					filtered = compactFields(filtered, map[string]bool{"name": true, "payloadTemplateId": true, "type": true})
 				}
 				wrapped, wrapErr := wrapWithProvenance(filtered, prov)
 				if wrapErr != nil {
@@ -111,7 +111,7 @@ func newNetworksWebhooksGetNetworkPayloadTemplateCmd(flags *rootFlags) *cobra.Co
 			if flags.csv || flags.plain {
 				formatData = outputData
 			}
-			return printOutputWithFlagsMeta(cmd.OutOrStdout(), formatData, flags, map[string]any{"source": "live"}, map[string]bool{"name": true})
+			return printOutputWithFlagsMeta(cmd.OutOrStdout(), formatData, flags, map[string]any{"source": "live"}, map[string]bool{"name": true, "payloadTemplateId": true, "type": true})
 		},
 	}
 

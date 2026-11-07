@@ -17,7 +17,9 @@ import (
 // TestCodeOrchExecuteReportsMerakiNextPage guards the hand-fix
 // meraki-mcp-execute-link-next: Meraki pages list endpoints only through the
 // Link header, so cisco-meraki_execute must tell the agent a page is partial
-// (has_more + next_starting_after) and stay quiet on the last page.
+// (has_more + next_starting_after) and stay quiet on the last page. Press 4.35.1
+// serves GET endpoints through cisco-meraki_read (handleCodeOrchRead), which shares
+// execute's request path.
 func TestCodeOrchExecuteReportsMerakiNextPage(t *testing.T) {
 	resetMCPPathEnv(t)
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -39,7 +41,7 @@ func TestCodeOrchExecuteReportsMerakiNextPage(t *testing.T) {
 
 	call := func(params map[string]any) map[string]any {
 		t.Helper()
-		res, err := handleCodeOrchExecute(context.Background(), mcplib.CallToolRequest{Params: mcplib.CallToolParams{
+		res, err := handleCodeOrchRead(context.Background(), mcplib.CallToolRequest{Params: mcplib.CallToolParams{
 			Arguments: map[string]any{"endpoint_id": "organizations.get", "params": params},
 		}})
 		if err != nil || res == nil || res.IsError {
@@ -83,7 +85,7 @@ func TestCodeOrchExecuteTruncatedPageWithholdsCursor(t *testing.T) {
 	t.Setenv("CISCO_MERAKI_BASE_URL", srv.URL+"/api/v1")
 	t.Setenv("MERAKI_DASHBOARD_API_KEY", "test-key")
 
-	res, err := handleCodeOrchExecute(context.Background(), mcplib.CallToolRequest{Params: mcplib.CallToolParams{
+	res, err := handleCodeOrchRead(context.Background(), mcplib.CallToolRequest{Params: mcplib.CallToolParams{
 		Arguments: map[string]any{"endpoint_id": "organizations.get", "params": map[string]any{"perPage": 120}},
 	}})
 	if err != nil || res == nil || res.IsError {
@@ -121,7 +123,7 @@ func TestCodeOrchExecuteCutUnpagedResultKeepsBoundNote(t *testing.T) {
 	defer srv.Close()
 	t.Setenv("CISCO_MERAKI_BASE_URL", srv.URL+"/api/v1")
 	t.Setenv("MERAKI_DASHBOARD_API_KEY", "test-key")
-	res, err := handleCodeOrchExecute(context.Background(), mcplib.CallToolRequest{Params: mcplib.CallToolParams{
+	res, err := handleCodeOrchRead(context.Background(), mcplib.CallToolRequest{Params: mcplib.CallToolParams{
 		Arguments: map[string]any{"endpoint_id": "devices.switch.get-device-ports", "params": map[string]any{"serial": "Q2SW-0001"}},
 	}})
 	if err != nil || res == nil || res.IsError {
@@ -174,7 +176,7 @@ func TestCodeOrchExecuteTruncatedEnvelopeWithholdsCursor(t *testing.T) {
 		{"envelope, last page", map[string]any{"shape": "envelope", "last": "1"}, false},
 		{"array, last page", map[string]any{"last": "1"}, false},
 	} {
-		res, err := handleCodeOrchExecute(context.Background(), mcplib.CallToolRequest{Params: mcplib.CallToolParams{
+		res, err := handleCodeOrchRead(context.Background(), mcplib.CallToolRequest{Params: mcplib.CallToolParams{
 			Arguments: map[string]any{"endpoint_id": "organizations.get", "params": tc.params},
 		}})
 		if err != nil || res == nil || res.IsError {
@@ -208,7 +210,7 @@ func TestCodeOrchExecuteCountsEnvelopeRecords(t *testing.T) {
 	defer srv.Close()
 	t.Setenv("CISCO_MERAKI_BASE_URL", srv.URL+"/api/v1")
 	t.Setenv("MERAKI_DASHBOARD_API_KEY", "test-key")
-	res, err := handleCodeOrchExecute(context.Background(), mcplib.CallToolRequest{Params: mcplib.CallToolParams{
+	res, err := handleCodeOrchRead(context.Background(), mcplib.CallToolRequest{Params: mcplib.CallToolParams{
 		Arguments: map[string]any{"endpoint_id": "organizations.wireless.get-organization-rf-profiles-assignments-by-device", "params": map[string]any{"organizationId": "1"}},
 	}})
 	if err != nil || res == nil || res.IsError {
