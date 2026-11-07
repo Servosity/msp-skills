@@ -1,0 +1,132 @@
+name: vuln-watch
+
+# Daily watch for newly published Go vulnerabilities in EVERY connector, so one
+# like GO-2026-6888 (published 2026-11-05, found only when a PR happened to touch
+# an affected connector) is caught within a day. Advisory only: it opens or edits
+# GitHub issues (label vuln-watch, one per GO-YYYY-NNNN ID) and never gates or
+# changes code. Logic: tools/maintainer/vuln_watch.py (--self-test proves it).
+#
+#   scan    8 shards; each builds the PINNED govulncheck cold (the security
+#           gate's pins and digest, read from security-gate.yml) and symbol-scans
+#           its connectors once per release target (registry.TARGETS: three OS
+#           by two arches). Read-only token.
+#   report  the only job with issues: write. Checks that every connector was
+#           scanned cleanly, then opens one issue per ID reachable in at least one
+#           connector, or edits the open one when its text changed. A closed one
+#           is never reopened or duplicated. There is NO closing logic: an issue
+#           whose ID stops being reported is left open for a person to close. A connector that could not be scanned fails the run
+#           (after the issues are written), never a silent skip.
+
+on:
+  schedule:
+    - cron: "41 6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# One writer at a time, so two runs can never both open the issue for one ID.
+concurrency:
+  group: vuln-watch
+  cancel-in-progress: false
+
+jobs:
+  scan:
+    name: scan (shard ${{ matrix.shard }} of 8)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      max-parallel: 8
+      matrix:
+        # Change the 8 in --shard below with this list; the report job fails on
+        # any connector no shard scanned, so a mismatch cannot pass silently.
+        shard: [0, 1, 2, 3, 4, 5, 6, 7]
+    env:
+      GOTOOLCHAIN: local
+      CGO_ENABLED: "0"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Read the scanner pins from security-gate.yml (one source of truth)
+        run: |
+          set -euo pipefail
+          # verify_scope.py validates every value (digits, dots, hex), so nothing
+          # but KEY=VALUE lines can reach GITHUB_ENV.
+          python3 -I tools/maintainer/verify_scope.py scanner-pins > "$RUNNER_TEMP/pins.env"
+          grep -E '^(SCANNER_GO|GOVULNCHECK_VERSION|GOVULNCHECK_SHA256)=' "$RUNNER_TEMP/pins.env" >> "$GITHUB_ENV"
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.SCANNER_GO }}
+          cache: false
+      - name: Build the pinned govulncheck cold (security-gate.yml's method; a digest mismatch is fatal)
+        run: |
+          set -euo pipefail
+          bin="$RUNNER_TEMP/scanner-build"
+          mkdir -p "$bin"
+          [ "$(go env GOVERSION)" = "go$SCANNER_GO" ] || { echo "::error::scanner toolchain is $(go env GOVERSION), want go$SCANNER_GO"; exit 1; }
+          sha() { sha256sum "$1" | cut -d' ' -f1; }
+          modver() { go version -m "$1" | awk '$1 == "mod" { print $2, $3 }'; }
+          get() {  # name package module version pinned-sha256 (mirrors security-gate.yml)
+            for attempt in 1 2 3; do
+              rm -f "$bin/$1"
+              if CGO_ENABLED=0 GOFLAGS=-trimpath GOBIN="$bin" go install "$2@$4" && [ "$(modver "$bin/$1")" = "$3 $4" ]; then
+                if [ "$(sha "$bin/$1")" = "$5" ]; then
+                  echo "$1 $4: built cold; matches the reviewed sha256"
+                  return 0
+                fi
+                echo "::error::$1 $4 built to sha256 $(sha "$bin/$1"), not the reviewed $5 (fail-closed)"
+                return 1
+              fi
+              echo "::warning::$1 $4 install attempt $attempt failed"
+              sleep $((attempt * 15))
+            done
+            echo "::error::could not install $1 $4 after 3 attempts (fail-closed)"
+            return 1
+          }
+          get govulncheck golang.org/x/vuln/cmd/govulncheck golang.org/x/vuln "$GOVULNCHECK_VERSION" "$GOVULNCHECK_SHA256"
+          echo "$bin" >> "$GITHUB_PATH"
+      - name: Scan this shard's connectors
+        env:
+          SHARD: ${{ matrix.shard }}
+        run: python3 -I tools/maintainer/vuln_watch.py --scan --shard "$SHARD/8" --out "$RUNNER_TEMP/vuln"
+      - name: Hand the results to the report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vuln-shard-${{ matrix.shard }}
+          path: ${{ runner.temp }}/vuln
+          retention-days: 7
+          if-no-files-found: ignore
+
+  report:
+    needs: scan
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Collect the shard results
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          pattern: vuln-shard-*
+          path: ${{ runner.temp }}/vuln
+          merge-multiple: true
+      - name: Open or update one issue per reachable vulnerability ID
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/vuln"
+          python3 -I tools/maintainer/vuln_watch.py --report --results "$RUNNER_TEMP/vuln" \
+            --repo "$REPO" --apply | tee -a "$GITHUB_STEP_SUMMARY"

@@ -36,6 +36,7 @@ the statusline, you do not need anything in this folder - see the root
 | `press_floor.json` | The lowest cli-printing-press version a new connector may be printed with (upstream's own declared minimum, with the commit it was read at), read by `check_press_metadata.py` and onboard.py. `not_press_generated` exempts a connector the press never generated (read from the base, so a PR cannot exempt itself). It rises to upstream's current floor once the paused 4.33.5 prints have landed. |
 | `verify_live.py` | Flips a live-verified badge, or revokes it. A flip records the release it verified and the `cli_hash.py` hash of `cli/` at that tag (`--verified-version` when the report names it, else the newest release cut before `--reported-at`); `--bind` sets that on an existing badge. The catalog then reads "verified on vX.Y.Z" once the shipped code changes, and `check_registry_state.py` proves every recorded hash is the tag's code. A flip or revoke also moves the registry `status` and the README / pain-point Status paragraphs, because Beta and live-verified are mutually exclusive: `--check` (CI) fails on any disagreement and `--sync` repairs it. |
 | `verify_watch.py` | Run weekly by `verify-watch.yml`. Keeps one `verify-map-stale` issue open while the verify-msp-skills map is behind the fleet (a manifest press version above `maintained_at_press`, a verify ERROR or an unexpected SKIP in main's newest `verify-<slug>` CI artifacts, or a stamp 30+ days old), and one `press-watch` issue while `mvanhorn/cli-printing-press` has a newer release than the fleet (input for the reprint decision; never reprints). Never duplicates, closes when clear, never closes on unreadable evidence. Dry run without `--apply`; `--self-test`. |
+| `vuln_watch.py` | Run daily by `vuln-watch.yml`. Symbol-scans every connector module with the security gate's pinned govulncheck (every release target, under the Go each module builds with) and keeps one `vuln-watch` issue per vulnerability ID that is reachable in at least one connector, edited in place when the affected set changes; never duplicates, never closes, never reopens. A connector it cannot scan fails the run. Advisory: gates nothing. Dry run without `--apply` (`--dry-run`); `--self-test`. |
 | `verify_maintained.json` | When the verify-msp-skills feature map was last maintained (`maintained_at`) and the press version it covers (`maintained_at_press`). Update both in the PR that runs `/maintain-verification-skill`. |
 | `gen_governance.py` | Drafts a skill's `governance.md` from its CLI surface. |
 | `registry.py` | Shared loader for `skills.json` (the single source of truth for skills). |
@@ -885,8 +886,15 @@ pinned `git diff --binary`, not `git patch-id`, which ignores whitespace even in
 literals). It stays current across a rebase only when the fingerprint is unchanged and main's
 new commits touch nothing under the connector's directory, nothing in `release_matrix.py`'s
 `MACHINERY` list, no directory the change's other files live in, no hand-written part of a
-README or issue form the change also edits, and no registry entry of a slug it touches. So
-that another connector merging first does not cost a re-review, the three registries are
+README or issue form the change also edits, no registry entry of a slug it touches, and, in the
+three shared gate files (`security_suppressions.json`, `security_gate_baseline.json`,
+`verify_baseline.json`), no entry of a connector it touches or whose entries it edits, no entry
+that is not exactly one connector's (a slug-relative, `{slug}` or malformed suppression, a rule
+key, a top-level field) and nothing it cannot read per entry (it then names the file). An entry
+is one connector's when it names `skills/<dir>/...` (a suppression) or that connector's slug (a
+baseline). A change that itself edits a gate file outside one connector's entries keeps the
+whole file as a dependency. So that another connector merging first does not cost a re-review,
+the three registries and the three gate files are
 fingerprinted entry by entry, README.md and the issue forms by their hand-written parts only
 (the generator-owned regions masked with the generator's own patterns), and only the files a
 generator writes whole from sources (`catalog.json`, `docs/_data/catalog.json`,
