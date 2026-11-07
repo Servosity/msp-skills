@@ -2,6 +2,7 @@ package xfin
 
 import (
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -24,15 +25,50 @@ func outstanding(inv Invoice) bool {
 	return inv.Status == "AUTHORISED" && inv.AmountDue > 0
 }
 
+// livePayment and liveBankTxn allowlist the statuses that are cash. Xero keeps
+// DELETED payments and DELETED/VOIDED bank transactions in the feed; those,
+// and any status Xero adds later, never count.
+func livePayment(p Payment) bool { return p.Status == "AUTHORISED" }
+
+func liveBankTxn(t BankTransaction) bool { return t.Status == "AUTHORISED" }
+
+// Totals holds money per currency code. Amounts in different currencies are
+// never added together; a record with no code is its own "unknown" bucket.
+type Totals map[string]float64
+
+func (t Totals) add(currency string, amount float64) {
+	if currency == "" {
+		currency = "unknown"
+	}
+	t[currency] = round2(t[currency] + amount)
+}
+
+// String renders the totals for table output, one currency at a time.
+func (t Totals) String() string {
+	if len(t) == 0 {
+		return "0.00"
+	}
+	keys := make([]string, 0, len(t))
+	for k := range t {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	parts := make([]string, len(keys))
+	for i, k := range keys {
+		parts[i] = k + " " + strconv.FormatFloat(t[k], 'f', 2, 64)
+	}
+	return strings.Join(parts, ", ")
+}
+
 // ---------------------------------------------------------------------------
 // Aging
 // ---------------------------------------------------------------------------
 
 // AgingBucket is one overdue band.
 type AgingBucket struct {
-	Label    string  `json:"bucket"`
-	Count    int     `json:"count"`
-	TotalDue float64 `json:"total_due"`
+	Label    string `json:"bucket"`
+	Count    int    `json:"count"`
+	TotalDue Totals `json:"total_due"`
 }
 
 // AgingReport is the result of ComputeAging.
@@ -40,7 +76,7 @@ type AgingReport struct {
 	AsOf         string        `json:"as_of"`
 	Kind         string        `json:"kind"` // "receivable" | "payable"
 	Buckets      []AgingBucket `json:"buckets"`
-	TotalDue     float64       `json:"total_due"`
+	TotalDue     Totals        `json:"total_due"`
 	InvoiceCount int           `json:"invoice_count"`
 }
 
@@ -72,13 +108,14 @@ func ComputeAging(invoices []Invoice, asOf time.Time, payable bool) AgingReport 
 		kind = "payable"
 	}
 	idx := map[string]*AgingBucket{}
-	report := AgingReport{AsOf: asOf.UTC().Format("2006-01-02"), Kind: kind}
+	report := AgingReport{AsOf: asOf.UTC().Format("2006-01-02"), Kind: kind, TotalDue: Totals{}}
 	// Pre-size the slice so the &report.Buckets[i] pointers stay valid — an
 	// append-and-take-pointer loop would reallocate and invalidate earlier
 	// pointers, silently dropping their bucket totals.
 	report.Buckets = make([]AgingBucket, len(agingBands))
 	for i, b := range agingBands {
 		report.Buckets[i].Label = b
+		report.Buckets[i].TotalDue = Totals{}
 		idx[b] = &report.Buckets[i]
 	}
 	for _, inv := range invoices {
@@ -91,8 +128,8 @@ func ComputeAging(invoices []Invoice, asOf time.Time, payable bool) AgingReport 
 		}
 		b := idx[band]
 		b.Count++
-		b.TotalDue = round2(b.TotalDue + inv.AmountDue)
-		report.TotalDue = round2(report.TotalDue + inv.AmountDue)
+		b.TotalDue.add(inv.CurrencyCode, inv.AmountDue)
+		report.TotalDue.add(inv.CurrencyCode, inv.AmountDue)
 		report.InvoiceCount++
 	}
 	return report
@@ -108,6 +145,7 @@ type OutstandingInvoice struct {
 	InvoiceID     string  `json:"invoice_id"`
 	InvoiceNumber string  `json:"invoice_number"`
 	Contact       string  `json:"contact"`
+	Currency      string  `json:"currency"`
 	AmountDue     float64 `json:"amount_due"`
 	AmountPaid    float64 `json:"amount_paid"`
 	PaymentsSeen  float64 `json:"payments_seen"` // sum of synced payments referencing this invoice
@@ -127,7 +165,7 @@ type OrphanPayment struct {
 type ReconcileReport struct {
 	OutstandingInvoices []OutstandingInvoice `json:"outstanding_invoices"`
 	OrphanPayments      []OrphanPayment      `json:"orphan_payments"`
-	TotalOutstanding    float64              `json:"total_outstanding"`
+	TotalOutstanding    Totals               `json:"total_outstanding"`
 	OutstandingCount    int                  `json:"outstanding_count"`
 	OrphanCount         int                  `json:"orphan_payment_count"`
 }
@@ -140,6 +178,13 @@ func ComputeReconcile(invoices []Invoice, payments []Payment) ReconcileReport {
 	for _, inv := range invoices {
 		invByID[inv.InvoiceID] = inv
 	}
+	live := make([]Payment, 0, len(payments))
+	for _, p := range payments {
+		if livePayment(p) {
+			live = append(live, p)
+		}
+	}
+	payments = live
 	paymentsByInvoice := map[string]float64{}
 	for _, p := range payments {
 		if p.Invoice.InvoiceID != "" {
@@ -149,6 +194,7 @@ func ComputeReconcile(invoices []Invoice, payments []Payment) ReconcileReport {
 	rep := ReconcileReport{
 		OutstandingInvoices: []OutstandingInvoice{},
 		OrphanPayments:      []OrphanPayment{},
+		TotalOutstanding:    Totals{},
 	}
 	for _, inv := range invoices {
 		if inv.Type != "ACCREC" || !outstanding(inv) {
@@ -159,22 +205,23 @@ func ComputeReconcile(invoices []Invoice, payments []Payment) ReconcileReport {
 			InvoiceID:     inv.InvoiceID,
 			InvoiceNumber: inv.InvoiceNumber,
 			Contact:       inv.Contact.Name,
+			Currency:      inv.CurrencyCode,
 			AmountDue:     round2(inv.AmountDue),
 			AmountPaid:    round2(inv.AmountPaid),
 			PaymentsSeen:  seen,
 			AppliedGap:    round2(inv.AmountPaid - seen),
 		})
-		rep.TotalOutstanding = round2(rep.TotalOutstanding + inv.AmountDue)
+		rep.TotalOutstanding.add(inv.CurrencyCode, inv.AmountDue)
 		rep.OutstandingCount++
 	}
 	for _, p := range payments {
 		if p.Invoice.InvoiceID == "" {
-			rep.OrphanPayments = append(rep.OrphanPayments, OrphanPayment{p.PaymentID, round2(p.Amount), "", p.Contact.Name})
+			rep.OrphanPayments = append(rep.OrphanPayments, OrphanPayment{p.PaymentID, round2(p.Amount), "", p.contact().Name})
 			rep.OrphanCount++
 			continue
 		}
 		if _, ok := invByID[p.Invoice.InvoiceID]; !ok {
-			rep.OrphanPayments = append(rep.OrphanPayments, OrphanPayment{p.PaymentID, round2(p.Amount), p.Invoice.InvoiceID, p.Contact.Name})
+			rep.OrphanPayments = append(rep.OrphanPayments, OrphanPayment{p.PaymentID, round2(p.Amount), p.Invoice.InvoiceID, p.contact().Name})
 			rep.OrphanCount++
 		}
 	}
@@ -202,6 +249,7 @@ type UnreconciledTxn struct {
 	BankTransactionID string               `json:"bank_transaction_id"`
 	Type              string               `json:"type"`
 	Total             float64              `json:"total"`
+	Currency          string               `json:"currency"`
 	Contact           string               `json:"contact"`
 	Candidates        []BankMatchCandidate `json:"candidates"`
 }
@@ -210,7 +258,7 @@ type UnreconciledTxn struct {
 type BankReconReport struct {
 	Unreconciled      []UnreconciledTxn `json:"unreconciled"`
 	UnreconciledCount int               `json:"unreconciled_count"`
-	UnreconciledTotal float64           `json:"unreconciled_total"`
+	UnreconciledTotal Totals            `json:"unreconciled_total"`
 }
 
 func amountsClose(a, b float64) bool {
@@ -222,33 +270,35 @@ func amountsClose(a, b float64) bool {
 }
 
 // ComputeBankRecon lists unreconciled bank transactions and suggests matches
-// against invoices and payments by same contact + equal amount.
+// against approved invoices and live payments with the same contact, currency
+// and amount.
 func ComputeBankRecon(txns []BankTransaction, invoices []Invoice, payments []Payment) BankReconReport {
-	rep := BankReconReport{Unreconciled: []UnreconciledTxn{}}
+	rep := BankReconReport{Unreconciled: []UnreconciledTxn{}, UnreconciledTotal: Totals{}}
 	for _, t := range txns {
-		if t.IsReconciled {
+		if t.IsReconciled || !liveBankTxn(t) {
 			continue
 		}
 		ut := UnreconciledTxn{
 			BankTransactionID: t.BankTransactionID,
 			Type:              t.Type,
 			Total:             round2(t.Total),
+			Currency:          t.CurrencyCode,
 			Contact:           t.Contact.Name,
 			Candidates:        []BankMatchCandidate{},
 		}
 		for _, inv := range invoices {
-			if sameContact(inv.Contact, t.Contact) && amountsClose(inv.Total, t.Total) {
+			if inv.Status == "AUTHORISED" && inv.CurrencyCode == t.CurrencyCode && sameContact(inv.Contact, t.Contact) && amountsClose(inv.Total, t.Total) {
 				ut.Candidates = append(ut.Candidates, BankMatchCandidate{"invoice", inv.InvoiceID, round2(inv.Total), inv.InvoiceNumber})
 			}
 		}
 		for _, p := range payments {
-			if sameContact(p.Contact, t.Contact) && amountsClose(p.Amount, t.Total) {
+			if livePayment(p) && p.currency() == t.CurrencyCode && sameContact(p.contact(), t.Contact) && amountsClose(p.Amount, t.Total) {
 				ut.Candidates = append(ut.Candidates, BankMatchCandidate{"payment", p.PaymentID, round2(p.Amount), p.Invoice.InvoiceNumber})
 			}
 		}
 		rep.Unreconciled = append(rep.Unreconciled, ut)
 		rep.UnreconciledCount++
-		rep.UnreconciledTotal = round2(rep.UnreconciledTotal + t.Total)
+		rep.UnreconciledTotal.add(t.CurrencyCode, t.Total)
 	}
 	return rep
 }
@@ -266,13 +316,14 @@ func sameContact(a, b ContactRef) bool {
 
 // TieOutLine reports one control-account tie-out (AR or AP).
 type TieOutLine struct {
-	Control       string  `json:"control"` // "receivable" | "payable"
-	AccountCode   string  `json:"account_code"`
-	AccountName   string  `json:"account_name"`
-	LedgerBalance float64 `json:"ledger_balance"` // net of GL journal lines on the control account
-	InvoiceTotal  float64 `json:"invoice_total"`  // sum of outstanding invoice AmountDue
-	Variance      float64 `json:"variance"`       // ledger - invoice
-	Ties          bool    `json:"ties"`           // |variance| < 0.01
+	Control       string   `json:"control"` // "receivable" | "payable"
+	AccountCode   string   `json:"account_code"`
+	AccountName   string   `json:"account_name"`
+	LedgerBalance float64  `json:"ledger_balance"` // control-account balance in its normal direction (debit for receivable, credit for payable)
+	InvoiceTotal  Totals   `json:"invoice_total"`  // outstanding invoice AmountDue per currency
+	Variance      *float64 `json:"variance"`       // ledger - invoice; null when the invoices are not all in base currency
+	Ties          bool     `json:"ties"`           // |variance| < 0.01
+	Note          string   `json:"note,omitempty"`
 }
 
 // TieOutReport is the result of ComputeTieOut.
@@ -313,14 +364,19 @@ func glBalanceForCode(journals []Journal, code string) float64 {
 	return round2(sum)
 }
 
-func outstandingTotal(invoices []Invoice, invType string) float64 {
-	var sum float64
+// outstandingTotal sums outstanding AmountDue per currency. baseOnly is false
+// when any invoice carries a foreign exchange rate (base currency is rate 1).
+func outstandingTotal(invoices []Invoice, invType string) (total Totals, baseOnly bool) {
+	total, baseOnly = Totals{}, true
 	for _, inv := range invoices {
 		if inv.Type == invType && outstanding(inv) {
-			sum += inv.AmountDue
+			total.add(inv.CurrencyCode, inv.AmountDue)
+			if inv.CurrencyRate != 0 && inv.CurrencyRate != 1 {
+				baseOnly = false
+			}
 		}
 	}
-	return round2(sum)
+	return total, baseOnly
 }
 
 // ComputeTieOut sums the immutable GL control accounts and compares them to the
@@ -333,9 +389,10 @@ func ComputeTieOut(journals []Journal, invoices []Invoice, accounts []Account) T
 		system   string
 		namePart string
 		invType  string
+		normal   float64 // journal NetAmount is + for a debit, - for a credit
 	}{
-		{"receivable", "DEBTORS", "receivable", "ACCREC"},
-		{"payable", "CREDITORS", "payable", "ACCPAY"},
+		{"receivable", "DEBTORS", "receivable", "ACCREC", 1},
+		{"payable", "CREDITORS", "payable", "ACCPAY", -1},
 	}
 	for _, s := range specs {
 		acct, ok := findControlAccount(accounts, s.system, s.namePart)
@@ -347,22 +404,31 @@ func ComputeTieOut(journals []Journal, invoices []Invoice, accounts []Account) T
 			rep.AllTie = false
 			continue
 		}
-		ledger := glBalanceForCode(journals, acct.Code)
-		invTotal := outstandingTotal(invoices, s.invType)
-		variance := round2(ledger - invTotal)
-		ties := variance < 0.01 && variance > -0.01
-		if !ties {
-			rep.AllTie = false
-		}
-		rep.Lines = append(rep.Lines, TieOutLine{
+		line := TieOutLine{
 			Control:       s.control,
 			AccountCode:   acct.Code,
 			AccountName:   acct.Name,
-			LedgerBalance: ledger,
-			InvoiceTotal:  invTotal,
-			Variance:      variance,
-			Ties:          ties,
-		})
+			LedgerBalance: round2(s.normal * glBalanceForCode(journals, acct.Code)),
+		}
+		invTotal, baseOnly := outstandingTotal(invoices, s.invType)
+		line.InvoiceTotal = invTotal
+		if !baseOnly || len(invTotal) > 1 {
+			// The ledger is kept in base currency; foreign-currency amounts
+			// cannot be summed against it.
+			line.Note = "outstanding invoices are not all in one base currency; no variance computed"
+		} else {
+			var sum float64
+			for _, v := range invTotal {
+				sum = v
+			}
+			variance := round2(line.LedgerBalance - sum)
+			line.Variance = &variance
+			line.Ties = variance < 0.01 && variance > -0.01
+		}
+		if !line.Ties {
+			rep.AllTie = false
+		}
+		rep.Lines = append(rep.Lines, line)
 	}
 	return rep
 }
@@ -446,6 +512,7 @@ func ComputeLedger(journals []Journal, accountCode string, accounts []Account) L
 type ContactExposure struct {
 	ContactID    string  `json:"contact_id"`
 	Contact      string  `json:"contact"`
+	Currency     string  `json:"currency"`
 	TotalDue     float64 `json:"total_due"`
 	OverdueDue   float64 `json:"overdue_due"`
 	InvoiceCount int     `json:"invoice_count"`
@@ -453,7 +520,7 @@ type ContactExposure struct {
 }
 
 // ComputeExposure ranks contacts by total outstanding receivable amount, with an
-// overdue split (relative to asOf). When contactFilter is non-empty, only that
+// overdue split (relative to asOf), one row per contact and currency. When contactFilter is non-empty, only that
 // contact id is returned (the per-contact statement drill-down).
 func ComputeExposure(invoices []Invoice, contacts []Contact, asOf time.Time, contactFilter string) []ContactExposure {
 	names := map[string]string{}
@@ -470,15 +537,16 @@ func ComputeExposure(invoices []Invoice, contacts []Contact, asOf time.Time, con
 		if contactFilter != "" && cid != contactFilter {
 			continue
 		}
-		e, ok := byContact[cid]
+		key := cid + "\x00" + inv.CurrencyCode
+		e, ok := byContact[key]
 		if !ok {
 			name := names[cid]
 			if name == "" {
 				name = inv.Contact.Name
 			}
-			e = &ContactExposure{ContactID: cid, Contact: name}
-			byContact[cid] = e
-			order = append(order, cid)
+			e = &ContactExposure{ContactID: cid, Contact: name, Currency: inv.CurrencyCode}
+			byContact[key] = e
+			order = append(order, key)
 		}
 		e.TotalDue = round2(e.TotalDue + inv.AmountDue)
 		e.InvoiceCount++
@@ -488,8 +556,8 @@ func ComputeExposure(invoices []Invoice, contacts []Contact, asOf time.Time, con
 		}
 	}
 	out := make([]ContactExposure, 0, len(order))
-	for _, cid := range order {
-		out = append(out, *byContact[cid])
+	for _, key := range order {
+		out = append(out, *byContact[key])
 	}
 	sort.SliceStable(out, func(i, j int) bool { return out[i].TotalDue > out[j].TotalDue })
 	return out
@@ -501,8 +569,8 @@ func ComputeExposure(invoices []Invoice, contacts []Contact, asOf time.Time, con
 
 // Snapshot is a one-shot offline summary of the org's accounting state.
 type Snapshot struct {
-	ReceivableOutstanding float64           `json:"receivable_outstanding"`
-	PayableOutstanding    float64           `json:"payable_outstanding"`
+	ReceivableOutstanding Totals            `json:"receivable_outstanding"`
+	PayableOutstanding    Totals            `json:"payable_outstanding"`
 	OverdueReceivable     int               `json:"overdue_receivable_count"`
 	UnreconciledBankTxns  int               `json:"unreconciled_bank_txns"`
 	Counts                map[string]int    `json:"counts"`
@@ -513,8 +581,8 @@ type Snapshot struct {
 // counts and lastSynced are supplied by the caller (from the store).
 func ComputeSnapshot(invoices []Invoice, bankTxns []BankTransaction, asOf time.Time, counts map[string]int, lastSynced map[string]string) Snapshot {
 	s := Snapshot{Counts: counts, SyncStaleness: lastSynced}
-	s.ReceivableOutstanding = outstandingTotal(invoices, "ACCREC")
-	s.PayableOutstanding = outstandingTotal(invoices, "ACCPAY")
+	s.ReceivableOutstanding, _ = outstandingTotal(invoices, "ACCREC")
+	s.PayableOutstanding, _ = outstandingTotal(invoices, "ACCPAY")
 	for _, inv := range invoices {
 		if inv.Type == "ACCREC" && outstanding(inv) {
 			if due, ok := ParseXeroDate(inv.DueDate); ok && daysBetween(due, asOf) > 0 {
@@ -523,7 +591,7 @@ func ComputeSnapshot(invoices []Invoice, bankTxns []BankTransaction, asOf time.T
 		}
 	}
 	for _, t := range bankTxns {
-		if !t.IsReconciled {
+		if !t.IsReconciled && liveBankTxn(t) {
 			s.UnreconciledBankTxns++
 		}
 	}

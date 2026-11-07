@@ -45,17 +45,23 @@ func ParseXeroDate(s string) (time.Time, bool) {
 	return time.Time{}, false
 }
 
-// UpdatedDate extracts and parses the UpdatedDateUTC field common to every Xero
-// entity, returning the time and whether it was present and parseable. Used by
-// the `since` command to find records changed after a given moment.
-func UpdatedDate(raw []byte) (time.Time, bool) {
+// ModifiedDate extracts a record's last-modified time: UpdatedDateUTC, or
+// CreatedDateUTC when the entity has none (journals are immutable and carry
+// only CreatedDateUTC). ok is false when the timestamp is missing or does not
+// parse; an UpdatedDateUTC that is present but unreadable never falls back to
+// the older creation time. Used by the `since` command.
+func ModifiedDate(raw []byte) (time.Time, bool) {
 	var s struct {
 		UpdatedDateUTC string `json:"UpdatedDateUTC"`
+		CreatedDateUTC string `json:"CreatedDateUTC"`
 	}
 	if err := json.Unmarshal(raw, &s); err != nil {
 		return time.Time{}, false
 	}
-	return ParseXeroDate(s.UpdatedDateUTC)
+	if strings.TrimSpace(s.UpdatedDateUTC) != "" {
+		return ParseXeroDate(s.UpdatedDateUTC)
+	}
+	return ParseXeroDate(s.CreatedDateUTC)
 }
 
 // daysBetween returns the whole-day difference (to - from), truncated to date

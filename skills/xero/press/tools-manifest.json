@@ -8,31 +8,38 @@
     "type": "bearer_token",
     "header": "Authorization",
     "env_vars": [
+      "XERO_ACCESS_TOKEN",
       "XERO_OAUTH2"
     ],
     "env_var_specs": [
       {
+        "name": "XERO_ACCESS_TOKEN",
+        "kind": "per_call",
+        "required": false,
+        "sensitive": true
+      },
+      {
         "name": "XERO_OAUTH2",
         "kind": "per_call",
-        "required": true,
-        "sensitive": true,
-        "inferred": true
+        "required": false,
+        "sensitive": true
       }
     ]
   },
-  "required_headers": [
-    {
-      "name": "xero-tenant-id",
-      "value": ""
-    }
-  ],
+  "required_headers": [],
   "tools": [
     {
       "name": "accounts_create",
-      "description": "Creates a new chart of accounts. Optional: AccountID, AddToWatchlist, BankAccountNumber (plus 17 more). Returns array of Account.",
+      "description": "Creates a new chart of accounts. Optional: Idempotency-Key, AccountID, AddToWatchlist (plus 13 more). Returns array of Account.",
       "method": "PUT",
       "path": "/Accounts",
       "params": [
+        {
+          "name": "Idempotency-Key",
+          "type": "string",
+          "location": "header",
+          "description": "This allows you to safely retry requests without the risk of duplicate processing."
+        },
         {
           "name": "AccountID",
           "type": "string",
@@ -56,12 +63,6 @@
           "type": "string",
           "location": "body",
           "description": "For bank accounts only. See Bank Account types"
-        },
-        {
-          "name": "Class",
-          "type": "string",
-          "location": "body",
-          "description": "See Account Class Types"
         },
         {
           "name": "Code",
@@ -88,12 +89,6 @@
           "description": "Boolean – describes whether account can have payments applied to it"
         },
         {
-          "name": "HasAttachments",
-          "type": "bool",
-          "location": "body",
-          "description": "boolean to indicate if an account has an attachment (read only)"
-        },
-        {
           "name": "Name",
           "type": "string",
           "location": "body",
@@ -101,12 +96,6 @@
         },
         {
           "name": "ReportingCode",
-          "type": "string",
-          "location": "body",
-          "description": "Shown if set"
-        },
-        {
-          "name": "ReportingCodeName",
           "type": "string",
           "location": "body",
           "description": "Shown if set"
@@ -124,12 +113,6 @@
           "description": "Accounts with a status of ACTIVE can be updated to ARCHIVED. See Account Status Codes"
         },
         {
-          "name": "SystemAccount",
-          "type": "string",
-          "location": "body",
-          "description": "If this is a system account then this element is returned. See System Account types. Note that non-system accounts may have this element set as either “” or null."
-        },
-        {
           "name": "TaxType",
           "type": "string",
           "location": "body",
@@ -140,12 +123,6 @@
           "type": "string",
           "location": "body",
           "description": "See Account Types"
-        },
-        {
-          "name": "UpdatedDateUTC",
-          "type": "string",
-          "location": "body",
-          "description": "Last modified date UTC format"
         },
         {
           "name": "ValidationErrors",
@@ -172,10 +149,16 @@
     },
     {
       "name": "accounts_get",
-      "description": "Retrieves the full chart of accounts. Optional: where, order. Returns array of Account.",
+      "description": "Retrieves the full chart of accounts. Optional: If-Modified-Since, where, order. Returns array of Account.",
       "method": "GET",
       "path": "/Accounts",
       "params": [
+        {
+          "name": "If-Modified-Since",
+          "type": "string",
+          "location": "header",
+          "description": "Only records created or modified since this timestamp will be returned"
+        },
         {
           "name": "where",
           "type": "string",
@@ -207,7 +190,7 @@
     },
     {
       "name": "accounts_update",
-      "description": "Updates a chart of accounts. Required: AccountID. Optional: Accounts. Returns array of Account.",
+      "description": "Updates a chart of accounts. Required: AccountID. Optional: Idempotency-Key, Accounts. Returns array of Account.",
       "method": "POST",
       "path": "/Accounts/{AccountID}",
       "params": [
@@ -219,6 +202,12 @@
           "required": true
         },
         {
+          "name": "Idempotency-Key",
+          "type": "string",
+          "location": "header",
+          "description": "This allows you to safely retry requests without the risk of duplicate processing."
+        },
+        {
           "name": "Accounts",
           "type": "array",
           "location": "body",
@@ -228,7 +217,7 @@
     },
     {
       "name": "bank-transactions_create",
-      "description": "Creates one or more spent or received money transaction. Optional: summarizeErrors (default: false), unitdp, BankTransactions (plus 2 more). Returns the updated BankTransactions.",
+      "description": "Creates one or more spent or received money transaction. Optional: summarizeErrors (default: false), unitdp, Idempotency-Key (plus 3 more). Returns the updated BankTransactions.",
       "method": "PUT",
       "path": "/BankTransactions",
       "params": [
@@ -243,6 +232,12 @@
           "type": "int",
           "location": "query",
           "description": "e.g. unitdp=4 – (Unit Decimal Places) You can opt in to use four decimal places for unit amounts"
+        },
+        {
+          "name": "Idempotency-Key",
+          "type": "string",
+          "location": "header",
+          "description": "This allows you to safely retry requests without the risk of duplicate processing."
         },
         {
           "name": "BankTransactions",
@@ -288,10 +283,16 @@
     },
     {
       "name": "bank-transactions_get",
-      "description": "Retrieves any spent or received money transactions. Optional: where, order, page (plus 2 more). Returns the BankTransactions.",
+      "description": "Retrieves any spent or received money transactions. Optional: If-Modified-Since, where, order (plus 3 more). Returns the BankTransactions.",
       "method": "GET",
       "path": "/BankTransactions",
       "params": [
+        {
+          "name": "If-Modified-Since",
+          "type": "string",
+          "location": "header",
+          "description": "Only records created or modified since this timestamp will be returned"
+        },
         {
           "name": "where",
           "type": "string",
@@ -347,7 +348,7 @@
     },
     {
       "name": "bank-transactions_update",
-      "description": "Updates a single spent or received money transaction. Required: BankTransactionID. Optional: unitdp, BankTransactions, Warnings (plus 1 more). Returns the new BankTransactions.",
+      "description": "Updates a single spent or received money transaction. Required: BankTransactionID. Optional: unitdp, Idempotency-Key, BankTransactions (plus 2 more). Returns the new BankTransactions.",
       "method": "POST",
       "path": "/BankTransactions/{BankTransactionID}",
       "params": [
@@ -363,6 +364,12 @@
           "type": "int",
           "location": "query",
           "description": "e.g. unitdp=4 – (Unit Decimal Places) You can opt in to use four decimal places for unit amounts"
+        },
+        {
+          "name": "Idempotency-Key",
+          "type": "string",
+          "location": "header",
+          "description": "This allows you to safely retry requests without the risk of duplicate processing."
         },
         {
           "name": "BankTransactions",
@@ -408,7 +415,7 @@
     },
     {
       "name": "bank-transactions_update-or-create",
-      "description": "Updates or creates one or more spent or received money transaction. Optional: summarizeErrors (default: false), unitdp, BankTransactions (plus 2 more). Returns the new BankTransactions.",
+      "description": "Updates or creates one or more spent or received money transaction. Optional: summarizeErrors (default: false), unitdp, Idempotency-Key (plus 3 more). Returns the new BankTransactions.",
       "method": "POST",
       "path": "/BankTransactions",
       "params": [
@@ -423,6 +430,12 @@
           "type": "int",
           "location": "query",
           "description": "e.g. unitdp=4 – (Unit Decimal Places) You can opt in to use four decimal places for unit amounts"
+        },
+        {
+          "name": "Idempotency-Key",
+          "type": "string",
+          "location": "header",
+          "description": "This allows you to safely retry requests without the risk of duplicate processing."
         },
         {
           "name": "BankTransactions",
@@ -468,10 +481,16 @@
     },
     {
       "name": "bank-transactions_history_create-bank-transaction-record",
-      "description": "Creates a history record for a specific bank transactions. Required: BankTransactionID. Optional: HistoryRecords. Returns array of HistoryRecord.",
+      "description": "Creates a history record for a specific bank transactions. Required: BankTransactionID. Optional: Idempotency-Key, HistoryRecords. Returns array of HistoryRecord.",
       "method": "PUT",
       "path": "/BankTransactions/{BankTransactionID}/History",
       "params": [
+        {
+          "name": "Idempotency-Key",
+          "type": "string",
+          "location": "header",
+          "description": "This allows you to safely retry requests without the risk of duplicate processing."
+        },
         {
           "name": "BankTransactionID",
           "type": "string",
@@ -504,7 +523,7 @@
     },
     {
       "name": "contacts_create",
-      "description": "Creates multiple contacts (bulk) in a Xero organisation. Optional: summarizeErrors (default: false), Contacts, Warnings (plus 1 more). Returns the updated Contacts.",
+      "description": "Creates multiple contacts (bulk) in a Xero organisation. Optional: summarizeErrors (default: false), Idempotency-Key, Contacts (plus 2 more). Returns the updated Contacts.",
       "method": "PUT",
       "path": "/Contacts",
       "params": [
@@ -513,6 +532,12 @@
           "type": "bool",
           "location": "query",
           "description": "If false return 200 OK and mix of successfully created objects and any with validation errors"
+        },
+        {
+          "name": "Idempotency-Key",
+          "type": "string",
+          "location": "header",
+          "description": "This allows you to safely retry requests without the risk of duplicate processing."
         },
         {
           "name": "Contacts",
@@ -558,10 +583,16 @@
     },
     {
       "name": "contacts_get",
-      "description": "Retrieves all contacts in a Xero organisation. Optional: where, order, IDs (plus 5 more). Returns the Contacts.",
+      "description": "Retrieves all contacts in a Xero organisation. Optional: If-Modified-Since, where, order (plus 6 more). Returns the Contacts.",
       "method": "GET",
       "path": "/Contacts",
       "params": [
+        {
+          "name": "If-Modified-Since",
+          "type": "string",
+          "location": "header",
+          "description": "Only records created or modified since this timestamp will be returned"
+        },
         {
           "name": "where",
           "type": "string",
@@ -644,10 +675,16 @@
     },
     {
       "name": "contacts_update",
-      "description": "Updates a specific contact in a Xero organisation. Required: ContactID. Optional: Contacts, Warnings, pagination. Returns the new Contacts.",
+      "description": "Updates a specific contact in a Xero organisation. Required: ContactID. Optional: Idempotency-Key, Contacts, Warnings (plus 1 more). Returns the new Contacts.",
       "method": "POST",
       "path": "/Contacts/{ContactID}",
       "params": [
+        {
+          "name": "Idempotency-Key",
+          "type": "string",
+          "location": "header",
+          "description": "This allows you to safely retry requests without the risk of duplicate processing."
+        },
         {
           "name": "ContactID",
           "type": "string",
@@ -699,7 +736,7 @@
     },
     {
       "name": "contacts_update-or-create",
-      "description": "Updates or creates one or more contacts in a Xero organisation. Optional: summarizeErrors (default: false), Contacts, Warnings (plus 1 more). Returns the new Contacts.",
+      "description": "Updates or creates one or more contacts in a Xero organisation. Optional: summarizeErrors (default: false), Idempotency-Key, Contacts (plus 2 more). Returns the new Contacts.",
       "method": "POST",
       "path": "/Contacts",
       "params": [
@@ -708,6 +745,12 @@
           "type": "bool",
           "location": "query",
           "description": "If false return 200 OK and mix of successfully created objects and any with validation errors"
+        },
+        {
+          "name": "Idempotency-Key",
+          "type": "string",
+          "location": "header",
+          "description": "This allows you to safely retry requests without the risk of duplicate processing."
         },
         {
           "name": "Contacts",
@@ -753,10 +796,16 @@
     },
     {
       "name": "contacts_history_create-contact",
-      "description": "Creates a new history record for a specific contact. Required: ContactID. Optional: HistoryRecords. Returns array of HistoryRecord.",
+      "description": "Creates a new history record for a specific contact. Required: ContactID. Optional: Idempotency-Key, HistoryRecords. Returns array of HistoryRecord.",
       "method": "PUT",
       "path": "/Contacts/{ContactID}/History",
       "params": [
+        {
+          "name": "Idempotency-Key",
+          "type": "string",
+          "location": "header",
+          "description": "This allows you to safely retry requests without the risk of duplicate processing."
+        },
         {
           "name": "ContactID",
           "type": "string",
@@ -789,7 +838,7 @@
     },
     {
       "name": "invoices_create",
-      "description": "Creates one or more sales invoices or purchase bills. Optional: summarizeErrors (default: false), unitdp, Invoices (plus 2 more). Returns the updated Invoices.",
+      "description": "Creates one or more sales invoices or purchase bills. Optional: summarizeErrors (default: false), unitdp, Idempotency-Key (plus 3 more). Returns the updated Invoices.",
       "method": "PUT",
       "path": "/Invoices",
       "params": [
@@ -804,6 +853,12 @@
           "type": "int",
           "location": "query",
           "description": "e.g. unitdp=4 – (Unit Decimal Places) You can opt in to use four decimal places for unit amounts"
+        },
+        {
+          "name": "Idempotency-Key",
+          "type": "string",
+          "location": "header",
+          "description": "This allows you to safely retry requests without the risk of duplicate processing."
         },
         {
           "name": "Invoices",
@@ -849,10 +904,16 @@
     },
     {
       "name": "invoices_get",
-      "description": "Retrieves sales invoices or purchase bills. Optional: where, order, IDs (plus 10 more). Returns the Invoices.",
+      "description": "Retrieves sales invoices or purchase bills. Optional: If-Modified-Since, where, order (plus 11 more). Returns the Invoices.",
       "method": "GET",
       "path": "/Invoices",
       "params": [
+        {
+          "name": "If-Modified-Since",
+          "type": "string",
+          "location": "header",
+          "description": "Only records created or modified since this timestamp will be returned"
+        },
         {
           "name": "where",
           "type": "string",
@@ -956,7 +1017,7 @@
     },
     {
       "name": "invoices_update",
-      "description": "Updates a specific sales invoices or purchase bills. Required: InvoiceID. Optional: unitdp, Invoices, Warnings (plus 1 more). Returns the new Invoices.",
+      "description": "Updates a specific sales invoices or purchase bills. Required: InvoiceID. Optional: unitdp, Idempotency-Key, Invoices (plus 2 more). Returns the new Invoices.",
       "method": "POST",
       "path": "/Invoices/{InvoiceID}",
       "params": [
@@ -972,6 +1033,12 @@
           "type": "int",
           "location": "query",
           "description": "e.g. unitdp=4 – (Unit Decimal Places) You can opt in to use four decimal places for unit amounts"
+        },
+        {
+          "name": "Idempotency-Key",
+          "type": "string",
+          "location": "header",
+          "description": "This allows you to safely retry requests without the risk of duplicate processing."
         },
         {
           "name": "Invoices",
@@ -1017,7 +1084,7 @@
     },
     {
       "name": "invoices_update-or-create",
-      "description": "Updates or creates one or more sales invoices or purchase bills. Optional: summarizeErrors (default: false), unitdp, Invoices (plus 2 more). Returns the new Invoices.",
+      "description": "Updates or creates one or more sales invoices or purchase bills. Optional: summarizeErrors (default: false), unitdp, Idempotency-Key (plus 3 more). Returns the new Invoices.",
       "method": "POST",
       "path": "/Invoices",
       "params": [
@@ -1032,6 +1099,12 @@
           "type": "int",
           "location": "query",
           "description": "e.g. unitdp=4 – (Unit Decimal Places) You can opt in to use four decimal places for unit amounts"
+        },
+        {
+          "name": "Idempotency-Key",
+          "type": "string",
+          "location": "header",
+          "description": "This allows you to safely retry requests without the risk of duplicate processing."
         },
         {
           "name": "Invoices",
@@ -1077,10 +1150,16 @@
     },
     {
       "name": "invoices_history_create-invoice",
-      "description": "Creates a history record for a specific invoice. Required: InvoiceID. Optional: HistoryRecords. Returns array of HistoryRecord.",
+      "description": "Creates a history record for a specific invoice. Required: InvoiceID. Optional: Idempotency-Key, HistoryRecords. Returns array of HistoryRecord.",
       "method": "PUT",
       "path": "/Invoices/{InvoiceID}/History",
       "params": [
+        {
+          "name": "Idempotency-Key",
+          "type": "string",
+          "location": "header",
+          "description": "This allows you to safely retry requests without the risk of duplicate processing."
+        },
         {
           "name": "InvoiceID",
           "type": "string",
@@ -1113,7 +1192,7 @@
     },
     {
       "name": "items_create",
-      "description": "Creates one or more items. Optional: summarizeErrors (default: false), unitdp, Items. Returns array of Item.",
+      "description": "Creates one or more items. Optional: summarizeErrors (default: false), unitdp, Idempotency-Key (plus 1 more). Returns array of Item.",
       "method": "PUT",
       "path": "/Items",
       "params": [
@@ -1128,6 +1207,12 @@
           "type": "int",
           "location": "query",
           "description": "e.g. unitdp=4 – (Unit Decimal Places) You can opt in to use four decimal places for unit amounts"
+        },
+        {
+          "name": "Idempotency-Key",
+          "type": "string",
+          "location": "header",
+          "description": "This allows you to safely retry requests without the risk of duplicate processing."
         },
         {
           "name": "Items",
@@ -1154,10 +1239,16 @@
     },
     {
       "name": "items_get",
-      "description": "Retrieves items. Optional: where, order, unitdp. Returns array of Item.",
+      "description": "Retrieves items. Optional: If-Modified-Since, where, order (plus 1 more). Returns array of Item.",
       "method": "GET",
       "path": "/Items",
       "params": [
+        {
+          "name": "If-Modified-Since",
+          "type": "string",
+          "location": "header",
+          "description": "Only records created or modified since this timestamp will be returned"
+        },
         {
           "name": "where",
           "type": "string",
@@ -1201,7 +1292,7 @@
     },
     {
       "name": "items_update",
-      "description": "Updates a specific item. Required: ItemID. Optional: unitdp, Items. Returns array of Item.",
+      "description": "Updates a specific item. Required: ItemID. Optional: unitdp, Idempotency-Key, Items. Returns array of Item.",
       "method": "POST",
       "path": "/Items/{ItemID}",
       "params": [
@@ -1219,6 +1310,12 @@
           "description": "e.g. unitdp=4 – (Unit Decimal Places) You can opt in to use four decimal places for unit amounts"
         },
         {
+          "name": "Idempotency-Key",
+          "type": "string",
+          "location": "header",
+          "description": "This allows you to safely retry requests without the risk of duplicate processing."
+        },
+        {
           "name": "Items",
           "type": "array",
           "location": "body",
@@ -1228,7 +1325,7 @@
     },
     {
       "name": "items_update-or-create",
-      "description": "Updates or creates one or more items. Optional: summarizeErrors (default: false), unitdp, Items. Returns array of Item.",
+      "description": "Updates or creates one or more items. Optional: summarizeErrors (default: false), unitdp, Idempotency-Key (plus 1 more). Returns array of Item.",
       "method": "POST",
       "path": "/Items",
       "params": [
@@ -1245,6 +1342,12 @@
           "description": "e.g. unitdp=4 – (Unit Decimal Places) You can opt in to use four decimal places for unit amounts"
         },
         {
+          "name": "Idempotency-Key",
+          "type": "string",
+          "location": "header",
+          "description": "This allows you to safely retry requests without the risk of duplicate processing."
+        },
+        {
           "name": "Items",
           "type": "array",
           "location": "body",
@@ -1254,10 +1357,16 @@
     },
     {
       "name": "items_history_create-item",
-      "description": "Creates a history record for a specific item. Required: ItemID. Optional: HistoryRecords. Returns array of HistoryRecord.",
+      "description": "Creates a history record for a specific item. Required: ItemID. Optional: Idempotency-Key, HistoryRecords. Returns array of HistoryRecord.",
       "method": "PUT",
       "path": "/Items/{ItemID}/History",
       "params": [
+        {
+          "name": "Idempotency-Key",
+          "type": "string",
+          "location": "header",
+          "description": "This allows you to safely retry requests without the risk of duplicate processing."
+        },
         {
           "name": "ItemID",
           "type": "string",
@@ -1290,10 +1399,16 @@
     },
     {
       "name": "journals_get",
-      "description": "Retrieves journals. Optional: offset, paymentsOnly. Returns the Journals.",
+      "description": "Retrieves journals. Optional: If-Modified-Since, offset, paymentsOnly. Returns the Journals.",
       "method": "GET",
       "path": "/Journals",
       "params": [
+        {
+          "name": "If-Modified-Since",
+          "type": "string",
+          "location": "header",
+          "description": "Only records created or modified since this timestamp will be returned"
+        },
         {
           "name": "offset",
           "type": "int",
@@ -1340,10 +1455,16 @@
     },
     {
       "name": "payments_create",
-      "description": "Creates a single payment for invoice or credit notes. Optional: Account, Amount, BankAccountNumber (plus 25 more). Returns the new Payments.",
+      "description": "Creates a single payment for invoice or credit notes. Optional: Idempotency-Key, Account, Amount (plus 24 more). Returns the new Payments.",
       "method": "POST",
       "path": "/Payments",
       "params": [
+        {
+          "name": "Idempotency-Key",
+          "type": "string",
+          "location": "header",
+          "description": "This allows you to safely retry requests without the risk of duplicate processing."
+        },
         {
           "name": "account-account-id",
           "wire_name": "Account.AccountID",
@@ -1371,13 +1492,6 @@
           "type": "string",
           "location": "body",
           "description": "For bank accounts only. See Bank Account types"
-        },
-        {
-          "name": "account-class",
-          "wire_name": "Account.Class",
-          "type": "string",
-          "location": "body",
-          "description": "See Account Class Types"
         },
         {
           "name": "account-code",
@@ -1408,13 +1522,6 @@
           "description": "Boolean – describes whether account can have payments applied to it"
         },
         {
-          "name": "account-has-attachments",
-          "wire_name": "Account.HasAttachments",
-          "type": "bool",
-          "location": "body",
-          "description": "boolean to indicate if an account has an attachment (read only)"
-        },
-        {
           "name": "account-name",
           "wire_name": "Account.Name",
           "type": "string",
@@ -1424,13 +1531,6 @@
         {
           "name": "account-reporting-code",
           "wire_name": "Account.ReportingCode",
-          "type": "string",
-          "location": "body",
-          "description": "Shown if set"
-        },
-        {
-          "name": "account-reporting-code-name",
-          "wire_name": "Account.ReportingCodeName",
           "type": "string",
           "location": "body",
           "description": "Shown if set"
@@ -1450,13 +1550,6 @@
           "description": "Accounts with a status of ACTIVE can be updated to ARCHIVED. See Account Status Codes"
         },
         {
-          "name": "account-system-account",
-          "wire_name": "Account.SystemAccount",
-          "type": "string",
-          "location": "body",
-          "description": "If this is a system account then this element is returned. See System Account types. Note that non-system accounts may have this element set as either “” or null."
-        },
-        {
           "name": "account-tax-type",
           "wire_name": "Account.TaxType",
           "type": "string",
@@ -1469,13 +1562,6 @@
           "type": "string",
           "location": "body",
           "description": "See Account Types"
-        },
-        {
-          "name": "account-updated-date-utc",
-          "wire_name": "Account.UpdatedDateUTC",
-          "type": "string",
-          "location": "body",
-          "description": "Last modified date UTC format"
         },
         {
           "name": "account-validation-errors",
@@ -1531,13 +1617,6 @@
           "description": "For bank accounts only. See Bank Account types"
         },
         {
-          "name": "batch-payment-account-class",
-          "wire_name": "BatchPayment.Account.Class",
-          "type": "string",
-          "location": "body",
-          "description": "See Account Class Types"
-        },
-        {
           "name": "batch-payment-account-code",
           "wire_name": "BatchPayment.Account.Code",
           "type": "string",
@@ -1566,13 +1645,6 @@
           "description": "Boolean – describes whether account can have payments applied to it"
         },
         {
-          "name": "batch-payment-account-has-attachments",
-          "wire_name": "BatchPayment.Account.HasAttachments",
-          "type": "bool",
-          "location": "body",
-          "description": "boolean to indicate if an account has an attachment (read only)"
-        },
-        {
           "name": "batch-payment-account-name",
           "wire_name": "BatchPayment.Account.Name",
           "type": "string",
@@ -1582,13 +1654,6 @@
         {
           "name": "batch-payment-account-reporting-code",
           "wire_name": "BatchPayment.Account.ReportingCode",
-          "type": "string",
-          "location": "body",
-          "description": "Shown if set"
-        },
-        {
-          "name": "batch-payment-account-reporting-code-name",
-          "wire_name": "BatchPayment.Account.ReportingCodeName",
           "type": "string",
           "location": "body",
           "description": "Shown if set"
@@ -1608,13 +1673,6 @@
           "description": "Accounts with a status of ACTIVE can be updated to ARCHIVED. See Account Status Codes"
         },
         {
-          "name": "batch-payment-account-system-account",
-          "wire_name": "BatchPayment.Account.SystemAccount",
-          "type": "string",
-          "location": "body",
-          "description": "If this is a system account then this element is returned. See System Account types. Note that non-system accounts may have this element set as either “” or null."
-        },
-        {
           "name": "batch-payment-account-tax-type",
           "wire_name": "BatchPayment.Account.TaxType",
           "type": "string",
@@ -1629,13 +1687,6 @@
           "description": "See Account Types"
         },
         {
-          "name": "batch-payment-account-updated-date-utc",
-          "wire_name": "BatchPayment.Account.UpdatedDateUTC",
-          "type": "string",
-          "location": "body",
-          "description": "Last modified date UTC format"
-        },
-        {
           "name": "batch-payment-account-validation-errors",
           "wire_name": "BatchPayment.Account.ValidationErrors",
           "type": "array",
@@ -1648,13 +1699,6 @@
           "type": "float",
           "location": "body",
           "description": "The amount of the payment. Must be less than or equal to the outstanding amount owing on the invoice e.g. 200.00"
-        },
-        {
-          "name": "batch-payment-batch-payment-id",
-          "wire_name": "BatchPayment.BatchPaymentID",
-          "type": "string",
-          "location": "body",
-          "description": "The Xero generated unique identifier for the bank transaction (read-only)"
         },
         {
           "name": "batch-payment-code",
@@ -1685,13 +1729,6 @@
           "description": "(Non-NZ Only) These details are sent to the org’s bank as a reference for the batch payment transaction. They will also show with the batch payment transaction in the bank reconciliation Find \u0026 Match screen. Depending on your individual bank, the detail may also show on the bank statement imported into Xero. Maximum field length = 18"
         },
         {
-          "name": "batch-payment-is-reconciled",
-          "wire_name": "BatchPayment.IsReconciled",
-          "type": "bool",
-          "location": "body",
-          "description": "Booelan that tells you if the batch payment has been reconciled (read-only)"
-        },
-        {
           "name": "batch-payment-narrative",
           "wire_name": "BatchPayment.Narrative",
           "type": "string",
@@ -1718,34 +1755,6 @@
           "type": "string",
           "location": "body",
           "description": "(NZ Only) Optional references for the batch payment transaction. It will also show with the batch payment transaction in the bank reconciliation Find \u0026 Match screen. Depending on your individual bank, the detail may also show on the bank statement you import into Xero."
-        },
-        {
-          "name": "batch-payment-status",
-          "wire_name": "BatchPayment.Status",
-          "type": "string",
-          "location": "body",
-          "description": "AUTHORISED or DELETED (read-only). New batch payments will have a status of AUTHORISED. It is not possible to delete batch payments via the API."
-        },
-        {
-          "name": "batch-payment-total-amount",
-          "wire_name": "BatchPayment.TotalAmount",
-          "type": "float",
-          "location": "body",
-          "description": "The total of the payments that make up the batch (read-only)"
-        },
-        {
-          "name": "batch-payment-type",
-          "wire_name": "BatchPayment.Type",
-          "type": "string",
-          "location": "body",
-          "description": "PAYBATCH for bill payments or RECBATCH for sales invoice payments (read-only)"
-        },
-        {
-          "name": "batch-payment-updated-date-utc",
-          "wire_name": "BatchPayment.UpdatedDateUTC",
-          "type": "string",
-          "location": "body",
-          "description": "UTC timestamp of last update to the payment"
         },
         {
           "name": "batch-payment-validation-errors",
@@ -1788,20 +1797,6 @@
           "description": "See BrandingThemes"
         },
         {
-          "name": "credit-note-cis-deduction",
-          "wire_name": "CreditNote.CISDeduction",
-          "type": "float",
-          "location": "body",
-          "description": "CIS deduction for UK contractors"
-        },
-        {
-          "name": "credit-note-cis-rate",
-          "wire_name": "CreditNote.CISRate",
-          "type": "float",
-          "location": "body",
-          "description": "CIS Deduction rate for the organisation"
-        },
-        {
           "name": "credit-note-contact-account-number",
           "wire_name": "CreditNote.Contact.AccountNumber",
           "type": "string",
@@ -1837,6 +1832,13 @@
           "description": "Displays array of attachments from the API"
         },
         {
+          "name": "credit-note-contact-balances",
+          "wire_name": "CreditNote.Contact.Balances",
+          "type": "object",
+          "location": "body",
+          "description": "The raw AccountsReceivable(sales invoices) and AccountsPayable(bills) outstanding and overdue amounts, not converted to base currency (read only)"
+        },
+        {
           "name": "credit-note-contact-bank-account-details",
           "wire_name": "CreditNote.Contact.BankAccountDetails",
           "type": "string",
@@ -1849,6 +1851,13 @@
           "type": "string",
           "location": "body",
           "description": "Bank details for use on a batch payment stored with each contact"
+        },
+        {
+          "name": "credit-note-contact-branding-theme",
+          "wire_name": "CreditNote.Contact.BrandingTheme",
+          "type": "object",
+          "location": "body",
+          "description": "Branding theme"
         },
         {
           "name": "credit-note-contact-company-number",
@@ -1898,13 +1907,6 @@
           "type": "string",
           "location": "body",
           "description": "3 letter alpha code for the currency – see list of currency codes"
-        },
-        {
-          "name": "credit-note-contact-discount",
-          "wire_name": "CreditNote.Contact.Discount",
-          "type": "float",
-          "location": "body",
-          "description": "The default discount rate for the contact (read only)"
         },
         {
           "name": "credit-note-contact-email-address",
@@ -1968,6 +1970,13 @@
           "type": "string",
           "location": "body",
           "description": "Full name of contact/organisation (max length = 255)"
+        },
+        {
+          "name": "credit-note-contact-payment-terms",
+          "wire_name": "CreditNote.Contact.PaymentTerms",
+          "type": "object",
+          "location": "body",
+          "description": "Payment terms"
         },
         {
           "name": "credit-note-contact-phones",
@@ -2054,25 +2063,11 @@
           "description": "The name of the Tracking Option assigned to the contact under SalesTrackingCategories and PurchasesTrackingCategories"
         },
         {
-          "name": "credit-note-contact-updated-date-utc",
-          "wire_name": "CreditNote.Contact.UpdatedDateUTC",
-          "type": "string",
-          "location": "body",
-          "description": "UTC timestamp of last update to contact"
-        },
-        {
           "name": "credit-note-contact-validation-errors",
           "wire_name": "CreditNote.Contact.ValidationErrors",
           "type": "array",
           "location": "body",
           "description": "Displays validation errors returned from the API"
-        },
-        {
-          "name": "credit-note-contact-website",
-          "wire_name": "CreditNote.Contact.Website",
-          "type": "string",
-          "location": "body",
-          "description": "Website address for contact (read only)"
         },
         {
           "name": "credit-note-contact-xero-network-key",
@@ -2187,13 +2182,6 @@
           "description": "The remaining credit balance on the Credit Note"
         },
         {
-          "name": "credit-note-sent-to-contact",
-          "wire_name": "CreditNote.SentToContact",
-          "type": "bool",
-          "location": "body",
-          "description": "Boolean to set whether the credit note in the Xero app should be marked as “sent”. This can be set only on credit notes that have been approved"
-        },
-        {
           "name": "credit-note-status",
           "wire_name": "CreditNote.Status",
           "type": "string",
@@ -2234,13 +2222,6 @@
           "type": "string",
           "location": "body",
           "description": "See Credit Note Types"
-        },
-        {
-          "name": "credit-note-updated-date-utc",
-          "wire_name": "CreditNote.UpdatedDateUTC",
-          "type": "string",
-          "location": "body",
-          "description": "UTC timestamp of last update to the credit note"
         },
         {
           "name": "credit-note-validation-errors",
@@ -2293,27 +2274,6 @@
           "description": "A boolean to indicate if a contact has an validation errors"
         },
         {
-          "name": "invoice-amount-credited",
-          "wire_name": "Invoice.AmountCredited",
-          "type": "float",
-          "location": "body",
-          "description": "Sum of all credit notes, over-payments and pre-payments applied to invoice"
-        },
-        {
-          "name": "invoice-amount-due",
-          "wire_name": "Invoice.AmountDue",
-          "type": "float",
-          "location": "body",
-          "description": "Amount remaining to be paid on invoice"
-        },
-        {
-          "name": "invoice-amount-paid",
-          "wire_name": "Invoice.AmountPaid",
-          "type": "float",
-          "location": "body",
-          "description": "Sum of payments received for invoice"
-        },
-        {
           "name": "invoice-attachments",
           "wire_name": "Invoice.Attachments",
           "type": "array",
@@ -2326,20 +2286,6 @@
           "type": "string",
           "location": "body",
           "description": "See BrandingThemes"
-        },
-        {
-          "name": "invoice-cis-deduction",
-          "wire_name": "Invoice.CISDeduction",
-          "type": "float",
-          "location": "body",
-          "description": "CIS deduction for UK contractors"
-        },
-        {
-          "name": "invoice-cis-rate",
-          "wire_name": "Invoice.CISRate",
-          "type": "float",
-          "location": "body",
-          "description": "CIS Deduction rate for the organisation"
         },
         {
           "name": "invoice-contact-account-number",
@@ -2377,6 +2323,13 @@
           "description": "Displays array of attachments from the API"
         },
         {
+          "name": "invoice-contact-balances",
+          "wire_name": "Invoice.Contact.Balances",
+          "type": "object",
+          "location": "body",
+          "description": "The raw AccountsReceivable(sales invoices) and AccountsPayable(bills) outstanding and overdue amounts, not converted to base currency (read only)"
+        },
+        {
           "name": "invoice-contact-bank-account-details",
           "wire_name": "Invoice.Contact.BankAccountDetails",
           "type": "string",
@@ -2389,6 +2342,13 @@
           "type": "string",
           "location": "body",
           "description": "Bank details for use on a batch payment stored with each contact"
+        },
+        {
+          "name": "invoice-contact-branding-theme",
+          "wire_name": "Invoice.Contact.BrandingTheme",
+          "type": "object",
+          "location": "body",
+          "description": "Branding theme"
         },
         {
           "name": "invoice-contact-company-number",
@@ -2438,13 +2398,6 @@
           "type": "string",
           "location": "body",
           "description": "3 letter alpha code for the currency – see list of currency codes"
-        },
-        {
-          "name": "invoice-contact-discount",
-          "wire_name": "Invoice.Contact.Discount",
-          "type": "float",
-          "location": "body",
-          "description": "The default discount rate for the contact (read only)"
         },
         {
           "name": "invoice-contact-email-address",
@@ -2508,6 +2461,13 @@
           "type": "string",
           "location": "body",
           "description": "Full name of contact/organisation (max length = 255)"
+        },
+        {
+          "name": "invoice-contact-payment-terms",
+          "wire_name": "Invoice.Contact.PaymentTerms",
+          "type": "object",
+          "location": "body",
+          "description": "Payment terms"
         },
         {
           "name": "invoice-contact-phones",
@@ -2594,13 +2554,6 @@
           "description": "The name of the Tracking Option assigned to the contact under SalesTrackingCategories and PurchasesTrackingCategories"
         },
         {
-          "name": "invoice-contact-updated-date-utc",
-          "wire_name": "Invoice.Contact.UpdatedDateUTC",
-          "type": "string",
-          "location": "body",
-          "description": "UTC timestamp of last update to contact"
-        },
-        {
           "name": "invoice-contact-validation-errors",
           "wire_name": "Invoice.Contact.ValidationErrors",
           "type": "array",
@@ -2608,25 +2561,11 @@
           "description": "Displays validation errors returned from the API"
         },
         {
-          "name": "invoice-contact-website",
-          "wire_name": "Invoice.Contact.Website",
-          "type": "string",
-          "location": "body",
-          "description": "Website address for contact (read only)"
-        },
-        {
           "name": "invoice-contact-xero-network-key",
           "wire_name": "Invoice.Contact.XeroNetworkKey",
           "type": "string",
           "location": "body",
           "description": "Store XeroNetworkKey for contacts."
-        },
-        {
-          "name": "invoice-credit-notes",
-          "wire_name": "Invoice.CreditNotes",
-          "type": "array",
-          "location": "body",
-          "description": "Details of credit notes that have been applied to an invoice"
         },
         {
           "name": "invoice-currency-code",
@@ -2664,20 +2603,6 @@
           "description": "Shown on sales invoices (Accounts Receivable) when this has been set"
         },
         {
-          "name": "invoice-fully-paid-on-date",
-          "wire_name": "Invoice.FullyPaidOnDate",
-          "type": "string",
-          "location": "body",
-          "description": "The date the invoice was fully paid. Only returned on fully paid invoices"
-        },
-        {
-          "name": "invoice-has-attachments",
-          "wire_name": "Invoice.HasAttachments",
-          "type": "bool",
-          "location": "body",
-          "description": "boolean to indicate if an invoice has an attachment"
-        },
-        {
           "name": "invoice-has-errors",
           "wire_name": "Invoice.HasErrors",
           "type": "bool",
@@ -2706,13 +2631,6 @@
           "description": "ACCREC – Unique alpha numeric code identifying invoice (when missing will auto-generate from your Organisation Invoice Settings) (max length = 255)"
         },
         {
-          "name": "invoice-is-discounted",
-          "wire_name": "Invoice.IsDiscounted",
-          "type": "bool",
-          "location": "body",
-          "description": "boolean to indicate if an invoice has a discount"
-        },
-        {
           "name": "invoice-line-amount-types",
           "wire_name": "Invoice.LineAmountTypes",
           "type": "string",
@@ -2727,32 +2645,11 @@
           "description": "See LineItems"
         },
         {
-          "name": "invoice-overpayments",
-          "wire_name": "Invoice.Overpayments",
-          "type": "array",
-          "location": "body",
-          "description": "See Overpayments"
-        },
-        {
-          "name": "invoice-payments",
-          "wire_name": "Invoice.Payments",
-          "type": "array",
-          "location": "body",
-          "description": "See Payments"
-        },
-        {
           "name": "invoice-planned-payment-date",
           "wire_name": "Invoice.PlannedPaymentDate",
           "type": "string",
           "location": "body",
           "description": "Shown on bills (Accounts Payable) when this has been set"
-        },
-        {
-          "name": "invoice-prepayments",
-          "wire_name": "Invoice.Prepayments",
-          "type": "array",
-          "location": "body",
-          "description": "See Prepayments"
         },
         {
           "name": "invoice-reference",
@@ -2790,46 +2687,11 @@
           "description": "A string to indicate if a invoice status"
         },
         {
-          "name": "invoice-sub-total",
-          "wire_name": "Invoice.SubTotal",
-          "type": "float",
-          "location": "body",
-          "description": "Total of invoice excluding taxes"
-        },
-        {
-          "name": "invoice-total",
-          "wire_name": "Invoice.Total",
-          "type": "float",
-          "location": "body",
-          "description": "Total of Invoice tax inclusive (i.e. SubTotal + TotalTax). This will be ignored if it doesn’t equal the sum of the LineAmounts"
-        },
-        {
-          "name": "invoice-total-discount",
-          "wire_name": "Invoice.TotalDiscount",
-          "type": "float",
-          "location": "body",
-          "description": "Total of discounts applied on the invoice line items"
-        },
-        {
-          "name": "invoice-total-tax",
-          "wire_name": "Invoice.TotalTax",
-          "type": "float",
-          "location": "body",
-          "description": "Total tax on invoice"
-        },
-        {
           "name": "invoice-type",
           "wire_name": "Invoice.Type",
           "type": "string",
           "location": "body",
           "description": "See Invoice Types"
-        },
-        {
-          "name": "invoice-updated-date-utc",
-          "wire_name": "Invoice.UpdatedDateUTC",
-          "type": "string",
-          "location": "body",
-          "description": "Last modified date UTC format"
         },
         {
           "name": "invoice-url",
@@ -2921,6 +2783,13 @@
           "description": "Displays array of attachments from the API"
         },
         {
+          "name": "overpayment-contact-balances",
+          "wire_name": "Overpayment.Contact.Balances",
+          "type": "object",
+          "location": "body",
+          "description": "The raw AccountsReceivable(sales invoices) and AccountsPayable(bills) outstanding and overdue amounts, not converted to base currency (read only)"
+        },
+        {
           "name": "overpayment-contact-bank-account-details",
           "wire_name": "Overpayment.Contact.BankAccountDetails",
           "type": "string",
@@ -2933,6 +2802,13 @@
           "type": "string",
           "location": "body",
           "description": "Bank details for use on a batch payment stored with each contact"
+        },
+        {
+          "name": "overpayment-contact-branding-theme",
+          "wire_name": "Overpayment.Contact.BrandingTheme",
+          "type": "object",
+          "location": "body",
+          "description": "Branding theme"
         },
         {
           "name": "overpayment-contact-company-number",
@@ -2982,13 +2858,6 @@
           "type": "string",
           "location": "body",
           "description": "3 letter alpha code for the currency – see list of currency codes"
-        },
-        {
-          "name": "overpayment-contact-discount",
-          "wire_name": "Overpayment.Contact.Discount",
-          "type": "float",
-          "location": "body",
-          "description": "The default discount rate for the contact (read only)"
         },
         {
           "name": "overpayment-contact-email-address",
@@ -3052,6 +2921,13 @@
           "type": "string",
           "location": "body",
           "description": "Full name of contact/organisation (max length = 255)"
+        },
+        {
+          "name": "overpayment-contact-payment-terms",
+          "wire_name": "Overpayment.Contact.PaymentTerms",
+          "type": "object",
+          "location": "body",
+          "description": "Payment terms"
         },
         {
           "name": "overpayment-contact-phones",
@@ -3138,25 +3014,11 @@
           "description": "The name of the Tracking Option assigned to the contact under SalesTrackingCategories and PurchasesTrackingCategories"
         },
         {
-          "name": "overpayment-contact-updated-date-utc",
-          "wire_name": "Overpayment.Contact.UpdatedDateUTC",
-          "type": "string",
-          "location": "body",
-          "description": "UTC timestamp of last update to contact"
-        },
-        {
           "name": "overpayment-contact-validation-errors",
           "wire_name": "Overpayment.Contact.ValidationErrors",
           "type": "array",
           "location": "body",
           "description": "Displays validation errors returned from the API"
-        },
-        {
-          "name": "overpayment-contact-website",
-          "wire_name": "Overpayment.Contact.Website",
-          "type": "string",
-          "location": "body",
-          "description": "Website address for contact (read only)"
         },
         {
           "name": "overpayment-contact-xero-network-key",
@@ -3185,13 +3047,6 @@
           "type": "string",
           "location": "body",
           "description": "The date the overpayment is created YYYY-MM-DD"
-        },
-        {
-          "name": "overpayment-has-attachments",
-          "wire_name": "Overpayment.HasAttachments",
-          "type": "bool",
-          "location": "body",
-          "description": "boolean to indicate if a overpayment has an attachment"
         },
         {
           "name": "overpayment-line-amount-types",
@@ -3271,13 +3126,6 @@
           "description": "See Overpayment Types"
         },
         {
-          "name": "overpayment-updated-date-utc",
-          "wire_name": "Overpayment.UpdatedDateUTC",
-          "type": "string",
-          "location": "body",
-          "description": "UTC timestamp of last update to the overpayment"
-        },
-        {
           "name": "Particulars",
           "type": "string",
           "location": "body",
@@ -3288,12 +3136,6 @@
           "type": "string",
           "location": "body",
           "description": "The Xero identifier for an Payment e.g. 297c2dc5-cc47-4afd-8ec8-74990b8761e9"
-        },
-        {
-          "name": "PaymentType",
-          "type": "string",
-          "location": "body",
-          "description": "See Payment Types."
         },
         {
           "name": "prepayment-allocations",
@@ -3315,13 +3157,6 @@
           "type": "array",
           "location": "body",
           "description": "See Attachments"
-        },
-        {
-          "name": "prepayment-branding-theme-id",
-          "wire_name": "Prepayment.BrandingThemeID",
-          "type": "string",
-          "location": "body",
-          "description": "The unique identifier of the branding template applied to a receive prepayment"
         },
         {
           "name": "prepayment-contact-account-number",
@@ -3359,6 +3194,13 @@
           "description": "Displays array of attachments from the API"
         },
         {
+          "name": "prepayment-contact-balances",
+          "wire_name": "Prepayment.Contact.Balances",
+          "type": "object",
+          "location": "body",
+          "description": "The raw AccountsReceivable(sales invoices) and AccountsPayable(bills) outstanding and overdue amounts, not converted to base currency (read only)"
+        },
+        {
           "name": "prepayment-contact-bank-account-details",
           "wire_name": "Prepayment.Contact.BankAccountDetails",
           "type": "string",
@@ -3371,6 +3213,13 @@
           "type": "string",
           "location": "body",
           "description": "Bank details for use on a batch payment stored with each contact"
+        },
+        {
+          "name": "prepayment-contact-branding-theme",
+          "wire_name": "Prepayment.Contact.BrandingTheme",
+          "type": "object",
+          "location": "body",
+          "description": "Branding theme"
         },
         {
           "name": "prepayment-contact-company-number",
@@ -3420,13 +3269,6 @@
           "type": "string",
           "location": "body",
           "description": "3 letter alpha code for the currency – see list of currency codes"
-        },
-        {
-          "name": "prepayment-contact-discount",
-          "wire_name": "Prepayment.Contact.Discount",
-          "type": "float",
-          "location": "body",
-          "description": "The default discount rate for the contact (read only)"
         },
         {
           "name": "prepayment-contact-email-address",
@@ -3490,6 +3332,13 @@
           "type": "string",
           "location": "body",
           "description": "Full name of contact/organisation (max length = 255)"
+        },
+        {
+          "name": "prepayment-contact-payment-terms",
+          "wire_name": "Prepayment.Contact.PaymentTerms",
+          "type": "object",
+          "location": "body",
+          "description": "Payment terms"
         },
         {
           "name": "prepayment-contact-phones",
@@ -3576,25 +3425,11 @@
           "description": "The name of the Tracking Option assigned to the contact under SalesTrackingCategories and PurchasesTrackingCategories"
         },
         {
-          "name": "prepayment-contact-updated-date-utc",
-          "wire_name": "Prepayment.Contact.UpdatedDateUTC",
-          "type": "string",
-          "location": "body",
-          "description": "UTC timestamp of last update to contact"
-        },
-        {
           "name": "prepayment-contact-validation-errors",
           "wire_name": "Prepayment.Contact.ValidationErrors",
           "type": "array",
           "location": "body",
           "description": "Displays validation errors returned from the API"
-        },
-        {
-          "name": "prepayment-contact-website",
-          "wire_name": "Prepayment.Contact.Website",
-          "type": "string",
-          "location": "body",
-          "description": "Website address for contact (read only)"
         },
         {
           "name": "prepayment-contact-xero-network-key",
@@ -3625,20 +3460,6 @@
           "description": "The date the prepayment is created YYYY-MM-DD"
         },
         {
-          "name": "prepayment-has-attachments",
-          "wire_name": "Prepayment.HasAttachments",
-          "type": "bool",
-          "location": "body",
-          "description": "boolean to indicate if a prepayment has an attachment"
-        },
-        {
-          "name": "prepayment-invoice-number",
-          "wire_name": "Prepayment.InvoiceNumber",
-          "type": "string",
-          "location": "body",
-          "description": "Returns Invoice number for prepayment receive document only."
-        },
-        {
           "name": "prepayment-line-amount-types",
           "wire_name": "Prepayment.LineAmountTypes",
           "type": "string",
@@ -3665,13 +3486,6 @@
           "type": "string",
           "location": "body",
           "description": "Xero generated unique identifier"
-        },
-        {
-          "name": "prepayment-reference",
-          "wire_name": "Prepayment.Reference",
-          "type": "string",
-          "location": "body",
-          "description": "Returns Invoice number field. Reference field isn't available."
         },
         {
           "name": "prepayment-remaining-credit",
@@ -3716,13 +3530,6 @@
           "description": "See Prepayment Types"
         },
         {
-          "name": "prepayment-updated-date-utc",
-          "wire_name": "Prepayment.UpdatedDateUTC",
-          "type": "string",
-          "location": "body",
-          "description": "UTC timestamp of last update to the prepayment"
-        },
-        {
           "name": "Reference",
           "type": "string",
           "location": "body",
@@ -3741,12 +3548,6 @@
           "description": "A string to indicate if a invoice status"
         },
         {
-          "name": "UpdatedDateUTC",
-          "type": "string",
-          "location": "body",
-          "description": "UTC timestamp of last update to the payment"
-        },
-        {
           "name": "ValidationErrors",
           "type": "array",
           "location": "body",
@@ -3762,7 +3563,7 @@
     },
     {
       "name": "payments_create-endpoint",
-      "description": "Creates multiple payments for invoices or credit notes. Optional: summarizeErrors (default: false), Payments, Warnings (plus 1 more). Returns the updated Payments.",
+      "description": "Creates multiple payments for invoices or credit notes. Optional: summarizeErrors (default: false), Idempotency-Key, Payments (plus 2 more). Returns the updated Payments.",
       "method": "PUT",
       "path": "/Payments",
       "params": [
@@ -3771,6 +3572,12 @@
           "type": "bool",
           "location": "query",
           "description": "If false return 200 OK and mix of successfully created objects and any with validation errors"
+        },
+        {
+          "name": "Idempotency-Key",
+          "type": "string",
+          "location": "header",
+          "description": "This allows you to safely retry requests without the risk of duplicate processing."
         },
         {
           "name": "Payments",
@@ -3816,10 +3623,16 @@
     },
     {
       "name": "payments_delete",
-      "description": "Updates a specific payment for invoices and credit notes. Required: PaymentID, Status (default: DELETED). Returns the new Payments.",
+      "description": "Updates a specific payment for invoices and credit notes. Required: PaymentID, Status (default: DELETED). Optional: Idempotency-Key. Returns the new Payments.",
       "method": "POST",
       "path": "/Payments/{PaymentID}",
       "params": [
+        {
+          "name": "Idempotency-Key",
+          "type": "string",
+          "location": "header",
+          "description": "This allows you to safely retry requests without the risk of duplicate processing."
+        },
         {
           "name": "PaymentID",
           "type": "string",
@@ -3838,10 +3651,16 @@
     },
     {
       "name": "payments_get",
-      "description": "Retrieves payments for invoices and credit notes. Optional: where, order, page (plus 1 more). Returns the Payments.",
+      "description": "Retrieves payments for invoices and credit notes. Optional: If-Modified-Since, where, order (plus 2 more). Returns the Payments.",
       "method": "GET",
       "path": "/Payments",
       "params": [
+        {
+          "name": "If-Modified-Since",
+          "type": "string",
+          "location": "header",
+          "description": "Only records created or modified since this timestamp will be returned"
+        },
         {
           "name": "where",
           "type": "string",
@@ -3885,10 +3704,16 @@
     },
     {
       "name": "payments_history_create-payment",
-      "description": "Creates a history record for a specific payment. Required: PaymentID. Optional: HistoryRecords. Returns array of HistoryRecord.",
+      "description": "Creates a history record for a specific payment. Required: PaymentID. Optional: Idempotency-Key, HistoryRecords. Returns array of HistoryRecord.",
       "method": "PUT",
       "path": "/Payments/{PaymentID}/History",
       "params": [
+        {
+          "name": "Idempotency-Key",
+          "type": "string",
+          "location": "header",
+          "description": "This allows you to safely retry requests without the risk of duplicate processing."
+        },
         {
           "name": "PaymentID",
           "type": "string",

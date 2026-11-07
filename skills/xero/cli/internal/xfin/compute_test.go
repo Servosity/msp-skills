@@ -72,19 +72,19 @@ func TestComputeAging(t *testing.T) {
 	if rep.InvoiceCount != 3 {
 		t.Fatalf("invoice count = %d, want 3 (paid + payable excluded)", rep.InvoiceCount)
 	}
-	if rep.TotalDue != 600 {
+	if rep.TotalDue["unknown"] != 600 || len(rep.TotalDue) != 1 {
 		t.Fatalf("total due = %v, want 600", rep.TotalDue)
 	}
 	want := map[string]float64{"current": 100, "1-30": 200, "90+": 300, "31-60": 0, "61-90": 0}
 	for _, b := range rep.Buckets {
-		if b.TotalDue != want[b.Label] {
+		if b.TotalDue["unknown"] != want[b.Label] {
 			t.Errorf("bucket %q total = %v, want %v", b.Label, b.TotalDue, want[b.Label])
 		}
 	}
 
 	// payable view picks up only the ACCPAY invoice
 	pay := ComputeAging(invoices, asOf, true)
-	if pay.Kind != "payable" || pay.InvoiceCount != 1 || pay.TotalDue != 999 {
+	if pay.Kind != "payable" || pay.InvoiceCount != 1 || pay.TotalDue["unknown"] != 999 {
 		t.Fatalf("payable aging = %+v, want 1 invoice / 999", pay)
 	}
 }
@@ -95,11 +95,11 @@ func TestComputeReconcile(t *testing.T) {
 		{InvoiceID: "i2", Type: "ACCREC", Status: "PAID", AmountDue: 0, AmountPaid: 300},
 	}
 	payments := []Payment{
-		{PaymentID: "p1", Amount: 300, Invoice: InvoiceRef{InvoiceID: "i2"}},
-		{PaymentID: "p2", Amount: 75, Invoice: InvoiceRef{InvoiceID: "missing"}, Contact: ContactRef{Name: "Ghost"}}, // orphan
+		{PaymentID: "p1", Status: "AUTHORISED", Amount: 300, Invoice: InvoiceRef{InvoiceID: "i2"}},
+		{PaymentID: "p2", Status: "AUTHORISED", Amount: 75, Invoice: InvoiceRef{InvoiceID: "missing", Contact: ContactRef{Name: "Ghost"}}}, // orphan
 	}
 	rep := ComputeReconcile(invoices, payments)
-	if rep.OutstandingCount != 1 || rep.TotalOutstanding != 150 {
+	if rep.OutstandingCount != 1 || rep.TotalOutstanding["unknown"] != 150 {
 		t.Fatalf("outstanding = %d / %v, want 1 / 150", rep.OutstandingCount, rep.TotalOutstanding)
 	}
 	if rep.OrphanCount != 1 || rep.OrphanPayments[0].PaymentID != "p2" {
@@ -109,14 +109,14 @@ func TestComputeReconcile(t *testing.T) {
 
 func TestComputeBankRecon(t *testing.T) {
 	txns := []BankTransaction{
-		{BankTransactionID: "b1", Type: "SPEND", Total: 50, IsReconciled: false, Contact: ContactRef{ContactID: "c1", Name: "Acme"}},
-		{BankTransactionID: "b2", Type: "RECEIVE", Total: 999, IsReconciled: true}, // excluded (reconciled)
+		{BankTransactionID: "b1", Type: "SPEND", Status: "AUTHORISED", Total: 50, IsReconciled: false, Contact: ContactRef{ContactID: "c1", Name: "Acme"}},
+		{BankTransactionID: "b2", Type: "RECEIVE", Status: "AUTHORISED", Total: 999, IsReconciled: true}, // excluded (reconciled)
 	}
 	invoices := []Invoice{
-		{InvoiceID: "i1", InvoiceNumber: "INV-1", Total: 50, Contact: ContactRef{ContactID: "c1", Name: "Acme"}},
+		{InvoiceID: "i1", InvoiceNumber: "INV-1", Status: "AUTHORISED", Total: 50, Contact: ContactRef{ContactID: "c1", Name: "Acme"}},
 	}
 	payments := []Payment{
-		{PaymentID: "p1", Amount: 50, Contact: ContactRef{ContactID: "c1", Name: "Acme"}},
+		{PaymentID: "p1", Status: "AUTHORISED", Amount: 50, Invoice: InvoiceRef{Contact: ContactRef{ContactID: "c1", Name: "Acme"}}},
 	}
 	rep := ComputeBankRecon(txns, invoices, payments)
 	if rep.UnreconciledCount != 1 {
@@ -134,7 +134,7 @@ func TestComputeTieOut_TiesAndVariance(t *testing.T) {
 	}
 	journals := []Journal{
 		{JournalNumber: 1, JournalLines: []JournalLine{{AccountCode: "610", NetAmount: 150}}},
-		{JournalNumber: 2, JournalLines: []JournalLine{{AccountCode: "800", NetAmount: 40}}},
+		{JournalNumber: 2, JournalLines: []JournalLine{{AccountCode: "800", NetAmount: -40}}}, // a credit
 	}
 	invoices := []Invoice{
 		{InvoiceID: "i1", Type: "ACCREC", Status: "AUTHORISED", AmountDue: 150},
@@ -152,10 +152,10 @@ func TestComputeTieOut_TiesAndVariance(t *testing.T) {
 			ap = l
 		}
 	}
-	if !ar.Ties || ar.Variance != 0 {
+	if !ar.Ties || ar.Variance == nil || *ar.Variance != 0 {
 		t.Errorf("AR should tie: %+v", ar)
 	}
-	if ap.Ties || ap.Variance != -60 {
+	if ap.Ties || ap.Variance == nil || *ap.Variance != -60 {
 		t.Errorf("AP variance = %v ties=%v, want -60 / false", ap.Variance, ap.Ties)
 	}
 	if rep.AllTie {
@@ -227,9 +227,9 @@ func TestComputeSnapshot(t *testing.T) {
 		{Type: "ACCREC", Status: "AUTHORISED", AmountDue: 150, DueDate: ms(asOf.AddDate(0, 0, -3))},
 		{Type: "ACCPAY", Status: "AUTHORISED", AmountDue: 60, DueDate: ms(asOf.AddDate(0, 0, 5))},
 	}
-	bank := []BankTransaction{{IsReconciled: false}, {IsReconciled: true}}
+	bank := []BankTransaction{{Status: "AUTHORISED", IsReconciled: false}, {Status: "AUTHORISED", IsReconciled: true}}
 	s := ComputeSnapshot(invoices, bank, asOf, map[string]int{"invoices": 2}, map[string]string{"invoices": "2024-05-01"})
-	if s.ReceivableOutstanding != 150 || s.PayableOutstanding != 60 {
+	if s.ReceivableOutstanding["unknown"] != 150 || s.PayableOutstanding["unknown"] != 60 {
 		t.Fatalf("AR/AP = %v/%v, want 150/60", s.ReceivableOutstanding, s.PayableOutstanding)
 	}
 	if s.OverdueReceivable != 1 || s.UnreconciledBankTxns != 1 {

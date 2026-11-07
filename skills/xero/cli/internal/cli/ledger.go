@@ -42,7 +42,7 @@ func newNovelLedgerCmd(flags *rootFlags) *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("opening store: %w", err)
 			}
-			defer db.Close()
+			defer closeXeroStore(db)
 			if !hintIfUnsynced(cmd, db, "journals") {
 				hintIfStale(cmd, db, "journals", flags.maxAge)
 			}

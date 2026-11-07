@@ -27,17 +27,14 @@ func TestMCPClientHonoursTheConfigEnvVar(t *testing.T) {
 	// Guard against a stray ambient override changing the assertion.
 	os.Unsetenv("XERO_BASE_URL")
 
-	c, err := newMCPClient()
+	cfg, err := newMCPConfig()
 	if err != nil {
-		t.Fatalf("newMCPClient: %v", err)
+		t.Fatalf("newMCPConfig: %v", err)
 	}
-	if c.Config == nil {
-		t.Fatal("newMCPClient returned a client with no config")
+	if cfg.Path != path {
+		t.Errorf("MCP server read %q, want the XERO_CONFIG path %q", cfg.Path, path)
 	}
-	if c.Config.Path != path {
-		t.Errorf("MCP server read %q, want the XERO_CONFIG path %q", c.Config.Path, path)
-	}
-	if c.Config.BaseURL != "https://mcp-config-probe.invalid" {
-		t.Errorf("MCP server did not load the operator's config: base_url = %q", c.Config.BaseURL)
+	if cfg.BaseURL != "https://mcp-config-probe.invalid" {
+		t.Errorf("MCP server did not load the operator's config: base_url = %q", cfg.BaseURL)
 	}
 }

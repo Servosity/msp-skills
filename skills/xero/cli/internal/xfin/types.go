@@ -16,8 +16,16 @@ type ContactRef struct {
 
 // InvoiceRef is the minimal invoice reference embedded in a payment.
 type InvoiceRef struct {
-	InvoiceID     string `json:"InvoiceID"`
-	InvoiceNumber string `json:"InvoiceNumber"`
+	InvoiceID     string     `json:"InvoiceID"`
+	InvoiceNumber string     `json:"InvoiceNumber"`
+	CurrencyCode  string     `json:"CurrencyCode"`
+	Contact       ContactRef `json:"Contact"`
+}
+
+// DocRef is the credit note, prepayment or overpayment a payment applies to.
+type DocRef struct {
+	CurrencyCode string     `json:"CurrencyCode"`
+	Contact      ContactRef `json:"Contact"`
 }
 
 // Invoice is the subset of Xero invoice fields the analytics need.
@@ -29,29 +37,59 @@ type Invoice struct {
 	AmountDue      float64    `json:"AmountDue"`
 	AmountPaid     float64    `json:"AmountPaid"`
 	Total          float64    `json:"Total"`
+	CurrencyCode   string     `json:"CurrencyCode"`
+	CurrencyRate   float64    `json:"CurrencyRate"` // 1 (or absent) for base currency
 	Date           string     `json:"Date"`
 	DueDate        string     `json:"DueDate"`
 	UpdatedDateUTC string     `json:"UpdatedDateUTC"`
 	Contact        ContactRef `json:"Contact"`
 }
 
-// Payment is the subset of Xero payment fields the analytics need.
+// Payment is the subset of Xero payment fields the analytics need. Xero's
+// Payment has no Contact of its own: it sits on the document the payment
+// applies to (see contact).
 type Payment struct {
 	PaymentID      string     `json:"PaymentID"`
-	Amount         float64    `json:"Amount"`
+	Amount         float64    `json:"Amount"` // in the currency of the document it applies to
 	Date           string     `json:"Date"`
-	Status         string     `json:"Status"`
+	Status         string     `json:"Status"` // AUTHORISED | DELETED
 	UpdatedDateUTC string     `json:"UpdatedDateUTC"`
 	Invoice        InvoiceRef `json:"Invoice"`
+	CreditNote     DocRef     `json:"CreditNote"`
+	Prepayment     DocRef     `json:"Prepayment"`
+	Overpayment    DocRef     `json:"Overpayment"`
 	Contact        ContactRef `json:"Contact"`
+}
+
+// contact returns the contact of the document the payment applies to.
+func (p Payment) contact() ContactRef {
+	for _, c := range []ContactRef{p.Invoice.Contact, p.CreditNote.Contact, p.Prepayment.Contact, p.Overpayment.Contact, p.Contact} {
+		if c.ContactID != "" || c.Name != "" {
+			return c
+		}
+	}
+	return ContactRef{}
+}
+
+// currency returns the currency of the document the payment applies to, the
+// currency Amount is in. (BankAmount is in the bank account's currency, which
+// the payment does not name, so it is never compared.)
+func (p Payment) currency() string {
+	for _, c := range []string{p.Invoice.CurrencyCode, p.CreditNote.CurrencyCode, p.Prepayment.CurrencyCode, p.Overpayment.CurrencyCode} {
+		if c != "" {
+			return c
+		}
+	}
+	return ""
 }
 
 // BankTransaction is the subset of Xero bank-transaction fields the analytics need.
 type BankTransaction struct {
 	BankTransactionID string     `json:"BankTransactionID"`
-	Type              string     `json:"Type"` // SPEND | RECEIVE (and *-OVERPAYMENT/-PREPAYMENT)
-	Status            string     `json:"Status"`
+	Type              string     `json:"Type"`   // SPEND | RECEIVE (and *-OVERPAYMENT/-PREPAYMENT)
+	Status            string     `json:"Status"` // AUTHORISED | DELETED | VOIDED
 	Total             float64    `json:"Total"`
+	CurrencyCode      string     `json:"CurrencyCode"`
 	IsReconciled      bool       `json:"IsReconciled"`
 	Date              string     `json:"Date"`
 	Reference         string     `json:"Reference"`

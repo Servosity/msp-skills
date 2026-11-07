@@ -1,7 +1,7 @@
 {
-  "schema_version": 1,
-  "generated_at": "2026-06-13T04:03:32.259357Z",
-  "printing_press_version": "4.24.0",
+  "schema_version": 2,
+  "generated_at": "2026-11-02T12:50:51.023767Z",
+  "printing_press_version": "4.35.1",
   "api_name": "xero",
   "display_name": "Xero",
   "cli_name": "xero-pp-cli",
@@ -18,9 +18,11 @@
   "owner": "dstevens",
   "printer": "dstevens",
   "printer_name": "Damien Stevens",
+  "spec_path": "spec.yaml",
   "spec_format": "openapi3",
-  "spec_checksum": "sha256:e30fb22f7eae1717f708161ce3b9401968459bcb65004ac7654b9c073e6babb6",
-  "run_id": "20260606-110939",
+  "spec_source": "official",
+  "spec_checksum": "sha256:94eaa63c6a087d3e3de76d8567b6c0644d900d39623ae6b854ec6e4cb10c08ae",
+  "run_id": "20261102-125051",
   "category": "payments",
   "description": "Every Xero Accounting read plus a local SQLite ledger — aging, reconciliation, and GL tie-out that no other Xero tool computes offline.",
   "mcp_binary": "xero-pp-mcp",
@@ -30,6 +32,7 @@
   "auth_type": "bearer_token",
   "auth_preference": "OAuth2",
   "auth_env_vars": [
+    "XERO_ACCESS_TOKEN",
     "XERO_OAUTH2"
   ],
   "auth_env_var_specs": [
@@ -87,5 +90,62 @@
       "command": "snapshot",
       "description": "One offline call returning total receivable and payable outstanding, overdue count, unreconciled bank-transaction count, and per-table sync staleness as a single structured object."
     }
-  ]
+  ],
+  "novel_features_built": [
+    {
+      "name": "AR/AP aging buckets",
+      "command": "aging",
+      "description": "Bucket outstanding invoices into current / 1-30 / 31-60 / 61-90 / 90+ days overdue with totals per bucket, computed locally from your synced ledger."
+    },
+    {
+      "name": "Payment reconciliation gaps",
+      "command": "reconcile",
+      "description": "Cross-join invoices and payments locally to surface AUTHORISED invoices with an amount still due and no (or partial) applied payment, plus payments not fully applied."
+    },
+    {
+      "name": "Bank reconciliation prep",
+      "command": "bank-recon",
+      "description": "List bank transactions still flagged unreconciled and match them to invoices and payments by contact and exact amount to suggest likely reconciliation matches."
+    },
+    {
+      "name": "GL-to-invoice tie-out",
+      "command": "tie-out",
+      "description": "Sum the immutable journal lines by account code and compare the receivable/payable control-account totals against the sum of outstanding invoice amounts, reporting the variance."
+    },
+    {
+      "name": "Immutable GL ledger walk",
+      "command": "ledger",
+      "description": "Replay the immutable journals feed for one account code as an ordered running-balance statement (date, journal number, debit, credit, running balance), entirely offline."
+    },
+    {
+      "name": "What changed since sync",
+      "command": "since",
+      "description": "List records across every synced entity whose last-modified timestamp is newer than a given time, read entirely from the local store's sync cursor with zero API calls."
+    },
+    {
+      "name": "Top-contact AR exposure",
+      "command": "exposure",
+      "description": "Rank contacts by total outstanding amount due across their authorised invoices, with an overdue split and invoice count; drill into one contact for a running-balance statement."
+    },
+    {
+      "name": "Offline org snapshot",
+      "command": "snapshot",
+      "description": "One offline call returning total receivable and payable outstanding, overdue count, unreconciled bank-transaction count, and per-table sync staleness as a single structured object."
+    }
+  ],
+  "verify": {
+    "mode": "mock",
+    "pass_rate": 100,
+    "passed": 75,
+    "total": 75,
+    "data_pipeline": true,
+    "verdict": "PASS"
+  },
+  "scorecard": {
+    "steinberger": {
+      "percentage": 94,
+      "grade": "A",
+      "total": 94
+    }
+  }
 }
