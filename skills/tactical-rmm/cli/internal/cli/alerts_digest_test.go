@@ -24,7 +24,7 @@ func TestNovelAlertsDigest(t *testing.T) {
 	t.Run("groups recent alerts by severity", func(t *testing.T) {
 		db := novelTestEnv(t)
 		now := time.Now().UTC().Format("2006-01-02T15:04:05Z")
-		seedResource(t, db, "alerts", "al1", `{"severity":"error","resolved":0,"alert_time":"`+now+`"}`)
+		seedResource(t, db, trmmAlertsResource, "al1", `{"severity":"error","resolved":0,"alert_time":"`+now+`"}`)
 		out, _, err := runNovel(t, "alerts", "digest", "--since", "24h", "--by", "severity")
 		if err != nil {
 			t.Fatalf("alerts digest: %v", err)

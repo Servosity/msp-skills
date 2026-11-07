@@ -18,6 +18,7 @@
         "MERAKI_DASHBOARD_API_KEY": "${user_config.meraki_dashboard_api_key}",
         "CISCO_MERAKI_BASE_URL": "${user_config.cisco_meraki_base_url}",
         "CISCO_MERAKI_MCP_READ_ONLY": "${user_config.cisco_meraki_mcp_read_only}",
+        "CISCO_MERAKI_NO_LOCAL_DATA": "${user_config.cisco_meraki_no_local_data}",
         "CISCO_MERAKI_USER_AGENT": "${user_config.cisco_meraki_user_agent}",
         "CISCO_MERAKI_MCP_HTTP_TOKEN": "${user_config.cisco_meraki_mcp_http_token}",
         "PRINTING_PRESS_CLIENT_PROFILE": "${user_config.printing_press_client_profile}"
@@ -44,6 +45,12 @@
       "description": "Set to 1 to make the MCP server refuse every write: only GET endpoints are callable and fleet push --apply is refused. Secret-bearing GETs (SSID pre-shared keys, SNMP community strings) still return data. Leave blank to allow writes. Preset to 1; clear it only when you want the agent to make changes.",
       "required": false,
       "default": "1"
+    },
+    "cisco_meraki_no_local_data": {
+      "type": "string",
+      "title": "Run without a local copy",
+      "description": "Optional. Set to 1 to keep no local copy of API responses: reads go to the API, the response cache is off and sync refuses to run. Leave blank to keep the local store.",
+      "required": false
     },
     "cisco_meraki_user_agent": {
       "type": "string",
@@ -73,11 +80,11 @@
       "win32"
     ]
   },
-  "printing_press_version": "4.33.5",
+  "printing_press_version": "4.35.1",
   "press_provenance": {
-    "printing_press_version": "4.33.5",
-    "generated_at": "2026-10-14T00:54:20.486525Z",
-    "spec_checksum": "sha256:f41af876594639cb3a7d71972e111f25c292af295b4110c2b31b1835213c8423",
+    "printing_press_version": "4.35.1",
+    "generated_at": "2026-11-02T19:56:47.23155Z",
+    "spec_checksum": "sha256:b9966fbb3ea2b512724920ef59529d829c3337516d804746807ba55ea7415d3e",
     "spec_format": "openapi3"
   }
 }

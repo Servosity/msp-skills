@@ -1,7 +1,7 @@
 {
-  "schema_version": 1,
-  "generated_at": "2026-06-13T03:40:38.265725Z",
-  "printing_press_version": "4.24.0",
+  "schema_version": 2,
+  "generated_at": "2026-10-29T14:28:12.835912Z",
+  "printing_press_version": "4.34.2",
   "api_name": "datto-rmm",
   "display_name": "Datto RMM",
   "cli_name": "datto-rmm-pp-cli",
@@ -18,9 +18,11 @@
   "owner": "dstevens",
   "printer": "dstevens",
   "printer_name": "Damien Stevens",
+  "spec_path": "spec.json",
   "spec_format": "openapi3",
-  "spec_checksum": "sha256:392cc374179c2fbdbf54b04ccc03a2c8ef58852910047c285b9592e68fc495e3",
-  "run_id": "20260605-225127",
+  "spec_source": "official",
+  "spec_checksum": "sha256:e4a9d6405b8e5525b37ecd40b37598ecefb5a42331f79e8085a989c16877c509",
+  "run_id": "20261029-072137-a29f3b0e",
   "category": "monitoring",
   "description": "Every Datto RMM API operation, plus a local SQLite fleet store and fleet-wide analytics no other Datto tool has.",
   "mcp_binary": "datto-rmm-pp-mcp",
@@ -135,6 +137,108 @@
       "name": "Sync completeness check",
       "command": "fleet sync-gaps",
       "description": "Verifies every synced resource pulled all pages by comparing stored row counts against the API's reported totals, so you can trust fleet numbers before reporting them."
+    },
+    {
+      "name": "UDF fleet query",
+      "command": "fleet udf",
+      "description": "Rolls one device user-defined field up across every synced site: each distinct value with its device and site counts, how many devices leave it empty, and the devices behind one value or behind the gaps."
     }
-  ]
+  ],
+  "novel_features_built": [
+    {
+      "name": "Fleet staleness sweep",
+      "command": "fleet stale",
+      "description": "Lists every device across all customer sites that hasn't checked in within a chosen window, so you catch dead agents before the customer does."
+    },
+    {
+      "name": "Alert storm ranking",
+      "command": "fleet storms",
+      "description": "Ranks the noisiest devices and sites by alert volume over a time window so the NOC can tune monitors instead of drowning in tickets."
+    },
+    {
+      "name": "Patch-compliance gaps",
+      "command": "fleet patch-gaps",
+      "description": "Ranks every device by missing-patch count across all sites so you remediate the most-exposed endpoints first."
+    },
+    {
+      "name": "AV/security posture gaps",
+      "command": "fleet av-gaps",
+      "description": "Finds every device fleet-wide where antivirus is missing, disabled, or not running, so security gaps surface before an incident does."
+    },
+    {
+      "name": "Software inventory rollup",
+      "command": "fleet sprawl",
+      "description": "Rolls up audited software across the whole fleet to show how many installs of an app exist and the spread of versions, exposing license waste and unpatched copies."
+    },
+    {
+      "name": "Warranty cliff",
+      "command": "fleet warranty",
+      "description": "Surfaces every device whose hardware warranty expires within a window, sorted by date and site, ready to drop into a QBR refresh plan."
+    },
+    {
+      "name": "QBR site scorecard",
+      "command": "fleet scorecard",
+      "description": "Produces a one-shot per-site health card fusing device counts, alert volume, patch coverage, AV coverage, warranty exposure, and agent drift for QBRs."
+    },
+    {
+      "name": "Agent-version drift",
+      "command": "fleet agent-drift",
+      "description": "Shows which devices run out-of-date RMM agents across the fleet, ranked by how far behind the newest version they are."
+    },
+    {
+      "name": "Ghost/orphan reconciliation",
+      "command": "fleet orphans",
+      "description": "Cross-references long-stale, suspended, or deleted devices that still count against a site so you stop billing and monitoring phantom endpoints."
+    },
+    {
+      "name": "Alert-storm bulk resolve",
+      "command": "fleet resolve-storm",
+      "description": "Bulk-resolves the open alerts on the noisiest devices and sites from the storm ranking, so Monday triage ends with a clean queue instead of a worklist."
+    },
+    {
+      "name": "Quick-job result rollup",
+      "command": "fleet job-results",
+      "description": "Fetches every device's result for one quick job and rolls them into a single pass/fail table, so a 200-device push is verified in one command."
+    },
+    {
+      "name": "Fleet snapshot receipt",
+      "command": "fleet snapshot",
+      "description": "Freezes the current synced fleet state into a labeled, dated archive so any number you report can be reproduced later as a receipt."
+    },
+    {
+      "name": "Fleet snapshot diff",
+      "command": "fleet diff",
+      "description": "Diffs two fleet snapshots (or a snapshot vs the live store) to show devices added or removed and warranty, patch, AV, and agent-version movement since the baseline."
+    },
+    {
+      "name": "Device timeline",
+      "command": "fleet device-timeline",
+      "description": "Stitches one device's alerts and activity-log entries (which surface job, audit, and user actions) into a single chronological timeline from the local store."
+    },
+    {
+      "name": "Sync completeness check",
+      "command": "fleet sync-gaps",
+      "description": "Verifies every synced resource pulled all pages by comparing stored row counts against the API's reported totals, so you can trust fleet numbers before reporting them."
+    },
+    {
+      "name": "UDF fleet query",
+      "command": "fleet udf",
+      "description": "Rolls one device user-defined field up across every synced site: each distinct value with its device and site counts, how many devices leave it empty, and the devices behind one value or behind the gaps."
+    }
+  ],
+  "verify": {
+    "mode": "mock",
+    "pass_rate": 100,
+    "passed": 84,
+    "total": 84,
+    "data_pipeline": true,
+    "verdict": "PASS"
+  },
+  "scorecard": {
+    "steinberger": {
+      "percentage": 92,
+      "grade": "A",
+      "total": 92
+    }
+  }
 }

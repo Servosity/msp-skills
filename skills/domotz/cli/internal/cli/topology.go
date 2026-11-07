@@ -7,11 +7,15 @@
 package cli
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"net/url"
 	"sort"
 	"strconv"
+	"time"
+
+	"domotz-pp-cli/internal/store"
 
 	"github.com/spf13/cobra"
 )
@@ -84,9 +88,7 @@ func newNovelTopologyCmd(flags *rootFlags) *cobra.Command {
 					return err
 				}
 				defer db.Close()
-				var raw string
-				err = db.DB().QueryRowContext(cmd.Context(),
-					`SELECT data FROM "network_topology" WHERE agent_id = ? ORDER BY synced_at DESC LIMIT 1`, agentID).Scan(&raw)
+				raw, err := latestCachedTopology(cmd, db, agentID)
 				if err != nil {
 					return fmt.Errorf("no cached topology for agent %s (run without --cached to fetch): %w", agentID, err)
 				}
@@ -100,7 +102,7 @@ func newNovelTopologyCmd(flags *rootFlags) *cobra.Command {
 				}
 				data, err := c.Get(cmd.Context(), "/agent/"+url.PathEscape(agentID)+"/network-topology", map[string]string{})
 				if err != nil {
-					return classifyAPIError(err, flags)
+					return classifyAPIError(cmd.OutOrStdout(), err, flags)
 				}
 				if err := json.Unmarshal(data, &doc); err != nil {
 					return fmt.Errorf("parsing topology: %w", err)
@@ -149,6 +151,38 @@ func summarizeTopology(agentID, source string, doc topologyDoc, topN int) topolo
 	}
 }
 
+// latestCachedTopology returns the agent's newest network_topology row. sync
+// and older builds stamped rows in different formats (RFC3339 vs SQLite's
+// "2006-01-02 15:04:05" default), so the rows are compared as instants, never as text.
+func latestCachedTopology(cmd *cobra.Command, db *store.Store, agentID string) (string, error) {
+	rows, err := db.DB().QueryContext(cmd.Context(),
+		`SELECT data, COALESCE(synced_at, '') FROM "network_topology" WHERE agent_id = ?`, agentID)
+	if err != nil {
+		return "", err
+	}
+	defer rows.Close()
+	var raw string
+	var latest time.Time
+	found := false
+	for rows.Next() {
+		var data, at string
+		if err := rows.Scan(&data, &at); err != nil {
+			return "", err
+		}
+		t, _ := parseDomotzTime(at)
+		if !found || t.After(latest) {
+			raw, latest, found = data, t, true
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return "", err
+	}
+	if !found {
+		return "", sql.ErrNoRows
+	}
+	return raw, nil
+}
+
 // cacheTopology stores the raw topology JSON keyed by agent so --cached can
 // re-read it offline. Best-effort: cache failures never fail the command.
 func cacheTopology(cmd *cobra.Command, dbPath, agentID string, data json.RawMessage) {
@@ -158,8 +192,8 @@ func cacheTopology(cmd *cobra.Command, dbPath, agentID string, data json.RawMess
 	}
 	defer db.Close()
 	_, _ = db.DB().ExecContext(cmd.Context(),
-		`INSERT OR REPLACE INTO "network_topology" (id, agent_id, data, synced_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP)`,
-		agentID, agentID, string(data))
+		`INSERT OR REPLACE INTO "network_topology" (id, agent_id, data, synced_at) VALUES (?, ?, ?, ?)`,
+		agentID, agentID, string(data), time.Now().UTC().Format(time.RFC3339))
 }
 
 // enrichTopologyNames fills display names for the top nodes from the device
@@ -175,7 +209,7 @@ func enrichTopologyNames(cmd *cobra.Command, dbPath, agentID string, nodes []top
 	defer db.Close()
 	names := make(map[string]string)
 	rows, err := queryFleetRows(cmd.Context(), db,
-		`SELECT id, json_extract(data, '$.display_name') AS display_name FROM "device" WHERE agent_id = ?`, agentID)
+		`SELECT id, `+deviceField("", "display_name")+` AS display_name FROM `+fleetDeviceSource+` WHERE agent_id = ?`, agentID)
 	if err != nil {
 		return
 	}

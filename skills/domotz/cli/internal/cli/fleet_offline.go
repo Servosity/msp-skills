@@ -11,20 +11,20 @@ import (
 
 // fleetOfflineQuery selects every device whose status is OFFLINE or DOWN,
 // labeled with its site (agent display name) and ordered VITAL-first.
-const fleetOfflineQuery = `
+var fleetOfflineQuery = `
 SELECT
   COALESCE(NULLIF(a.display_name, ''), d.agent_id)        AS site,
   d.agent_id                                              AS agent_id,
-  json_extract(d.data, '$.display_name')                 AS display_name,
-  json_extract(d.data, '$.status')                       AS status,
-  json_extract(d.data, '$.importance')                   AS importance,
-  json_extract(d.data, '$.type.label')                   AS type,
-  json_extract(d.data, '$.last_status_change')           AS last_status_change
-FROM "device" d
+  ` + deviceField("d", "display_name") + `       AS display_name,
+  ` + deviceField("d", "status") + `             AS status,
+  ` + deviceField("d", "importance") + `         AS importance,
+  ` + deviceField("d", "type") + `               AS type,
+  ` + deviceField("d", "last_status_change") + ` AS last_status_change
+FROM ` + fleetDeviceSource + ` d
 LEFT JOIN "agent" a ON a.id = d.agent_id
-WHERE json_extract(d.data, '$.status') IN ('OFFLINE', 'DOWN')
+WHERE ` + deviceField("d", "status") + ` IN ('OFFLINE', 'DOWN')
 ORDER BY
-  CASE json_extract(d.data, '$.importance') WHEN 'VITAL' THEN 0 ELSE 1 END,
+  CASE ` + deviceField("d", "importance") + ` WHEN 'VITAL' THEN 0 ELSE 1 END,
   site,
   display_name`
 
@@ -44,7 +44,7 @@ func newNovelFleetOfflineCmd(flags *rootFlags) *cobra.Command {
 			if dryRunOK(flags) {
 				return nil
 			}
-			db, err := novelOpenStoreChecked(cmd, flags, dbPath, "device")
+			db, err := novelOpenStoreChecked(cmd, flags, dbPath, "agent_device", "agent", "agent_device")
 			if err != nil {
 				return err
 			}

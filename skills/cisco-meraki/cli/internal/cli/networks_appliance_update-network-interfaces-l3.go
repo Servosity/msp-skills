@@ -68,13 +68,13 @@ func newNetworksApplianceUpdateNetworkInterfacesL3Cmd(flags *rootFlags) *cobra.C
 				if (cmd.Flags().Changed("port-interface-name") || bodyPortInterfaceName != "") || (cmd.Flags().Changed("port-interface-number") || bodyPortInterfaceNumber != 0) || (cmd.Flags().Changed("port-interface-slot") || bodyPortInterfaceSlot != 0) || (cmd.Flags().Changed("port-interface-subslot") || bodyPortInterfaceSubslot != 0) {
 					if (cmd.Flags().Changed("port-interface-name") || bodyPortInterfaceName != "") || (cmd.Flags().Changed("port-interface-number") || bodyPortInterfaceNumber != 0) || (cmd.Flags().Changed("port-interface-slot") || bodyPortInterfaceSlot != 0) || (cmd.Flags().Changed("port-interface-subslot") || bodyPortInterfaceSubslot != 0) {
 						if !cmd.Flags().Changed("port-interface-number") && bodyPortInterfaceNumber == 0 && !requiredInputWaived() {
-							return fmt.Errorf("required flag \"%s\" not set", "port-interface-number")
+							return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "port-interface-number"))
 						}
 						if !cmd.Flags().Changed("port-interface-slot") && bodyPortInterfaceSlot == 0 && !requiredInputWaived() {
-							return fmt.Errorf("required flag \"%s\" not set", "port-interface-slot")
+							return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "port-interface-slot"))
 						}
 						if !cmd.Flags().Changed("port-interface-subslot") && bodyPortInterfaceSubslot == 0 && !requiredInputWaived() {
-							return fmt.Errorf("required flag \"%s\" not set", "port-interface-subslot")
+							return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "port-interface-subslot"))
 						}
 					}
 				}
@@ -218,16 +218,13 @@ func newNetworksApplianceUpdateNetworkInterfacesL3Cmd(flags *rootFlags) *cobra.C
 					envelope["partial_failure"] = partialFailure
 				}
 				if flags.dryRun {
-					envelope["dry_run"] = true
-					envelope["status"] = 0
-					envelope["success"] = false
+					markCompletedDryRun(envelope)
 				}
 				// Verify-mode synthetic envelope detection runs against RAW data
 				// (before --compact/--select filtering) so the sentinel field is
 				// guaranteed to be visible even if the operator passes a filter
-				// flag that would otherwise strip it. Surfaces a top-level
-				// verify_noop signal + flips success to false. Mirrors the dry_run
-				// shape above.
+				// flag that would otherwise strip it. A synthetic noop did not
+				// mutate, so it forces success false after a completed dry-run mark.
 				if len(data) > 0 {
 					var rawParsed any
 					if err := json.Unmarshal(data, &rawParsed); err == nil {

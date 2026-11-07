@@ -11,13 +11,18 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// driftChange is one endpoint's change between two snapshots. A count is
+// null where that snapshot did not observe the endpoint (action1 handfix
+// fleet-absent-is-unknown; Codex r1 action1 class missing endpoint reported as
+// remediated: an endpoint missing from the current snapshot read as zero
+// missing updates and was reported remediated).
 type driftChange struct {
 	OrganizationID string `json:"organization_id"`
 	EndpointID     string `json:"endpoint_id"`
 	Name           string `json:"name"`
-	PreviousMiss   int    `json:"previous_missing"`
-	CurrentMiss    int    `json:"current_missing"`
-	Delta          int    `json:"delta"`
+	PreviousMiss   *int   `json:"previous_missing"`
+	CurrentMiss    *int   `json:"current_missing"`
+	Delta          *int   `json:"delta"`
 	Status         string `json:"status"`
 }
 
@@ -29,6 +34,8 @@ type driftSummary struct {
 	Regressed       int    `json:"regressed"`
 	Cleared         int    `json:"cleared"`
 	NewlyMissing    int    `json:"newly_missing"`
+	NewEndpoints    int    `json:"new_endpoints"`
+	NotObserved     int    `json:"not_observed"`
 	Note            string `json:"note,omitempty"`
 }
 
@@ -51,7 +58,9 @@ func newNovelFleetPatchDriftCmd(flags *rootFlags) *cobra.Command {
 cannot tell you what changed. This command keeps its own per-endpoint
 missing-update snapshots in the local store: each run records the current
 posture, then diffs it against the previous snapshot to show remediated,
-regressed, cleared, and newly-missing endpoints.
+regressed, cleared, and newly-missing endpoints. An endpoint the current
+snapshot did not observe (no longer synced, or synced without its
+missing_updates summary) is reported not_observed, never remediated.
 
 Run it after each 'sync' to build the time series. The first run records a
 baseline; the second and later runs show drift. Use --no-capture to diff the
@@ -76,8 +85,8 @@ two most recent existing snapshots without recording a new one.`,
 			}
 
 			if !noCapture {
-				maybeEmitSyncHints(cmd, db, "endpoints", flags.maxAge)
-				endpoints, err := fleetLoadAll(cmd.Context(), db, "endpoints")
+				maybeEmitSyncHints(cmd, db, "endpoints_managed", flags.maxAge)
+				endpoints, err := fleetLoadAll(cmd.Context(), db, "endpoints_managed")
 				if err != nil {
 					return err
 				}
@@ -130,21 +139,38 @@ two most recent existing snapshots without recording a new one.`,
 			for _, id := range ids {
 				cur, hasCur := curMap[id]
 				base, hasBase := baseMap[id]
-				delta := cur.missing - base.missing
+				var prevMiss, curMiss, deltaPtr *int
+				if hasBase {
+					prevMiss = &base.missing
+				}
+				if hasCur {
+					curMiss = &cur.missing
+				}
 				status := "unchanged"
 				switch {
+				case !hasCur:
+					status = "not_observed"
+					result.Summary.NotObserved++
 				case !hasBase && cur.missing > 0:
 					status = "newly_missing"
 					result.Summary.NewlyMissing++
-				case hasCur && hasBase && base.missing > 0 && cur.missing == 0:
-					status = "cleared"
-					result.Summary.Cleared++
-				case delta < 0:
-					status = "remediated"
-					result.Summary.Remediated++
-				case delta > 0:
-					status = "regressed"
-					result.Summary.Regressed++
+				case !hasBase:
+					status = "new"
+					result.Summary.NewEndpoints++
+				default:
+					delta := cur.missing - base.missing
+					deltaPtr = &delta
+					switch {
+					case base.missing > 0 && cur.missing == 0:
+						status = "cleared"
+						result.Summary.Cleared++
+					case delta < 0:
+						status = "remediated"
+						result.Summary.Remediated++
+					case delta > 0:
+						status = "regressed"
+						result.Summary.Regressed++
+					}
 				}
 				result.Summary.Endpoints++
 				if status == "unchanged" && !includeUnchanged {
@@ -158,15 +184,15 @@ two most recent existing snapshots without recording a new one.`,
 					OrganizationID: row.org,
 					EndpointID:     id,
 					Name:           row.name,
-					PreviousMiss:   base.missing,
-					CurrentMiss:    cur.missing,
-					Delta:          delta,
+					PreviousMiss:   prevMiss,
+					CurrentMiss:    curMiss,
+					Delta:          deltaPtr,
 					Status:         status,
 				})
 			}
 
 			sort.SliceStable(result.Changes, func(i, j int) bool {
-				return result.Changes[i].Delta < result.Changes[j].Delta // biggest remediations first
+				return driftInt(result.Changes[i].Delta) < driftInt(result.Changes[j].Delta) // biggest remediations first
 			})
 			if limit > 0 && len(result.Changes) > limit {
 				result.Changes = result.Changes[:limit]
@@ -176,8 +202,7 @@ two most recent existing snapshots without recording a new one.`,
 			matrix := make([][]string, 0, len(result.Changes))
 			for _, c := range result.Changes {
 				matrix = append(matrix, []string{c.OrganizationID, c.EndpointID, c.Name,
-					fleetItoa(float64(c.PreviousMiss)), fleetItoa(float64(c.CurrentMiss)),
-					fleetItoa(float64(c.Delta)), c.Status})
+					driftCell(c.PreviousMiss), driftCell(c.CurrentMiss), driftCell(c.Delta), c.Status})
 			}
 			return fleetEmit(cmd, flags, result, header, matrix)
 		},
@@ -188,6 +213,21 @@ two most recent existing snapshots without recording a new one.`,
 	cmd.Flags().BoolVar(&noCapture, "no-capture", false, "Diff the two most recent snapshots without recording a new one")
 	cmd.Flags().BoolVar(&includeUnchanged, "all", false, "Include endpoints whose posture did not change")
 	return cmd
+}
+
+func driftInt(p *int) int {
+	if p == nil {
+		return 0
+	}
+	return *p
+}
+
+// driftCell prints a count, "-" where the snapshot did not observe it.
+func driftCell(p *int) string {
+	if p == nil {
+		return "-"
+	}
+	return fleetItoa(float64(*p))
 }
 
 type driftPoint struct {
@@ -208,6 +248,9 @@ func driftEnsureTable(ctx context.Context, db *store.Store) error {
 	return err
 }
 
+// driftCaptureMarker is the endpoint_id of a capture's marker row.
+const driftCaptureMarker = ""
+
 func driftCapture(ctx context.Context, db *store.Store, endpoints []map[string]any) error {
 	taken := time.Now().UTC().Format(time.RFC3339Nano)
 	tx, err := db.DB().BeginTx(ctx, nil)
@@ -221,18 +264,24 @@ func driftCapture(ctx context.Context, db *store.Store, endpoints []map[string]a
 		return err
 	}
 	defer stmt.Close()
+	// Every capture records a marker row (endpoint_id "", never an endpoint), so
+	// a capture that observed no endpoint is still the current snapshot and an
+	// earlier result is never repeated (action1 handfix fleet-absent-is-unknown;
+	// Codex r2 action1 class missing endpoint reported as remediated, empty
+	// capture).
+	if _, err := stmt.ExecContext(ctx, taken, driftCaptureMarker, nil, nil, 0); err != nil {
+		return err
+	}
 	for _, e := range endpoints {
 		id := fleetStrField(e, "id")
 		if id == "" {
 			continue
 		}
-		mu := fleetNested(e, "missing_updates")
-		missing := 0
-		if mu != nil {
-			c, _ := fleetNum(mu["critical"])
-			o, _ := fleetNum(mu["other"])
-			missing = int(c) + int(o)
+		c, o, known := fleetCounts(e, "missing_updates")
+		if !known {
+			continue // no missing_updates summary: not an observation of its posture
 		}
+		missing := c + o
 		name := fleetStrField(e, "name")
 		if name == "" {
 			name = fleetStrField(e, "device_name")
@@ -263,8 +312,8 @@ func driftRecentSnapshots(ctx context.Context, db *store.Store) ([]string, error
 }
 
 func driftLoadSnapshot(ctx context.Context, db *store.Store, takenAt, orgFilter string) (map[string]driftPoint, error) {
-	q := `SELECT endpoint_id, org_id, name, missing FROM fleet_patch_snapshots WHERE taken_at = ?`
-	args := []any{takenAt}
+	q := `SELECT endpoint_id, org_id, name, missing FROM fleet_patch_snapshots WHERE taken_at = ? AND endpoint_id != ?`
+	args := []any{takenAt, driftCaptureMarker}
 	if orgFilter != "" {
 		q += ` AND org_id = ?`
 		args = append(args, orgFilter)

@@ -196,6 +196,14 @@ _SMOKE_INVOCATION = re.compile(
     r"(?:-File\s+|&\s*)['\"]?[^\s'\"]*" + re.escape(WINDOWS_SMOKE_SCRIPT), re.IGNORECASE)
 
 
+# GitHub's skip instructions. A push whose head commit carries one runs no
+# `on: push` workflow, and a tag push is a push: the catalog bot marks its
+# derived-files commits [skip ci], so a tag on one may never run release.yml.
+SKIP_CI_RE = re.compile(
+    r"\[(?:skip ci|ci skip|no ci|skip actions|actions skip)\]|^skip-checks: ?true\s*$",
+    re.IGNORECASE | re.MULTILINE)
+
+
 class ProbeError(Exception):
     """The workflow could not be read at all - refuse, never assume."""
 
@@ -477,6 +485,12 @@ def blob_at(rev: str, path: str, repo: Path) -> str | None:
     return out if rc == 0 else None
 
 
+def commit_message_at(rev: str, repo: Path) -> str | None:
+    """The full commit message at `rev`, or None if it cannot be read."""
+    rc, out = _git(["log", "-1", "--format=%B", rev], repo)
+    return out if rc == 0 else None
+
+
 def manifest_version_at(rev: str, slug: str, repo: Path) -> str | None:
     """The version `skills/<slug>/manifest.json` carries AT `rev`, or None.
 
@@ -580,6 +594,7 @@ def evaluate_tag(
     tag_remote: bool | None,
     manifest_version: str | None,
     pre_push: bool = False,
+    commit_message: str | None = "",
 ) -> list[tuple[str, str]]:
     """[(requirement id, why it failed)] - empty means this tag is safe to cut."""
     m = TAG_RE.match(tag)
@@ -631,6 +646,22 @@ def evaluate_tag(
             f"{version}. release.yml reads the version from the tagged tree, so "
             f"the release would be built, named and pinned inconsistently. Tag "
             f"the commit that carries the {version} stamp",
+        ))
+
+    if commit_message is None:
+        failures.append((
+            "TAG-SKIP-CI",
+            "the commit message at that SHA cannot be read, so it cannot be shown "
+            "free of a skip-ci instruction",
+        ))
+    elif SKIP_CI_RE.search(commit_message):
+        failures.append((
+            "TAG-SKIP-CI",
+            "that commit's message carries a GitHub skip instruction (such as "
+            "[skip ci], which the catalog bot puts on its derived-files commits). "
+            "A tag push is a push, so release.yml may never run and the tag would "
+            "front no release. Tag the merge or release commit it builds on "
+            "instead; the bot never changes a version stamp",
         ))
 
     return failures
@@ -940,6 +971,20 @@ jobs:
     tag_case("a SHA with no manifest for that slug is refused",
              "xero-v0.1.4", {"VERSION-AT-SHA"}, manifest_version=None)
 
+    # FIRES on a commit GitHub would run no push workflow for, and ONLY then:
+    # the catalog bot's ordinary [bot] message is endorsed.
+    tag_case("a catalog-bot commit without [skip ci] is endorsed", "xero-v0.1.4", set(),
+             commit_message="chore: regenerate derived files (catalog/llms/pending) [bot]\n")
+    for msg in ("chore: regenerate derived files (catalog/llms/pending) [bot] [skip ci]\n",
+                "x [CI SKIP]\n", "x [no ci]", "x [skip actions]", "x [actions skip]",
+                "x\n\n\nskip-checks: true\n", "x\n\n\nskip-checks:true"):
+        tag_case(f"a commit message carrying {msg.strip().splitlines()[-1]!r} is refused",
+                 "xero-v0.1.4", {"TAG-SKIP-CI"}, commit_message=msg)
+    tag_case("an unreadable commit message is refused", "xero-v0.1.4", {"TAG-SKIP-CI"},
+             commit_message=None)
+    tag_case("a message that only mentions skip ci without brackets is endorsed",
+             "xero-v0.1.4", set(), commit_message="docs: explain why bot commits skip ci\n")
+
     # FIRES on anything that is not a release tag, including the trailing
     # newline the \Z anchor exists for.
     for bad in ("xero-0.1.4", "xero-v0.1", "XERO-v0.1.4", "v0.1.4",
@@ -997,7 +1042,7 @@ jobs:
         return 1
     print("check_release_pipeline self-test passed (the repo's own release.yml is "
           "endorsable and a clean tag is endorsable; twenty-three broken pipeline shapes, "
-          "eleven bad tags and five malformed ledgers are refused).")
+          "nineteen bad tags and five malformed ledgers are refused).")
     return 0
 
 
@@ -1090,6 +1135,7 @@ def main() -> int:
             tag_remote=tag_remote,
             manifest_version=manifest_version,
             pre_push=args.pre_push,
+            commit_message=commit_message_at(args.sha, repo),
         )
 
     for note in notes:

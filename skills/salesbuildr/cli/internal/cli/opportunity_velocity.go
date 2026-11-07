@@ -83,7 +83,7 @@ func newNovelOpportunityVelocityCmd(flags *rootFlags) *cobra.Command {
 					byStage[stage] = a
 				}
 				a.count++
-				if o.SalesCycleDays > 0 {
+				if o.HasSalesCycleDays && o.SalesCycleDays >= 0 { // a 0-day cycle is a value (documented-zero-read-as-missing)
 					a.cycles = append(a.cycles, o.SalesCycleDays)
 					allCycles = append(allCycles, o.SalesCycleDays)
 				}

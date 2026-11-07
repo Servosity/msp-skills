@@ -1,0 +1,103 @@
+{
+  "manifest_version": "0.3",
+  "name": "datto-saas-mcp",
+  "display_name": "Datto SaaS Protection",
+  "version": "0.1.0",
+  "description": "Every Datto SaaS Protection (Backupify) client in one local database: seat audits, protection gaps, backup health ranking, exit inventories and plan-first bulk seat changes.",
+  "author": {
+    "name": "Servosity Inc."
+  },
+  "license": "Apache-2.0",
+  "server": {
+    "type": "binary",
+    "entry_point": "bin/datto-saas-mcp",
+    "mcp_config": {
+      "command": "${__dirname}/bin/datto-saas-mcp",
+      "args": [],
+      "env": {
+        "DATTO_SAAS_BASE_URL": "${user_config.datto_saas_base_url}",
+        "DATTO_SAAS_PUBLIC_KEY": "${user_config.datto_saas_public_key}",
+        "DATTO_SAAS_SECRET_KEY": "${user_config.datto_saas_secret_key}",
+        "DATTO_SAAS_MCP_READ_ONLY": "${user_config.datto_saas_mcp_read_only}",
+        "DATTO_SAAS_NO_LOCAL_DATA": "${user_config.datto_saas_no_local_data}",
+        "DATTO_SAAS_USER_AGENT": "${user_config.datto_saas_user_agent}",
+        "PRINTING_PRESS_CLIENT_PROFILE": "${user_config.printing_press_client_profile}",
+        "DATTO_SAAS_MCP_HTTP_TOKEN": "${user_config.datto_saas_mcp_http_token}"
+      }
+    }
+  },
+  "user_config": {
+    "datto_saas_base_url": {
+      "type": "string",
+      "title": "Datto API base URL",
+      "description": "Optional. Leave blank for the Datto API host (https://api.datto.com/v1); set it only to send requests through your own proxy or a test server.",
+      "sensitive": false,
+      "required": false,
+      "default": "https://api.datto.com/v1"
+    },
+    "datto_saas_public_key": {
+      "type": "string",
+      "title": "DATTO_SAAS_PUBLIC_KEY",
+      "description": "Sets DATTO_SAAS_PUBLIC_KEY for the Datto SaaS Protection MCP server. Get a credential from https://portal.dattobackup.com/integrations/api.",
+      "sensitive": true,
+      "required": true
+    },
+    "datto_saas_secret_key": {
+      "type": "string",
+      "title": "DATTO_SAAS_SECRET_KEY",
+      "description": "Sets DATTO_SAAS_SECRET_KEY for the Datto SaaS Protection MCP server. Get a credential from https://portal.dattobackup.com/integrations/api.",
+      "sensitive": true,
+      "required": true
+    },
+    "datto_saas_mcp_read_only": {
+      "type": "string",
+      "title": "Read-only MCP mode",
+      "description": "Optional. Set to exactly 1 to expose only read tools: datto-saas_execute refuses the seat bulk change, and sync, export and the other commands that change state are not offered. Leave blank to keep every tool available.",
+      "sensitive": false,
+      "required": false
+    },
+    "datto_saas_no_local_data": {
+      "type": "string",
+      "title": "Run without a local copy",
+      "description": "Optional. Set to 1 to keep no local copy of API responses: reads go to the API, the response cache is off and sync is refused. Leave blank to keep the local store.",
+      "sensitive": false,
+      "required": false
+    },
+    "datto_saas_user_agent": {
+      "type": "string",
+      "title": "User-Agent header",
+      "description": "Optional. Overrides the User-Agent the CLI sends to the Datto API. Leave blank to use the CLI's own.",
+      "sensitive": false,
+      "required": false
+    },
+    "printing_press_client_profile": {
+      "type": "string",
+      "title": "Client profile (optional)",
+      "description": "Only used when the MCP server is bound to a tenant-gated client profile. This connector registers no tenant-gated source, so leave it blank.",
+      "sensitive": true,
+      "required": false
+    },
+    "datto_saas_mcp_http_token": {
+      "type": "string",
+      "title": "MCP HTTP transport bearer token",
+      "description": "Required only when running the MCP server with --transport http (a remote/hosted deployment); at least 32 characters. Callers must send a matching Authorization: Bearer header. Not needed for the default local stdio transport that Claude Desktop uses.",
+      "sensitive": true,
+      "required": false
+    }
+  },
+  "compatibility": {
+    "claude_desktop": ">=1.0.0",
+    "platforms": [
+      "darwin",
+      "linux",
+      "win32"
+    ]
+  },
+  "printing_press_version": "4.34.2",
+  "press_provenance": {
+    "printing_press_version": "4.34.2",
+    "generated_at": "2026-10-27T17:05:45.89232Z",
+    "spec_checksum": "sha256:725125a2c09192207278d7e8c1292d90116e19513944e3dccd11a3f324a5d91f",
+    "spec_format": "openapi3"
+  }
+}

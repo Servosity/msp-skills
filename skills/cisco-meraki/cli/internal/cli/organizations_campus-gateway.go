@@ -11,7 +11,7 @@ import (
 func newOrganizationsCampusGatewayCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "campus-gateway",
-		Short:       "Get, batch, and create campus gateway for organizations",
+		Short:       "Get and batch campus gateway for organizations",
 		Annotations: map[string]string{"mcp:read-only": "true", "pp:parent-group": "true", "pp:typed-exit-codes": "0,2"},
 		RunE:        parentNoSubcommandRunE(flags),
 	}

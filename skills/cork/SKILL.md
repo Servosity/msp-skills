@@ -1,6 +1,6 @@
 ---
 name: cork
-description: "Every Cork API operation as one CLI and MCP server, plus cross-client risk attribution, exploitability-first vulnerability triage, overdue-compliance detection, and stale-connector health checks that a stateless API mirror cannot answer in a single call. Trigger phrases: `which Cork clients got worse this week`, `why did this client's Cork score drop`, `what should we patch first in Cork`, `are we exposed to this CVE`, `which Cork integrations are stale`, `which clients have no cyber warranty`, `use cork`, `run cork`."
+description: "Every Cork API operation as one CLI and MCP server, plus cross-client risk attribution, exploitability-first vulnerability triage, overdue-compliance detection, overdue exclusion reviews, and stale-connector health checks that a stateless API mirror cannot answer in a single call. Trigger phrases: `which Cork clients got worse this week`, `why did this client's Cork score drop`, `what should we patch first in Cork`, `are we exposed to this CVE`, `which Cork integrations are stale`, `which clients have no cyber warranty`, `use cork`, `run cork`."
 author: "Abhi Saini"
 license: "Apache-2.0"
 vendor: "Cork"
@@ -35,7 +35,12 @@ This skill drives the `cork-cli` binary. **You must verify the CLI is installed 
 3. Verify: `cork-cli --version`
 4. Ensure `~/.local/bin` (macOS / Linux) or `%LOCALAPPDATA%\Programs\msp-skills` (Windows) is on `$PATH`.
 
-If `--version` reports "command not found" after install, the install step did not put the binary on `$PATH`. Do not proceed with skill commands until verification succeeds.
+The installer downloads the `cork-cli` and `cork-mcp` binaries into `~/.local/bin`
+(macOS / Linux) or `%LOCALAPPDATA%\Programs\msp-skills` (Windows). It does not
+register the skill with your agent and writes no MCP client config - see
+[mcp-install.md](./mcp-install.md) for that wire-up.
+
+If `--version` reports "command not found" after install, the runtime cannot see the binary directory on `$PATH`. Do not proceed with skill commands until verification succeeds.
 
 Cork tells you a client's risk score moved but never why, and offers no way to ask a question across your whole book of business. This CLI mirrors the API into local SQLite, then answers the questions that need history and fan-out: score attribute explains what drove a score change, score regressions ranks every client by how far they slipped, vulnerabilities triage orders patching by what is actually being exploited rather than by CVSS, and integrations health catches the connector that reports healthy while its data quietly went stale.
 
@@ -54,17 +59,15 @@ Do not use this CLI for:
 
 ## Unique Capabilities
 
-These capabilities aren't available in any other tool for this API.
-
 ### Risk that compounds locally
-- **`score attribute`**  -  Explain why a client's Cork score moved, broken out by claims, compliance, coverage, and vulnerability impact.
+- **`score attribute`** - Explain why a client's Cork score moved, broken out by claims, compliance, coverage, and vulnerability impact.
 
   _Reach for this when someone asks why a client got worse, instead of pulling raw score points and eyeballing a trend._
 
   ```bash
   cork-cli score attribute 00000000-0000-0000-0000-000000000000 --since 30d --agent
   ```
-- **`score regressions`**  -  Rank every client by score change over a window, worst movers first.
+- **`score regressions`** - Rank every client by score change over a window, worst movers first.
 
   _Use this to open a book-of-business review; it answers 'who moved backwards' in one call instead of one call per client._
 
@@ -73,14 +76,14 @@ These capabilities aren't available in any other tool for this API.
   ```
 
 ### Exploitability over CVSS
-- **`vulnerabilities triage`**  -  Rank software products by exploitability (known-exploited first, then EPSS, then CVSS) with a blast-radius device count and client names resolved.
+- **`vulnerabilities triage`** - Rank software products by exploitability (known-exploited first, then EPSS, then CVSS) with a blast-radius device count and client names resolved.
 
   _Pick this over a raw vulnerability list when deciding what to patch first. Live-only: Cork's vulnerability rows carry no id so they cannot be mirrored locally, --limit counts products rather than individual findings, and a capped scan sets scan_cap_hit._
 
   ```bash
   cork-cli vulnerabilities triage --kev-only --min-epss 0.3 --limit 25 --agent
   ```
-- **`vulnerabilities exposure`**  -  List every affected client, device, product, and version for a single CVE id.
+- **`vulnerabilities exposure`** - List every affected client, device, product, and version for a single CVE id.
 
   _Use this the moment a specific CVE is named in an advisory or a client email; it is the only way to answer 'are we exposed'. Exit 3 means the scan succeeded and found no exposure, which is a negative answer rather than a failure. Live-only: vulnerability rows carry no id so there is no local mirror to read, and a capped scan sets scan_cap_hit, which is explicitly not a clean bill of health._
 
@@ -89,30 +92,37 @@ These capabilities aren't available in any other tool for this API.
   ```
 
 ### Data you can actually trust
-- **`compliance overdue`**  -  Surface compliance events that have blown their event type's remediation window, bucketed by age.
+- **`compliance overdue`** - Surface compliance events that have blown their event type's remediation window, bucketed by age.
 
   _Choose this over listing a client's events when you need the ones that are actively costing score, ordered by how late they are._
 
   ```bash
   cork-cli compliance overdue --bucket --agent
   ```
-- **`integrations health`**  -  Flag connectors that are down, degraded, or reporting healthy while their last sync has gone stale, and name the clients they feed.
+- **`integrations health`** - Flag connectors that are down, degraded, or reporting healthy while their last sync has gone stale, and name the clients they feed.
 
   _Run this before trusting any risk number; a silently stale connector makes every downstream score fiction._
 
   ```bash
   cork-cli integrations health --stale-after 24h --agent
   ```
-- **`coverage gaps`**  -  Diff the devices a connector reports against the devices attributed to the client to expose endpoints one tool sees and another misses.
+- **`coverage gaps`** - Diff the devices a connector reports against the devices attributed to the client to expose endpoints one tool sees and another misses.
 
   _Use this during onboarding verification or when coverage impact is dragging a score and you need the specific unmonitored endpoints. Exit 3 means there were no connector devices to diff, a negative answer rather than a failure; the command refuses outright rather than reporting gaps against a device baseline it could not read._
 
   ```bash
   cork-cli coverage gaps --client 00000000-0000-0000-0000-000000000000 --agent
   ```
+- **`compliance exclusions-due`** - List compliance exclusions and silenced alert rules whose review date has passed or that are flagged for review, across every client, oldest first.
+
+  _Run this before a compliance review or QBR: an exclusion nobody re-reviewed is a risk the score silently stopped counting. Live fan-out over clients; a capped scan sets scan_cap_hit and is not a clean bill of health._
+
+  ```bash
+  cork-cli compliance exclusions-due --agent
+  ```
 
 ### Commercial signal
-- **`warranties exposure`**  -  Rank unwarranted or lapsed clients by current risk so coverage conversations start with the ones that need it most.
+- **`warranties exposure`** - Rank unwarranted or lapsed clients by current risk so coverage conversations start with the ones that need it most.
 
   _Reach for this when preparing commercial outreach, rather than listing warranties and cross-checking risk by hand._
 
@@ -122,52 +132,96 @@ These capabilities aren't available in any other tool for this API.
 
 ## Command Reference
 
-**clients**  -  Manage clients
+**clients** - Manage clients
 
-- `cork-cli clients`  -  List clients with their financial protection status (`warranty_status`), associated integration tenants
+- `cork-cli clients` - List clients with their financial protection status (`warranty_status`), associated integration tenants
 
-**compliance**  -  Manage compliance
+**compliance** - Manage compliance
 
-- `cork-cli compliance get-event-notification-settings`  -  List the notification and alerting rules configured for compliance events on client assets.
-- `cork-cli compliance get-event-types`  -  List all compliance event types with their descriptions and cure periods.
-- `cork-cli compliance get-events`  -  List policy violations and risk events detected for a client's assets.
+- `cork-cli compliance get-event-notification-settings` - List the notification and alerting rules configured for compliance events on client assets.
+- `cork-cli compliance get-event-types` - List all compliance event types with their descriptions and cure periods.
+- `cork-cli compliance get-events` - List policy violations and risk events detected for a client's assets.
 
-**distributor**  -  Manage distributor
+**distributor** - Manage distributor
 
-- `cork-cli distributor get-partners`  -  List partner sub-accounts managed by this distributor.
-- `cork-cli distributor provision-partner`  -  Provision a new Partner account in the system. _note: Requires distributor privileges._
+- `cork-cli distributor get-partners` - List partner sub-accounts managed by this distributor.
+- `cork-cli distributor provision-partner` - Provision a new Partner account in the system. _note: Requires distributor privileges._
 
-**integrations**  -  Manage integrations
+**integrations** - Manage integrations
 
-- `cork-cli integrations connect`  -  Connect an API-based integration. This creates a new integration that will immediately begin syncing data.
-- `cork-cli integrations delete`  -  Delete an integration and stop all data collection from it. _note: Only API-created integrations can be deleted._
-- `cork-cli integrations get-available`  -  List integration types that can be connected to Cork, including required credential fields.
-- `cork-cli integrations get-connected`  -  List integrations that have been connected to Cork, including their vendor, connection status, and sync details.
-- `cork-cli integrations update`  -  Update an API-created integration's display name and/or credentials.
+- `cork-cli integrations connect` - Connect an API-based integration. This creates a new integration that will immediately begin syncing data.
+- `cork-cli integrations delete` - Delete an integration and stop all data collection from it. _note: Only API-created integrations can be deleted._
+- `cork-cli integrations get-available` - List integration types that can be connected to Cork, including required credential fields.
+- `cork-cli integrations get-connected` - List integrations that have been connected to Cork, including their vendor, connection status, and sync details.
+- `cork-cli integrations update` - Update an API-created integration's display name and/or credentials.
 
-**invoices**  -  Manage invoices
+**invoices** - Manage invoices
 
-- `cork-cli invoices`  -  List billing invoices. Returns invoice UUIDs required by `Get Invoice Line Items`.
+- `cork-cli invoices` - List billing invoices. Returns invoice UUIDs required by `Get Invoice Line Items`.
 
-**me**  -  Manage me
+**me** - Manage me
 
-- `cork-cli me`  -  Information on the authenticated user
+- `cork-cli me` - Information on the authenticated user
 
-**software**  -  Manage software
+**software** - Manage software
 
-- `cork-cli software get-installer-history`  -  List past software install attempts (most recent first) with their dispatch state, target client/device, package
-- `cork-cli software get-installer-setup`  -  Get the one-time setup steps for an RMM vendor that requires manual setup before software installs work.
-- `cork-cli software get-packages`  -  List software packages available to install across supported package managers (WinGet, Chocolatey).
-- `cork-cli software install`  -  Install a software package on a single mapped device via the device's RMM integration.
+- `cork-cli software get-installer-history` - List past software install attempts (most recent first) with their dispatch state, target client/device, package
+- `cork-cli software get-installer-setup` - Get the one-time setup steps for an RMM vendor that requires manual setup before software installs work.
+- `cork-cli software get-packages` - List software packages available to install across supported package managers (WinGet, Chocolatey).
+- `cork-cli software install` - Install a software package on a single mapped device via the device's RMM integration.
 
-**vulnerabilities**  -  Manage vulnerabilities
+**vulnerabilities** - Manage vulnerabilities
 
-- `cork-cli vulnerabilities get-software`  -  List individual software vulnerabilities with full CVE details including CVSS score, EPSS score, KEV (known exploited)
-- `cork-cli vulnerabilities get-software-vulnerability-summary`  -  Get a rollup of CVEs grouped by software product, showing number of impacted devices, impacted versions
+- `cork-cli vulnerabilities get-software` - List individual software vulnerabilities with full CVE details including CVSS score, EPSS score, KEV (known exploited)
+- `cork-cli vulnerabilities get-software-vulnerability-summary` - Get a rollup of CVEs grouped by software product, showing number of impacted devices, impacted versions
 
-**warranties**  -  Manage warranties
+**warranties** - Manage warranties
 
-- `cork-cli warranties`  -  List active cyber warranty packages.
+- `cork-cli warranties` - List active cyber warranty packages.
+
+
+**compliance**
+
+
+- `cork-cli compliance overdue` - Surface compliance events that have blown their event type's remediation window, bucketed by age.
+
+- `cork-cli compliance exclusions-due` - List compliance exclusions and silenced alert rules whose review date has passed or that are flagged for review, across every client, oldest first.
+
+
+**coverage**
+
+
+- `cork-cli coverage gaps` - Diff the devices a connector reports against the devices attributed to the client to expose endpoints one tool sees and another misses.
+
+
+**integrations**
+
+
+- `cork-cli integrations health` - Flag connectors that are down, degraded, or reporting healthy while their last sync has gone stale, and name the clients they feed.
+
+
+**score**
+
+
+- `cork-cli score attribute` - Explain why a client's Cork score moved, broken out by claims, compliance, coverage, and vulnerability impact.
+
+- `cork-cli score regressions` - Rank every client by score change over a window, worst movers first.
+
+
+**vulnerabilities**
+
+
+- `cork-cli vulnerabilities triage` - Rank software products by exploitability (known-exploited first, then EPSS, then CVSS) with a blast-radius device count and client names resolved.
+
+- `cork-cli vulnerabilities exposure` - List every affected client, device, product, and version for a single CVE id.
+
+
+**warranties**
+
+
+- `cork-cli warranties exposure` - Rank unwarranted or lapsed clients by current risk so coverage conversations start with the ones that need it most.
+
+
 
 
 ### Finding the right command
@@ -178,7 +232,7 @@ When you know what you want to do but not which command does it, ask the CLI dir
 cork-cli which "<capability in your own words>"
 ```
 
-`which` resolves a natural-language capability query to the best matching command from this CLI's curated feature index. Exit code `0` means at least one match; exit code `2` means no confident match  -  fall back to `--help` or use a narrower query.
+`which` resolves a natural-language capability query to the best matching command from this CLI's curated feature index. Exit code `0` means at least one match; exit code `2` means no confident match - fall back to `--help` or use a narrower query. `--json` (and other machine formats) keep that exit-2 contract and write `{"matches":[]}` on stdout so agents can inspect the envelope without treating a miss as success.
 
 ## Recipes
 
@@ -230,18 +284,26 @@ Run `cork-cli doctor` to verify setup.
 
 ## Agent Mode
 
-Add `--agent` to any command. Expands to: `--json --compact --no-input --no-color --yes`.
+Add `--agent` to any command. Expands to: `--json --compact --no-input --no-color`.
 
-- **Pipeable**  -  JSON on stdout, errors on stderr
-- **Filterable**  -  `--select` keeps a subset of fields. Dotted paths descend into nested structures; arrays traverse element-wise. Critical for keeping context small on verbose APIs:
+Global format flags share one contract on promoted, novel, sync, and `--deliver` paths:
+
+- `--json` - one JSON document on stdout (sync progress events go to stderr)
+- `--compact` - keep identity/status/timestamp fields; does not change the document vs stream shape
+- `--csv` / `--plain` - tabular rows (collection envelopes unwrap to the row array). `--csv` prefixes `'` on a cell or header key that starts with `=`, `+`, `-`, `@`, tab, CR, or LF (fullwidth `＝＋－＠` too) so a spreadsheet does not run it as a formula; a plain signed number such as `-5` or `+2.5e3` is unchanged.
+- `--quiet` - one identity value per row, no envelope
+
+- **Pipeable** - JSON on stdout, errors on stderr
+- **Filterable** - `--select` keeps a subset of fields. Dotted paths descend into nested structures; arrays traverse element-wise. Critical for keeping context small on verbose APIs:
 
   ```bash
   cork-cli clients --agent --select associated_tenants,created_at,hidden
   ```
-- **Previewable**  -  `--dry-run` shows the request without sending
-- **Offline-friendly**  -  sync/search commands can use the local SQLite store when available
-- **Non-interactive**  -  never prompts, every input is a flag
-- **Explicit retries**  -  use `--idempotent` only when an already-existing create should count as success, and use `--ignore-missing` only when a missing delete target should count as success
+- **Previewable** - `--dry-run` shows the request without sending. A completed dry run exits 0 with `"success": true` and `"dry_run": true` and no HTTP `status`; validation failures still exit non-zero with `"success": false`.
+- **Offline-friendly** - sync/search commands can use the local SQLite store when available
+- **Non-interactive** - never prompts, every input is a flag
+- **Explicit confirmation** - `--agent` does not imply `--yes`; pass `--yes` separately only after the target, arguments, and side effects are clear
+- **Explicit retries** - use `--idempotent` only when an already-existing create should count as success, and use `--ignore-missing` only when a missing delete target should count as success
 
 ### Response envelope
 
@@ -254,7 +316,7 @@ Commands that read from the local store or the API wrap output in a provenance e
 }
 ```
 
-Parse `.results` for data and `.meta.source` to know whether it's live or local. A human-readable `N results (live)` summary is printed to stderr only when stdout is a terminal AND no machine-format flag (`--json`, `--csv`, `--compact`, `--quiet`, `--plain`, `--select`) is set  -  piped/agent consumers and explicit-format runs get pure JSON on stdout.
+Parse `.results` for data and `.meta.source` to know whether it's live or local. A human-readable `N results (live)` summary is printed to stderr only when stdout is a terminal AND no machine-format flag (`--json`, `--csv`, `--compact`, `--quiet`, `--plain`, `--select`) is set - piped/agent consumers and explicit-format runs get pure JSON on stdout.
 
 ## Paths and state
 
@@ -283,17 +345,27 @@ Agents should treat the CLI's path resolver as part of the runtime contract:
 
 Fleet precedence: an inherited per-kind env var overrides an explicit `--home` for that kind. Use `CORK_HOME` or per-kind vars as durable fleet levers, and use `--home` only for a single invocation. Relocation is not reversible by unsetting env vars; move files manually before clearing `CORK_HOME`, or `doctor` will not find credentials left under the former root.
 
+Local data is unencrypted and relies on OS account permissions plus disk encryption. Reads in the default `--data-source auto` mode are written to the SQLite store; GET responses are cached for five minutes under the cache dir. `local-data purge` previews what it would erase (store files, response cache, learn journal) and deletes only with `--yes`; it is not exposed over MCP. `CORK_NO_LOCAL_DATA=1` disables the response cache and store writes, turns `auto` reads into live reads, and blocks `sync` and `workflow archive`; `--data-source local` still reads an existing store, and `CORK_DATA_SOURCE` sets the `--data-source` default.
+
 ## Automatic learning
 
 This CLI ships a self-capturing learning loop. The CLI does its own bookkeeping: every invocation is journaled locally, a failed flag followed by a corrected retry auto-derives a `flag_alias` candidate, and a `teach` on a query family without a playbook auto-synthesizes a `playbook_candidate` from the session's journal. Your job is judgment only: `recall` first, act on surfaced candidates, `teach` the final answer, `playbook amend` when you observe a correction. You never record failures by hand.
 
 ### Step 1: `recall` before any discovery
 
-Before list/search/drill commands on a new user question, run:
+Before list/search/drill commands on a new user question, pass the question as an argv or MCP tool argument to `recall --agent`. Do not interpolate user-controlled text into a shell command line.
+
+Quoted `recall "<question>"` breaks on an apostrophe, which is ordinary English. A quoted heredoc breaks when a body line equals the delimiter, and that delimiter is published in these docs. Write the question with a non-shell file-writing tool, then read it back as data:
 
 ```bash
-cork-cli recall "<user's question>" --agent
+# Write the question verbatim with your file-writing tool (no shell involved).
+# Command substitution on a file only ever yields data - the shell never
+# parses the file's bytes as syntax.
+QUERY=$(cat /path/to/question.txt)
+cork-cli recall "$QUERY" --agent
 ```
+
+Prefer MCP: pass the question as the tool's query argument. `"$QUERY"` after a file read is argv-safe; putting the question itself in the command text is not.
 
 The response envelope:
 
@@ -387,7 +459,7 @@ Graceful degradation: if `learnings confirm` is an unknown command, you are driv
 ### Step 3: always read `warnings`
 
 - `low_confidence`: row exists at `confidence<2`. Treat as a hint, not a skip-discovery hit.
-- `resource_not_in_store`: the local store doesn't have the resource the learning points at. The match validator couldn't classify entities  -  direct-fetch and re-evaluate.
+- `resource_not_in_store`: the local store doesn't have the resource the learning points at. The match validator couldn't classify entities - direct-fetch and re-evaluate.
 - `cross_alias_match` (per-result): the row was taught under a different alias and matched the live query's canonical via `entity_lookups` (e.g., a "USA" teach satisfying a "United States" recall). Trust the resource_id.
 - `similar_shape_different_entity:<canonical>` (top-level): a structurally matching row exists but its canonical entity differs from the live query's. Treated as cold start; the warning carries the conflicting canonical as a hint, but the row is NOT promoted into Results.
 - `ambiguous_alias` (top-level): a single query entity resolved to multiple canonicals (e.g., "Cards" → Arizona Cardinals + St. Louis Cardinals). Surface the ambiguity from context before committing to a resource.
@@ -397,10 +469,11 @@ Graceful degradation: if `learnings confirm` is an unknown command, you are driv
 
 ### Step 4: `teach &` after finalizing your response - always
 
-Teaching is unconditional. After resolving a query the store could not answer, background-teach the final resource mapping - no call-count threshold, no judging whether it was "worth" learning. The teach is the anchor of the loop: it triggers playbook synthesis for a family without a playbook, and same-referent phrasings fold into one family so near-duplicate teaches do not fragment the store. Fire it after assembling your user-facing response but BEFORE emitting it, with a shell `&` so the call returns immediately:
+Teaching is unconditional. After resolving a query the store could not answer, background-teach the final resource mapping - no call-count threshold, no judging whether it was "worth" learning. The teach is the anchor of the loop: it triggers playbook synthesis for a family without a playbook, and same-referent phrasings fold into one family so near-duplicate teaches do not fragment the store. Fire it after assembling your user-facing response but BEFORE emitting it, with a shell `&` so the call returns immediately. Pass the query the same way as recall - argv/MCP, or file-then-`$QUERY`. Do not splice the question into the command text:
 
 ```bash
-cork-cli teach --query "<user's question>" --resource-type <type> --resource <id1> --resource <id2>
+QUERY=$(cat /path/to/question.txt)
+cork-cli teach --query "$QUERY" --resource-type <type> --resource <id1> --resource <id2>
 # (append shell `&` to background it)
 ```
 
@@ -414,16 +487,18 @@ You do not need to decide whether a session "deserves" a playbook: a teach on a 
 
 ```bash
 # Common case: record both the resource learning AND the playbook in one call.
+QUERY=$(cat /path/to/question.txt)
 cork-cli teach \
-  --query "<user's question>" \
+  --query "$QUERY" \
   --resource <id> \
   --playbook-file ~/playbooks/<shape>.json \
   --playbook-notes-file ~/playbooks/<shape>-notes.md
 # (append shell `&` to background it)
 
 # Alternate: playbook-only (no resource to record alongside).
+QUERY=$(cat /path/to/question.txt)
 cork-cli teach-playbook \
-  --query "<user's question>" \
+  --query "$QUERY" \
   --playbook-file ~/playbooks/<shape>.json \
   --notes-file ~/playbooks/<shape>-notes.md
 ```
@@ -434,12 +509,14 @@ When you DO find a playbook on a future recall, treat it as ground truth: replay
 
 ### Step 6: `playbook amend &` when your debug response identifies a correction
 
-If your debug-protocol response identifies a concrete correction the notes or playbook should know  -  a workaround, an undocumented endpoint shape, a stale field name, observed schema drift, an empty-payload fallback  -  fire `playbook amend` BEFORE emitting your user-facing response. Same fire-and-forget posture as `teach`.
+If your debug-protocol response identifies a concrete correction the notes or playbook should know - a workaround, an undocumented endpoint shape, a stale field name, observed schema drift, an empty-payload fallback - fire `playbook amend` BEFORE emitting your user-facing response. Same fire-and-forget posture as `teach`. Pass the query and note as argv/MCP arguments, or write each with a non-shell file tool and read them back (`QUERY=$(cat ...)`, `NOTE=$(cat ...)`). Do not interpolate either string into the command text:
 
 ```bash
+QUERY=$(cat /path/to/question.txt)
+NOTE=$(cat /path/to/note.txt)
 cork-cli playbook amend \
-  --query "<exact recall query string>" \
-  --add-note "<your concrete correction>"
+  --query "$QUERY" \
+  --add-note "$NOTE"
 # (append shell `&` to background it)
 ```
 
@@ -496,10 +573,10 @@ Every command accepts `--deliver <sink>`. The output goes to the named sink in a
 | Sink | Effect |
 |------|--------|
 | `stdout` | Default; write to stdout only |
-| `file:<path>` | Atomically write output to `<path>` (tmp + rename) |
-| `webhook:<url>` | POST the output body to the URL (`application/json` or `application/x-ndjson` when `--compact`) |
+| `file:<path>` | Atomically write output to `<path>` as a private 0600 file (exclusive randomly named temp in the destination directory, then rename; a planted symlink is not followed). Binary-response commands write decoded payload bytes (not the base64 JSON envelope) and print a small JSON receipt on stdout; `--json`/`--csv` do not refuse when this sink is set. |
+| `webhook:<url>` | POST the output body to the URL (`application/json`). Redirects are not followed; a 3xx response fails the delivery and the body is not sent to the `Location`. |
 
-Unknown schemes are refused with a structured error naming the supported set. Webhook failures return non-zero and log the URL + HTTP status on stderr.
+Unknown schemes are refused with a structured error naming the supported set. Webhook failures, including redirects, return non-zero and log the URL and HTTP status on stderr.
 
 ## Named Profiles
 
@@ -524,6 +601,7 @@ Explicit flags always win over profile values; profile values win over defaults.
 | 3 | Resource not found |
 | 4 | Authentication required |
 | 5 | API error (upstream issue) |
+| 6 | Partial failure |
 | 7 | Rate limited (wait and retry) |
 | 10 | Config error |
 
@@ -537,15 +615,14 @@ Parse `$ARGUMENTS`:
 
 ## MCP Server Installation
 
-1. Install the MCP server (the same installer ships both binaries):
-   ```bash
-   bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/cork/install.sh)
-   ```
+1. Install the MCP binary (run the install script from the Prerequisites section, or see [mcp-install.md](./mcp-install.md) for per-agent wire-up).
 2. Register with Claude Code:
    ```bash
    claude mcp add cork-mcp -- cork-mcp
    ```
 3. Verify: `claude mcp list`
+
+For a remote host, `cork-mcp --transport http` requires `CORK_MCP_HTTP_TOKEN` set to at least 32 characters (callers send `Authorization: Bearer <token>`; `openssl rand -hex 32` prints 64 hex characters and meets that minimum), serves `http://127.0.0.1:7777/mcp` by default, and needs `--tls-cert`/`--tls-key` for any non-loopback `--addr`. Requests with no `Origin` header are accepted. Loopback origins are accepted; any other `Origin` is refused unless listed in `CORK_MCP_HTTP_ALLOWED_ORIGINS` (comma-separated `scheme://host[:port]` values). `CORK_MCP_READ_ONLY=1` drops mirrored write commands (local-write commands that only touch the CLI's own learn store stay) and makes the raw execute tool refuse state-changing calls.
 
 ## Direct Use
 

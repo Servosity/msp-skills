@@ -11,6 +11,7 @@ package cli
 import (
 	"fmt"
 	"io"
+	"slices"
 	"sort"
 	"strings"
 	"text/tabwriter"
@@ -100,12 +101,7 @@ func buildTimeline(logs []map[string]any, incidentID string) pdTimelineResult {
 			typ: pdTimelineType(pdString(le, "type")),
 			by:  pdRefLabel(pdMap(le, "agent")),
 		}
-		if ch := pdMap(le, "channel"); ch != nil {
-			e.det = pdString(ch, "summary")
-			if e.det == "" {
-				e.det = pdString(ch, "type")
-			}
-		}
+		e.det = pdLogEntryDetail(le)
 		events = append(events, e)
 	}
 	sort.SliceStable(events, func(i, j int) bool { return events[i].at.Before(events[j].at) })
@@ -126,6 +122,57 @@ func buildTimeline(logs []map[string]any, incidentID string) pdTimelineResult {
 		})
 	}
 	return res
+}
+
+// pdLogEntryDetail is what a log entry says happened (pagerduty handfix
+// r1-log-entry-detail-wrong-field: only channel.summary or channel.type was
+// read, so an annotation's note became "website"): every documented field
+// that carries it, in order and once each (LogEntry note, channel summary,
+// event_details description, the changeset, the assignees of an assign,
+// escalate or delegate entry, the user a notify entry reached); else the
+// entry's summary; else the channel type. pagerduty handfix
+// log-entry-changeset-string-or-array (Codex r2): spec.json documents changeset
+// as an array of strings; each item is read, and a bare string too.
+func pdLogEntryDetail(le map[string]any) string {
+	var parts []string
+	add := func(s string) {
+		if s = strings.TrimSpace(s); s != "" && !slices.Contains(parts, s) {
+			parts = append(parts, s)
+		}
+	}
+	ch := pdMap(le, "channel")
+	add(pdString(le, "note"))
+	add(pdString(ch, "summary"))
+	add(pdString(pdMap(le, "event_details"), "description"))
+	switch cs := le["changeset"].(type) {
+	case string:
+		add(cs)
+	case []any:
+		for _, item := range cs {
+			if s, ok := item.(string); ok {
+				add(s)
+			}
+		}
+	}
+	var to []string
+	for _, a := range pdSlice(le, "assignees") {
+		if l := pdRefLabel(a); l != "" {
+			to = append(to, l)
+		}
+	}
+	if len(to) > 0 {
+		add("to " + strings.Join(to, ", "))
+	}
+	if u := pdRefLabel(pdMap(le, "user")); u != "" {
+		add("user " + u)
+	}
+	if len(parts) == 0 {
+		add(pdString(le, "summary"))
+	}
+	if len(parts) == 0 {
+		add(pdString(ch, "type"))
+	}
+	return strings.Join(parts, "; ")
 }
 
 // pdTimelineType renders a raw "*_log_entry" type into a short verb.

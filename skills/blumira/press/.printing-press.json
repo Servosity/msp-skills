@@ -1,10 +1,58 @@
 {
-  "schema_version": 1,
-  "generated_at": "2026-06-13T03:16:39.578665Z",
-  "printing_press_version": "4.24.0",
+  "schema_version": 2,
+  "generated_at": "2026-11-02T22:47:23.880254Z",
+  "printing_press_version": "4.35.1",
   "api_name": "blumira",
+  "display_name": "Blumira",
   "cli_name": "blumira-pp-cli",
-  "run_id": "20260606-105943",
+  "creator": {
+    "handle": "DamienStevens",
+    "name": "Damien Stevens"
+  },
+  "owner": "damienstevens",
+  "printer": "DamienStevens",
+  "printer_name": "Damien Stevens",
+  "spec_path": "spec.json",
+  "spec_format": "openapi3",
+  "spec_source": "official",
+  "spec_checksum": "sha256:106c82ed33011673b4cc51d2cd104250971bf3b020c68648f913ab0753ec3d1c",
+  "run_id": "20261102-173036-1209e31b",
+  "category": "monitoring",
+  "description": "Every Blumira finding, detection, and agent across your direct org and every MSP sub-account — in one offline-searchable store with cross-account triage and over-time trends no single API call can answer.",
+  "mcp_binary": "blumira-pp-mcp",
+  "mcp_tool_count": 36,
+  "mcp_ready": "full",
+  "api_version": "1.0",
+  "auth_type": "bearer_token",
+  "auth_preference": "bearerAuth",
+  "auth_env_vars": [
+    "BLUMIRA_API_TOKEN",
+    "BLUMIRA_CLIENT_ID",
+    "BLUMIRA_CLIENT_SECRET"
+  ],
+  "auth_env_var_specs": [
+    {
+      "name": "BLUMIRA_API_TOKEN",
+      "kind": "per_call",
+      "required": false,
+      "sensitive": true,
+      "description": "Blumira JWT bearer token. Minted+cached by `auth login`, or set directly. Set this OR BLUMIRA_CLIENT_ID + BLUMIRA_CLIENT_SECRET."
+    },
+    {
+      "name": "BLUMIRA_CLIENT_ID",
+      "kind": "auth_flow_input",
+      "required": false,
+      "sensitive": false,
+      "description": "Blumira API Client ID (Settings \u003e Organization \u003e Generate API Credentials). Used with BLUMIRA_CLIENT_SECRET by `auth login` to mint a JWT."
+    },
+    {
+      "name": "BLUMIRA_CLIENT_SECRET",
+      "kind": "auth_flow_input",
+      "required": false,
+      "sensitive": true,
+      "description": "Blumira API Client Secret. Used with BLUMIRA_CLIENT_ID by `auth login` to mint a JWT (client_credentials, audience=public-api)."
+    }
+  ],
   "novel_features": [
     {
       "name": "Unified cross-account triage queue",
@@ -17,7 +65,7 @@
       "description": "New, status-changed, and newly-resolved findings since the last sync, per account."
     },
     {
-      "name": "MTTR & response velocity",
+      "name": "MTTR \u0026 response velocity",
       "command": "velocity",
       "description": "Mean-time-to-resolve and open-rate per account or overall."
     },
@@ -32,7 +80,7 @@
       "description": "Detection rules missing or disabled in your org versus the MSP basis ruleset."
     },
     {
-      "name": "Agent & domain-controller exposure map",
+      "name": "Agent \u0026 domain-controller exposure map",
       "command": "exposure",
       "description": "Cross-account agent rollup that flags stale or unprotected domain controllers."
     },
@@ -77,5 +125,91 @@
       "description": "Open assigned findings grouped by owner across all accounts, with age buckets."
     }
   ],
-  "category": "monitoring"
+  "novel_features_built": [
+    {
+      "name": "Unified cross-account triage queue",
+      "command": "triage",
+      "description": "One globally-ranked open-findings queue across every MSP client account."
+    },
+    {
+      "name": "Finding drift since last sync",
+      "command": "drift",
+      "description": "New, status-changed, and newly-resolved findings since the last sync, per account."
+    },
+    {
+      "name": "MTTR \u0026 response velocity",
+      "command": "velocity",
+      "description": "Mean-time-to-resolve and open-rate per account or overall."
+    },
+    {
+      "name": "SLA aging watchlist",
+      "command": "sla",
+      "description": "Findings about to breach an age-based SLA across all accounts, ranked."
+    },
+    {
+      "name": "Detection coverage drift vs basis",
+      "command": "coverage",
+      "description": "Detection rules missing or disabled in your org versus the MSP basis ruleset."
+    },
+    {
+      "name": "Agent \u0026 domain-controller exposure map",
+      "command": "exposure",
+      "description": "Cross-account agent rollup that flags stale or unprotected domain controllers."
+    },
+    {
+      "name": "Resolution re-fire audit",
+      "command": "audit",
+      "description": "Findings that were resolved and then re-fired (reopened)."
+    },
+    {
+      "name": "Recurring-finding fingerprint",
+      "command": "recurring",
+      "description": "The same detection firing repeatedly across accounts and time."
+    },
+    {
+      "name": "Self-minting OAuth2 auth login",
+      "command": "auth login",
+      "description": "Mints, caches, and auto-refreshes the Blumira JWT from a Client ID + Secret."
+    },
+    {
+      "name": "Cross-account MSP overview",
+      "command": "overview",
+      "description": "One-screen per-account rollup: open findings by priority, agent coverage, and detection-coverage drift across every client."
+    },
+    {
+      "name": "Ticketing reconciliation export",
+      "command": "reconcile",
+      "description": "Flat finding-to-org-to-assignee-to-status table for diffing against ConnectWise, Jira, or Zendesk."
+    },
+    {
+      "name": "Evidence keyword search",
+      "command": "evidence-search",
+      "description": "Full-text search over synced finding evidence to find which findings mention an IOC, hostname, or user."
+    },
+    {
+      "name": "Domain-controller roster",
+      "command": "dc-roster",
+      "description": "Every domain controller across all accounts with last check-in and protected/stale state."
+    },
+    {
+      "name": "Per-analyst workload balance",
+      "command": "workload",
+      "description": "Open assigned findings grouped by owner across all accounts, with age buckets."
+    }
+  ],
+  "verify": {
+    "mode": "mock",
+    "pass_rate": 100,
+    "passed": 73,
+    "total": 73,
+    "data_pipeline": true,
+    "verdict": "PASS"
+  },
+  "scorecard": {
+    "steinberger": {
+      "percentage": 95,
+      "grade": "A",
+      "total": 95
+    }
+  }
 }

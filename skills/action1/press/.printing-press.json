@@ -1,10 +1,32 @@
 {
-  "schema_version": 1,
-  "generated_at": "2026-06-13T04:16:11.509925Z",
-  "printing_press_version": "4.24.0",
+  "schema_version": 2,
+  "generated_at": "2026-10-28T21:18:00.492424Z",
+  "printing_press_version": "4.34.2",
   "api_name": "action1",
+  "display_name": "Action1",
   "cli_name": "action1-pp-cli",
-  "run_id": "20260606-173156",
+  "creator": {
+    "name": "Damien Stevens"
+  },
+  "owner": "damien-stevens",
+  "printer": "DamienStevens",
+  "printer_name": "Damien Stevens",
+  "spec_path": "spec.json",
+  "spec_format": "openapi3",
+  "spec_source": "official",
+  "spec_checksum": "sha256:eb04513ed884a83614ef556a69ed97912cf9c18819429cc41c29df843f7590e4",
+  "run_id": "20261028-134734-672acfe7",
+  "category": "monitoring",
+  "description": "Every Action1 endpoint, plus the fleet-wide patch and vulnerability views the org-siloed API cannot give you.",
+  "mcp_binary": "action1-pp-mcp",
+  "mcp_tool_count": 141,
+  "mcp_ready": "full",
+  "api_version": "3.1.0",
+  "auth_type": "bearer_token",
+  "auth_preference": "oauth2",
+  "auth_env_vars": [
+    "ACTION1_OAUTH2"
+  ],
   "novel_features": [
     {
       "name": "Fleet patch posture",
@@ -51,5 +73,67 @@
       "command": "fleet reboot-pending",
       "description": "Every endpoint fleet-wide where an installed update is waiting on a reboot to finish — the action queue that closes out a patch cycle."
     }
-  ]
+  ],
+  "novel_features_built": [
+    {
+      "name": "Fleet patch posture",
+      "command": "fleet patch-posture",
+      "description": "See every endpoint across all your client organizations ranked by how many updates it is missing — one fleet-wide view."
+    },
+    {
+      "name": "Vulnerability blast-radius (KEV triage)",
+      "command": "fleet vuln-triage",
+      "description": "Rank CVEs across every organization by how many endpoints they hit, weighted by CVSS and the CISA Known-Exploited flag."
+    },
+    {
+      "name": "Stale / dark agents",
+      "command": "fleet stale",
+      "description": "Surface endpoints that have not checked in for N days, or are offline, across all organizations."
+    },
+    {
+      "name": "Patch drift over time",
+      "command": "fleet patch-drift",
+      "description": "Diff two synced snapshots to show which updates were remediated and which newly appeared since last sync."
+    },
+    {
+      "name": "Fleet software rollup",
+      "command": "fleet software-rollup",
+      "description": "Deduplicate installed software across the whole fleet into app name x version spread x install count."
+    },
+    {
+      "name": "Endpoint health score",
+      "command": "fleet health-score",
+      "description": "A single composite score per endpoint from missing updates, open vulnerabilities, reboot-required, and staleness — fleet-ranked."
+    },
+    {
+      "name": "Automation outcomes rollup",
+      "command": "fleet automation-health",
+      "description": "Success and failure rates across automation instances and their per-endpoint results, aggregated across organizations."
+    },
+    {
+      "name": "Per-client posture scorecard",
+      "command": "fleet org-scorecard",
+      "description": "One row per client organization: endpoint count, missing updates, open CVEs, KEV exposure, and stale agents — the per-client posture number MSPs report to account managers."
+    },
+    {
+      "name": "Reboot-pending sweep",
+      "command": "fleet reboot-pending",
+      "description": "Every endpoint fleet-wide where an installed update is waiting on a reboot to finish — the action queue that closes out a patch cycle."
+    }
+  ],
+  "verify": {
+    "mode": "mock",
+    "pass_rate": 100,
+    "passed": 162,
+    "total": 162,
+    "data_pipeline": true,
+    "verdict": "PASS"
+  },
+  "scorecard": {
+    "steinberger": {
+      "percentage": 95,
+      "grade": "A",
+      "total": 95
+    }
+  }
 }

@@ -15,8 +15,10 @@ func newNovelReconcileCmd(flags *rootFlags) *cobra.Command {
 		Use:   "reconcile",
 		Short: "Flat finding-to-org-to-assignee-to-status table for ticketing reconciliation",
 		Long: "Project synced findings from every account into one flat, ticket-shaped row set\n" +
-			"(account, finding, assignees, status, timestamps) ordered stably so repeated\n" +
-			"exports diff cleanly against ConnectWise, Jira, or Zendesk. Reads the local store.",
+			"(account, finding, assignees, ownership, status, timestamps) ordered stably so\n" +
+			"repeated exports diff cleanly against ConnectWise, Jira, or Zendesk. ownership is\n" +
+			"assigned, unassigned, or unknown: direct-org findings (/org/findings) carry no\n" +
+			"owner data, so their assignees are unknown, not empty. Reads the local store.",
 		Example: "  blumira-cli reconcile --status open --csv\n" +
 			"  blumira-cli reconcile --json --select account_name,name,assignees,status",
 		Annotations: map[string]string{"mcp:read-only": "true"},

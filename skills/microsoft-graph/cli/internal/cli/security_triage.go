@@ -31,7 +31,7 @@ Requires alerts synced: run 'microsoft-graph-cli pull' first.`, "\n"),
 		Example: strings.Trim(`
   microsoft-graph-cli security triage --since 24h --agent
   microsoft-graph-cli security triage --since 7d --json`, "\n"),
-		Annotations: map[string]string{"mcp:read-only": "true"},
+		Annotations: map[string]string{"mcp:read-only": "true", "pp:data-source": "local"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if dryRunOK(flags) {
 				return nil

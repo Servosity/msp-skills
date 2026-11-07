@@ -11,7 +11,7 @@ func TestNovelAgentsBulkRun(t *testing.T) {
 	t.Run("previews by default without --execute", func(t *testing.T) {
 		db := novelTestEnv(t)
 		seedResource(t, db, "agents", "a1", `{"agent_id":"a1","hostname":"h1","status":"online","plat":"windows"}`)
-		out, _, err := runNovel(t, "agents", "bulk-run", "--command", "whoami")
+		out, _, err := runNovel(t, "agents", "bulk-run", "--command", "whoami", "--all")
 		if err != nil {
 			t.Fatalf("bulk-run: %v", err)
 		}

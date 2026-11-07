@@ -59,7 +59,10 @@ Run 'inventory sync' at least twice for diff to have two snapshots to compare.`,
 			if err != nil {
 				return err
 			}
-			return flags.printJSON(cmd, res)
+			if err := flags.printJSON(cmd, res); err != nil {
+				return err
+			}
+			return inventoryReadComplete(cmd, flags, st, "assets", "services", "software")
 		},
 	}
 	cmd.Flags().StringVar(&flagSince, "since", "", "Baseline window for the comparison (e.g. 7d, 24h, 2w); default compares the two most recent syncs")

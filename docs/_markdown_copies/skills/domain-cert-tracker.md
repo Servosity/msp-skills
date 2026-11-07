@@ -137,7 +137,7 @@ Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
 
 ## More Monitoring connectors
 
-Run more than one Monitoring tool, or comparing options? These connectors work the same way: [Better Stack](https://msp-skills.compoundingteams.com/skills/betterstack.md)
+Run more than one Monitoring tool, or comparing options? These connectors work the same way: [Better Stack](https://msp-skills.compoundingteams.com/skills/betterstack.md) · [Windows Server](https://msp-skills.compoundingteams.com/skills/windows-server.md)
 
 ## Status
 

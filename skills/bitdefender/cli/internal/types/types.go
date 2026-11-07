@@ -6,18 +6,19 @@ package types
 
 import "encoding/json"
 
-type AccountsListItem struct {
-	Email   string          `json:"email"`
-	Id      string          `json:"id"`
-	Profile json.RawMessage `json:"profile"`
-	Rights  json.RawMessage `json:"rights"`
-	Role    int             `json:"role"`
+type AccountsListResponse struct {
+	Items      json.RawMessage `json:"items"`
+	Page       int             `json:"page"`
+	PagesCount int             `json:"pagesCount"`
+	PerPage    int             `json:"perPage"`
 }
 
-type BlocklistListItem struct {
-	Details json.RawMessage `json:"details"`
-	Id      string          `json:"id"`
-	Type    string          `json:"type"`
+type BlocklistListResponse struct {
+	Items      json.RawMessage `json:"items"`
+	Page       int             `json:"page"`
+	PagesCount int             `json:"pagesCount"`
+	PerPage    int             `json:"perPage"`
+	Total      int             `json:"total"`
 }
 
 type CompaniesGetResponse struct {
@@ -44,14 +45,12 @@ type CompanyFoldersListItem struct {
 	Name string `json:"name"`
 }
 
-type CustomRulesListItem struct {
-	CompanyId   string          `json:"companyId"`
-	Description string          `json:"description"`
-	Id          string          `json:"id"`
-	Name        string          `json:"name"`
-	Owner       string          `json:"owner"`
-	Tags        json.RawMessage `json:"tags"`
-	Type        int             `json:"type"`
+type CustomRulesListResponse struct {
+	Items      json.RawMessage `json:"items"`
+	Page       int             `json:"page"`
+	PagesCount int             `json:"pagesCount"`
+	PerPage    int             `json:"perPage"`
+	Total      int             `json:"total"`
 }
 
 type EndpointTagsListItem struct {
@@ -62,28 +61,13 @@ type EndpointTagsListItem struct {
 	Type        int             `json:"type"`
 }
 
-type EndpointsListItem struct {
-	FirstSeen              string          `json:"firstSeen"`
-	Fqdn                   string          `json:"fqdn"`
-	GroupId                string          `json:"groupId"`
-	Id                     string          `json:"id"`
-	Ip                     string          `json:"ip"`
-	IsContainerHost        bool            `json:"isContainerHost"`
-	IsIsolated             bool            `json:"isIsolated"`
-	IsManaged              bool            `json:"isManaged"`
-	Label                  string          `json:"label"`
-	MachineType            int             `json:"machineType"`
-	Macs                   json.RawMessage `json:"macs"`
-	ManagedExchangeServer  bool            `json:"managedExchangeServer"`
-	ManagedRelay           bool            `json:"managedRelay"`
-	ManagedWithBest        bool            `json:"managedWithBest"`
-	Name                   string          `json:"name"`
-	OperatingSystemVersion string          `json:"operatingSystemVersion"`
-	Policy                 json.RawMessage `json:"policy"`
-	ProductOutdated        bool            `json:"productOutdated"`
-	PublicIp               string          `json:"publicIp"`
-	SecurityServer         bool            `json:"securityServer"`
-	Ssid                   string          `json:"ssid"`
+type EndpointsListResponse struct {
+	HasMoreRecords bool            `json:"hasMoreRecords"`
+	Items          json.RawMessage `json:"items"`
+	Page           int             `json:"page"`
+	PagesCount     int             `json:"pagesCount"`
+	PerPage        int             `json:"perPage"`
+	Total          int             `json:"total"`
 }
 
 type GroupsListItem struct {
@@ -91,19 +75,12 @@ type GroupsListItem struct {
 	Name string `json:"name"`
 }
 
-type IncidentsListItem struct {
-	Assignee           string          `json:"assignee"`
-	Company            json.RawMessage `json:"company"`
-	Created            string          `json:"created"`
-	IncidentId         string          `json:"incidentId"`
-	IncidentLink       string          `json:"incidentLink"`
-	IncidentNumber     int             `json:"incidentNumber"`
-	IncidentType       string          `json:"incidentType"`
-	LastIncidentChange string          `json:"lastIncidentChange"`
-	MainAction         string          `json:"mainAction"`
-	Priority           string          `json:"priority"`
-	SeverityScore      int             `json:"severityScore"`
-	Status             string          `json:"status"`
+type IncidentsListResponse struct {
+	Items      json.RawMessage `json:"items"`
+	Page       int             `json:"page"`
+	PagesCount int             `json:"pagesCount"`
+	PerPage    int             `json:"perPage"`
+	Total      int             `json:"total"`
 }
 
 type IntegrationsListItem struct {
@@ -115,13 +92,13 @@ type IntegrationsListItem struct {
 	Type      int             `json:"type"`
 }
 
-type InventoryListItem struct {
-	CompanyId string          `json:"companyId"`
-	Details   json.RawMessage `json:"details"`
-	Id        string          `json:"id"`
-	Name      string          `json:"name"`
-	ParentId  string          `json:"parentId"`
-	Type      int             `json:"type"`
+type InventoryListResponse struct {
+	HasMoreRecords bool            `json:"hasMoreRecords"`
+	Items          json.RawMessage `json:"items"`
+	Page           int             `json:"page"`
+	PagesCount     int             `json:"pagesCount"`
+	PerPage        int             `json:"perPage"`
+	Total          int             `json:"total"`
 }
 
 type LicenseGetResponse struct {
@@ -137,49 +114,63 @@ type LicenseGetResponse struct {
 	UsedSlots           int             `json:"usedSlots"`
 }
 
-type MaintenanceWindowsListItem struct {
-	Id   string `json:"id"`
-	Name string `json:"name"`
-	Type int    `json:"type"`
+type MaintenanceWindowsListResponse struct {
+	Items      json.RawMessage `json:"items"`
+	Page       int             `json:"page"`
+	PagesCount int             `json:"pagesCount"`
+	PerPage    int             `json:"perPage"`
+	Total      int             `json:"total"`
 }
 
-type PackagesListItem struct {
-	Id   string `json:"id"`
-	Name string `json:"name"`
-	Type int    `json:"type"`
+type PackagesListResponse struct {
+	Items      json.RawMessage `json:"items"`
+	Page       int             `json:"page"`
+	PagesCount int             `json:"pagesCount"`
+	PerPage    int             `json:"perPage"`
+	Total      int             `json:"total"`
 }
 
-type PoliciesListItem struct {
-	CompanyId   string `json:"companyId"`
-	CompanyName string `json:"companyName"`
-	Id          string `json:"id"`
-	Name        string `json:"name"`
+type PoliciesListResponse struct {
+	Items      json.RawMessage `json:"items"`
+	Page       int             `json:"page"`
+	PagesCount int             `json:"pagesCount"`
+	PerPage    int             `json:"perPage"`
+	Total      int             `json:"total"`
 }
 
-type QuarantineListItem struct {
-	ActionStatus  int             `json:"actionStatus"`
-	CanBeRestored bool            `json:"canBeRestored"`
-	CompanyId     string          `json:"companyId"`
-	Details       json.RawMessage `json:"details"`
-	EndpointIP    string          `json:"endpointIP"`
-	EndpointId    string          `json:"endpointId"`
-	EndpointName  string          `json:"endpointName"`
-	Id            string          `json:"id"`
-	QuarantinedOn string          `json:"quarantinedOn"`
+type QuarantineListResponse struct {
+	Items      json.RawMessage `json:"items"`
+	Page       int             `json:"page"`
+	PagesCount int             `json:"pagesCount"`
+	PerPage    int             `json:"perPage"`
+	Total      int             `json:"total"`
 }
 
-type ReportsListItem struct {
-	Id         string `json:"id"`
-	Name       string `json:"name"`
-	Occurrence int    `json:"occurrence"`
-	Type       int    `json:"type"`
+type ReportsListResponse struct {
+	Items      json.RawMessage `json:"items"`
+	Page       int             `json:"page"`
+	PagesCount int             `json:"pagesCount"`
+	PerPage    int             `json:"perPage"`
+	Total      int             `json:"total"`
 }
 
-type TasksListScansItem struct {
-	Id        string `json:"id"`
-	Name      string `json:"name"`
-	StartDate string `json:"startDate"`
-	Status    int    `json:"status"`
+type TasksListScansResponse struct {
+	Items      json.RawMessage `json:"items"`
+	Page       int             `json:"page"`
+	PagesCount int             `json:"pagesCount"`
+	PerPage    int             `json:"perPage"`
+	Total      int             `json:"total"`
+}
+
+type TasksStatusResponse struct {
+	Company         json.RawMessage `json:"company"`
+	HasMoreSubtasks bool            `json:"hasMoreSubtasks"`
+	Name            string          `json:"name"`
+	Owner           json.RawMessage `json:"owner"`
+	StartDate       string          `json:"startDate"`
+	Status          int             `json:"status"`
+	Subtasks        json.RawMessage `json:"subtasks"`
+	Type            int             `json:"type"`
 }
 
 type UsageMonthlyResponse struct {

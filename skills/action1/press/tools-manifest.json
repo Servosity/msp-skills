@@ -1,7 +1,7 @@
 {
   "api_name": "action1",
   "base_url": "https://app.action1.com/api/3.0",
-  "description": "This specification defines Action1 RESTful API for integrations. With this API, you can query managed endpoints, list vulnerabilities and missing updates, generate reports, create and launch automations and more. Use this API to integrate your applications with Action1. For simplified API scripting experience, we recommend using [PSAction1](https://www.action1.com/psaction1/)",
+  "description": "Every Action1 endpoint, plus the fleet-wide patch and vulnerability views the org-siloed API cannot give you.",
   "mcp_ready": "full",
   "http_transport": "standard",
   "mcp": {
@@ -51,7 +51,8 @@
           "description": "The end date and time in the following format: YYYY-MM-DD_HH-MM-SS"
         },
         {
-          "name": "from",
+          "name": "offset",
+          "wire_name": "from",
           "type": "int",
           "location": "query",
           "description": "Provide the number of the first record to be returned."
@@ -92,7 +93,7 @@
           "name": "id",
           "type": "string",
           "location": "path",
-          "description": "The ID of an event.",
+          "description": "The ID of an event. (e.g. 1700000000_9f8e7d6c)",
           "required": true
         }
       ]
@@ -122,7 +123,8 @@
           "description": "The end date and time in the following format: YYYY-MM-DD_HH-MM-SS"
         },
         {
-          "name": "from",
+          "name": "offset",
+          "wire_name": "from",
           "type": "int",
           "location": "query",
           "description": "Provide the number of the first record to be returned."
@@ -175,7 +177,7 @@
     },
     {
       "name": "automations_actions-templates-template-id-get",
-      "description": "Gets details for an action template specified by its ID. Required: templateId. Returns array of string.",
+      "description": "Gets details for an action template specified by its ID. Required: templateId. Returns the ActionTemplate.",
       "method": "GET",
       "path": "/automations/action-templates/{templateId}",
       "params": [
@@ -183,14 +185,14 @@
           "name": "templateId",
           "type": "string",
           "location": "path",
-          "description": "Provide a specific setting template ID.",
+          "description": "Provide a specific setting template ID. (e.g. 8a2b3c4d-1e2f-4a5b-9c6d-7e8f9a0b1c2d)",
           "required": true
         }
       ]
     },
     {
       "name": "automations_policies-instances-org-id-get",
-      "description": "**Requires permission: `view_automations`** Gets a list of running and completed automations for the specified organization. Required: orgId. Optional: from, limit, sortby (plus 4 more). Returns array of AutomationsPoliciesInstancesOrgIdGetItem.",
+      "description": "**Requires permission: `view_automations`** Gets a list of running and completed automations for the specified organization. Required: orgId. Optional: offset, limit, sortby (plus 4 more). Returns array of AutomationsPoliciesInstancesOrgIdGetItem.",
       "method": "GET",
       "path": "/automations/instances/{orgId}",
       "params": [
@@ -202,7 +204,8 @@
           "required": true
         },
         {
-          "name": "from",
+          "name": "offset",
+          "wire_name": "from",
           "type": "int",
           "location": "query",
           "description": "Provide the number of the first record to be returned."
@@ -262,7 +265,7 @@
           "name": "automationId",
           "type": "string",
           "location": "path",
-          "description": "Provide a specific automation ID.",
+          "description": "Provide a specific automation ID. (e.g. 8a2b3c4d-1e2f-4a5b-9c6d-7e8f9a0b1c2d)",
           "required": true
         }
       ]
@@ -284,21 +287,21 @@
           "name": "instanceId",
           "type": "string",
           "location": "path",
-          "description": "Provide a specific instance ID.",
+          "description": "Provide a specific instance ID. (e.g. 8a2b3c4d-1e2f-4a5b-9c6d-7e8f9a0b1c2d)",
           "required": true
         },
         {
           "name": "endpointId",
           "type": "string",
           "location": "path",
-          "description": "Provide an endpoint ID.",
+          "description": "Provide an endpoint ID. (e.g. 3f2a9c1e-5b7d-4e8f-a0b1-c2d3e4f5a6b7)",
           "required": true
         }
       ]
     },
     {
       "name": "automations_policies-instances-org-id-instance-id-endpoint-results-get",
-      "description": "**Requires permission: `view_automations`** Gets a list of endpoints where the automation instance is being applied or has been executed. Required: orgId, instanceId. Optional: from, limit, sortby (plus 2 more). Returns array of AutomationInstanceEndpoint.",
+      "description": "**Requires permission: `view_automations`** Gets a list of endpoints where the automation instance is being applied or has been executed. Required: orgId, instanceId. Optional: offset, limit, sortby (plus 2 more). Returns array of AutomationInstanceEndpoint.",
       "method": "GET",
       "path": "/automations/instances/{orgId}/{instanceId}/endpoint-results",
       "params": [
@@ -313,11 +316,12 @@
           "name": "instanceId",
           "type": "string",
           "location": "path",
-          "description": "Provide a specific instance ID.",
+          "description": "Provide a specific instance ID. (e.g. 8a2b3c4d-1e2f-4a5b-9c6d-7e8f9a0b1c2d)",
           "required": true
         },
         {
-          "name": "from",
+          "name": "offset",
+          "wire_name": "from",
           "type": "int",
           "location": "query",
           "description": "Provide the number of the first record to be returned."
@@ -365,7 +369,7 @@
           "name": "instanceId",
           "type": "string",
           "location": "path",
-          "description": "Provide a specific instance ID.",
+          "description": "Provide a specific instance ID. (e.g. 8a2b3c4d-1e2f-4a5b-9c6d-7e8f9a0b1c2d)",
           "required": true
         }
       ]
@@ -415,7 +419,7 @@
     },
     {
       "name": "automations_policies-schedules-org-id-get",
-      "description": "**Requires permission: `view_automations`** Lists existing scheduled automations. Use parameters to filter out automations in the returned results. Required: orgId. Optional: from, limit, sortby (plus 1 more). Returns array of AutomationSchedule.",
+      "description": "**Requires permission: `view_automations`** Lists existing scheduled automations. Use parameters to filter out automations in the returned results. Required: orgId. Optional: offset, limit, sortby (plus 1 more). Returns array of AutomationSchedule.",
       "method": "GET",
       "path": "/automations/schedules/{orgId}",
       "params": [
@@ -427,7 +431,8 @@
           "required": true
         },
         {
-          "name": "from",
+          "name": "offset",
+          "wire_name": "from",
           "type": "int",
           "location": "query",
           "description": "Provide the number of the first record to be returned."
@@ -454,7 +459,7 @@
     },
     {
       "name": "automations_policies-schedules-org-id-id-actions-action-id-delete",
-      "description": "**Requires permission: `manage_automations`** Deletes a specified action from a scheduled automation. Required: orgId, automationId, actionId. Returns array of string. Destructive.",
+      "description": "**Requires permission: `manage_automations`** Deletes a specified action from a scheduled automation. Required: orgId, automationId, actionId. Returns the ActionTemplate. Destructive.",
       "method": "DELETE",
       "path": "/automations/schedules/{orgId}/{automationId}/actions/{actionId}",
       "params": [
@@ -469,14 +474,14 @@
           "name": "automationId",
           "type": "string",
           "location": "path",
-          "description": "Provide a specific automation ID.",
+          "description": "Provide a specific automation ID. (e.g. 8a2b3c4d-1e2f-4a5b-9c6d-7e8f9a0b1c2d)",
           "required": true
         },
         {
           "name": "actionId",
           "type": "string",
           "location": "path",
-          "description": "Provide a specific action ID.",
+          "description": "Provide a specific action ID. (e.g. 8a2b3c4d-1e2f-4a5b-9c6d-7e8f9a0b1c2d)",
           "required": true
         }
       ]
@@ -498,7 +503,7 @@
           "name": "automationId",
           "type": "string",
           "location": "path",
-          "description": "Provide a specific automation ID.",
+          "description": "Provide a specific automation ID. (e.g. 8a2b3c4d-1e2f-4a5b-9c6d-7e8f9a0b1c2d)",
           "required": true
         }
       ]
@@ -520,14 +525,14 @@
           "name": "automationId",
           "type": "string",
           "location": "path",
-          "description": "Provide a specific automation ID.",
+          "description": "Provide a specific automation ID. (e.g. 8a2b3c4d-1e2f-4a5b-9c6d-7e8f9a0b1c2d)",
           "required": true
         }
       ]
     },
     {
       "name": "automations_policies-schedules-org-id-id-get",
-      "description": "**Requires permission: `view_automations`** Gets a scheduled automation specified by its ID. Required: orgId, automationId. Returns array of AutomationsPoliciesSchedulesOrgIdIdGetItem.",
+      "description": "**Requires permission: `view_automations`** Gets a scheduled automation specified by its ID. Required: orgId, automationId. Returns the AutomationSchedule.",
       "method": "GET",
       "path": "/automations/schedules/{orgId}/{automationId}",
       "params": [
@@ -542,14 +547,14 @@
           "name": "automationId",
           "type": "string",
           "location": "path",
-          "description": "Provide a specific automation ID.",
+          "description": "Provide a specific automation ID. (e.g. 8a2b3c4d-1e2f-4a5b-9c6d-7e8f9a0b1c2d)",
           "required": true
         }
       ]
     },
     {
       "name": "automations_policies-schedules-org-id-id-patch",
-      "description": "**Requires permission: `manage_automations`** Modifies the automation schedule settings and parameters of one of the actions included in the automation. Required: orgId, automationId, actions, name, retry_minutes, settings. Optional: endpoints, settings_timezone (default: UTC). Returns array of AutomationsPoliciesSchedulesOrgIdIdPatchItem.",
+      "description": "**Requires permission: `manage_automations`** Modifies the automation schedule settings and parameters of one of the actions included in the automation. Required: orgId, automationId, actions, name, retry_minutes, settings. Optional: endpoints, settings_timezone (default: UTC). Returns the updated AutomationSchedule.",
       "method": "PATCH",
       "path": "/automations/schedules/{orgId}/{automationId}",
       "params": [
@@ -564,7 +569,7 @@
           "name": "automationId",
           "type": "string",
           "location": "path",
-          "description": "Provide a specific automation ID.",
+          "description": "Provide a specific automation ID. (e.g. 8a2b3c4d-1e2f-4a5b-9c6d-7e8f9a0b1c2d)",
           "required": true
         },
         {
@@ -611,7 +616,7 @@
     },
     {
       "name": "automations_policies-schedules-org-id-post",
-      "description": "**Requires permission: `manage_automations`** Schedules a new automation. The automation will be executed against a specified list of endpoints in the specified organization. Required: orgId, actions, name, retry_minutes, settings. Optional: endpoints, settings_timezone (default: UTC). Returns array of AutomationsPoliciesSchedulesOrgIdPostItem.",
+      "description": "**Requires permission: `manage_automations`** Schedules a new automation. The automation will be executed against a specified list of endpoints in the specified organization. Required: orgId, actions, name, retry_minutes, settings. Optional: endpoints, settings_timezone (default: UTC). Returns the new AutomationSchedule.",
       "method": "POST",
       "path": "/automations/schedules/{orgId}",
       "params": [
@@ -753,7 +758,7 @@
           "name": "dataSourceId",
           "type": "string",
           "location": "path",
-          "description": "Provide a specific data source ID.",
+          "description": "Provide a specific data source ID. (e.g. 8a2b3c4d-1e2f-4a5b-9c6d-7e8f9a0b1c2d)",
           "required": true
         }
       ]
@@ -768,7 +773,7 @@
           "name": "dataSourceId",
           "type": "string",
           "location": "path",
-          "description": "Provide a specific data source ID.",
+          "description": "Provide a specific data source ID. (e.g. 8a2b3c4d-1e2f-4a5b-9c6d-7e8f9a0b1c2d)",
           "required": true
         }
       ]
@@ -783,7 +788,7 @@
           "name": "dataSourceId",
           "type": "string",
           "location": "path",
-          "description": "Provide a specific data source ID.",
+          "description": "Provide a specific data source ID. (e.g. 8a2b3c4d-1e2f-4a5b-9c6d-7e8f9a0b1c2d)",
           "required": true
         },
         {
@@ -841,7 +846,7 @@
           "name": "installType",
           "type": "string",
           "location": "path",
-          "description": "The install type.",
+          "description": "The install type. (e.g. WindowsMSI)",
           "required": true
         }
       ]
@@ -878,7 +883,7 @@
           "name": "deployerId",
           "type": "string",
           "location": "path",
-          "description": "Provide a specific deployer ID.",
+          "description": "Provide a specific deployer ID. (e.g. 8a2b3c4d-1e2f-4a5b-9c6d-7e8f9a0b1c2d)",
           "required": true
         }
       ]
@@ -900,7 +905,7 @@
           "name": "deployerId",
           "type": "string",
           "location": "path",
-          "description": "Provide a specific deployer ID.",
+          "description": "Provide a specific deployer ID. (e.g. 8a2b3c4d-1e2f-4a5b-9c6d-7e8f9a0b1c2d)",
           "required": true
         }
       ]
@@ -937,7 +942,8 @@
           "description": "Define the sorting order by a certain field."
         },
         {
-          "name": "from",
+          "name": "offset",
+          "wire_name": "from",
           "type": "int",
           "location": "query",
           "description": "Provide the number of the first record to be returned."
@@ -1115,14 +1121,14 @@
           "name": "groupId",
           "type": "string",
           "location": "path",
-          "description": "Provide an endpoint group ID.",
+          "description": "Provide an endpoint group ID. (e.g. 8a2b3c4d-1e2f-4a5b-9c6d-7e8f9a0b1c2d)",
           "required": true
         }
       ]
     },
     {
       "name": "endpoints_groups-group-id-contents-get",
-      "description": "**Requires permission: `view_endpoints`** Lists all endpoints included in the specified group. Use parameters to filter the returned results. Required: orgId, groupId. Optional: limit, from, sortby (plus 8 more). Returns array of EndpointInGroup.",
+      "description": "**Requires permission: `view_endpoints`** Lists all endpoints included in the specified group. Use parameters to filter the returned results. Required: orgId, groupId. Optional: limit, offset, sortby (plus 8 more). Returns array of EndpointInGroup.",
       "method": "GET",
       "path": "/endpoints/groups/{orgId}/{groupId}/contents",
       "params": [
@@ -1137,7 +1143,7 @@
           "name": "groupId",
           "type": "string",
           "location": "path",
-          "description": "Provide an endpoint group ID.",
+          "description": "Provide an endpoint group ID. (e.g. 8a2b3c4d-1e2f-4a5b-9c6d-7e8f9a0b1c2d)",
           "required": true
         },
         {
@@ -1147,7 +1153,8 @@
           "description": "Set the maximum number of items to be returned (the page size)."
         },
         {
-          "name": "from",
+          "name": "offset",
+          "wire_name": "from",
           "type": "int",
           "location": "query",
           "description": "Provide the number of the first record to be returned."
@@ -1225,7 +1232,7 @@
           "name": "groupId",
           "type": "string",
           "location": "path",
-          "description": "Provide an endpoint group ID.",
+          "description": "Provide an endpoint group ID. (e.g. 8a2b3c4d-1e2f-4a5b-9c6d-7e8f9a0b1c2d)",
           "required": true
         }
       ]
@@ -1247,7 +1254,7 @@
           "name": "groupId",
           "type": "string",
           "location": "path",
-          "description": "Provide an endpoint group ID.",
+          "description": "Provide an endpoint group ID. (e.g. 8a2b3c4d-1e2f-4a5b-9c6d-7e8f9a0b1c2d)",
           "required": true
         }
       ]
@@ -1269,7 +1276,7 @@
           "name": "groupId",
           "type": "string",
           "location": "path",
-          "description": "Provide an endpoint group ID.",
+          "description": "Provide an endpoint group ID. (e.g. 8a2b3c4d-1e2f-4a5b-9c6d-7e8f9a0b1c2d)",
           "required": true
         },
         {
@@ -1318,7 +1325,7 @@
     },
     {
       "name": "endpoints_groups-org-id",
-      "description": "**Requires permission: `view_endpoints`** Lists existing endpoint groups. Use filters and narrow down and sort the returned results. Required: orgId. Optional: filter, sortby, from (plus 1 more). Returns array of EndpointGroup.",
+      "description": "**Requires permission: `view_endpoints`** Lists existing endpoint groups. Use filters and narrow down and sort the returned results. Required: orgId. Optional: filter, sortby, offset (plus 1 more). Returns array of EndpointGroup.",
       "method": "GET",
       "path": "/endpoints/groups/{orgId}",
       "params": [
@@ -1342,7 +1349,8 @@
           "description": "Define the sorting order by a certain field."
         },
         {
-          "name": "from",
+          "name": "offset",
+          "wire_name": "from",
           "type": "int",
           "location": "query",
           "description": "Provide the number of the first record to be returned."
@@ -1357,7 +1365,7 @@
     },
     {
       "name": "endpoints_managed",
-      "description": "**Requires permission: `view_endpoints`** Lists all endpoints within the organization. Use filters to narrow down returned results. Required: orgId. Optional: limit, from, sortby (plus 9 more). Returns array of Endpoint.",
+      "description": "**Requires permission: `view_endpoints`** Lists all endpoints within the organization. Use filters to narrow down returned results. Required: orgId. Optional: limit, offset, sortby (plus 9 more). Returns the EndpointsManagedResponse.",
       "method": "GET",
       "path": "/endpoints/managed/{orgId}",
       "params": [
@@ -1375,7 +1383,8 @@
           "description": "Set the maximum number of items to be returned (the page size)."
         },
         {
-          "name": "from",
+          "name": "offset",
+          "wire_name": "from",
           "type": "int",
           "location": "query",
           "description": "Provide the number of the first record to be returned."
@@ -1459,7 +1468,7 @@
           "name": "endpointId",
           "type": "string",
           "location": "path",
-          "description": "Provide an endpoint ID.",
+          "description": "Provide an endpoint ID. (e.g. 3f2a9c1e-5b7d-4e8f-a0b1-c2d3e4f5a6b7)",
           "required": true
         }
       ]
@@ -1481,14 +1490,14 @@
           "name": "endpointId",
           "type": "string",
           "location": "path",
-          "description": "Provide an endpoint ID.",
+          "description": "Provide an endpoint ID. (e.g. 3f2a9c1e-5b7d-4e8f-a0b1-c2d3e4f5a6b7)",
           "required": true
         }
       ]
     },
     {
       "name": "endpoints_managed-id-missing-updates",
-      "description": "**Requires permission: `view_endpoints`** Obtains a list of missing software updates for a specific endpoint. Use filters to narrow down the returned results. Required: orgId, endpointId. Optional: limit, from, sortby (plus 3 more). Returns array of EndpointsManagedIdMissingUpdatesItem.",
+      "description": "**Requires permission: `view_endpoints`** Obtains a list of missing software updates for a specific endpoint. Use filters to narrow down the returned results. Required: orgId, endpointId. Optional: limit, offset, sortby (plus 3 more). Returns array of EndpointsManagedIdMissingUpdatesItem.",
       "method": "GET",
       "path": "/endpoints/managed/{orgId}/{endpointId}/missing-updates",
       "params": [
@@ -1503,7 +1512,7 @@
           "name": "endpointId",
           "type": "string",
           "location": "path",
-          "description": "Provide an endpoint ID.",
+          "description": "Provide an endpoint ID. (e.g. 3f2a9c1e-5b7d-4e8f-a0b1-c2d3e4f5a6b7)",
           "required": true
         },
         {
@@ -1513,7 +1522,8 @@
           "description": "Set the maximum number of items to be returned (the page size)."
         },
         {
-          "name": "from",
+          "name": "offset",
+          "wire_name": "from",
           "type": "int",
           "location": "query",
           "description": "Provide the number of the first record to be returned."
@@ -1561,7 +1571,7 @@
           "name": "endpointId",
           "type": "string",
           "location": "path",
-          "description": "Provide an endpoint ID.",
+          "description": "Provide an endpoint ID. (e.g. 3f2a9c1e-5b7d-4e8f-a0b1-c2d3e4f5a6b7)",
           "required": true
         },
         {
@@ -1575,7 +1585,7 @@
     },
     {
       "name": "endpoints_managed-id-patch",
-      "description": "**Requires permission: `manage_endpoint_attributes`** Changes the user-defined 'comment', 'name' and custom attributes for the specified endpoint. Required: orgId, endpointId. Optional: comment, custom:{Custom Attribute Name}, name. Returns the updated Endpoint.",
+      "description": "**Requires permission: `manage_endpoint_attributes`** Changes the user-defined 'comment', 'name' and custom attributes for the specified endpoint. Required: orgId, endpointId. Optional: comment, custom_Custom_Attribute_Name, name. Returns the updated Endpoint.",
       "method": "PATCH",
       "path": "/endpoints/managed/{orgId}/{endpointId}",
       "params": [
@@ -1590,7 +1600,7 @@
           "name": "endpointId",
           "type": "string",
           "location": "path",
-          "description": "Provide an endpoint ID.",
+          "description": "Provide an endpoint ID. (e.g. 3f2a9c1e-5b7d-4e8f-a0b1-c2d3e4f5a6b7)",
           "required": true
         },
         {
@@ -1600,7 +1610,8 @@
           "description": "New value for comment."
         },
         {
-          "name": "custom:{Custom Attribute Name}",
+          "name": "custom_Custom_Attribute_Name",
+          "wire_name": "custom:{Custom Attribute Name}",
           "type": "string",
           "location": "body",
           "description": "New value for custom attribute. The attribute name must be defined in the Advanced Settings."
@@ -1630,14 +1641,14 @@
           "name": "endpointId",
           "type": "string",
           "location": "path",
-          "description": "Provide an endpoint ID.",
+          "description": "Provide an endpoint ID. (e.g. 3f2a9c1e-5b7d-4e8f-a0b1-c2d3e4f5a6b7)",
           "required": true
         },
         {
           "name": "connection_type",
           "type": "string",
           "location": "body",
-          "description": "Connection type",
+          "description": "Connection type (Action1 supports assistance)",
           "required": true
         },
         {
@@ -1665,14 +1676,14 @@
           "name": "endpointId",
           "type": "string",
           "location": "path",
-          "description": "Provide an endpoint ID.",
+          "description": "Provide an endpoint ID. (e.g. 3f2a9c1e-5b7d-4e8f-a0b1-c2d3e4f5a6b7)",
           "required": true
         },
         {
           "name": "sessionId",
           "type": "string",
           "location": "path",
-          "description": "Provide a specific remote session ID.",
+          "description": "Provide a specific remote session ID. (e.g. 8a2b3c4d-1e2f-4a5b-9c6d-7e8f9a0b1c2d)",
           "required": true
         }
       ]
@@ -1694,14 +1705,14 @@
           "name": "endpointId",
           "type": "string",
           "location": "path",
-          "description": "Provide an endpoint ID.",
+          "description": "Provide an endpoint ID. (e.g. 3f2a9c1e-5b7d-4e8f-a0b1-c2d3e4f5a6b7)",
           "required": true
         },
         {
           "name": "sessionId",
           "type": "string",
           "location": "path",
-          "description": "Provide a specific remote session ID.",
+          "description": "Provide a specific remote session ID. (e.g. 8a2b3c4d-1e2f-4a5b-9c6d-7e8f9a0b1c2d)",
           "required": true
         },
         {
@@ -1787,7 +1798,7 @@
     },
     {
       "name": "installed-software_data_apps-org-id-endpoint-id-get",
-      "description": "**Requires one of the following permissions: `view_installed_software`, `view_endpoints`** Gets a list of installed apps on an endpoint specified by its ID. Use parameters to filter out apps in the returned results. Required: orgId, endpointId. Optional: from, limit, sortby (plus 1 more). Returns array of InstalledSoftwareEndpoints.",
+      "description": "**Requires one of the following permissions: `view_installed_software`, `view_endpoints`** Gets a list of installed apps on an endpoint specified by its ID. Use parameters to filter out apps in the returned results. Required: orgId, endpointId. Optional: offset, limit, sortby (plus 1 more). Returns array of InstalledSoftwareEndpoints.",
       "method": "GET",
       "path": "/installed-software/{orgId}/data/{endpointId}",
       "params": [
@@ -1802,11 +1813,12 @@
           "name": "endpointId",
           "type": "string",
           "location": "path",
-          "description": "Provide an endpoint ID.",
+          "description": "Provide an endpoint ID. (e.g. 3f2a9c1e-5b7d-4e8f-a0b1-c2d3e4f5a6b7)",
           "required": true
         },
         {
-          "name": "from",
+          "name": "offset",
+          "wire_name": "from",
           "type": "int",
           "location": "query",
           "description": "Provide the number of the first record to be returned."
@@ -1833,7 +1845,7 @@
     },
     {
       "name": "installed-software_data_apps-org-id-get",
-      "description": "**Requires permission: `view_installed_software`** Gets a list of installed apps. Use parameters to filter out apps in the returned results. Required: orgId. Optional: from, limit, sortby (plus 2 more). Returns array of InstalledSoftwareReportData.",
+      "description": "**Requires permission: `view_installed_software`** Gets a list of installed apps. Use parameters to filter out apps in the returned results. Required: orgId. Optional: offset, limit, sortby (plus 2 more). Returns array of InstalledSoftwareReportData.",
       "method": "GET",
       "path": "/installed-software/{orgId}/data",
       "params": [
@@ -1845,7 +1857,8 @@
           "required": true
         },
         {
-          "name": "from",
+          "name": "offset",
+          "wire_name": "from",
           "type": "int",
           "location": "query",
           "description": "Provide the number of the first record to be returned."
@@ -1878,7 +1891,7 @@
     },
     {
       "name": "installed-software_errors_apps-org-id-get",
-      "description": "**Requires permission: `view_installed_software`** Returns apps report errors. Use parameters to filter out returned results. For example, retrieve errors starting from error number 50, filtered by a search term 'powershell', sorted by a description in ascending order. Note that to determine if any errors occurred during report generation, use ResultPage.total_errors property from the Installed Apps data ResultPage. Required: orgId. Optional: from, limit, sortby (plus 1 more).",
+      "description": "**Requires permission: `view_installed_software`** Returns apps report errors. Use parameters to filter out returned results. For example, retrieve errors starting from error number 50, filtered by a search term 'powershell', sorted by a description in ascending order. Note that to determine if any errors occurred during report generation, use ResultPage.total_errors property from the Installed Apps data ResultPage. Required: orgId. Optional: offset, limit, sortby (plus 1 more).",
       "method": "GET",
       "path": "/installed-software/{orgId}/errors",
       "params": [
@@ -1890,7 +1903,8 @@
           "required": true
         },
         {
-          "name": "from",
+          "name": "offset",
+          "wire_name": "from",
           "type": "int",
           "location": "query",
           "description": "Provide the number of the first record to be returned."
@@ -1932,7 +1946,7 @@
           "name": "endpointId",
           "type": "string",
           "location": "path",
-          "description": "Provide an endpoint ID.",
+          "description": "Provide an endpoint ID. (e.g. 3f2a9c1e-5b7d-4e8f-a0b1-c2d3e4f5a6b7)",
           "required": true
         }
       ]
@@ -1954,7 +1968,7 @@
     },
     {
       "name": "logs_org-id-get",
-      "description": "**Requires permission: `manage_endpoints`** Gets diagnostic logs. Use parameters to pre-filter returned results. For example, get the first 50 log records of the level 'normal' and higher, sorted by time in descending order. Required: orgId. Optional: from, limit, sortby (plus 1 more). Returns array of Log.",
+      "description": "**Requires permission: `manage_endpoints`** Gets diagnostic logs. Use parameters to pre-filter returned results. For example, get the first 50 log records of the level 'normal' and higher, sorted by time in descending order. Required: orgId. Optional: offset, limit, sortby (plus 1 more). Returns array of Log.",
       "method": "GET",
       "path": "/logs/{orgId}",
       "params": [
@@ -1966,7 +1980,8 @@
           "required": true
         },
         {
-          "name": "from",
+          "name": "offset",
+          "wire_name": "from",
           "type": "int",
           "location": "query",
           "description": "Provide the number of the first record to be returned."
@@ -2014,12 +2029,13 @@
     },
     {
       "name": "me_subscriptions-get",
-      "description": "Gets a list of report subscriptions. Optional: from, limit. Returns array of ReportSubscription.",
+      "description": "Gets a list of report subscriptions. Optional: offset, limit. Returns array of ReportSubscription.",
       "method": "GET",
       "path": "/me/report-subscriptions",
       "params": [
         {
-          "name": "from",
+          "name": "offset",
+          "wire_name": "from",
           "type": "int",
           "location": "query",
           "description": "Provide the number of the first record to be returned."
@@ -2071,7 +2087,7 @@
           "name": "subscriptionId",
           "type": "string",
           "location": "path",
-          "description": "Provide a specific subscription ID.",
+          "description": "Provide a specific subscription ID. (e.g. 8a2b3c4d-1e2f-4a5b-9c6d-7e8f9a0b1c2d)",
           "required": true
         }
       ]
@@ -2086,7 +2102,7 @@
           "name": "subscriptionId",
           "type": "string",
           "location": "path",
-          "description": "Provide a specific subscription ID.",
+          "description": "Provide a specific subscription ID. (e.g. 8a2b3c4d-1e2f-4a5b-9c6d-7e8f9a0b1c2d)",
           "required": true
         },
         {
@@ -2196,12 +2212,13 @@
     },
     {
       "name": "permissions_get",
-      "description": "Gets a list of available permission templates. Optional: from, limit, sortby (plus 1 more). Returns array of PermissionTemplate.",
+      "description": "Gets a list of available permission templates. Optional: offset, limit, sortby (plus 1 more). Returns array of PermissionTemplate.",
       "method": "GET",
       "path": "/permissions",
       "params": [
         {
-          "name": "from",
+          "name": "offset",
+          "wire_name": "from",
           "type": "int",
           "location": "query",
           "description": "Provide the number of the first record to be returned."
@@ -2256,7 +2273,7 @@
     },
     {
       "name": "reportdata_data_reportdata-org-id-report-id-get",
-      "description": "**Requires permission: `view_reports`** Gets data organized by report rows. Use parameters to filter out returned results. Required: orgId, reportId. Optional: from, limit, sortby (plus 4 more). Returns array of DataReportdataOrgIdReportIdGetItem.",
+      "description": "**Requires permission: `view_reports`** Gets data organized by report rows. Use parameters to filter out returned results. Required: orgId, reportId. Optional: offset, limit, sortby (plus 4 more). Returns array of DataReportdataOrgIdReportIdGetItem.",
       "method": "GET",
       "path": "/reportdata/{orgId}/{reportId}/data",
       "params": [
@@ -2271,11 +2288,12 @@
           "name": "reportId",
           "type": "string",
           "location": "path",
-          "description": "Provide a specific report ID.",
+          "description": "Provide a specific report ID. (e.g. installed_software_1635264799139)",
           "required": true
         },
         {
-          "name": "from",
+          "name": "offset",
+          "wire_name": "from",
           "type": "int",
           "location": "query",
           "description": "Provide the number of the first record to be returned."
@@ -2320,7 +2338,7 @@
     },
     {
       "name": "reportdata_data_reportdata-org-id-report-id-report-row-id-drilldown-get",
-      "description": "**Requires permission: `view_reports`** Expands report details to provide more information. Use parameters to filter out returned results. Required: orgId, reportId, reportRowId. Optional: from, limit, sortby (plus 2 more). Returns array of ReportDataSimple.",
+      "description": "**Requires permission: `view_reports`** Expands report details to provide more information. Use parameters to filter out returned results. Required: orgId, reportId, reportRowId. Optional: offset, limit, sortby (plus 2 more). Returns array of ReportDataSimple.",
       "method": "GET",
       "path": "/reportdata/{orgId}/{reportId}/data/{reportRowId}/drilldown",
       "params": [
@@ -2335,18 +2353,19 @@
           "name": "reportId",
           "type": "string",
           "location": "path",
-          "description": "Provide a specific report ID.",
+          "description": "Provide a specific report ID. (e.g. installed_software_1635264799139)",
           "required": true
         },
         {
           "name": "reportRowId",
           "type": "string",
           "location": "path",
-          "description": "Provide a specific report row ID.",
+          "description": "Provide a specific report row ID. (e.g. 8a2b3c4d-1e2f-4a5b-9c6d-7e8f9a0b1c2d)",
           "required": true
         },
         {
-          "name": "from",
+          "name": "offset",
+          "wire_name": "from",
           "type": "int",
           "location": "query",
           "description": "Provide the number of the first record to be returned."
@@ -2394,14 +2413,14 @@
           "name": "reportId",
           "type": "string",
           "location": "path",
-          "description": "Provide a specific report ID.",
+          "description": "Provide a specific report ID. (e.g. installed_software_1635264799139)",
           "required": true
         },
         {
           "name": "reportRowId",
           "type": "string",
           "location": "path",
-          "description": "Provide a specific report row ID.",
+          "description": "Provide a specific report row ID. (e.g. 8a2b3c4d-1e2f-4a5b-9c6d-7e8f9a0b1c2d)",
           "required": true
         },
         {
@@ -2414,7 +2433,7 @@
     },
     {
       "name": "reportdata_errors_reportdata-org-id-report-id-get",
-      "description": "**Requires permission: `view_reports`** Returns report errors for the specified report. Use parameters to filter out returned results. For example, retrieve errors starting from error number 50, filtered by a search term 'powershell', sorted by a description in ascending order. Note that to determine if any errors occurred during report generation, use ResultPage.total_errors property from the Report Data ResultPage. Required: orgId, reportId. Optional: from, limit, sortby (plus 1 more).",
+      "description": "**Requires permission: `view_reports`** Returns report errors for the specified report. Use parameters to filter out returned results. For example, retrieve errors starting from error number 50, filtered by a search term 'powershell', sorted by a description in ascending order. Note that to determine if any errors occurred during report generation, use ResultPage.total_errors property from the Report Data ResultPage. Required: orgId, reportId. Optional: offset, limit, sortby (plus 1 more).",
       "method": "GET",
       "path": "/reportdata/{orgId}/{reportId}/errors",
       "params": [
@@ -2429,11 +2448,12 @@
           "name": "reportId",
           "type": "string",
           "location": "path",
-          "description": "Provide a specific report ID.",
+          "description": "Provide a specific report ID. (e.g. installed_software_1635264799139)",
           "required": true
         },
         {
-          "name": "from",
+          "name": "offset",
+          "wire_name": "from",
           "type": "int",
           "location": "query",
           "description": "Provide the number of the first record to be returned."
@@ -2460,7 +2480,7 @@
     },
     {
       "name": "reportdata_export_reportdata-org-id-report-id-get",
-      "description": "**Requires permission: `view_reports`** Exports data from the report. Use parameters to filter out exported data. The supported formats are 'csv' and 'html'. Required: orgId, reportId. Optional: format (default: csv), from, limit (plus 3 more).",
+      "description": "**Requires permission: `view_reports`** Exports data from the report. Use parameters to filter out exported data. The supported formats are 'csv' and 'html'. Required: orgId, reportId. Optional: format (default: csv), offset, limit (plus 3 more).",
       "method": "GET",
       "path": "/reportdata/{orgId}/{reportId}/export",
       "params": [
@@ -2475,7 +2495,7 @@
           "name": "reportId",
           "type": "string",
           "location": "path",
-          "description": "Provide a specific report ID.",
+          "description": "Provide a specific report ID. (e.g. installed_software_1635264799139)",
           "required": true
         },
         {
@@ -2485,7 +2505,8 @@
           "description": "Specify the report format."
         },
         {
-          "name": "from",
+          "name": "offset",
+          "wire_name": "from",
           "type": "int",
           "location": "query",
           "description": "Provide the number of the first record to be returned."
@@ -2533,7 +2554,7 @@
           "name": "reportId",
           "type": "string",
           "location": "path",
-          "description": "Provide a specific report ID.",
+          "description": "Provide a specific report ID. (e.g. installed_software_1635264799139)",
           "required": true
         },
         {
@@ -2568,7 +2589,7 @@
           "name": "reportOrCategoryId",
           "type": "string",
           "location": "path",
-          "description": "Provide a specific report id or category id.",
+          "description": "Provide a specific report id or category id. (e.g. installed_software_1635264799139)",
           "required": true
         }
       ]
@@ -2583,14 +2604,14 @@
           "name": "reportId",
           "type": "string",
           "location": "path",
-          "description": "Provide a specific report ID.",
+          "description": "Provide a specific report ID. (e.g. installed_software_1635264799139)",
           "required": true
         }
       ]
     },
     {
       "name": "reports_org-id-custom-id-patch",
-      "description": "**Requires permission: `manage_reports`** Updates a custom report. You cannot changes a custom report's category. Custom reports are enterprise-wide. Required: reportId. Optional: column_aliases, data_sources, description (plus 5 more). Returns array of ReportsOrgIdCustomIdPatchItem.",
+      "description": "**Requires permission: `manage_reports`** Updates a custom report. You cannot changes a custom report's category. Custom reports are enterprise-wide. Required: reportId. Optional: column_aliases, data_sources, description (plus 5 more). Returns the updated Report.",
       "method": "PATCH",
       "path": "/reports/all/custom/{reportId}",
       "params": [
@@ -2598,7 +2619,7 @@
           "name": "reportId",
           "type": "string",
           "location": "path",
-          "description": "Provide a specific report ID.",
+          "description": "Provide a specific report ID. (e.g. installed_software_1635264799139)",
           "required": true
         },
         {
@@ -2653,7 +2674,7 @@
     },
     {
       "name": "reports_org-id-custom-post",
-      "description": "**Requires permission: `manage_reports`** Creates a custom report in the predefined Custom report category. You cannot create custom reports in other categories. Custom reports are based on the data source. To learn more about data sources, see '/data-sources/*' calls. Custom reports are enterprise-wide. Required: data_sources, description, drilldown_columns, filter_set, name, simple_columns, summary_columns. Optional: column_aliases. Returns array of ReportsOrgIdCustomPostItem.",
+      "description": "**Requires permission: `manage_reports`** Creates a custom report in the predefined Custom report category. You cannot create custom reports in other categories. Custom reports are based on the data source. To learn more about data sources, see '/data-sources/*' calls. Custom reports are enterprise-wide. Required: data_sources, description, drilldown_columns, filter_set, name, simple_columns, summary_columns. Optional: column_aliases. Returns the new Report.",
       "method": "POST",
       "path": "/reports/all/custom",
       "params": [
@@ -2716,12 +2737,13 @@
     },
     {
       "name": "roles_get",
-      "description": "**Requires permission: `manage_roles`** Gets a list of available roles. Optional: from, limit, sortby (plus 2 more). Returns array of Role.",
+      "description": "**Requires permission: `manage_roles`** Gets a list of available roles. Optional: offset, limit, sortby (plus 2 more). Returns array of Role.",
       "method": "GET",
       "path": "/roles",
       "params": [
         {
-          "name": "from",
+          "name": "offset",
+          "wire_name": "from",
           "type": "int",
           "location": "query",
           "description": "Provide the number of the first record to be returned."
@@ -2762,7 +2784,7 @@
           "name": "roleId",
           "type": "string",
           "location": "path",
-          "description": "Provide a specific role ID.",
+          "description": "Provide a specific role ID. (e.g. 8a2b3c4d-1e2f-4a5b-9c6d-7e8f9a0b1c2d)",
           "required": true
         }
       ]
@@ -2777,7 +2799,7 @@
           "name": "roleId",
           "type": "string",
           "location": "path",
-          "description": "Provide a specific role ID.",
+          "description": "Provide a specific role ID. (e.g. 8a2b3c4d-1e2f-4a5b-9c6d-7e8f9a0b1c2d)",
           "required": true
         }
       ]
@@ -2792,7 +2814,7 @@
           "name": "roleId",
           "type": "string",
           "location": "path",
-          "description": "Provide a specific role ID.",
+          "description": "Provide a specific role ID. (e.g. 8a2b3c4d-1e2f-4a5b-9c6d-7e8f9a0b1c2d)",
           "required": true
         },
         {
@@ -2860,7 +2882,7 @@
     },
     {
       "name": "roles_users_roles-role-id-get",
-      "description": "**Requires permissions: `view_users` and (`assign_roles` or `manage_roles`)** Gets a list of users in a role specified by its ID. Required: roleId. Optional: from, limit, sortby (plus 1 more). Returns array of User.",
+      "description": "**Requires permissions: `view_users` and (`assign_roles` or `manage_roles`)** Gets a list of users in a role specified by its ID. Required: roleId. Optional: offset, limit, sortby (plus 1 more). Returns array of User.",
       "method": "GET",
       "path": "/roles/{roleId}/users",
       "params": [
@@ -2868,11 +2890,12 @@
           "name": "roleId",
           "type": "string",
           "location": "path",
-          "description": "Provide a specific role ID.",
+          "description": "Provide a specific role ID. (e.g. 8a2b3c4d-1e2f-4a5b-9c6d-7e8f9a0b1c2d)",
           "required": true
         },
         {
-          "name": "from",
+          "name": "offset",
+          "wire_name": "from",
           "type": "int",
           "location": "query",
           "description": "Provide the number of the first record to be returned."
@@ -2907,14 +2930,14 @@
           "name": "roleId",
           "type": "string",
           "location": "path",
-          "description": "Provide a specific role ID.",
+          "description": "Provide a specific role ID. (e.g. 8a2b3c4d-1e2f-4a5b-9c6d-7e8f9a0b1c2d)",
           "required": true
         },
         {
           "name": "userId",
           "type": "string",
           "location": "path",
-          "description": "Provide a specific user ID.",
+          "description": "Provide a specific user ID. (e.g. 8a2b3c4d-1e2f-4a5b-9c6d-7e8f9a0b1c2d)",
           "required": true
         }
       ]
@@ -2929,14 +2952,14 @@
           "name": "roleId",
           "type": "string",
           "location": "path",
-          "description": "Provide a specific role ID.",
+          "description": "Provide a specific role ID. (e.g. 8a2b3c4d-1e2f-4a5b-9c6d-7e8f9a0b1c2d)",
           "required": true
         },
         {
           "name": "userId",
           "type": "string",
           "location": "path",
-          "description": "Provide a specific user ID.",
+          "description": "Provide a specific user ID. (e.g. 8a2b3c4d-1e2f-4a5b-9c6d-7e8f9a0b1c2d)",
           "required": true
         }
       ]
@@ -2971,7 +2994,7 @@
           "name": "scriptId",
           "type": "string",
           "location": "path",
-          "description": "Provide a specific script ID.",
+          "description": "Provide a specific script ID. (e.g. 8a2b3c4d-1e2f-4a5b-9c6d-7e8f9a0b1c2d)",
           "required": true
         }
       ]
@@ -2986,7 +3009,7 @@
           "name": "scriptId",
           "type": "string",
           "location": "path",
-          "description": "Provide a specific script ID.",
+          "description": "Provide a specific script ID. (e.g. 8a2b3c4d-1e2f-4a5b-9c6d-7e8f9a0b1c2d)",
           "required": true
         }
       ]
@@ -3001,7 +3024,7 @@
           "name": "scriptId",
           "type": "string",
           "location": "path",
-          "description": "Provide a specific script ID.",
+          "description": "Provide a specific script ID. (e.g. 8a2b3c4d-1e2f-4a5b-9c6d-7e8f9a0b1c2d)",
           "required": true
         },
         {
@@ -3120,14 +3143,14 @@
           "name": "templateId",
           "type": "string",
           "location": "path",
-          "description": "Provide a specific setting template ID.",
+          "description": "Provide a specific setting template ID. (e.g. 8a2b3c4d-1e2f-4a5b-9c6d-7e8f9a0b1c2d)",
           "required": true
         }
       ]
     },
     {
       "name": "settings_org-id-get",
-      "description": "**Requires permission: `manage_advanced_settings`** Lists all existing settings. At this time, all settings are enterprise-wide. Optional: filter, sortby, from (plus 2 more). Returns array of Setting.",
+      "description": "**Requires permission: `manage_advanced_settings`** Lists all existing settings. At this time, all settings are enterprise-wide. Optional: filter, sortby, offset (plus 2 more). Returns array of Setting.",
       "method": "GET",
       "path": "/settings/all",
       "params": [
@@ -3144,7 +3167,8 @@
           "description": "Define the sorting order by a certain field."
         },
         {
-          "name": "from",
+          "name": "offset",
+          "wire_name": "from",
           "type": "int",
           "location": "query",
           "description": "Provide the number of the first record to be returned."
@@ -3173,14 +3197,14 @@
           "name": "settingId",
           "type": "string",
           "location": "path",
-          "description": "Provide a specific setting ID.",
+          "description": "Provide a specific setting ID. (e.g. 8a2b3c4d-1e2f-4a5b-9c6d-7e8f9a0b1c2d)",
           "required": true
         }
       ]
     },
     {
       "name": "settings_org-id-id-get",
-      "description": "**Requires permission: `manage_advanced_settings`** Gets details about the setting configuration. At this time, all settings are enterprise-wide, but the scope of application can be limited to per organization or group. Required: settingId. Returns array of SettingsOrgIdIdGetItem.",
+      "description": "**Requires permission: `manage_advanced_settings`** Gets details about the setting configuration. At this time, all settings are enterprise-wide, but the scope of application can be limited to per organization or group. Required: settingId. Returns the Setting.",
       "method": "GET",
       "path": "/settings/all/{settingId}",
       "params": [
@@ -3188,14 +3212,14 @@
           "name": "settingId",
           "type": "string",
           "location": "path",
-          "description": "Provide a specific setting ID.",
+          "description": "Provide a specific setting ID. (e.g. 8a2b3c4d-1e2f-4a5b-9c6d-7e8f9a0b1c2d)",
           "required": true
         }
       ]
     },
     {
       "name": "settings_org-id-id-patch",
-      "description": "**Requires permission: `manage_advanced_settings`** Updates an existing setting specified by its ID. At this time, all settings are enterprise-wide. Required: settingId. Optional: scope, value. Returns array of SettingsOrgIdIdPatchItem.",
+      "description": "**Requires permission: `manage_advanced_settings`** Updates an existing setting specified by its ID. At this time, all settings are enterprise-wide. Required: settingId. Optional: scope, value. Returns the updated Setting.",
       "method": "PATCH",
       "path": "/settings/all/{settingId}",
       "params": [
@@ -3203,7 +3227,7 @@
           "name": "settingId",
           "type": "string",
           "location": "path",
-          "description": "Provide a specific setting ID.",
+          "description": "Provide a specific setting ID. (e.g. 8a2b3c4d-1e2f-4a5b-9c6d-7e8f9a0b1c2d)",
           "required": true
         },
         {
@@ -3222,7 +3246,7 @@
     },
     {
       "name": "settings_org-id-post",
-      "description": "**Requires permission: `manage_advanced_settings`** Creates a new setting. At this time, all setting templates are enterprise-wide. Required: scope, template_id, value. Returns array of SettingsOrgIdPostItem.",
+      "description": "**Requires permission: `manage_advanced_settings`** Creates a new setting. At this time, all setting templates are enterprise-wide. Required: scope, template_id, value. Returns the new Setting.",
       "method": "POST",
       "path": "/settings/all",
       "params": [
@@ -3287,7 +3311,8 @@
           "description": "Define the sorting order by a certain field."
         },
         {
-          "name": "from",
+          "name": "offset",
+          "wire_name": "from",
           "type": "int",
           "location": "query",
           "description": "Provide the number of the first record to be returned."
@@ -3341,14 +3366,14 @@
           "name": "packageId",
           "type": "string",
           "location": "path",
-          "description": "Provide a specific package ID.",
+          "description": "Provide a specific package ID. (e.g. Mozilla_Firefox_1653913127898_builtin)",
           "required": true
         }
       ]
     },
     {
       "name": "software-repository_packages-all-package-id-get",
-      "description": "**Requires permission: `view_software_repository`** Gets details for a Software Repository package specified by its ID. Set the 'fields' parameter to '*' or 'versions' to include the non-default 'versions' container of children objects. Example: /software-repository/{orgId}/{Adobe_Adobe_Acrobat_Reader_DC_1570155380192_builtin}?fields=*. Required: orgId, packageId. Optional: fields. Returns array of SoftwareRepositoryPackagesAllPackageIdGetItem.",
+      "description": "**Requires permission: `view_software_repository`** Gets details for a Software Repository package specified by its ID. Set the 'fields' parameter to '*' or 'versions' to include the non-default 'versions' container of children objects. Example: /software-repository/{orgId}/{Adobe_Adobe_Acrobat_Reader_DC_1570155380192_builtin}?fields=*. Required: orgId, packageId. Optional: fields. Returns the SoftwareRepositoryPackage.",
       "method": "GET",
       "path": "/software-repository/{orgId}/{packageId}",
       "params": [
@@ -3363,7 +3388,7 @@
           "name": "packageId",
           "type": "string",
           "location": "path",
-          "description": "Provide a specific package ID.",
+          "description": "Provide a specific package ID. (e.g. Mozilla_Firefox_1653913127898_builtin)",
           "required": true
         },
         {
@@ -3376,7 +3401,7 @@
     },
     {
       "name": "software-repository_packages-all-package-id-patch",
-      "description": "**Requires permission: `manage_software_repository`** Modifies one or more properties of a custom Software Repository package, including contents of the child 'version' objects. Built-in packages cannot be modified except for 'EULA_accepted' setting. This method will return an error if you attempt to send a PATCH request for a built-in package and specify any properties except for 'EULA_accepted'. The 'version.additional_actions.name' property shall always be present if the parameters of an additional action are to be modified. To change the 'name' parameter of an additional action, the action needs to be deleted (DELETE method) and then added back with the new name (PATCH request). Required: orgId, packageId. Optional: description, internal_notes, name (plus 1 more). Returns array of SoftwareRepositoryPackagesAllPackageIdPatchItem.",
+      "description": "**Requires permission: `manage_software_repository`** Modifies one or more properties of a custom Software Repository package, including contents of the child 'version' objects. Built-in packages cannot be modified except for 'EULA_accepted' setting. This method will return an error if you attempt to send a PATCH request for a built-in package and specify any properties except for 'EULA_accepted'. The 'version.additional_actions.name' property shall always be present if the parameters of an additional action are to be modified. To change the 'name' parameter of an additional action, the action needs to be deleted (DELETE method) and then added back with the new name (PATCH request). Required: orgId, packageId. Optional: description, internal_notes, name (plus 1 more). Returns the updated SoftwareRepositoryPackage.",
       "method": "PATCH",
       "path": "/software-repository/{orgId}/{packageId}",
       "params": [
@@ -3391,7 +3416,7 @@
           "name": "packageId",
           "type": "string",
           "location": "path",
-          "description": "Provide a specific package ID.",
+          "description": "Provide a specific package ID. (e.g. Mozilla_Firefox_1653913127898_builtin)",
           "required": true
         },
         {
@@ -3422,7 +3447,7 @@
     },
     {
       "name": "software-repository_packages-all-post",
-      "description": "**Requires permission: `manage_software_repository`** Create a new custom Software Repository package object (with no versions) and set its initial basic properties. To create package versions, use POST /software-repository/{orgId}/{packageId}/versions method. Required: orgId, description, name, platform, vendor. Optional: internal_notes. Returns array of SoftwareRepositoryPackagesAllPostItem.",
+      "description": "**Requires permission: `manage_software_repository`** Create a new custom Software Repository package object (with no versions) and set its initial basic properties. To create package versions, use POST /software-repository/{orgId}/{packageId}/versions method. Required: orgId, description, name, platform, vendor. Optional: internal_notes. Returns the new SoftwareRepositoryPackage.",
       "method": "POST",
       "path": "/software-repository/{orgId}",
       "params": [
@@ -3471,7 +3496,7 @@
     },
     {
       "name": "software-repository_clone_packages-all-package-id-post",
-      "description": "**Requires permission: `manage_software_repository`** Creates a full copy of an existing Software Repository package under a new package ID. For example, use this call if you want to modify version settings for a built-in package. Note that Action1 does not maintain cloned built-in packages. Required: orgId, packageId. Returns array of ClonePackagesAllPackageIdPostItem.",
+      "description": "**Requires permission: `manage_software_repository`** Creates a full copy of an existing Software Repository package under a new package ID. For example, use this call if you want to modify version settings for a built-in package. Note that Action1 does not maintain cloned built-in packages. Required: orgId, packageId. Returns the new SoftwareRepositoryPackage.",
       "method": "POST",
       "path": "/software-repository/{orgId}/{packageId}/clone",
       "params": [
@@ -3486,7 +3511,7 @@
           "name": "packageId",
           "type": "string",
           "location": "path",
-          "description": "Provide a specific package ID.",
+          "description": "Provide a specific package ID. (e.g. Mozilla_Firefox_1653913127898_builtin)",
           "required": true
         }
       ]
@@ -3529,7 +3554,7 @@
           "name": "packageId",
           "type": "string",
           "location": "path",
-          "description": "Provide a specific package ID.",
+          "description": "Provide a specific package ID. (e.g. Mozilla_Firefox_1653913127898_builtin)",
           "required": true
         },
         {
@@ -3557,21 +3582,21 @@
           "name": "packageId",
           "type": "string",
           "location": "path",
-          "description": "Provide a specific package ID.",
+          "description": "Provide a specific package ID. (e.g. Mozilla_Firefox_1653913127898_builtin)",
           "required": true
         },
         {
           "name": "versionId",
           "type": "string",
           "location": "path",
-          "description": "Provide a specific version ID.",
+          "description": "Provide a specific version ID. (e.g. 8a2b3c4d-1e2f-4a5b-9c6d-7e8f9a0b1c2d)",
           "required": true
         },
         {
           "name": "actionId",
           "type": "string",
           "location": "path",
-          "description": "Provide a specific action ID.",
+          "description": "Provide a specific action ID. (e.g. 8a2b3c4d-1e2f-4a5b-9c6d-7e8f9a0b1c2d)",
           "required": true
         }
       ]
@@ -3586,14 +3611,14 @@
           "name": "packageId",
           "type": "string",
           "location": "path",
-          "description": "Provide a specific package ID.",
+          "description": "Provide a specific package ID. (e.g. Mozilla_Firefox_1653913127898_builtin)",
           "required": true
         },
         {
           "name": "versionId",
           "type": "string",
           "location": "path",
-          "description": "Provide a specific version ID.",
+          "description": "Provide a specific version ID. (e.g. 8a2b3c4d-1e2f-4a5b-9c6d-7e8f9a0b1c2d)",
           "required": true
         },
         {
@@ -3622,21 +3647,21 @@
           "name": "packageId",
           "type": "string",
           "location": "path",
-          "description": "Provide a specific package ID.",
+          "description": "Provide a specific package ID. (e.g. Mozilla_Firefox_1653913127898_builtin)",
           "required": true
         },
         {
           "name": "versionId",
           "type": "string",
           "location": "path",
-          "description": "Provide a specific version ID.",
+          "description": "Provide a specific version ID. (e.g. 8a2b3c4d-1e2f-4a5b-9c6d-7e8f9a0b1c2d)",
           "required": true
         }
       ]
     },
     {
       "name": "software-repository_versions_packages-all-package-id-id-patch",
-      "description": "**Requires permissions:** - `accept_eula` - for '*EULA_accepted*' property - `approve_updates` - for '*approval_status*' property - `manage_software_repository` - for all other properties Modifies settings of the specified version in the specified package. Versions for built-in packages cannot be modified. This API will return an error if you attempt to send this PATCH request for a built-in package. Required: packageId, versionId, orgId. Returns array of VersionsPackagesAllPackageIdIdPatchItem.",
+      "description": "**Requires permissions:** - `accept_eula` - for '*EULA_accepted*' property - `approve_updates` - for '*approval_status*' property - `manage_software_repository` - for all other properties Modifies settings of the specified version in the specified package. Versions for built-in packages cannot be modified. This API will return an error if you attempt to send this PATCH request for a built-in package. Required: packageId, versionId, orgId. Returns the updated WindowsVersion.",
       "method": "PATCH",
       "path": "/software-repository/{orgId}/{packageId}/versions/{versionId}",
       "params": [
@@ -3644,14 +3669,14 @@
           "name": "packageId",
           "type": "string",
           "location": "path",
-          "description": "Provide a specific package ID.",
+          "description": "Provide a specific package ID. (e.g. Mozilla_Firefox_1653913127898_builtin)",
           "required": true
         },
         {
           "name": "versionId",
           "type": "string",
           "location": "path",
-          "description": "Provide a specific version ID.",
+          "description": "Provide a specific version ID. (e.g. 8a2b3c4d-1e2f-4a5b-9c6d-7e8f9a0b1c2d)",
           "required": true
         },
         {
@@ -3665,7 +3690,7 @@
     },
     {
       "name": "software-repository_versions_packages-all-package-id-id-upload-post",
-      "description": "**Requires permission: `manage_software_repository`** Initializes package file upload. The client starts by sending the initial upload request. The server returns 308 Resume Incomplete status code upon success with the Location header containing the unique upload ID, which expires within 24 hours and it has to be used in subsequent upload requests. Required: orgId, packageId, versionId, platform.",
+      "description": "**Requires permission: `manage_software_repository`** Initializes package file upload. The client starts by sending the initial upload request. The server returns 308 Resume Incomplete status code upon success with the Location header containing the unique upload ID, which expires within 24 hours and it has to be used in subsequent upload requests. Required: orgId, packageId, versionId, platform, X-Upload-Content-Type, X-Upload-Content-Length.",
       "method": "POST",
       "path": "/software-repository/{orgId}/{packageId}/versions/{versionId}/upload",
       "params": [
@@ -3680,14 +3705,14 @@
           "name": "packageId",
           "type": "string",
           "location": "path",
-          "description": "Provide a specific package ID.",
+          "description": "Provide a specific package ID. (e.g. Mozilla_Firefox_1653913127898_builtin)",
           "required": true
         },
         {
           "name": "versionId",
           "type": "string",
           "location": "path",
-          "description": "Provide a specific version ID.",
+          "description": "Provide a specific version ID. (e.g. 8a2b3c4d-1e2f-4a5b-9c6d-7e8f9a0b1c2d)",
           "required": true
         },
         {
@@ -3696,12 +3721,26 @@
           "location": "query",
           "description": "Platform",
           "required": true
+        },
+        {
+          "name": "X-Upload-Content-Type",
+          "type": "string",
+          "location": "header",
+          "description": "X upload content type",
+          "required": true
+        },
+        {
+          "name": "X-Upload-Content-Length",
+          "type": "float",
+          "location": "header",
+          "description": "The total size of the file to be uploaded.",
+          "required": true
         }
       ]
     },
     {
       "name": "software-repository_versions_packages-all-package-id-id-upload-put",
-      "description": "**Requires permission: `manage_software_repository`** Uploads package file chunks. After the upload initialization request has been made, the client then issues a series of chunk upload requests. The size of each chunk must be at least 5Mb and all the chunks must have the same size **(except the last one)**. Required: packageId, versionId, platform, upload_id, orgId.",
+      "description": "**Requires permission: `manage_software_repository`** Uploads package file chunks. After the upload initialization request has been made, the client then issues a series of chunk upload requests. The size of each chunk must be at least 5Mb and all the chunks must have the same size **(except the last one)**. Required: packageId, versionId, platform, upload_id, Content-Range, Content-Length, orgId.",
       "method": "PUT",
       "path": "/software-repository/{orgId}/{packageId}/versions/{versionId}/upload",
       "params": [
@@ -3709,14 +3748,14 @@
           "name": "packageId",
           "type": "string",
           "location": "path",
-          "description": "Provide a specific package ID.",
+          "description": "Provide a specific package ID. (e.g. Mozilla_Firefox_1653913127898_builtin)",
           "required": true
         },
         {
           "name": "versionId",
           "type": "string",
           "location": "path",
-          "description": "Provide a specific version ID.",
+          "description": "Provide a specific version ID. (e.g. 8a2b3c4d-1e2f-4a5b-9c6d-7e8f9a0b1c2d)",
           "required": true
         },
         {
@@ -3731,6 +3770,20 @@
           "type": "string",
           "location": "query",
           "description": "Upload id",
+          "required": true
+        },
+        {
+          "name": "Content-Range",
+          "type": "string",
+          "location": "header",
+          "description": "Content-Range value. In this example, we are sending the first 500k bytes of 2000k total.",
+          "required": true
+        },
+        {
+          "name": "Content-Length",
+          "type": "string",
+          "location": "header",
+          "description": "Number of bytes in the current chunk.",
           "required": true
         },
         {
@@ -3759,7 +3812,7 @@
           "name": "packageId",
           "type": "string",
           "location": "path",
-          "description": "Provide a specific package ID.",
+          "description": "Provide a specific package ID. (e.g. Mozilla_Firefox_1653913127898_builtin)",
           "required": true
         }
       ]
@@ -3848,7 +3901,7 @@
     },
     {
       "name": "updates_org-id-get",
-      "description": "**Requires one of the following permissions: `approve_updates`, `view_dashboards`, `manage_automations`** Gets a list of all missing updates. Use parameters to filter out updates in the returned results. Required: orgId. Optional: filter, sortby, from (plus 9 more). Returns array of UpdatesOrgIdGetItem.",
+      "description": "**Requires one of the following permissions: `approve_updates`, `view_dashboards`, `manage_automations`** Gets a list of all missing updates. Use parameters to filter out updates in the returned results. Required: orgId. Optional: filter, sortby, offset (plus 9 more). Returns array of UpdatesOrgIdGetItem.",
       "method": "GET",
       "path": "/updates/{orgId}",
       "params": [
@@ -3872,7 +3925,8 @@
           "description": "Define the sorting order by a certain field."
         },
         {
-          "name": "from",
+          "name": "offset",
+          "wire_name": "from",
           "type": "int",
           "location": "query",
           "description": "Provide the number of the first record to be returned."
@@ -3935,7 +3989,7 @@
     },
     {
       "name": "updates_org-id-package-id-get",
-      "description": "**Requires one of the following permissions: `approve_updates`, `view_dashboards`, `manage_automations`** Gets a list of updates available for a package specified by its ID. Use parameters to filter out updates in the returned results. Required: orgId, packageId. Optional: filter, sortby, from (plus 7 more). Returns array of UpdatesOrgIdPackageIdGetItem.",
+      "description": "**Requires one of the following permissions: `approve_updates`, `view_dashboards`, `manage_automations`** Gets a list of updates available for a package specified by its ID. Use parameters to filter out updates in the returned results. Required: orgId, packageId. Optional: filter, sortby, offset (plus 7 more). Returns array of UpdatesOrgIdPackageIdGetItem.",
       "method": "GET",
       "path": "/updates/{orgId}/{packageId}",
       "params": [
@@ -3950,7 +4004,7 @@
           "name": "packageId",
           "type": "string",
           "location": "path",
-          "description": "Provide a specific package ID.",
+          "description": "Provide a specific package ID. (e.g. Mozilla_Firefox_1653913127898_builtin)",
           "required": true
         },
         {
@@ -3966,7 +4020,8 @@
           "description": "Define the sorting order by a certain field."
         },
         {
-          "name": "from",
+          "name": "offset",
+          "wire_name": "from",
           "type": "int",
           "location": "query",
           "description": "Provide the number of the first record to be returned."
@@ -4032,7 +4087,7 @@
     },
     {
       "name": "updates_versions_updates-org-id-package-id-id-endpoints-get",
-      "description": "**Requires one of the following permissions: `approve_updates`, `view_dashboards`, `manage_automations`** Gets a list of endpoints that are missing updates for a specific package and its version, both specified by their IDs. Use parameters to filter out updates in the returned results. Required: orgId, packageId, versionId. Optional: from, limit, sortby (plus 1 more). Returns array of MissingUpdateEndpoint.",
+      "description": "**Requires one of the following permissions: `approve_updates`, `view_dashboards`, `manage_automations`** Gets a list of endpoints that are missing updates for a specific package and its version, both specified by their IDs. Use parameters to filter out updates in the returned results. Required: orgId, packageId, versionId. Optional: offset, limit, sortby (plus 1 more). Returns array of MissingUpdateEndpoint.",
       "method": "GET",
       "path": "/updates/{orgId}/{packageId}/versions/{versionId}/endpoints",
       "params": [
@@ -4047,18 +4102,19 @@
           "name": "packageId",
           "type": "string",
           "location": "path",
-          "description": "Provide a specific package ID.",
+          "description": "Provide a specific package ID. (e.g. Mozilla_Firefox_1653913127898_builtin)",
           "required": true
         },
         {
           "name": "versionId",
           "type": "string",
           "location": "path",
-          "description": "Provide a specific version ID.",
+          "description": "Provide a specific version ID. (e.g. 8a2b3c4d-1e2f-4a5b-9c6d-7e8f9a0b1c2d)",
           "required": true
         },
         {
-          "name": "from",
+          "name": "offset",
+          "wire_name": "from",
           "type": "int",
           "location": "query",
           "description": "Provide the number of the first record to be returned."
@@ -4085,12 +4141,13 @@
     },
     {
       "name": "users_get",
-      "description": "**Requires permission: `view_users`** Gets a list of users within the current Action1 enterprise. Optional: from, limit, filter (plus 1 more). Returns array of User.",
+      "description": "**Requires permission: `view_users`** Gets a list of users within the current Action1 enterprise. Optional: offset, limit, filter (plus 1 more). Returns array of User.",
       "method": "GET",
       "path": "/users",
       "params": [
         {
-          "name": "from",
+          "name": "offset",
+          "wire_name": "from",
           "type": "int",
           "location": "query",
           "description": "Provide the number of the first record to be returned."
@@ -4125,7 +4182,7 @@
           "name": "userId",
           "type": "string",
           "location": "path",
-          "description": "Provide a specific user ID.",
+          "description": "Provide a specific user ID. (e.g. 8a2b3c4d-1e2f-4a5b-9c6d-7e8f9a0b1c2d)",
           "required": true
         }
       ]
@@ -4140,7 +4197,7 @@
           "name": "userId",
           "type": "string",
           "location": "path",
-          "description": "Provide a specific user ID.",
+          "description": "Provide a specific user ID. (e.g. 8a2b3c4d-1e2f-4a5b-9c6d-7e8f9a0b1c2d)",
           "required": true
         }
       ]
@@ -4155,7 +4212,7 @@
           "name": "userId",
           "type": "string",
           "location": "path",
-          "description": "Provide a specific user ID.",
+          "description": "Provide a specific user ID. (e.g. 8a2b3c4d-1e2f-4a5b-9c6d-7e8f9a0b1c2d)",
           "required": true
         }
       ]
@@ -4169,7 +4226,7 @@
     },
     {
       "name": "users_roles_users-user-id-get",
-      "description": "**Requires permission: `manage_users`** Retrieves all roles assigned to a user specified by ID. Required: userId. Optional: from, limit. Returns array of Role.",
+      "description": "**Requires permission: `manage_users`** Retrieves all roles assigned to a user specified by ID. Required: userId. Optional: offset, limit. Returns array of Role.",
       "method": "GET",
       "path": "/users/{userId}/roles",
       "params": [
@@ -4177,11 +4234,12 @@
           "name": "userId",
           "type": "string",
           "location": "path",
-          "description": "Provide a specific user ID.",
+          "description": "Provide a specific user ID. (e.g. 8a2b3c4d-1e2f-4a5b-9c6d-7e8f9a0b1c2d)",
           "required": true
         },
         {
-          "name": "from",
+          "name": "offset",
+          "wire_name": "from",
           "type": "int",
           "location": "query",
           "description": "Provide the number of the first record to be returned."
@@ -4278,7 +4336,8 @@
           "description": "Add CVEIDs parameter to query specific vulnerabilities by their CVE IDs. Example: CVEIDs=CVE-2005-2300,CVE-2016-2806."
         },
         {
-          "name": "from",
+          "name": "offset",
+          "wire_name": "from",
           "type": "int",
           "location": "query",
           "description": "Provide the number of the first record to be returned."
@@ -4311,7 +4370,7 @@
     },
     {
       "name": "vulnerabilities_endpoints_vulnerabilities-org-id-cve-id-get",
-      "description": "**Requires permission: `view_vulnerabilities`** Retrieves a list of endpoints within the specified organization that are affected by a specific vulnerability. The method identifies the locations of the vulnerable software, enabling targeted analysis and action for the particular security concern. Required: orgId, cveId. Optional: product_names, from, limit (plus 2 more). Returns array of VulnerableEndpoint.",
+      "description": "**Requires permission: `view_vulnerabilities`** Retrieves a list of endpoints within the specified organization that are affected by a specific vulnerability. The method identifies the locations of the vulnerable software, enabling targeted analysis and action for the particular security concern. Required: orgId, cveId. Optional: product_names, offset, limit (plus 2 more). Returns array of VulnerableEndpoint.",
       "method": "GET",
       "path": "/vulnerabilities/{orgId}/{cveId}/endpoints",
       "params": [
@@ -4336,7 +4395,8 @@
           "description": "The names of the products to retrieve the endpoints associated with those specific products and the corresponding vulnerability."
         },
         {
-          "name": "from",
+          "name": "offset",
+          "wire_name": "from",
           "type": "int",
           "location": "query",
           "description": "Provide the number of the first record to be returned."
@@ -4363,7 +4423,7 @@
     },
     {
       "name": "vulnerabilities_remediations_vulnerabilities-org-id-cve-id-get",
-      "description": "**Requires permission: `view_vulnerabilities`** Retrieves a list of previously applied remediation actions for a specific vulnerability in a specific organization. This includes details such as the type of action taken, the date of application, and the current status of the remediation. The method provides a historical view of the measures implemented to address the vulnerability, supporting ongoing management and compliance monitoring. Required: orgId, cveId. Optional: filter, sortby, from (plus 1 more). Returns array of Remediation.",
+      "description": "**Requires permission: `view_vulnerabilities`** Retrieves a list of previously applied remediation actions for a specific vulnerability in a specific organization. This includes details such as the type of action taken, the date of application, and the current status of the remediation. The method provides a historical view of the measures implemented to address the vulnerability, supporting ongoing management and compliance monitoring. Required: orgId, cveId. Optional: filter, sortby, offset (plus 1 more). Returns array of Remediation.",
       "method": "GET",
       "path": "/vulnerabilities/{orgId}/{cveId}/remediations",
       "params": [
@@ -4394,7 +4454,8 @@
           "description": "Define the sorting order by a certain field."
         },
         {
-          "name": "from",
+          "name": "offset",
+          "wire_name": "from",
           "type": "int",
           "location": "query",
           "description": "Provide the number of the first record to be returned."
@@ -4431,7 +4492,7 @@
           "name": "remediationId",
           "type": "string",
           "location": "path",
-          "description": "A specific remediation ID.",
+          "description": "A specific remediation ID. (e.g. 8a2b3c4d-1e2f-4a5b-9c6d-7e8f9a0b1c2d)",
           "required": true
         }
       ]
@@ -4460,7 +4521,7 @@
           "name": "remediationId",
           "type": "string",
           "location": "path",
-          "description": "A specific remediation ID.",
+          "description": "A specific remediation ID. (e.g. 8a2b3c4d-1e2f-4a5b-9c6d-7e8f9a0b1c2d)",
           "required": true
         },
         {
@@ -4507,6 +4568,53 @@
           "required": true
         }
       ]
+    }
+  ],
+  "novel_features": [
+    {
+      "name": "Fleet patch posture",
+      "command": "fleet patch-posture",
+      "description": "See every endpoint across all your client organizations ranked by how many updates it is missing — one fleet-wide view."
+    },
+    {
+      "name": "Vulnerability blast-radius (KEV triage)",
+      "command": "fleet vuln-triage",
+      "description": "Rank CVEs across every organization by how many endpoints they hit, weighted by CVSS and the CISA Known-Exploited flag."
+    },
+    {
+      "name": "Stale / dark agents",
+      "command": "fleet stale",
+      "description": "Surface endpoints that have not checked in for N days, or are offline, across all organizations."
+    },
+    {
+      "name": "Patch drift over time",
+      "command": "fleet patch-drift",
+      "description": "Diff two synced snapshots to show which updates were remediated and which newly appeared since last sync."
+    },
+    {
+      "name": "Fleet software rollup",
+      "command": "fleet software-rollup",
+      "description": "Deduplicate installed software across the whole fleet into app name x version spread x install count."
+    },
+    {
+      "name": "Endpoint health score",
+      "command": "fleet health-score",
+      "description": "A single composite score per endpoint from missing updates, open vulnerabilities, reboot-required, and staleness — fleet-ranked."
+    },
+    {
+      "name": "Automation outcomes rollup",
+      "command": "fleet automation-health",
+      "description": "Success and failure rates across automation instances and their per-endpoint results, aggregated across organizations."
+    },
+    {
+      "name": "Per-client posture scorecard",
+      "command": "fleet org-scorecard",
+      "description": "One row per client organization: endpoint count, missing updates, open CVEs, KEV exposure, and stale agents — the per-client posture number MSPs report to account managers."
+    },
+    {
+      "name": "Reboot-pending sweep",
+      "command": "fleet reboot-pending",
+      "description": "Every endpoint fleet-wide where an installed update is waiting on a reboot to finish — the action queue that closes out a patch cycle."
     }
   ]
 }

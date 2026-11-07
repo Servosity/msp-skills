@@ -107,7 +107,7 @@ func newIncidentsListCmd(flags *rootFlags) *cobra.Command {
 					filtered, selectErr = filterFieldsChecked(filtered, flags.selectFields)
 					selectErr = selectErrorForDryRun(selectErr, flags, data)
 				} else if flags.compact {
-					filtered = compactFields(filtered, map[string]bool{"incidentId": true, "priority": true, "status": true})
+					filtered = compactFields(filtered, map[string]bool{"pagesCount": true})
 				}
 				wrapped, wrapErr := wrapWithProvenance(filtered, prov)
 				if wrapErr != nil {
@@ -139,7 +139,7 @@ func newIncidentsListCmd(flags *rootFlags) *cobra.Command {
 			if flags.csv || flags.plain {
 				formatData = outputData
 			}
-			return printOutputWithFlagsMeta(cmd.OutOrStdout(), formatData, flags, map[string]any{"source": "live"}, map[string]bool{"incidentId": true, "priority": true, "status": true})
+			return printOutputWithFlagsMeta(cmd.OutOrStdout(), formatData, flags, map[string]any{"source": "live"}, map[string]bool{"pagesCount": true})
 		},
 	}
 	cmd.Flags().StringVar(&bodyFilters, "filters", "", "The criteria used to filter the returned incidents. For more information, refer to filters.")

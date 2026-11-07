@@ -39,9 +39,9 @@ func newNovelAlertsDigestCmd(flags *rootFlags) *cobra.Command {
 				Active int    `json:"active"`
 			}
 			out := make([]row, 0)
-			if s := novelLocalRead(cmd, flags, "alerts"); s != nil {
+			if s := novelLocalRead(cmd, flags, trmmAlertsResource); s != nil {
 				defer s.Close()
-				q := "SELECT COALESCE(json_extract(data,'$." + field + "'),'(none)') g, COUNT(*), SUM(CASE WHEN COALESCE(json_extract(data,'$.resolved'),0)=0 THEN 1 ELSE 0 END) FROM resources WHERE resource_type='alerts' AND " + sqlISOToDatetime("alert_time") + ">=datetime(?) GROUP BY g ORDER BY 2 DESC"
+				q := "SELECT COALESCE(json_extract(data,'$." + field + "'),'(none)') g, COUNT(*), SUM(CASE WHEN " + trmmAlertActiveSQL + " THEN 1 ELSE 0 END) FROM resources WHERE resource_type='" + trmmAlertsResource + "' AND " + sqlISOToDatetime("alert_time") + ">=datetime(?) GROUP BY g ORDER BY 2 DESC"
 				if rows, qe := s.DB().QueryContext(cmd.Context(), q, cutoff); qe == nil {
 					defer rows.Close()
 					for rows.Next() {

@@ -10,16 +10,21 @@
 The skill drives the `action1-cli` binary (and `action1-mcp`), authenticating with
 an Action1 API client: `ACTION1_CLIENT_ID` + `ACTION1_CLIENT_SECRET` (the CLI mints
 a short-lived bearer token from them automatically), or a pre-minted `ACTION1_OAUTH2`
-token. `ACTION1_REGION` (us/eu/au) selects your data center. Credentials are read
-from the environment only - never written to disk, never logged, never sent anywhere
-except the Action1 API. The token your client mints is scoped to the permissions you
+token. `ACTION1_BASE_URL` selects your data center (EU: `https://app.eu.action1.com/api/3.0`,
+Australia: `https://app.au.action1.com/api/3.0`); the token is minted from that same host,
+and no credential is ever sent to another host. A client pair from the environment is
+never written to disk; only `credentials.toml` (mode 0600) holds a credential, and
+`ACTION1_NO_CONFIG_WRITE=1` keeps even the minted token off disk. Output that would
+repeat a credential is withheld. The token your client mints is scoped to the permissions you
 granted that API client in the Action1 console, so the safest control is to grant the
 client only the permission templates your workflow needs (see "How to lock it down").
 
 ## Default-safe behavior
 
-- **`--dry-run` is opt-in - use it.** Mutating commands send immediately unless you
-  pass `--dry-run` first to preview the exact request without sending. Make your
+- **`--dry-run` is opt-in - use it.** From the CLI, mutating commands send immediately
+  unless you pass `--dry-run` first to preview the exact request without sending. Over
+  MCP, every write returns a preview and sends nothing until it is called again with
+  `confirm` set to boolean true, and `ACTION1_MCP_READ_ONLY=1` refuses every write. Make your
   agent's policy: preview, show the command, get approval, then run the write.
 - **Read commands are safe to run** (fleet rollups, lists, reports, search,
   analytics, export); they cannot change anything on an endpoint or in your tenant.

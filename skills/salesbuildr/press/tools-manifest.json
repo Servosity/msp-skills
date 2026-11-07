@@ -29,14 +29,21 @@
   "tools": [
     {
       "name": "category_public-get-all-categories",
-      "description": "Get all categories. Returns array of CategoryResponseDto.",
+      "description": "Get all categories. Optional: integration-key. Returns array of CategoryResponseDto.",
       "method": "GET",
       "path": "/category",
-      "params": []
+      "params": [
+        {
+          "name": "integration-key",
+          "type": "string",
+          "location": "header",
+          "description": "Only use this if you received a value from us, otherwise leave empty."
+        }
+      ]
     },
     {
       "name": "category_public-get-all-categories-as-tree",
-      "description": "Get all categories as tree. Optional: includeEmpty. Returns array of RootCategoryResponseDto.",
+      "description": "Get all categories as tree. Optional: includeEmpty, integration-key. Returns array of RootCategoryResponseDto.",
       "method": "GET",
       "path": "/category/tree",
       "params": [
@@ -45,15 +52,27 @@
           "type": "bool",
           "location": "query",
           "description": "Include empty"
+        },
+        {
+          "name": "integration-key",
+          "type": "string",
+          "location": "header",
+          "description": "Only use this if you received a value from us, otherwise leave empty."
         }
       ]
     },
     {
       "name": "company_public-create",
-      "description": "Create. Required: name, number, type. Optional: aboutUs, accountManagerExtId, accountManagerId (plus 18 more). Returns the new CompanyResponseDto.",
+      "description": "Create. Required: name, number, type. Optional: integration-key, aboutUs, accountManagerExtId (plus 19 more). Returns the new CompanyResponseDto.",
       "method": "POST",
       "path": "/company",
       "params": [
+        {
+          "name": "integration-key",
+          "type": "string",
+          "location": "header",
+          "description": "Only use this if you received a value from us, otherwise leave empty."
+        },
         {
           "name": "aboutUs",
           "type": "string",
@@ -263,7 +282,7 @@
     },
     {
       "name": "company_public-delete",
-      "description": "Delete. Required: id. Destructive.",
+      "description": "Delete. Required: id. Optional: integration-key. Destructive.",
       "method": "DELETE",
       "path": "/company/{id}",
       "params": [
@@ -271,14 +290,20 @@
           "name": "id",
           "type": "string",
           "location": "path",
-          "description": "Id",
+          "description": "Salesbuildr record id. (e.g. 1234)",
           "required": true
+        },
+        {
+          "name": "integration-key",
+          "type": "string",
+          "location": "header",
+          "description": "Only use this if you received a value from us, otherwise leave empty."
         }
       ]
     },
     {
       "name": "company_public-delete-by-external-identifier",
-      "description": "Delete by ext ID. Required: externalIdentifier. Destructive.",
+      "description": "Delete by ext ID. Required: externalIdentifier. Optional: integration-key. Destructive.",
       "method": "DELETE",
       "path": "/company/ext/{externalIdentifier}",
       "params": [
@@ -286,14 +311,20 @@
           "name": "externalIdentifier",
           "type": "string",
           "location": "path",
-          "description": "External identifier",
+          "description": "External (PSA-side) identifier of the record. (e.g. PSA-1042)",
           "required": true
+        },
+        {
+          "name": "integration-key",
+          "type": "string",
+          "location": "header",
+          "description": "Only use this if you received a value from us, otherwise leave empty."
         }
       ]
     },
     {
       "name": "company_public-get",
-      "description": "Get. Required: id. Returns the CompanyResponseDto.",
+      "description": "Get. Required: id. Optional: integration-key. Returns the CompanyResponseDto.",
       "method": "GET",
       "path": "/company/{id}",
       "params": [
@@ -301,14 +332,20 @@
           "name": "id",
           "type": "string",
           "location": "path",
-          "description": "Id",
+          "description": "Salesbuildr record id. (e.g. 1234)",
           "required": true
+        },
+        {
+          "name": "integration-key",
+          "type": "string",
+          "location": "header",
+          "description": "Only use this if you received a value from us, otherwise leave empty."
         }
       ]
     },
     {
       "name": "company_public-get-by-external-identifier",
-      "description": "Get by ext ID. Required: externalIdentifier. Returns the CompanyResponseDto.",
+      "description": "Get by ext ID. Required: externalIdentifier. Optional: integration-key. Returns the CompanyResponseDto.",
       "method": "GET",
       "path": "/company/ext/{externalIdentifier}",
       "params": [
@@ -316,14 +353,20 @@
           "name": "externalIdentifier",
           "type": "string",
           "location": "path",
-          "description": "External identifier",
+          "description": "External (PSA-side) identifier of the record. (e.g. PSA-1042)",
           "required": true
+        },
+        {
+          "name": "integration-key",
+          "type": "string",
+          "location": "header",
+          "description": "Only use this if you received a value from us, otherwise leave empty."
         }
       ]
     },
     {
       "name": "company_public-get-list",
-      "description": "Search. Optional: sort, filters, query (plus 2 more). Returns the CompanyResponseDto.",
+      "description": "Search. Optional: sort, filters, query (plus 3 more). Returns the CompanyResponseDto.",
       "method": "GET",
       "path": "/company",
       "params": [
@@ -356,12 +399,18 @@
           "type": "float",
           "location": "query",
           "description": "Pagination offset (starting index)"
+        },
+        {
+          "name": "integration-key",
+          "type": "string",
+          "location": "header",
+          "description": "Only use this if you received a value from us, otherwise leave empty."
         }
       ]
     },
     {
       "name": "company_public-update",
-      "description": "Update. Required: id, name, number, type. Optional: aboutUs, accountManagerExtId, accountManagerId (plus 18 more). Returns the updated CompanyResponseDto.",
+      "description": "Update. Required: id, name, number, type. Optional: integration-key, aboutUs, accountManagerExtId (plus 19 more). Returns the updated CompanyResponseDto.",
       "method": "PUT",
       "path": "/company/{id}",
       "params": [
@@ -369,8 +418,14 @@
           "name": "id",
           "type": "string",
           "location": "path",
-          "description": "Id",
+          "description": "Salesbuildr record id. (e.g. 1234)",
           "required": true
+        },
+        {
+          "name": "integration-key",
+          "type": "string",
+          "location": "header",
+          "description": "Only use this if you received a value from us, otherwise leave empty."
         },
         {
           "name": "aboutUs",
@@ -581,7 +636,7 @@
     },
     {
       "name": "company_public-upsert",
-      "description": "Create or update a company using the ext ID as key. Required: externalIdentifier, name, number, type. Optional: aboutUs, accountManagerExtId, accountManagerId (plus 18 more). Returns the updated CompanyResponseDto.",
+      "description": "Create or update a company using the ext ID as key. Required: externalIdentifier, name, number, type. Optional: integration-key, aboutUs, accountManagerExtId (plus 19 more). Returns the updated CompanyResponseDto.",
       "method": "PUT",
       "path": "/company/ext/{externalIdentifier}",
       "params": [
@@ -589,8 +644,14 @@
           "name": "externalIdentifier",
           "type": "string",
           "location": "path",
-          "description": "External identifier",
+          "description": "External (PSA-side) identifier of the record. (e.g. PSA-1042)",
           "required": true
+        },
+        {
+          "name": "integration-key",
+          "type": "string",
+          "location": "header",
+          "description": "Only use this if you received a value from us, otherwise leave empty."
         },
         {
           "name": "aboutUs",
@@ -802,10 +863,16 @@
     },
     {
       "name": "contact_company-public-create",
-      "description": "Create. Required: companyExtId, companyId, email, externalIdentifier, firstName, isActive, lastName, middleName, mobilePhone, phone.",
+      "description": "Create. Required: companyExtId, companyId, email, externalIdentifier, firstName, isActive, lastName, middleName, mobilePhone, phone. Optional: integration-key.",
       "method": "POST",
       "path": "/contact",
       "params": [
+        {
+          "name": "integration-key",
+          "type": "string",
+          "location": "header",
+          "description": "Only use this if you received a value from us, otherwise leave empty."
+        },
         {
           "name": "companyExtId",
           "type": "string",
@@ -880,7 +947,7 @@
     },
     {
       "name": "contact_company-public-delete",
-      "description": "Delete by ext ID. Required: externalIdentifier. Destructive.",
+      "description": "Delete by ext ID. Required: externalIdentifier. Optional: integration-key. Destructive.",
       "method": "DELETE",
       "path": "/contact/ext/{externalIdentifier}",
       "params": [
@@ -888,14 +955,20 @@
           "name": "externalIdentifier",
           "type": "string",
           "location": "path",
-          "description": "External identifier",
+          "description": "External (PSA-side) identifier of the record. (e.g. PSA-1042)",
           "required": true
+        },
+        {
+          "name": "integration-key",
+          "type": "string",
+          "location": "header",
+          "description": "Only use this if you received a value from us, otherwise leave empty."
         }
       ]
     },
     {
       "name": "contact_company-public-delete-by-id",
-      "description": "Delete by ID. Required: id. Destructive.",
+      "description": "Delete by ID. Required: id. Optional: integration-key. Destructive.",
       "method": "DELETE",
       "path": "/contact/{id}",
       "params": [
@@ -903,14 +976,20 @@
           "name": "id",
           "type": "string",
           "location": "path",
-          "description": "Id",
+          "description": "Salesbuildr record id. (e.g. 1234)",
           "required": true
+        },
+        {
+          "name": "integration-key",
+          "type": "string",
+          "location": "header",
+          "description": "Only use this if you received a value from us, otherwise leave empty."
         }
       ]
     },
     {
       "name": "contact_company-public-get",
-      "description": "Get. Required: id.",
+      "description": "Get. Required: id. Optional: integration-key.",
       "method": "GET",
       "path": "/contact/{id}",
       "params": [
@@ -918,14 +997,20 @@
           "name": "id",
           "type": "string",
           "location": "path",
-          "description": "Id",
+          "description": "Salesbuildr record id. (e.g. 1234)",
           "required": true
+        },
+        {
+          "name": "integration-key",
+          "type": "string",
+          "location": "header",
+          "description": "Only use this if you received a value from us, otherwise leave empty."
         }
       ]
     },
     {
       "name": "contact_company-public-get-by-external-identifier",
-      "description": "Get by ext ID. Required: externalIdentifier.",
+      "description": "Get by ext ID. Required: externalIdentifier. Optional: integration-key.",
       "method": "GET",
       "path": "/contact/ext/{externalIdentifier}",
       "params": [
@@ -933,14 +1018,20 @@
           "name": "externalIdentifier",
           "type": "string",
           "location": "path",
-          "description": "External identifier",
+          "description": "External (PSA-side) identifier of the record. (e.g. PSA-1042)",
           "required": true
+        },
+        {
+          "name": "integration-key",
+          "type": "string",
+          "location": "header",
+          "description": "Only use this if you received a value from us, otherwise leave empty."
         }
       ]
     },
     {
       "name": "contact_company-public-get-list",
-      "description": "Search contacts. Optional: sort, filters, query (plus 2 more). Returns array of ContactResponseDto.",
+      "description": "Search contacts. Optional: sort, filters, query (plus 3 more). Returns array of ContactResponseDto.",
       "method": "GET",
       "path": "/contact",
       "params": [
@@ -973,12 +1064,18 @@
           "type": "float",
           "location": "query",
           "description": "Pagination offset (starting index)"
+        },
+        {
+          "name": "integration-key",
+          "type": "string",
+          "location": "header",
+          "description": "Only use this if you received a value from us, otherwise leave empty."
         }
       ]
     },
     {
       "name": "contact_company-public-undelete-by-ext-id",
-      "description": "Undelete by ext ID. Required: externalIdentifier.",
+      "description": "Undelete by ext ID. Required: externalIdentifier. Optional: integration-key.",
       "method": "PUT",
       "path": "/contact/ext/{externalIdentifier}/undelete",
       "params": [
@@ -986,14 +1083,20 @@
           "name": "externalIdentifier",
           "type": "string",
           "location": "path",
-          "description": "External identifier",
+          "description": "External (PSA-side) identifier of the record. (e.g. PSA-1042)",
           "required": true
+        },
+        {
+          "name": "integration-key",
+          "type": "string",
+          "location": "header",
+          "description": "Only use this if you received a value from us, otherwise leave empty."
         }
       ]
     },
     {
       "name": "contact_company-public-update",
-      "description": "Update. Required: id, companyExtId, companyId, email, externalIdentifier, firstName, isActive, lastName, middleName, mobilePhone, phone.",
+      "description": "Update. Required: id, companyExtId, companyId, email, externalIdentifier, firstName, isActive, lastName, middleName, mobilePhone, phone. Optional: integration-key.",
       "method": "PUT",
       "path": "/contact/{id}",
       "params": [
@@ -1001,8 +1104,14 @@
           "name": "id",
           "type": "string",
           "location": "path",
-          "description": "Id",
+          "description": "Salesbuildr record id. (e.g. 1234)",
           "required": true
+        },
+        {
+          "name": "integration-key",
+          "type": "string",
+          "location": "header",
+          "description": "Only use this if you received a value from us, otherwise leave empty."
         },
         {
           "name": "companyExtId",
@@ -1078,7 +1187,7 @@
     },
     {
       "name": "contact_company-public-upsert",
-      "description": "Upsert by ext ID. Required: externalIdentifier, companyExtId, companyId, email, firstName, isActive, lastName, middleName, mobilePhone, phone.",
+      "description": "Upsert by ext ID. Required: externalIdentifier, companyExtId, companyId, email, firstName, isActive, lastName, middleName, mobilePhone, phone. Optional: integration-key.",
       "method": "PUT",
       "path": "/contact/ext/{externalIdentifier}",
       "params": [
@@ -1086,8 +1195,14 @@
           "name": "externalIdentifier",
           "type": "string",
           "location": "path",
-          "description": "External identifier",
+          "description": "External (PSA-side) identifier of the record. (e.g. PSA-1042)",
           "required": true
+        },
+        {
+          "name": "integration-key",
+          "type": "string",
+          "location": "header",
+          "description": "Only use this if you received a value from us, otherwise leave empty."
         },
         {
           "name": "companyExtId",
@@ -1156,10 +1271,16 @@
     },
     {
       "name": "contact_company-public-upsert-by-email",
-      "description": "Upsert by email address. Required: companyExtId, companyId, email, externalIdentifier, firstName, isActive, lastName, middleName, mobilePhone, phone.",
+      "description": "Upsert by email address. Required: companyExtId, companyId, email, externalIdentifier, firstName, isActive, lastName, middleName, mobilePhone, phone. Optional: integration-key.",
       "method": "PUT",
       "path": "/contact/by-email",
       "params": [
+        {
+          "name": "integration-key",
+          "type": "string",
+          "location": "header",
+          "description": "Only use this if you received a value from us, otherwise leave empty."
+        },
         {
           "name": "companyExtId",
           "type": "string",
@@ -1234,7 +1355,7 @@
     },
     {
       "name": "contact_undelete_company-contact-public-contact-by-id",
-      "description": "Undelete by ID. Required: id.",
+      "description": "Undelete by ID. Required: id. Optional: integration-key.",
       "method": "PUT",
       "path": "/contact/{id}/undelete",
       "params": [
@@ -1242,14 +1363,20 @@
           "name": "id",
           "type": "string",
           "location": "path",
-          "description": "Id",
+          "description": "Salesbuildr record id. (e.g. 1234)",
           "required": true
+        },
+        {
+          "name": "integration-key",
+          "type": "string",
+          "location": "header",
+          "description": "Only use this if you received a value from us, otherwise leave empty."
         }
       ]
     },
     {
       "name": "contract_public-get-items",
-      "description": "⚠️ **Beta API** - This endpoint is in beta and may change without notice. Use with caution in production environments. Optional: query.",
+      "description": "⚠️ **Beta API** - This endpoint is in beta and may change without notice. Use with caution in production environments. Optional: query, integration-key.",
       "method": "GET",
       "path": "/contract/items",
       "params": [
@@ -1258,12 +1385,18 @@
           "type": "string",
           "location": "query",
           "description": "Search query"
+        },
+        {
+          "name": "integration-key",
+          "type": "string",
+          "location": "header",
+          "description": "Only use this if you received a value from us, otherwise leave empty."
         }
       ]
     },
     {
       "name": "field_public-get-values",
-      "description": "Get the list of values from a field. Required: field. Returns array of FieldValueResponseDto.",
+      "description": "Get the list of values from a field. Required: field. Optional: integration-key. Returns array of FieldValueResponseDto.",
       "method": "GET",
       "path": "/field/{field}",
       "params": [
@@ -1271,14 +1404,20 @@
           "name": "field",
           "type": "string",
           "location": "path",
-          "description": "Field",
+          "description": "Field name. (e.g. industry)",
           "required": true
+        },
+        {
+          "name": "integration-key",
+          "type": "string",
+          "location": "header",
+          "description": "Only use this if you received a value from us, otherwise leave empty."
         }
       ]
     },
     {
       "name": "field_public-update-values",
-      "description": "Replace existing field values with new list. Required: field, values.",
+      "description": "Replace existing field values with new list. Required: field, values. Optional: integration-key.",
       "method": "PUT",
       "path": "/field/{field}",
       "params": [
@@ -1286,8 +1425,14 @@
           "name": "field",
           "type": "string",
           "location": "path",
-          "description": "Field",
+          "description": "Field name. (e.g. industry)",
           "required": true
+        },
+        {
+          "name": "integration-key",
+          "type": "string",
+          "location": "header",
+          "description": "Only use this if you received a value from us, otherwise leave empty."
         },
         {
           "name": "values",
@@ -1300,7 +1445,7 @@
     },
     {
       "name": "opportunity_public-get-by-id",
-      "description": "Get by ID. Required: id. Returns the OpportunityResponseDto.",
+      "description": "Get by ID. Required: id. Optional: integration-key. Returns the OpportunityResponseDto.",
       "method": "GET",
       "path": "/opportunity/{id}",
       "params": [
@@ -1308,14 +1453,20 @@
           "name": "id",
           "type": "string",
           "location": "path",
-          "description": "Id",
+          "description": "Salesbuildr record id. (e.g. 1234)",
           "required": true
+        },
+        {
+          "name": "integration-key",
+          "type": "string",
+          "location": "header",
+          "description": "Only use this if you received a value from us, otherwise leave empty."
         }
       ]
     },
     {
       "name": "opportunity_public-get-opportunities",
-      "description": "Search. Optional: sort, filters, query (plus 2 more). Returns array of OpportunityResponseDto.",
+      "description": "Search. Optional: sort, filters, query (plus 3 more). Returns array of OpportunityResponseDto.",
       "method": "GET",
       "path": "/opportunity",
       "params": [
@@ -1348,12 +1499,18 @@
           "type": "float",
           "location": "query",
           "description": "Pagination offset (starting index)"
+        },
+        {
+          "name": "integration-key",
+          "type": "string",
+          "location": "header",
+          "description": "Only use this if you received a value from us, otherwise leave empty."
         }
       ]
     },
     {
       "name": "opportunity_public-lose",
-      "description": "Lose by ext ID. Required: externalIdentifier.",
+      "description": "Lose by ext ID. Required: externalIdentifier. Optional: integration-key.",
       "method": "POST",
       "path": "/opportunity/ext/{externalIdentifier}/lose",
       "params": [
@@ -1361,14 +1518,20 @@
           "name": "externalIdentifier",
           "type": "string",
           "location": "path",
-          "description": "External identifier",
+          "description": "External (PSA-side) identifier of the record. (e.g. PSA-1042)",
           "required": true
+        },
+        {
+          "name": "integration-key",
+          "type": "string",
+          "location": "header",
+          "description": "Only use this if you received a value from us, otherwise leave empty."
         }
       ]
     },
     {
       "name": "opportunity_public-upsert",
-      "description": "Create or update a opportunity using the ext ID as key. Required: externalIdentifier, name. Optional: categoryExtId, categoryId, companyExtId (plus 18 more). Returns the updated OpportunityResponseDto.",
+      "description": "Create or update a opportunity using the ext ID as key. Required: externalIdentifier, name. Optional: integration-key, categoryExtId, categoryId (plus 19 more). Returns the updated OpportunityResponseDto.",
       "method": "PUT",
       "path": "/opportunity/ext/{externalIdentifier}",
       "params": [
@@ -1376,8 +1539,14 @@
           "name": "externalIdentifier",
           "type": "string",
           "location": "path",
-          "description": "External identifier",
+          "description": "External (PSA-side) identifier of the record. (e.g. PSA-1042)",
           "required": true
+        },
+        {
+          "name": "integration-key",
+          "type": "string",
+          "location": "header",
+          "description": "Only use this if you received a value from us, otherwise leave empty."
         },
         {
           "name": "categoryExtId",
@@ -1516,7 +1685,7 @@
     },
     {
       "name": "opportunity_public-win",
-      "description": "Win by ext ID. Required: externalIdentifier.",
+      "description": "Win by ext ID. Required: externalIdentifier. Optional: integration-key.",
       "method": "POST",
       "path": "/opportunity/ext/{externalIdentifier}/win",
       "params": [
@@ -1524,17 +1693,29 @@
           "name": "externalIdentifier",
           "type": "string",
           "location": "path",
-          "description": "External identifier",
+          "description": "External (PSA-side) identifier of the record. (e.g. PSA-1042)",
           "required": true
+        },
+        {
+          "name": "integration-key",
+          "type": "string",
+          "location": "header",
+          "description": "Only use this if you received a value from us, otherwise leave empty."
         }
       ]
     },
     {
       "name": "pricing-book_public-create",
-      "description": "Create a new pricing book. Required: classificationIds, companyIds, description, name, products, specialBidNumber. Returns the new PricingBookResponseDto.",
+      "description": "Create a new pricing book. Required: classificationIds, companyIds, description, name, products, specialBidNumber. Optional: integration-key. Returns the new PricingBookResponseDto.",
       "method": "POST",
       "path": "/pricing-book",
       "params": [
+        {
+          "name": "integration-key",
+          "type": "string",
+          "location": "header",
+          "description": "Only use this if you received a value from us, otherwise leave empty."
+        },
         {
           "name": "classificationIds",
           "type": "string_csv_array",
@@ -1581,7 +1762,7 @@
     },
     {
       "name": "pricing-book_public-get",
-      "description": "Get pricing book by ID. Required: id. Returns the PricingBookResponseDto.",
+      "description": "Get pricing book by ID. Required: id. Optional: integration-key. Returns the PricingBookResponseDto.",
       "method": "GET",
       "path": "/pricing-book/{id}",
       "params": [
@@ -1589,21 +1770,34 @@
           "name": "id",
           "type": "string",
           "location": "path",
-          "description": "Id",
+          "description": "Salesbuildr record id. (e.g. 1234)",
           "required": true
+        },
+        {
+          "name": "integration-key",
+          "type": "string",
+          "location": "header",
+          "description": "Only use this if you received a value from us, otherwise leave empty."
         }
       ]
     },
     {
       "name": "pricing-book_public-get-all",
-      "description": "Get pricing books. Returns array of PricingBookResponseDto.",
+      "description": "Get pricing books. Optional: integration-key. Returns array of PricingBookResponseDto.",
       "method": "GET",
       "path": "/pricing-book",
-      "params": []
+      "params": [
+        {
+          "name": "integration-key",
+          "type": "string",
+          "location": "header",
+          "description": "Only use this if you received a value from us, otherwise leave empty."
+        }
+      ]
     },
     {
       "name": "pricing-book_public-update",
-      "description": "Update an existing pricing book. Required: id, classificationIds, companyIds, description, name, products, specialBidNumber. Returns the updated PricingBookResponseDto.",
+      "description": "Update an existing pricing book. Required: id, classificationIds, companyIds, description, name, products, specialBidNumber. Optional: integration-key. Returns the updated PricingBookResponseDto.",
       "method": "PUT",
       "path": "/pricing-book/{id}",
       "params": [
@@ -1611,8 +1805,14 @@
           "name": "id",
           "type": "string",
           "location": "path",
-          "description": "Id",
+          "description": "Salesbuildr record id. (e.g. 1234)",
           "required": true
+        },
+        {
+          "name": "integration-key",
+          "type": "string",
+          "location": "header",
+          "description": "Only use this if you received a value from us, otherwise leave empty."
         },
         {
           "name": "classificationIds",
@@ -1660,7 +1860,7 @@
     },
     {
       "name": "product_public-create",
-      "description": "Create product. Required: categoryId, name. Optional: enrich, cost, customFields (plus 18 more). Returns the new ProductResponseDto.",
+      "description": "Create product. Required: categoryId, name. Optional: enrich, integration-key, cost (plus 19 more). Returns the new ProductResponseDto.",
       "method": "POST",
       "path": "/product",
       "params": [
@@ -1669,6 +1869,12 @@
           "type": "bool",
           "location": "query",
           "description": "Enrich product data"
+        },
+        {
+          "name": "integration-key",
+          "type": "string",
+          "location": "header",
+          "description": "Only use this if you received a value from us, otherwise leave empty."
         },
         {
           "name": "categoryId",
@@ -1808,7 +2014,7 @@
     },
     {
       "name": "product_public-create-batch",
-      "description": "Create products in batch. Maximum 100 products. Required: products. Optional: enrich. Returns array of BatchProductResponseDto.",
+      "description": "Create products in batch. Maximum 100 products. Required: products. Optional: enrich, integration-key. Returns array of BatchProductResponseDto.",
       "method": "POST",
       "path": "/product/batch",
       "params": [
@@ -1817,6 +2023,12 @@
           "type": "bool",
           "location": "query",
           "description": "Enrich product data"
+        },
+        {
+          "name": "integration-key",
+          "type": "string",
+          "location": "header",
+          "description": "Only use this if you received a value from us, otherwise leave empty."
         },
         {
           "name": "products",
@@ -1829,7 +2041,7 @@
     },
     {
       "name": "product_public-delete",
-      "description": "Delete product. Required: id. Destructive.",
+      "description": "Delete product. Required: id. Optional: integration-key. Destructive.",
       "method": "DELETE",
       "path": "/product/{id}",
       "params": [
@@ -1837,14 +2049,20 @@
           "name": "id",
           "type": "string",
           "location": "path",
-          "description": "Id",
+          "description": "Salesbuildr record id. (e.g. 1234)",
           "required": true
+        },
+        {
+          "name": "integration-key",
+          "type": "string",
+          "location": "header",
+          "description": "Only use this if you received a value from us, otherwise leave empty."
         }
       ]
     },
     {
       "name": "product_public-delete-by-external-identifier",
-      "description": "Delete product by external identifier. Required: externalIdentifier. Destructive.",
+      "description": "Delete product by external identifier. Required: externalIdentifier. Optional: integration-key. Destructive.",
       "method": "DELETE",
       "path": "/product/ext/{externalIdentifier}",
       "params": [
@@ -1852,14 +2070,20 @@
           "name": "externalIdentifier",
           "type": "string",
           "location": "path",
-          "description": "External identifier",
+          "description": "External (PSA-side) identifier of the record. (e.g. PSA-1042)",
           "required": true
+        },
+        {
+          "name": "integration-key",
+          "type": "string",
+          "location": "header",
+          "description": "Only use this if you received a value from us, otherwise leave empty."
         }
       ]
     },
     {
       "name": "product_public-get",
-      "description": "Search. Optional: includeBundles, sort, filters (plus 3 more). Returns array of ProductResponseDto.",
+      "description": "Search. Optional: includeBundles, sort, filters (plus 4 more). Returns array of ProductResponseDto.",
       "method": "GET",
       "path": "/product",
       "params": [
@@ -1898,12 +2122,18 @@
           "type": "float",
           "location": "query",
           "description": "Pagination offset (starting index)"
+        },
+        {
+          "name": "integration-key",
+          "type": "string",
+          "location": "header",
+          "description": "Only use this if you received a value from us, otherwise leave empty."
         }
       ]
     },
     {
       "name": "product_public-get-by-external-identifier",
-      "description": "Get product by external identifier. Required: externalIdentifier. Returns the ProductResponseDto.",
+      "description": "Get product by external identifier. Required: externalIdentifier. Optional: integration-key. Returns the ProductResponseDto.",
       "method": "GET",
       "path": "/product/ext/{externalIdentifier}",
       "params": [
@@ -1911,14 +2141,20 @@
           "name": "externalIdentifier",
           "type": "string",
           "location": "path",
-          "description": "External identifier",
+          "description": "External (PSA-side) identifier of the record. (e.g. PSA-1042)",
           "required": true
+        },
+        {
+          "name": "integration-key",
+          "type": "string",
+          "location": "header",
+          "description": "Only use this if you received a value from us, otherwise leave empty."
         }
       ]
     },
     {
       "name": "product_public-get-id",
-      "description": "Get product by ID. Required: id. Returns the ProductResponseDto.",
+      "description": "Get product by ID. Required: id. Optional: integration-key. Returns the ProductResponseDto.",
       "method": "GET",
       "path": "/product/{id}",
       "params": [
@@ -1926,14 +2162,20 @@
           "name": "id",
           "type": "string",
           "location": "path",
-          "description": "Id",
+          "description": "Salesbuildr record id. (e.g. 1234)",
           "required": true
+        },
+        {
+          "name": "integration-key",
+          "type": "string",
+          "location": "header",
+          "description": "Only use this if you received a value from us, otherwise leave empty."
         }
       ]
     },
     {
       "name": "product_public-update",
-      "description": "Update product. Required: id. Optional: enrich, categoryId, cost (plus 20 more). Returns the updated ProductResponseDto.",
+      "description": "Update product. Required: id. Optional: enrich, integration-key, categoryId (plus 21 more). Returns the updated ProductResponseDto.",
       "method": "PUT",
       "path": "/product/{id}",
       "params": [
@@ -1941,7 +2183,7 @@
           "name": "id",
           "type": "string",
           "location": "path",
-          "description": "Id",
+          "description": "Salesbuildr record id. (e.g. 1234)",
           "required": true
         },
         {
@@ -1949,6 +2191,12 @@
           "type": "bool",
           "location": "query",
           "description": "Enrich product data"
+        },
+        {
+          "name": "integration-key",
+          "type": "string",
+          "location": "header",
+          "description": "Only use this if you received a value from us, otherwise leave empty."
         },
         {
           "name": "categoryId",
@@ -2086,7 +2334,7 @@
     },
     {
       "name": "product_public-upsert-by-external-identifier",
-      "description": "Upsert product by external identifier. Required: externalIdentifier. Optional: categoryId, cost, customFields (plus 19 more). Returns the updated ProductResponseDto.",
+      "description": "Upsert product by external identifier. Required: externalIdentifier. Optional: integration-key, categoryId, cost (plus 20 more). Returns the updated ProductResponseDto.",
       "method": "PUT",
       "path": "/product/ext/{externalIdentifier}",
       "params": [
@@ -2094,8 +2342,14 @@
           "name": "externalIdentifier",
           "type": "string",
           "location": "path",
-          "description": "External identifier",
+          "description": "External (PSA-side) identifier of the record. (e.g. PSA-1042)",
           "required": true
+        },
+        {
+          "name": "integration-key",
+          "type": "string",
+          "location": "header",
+          "description": "Only use this if you received a value from us, otherwise leave empty."
         },
         {
           "name": "categoryId",
@@ -2234,7 +2488,7 @@
     },
     {
       "name": "product_inventory_product-public-put-inventories",
-      "description": "Replace a product's inventories. Required: id, inventories.",
+      "description": "Replace a product's inventories. Required: id, inventories. Optional: integration-key.",
       "method": "PUT",
       "path": "/product/{id}/inventory",
       "params": [
@@ -2242,8 +2496,14 @@
           "name": "id",
           "type": "string",
           "location": "path",
-          "description": "Id",
+          "description": "Salesbuildr record id. (e.g. 1234)",
           "required": true
+        },
+        {
+          "name": "integration-key",
+          "type": "string",
+          "location": "header",
+          "description": "Only use this if you received a value from us, otherwise leave empty."
         },
         {
           "name": "inventories",
@@ -2256,10 +2516,16 @@
     },
     {
       "name": "quote_public-create-approved",
-      "description": "Create approved quote. Required: opportunityId, title. Optional: products, templateId. Returns the new QuoteResponseDto.",
+      "description": "Create approved quote. Required: opportunityId, title. Optional: integration-key, products, templateId. Returns the new QuoteResponseDto.",
       "method": "POST",
       "path": "/quote/approved",
       "params": [
+        {
+          "name": "integration-key",
+          "type": "string",
+          "location": "header",
+          "description": "Only use this if you received a value from us, otherwise leave empty."
+        },
         {
           "name": "opportunityId",
           "type": "string",
@@ -2290,10 +2556,16 @@
     },
     {
       "name": "quote_public-create-draft",
-      "description": "Create draft quote. Required: opportunityId, title. Optional: products, templateId. Returns the new QuoteResponseDto.",
+      "description": "Create draft quote. Required: opportunityId, title. Optional: integration-key, products, templateId. Returns the new QuoteResponseDto.",
       "method": "POST",
       "path": "/quote",
       "params": [
+        {
+          "name": "integration-key",
+          "type": "string",
+          "location": "header",
+          "description": "Only use this if you received a value from us, otherwise leave empty."
+        },
         {
           "name": "opportunityId",
           "type": "string",
@@ -2324,7 +2596,7 @@
     },
     {
       "name": "quote_public-get",
-      "description": "Search. Optional: sort, filters, query (plus 2 more). Returns array of QuoteResponseDto.",
+      "description": "Search. Optional: sort, filters, query (plus 3 more). Returns array of QuoteResponseDto.",
       "method": "GET",
       "path": "/quote",
       "params": [
@@ -2357,19 +2629,32 @@
           "type": "float",
           "location": "query",
           "description": "Pagination offset (starting index)"
+        },
+        {
+          "name": "integration-key",
+          "type": "string",
+          "location": "header",
+          "description": "Only use this if you received a value from us, otherwise leave empty."
         }
       ]
     },
     {
       "name": "quote_public-get-approved",
-      "description": "Search approved. Returns array of QuoteResponseDto.",
+      "description": "Search approved. Optional: integration-key. Returns array of QuoteResponseDto. Deprecated.",
       "method": "GET",
       "path": "/quote/approved",
-      "params": []
+      "params": [
+        {
+          "name": "integration-key",
+          "type": "string",
+          "location": "header",
+          "description": "Only use this if you received a value from us, otherwise leave empty."
+        }
+      ]
     },
     {
       "name": "quote_public-get-id",
-      "description": "Get. Required: id. Returns the QuoteResponseDto.",
+      "description": "Get. Required: id. Optional: integration-key. Returns the QuoteResponseDto.",
       "method": "GET",
       "path": "/quote/{id}",
       "params": [
@@ -2377,14 +2662,20 @@
           "name": "id",
           "type": "string",
           "location": "path",
-          "description": "Id",
+          "description": "Salesbuildr record id. (e.g. 1234)",
           "required": true
+        },
+        {
+          "name": "integration-key",
+          "type": "string",
+          "location": "header",
+          "description": "Only use this if you received a value from us, otherwise leave empty."
         }
       ]
     },
     {
       "name": "quote_attachment_quote-public-get-quote",
-      "description": "Download quote attachment. Required: id, title.",
+      "description": "Download quote attachment. Required: id, title. Optional: integration-key.",
       "method": "GET",
       "path": "/quote/{id}/attachment/{title}",
       "params": [
@@ -2392,21 +2683,27 @@
           "name": "id",
           "type": "string",
           "location": "path",
-          "description": "Id",
+          "description": "Salesbuildr record id. (e.g. 1234)",
           "required": true
         },
         {
           "name": "title",
           "type": "string",
           "location": "path",
-          "description": "Title",
+          "description": "Attachment title as shown on the quote. (e.g. terms.pdf)",
           "required": true
+        },
+        {
+          "name": "integration-key",
+          "type": "string",
+          "location": "header",
+          "description": "Only use this if you received a value from us, otherwise leave empty."
         }
       ]
     },
     {
       "name": "quote_pdf_quote-public-get-quote",
-      "description": "Get quote PDF. Required: id.",
+      "description": "Get quote PDF. Required: id. Optional: integration-key.",
       "method": "GET",
       "path": "/quote/{id}/pdf",
       "params": [
@@ -2414,17 +2711,29 @@
           "name": "id",
           "type": "string",
           "location": "path",
-          "description": "Id",
+          "description": "Salesbuildr record id. (e.g. 1234)",
           "required": true
+        },
+        {
+          "name": "integration-key",
+          "type": "string",
+          "location": "header",
+          "description": "Only use this if you received a value from us, otherwise leave empty."
         }
       ]
     },
     {
       "name": "quote-discount-group_discount-group-public-create",
-      "description": "Create new. Required: classificationIds, companyIds, discounts, name. Returns the new DiscountGroupResponseDto.",
+      "description": "Create new. Required: classificationIds, companyIds, discounts, name. Optional: integration-key. Returns the new DiscountGroupResponseDto.",
       "method": "POST",
       "path": "/quote-discount-group",
       "params": [
+        {
+          "name": "integration-key",
+          "type": "string",
+          "location": "header",
+          "description": "Only use this if you received a value from us, otherwise leave empty."
+        },
         {
           "name": "classificationIds",
           "type": "string_csv_array",
@@ -2457,14 +2766,21 @@
     },
     {
       "name": "quote-discount-group_discount-group-public-get-all",
-      "description": "Get all. Returns array of QuoteDiscountGroupDiscountGroupPublicGetAllItem.",
+      "description": "Get all. Optional: integration-key. Returns array of QuoteDiscountGroupDiscountGroupPublicGetAllItem.",
       "method": "GET",
       "path": "/quote-discount-group",
-      "params": []
+      "params": [
+        {
+          "name": "integration-key",
+          "type": "string",
+          "location": "header",
+          "description": "Only use this if you received a value from us, otherwise leave empty."
+        }
+      ]
     },
     {
       "name": "quote-discount-group_discount-group-public-get-by-id",
-      "description": "Get by id. Required: id. Returns the DiscountGroupResponseDto.",
+      "description": "Get by id. Required: id. Optional: integration-key. Returns the DiscountGroupResponseDto.",
       "method": "GET",
       "path": "/quote-discount-group/{id}",
       "params": [
@@ -2472,14 +2788,20 @@
           "name": "id",
           "type": "string",
           "location": "path",
-          "description": "Id",
+          "description": "Salesbuildr record id. (e.g. 1234)",
           "required": true
+        },
+        {
+          "name": "integration-key",
+          "type": "string",
+          "location": "header",
+          "description": "Only use this if you received a value from us, otherwise leave empty."
         }
       ]
     },
     {
       "name": "quote-discount-group_discount-group-public-update",
-      "description": "Update by id. Required: id, classificationIds, companyIds, discounts, name. Returns the updated DiscountGroupResponseDto.",
+      "description": "Update by id. Required: id, classificationIds, companyIds, discounts, name. Optional: integration-key. Returns the updated DiscountGroupResponseDto.",
       "method": "PUT",
       "path": "/quote-discount-group/{id}",
       "params": [
@@ -2487,8 +2809,14 @@
           "name": "id",
           "type": "string",
           "location": "path",
-          "description": "Id",
+          "description": "Salesbuildr record id. (e.g. 1234)",
           "required": true
+        },
+        {
+          "name": "integration-key",
+          "type": "string",
+          "location": "header",
+          "description": "Only use this if you received a value from us, otherwise leave empty."
         },
         {
           "name": "classificationIds",
@@ -2522,7 +2850,7 @@
     },
     {
       "name": "quote-discount-group_companies_discount-group-public-update-company-discount-group",
-      "description": "Set discount group to companies. Required: id, companyIds. Returns the updated UpdateCompaniesDiscountGroupResponseDto.",
+      "description": "Set discount group to companies. Required: id, companyIds. Optional: integration-key. Returns the updated UpdateCompaniesDiscountGroupResponseDto.",
       "method": "PUT",
       "path": "/quote-discount-group/{id}/companies",
       "params": [
@@ -2530,8 +2858,14 @@
           "name": "id",
           "type": "string",
           "location": "path",
-          "description": "Id",
+          "description": "Salesbuildr record id. (e.g. 1234)",
           "required": true
+        },
+        {
+          "name": "integration-key",
+          "type": "string",
+          "location": "header",
+          "description": "Only use this if you received a value from us, otherwise leave empty."
         },
         {
           "name": "companyIds",
@@ -2544,10 +2878,16 @@
     },
     {
       "name": "quote-template_public-create",
-      "description": "Creates a new quote template. All product references should use internal Sfindr product IDs. Required: name. Optional: allowAnonymousApproval, allowRecipientManageDescription, allowRecipientManageLines (plus 30 more). Returns the new QuoteTemplateResponseDto.",
+      "description": "Creates a new quote template. All product references should use internal Sfindr product IDs. Required: name. Optional: integration-key, allowAnonymousApproval, allowRecipientManageDescription (plus 31 more). Returns the new QuoteTemplateResponseDto.",
       "method": "POST",
       "path": "/quote-template",
       "params": [
+        {
+          "name": "integration-key",
+          "type": "string",
+          "location": "header",
+          "description": "Only use this if you received a value from us, otherwise leave empty."
+        },
         {
           "name": "allowAnonymousApproval",
           "type": "bool",
@@ -2939,7 +3279,7 @@
     },
     {
       "name": "quote-template_public-get-by-id",
-      "description": "Returns a single quote template with all its contents. The response can be used directly in PUT requests. Required: id.",
+      "description": "Returns a single quote template with all its contents. The response can be used directly in PUT requests. Required: id. Optional: integration-key.",
       "method": "GET",
       "path": "/quote-template/{id}",
       "params": [
@@ -2947,21 +3287,34 @@
           "name": "id",
           "type": "string",
           "location": "path",
-          "description": "Id",
+          "description": "Salesbuildr record id. (e.g. 1234)",
           "required": true
+        },
+        {
+          "name": "integration-key",
+          "type": "string",
+          "location": "header",
+          "description": "Only use this if you received a value from us, otherwise leave empty."
         }
       ]
     },
     {
       "name": "quote-template_public-list",
-      "description": "Returns a list of all quote templates ordered by their display order.",
+      "description": "Returns a list of all quote templates ordered by their display order. Optional: integration-key.",
       "method": "GET",
       "path": "/quote-template",
-      "params": []
+      "params": [
+        {
+          "name": "integration-key",
+          "type": "string",
+          "location": "header",
+          "description": "Only use this if you received a value from us, otherwise leave empty."
+        }
+      ]
     },
     {
       "name": "quote-template_public-update",
-      "description": "Updates an existing quote template. All product references should use internal Sfindr product IDs. Only provided fields will be updated. Required: id. Optional: allowAnonymousApproval, allowRecipientManageDescription, allowRecipientManageLines (plus 33 more). Returns the updated QuoteTemplateResponseDto.",
+      "description": "Updates an existing quote template. All product references should use internal Sfindr product IDs. Only provided fields will be updated. Required: id. Optional: integration-key, allowAnonymousApproval, allowRecipientManageDescription (plus 34 more). Returns the updated QuoteTemplateResponseDto.",
       "method": "PUT",
       "path": "/quote-template/{id}",
       "params": [
@@ -2969,8 +3322,14 @@
           "name": "id",
           "type": "string",
           "location": "path",
-          "description": "Id",
+          "description": "Salesbuildr record id. (e.g. 1234)",
           "required": true
+        },
+        {
+          "name": "integration-key",
+          "type": "string",
+          "location": "header",
+          "description": "Only use this if you received a value from us, otherwise leave empty."
         },
         {
           "name": "allowAnonymousApproval",
@@ -3374,10 +3733,16 @@
     },
     {
       "name": "quote-template_public-validate-template",
-      "description": "Validates template data including product references and attachments. Returns the validated/filtered data that would be used in create/update operations. Required: name. Optional: allowAnonymousApproval, allowRecipientManageDescription, allowRecipientManageLines (plus 30 more).",
+      "description": "Validates template data including product references and attachments. Returns the validated/filtered data that would be used in create/update operations. Required: name. Optional: integration-key, allowAnonymousApproval, allowRecipientManageDescription (plus 31 more).",
       "method": "POST",
       "path": "/quote-template/validate",
       "params": [
+        {
+          "name": "integration-key",
+          "type": "string",
+          "location": "header",
+          "description": "Only use this if you received a value from us, otherwise leave empty."
+        },
         {
           "name": "allowAnonymousApproval",
           "type": "bool",
@@ -3769,10 +4134,16 @@
     },
     {
       "name": "quote-widget-template_public-create",
-      "description": "Creates a new widget template. The widget configuration should match the structure used in copy/paste operations. All product references should use internal Sfindr product IDs. Required: name, widget. Optional: entityLabels, order. Returns the new QuoteWidgetTemplateResponseDto.",
+      "description": "Creates a new widget template. The widget configuration should match the structure used in copy/paste operations. All product references should use internal Sfindr product IDs. Required: name, widget. Optional: integration-key, entityLabels, order. Returns the new QuoteWidgetTemplateResponseDto.",
       "method": "POST",
       "path": "/quote-widget-template",
       "params": [
+        {
+          "name": "integration-key",
+          "type": "string",
+          "location": "header",
+          "description": "Only use this if you received a value from us, otherwise leave empty."
+        },
         {
           "name": "entityLabels",
           "type": "string_csv_array",
@@ -3803,7 +4174,7 @@
     },
     {
       "name": "quote-widget-template_public-get-by-id",
-      "description": "Returns a single widget template with all its contents. The response can be used directly in PUT requests. Required: id.",
+      "description": "Returns a single widget template with all its contents. The response can be used directly in PUT requests. Required: id. Optional: integration-key.",
       "method": "GET",
       "path": "/quote-widget-template/{id}",
       "params": [
@@ -3811,21 +4182,34 @@
           "name": "id",
           "type": "string",
           "location": "path",
-          "description": "Id",
+          "description": "Salesbuildr record id. (e.g. 1234)",
           "required": true
+        },
+        {
+          "name": "integration-key",
+          "type": "string",
+          "location": "header",
+          "description": "Only use this if you received a value from us, otherwise leave empty."
         }
       ]
     },
     {
       "name": "quote-widget-template_public-list",
-      "description": "Returns a list of all widget templates ordered by their display order.",
+      "description": "Returns a list of all widget templates ordered by their display order. Optional: integration-key.",
       "method": "GET",
       "path": "/quote-widget-template",
-      "params": []
+      "params": [
+        {
+          "name": "integration-key",
+          "type": "string",
+          "location": "header",
+          "description": "Only use this if you received a value from us, otherwise leave empty."
+        }
+      ]
     },
     {
       "name": "quote-widget-template_public-update",
-      "description": "Updates an existing widget template. Only provided fields will be updated. All product references should use internal Sfindr product IDs. Required: id. Optional: entityLabels, localizationId, localizationIds (plus 3 more). Returns the updated QuoteWidgetTemplateResponseDto.",
+      "description": "Updates an existing widget template. Only provided fields will be updated. All product references should use internal Sfindr product IDs. Required: id. Optional: integration-key, entityLabels, localizationId (plus 4 more). Returns the updated QuoteWidgetTemplateResponseDto.",
       "method": "PUT",
       "path": "/quote-widget-template/{id}",
       "params": [
@@ -3833,8 +4217,14 @@
           "name": "id",
           "type": "string",
           "location": "path",
-          "description": "Id",
+          "description": "Salesbuildr record id. (e.g. 1234)",
           "required": true
+        },
+        {
+          "name": "integration-key",
+          "type": "string",
+          "location": "header",
+          "description": "Only use this if you received a value from us, otherwise leave empty."
         },
         {
           "name": "entityLabels",
@@ -3876,10 +4266,16 @@
     },
     {
       "name": "quote-widget-template_public-validate-widget",
-      "description": "Validates widget template data including product references. Returns the validated data that would be used in create/update operations. Required: name, widget. Optional: entityLabels, order.",
+      "description": "Validates widget template data including product references. Returns the validated data that would be used in create/update operations. Required: name, widget. Optional: integration-key, entityLabels, order.",
       "method": "POST",
       "path": "/quote-widget-template/validate",
       "params": [
+        {
+          "name": "integration-key",
+          "type": "string",
+          "location": "header",
+          "description": "Only use this if you received a value from us, otherwise leave empty."
+        },
         {
           "name": "entityLabels",
           "type": "string_csv_array",
@@ -3910,7 +4306,7 @@
     },
     {
       "name": "sync-state_sync-public-put",
-      "description": "This endpoint is exempt from rate limiting. Required: entityType (default: quote), id, error, externalIdentifier, state.",
+      "description": "This endpoint is exempt from rate limiting. Required: entityType (default: quote), id, error, externalIdentifier, state. Optional: integration-key.",
       "method": "PUT",
       "path": "/sync-state/{entityType}/{id}",
       "params": [
@@ -3918,15 +4314,21 @@
           "name": "entityType",
           "type": "string",
           "location": "path",
-          "description": "Entity type",
+          "description": "Entity type: quote or product. (e.g. quote)",
           "required": true
         },
         {
           "name": "id",
           "type": "string",
           "location": "path",
-          "description": "Id",
+          "description": "Salesbuildr record id. (e.g. 1234)",
           "required": true
+        },
+        {
+          "name": "integration-key",
+          "type": "string",
+          "location": "header",
+          "description": "Only use this if you received a value from us, otherwise leave empty."
         },
         {
           "name": "error",
@@ -3950,6 +4352,58 @@
           "required": true
         }
       ]
+    }
+  ],
+  "novel_features": [
+    {
+      "name": "Stale-quote radar",
+      "command": "quote stale",
+      "description": "Surface quotes that have been sent or approved but are aging past a cutoff, with the dollar value still at risk."
+    },
+    {
+      "name": "Low-margin line radar",
+      "command": "quote thin",
+      "description": "Find every quote line item across all open quotes whose markup falls below a floor."
+    },
+    {
+      "name": "Quote funnel",
+      "command": "quote funnel",
+      "description": "See stage-by-stage conversion of the quote lifecycle — count and dollar value at draft, sent, approved, declined, and expired."
+    },
+    {
+      "name": "Price-drift radar",
+      "command": "pricing drift",
+      "description": "Flag per-company pricing-book prices that have diverged from the master catalog price or cost."
+    },
+    {
+      "name": "Pipeline velocity",
+      "command": "opportunity velocity",
+      "description": "Aggregate sales-cycle duration and time-in-stage across the opportunity pipeline."
+    },
+    {
+      "name": "Win-rate breakdown",
+      "command": "opportunity winrate",
+      "description": "Compute won/lost ratios grouped by owner, stage, or category."
+    },
+    {
+      "name": "Product velocity",
+      "command": "product velocity",
+      "description": "Rank catalog products by how often they appear across quote line items and the total value quoted — your de-facto bestsellers."
+    },
+    {
+      "name": "PSA reconcile by external id",
+      "command": "reconcile-psa",
+      "description": "Find rows across companies, contacts, products, and opportunities whose external identifier is missing — the records that silently miss a PSA sync."
+    },
+    {
+      "name": "Recurring-revenue forecast",
+      "command": "opportunity mrr-forecast",
+      "description": "Weight open-pipeline monthly revenue and profit by probability, churn-adjusted."
+    },
+    {
+      "name": "Company whitespace",
+      "command": "company whitespace",
+      "description": "Show catalog products a company has never been quoted — the cross-sell gaps."
     }
   ]
 }

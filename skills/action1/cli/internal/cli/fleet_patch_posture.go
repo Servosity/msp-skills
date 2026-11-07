@@ -16,7 +16,10 @@ type patchPostureRow struct {
 	Critical       int    `json:"critical_updates"`
 	Other          int    `json:"other_updates"`
 	TotalMissing   int    `json:"total_missing"`
-	LastSeen       string `json:"last_seen"`
+	// PostureKnown is false when the endpoint carries no missing_updates
+	// summary: its counts are unknown, not zero.
+	PostureKnown bool   `json:"missing_updates_known"`
+	LastSeen     string `json:"last_seen"`
 }
 
 // pp:data-source local
@@ -34,7 +37,9 @@ the org-scoped Action1 API does not provide.
 
 Missing-update counts come from the endpoint's missing_updates summary, which
 Action1 returns only when the endpoint was synced with fields including
-missing_updates. Endpoints without the summary are reported with zero counts.`,
+missing_updates. An endpoint without the summary (read without fields=*) is
+listed first with missing_updates_known false: its counts are unknown, not
+zero.`,
 		Example: `  action1-cli fleet patch-posture --agent --limit 25
   action1-cli fleet patch-posture --org <org-uuid>`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -49,9 +54,9 @@ missing_updates. Endpoints without the summary are reported with zero counts.`,
 				return err
 			}
 			defer db.Close()
-			maybeEmitSyncHints(cmd, db, "endpoints", flags.maxAge)
+			maybeEmitSyncHints(cmd, db, "endpoints_managed", flags.maxAge)
 
-			endpoints, err := fleetLoadAll(cmd.Context(), db, "endpoints")
+			endpoints, err := fleetLoadAll(cmd.Context(), db, "endpoints_managed")
 			if err != nil {
 				return err
 			}
@@ -62,13 +67,7 @@ missing_updates. Endpoints without the summary are reported with zero counts.`,
 				if orgFilter != "" && org != orgFilter {
 					continue
 				}
-				mu := fleetNested(e, "missing_updates")
-				var crit, other int
-				if mu != nil {
-					c, _ := fleetNum(mu["critical"])
-					o, _ := fleetNum(mu["other"])
-					crit, other = int(c), int(o)
-				}
+				crit, other, known := fleetCounts(e, "missing_updates")
 				name := fleetStrField(e, "name")
 				if name == "" {
 					name = fleetStrField(e, "device_name")
@@ -81,11 +80,15 @@ missing_updates. Endpoints without the summary are reported with zero counts.`,
 					Critical:       crit,
 					Other:          other,
 					TotalMissing:   crit + other,
+					PostureKnown:   known,
 					LastSeen:       fleetStrField(e, "last_seen"),
 				})
 			}
 
 			sort.SliceStable(rows, func(i, j int) bool {
+				if rows[i].PostureKnown != rows[j].PostureKnown {
+					return !rows[i].PostureKnown // unknown posture first
+				}
 				if rows[i].Critical != rows[j].Critical {
 					return rows[i].Critical > rows[j].Critical
 				}
@@ -98,8 +101,11 @@ missing_updates. Endpoints without the summary are reported with zero counts.`,
 			header := []string{"ORG", "ENDPOINT", "NAME", "OS", "CRITICAL", "OTHER", "TOTAL", "LAST_SEEN"}
 			matrix := make([][]string, 0, len(rows))
 			for _, r := range rows {
-				matrix = append(matrix, []string{r.OrganizationID, r.EndpointID, r.Name, r.OS,
-					fleetItoa(float64(r.Critical)), fleetItoa(float64(r.Other)), fleetItoa(float64(r.TotalMissing)), r.LastSeen})
+				crit, other, total := fleetItoa(float64(r.Critical)), fleetItoa(float64(r.Other)), fleetItoa(float64(r.TotalMissing))
+				if !r.PostureKnown {
+					crit, other, total = "?", "?", "?"
+				}
+				matrix = append(matrix, []string{r.OrganizationID, r.EndpointID, r.Name, r.OS, crit, other, total, r.LastSeen})
 			}
 			return fleetEmit(cmd, flags, rows, header, matrix)
 		},

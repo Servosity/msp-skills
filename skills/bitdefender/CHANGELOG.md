@@ -4,6 +4,22 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.1.5] - unreleased
+
+### Security
+- **Rebuilt on press 4.35.1.** The MCP server's HTTP mode (`--transport http`, for remote agents) now serves `127.0.0.1:7777` by default, refuses to start until `BITDEFENDER_MCP_HTTP_TOKEN` is set (at least 32 characters), rejects any request without that bearer token, refuses browser origins other than loopback unless listed in `BITDEFENDER_MCP_HTTP_ALLOWED_ORIGINS`, and needs TLS for any address other than loopback. Web-only AI apps (ChatGPT on the web, Microsoft 365 Copilot, the Gemini app) are not supported by msp-skills yet; the ChatGPT desktop app runs the connector locally ([mcp-install.md](./mcp-install.md)).
+- **One credential guard for every output.** The CLI and the MCP server now share the fleet's credential kit: every key, token and password the program holds (environment, config file, credential store, saved profiles, piped `--stdin` bodies) is held before anything prints, and any output that would carry one, in any common encoding, is replaced by a notice. This covers the terminal, `--json`, MCP tool results and confirmation previews, files, the local store, the learn journal and child processes. GravityZone fields that carry secrets (license keys, push receiver authorization, uninstall and policy passwords) are withheld in command output and MCP results. A held credential is sent only to the configured GravityZone API over https, never to another host or across a redirect to one.
+- **MCP writes preview first.** Reads now go through `bitdefender_read`. `bitdefender_execute` runs only data-changing GravityZone methods, and it returns a preview and sends nothing until the agent repeats the call with `confirm` set to true.
+- With `BITDEFENDER_MCP_READ_ONLY=1`, `bitdefender_execute`, `import` and the tools that write the local learn store are removed, and `bitdefender_read` runs only the listed GravityZone read methods: the Credential-tier reads (push settings, license key, package, policy and integration settings, install links, inventory) stay refused.
+- `--deliver file:` writes a private 0600 file and never follows a planted symlink; `--deliver webhook:` no longer follows redirects. `--csv` escapes cells a spreadsheet would run as a formula.
+
+### Added
+- `BITDEFENDER_NO_LOCAL_DATA=1` keeps no local copy of GravityZone data (no response cache, no store writes, live reads), declared on every install channel. `local-data purge` previews and, with `--yes`, erases the local store, cache and learn journal.
+- `--ca-cert` / `BITDEFENDER_CA_CERT` and `--tls-server-name` / `BITDEFENDER_TLS_SERVER_NAME` for an on-premises Control Center with a private CA.
+
+### Fixed
+- `usage billing --agreements`: rows for the same company by id and by name now add up instead of the second being ignored, and a name row more than one child company carries is applied to none of them and flagged `agreement_name_ambiguous`.
+
 ## [0.1.4] - 2026-10-23
 
 ### Changed

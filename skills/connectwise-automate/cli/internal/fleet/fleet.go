@@ -129,35 +129,181 @@ func isOnline(obj map[string]any) bool {
 	return strings.EqualFold(strings.TrimSpace(Str(obj, "Status", "status")), onlineStatus)
 }
 
-// clientNameIndex maps a client Id (as string) to its Name from the clients list.
-func clientNameIndex(clients []map[string]any) map[string]string {
-	idx := make(map[string]string, len(clients))
+// clientRef identifies the client a record belongs to. Every report groups by
+// key (the client's Id when one is known, else the name the record carries)
+// and turns keys into display labels only at output (clientLabels), so two
+// clients that share a name never merge and a label never decides identity.
+type clientRef struct {
+	key  string // "id:<Id>", "name:<Name>", or "" (unassigned)
+	id   string
+	name string
+}
+
+// clientIndex is the synced clients: Id to name, and each name that exactly
+// one client carries to that client's Id (a record that names only its client
+// joins that client; an ambiguous name stays on its own).
+type clientIndex struct {
+	names    map[string]string
+	uniqueID map[string]string
+}
+
+func clientNameIndex(clients []map[string]any) clientIndex {
+	idx := clientIndex{names: map[string]string{}, uniqueID: map[string]string{}}
+	owners := map[string]map[string]bool{}
 	for _, c := range clients {
 		id := Str(c, "Id", "id", "ClientId", "clientId")
-		name := Str(c, "Name", "name", "ClientName")
-		if id != "" {
-			idx[id] = name
+		if id == "" {
+			continue
+		}
+		name := strings.TrimSpace(Str(c, "Name", "name", "ClientName"))
+		idx.names[id] = name
+		if owners[name] == nil {
+			owners[name] = map[string]bool{}
+		}
+		owners[name][id] = true
+	}
+	for name, ids := range owners {
+		if name == "" || len(ids) != 1 {
+			continue
+		}
+		for id := range ids {
+			idx.uniqueID[name] = id
 		}
 	}
 	return idx
 }
 
-// computerClient resolves the owning client name for a computer, trying a flat
-// field, a nested Client object, then a join against the clients index.
-func computerClient(c map[string]any, clientIdx map[string]string) string {
-	if n := Str(c, "ClientName", "clientName"); n != "" {
-		return n
+// byID is the client with that Id, named from the clients index when it has
+// a name, else from the name the record carries.
+func (x clientIndex) byID(id, carried string) clientRef {
+	name := x.names[id]
+	if name == "" {
+		name = carried
 	}
-	if n := nestedName(c, "Client"); n != "" {
-		return n
+	return clientRef{key: "id:" + id, id: id, name: name}
+}
+
+// byName is a client a record names without an Id: the one synced client of
+// that name, else that name on its own.
+func (x clientIndex) byName(name string) clientRef {
+	if name == "" {
+		return clientRef{}
 	}
-	if id := Str(c, "ClientId", "clientId"); id != "" {
-		if n, ok := clientIdx[id]; ok && n != "" {
-			return n
+	if id, ok := x.uniqueID[name]; ok {
+		return x.byID(id, name)
+	}
+	return clientRef{key: "name:" + name, name: name}
+}
+
+// computerClient resolves the owning client of a computer: its ClientId (or a
+// nested Client object's Id), else the client name it carries.
+func computerClient(c map[string]any, x clientIndex) clientRef {
+	carried := strings.TrimSpace(Str(c, "ClientName", "clientName"))
+	if carried == "" {
+		carried = strings.TrimSpace(nestedName(c, "Client"))
+	}
+	id := Str(c, "ClientId", "clientId")
+	if id == "" {
+		if nested, ok := c["Client"].(map[string]any); ok {
+			id = Str(nested, "Id", "id")
 		}
-		return "Client " + id
 	}
-	return "(unassigned)"
+	if id != "" {
+		return x.byID(id, carried)
+	}
+	return x.byName(carried)
+}
+
+// computerClientIndex maps each synced computer's Id to its client.
+func computerClientIndex(computers []map[string]any, x clientIndex) map[string]clientRef {
+	idx := map[string]clientRef{}
+	for _, c := range computers {
+		if id := Str(c, "Id", "id", "ComputerId", "computerId"); id != "" {
+			idx[id] = computerClient(c, x)
+		}
+	}
+	return idx
+}
+
+// recordClient resolves the client of a record that points at a computer or a
+// client (an alert, a patch event, a location): the computer join first, then
+// its ClientId, then the ClientName it carries. Every report attributes
+// records through here so they all agree.
+func recordClient(r map[string]any, compClient map[string]clientRef, x clientIndex) clientRef {
+	if cid := Str(r, "ComputerId", "computerId"); cid != "" {
+		if ref, ok := compClient[cid]; ok {
+			return ref
+		}
+	}
+	carried := strings.TrimSpace(Str(r, "ClientName", "clientName"))
+	if id := Str(r, "ClientId", "clientId"); id != "" {
+		return x.byID(id, carried)
+	}
+	return x.byName(carried)
+}
+
+// clientLabels renders one display label per client key, unique across the
+// keys given and every synced client (so a client's label is the same in
+// every report): a client's name, "Client <Id>" for a nameless one,
+// "(unassigned)" for none. While labels collide, each colliding client with
+// an Id gets " (#<Id>)" appended, so a client really named "Acme (#1)" can
+// never take the label of client 1.
+func clientLabels(refs map[string]clientRef, x clientIndex) map[string]string {
+	all := make(map[string]clientRef, len(refs)+len(x.names))
+	for id := range x.names {
+		ref := x.byID(id, "")
+		all[ref.key] = ref
+	}
+	for k, r := range refs {
+		all[k] = r
+	}
+	label := make(map[string]string, len(all))
+	for k, r := range all {
+		switch {
+		case r.key == "":
+			label[k] = "(unassigned)"
+		case r.name != "":
+			label[k] = r.name
+		default:
+			label[k] = "Client " + r.id
+		}
+	}
+	// ponytail: bounded rounds; each round lengthens every colliding Id label.
+	for round := 0; round < 8; round++ {
+		groups := map[string][]string{}
+		for k, l := range label {
+			groups[l] = append(groups[l], k)
+		}
+		changed := false
+		for _, ks := range groups {
+			if len(ks) < 2 {
+				continue
+			}
+			for _, k := range ks {
+				if id := all[k].id; id != "" {
+					label[k] += " (#" + id + ")"
+					changed = true
+				} else if all[k].key != "" {
+					label[k] += " (no Id)"
+					changed = true
+				}
+			}
+		}
+		if !changed {
+			break
+		}
+	}
+	return label
+}
+
+// openAlert reports whether an alert is still open: a Closed alert
+// (Alert.Status) is not, whatever else the record says.
+func openAlert(a map[string]any) bool {
+	switch strings.ToLower(strings.TrimSpace(Str(a, "Status", "status"))) {
+	case "closed", "resolved":
+		return false
+	}
+	return true
 }
 
 // ---- fleet-health ----
@@ -180,13 +326,15 @@ func FleetHealth(computers, clients, alerts []map[string]any, staleDays int, now
 	alertsByClient := alertCountByClient(alerts, computers, clientIdx)
 
 	agg := map[string]*ClientHealth{}
+	refs := map[string]clientRef{}
 	staleCutoff := now.AddDate(0, 0, -staleDays)
 	for _, c := range computers {
-		name := computerClient(c, clientIdx)
-		h := agg[name]
+		ref := computerClient(c, clientIdx)
+		refs[ref.key] = ref
+		h := agg[ref.key]
 		if h == nil {
-			h = &ClientHealth{Client: name}
-			agg[name] = h
+			h = &ClientHealth{}
+			agg[ref.key] = h
 		}
 		h.Computers++
 		if isOnline(c) {
@@ -198,9 +346,11 @@ func FleetHealth(computers, clients, alerts []map[string]any, staleDays int, now
 			h.Stale++
 		}
 	}
+	labels := clientLabels(refs, clientIdx)
 	out := make([]ClientHealth, 0, len(agg))
-	for name, h := range agg {
-		h.OpenAlerts = alertsByClient[name]
+	for key, h := range agg {
+		h.Client = labels[key]
+		h.OpenAlerts = alertsByClient[key]
 		out = append(out, *h)
 	}
 	sort.Slice(out, func(i, j int) bool {
@@ -212,27 +362,14 @@ func FleetHealth(computers, clients, alerts []map[string]any, staleDays int, now
 	return out
 }
 
-// alertCountByClient buckets open alerts by client, preferring an explicit
-// ClientName on the alert and falling back to a computer join.
-func alertCountByClient(alerts, computers []map[string]any, clientIdx map[string]string) map[string]int {
-	compClient := map[string]string{}
-	for _, c := range computers {
-		if id := Str(c, "Id", "id", "ComputerId", "computerId"); id != "" {
-			compClient[id] = computerClient(c, clientIdx)
-		}
-	}
+// alertCountByClient counts open alerts per client key (recordClient).
+func alertCountByClient(alerts, computers []map[string]any, clientIdx clientIndex) map[string]int {
+	compClient := computerClientIndex(computers, clientIdx)
 	counts := map[string]int{}
 	for _, a := range alerts {
-		name := Str(a, "ClientName", "clientName")
-		if name == "" {
-			if cid := Str(a, "ComputerId", "computerId"); cid != "" {
-				name = compClient[cid]
-			}
+		if openAlert(a) {
+			counts[recordClient(a, compClient, clientIdx).key]++
 		}
-		if name == "" {
-			name = "(unassigned)"
-		}
-		counts[name]++
 	}
 	return counts
 }
@@ -253,6 +390,8 @@ func StaleAgents(computers, clients []map[string]any, days int, now time.Time) [
 	clientIdx := clientNameIndex(clients)
 	cutoff := now.AddDate(0, 0, -days)
 	out := []StaleAgent{}
+	refs := map[string]clientRef{}
+	var keys []string
 	for _, c := range computers {
 		last := Str(c, "LastContact", "lastContact")
 		t, ok := ParseTime(last)
@@ -260,18 +399,25 @@ func StaleAgents(computers, clients []map[string]any, days int, now time.Time) [
 		case !ok:
 			out = append(out, StaleAgent{
 				Computer:    Str(c, "ComputerName", "computerName", "Name", "name"),
-				Client:      computerClient(c, clientIdx),
 				LastContact: "never",
 				DaysStale:   -1,
 			})
 		case t.Before(cutoff):
 			out = append(out, StaleAgent{
 				Computer:    Str(c, "ComputerName", "computerName", "Name", "name"),
-				Client:      computerClient(c, clientIdx),
 				LastContact: last,
 				DaysStale:   int(now.Sub(t).Hours() / 24),
 			})
+		default:
+			continue
 		}
+		ref := computerClient(c, clientIdx)
+		refs[ref.key] = ref
+		keys = append(keys, ref.key)
+	}
+	labels := clientLabels(refs, clientIdx)
+	for i := range out {
+		out[i].Client = labels[keys[i]]
 	}
 	sort.Slice(out, func(i, j int) bool {
 		if out[i].DaysStale != out[j].DaysStale {
@@ -300,27 +446,16 @@ type ClientPatch struct {
 // toward the total denominator.
 func PatchCompliance(patchHistory, computers, clients []map[string]any) []ClientPatch {
 	clientIdx := clientNameIndex(clients)
-	compClient := map[string]string{}
-	for _, c := range computers {
-		if id := Str(c, "Id", "id", "ComputerId", "computerId"); id != "" {
-			compClient[id] = computerClient(c, clientIdx)
-		}
-	}
+	compClient := computerClientIndex(computers, clientIdx)
 	agg := map[string]*ClientPatch{}
+	refs := map[string]clientRef{}
 	for _, p := range patchHistory {
-		name := Str(p, "ClientName", "clientName")
-		if name == "" {
-			if cid := Str(p, "ComputerId", "computerId"); cid != "" {
-				name = compClient[cid]
-			}
-		}
-		if name == "" {
-			name = "(unassigned)"
-		}
-		cp := agg[name]
+		ref := recordClient(p, compClient, clientIdx)
+		refs[ref.key] = ref
+		cp := agg[ref.key]
 		if cp == nil {
-			cp = &ClientPatch{Client: name}
-			agg[name] = cp
+			cp = &ClientPatch{}
+			agg[ref.key] = cp
 		}
 		cp.Total++
 		switch strings.ToLower(strings.TrimSpace(Str(p, "Status", "status"))) {
@@ -332,8 +467,10 @@ func PatchCompliance(patchHistory, computers, clients []map[string]any) []Client
 			cp.Pending++
 		}
 	}
+	labels := clientLabels(refs, clientIdx)
 	out := make([]ClientPatch, 0, len(agg))
-	for _, cp := range agg {
+	for key, cp := range agg {
+		cp.Client = labels[key]
 		if cp.Total > 0 {
 			cp.CompliancePct = round1(float64(cp.Installed) / float64(cp.Total) * 100)
 		}
@@ -370,19 +507,19 @@ func ClientRollups(computers, clients, locations, alerts []map[string]any, filte
 	alertsByClient := alertCountByClient(alerts, computers, clientIdx)
 
 	agg := map[string]*ClientRollup{}
-	ensure := func(name string) *ClientRollup {
-		r := agg[name]
+	refs := map[string]clientRef{}
+	ensure := func(ref clientRef) *ClientRollup {
+		refs[ref.key] = ref
+		r := agg[ref.key]
 		if r == nil {
-			r = &ClientRollup{Client: name}
-			agg[name] = r
+			r = &ClientRollup{}
+			agg[ref.key] = r
 		}
 		return r
 	}
 	// Seed from the clients list so clients with zero computers still appear.
-	for _, c := range clients {
-		if n := Str(c, "Name", "name"); n != "" {
-			ensure(n)
-		}
+	for id := range clientIdx.names {
+		ensure(clientIdx.byID(id, ""))
 	}
 	for _, c := range computers {
 		r := ensure(computerClient(c, clientIdx))
@@ -392,26 +529,17 @@ func ClientRollups(computers, clients, locations, alerts []map[string]any, filte
 		}
 	}
 	for _, l := range locations {
-		name := Str(l, "ClientName", "clientName")
-		if name == "" {
-			if id := Str(l, "ClientId", "clientId"); id != "" {
-				if n, ok := clientIdx[id]; ok {
-					name = n
-				}
-			}
-		}
-		if name == "" {
-			name = "(unassigned)"
-		}
-		ensure(name).Locations++
+		ensure(recordClient(l, nil, clientIdx)).Locations++
 	}
+	labels := clientLabels(refs, clientIdx)
 	filter = strings.ToLower(strings.TrimSpace(filter))
 	out := make([]ClientRollup, 0, len(agg))
-	for name, r := range agg {
-		if filter != "" && !strings.Contains(strings.ToLower(name), filter) {
+	for key, r := range agg {
+		r.Client = labels[key]
+		if filter != "" && !strings.Contains(strings.ToLower(r.Client), filter) {
 			continue
 		}
-		r.OpenAlerts = alertsByClient[name]
+		r.OpenAlerts = alertsByClient[key]
 		out = append(out, *r)
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Client < out[j].Client })
@@ -435,38 +563,45 @@ type TriagedAlert struct {
 // and sorts by priority desc then client.
 func AlertTriage(alerts, computers, clients []map[string]any, minPriority int) []TriagedAlert {
 	clientIdx := clientNameIndex(clients)
-	type comp struct{ client, location string }
+	type comp struct {
+		client         clientRef
+		location, name string
+	}
+	compClients := computerClientIndex(computers, clientIdx)
 	compIdx := map[string]comp{}
 	for _, c := range computers {
 		if id := Str(c, "Id", "id", "ComputerId", "computerId"); id != "" {
 			compIdx[id] = comp{
 				client:   computerClient(c, clientIdx),
 				location: Str(c, "LocationName", "locationName"),
+				name:     Str(c, "ComputerName", "computerName", "Name", "name"),
 			}
 		}
 	}
 	dedup := map[string]TriagedAlert{}
+	refs := map[string]clientRef{}
 	for _, a := range alerts {
 		prio := Int(a, "Priority", "priority")
-		if prio < minPriority {
+		if prio < minPriority || !openAlert(a) {
 			continue
 		}
 		cid := Str(a, "ComputerId", "computerId")
-		client := Str(a, "ClientName", "clientName")
+		client := recordClient(a, compClients, clientIdx)
 		location := Str(a, "LocationName", "locationName")
 		computer := Str(a, "ComputerName", "computerName")
 		if ci, ok := compIdx[cid]; ok {
-			if client == "" {
-				client = ci.client
-			}
 			if location == "" {
 				location = ci.location
 			}
+			if computer == "" {
+				computer = ci.name
+			}
 		}
 		msg := Str(a, "Message", "message")
+		refs[client.key] = client
 		ta := TriagedAlert{
 			Priority: prio,
-			Client:   client,
+			Client:   client.key,
 			Location: location,
 			Computer: computer,
 			Message:  msg,
@@ -477,8 +612,10 @@ func AlertTriage(alerts, computers, clients []map[string]any, minPriority int) [
 			dedup[key] = ta
 		}
 	}
+	labels := clientLabels(refs, clientIdx)
 	out := make([]TriagedAlert, 0, len(dedup))
 	for _, ta := range dedup {
+		ta.Client = labels[ta.Client]
 		out = append(out, ta)
 	}
 	sort.Slice(out, func(i, j int) bool {
@@ -507,8 +644,13 @@ var eolNeedles = []string{
 }
 
 // IsEOL reports whether an OS name names a known end-of-life Windows release.
+// Windows 10 left support on 2025-10-14; its LTSC 2019 and 2021 editions are
+// the only ones still supported (the LTSB editions have ended).
 func IsEOL(os string) bool {
 	l := strings.ToLower(os)
+	if strings.Contains(l, "windows 10") {
+		return !strings.Contains(l, "ltsc")
+	}
 	for _, n := range eolNeedles {
 		if strings.Contains(l, n) {
 			return true
@@ -563,7 +705,8 @@ func Since(alerts, computers, patchHistory, clients []map[string]any, hours int,
 	rep := SinceReport{Hours: hours, NewAlerts: []TriagedAlert{}}
 
 	clientIdx := clientNameIndex(clients)
-	compIdx := map[string]string{}
+	compIdx := map[string]clientRef{}
+	refs := map[string]clientRef{}
 	for _, c := range computers {
 		if id := Str(c, "Id", "id", "ComputerId", "computerId"); id != "" {
 			compIdx[id] = computerClient(c, clientIdx)
@@ -574,19 +717,20 @@ func Since(alerts, computers, patchHistory, clients []map[string]any, hours int,
 	}
 	for _, a := range alerts {
 		if t, ok := ParseTime(Str(a, "CreatedDate", "createdDate", "DateAdded", "dateAdded")); ok && !t.Before(cutoff) {
-			client := Str(a, "ClientName", "clientName")
-			cid := Str(a, "ComputerId", "computerId")
-			if client == "" {
-				client = compIdx[cid]
-			}
+			client := recordClient(a, compIdx, clientIdx)
+			refs[client.key] = client
 			rep.NewAlerts = append(rep.NewAlerts, TriagedAlert{
 				Priority: Int(a, "Priority", "priority"),
-				Client:   client,
+				Client:   client.key,
 				Computer: Str(a, "ComputerName", "computerName"),
 				Message:  Str(a, "Message", "message"),
 				AlertID:  Str(a, "Id", "id", "AlertId", "alertId"),
 			})
 		}
+	}
+	labels := clientLabels(refs, clientIdx)
+	for i := range rep.NewAlerts {
+		rep.NewAlerts[i].Client = labels[rep.NewAlerts[i].Client]
 	}
 	sort.Slice(rep.NewAlerts, func(i, j int) bool {
 		return rep.NewAlerts[i].Priority > rep.NewAlerts[j].Priority

@@ -59,7 +59,7 @@ func newOrganizationsWirelessGetOrganizationSsidsProfilesOverviewsCmd(flags *roo
 					}
 				}
 				if !validSortBy {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagSortBy, "sort-by", allowedSortBy)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagSortBy, "sort-by", allowedSortBy))
 				}
 			}
 			if cmd.Flags().Changed("sort-order") {
@@ -72,7 +72,7 @@ func newOrganizationsWirelessGetOrganizationSsidsProfilesOverviewsCmd(flags *roo
 					}
 				}
 				if !validSortOrder {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagSortOrder, "sort-order", allowedSortOrder)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagSortOrder, "sort-order", allowedSortOrder))
 				}
 			}
 			path := "/organizations/{organizationId}/wireless/ssids/profiles/overviews"

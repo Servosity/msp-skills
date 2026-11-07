@@ -59,15 +59,15 @@ func newEndpointsGetSummaryCmd(flags *rootFlags) *cobra.Command {
 					}
 				}
 				if !validCategory {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagCategory, "category", allowedCategory)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagCategory, "category", allowedCategory))
 				}
 			}
 			if !stdinBody {
 				if !cmd.Flags().Changed("resource-type") && bodyResourceType == "" && !requiredInputWaived() {
-					return fmt.Errorf("required flag \"%s\" not set", "resource-type")
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "resource-type"))
 				}
 				if !cmd.Flags().Changed("resources") && bodyResources == "" && !requiredInputWaived() {
-					return fmt.Errorf("required flag \"%s\" not set", "resources")
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "resources"))
 				}
 			}
 			path := "/api/platform/v2/device/categories/{category}/endpoints"

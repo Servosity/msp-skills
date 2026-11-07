@@ -44,7 +44,7 @@ func newResponseActionsStatusCmd(flags *rootFlags) *cobra.Command {
 			}
 			if !stdinBody {
 				if !cmd.Flags().Changed("action-id") && bodyActionId == "" && !requiredInputWaived() {
-					return fmt.Errorf("required flag \"%s\" not set", "action-id")
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "action-id"))
 				}
 			}
 			path := "/v1.0/jsonrpc/incidents#getResponseActionStatus"

@@ -1,0 +1,356 @@
+{
+ "sites": [
+  {
+   "file": "internal/winrm/winrm.go",
+   "func": "New",
+   "what": "net.Dialer.DialContext",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "WinRM leg behind the virtual transport: the password goes only to the host the user configured for that server, which no static Origin can name; pinned by winrm.New (ValidHost, no proxy, no redirect, TLS verified or SHA-256 pinned)"
+  },
+  {
+   "file": "internal/winrm/winrm.go",
+   "func": "New",
+   "what": "convert:github.com/Azure/go-ntlmssp.Negotiator.RoundTrip",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "WinRM leg behind the virtual transport: the password goes only to the host the user configured for that server, which no static Origin can name; pinned by winrm.New (ValidHost, no proxy, no redirect, TLS verified or SHA-256 pinned)"
+  },
+  {
+   "file": "internal/winrm/winrm.go",
+   "func": "New",
+   "what": "carrier",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "WinRM leg behind the virtual transport: the password goes only to the host the user configured for that server, which no static Origin can name; pinned by winrm.New (ValidHost, no proxy, no redirect, TLS verified or SHA-256 pinned)"
+  },
+  {
+   "file": "internal/winrm/winrm.go",
+   "func": "New",
+   "what": "github.com/Azure/go-ntlmssp.RoundTripper",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "WinRM leg behind the virtual transport: the password goes only to the host the user configured for that server, which no static Origin can name; pinned by winrm.New (ValidHost, no proxy, no redirect, TLS verified or SHA-256 pinned)"
+  },
+  {
+   "file": "internal/winrm/winrm.go",
+   "func": "New",
+   "what": "net/http.Client{}",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "WinRM leg behind the virtual transport: the password goes only to the host the user configured for that server, which no static Origin can name; pinned by winrm.New (ValidHost, no proxy, no redirect, TLS verified or SHA-256 pinned)"
+  },
+  {
+   "file": "internal/winrm/winrm.go",
+   "func": "Client.post",
+   "what": "net/http.NewRequestWithContext",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "WinRM leg behind the virtual transport: the password goes only to the host the user configured for that server, which no static Origin can name; pinned by winrm.New (ValidHost, no proxy, no redirect, TLS verified or SHA-256 pinned)"
+  },
+  {
+   "file": "internal/winrm/winrm.go",
+   "func": "Client.post",
+   "what": "net/http.Client.Do",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "WinRM leg behind the virtual transport: the password goes only to the host the user configured for that server, which no static Origin can name; pinned by winrm.New (ValidHost, no proxy, no redirect, TLS verified or SHA-256 pinned)"
+  },
+  {
+   "file": "internal/winrm/winrm.go",
+   "func": "tlsConfig",
+   "what": "os.ReadFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reads the CA certificate file a server's ca_file names: public certificate material, not a credential"
+  },
+  {
+   "file": "internal/winrm/winrm.go",
+   "func": "New",
+   "what": "convert:windows-server-pp-cli/internal/winrm.heldLeg.RoundTrip",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "WinRM leg behind the virtual transport: the password goes only to the host the user configured for that server, which no static Origin can name; pinned by winrm.New (ValidHost, no proxy, no redirect, TLS verified or SHA-256 pinned); heldLeg holds every hop's request auth headers and cookie values and response Set-Cookie values (headers and trailers) with credkit.Hold"
+  },
+  {
+   "file": "internal/winrm/winrm.go",
+   "func": "New",
+   "what": "carrier:net/http.Transport",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "WinRM leg behind the virtual transport: the password goes only to the host the user configured for that server, which no static Origin can name; pinned by winrm.New (ValidHost, no proxy, no redirect, TLS verified or SHA-256 pinned)"
+  },
+  {
+   "file": "internal/winrm/winrm.go",
+   "func": "heldLeg.RoundTrip",
+   "what": "net/http.Transport.RoundTrip",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "WinRM leg behind the virtual transport: the password goes only to the host the user configured for that server, which no static Origin can name; pinned by winrm.New (ValidHost, no proxy, no redirect, TLS verified or SHA-256 pinned); this is the one place the leg sends, after holding the request's credentials"
+  },
+  {
+   "file": "internal/cli/winsrv_transport.go",
+   "func": "installVirtualTransport",
+   "what": "sink:net/http.Transport",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the verifier's loopback mock, set only under PRINTING_PRESS_VERIFY with a loopback base URL; virtualTransport is reached only through credkit.Transport(virtualTransport), so the kit checked each request before this transport sends it"
+  },
+  {
+   "file": "internal/cli/winsrv_transport.go",
+   "func": "virtualTransport.RoundTrip",
+   "what": "net/http.RoundTripper.RoundTrip",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the verifier's loopback mock, inside credkit.Transport(virtualTransport): the kit checked the request before this RoundTrip runs, and the Authorization header is dropped first"
+  },
+  {
+   "file": "internal/winsrv/profiles.go",
+   "func": "LoadServerCredentials",
+   "what": "os.ReadFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the per-server credential store servers login writes: a credential source Declarations.Files lists (credentialFiles adds winsrv.ServerCredentialsPath beside every credentials file it names), so Start holds it first; it cannot be kind source because its path depends on the config the run selects, and via must take nothing or only the command line"
+  },
+  {
+   "file": "internal/cliutil/paths.go",
+   "func": "AtomicWritePrivateFile",
+   "what": "os.CreateTemp",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the 0600 credential store and config writer (SaveServerCredentials for servers login, SaveCredentials for auth set-credentials, config and token saves, the legacy scrub and its restore): each file is a credential source Declarations.Files lists, and the kit withholds a credential store's bytes by contract, so these writes stay outside it"
+  },
+  {
+   "file": "internal/cliutil/paths.go",
+   "func": "AtomicWritePrivateFile",
+   "what": "os.File.Name",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the 0600 credential store and config writer (SaveServerCredentials for servers login, SaveCredentials for auth set-credentials, config and token saves, the legacy scrub and its restore): each file is a credential source Declarations.Files lists, and the kit withholds a credential store's bytes by contract, so these writes stay outside it"
+  },
+  {
+   "file": "internal/cliutil/paths.go",
+   "func": "AtomicWritePrivateFile",
+   "what": "os.File.Chmod",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the 0600 credential store and config writer (SaveServerCredentials for servers login, SaveCredentials for auth set-credentials, config and token saves, the legacy scrub and its restore): each file is a credential source Declarations.Files lists, and the kit withholds a credential store's bytes by contract, so these writes stay outside it"
+  },
+  {
+   "file": "internal/cliutil/paths.go",
+   "func": "AtomicWritePrivateFile",
+   "what": "os.File.Close",
+   "count": 3,
+   "kind": "exempt",
+   "reason": "the 0600 credential store and config writer (SaveServerCredentials for servers login, SaveCredentials for auth set-credentials, config and token saves, the legacy scrub and its restore): each file is a credential source Declarations.Files lists, and the kit withholds a credential store's bytes by contract, so these writes stay outside it"
+  },
+  {
+   "file": "internal/cliutil/paths.go",
+   "func": "AtomicWritePrivateFile",
+   "what": "os.File.Write",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the 0600 credential store and config writer (SaveServerCredentials for servers login, SaveCredentials for auth set-credentials, config and token saves, the legacy scrub and its restore): each file is a credential source Declarations.Files lists, and the kit withholds a credential store's bytes by contract, so these writes stay outside it"
+  },
+  {
+   "file": "internal/cliutil/paths.go",
+   "func": "renamePrivateFileWithRetry",
+   "what": "os.Rename",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the 0600 credential store and config writer (SaveServerCredentials for servers login, SaveCredentials for auth set-credentials, config and token saves, the legacy scrub and its restore): each file is a credential source Declarations.Files lists, and the kit withholds a credential store's bytes by contract, so these writes stay outside it"
+  },
+  {
+   "file": "internal/config/config.go",
+   "func": "restoreCredentialsFile",
+   "what": "os.Symlink",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the 0600 credential store and config writer (SaveServerCredentials for servers login, SaveCredentials for auth set-credentials, config and token saves, the legacy scrub and its restore): each file is a credential source Declarations.Files lists, and the kit withholds a credential store's bytes by contract, so these writes stay outside it"
+  },
+  {
+   "file": "internal/config/config.go",
+   "func": "restoreCredentialsFile",
+   "what": "os.WriteFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the 0600 credential store and config writer (SaveServerCredentials for servers login, SaveCredentials for auth set-credentials, config and token saves, the legacy scrub and its restore): each file is a credential source Declarations.Files lists, and the kit withholds a credential store's bytes by contract, so these writes stay outside it"
+  },
+  {
+   "file": "internal/cli/servers.go",
+   "func": "newServersListCmd",
+   "what": "writer:io.Writer",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs when Cobra executes the command, after credkit.Start: the hand-written init only registers attachWinsrv (registerNovelCommand), and the checker follows every reference from init as if it were a call"
+  },
+  {
+   "file": "internal/cli/servers.go",
+   "func": "newServersListCmd",
+   "what": "fmt.Fprintln",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs when Cobra executes the command, after credkit.Start: the hand-written init only registers attachWinsrv (registerNovelCommand), and the checker follows every reference from init as if it were a call"
+  },
+  {
+   "file": "internal/cli/servers.go",
+   "func": "newServersLoginCmd",
+   "what": "writer:io.Writer",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs when Cobra executes the command, after credkit.Start: the hand-written init only registers attachWinsrv (registerNovelCommand), and the checker follows every reference from init as if it were a call"
+  },
+  {
+   "file": "internal/cli/servers.go",
+   "func": "newServersLoginCmd",
+   "what": "writer:*os.File",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs when Cobra executes the command, after credkit.Start: the hand-written init only registers attachWinsrv (registerNovelCommand), and the checker follows every reference from init as if it were a call"
+  },
+  {
+   "file": "internal/cli/servers.go",
+   "func": "newServersLogoutCmd",
+   "what": "writer:io.Writer",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs when Cobra executes the command, after credkit.Start: the hand-written init only registers attachWinsrv (registerNovelCommand), and the checker follows every reference from init as if it were a call"
+  },
+  {
+   "file": "internal/cli/services_restart.go",
+   "func": "newServiceActionCmd",
+   "what": "writer:io.Writer",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs when Cobra executes the command, after credkit.Start: the hand-written init only registers attachWinsrv (registerNovelCommand), and the checker follows every reference from init as if it were a call"
+  },
+  {
+   "file": "internal/cli/inventory_snapshot.go",
+   "func": "newInventorySnapshotCmd",
+   "what": "writer:io.Writer",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs when Cobra executes the command, after credkit.Start: the hand-written init only registers attachWinsrv (registerNovelCommand), and the checker follows every reference from init as if it were a call"
+  },
+  {
+   "file": "internal/cli/winsrv_common.go",
+   "func": "printWinsrv",
+   "what": "writer:io.Writer",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs when Cobra executes the command, after credkit.Start: the hand-written init only registers attachWinsrv (registerNovelCommand), and the checker follows every reference from init as if it were a call"
+  },
+  {
+   "file": "internal/store/winsrv.go",
+   "func": "Store.RecordInventory",
+   "what": "database/sql.DB.BeginTx",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs when Cobra executes the command, after credkit.Start: the hand-written init only registers attachWinsrv (registerNovelCommand), and the checker follows every reference from init as if it were a call"
+  },
+  {
+   "file": "internal/cli/servers.go",
+   "func": "newServersLoginCmd",
+   "what": "assert:writer",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "stdin is asserted to *os.File only to ask whether it is a terminal, so a password is never typed where it would echo; nothing is written to it"
+  },
+  {
+   "file": "internal/cli/services_restart.go",
+   "func": "mustLookup",
+   "what": "builtin.panic",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "a programming error on a constant script name, raised when a command runs (after credkit.Start); the message carries only that name"
+  },
+  {
+   "file": "internal/cli/feedback.go",
+   "func": "postFeedback",
+   "what": "net/http.NewRequest",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "sent only by the client built on the next lines, whose Transport is credkit.Transport(nil)"
+  },
+  {
+   "file": "internal/cli/export.go",
+   "func": "openExportOutput",
+   "what": "os.OpenFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "opened for its 0600 mode and truncation; the function returns only credkit.NewWriter(f, credkit.SinkFile), so every byte passes the kit"
+  },
+  {
+   "file": "internal/cli/profile.go",
+   "func": "saveProfileStore",
+   "what": "os.Rename",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "moves the temporary file credkit.WriteFile wrote into place; its bytes passed the kit"
+  },
+  {
+   "file": "internal/learn/journal.go",
+   "func": "StoreJournalOffset",
+   "what": "os.Rename",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "moves the temporary file credkit.WriteFile wrote into place; its bytes passed the kit"
+  },
+  {
+   "file": "internal/platform/profile.go",
+   "func": "writePrivateFile",
+   "what": "os.CreateTemp",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the temporary file is created exclusively for its 0600 mode; its bytes are written through credkit.NewWriter(tmp, credkit.SinkFile)"
+  },
+  {
+   "file": "internal/platform/profile.go",
+   "func": "writePrivateFile",
+   "what": "os.Rename",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "moves the temporary file whose bytes passed credkit.NewWriter into place"
+  },
+  {
+   "file": "internal/store/store.go",
+   "func": "openReadOnlySQLite",
+   "what": "database/sql.Open",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "every caller passes kitsql.Driver except OpenReadOnlyRaw, the MCP sql tool's mode=ro handle: sqlite.Limit needs the driver's own connection, a read-only connection stores nothing, and the tool's result passes credkit.MCPTools as one MCP message"
+  },
+  {
+   "file": "internal/cli/deliver.go",
+   "func": "writeDownloadUnder",
+   "what": "os.CreateTemp",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the temporary file is created exclusively for its 0600 mode; its bytes are written through credkit.NewWriter(f, credkit.SinkFile)"
+  },
+  {
+   "file": "internal/cli/deliver.go",
+   "func": "writeDownloadUnder",
+   "what": "os.Rename",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "moves the temporary file whose bytes passed credkit.NewWriter into place"
+  },
+  {
+   "file": "internal/cli/deliver.go",
+   "func": "deliverWebhook",
+   "what": "net/http.NewRequest",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "sent only by the client built a few lines below, whose Transport is credkit.Transport(nil)"
+  },
+  {
+   "file": "internal/cliutil/probe.go",
+   "func": "ProbeReachable",
+   "what": "net/http.NewRequestWithContext",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "no caller in this connector passes a client, and the nil-client default is built with Transport: credkit.Transport(nil)"
+  }
+ ]
+}

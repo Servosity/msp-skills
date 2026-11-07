@@ -1,7 +1,9 @@
 .PHONY: build test lint install clean
 
+BIN_EXT := $(if $(filter windows,$(shell go env GOOS)),.exe,)
+
 build:
-	go build -o bin/knowbe4-cli ./cmd/knowbe4-cli
+	go build -trimpath -o bin/knowbe4-cli$(BIN_EXT) ./cmd/knowbe4-cli
 
 test:
 	go test ./...
@@ -16,7 +18,7 @@ clean:
 	rm -rf bin/
 
 build-mcp:
-	go build -o bin/knowbe4-mcp ./cmd/knowbe4-mcp
+	go build -trimpath -o bin/knowbe4-mcp$(BIN_EXT) ./cmd/knowbe4-mcp
 
 install-mcp:
 	go install ./cmd/knowbe4-mcp

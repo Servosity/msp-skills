@@ -1,0 +1,1 @@
+{"ok":true,"data":{"name":"WinRM","display_name":"Windows Remote Management (WS-Management)","action":"restart","state_before":"Running","start_mode":"Auto","running_dependents":[],"allowed":false,"refusal":"WinRM needs this service; restarting or starting it here would drop the session"}}

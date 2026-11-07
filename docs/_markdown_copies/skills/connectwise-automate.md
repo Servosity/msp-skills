@@ -94,7 +94,7 @@ After install, authenticate once with your ConnectWise Automate credentials, the
 
 | Tier | Examples | Recommended agent policy |
 | --- | --- | --- |
-| Read | fleet-health, stale-agents, patch-compliance, alert-triage, client-rollup, os-inventory, since, and every list / get / search command | Allow |
+| Read | fleet-health, stale-agents, patch-compliance, alert-triage, client-rollup, os-inventory, agent-versions, since, and every list / get / search command | Allow |
 | Endpoint and fleet actions | computers command-execute (runs a real command on an agent), patching deploy-approved / deploy-security / reattempt-failed (fleet-wide patch deployment) | Human-in-the-loop, explicit confirmation |
 | Write (data) | import <resource> (creates/upserts records via the API) | Preview with --dry-run, then a reviewed write |
 | Credential | apitoken mint, apitoken refresh, auth set-token | Human-in-the-loop only |
@@ -109,11 +109,11 @@ Yes - this one. A free, open source MCP server and Claude Code Skill for Connect
 
 ### Is the ConnectWise Automate MCP server safe for client data?
 
-Yes, by design - and the exceptions are ones you switch on yourself. The CLI, the MCP server, and any local data mirror run on your own machine, and nothing is sent to MSP Skills or any third party unless you ask for it. Two paths can move data off the machine, both opt-in: `--deliver webhook:<url>` posts a command's output to a URL you name; `CONNECTWISE_AUTOMATE_FEEDBACK_AUTO_SEND=true` posts feedback you typed to the URL in `CONNECTWISE_AUTOMATE_FEEDBACK_ENDPOINT` (with no endpoint set, `feedback` only writes a local file). Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page.
+Yes, by design - and the exceptions are ones you switch on yourself. The CLI, the MCP server, and any local data mirror run on your own machine, and nothing is sent to MSP Skills or any third party unless you ask for it. Three paths can move data off the machine, all opt-in: `--deliver webhook:<url>` posts a command's output to a URL you name; `CONNECTWISE_AUTOMATE_FEEDBACK_AUTO_SEND=true` posts feedback you typed to the URL in `CONNECTWISE_AUTOMATE_FEEDBACK_ENDPOINT` (with no endpoint set, `feedback` only writes a local file); `--transport http` opens a local MCP listener you then choose whether to expose. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page.
 
 ### Does this work with ChatGPT?
 
-Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way connectwise-automate-mcp runs, and shares MCP configuration with Codex: add connectwise-automate-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote (HTTP) server, this connector speaks stdio only, and the bridge it would need is paused until it is reprinted; the security note at the top of the install guide explains why. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
+Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way connectwise-automate-mcp runs, and shares MCP configuration with Codex: add connectwise-automate-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote server. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
 
 ### Do I need to know how to code?
 

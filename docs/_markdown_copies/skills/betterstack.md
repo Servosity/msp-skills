@@ -143,7 +143,7 @@ No, it complements it. The portal is still where you configure monitors and watc
 
 ## More Monitoring connectors
 
-Run more than one Monitoring tool, or comparing options? These connectors work the same way: [Domain and Certificate Tracker](https://msp-skills.compoundingteams.com/skills/domain-cert-tracker.md)
+Run more than one Monitoring tool, or comparing options? These connectors work the same way: [Domain and Certificate Tracker](https://msp-skills.compoundingteams.com/skills/domain-cert-tracker.md) · [Windows Server](https://msp-skills.compoundingteams.com/skills/windows-server.md)
 
 ## Status
 

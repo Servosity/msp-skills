@@ -108,7 +108,7 @@ func TestSystemStateWhoisAndReboot(t *testing.T) {
 		"loggedOnUsers":[{"sessionID":"0","sessionName":"Services","status":"Disconnected"},
 		{"username":"ACME\\jsmith","sessionID":"1","status":"Active","logonTime":"2026-10-13T08:00:00Z"}]}`)
 	st, ok := ParseSystemState(raw)
-	if !ok || st.Name != "ACME-WS01" || st.LastBoot == "" || st.LastUser == nil || len(st.LoggedOn) != 1 {
+	if !ok || st.Name != "ACME-WS01" || st.LastBoot == "" || st.LastUser == nil || len(st.LoggedOn) != 2 || len(activeUsers(st.LoggedOn)) != 1 {
 		t.Fatalf("state = %+v", st)
 	}
 	idle, _ := ParseSystemState(json.RawMessage(`{"loggedOnUsers":[{"sessionID":"0","status":"Disconnected"}],"lastLoggedOnUser":{"username":"ACME\\mlee"}}`))
@@ -194,5 +194,60 @@ func TestTaskInstancesAndFailures(t *testing.T) {
 	}
 	if len(GroupFailures(res[3:], nil)) != 0 {
 		t.Error("successful results must not form a failure group")
+	}
+}
+
+// TestRebootTriageCountsActiveSessionWithoutUsername: username is optional in
+// spec.yaml#/components/schemas/SystemStateLoggedOnUsers, so an Active session
+// that carries only sessionID/sessionName/status still blocks "reboot now". A
+// username-less session that is not Active (a service session) does not.
+func TestRebootTriageCountsActiveSessionWithoutUsername(t *testing.T) {
+	eps := []Endpoint{{ID: "e1"}, {ID: "e2"}}
+	sums := map[string]PatchSummary{"e1": {PendingReboot: 1}, "e2": {PendingReboot: 1}}
+	hb := map[string]Heartbeat{"e1": {Available: true}, "e2": {Available: true}}
+	active, ok := ParseSystemState(json.RawMessage(`{"loggedOnUsers":[{"sessionID":"1","sessionName":"Console","status":"Active"}]}`))
+	if !ok || len(active.LoggedOn) != 1 {
+		t.Fatalf("username-less session dropped by the parser: %+v", active)
+	}
+	service, _ := ParseSystemState(json.RawMessage(`{"loggedOnUsers":[{"sessionID":"0","sessionName":"Services","status":"Disconnected"}]}`))
+	rows := RebootTriage(eps, sums, hb, nil, map[string]SystemState{"e1": active, "e2": service})
+	got := map[string]string{}
+	for _, r := range rows {
+		got[r.ID] = r.Bucket
+	}
+	if got["e1"] != Coordinate || got["e2"] != RebootNow {
+		t.Fatalf("buckets = %v, want e1 %s (active console session) and e2 %s (service session)", got, Coordinate, RebootNow)
+	}
+}
+
+// TestRebootTriageUnknownActivitySessionNeedsCoordination: username and status
+// are both optional in spec.yaml#/components/schemas/SystemStateLoggedOnUsers,
+// so only a session explicitly reported Disconnected is safe to ignore. A
+// session with no status, any other status, or an entry that is not an object
+// has unknown activity and must keep the endpoint out of reboot_now.
+func TestRebootTriageUnknownActivitySessionNeedsCoordination(t *testing.T) {
+	cases := map[string]string{
+		"no status":        `{"loggedOnUsers":[{"sessionID":"1","sessionName":"Console"}]}`,
+		"other status":     `{"loggedOnUsers":[{"sessionID":"2","sessionName":"RDP-Tcp#3","status":"Idle"}]}`,
+		"empty object":     `{"loggedOnUsers":[{}]}`,
+		"non-object entry": `{"loggedOnUsers":["jsmith"]}`,
+		"named, no status": `{"loggedOnUsers":[{"username":"jsmith"}]}`,
+	}
+	for name, raw := range cases {
+		st, ok := ParseSystemState(json.RawMessage(raw))
+		if !ok {
+			t.Fatalf("%s: parse failed", name)
+		}
+		rows := RebootTriage([]Endpoint{{ID: "e1"}}, map[string]PatchSummary{"e1": {PendingReboot: 1}},
+			map[string]Heartbeat{"e1": {Available: true}}, nil, map[string]SystemState{"e1": st})
+		if len(rows) != 1 || rows[0].Bucket != Coordinate {
+			t.Errorf("%s: rows = %+v, want e1 %s (session activity unknown)", name, rows, Coordinate)
+		}
+	}
+	disc, _ := ParseSystemState(json.RawMessage(`{"loggedOnUsers":[{"sessionID":"0","sessionName":"Services","status":"Disconnected"},{"username":"jsmith","status":"disconnected"}]}`))
+	rows := RebootTriage([]Endpoint{{ID: "e1"}}, map[string]PatchSummary{"e1": {PendingReboot: 1}},
+		map[string]Heartbeat{"e1": {Available: true}}, nil, map[string]SystemState{"e1": disc})
+	if len(rows) != 1 || rows[0].Bucket != RebootNow {
+		t.Fatalf("only disconnected sessions: rows = %+v, want %s", rows, RebootNow)
 	}
 }

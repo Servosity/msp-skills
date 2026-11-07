@@ -1,4 +1,5 @@
 // Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
+// pp:data-source live
 
 package cli
 
@@ -6,7 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
-	"os"
+	"riverside-fm-pp-cli/internal/credkit"
 	"sort"
 	"strings"
 
@@ -47,16 +48,16 @@ func newTranscriptsConvertCmd(flags *rootFlags) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			data, err := c.Get("/api/v4/transcriptions/editableWithVoiceActivity/"+url.PathEscape(sid), nil)
+			data, err := c.Get(cmd.Context(), "/api/v4/transcriptions/editableWithVoiceActivity/"+url.PathEscape(sid), nil)
 			if err != nil {
-				return classifyAPIError(err, flags)
+				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}
 			out, ferr := convertTranscript(data, format)
 			if ferr != nil {
 				return usageErr(ferr)
 			}
 			if outPath != "" {
-				if err := os.WriteFile(outPath, []byte(out), 0o600); err != nil {
+				if err := credkit.WriteFile(outPath, []byte(out), 0o600); err != nil {
 					return err
 				}
 				if flags.asJSON {
@@ -94,9 +95,9 @@ func newTranscriptsTalktimeCmd(flags *rootFlags) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			data, err := c.Get("/api/v4/transcriptions/editableWithVoiceActivity/"+url.PathEscape(sid), nil)
+			data, err := c.Get(cmd.Context(), "/api/v4/transcriptions/editableWithVoiceActivity/"+url.PathEscape(sid), nil)
 			if err != nil {
-				return classifyAPIError(err, flags)
+				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}
 			stats := computeTalktime(data)
 			if flags.asJSON || !isTerminal(cmd.OutOrStdout()) {
@@ -253,7 +254,7 @@ func convertTranscript(data json.RawMessage, format string) (string, error) {
 	}
 	switch strings.ToLower(format) {
 	case "json":
-		return string(data), nil
+		return string(responseFileBytes(data)), nil
 	case "txt":
 		return renderTxt(tr), nil
 	case "srt":

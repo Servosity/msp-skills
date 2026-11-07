@@ -14,21 +14,21 @@ import (
 // authentication is REQUIRED/PENDING/WRONG_CREDENTIALS, or the SNMP service
 // was found but Domotz could not authenticate to it. NO_AUTHENTICATION and
 // NOT_FOUND mean the device needs no extended discovery — those are healthy.
-const fleetUnmonitoredQuery = `
+var fleetUnmonitoredQuery = `
 SELECT
   COALESCE(NULLIF(a.display_name, ''), d.agent_id) AS site,
   d.agent_id                                       AS agent_id,
-  json_extract(d.data, '$.display_name')           AS display_name,
-  json_extract(d.data, '$.authentication_status')  AS authentication_status,
-  json_extract(d.data, '$.snmp_status')            AS snmp_status,
-  json_extract(d.data, '$.importance')             AS importance,
-  json_extract(d.data, '$.type.label')             AS type
-FROM "device" d
+  ` + deviceField("d", "display_name") + `          AS display_name,
+  ` + deviceField("d", "authentication_status") + ` AS authentication_status,
+  ` + deviceField("d", "snmp_status") + `           AS snmp_status,
+  ` + deviceField("d", "importance") + `            AS importance,
+  ` + deviceField("d", "type") + `                  AS type
+FROM ` + fleetDeviceSource + ` d
 LEFT JOIN "agent" a ON a.id = d.agent_id
-WHERE json_extract(d.data, '$.authentication_status') IN ('REQUIRED', 'PENDING', 'WRONG_CREDENTIALS')
-   OR json_extract(d.data, '$.snmp_status') = 'NOT_AUTHENTICATED'
+WHERE ` + deviceField("d", "authentication_status") + ` IN ('REQUIRED', 'PENDING', 'WRONG_CREDENTIALS')
+   OR ` + deviceField("d", "snmp_status") + ` = 'NOT_AUTHENTICATED'
 ORDER BY
-  CASE json_extract(d.data, '$.importance') WHEN 'VITAL' THEN 0 ELSE 1 END,
+  CASE ` + deviceField("d", "importance") + ` WHEN 'VITAL' THEN 0 ELSE 1 END,
   site,
   display_name`
 
@@ -51,7 +51,7 @@ func newNovelFleetUnmonitoredCmd(flags *rootFlags) *cobra.Command {
 			if dryRunOK(flags) {
 				return nil
 			}
-			db, err := novelOpenStoreChecked(cmd, flags, dbPath, "device")
+			db, err := novelOpenStoreChecked(cmd, flags, dbPath, "agent_device", "agent", "agent_device")
 			if err != nil {
 				return err
 			}

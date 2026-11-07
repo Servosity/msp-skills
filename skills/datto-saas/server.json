@@ -1,0 +1,83 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.Servosity/datto-saas-mcp",
+  "title": "Datto SaaS Protection MCP",
+  "description": "Every Datto SaaS Protection (Backupify) client in one local database: seat audits, protection gaps",
+  "version": "0.1.0",
+  "icons": [
+    {
+      "src": "https://raw.githubusercontent.com/servosity/msp-skills/main/docs/assets/social/datto-saas/datto-saas-512x512.png",
+      "mimeType": "image/png",
+      "sizes": [
+        "512x512"
+      ]
+    }
+  ],
+  "repository": {
+    "url": "https://github.com/servosity/msp-skills",
+    "source": "github",
+    "subfolder": "skills/datto-saas"
+  },
+  "packages": [
+    {
+      "registryType": "mcpb",
+      "identifier": "https://github.com/servosity/msp-skills/releases/download/datto-saas-v0.1.0/datto-saas-mcp.mcpb",
+      "version": "0.1.0",
+      "fileSha256": "PLACEHOLDER_SHA256_FILLED_BY_CI",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "DATTO_SAAS_BASE_URL",
+          "description": "Optional. Leave blank for the Datto API host (https://api.datto.com/v1); set it only to send requests through your own proxy or a test server.",
+          "isRequired": false,
+          "isSecret": false,
+          "default": "https://api.datto.com/v1"
+        },
+        {
+          "name": "DATTO_SAAS_PUBLIC_KEY",
+          "description": "Set the DATTO_SAAS_PUBLIC_KEY credential for the Datto SaaS Protection MCP server.",
+          "isRequired": true,
+          "isSecret": true
+        },
+        {
+          "name": "DATTO_SAAS_SECRET_KEY",
+          "description": "Set the DATTO_SAAS_SECRET_KEY credential for the Datto SaaS Protection MCP server.",
+          "isRequired": true,
+          "isSecret": true
+        },
+        {
+          "name": "DATTO_SAAS_MCP_READ_ONLY",
+          "description": "Optional. Set to exactly 1 to expose only read tools: datto-saas_execute refuses the seat bulk change, and sync, export and the other commands that change state are not offered. Leave blank to keep every tool available.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "DATTO_SAAS_NO_LOCAL_DATA",
+          "description": "Optional. Set to 1 to keep no local copy of API responses: reads go to the API, the response cache is off and sync is refused. Leave blank to keep the local store.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "DATTO_SAAS_USER_AGENT",
+          "description": "Optional. Overrides the User-Agent the CLI sends to the Datto API. Leave blank to use the CLI's own.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "PRINTING_PRESS_CLIENT_PROFILE",
+          "description": "Only used when the MCP server is bound to a tenant-gated client profile. This connector registers no tenant-gated source, so leave it blank.",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "DATTO_SAAS_MCP_HTTP_TOKEN",
+          "description": "Required only when running the MCP server with --transport http (a remote/hosted deployment); at least 32 characters. Callers must send a matching Authorization: Bearer header. Not needed for the default local stdio transport that Claude Desktop uses.",
+          "isRequired": false,
+          "isSecret": true
+        }
+      ]
+    }
+  ]
+}

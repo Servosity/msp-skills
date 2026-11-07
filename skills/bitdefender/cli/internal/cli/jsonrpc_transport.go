@@ -25,6 +25,7 @@ import (
 	"strings"
 
 	"bitdefender-pp-cli/internal/client"
+	"bitdefender-pp-cli/internal/cliutil"
 )
 
 func init() { registerClientHook(installJSONRPCTransport) }
@@ -45,7 +46,8 @@ func installJSONRPCTransport(c *client.Client) error {
 	}
 	base := c.HTTPClient.Transport
 	if base == nil {
-		base = http.DefaultTransport
+		// The credential kit's outbound guard, as every other API transport.
+		base = cliutil.OutboundGuard(nil)
 	}
 	c.HTTPClient.Transport = &jsonrpcTransport{base: base}
 	return nil
@@ -173,12 +175,57 @@ func unwrapRPCResponse(resp *http.Response, wantID string) (*http.Response, erro
 	case string(env.ID) != strconv.Quote(wantID):
 		return nil, fmt.Errorf("JSON-RPC response id %s does not match request id %q", env.ID, wantID)
 	default:
+		holdPathCredentials(env.Result)
 		body = env.Result
 	}
 	resp.Body = io.NopCloser(bytes.NewReader(body))
 	resp.ContentLength = int64(len(body))
 	resp.Header.Set("Content-Length", strconv.Itoa(len(body)))
 	return resp, nil
+}
+
+// holdPathCredentials holds the two policy credentials whose JSON name alone
+// is too generic to declare (Declarations.ResponseFields matches a name at any
+// depth, and "value" or "key" would hold every short number beside them):
+// passwordConfig.value, the agent's password protection, and
+// securityTelemetry.config.key, the SIEM collector's key (getPolicyDetails).
+// Each is held before the result reaches any output.
+func holdPathCredentials(result json.RawMessage) {
+	if !bytes.Contains(result, []byte(`"passwordConfig"`)) && !bytes.Contains(result, []byte(`"securityTelemetry"`)) {
+		return
+	}
+	var v any
+	if json.Unmarshal(result, &v) != nil {
+		return
+	}
+	var walk func(v any)
+	walk = func(v any) {
+		switch t := v.(type) {
+		case []any:
+			for _, e := range t {
+				walk(e)
+			}
+		case map[string]any:
+			if pc, ok := t["passwordConfig"].(map[string]any); ok {
+				holdString("response:passwordConfig.value", pc["value"])
+			}
+			if st, ok := t["securityTelemetry"].(map[string]any); ok {
+				if cfg, ok := st["config"].(map[string]any); ok {
+					holdString("response:securityTelemetry.config.key", cfg["key"])
+				}
+			}
+			for _, e := range t {
+				walk(e)
+			}
+		}
+	}
+	walk(v)
+}
+
+func holdString(source string, v any) {
+	if s, ok := v.(string); ok && s != "" {
+		cliutil.Hold(source, s)
+	}
 }
 
 // rpcErrorStatus maps the documented JSON-RPC error codes onto the HTTP

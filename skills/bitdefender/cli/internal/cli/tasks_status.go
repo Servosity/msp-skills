@@ -49,7 +49,7 @@ func newTasksStatusCmd(flags *rootFlags) *cobra.Command {
 			}
 			if !stdinBody {
 				if !cmd.Flags().Changed("task-id") && bodyTaskId == "" && !requiredInputWaived() {
-					return fmt.Errorf("required flag \"%s\" not set", "task-id")
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "task-id"))
 				}
 			}
 			path := "/v1.1/jsonrpc/network#getTaskStatus"
@@ -135,7 +135,7 @@ func newTasksStatusCmd(flags *rootFlags) *cobra.Command {
 					filtered, selectErr = filterFieldsChecked(filtered, flags.selectFields)
 					selectErr = selectErrorForDryRun(selectErr, flags, data)
 				} else if flags.compact {
-					filtered = compactFields(filtered, nil)
+					filtered = compactFields(filtered, map[string]bool{"name": true, "status": true, "type": true})
 				}
 				wrapped, wrapErr := wrapWithProvenance(filtered, prov)
 				if wrapErr != nil {
@@ -167,7 +167,7 @@ func newTasksStatusCmd(flags *rootFlags) *cobra.Command {
 			if flags.csv || flags.plain {
 				formatData = outputData
 			}
-			return printOutputWithFlagsMeta(cmd.OutOrStdout(), formatData, flags, map[string]any{"source": "live"}, nil)
+			return printOutputWithFlagsMeta(cmd.OutOrStdout(), formatData, flags, map[string]any{"source": "live"}, map[string]bool{"name": true, "status": true, "type": true})
 		},
 	}
 	cmd.Flags().IntVar(&bodyOptionsPage, "options-page", 0, "The results page number. Default value: 1.")

@@ -11,13 +11,9 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// breakdownFields maps the --by value to the device JSON path it groups on.
+// breakdownFields are the --by values, each a fleetDeviceFields name.
 // Whitelisted to keep the column out of string-built SQL.
-var breakdownFields = map[string]string{
-	"type":   "$.type.label",
-	"vendor": "$.user_data.vendor",
-	"os":     "$.os.name",
-}
+var breakdownFields = map[string]bool{"type": true, "vendor": true, "os": true}
 
 // pp:data-source local
 func newNovelFleetBreakdownCmd(flags *rootFlags) *cobra.Command {
@@ -36,11 +32,10 @@ func newNovelFleetBreakdownCmd(flags *rootFlags) *cobra.Command {
 			if dryRunOK(flags) {
 				return nil
 			}
-			path, ok := breakdownFields[flagBy]
-			if !ok {
+			if !breakdownFields[flagBy] {
 				return usageErr(fmt.Errorf("invalid --by %q: must be one of type, vendor, os", flagBy))
 			}
-			db, err := novelOpenStoreChecked(cmd, flags, dbPath, "device")
+			db, err := novelOpenStoreChecked(cmd, flags, dbPath, "agent_device", "agent", "agent_device")
 			if err != nil {
 				return err
 			}
@@ -48,11 +43,11 @@ func newNovelFleetBreakdownCmd(flags *rootFlags) *cobra.Command {
 
 			query := fmt.Sprintf(`
 SELECT
-  COALESCE(NULLIF(json_extract(data, '%s'), ''), '(unknown)') AS %s,
+  COALESCE(NULLIF(%s, ''), '(unknown)') AS %s,
   COUNT(*) AS count
-FROM "device"
+FROM `+fleetDeviceSource+`
 GROUP BY 1
-ORDER BY count DESC, 1`, path, flagBy)
+ORDER BY count DESC, 1`, deviceField("", flagBy), flagBy)
 
 			rows, err := queryFleetRows(cmd.Context(), db, query)
 			if err != nil {

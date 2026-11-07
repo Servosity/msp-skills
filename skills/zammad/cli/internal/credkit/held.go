@@ -23,6 +23,10 @@ import (
 type heldEntry struct {
 	allowed []string // Origin.Allowed entries, unioned over every source that held it
 	src     Source   // the first source that held it
+	// userCut: a Basic pair held only as one whose user is an Identifier
+	// (basic-user, KF-JSM-1): its pieces lying wholly inside "user:" are
+	// not held (userCuts). Held whole from anywhere else, it is held whole.
+	userCut bool
 }
 
 // heldMu is reg's lock. When the held set changed while it was held,
@@ -202,11 +206,13 @@ func holdAllowedLocked(source Source, extra []string, values ...string) {
 		return
 	}
 	var parts []string
-	part := func(v string) {
+	whole := map[string]bool{} // every part but a pair held with its user cut
+	add := func(v string) {
 		if v != "" && !slices.Contains(parts, v) {
 			parts = append(parts, v)
 		}
 	}
+	part := func(v string) { add(v); whole[v] = true }
 	for _, v := range values {
 		part(v)
 		t := strings.TrimFunc(v, unicode.IsSpace)
@@ -214,7 +220,8 @@ func holdAllowedLocked(source Source, extra []string, values ...string) {
 		// A scheme word in front ("Bearer x", "Basic x") is not the secret:
 		// the rest is held on its own as well, each auth parameter's value,
 		// and a Basic credential's decoded pair and both of its parts
-		// (contract 1).
+		// (contract 1); with basic-user an Identifier, the user is not held
+		// and neither is any piece of the pair lying wholly inside "user:".
 		if m := schemeRE.FindStringSubmatch(t); m != nil {
 			rest := strings.TrimFunc(m[2], unicode.IsSpace)
 			part(rest)
@@ -228,10 +235,12 @@ func holdAllowedLocked(source Source, extra []string, values ...string) {
 			}
 			if strings.EqualFold(m[1], "basic") {
 				if pair, ok := decodeBasic(rest); ok {
-					part(pair)
 					user, pass, _ := strings.Cut(pair, ":")
 					part(pass)
-					if !exemptLocked("basic-user") {
+					if exemptLocked("basic-user") {
+						add(pair)
+					} else {
+						part(pair)
 						part(user)
 					}
 				}
@@ -254,7 +263,7 @@ func holdAllowedLocked(source Source, extra []string, values ...string) {
 			}
 		}
 	}
-	add := func(e *heldEntry, origins []string) {
+	bind := func(e *heldEntry, origins []string) {
 		for _, a := range origins {
 			if !slices.Contains(e.allowed, a) {
 				e.allowed = append(e.allowed, a)
@@ -272,14 +281,19 @@ func holdAllowedLocked(source Source, extra []string, values ...string) {
 			e = &heldEntry{src: source}
 			reg.vals[p] = e
 			reg.gen++
-			add(e, base)
+			e.userCut = !whole[p]
+			bind(e, base)
 			if !declared {
-				add(e, inherited)
+				bind(e, inherited)
 			}
 			continue
 		}
+		if e.userCut && whole[p] {
+			e.userCut = false
+			reg.gen++
+		}
 		if declared {
-			add(e, base)
+			bind(e, base)
 		}
 	}
 }
@@ -330,7 +344,7 @@ func currentMatcher() (*matcher, bool) {
 		for v := range reg.vals {
 			vals = append(vals, v)
 		}
-		reg.m = newMatcher(vals)
+		reg.m = buildMatcher(vals, userCutsLocked(), false, false)
 		reg.mgen = reg.gen
 	}
 	return reg.m, false
@@ -366,9 +380,20 @@ func originMatcher(o origin, strict bool) (*matcher, bool) {
 			vals = append(vals, v)
 		}
 	}
-	m := newRequestMatcher(vals)
+	m := buildMatcher(vals, userCutsLocked(), true, false)
 	reg.origins[key] = m
 	return m, false
+}
+
+// userCutsLocked is every held pair with its user cut.
+func userCutsLocked() map[string]bool {
+	out := map[string]bool{}
+	for v, e := range reg.vals {
+		if e.userCut {
+			out[v] = true
+		}
+	}
+	return out
 }
 
 func allowedAt(allowed []string, o origin, base *origin) bool {

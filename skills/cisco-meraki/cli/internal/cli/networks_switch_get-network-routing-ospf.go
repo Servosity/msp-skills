@@ -52,7 +52,7 @@ func newNetworksSwitchGetNetworkRoutingOspfCmd(flags *rootFlags) *cobra.Command 
 			if cmd.Flags().Changed("vrf") || flagVrf != "" {
 				params["vrf"] = formatCLIParamValue(flagVrf)
 			}
-			data, prov, err := resolveReadWithStrategyAndResponsePath(cmd.Context(), c, flags, "live", "switch", false, path, params, nil, "areas", cmd.ErrOrStderr())
+			data, prov, err := resolveReadWithStrategyAndResponsePath(cmd.Context(), c, flags, "live", "switch", false, path, params, nil, "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}
@@ -79,7 +79,7 @@ func newNetworksSwitchGetNetworkRoutingOspfCmd(flags *rootFlags) *cobra.Command 
 					filtered, selectErr = filterFieldsChecked(filtered, flags.selectFields)
 					selectErr = selectErrorForDryRun(selectErr, flags, data)
 				} else if flags.compact {
-					filtered = compactFields(filtered, map[string]bool{"areaId": true, "areaName": true})
+					filtered = compactFields(filtered, map[string]bool{"md5AuthenticationKey": true})
 				}
 				wrapped, wrapErr := wrapWithProvenance(filtered, prov)
 				if wrapErr != nil {
@@ -111,7 +111,7 @@ func newNetworksSwitchGetNetworkRoutingOspfCmd(flags *rootFlags) *cobra.Command 
 			if flags.csv || flags.plain {
 				formatData = outputData
 			}
-			return printOutputWithFlagsMeta(cmd.OutOrStdout(), formatData, flags, map[string]any{"source": "live"}, map[string]bool{"areaId": true, "areaName": true})
+			return printOutputWithFlagsMeta(cmd.OutOrStdout(), formatData, flags, map[string]any{"source": "live"}, map[string]bool{"md5AuthenticationKey": true})
 		},
 	}
 	cmd.Flags().StringVar(&flagVrf, "vrf", "", "The VRF to return the OSPF routing configuration for. When not provided, the default VRF is used.")

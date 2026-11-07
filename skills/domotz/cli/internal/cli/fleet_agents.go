@@ -12,18 +12,20 @@ import (
 
 // fleetAgentsQuery selects every agent whose status value is not ONLINE,
 // labeled with the human site name and the operational context a NOC
-// technician triages with (status age, version, location, organization).
-const fleetAgentsQuery = `
+// technician triages with (status age, the Collector software version, its
+// location as latitude,longitude, organization), read through
+// fleetAgentFields.
+var fleetAgentsQuery = `
 SELECT
   COALESCE(NULLIF(a.display_name, ''), a.id)                  AS site,
   a.id                                                        AS agent_id,
-  COALESCE(json_extract(a.data, '$.status.value'), 'UNKNOWN') AS status,
-  json_extract(a.data, '$.status.last_change')                AS status_since,
-  json_extract(a.data, '$.version')                           AS version,
-  json_extract(a.data, '$.location.name')                     AS location,
-  json_extract(a.data, '$.organization.name')                 AS organization
+  COALESCE(` + agentField("a", "status") + `, 'UNKNOWN') AS status,
+  ` + agentField("a", "status_since") + ` AS status_since,
+  ` + agentField("a", "version") + `      AS version,
+  ` + agentField("a", "location") + `     AS location,
+  ` + agentField("a", "organization") + ` AS organization
 FROM "agent" a
-WHERE COALESCE(json_extract(a.data, '$.status.value'), 'UNKNOWN') != 'ONLINE'
+WHERE COALESCE(` + agentField("a", "status") + `, 'UNKNOWN') != 'ONLINE'
 ORDER BY status, site`
 
 // pp:data-source local
@@ -45,7 +47,7 @@ func newNovelFleetAgentsCmd(flags *rootFlags) *cobra.Command {
 			if dryRunOK(flags) {
 				return nil
 			}
-			db, err := novelOpenStoreChecked(cmd, flags, dbPath, "agent")
+			db, err := novelOpenStoreChecked(cmd, flags, dbPath, "agent", "agent")
 			if err != nil {
 				return err
 			}

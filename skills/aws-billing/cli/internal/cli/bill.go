@@ -64,7 +64,21 @@ call or --data-source local to require the cache.`,
 				return usageErr(err)
 			}
 			o := awsReadOptsFromFlags(flags, dbPath, profile, region)
-			lines, source, err := canonicalCostLines(cmd.Context(), o, pr)
+			// Codex r1 class requested-dimension-never-fetched: a breakdown
+			// reads the Cost Explorer dimension pair that carries it (account x
+			// service lines have no usage type or region). Those pairs are not
+			// split by account, so --account works with service or account.
+			kind := costByAccountService
+			switch gb {
+			case "usage-type":
+				kind = costByServiceUsage
+			case "region":
+				kind = costByServiceRegion
+			}
+			if account != "" && kind.id != costByAccountService.id {
+				return usageErr(fmt.Errorf("--account works with --group-by service or account (a %s breakdown is not split by account; run it with that account's --profile-aws)", gb))
+			}
+			lines, source, err := costLines(cmd.Context(), o, pr, kind)
 			if err != nil {
 				return err
 			}

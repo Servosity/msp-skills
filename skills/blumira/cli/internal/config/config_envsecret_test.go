@@ -6,6 +6,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"blumira-pp-cli/internal/cliutil"
 )
 
 // Issue #266: OAuth client credentials that reached the process through the
@@ -29,13 +31,24 @@ func loadWithEnvCreds(t *testing.T, envSecret string) (*Config, string) {
 	return cfg, path
 }
 
+// savedConfig returns everything the save wrote to disk for this config: the
+// config file plus the 0600 credential store beside it, where press 4.34+
+// keeps tokens and client credentials instead of config.toml.
 func savedConfig(t *testing.T, path string) string {
 	t.Helper()
 	b, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatalf("reading %s: %v", path, err)
 	}
-	return string(b)
+	credsPath, err := cliutil.CredentialsFilePathForConfig(path)
+	if err != nil {
+		t.Fatalf("credential store path: %v", err)
+	}
+	creds, err := os.ReadFile(credsPath)
+	if err != nil && !os.IsNotExist(err) {
+		t.Fatalf("reading %s: %v", credsPath, err)
+	}
+	return string(b) + "\n" + string(creds)
 }
 
 // The reported defect: a token mint on an ordinary authenticated command wrote
