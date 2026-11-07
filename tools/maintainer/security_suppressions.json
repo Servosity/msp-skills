@@ -2556,6 +2556,16 @@
       "reason": "connectsecure, press 4.35.1 reprint, reviewed 2026-11-06 (same declaration digest as the entry for skills/blumira/cli/internal/cli/deliver_spacefast.go). Same read as the G703 entry: the CLI's own Spacefast delivery record, state dir plus a SHA-256 hex file name."
     },
     {
+      "file": "skills/connectsecure/cli/internal/credwire/declarations.go",
+      "rule": "G703",
+      "bind": "decl",
+      "sha256": [
+        "sha256:0daec5b0f41305a678d11c2d4af7a088bc857fbb31ca0df1d930b1ce28166bb6"
+      ],
+      "press": "4.35.1",
+      "reason": "connectsecure, press 4.35.1 reprint, reviewed 2026-11-06. credential kit wiring (hand-written), same class as the riverside-fm credwire entry. readRegular stats and reads a credential source the program reads anyway (its config.toml, the 0600 credential store, profiles.json, its own JWT token cache files), named by the operator's own --config, --home or environment, so Start can hold every credential in it before anything prints. It refuses anything but a regular file and never writes. The MCP server refuses --config and --home."
+    },
+    {
       "file": "skills/cork/cli/internal/cliutil/creds_perms_unix.go",
       "rule": "G115",
       "bind": "file",
