@@ -77,10 +77,10 @@
     "released_hash": "sha256:320dbeb3bde21a2ae26eb4e75bb967243b2555c1abcf92da539b12a91fb6b959"
   },
   "axcient": {
-    "state": "up-to-date",
+    "state": "binary-pending",
     "version": "0.2.17",
     "latest_tag": "axcient-v0.2.17",
-    "current_hash": "sha256:5535dd795288cd58a284fa2833f64b89f3d6e3836ae5af54fa60c5d41724d6ba",
+    "current_hash": "sha256:b018ad847db0966647a13f320473aea19dc2fc7fc23260e2cc8b650e41ada4cd",
     "released_hash": "sha256:5535dd795288cd58a284fa2833f64b89f3d6e3836ae5af54fa60c5d41724d6ba"
   },
   "backup-radar": {
@@ -287,10 +287,10 @@
     "released_hash": null
   },
   "exchange-online": {
-    "state": "up-to-date",
+    "state": "binary-pending",
     "version": "0.1.0",
     "latest_tag": "exchange-online-v0.1.0",
-    "current_hash": "sha256:f01c495a417e9e7986ed05bff2a2483f3b2c21df83b29221a184d76842689ce6",
+    "current_hash": "sha256:7e821728f609847ee158daf6173a22df1c7735e78833537338d8cdcec7076adc",
     "released_hash": "sha256:f01c495a417e9e7986ed05bff2a2483f3b2c21df83b29221a184d76842689ce6"
   },
   "fortinet": {
@@ -385,10 +385,10 @@
     "released_hash": "sha256:709c710742f6fb80c3ac6f6e849bc68f269f344851387a01e2fcef4d8d4530a7"
   },
   "kaseya-vsa": {
-    "state": "up-to-date",
+    "state": "binary-pending",
     "version": "0.1.1",
     "latest_tag": "kaseya-vsa-v0.1.1",
-    "current_hash": "sha256:b538f81d6d30b29556181772e50c4f76a02c7c7499b18c775f5f3a64bff154ce",
+    "current_hash": "sha256:d9747f520d949166aa83a4b1d5fbe3a9919f70261c49840c48b3efb1f05a7447",
     "released_hash": "sha256:b538f81d6d30b29556181772e50c4f76a02c7c7499b18c775f5f3a64bff154ce"
   },
   "keeper": {

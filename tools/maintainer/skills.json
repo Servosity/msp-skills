@@ -257,7 +257,7 @@
     },
     "aws-billing": {
       "system": "AWS billing & Cost Explorer - plain-English bill breakdowns and waste flags",
-      "status": "beta",
+      "status": "live-verified",
       "cli_binary": "aws-billing-cli",
       "mcp_binary": "aws-billing-mcp",
       "vendor": "Amazon Web Services",
@@ -271,10 +271,15 @@
       "cli_hash_at_release": "sha256:320dbeb3bde21a2ae26eb4e75bb967243b2555c1abcf92da539b12a91fb6b959",
       "has_video": true,
       "live_verified": {
-        "status": "awaiting",
-        "date": null,
-        "source": null,
-        "evidence": null
+        "status": "live-verified",
+        "date": "2026-11-06",
+        "source": "self",
+        "evidence": "Damien: verified live (reported 2026-11-06)",
+        "verified_by": "Servosity (maintainer)",
+        "issue_url": null,
+        "verified_version": "0.1.9",
+        "verified_cli_hash": "sha256:320dbeb3bde21a2ae26eb4e75bb967243b2555c1abcf92da539b12a91fb6b959",
+        "verified_basis": "latest-release-at-flip"
       }
     },
     "axcient": {
@@ -1983,7 +1988,7 @@
     },
     "riverside-fm": {
       "system": "Riverside.fm - export transcripts, audio, and video from your recording studio",
-      "status": "beta",
+      "status": "live-verified",
       "cli_binary": "riverside-fm-cli",
       "mcp_binary": "riverside-fm-mcp",
       "vendor": "Riverside",
@@ -1993,14 +1998,19 @@
       "display_name": "Riverside.fm",
       "cli_hash": "sha256:1fba95931f2cfb1aa26c7d3bca39ed3cb0f7fa3a1f27aafc9093894bcfc44bcf",
       "template_version": 3,
-      "version": "0.1.5",
-      "cli_hash_at_release": "sha256:8b77a0f5b34bfce88e8581ef0741da558daefda2e9ceffc3000b891c71df2ff9",
+      "version": "0.1.6",
+      "cli_hash_at_release": "sha256:1fba95931f2cfb1aa26c7d3bca39ed3cb0f7fa3a1f27aafc9093894bcfc44bcf",
       "has_video": true,
       "live_verified": {
-        "status": "awaiting",
-        "date": null,
-        "source": null,
-        "evidence": null
+        "status": "live-verified",
+        "date": "2026-11-06",
+        "source": "self",
+        "evidence": "Damien: verified live (reported 2026-11-06)",
+        "verified_by": "Servosity (maintainer)",
+        "issue_url": null,
+        "verified_version": "0.1.5",
+        "verified_cli_hash": "sha256:8b77a0f5b34bfce88e8581ef0741da558daefda2e9ceffc3000b891c71df2ff9",
+        "verified_basis": "latest-release-at-flip"
       }
     },
     "rocketcyber": {
