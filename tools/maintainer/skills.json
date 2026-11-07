@@ -1781,7 +1781,7 @@
       "category": "Billing",
       "display_name": "Pax8",
       "tagline": "Reconcile Pax8 billing, track MRR, and catch usage overages before they hit the customer invoice",
-      "cli_hash": "sha256:1e9fc590fd65e2adf95299e1ece9e8e544d8cbb23e2a3ff2e567f9899469d351",
+      "cli_hash": "sha256:7ee29b85a912e24c5f4272fbe50a810e6632fa84e0c529fcdc69f5f371663157",
       "template_version": 3,
       "version": "0.1.8",
       "cli_hash_at_release": "sha256:35e893648e443c4c5adea05fe66531fc895c0e9db84fe9a63d6959876d5468df",
