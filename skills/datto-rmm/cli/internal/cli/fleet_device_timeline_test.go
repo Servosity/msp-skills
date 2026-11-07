@@ -15,9 +15,9 @@ func TestBuildTimeline(t *testing.T) {
 		mkAlert("a3", "dev2", "OTHER-BOX", "Beta", false, "2026-06-04T11:00:00Z"),
 	}
 	logs := []fleetActivityLog{
-		{Action: "Quick job ran", Category: "job", Date: rawJSON(`"2026-06-04T12:00:00Z"`), Hostname: "ACME-DC01", Site: "Acme", User: "tech1"},
-		{Action: "Audit", Category: "audit", Date: rawJSON(`"2026-01-01T00:00:00Z"`), Hostname: "ACME-DC01", Site: "Acme"}, // outside window
-		{Action: "Login", Category: "user", Date: rawJSON(`"2026-06-04T09:00:00Z"`), Hostname: "OTHER-BOX", Site: "Beta"},
+		{Action: "Quick job ran", Category: "job", Date: rawJSON(`"2026-06-04T12:00:00Z"`), Hostname: "ACME-DC01", Site: fleetLogSite{Name: "Acme"}, User: fleetLogUser{Name: "tech1"}},
+		{Action: "Audit", Category: "audit", Date: rawJSON(`"2026-01-01T00:00:00Z"`), Hostname: "ACME-DC01", Site: fleetLogSite{Name: "Acme"}}, // outside window
+		{Action: "Login", Category: "user", Date: rawJSON(`"2026-06-04T09:00:00Z"`), Hostname: "OTHER-BOX", Site: fleetLogSite{Name: "Beta"}},
 	}
 
 	events := buildTimeline(alerts, logs, "ACME-DC01", 30, 100, now)

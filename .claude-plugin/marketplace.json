@@ -148,7 +148,7 @@
       "name": "aws-billing",
       "source": "./skills/aws-billing",
       "description": "Get a non-expert from zero to a Slack-delivered, plain-English, waste-flagged AWS bill breakdown \u2014 and cache it so you don't pay per Cost Explorer call.",
-      "version": "0.1.8",
+      "version": "0.1.9",
       "category": "billing",
       "tags": [
         "aws-billing",
@@ -386,7 +386,7 @@
       "name": "domotz",
       "source": "./skills/domotz",
       "description": "Every Domotz endpoint, plus a local SQLite fleet mirror that answers cross-site questions.",
-      "version": "0.1.7",
+      "version": "0.1.8",
       "category": "network-monitoring",
       "tags": [
         "domotz",
@@ -701,7 +701,7 @@
       "name": "pagerduty",
       "source": "./skills/pagerduty",
       "description": "Every PagerDuty incident, on-call and service operation from the terminal, plus a local SQLite mirror that answers cross-entity questions \u2014 MTTA/MTTR, on-call coverage gaps, responder load \u2014 that neither the API nor the web UI can.",
-      "version": "0.1.7",
+      "version": "0.1.8",
       "category": "incident-response",
       "tags": [
         "pagerduty",
@@ -821,11 +821,12 @@
     {
       "name": "riverside-fm",
       "source": "./skills/riverside-fm",
-      "description": "Every Riverside.fm studio, take, transcript, and asset as one agent-native CLI plus a local SQLite mirror - bulk studio export with resume, priority-fallback download, transcript search and talktime, and signed-URL refresh the web app never exposes.",
+      "description": "The first programmatic way to download every transcript, audio track, and video from your own Riverside.com account \u2014 no Business plan or API key required.",
       "version": "0.1.5",
-      "category": "msp",
+      "category": "marketing",
       "tags": [
         "riverside-fm",
+        "riverside",
         "marketing",
         "msp",
         "mcp",
@@ -1347,6 +1348,22 @@
       "tags": [
         "saas-alerts",
         "saas alerts",
+        "security",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
+    },
+    {
+      "name": "eset-protect",
+      "source": "./skills/eset-protect",
+      "description": "Every ESET Connect endpoint in one binary, plus per-customer health, exposure and QBR reports built from a local mirror of your MSP tree.",
+      "version": "0.1.0",
+      "category": "security",
+      "tags": [
+        "eset-protect",
+        "eset",
         "security",
         "msp",
         "mcp",

@@ -1,4 +1,5 @@
 // Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
+// pp:data-source live
 
 package cli
 
@@ -41,16 +42,16 @@ Exits 0 when all selected facets are ready; 2 if --timeout elapses first.`,
 				return nil
 			}
 			sid := strings.TrimSpace(args[0])
-			c, err := flags.newClient()
-			if err != nil {
-				return err
-			}
-			facets := map[string]bool{}
-			for _, f := range strings.Split(include, ",") {
-				facets[strings.TrimSpace(f)] = true
+			facets, ferr := parseWaitFacets(include)
+			if ferr != nil {
+				return usageErr(ferr)
 			}
 			if facets["ai"] && projectID == "" {
 				return usageErr(fmt.Errorf("--include ai requires --project"))
+			}
+			c, err := flags.newClient()
+			if err != nil {
+				return err
 			}
 
 			deadline := time.Now().Add(timeout)
@@ -69,7 +70,7 @@ Exits 0 when all selected facets are ready; 2 if --timeout elapses first.`,
 					return &cliError{code: 2, err: fmt.Errorf("timeout")}
 				}
 
-				status := pollFacets(c, sid, projectID, facets)
+				status := pollFacets(cmd.Context(), c, sid, projectID, facets)
 
 				if status.allReady() {
 					if flags.asJSON || !isTerminal(cmd.OutOrStdout()) {
@@ -98,6 +99,33 @@ Exits 0 when all selected facets are ready; 2 if --timeout elapses first.`,
 	cmd.Flags().DurationVar(&interval, "interval", 15*time.Second, "Poll interval (with adaptive backoff floor)")
 	cmd.Flags().StringVar(&projectID, "project", "", "Project ID (required when --include ai)")
 	return cmd
+}
+
+// waitFacets are the only facets wait can check. An unrecognised name must be
+// a usage error: a facet nobody checks would let wait report READY having
+// verified nothing (e.g. --include transcripts).
+var waitFacets = []string{"transcript", "assets", "ai"}
+
+func parseWaitFacets(include string) (map[string]bool, error) {
+	known := map[string]bool{}
+	for _, f := range waitFacets {
+		known[f] = true
+	}
+	facets := map[string]bool{}
+	for _, f := range strings.Split(include, ",") {
+		f = strings.ToLower(strings.TrimSpace(f))
+		if f == "" {
+			continue
+		}
+		if !known[f] {
+			return nil, fmt.Errorf("--include %q: unknown facet %q (use %s)", include, f, strings.Join(waitFacets, ", "))
+		}
+		facets[f] = true
+	}
+	if len(facets) == 0 {
+		return nil, fmt.Errorf("--include %q names no facet to wait on (use %s)", include, strings.Join(waitFacets, ", "))
+	}
+	return facets, nil
 }
 
 type facetStatus struct {
@@ -151,29 +179,29 @@ func rdy(b bool) string {
 }
 
 type clientLike interface {
-	Get(path string, params map[string]string) (json.RawMessage, error)
+	Get(ctx context.Context, path string, params map[string]string) (json.RawMessage, error)
 }
 
-func pollFacets(c clientLike, sid, projectID string, want map[string]bool) facetStatus {
+func pollFacets(ctx context.Context, c clientLike, sid, projectID string, want map[string]bool) facetStatus {
 	st := facetStatus{SessionID: sid}
 	st.Transcript.Wanted = want["transcript"]
 	st.Assets.Wanted = want["assets"]
 	st.AI.Wanted = want["ai"]
 
 	if st.Transcript.Wanted {
-		data, err := c.Get("/api/v4/transcriptions/editableWithVoiceActivity/"+url.PathEscape(sid), nil)
+		data, err := c.Get(ctx, "/api/v4/transcriptions/editableWithVoiceActivity/"+url.PathEscape(sid), nil)
 		if err == nil && hasTranscriptContent(data) {
 			st.Transcript.Ready = true
 		}
 	}
 	if st.Assets.Wanted {
-		data, err := c.Get("/api/v4/take/"+url.PathEscape(sid)+"/assets", nil)
+		data, err := c.Get(ctx, "/api/v4/take/"+url.PathEscape(sid)+"/assets", nil)
 		if err == nil && allTracksDone(data) {
 			st.Assets.Ready = true
 		}
 	}
 	if st.AI.Wanted {
-		data, err := c.Get("/api/v4/projects/"+url.PathEscape(projectID)+"/ai-generation-status", nil)
+		data, err := c.Get(ctx, "/api/v4/projects/"+url.PathEscape(projectID)+"/ai-generation-status", nil)
 		if err == nil && aiAllDone(data) {
 			st.AI.Ready = true
 		}

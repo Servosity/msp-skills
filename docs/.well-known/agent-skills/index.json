@@ -244,7 +244,7 @@
       "type": "skill-md",
       "description": "Every Datto RMM API operation, plus a local SQLite fleet store and fleet-wide analytics no other Datto tool has. Trigger phrases: `datto rmm stale devices`, `which endpoints have antivirus disabled`, `datto rmm patch gaps`, `qbr scorecard for a site`, `warranty expiring devices`, `use datto-rmm`, `run datto-rmm-cli`.",
       "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/datto-rmm/SKILL.md",
-      "digest": "sha256:bfccad48f7d1d3fa3a2fc55baef568f4c2bb6318c52dd38005c23190025e7f0e"
+      "digest": "sha256:693b5a73ab0926e5e3133395933346f978813c9dc6203ad263f74a6b44e98510"
     },
     {
       "name": "datto-saas",
@@ -280,6 +280,13 @@
       "description": "Every Dropsuite (NinjaOne SaaS Backup) read, plus fleet-wide backup health, coverage gaps and billing reconciliation from one reseller credential. Trigger phrases: `check dropsuite backups`, `which clients have failing saas backups`, `unprotected mailboxes in ninjaone saas backup`, `reconcile dropsuite seats with billing`, `use dropsuite`, `run dropsuite`.",
       "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/dropsuite/SKILL.md",
       "digest": "sha256:a8190f4088167b93bc92c47715afe70c9be40f36b0c6a1bdb5a0a197b04a3582"
+    },
+    {
+      "name": "eset-protect",
+      "type": "skill-md",
+      "description": "Use when the user asks about ESET PROTECT across every customer: which customers have devices that need attention, are muted or stopped checking in, the morning detection and incident queue, which customers and devices have a CVE, missing security patches, how far a file hash spread, one customer's QBR summary, or scanning, isolating or releasing a device by name. Covers every ESET Connect endpoint (101 operations) as commands, with a local SQLite mirror for per-customer rollups. Trigger phrases: `which eset customers need attention`, `eset protect stale devices`, `are we affected by this CVE in eset`, `eset detections this morning`, `eset qbr report for a customer`, `isolate this machine in eset`, `use eset-protect`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/eset-protect/SKILL.md",
+      "digest": "sha256:cc0b32a21e8d259c081dc0a3880250909514fb1c7e32705a3dcac814599b8626"
     },
     {
       "name": "exchange-online",
@@ -559,7 +566,7 @@
       "type": "skill-md",
       "description": "Use when the user asks to download, back up, export, or search their own Riverside.com (Riverside.fm) podcast or video account: bulk-export a studio's transcripts, audio, and video; grab a single recording; convert a transcript to VTT/SRT/Markdown; compute per-speaker talktime; or harvest Magic Clips with fresh URLs. Works on Pro/Live/Webinar accounts with no Business-plan API key. Trigger phrases: `download my riverside transcripts`, `back up my riverside studio`, `bulk export riverside studio`, `search riverside transcripts`, `convert riverside transcript to vtt`, `harvest magic clips`, `use riverside-fm`, `run riverside-fm`.",
       "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/riverside-fm/SKILL.md",
-      "digest": "sha256:977a06a0c37fd9a896e80052b454b92e42beabc1a4185cff2c8a137250089b9f"
+      "digest": "sha256:7abc4ccd0ce800d860898ba7d092cc98e1eb63432a48e699e115bb5daf73b9e7"
     },
     {
       "name": "rocketcyber",

@@ -4,7 +4,7 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
-## [0.1.8] - unreleased
+## [0.1.8] - 2026-11-06
 
 ### Security
 - **The CLI and the MCP server run on the shared credential kit.** Any output, file, local-store write, MCP result, child process or request that would repeat a credential this program holds, in any encoding the kit reads, is replaced whole by `[credkit: withheld from <sink>: it carried a credential this program holds]`. That now covers a key nested in a compressed stream with bytes around it. A program that lost part of its standard output exits 74, and a key that also occurs in ordinary text is refused at startup with exit 78.
