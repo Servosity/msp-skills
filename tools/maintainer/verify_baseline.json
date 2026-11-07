@@ -164,11 +164,7 @@
    "local-data"
   ],
   "tactical-rmm": [
-   "mcp-stdio",
-   "mcp-http",
-   "write-gating",
-   "read-only",
-   "local-data"
+   "mcp-stdio"
   ],
   "td-synnex": [
    "local-data"

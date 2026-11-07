@@ -41,7 +41,7 @@ func TestNovelSince(t *testing.T) {
 	t.Run("recent alert and offline agent surface; stale alert is excluded", func(t *testing.T) {
 		db := novelTestEnv(t)
 		recent := time.Now().UTC().Format(time.RFC3339)
-		seedResource(t, db, "alerts", "fresh", `{"alert_time":"`+recent+`","hostname":"server1","severity":"error","message":"disk full"}`)
+		seedResource(t, db, trmmAlertsResource, "fresh", `{"alert_time":"`+recent+`","hostname":"server1","severity":"error","message":"disk full"}`)
 		seedResource(t, db, "agents", "down1", `{"agent_id":"down1","hostname":"server1","status":"offline","last_seen":"`+recent+`"}`)
 
 		out, _, err := runNovel(t, "since", "24h")
@@ -68,7 +68,7 @@ func TestNovelSince(t *testing.T) {
 
 		// A 2020-dated alert must NOT appear within a 2h window: this exercises
 		// the ISO->datetime coercion in the cutoff comparison.
-		seedResource(t, db, "alerts", "ancient", `{"alert_time":"2020-01-01T00:00:00Z","hostname":"old","severity":"info","message":"ancient"}`)
+		seedResource(t, db, trmmAlertsResource, "ancient", `{"alert_time":"2020-01-01T00:00:00Z","hostname":"old","severity":"info","message":"ancient"}`)
 		out2, _, err := runNovel(t, "since", "2h")
 		if err != nil {
 			t.Fatalf("since 2h: %v", err)

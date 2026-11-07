@@ -671,7 +671,7 @@
       "type": "skill-md",
       "description": "Every Tactical RMM endpoint as a typed command, plus an offline SQLite mirror and cross-entity fleet queries the web UI can't express. Trigger phrases: `tactical rmm fleet health`, `which agents are offline`, `triage my rmm fleet`, `patch posture by client`, `run a script on all windows agents`, `use tactical-rmm`, `run tactical-rmm`.",
       "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/tactical-rmm/SKILL.md",
-      "digest": "sha256:734556c3a3dfc3ab00231a568b59835060cb44118a1f22224b86d7d3ac7c1db5"
+      "digest": "sha256:c0f517cd5d75329f959afbcc654bce7284432b2c60eb49478d289f5339ab737e"
     },
     {
       "name": "td-synnex",
