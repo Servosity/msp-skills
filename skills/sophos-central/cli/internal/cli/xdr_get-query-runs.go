@@ -38,7 +38,7 @@ func newXdrGetQueryRunsCmd(flags *rootFlags) *cobra.Command {
 					}
 				}
 				if !validOrder {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagOrder, "order", allowedOrder)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagOrder, "order", allowedOrder))
 				}
 			}
 			path := "/xdr-query/v1/queries/runs"

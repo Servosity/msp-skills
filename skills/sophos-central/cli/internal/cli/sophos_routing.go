@@ -45,6 +45,7 @@ import (
 	"sophos-central-pp-cli/internal/client"
 	"sophos-central-pp-cli/internal/cliutil"
 	"sophos-central-pp-cli/internal/config"
+	"sophos-central-pp-cli/internal/credkit"
 	"sophos-central-pp-cli/internal/store"
 )
 
@@ -379,7 +380,7 @@ func installSophosRouting(c *client.Client) error {
 	}
 	base := c.HTTPClient.Transport
 	if base == nil {
-		base = http.DefaultTransport
+		base = cliutil.OutboundGuard(nil) // Hand-fix (handfixes.json credkit-wiring)
 	}
 	if _, already := base.(*sophosRouter); already {
 		return nil
@@ -556,7 +557,7 @@ func (r *sophosRouter) saveDiskLocked() {
 	}
 	_ = os.MkdirAll(filepath.Dir(r.cachePath), 0o700)
 	tmp := r.cachePath + ".tmp"
-	if os.WriteFile(tmp, data, 0o600) == nil {
+	if credkit.WriteFile(tmp, data, 0o600) == nil { // Hand-fix (handfixes.json credkit-wiring)
 		_ = os.Rename(tmp, r.cachePath)
 	}
 }

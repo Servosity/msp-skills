@@ -123,16 +123,13 @@ func newEndpointGroupsRemoveMultipleEndpointsFromGroupCmd(flags *rootFlags) *cob
 					envelope["partial_failure"] = partialFailure
 				}
 				if flags.dryRun {
-					envelope["dry_run"] = true
-					envelope["status"] = 0
-					envelope["success"] = false
+					markCompletedDryRun(envelope)
 				}
 				// Verify-mode synthetic envelope detection runs against RAW data
 				// (before --compact/--select filtering) so the sentinel field is
 				// guaranteed to be visible even if the operator passes a filter
-				// flag that would otherwise strip it. Surfaces a top-level
-				// verify_noop signal + flips success to false. Mirrors the dry_run
-				// shape above.
+				// flag that would otherwise strip it. A synthetic noop did not
+				// mutate, so it forces success false after a completed dry-run mark.
 				if len(data) > 0 {
 					var rawParsed any
 					if err := json.Unmarshal(data, &rawParsed); err == nil {
@@ -159,7 +156,7 @@ func newEndpointGroupsRemoveMultipleEndpointsFromGroupCmd(flags *rootFlags) *cob
 					filtered, selectErr = filterFieldsChecked(filtered, flags.selectFields)
 					selectErr = selectErrorForDryRun(selectErr, flags, data)
 				} else if flags.compact {
-					filtered = compactFields(filtered, map[string]bool{"id": true})
+					filtered = compactFields(filtered, nil)
 				}
 				if len(filtered) > 0 {
 					var parsed any
@@ -199,7 +196,7 @@ func newEndpointGroupsRemoveMultipleEndpointsFromGroupCmd(flags *rootFlags) *cob
 			// partial failure would exit 0 for these output modes — the exact
 			// silent-swallow regression the surrounding patch is preventing
 			// for asJSON / piped output.
-			printErr := printOutputWithFlagsMeta(cmd.OutOrStdout(), data, flags, map[string]any{"source": "live"}, map[string]bool{"id": true})
+			printErr := printOutputWithFlagsMeta(cmd.OutOrStdout(), data, flags, map[string]any{"source": "live"}, nil)
 			if partialFailure != nil && !flags.allowPartialFailure {
 				return partialFailureErr(fmt.Errorf("partial failure in %s response: %s", "endpoint_groups", partialFailure.Message))
 			}

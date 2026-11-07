@@ -117,6 +117,18 @@ Resource scoping:
 				return usageErr(err)
 			}
 
+			// Validate --since before the store opens or a checkpoint is
+			// cleared. A usage error must leave sync_state unchanged. Render
+			// in UTC so the zone is "Z"; some APIs reject a numeric offset.
+			sinceTS := ""
+			if since != "" {
+				ts, err := parseSinceDuration(since)
+				if err != nil {
+					return fmt.Errorf("invalid --since value %q: %w", since, err)
+				}
+				sinceTS = ts.UTC().Format(time.RFC3339)
+			}
+
 			c, err := flags.newClient()
 			if err != nil {
 				return err
@@ -160,11 +172,13 @@ Resource scoping:
 				return usageErr(err)
 			}
 
-			// --full: clear all sync cursors before starting.
-			// Skip under --dry-run: a preview must not mutate sync-state (issue #2935).
+			// --full drops the resume cursor for the scope this run will walk.
+			// A different tenant keeps its checkpoint until that walk starts,
+			// so a preflight skip cannot wipe it. Dry-run does not write.
 			if full && !c.DryRun {
 				for _, resource := range resources {
-					if err := db.SaveSyncStateAt(sophosSyncStateKey(resource), "", 0, time.Time{}); err != nil {
+					scopeKey := syncCheckpointScope(resource, false, userParams, syncClientTemplateVars(c), syncActivePathContext())
+					if err := db.ClearSyncScopeIfCurrent(sophosSyncStateKey(resource), scopeKey); err != nil {
 						return fmt.Errorf("clearing sync state for %s: %w", resource, err)
 					}
 				}
@@ -191,7 +205,8 @@ Resource scoping:
 					// a preview must not mutate sync-state (issue #2935).
 					if !c.DryRun {
 						for _, resource := range resources {
-							if err := db.SaveSyncStateAt(sophosSyncStateKey(resource), "", 0, time.Time{}); err != nil {
+							scopeKey := syncCheckpointScope(resource, false, userParams, syncClientTemplateVars(c), syncActivePathContext())
+							if err := db.ClearSyncScopeIfCurrent(sophosSyncStateKey(resource), scopeKey); err != nil {
 								return fmt.Errorf("clearing sync state for %s: %w", resource, err)
 							}
 						}
@@ -208,18 +223,6 @@ Resource scoping:
 			// safety limit, which is a real anomaly worth surfacing.
 			effectiveLatestOnly := latestOnly && since == ""
 
-			// Resolve --since into an RFC3339 timestamp. Render in UTC so the
-			// zone is "Z" rather than a numeric offset like "-04:00"; some APIs
-			// reject the offset form of the temporal filter as an invalid date.
-			sinceTS := ""
-			if since != "" {
-				ts, err := parseSinceDuration(since)
-				if err != nil {
-					return fmt.Errorf("invalid --since value %q: %w", since, err)
-				}
-				sinceTS = ts.UTC().Format(time.RFC3339)
-			}
-
 			// Worker pool: produce resources, N workers consume
 			if concurrency < 1 {
 				concurrency = 4
@@ -232,11 +235,20 @@ Resource scoping:
 				concurrency = 1
 			}
 
+			// The checkpoint clear has already committed. Do not start walks
+			// on a cancelled command; those rows stay incomplete until a
+			// later run walks them.
+			if err := cmd.Context().Err(); err != nil {
+				return err
+			}
+
 			started := time.Now()
 			// prune gates deletion reconciliation: a full sync prunes local rows
 			// the API no longer returns after a complete walk, unless --no-prune
 			// disables it. Flat tenant-scoped / single-tenant reconcile (per
 			// resource) and dependent per-parent reconcile share this gate.
+			// A narrowed walk skips the delete later; it did not cover rows
+			// outside its tenant, param, or date window.
 			// HAND-FIX(sophos-filtered-prune): a user --param can narrow the rows
 			// the API returns; pruning against that subset deletes rows that still
 			// exist. Prune only unfiltered full syncs.
@@ -506,11 +518,14 @@ func syncResource(ctx context.Context, c interface {
 	var totalCount int
 	requestedAt := started.UTC()
 
-	// Resume cursor from sync_state (unless --full cleared it)
+	// Resume cursor from sync_state (unless --full cleared it). Read is
+	// side-effect free so a preflight skip or dry-run cannot reset another
+	// tenant's checkpoint; BindSyncScope commits the scope once the walk runs.
 	// HAND-FIX(sophos-tenant-sync-state): one store holds many tenants; key the
 	// checkpoint and since-watermark per tenant for tenant-scoped resources.
 	stateKey := sophosSyncStateKey(resource)
-	persistedCursor, lastSynced, existingCount, stateErr := db.GetSyncState(stateKey)
+	scopeKey := syncCheckpointScope(resource, false, userParams, syncClientTemplateVars(c), syncActivePathContext())
+	persistedCursor, lastSynced, existingCount, stateErr := db.ReadSyncScope(stateKey, scopeKey)
 	if stateErr != nil {
 		return syncResult{Resource: resource, Err: stateErr, Duration: time.Since(started)}
 	}
@@ -531,16 +546,16 @@ func syncResource(ctx context.Context, c interface {
 		// UTC so the zone renders as "Z"; see the --since resolution above.
 		effectiveSince = lastSynced.UTC().Format(time.RFC3339)
 	}
-	// Resources whose list endpoint declares no temporal-filter parameter
-	// fall back to plain pagination — sending a synthetic since=... would
+	// Resources whose list endpoint has no usable incremental lower bound
+	// fall back to plain pagination. Sending a synthetic since value would
 	// reach the API as an unknown query param and (for strict APIs like
 	// Notion) fail the whole resource with a 400. Warn once per resource
-	// when the user expected incremental behavior.
+	// when the caller asked for incremental sync.
 	if effectiveSince != "" && sinceParam == "" {
 		if humanFriendly {
-			fmt.Fprintf(os.Stderr, "  %s: incremental sync ignored (endpoint declares no temporal filter; falling back to full pagination)\n", resource)
+			fmt.Fprintf(os.Stderr, "  %s: incremental sync ignored (endpoint has no usable incremental temporal filter; falling back to full pagination)\n", resource)
 		} else {
-			fmt.Fprintf(syncEvents, `{"event":"sync_warning","resource":"%s","reason":"resource_not_incremental","message":"endpoint does not declare a temporal filter parameter; incremental sync has no effect for this resource"}`+"\n", resource)
+			fmt.Fprintf(syncEvents, `{"event":"sync_warning","resource":"%s","reason":"resource_not_incremental","message":"endpoint has no usable incremental temporal filter; incremental sync has no effect for this resource"}`+"\n", resource)
 		}
 		effectiveSince = ""
 	}
@@ -554,7 +569,7 @@ func syncResource(ctx context.Context, c interface {
 	sortValue := syncResourceSortValue(resource)
 	sortField := syncResourceSortField(resource)
 	sortEffective := false
-	if missing := unfilledRequiredSyncQueryParams(resource, userParams, syncConditionalQueryParams(resource, effectiveSince, sortValue)); len(missing) > 0 {
+	if missing := unfilledRequiredSyncQueryParams(resource, userParams, syncConditionalQueryParams(resource, pageSize, cursor, effectiveSince, sortValue)); len(missing) > 0 {
 		if !humanFriendly {
 			payload := struct {
 				Event    string   `json:"event"`
@@ -583,8 +598,16 @@ func syncResource(ctx context.Context, c interface {
 	}
 	// Preflight skips must preserve readiness. Once requests can run, mark
 	// the attempt incomplete without moving the persisted resume boundary.
+	// Bind here, not at the read above, so a skipped resource does not drop
+	// another tenant's cursor.
 	if preview, ok := c.(interface{ IsDryRun() bool }); !ok || !preview.IsDryRun() {
-		if err := db.SaveSyncProgress(stateKey, persistedCursor, existingCount); err != nil {
+		var bindCount int
+		persistedCursor, _, bindCount, stateErr = db.BindSyncScope(stateKey, scopeKey)
+		if stateErr != nil {
+			return syncResult{Resource: resource, Err: stateErr, Duration: time.Since(started)}
+		}
+		existingCount = bindCount
+		if err := db.SaveSyncProgressInScope(stateKey, scopeKey, persistedCursor, existingCount); err != nil {
 			return syncResult{Resource: resource, Err: fmt.Errorf("saving sync progress for %s: starting attempt: %w", resource, err), Duration: time.Since(started)}
 		}
 	}
@@ -634,12 +657,10 @@ func syncResource(ctx context.Context, c interface {
 		}
 
 		if resourceSupportsPagination(resource) {
-			params[pageSize.limitParam] = strconv.Itoa(pageSize.limit)
-			if cursor != "" {
-				if pageSize.cursorParam != "" {
-					params[pageSize.cursorParam] = cursor
-				}
+			if pageSize.limitParam != "" {
+				params[pageSize.limitParam] = strconv.Itoa(pageSize.limit)
 			}
+			cursor = seedSyncPageCursor(params, pageSize, cursor)
 		}
 
 		// Set since filter
@@ -718,11 +739,7 @@ func syncResource(ctx context.Context, c interface {
 		// spellings (page / page_number / pageNumber / page[number]) work.
 		// A declared strategy without a request parameter cannot advance safely.
 		if pageSize.cursorParam != "" && pageSize.cursorType == "page" && nextCursor == "" && len(items) >= pageSize.limit && pageAllowsPageIntFallback(data) {
-			currentPage, _ := strconv.Atoi(cursor)
-			if currentPage < 1 {
-				currentPage = 1
-			}
-			nextCursor = strconv.Itoa(currentPage + 1)
+			nextCursor = nextSyncPageNumber(cursor)
 			hasMore = true
 		}
 		if pageSize.cursorParam != "" && pageSize.cursorType == "offset" && nextCursor == "" && len(items) >= pageSize.limit && pageAllowsPageIntFallback(data) {
@@ -988,7 +1005,7 @@ func syncResource(ctx context.Context, c interface {
 		}
 
 		// Save cursor after each page for resumability
-		if err := db.SaveSyncProgress(stateKey, nextCursor, totalCount); err != nil {
+		if err := db.SaveSyncProgressInScope(stateKey, scopeKey, nextCursor, totalCount); err != nil {
 			return syncResult{Resource: resource, Count: totalCount, Err: fmt.Errorf("saving sync progress for %s: %w", resource, err), Duration: time.Since(started)}
 		}
 
@@ -1015,7 +1032,15 @@ func syncResource(ctx context.Context, c interface {
 		outcome.reason = "extract_failures"
 	}
 	if prune && flatReconcilable {
-		if reconcileMode == "flat_global" {
+		if reason := syncPruneSkipReason(resource, false, effectiveSince, "", userParams, reconcileMode, scopeKey); reason != "" {
+			if reconcileMode == "flat_global" {
+				fmt.Fprintf(syncEvents, `{"event":"reconcile_skipped","resource":"%s","scope":"*","reason":%q}`+"\n", resource, reason)
+			} else if tenantUUID := resolveTenantID(); tenantUUID == "" {
+				fmt.Fprintf(syncEvents, `{"event":"reconcile_skipped","resource":"%s","reason":%q}`+"\n", resource, reason)
+			} else {
+				fmt.Fprintf(syncEvents, `{"event":"reconcile_skipped","resource":"%s","scope":"%s","reason":%q}`+"\n", resource, tenantUUID, reason)
+			}
+		} else if reconcileMode == "flat_global" {
 			if outcome.complete {
 				deleted, rerr := db.ReconcileAll(
 					resource, seenIDs, reconcileTypedTable(resource), store.CascadeJunctionsFor(resource),
@@ -1083,7 +1108,7 @@ func syncResource(ctx context.Context, c interface {
 	// Integrity verdicts must precede completion persistence. Otherwise a
 	// run can advance its watermark and only then report that no rows landed.
 	if consumedTotal > 0 && totalCount == 0 {
-		if err := db.SaveSyncProgress(stateKey, finalCursor, cachedCount); err != nil {
+		if err := db.SaveSyncProgressInScope(stateKey, scopeKey, finalCursor, cachedCount); err != nil {
 			return syncResult{Resource: resource, Count: 0, Err: fmt.Errorf("saving incomplete sync progress for %s: %w", resource, err), Duration: time.Since(started)}
 		}
 		if extractFailureTotal < consumedTotal {
@@ -1123,9 +1148,9 @@ func syncResource(ctx context.Context, c interface {
 	}
 	stateErr = nil
 	if watermark.IsZero() {
-		stateErr = db.SaveSyncProgress(stateKey, finalCursor, cachedCount)
+		stateErr = db.SaveSyncProgressInScope(stateKey, scopeKey, finalCursor, cachedCount)
 	} else {
-		stateErr = db.SaveSyncStateAt(stateKey, finalCursor, cachedCount, watermark)
+		stateErr = db.SaveSyncStateAtInScope(stateKey, scopeKey, finalCursor, cachedCount, watermark)
 	}
 	if stateErr != nil {
 		return syncResult{Resource: resource, Count: cachedCount, Err: fmt.Errorf("saving sync state for %s: %w", resource, stateErr), Duration: time.Since(started)}
@@ -1137,20 +1162,39 @@ func syncResource(ctx context.Context, c interface {
 	if outcome.reason == "stuck_cursor" || outcome.reason == "stuck_page" {
 		return syncResult{Resource: resource, Count: cachedCount, Err: fmt.Errorf("%s: pagination did not advance (repeated cursor); listing is incomplete", resource), IntegrityFailure: true, Duration: time.Since(started)}
 	}
-	if !humanFriendly && reconcileErr == nil {
-		fmt.Fprintf(syncEvents, `{"event":"sync_complete","resource":"%s","total":%d,"duration_ms":%d}`+"\n", resource, cachedCount, time.Since(started).Milliseconds())
-	}
-
 	if reconcileErr != nil {
 		return syncResult{Resource: resource, Count: cachedCount, Warn: reconcileErr, Duration: time.Since(started)}
 	}
+	// An operator cap (--max-pages, --latest-only) is a finished walk.
+	// cursor_unavailable and stuck_page are not: the store is missing rows.
+	if !outcome.complete && outcome.reason != "max_pages_cap" {
+		reason := syncIncompleteReason(outcome.reason)
+		if !humanFriendly {
+			fmt.Fprintf(syncEvents, `{"event":"sync_warning","resource":"%s","reason":"%s","total":%d}`+"\n", resource, reason, cachedCount)
+		}
+		return syncResult{Resource: resource, Count: cachedCount, Warn: fmt.Errorf("%s sync incomplete (%s); %d rows stored", resource, reason, cachedCount), Duration: time.Since(started)}
+	}
+	if !humanFriendly {
+		fmt.Fprintf(syncEvents, `{"event":"sync_complete","resource":"%s","total":%d,"duration_ms":%d}`+"\n", resource, cachedCount, time.Since(started).Milliseconds())
+	}
+
 	return syncResult{Resource: resource, Count: cachedCount, Duration: time.Since(started)}
+}
+
+// syncIncompleteReason names an unfinished walk. A break that left the reason
+// blank still has to warn; every current break sets a reason.
+func syncIncompleteReason(reason string) string {
+	if reason == "" {
+		return "incomplete"
+	}
+	return reason
 }
 
 // paginationDefaults holds the resolved pagination parameter names and page size.
 type paginationDefaults struct {
 	cursorParam    string
 	cursorType     string // paginator class: "", "cursor", "page_token", "offset", "page"
+	initialCursor  string // first offset or page when that parameter is required or declares a default
 	nextCursorPath string
 	limitParam     string
 	limit          int
@@ -1202,6 +1246,7 @@ func determinePaginationDefaults(resource string) paginationDefaults {
 		return paginationDefaults{
 			cursorParam:    "page",
 			cursorType:     "page",
+			initialCursor:  "1",
 			nextCursorPath: "",
 			limitParam:     "pageSize",
 			limit:          50,
@@ -1211,6 +1256,7 @@ func determinePaginationDefaults(resource string) paginationDefaults {
 		return paginationDefaults{
 			cursorParam:    "pageFromKey",
 			cursorType:     "cursor",
+			initialCursor:  "",
 			nextCursorPath: "pages.nextKey",
 			limitParam:     "pageSize",
 			limit:          100,
@@ -1219,6 +1265,7 @@ func determinePaginationDefaults(resource string) paginationDefaults {
 		return paginationDefaults{
 			cursorParam:    "page",
 			cursorType:     "page",
+			initialCursor:  "1",
 			nextCursorPath: "",
 			limitParam:     "pageSize",
 			limit:          50,
@@ -1228,6 +1275,7 @@ func determinePaginationDefaults(resource string) paginationDefaults {
 		return paginationDefaults{
 			cursorParam:    "pageFromKey",
 			cursorType:     "cursor",
+			initialCursor:  "",
 			nextCursorPath: "pages.nextKey",
 			limitParam:     "pageSize",
 			limit:          100,
@@ -1236,6 +1284,7 @@ func determinePaginationDefaults(resource string) paginationDefaults {
 		return paginationDefaults{
 			cursorParam:    "page",
 			cursorType:     "page",
+			initialCursor:  "1",
 			nextCursorPath: "",
 			limitParam:     "pageSize",
 			limit:          50,
@@ -1244,6 +1293,7 @@ func determinePaginationDefaults(resource string) paginationDefaults {
 		return paginationDefaults{
 			cursorParam:    "page",
 			cursorType:     "page",
+			initialCursor:  "1",
 			nextCursorPath: "",
 			limitParam:     "pageSize",
 			limit:          50,
@@ -1252,6 +1302,7 @@ func determinePaginationDefaults(resource string) paginationDefaults {
 		return paginationDefaults{
 			cursorParam:    "page",
 			cursorType:     "page",
+			initialCursor:  "1",
 			nextCursorPath: "",
 			limitParam:     "pageSize",
 			limit:          50,
@@ -1261,6 +1312,7 @@ func determinePaginationDefaults(resource string) paginationDefaults {
 		return paginationDefaults{
 			cursorParam:    "pageFromKey",
 			cursorType:     "cursor",
+			initialCursor:  "",
 			nextCursorPath: "pages.nextKey",
 			limitParam:     "pageSize",
 			limit:          100,
@@ -1269,6 +1321,7 @@ func determinePaginationDefaults(resource string) paginationDefaults {
 		return paginationDefaults{
 			cursorParam:    "page",
 			cursorType:     "page",
+			initialCursor:  "1",
 			nextCursorPath: "",
 			limitParam:     "pageSize",
 			limit:          50,
@@ -1277,6 +1330,7 @@ func determinePaginationDefaults(resource string) paginationDefaults {
 		return paginationDefaults{
 			cursorParam:    "page",
 			cursorType:     "page",
+			initialCursor:  "1",
 			nextCursorPath: "",
 			limitParam:     "pageSize",
 			limit:          50,
@@ -1285,6 +1339,7 @@ func determinePaginationDefaults(resource string) paginationDefaults {
 		return paginationDefaults{
 			cursorParam:    "page",
 			cursorType:     "page",
+			initialCursor:  "1",
 			nextCursorPath: "",
 			limitParam:     "pageSize",
 			limit:          50,
@@ -1293,6 +1348,7 @@ func determinePaginationDefaults(resource string) paginationDefaults {
 		return paginationDefaults{
 			cursorParam:    "page",
 			cursorType:     "page",
+			initialCursor:  "1",
 			nextCursorPath: "",
 			limitParam:     "pageSize",
 			limit:          50,
@@ -1301,6 +1357,7 @@ func determinePaginationDefaults(resource string) paginationDefaults {
 		return paginationDefaults{
 			cursorParam:    "page",
 			cursorType:     "page",
+			initialCursor:  "1",
 			nextCursorPath: "",
 			limitParam:     "pageSize",
 			limit:          50,
@@ -1309,6 +1366,7 @@ func determinePaginationDefaults(resource string) paginationDefaults {
 		return paginationDefaults{
 			cursorParam:    "page",
 			cursorType:     "page",
+			initialCursor:  "1",
 			nextCursorPath: "",
 			limitParam:     "pageSize",
 			limit:          50,
@@ -1317,6 +1375,7 @@ func determinePaginationDefaults(resource string) paginationDefaults {
 		return paginationDefaults{
 			cursorParam:    "page",
 			cursorType:     "page",
+			initialCursor:  "1",
 			nextCursorPath: "",
 			limitParam:     "pageSize",
 			limit:          50,
@@ -1325,6 +1384,7 @@ func determinePaginationDefaults(resource string) paginationDefaults {
 		return paginationDefaults{
 			cursorParam:    "page",
 			cursorType:     "page",
+			initialCursor:  "1",
 			nextCursorPath: "",
 			limitParam:     "pageSize",
 			limit:          50,
@@ -1333,6 +1393,7 @@ func determinePaginationDefaults(resource string) paginationDefaults {
 		return paginationDefaults{
 			cursorParam:    "page",
 			cursorType:     "page",
+			initialCursor:  "1",
 			nextCursorPath: "",
 			limitParam:     "pageSize",
 			limit:          500,
@@ -1341,6 +1402,7 @@ func determinePaginationDefaults(resource string) paginationDefaults {
 		return paginationDefaults{
 			cursorParam:    "page",
 			cursorType:     "page",
+			initialCursor:  "1",
 			nextCursorPath: "",
 			limitParam:     "pageSize",
 			limit:          50,
@@ -1349,6 +1411,7 @@ func determinePaginationDefaults(resource string) paginationDefaults {
 		return paginationDefaults{
 			cursorParam:    "page",
 			cursorType:     "page",
+			initialCursor:  "1",
 			nextCursorPath: "",
 			limitParam:     "pageSize",
 			limit:          50,
@@ -1357,6 +1420,7 @@ func determinePaginationDefaults(resource string) paginationDefaults {
 		return paginationDefaults{
 			cursorParam:    "page",
 			cursorType:     "page",
+			initialCursor:  "1",
 			nextCursorPath: "",
 			limitParam:     "pageSize",
 			limit:          50,
@@ -1365,6 +1429,7 @@ func determinePaginationDefaults(resource string) paginationDefaults {
 		return paginationDefaults{
 			cursorParam:    "page",
 			cursorType:     "page",
+			initialCursor:  "1",
 			nextCursorPath: "",
 			limitParam:     "pageSize",
 			limit:          50,
@@ -1373,6 +1438,7 @@ func determinePaginationDefaults(resource string) paginationDefaults {
 		return paginationDefaults{
 			cursorParam:    "page",
 			cursorType:     "page",
+			initialCursor:  "1",
 			nextCursorPath: "",
 			limitParam:     "pageSize",
 			limit:          50,
@@ -1381,6 +1447,7 @@ func determinePaginationDefaults(resource string) paginationDefaults {
 		return paginationDefaults{
 			cursorParam:    "cursor",
 			cursorType:     "cursor",
+			initialCursor:  "",
 			nextCursorPath: "next_cursor",
 			limitParam:     "limit",
 			limit:          200,
@@ -1389,14 +1456,16 @@ func determinePaginationDefaults(resource string) paginationDefaults {
 		return paginationDefaults{
 			cursorParam:    "page",
 			cursorType:     "page",
+			initialCursor:  "1",
 			nextCursorPath: "",
 			limitParam:     "pageSize",
 			limit:          50,
 		}
-	case "tenants/tenants":
+	case "tenants/partner_v1_tenants_account_amendments":
 		return paginationDefaults{
 			cursorParam:    "page",
 			cursorType:     "page",
+			initialCursor:  "1",
 			nextCursorPath: "",
 			limitParam:     "pageSize",
 			limit:          50,
@@ -1405,6 +1474,7 @@ func determinePaginationDefaults(resource string) paginationDefaults {
 		return paginationDefaults{
 			cursorParam:    "page",
 			cursorType:     "page",
+			initialCursor:  "1",
 			nextCursorPath: "",
 			limitParam:     "pageSize",
 			limit:          50,
@@ -1413,14 +1483,16 @@ func determinePaginationDefaults(resource string) paginationDefaults {
 		return paginationDefaults{
 			cursorParam:    "page",
 			cursorType:     "page",
+			initialCursor:  "1",
 			nextCursorPath: "",
 			limitParam:     "pageSize",
 			limit:          50,
 		}
-	case "users/users":
+	case "users/common_v1_directory_users_groups":
 		return paginationDefaults{
 			cursorParam:    "page",
 			cursorType:     "page",
+			initialCursor:  "1",
 			nextCursorPath: "",
 			limitParam:     "pageSize",
 			limit:          50,
@@ -1429,6 +1501,7 @@ func determinePaginationDefaults(resource string) paginationDefaults {
 		return paginationDefaults{
 			cursorParam:    "page",
 			cursorType:     "page",
+			initialCursor:  "1",
 			nextCursorPath: "",
 			limitParam:     "pageSize",
 			limit:          50,
@@ -1437,6 +1510,7 @@ func determinePaginationDefaults(resource string) paginationDefaults {
 		return paginationDefaults{
 			cursorParam:    "page",
 			cursorType:     "page",
+			initialCursor:  "1",
 			nextCursorPath: "",
 			limitParam:     "pageSize",
 			limit:          50,
@@ -1445,6 +1519,7 @@ func determinePaginationDefaults(resource string) paginationDefaults {
 		return paginationDefaults{
 			cursorParam:    "page",
 			cursorType:     "page",
+			initialCursor:  "1",
 			nextCursorPath: "",
 			limitParam:     "pageSize",
 			limit:          50,
@@ -1453,6 +1528,7 @@ func determinePaginationDefaults(resource string) paginationDefaults {
 		return paginationDefaults{
 			cursorParam:    "page",
 			cursorType:     "page",
+			initialCursor:  "1",
 			nextCursorPath: "",
 			limitParam:     "pageSize",
 			limit:          50,
@@ -1461,10 +1537,38 @@ func determinePaginationDefaults(resource string) paginationDefaults {
 	return paginationDefaults{
 		cursorParam:    "page",
 		cursorType:     "page",
+		initialCursor:  "",
 		nextCursorPath: "",
 		limitParam:     "pageSize",
 		limit:          100,
 	}
+}
+
+// seedSyncPageCursor returns the cursor the page loop should advance from.
+// A resumed cursor wins. Offset and page parameters seed page one only when
+// they are required or declare a default; token cursors stay off that request.
+func seedSyncPageCursor(params map[string]string, pageSize paginationDefaults, cursor string) string {
+	if pageSize.cursorParam == "" {
+		return cursor
+	}
+	if cursor == "" {
+		cursor = pageSize.initialCursor
+	}
+	if cursor != "" {
+		params[pageSize.cursorParam] = cursor
+	}
+	return cursor
+}
+
+// nextSyncPageNumber advances a page-number cursor by one. An empty cursor
+// means page one was implicit, so the next request is page 2. Numeric 0
+// advances to 1 so a zero-based first page is not skipped.
+func nextSyncPageNumber(cursor string) string {
+	currentPage, err := strconv.Atoi(cursor)
+	if err != nil {
+		currentPage = 1
+	}
+	return strconv.Itoa(currentPage + 1)
 }
 
 func resourceSupportsPagination(resource string) bool {
@@ -1481,6 +1585,8 @@ func resourceSupportsPagination(resource string) bool {
 		return true
 	case "blocked_items":
 		return true
+	case "common_v1_directory_users_groups":
+		return true
 	case "endpoint_groups":
 		return true
 	case "endpoints":
@@ -1508,6 +1614,8 @@ func resourceSupportsPagination(resource string) bool {
 	case "org_tenants":
 		return true
 	case "partner_admins":
+		return true
+	case "partner_v1_tenants_account_amendments":
 		return true
 	case "peripherals":
 		return true
@@ -1534,13 +1642,15 @@ func resourceSupportsPagination(resource string) bool {
 }
 
 // syncResourceSinceParam returns the query parameter name this resource's
-// list endpoint declares for incremental temporal filtering, or "" when the
-// endpoint declares none. Skipping the param for "" resources avoids
+// list endpoint uses to advance incremental sync, or "" when no usable
+// lower bound was detected. Skipping the param for "" resources avoids
 // validation-error 400s on APIs that reject unknown query keys.
 func syncResourceSinceParam(resource string) string {
 	switch resource {
-	case "siem":
-		return "from_date"
+	case "audit_events":
+		return "startDate"
+	case "software-packages-static":
+		return "expiresFrom"
 	}
 	return ""
 }
@@ -1555,6 +1665,7 @@ func syncResourceParamDefaults(resource string) map[string]string {
 	switch resource {
 	case "admins":
 		return map[string]string{
+			"page":      "1",
 			"pageTotal": "false",
 		}
 	case "alerts":
@@ -1563,19 +1674,23 @@ func syncResourceParamDefaults(resource string) map[string]string {
 		}
 	case "allowed_items":
 		return map[string]string{
+			"page":      "1",
 			"pageTotal": "false",
 		}
 	case "blocked_addresses":
 		return map[string]string{
+			"page":      "1",
 			"pageTotal": "false",
 			"sort":      "createdAt:desc",
 		}
 	case "blocked_items":
 		return map[string]string{
+			"page":      "1",
 			"pageTotal": "false",
 		}
 	case "endpoint_groups":
 		return map[string]string{
+			"page":      "1",
 			"pageTotal": "false",
 		}
 	case "endpoints":
@@ -1584,59 +1699,73 @@ func syncResourceParamDefaults(resource string) map[string]string {
 		}
 	case "exclusions":
 		return map[string]string{
+			"page":      "1",
 			"pageTotal": "false",
 		}
 	case "exclusions-isolation":
 		return map[string]string{
+			"page":      "1",
 			"pageTotal": "false",
 		}
 	case "exclusions-scanning":
 		return map[string]string{
+			"page":      "1",
 			"pageTotal": "false",
 		}
 	case "exploit_mitigation":
 		return map[string]string{
+			"page":      "1",
 			"pageTotal": "false",
 		}
 	case "exploit_mitigation-detected-exploits":
 		return map[string]string{
+			"page":      "1",
 			"pageTotal": "false",
 		}
 	case "licenses-v1-licenses-firewalls":
 		return map[string]string{
+			"page":      "1",
 			"pageTotal": "false",
 		}
 	case "live_discover":
 		return map[string]string{
+			"page":      "1",
 			"pageTotal": "false",
 		}
 	case "live_discover-queries":
 		return map[string]string{
+			"page":      "1",
 			"pageTotal": "false",
 		}
 	case "migrations":
 		return map[string]string{
+			"page":      "1",
 			"pageTotal": "false",
 		}
 	case "org_admins":
 		return map[string]string{
+			"page":      "1",
 			"pageTotal": "false",
 		}
 	case "org_tenants":
 		return map[string]string{
+			"page":      "1",
 			"pageTotal": "false",
 			"managed":   "false",
 		}
 	case "partner_admins":
 		return map[string]string{
+			"page":      "1",
 			"pageTotal": "false",
 		}
 	case "peripherals":
 		return map[string]string{
+			"page":      "1",
 			"pageTotal": "false",
 		}
 	case "policies":
 		return map[string]string{
+			"page":      "1",
 			"pageTotal": "false",
 		}
 	case "siem":
@@ -1645,31 +1774,48 @@ func syncResourceParamDefaults(resource string) map[string]string {
 		}
 	case "tenants":
 		return map[string]string{
+			"page":      "1",
 			"pageTotal": "false",
 			"managed":   "false",
 		}
 	case "user_groups":
 		return map[string]string{
+			"page":      "1",
 			"pageTotal": "false",
 		}
 	case "users":
 		return map[string]string{
+			"page":      "1",
 			"pageTotal": "false",
 		}
 	case "web_control-excluded-websites":
 		return map[string]string{
+			"page":      "1",
 			"pageTotal": "false",
 		}
 	case "web_control-local-sites":
 		return map[string]string{
+			"page":      "1",
 			"pageTotal": "false",
 		}
 	case "xdr":
 		return map[string]string{
+			"page":      "1",
 			"pageTotal": "false",
 		}
 	case "xdr-queries":
 		return map[string]string{
+			"page":      "1",
+			"pageTotal": "false",
+		}
+	case "common_v1_directory_users_groups":
+		return map[string]string{
+			"page":      "1",
+			"pageTotal": "false",
+		}
+	case "partner_v1_tenants_account_amendments":
+		return map[string]string{
+			"page":      "1",
 			"pageTotal": "false",
 		}
 	}
@@ -1712,8 +1858,10 @@ func unfilledRequiredSyncQueryParams(resource string, userParams *syncUserParams
 	return missing
 }
 
-func syncConditionalQueryParams(resource, effectiveSince, sortValue string) map[string]string {
+func syncConditionalQueryParams(resource string, pageSize paginationDefaults, cursor, effectiveSince, sortValue string) map[string]string {
 	filled := map[string]string{}
+	// Filled exactly when the page loop will send the cursor, including 0.
+	seedSyncPageCursor(filled, pageSize, cursor)
 	if sinceParam := syncResourceSinceParam(resource); sinceParam != "" && strings.TrimSpace(effectiveSince) != "" {
 		filled[sinceParam] = effectiveSince
 		if sortParam := syncResourceSortParam(resource); sortParam != "" && strings.TrimSpace(sortValue) != "" {
@@ -1747,8 +1895,10 @@ func syncResourceSortField(resource string) string {
 
 func syncResourceSinceParamFormat(resource string) string {
 	switch resource {
-	case "siem":
-		return "int64"
+	case "audit_events":
+		return "date-time"
+	case "software-packages-static":
+		return "date"
 	}
 	return ""
 }
@@ -1761,18 +1911,79 @@ func formatSyncSinceValue(value string, paramFormat string) string {
 		}
 		return fmt.Sprintf("%s > [%s]", field, value)
 	}
+	if layout, ok := strings.CutPrefix(paramFormat, "operator:"); ok {
+		return formatSyncSinceOperatorValue(value, layout)
+	}
+	if zone, ok := strings.CutPrefix(paramFormat, "local-datetime:"); ok {
+		return formatSyncSinceLocalValue(value, zone)
+	}
 	if strings.EqualFold(paramFormat, "date") {
-		if ts, err := time.Parse(time.RFC3339, value); err == nil {
-			return ts.Format("2006-01-02")
-		}
-		if ts, err := time.Parse(time.RFC3339Nano, value); err == nil {
-			return ts.Format("2006-01-02")
-		}
-		if _, err := time.Parse("2006-01-02", value); err == nil {
-			return value
+		if formatted, ok := formatSyncSinceDate(value); ok {
+			return formatted
 		}
 	}
 	return value
+}
+
+func formatSyncSinceDate(value string) (string, bool) {
+	if ts, err := time.Parse(time.RFC3339, value); err == nil {
+		return ts.Format("2006-01-02"), true
+	}
+	if ts, err := time.Parse(time.RFC3339Nano, value); err == nil {
+		return ts.Format("2006-01-02"), true
+	}
+	if _, err := time.Parse("2006-01-02", value); err == nil {
+		return value, true
+	}
+	return "", false
+}
+
+// An unparsable watermark must not gain an operator prefix; the API would
+// receive a string it cannot compare.
+func formatSyncSinceOperatorValue(value, layout string) string {
+	op, dateLayout, ok := strings.Cut(layout, ":")
+	if !ok || strings.TrimSpace(op) == "" {
+		return value
+	}
+	switch dateLayout {
+	case "date":
+		formatted, parsed := formatSyncSinceDate(value)
+		if !parsed {
+			return value
+		}
+		return op + formatted
+	case "date-time":
+		if _, err := time.Parse(time.RFC3339, value); err != nil {
+			if _, err := time.Parse(time.RFC3339Nano, value); err != nil {
+				return value
+			}
+		}
+		return op + value
+	default:
+		return value
+	}
+}
+
+// Only zones the spec format can name are loaded. Anything else leaves the
+// RFC3339 watermark untouched so a bad format cannot shift the clock.
+func formatSyncSinceLocalValue(value, zone string) string {
+	switch zone {
+	case "America/New_York", "America/Chicago", "America/Denver", "America/Los_Angeles", "UTC":
+	default:
+		return value
+	}
+	loc, err := time.LoadLocation(zone)
+	if err != nil {
+		return value
+	}
+	ts, err := time.Parse(time.RFC3339, value)
+	if err != nil {
+		ts, err = time.Parse(time.RFC3339Nano, value)
+		if err != nil {
+			return value
+		}
+	}
+	return ts.In(loc).Format("2006-01-02T15:04:05")
 }
 
 // extractPageItems attempts to extract an array of items and pagination cursor from a response.
@@ -2650,7 +2861,6 @@ func defaultSyncResources() []string {
 		"exploit_mitigation",
 		"exploit_mitigation-categories",
 		"exploit_mitigation-detected-exploits",
-		"licenses",
 		"licenses-v1-licenses-firewalls",
 		"live_discover",
 		"live_discover-categories",
@@ -2675,7 +2885,6 @@ func defaultSyncResources() []string {
 		"user_groups",
 		"users",
 		"web_control",
-		"web_control-categories",
 		"web_control-local-sites",
 		"xdr",
 		"xdr-categories",
@@ -2704,7 +2913,6 @@ func knownSyncResourceNames() []string {
 		"exploit_mitigation-categories",
 		"exploit_mitigation-detected-exploits",
 		"health_check",
-		"health_check-regional",
 		"installers",
 		"licenses",
 		"licenses-v1-licenses-firewalls",
@@ -2733,7 +2941,6 @@ func knownSyncResourceNames() []string {
 		"user_groups",
 		"users",
 		"web_control",
-		"web_control-categories",
 		"web_control-excluded-websites",
 		"web_control-local-sites",
 		"xdr",
@@ -2783,8 +2990,7 @@ func syncResourcePath(resource string) (string, error) {
 		"exploit_mitigation":                   "/endpoint/v1/settings/exploit-mitigation/applications",
 		"exploit_mitigation-categories":        "/endpoint/v1/settings/exploit-mitigation/categories",
 		"exploit_mitigation-detected-exploits": "/endpoint/v1/settings/exploit-mitigation/detected-exploits",
-		"health_check":                         "/account-health-check/v1/scores/historical",
-		"health_check-regional":                "/account-health-check/v1/scores/regional",
+		"health_check":                         "/account-health-check/v1/scores/regional",
 		"installers":                           "/endpoint/v1/downloads",
 		"licenses":                             "/licenses/v1/licenses",
 		"licenses-v1-licenses-firewalls":       "/licenses/v1/licenses/firewalls",
@@ -2812,8 +3018,7 @@ func syncResourcePath(resource string) (string, error) {
 		"tenants":                              "/partner/v1/tenants",
 		"user_groups":                          "/common/v1/directory/user-groups",
 		"users":                                "/common/v1/directory/users",
-		"web_control":                          "/endpoint/v1/settings/web-control/tls-decryption",
-		"web_control-categories":               "/endpoint/v1/settings/web-control/categories",
+		"web_control":                          "/endpoint/v1/settings/web-control/categories",
 		"web_control-excluded-websites":        "/endpoint/v1/settings/web-control/tls-decryption/excluded-websites",
 		"web_control-local-sites":              "/endpoint/v1/settings/web-control/local-sites",
 		"xdr":                                  "/xdr-query/v1/queries/runs",
@@ -2831,7 +3036,9 @@ type itemHydrationConfig struct {
 	idParam string
 }
 
-var itemHydrationPaths = map[string]itemHydrationConfig{}
+var itemHydrationPaths = map[string]itemHydrationConfig{
+	"policies-settings": {path: "/endpoint/v1/policies/{policyId}", idParam: "policyId"},
+}
 
 func hydrateScalarItems(ctx context.Context, c interface {
 	Get(context.Context, string, map[string]string) (json.RawMessage, error)
@@ -3136,12 +3343,10 @@ func syncOneParent(
 			params[defaultKey] = defaultValue
 		}
 		if resourceSupportsPagination(dep.Name) {
-			params[pageSize.limitParam] = strconv.Itoa(pageSize.limit)
-			if cursor != "" {
-				if pageSize.cursorParam != "" {
-					params[pageSize.cursorParam] = cursor
-				}
+			if pageSize.limitParam != "" {
+				params[pageSize.limitParam] = strconv.Itoa(pageSize.limit)
 			}
+			cursor = seedSyncPageCursor(params, pageSize, cursor)
 		}
 		if depSinceTS != "" {
 			params[depSinceParam] = depSinceTS
@@ -3213,11 +3418,7 @@ func syncOneParent(
 		// Guard on cursorType to cover every canonical spelling. A declared
 		// strategy without a request parameter cannot advance safely.
 		if pageSize.cursorParam != "" && pageSize.cursorType == "page" && nextCursor == "" && len(items) >= pageSize.limit && pageAllowsPageIntFallback(data) {
-			currentPage, _ := strconv.Atoi(cursor)
-			if currentPage < 1 {
-				currentPage = 1
-			}
-			nextCursor = strconv.Itoa(currentPage + 1)
+			nextCursor = nextSyncPageNumber(cursor)
 			hasMore = true
 		}
 		if pageSize.cursorParam != "" && pageSize.cursorType == "offset" && nextCursor == "" && len(items) >= pageSize.limit && pageAllowsPageIntFallback(data) {
@@ -3397,23 +3598,28 @@ func syncOneParent(
 		cursor = nextCursor
 	}
 
-	if prune && outcome.complete && dep.ReconcileMode == "per_parent" {
-		deleted, rerr := db.ReconcilePartition(
-			dep.Name, dep.GenericScopeJSONPath, outcome.scopeVal,
-			seenIDs, reconcileTypedTable(dep.Name), store.CascadeJunctionsFor(dep.Name),
-		)
-		if rerr != nil {
-			fmt.Fprintf(syncEvents, `{"event":"reconcile_error","resource":"%s","scope":"%s","error":%q}`+"\n", dep.Name, outcome.scopeVal, rerr.Error())
-			outcome.complete = false
-			outcome.reason = "reconcile_error"
-			rep.failure = fmt.Errorf("reconciling %s parent %s: %w", dep.Name, parentID, rerr)
+	if prune && dep.ReconcileMode == "per_parent" {
+		parentScope := syncCheckpointScope(dep.Name, true, userParams, syncClientTemplateVars(c), syncActivePathContext())
+		if reason := syncPruneSkipReason(dep.Name, true, depSinceTS, "", userParams, dep.ReconcileMode, parentScope); reason != "" {
+			fmt.Fprintf(syncEvents, `{"event":"reconcile_skipped","resource":"%s","scope":"%s","reason":%q}`+"\n", dep.Name, outcome.scopeVal, reason)
+		} else if outcome.complete {
+			deleted, rerr := db.ReconcilePartition(
+				dep.Name, dep.GenericScopeJSONPath, outcome.scopeVal,
+				seenIDs, reconcileTypedTable(dep.Name), store.CascadeJunctionsFor(dep.Name),
+			)
+			if rerr != nil {
+				fmt.Fprintf(syncEvents, `{"event":"reconcile_error","resource":"%s","scope":"%s","error":%q}`+"\n", dep.Name, outcome.scopeVal, rerr.Error())
+				outcome.complete = false
+				outcome.reason = "reconcile_error"
+				rep.failure = fmt.Errorf("reconciling %s parent %s: %w", dep.Name, parentID, rerr)
+			} else {
+				// Always emit on a proven-complete sweep, even when deleted==0, so a
+				// clean run is observable (distinguishable from "reconcile never ran").
+				fmt.Fprintf(syncEvents, `{"event":"reconcile","resource":"%s","scope":"%s","deleted":%d}`+"\n", dep.Name, outcome.scopeVal, deleted)
+			}
 		} else {
-			// Always emit on a proven-complete sweep, even when deleted==0, so a
-			// clean run is observable (distinguishable from "reconcile never ran").
-			fmt.Fprintf(syncEvents, `{"event":"reconcile","resource":"%s","scope":"%s","deleted":%d}`+"\n", dep.Name, outcome.scopeVal, deleted)
+			fmt.Fprintf(syncEvents, `{"event":"reconcile_skipped","resource":"%s","scope":"%s","reason":%q}`+"\n", dep.Name, outcome.scopeVal, outcome.reason)
 		}
-	} else if prune && dep.ReconcileMode == "per_parent" {
-		fmt.Fprintf(syncEvents, `{"event":"reconcile_skipped","resource":"%s","scope":"%s","reason":%q}`+"\n", dep.Name, outcome.scopeVal, outcome.reason)
 	}
 
 	rep.nonJSONBody = outcome.reason == "non_json_200_body"
@@ -3543,15 +3749,6 @@ func syncDependentResource(ctx context.Context, c interface {
 	RateLimit() float64
 }, db *store.Store, dep dependentResourceDef, sinceTS string, full bool, maxPages int, latestOnly bool, prune bool, userParams *syncUserParams, syncEvents io.Writer, concurrency int) syncResult {
 	started := time.Now()
-	if preview, ok := c.(interface{ IsDryRun() bool }); !ok || !preview.IsDryRun() {
-		cursor, _, count, err := db.GetSyncState(dep.Name)
-		if err != nil {
-			return syncResult{Resource: dep.Name, Err: err, Duration: time.Since(started)}
-		}
-		if err := db.SaveSyncProgress(dep.Name, cursor, count); err != nil {
-			return syncResult{Resource: dep.Name, Err: fmt.Errorf("saving sync progress for %s: starting attempt: %w", dep.Name, err), Duration: time.Since(started)}
-		}
-	}
 	if syncEvents == nil {
 		syncEvents = io.Discard
 	}
@@ -3578,14 +3775,28 @@ func syncDependentResource(ctx context.Context, c interface {
 			return syncResult{Resource: dep.Name, Err: scopeErr, IntegrityFailure: true, Duration: time.Since(started)}
 		}
 	}
-	if err != nil || len(parentRows) == 0 {
-		if len(parentRows) == 0 {
-			if humanFriendly {
-				fmt.Fprintf(os.Stderr, "  %s: skipping (parent table %s is empty, sync it first)\n", dep.Name, dep.ParentTable)
+	if err != nil {
+		// Every error path returns no rows, so test the error first or a failed
+		// parent query passes as an empty parent table and the run succeeds.
+		// Invalidate readiness only for the scope already stored. Binding here
+		// would drop another tenant's cursor before any request.
+		err = fmt.Errorf("querying parent table %s: %w", dep.ParentTable, err)
+		if preview, ok := c.(interface{ IsDryRun() bool }); !ok || !preview.IsDryRun() {
+			scopeKey := syncCheckpointScope(dep.Name, true, userParams, syncClientTemplateVars(c), syncActivePathContext())
+			if markErr := db.MarkSyncAttemptIncompleteIfCurrent(dep.Name, scopeKey); markErr != nil {
+				err = fmt.Errorf("%w; saving sync progress for %s: %v", err, dep.Name, markErr)
 			}
-			return syncResult{Resource: dep.Name, Duration: time.Since(started)}
 		}
-		return syncResult{Resource: dep.Name, Err: fmt.Errorf("querying parent table %s: %w", dep.ParentTable, err), Duration: time.Since(started)}
+		if !humanFriendly {
+			fmt.Fprintln(syncEvents, syncErrorJSON(dep.Name, "", err))
+		}
+		return syncResult{Resource: dep.Name, Err: err, Duration: time.Since(started)}
+	}
+	if len(parentRows) == 0 {
+		if humanFriendly {
+			fmt.Fprintf(os.Stderr, "  %s: skipping (parent table %s is empty, sync it first)\n", dep.Name, dep.ParentTable)
+		}
+		return syncResult{Resource: dep.Name, Duration: time.Since(started)}
 	}
 	parentCoverageComplete := true
 	coverageReason := ""
@@ -3598,6 +3809,24 @@ func syncDependentResource(ctx context.Context, c interface {
 			fmt.Fprintf(os.Stderr, "  %s: dogfood capped parent sync to %d of %d %s parents\n", dep.Name, len(parentRows), originalParentRows, dep.ParentTable)
 		} else {
 			fmt.Fprintf(syncEvents, `{"event":"sync_warning","resource":"%s","parent_table":"%s","reason":"dogfood_parent_rows_cap_hit","message":"dogfood capped dependent sync to %d of %d parent rows; run outside dogfood to verify full parent coverage"}`+"\n", dep.Name, dep.ParentTable, len(parentRows), originalParentRows)
+		}
+	}
+	if len(parentRows) == 0 {
+		if humanFriendly {
+			fmt.Fprintf(os.Stderr, "  %s: skipping (no parents to sync)\n", dep.Name)
+		}
+		return syncResult{Resource: dep.Name, Duration: time.Since(started)}
+	}
+	// Bind only once a parent will be requested. An empty or failed parent
+	// lookup must not reset another tenant's cursor.
+	scopeKey := syncCheckpointScope(dep.Name, true, userParams, syncClientTemplateVars(c), syncActivePathContext())
+	if preview, ok := c.(interface{ IsDryRun() bool }); !ok || !preview.IsDryRun() {
+		cursor, _, count, err := db.BindSyncScope(dep.Name, scopeKey)
+		if err != nil {
+			return syncResult{Resource: dep.Name, Err: err, Duration: time.Since(started)}
+		}
+		if err := db.SaveSyncProgressInScope(dep.Name, scopeKey, cursor, count); err != nil {
+			return syncResult{Resource: dep.Name, Err: fmt.Errorf("saving sync progress for %s: starting attempt: %w", dep.Name, err), Duration: time.Since(started)}
 		}
 	}
 
@@ -3617,9 +3846,9 @@ func syncDependentResource(ctx context.Context, c interface {
 	depSinceTS := sinceTS
 	if depSinceTS != "" && depSinceParam == "" {
 		if humanFriendly {
-			fmt.Fprintf(os.Stderr, "  %s: incremental sync ignored (endpoint declares no temporal filter; falling back to full pagination)\n", dep.Name)
+			fmt.Fprintf(os.Stderr, "  %s: incremental sync ignored (endpoint has no usable incremental temporal filter; falling back to full pagination)\n", dep.Name)
 		} else {
-			fmt.Fprintf(syncEvents, `{"event":"sync_warning","resource":"%s","reason":"resource_not_incremental","message":"endpoint does not declare a temporal filter parameter; incremental sync has no effect for this resource"}`+"\n", dep.Name)
+			fmt.Fprintf(syncEvents, `{"event":"sync_warning","resource":"%s","reason":"resource_not_incremental","message":"endpoint has no usable incremental temporal filter; incremental sync has no effect for this resource"}`+"\n", dep.Name)
 		}
 		depSinceTS = ""
 	}
@@ -3782,7 +4011,7 @@ func syncDependentResource(ctx context.Context, c interface {
 		// writes still have to fail the run when --strict is off.
 		integrityFailure := integrityFailedParents > 0
 		if preview, ok := c.(interface{ IsDryRun() bool }); !ok || !preview.IsDryRun() {
-			if err := db.SaveSyncProgress(dep.Name, "", totalCount); err != nil {
+			if err := db.SaveSyncProgressInScope(dep.Name, scopeKey, "", totalCount); err != nil {
 				return syncResult{Resource: dep.Name, Count: totalCount, Err: fmt.Errorf("saving incomplete sync progress for %s: %w", dep.Name, err), IntegrityFailure: integrityFailure, Duration: time.Since(started)}
 			}
 		}
@@ -3806,7 +4035,7 @@ func syncDependentResource(ctx context.Context, c interface {
 		}
 	}
 	if failedParents > 0 {
-		if err := db.SaveSyncProgress(dep.Name, "", totalCount); err != nil {
+		if err := db.SaveSyncProgressInScope(dep.Name, scopeKey, "", totalCount); err != nil {
 			return syncResult{Resource: dep.Name, Count: totalCount, Err: fmt.Errorf("saving incomplete sync progress for %s: %w", dep.Name, err), Duration: time.Since(started)}
 		}
 		failure := fmt.Errorf("%s failed to store data for %d of %d parents: %w", dep.Name, failedParents, len(parentRows), firstFailure)
@@ -3819,7 +4048,7 @@ func syncDependentResource(ctx context.Context, c interface {
 		return syncResult{Resource: dep.Name, Count: totalCount, Warn: failure, Duration: time.Since(started)}
 	}
 	if depConsumedTotal > 0 && totalCount == 0 {
-		if err := db.SaveSyncProgress(dep.Name, "", 0); err != nil {
+		if err := db.SaveSyncProgressInScope(dep.Name, scopeKey, "", 0); err != nil {
 			return syncResult{Resource: dep.Name, Err: fmt.Errorf("saving incomplete sync progress for %s: %w", dep.Name, err), Duration: time.Since(started)}
 		}
 		if depExtractFailureTotal < depConsumedTotal {
@@ -3852,9 +4081,9 @@ func syncDependentResource(ctx context.Context, c interface {
 	}
 	var stateErr error
 	if attemptComplete {
-		stateErr = db.SaveSyncState(dep.Name, "", totalCount)
+		stateErr = db.SaveSyncStateInScope(dep.Name, scopeKey, "", totalCount)
 	} else {
-		stateErr = db.SaveSyncProgress(dep.Name, "", totalCount)
+		stateErr = db.SaveSyncProgressInScope(dep.Name, scopeKey, "", totalCount)
 	}
 	if stateErr != nil {
 		return syncResult{Resource: dep.Name, Count: totalCount, Err: fmt.Errorf("saving sync state for %s: %w", dep.Name, stateErr), Duration: time.Since(started)}
@@ -3938,51 +4167,51 @@ func dependentParentRows(db *store.Store, parentTable string, pathParams []depen
 // annotations on a child path-item are honored at runtime, not just on
 // flat paths.
 var resourceIDFieldOverrides = map[string]string{
-	"admins":                               "id",
-	"alerts":                               "id",
-	"allowed_items":                        "id",
-	"audit_events":                         "id",
-	"blocked_addresses":                    "id",
-	"blocked_items":                        "id",
-	"endpoint_groups":                      "id",
-	"endpoints":                            "id",
-	"enrichment_pivots":                    "id",
-	"exclusions":                           "id",
-	"exclusions-isolation":                 "id",
-	"exclusions-scanning":                  "id",
-	"exploit_mitigation":                   "id",
-	"exploit_mitigation-categories":        "id",
-	"exploit_mitigation-detected-exploits": "id",
-	"licenses":                             "id",
-	"licenses-v1-licenses-firewalls":       "serialNumber",
-	"live_discover":                        "id",
-	"live_discover-categories":             "id",
-	"live_discover-queries":                "id",
-	"migrations":                           "id",
-	"org_admins":                           "id",
-	"org_roles":                            "id",
-	"org_roles-roles":                      "id",
-	"org_tenants":                          "id",
-	"partner_admins":                       "id",
-	"partner_roles":                        "id",
-	"partner_roles-permission-sets":        "id",
-	"peripherals":                          "id",
-	"policies":                             "id",
-	"provisioning":                         "code",
-	"roles":                                "id",
-	"siem":                                 "id",
-	"software":                             "id",
-	"software-packages-recommended":        "id",
-	"software-packages-static":             "id",
-	"tenants":                              "id",
-	"user_groups":                          "id",
-	"users":                                "id",
-	"web_control":                          "id",
-	"web_control-categories":               "id",
-	"web_control-local-sites":              "id",
-	"xdr":                                  "id",
-	"xdr-categories":                       "id",
-	"xdr-queries":                          "id",
+	"admins":                                "id",
+	"alerts":                                "id",
+	"allowed_items":                         "id",
+	"audit_events":                          "id",
+	"blocked_addresses":                     "id",
+	"blocked_items":                         "id",
+	"common_v1_directory_users_groups":      "id",
+	"endpoint_groups":                       "id",
+	"endpoints":                             "id",
+	"enrichment_pivots":                     "id",
+	"exclusions":                            "id",
+	"exclusions-isolation":                  "id",
+	"exclusions-scanning":                   "id",
+	"exploit_mitigation":                    "id",
+	"exploit_mitigation-categories":         "id",
+	"exploit_mitigation-detected-exploits":  "id",
+	"licenses-v1-licenses-firewalls":        "serialNumber",
+	"live_discover":                         "id",
+	"live_discover-categories":              "id",
+	"live_discover-queries":                 "id",
+	"migrations":                            "id",
+	"org_admins":                            "id",
+	"org_roles":                             "id",
+	"org_roles-roles":                       "id",
+	"org_tenants":                           "id",
+	"partner_admins":                        "id",
+	"partner_roles":                         "id",
+	"partner_roles-permission-sets":         "id",
+	"partner_v1_tenants_account_amendments": "id",
+	"peripherals":                           "id",
+	"policies":                              "id",
+	"provisioning":                          "code",
+	"roles":                                 "id",
+	"siem":                                  "id",
+	"software":                              "id",
+	"software-packages-recommended":         "id",
+	"software-packages-static":              "id",
+	"tenants":                               "id",
+	"user_groups":                           "id",
+	"users":                                 "id",
+	"web_control":                           "id",
+	"web_control-local-sites":               "id",
+	"xdr":                                   "id",
+	"xdr-categories":                        "id",
+	"xdr-queries":                           "id",
 }
 
 // partitionOutcome tracks whether a sync loop (flat tenant-scoped, single-tenant
@@ -3995,6 +4224,89 @@ type partitionOutcome struct {
 	complete bool
 	reason   string
 	scopeVal string
+}
+
+func syncActivePathContext() map[string]string {
+	return nil
+}
+
+const (
+	syncPruneSkipTenantScope        = "tenant_scope"
+	syncPruneSkipParamFilter        = "param_filter"
+	syncPruneSkipGlobalParam        = "global_param"
+	syncPruneSkipResourceParam      = "resource_param"
+	syncPruneSkipSinceWindow        = "since_window"
+	syncPruneSkipDateRange          = "date_range"
+	syncPruneSkipRequiredDateWindow = "required_date_window"
+)
+
+// syncPruneSkipReason is empty when this walk covered the reconcile partition.
+// Tenant-column mode "flat" still prunes for a base-URL placeholder; that
+// partition is already the tenant. since and dates count only once applied.
+func syncPruneSkipReason(resource string, dependent bool, effectiveSince, dates string, userParams *syncUserParams, reconcileMode, scopeKey string) string {
+	if userParams != nil {
+		if !dependent {
+			for key := range userParams.flatGlobal {
+				if syncParamIsGlobalScope(key) {
+					return syncPruneSkipTenantScope
+				}
+			}
+			if len(userParams.flatGlobal) > 0 {
+				return syncPruneSkipParamFilter
+			}
+		}
+		if len(userParams.trueGlobal) > 0 {
+			return syncPruneSkipGlobalParam
+		}
+		if len(userParams.perResource[resource]) > 0 {
+			return syncPruneSkipResourceParam
+		}
+	}
+	if strings.TrimSpace(effectiveSince) != "" {
+		return syncPruneSkipSinceWindow
+	}
+	if strings.TrimSpace(dates) != "" {
+		return syncPruneSkipDateRange
+	}
+	if syncResourceHasDateWindow(resource) {
+		return syncPruneSkipRequiredDateWindow
+	}
+	if reconcileMode != "flat" && syncScopeIsTenant(scopeKey) {
+		return syncPruneSkipTenantScope
+	}
+	return ""
+}
+
+func syncScopeIsTenant(scopeKey string) bool {
+	for _, line := range strings.Split(scopeKey, "\n") {
+		if strings.HasPrefix(line, "template:") || strings.HasPrefix(line, "path:") {
+			return true
+		}
+	}
+	return false
+}
+
+func syncParamIsDateWindow(name string) bool {
+	n := strings.ToLower(strings.TrimSpace(name))
+	n = strings.ReplaceAll(n, "-", "_")
+	switch n {
+	case "since", "until", "start_date", "end_date", "from_date", "to_date",
+		"date_from", "date_to", "start_time", "end_time", "date", "dates",
+		"time_min", "time_max", "created_after", "created_before",
+		"updated_after", "updated_before":
+		return true
+	default:
+		return strings.Contains(n, "date")
+	}
+}
+
+func syncResourceHasDateWindow(resource string) bool {
+	for _, name := range syncResourceRequiredQueryParams(resource) {
+		if syncParamIsDateWindow(name) {
+			return true
+		}
+	}
+	return false
 }
 
 // flatReconcileModes maps a flat resource to its reconcile mode classification
@@ -4017,7 +4329,6 @@ var flatReconcileModes = map[string]string{
 	"exploit_mitigation":                   "flat_global",
 	"exploit_mitigation-categories":        "flat_global",
 	"exploit_mitigation-detected-exploits": "flat_global",
-	"licenses":                             "flat_global",
 	"licenses-v1-licenses-firewalls":       "flat_global",
 	"live_discover":                        "flat_global",
 	"live_discover-categories":             "flat_global",
@@ -4042,7 +4353,6 @@ var flatReconcileModes = map[string]string{
 	"user_groups":                          "flat_global",
 	"users":                                "flat_global",
 	"web_control":                          "flat_global",
-	"web_control-categories":               "flat_global",
 	"web_control-local-sites":              "flat_global",
 	"xdr":                                  "flat_global",
 	"xdr-categories":                       "flat_global",
@@ -4178,9 +4488,7 @@ func responsePathForResource(resource, path string) []string {
 	case "exploit_mitigation":
 		return []string{"items"}
 	case "health_check":
-		return []string{"datapoints"}
-	case "licenses":
-		return []string{"licenses"}
+		return []string{"bands"}
 	case "live_discover":
 		return []string{"items"}
 	case "migrations":
@@ -4213,8 +4521,6 @@ func responsePathForResource(resource, path string) []string {
 		return []string{"items"}
 	case "users":
 		return []string{"items"}
-	case "web_control":
-		return []string{"categories"}
 	case "xdr":
 		return []string{"items"}
 	}

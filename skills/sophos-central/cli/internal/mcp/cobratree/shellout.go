@@ -6,8 +6,11 @@ package cobratree
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"os"
 	"os/exec"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -15,8 +18,8 @@ import (
 	mcplib "github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
 	"sophos-central-pp-cli/internal/cliutil"
+	"sophos-central-pp-cli/internal/credkit"
 	"sophos-central-pp-cli/internal/mcp/bound"
 )
 
@@ -78,7 +81,7 @@ func shellOutToCLI(cliPath func() (string, error), commandPath []string, blocked
 		}
 		out, err := RunCLICommand(ctx, lookupPath, finalArgs)
 		if err != nil {
-			return boundedToolResultError(err.Error()), nil
+			return ToolResultFromCLIFailure(out, err), nil
 		}
 		return ToolResultFromCLICommand(out), nil
 	}
@@ -241,97 +244,20 @@ var blockedDestinationFlags = map[string]bool{
 	"output-dir":   true,
 	"output-file":  true,
 	"receipt-file": true,
-	// Hand-wired (handfixes.json: mcp-filesystem-destination-gate): local-file
-	// READ sources. Forwarded, they let a tool call load any file this account
-	// can reach (credentials.toml included) into the store, where playbook_list
-	// and sql hand it back.
-	"home":                true,
+}
+
+// MCP runs commands as the server account. A flag whose value is a path
+// opened for reading would let a tool read anything that account can read.
+// Unambiguous read-path names are listed here; a command declares any other
+// with mcp:read-flags. Names that are often not paths (file, path) stay out.
+var blockedInputFlags = map[string]bool{
+	"cookies-file":        true,
 	"input":               true,
+	"input-file":          true,
 	"notes-file":          true,
+	"password-file":       true,
 	"playbook-file":       true,
 	"playbook-notes-file": true,
-}
-
-// filesystemPathFlagPhrases are usage-string fragments that mark a flag as
-// naming a filesystem location the server account would read or write.
-// Matching the usage TEXT rather than the flag NAME is deliberate: generated
-// API body fields named like paths go to the vendor API and never touch this
-// account's disk, while a genuine local-filesystem flag spells out that it
-// takes a file or directory path.
-var filesystemPathFlagPhrases = []string{
-	"file path",
-	"path to ",
-	"database path",
-	"output directory",
-	"audit directory",
-	"directory path",
-	"store path",
-	"mirror path",
-	"receipt destination",
-	"root directory for",
-}
-
-// vendorAPIPathFlags are flags whose usage text trips isFilesystemPathFlag but
-// which name a location in the VENDOR's world, keyed "<command path> --<flag>"
-// with the reason as the value. Listing exceptions here instead of loosening
-// the phrase list keeps a newly generated local-path flag failing the build.
-var vendorAPIPathFlags = map[string]string{}
-
-// isFilesystemPathFlag reports whether flag's own description says it names a
-// filesystem location.
-func isFilesystemPathFlag(flag *pflag.Flag) bool {
-	if flag == nil {
-		return false
-	}
-	usage := strings.ToLower(flag.Usage)
-	for _, phrase := range filesystemPathFlagPhrases {
-		if strings.Contains(usage, phrase) {
-			return true
-		}
-	}
-	return false
-}
-
-// UnblockedFilesystemPathFlags reports every flag reachable through a shell-out
-// MCP tool whose usage text names a filesystem location and which the
-// per-command blocked set does not refuse. It walks the command set RegisterAll
-// registers, so endpoint and framework commands stay out of scope. A non-empty
-// result means a tool caller can still direct a read or write on this
-// account's filesystem.
-func UnblockedFilesystemPathFlags(root *cobra.Command) []string {
-	if root == nil {
-		return nil
-	}
-	found := map[string]bool{}
-	walk(root, nil, func(cmd *cobra.Command, path []string) {
-		switch classify(cmd) {
-		case commandHidden, commandEndpoint, commandGroup, commandFramework:
-			return
-		}
-		if !cmd.Runnable() {
-			return
-		}
-		blocked := blockedStructuredArgsForCommand(cmd)
-		check := func(flag *pflag.Flag) {
-			if flag == nil || flag.Hidden || flag.Deprecated != "" || blocked[flag.Name] {
-				return
-			}
-			if isFilesystemPathFlag(flag) {
-				key := cmd.CommandPath() + " --" + flag.Name
-				if _, ok := vendorAPIPathFlags[key]; !ok {
-					found[key] = true
-				}
-			}
-		}
-		cmd.NonInheritedFlags().VisitAll(check)
-		cmd.InheritedFlags().VisitAll(check)
-	})
-	out := make([]string, 0, len(found))
-	for name := range found {
-		out = append(out, name)
-	}
-	sort.Strings(out)
-	return out
 }
 
 // confirmationBypassYesFlag is the root flag that skips a command's own
@@ -349,11 +275,14 @@ var confirmationBypassRootFlags = map[string]bool{
 // caller swap auth credentials, redirect the API base URL, select a different
 // per-client filesystem, relocate the config/data/state/cache roots, load a
 // malicious config file, change receipt destinations, change the delivery
-// target, or skip a command's own confirmation prompt, all of which sit
+// target, redirect TLS trust, skip a command's own confirmation prompt, turn
+// off the request pacing that keeps the operator's API key under the vendor's
+// rate limits, or stretch the operator's request timeout, all of which sit
 // outside the per-command surface the agent is supposed to be calling.
 var blockedRootFlags = map[string]bool{
 	"audit-dir":               true,
 	"base-url":                true,
+	"ca-cert":                 true,
 	"client":                  true,
 	"client-profile":          true, // hand-fix: inert here (no platform source); keep it out of tool schemas
 	"config":                  true,
@@ -362,7 +291,11 @@ var blockedRootFlags = map[string]bool{
 	"home":                    true,
 	"insecure":                true,
 	"profile":                 true,
+	"rate-limit":              true,
 	"receipt-file":            true,
+	"throttle-mode":           true,
+	"timeout":                 true,
+	"tls-server-name":         true,
 	"token":                   true,
 }
 
@@ -400,12 +333,15 @@ func cliArgsFromMCP(args map[string]any, blocked map[string]bool) []string {
 				out = append(out, "--"+k+"="+tv)
 			}
 		case []any:
-			if len(tv) > 0 {
-				parts := make([]string, 0, len(tv))
-				for _, item := range tv {
-					parts = append(parts, fmt.Sprintf("%v", item))
+			// One --flag=value per item, including "". Comma-joining would
+			// collapse a stringArray (it does not split on commas) into one
+			// value, and dropping an empty item would leave a nonempty default.
+			for _, item := range tv {
+				if item == nil {
+					continue
 				}
-				out = append(out, "--"+k+"="+strings.Join(parts, ","))
+				part := fmt.Sprintf("%v", item)
+				out = append(out, "--"+k+"="+part)
 			}
 		default:
 			if v != nil {
@@ -457,15 +393,97 @@ func SplitShellArgs(s string) []string {
 type CLICommandResult struct {
 	Stdout      string
 	StderrHints []string
+	// Stderr is the full child stderr on a non-zero exit. Success leaves it
+	// empty and reports operator hints through StderrHints only.
+	Stderr string
 }
+
+// cliHelpOnlyResult is the tool error when a mirrored command exits 0 after
+// printing cobra help. Help returns nil, so the exit code alone cannot tell
+// a real run from a usage page.
+const cliHelpOnlyResult = "command printed help instead of running"
+
+// cobraHelpFlagLine matches cobra's default help flag. A line that only
+// starts with "Usage:" is not help; pflag always emits this flag line.
+var cobraHelpFlagLine = regexp.MustCompile(`(?m)^[ \t]*-h, --help[ \t]+help for[ \t]+\S+`)
 
 // ToolResultFromCLICommand keeps stdout in the first content block and places
 // filtered CLI hints in a separate block for clients that display auxiliary
-// content.
+// content. Cobra help on exit 0 is an error: the command did not run.
 func ToolResultFromCLICommand(result CLICommandResult) *mcplib.CallToolResult {
+	if cliStdoutIsCobraHelp(result.Stdout) {
+		return toolResultFromCLIHelp(result.Stdout)
+	}
 	toolResult := mcplib.NewToolResultText(bound.Text(result.Stdout))
 	if len(result.StderrHints) > 0 {
 		toolResult.Content = append(toolResult.Content, mcplib.NewTextContent(bound.Text(strings.Join(result.StderrHints, "\n"))))
+	}
+	return toolResult
+}
+
+func toolResultFromCLIHelp(stdout string) *mcplib.CallToolResult {
+	toolResult := mcplib.NewToolResultError(bound.Text(cliHelpOnlyResult))
+	if text := strings.TrimSpace(stdout); text != "" {
+		toolResult.Content = append(toolResult.Content, mcplib.NewTextContent(bound.Text(text)))
+	}
+	return toolResult
+}
+
+// cliStdoutIsCobraHelp reports cobra's default help page. The help flag line
+// plus a Usage heading and a Flags or commands heading is the shape cmd.Help()
+// prints. Valid JSON stays a successful result, including a payload that
+// quotes a help page. A help page whose description starts with a quote or
+// brace is not valid JSON, so it still matches.
+func cliStdoutIsCobraHelp(stdout string) bool {
+	text := normalizeCLIText(stdout)
+	if text == "" || json.Valid([]byte(text)) {
+		return false
+	}
+	if !cliHelpHeading(text, "Usage:") {
+		return false
+	}
+	if !cliHelpHeading(text, "Flags:") && !cliHelpHeading(text, "Global Flags:") && !cliHelpHeading(text, "Available Commands:") {
+		return false
+	}
+	return cobraHelpFlagLine.MatchString(text)
+}
+
+func normalizeCLIText(s string) string {
+	s = strings.ReplaceAll(s, "\r\n", "\n")
+	s = strings.ReplaceAll(s, "\r", "\n")
+	s = strings.TrimPrefix(s, "\uFEFF")
+	return strings.TrimSpace(s)
+}
+
+func cliHelpHeading(text, heading string) bool {
+	for _, line := range strings.Split(text, "\n") {
+		if strings.TrimSpace(line) == heading {
+			return true
+		}
+	}
+	return false
+}
+
+// ToolResultFromCLIFailure marks the call as an error and keeps stdout in the
+// first content block. Cobra writes "Error:" to stderr on a non-zero exit, so
+// a stderr-only result would drop a JSON envelope or typed-exit receipt.
+// When both streams are empty, err is the exec failure from RunCLICommand.
+func ToolResultFromCLIFailure(result CLICommandResult, err error) *mcplib.CallToolResult {
+	stdout := strings.TrimSpace(result.Stdout)
+	stderr := strings.TrimSpace(result.Stderr)
+	first := stdout
+	if first == "" {
+		first = stderr
+	}
+	if first == "" && err != nil && err.Error() != "" {
+		first = err.Error()
+	}
+	if first == "" {
+		first = "command failed"
+	}
+	toolResult := mcplib.NewToolResultError(bound.Text(first))
+	if stdout != "" && stderr != "" {
+		toolResult.Content = append(toolResult.Content, mcplib.NewTextContent(bound.Text(stderr)))
 	}
 	return toolResult
 }
@@ -475,11 +493,14 @@ func ToolResultFromCLICommand(result CLICommandResult) *mcplib.CallToolResult {
 // separately on success so they cannot corrupt JSON results.
 func RunCLICommand(ctx context.Context, binPath string, args []string) (CLICommandResult, error) {
 	cmd := exec.CommandContext(ctx, binPath, args...) // #nosec G204 -- trusted companion CLI path, args pre-tokenized.
+	// os.Getenv returns the first duplicate, so an inherited marker has to
+	// be replaced. A nil Env would inherit the parent and could not force it.
+	cmd.Env = mcpChildEnviron()
 	stdout := newCappedCapture()
 	stderr := newCappedCapture()
 	cmd.Stdout = stdout
 	cmd.Stderr = stderr
-	err := cmd.Run()
+	err := credkit.RunCommand(cmd) // Hand-fix (handfixes.json credkit-wiring)
 	stdoutText := stdout.String()
 	result := CLICommandResult{
 		Stdout:      stdoutText,
@@ -487,20 +508,55 @@ func RunCLICommand(ctx context.Context, binPath string, args []string) (CLIComma
 	}
 	if err != nil {
 		stderrText := strings.TrimSpace(stderr.String())
-		msg := stderrText
-		if msg == "" {
-			msg = strings.TrimSpace(stdoutText)
+		stdoutTrim := strings.TrimSpace(stdoutText)
+		result.Stderr = stderrText
+		detail := cliFailureDetail(stdoutTrim, stderrText)
+		if detail == "" {
+			return result, fmt.Errorf("cli %s: %w", binPath, err)
 		}
-		if msg != "" {
-			label := "stderr"
-			if stderrText == "" {
-				label = "output"
-			}
-			return result, fmt.Errorf("cli %s: %w (%s: %s)", binPath, err, label, bound.Text(msg))
-		}
-		return result, fmt.Errorf("cli %s: %w", binPath, err)
+		return result, fmt.Errorf("cli %s: %w (%s)", binPath, err, bound.Text(detail))
 	}
 	return result, nil
+}
+
+// Mirrored CLI children do not authenticate the MCP listener. Copying this
+// bearer into every command environment only exposes it.
+const mcpHTTPTokenEnvVar = "SOPHOS_CENTRAL_MCP_HTTP_TOKEN"
+
+func mcpChildEnviron() []string {
+	base := os.Environ()
+	env := make([]string, 0, len(base)+1)
+	for _, entry := range base {
+		if mcpChildEnvDropped(entry) {
+			continue
+		}
+		env = append(env, entry)
+	}
+	return append(env, cliutil.MCPChildEnvVar+"=1")
+}
+
+func mcpChildEnvDropped(entry string) bool {
+	key, _, ok := strings.Cut(entry, "=")
+	if !ok {
+		return false
+	}
+	if key == cliutil.MCPChildEnvVar {
+		return true
+	}
+	return strings.EqualFold(key, mcpHTTPTokenEnvVar)
+}
+
+func cliFailureDetail(stdout, stderr string) string {
+	switch {
+	case stdout != "" && stderr != "":
+		return "stdout: " + stdout + "\nstderr: " + stderr
+	case stderr != "":
+		return "stderr: " + stderr
+	case stdout != "":
+		return "output: " + stdout
+	default:
+		return ""
+	}
 }
 
 func stderrHintLines(stderr string) []string {

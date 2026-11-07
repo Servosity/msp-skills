@@ -50,7 +50,7 @@ func newEndpointsGetCmd(flags *rootFlags) *cobra.Command {
 					}
 				}
 				if !validView {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagView, "view", allowedView)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagView, "view", allowedView))
 				}
 			}
 			path := "/endpoint/v1/endpoints/{endpointId}"

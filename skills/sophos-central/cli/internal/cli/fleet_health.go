@@ -22,8 +22,10 @@ type healthRow struct {
 	Overall         *int          `json:"overall"`
 	ProtectionScore *int          `json:"protection_score"`
 	Delta           *int          `json:"delta"`
+	DeltaNote       string        `json:"delta_note,omitempty"`
 	Worst           []healthCheck `json:"worst_checks"`
 	SnoozedChecks   []healthCheck `json:"snoozed_checks,omitempty"`
+	FailedChecks    []string      `json:"failed_checks,omitempty"`
 	CheckedAt       time.Time     `json:"checked_at,omitzero"`
 }
 
@@ -150,6 +152,8 @@ func buildHealth(db fleetReader, filter map[string]bool) (healthView, error) {
 	seen := map[string]bool{}
 	unreadable := unreadableRows{}
 	rows := make([]healthRow, 0)
+	current := map[string][]healthCheck{}
+	failedHealth := make([]blindTenant, 0)
 	err = db.ListScan(fleetHealthType, func(_ string, raw json.RawMessage) bool {
 		doc, checks, data, derr := tenantHealthChecks(raw)
 		if derr != nil || doc.TenantID == "" {
@@ -160,6 +164,7 @@ func buildHealth(db fleetReader, filter map[string]bool) (healthView, error) {
 			return true
 		}
 		seen[doc.TenantID] = true
+		current[doc.TenantID] = checks
 		row := healthRow{TenantID: doc.TenantID, TenantName: doc.TenantName, Status: "ok", CheckedAt: doc.SyncedAt, Worst: make([]healthCheck, 0)}
 		if row.TenantName == "" {
 			row.TenantName = names[doc.TenantID]
@@ -172,6 +177,10 @@ func buildHealth(db fleetReader, filter map[string]bool) (healthView, error) {
 		row.ProtectionScore = minScore(data, []string{"endpoint", "protection", "computer", "score"}, []string{"endpoint", "protection", "server", "score"})
 		active := make([]healthCheck, 0, len(checks))
 		for _, c := range checks {
+			if c.Failed {
+				row.FailedChecks = append(row.FailedChecks, c.Check)
+				continue
+			}
 			if c.Snoozed {
 				row.SnoozedChecks = append(row.SnoozedChecks, c)
 			} else {
@@ -183,6 +192,11 @@ func buildHealth(db fleetReader, filter map[string]bool) (healthView, error) {
 			active = active[:3]
 		}
 		row.Worst = active
+		if len(row.FailedChecks) > 0 {
+			// Unscored sections: the overall covers only what was checked.
+			row.Status = "partial"
+			failedHealth = append(failedHealth, healthFailedBlind(row.TenantID, row.TenantName, row.FailedChecks))
+		}
 		rows = append(rows, row)
 		return true
 	})
@@ -199,6 +213,10 @@ func buildHealth(db fleetReader, filter map[string]bool) (healthView, error) {
 			continue
 		}
 		if _, prevChecks, _, derr := tenantHealthChecks(prevRaw); derr == nil {
+			if note := healthBaselineGap(prevChecks, current[rows[i].TenantID]); note != "" {
+				rows[i].DeltaNote = note
+				continue
+			}
 			if prev, ok := overallHealth(prevChecks); ok {
 				rows[i].Delta = intPtr(*rows[i].Overall - prev)
 			}
@@ -232,7 +250,49 @@ func buildHealth(db fleetReader, filter map[string]bool) (healthView, error) {
 		}
 		return rows[i].TenantName < rows[j].TenantName
 	})
-	return healthView{Items: rows, Total: len(rows), BlindTenants: append(append(blindTenantsFrom(ledger, filter, "health"), unreadable.blind(names, filter)...), unrefreshedTenants(db, ledger, filter)...)}, nil
+	return healthView{Items: rows, Total: len(rows), BlindTenants: append(append(append(blindTenantsFrom(ledger, filter, "health"), unreadable.blind(names, filter)...), unrefreshedTenants(db, ledger, filter)...), failedHealth...)}, nil
+}
+
+// healthBaselineGap says why two snapshots cannot be compared, or "" when they
+// can. overall is a minimum over the scored checks, so a delta means something
+// only when both snapshots scored the same checks: a section either one
+// returned as null (an unexpected error) or a check only one of them carries
+// would read as a change in health that nobody measured.
+func healthBaselineGap(prev, cur []healthCheck) string {
+	paths := func(cs []healthCheck) (map[string]bool, bool) {
+		out := make(map[string]bool, len(cs))
+		for _, c := range cs {
+			if c.Failed {
+				return nil, false
+			}
+			out[c.Check] = true
+		}
+		return out, true
+	}
+	p, okPrev := paths(prev)
+	if !okPrev {
+		return "baseline incomplete: the previous health check returned no result for some checks"
+	}
+	c, okCur := paths(cur)
+	if !okCur {
+		return "baseline incomplete: this health check returned no result for some checks"
+	}
+	if len(p) != len(c) {
+		return "baseline incomplete: the two health checks scored different checks"
+	}
+	for k := range c {
+		if !p[k] {
+			return "baseline incomplete: the two health checks scored different checks"
+		}
+	}
+	return ""
+}
+
+// healthFailedBlind reports a tenant whose Account Health Check returned null
+// (an unexpected error) for some sections: those checks were not run.
+func healthFailedBlind(id, name string, failed []string) blindTenant {
+	return blindTenant{TenantID: id, TenantName: name, Status: "health_check_failed",
+		Error: "Account Health Check returned no result (unexpected error) for: " + strings.Join(failed, ", ")}
 }
 
 // minScore returns the lowest numeric value among the given paths, or nil.

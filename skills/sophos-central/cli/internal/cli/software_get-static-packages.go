@@ -39,7 +39,7 @@ func newSoftwareGetStaticPackagesCmd(flags *rootFlags) *cobra.Command {
 					}
 				}
 				if !validEndpointType {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagEndpointType, "endpoint-type", allowedEndpointType)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagEndpointType, "endpoint-type", allowedEndpointType))
 				}
 			}
 			if cmd.Flags().Changed("platform") {
@@ -52,7 +52,7 @@ func newSoftwareGetStaticPackagesCmd(flags *rootFlags) *cobra.Command {
 					}
 				}
 				if !validPlatform {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagPlatform, "platform", allowedPlatform)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagPlatform, "platform", allowedPlatform))
 				}
 			}
 			if cmd.Flags().Changed("type") {
@@ -65,7 +65,7 @@ func newSoftwareGetStaticPackagesCmd(flags *rootFlags) *cobra.Command {
 					}
 				}
 				if !validType {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagType, "type", allowedType)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagType, "type", allowedType))
 				}
 			}
 			path := "/endpoint/v1/software/packages/static"

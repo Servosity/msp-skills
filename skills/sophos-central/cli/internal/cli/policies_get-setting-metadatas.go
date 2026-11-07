@@ -32,7 +32,7 @@ func newPoliciesGetSettingMetadatasCmd(flags *rootFlags) *cobra.Command {
 					}
 				}
 				if !validPolicyType {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagPolicyType, "policy-type", allowedPolicyType)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagPolicyType, "policy-type", allowedPolicyType))
 				}
 			}
 			path := "/endpoint/v1/policies/settings"
@@ -44,7 +44,7 @@ func newPoliciesGetSettingMetadatasCmd(flags *rootFlags) *cobra.Command {
 			if cmd.Flags().Changed("policy-type") || flagPolicyType != "" {
 				params["policyType"] = formatCLIParamValue(flagPolicyType)
 			}
-			data, prov, err := resolveReadWithStrategyAndResponsePath(cmd.Context(), c, flags, "auto", "policies", false, path, params, nil, "items", cmd.ErrOrStderr())
+			data, prov, err := resolveReadWithStrategyAndResponsePath(cmd.Context(), c, flags, "auto", "policies", false, path, params, nil, "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}
@@ -71,7 +71,7 @@ func newPoliciesGetSettingMetadatasCmd(flags *rootFlags) *cobra.Command {
 					filtered, selectErr = filterFieldsChecked(filtered, flags.selectFields)
 					selectErr = selectErrorForDryRun(selectErr, flags, data)
 				} else if flags.compact {
-					filtered = compactFields(filtered, map[string]bool{"type": true})
+					filtered = compactFields(filtered, map[string]bool{"version": true})
 				}
 				wrapped, wrapErr := wrapWithProvenance(filtered, prov)
 				if wrapErr != nil {
@@ -103,7 +103,7 @@ func newPoliciesGetSettingMetadatasCmd(flags *rootFlags) *cobra.Command {
 			if flags.csv || flags.plain {
 				formatData = outputData
 			}
-			return printOutputWithFlagsMeta(cmd.OutOrStdout(), formatData, flags, map[string]any{"source": "live"}, map[string]bool{"type": true})
+			return printOutputWithFlagsMeta(cmd.OutOrStdout(), formatData, flags, map[string]any{"source": "live"}, map[string]bool{"version": true})
 		},
 	}
 	cmd.Flags().StringVar(&flagPolicyType, "policy-type", "", "Policy type. (one of: threat-protection, peripheral-control, application-control, data-collection-and-investigation, device-encryption, web-control, agent-updating, windows-firewall, endpoint-dns-protection, server-threat-protection, server-peripheral-control, server-application-control, server-web-control, server-lockdown, server-agent-updating, server-windows-firewall, server-file-integrity-monitoring, server-linux-runtime-detection, server-data-collection-and-investigation)")

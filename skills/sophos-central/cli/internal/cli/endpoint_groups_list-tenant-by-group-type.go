@@ -42,7 +42,7 @@ func newEndpointGroupsListTenantByGroupTypeCmd(flags *rootFlags) *cobra.Command 
 					}
 				}
 				if !validGroupType {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagGroupType, "group-type", allowedGroupType)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagGroupType, "group-type", allowedGroupType))
 				}
 			}
 			path := "/endpoint/v1/endpoint-groups/types/{groupType}"

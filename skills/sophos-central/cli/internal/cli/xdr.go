@@ -11,7 +11,7 @@ import (
 func newXdrCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "xdr",
-		Short:       "List, get, and create xdr",
+		Short:       "List and get xdr",
 		Annotations: map[string]string{"mcp:read-only": "true", "pp:parent-group": "true", "pp:api-resource": "true", "pp:typed-exit-codes": "0,2"},
 		RunE:        parentNoSubcommandRunE(flags),
 	}
