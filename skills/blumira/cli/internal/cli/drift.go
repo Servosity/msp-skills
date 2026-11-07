@@ -18,9 +18,10 @@ func newNovelDriftCmd(flags *rootFlags) *cobra.Command {
 		Use:   "drift",
 		Short: "New, status-changed, and newly-resolved findings between the two most recent syncs",
 		Long: "Compare the two most recent finding snapshots and report what changed: new\n" +
-			"findings, status changes, and newly-resolved findings. Each run records the\n" +
-			"current state as a snapshot, so drift becomes available after a second sync.\n" +
-			"Reads (and appends to) the local store's snapshot history.",
+			"findings, status changes, and newly-resolved findings. Every sync that walks a\n" +
+			"findings partition records a snapshot (so drift is between the two most recent\n" +
+			"syncs and becomes available after a second one); this command also records the\n" +
+			"current state when no sync has. Reads (and appends to) the local snapshot history.",
 		Example: "  blumira-cli drift\n" +
 			"  blumira-cli drift --since 24h --json --select account,name,change",
 		Annotations: map[string]string{"mcp:read-only": "true"},

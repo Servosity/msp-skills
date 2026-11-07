@@ -409,7 +409,7 @@
       "category": "Security",
       "display_name": "Blumira",
       "tagline": "Triage every Blumira finding across all your MSP client accounts from one ranked queue",
-      "cli_hash": "sha256:4489d8227db0a9bb6dd9ea4d6181d5242cf64fa3d024a7195f65d4924f092aed",
+      "cli_hash": "sha256:5f4552b7ff3f20b4b95d9a168484388d0ee43d6f791e82c7e521f8baa7953f8c",
       "template_version": 3,
       "version": "0.1.6",
       "cli_hash_at_release": "sha256:2b75c28984aa02654c2247d325e2155d24e83d07c669165f9059d2973630c86d",

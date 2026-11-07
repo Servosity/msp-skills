@@ -1,7 +1,7 @@
 {
   "api_name": "blumira",
   "base_url": "https://api.blumira.com/public-api/v1",
-  "description": "Blumira cloud SIEM + XDR: query security findings, evidence, detection rules, agent devices, and users across a direct org or every MSP sub-account, then resolve/assign/comment on findings.",
+  "description": "Every Blumira finding, detection, and agent across your direct org and every MSP sub-account — in one offline-searchable store with cross-account triage and over-time trends no single API call can answer.",
   "mcp_ready": "full",
   "http_transport": "standard",
   "auth": {
@@ -2339,6 +2339,78 @@
       "method": "GET",
       "path": "/resolutions",
       "params": []
+    }
+  ],
+  "novel_features": [
+    {
+      "name": "Unified cross-account triage queue",
+      "command": "triage",
+      "description": "One globally-ranked open-findings queue across every MSP client account."
+    },
+    {
+      "name": "Finding drift since last sync",
+      "command": "drift",
+      "description": "New, status-changed, and newly-resolved findings since the last sync, per account."
+    },
+    {
+      "name": "MTTR \u0026 response velocity",
+      "command": "velocity",
+      "description": "Mean-time-to-resolve and open-rate per account or overall."
+    },
+    {
+      "name": "SLA aging watchlist",
+      "command": "sla",
+      "description": "Findings about to breach an age-based SLA across all accounts, ranked."
+    },
+    {
+      "name": "Detection coverage drift vs basis",
+      "command": "coverage",
+      "description": "Detection rules missing or disabled in your org versus the MSP basis ruleset."
+    },
+    {
+      "name": "Agent \u0026 domain-controller exposure map",
+      "command": "exposure",
+      "description": "Cross-account agent rollup that flags stale or unprotected domain controllers."
+    },
+    {
+      "name": "Resolution re-fire audit",
+      "command": "audit",
+      "description": "Findings that were resolved and then re-fired (reopened)."
+    },
+    {
+      "name": "Recurring-finding fingerprint",
+      "command": "recurring",
+      "description": "The same detection firing repeatedly across accounts and time."
+    },
+    {
+      "name": "Self-minting OAuth2 auth login",
+      "command": "auth login",
+      "description": "Mints, caches, and auto-refreshes the Blumira JWT from a Client ID + Secret."
+    },
+    {
+      "name": "Cross-account MSP overview",
+      "command": "overview",
+      "description": "One-screen per-account rollup: open findings by priority, agent coverage, and detection-coverage drift across every client."
+    },
+    {
+      "name": "Ticketing reconciliation export",
+      "command": "reconcile",
+      "description": "Flat finding-to-org-to-assignee-to-status table for diffing against ConnectWise, Jira, or Zendesk."
+    },
+    {
+      "name": "Evidence keyword search",
+      "command": "evidence-search",
+      "description": "Full-text search over synced finding evidence to find which findings mention an IOC, hostname, or user."
+    },
+    {
+      "name": "Domain-controller roster",
+      "command": "dc-roster",
+      "description": "Every domain controller across all accounts with last check-in and protected/stale state."
+    },
+    {
+      "name": "Per-analyst workload balance",
+      "command": "workload",
+      "description": "Open assigned findings grouped by owner across all accounts, with age buckets."
     }
   ]
 }

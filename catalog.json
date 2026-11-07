@@ -354,7 +354,7 @@
       "cli_binary": "blumira-cli",
       "mcp_binary": "blumira-mcp",
       "version": "0.1.6",
-      "printing_press_version": "4.24.0",
+      "printing_press_version": "4.35.1",
       "license": "Apache-2.0",
       "vendor": "Blumira",
       "vendor_trademark_owner": "Blumira, Inc.",

