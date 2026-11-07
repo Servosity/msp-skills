@@ -196,8 +196,8 @@
    "read-only",
    "local-data"
   ],
-  "superops": [
-   "mcp-http",
+  "sophos-central": [
+   "write-gating",
    "read-only",
    "local-data"
   ],
