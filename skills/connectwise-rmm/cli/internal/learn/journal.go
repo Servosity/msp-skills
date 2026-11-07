@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"connectwise-rmm-pp-cli/internal/cliutil"
+	"connectwise-rmm-pp-cli/internal/credkit"
 )
 
 // The invocation journal records one entry per CLI invocation in dated
@@ -62,6 +63,10 @@ const (
 	journalClassBool     = "bool"
 	journalClassRedacted = "redacted"
 )
+
+// journalUndeclaredFlag is the argv_shape key for every flag name the invoked
+// command does not declare (Hand-fix (handfixes.json journal-credential-hardening)).
+const journalUndeclaredFlag = "<undeclared>"
 
 // journalRedactedFlagPattern matches flag names that may carry
 // credentials. Over-matching is fine (a redacted class loses only the
@@ -173,7 +178,9 @@ var JournalHarnessSessionEnvVars = []string{
 // has a different parent process, else a parent-pid lineage string.
 func JournalSessionKey() string {
 	if v := strings.TrimSpace(os.Getenv(journalSessionEnvVar)); v != "" {
-		return v
+		// Hand-fix (handfixes.json journal-credential-hardening): the override is stored hashed like a
+		// harness id, under its own prefix, so a credential set there never reaches disk.
+		return "o:" + hashHarnessSession(v)
 	}
 	if hashed := journalHashedHarnessSession(); hashed != "" {
 		return hashed
@@ -237,6 +244,15 @@ func JournalInvocation(entry JournalEntry) {
 	if entry.QueryFamily == "" && len(entry.UnresolvedEntities) == 0 {
 		entry.QueryFamily, entry.UnresolvedEntities = takeJournalLearnContext()
 	}
+	// Hand-fix (handfixes.json journal-credential-hardening): a failed flag is a name the command does
+	// not declare, so it is never kept as typed. When Cobra matched it to a declared flag,
+	// the placeholder plus the typed name's hash stays: the learn loop can still pair the
+	// correction, and two typos stay two candidates, never one merged identity.
+	if entry.FailedFlag != "" && entry.SuggestedFlag != "" {
+		entry.FailedFlag = "--" + journalUndeclaredFlag + ":" + hashHarnessSession(entry.FailedFlag)
+	} else {
+		entry.FailedFlag = ""
+	}
 	if err := AppendJournalEntry(entry); err != nil {
 		journalWarnOnce.Do(func() {
 			fmt.Fprintf(os.Stderr, "warning: learn journal write skipped: %v\n", err)
@@ -271,16 +287,9 @@ func AppendJournalEntry(entry JournalEntry) error {
 	if err := repairJournalSegmentTail(p); err != nil {
 		return err
 	}
-	f, err := os.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600) // #nosec G304 -- path derived from state dir
-	if err != nil {
-		return fmt.Errorf("journal: open %s: %w", p, err)
-	}
-	if _, err := f.Write(append(line, '\n')); err != nil {
-		f.Close()
-		return fmt.Errorf("journal: write: %w", err)
-	}
-	if err := f.Close(); err != nil {
-		return fmt.Errorf("journal: close: %w", err)
+	// Hand-fix (handfixes.json credkit-wiring): the journal entry is appended through the credential kit as one record.
+	if err := credkit.AppendFile(p, append(line, '\n'), 0o600); err != nil {
+		return fmt.Errorf("journal: write %s: %w", p, err)
 	}
 	// Best-effort: retention failures never fail the append (the
 	// entry is already durable).
@@ -490,11 +499,15 @@ func StoreJournalOffset(offset JournalOffset) error {
 // takes no value (the Cobra caller passes a registry lookup); when nil
 // a conservative heuristic consumes the next non-dash token as the
 // value. Positional tokens are never recorded.
-func JournalArgvShape(args []string, isBoolFlag func(name string) bool) map[string]string {
+func JournalArgvShape(args []string, isBoolFlag, isDeclared func(name string) bool) map[string]string {
 	shape := map[string]string{}
 	for i := 0; i < len(args); i++ {
 		tok := args[i]
-		if !strings.HasPrefix(tok, "-") || tok == "-" || tok == "--" {
+		// Hand-fix (handfixes.json journal-credential-hardening): every token after "--" is an operand, never a flag name.
+		if tok == "--" {
+			break
+		}
+		if !strings.HasPrefix(tok, "-") || tok == "-" {
 			continue
 		}
 		name := strings.TrimLeft(tok, "-")
@@ -512,6 +525,12 @@ func JournalArgvShape(args []string, isBoolFlag func(name string) bool) map[stri
 			i++
 		}
 		if name == "" {
+			continue
+		}
+		// Hand-fix (handfixes.json journal-credential-hardening): a name the invoked command does not
+		// declare may be a credential typed in a flag's place, so only a placeholder is kept.
+		if isDeclared == nil || !isDeclared(name) {
+			shape[journalUndeclaredFlag] = journalClassRedacted
 			continue
 		}
 		switch {

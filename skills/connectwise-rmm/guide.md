@@ -100,6 +100,24 @@ Add to your Claude Desktop config (`%APPDATA%\Claude\claude_desktop_config.json`
 
 </details>
 
+### Remote MCP over HTTP
+
+`connectwise-rmm-mcp --transport http` (or `PP_MCP_TRANSPORT=http`) serves streamable HTTP at `http://127.0.0.1:7777/mcp`. It refuses to start until `CONNECTWISE_RMM_MCP_HTTP_TOKEN` is set to at least 32 characters, and every request must send `Authorization: Bearer <token>`. The command below prints 64 hex characters and meets that minimum. Plain HTTP is allowed only on a loopback `--addr`; any other bind, including `:7777` (every interface), also needs `--tls-cert` and `--tls-key`. Requests with no `Origin` header are accepted, as are loopback origins (`localhost`, `127.0.0.1`, or `[::1]`, any port). Any other `Origin` is refused unless it is listed in `CONNECTWISE_RMM_MCP_HTTP_ALLOWED_ORIGINS`, a comma-separated list of `scheme://host[:port]` values with no path. That list is not a CORS policy; the server does not emit CORS headers.
+
+```bash
+export CONNECTWISE_RMM_MCP_HTTP_TOKEN="$(openssl rand -hex 32)"
+connectwise-rmm-mcp --transport http
+```
+
+On Windows (PowerShell):
+
+```powershell
+$env:CONNECTWISE_RMM_MCP_HTTP_TOKEN = -join ((1..32) | ForEach-Object { '{0:x2}' -f (Get-Random -Maximum 256) })
+connectwise-rmm-mcp --transport http
+```
+
+Set `CONNECTWISE_RMM_MCP_READ_ONLY=1` (exactly `1`) to drop mirrored commands that are not marked read-only and make the raw execute tool refuse state-changing calls. Commands marked local-write, which write only this CLI's own learn store, stay available.
+
 ## Authentication
 
 ConnectWise RMM uses OAuth2 client credentials. Create an API key under Integrations > API Access in the ConnectWise portal, then export `CONNECTWISE_RMM_CLIENT_ID` and `CONNECTWISE_RMM_CLIENT_SECRET`. The CLI mints and caches the bearer token itself by posting a JSON body to `<base_url>/v1/token`. The client ID prefix picks the region (0e30 North America, 0e31 Europe, 0e32 Australia); set `CONNECTWISE_RMM_BASE_URL` to override. Run `connectwise-rmm-cli scopes --agent` and export the `CONNECTWISE_RMM_OAUTH_SCOPE` line it prints, because one ungranted scope fails the whole token request. `connectwise-rmm-cli auth login` mints and caches a token explicitly.
@@ -293,6 +311,16 @@ Precedence matters in fleets: an ambient per-kind variable such as `CONNECTWISE_
 Relocation is one-way. Unsetting `CONNECTWISE_RMM_HOME` does not move files back to platform defaults, and `doctor` cannot find credentials left under a former root. Move the files manually before unsetting relocation variables.
 
 Existing installs keep working because the platform-default rung matches the legacy layout. On the first auth write, stored secrets leave `config.toml` and are consolidated into `credentials.toml` under the data directory. Run `connectwise-rmm-cli doctor --fail-on warn` to check path and credential-location warnings in automation.
+
+### Local data
+
+Reads are saved locally by default: in `--data-source auto` mode every successful read is also written to the SQLite store (`data.db`, or `data-<hash>.db` per credential) in the data directory. GET responses are cached for five minutes under `http/` in the cache directory. Credentials live in `credentials.toml` in the data directory. The learn journal lives under `learn/` in the state directory. `connectwise-rmm-cli doctor` prints the resolved paths, every store file, and the response-cache size.
+
+None of it is encrypted. New files are created owner-only; beyond that the data relies on OS account permissions and full-disk encryption (FileVault, BitLocker, LUKS).
+
+- **Erase it:** `connectwise-rmm-cli local-data purge` lists the store files, response cache, and learn journal it would delete; add `--yes` to delete them, or `--only store|cache|journal` to narrow it. Config and credentials are kept.
+- **Run without a local copy:** set `CONNECTWISE_RMM_NO_LOCAL_DATA=1`. Reads go to the API (`--data-source live`; `--data-source local` still reads an existing store), the response cache is off (`--no-cache`), nothing new is written to the store, and `sync` and `workflow archive` refuse to run. Set it in an MCP host's `env` block and every command the server runs inherits it.
+- **Choose the read source without flags:** `CONNECTWISE_RMM_DATA_SOURCE=auto|live|local` sets the `--data-source` default; an explicit flag wins.
 
 ## Commands
 
@@ -676,6 +704,8 @@ connectwise-rmm-cli companies list --dry-run
 connectwise-rmm-cli companies list --agent
 ```
 
+`--csv` prefixes a leading `'` on cells and header keys that start with `=`, `+`, `-`, `@`, a tab, or a line break (including fullwidth `＝＋－＠`) so a spreadsheet does not run them as formulas. Plain signed numbers such as `-5` and `+2.5e3` are left unchanged.
+
 ## Agent Usage
 
 This CLI is designed for AI agent consumption:
@@ -683,7 +713,7 @@ This CLI is designed for AI agent consumption:
 - **Non-interactive** - never prompts, every input is a flag
 - **Pipeable** - `--json` output to stdout, errors to stderr
 - **Filterable** - `--select <field>[,<field>...]` returns only fields you need
-- **Previewable** - `--dry-run` shows the request without sending
+- **Previewable** - `--dry-run` shows the request without sending. A completed dry run exits 0 with `"success": true` and `"dry_run": true` and no HTTP `status`; validation failures still exit non-zero with `"success": false`.
 - **Explicit retries** - add `--idempotent` to create retries and add `--ignore-missing` to delete retries when a no-op success is acceptable
 - **Explicit confirmation** - `--agent` does not imply confirmation. Generated write commands (sites create/update, tickets create/update, ticket-notes create, custom-fields set-*, tasks schedule, endpoints uninstall, endpoints create-agent-install-token, import) run immediately, so preview them with `--dry-run`; `run` only schedules when `--confirm` is passed
 - **Piped input** - write commands can accept structured input when their help lists `--stdin`
@@ -705,6 +735,8 @@ Verifies configuration, credentials, and connectivity to the API.
 Run `connectwise-rmm-cli doctor` to see the resolved config, data, state, and cache directories. The platform-default config path is `~/.config/connectwise-rmm-cli/config.toml` (`%USERPROFILE%\.config\connectwise-rmm-cli\config.toml` on Windows); `--home`, `CONNECTWISE_RMM_HOME`, and per-kind env vars can relocate it.
 
 Static request headers can be configured under `headers`; per-command header overrides take precedence.
+
+`--ca-cert`, `CONNECTWISE_RMM_CA_CERT`, or `ca_cert` adds a PEM CA bundle to the system trust roots. `--tls-server-name`, `CONNECTWISE_RMM_TLS_SERVER_NAME`, or `tls_server_name` is the name checked against the certificate when the dialed address does not match it. Precedence is flag, then environment, then the config file. A config file other users can change does not supply these settings. Certificate verification failures are not retried.
 
 Environment variables:
 

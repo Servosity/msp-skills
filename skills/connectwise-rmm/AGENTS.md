@@ -31,6 +31,8 @@ connectwise-rmm-cli endpoints uninstall --help
 connectwise-rmm-cli endpoints uninstall --dry-run --agent
 ```
 
+A completed `--dry-run` reports `"success": true` and `"dry_run": true` and omits HTTP `status`. Hand-written commands should call `writeDryRun` for that shape. A dry run that fails validation exits non-zero with `"success": false`.
+
 `--agent` does not imply confirmation. Generated write commands (sites create/update, tickets create/update, ticket-notes create, custom-fields set-*, tasks schedule, endpoints uninstall, endpoints create-agent-install-token, import) run immediately, so preview them with `--dry-run`; `run` only schedules when `--confirm` is passed.
 
 ## Novel Command Data Sources
@@ -53,7 +55,7 @@ This CLI ships a self-capturing teach/recall loop backed by the local SQLite sto
 4. Use `learnings list` to inspect taught rows, `learnings forget "$QUERY" --all` (same file-then-`$QUERY` rule) to undo a bad teach, `learnings candidates` for the full open candidate set, and `learnings stats` for the loop's local metrics. `teach-pattern` and `teach-lookup` install manual generalization rules when one teach should cover a whole family (e.g. one country alias unlocks every per-country query).
 5. If `learnings confirm` is an unknown command, you are driving an older binary - ignore the candidates guidance and keep the rest of the flow.
 
-Annotations: `recall`, `learnings list`, `learnings candidates`, and `learnings stats` carry `mcp:read-only=true`; `teach`, `teach-playbook`, `playbook amend`, `learnings confirm`, `teach-pattern`, and `teach-lookup` carry `mcp:local-write=true` (writes land only in the CLI's own local store); `learnings forget` and `learnings reject` keep honest may-write/destructive defaults.
+Annotations: `recall`, `learnings list`, `learnings candidates`, and `learnings stats` carry `mcp:read-only=true`; `teach`, `teach-playbook`, `playbook amend`, `learnings confirm`, `teach-pattern`, and `teach-lookup` carry `mcp:local-write=true` (writes land only in the CLI's own local store; the mirror does not advertise `destructiveHint: false` and sets `openWorldHint` so hosts prompt); `learnings forget` and `learnings reject` keep honest may-write/destructive defaults.
 
 ### Success definition
 
