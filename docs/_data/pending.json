@@ -112,9 +112,9 @@
     "released_hash": "sha256:155771f8d3b1e4d9f245217a882941eaa9c9da87eb1fa45f6be9e553fab97e68"
   },
   "blumira": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.7",
-    "latest_tag": "blumira-v0.1.6",
+    "latest_tag": "blumira-v0.1.7",
     "current_hash": "sha256:f94155737c2cd91a44acdb339c4ce2a819d330fc95087d61e55accc24cdbefcf",
     "released_hash": "sha256:f94155737c2cd91a44acdb339c4ce2a819d330fc95087d61e55accc24cdbefcf"
   },
@@ -133,9 +133,9 @@
     "released_hash": "sha256:f047247fcf4fffc9ecdd12d9b0361b6dcbb961e7b4072cc7ca45e5542f99e0fa"
   },
   "cisco-meraki": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.4",
-    "latest_tag": "cisco-meraki-v0.1.3",
+    "latest_tag": "cisco-meraki-v0.1.4",
     "current_hash": "sha256:0e9b505a62a460975ce836974a1817916384e144a9e783933e00e2e1a005928b",
     "released_hash": "sha256:0e9b505a62a460975ce836974a1817916384e144a9e783933e00e2e1a005928b"
   },
@@ -175,9 +175,9 @@
     "released_hash": "sha256:17bbc92b2313a3eb1d6b0291838ad042c99474c8815fb3db9b13ff04182bc070"
   },
   "connectwise-automate": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.8",
-    "latest_tag": "connectwise-automate-v0.1.7",
+    "latest_tag": "connectwise-automate-v0.1.8",
     "current_hash": "sha256:a809e9fe29c2a40924d699a55a9c6e203ee8b23dbb40d90ec3846d9d751ed2d4",
     "released_hash": "sha256:a809e9fe29c2a40924d699a55a9c6e203ee8b23dbb40d90ec3846d9d751ed2d4"
   },
