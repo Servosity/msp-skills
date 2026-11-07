@@ -34,11 +34,6 @@
    "read-only",
    "local-data"
   ],
-  "blumira": [
-   "mcp-http",
-   "read-only",
-   "local-data"
-  ],
   "cisco-duo": [
    "write-gating",
    "read-only",

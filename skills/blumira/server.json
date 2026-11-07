@@ -52,6 +52,37 @@
           "description": "Blumira API Client Secret, paired with BLUMIRA_CLIENT_ID to mint a JWT (OAuth2 client_credentials, audience public-api).",
           "isRequired": false,
           "isSecret": true
+        },
+        {
+          "name": "BLUMIRA_MCP_READ_ONLY",
+          "description": "Set to 1 to refuse every write from the MCP server (read tools only).",
+          "isRequired": false,
+          "isSecret": false,
+          "default": "1"
+        },
+        {
+          "name": "BLUMIRA_NO_LOCAL_DATA",
+          "description": "Set to 1 to keep no local copy of API responses (reads go to the API; the response cache is off).",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "BLUMIRA_USER_AGENT",
+          "description": "Overrides the User-Agent the CLI sends on Blumira requests.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "BLUMIRA_MCP_HTTP_TOKEN",
+          "description": "Required only when running the MCP server with --transport http (at least 32 characters). Not needed for the default local stdio transport.",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "PRINTING_PRESS_CLIENT_PROFILE",
+          "description": "Binds this MCP server to one tenant-gated client profile. Leave blank to use the default client profile.",
+          "isRequired": false,
+          "isSecret": false
         }
       ]
     }

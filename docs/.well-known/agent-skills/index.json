@@ -118,7 +118,7 @@
       "type": "skill-md",
       "description": "Every Blumira finding, detection, and agent across your direct org and every MSP sub-account - in one offline-searchable store with cross-account triage and over-time trends no single API call can answer. Trigger phrases: `blumira findings`, `triage blumira across accounts`, `what changed in blumira since yesterday`, `blumira detection coverage`, `blumira domain controller exposure`, `blumira MTTR report`, `use blumira`, `run blumira`.",
       "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/blumira/SKILL.md",
-      "digest": "sha256:5f80f3971e6a81d8902fb5e76fe0e64d74fadce31ec52e232c20e7204f1f47d4"
+      "digest": "sha256:5477b96bdd104cb8522188405a089fb50a18a495117be06b8a08a74db74fc3f1"
     },
     {
       "name": "cipp",

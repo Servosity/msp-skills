@@ -38,7 +38,6 @@
       "atera",
       "autotask",
       "axcient",
-      "blumira",
       "connectwise-automate",
       "connectwise-control",
       "connectwise-manage",
@@ -103,7 +102,6 @@
       "acronis",
       "axcient",
       "backup-radar",
-      "blumira",
       "connectwise-automate",
       "connectwise-control",
       "cork",
@@ -127,7 +125,6 @@
     "mcp-share-command": [],
     "mcp-read-only-switch-skips-typed-tools": [
       "axcient",
-      "blumira",
       "connectwise-automate",
       "connectwise-control",
       "cork",

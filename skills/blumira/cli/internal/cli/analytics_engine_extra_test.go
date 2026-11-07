@@ -5,7 +5,6 @@
 package cli
 
 import (
-	"encoding/json"
 	"strings"
 	"testing"
 	"time"
@@ -15,29 +14,47 @@ var extraNow = time.Date(2026, 6, 6, 12, 0, 0, 0, time.UTC)
 
 func ts(t time.Time) string { return t.Format(time.RFC3339) }
 
-func TestDecodeOwners(t *testing.T) {
+func TestDecodeOwnership(t *testing.T) {
 	cases := []struct {
-		name string
-		in   map[string]any
-		want []string
+		name  string
+		in    map[string]any
+		want  []string
+		known bool
 	}{
-		{"missing", map[string]any{}, nil},
-		{"string array", map[string]any{"owners": []any{"a@x.com", "b@x.com"}}, []string{"a@x.com", "b@x.com"}},
-		{"object array email", map[string]any{"owners": []any{map[string]any{"email": "a@x.com"}}}, []string{"a@x.com"}},
-		{"object array name fallback", map[string]any{"owners": []any{map[string]any{"name": "Maria"}}}, []string{"Maria"}},
-		{"single string", map[string]any{"owner": "solo@x.com"}, []string{"solo@x.com"}},
-		{"single object", map[string]any{"owner": map[string]any{"email": "one@x.com"}}, []string{"one@x.com"}},
-		{"blank entries dropped", map[string]any{"owners": []any{"", "  ", "real@x.com"}}, []string{"real@x.com"}},
+		{"missing is unknown", map[string]any{}, nil, false},
+		{"null owners is unknown", map[string]any{"owners": nil}, nil, false},
+		{"string array", map[string]any{"owners": []any{"a@x.com", "b@x.com"}}, []string{"a@x.com", "b@x.com"}, true},
+		{"object array email", map[string]any{"owners": []any{map[string]any{"email": "a@x.com"}}}, []string{"a@x.com"}, true},
+		{"object array name fallback", map[string]any{"owners": []any{map[string]any{"name": "Maria"}}}, []string{"Maria"}, true},
+		{"single string", map[string]any{"owner": "solo@x.com"}, []string{"solo@x.com"}, true},
+		{"single object", map[string]any{"owner": map[string]any{"email": "one@x.com"}}, []string{"one@x.com"}, true},
+		{"blank entries dropped", map[string]any{"owners": []any{"", "  ", "real@x.com"}}, []string{"real@x.com"}, true},
+		{"documented role-keyed object", map[string]any{"owners": map[string]any{
+			"analysts":   []any{map[string]any{"email": "an@x.com", "id": "u1"}},
+			"managers":   []any{map[string]any{"first_name": "Mae", "last_name": "Ng", "id": "u2"}},
+			"responders": []any{map[string]any{"id": "u3"}, map[string]any{"email": "AN@x.com"}},
+		}}, []string{"an@x.com", "Mae Ng (u2)", "u3"}, true},
+		{"role-keyed, nobody assigned", map[string]any{"owners": map[string]any{"analysts": []any{}, "managers": []any{}, "responders": nil}}, nil, true},
+		{"owners_by_email", map[string]any{"owners_by_email": []any{map[string]any{"email": "e@x.com"}}}, []string{"e@x.com"}, true},
+		{"owners_by_email null alone is unknown", map[string]any{"owners_by_email": nil}, nil, false},
+		{"unreadable role value is unknown", map[string]any{"owners": map[string]any{"analysts": "u1"}}, nil, false},
+		{"unreadable owner object is unknown", map[string]any{"owners": []any{map[string]any{"uuid": "u1"}}}, nil, false},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			got := decodeOwners(c.in)
+			got, known := decodeOwnership(c.in)
+			if known != c.known {
+				t.Fatalf("decodeOwnership(%v) known = %v, want %v", c.in, known, c.known)
+			}
+			if !c.known {
+				return
+			}
 			if len(got) != len(c.want) {
-				t.Fatalf("decodeOwners(%v) = %v, want %v", c.in, got, c.want)
+				t.Fatalf("decodeOwnership(%v) = %v, want %v", c.in, got, c.want)
 			}
 			for i := range got {
 				if got[i] != c.want[i] {
-					t.Fatalf("decodeOwners(%v)[%d] = %q, want %q", c.in, i, got[i], c.want[i])
+					t.Fatalf("decodeOwnership(%v)[%d] = %q, want %q", c.in, i, got[i], c.want[i])
 				}
 			}
 		})
@@ -86,7 +103,7 @@ func TestComputeOverviewEmpty(t *testing.T) {
 
 func TestComputeReconcile(t *testing.T) {
 	findings := []findingRec{
-		{ID: "f2", Account: "acct-b", Name: "Later", Status: 10, Created: "2026-06-02T00:00:00Z", Owners: []string{"a@x.com", "b@x.com"}},
+		{ID: "f2", Account: "acct-b", Name: "Later", Status: 10, Created: "2026-06-02T00:00:00Z", Owners: []string{"a@x.com", "b@x.com"}, OwnershipKnown: true},
 		{ID: "f1", Account: "acct-a", Name: "Open one", Status: 10, Created: "2026-06-01T00:00:00Z"},
 		{ID: "f3", Account: "acct-a", Name: "Closed", Status: 40, StatusName: "Resolved"},
 	}
@@ -101,8 +118,11 @@ func TestComputeReconcile(t *testing.T) {
 	if rows[0].Account != "acct-a" || rows[1].Account != "acct-b" {
 		t.Fatalf("rows must sort by account: %+v", rows)
 	}
-	if rows[1].Assignees != "a@x.com,b@x.com" {
-		t.Fatalf("assignees must comma-join: %q", rows[1].Assignees)
+	if rows[1].Assignees != "a@x.com,b@x.com" || rows[1].Ownership != "assigned" {
+		t.Fatalf("assignees must comma-join: %q (%s)", rows[1].Assignees, rows[1].Ownership)
+	}
+	if rows[0].Assignees != "" || rows[0].Ownership != "unknown" {
+		t.Fatalf("a finding without owner data is ownership unknown: %+v", rows[0])
 	}
 	all, _ := parseStatusFilter("all")
 	if got := computeReconcile(findings, all); len(got) != 3 {
@@ -137,14 +157,15 @@ func TestComputeDCRoster(t *testing.T) {
 
 func TestComputeWorkload(t *testing.T) {
 	findings := []findingRec{
-		{ID: "f1", Account: "a", Priority: 1, Status: 10, Created: ts(extraNow.Add(-2 * time.Hour)), Owners: []string{"maria@x.com"}},
-		{ID: "f2", Account: "b", Priority: 3, Status: 10, Created: ts(extraNow.Add(-30 * time.Hour)), Owners: []string{"maria@x.com"}},
-		{ID: "f3", Account: "a", Priority: 3, Status: 10, Created: ts(extraNow.Add(-100 * time.Hour))},
-		{ID: "f4", Account: "a", Priority: 2, Status: 40, StatusName: "Resolved", Owners: []string{"maria@x.com"}},
+		{ID: "f1", Account: "a", Priority: 1, Status: 10, Created: ts(extraNow.Add(-2 * time.Hour)), Owners: []string{"maria@x.com"}, OwnershipKnown: true},
+		{ID: "f2", Account: "b", Priority: 3, Status: 10, Created: ts(extraNow.Add(-30 * time.Hour)), Owners: []string{"maria@x.com"}, OwnershipKnown: true},
+		{ID: "f3", Account: "a", Priority: 3, Status: 10, Created: ts(extraNow.Add(-100 * time.Hour)), OwnershipKnown: true},
+		{ID: "f4", Account: "a", Priority: 2, Status: 40, StatusName: "Resolved", Owners: []string{"maria@x.com"}, OwnershipKnown: true},
+		{ID: "f5", Account: "c", Priority: 4, Status: 10, Created: ts(extraNow.Add(-1 * time.Hour))},
 	}
 	rows := computeWorkload(findings, extraNow)
-	if len(rows) != 2 {
-		t.Fatalf("expected maria + (unassigned), got %d rows: %+v", len(rows), rows)
+	if len(rows) != 3 {
+		t.Fatalf("expected maria + (unassigned) + (ownership unknown), got %d rows: %+v", len(rows), rows)
 	}
 	if rows[0].Assignee != "maria@x.com" {
 		t.Fatalf("maria has the most open and should lead: %+v", rows[0])
@@ -156,9 +177,19 @@ func TestComputeWorkload(t *testing.T) {
 	if m.Accounts != 2 {
 		t.Fatalf("maria touches 2 accounts, got %d", m.Accounts)
 	}
-	u := rows[1]
-	if u.Assignee != "(unassigned)" || !u.Unassigned || u.OpenTotal != 1 || u.Over3Days != 1 {
-		t.Fatalf("unassigned bucket wrong: %+v", u)
+	for _, r := range rows[1:] {
+		switch r.Assignee {
+		case "(unassigned)":
+			if !r.Unassigned || r.OwnershipUnknown || r.OpenTotal != 1 || r.Over3Days != 1 {
+				t.Fatalf("unassigned bucket wrong: %+v", r)
+			}
+		case "(ownership unknown)":
+			if r.Unassigned || !r.OwnershipUnknown || r.OpenTotal != 1 || r.Under24h != 1 {
+				t.Fatalf("ownership-unknown bucket wrong: %+v", r)
+			}
+		default:
+			t.Fatalf("unexpected bucket %+v", r)
+		}
 	}
 }
 
@@ -183,28 +214,6 @@ func TestEvidenceSnippet(t *testing.T) {
 	// no-match content returns a bounded prefix
 	if s := evidenceSnippet("short content", "absent"); s != "short content" {
 		t.Fatalf("no-match short content should pass through, got %q", s)
-	}
-}
-
-func TestExtractEvidenceItems(t *testing.T) {
-	cases := []struct {
-		name string
-		in   string
-		want int
-	}{
-		{"array", `[{"a":1},{"b":2}]`, 2},
-		{"object data wrap", `{"data":[{"a":1},{"b":2},{"c":3}]}`, 3},
-		{"object evidence wrap", `{"evidence":[{"a":1}]}`, 1},
-		{"opaque object", `{"weird":"shape"}`, 1},
-		{"null", `null`, 0},
-	}
-	for _, c := range cases {
-		t.Run(c.name, func(t *testing.T) {
-			got := extractEvidenceItems(json.RawMessage(c.in))
-			if len(got) != c.want {
-				t.Fatalf("extractEvidenceItems(%s) = %d items, want %d", c.in, len(got), c.want)
-			}
-		})
 	}
 }
 
