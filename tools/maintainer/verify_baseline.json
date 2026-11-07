@@ -74,10 +74,6 @@
   "datto-rmm": [
    "mcp-stdio"
   ],
-  "fortinet": [
-   "read-only",
-   "local-data"
-  ],
   "halopsa": [
    "mcp-http",
    "write-gating",
@@ -222,9 +218,6 @@
  },
  "known_errors": {
   "auvik": [
-   "write-gating"
-  ],
-  "fortinet": [
    "write-gating"
   ],
   "n-central": [

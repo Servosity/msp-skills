@@ -257,7 +257,7 @@
     },
     {
      "file": "cli/internal/cli/fortinet_secrets.go",
-     "contains": "if tr, ok := next.(*http.Transport); ok && tr.ResponseHeaderTimeout == 0 {",
+     "contains": "c.TuneTransport(func(tr *http.Transport) {\n\t\tif tr.ResponseHeaderTimeout == 0 {",
      "code_only": true
     },
     {
@@ -634,12 +634,13 @@
   {
    "id": "policies-any-any-per-family-negation",
    "summary": "policies hygiene flags any-any-accept per address family (srcaddr/dstaddr and srcaddr6/dstaddr6) and never when the matching *-negate or service-negate is enable",
-   "why": "Codex round 13 P2: a negated all matches nothing yet was flagged any-any-accept. Adversarial round 8 P2: an IPv6-only consolidated any-any policy was never flagged.",
+   "why": "Codex round 13 P2: a negated all matches nothing yet was flagged any-any-accept. Adversarial round 8 P2: an IPv6-only consolidated any-any policy was never flagged. Codex 2026-11-02 r1 refactor: the per-family check is now the shared policyAnyAny over the policyFamilies table (which also honours the Internet Service modes, entry policies-any-any-internet-service-modes); the negation rule is unchanged and TestPoliciesNegatedAllIsNotAnyAny still pins it.",
    "status": "active",
    "asserts": [
     {
      "file": "cli/internal/fortios/checks.go",
-     "contains": "anyFamily(\"srcaddr6\", \"dstaddr6\")",
+     "contains": "if anyService && contains(Names(p, f.src), \"all\") && contains(Names(p, f.dst), \"all\") && !on(f.src+\"-negate\") && !on(f.dst+\"-negate\") {",
+     "min_count": 1,
      "code_only": true
     },
     {
@@ -1062,96 +1063,10 @@
    ]
   },
   {
-   "id": "windows-sddl-alias-sid-compare",
-   "summary": "the Windows token-file guard compares trustees by SID, resolving SDDL aliases through the OS, so the built-in Administrator (RID 500, rendered as LA) can save and load credentials",
-   "why": "Press 4.30.2+ creds_perms_eval.go compared the SDDL text of the token file's owner and ACE trustees against the process's SID string. The SDDL converter renders the built-in local Administrator (RID 500) as the alias LA, so that account's own ACE never matched: `auth set-token` exited 1 with `token file DACL grants access to a non-owner principal (LA)` and every read refused the file. Reproduced 2026-10-15 on the published fortinet-cli 0.1.0, installed with the README one-liner on a windows-latest runner (whoami S-1-5-21-...-500). The fix resolves each trustee to its SID (fixed aliases from a table, machine-relative ones like LA through ConvertStringSidToSid, kept only when the converter renders that SID back to the same alias) and compares SIDs. The allow-list is unchanged (current user, BUILTIN\\Administrators, SYSTEM): an owner or allow-ACE trustee that is any other principal, a broad group, or unresolvable is still refused. A reprint from an unfixed press silently restores the string compare while unit tests stay green on every non-Windows host.",
-   "status": "active",
-   "spec_encode_followup": "Press defect in internal/generator/templates/cliutil_creds_perms_eval.go.tmpl and cliutil_creds_perms_windows.go.tmpl (unfixed on press main as of 4.33.5). Reported upstream: https://github.com/mvanhorn/cli-printing-press/issues/5029",
-   "asserts": [
-    {
-     "file": "cli/internal/cliutil/creds_perms_eval.go",
-     "contains": "func trusteeSID(trustee string, resolveAlias sddlAliasResolver) string {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/creds_perms_eval.go",
-     "contains": "if om == nil || !sidAllowed(trusteeSID(om[1], resolveAlias), currentUserSID) {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/creds_perms_eval.go",
-     "contains": "if !sidAllowed(trusteeSID(trustee, resolveAlias), currentUserSID) {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/creds_perms_windows.go",
-     "contains": "return evalCredsSecurityResolved(sd.String(), me, resolveSDDLAlias)",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/creds_perms_windows.go",
-     "contains": "sid, err := windows.StringToSid(alias)",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/creds_perms_windows.go",
-     "not_contains": "return evalCredsSecurity(sd.String(), me)"
-    },
-    {
-     "file": "cli/internal/cliutil/creds_perms_sddl_test.go",
-     "contains": "func TestEvalCredsSecurityResolvesSDDLAliases(t *testing.T) {",
-     "code_only": true
-    }
-   ]
-  },
-  {
-   "id": "windows-null-dacl-behind-flags",
-   "summary": "the Windows token-file guard checks the DACL section's framing, so a NULL DACL is refused in the form Windows actually renders it, flags first (D:PAINO_ACCESS_CONTROL), and DACL text that does not frame as flags plus complete six-field ACEs is refused rather than skipped",
-   "why": "Press creds_perms_eval.go refused a NULL DACL only when the DACL section began with NO_ACCESS_CONTROL. SDDL puts DACL flags (P, AI, AR) first, and a real NULL DACL on Windows Server 2025 renders as O:<owner>D:PAINO_ACCESS_CONTROL (measured on a windows-latest runner, 2026-10-15), so the guard found no ACEs to inspect and accepted a world-accessible token file. That was already a hole for every ordinary account; for the built-in Administrator the owner-alias mismatch happened to refuse it, so resolving LA (windows-sddl-alias-sid-compare) without this fix would have widened the hole. The DACL section's framing is now checked: its flags must be drawn from P/AI/AR/NO_ACCESS_CONTROL, an empty DACL followed by a SACL section ends at that section, and the ACE list must be complete, un-nested (...) groups of exactly six fields. Unknown flags, an unclosed or nested group, stray text, or a wrong field count is refused (fail-closed). ACE flags and rights are not validated; they do not change which principal an allow ACE names.",
-   "status": "active",
-   "spec_encode_followup": "Same press templates as windows-sddl-alias-sid-compare; reported in the same upstream issue: https://github.com/mvanhorn/cli-printing-press/issues/5029",
-   "asserts": [
-    {
-     "file": "cli/internal/cliutil/creds_perms_eval.go",
-     "contains": "if strings.Contains(daclFlags, \"NO_ACCESS_CONTROL\") {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/creds_perms_eval.go",
-     "contains": "if !daclFlagsRe.MatchString(daclFlags) {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/creds_perms_eval.go",
-     "contains": "if !aceListRe.MatchString(rest[flagsEnd:]) {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/creds_perms_eval.go",
-     "contains": "if len(fields) != 6 {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/creds_perms_eval.go",
-     "not_contains": "if strings.HasPrefix(rest, \"NO_ACCESS_CONTROL\") {"
-    },
-    {
-     "file": "cli/internal/cliutil/creds_perms_sddl_test.go",
-     "contains": "func TestEvalCredsSecurityRefusesNullDACLBehindFlags(t *testing.T) {",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/creds_perms_sddl_test.go",
-     "contains": "func TestEvalCredsSecurityChecksTheDACLSectionFraming(t *testing.T) {",
-     "code_only": true
-    }
-   ]
-  },
-  {
    "id": "mcp-teach-local-file-flags-blocked",
    "class": "mcp-local-file-flags",
    "summary": "teach --playbook-file / --playbook-notes-file and teach-playbook --playbook-file / --notes-file are listed in blockedDestinationFlags, so MCP tool schemas omit them and calls naming them are refused; the CLI keeps them",
-   "why": "Over MCP each of these flags reads any file the server account can reach: teach and teach-playbook copy the file into the local learn store, and playbook_list and recall hand it back, in read-only mode too because teach is a local-write tool. Reproduced on origin/main 6416a241b by driving the real MCP server over stdio with no credentials and a throwaway HOME: tools/call teach_playbook with notes-file pointing at a sentinel file outside HOME recorded it, and playbook_list returned the sentinel text; the other three tool/flag pairs leaked the same way. After the fix tools/list omits all four and each call answers 'unknown MCP parameter' without spawning the CLI. The same probe found 25 of the 30 connectors that ship teach already blocking these flags (by name, by mcp:write-flags or by the usage-text rule); this connector was one of the 5 that did not. Fleet precedent: google-workspace mcp-blocks-local-file-reads. CLI twin checked: teach-playbook --notes-file still reads the file for a local CLI user, which is intended. TestTeachFileFlagsNotSettableOverMCP fails 12 ways on the pre-fix shellout.go and passes after.",
+   "why": "Over MCP each of these flags reads any file the server account can reach: teach and teach-playbook copy the file into the local learn store, and playbook_list and recall hand it back, in read-only mode too because teach is a local-write tool. Reproduced on origin/main 6416a241b by driving the real MCP server over stdio with no credentials and a throwaway HOME: tools/call teach_playbook with notes-file pointing at a sentinel file outside HOME recorded it, and playbook_list returned the sentinel text; the other three tool/flag pairs leaked the same way. After the fix tools/list omits all four and each call answers 'unknown MCP parameter' without spawning the CLI. The same probe found 25 of the 30 connectors that ship teach already blocking these flags (by name, by mcp:write-flags or by the usage-text rule); this connector was one of the 5 that did not. Fleet precedent: google-workspace mcp-blocks-local-file-reads. CLI twin checked: teach-playbook --notes-file still reads the file for a local CLI user, which is intended. TestTeachFileFlagsNotSettableOverMCP fails 12 ways on the pre-fix shellout.go and passes after. Reprint 4.35.1 (2026-11-02): absorbed natively. 4.35.1 lists these four names in shellout.go's blockedInputFlags (read paths, InputFlagBlocked) instead of the destination map; the hand test accepts either native blocker and still drives the real tool schema and handler for each flag.",
    "status": "active",
    "spec_encode_followup": "Press-side (fleet): include the teach family's local-file read flags in the generated blockedDestinationFlags floor.",
    "asserts": [
@@ -1178,61 +1093,6 @@
      "contains": "func TestTeachFileFlagsNotSettableOverMCP(",
      "min_count": 1,
      "code_only": true
-    }
-   ]
-  },
-  {
-   "id": "interim-http-security-note-2026-10-22",
-   "summary": "mcp-install.md and README.md open with the interim HTTP-mode security note and pauses the remote-agent recipe (launch line commented out, no tunnel step) until this connector is reprinted; FORTINET_MCP_READ_ONLY is preset to \"1\" in every config block and the .mcpb default; the README and page.json ChatGPT answers say this build's remote path is paused.",
-   "why": "Docs-only interim fix ratified 2026-10-22. This build's HTTP mode is unsafe (no password and/or no rebinding guard, no request limits, writes with no confirmation), so the install guide must not tell anyone to run it or tunnel it. mcp-install.md is regenerated by msp-skills-publish onboard.py; this entry makes a regeneration that drops the note fail CI. Remove it on purpose with the post-reprint docs fix. 2026-10-22 follow-up to #428: README.md (security note under \"Works with your agent\", the ChatGPT / Copilot Studio / Gemini rows, the ChatGPT paragraph and FAQ) and page.json (ChatGPT FAQ, and from there docs/skills and llms-full.txt) carry the same pause. README.md is regenerated by onboard.py render_readme; page.json's FAQ is agent-authored prose, so a re-polish that restores the HTTPS/tunnel answer fails here.",
-   "status": "active",
-   "asserts": [
-    {
-     "file": "mcp-install.md",
-     "contains": "**Security note (until this connector is reprinted).**",
-     "min_count": 1
-    },
-    {
-     "file": "mcp-install.md",
-     "contains": "# Remote agents (paused until this connector is reprinted)",
-     "min_count": 1
-    },
-    {
-     "file": "mcp-install.md",
-     "not_contains": "via a secure tunnel"
-    },
-    {
-     "file": "mcp-install.md",
-     "contains": "\"FORTINET_MCP_READ_ONLY\": \"1\"",
-     "min_count": 3
-    },
-    {
-     "file": "manifest.json",
-     "contains": "Preset to 1; clear it only when you want the agent to run the tools this switch hides.",
-     "min_count": 1
-    },
-    {
-     "file": "README.md",
-     "contains": "**Security note (until this connector is reprinted).**",
-     "min_count": 1
-    },
-    {
-     "file": "README.md",
-     "contains": "this connector's HTTP mode is paused until it is reprinted",
-     "min_count": 1
-    },
-    {
-     "file": "README.md",
-     "not_contains": "--addr :7777"
-    },
-    {
-     "file": "page.json",
-     "contains": "this connector's HTTP mode is paused until it is reprinted",
-     "min_count": 1
-    },
-    {
-     "file": "page.json",
-     "not_contains": "--addr :7777"
     }
    ]
   },
@@ -1269,13 +1129,13 @@
   {
    "id": "fgtcloud-token-cache-rename-retry",
    "class": "windows-credential-rename",
-   "summary": "The FortiGate Cloud token cache is written through cliutil.AtomicWritePrivateFile (0600 temp file renamed into place, with the Windows rename retry) instead of its own temp-file rename",
+   "summary": "The FortiGate Cloud token cache is written through cliutil.AtomicWriteCredentialFile (0600 temp file renamed into place, with the Windows rename retry) instead of its own temp-file rename. On the 4.35.1 kit adoption the writer moved from AtomicWritePrivateFile to AtomicWriteCredentialFile (same atomicWritePrivate rename retry), because the cache is a credential source the kit holds at startup (credkit-wiring)",
    "why": "writeCache published the cached access and refresh token with a bare os.Rename. On Windows that rename fails with 'Access is denied' while another run holds the cache open, and saveCache then deletes the cache, refresh token included, so two runs refreshing at once forced a fresh login. The shared writer carries the press's bounded retry (12 attempts, about 0.45 s at most, Windows access-denied and sharing violation only). TestWriteCacheConcurrentWritersAndReaders runs 4 writers and a reader for 25 rounds on the cache path.",
    "status": "active",
    "asserts": [
     {
      "file": "cli/internal/fgtcloud/client.go",
-     "contains": "return cliutil.AtomicWritePrivateFile(path, b, 0o600, 0o700)",
+     "contains": "return cliutil.AtomicWriteCredentialFile(path, b, 0o600, 0o700)",
      "min_count": 1,
      "code_only": true
     },
@@ -1292,154 +1152,103 @@
    ]
   },
   {
-   "id": "secret-echo-decoded-funnel",
-   "class": "secret-echo",
-   "summary": "One decoded output funnel for every server text the client shows: maskCredentialText (every API error, transport error, displayed URL and --dry-run parameter goes through it) still masks each held credential as written and URL-escaped, then withholds the WHOLE text if any held value survives in any view reachable by undoing control/format characters, JSON and JavaScript escapes, percent escapes at any depth, HTML entities, markup tags, and base64/base64url/hex runs at every alignment (cliutil.FunnelWithhold, shared byte-identical across the fleet). The held set is every value the masks cover plus the part after a scheme word and both halves of a base64 id:secret pair (Basic auth, composed keys). Surfaces funnelled here: the API error body (checked whole before the 4096-byte display cut, then again as shown); the title of an HTML page returned where JSON was expected. Round 3 (owner-approved structural pass): the decoder searches every view breadth-first over one fixed set of steps (control-character drop, JSON and JavaScript escapes, the identity escape as its own step, percent, HTML entities, tag strip, base64 at four alignments, hex at two), matches every view, the original included, before any filter, keeps every view a step makes (a literal backslash survives), deduplicates, and is capped by total work (512 times the input plus 4 MiB; text over 1 MiB or past the cap is withheld). Every value a funnel call is given is held process-wide (cliutil.FunnelHold), and the client holds its credentials when built and its resolved auth header on every request. Two error-only backstops withhold any held value: every command error before Cobra prints it plus every JSON/agent error envelope (internal/cli/secret_funnel_cli.go), and every MCP error result and handler error through the outermost tool middleware (cmd/<mcp>/secret_funnel_mcp.go). Success output is never funnelled.",
-   "why": "class_harness.py secret-echo (Step 3.1, PR #436) drives the built CLI and MCP server against a fake server that reflects each configured credential in every encoding; on origin/main this connector printed the credential HTML-entity-encoded, JSON-escaped, double URL-encoded or base64 (the generated masks cover only the raw, QueryEscape and PathEscape forms; press issue #5145). Matching encoded needles one at a time never converged (saas-alerts and cisco-meraki review loops), so the fix is a decode-then-check backstop that withholds the whole text and fails closed (text over 4 MiB, a decoding chain that does not settle in 32 rounds, or work past the budget is withheld). Classification is kept: the plain withheld notice avoids every word the auth-error classifiers match, and a withheld text that itself read as an auth failure gets a notice that says so (an HTTP 400 'invalid token' answer echoing the token keeps its auth exit code). Codex round 1 (2026-10-23) added that, the fail-closed depth bound (a text-like layer left at depth 8 withholds), the JavaScript escapes \\v, \\0 and the identity escape, a bounded \\u{ search, and the token-endpoint error bodies outside the client. Known limits: values under 8 characters are only masked as written; case-changed, split-and-interleaved or otherwise transformed (compressed, encrypted) echoes are not reconstructed. A reprint that drops these edits fails class_harness.py secret-echo in CI and these asserts.",
+   "id": "mcp-http-token-ignores-mcpb-placeholder",
    "status": "active",
-   "spec_encode_followup": "Press-side: cli-printing-press issue #5145 (encoded credential echo). The generated maskCredentialText should end in a decode-then-check backstop over every held credential, and the error-body and token-endpoint paths should check the whole body before the display cut.",
+   "summary": "the MCP HTTP-transport bearer token is read through cliutil.EnvOverride, so an unresolved MCPB placeholder is never accepted as the secret",
+   "why": "Reprint 4.35.1 (2026-11-02). The .mcpb manifest maps FORTINET_MCP_HTTP_TOKEN to ${user_config.fortinet_mcp_http_token}; a host that leaves the template unresolved passes that literal, which is 39 characters and public, and 4.35.1's requireHTTPCallerToken read it with os.Getenv and accepted it (32-character minimum), so --transport http would start with a publicly known bearer. EnvOverride treats a complete ${...} template as unset. GENERATED cmd/fortinet-pp-mcp/main.go: re-applied by the reprint's reapply.py after every regenerate, promote or mcp-sync. TestRequireHTTPCallerTokenRejectsUnresolvedPlaceholder failed on the 4.35.1 render and passes after (cisco-duo precedent).",
    "asserts": [
     {
-     "file": "cli/internal/cliutil/secret_funnel.go",
-     "contains": "func FunnelEchoes(text string, secrets []string) bool {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/secret_funnel_test.go",
-     "contains": "func TestFunnelRecognizesEveryEncodingOfAHeldSecret(t *testing.T) {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "contains": "held = append(held, value)",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "contains": "return cliutil.FunnelWithhold(masked, held)",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "contains": "func (c *Client) shownErrorBody(body []byte, extraCredentials ...string) string {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "contains": "bodyText := c.shownErrorBody(respBody, authHeader)",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "not_contains": "bodyText := truncateBody(respBody)"
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "contains": "c.shownSummary(respBody, summary, authHeader)",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "contains": "func (c *Client) shownSummary(body []byte, summary string, extraCredentials ...string) string {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "not_contains": "cliutil.SanitizeErrorBody(string(body))"
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "not_contains": "cliutil.SanitizeErrorBody(truncateBody(body))"
-    },
-    {
-     "file": "cli/internal/cliutil/secret_funnel.go",
-     "contains": "var funnelSteps = []func(string) []string{",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/secret_funnel.go",
-     "contains": "funnelTextStep(funnelIdentityUnescape),",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/secret_funnel.go",
-     "contains": "func FunnelHeld(text string) string {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cliutil/secret_funnel_test.go",
-     "contains": "func TestFunnelCodexRound2(t *testing.T) {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cli/secret_funnel_cli.go",
-     "contains": "func funnelCommandErrors(root *cobra.Command) {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cli/secret_funnel_cli_test.go",
-     "contains": "func TestFunnelCommandErrorsWithholdsAnEchoedCredential(t *testing.T) {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cli/root.go",
-     "contains": "funnelCommandErrors(rootCmd)",
+     "file": "cli/cmd/fortinet-mcp/main.go",
+     "contains": "token := strings.TrimSpace(cliutil.EnvOverride(httpTokenEnvVar))",
      "min_count": 1,
      "code_only": true
     },
     {
      "file": "cli/cmd/fortinet-mcp/main.go",
-     "contains": "server.WithToolHandlerMiddleware(funnelToolErrors),",
+     "not_contains": "os.Getenv(httpTokenEnvVar)"
+    },
+    {
+     "file": "cli/cmd/fortinet-mcp/http_token_placeholder_test.go",
+     "contains": "func TestRequireHTTPCallerTokenRejectsUnresolvedPlaceholder(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "spec-fortios-envelope-unwrapped",
+   "status": "active",
+   "summary": "the spec omits FortiOS's envelope siblings (http_method, revision, vdom, path, name, status, http_status, serial, version, build) from 2xx list schemas, so 4.35.1 unwraps `results` on every list and sync resource",
+   "why": "Reprint 4.35.1 (2026-11-02), every gate green without it: 4.35.1 unwraps a single-array envelope only when every sibling is paging metadata, and FortiOS's name/status/version/serial siblings are not, so all 22 resource read configs and 5 monitor list commands lost responsePath \"results\" (sync would store the envelope as one row per table, list output stayed wrapped). Spec edit in the library spec.yaml, applied to the 57 2xx schemas whose `results` is an array; the runtime body is unchanged. After it the fresh render's defaultSyncResources, syncResourcePath and response paths equal the 4.33.5 render's (cisco-duo `stat`, avanan `responseEnvelope` precedent).",
+   "spec-encode": "Done in the library spec.yaml (reprint bin/prep.sh). Fold it into cli-factory/fortinet/tools/build_spec.py before the next print.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/resource_paths.go",
+     "contains": "{responsePath: \"results\", paginationType: \"none\"",
+     "min_count": 22,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/monitor_ntp.go",
+     "contains": "\"results\", cmd.ErrOrStderr())",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "fleet-device-client-carries-no-configured-credential",
+   "status": "active",
+   "summary": "a devices-file client sends only its own token_file token: no config-file header and no other configured credential follows it to another FortiGate",
+   "why": "Codex review 2026-11-02 round 1 (P1, credential sent to another host). fleetTarget.client loaded the shared config and deleted only four header names (authorization, cookie, x-api-key, x-auth-token), so a config [headers] X-Api-Token for the FORTINET_BASE_URL device, or a configured refresh token / client secret, rode along to every devices-file FortiGate. Any header name can carry a credential, so the class fix drops every configured header and clears auth_header, access and refresh token, expiry and client id/secret. TestDeviceClientDropsConfiguredCredentialHeaders drives a real request to an httptest device: it failed on the shipped code (X-Api-Token:token-a arrived) and passes after; Codex round 2 on the fix diff: no findings. Replaces the old non-credential-header-kept expectation (X-Trace) by design.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/fortinet_fleet.go",
+     "contains": "cfg.Headers = nil",
      "min_count": 1,
      "code_only": true
     },
     {
-     "file": "cli/cmd/fortinet-mcp/secret_funnel_mcp.go",
-     "contains": "func funnelToolErrors(next server.ToolHandlerFunc) server.ToolHandlerFunc {",
+     "file": "cli/internal/cli/fortinet_fleet.go",
+     "contains": "cfg.ClientSecret = \"\"",
      "min_count": 1,
      "code_only": true
     },
     {
-     "file": "cli/cmd/fortinet-mcp/secret_funnel_mcp_test.go",
-     "contains": "func TestFunnelToolErrorsWithholdsAnEchoedCredential(t *testing.T) {",
+     "file": "cli/internal/cli/fortinet_fleet.go",
+     "not_contains": "case \"authorization\", \"cookie\", \"x-api-key\", \"x-auth-token\":"
+    },
+    {
+     "file": "cli/internal/cli/fortinet_hardening_test.go",
+     "contains": "t.Errorf(\"device B received configured header %s: %s\", k, v)",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "policies-any-any-internet-service-modes",
+   "status": "active",
+   "summary": "policies hygiene does not flag any-any-accept in an address family whose Internet Service mode replaces the address or service match",
+   "why": "Codex review 2026-11-02 round 1 (P1, wrong result from documented fields). sources/cmdb_fields.json firewall_policy documents internet-service / internet-service6 'If enabled, destination address and service are not used' and internet-service-src / internet-service6-src 'If enabled, source address is not used'; FortiOS keeps srcaddr/dstaddr 'all' on such policies, so an Office365-only policy was reported any-any-accept. One shared policyAnyAny over the policyFamilies table judges each family on its own fields and skips a family whose mode replaces them. TestPoliciesInternetServiceReplacesAddressMatch failed on the shipped code (all 9 flagged) and passes after (1 4 7 8); Codex round 2: no findings.",
+   "asserts": [
+    {
+     "file": "cli/internal/fortios/checks.go",
+     "contains": "func policyAnyAny(p Obj) bool {",
      "min_count": 1,
      "code_only": true
     },
     {
-     "file": "cli/internal/client/client.go",
-     "contains": "c.holdCredentials()",
+     "file": "cli/internal/fortios/checks.go",
+     "contains": "{\"srcaddr6\", \"dstaddr6\", \"internet-service6\", \"internet-service6-src\"},",
      "min_count": 1,
      "code_only": true
     },
     {
-     "file": "cli/internal/client/client.go",
-     "contains": "cliutil.FunnelHold(authHeader)",
+     "file": "cli/internal/fortios/checks_test.go",
+     "contains": "func TestPoliciesInternetServiceReplacesAddressMatch(",
      "min_count": 1,
      "code_only": true
-    },
-    {
-     "file": "cli/internal/cli/helpers.go",
-     "contains": "funnelShownError(err),",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cli/helpers.go",
-     "not_contains": "\"error\": err.Error(),"
     }
    ]
   },
@@ -1495,6 +1304,402 @@
      "not_contains": "connects only to remote"
     }
    ]
+  },
+  {
+   "id": "credkit-wiring",
+   "class": "credential-kit",
+   "summary": "The shared credential kit (tools/maintainer/credkit, vendored at cli/internal/credkit) is wired by hand: internal/credwire/declarations.go holds the one credkit.Declarations literal, both mains start with credkit.Start(credwire.Declarations) and end with credkit.Exit, the FortiGate API, FortiGate Cloud, --deliver webhook and Spacefast, feedback and probe clients go through credkit.Transport, every SQLite handle through the credkit.SQLDriver internal/credsql registers, every program file write (fleet backups included) through the kit, child processes through credkit.StartCommand / RunCommand, and the MCP stdio and HTTP servers through credkit.MCPTools, MCPIn, MCPOut and MCPHTTP. The credential store, config, the FortiGate Cloud token cache and the Spacefast delivery record are sources, written outside the kit (cliutil.AtomicWriteCredentialFile) and held at the next start. Fleet device tokens and the FortiManager key go to operator-configured URLs no build-time kit origin can list: they are held (minted:device-token, env:FORTINET_FMG_API_KEY) and bound to no kit origin, and their clients send outside credkit.Transport with their own pinning (credkit-sites.json).",
+   "why": "One contract, one matcher and one set of sinks replace the connector's own layer (the 4.35.1 reprint had already dropped the secret-echo funnel files). Classes closed, each by a test seen failing first on the pre-kit build: a FortiOS error that echoes part of the API token (TestAPIErrorEchoOfTokenIsWithheld, CLI, --agent and MCP); a FortiManager JSON-RPC status that echoes FORTINET_FMG_API_KEY (TestFMGStatusEchoOfKeyIsWithheld, CLI and MCP); the FortiGate Cloud token cache held at startup (TestCloudTokenCacheHeldAtStartup) and written outside the kit (TestTokenCacheIsWrittenOutsideTheKit); a fleet device's token_file token held and still sent to its own device (TestDeviceTokenEchoIsWithheldAndSentOnlyToItsDevice). In-process tests never run Start, so cliutil.OutboundGuard, Hold and HoldBody are variables the test mains swap (root_test.go, credkit_seam_test.go). The MCP sql value cap moved from sqlite.Limit on a held connection to the _length_limit DSN parameter, and openReadOnlySQLite runs select 1 because the kit's connection does not forward Ping. client.TuneTransport reaches the base transport inside the guard for --insecure and the fleet header timeout.",
+   "status": "active",
+   "spec_encode_followup": "Press-side: generate the kit wiring, the Declarations literal and one kit-wrapped SQLite driver name; a kit API that binds a held value to an origin chosen at run time would let the fleet and FortiManager clients send through credkit.Transport.",
+   "asserts": [
+    {
+     "file": "cli/cmd/fortinet-cli/main.go",
+     "contains": "credkit.Start(credwire.Declarations)",
+     "min_count": 1
+    },
+    {
+     "file": "cli/cmd/fortinet-cli/main.go",
+     "contains": "credkit.Exit(code)",
+     "min_count": 1
+    },
+    {
+     "file": "cli/cmd/fortinet-mcp/main.go",
+     "contains": "credkit.Start(credwire.Declarations)",
+     "min_count": 1
+    },
+    {
+     "file": "cli/cmd/fortinet-mcp/main.go",
+     "contains": "credkit.Exit(run())",
+     "min_count": 1
+    },
+    {
+     "file": "cli/cmd/fortinet-mcp/main.go",
+     "contains": "server.WithToolHandlerMiddleware(credkit.MCPTools),",
+     "min_count": 1
+    },
+    {
+     "file": "cli/cmd/fortinet-mcp/main.go",
+     "contains": "credkit.MCPIn(os.Stdin), credkit.MCPOut()",
+     "min_count": 1
+    },
+    {
+     "file": "cli/cmd/fortinet-mcp/main.go",
+     "contains": "kit := credkit.MCPHTTP(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {",
+     "min_count": 1
+    },
+    {
+     "file": "cli/cmd/fortinet-mcp/main.go",
+     "contains": "kit.ServeHTTP(w, r)",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "var Declarations = credkit.Declarations{",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "Files:         credentialFiles,",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "{Source: \"minted:device-token\", Allowed: nil},",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "{Source: \"env:FORTINET_FMG_API_KEY\", Allowed: nil},",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "{Source: \"minted:fgtcloud-access\", Allowed:",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "fgtcloud.HoldCache(p)",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/credsql/credsql.go",
+     "contains": "sql.Register(Driver, credkit.SQLDriver(cappedSQLite()))",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cliutil/credkit_guard.go",
+     "contains": "var OutboundGuard = credkit.Transport",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "return guardedTransport{RoundTripper: cliutil.OutboundGuard(tr), inner: tr}",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "httpClient.Transport = guardTransport(tr)",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "c.Transport = guardTransport(tr)",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "clone.Transport = guardTransport(tr)",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "_ = credkit.WriteFile(cacheFile, []byte(data), 0o600)",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/client/fortinet_kit_transport.go",
+     "contains": "func (c *Client) TuneTransport(f func(*http.Transport)) bool {",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/client/fortinet_kit_transport.go",
+     "contains": "func (c *Client) SendOutsideKit() {",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/fortinet_fleet.go",
+     "contains": "cliutil.Hold(\"minted:device-token\", v)",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/fortinet_fleet.go",
+     "contains": "c.SendOutsideKit()",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/fortinet_fleet.go",
+     "contains": "credkit.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/fortinet_tls.go",
+     "contains": "c.TuneTransport(func(tr *http.Transport) {",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/fortinet_secrets.go",
+     "contains": "c.TuneTransport(func(tr *http.Transport) {",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/fgtcloud/client.go",
+     "contains": "Transport: cliutil.OutboundGuard(nil)",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/fgtcloud/client.go",
+     "contains": "return cliutil.AtomicWriteCredentialFile(path, b, 0o600, 0o700)",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/fgtcloud/client.go",
+     "contains": "cliutil.Hold(\"minted:fgtcloud-access\", t.AccessToken)",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/fgtcloud/client.go",
+     "contains": "cliutil.Hold(\"minted:fgtcloud-refresh\", t.RefreshToken)",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/fgtcloud/client.go",
+     "contains": "func HoldCache(path string) {",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/fortinet_cloud.go",
+     "contains": "cache := fgtcloud.CachePath()",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "return credkit.StartCommand(c)",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/deliver.go",
+     "contains": "resp, err := cliutil.OutboundGuard(nil).RoundTrip(req)",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/deliver.go",
+     "contains": "credkit.WriteFile(tmp, body, 0o600)",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/deliver_spacefast.go",
+     "contains": "cliutil.Hold(\"minted:spacefast-page-key\", prior.Key)",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/deliver_spacefast.go",
+     "contains": "Transport: cliutil.OutboundGuard(nil),",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/deliver_spacefast.go",
+     "contains": "return cliutil.AtomicWriteCredentialFile(filepath.Join(dir, name), data, 0o600, 0o700)",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/feedback.go",
+     "contains": "Transport: credkit.Transport(nil)}",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/feedback.go",
+     "contains": "credkit.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cliutil/probe.go",
+     "contains": "Transport: credkit.Transport(nil)}",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "credkit.AppendFile(p, append(line, '\\n'), 0o600)",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/learn/teach_log.go",
+     "contains": "credkit.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/teach.go",
+     "contains": "credkit.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/export.go",
+     "contains": "outKit = credkit.NewWriter(f, credkit.SinkFile)",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/profile.go",
+     "contains": "credkit.WriteFile(tmp, data, 0o600)",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cache/cache.go",
+     "contains": "credkit.WriteFile(s.path(key), []byte(value), 0o600)",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/platform/profile.go",
+     "contains": "credkit.WriteFile(tmpName, data, 0o600)",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/platform/ratelimit.go",
+     "contains": "credkit.WriteFile(path, []byte(strconv.FormatInt(time.Now().UnixNano(), 10)), 0o600)",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/platform/migration.go",
+     "contains": "sql.Open(credsql.Driver,",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "sql.Open(credsql.Driver,",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "func OpenReadOnlyValueCapped(dbPath string, maxValueBytes int) (*Store, error) {",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "db.ExecContext(ctx, \"select 1\")",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "openMCPReadOnlyStore(path, mcpSQLMaxValueBytes)",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "err := credkit.RunCommand(cmd)",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cliutil/darwin_acl_darwin.go",
+     "contains": "credkit.RunCommand(cmd)",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "cliutil.Hold(\"stdin\", token)",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "return credkit.Terminal(f)",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cliutil/paths.go",
+     "contains": "func AtomicWriteCredentialFile(path string, data []byte, fileMode, dirMode os.FileMode) error {",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cliutil/paths.go",
+     "contains": "credkit.WriteFile(tmpPath, data, fileMode)",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cliutil/credentials.go",
+     "contains": "AtomicWriteCredentialFile(path, data, 0o600, 0o700)",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "cliutil.AtomicWriteCredentialFile(c.Path, data, 0o600, 0o700)",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/root_test.go",
+     "contains": "cliutil.OutboundGuard = func(rt http.RoundTripper) http.RoundTripper {",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/mcp/credkit_seam_test.go",
+     "contains": "cliutil.OutboundGuard = func(rt http.RoundTripper) http.RoundTripper {",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/fgtcloud/credkit_seam_test.go",
+     "contains": "cliutil.OutboundGuard = func(rt http.RoundTripper) http.RoundTripper {",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/fgtcloud/cache_store_test.go",
+     "contains": "func TestTokenCacheIsWrittenOutsideTheKit(t *testing.T) {",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestAPIErrorEchoOfTokenIsWithheld(t *testing.T) {",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestFMGStatusEchoOfKeyIsWithheld(t *testing.T) {",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestCloudTokenCacheHeldAtStartup(t *testing.T) {",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/credwire/leak_test.go",
+     "contains": "func TestDeviceTokenEchoIsWithheldAndSentOnlyToItsDevice(t *testing.T) {",
+     "min_count": 1
+    },
+    {
+     "file": "cli/cmd/fortinet-mcp/main.go",
+     "not_contains": "server.ServeStdio(s)"
+    },
+    {
+     "file": "cli/internal/fortimgr/client.go",
+     "contains": "CheckRedirect: refuseRedirect",
+     "min_count": 1
+    }
+   ]
+  }
+ ],
+ "retired": [
+  {
+   "id": "windows-sddl-alias-sid-compare",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: Upstreamed as cli-printing-press #5041 (4.33.6): trustees are resolved to SIDs (LA through the OS) and compared by SID; the press generates the alias tests."
+  },
+  {
+   "id": "windows-null-dacl-behind-flags",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: Upstreamed as cli-printing-press #5041 (4.33.6): the DACL section's flags and ACE list are framed (daclFlagsRe, aceListRe), so a NULL DACL behind flags is refused."
+  },
+  {
+   "id": "interim-http-security-note-2026-10-22",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: The note paused HTTP mode until a reprint because the build served HTTP with no token. Press 4.34.0 HTTP mode refuses to start without <PREFIX>_MCP_HTTP_TOKEN, answers 401 without the right bearer, binds 127.0.0.1 by default and refuses a non-loopback address without TLS; onboard.py now writes HTTP guidance that follows the binary (cc-skills #14) and never writes this note, so the entry would fail on every re-onboard."
   }
  ]
 }

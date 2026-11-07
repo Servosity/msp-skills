@@ -97,6 +97,17 @@ Add to your Claude Desktop config (`%APPDATA%\Claude\claude_desktop_config.json`
 
 </details>
 
+### Remote MCP over HTTP
+
+`fortinet-mcp --transport http` (or `PP_MCP_TRANSPORT=http`) serves streamable HTTP at `http://127.0.0.1:7777/mcp`. It refuses to start until `FORTINET_MCP_HTTP_TOKEN` is set to at least 32 characters, and every request must send `Authorization: Bearer <token>`. The command below prints 64 hex characters and meets that minimum. Plain HTTP is allowed only on a loopback `--addr`; any other bind, including `:7777` (every interface), also needs `--tls-cert` and `--tls-key`. Requests with no `Origin` header are accepted, as are loopback origins (`localhost`, `127.0.0.1`, or `[::1]`, any port). Any other `Origin` is refused unless it is listed in `FORTINET_MCP_HTTP_ALLOWED_ORIGINS`, a comma-separated list of `scheme://host[:port]` values with no path. That list is not a CORS policy; the server does not emit CORS headers.
+
+```bash
+export FORTINET_MCP_HTTP_TOKEN="$(openssl rand -hex 32)"
+fortinet-mcp --transport http
+```
+
+Set `FORTINET_MCP_READ_ONLY=1` (exactly `1`) to drop mirrored commands that are not marked read-only and make the raw execute tool refuse state-changing calls. Commands marked local-write, which write only this CLI's own learn store, stay available.
+
 ## Authentication
 
 Each FortiGate uses its own REST API administrator token (System > Administrators > Create New > REST API Admin, or `execute api-user generate-key <name>`), sent as `Authorization: Bearer`; your source IP must be one of that API user's trusted hosts. Single device: set FORTINET_BASE_URL=https://<fortigate>/api/v2 and FORTINET_API_TOKEN. Fleet: list devices in <config dir>/devices.toml (or the file named by FORTINET_DEVICES or --devices), each with token_file naming a file that holds that device's token (on macOS and Linux the CLI refuses it unless chmod 600; on Windows protect it with NTFS permissions); token values never go in the devices file. Without a devices file, fleet and audit commands check only the single FORTINET_BASE_URL device. Self-signed certificates: install the device CA, or opt in with --insecure, FORTINET_SKIP_TLS_VERIFY=true, or insecure = true for one device in devices.toml. FortiManager: FORTINET_FMG_URL plus an API key in FORTINET_FMG_API_KEY (FortiManager 7.2.2 or later; FORTINET_FMG_INSECURE=true for a self-signed certificate). FortiGate Cloud: a FortiCloud IAM API user in FORTINET_CLOUD_API_USER and FORTINET_CLOUD_API_PASSWORD, FORTINET_CLOUD_REGION (global, us, eu or jp) and, with FortiCloud Organizations, FORTINET_CLOUD_ACCOUNT_ID; repeated failed logins lock the FortiCloud account for 15-30 minutes, so the CLI caches the token and logs in at most once per run.
@@ -284,6 +295,16 @@ Precedence matters in fleets: an ambient per-kind variable such as `FORTINET_DAT
 Relocation is one-way. Unsetting `FORTINET_HOME` does not move files back to platform defaults, and `doctor` cannot find credentials left under a former root. Move the files manually before unsetting relocation variables.
 
 Existing installs keep working because the platform-default rung matches the legacy layout. On the first auth write, stored secrets leave `config.toml` and are consolidated into `credentials.toml` under the data directory. Run `fortinet-cli doctor --fail-on warn` to check path and credential-location warnings in automation.
+
+### Local data
+
+Reads are saved locally by default: in `--data-source auto` mode every successful read is also written to the SQLite store (`data.db`, or `data-<hash>.db` per credential) in the data directory. GET responses are cached for five minutes under `http/` in the cache directory. Credentials live in `credentials.toml` in the data directory. The learn journal lives under `learn/` in the state directory. `fortinet-cli doctor` prints the resolved paths, every store file, and the response-cache size.
+
+None of it is encrypted. New files are created owner-only; beyond that the data relies on OS account permissions and full-disk encryption (FileVault, BitLocker, LUKS).
+
+- **Erase it:** `fortinet-cli local-data purge` lists the store files, response cache, and learn journal it would delete; add `--yes` to delete them, or `--only store|cache|journal` to narrow it. Config and credentials are kept.
+- **Run without a local copy:** set `FORTINET_NO_LOCAL_DATA=1`. Reads go to the API (`--data-source live`; `--data-source local` still reads an existing store), the response cache is off (`--no-cache`), nothing new is written to the store, and `sync` and `workflow archive` refuse to run. Set it in an MCP host's `env` block and every command the server runs inherits it.
+- **Choose the read source without flags:** `FORTINET_DATA_SOURCE=auto|live|local` sets the `--data-source` default; an explicit flag wins.
 
 ## Commands
 
@@ -558,6 +579,8 @@ fortinet-cli address-groups list --dry-run
 fortinet-cli address-groups list --agent
 ```
 
+`--csv` prefixes a leading `'` on cells and header keys that start with `=`, `+`, `-`, `@`, a tab, or a line break (including fullwidth `＝＋－＠`) so a spreadsheet does not run them as formulas. Plain signed numbers such as `-5` and `+2.5e3` are left unchanged.
+
 ## Agent Usage
 
 This CLI is designed for AI agent consumption:
@@ -585,6 +608,8 @@ Verifies configuration, credentials, and connectivity for the single `FORTINET_B
 Run `fortinet-cli doctor` to see the resolved config, data, state, and cache directories. The platform-default config path is `~/.config/fortinet-cli/config.toml` (`%USERPROFILE%\.config\fortinet-cli\config.toml` on Windows); `--home`, `FORTINET_HOME`, and per-kind env vars can relocate it.
 
 Static request headers can be configured under `headers`; per-command header overrides take precedence.
+
+`--ca-cert`, `FORTINET_CA_CERT`, or `ca_cert` adds a PEM CA bundle to the system trust roots. `--tls-server-name`, `FORTINET_TLS_SERVER_NAME`, or `tls_server_name` is the name checked against the certificate when the dialed address does not match it. Precedence is flag, then environment, then the config file. A config file other users can change does not supply these settings. Certificate verification failures are not retried.
 
 Environment variables:
 

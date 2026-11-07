@@ -57,7 +57,8 @@ func TestTeachFileFlagsNotSettableOverMCP(t *testing.T) {
 			if cmd.Flags().Lookup(name) == nil {
 				t.Fatalf("%s no longer declares --%s; update this test", c.command, name)
 			}
-			if !cobratree.DestinationFlagBlocked(cmd, name) {
+			// 4.35.1 lists these read paths natively in blockedInputFlags (InputFlagBlocked).
+			if !cobratree.DestinationFlagBlocked(cmd, name) && !cobratree.InputFlagBlocked(cmd, name) {
 				t.Errorf("%s --%s reads a local file and must be blocked over MCP", c.command, name)
 			}
 			if _, ok := entry.Tool.InputSchema.Properties[name]; ok {

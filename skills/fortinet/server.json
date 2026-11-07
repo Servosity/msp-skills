@@ -96,6 +96,12 @@
           "isSecret": true
         },
         {
+          "name": "FORTINET_NO_LOCAL_DATA",
+          "description": "Optional. Set to 1 to keep no local copy of API responses: reads go to the API and the response cache is off.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
           "name": "FORTINET_USER_AGENT",
           "description": "Optional. Overrides the User-Agent the CLI sends to your FortiGates. Leave blank to use the built-in one.",
           "isRequired": false,
