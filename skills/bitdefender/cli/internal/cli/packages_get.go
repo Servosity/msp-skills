@@ -44,7 +44,7 @@ func newPackagesGetCmd(flags *rootFlags) *cobra.Command {
 			}
 			if !stdinBody {
 				if !cmd.Flags().Changed("package-id") && bodyPackageId == "" && !requiredInputWaived() {
-					return fmt.Errorf("required flag \"%s\" not set", "package-id")
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "package-id"))
 				}
 			}
 			path := "/v1.0/jsonrpc/packages#getPackageDetails"

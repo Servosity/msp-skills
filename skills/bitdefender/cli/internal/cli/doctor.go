@@ -8,7 +8,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
+	"path/filepath"
+	"runtime"
 	"strings"
 
 	"bitdefender-pp-cli/internal/client"
@@ -239,6 +242,11 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 			if warning := pathsWarning(pathsReport); warning != "" {
 				report["paths_warning"] = warning
 			}
+			if localDataDisabled() {
+				report["local_data"] = "INFO off (" + noLocalDataEnvVar + "=1): live reads only; no response cache or store writes"
+			} else {
+				report["local_data"] = "on: API responses are saved locally (unencrypted); set " + noLocalDataEnvVar + "=1 to stop"
+			}
 
 			// Check config
 			cfg, err := config.Load(flags.configPath)
@@ -248,6 +256,8 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 				report["config"] = "ok"
 				report["config_path"] = cfg.Path
 				report["base_url"] = cfg.BaseURL
+				flags.applyTLSFlags(cfg)
+				report["tls"] = client.TLSTrustSummary(cfg)
 				// agentcookie integration is soft: if the agentcookie daemon manages
 				// this CLI's config, it writes a marker file alongside the config and
 				// AuthSource is upgraded to "agentcookie" in config.Load. Surface the
@@ -272,7 +282,7 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 					configured, authSource := doctorAuthConfiguredState(cfg)
 					if !configured {
 						report["auth"] = "not configured"
-						report["auth_hint"] = "Set the Basic credential with: export BITDEFENDER_API_KEY=\"your-token-here\""
+						report["auth_hint"] = "Set the Basic credential with: " + cliutil.EnvAssignHint(true, "BITDEFENDER_API_KEY", "your-token-here")
 						report["auth_key_url"] = "https://www.bitdefender.com/business/support/en/77209-125277-public-api.html"
 						report["auth_instructions"] = "In GravityZone Control Center open the user menu > My Account > API keys > Add, select the APIs (Network, Companies, Licensing, Incidents, Quarantine, Reports, ...) the key may use, and copy the key. Export it as BITDEFENDER_API_KEY and set BITDEFENDER_BASE_URL to the Access URL shown under Control Center API."
 					} else {
@@ -281,7 +291,7 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 						report["auth_source"] = authSource
 						if expiresAt, _, expired, ok := jwtCredentialExpiry(jwtExpirySource(cfg)); ok && expired {
 							report["auth"] = "ERROR token expired at " + expiresAt
-							report["auth_hint"] = "Set the Basic credential with: export BITDEFENDER_API_KEY=\"your-token-here\""
+							report["auth_hint"] = "Set the Basic credential with: " + cliutil.EnvAssignHint(true, "BITDEFENDER_API_KEY", "your-token-here")
 						}
 					}
 				}
@@ -336,6 +346,9 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 				}
 			} else if cfg != nil && cfg.BaseURL != "" {
 				c, clientErr := flags.newClient()
+				if clientErr != nil && errors.Is(clientErr, client.ErrTLSConfig) {
+					return clientErr
+				}
 				if clientErr != nil {
 					report["api"] = fmt.Sprintf("client init error: %s", clientErr)
 				} else {
@@ -369,16 +382,26 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 							report["api"] = fmt.Sprintf("reachable (HTTP %d at /)", status)
 						}
 					default:
-						// Network-level failure: DNS, connection refused, TLS,
-						// transport init, etc. The transport itself didn't
-						// connect.
-						report["api"] = fmt.Sprintf("unreachable: %s", reachErr)
+						if errors.Is(reachErr, client.ErrPlaintextCredential) {
+							// Do not call the host unreachable: the probe was refused
+							// before a dial. "refused:" fails every --fail-on gate.
+							report["api"] = "refused: not probed (" + reachErr.Error() + ")"
+						} else if kind, fix, ok := client.ClassifyTLSVerification(reachErr); ok {
+							report["api"] = fmt.Sprintf("unreachable: %s verification failure; %s", kind, fix)
+						} else {
+							// Network-level failure: DNS, connection refused, TLS,
+							// transport init, etc. The transport itself didn't
+							// connect.
+							report["api"] = fmt.Sprintf("unreachable: %s", reachErr)
+						}
 					}
 
 					// Step 2: Validate credentials with an authenticated probe.
 					authHeader := cfg.AuthHeader()
 					if authHeader == "" {
 						// No auth configured — skip credential validation
+					} else if errors.Is(reachErr, client.ErrPlaintextCredential) {
+						report["credentials"] = "not probed (plaintext HTTP); use https"
 					} else if reachErr != nil && !errors.As(reachErr, &reachAPIErr) {
 						report["credentials"] = "skipped (API unreachable)"
 					} else {
@@ -406,6 +429,11 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 			}
 
 			report["version"] = version
+			localFiles, aclWarning := collectLocalFilesReport()
+			report["local_files"] = localFiles
+			if aclWarning != "" {
+				report["data_dir_acl"] = aclWarning
+			}
 
 			if flags.asJSON {
 				if err := printJSONFiltered(cmd.OutOrStdout(), report, flags); err != nil {
@@ -422,9 +450,11 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 				{"env_vars", "Env Vars"},
 				{"verify_mode", "Verify Mode"},
 				{"paths_warning", "Paths"},
+				{"local_data", "Local Data"},
 				{"credentials_location_warning", "Credentials Storage"},
 				{"api", "API"},
 				{"credentials", "Credentials"},
+				{"data_dir_acl", "Data Dir ACL"},
 			}
 			for _, ck := range checkKeys {
 				v, ok := report[ck.key]
@@ -463,7 +493,7 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 				fmt.Fprintf(w, "  %s %s: %s\n", indicator, ck.label, s)
 			}
 			// Print info keys without status indicator
-			for _, key := range []string{"config_path", "base_url", "auth_source", "auth_refusals", "credentials_location", "version"} {
+			for _, key := range []string{"config_path", "base_url", "tls", "auth_source", "auth_refusals", "credentials_location", "version"} {
 				if v, ok := report[key]; ok {
 					fmt.Fprintf(w, "  %s: %v\n", key, v)
 				}
@@ -483,6 +513,8 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 					renderPathsReport(w, pathsRep)
 				}
 			}
+			fmt.Fprintf(w, "  Local files: %d store file(s), %d bytes; response cache %d file(s), %d bytes (unencrypted)\n",
+				len(localFiles.StoreFiles), localFiles.StoreBytes, localFiles.ResponseCacheFiles, localFiles.ResponseCacheBytes)
 			return doctorExitForFailOn(failOn, report)
 		},
 	}
@@ -551,6 +583,57 @@ func pathsWarning(report map[string]any) string {
 		return ""
 	}
 	return "WARN paths: " + strings.Join(parts, "; ")
+}
+
+// doctorLocalFiles is the on-disk API data an operator may need to account
+// for: store files of every credential scope and the HTTP response cache.
+type doctorLocalFiles struct {
+	StoreFiles         []string `json:"store_files"`
+	StoreBytes         int64    `json:"store_bytes"`
+	ResponseCacheFiles int      `json:"response_cache_files"`
+	ResponseCacheBytes int64    `json:"response_cache_bytes"`
+}
+
+// collectLocalFilesReport sizes the local copies of API data. On Windows it
+// also reports when the data directory's DACL admits more than the current
+// user, SYSTEM, and Administrators: chmod-style hardening is a no-op on NTFS,
+// so a relocated --home on a shared folder would otherwise go unnoticed.
+func collectLocalFilesReport() (doctorLocalFiles, string) {
+	report := doctorLocalFiles{StoreFiles: []string{}}
+	aclWarning := ""
+	if dir, err := cliutil.DataDir(); err == nil {
+		// Match entry names, not a glob over dir: a relocated dir may contain
+		// pattern characters such as brackets.
+		entries, _ := os.ReadDir(dir)
+		for _, entry := range entries {
+			if matched, _ := filepath.Match("data*.db*", entry.Name()); !matched || !entry.Type().IsRegular() {
+				continue
+			}
+			if info, err := entry.Info(); err == nil {
+				report.StoreFiles = append(report.StoreFiles, filepath.Join(dir, entry.Name()))
+				report.StoreBytes += info.Size()
+			}
+		}
+		if runtime.GOOS == "windows" {
+			if _, statErr := os.Stat(dir); statErr == nil {
+				if err := cliutil.VerifyCredsPerms(dir); err != nil {
+					aclWarning = "WARN data directory " + dir + " is not limited to the current user: " + err.Error()
+				}
+			}
+		}
+	}
+	if dir, err := cliutil.CacheDir(); err == nil {
+		_ = filepath.WalkDir(filepath.Join(dir, "http"), func(_ string, entry fs.DirEntry, err error) error {
+			if err == nil && entry.Type().IsRegular() {
+				if info, infoErr := entry.Info(); infoErr == nil {
+					report.ResponseCacheFiles++
+					report.ResponseCacheBytes += info.Size()
+				}
+			}
+			return nil
+		})
+	}
+	return report, aclWarning
 }
 
 func renderPathsReport(w io.Writer, rep map[string]any) {
@@ -653,6 +736,7 @@ func legacyCredentialProbePaths(cfg *config.Config) []string {
 var doctorInfoKeys = map[string]bool{
 	"config_path":                  true,
 	"base_url":                     true,
+	"tls":                          true,
 	"auth_source":                  true,
 	"auth_domain":                  true,
 	"auth_hint":                    true,

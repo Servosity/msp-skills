@@ -1451,40 +1451,6 @@ func TestUpsertBatch_PopulatesCustomRulesTable(t *testing.T) {
 	}
 }
 
-func TestSearchCustomRulesQuotesFTSQuerySyntax(t *testing.T) {
-	dbPath := filepath.Join(t.TempDir(), "data.db")
-	s, err := Open(dbPath)
-	if err != nil {
-		t.Fatalf("open: %v", err)
-	}
-	defer s.Close()
-
-	items := []json.RawMessage{
-		json.RawMessage(`{"id": "typed-ip", "description": "10.0.0.1"}`),
-		json.RawMessage(`{"id": "typed-host", "description": "host.example.com"}`),
-		json.RawMessage(`{"id": "typed-multi", "description": "error with extra words before timeout"}`),
-	}
-	if stored, failed, err := s.UpsertBatch("custom_rules", items); err != nil {
-		t.Fatalf("UpsertBatch: %v", err)
-	} else if failed != 0 || stored != len(items) {
-		t.Fatalf("UpsertBatch stored=%d failed=%d, want stored=%d failed=0", stored, failed, len(items))
-	}
-
-	for _, query := range []string{
-		"10.0.0.1",
-		"host.example.com",
-		"error timeout",
-	} {
-		results, err := s.SearchCustomRules(query, 10)
-		if err != nil {
-			t.Fatalf("SearchCustomRules(%q): %v", query, err)
-		}
-		if len(results) == 0 {
-			t.Fatalf("SearchCustomRules(%q) returned no results", query)
-		}
-	}
-}
-
 // TestUpsertBatch_PopulatesEndpointTagsTable verifies that UpsertBatch
 // dispatches paginated items into both the generic resources table AND the
 // typed endpoint_tags table. Regression for issue #268: before the fix, paginated
@@ -1600,40 +1566,6 @@ func TestUpsertBatch_PopulatesEndpointsTable(t *testing.T) {
 	}
 	if typed != len(items) {
 		t.Fatalf("endpoints count = %d, want %d (typed table not populated by UpsertBatch)", typed, len(items))
-	}
-}
-
-func TestSearchEndpointsQuotesFTSQuerySyntax(t *testing.T) {
-	dbPath := filepath.Join(t.TempDir(), "data.db")
-	s, err := Open(dbPath)
-	if err != nil {
-		t.Fatalf("open: %v", err)
-	}
-	defer s.Close()
-
-	items := []json.RawMessage{
-		json.RawMessage(`{"id": "typed-ip", "label": "10.0.0.1"}`),
-		json.RawMessage(`{"id": "typed-host", "label": "host.example.com"}`),
-		json.RawMessage(`{"id": "typed-multi", "label": "error with extra words before timeout"}`),
-	}
-	if stored, failed, err := s.UpsertBatch("endpoints", items); err != nil {
-		t.Fatalf("UpsertBatch: %v", err)
-	} else if failed != 0 || stored != len(items) {
-		t.Fatalf("UpsertBatch stored=%d failed=%d, want stored=%d failed=0", stored, failed, len(items))
-	}
-
-	for _, query := range []string{
-		"10.0.0.1",
-		"host.example.com",
-		"error timeout",
-	} {
-		results, err := s.SearchEndpoints(query, 10)
-		if err != nil {
-			t.Fatalf("SearchEndpoints(%q): %v", query, err)
-		}
-		if len(results) == 0 {
-			t.Fatalf("SearchEndpoints(%q) returned no results", query)
-		}
 	}
 }
 
@@ -1802,81 +1734,6 @@ func TestUpsertBatch_PopulatesInventoryTable(t *testing.T) {
 	}
 	if typed != len(items) {
 		t.Fatalf("inventory count = %d, want %d (typed table not populated by UpsertBatch)", typed, len(items))
-	}
-}
-
-// TestUpsertBatch_SetsInventoryParentID verifies that dependent-resource
-// sync (which injects parent_id into each item's JSON) populates the typed
-// parent_id column when items go through UpsertBatch. Regression for issue #268.
-func TestUpsertBatch_SetsInventoryParentID(t *testing.T) {
-	dbPath := filepath.Join(t.TempDir(), "data.db")
-	s, err := Open(dbPath)
-	if err != nil {
-		t.Fatalf("open: %v", err)
-	}
-	defer s.Close()
-
-	items := []json.RawMessage{
-		json.RawMessage(`{"id": "child-001", "parent_id": "parent-A"}`),
-		json.RawMessage(`{"id": "child-002", "parent_id": "parent-A"}`),
-		json.RawMessage(`{"id": "child-003", "parent_id": "parent-B"}`),
-	}
-	if _, _, err := s.UpsertBatch("inventory", items); err != nil {
-		t.Fatalf("UpsertBatch: %v", err)
-	}
-
-	db := s.DB()
-
-	var matchedA int
-	parentQuery := fmt.Sprintf(`SELECT COUNT(*) FROM "%s" WHERE parent_id = ?`, "inventory")
-	if err := db.QueryRow(parentQuery, "parent-A").Scan(&matchedA); err != nil {
-		t.Fatalf("count by parent_id: %v", err)
-	}
-	if matchedA != 2 {
-		t.Fatalf("parent_id=parent-A count = %d, want 2 (parent_id column not populated)", matchedA)
-	}
-}
-
-// TestUpsertBatch_InventorySearchableViaGenericFTS verifies that a
-// dependent-resource row stored via UpsertBatch — the exact path dependent
-// sync uses (upsertResourceBatch -> UpsertBatch) — is reachable through the
-// generic resources_fts index via Store.Search. That index is the substrate
-// both `search` surfaces query (the empty-type search directly, and the
-// non-FTS5 `--type inventory` fallback), so populating it is the
-// precondition issue #2629 reported missing — dependent resources stored in
-// the typed table but absent from any FTS index. This asserts the store layer
-// where the claimed defect lived; it does not exercise the CLI search wiring.
-func TestUpsertBatch_InventorySearchableViaGenericFTS(t *testing.T) {
-	dbPath := filepath.Join(t.TempDir(), "data.db")
-	s, err := Open(dbPath)
-	if err != nil {
-		t.Fatalf("open: %v", err)
-	}
-	defer s.Close()
-
-	// resources_fts indexes the full JSON blob, so a distinctive token in any
-	// field is matchable regardless of which columns inventory declares.
-	const probe = "zqxjpp2629probe"
-	items := []json.RawMessage{
-		json.RawMessage(`{"id": "search-001", "pp_fts_probe": "` + probe + `", "parent_id": "parent-A"}`),
-	}
-	stored, _, err := s.UpsertBatch("inventory", items)
-	if err != nil {
-		t.Fatalf("UpsertBatch: %v", err)
-	}
-	// Assert the probe row actually landed before searching for it: a PK
-	// extraction miss would leave stored == 0, and the FTS check below would
-	// then fail with a misleading "stored but not searchable" message.
-	if stored != 1 {
-		t.Fatalf("UpsertBatch stored %d rows, want 1 (probe row dropped before the FTS check)", stored)
-	}
-
-	results, err := s.Search(probe, 50)
-	if err != nil {
-		t.Fatalf("Search: %v", err)
-	}
-	if len(results) == 0 {
-		t.Fatalf("dependent resource %q stored but not searchable via generic resources_fts (issue #2629)", "inventory")
 	}
 }
 

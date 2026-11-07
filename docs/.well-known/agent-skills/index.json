@@ -104,7 +104,7 @@
       "type": "skill-md",
       "description": "Use when the user asks about Bitdefender GravityZone across every customer: which child companies have unmanaged, outdated or unscanned endpoints, what changed since the last check, the open EDR/XDR incident queue, malware quarantined at several clients, which company a machine is in, RMM devices with no agent, or monthly seat usage for billing. Covers 140 GravityZone Public API methods as commands. Trigger phrases: `which customers have unprotected endpoints`, `gravityzone monthly usage for billing`, `open bitdefender incidents across all clients`, `find a machine across all gravityzone customers`, `same malware quarantined at several clients`, `use bitdefender gravityzone`.",
       "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/bitdefender/SKILL.md",
-      "digest": "sha256:5bb4dedcfe042f9669d3ef7e3c89bb3c2d9f771fe8096aadb52905e8246bd823"
+      "digest": "sha256:bea5df24d5c1762fc7fef0c5221e37472b70196afc9a8c8bd5356dcf2605836d"
     },
     {
       "name": "blackpoint",

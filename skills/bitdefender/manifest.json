@@ -20,7 +20,8 @@
         "BITDEFENDER_USER_AGENT": "${user_config.bitdefender_user_agent}",
         "BITDEFENDER_MCP_READ_ONLY": "${user_config.bitdefender_mcp_read_only}",
         "BITDEFENDER_MCP_HTTP_TOKEN": "${user_config.bitdefender_mcp_http_token}",
-        "PRINTING_PRESS_CLIENT_PROFILE": "${user_config.printing_press_client_profile}"
+        "PRINTING_PRESS_CLIENT_PROFILE": "${user_config.printing_press_client_profile}",
+        "BITDEFENDER_NO_LOCAL_DATA": "${user_config.bitdefender_no_local_data}"
       }
     }
   },
@@ -49,7 +50,7 @@
     "bitdefender_mcp_read_only": {
       "type": "string",
       "title": "Read-only MCP server",
-      "description": "Set to exactly 1 so bitdefender_execute runs only GravityZone read methods and refuses writes and the Credential-tier reads (incident reads stay allowed). Leave blank for full access. Preset to 1; clear it only when you want the agent to make changes.",
+      "description": "Set to exactly 1 for a read-only MCP server: bitdefender_execute and import are removed, and bitdefender_read runs only GravityZone read methods on an explicit list, refusing the Credential-tier reads (incident reads stay allowed). Leave blank for full access. Preset to 1; clear it only when you want the agent to make changes.",
       "required": false,
       "default": "1"
     },
@@ -65,6 +66,12 @@
       "title": "Client profile",
       "description": "Not enforced by this connector: there are no tenant-gated client profiles, so a value here does not limit which companies a call can reach. Leave blank. To limit what an agent can do, enable fewer API areas on the key or turn on the read-only MCP server.",
       "required": false
+    },
+    "bitdefender_no_local_data": {
+      "type": "string",
+      "title": "No local data",
+      "description": "Optional. Set to 1 to keep no local copy of GravityZone data: reads go to the API, the response cache is off, nothing new is written to the local store, and sync is refused. Leave blank for the default.",
+      "required": false
     }
   },
   "compatibility": {
@@ -75,10 +82,10 @@
       "win32"
     ]
   },
-  "printing_press_version": "4.33.5",
+  "printing_press_version": "4.35.1",
   "press_provenance": {
-    "printing_press_version": "4.33.5",
-    "generated_at": "2026-10-14T11:08:22.704871Z",
+    "printing_press_version": "4.35.1",
+    "generated_at": "2026-11-02T19:39:13.887189Z",
     "spec_checksum": "sha256:0a868cc8813e1b6245efa5aa7f1a5f5b732a0314835f6ba4d759609f89aaa571",
     "spec_format": "openapi3"
   }

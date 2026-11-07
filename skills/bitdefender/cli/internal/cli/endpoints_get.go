@@ -45,7 +45,7 @@ func newEndpointsGetCmd(flags *rootFlags) *cobra.Command {
 			}
 			if !stdinBody {
 				if !cmd.Flags().Changed("endpoint-id") && bodyEndpointId == "" && !requiredInputWaived() {
-					return fmt.Errorf("required flag \"%s\" not set", "endpoint-id")
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "endpoint-id"))
 				}
 			}
 			path := "/v1.0/jsonrpc/network#getManagedEndpointDetails"

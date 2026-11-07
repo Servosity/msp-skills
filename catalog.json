@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-11-06",
+  "generated_at": "2026-11-07",
   "skills": [
     {
       "name": "msp-skills-concierge",
@@ -317,7 +317,7 @@
       "cli_binary": "bitdefender-cli",
       "mcp_binary": "bitdefender-mcp",
       "version": "0.1.4",
-      "printing_press_version": "4.33.5",
+      "printing_press_version": "4.35.1",
       "license": "Apache-2.0",
       "vendor": "Bitdefender",
       "vendor_trademark_owner": "Bitdefender SRL",
