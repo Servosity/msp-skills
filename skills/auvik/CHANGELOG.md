@@ -4,7 +4,7 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
-## [0.2.9] - unreleased
+## [0.2.9] - 2026-11-07
 
 ### Security
 - Rebuilt on CLI Printing Press 4.35.1 ([GHSA-jh26-vhqh-692c](https://github.com/advisories/GHSA-jh26-vhqh-692c)). The MCP server's HTTP mode refuses to start until `AUVIK_MCP_HTTP_TOKEN` is set (32 characters or more), listens on `127.0.0.1:7777` by default, and needs `--tls-cert` and `--tls-key` on any other address. The code-orchestration execute tool previews every state-changing call until `confirm` is `true`. `AUVIK_MCP_HTTP_TOKEN`, `AUVIK_MCP_READ_ONLY` and `AUVIK_NO_LOCAL_DATA` are now declared on every install channel.

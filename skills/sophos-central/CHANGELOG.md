@@ -4,7 +4,7 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
-## [0.1.4] - unreleased
+## [0.1.4] - 2026-11-07
 
 ### Security
 - **One shared credential guard covers every output.** The CLI and the MCP server now hold every credential they read or mint (environment, flags, the config and credential files, saved profiles, minted and refreshed tokens) and withhold any terminal line, file, store row, cache entry, MCP result, child process or outbound request that would carry one, with `[credkit: withheld from <sink>: it carried a credential this program holds]` in its place. A token endpoint error that repeats the client secret no longer shows it on `auth login`.

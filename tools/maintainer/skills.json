@@ -215,8 +215,8 @@
       "display_name": "Auvik",
       "cli_hash": "sha256:b574b5067e6cf0d07850cd37f0d025ac6b3b15e228f8154b265e85d92ee17161",
       "template_version": 3,
-      "version": "0.2.8",
-      "cli_hash_at_release": "sha256:4a4d97fd99b5f74d8daec9ed038a47deafefeede560d530af2354c7c966021bd",
+      "version": "0.2.9",
+      "cli_hash_at_release": "sha256:b574b5067e6cf0d07850cd37f0d025ac6b3b15e228f8154b265e85d92ee17161",
       "has_video": false,
       "live_verified": {
         "status": "awaiting",
@@ -1058,8 +1058,8 @@
       "tagline": "Audit every client FortiGate for firmware, SSL-VPN exposure, admin accounts and license expiry in one command.",
       "cli_hash": "sha256:4c2f7de180f72e7ce5574ed9104993598a5cb08912227bfe87d164568c271824",
       "template_version": 3,
-      "version": "0.1.4",
-      "cli_hash_at_release": "sha256:f204ab34dff6297d76647d85c78dab72a59316a5882505f0effaa8f581ab7652",
+      "version": "0.1.5",
+      "cli_hash_at_release": "sha256:4c2f7de180f72e7ce5574ed9104993598a5cb08912227bfe87d164568c271824",
       "has_video": true,
       "live_verified": {
         "status": "awaiting",
@@ -2279,8 +2279,8 @@
       "has_video": true,
       "cli_hash": "sha256:3c34a58a3c091523bfd82e146e902af3b92320cc9eac1c7867fa6311f7b9b52c",
       "template_version": 3,
-      "version": "0.1.3",
-      "cli_hash_at_release": "sha256:39bdd318aa0b3259af4e71e2eb728cfadd7030873d4ea3c153672b8c739256d1",
+      "version": "0.1.4",
+      "cli_hash_at_release": "sha256:3c34a58a3c091523bfd82e146e902af3b92320cc9eac1c7867fa6311f7b9b52c",
       "live_verified": {
         "status": "awaiting",
         "date": null,
