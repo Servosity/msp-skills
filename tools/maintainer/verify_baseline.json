@@ -60,11 +60,6 @@
    "read-only",
    "local-data"
   ],
-  "cork": [
-   "mcp-http",
-   "read-only",
-   "local-data"
-  ],
   "crowdstrike": [
    "mcp-stdio"
   ],

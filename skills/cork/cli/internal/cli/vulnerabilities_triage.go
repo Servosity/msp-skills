@@ -127,7 +127,7 @@ func newNovelVulnerabilitiesTriageCmd(flags *rootFlags) *cobra.Command {
 
 			raw, pages, capHit, err := corkFetchPages(ctx, c, "/vulnerabilities/software", params, flagMaxScanPages)
 			if err != nil {
-				return classifyAPIError(err, flags)
+				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}
 
 			// Resolve UUIDs to names from the local mirror when it exists. A

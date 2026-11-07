@@ -1155,11 +1155,11 @@ Outcomes (question -> command your AI agent runs):
 
 FAQ:
 Q: Does this work with ChatGPT?
-A: Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way cork-mcp runs, and shares MCP configuration with Codex: add cork-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote (HTTP) server, this connector speaks stdio only, and the bridge it would need is paused until it is reprinted; the security note at the top of the install guide explains why. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
+A: Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way cork-mcp runs, and shares MCP configuration with Codex: add cork-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote (HTTP) server; the install guide explains why. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
 Q: Do I need to know how to code?
 A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your Cork API key once.
 Q: Is my Cork data safe?
-A: Your data stays on your machine. The CLI, MCP server, and the local mirror are all local, and the MCP server speaks stdio only so it opens no network listener. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills.
+A: Your data stays on your machine. The CLI, MCP server, and the local mirror are all local, and the MCP server speaks stdio by default so it opens no network listener unless you start its token-protected HTTP mode. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills.
 Q: What does it cost?
 A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
 Q: Will this hit my Cork API rate limits?
