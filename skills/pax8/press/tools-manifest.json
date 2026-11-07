@@ -1,7 +1,7 @@
 {
   "api_name": "pax8",
   "base_url": "https://api.pax8.com/v1",
-  "description": "",
+  "description": "Every Pax8 Partner API endpoint, plus an offline store that reconciles billing, tracks MRR, and catches usage overages no Pax8 tool surfaces.",
   "mcp_ready": "full",
   "http_transport": "standard",
   "auth": {
@@ -32,7 +32,7 @@
   "tools": [
     {
       "name": "companies_create-company",
-      "description": "Creates a new company. You can optionally include contacts in the request body to create the company with contacts in a single request. If no contacts are provided, the company will be placed in an 'inactive' status until the [company has primary contacts added](#tag/Contacts). Once contacts are added, the company will move to 'Active'. Required: address, billOnBehalfOfEnabled, name, orderApprovalRequired, phone, selfServiceAllowed, website. Optional: contacts, externalId, id (plus 2 more). Returns array of Contact.",
+      "description": "Creates a new company. You can optionally include contacts in the request body to create the company with contacts in a single request. If no contacts are provided, the company will be placed in an 'inactive' status until the [company has primary contacts added](#tag/Contacts). Once contacts are added, the company will move to 'Active'. Required: address, billOnBehalfOfEnabled, name, orderApprovalRequired, phone, selfServiceAllowed, website. Optional: contacts, externalId. Returns the new Company.",
       "method": "POST",
       "path": "/companies",
       "params": [
@@ -98,12 +98,6 @@
           "description": "An external ID that can be assigned to the company for reference"
         },
         {
-          "name": "id",
-          "type": "string",
-          "location": "body",
-          "description": "The unique id of the company"
-        },
-        {
           "name": "name",
           "type": "string",
           "location": "body",
@@ -130,18 +124,6 @@
           "location": "body",
           "description": "Value is ```true``` if self-service privileges are available to the company, otherwise value is ```false```",
           "required": true
-        },
-        {
-          "name": "status",
-          "type": "string",
-          "location": "body",
-          "description": "Company Status: * `Active` - The company is active * `Inactive` - The company is inactive due to missing contacts * `Deleted` - The company has been deleted"
-        },
-        {
-          "name": "updatedDate",
-          "type": "string",
-          "location": "body",
-          "description": "The date and time the company was last updated"
         },
         {
           "name": "website",
@@ -243,7 +225,7 @@
     },
     {
       "name": "companies_update-company",
-      "description": "Updates an existing Company. ATTENTION - at least one parameter has to be modified. Required: companyId. Optional: address, billOnBehalfOfEnabled, externalId (plus 7 more). Returns array of Contact.",
+      "description": "Updates an existing Company. ATTENTION - at least one parameter has to be modified. Required: companyId. Optional: address, billOnBehalfOfEnabled, externalId (plus 5 more). Returns the updated Company.",
       "method": "PATCH",
       "path": "/companies/{companyId}",
       "params": [
@@ -309,12 +291,6 @@
           "description": "An external ID that can be assigned to the company for reference"
         },
         {
-          "name": "id",
-          "type": "string",
-          "location": "body",
-          "description": "The unique id of the company"
-        },
-        {
           "name": "name",
           "type": "string",
           "location": "body",
@@ -339,12 +315,6 @@
           "description": "Value is ```true``` if self-service privileges are available to the company, otherwise value is ```false```"
         },
         {
-          "name": "status",
-          "type": "string",
-          "location": "body",
-          "description": "Company Status: * `Active` - The company is active * `Inactive` - The company is inactive due to missing contacts * `Deleted` - The company has been deleted"
-        },
-        {
           "name": "website",
           "type": "string",
           "location": "body",
@@ -354,7 +324,7 @@
     },
     {
       "name": "companies_contacts_create",
-      "description": "Creates a new Contact. Required: companyId, email, firstName, lastName, phone. Optional: createdDate, id, types. Returns array of ContactType.",
+      "description": "Creates a new Contact. Required: companyId, email, firstName, lastName, phone. Optional: types. Returns the new Contact.",
       "method": "POST",
       "path": "/companies/{companyId}/contacts",
       "params": [
@@ -364,12 +334,6 @@
           "location": "path",
           "description": "Company id",
           "required": true
-        },
-        {
-          "name": "createdDate",
-          "type": "string",
-          "location": "body",
-          "description": "The created date"
         },
         {
           "name": "email",
@@ -384,12 +348,6 @@
           "location": "body",
           "description": "The first name",
           "required": true
-        },
-        {
-          "name": "id",
-          "type": "string",
-          "location": "body",
-          "description": "The id"
         },
         {
           "name": "lastName",
@@ -486,7 +444,7 @@
     },
     {
       "name": "companies_contacts_update",
-      "description": "Update a contacts information. Required: companyId, contactId, email, firstName, lastName, phone. Optional: createdDate, id, types. Returns array of ContactType.",
+      "description": "Update a contacts information. Required: companyId, contactId, email, firstName, lastName, phone. Optional: types. Returns the updated Contact.",
       "method": "PUT",
       "path": "/companies/{companyId}/contacts/{contactId}",
       "params": [
@@ -505,12 +463,6 @@
           "required": true
         },
         {
-          "name": "createdDate",
-          "type": "string",
-          "location": "body",
-          "description": "The created date"
-        },
-        {
           "name": "email",
           "type": "string",
           "location": "body",
@@ -523,12 +475,6 @@
           "location": "body",
           "description": "The first name",
           "required": true
-        },
-        {
-          "name": "id",
-          "type": "string",
-          "location": "body",
-          "description": "The id"
         },
         {
           "name": "lastName",
@@ -708,7 +654,7 @@
     },
     {
       "name": "orders_create",
-      "description": "Create a new order. Currently NOT supported for scheduled orders(orders with a future date). Required: companyId, lineItems. Optional: isMock, createdDate, id (plus 4 more). Returns array of LineItem.",
+      "description": "Create a new order. Currently NOT supported for scheduled orders(orders with a future date). Required: companyId, lineItems. Optional: isMock, orderedBy, orderedByUserEmail. Returns the new Order.",
       "method": "POST",
       "path": "/orders",
       "params": [
@@ -724,24 +670,6 @@
           "location": "body",
           "description": "unique id of the purchasing company ie. end-user",
           "required": true
-        },
-        {
-          "name": "createdDate",
-          "type": "string",
-          "location": "body",
-          "description": "the date the order was created"
-        },
-        {
-          "name": "id",
-          "type": "string",
-          "location": "body",
-          "description": "unique id of the order"
-        },
-        {
-          "name": "isScheduled",
-          "type": "bool",
-          "location": "body",
-          "description": "is ```true``` if order is future dated"
         },
         {
           "name": "lineItems",
@@ -761,12 +689,6 @@
           "type": "string",
           "location": "body",
           "description": "the email address of the user who created this order"
-        },
-        {
-          "name": "orderedByUserId",
-          "type": "string",
-          "location": "body",
-          "description": "unique id of the user who created this order"
         }
       ]
     },
@@ -1118,6 +1040,38 @@
           "description": "Return only usage summaries with this ```productId``` value"
         }
       ]
+    }
+  ],
+  "novel_features": [
+    {
+      "name": "Billing reconciliation",
+      "command": "reconcile",
+      "description": "Flag invoice lines that no longer match an active subscription, and active subscriptions that never got billed; --draft pre-checks the next unposted invoice."
+    },
+    {
+      "name": "MRR and margin",
+      "command": "mrr",
+      "description": "Compute monthly recurring revenue and margin from subscriptions and product pricing, trended across syncs, with a per-product breakdown."
+    },
+    {
+      "name": "Usage overage detection",
+      "command": "overage",
+      "description": "Aggregate usage-lines per subscription and surface overages before they land on the customer invoice."
+    },
+    {
+      "name": "Subscription change feed",
+      "command": "since",
+      "description": "Show subscription changes in a window: synced history events plus subscriptions created or updated in it."
+    },
+    {
+      "name": "Customer 360",
+      "command": "company show",
+      "description": "One view of a company with its subscriptions, contacts, invoices, and usage."
+    },
+    {
+      "name": "Spend per company",
+      "command": "spend",
+      "description": "Roll up invoice-items by company to show what each customer is costing across invoices."
     }
   ]
 }

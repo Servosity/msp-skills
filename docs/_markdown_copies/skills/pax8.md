@@ -4,7 +4,7 @@
 
 > Independent, open source, inspectable. Every line of code is on GitHub
 > under Apache-2.0 - built for the MSP community, vendor-neutral by design.
-> Not affiliated with, endorsed by, or sponsored by Pax8, Inc..
+> Not affiliated with, endorsed by, or sponsored by Pax8, Inc.
 
 **Passes all 4 mechanical gates** (build · command-surface · claims · install). Awaiting its first MSP receipt - [be the first, 60 seconds →](https://msp-skills.compoundingteams.com/verified/#receipt).
 
@@ -96,10 +96,10 @@ After install, authenticate once with your Pax8 credentials, then verify with `p
 | Tier | Examples | Recommended agent policy |
 | --- | --- | --- |
 | Read | pax8-cli reconcile; pax8-cli mrr; pax8-cli overage; pax8-cli spend; pax8-cli since 7d; pax8-cli company show <companyId>; pax8-cli search "microsoft 365"; pax8-cli companies find; pax8-cli subscriptions find; pax8-cli invoices find-partner | Allow |
-| Write (routine) | pax8-cli companies create-company; pax8-cli companies update-company; pax8-cli companies contacts create; pax8-cli companies contacts update; pax8-cli subscriptions update; pax8-cli orders create - writes send immediately; --dry-run is an opt-in preview, not a default | Preview with --dry-run, then a reviewed write |
+| Write (routine) | pax8-cli companies create-company; pax8-cli companies update-company; pax8-cli companies contacts create; pax8-cli companies contacts update; pax8-cli subscriptions update; pax8-cli orders create - the CLI sends immediately (--dry-run is an opt-in preview); over MCP each write previews and sends only with confirm: true | Preview with --dry-run, then a reviewed write |
 | Destructive / config | pax8-cli subscriptions delete (cancels a subscription); pax8-cli companies contacts delete | Human-in-the-loop only |
 
-The skill drives the pax8-cli and pax8-mcp binaries, authenticating with a Pax8 Partner API OAuth2 client ID and secret read from the environment (PAX8_CLIENT_ID, PAX8_CLIENT_SECRET) - never logged and never sent anywhere except Pax8's own API. Read commands (reconcile, mrr, overage, spend, since, company show, search, and the find/get queries) change nothing. Writes are not gated by default: --dry-run is an opt-in preview flag, so the recommended policy is an agent-level rule - preview with --dry-run, show the exact command, get approval, then run the write. Keep subscription cancellation, contact deletion, and order creation human-only. The strongest control is the permission scope on the API credential you create. Full details in [governance.md](https://github.com/servosity/msp-skills/blob/main/skills/pax8/governance.md).
+The skill drives the pax8-cli and pax8-mcp binaries, authenticating with a Pax8 Partner API OAuth2 client ID and secret read from the environment (PAX8_CLIENT_ID, PAX8_CLIENT_SECRET) - never logged and never sent anywhere except Pax8's own API and token endpoint. Read commands (reconcile, mrr, overage, spend, since, company show, search, and the find/get queries) change nothing. CLI writes are not gated by default (--dry-run is an opt-in preview flag); over MCP every write tool previews and sends only with confirm: true, so the recommended policy is an agent-level rule - preview with --dry-run, show the exact command, get approval, then run the write. Keep subscription cancellation, contact deletion, and order creation human-only. The strongest control is the permission scope on the API credential you create. Full details in [governance.md](https://github.com/servosity/msp-skills/blob/main/skills/pax8/governance.md).
 
 ## Frequently asked questions
 
@@ -113,7 +113,7 @@ Yes, by design - and the exceptions are ones you switch on yourself. The CLI, th
 
 ### Does this work with ChatGPT?
 
-Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way pax8-mcp runs, and shares MCP configuration with Codex: add pax8-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote (HTTP) server, and this connector's HTTP mode is paused until it is reprinted; the security note at the top of the install guide explains why. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
+Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way pax8-mcp runs, and shares MCP configuration with Codex: add pax8-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote server. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
 
 ### Do I need to know how to code?
 
