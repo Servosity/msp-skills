@@ -165,8 +165,9 @@ func TestBuildEolReport_NoDataIsNotAnExpiryClaim(t *testing.T) {
 	devices := []auvikRow{device("d1", "unknown", "switch", "?", "t1")}
 	got := buildEolReport(devices, nil, nil, nil, tenantMap(), time.Now().UTC())
 	r := got.Rows[0]
-	if r.Bucket != bucketSupported || r.DaysRemaining != nil {
-		t.Fatalf("a device with no lifecycle data must not claim an expiry: %+v", r)
+	// Nor a support verdict: no data is "unknown", never "supported".
+	if r.Bucket != bucketUnknown || r.DaysRemaining != nil {
+		t.Fatalf("a device with no lifecycle data must claim neither an expiry nor support: %+v", r)
 	}
 	if r.Source != "no lifecycle or warranty data" {
 		t.Errorf("source = %q, want the explicit no-data marker", r.Source)
@@ -368,7 +369,7 @@ func TestBuildInventoryDiff_DetectsAddedRemovedChanged(t *testing.T) {
 
 func TestBuildInventoryDiff_NoBaselineFabricatesNothing(t *testing.T) {
 	after := map[string]deviceSnapshotRow{"d1": snap("d1", "t1", "a", "A", "fp")}
-	got := buildInventoryDiff(map[string]deviceSnapshotRow{}, after, nil)
+	got := buildInventoryDiff(nil, after, nil)
 	if len(got.Changes) != 0 || got.Counts["added"] != 0 {
 		t.Fatalf("no baseline must report nothing, got %+v", got)
 	}
@@ -432,7 +433,7 @@ func TestBuildReconcileReport_AttributesByDeviceID(t *testing.T) {
 	if len(acme.BilledNotSeen) != 0 {
 		t.Errorf("BilledNotSeen = %v, want empty (dev-1 is in inventory)", acme.BilledNotSeen)
 	}
-	if acme.MonitoredServers != 1 || acme.BillableDays != 30 {
+	if acme.MonitoredServers == nil || *acme.MonitoredServers != 1 || acme.BillableDays == nil || *acme.BillableDays != 30 {
 		t.Errorf("counts not carried: %+v", acme)
 	}
 	globex := byClient["globex"]
@@ -528,12 +529,13 @@ func TestBuildShadowReport_JoinsThroughUserEmails(t *testing.T) {
 		// Disabled user must not count as usage.
 		specRow("u3", map[specField]any{fASMUserEmail: "c@x.com", fASMUserDisabled: true}, nil),
 	}
-	// Licenses carry NO app relationship — they join by email only.
+	// Licenses carry NO app relationship; the application is known only from
+	// the per-application read that returned them (the tag).
 	licenses := []auvikRow{
-		specRow("l1", map[specField]any{fASMLicenseEmail: "c@x.com", fASMLicenseType: "standard"}, nil),
+		appLicense("app2", specRow("l1", map[specField]any{fASMLicenseEmail: "c@x.com", fASMLicenseType: "standard"}, nil)),
 	}
 
-	got := buildShadowReport(apps, users, licenses, clients)
+	got := buildShadowReport(apps, users, licenses, clients, nil)
 
 	byApp := map[string]shadowFinding{}
 	for _, f := range got.Findings {
@@ -557,14 +559,21 @@ func TestBuildShadowReport_BalancedAppIsNotAFinding(t *testing.T) {
 	apps := []auvikRow{specRow("app1", map[specField]any{fASMAppName: "Slack"},
 		map[specRel]any{rASMAppClient: "c1", rASMAppUsers: []string{"u1"}})}
 	users := []auvikRow{specRow("u1", map[specField]any{fASMUserEmail: "a@x.com", fASMUserActive: true}, nil)}
-	licenses := []auvikRow{specRow("l1", map[specField]any{fASMLicenseEmail: "a@x.com"}, nil)}
+	licenses := []auvikRow{appLicense("app1", specRow("l1", map[specField]any{fASMLicenseEmail: "a@x.com"}, nil))}
 
-	got := buildShadowReport(apps, users, licenses, clients)
+	got := buildShadowReport(apps, users, licenses, clients, nil)
 	for _, f := range got.Findings {
 		if f.Application == "Slack" {
 			t.Fatalf("1 active user with 1 license is balanced, got finding %+v", f)
 		}
 	}
+}
+
+// appLicense tags a license row with the application whose per-application
+// read returned it, as fetchASMLicenses does.
+func appLicense(appID string, r auvikRow) auvikRow {
+	r.Data[asmLicenseAppKey] = appID
+	return r
 }
 
 // ---------------------------------------------------------- alert noise

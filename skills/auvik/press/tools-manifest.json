@@ -1,0 +1,3188 @@
+{
+  "api_name": "auvik",
+  "base_url": "https://auvikapi.us1.my.auvik.com",
+  "description": "Every Auvik endpoint as a command, plus the cross-client answers the Auvik UI and API cannot give you.",
+  "mcp_ready": "full",
+  "http_transport": "standard",
+  "mcp": {
+    "endpoint_tools": "hidden",
+    "orchestration": "code"
+  },
+  "auth": {
+    "type": "api_key",
+    "header": "Authorization",
+    "format": "Basic {AUVIK_USERNAME}:{AUVIK_API_KEY}",
+    "env_vars": [
+      "AUVIK_USERNAME",
+      "AUVIK_API_KEY"
+    ],
+    "env_var_specs": [
+      {
+        "name": "AUVIK_USERNAME",
+        "kind": "per_call",
+        "required": true,
+        "sensitive": false,
+        "inferred": true
+      },
+      {
+        "name": "AUVIK_API_KEY",
+        "kind": "per_call",
+        "required": true,
+        "sensitive": true,
+        "inferred": true
+      }
+    ]
+  },
+  "required_headers": [],
+  "tools": [
+    {
+      "name": "alert_dismiss-single",
+      "description": "Use the Dismiss Alert API to dismiss a specific alert that Auvik has triggered. Required: id.",
+      "method": "POST",
+      "path": "/v1/alert/dismiss/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "ID of alert",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "alert_read-multiple-info",
+      "description": "Use the Read Multiple Alerts’ Info API to pull the collected information about the various alerts that Auvik has triggered. To find the client IDs, run the Read Multiple Tenants API. Optional: filter_alertDefinitionId, filter_alertSpecificationId, filter_severity (plus 11 more). Returns array of AlertsResourceObject.",
+      "method": "GET",
+      "path": "/v1/alert/history/info",
+      "params": [
+        {
+          "name": "filter_alertDefinitionId",
+          "wire_name": "filter[alertDefinitionId]",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by alert definition ID."
+        },
+        {
+          "name": "filter_alertSpecificationId",
+          "wire_name": "filter[alertSpecificationId]",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by alert specification ID. Use 'alertDefinitionId' instead"
+        },
+        {
+          "name": "filter_severity",
+          "wire_name": "filter[severity]",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by alert severity."
+        },
+        {
+          "name": "filter_status",
+          "wire_name": "filter[status]",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by the status of the alert."
+        },
+        {
+          "name": "filter_entityId",
+          "wire_name": "filter[entityId]",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by the related entity ID."
+        },
+        {
+          "name": "filter_dismissed",
+          "wire_name": "filter[dismissed]",
+          "type": "bool",
+          "location": "query",
+          "description": "Filter by the dismissed status."
+        },
+        {
+          "name": "filter_dispatched",
+          "wire_name": "filter[dispatched]",
+          "type": "bool",
+          "location": "query",
+          "description": "Filter by dispatched status."
+        },
+        {
+          "name": "filter_detectedTimeAfter",
+          "wire_name": "filter[detectedTimeAfter]",
+          "type": "bool",
+          "location": "query",
+          "description": "Filter by the time which is greater than the given timestamp."
+        },
+        {
+          "name": "filter_detectedTimeBefore",
+          "wire_name": "filter[detectedTimeBefore]",
+          "type": "bool",
+          "location": "query",
+          "description": "Filter by the time which is less than or equal to the given timestamp."
+        },
+        {
+          "name": "tenants",
+          "type": "string",
+          "location": "query",
+          "description": "Comma delimited list of tenant IDs to request info from."
+        },
+        {
+          "name": "page_first",
+          "wire_name": "page[first]",
+          "type": "float",
+          "location": "query",
+          "description": "For paginated responses, the first N elements will be returned."
+        },
+        {
+          "name": "page_after",
+          "wire_name": "page[after]",
+          "type": "string",
+          "location": "query",
+          "description": "Cursor after which elements will be returned as a page. The page size is provided by page[first]."
+        },
+        {
+          "name": "page_last",
+          "wire_name": "page[last]",
+          "type": "float",
+          "location": "query",
+          "description": "For paginated responses, the last N services will be returned."
+        },
+        {
+          "name": "page_before",
+          "wire_name": "page[before]",
+          "type": "string",
+          "location": "query",
+          "description": "Cursor before which elements will be returned as a page. The page size is provided by page[last]."
+        }
+      ]
+    },
+    {
+      "name": "alert_read-single-info",
+      "description": "Use the Read Single Alert’s Info API to pull the collected information about a specific alert that Auvik has triggered. To find the alert IDs, run the Read Multiple Alerts API. Required: id. Returns the AlertHistoryInfoReadSingle.",
+      "method": "GET",
+      "path": "/v1/alert/history/info/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "ID of alert",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "asm_read-multiple-asmapp-info",
+      "description": "Use the Read Multiple ASM Applications' Info to retrieve the information related to the SaaS applications discovered within an ASM client deployment. This data includes the number of users of an application as well as key metadata such as whether the application is approved or unapproved. Required: filter_clientId. Optional: filter_dateAddedBefore, filter_dateAddedAfter, filter_queryDate (plus 7 more). Returns array of AsmAppResourceObject.",
+      "method": "GET",
+      "path": "/v1/asm/app/info",
+      "params": [
+        {
+          "name": "filter_clientId",
+          "wire_name": "filter[clientId]",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by client ID.",
+          "required": true
+        },
+        {
+          "name": "filter_dateAddedBefore",
+          "wire_name": "filter[dateAddedBefore]",
+          "type": "string",
+          "location": "query",
+          "description": "Return applications added before this date."
+        },
+        {
+          "name": "filter_dateAddedAfter",
+          "wire_name": "filter[dateAddedAfter]",
+          "type": "string",
+          "location": "query",
+          "description": "Return applications added after this date."
+        },
+        {
+          "name": "filter_queryDate",
+          "wire_name": "filter[queryDate]",
+          "type": "string",
+          "location": "query",
+          "description": "Return associated breaches added after this date."
+        },
+        {
+          "name": "filter_user_lastUsedAfter",
+          "wire_name": "filter[user_lastUsedAfter]",
+          "type": "string",
+          "location": "query",
+          "description": "Return associated users added after this date."
+        },
+        {
+          "name": "filter_user_lastUsedBefore",
+          "wire_name": "filter[user_lastUsedBefore]",
+          "type": "string",
+          "location": "query",
+          "description": "Return associated users before this date."
+        },
+        {
+          "name": "include",
+          "type": "string",
+          "location": "query",
+          "description": "Use to include extended details of the application or of its related objects."
+        },
+        {
+          "name": "page_first",
+          "wire_name": "page[first]",
+          "type": "float",
+          "location": "query",
+          "description": "For paginated responses, the first N elements will be returned."
+        },
+        {
+          "name": "page_after",
+          "wire_name": "page[after]",
+          "type": "string",
+          "location": "query",
+          "description": "Cursor after which elements will be returned as a page. The page size is provided by page[first]."
+        },
+        {
+          "name": "page_last",
+          "wire_name": "page[last]",
+          "type": "float",
+          "location": "query",
+          "description": "For paginated responses, the last N services will be returned."
+        },
+        {
+          "name": "page_before",
+          "wire_name": "page[before]",
+          "type": "string",
+          "location": "query",
+          "description": "Cursor before which elements will be returned as a page. The page size is provided by page[last]."
+        }
+      ]
+    },
+    {
+      "name": "asm_read-multiple-asmclient-info",
+      "description": "The Read Multiple ASM Clients' Info API returns relevant meta data about clients that exist within the Auvik SaaS Management product. The response includes the number of total users as well as clientIDs which may be used to filter other relevant API calls. Optional: include, filter_queryDate, page_first (default: 100) (plus 3 more).",
+      "method": "GET",
+      "path": "/v1/asm/client/info",
+      "params": [
+        {
+          "name": "include",
+          "type": "string",
+          "location": "query",
+          "description": "Use to include extended details of the client."
+        },
+        {
+          "name": "filter_queryDate",
+          "wire_name": "filter[queryDate]",
+          "type": "string",
+          "location": "query",
+          "description": "Only count breaches added after this date. Only useful when include=totals is set."
+        },
+        {
+          "name": "page_first",
+          "wire_name": "page[first]",
+          "type": "float",
+          "location": "query",
+          "description": "For paginated responses, the first N elements will be returned."
+        },
+        {
+          "name": "page_after",
+          "wire_name": "page[after]",
+          "type": "string",
+          "location": "query",
+          "description": "Cursor after which elements will be returned as a page. The page size is provided by page[first]."
+        },
+        {
+          "name": "page_last",
+          "wire_name": "page[last]",
+          "type": "float",
+          "location": "query",
+          "description": "For paginated responses, the last N services will be returned."
+        },
+        {
+          "name": "page_before",
+          "wire_name": "page[before]",
+          "type": "string",
+          "location": "query",
+          "description": "Cursor before which elements will be returned as a page. The page size is provided by page[last]."
+        }
+      ]
+    },
+    {
+      "name": "asm_read-multiple-asmlicense-info",
+      "description": "Use the Read Multiple ASM Licenses' Info endpoint to retrieve information about an application licenses discovered within an ASM client deployment. This data includes the license type and associated user email assigned to each license, alongside other key metadata such as last login time. To access this data, a SaaS Ops integration with the desired application must be configured. Required: filter_clientId, filter_applicationId. Optional: filter_email, filter_licenseType, filter_lastLoginBefore (plus 5 more). Returns array of AsmLicenseResourceObject.",
+      "method": "GET",
+      "path": "/v1/asm/license/info",
+      "params": [
+        {
+          "name": "filter_clientId",
+          "wire_name": "filter[clientId]",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by client ID.",
+          "required": true
+        },
+        {
+          "name": "filter_applicationId",
+          "wire_name": "filter[applicationId]",
+          "type": "string",
+          "location": "query",
+          "description": "Unique identifier of the application.",
+          "required": true
+        },
+        {
+          "name": "filter_email",
+          "wire_name": "filter[email]",
+          "type": "string",
+          "location": "query",
+          "description": "Filter results by a specific license email."
+        },
+        {
+          "name": "filter_licenseType",
+          "wire_name": "filter[licenseType]",
+          "type": "string",
+          "location": "query",
+          "description": "Filter results by license type."
+        },
+        {
+          "name": "filter_lastLoginBefore",
+          "wire_name": "filter[lastLoginBefore]",
+          "type": "string",
+          "location": "query",
+          "description": "Returns only users whose last login was before the given date or have no last login time."
+        },
+        {
+          "name": "filter_underutilizedOnly",
+          "wire_name": "filter[underutilizedOnly]",
+          "type": "bool",
+          "location": "query",
+          "description": "If included, filters to users flagged as underutilized."
+        },
+        {
+          "name": "page_first",
+          "wire_name": "page[first]",
+          "type": "float",
+          "location": "query",
+          "description": "For paginated responses, the first N elements will be returned."
+        },
+        {
+          "name": "page_after",
+          "wire_name": "page[after]",
+          "type": "string",
+          "location": "query",
+          "description": "Cursor after which elements will be returned as a page. The page size is provided by page[first]."
+        },
+        {
+          "name": "page_last",
+          "wire_name": "page[last]",
+          "type": "float",
+          "location": "query",
+          "description": "For paginated responses, the last N services will be returned."
+        },
+        {
+          "name": "page_before",
+          "wire_name": "page[before]",
+          "type": "string",
+          "location": "query",
+          "description": "Cursor before which elements will be returned as a page. The page size is provided by page[last]."
+        }
+      ]
+    },
+    {
+      "name": "asm_read-multiple-asmsecurity-log-info",
+      "description": "Use the Read Multiple ASM Security Logs' Info API to retrieve in depth information about the security logs within an Auvik SaaS Management client. Security logs include specific SaaS events, such as logins or downloads with timestamps for each event. Required: filter_clientId. Optional: include, filter_queryDate, page_first (default: 100) (plus 3 more). Returns array of AsmSecurityLogResourceObject.",
+      "method": "GET",
+      "path": "/v1/asm/securityLog/info",
+      "params": [
+        {
+          "name": "filter_clientId",
+          "wire_name": "filter[clientId]",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by client ID.",
+          "required": true
+        },
+        {
+          "name": "include",
+          "type": "string",
+          "location": "query",
+          "description": "Use to include extended details of the security log or of its related objects."
+        },
+        {
+          "name": "filter_queryDate",
+          "wire_name": "filter[queryDate]",
+          "type": "string",
+          "location": "query",
+          "description": "Only return security logs added after this date."
+        },
+        {
+          "name": "page_first",
+          "wire_name": "page[first]",
+          "type": "float",
+          "location": "query",
+          "description": "For paginated responses, the first N elements will be returned."
+        },
+        {
+          "name": "page_after",
+          "wire_name": "page[after]",
+          "type": "string",
+          "location": "query",
+          "description": "Cursor after which elements will be returned as a page. The page size is provided by page[first]."
+        },
+        {
+          "name": "page_last",
+          "wire_name": "page[last]",
+          "type": "float",
+          "location": "query",
+          "description": "For paginated responses, the last N services will be returned."
+        },
+        {
+          "name": "page_before",
+          "wire_name": "page[before]",
+          "type": "string",
+          "location": "query",
+          "description": "Cursor before which elements will be returned as a page. The page size is provided by page[last]."
+        }
+      ]
+    },
+    {
+      "name": "asm_read-multiple-asmtag-info",
+      "description": "Use the Read Multiple ASM Tags' Info API to retrieve information about tags configured within an ASM client. Required: filter_clientId. Optional: filter_applicationId, page_first (default: 100), page_after (plus 2 more). Returns array of AsmTagResourceObject.",
+      "method": "GET",
+      "path": "/v1/asm/tag/info",
+      "params": [
+        {
+          "name": "filter_clientId",
+          "wire_name": "filter[clientId]",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by client ID.",
+          "required": true
+        },
+        {
+          "name": "filter_applicationId",
+          "wire_name": "filter[applicationId]",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by application ID."
+        },
+        {
+          "name": "page_first",
+          "wire_name": "page[first]",
+          "type": "float",
+          "location": "query",
+          "description": "For paginated responses, the first N elements will be returned."
+        },
+        {
+          "name": "page_after",
+          "wire_name": "page[after]",
+          "type": "string",
+          "location": "query",
+          "description": "Cursor after which elements will be returned as a page. The page size is provided by page[first]."
+        },
+        {
+          "name": "page_last",
+          "wire_name": "page[last]",
+          "type": "float",
+          "location": "query",
+          "description": "For paginated responses, the last N services will be returned."
+        },
+        {
+          "name": "page_before",
+          "wire_name": "page[before]",
+          "type": "string",
+          "location": "query",
+          "description": "Cursor before which elements will be returned as a page. The page size is provided by page[last]."
+        }
+      ]
+    },
+    {
+      "name": "asm_read-multiple-asmuser-info",
+      "description": "Use the Read Multiple ASM Users' Info API to retrieve information about any monitored users that exist within a specific Auvik SaaS Management tenant. ASM user data includes core information about the SaaS applications a monitored user is using as well as which accounts a user is leveraging to log into those applications. Required: filter_clientId. Optional: page_first (default: 100), page_after, page_last (default: 100) (plus 1 more). Returns array of AsmUserResourceObject.",
+      "method": "GET",
+      "path": "/v1/asm/user/info",
+      "params": [
+        {
+          "name": "filter_clientId",
+          "wire_name": "filter[clientId]",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by client ID.",
+          "required": true
+        },
+        {
+          "name": "page_first",
+          "wire_name": "page[first]",
+          "type": "float",
+          "location": "query",
+          "description": "For paginated responses, the first N elements will be returned."
+        },
+        {
+          "name": "page_after",
+          "wire_name": "page[after]",
+          "type": "string",
+          "location": "query",
+          "description": "Cursor after which elements will be returned as a page. The page size is provided by page[first]."
+        },
+        {
+          "name": "page_last",
+          "wire_name": "page[last]",
+          "type": "float",
+          "location": "query",
+          "description": "For paginated responses, the last N services will be returned."
+        },
+        {
+          "name": "page_before",
+          "wire_name": "page[before]",
+          "type": "string",
+          "location": "query",
+          "description": "Cursor before which elements will be returned as a page. The page size is provided by page[last]."
+        }
+      ]
+    },
+    {
+      "name": "authentication_verify-credentials",
+      "description": "Use the Verify Credentials API to verify your credentials are correct before making a call to an endpoint.",
+      "method": "GET",
+      "path": "/v1/authentication/verify",
+      "params": []
+    },
+    {
+      "name": "auvik-inventory_read-multiple-device-discovery-status-v2",
+      "description": "Returns the discovery status of multiple devices for a tenant. You'll need the client ID for the client you want to fetch discovery statuses from. To find the client ID, run the Read Multiple Tenants API. Required: tenant. Optional: filter_discoverySNMP, filter_discoveryLogin, filter_discoveryWMI (plus 5 more).",
+      "method": "GET",
+      "path": "/v2/api/inventory/device/discoveryStatus",
+      "params": [
+        {
+          "name": "tenant",
+          "type": "string",
+          "location": "query",
+          "description": "Tenant ID to request info from. Child tenants will be included in the response.",
+          "required": true
+        },
+        {
+          "name": "filter_discoverySNMP",
+          "wire_name": "filter[discoverySNMP]",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by SNMP discovery status"
+        },
+        {
+          "name": "filter_discoveryLogin",
+          "wire_name": "filter[discoveryLogin]",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by Login discovery status"
+        },
+        {
+          "name": "filter_discoveryWMI",
+          "wire_name": "filter[discoveryWMI]",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by WMI discovery status"
+        },
+        {
+          "name": "filter_discoveryVMware",
+          "wire_name": "filter[discoveryVMware]",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by VMware discovery status"
+        },
+        {
+          "name": "page_first",
+          "wire_name": "page[first]",
+          "type": "float",
+          "location": "query",
+          "description": "For paginated responses, the first N elements will be returned."
+        },
+        {
+          "name": "page_after",
+          "wire_name": "page[after]",
+          "type": "string",
+          "location": "query",
+          "description": "Cursor after which elements will be returned as a page. The page size is provided by page[first]."
+        },
+        {
+          "name": "page_last",
+          "wire_name": "page[last]",
+          "type": "float",
+          "location": "query",
+          "description": "For paginated responses, the last N services will be returned."
+        },
+        {
+          "name": "page_before",
+          "wire_name": "page[before]",
+          "type": "string",
+          "location": "query",
+          "description": "Cursor before which elements will be returned as a page. The page size is provided by page[last]."
+        }
+      ]
+    },
+    {
+      "name": "auvik-inventory_read-multiple-device-info-v2",
+      "description": "Use the Read Multiple Devices’ Info API to pull the collected information about the various devices Auvik has discovered. You’ll need the client ID for the client you want to fetch devices from. The response includes the devices from the children of the requested client. To find the client ID, run the Read Multiple Tenants API. Required: tenant. Optional: filter_networks, filter_deviceType, filter_make (plus 9 more). Returns array of DeviceResourceObjectV2.",
+      "method": "GET",
+      "path": "/v2/api/inventory/device/info",
+      "params": [
+        {
+          "name": "tenant",
+          "type": "string",
+          "location": "query",
+          "description": "Tenant ID to request info from. Child tenants will be included in the response.",
+          "required": true
+        },
+        {
+          "name": "filter_networks",
+          "wire_name": "filter[networks]",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by IDs of the networks a device is on."
+        },
+        {
+          "name": "filter_deviceType",
+          "wire_name": "filter[deviceType]",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by device type."
+        },
+        {
+          "name": "filter_make",
+          "wire_name": "filter[make]",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by the device’s make."
+        },
+        {
+          "name": "filter_model",
+          "wire_name": "filter[model]",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by the device’s model."
+        },
+        {
+          "name": "filter_makeModel",
+          "wire_name": "filter[makeModel]",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by the device’s make and model."
+        },
+        {
+          "name": "filter_onlineStatus",
+          "wire_name": "filter[onlineStatus]",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by the device’s online status."
+        },
+        {
+          "name": "filter_manageStatus",
+          "wire_name": "filter[manageStatus]",
+          "type": "bool",
+          "location": "query",
+          "description": "Filter by the device's manage status"
+        },
+        {
+          "name": "filter_notSeenSince",
+          "wire_name": "filter[notSeenSince]",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by the last seen online time, returning entities not seen online after the provided value."
+        },
+        {
+          "name": "page_first",
+          "wire_name": "page[first]",
+          "type": "float",
+          "location": "query",
+          "description": "For paginated responses, the first N elements will be returned."
+        },
+        {
+          "name": "page_after",
+          "wire_name": "page[after]",
+          "type": "string",
+          "location": "query",
+          "description": "Cursor after which elements will be returned as a page. The page size is provided by page[first]."
+        },
+        {
+          "name": "page_last",
+          "wire_name": "page[last]",
+          "type": "float",
+          "location": "query",
+          "description": "For paginated responses, the last N services will be returned."
+        },
+        {
+          "name": "page_before",
+          "wire_name": "page[before]",
+          "type": "string",
+          "location": "query",
+          "description": "Cursor before which elements will be returned as a page. The page size is provided by page[last]."
+        }
+      ]
+    },
+    {
+      "name": "auvik-inventory_read-multiple-device-lifecycle-v2",
+      "description": "Returns lifecycle information for multiple devices for a tenant. You'll need the client ID for the client you want to fetch device lifecycle records from. The response includes devices from the children of the requested client. To find the client ID, run the Read Multiple Tenants API. Required: tenant. Optional: filter_provider, filter_salesAvailabilityDateAfter, filter_salesAvailabilityDateBefore (plus 6 more).",
+      "method": "GET",
+      "path": "/v2/api/inventory/device/lifecycle",
+      "params": [
+        {
+          "name": "tenant",
+          "type": "string",
+          "location": "query",
+          "description": "Tenant ID to request info from. Child tenants will be included in the response.",
+          "required": true
+        },
+        {
+          "name": "filter_provider",
+          "wire_name": "filter[provider]",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by lifecycle data provider."
+        },
+        {
+          "name": "filter_salesAvailabilityDateAfter",
+          "wire_name": "filter[salesAvailabilityDateAfter]",
+          "type": "string",
+          "location": "query",
+          "description": "Filter to lifecycle records with a sales availability date on or after this date."
+        },
+        {
+          "name": "filter_salesAvailabilityDateBefore",
+          "wire_name": "filter[salesAvailabilityDateBefore]",
+          "type": "string",
+          "location": "query",
+          "description": "Filter to lifecycle records with a sales availability date on or before this date."
+        },
+        {
+          "name": "filter_lastSupportDateAfter",
+          "wire_name": "filter[lastSupportDateAfter]",
+          "type": "string",
+          "location": "query",
+          "description": "Filter to lifecycle records with a last support date on or after this date."
+        },
+        {
+          "name": "filter_lastSupportDateBefore",
+          "wire_name": "filter[lastSupportDateBefore]",
+          "type": "string",
+          "location": "query",
+          "description": "Filter to lifecycle records with a last support date on or before this date."
+        },
+        {
+          "name": "page_first",
+          "wire_name": "page[first]",
+          "type": "float",
+          "location": "query",
+          "description": "For paginated responses, the first N elements will be returned."
+        },
+        {
+          "name": "page_after",
+          "wire_name": "page[after]",
+          "type": "string",
+          "location": "query",
+          "description": "Cursor after which elements will be returned as a page. The page size is provided by page[first]."
+        },
+        {
+          "name": "page_last",
+          "wire_name": "page[last]",
+          "type": "float",
+          "location": "query",
+          "description": "For paginated responses, the last N services will be returned."
+        },
+        {
+          "name": "page_before",
+          "wire_name": "page[before]",
+          "type": "string",
+          "location": "query",
+          "description": "Cursor before which elements will be returned as a page. The page size is provided by page[last]."
+        }
+      ]
+    },
+    {
+      "name": "auvik-inventory_read-multiple-interface-info-v2",
+      "description": "Use the Read Multiple Interfaces’ Info API to pull the collected information about the various interfaces Auvik has discovered. You’ll need the client ID for the client you want to fetch interfaces from. The response includes the interfaces from the children of the requested client. To find the client ID, run the Read Multiple Tenants API. Required: tenant. Optional: filter_interfaceType, filter_parentDevice, filter_adminStatus (plus 5 more). Returns array of InterfaceResourceObjectV2.",
+      "method": "GET",
+      "path": "/v2/api/inventory/interface/info",
+      "params": [
+        {
+          "name": "tenant",
+          "type": "string",
+          "location": "query",
+          "description": "Tenant ID to request info from. Child tenants will be included in the response.",
+          "required": true
+        },
+        {
+          "name": "filter_interfaceType",
+          "wire_name": "filter[interfaceType]",
+          "type": "string",
+          "location": "query",
+          "description": "Type of interface"
+        },
+        {
+          "name": "filter_parentDevice",
+          "wire_name": "filter[parentDevice]",
+          "type": "string",
+          "location": "query",
+          "description": "ID of device the interface is on"
+        },
+        {
+          "name": "filter_adminStatus",
+          "wire_name": "filter[adminStatus]",
+          "type": "bool",
+          "location": "query",
+          "description": "Admin status of interface"
+        },
+        {
+          "name": "filter_operationalStatus",
+          "wire_name": "filter[operationalStatus]",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by the interface’s operational status."
+        },
+        {
+          "name": "page_first",
+          "wire_name": "page[first]",
+          "type": "float",
+          "location": "query",
+          "description": "For paginated responses, the first N elements will be returned."
+        },
+        {
+          "name": "page_after",
+          "wire_name": "page[after]",
+          "type": "string",
+          "location": "query",
+          "description": "Cursor after which elements will be returned as a page. The page size is provided by page[first]."
+        },
+        {
+          "name": "page_last",
+          "wire_name": "page[last]",
+          "type": "float",
+          "location": "query",
+          "description": "For paginated responses, the last N services will be returned."
+        },
+        {
+          "name": "page_before",
+          "wire_name": "page[before]",
+          "type": "string",
+          "location": "query",
+          "description": "Cursor before which elements will be returned as a page. The page size is provided by page[last]."
+        }
+      ]
+    },
+    {
+      "name": "auvik-inventory_read-single-device-discovery-status-v2",
+      "description": "Returns the discovery status of a single device. You will need the device ID for the specific device. Required: id.",
+      "method": "GET",
+      "path": "/v2/api/inventory/device/discoveryStatus/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "ID of device",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "auvik-inventory_read-single-device-info-v2",
+      "description": "Use the Read Single Device’s Info API to pull the collected information about a specific device Auvik has discovered. You’ll need the device ID for the specific device. To find the device IDs, run the Read Multiple Devices API. Required: id. Returns the DeviceReadSingle.",
+      "method": "GET",
+      "path": "/v2/api/inventory/device/info/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "ID of device",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "auvik-inventory_read-single-device-lifecycle-v2",
+      "description": "Returns lifecycle information for a single device. You will need the device ID for the specific device. Required: id.",
+      "method": "GET",
+      "path": "/v2/api/inventory/device/lifecycle/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "ID of device",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "auvik-inventory_read-single-interface-info-v2",
+      "description": "Use the Read Single Interface’s Info API to pull the collected information about a specific interface Auvik has discovered. You’ll need the interface ID for the specific interface. To find the interface IDs, run the Read Multiple Interfaces API. Required: id. Returns the InterfaceReadSingle.",
+      "method": "GET",
+      "path": "/v2/api/inventory/interface/info/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "ID of interface",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "auvik-stat_read-service-statistics-v2",
+      "description": "Use the Read Service Statistics API to fetch detailed statistics of a client's (and client's children if a multi-client) services for a given time range. Required: statId (default: internalPingTime), filter_fromTime, filter_interval, tenant. Optional: filter_thruTime, filter_serviceId, page_first (default: 100) (plus 3 more). Returns the ServiceStatisticsRead.",
+      "method": "GET",
+      "path": "/v2/api/stat/service/{statId}",
+      "params": [
+        {
+          "name": "statId",
+          "type": "string",
+          "location": "path",
+          "description": "ID of statistic to return",
+          "required": true
+        },
+        {
+          "name": "filter_fromTime",
+          "wire_name": "filter[fromTime]",
+          "type": "string",
+          "location": "query",
+          "description": "Timestamp from which you want to query",
+          "required": true
+        },
+        {
+          "name": "filter_thruTime",
+          "wire_name": "filter[thruTime]",
+          "type": "string",
+          "location": "query",
+          "description": "Timestamp to which you want to query (defaults to current time)"
+        },
+        {
+          "name": "filter_interval",
+          "wire_name": "filter[interval]",
+          "type": "string",
+          "location": "query",
+          "description": "Statistics reporting interval",
+          "required": true
+        },
+        {
+          "name": "filter_serviceId",
+          "wire_name": "filter[serviceId]",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by service ID"
+        },
+        {
+          "name": "tenant",
+          "type": "string",
+          "location": "query",
+          "description": "Tenant ID to request info from. Child tenants will be included in the response.",
+          "required": true
+        },
+        {
+          "name": "page_first",
+          "wire_name": "page[first]",
+          "type": "float",
+          "location": "query",
+          "description": "For paginated responses, the first N elements will be returned."
+        },
+        {
+          "name": "page_after",
+          "wire_name": "page[after]",
+          "type": "string",
+          "location": "query",
+          "description": "Cursor after which elements will be returned as a page. The page size is provided by page[first]."
+        },
+        {
+          "name": "page_last",
+          "wire_name": "page[last]",
+          "type": "float",
+          "location": "query",
+          "description": "For paginated responses, the last N services will be returned."
+        },
+        {
+          "name": "page_before",
+          "wire_name": "page[before]",
+          "type": "string",
+          "location": "query",
+          "description": "Cursor before which elements will be returned as a page. The page size is provided by page[last]."
+        }
+      ]
+    },
+    {
+      "name": "billing_read-client-usage",
+      "description": "Use the Read Client Usage API to pull a summary of a client’s (and client’s children if a multi-client) usage for a given time range. To find the client IDs, run the Read Multiple Tenants API. Required: filter_fromDate, filter_thruDate. Optional: tenants. Returns array of ClientUsageResourceObject.",
+      "method": "GET",
+      "path": "/v1/billing/usage/client",
+      "params": [
+        {
+          "name": "filter_fromDate",
+          "wire_name": "filter[fromDate]",
+          "type": "string",
+          "location": "query",
+          "description": "Date from which you want to query",
+          "required": true
+        },
+        {
+          "name": "filter_thruDate",
+          "wire_name": "filter[thruDate]",
+          "type": "string",
+          "location": "query",
+          "description": "Date to which you want to query",
+          "required": true
+        },
+        {
+          "name": "tenants",
+          "type": "string",
+          "location": "query",
+          "description": "Comma delimited list of tenant IDs to request info from."
+        }
+      ]
+    },
+    {
+      "name": "billing_read-device-usage",
+      "description": "Use the Read Device Usage API to pull a summary of a client’s (and client’s children if a multi-client) usage for a given time range. Required: id, filter_fromDate, filter_thruDate. Returns the DeviceUsageRead.",
+      "method": "GET",
+      "path": "/v1/billing/usage/device/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "ID of device",
+          "required": true
+        },
+        {
+          "name": "filter_fromDate",
+          "wire_name": "filter[fromDate]",
+          "type": "string",
+          "location": "query",
+          "description": "Date from which you want to query",
+          "required": true
+        },
+        {
+          "name": "filter_thruDate",
+          "wire_name": "filter[thruDate]",
+          "type": "string",
+          "location": "query",
+          "description": "Date to which you want to query",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "inventory_read-multiple-component-info",
+      "description": "Use the Read Multiple Components’ Info API to pull collected information about various device components Auvik has discovered. You’ll need the client IDs for the clients you want to run the multiple read against. To find the client IDs, run the Read Multiple Tenants API. Optional: filter_modifiedAfter, filter_deviceId, filter_deviceName (plus 6 more). Returns array of ComponentsResourceObject.",
+      "method": "GET",
+      "path": "/v1/inventory/component/info",
+      "params": [
+        {
+          "name": "filter_modifiedAfter",
+          "wire_name": "filter[modifiedAfter]",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by date and time, only returning entities modified after provided value."
+        },
+        {
+          "name": "filter_deviceId",
+          "wire_name": "filter[deviceId]",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by the component’s parent device’s ID."
+        },
+        {
+          "name": "filter_deviceName",
+          "wire_name": "filter[deviceName]",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by the component’s parent device’s name."
+        },
+        {
+          "name": "filter_currentStatus",
+          "wire_name": "filter[currentStatus]",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by the component’s current status."
+        },
+        {
+          "name": "tenants",
+          "type": "string",
+          "location": "query",
+          "description": "Comma delimited list of tenant IDs to request info from."
+        },
+        {
+          "name": "page_first",
+          "wire_name": "page[first]",
+          "type": "float",
+          "location": "query",
+          "description": "For paginated responses, the first N elements will be returned."
+        },
+        {
+          "name": "page_after",
+          "wire_name": "page[after]",
+          "type": "string",
+          "location": "query",
+          "description": "Cursor after which elements will be returned as a page. The page size is provided by page[first]."
+        },
+        {
+          "name": "page_last",
+          "wire_name": "page[last]",
+          "type": "float",
+          "location": "query",
+          "description": "For paginated responses, the last N services will be returned."
+        },
+        {
+          "name": "page_before",
+          "wire_name": "page[before]",
+          "type": "string",
+          "location": "query",
+          "description": "Cursor before which elements will be returned as a page. The page size is provided by page[last]."
+        }
+      ]
+    },
+    {
+      "name": "inventory_read-multiple-configurations",
+      "description": "Use the Read Multiple Device Configuration API to pull all device configurations. You’ll need the client IDs for the clients you want to run the multiple read against. To find the client IDs, run the Read Multiple Tenants API. Optional: filter_deviceId, filter_backupTimeAfter, filter_backupTimeBefore (plus 6 more). Returns array of ConfigResourceObject.",
+      "method": "GET",
+      "path": "/v1/inventory/configuration",
+      "params": [
+        {
+          "name": "filter_deviceId",
+          "wire_name": "filter[deviceId]",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by device ID"
+        },
+        {
+          "name": "filter_backupTimeAfter",
+          "wire_name": "filter[backupTimeAfter]",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by date and time, filtering out configurations backed up before value."
+        },
+        {
+          "name": "filter_backupTimeBefore",
+          "wire_name": "filter[backupTimeBefore]",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by date and time, filtering out configurations backed up after value."
+        },
+        {
+          "name": "filter_isRunning",
+          "wire_name": "filter[isRunning]",
+          "type": "bool",
+          "location": "query",
+          "description": "Filter for configurations that are currently running, or filter for all configurations which are not currently running."
+        },
+        {
+          "name": "tenants",
+          "type": "string",
+          "location": "query",
+          "description": "Comma delimited list of tenant IDs to request info from."
+        },
+        {
+          "name": "page_first",
+          "wire_name": "page[first]",
+          "type": "float",
+          "location": "query",
+          "description": "For paginated responses, the first N elements will be returned."
+        },
+        {
+          "name": "page_after",
+          "wire_name": "page[after]",
+          "type": "string",
+          "location": "query",
+          "description": "Cursor after which elements will be returned as a page. The page size is provided by page[first]."
+        },
+        {
+          "name": "page_last",
+          "wire_name": "page[last]",
+          "type": "float",
+          "location": "query",
+          "description": "For paginated responses, the last N services will be returned."
+        },
+        {
+          "name": "page_before",
+          "wire_name": "page[before]",
+          "type": "string",
+          "location": "query",
+          "description": "Cursor before which elements will be returned as a page. The page size is provided by page[last]."
+        }
+      ]
+    },
+    {
+      "name": "inventory_read-multiple-device-details",
+      "description": "Use the Read Multiple Devices’ Details API to pull extra collected information about the various devices Auvik has discovered not already included in the Device Info API. You’ll need the client IDs for the clients you want to run the multiple read against. To find the client IDs, run the Read Multiple Tenants API. Optional: filter_manageStatus, filter_discoverySNMP, filter_discoveryWMI (plus 8 more). Returns array of DeviceDetailsResourceObject.",
+      "method": "GET",
+      "path": "/v1/inventory/device/detail",
+      "params": [
+        {
+          "name": "filter_manageStatus",
+          "wire_name": "filter[manageStatus]",
+          "type": "bool",
+          "location": "query",
+          "description": "Filter by managed status"
+        },
+        {
+          "name": "filter_discoverySNMP",
+          "wire_name": "filter[discoverySNMP]",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by the device’s SNMP discovery status."
+        },
+        {
+          "name": "filter_discoveryWMI",
+          "wire_name": "filter[discoveryWMI]",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by the device’s WMI discovery status."
+        },
+        {
+          "name": "filter_discoveryLogin",
+          "wire_name": "filter[discoveryLogin]",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by the device’s Login discovery status."
+        },
+        {
+          "name": "filter_discoveryVMware",
+          "wire_name": "filter[discoveryVMware]",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by the device’s VMware discovery status."
+        },
+        {
+          "name": "filter_trafficInsightsStatus",
+          "wire_name": "filter[trafficInsightsStatus]",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by the device’s TrafficInsights status."
+        },
+        {
+          "name": "tenants",
+          "type": "string",
+          "location": "query",
+          "description": "Comma delimited list of tenant IDs to request info from."
+        },
+        {
+          "name": "page_first",
+          "wire_name": "page[first]",
+          "type": "float",
+          "location": "query",
+          "description": "For paginated responses, the first N elements will be returned."
+        },
+        {
+          "name": "page_after",
+          "wire_name": "page[after]",
+          "type": "string",
+          "location": "query",
+          "description": "Cursor after which elements will be returned as a page. The page size is provided by page[first]."
+        },
+        {
+          "name": "page_last",
+          "wire_name": "page[last]",
+          "type": "float",
+          "location": "query",
+          "description": "For paginated responses, the last N services will be returned."
+        },
+        {
+          "name": "page_before",
+          "wire_name": "page[before]",
+          "type": "string",
+          "location": "query",
+          "description": "Cursor before which elements will be returned as a page. The page size is provided by page[last]."
+        }
+      ]
+    },
+    {
+      "name": "inventory_read-multiple-device-extended-detail",
+      "description": "Use the Read Multiple Devices’ Extended Details API to get many devices’ extended details. Many device types have information collected and tracked by Auvik that are unique to that device type. Use this endpoint to access such information for a given device. You’ll need the client IDs for the clients you want to run the multiple read against. To find the client IDs, run the Read Multiple Tenants API. Required: filter_deviceType. Optional: filter_modifiedAfter, filter_notSeenSince, filter_stateKnown (plus 5 more). Returns array of DeviceExtendedDetailResourceObject.",
+      "method": "GET",
+      "path": "/v1/inventory/device/detail/extended",
+      "params": [
+        {
+          "name": "filter_deviceType",
+          "wire_name": "filter[deviceType]",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by device type.",
+          "required": true
+        },
+        {
+          "name": "filter_modifiedAfter",
+          "wire_name": "filter[modifiedAfter]",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by date and time, only returning entities modified after provided value."
+        },
+        {
+          "name": "filter_notSeenSince",
+          "wire_name": "filter[notSeenSince]",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by the last seen online time, returning entities not seen online after the provided value."
+        },
+        {
+          "name": "filter_stateKnown",
+          "wire_name": "filter[stateKnown]",
+          "type": "bool",
+          "location": "query",
+          "description": "Filter by devices with recently updated data, for more consistent results."
+        },
+        {
+          "name": "tenants",
+          "type": "string",
+          "location": "query",
+          "description": "Comma delimited list of tenant IDs to request info from."
+        },
+        {
+          "name": "page_first",
+          "wire_name": "page[first]",
+          "type": "float",
+          "location": "query",
+          "description": "For paginated responses, the first N elements will be returned."
+        },
+        {
+          "name": "page_after",
+          "wire_name": "page[after]",
+          "type": "string",
+          "location": "query",
+          "description": "Cursor after which elements will be returned as a page. The page size is provided by page[first]."
+        },
+        {
+          "name": "page_last",
+          "wire_name": "page[last]",
+          "type": "float",
+          "location": "query",
+          "description": "For paginated responses, the last N services will be returned."
+        },
+        {
+          "name": "page_before",
+          "wire_name": "page[before]",
+          "type": "string",
+          "location": "query",
+          "description": "Cursor before which elements will be returned as a page. The page size is provided by page[last]."
+        }
+      ]
+    },
+    {
+      "name": "inventory_read-multiple-device-info",
+      "description": "Use the Read Multiple Devices’ Info API to pull the collected information about the various devices Auvik has discovered. You’ll need the client IDs for the clients you want to run the multiple read against. To find the client IDs, run the Read Multiple Tenants API. Optional: filter_networks, filter_deviceType, filter_makeModel (plus 12 more). Returns array of DevicesResourceObject.",
+      "method": "GET",
+      "path": "/v1/inventory/device/info",
+      "params": [
+        {
+          "name": "filter_networks",
+          "wire_name": "filter[networks]",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by IDs of networks this device is on."
+        },
+        {
+          "name": "filter_deviceType",
+          "wire_name": "filter[deviceType]",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by device type."
+        },
+        {
+          "name": "filter_makeModel",
+          "wire_name": "filter[makeModel]",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by the device’s make and model."
+        },
+        {
+          "name": "filter_vendorName",
+          "wire_name": "filter[vendorName]",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by the device’s vendor/manufacturer."
+        },
+        {
+          "name": "filter_onlineStatus",
+          "wire_name": "filter[onlineStatus]",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by the device’s online status."
+        },
+        {
+          "name": "filter_modifiedAfter",
+          "wire_name": "filter[modifiedAfter]",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by date and time, only returning entities modified after provided value."
+        },
+        {
+          "name": "filter_notSeenSince",
+          "wire_name": "filter[notSeenSince]",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by the last seen online time, returning entities not seen online after the provided value."
+        },
+        {
+          "name": "filter_stateKnown",
+          "wire_name": "filter[stateKnown]",
+          "type": "bool",
+          "location": "query",
+          "description": "Filter by devices with recently updated data, for more consistent results."
+        },
+        {
+          "name": "tenants",
+          "type": "string",
+          "location": "query",
+          "description": "Comma delimited list of tenant IDs to request info from."
+        },
+        {
+          "name": "page_first",
+          "wire_name": "page[first]",
+          "type": "float",
+          "location": "query",
+          "description": "For paginated responses, the first N elements will be returned."
+        },
+        {
+          "name": "page_after",
+          "wire_name": "page[after]",
+          "type": "string",
+          "location": "query",
+          "description": "Cursor after which elements will be returned as a page. The page size is provided by page[first]."
+        },
+        {
+          "name": "page_last",
+          "wire_name": "page[last]",
+          "type": "float",
+          "location": "query",
+          "description": "For paginated responses, the last N services will be returned."
+        },
+        {
+          "name": "page_before",
+          "wire_name": "page[before]",
+          "type": "string",
+          "location": "query",
+          "description": "Cursor before which elements will be returned as a page. The page size is provided by page[last]."
+        },
+        {
+          "name": "include",
+          "type": "string",
+          "location": "query",
+          "description": "Use to include the full resource objects of the list device relationships."
+        },
+        {
+          "name": "fields_deviceDetail",
+          "wire_name": "fields[deviceDetail]",
+          "type": "string",
+          "location": "query",
+          "description": "Use to limit the attributes that will be returned in the included detail object to only what is specified by this query parameter. Requires include=deviceDetail"
+        }
+      ]
+    },
+    {
+      "name": "inventory_read-multiple-device-lifecycle",
+      "description": "Use the Read Multiple Devices’ Lifecycle API to pull the collected lifecycle information about the various devices Auvik has discovered. You’ll need the client IDs for the clients you want to run the multiple read against. To find the client IDs, run the Read Multiple Tenants API. Optional: filter_salesAvailability, filter_softwareMaintenanceStatus, filter_securitySoftwareMaintenanceStatus (plus 6 more). Returns array of DeviceLifecycleResourceObject.",
+      "method": "GET",
+      "path": "/v1/inventory/device/lifecycle",
+      "params": [
+        {
+          "name": "filter_salesAvailability",
+          "wire_name": "filter[salesAvailability]",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by sales availability."
+        },
+        {
+          "name": "filter_softwareMaintenanceStatus",
+          "wire_name": "filter[softwareMaintenanceStatus]",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by software maintenance status."
+        },
+        {
+          "name": "filter_securitySoftwareMaintenanceStatus",
+          "wire_name": "filter[securitySoftwareMaintenanceStatus]",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by security software maintenance status."
+        },
+        {
+          "name": "filter_lastSupportStatus",
+          "wire_name": "filter[lastSupportStatus]",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by last support status."
+        },
+        {
+          "name": "tenants",
+          "type": "string",
+          "location": "query",
+          "description": "Comma delimited list of tenant IDs to request info from."
+        },
+        {
+          "name": "page_first",
+          "wire_name": "page[first]",
+          "type": "float",
+          "location": "query",
+          "description": "For paginated responses, the first N elements will be returned."
+        },
+        {
+          "name": "page_after",
+          "wire_name": "page[after]",
+          "type": "string",
+          "location": "query",
+          "description": "Cursor after which elements will be returned as a page. The page size is provided by page[first]."
+        },
+        {
+          "name": "page_last",
+          "wire_name": "page[last]",
+          "type": "float",
+          "location": "query",
+          "description": "For paginated responses, the last N services will be returned."
+        },
+        {
+          "name": "page_before",
+          "wire_name": "page[before]",
+          "type": "string",
+          "location": "query",
+          "description": "Cursor before which elements will be returned as a page. The page size is provided by page[last]."
+        }
+      ]
+    },
+    {
+      "name": "inventory_read-multiple-device-warranty",
+      "description": "Use the Read Multiple Devices’ Warranty API to pull the collected warranty information about the various devices Auvik has discovered. You’ll need the client IDs for the clients you want to run the multiple read against. To find the client IDs, run the Read Multiple Tenants API. Optional: filter_coveredUnderWarranty, filter_coveredUnderService, tenants (plus 4 more). Returns array of DeviceWarrantyResourceObject.",
+      "method": "GET",
+      "path": "/v1/inventory/device/warranty",
+      "params": [
+        {
+          "name": "filter_coveredUnderWarranty",
+          "wire_name": "filter[coveredUnderWarranty]",
+          "type": "bool",
+          "location": "query",
+          "description": "Filter by warranty coverage status."
+        },
+        {
+          "name": "filter_coveredUnderService",
+          "wire_name": "filter[coveredUnderService]",
+          "type": "bool",
+          "location": "query",
+          "description": "Filter by service coverage status."
+        },
+        {
+          "name": "tenants",
+          "type": "string",
+          "location": "query",
+          "description": "Comma delimited list of tenant IDs to request info from."
+        },
+        {
+          "name": "page_first",
+          "wire_name": "page[first]",
+          "type": "float",
+          "location": "query",
+          "description": "For paginated responses, the first N elements will be returned."
+        },
+        {
+          "name": "page_after",
+          "wire_name": "page[after]",
+          "type": "string",
+          "location": "query",
+          "description": "Cursor after which elements will be returned as a page. The page size is provided by page[first]."
+        },
+        {
+          "name": "page_last",
+          "wire_name": "page[last]",
+          "type": "float",
+          "location": "query",
+          "description": "For paginated responses, the last N services will be returned."
+        },
+        {
+          "name": "page_before",
+          "wire_name": "page[before]",
+          "type": "string",
+          "location": "query",
+          "description": "Cursor before which elements will be returned as a page. The page size is provided by page[last]."
+        }
+      ]
+    },
+    {
+      "name": "inventory_read-multiple-entity-audit",
+      "description": "Use the Read Multiple Entity Audits API pull information about multiple entity audits for you clients. You’ll need the client IDs for the clients you want to run the multiple read against. To find the client IDs, run the Read Multiple Tenants API. Optional: filter_user, filter_category, filter_status (plus 6 more). Returns array of AuditsResourceObject.",
+      "method": "GET",
+      "path": "/v1/inventory/entity/audit",
+      "params": [
+        {
+          "name": "filter_user",
+          "wire_name": "filter[user]",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by user name associated to the audit."
+        },
+        {
+          "name": "filter_category",
+          "wire_name": "filter[category]",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by the audit’s category."
+        },
+        {
+          "name": "filter_status",
+          "wire_name": "filter[status]",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by the audit’s status."
+        },
+        {
+          "name": "filter_modifiedAfter",
+          "wire_name": "filter[modifiedAfter]",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by date and time, only returning entities modified after provided value."
+        },
+        {
+          "name": "tenants",
+          "type": "string",
+          "location": "query",
+          "description": "Comma delimited list of tenant IDs to request info from."
+        },
+        {
+          "name": "page_first",
+          "wire_name": "page[first]",
+          "type": "float",
+          "location": "query",
+          "description": "For paginated responses, the first N elements will be returned."
+        },
+        {
+          "name": "page_after",
+          "wire_name": "page[after]",
+          "type": "string",
+          "location": "query",
+          "description": "Cursor after which elements will be returned as a page. The page size is provided by page[first]."
+        },
+        {
+          "name": "page_last",
+          "wire_name": "page[last]",
+          "type": "float",
+          "location": "query",
+          "description": "For paginated responses, the last N services will be returned."
+        },
+        {
+          "name": "page_before",
+          "wire_name": "page[before]",
+          "type": "string",
+          "location": "query",
+          "description": "Cursor before which elements will be returned as a page. The page size is provided by page[last]."
+        }
+      ]
+    },
+    {
+      "name": "inventory_read-multiple-entity-note",
+      "description": "Use the Read Multiple Entity Notes API pull information about multiple entity notes. You’ll need the client IDs for the clients you want to run the multiple read against. To find the client IDs, run the Read Multiple Tenants API. Optional: filter_entityId, filter_entityType, filter_entityName (plus 7 more). Returns array of NoteResourceObject.",
+      "method": "GET",
+      "path": "/v1/inventory/entity/note",
+      "params": [
+        {
+          "name": "filter_entityId",
+          "wire_name": "filter[entityId]",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by the entity’s ID."
+        },
+        {
+          "name": "filter_entityType",
+          "wire_name": "filter[entityType]",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by the entity’s type."
+        },
+        {
+          "name": "filter_entityName",
+          "wire_name": "filter[entityName]",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by the entity’s name."
+        },
+        {
+          "name": "filter_lastModifiedBy",
+          "wire_name": "filter[lastModifiedBy]",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by the user the note was last modified by."
+        },
+        {
+          "name": "filter_modifiedAfter",
+          "wire_name": "filter[modifiedAfter]",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by date and time, only returning entities modified after provided value."
+        },
+        {
+          "name": "tenants",
+          "type": "string",
+          "location": "query",
+          "description": "Comma delimited list of tenant IDs to request info from."
+        },
+        {
+          "name": "page_first",
+          "wire_name": "page[first]",
+          "type": "float",
+          "location": "query",
+          "description": "For paginated responses, the first N elements will be returned."
+        },
+        {
+          "name": "page_after",
+          "wire_name": "page[after]",
+          "type": "string",
+          "location": "query",
+          "description": "Cursor after which elements will be returned as a page. The page size is provided by page[first]."
+        },
+        {
+          "name": "page_last",
+          "wire_name": "page[last]",
+          "type": "float",
+          "location": "query",
+          "description": "For paginated responses, the last N services will be returned."
+        },
+        {
+          "name": "page_before",
+          "wire_name": "page[before]",
+          "type": "string",
+          "location": "query",
+          "description": "Cursor before which elements will be returned as a page. The page size is provided by page[last]."
+        }
+      ]
+    },
+    {
+      "name": "inventory_read-multiple-interface-info",
+      "description": "Use the Read Multiple Interfaces Info API to pull the collected information about the various device interfaces Auvik has discovered. You’ll need the client IDs for the clients you want to run the multiple read against. To find the client IDs, run the Read Multiple Tenants API. Optional: filter_interfaceType, filter_parentDevice, filter_adminStatus (plus 7 more). Returns array of InterfaceResourceObject.",
+      "method": "GET",
+      "path": "/v1/inventory/interface/info",
+      "params": [
+        {
+          "name": "filter_interfaceType",
+          "wire_name": "filter[interfaceType]",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by interface type."
+        },
+        {
+          "name": "filter_parentDevice",
+          "wire_name": "filter[parentDevice]",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by the entity's parent device ID."
+        },
+        {
+          "name": "filter_adminStatus",
+          "wire_name": "filter[adminStatus]",
+          "type": "bool",
+          "location": "query",
+          "description": "Filter by the interface’s admin status."
+        },
+        {
+          "name": "filter_operationalStatus",
+          "wire_name": "filter[operationalStatus]",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by the interface’s operational status."
+        },
+        {
+          "name": "filter_modifiedAfter",
+          "wire_name": "filter[modifiedAfter]",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by date and time, only returning entities modified after provided value."
+        },
+        {
+          "name": "tenants",
+          "type": "string",
+          "location": "query",
+          "description": "Comma delimited list of tenant IDs to request info from."
+        },
+        {
+          "name": "page_first",
+          "wire_name": "page[first]",
+          "type": "float",
+          "location": "query",
+          "description": "For paginated responses, the first N elements will be returned."
+        },
+        {
+          "name": "page_after",
+          "wire_name": "page[after]",
+          "type": "string",
+          "location": "query",
+          "description": "Cursor after which elements will be returned as a page. The page size is provided by page[first]."
+        },
+        {
+          "name": "page_last",
+          "wire_name": "page[last]",
+          "type": "float",
+          "location": "query",
+          "description": "For paginated responses, the last N services will be returned."
+        },
+        {
+          "name": "page_before",
+          "wire_name": "page[before]",
+          "type": "string",
+          "location": "query",
+          "description": "Cursor before which elements will be returned as a page. The page size is provided by page[last]."
+        }
+      ]
+    },
+    {
+      "name": "inventory_read-multiple-network-details",
+      "description": "Use the Read Multiple Networks’ Details API to pull extra collected information about the various networks Auvik has discovered not already included in the Network Info API. You’ll need the client IDs for the clients you want to run the multiple read against. To find the client IDs, run the Read Multiple Tenants API. Optional: filter_networkType, filter_scanStatus, filter_devices (plus 7 more). Returns array of NetworkDetailsResourceObject.",
+      "method": "GET",
+      "path": "/v1/inventory/network/detail",
+      "params": [
+        {
+          "name": "filter_networkType",
+          "wire_name": "filter[networkType]",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by network type."
+        },
+        {
+          "name": "filter_scanStatus",
+          "wire_name": "filter[scanStatus]",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by the network’s scan status."
+        },
+        {
+          "name": "filter_devices",
+          "wire_name": "filter[devices]",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by IDs of devices on this network. Filter by multiple values by providing a comma delimited list."
+        },
+        {
+          "name": "filter_modifiedAfter",
+          "wire_name": "filter[modifiedAfter]",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by date and time, only returning entities modified after provided value."
+        },
+        {
+          "name": "filter_scope",
+          "wire_name": "filter[scope]",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by the network’s scope"
+        },
+        {
+          "name": "tenants",
+          "type": "string",
+          "location": "query",
+          "description": "Comma delimited list of tenant IDs to request info from."
+        },
+        {
+          "name": "page_first",
+          "wire_name": "page[first]",
+          "type": "float",
+          "location": "query",
+          "description": "For paginated responses, the first N elements will be returned."
+        },
+        {
+          "name": "page_after",
+          "wire_name": "page[after]",
+          "type": "string",
+          "location": "query",
+          "description": "Cursor after which elements will be returned as a page. The page size is provided by page[first]."
+        },
+        {
+          "name": "page_last",
+          "wire_name": "page[last]",
+          "type": "float",
+          "location": "query",
+          "description": "For paginated responses, the last N services will be returned."
+        },
+        {
+          "name": "page_before",
+          "wire_name": "page[before]",
+          "type": "string",
+          "location": "query",
+          "description": "Cursor before which elements will be returned as a page. The page size is provided by page[last]."
+        }
+      ]
+    },
+    {
+      "name": "inventory_read-multiple-network-info",
+      "description": "Use the Read Multiple Networks’ Info API to pull the collected information about the various networks Auvik has discovered. You’ll need the client IDs for the clients you want to run the multiple read against. To find the client IDs, run the Read Multiple Tenants API. Optional: filter_networkType, filter_scanStatus, filter_devices (plus 8 more). Returns array of NetworksResourceObject.",
+      "method": "GET",
+      "path": "/v1/inventory/network/info",
+      "params": [
+        {
+          "name": "filter_networkType",
+          "wire_name": "filter[networkType]",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by network type."
+        },
+        {
+          "name": "filter_scanStatus",
+          "wire_name": "filter[scanStatus]",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by the network’s scan status."
+        },
+        {
+          "name": "filter_devices",
+          "wire_name": "filter[devices]",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by IDs of devices on this network. Filter by multiple values by providing a comma delimited list."
+        },
+        {
+          "name": "filter_modifiedAfter",
+          "wire_name": "filter[modifiedAfter]",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by date and time, only returning entities modified after provided value."
+        },
+        {
+          "name": "tenants",
+          "type": "string",
+          "location": "query",
+          "description": "Comma delimited list of tenant IDs to request info from."
+        },
+        {
+          "name": "page_first",
+          "wire_name": "page[first]",
+          "type": "float",
+          "location": "query",
+          "description": "For paginated responses, the first N elements will be returned."
+        },
+        {
+          "name": "page_after",
+          "wire_name": "page[after]",
+          "type": "string",
+          "location": "query",
+          "description": "Cursor after which elements will be returned as a page. The page size is provided by page[first]."
+        },
+        {
+          "name": "page_last",
+          "wire_name": "page[last]",
+          "type": "float",
+          "location": "query",
+          "description": "For paginated responses, the last N services will be returned."
+        },
+        {
+          "name": "page_before",
+          "wire_name": "page[before]",
+          "type": "string",
+          "location": "query",
+          "description": "Cursor before which elements will be returned as a page. The page size is provided by page[last]."
+        },
+        {
+          "name": "include",
+          "type": "string",
+          "location": "query",
+          "description": "Use to include the full resource objects of any of the network’s relationships."
+        },
+        {
+          "name": "fields_networkDetail",
+          "wire_name": "fields[networkDetail]",
+          "type": "string",
+          "location": "query",
+          "description": "Use to limit the attributes that will be returned in the included detail object to only what is specified by this query parameter. Requires include=networkDetail"
+        }
+      ]
+    },
+    {
+      "name": "inventory_read-single-component-info",
+      "description": "Use the Read Single Component’s Info API to pull collected information about a specific device component Auvik has discovered. You’ll need the component ID you want audit detail for. To find the component IDs, run the Read Multiple Components’ Info API. Required: id. Returns the ComponentInfoReadSingle.",
+      "method": "GET",
+      "path": "/v1/inventory/component/info/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "ID of component",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "inventory_read-single-configuration",
+      "description": "Use the Read Single Device Configuration API to pull a single device configuration. You’ll need the client IDs for the clients you want to run the multiple read against. To find the client IDs, run the Read Multiple Tenants API. Required: id. Returns the ConfigReadSingle.",
+      "method": "GET",
+      "path": "/v1/inventory/configuration/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "ID of configuration",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "inventory_read-single-device-details",
+      "description": "Use the Read Single Device’s Details API to pull extra collected information about a specific device Auvik has discovered not already included in the Device Info API. You’ll need the device ID for the specific device. To find the device IDs, run the Read Multiple Devices API. Required: id. Returns the DeviceDetailsReadSingle.",
+      "method": "GET",
+      "path": "/v1/inventory/device/detail/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "ID of device",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "inventory_read-single-device-extended-detail",
+      "description": "Use the Read Single Device’s Extended Details API to get a device’s extended details. Many device types have information collected and tracked by Auvik that are unique to that device type. Use this endpoint to access such information for a given device. To find the device IDs, run the Read Multiple Devices API. Required: id. Returns the DeviceDetailsExtendedReadSingle.",
+      "method": "GET",
+      "path": "/v1/inventory/device/detail/extended/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "ID of device",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "inventory_read-single-device-info",
+      "description": "Use the Read Single Device’s Info API to pull the collected information about a specific device Auvik has discovered. You’ll need the device ID for the specific device. To find the device IDs, run the Read Multiple Devices API. Required: id. Optional: include, fields_deviceDetail. Returns the DeviceInfoReadSingle.",
+      "method": "GET",
+      "path": "/v1/inventory/device/info/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "ID of device",
+          "required": true
+        },
+        {
+          "name": "include",
+          "type": "string",
+          "location": "query",
+          "description": "Use to include the full resource objects of the list device relationships."
+        },
+        {
+          "name": "fields_deviceDetail",
+          "wire_name": "fields[deviceDetail]",
+          "type": "string",
+          "location": "query",
+          "description": "Use to limit the attributes that will be returned in the included detail object to only what is specified by this query parameter. Requires include=deviceDetail"
+        }
+      ]
+    },
+    {
+      "name": "inventory_read-single-device-lifecycle",
+      "description": "Use the Read Single Device’s Lifecycle Info API to pull the collected information about a specific device Auvik has discovered. You’ll need the device ID for the specific device. To find the device IDs, run the Read Multiple Devices API. Required: id. Returns the DeviceLifecycleReadSingle.",
+      "method": "GET",
+      "path": "/v1/inventory/device/lifecycle/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "ID of device",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "inventory_read-single-device-warranty",
+      "description": "Use the Read Single Device’s Warranty Info API to pull the collected information about a specific device Auvik has discovered. You’ll need the device ID for the specific device. To find the device IDs, run the Read Multiple Devices API. Required: id. Returns the DeviceWarrantyReadSingle.",
+      "method": "GET",
+      "path": "/v1/inventory/device/warranty/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "ID of device",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "inventory_read-single-entity-audit",
+      "description": "Use the Single Multiple Entity Audit API pull information about a single entity audit. You’ll need the audit entry ID for the specific audit. To find the audit ID, run the Read Multiple Entity Audits API. Required: id. Returns the EntityAuditReadSingle.",
+      "method": "GET",
+      "path": "/v1/inventory/entity/audit/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "ID of entity audit",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "inventory_read-single-entity-note",
+      "description": "Use the Read Single Entity Note API to pull the information about a specific entity note. You’ll need the entity note ID for the specific entity note. To find the note IDs the Read Multiple Entity Notes API. Required: id. Returns the EntityNotesReadSingle.",
+      "method": "GET",
+      "path": "/v1/inventory/entity/note/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "ID of entity note",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "inventory_read-single-interface-info",
+      "description": "Use the Read Single Interface Info API to pull the collected information about a specific device interface Auvik has discovered. You’ll need the interface ID for the specific interface. To find the interface IDs, run the Read Multiple Interfaces Info API. Required: id. Returns the InterfaceInfoReadSingle.",
+      "method": "GET",
+      "path": "/v1/inventory/interface/info/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "ID of interface",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "inventory_read-single-network-details",
+      "description": "Use the Read Single Networks’s Details API to pull extra collected information about a specific network Auvik has discovered not already included in the network Info API. You’ll need the network ID for the specific network. To find the network IDs, run the Read Multiple Networks API. Required: id. Returns the NetworkDetailsReadSingle.",
+      "method": "GET",
+      "path": "/v1/inventory/network/detail/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "ID of network",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "inventory_read-single-network-info",
+      "description": "Use the Read Single Network’s Info API to pull the collected information about a specific network Auvik has discovered. You’ll need the network ID for the specific network. To find the network IDs, run the Read Multiple Networks’ Info API. Required: id. Optional: include, fields_networkDetail. Returns the NetworkInfoReadSingle.",
+      "method": "GET",
+      "path": "/v1/inventory/network/info/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "ID of network",
+          "required": true
+        },
+        {
+          "name": "include",
+          "type": "string",
+          "location": "query",
+          "description": "Use to include the full resource objects of any of the network’s relationships."
+        },
+        {
+          "name": "fields_networkDetail",
+          "wire_name": "fields[networkDetail]",
+          "type": "string",
+          "location": "query",
+          "description": "Use to limit the attributes that will be returned in the included detail object to only what is specified by this query parameter. Requires include=networkDetail"
+        }
+      ]
+    },
+    {
+      "name": "meta_read-field-info",
+      "description": "Pulls metadata information for a specific API endpoint and field. NOTE: this endpoint is documented by Auvik and implemented by the Auvik-PowerShell-Module community wrapper, but it is absent from Auvik's published OpenAPI documents and could not be probe-verified without credentials (unauthenticated requests to any path return 401). Required: endpoint, field. Returns the MetaReadFieldInfoResponse.",
+      "method": "GET",
+      "path": "/v1/meta/field/info",
+      "params": [
+        {
+          "name": "endpoint",
+          "type": "string",
+          "location": "query",
+          "description": "API endpoint path to describe, e.g. /inventory/device/info",
+          "required": true
+        },
+        {
+          "name": "field",
+          "type": "string",
+          "location": "query",
+          "description": "Field name within that endpoint to describe.",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "settings_read-multiple-snmp-poller",
+      "description": "Use the Read Multiple SNMP Poller Settings API to pull the list of SNMP Poller Settings configured in Auvik. Required: tenants. Optional: filter_deviceId, filter_useAs, filter_type (plus 9 more). Returns array of SnmpPollerSettingsResourceObject.",
+      "method": "GET",
+      "path": "/v1/settings/snmppoller",
+      "params": [
+        {
+          "name": "tenants",
+          "type": "string",
+          "location": "query",
+          "description": "Comma delimited list of tenant IDs to request info from.",
+          "required": true
+        },
+        {
+          "name": "filter_deviceId",
+          "wire_name": "filter[deviceId]",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by device ID"
+        },
+        {
+          "name": "filter_useAs",
+          "wire_name": "filter[useAs]",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by oid type"
+        },
+        {
+          "name": "filter_type",
+          "wire_name": "filter[type]",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by type"
+        },
+        {
+          "name": "filter_deviceType",
+          "wire_name": "filter[deviceType]",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by device type."
+        },
+        {
+          "name": "filter_makeModel",
+          "wire_name": "filter[makeModel]",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by the device’s make and model."
+        },
+        {
+          "name": "filter_vendorName",
+          "wire_name": "filter[vendorName]",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by the device’s vendor/manufacturer."
+        },
+        {
+          "name": "filter_oid",
+          "wire_name": "filter[oid]",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by OID"
+        },
+        {
+          "name": "filter_name",
+          "wire_name": "filter[name]",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by the name of the SNMP poller setting"
+        },
+        {
+          "name": "page_first",
+          "wire_name": "page[first]",
+          "type": "float",
+          "location": "query",
+          "description": "For paginated responses, the first N elements will be returned."
+        },
+        {
+          "name": "page_after",
+          "wire_name": "page[after]",
+          "type": "string",
+          "location": "query",
+          "description": "Cursor after which elements will be returned as a page. The page size is provided by page[first]."
+        },
+        {
+          "name": "page_last",
+          "wire_name": "page[last]",
+          "type": "float",
+          "location": "query",
+          "description": "For paginated responses, the last N services will be returned."
+        },
+        {
+          "name": "page_before",
+          "wire_name": "page[before]",
+          "type": "string",
+          "location": "query",
+          "description": "Cursor before which elements will be returned as a page. The page size is provided by page[last]."
+        }
+      ]
+    },
+    {
+      "name": "settings_read-multiple-snmp-poller-devices",
+      "description": "Use Read SNMP Poller Setting's Devices API to pull the list of devices that apply to a specific SNMP Poller Setting Id. Required: snmpPollerSettingId, tenants. Optional: filter_onlineStatus, filter_modifiedAfter, filter_notSeenSince (plus 7 more). Returns array of SnmpPollerSettingDeviceResourceObject.",
+      "method": "GET",
+      "path": "/v1/settings/snmppoller/{snmpPollerSettingId}/devices",
+      "params": [
+        {
+          "name": "snmpPollerSettingId",
+          "type": "string",
+          "location": "path",
+          "description": "ID of the SNMP Poller Setting that the devices apply to",
+          "required": true
+        },
+        {
+          "name": "tenants",
+          "type": "string",
+          "location": "query",
+          "description": "Comma delimited list of tenant IDs to request info from.",
+          "required": true
+        },
+        {
+          "name": "filter_onlineStatus",
+          "wire_name": "filter[onlineStatus]",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by the device’s online status."
+        },
+        {
+          "name": "filter_modifiedAfter",
+          "wire_name": "filter[modifiedAfter]",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by date and time, only returning entities modified after provided value."
+        },
+        {
+          "name": "filter_notSeenSince",
+          "wire_name": "filter[notSeenSince]",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by the last seen online time, returning entities not seen online after the provided value."
+        },
+        {
+          "name": "filter_deviceType",
+          "wire_name": "filter[deviceType]",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by device type."
+        },
+        {
+          "name": "filter_makeModel",
+          "wire_name": "filter[makeModel]",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by the device’s make and model."
+        },
+        {
+          "name": "filter_vendorName",
+          "wire_name": "filter[vendorName]",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by the device’s vendor/manufacturer."
+        },
+        {
+          "name": "page_first",
+          "wire_name": "page[first]",
+          "type": "float",
+          "location": "query",
+          "description": "For paginated responses, the first N elements will be returned."
+        },
+        {
+          "name": "page_after",
+          "wire_name": "page[after]",
+          "type": "string",
+          "location": "query",
+          "description": "Cursor after which elements will be returned as a page. The page size is provided by page[first]."
+        },
+        {
+          "name": "page_last",
+          "wire_name": "page[last]",
+          "type": "float",
+          "location": "query",
+          "description": "For paginated responses, the last N services will be returned."
+        },
+        {
+          "name": "page_before",
+          "wire_name": "page[before]",
+          "type": "string",
+          "location": "query",
+          "description": "Cursor before which elements will be returned as a page. The page size is provided by page[last]."
+        }
+      ]
+    },
+    {
+      "name": "settings_read-snmp-poller-single",
+      "description": "Use the Read Single SNMP Poller Setting API to pull details of a specific SNMP Poller Setting configured in Auvik. Required: snmpPollerSettingId. Returns the SnmpPollerSettingSingleRead.",
+      "method": "GET",
+      "path": "/v1/settings/snmppoller/{snmpPollerSettingId}",
+      "params": [
+        {
+          "name": "snmpPollerSettingId",
+          "type": "string",
+          "location": "path",
+          "description": "ID of the SNMP Poller Setting to retrieve",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "stat_read-component-statistics",
+      "description": "Use the Read Component Statistics API to fetch detailed statistics of a client's (and client's children if a multi-client) components for a given time range. Required: componentType (default: cpu), statId (default: capacity), filter_fromTime, filter_interval. Optional: filter_thruTime, filter_componentId, filter_parentDevice (plus 5 more). Returns the ComponentStatisticsRead.",
+      "method": "GET",
+      "path": "/v1/stat/component/{componentType}/{statId}",
+      "params": [
+        {
+          "name": "componentType",
+          "type": "string",
+          "location": "path",
+          "description": "Component type of statistic to return",
+          "required": true
+        },
+        {
+          "name": "statId",
+          "type": "string",
+          "location": "path",
+          "description": "ID of statistic to return",
+          "required": true
+        },
+        {
+          "name": "filter_fromTime",
+          "wire_name": "filter[fromTime]",
+          "type": "string",
+          "location": "query",
+          "description": "Timestamp from which you want to query",
+          "required": true
+        },
+        {
+          "name": "filter_thruTime",
+          "wire_name": "filter[thruTime]",
+          "type": "string",
+          "location": "query",
+          "description": "Timestamp to which you want to query (defaults to current time)"
+        },
+        {
+          "name": "filter_interval",
+          "wire_name": "filter[interval]",
+          "type": "string",
+          "location": "query",
+          "description": "Statistics reporting interval",
+          "required": true
+        },
+        {
+          "name": "filter_componentId",
+          "wire_name": "filter[componentId]",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by component ID."
+        },
+        {
+          "name": "filter_parentDevice",
+          "wire_name": "filter[parentDevice]",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by the entity's parent device ID."
+        },
+        {
+          "name": "tenants",
+          "type": "string",
+          "location": "query",
+          "description": "Comma delimited list of tenant IDs to request info from."
+        },
+        {
+          "name": "page_first",
+          "wire_name": "page[first]",
+          "type": "float",
+          "location": "query",
+          "description": "For paginated responses, the first N elements will be returned."
+        },
+        {
+          "name": "page_after",
+          "wire_name": "page[after]",
+          "type": "string",
+          "location": "query",
+          "description": "Cursor after which elements will be returned as a page. The page size is provided by page[first]."
+        },
+        {
+          "name": "page_last",
+          "wire_name": "page[last]",
+          "type": "float",
+          "location": "query",
+          "description": "For paginated responses, the last N services will be returned."
+        },
+        {
+          "name": "page_before",
+          "wire_name": "page[before]",
+          "type": "string",
+          "location": "query",
+          "description": "Cursor before which elements will be returned as a page. The page size is provided by page[last]."
+        }
+      ]
+    },
+    {
+      "name": "stat_read-device-availability-statistics",
+      "description": "Use the Read Device Availability Statistics API to fetch detailed availability statistics of a client’s (and client’s children if a multi-client) devices for a given time range. Required: statId (default: uptime), filter_fromTime, filter_interval. Optional: filter_thruTime, filter_deviceType, filter_deviceId (plus 6 more). Returns the DeviceAvailabilityStatisticsRead.",
+      "method": "GET",
+      "path": "/v1/stat/deviceAvailability/{statId}",
+      "params": [
+        {
+          "name": "statId",
+          "type": "string",
+          "location": "path",
+          "description": "ID of statistic to return",
+          "required": true
+        },
+        {
+          "name": "filter_fromTime",
+          "wire_name": "filter[fromTime]",
+          "type": "string",
+          "location": "query",
+          "description": "Timestamp from which you want to query",
+          "required": true
+        },
+        {
+          "name": "filter_thruTime",
+          "wire_name": "filter[thruTime]",
+          "type": "string",
+          "location": "query",
+          "description": "Timestamp to which you want to query (defaults to current time)"
+        },
+        {
+          "name": "filter_interval",
+          "wire_name": "filter[interval]",
+          "type": "string",
+          "location": "query",
+          "description": "Statistics reporting interval",
+          "required": true
+        },
+        {
+          "name": "filter_deviceType",
+          "wire_name": "filter[deviceType]",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by device type."
+        },
+        {
+          "name": "filter_deviceId",
+          "wire_name": "filter[deviceId]",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by device ID"
+        },
+        {
+          "name": "filter_omitUndiscovered",
+          "wire_name": "filter[omitUndiscovered]",
+          "type": "bool",
+          "location": "query",
+          "description": "When true, omits availability data for time periods before the device was first discovered (See firstDiscoveredDateTime)."
+        },
+        {
+          "name": "tenants",
+          "type": "string",
+          "location": "query",
+          "description": "Comma delimited list of tenant IDs to request info from."
+        },
+        {
+          "name": "page_first",
+          "wire_name": "page[first]",
+          "type": "float",
+          "location": "query",
+          "description": "For paginated responses, the first N elements will be returned."
+        },
+        {
+          "name": "page_after",
+          "wire_name": "page[after]",
+          "type": "string",
+          "location": "query",
+          "description": "Cursor after which elements will be returned as a page. The page size is provided by page[first]."
+        },
+        {
+          "name": "page_last",
+          "wire_name": "page[last]",
+          "type": "float",
+          "location": "query",
+          "description": "For paginated responses, the last N services will be returned."
+        },
+        {
+          "name": "page_before",
+          "wire_name": "page[before]",
+          "type": "string",
+          "location": "query",
+          "description": "Cursor before which elements will be returned as a page. The page size is provided by page[last]."
+        }
+      ]
+    },
+    {
+      "name": "stat_read-device-statistics",
+      "description": "Use the Read Device Statistics API to fetch detailed statistics of a client’s (and client’s children if a multi-client) devices for a given time range. Required: statId (default: bandwidth), filter_fromTime, filter_interval. Optional: filter_thruTime, filter_deviceType, filter_deviceId (plus 5 more). Returns the DeviceStatisticsRead.",
+      "method": "GET",
+      "path": "/v1/stat/device/{statId}",
+      "params": [
+        {
+          "name": "statId",
+          "type": "string",
+          "location": "path",
+          "description": "ID of statistic to return",
+          "required": true
+        },
+        {
+          "name": "filter_fromTime",
+          "wire_name": "filter[fromTime]",
+          "type": "string",
+          "location": "query",
+          "description": "Timestamp from which you want to query",
+          "required": true
+        },
+        {
+          "name": "filter_thruTime",
+          "wire_name": "filter[thruTime]",
+          "type": "string",
+          "location": "query",
+          "description": "Timestamp to which you want to query (defaults to current time)"
+        },
+        {
+          "name": "filter_interval",
+          "wire_name": "filter[interval]",
+          "type": "string",
+          "location": "query",
+          "description": "Statistics reporting interval",
+          "required": true
+        },
+        {
+          "name": "filter_deviceType",
+          "wire_name": "filter[deviceType]",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by device type."
+        },
+        {
+          "name": "filter_deviceId",
+          "wire_name": "filter[deviceId]",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by device ID"
+        },
+        {
+          "name": "tenants",
+          "type": "string",
+          "location": "query",
+          "description": "Comma delimited list of tenant IDs to request info from."
+        },
+        {
+          "name": "page_first",
+          "wire_name": "page[first]",
+          "type": "float",
+          "location": "query",
+          "description": "For paginated responses, the first N elements will be returned."
+        },
+        {
+          "name": "page_after",
+          "wire_name": "page[after]",
+          "type": "string",
+          "location": "query",
+          "description": "Cursor after which elements will be returned as a page. The page size is provided by page[first]."
+        },
+        {
+          "name": "page_last",
+          "wire_name": "page[last]",
+          "type": "float",
+          "location": "query",
+          "description": "For paginated responses, the last N services will be returned."
+        },
+        {
+          "name": "page_before",
+          "wire_name": "page[before]",
+          "type": "string",
+          "location": "query",
+          "description": "Cursor before which elements will be returned as a page. The page size is provided by page[last]."
+        }
+      ]
+    },
+    {
+      "name": "stat_read-interface-statistics",
+      "description": "Use the Read Interface Statistics API to fetch detailed statistics of a client's (and client's children if a multi-client) interfaces for a given time range. Required: statId (default: bandwidth), filter_fromTime, filter_interval. Optional: filter_thruTime, filter_interfaceType, filter_interfaceId (plus 6 more). Returns the InterfaceStatisticsRead.",
+      "method": "GET",
+      "path": "/v1/stat/interface/{statId}",
+      "params": [
+        {
+          "name": "statId",
+          "type": "string",
+          "location": "path",
+          "description": "ID of statistic to return",
+          "required": true
+        },
+        {
+          "name": "filter_fromTime",
+          "wire_name": "filter[fromTime]",
+          "type": "string",
+          "location": "query",
+          "description": "Timestamp from which you want to query",
+          "required": true
+        },
+        {
+          "name": "filter_thruTime",
+          "wire_name": "filter[thruTime]",
+          "type": "string",
+          "location": "query",
+          "description": "Timestamp to which you want to query (defaults to current time)"
+        },
+        {
+          "name": "filter_interval",
+          "wire_name": "filter[interval]",
+          "type": "string",
+          "location": "query",
+          "description": "Statistics reporting interval",
+          "required": true
+        },
+        {
+          "name": "filter_interfaceType",
+          "wire_name": "filter[interfaceType]",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by interface type."
+        },
+        {
+          "name": "filter_interfaceId",
+          "wire_name": "filter[interfaceId]",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by interface ID."
+        },
+        {
+          "name": "filter_parentDevice",
+          "wire_name": "filter[parentDevice]",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by the entity's parent device ID."
+        },
+        {
+          "name": "tenants",
+          "type": "string",
+          "location": "query",
+          "description": "Comma delimited list of tenant IDs to request info from."
+        },
+        {
+          "name": "page_first",
+          "wire_name": "page[first]",
+          "type": "float",
+          "location": "query",
+          "description": "For paginated responses, the first N elements will be returned."
+        },
+        {
+          "name": "page_after",
+          "wire_name": "page[after]",
+          "type": "string",
+          "location": "query",
+          "description": "Cursor after which elements will be returned as a page. The page size is provided by page[first]."
+        },
+        {
+          "name": "page_last",
+          "wire_name": "page[last]",
+          "type": "float",
+          "location": "query",
+          "description": "For paginated responses, the last N services will be returned."
+        },
+        {
+          "name": "page_before",
+          "wire_name": "page[before]",
+          "type": "string",
+          "location": "query",
+          "description": "Cursor before which elements will be returned as a page. The page size is provided by page[last]."
+        }
+      ]
+    },
+    {
+      "name": "stat_read-multiple-snmp-poller-setting-int-history",
+      "description": "Use the Read SNMP Poller Setting's History API to fetch the list of historical vaules for a SNMP Poller Setting. Required: filter_fromTime, filter_interval, tenants. Optional: filter_thruTime, filter_deviceId, filter_snmpPollerSettingId (plus 4 more). Returns array of SnmpPollerIntHistoryResourceObject.",
+      "method": "GET",
+      "path": "/v1/stat/snmppoller/int",
+      "params": [
+        {
+          "name": "filter_fromTime",
+          "wire_name": "filter[fromTime]",
+          "type": "string",
+          "location": "query",
+          "description": "Timestamp from which you want to query",
+          "required": true
+        },
+        {
+          "name": "filter_thruTime",
+          "wire_name": "filter[thruTime]",
+          "type": "string",
+          "location": "query",
+          "description": "Timestamp to which you want to query (defaults to current time)"
+        },
+        {
+          "name": "filter_interval",
+          "wire_name": "filter[interval]",
+          "type": "string",
+          "location": "query",
+          "description": "Statistics reporting interval",
+          "required": true
+        },
+        {
+          "name": "tenants",
+          "type": "string",
+          "location": "query",
+          "description": "Comma delimited list of tenant IDs to request info from.",
+          "required": true
+        },
+        {
+          "name": "filter_deviceId",
+          "wire_name": "filter[deviceId]",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by device ID"
+        },
+        {
+          "name": "filter_snmpPollerSettingId",
+          "wire_name": "filter[snmpPollerSettingId]",
+          "type": "string",
+          "location": "query",
+          "description": "Comma delimited list of SNMP poller setting IDs to request info from. Note this is internal snmpPollerSettingId. The user can get the list of IDs for a specific poller using the GET /settings/snmppoller endpoint."
+        },
+        {
+          "name": "page_first",
+          "wire_name": "page[first]",
+          "type": "float",
+          "location": "query",
+          "description": "For paginated responses, the first N elements will be returned."
+        },
+        {
+          "name": "page_after",
+          "wire_name": "page[after]",
+          "type": "string",
+          "location": "query",
+          "description": "Cursor after which elements will be returned as a page. The page size is provided by page[first]."
+        },
+        {
+          "name": "page_last",
+          "wire_name": "page[last]",
+          "type": "float",
+          "location": "query",
+          "description": "For paginated responses, the last N services will be returned."
+        },
+        {
+          "name": "page_before",
+          "wire_name": "page[before]",
+          "type": "string",
+          "location": "query",
+          "description": "Cursor before which elements will be returned as a page. The page size is provided by page[last]."
+        }
+      ]
+    },
+    {
+      "name": "stat_read-multiple-snmp-poller-setting-string-history",
+      "description": "Use the Read SNMP Poller Setting's History API to fetch the list of historical vaules for a SNMP Poller Setting. Required: filter_fromTime, tenants. Optional: filter_thruTime, filter_compact, filter_deviceId (plus 5 more). Returns array of SnmpPollerStringHistoryResourceObject.",
+      "method": "GET",
+      "path": "/v1/stat/snmppoller/string",
+      "params": [
+        {
+          "name": "filter_fromTime",
+          "wire_name": "filter[fromTime]",
+          "type": "string",
+          "location": "query",
+          "description": "Timestamp from which you want to query",
+          "required": true
+        },
+        {
+          "name": "filter_thruTime",
+          "wire_name": "filter[thruTime]",
+          "type": "string",
+          "location": "query",
+          "description": "Timestamp to which you want to query (defaults to current time)"
+        },
+        {
+          "name": "filter_compact",
+          "wire_name": "filter[compact]",
+          "type": "bool",
+          "location": "query",
+          "description": "Whether to show compact view of the results or not. Compact view only shows changes in value. If compact view is false, dateTime range can be a maximum of 24h"
+        },
+        {
+          "name": "tenants",
+          "type": "string",
+          "location": "query",
+          "description": "Comma delimited list of tenant IDs to request info from.",
+          "required": true
+        },
+        {
+          "name": "filter_deviceId",
+          "wire_name": "filter[deviceId]",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by device ID"
+        },
+        {
+          "name": "filter_snmpPollerSettingId",
+          "wire_name": "filter[snmpPollerSettingId]",
+          "type": "string",
+          "location": "query",
+          "description": "Comma delimited list of SNMP poller setting IDs to request info from. Note this is internal snmpPollerSettingId. The user can get the list of IDs for a specific poller using the GET /settings/snmppoller endpoint."
+        },
+        {
+          "name": "page_first",
+          "wire_name": "page[first]",
+          "type": "float",
+          "location": "query",
+          "description": "For paginated responses, the first N elements will be returned."
+        },
+        {
+          "name": "page_after",
+          "wire_name": "page[after]",
+          "type": "string",
+          "location": "query",
+          "description": "Cursor after which elements will be returned as a page. The page size is provided by page[first]."
+        },
+        {
+          "name": "page_last",
+          "wire_name": "page[last]",
+          "type": "float",
+          "location": "query",
+          "description": "For paginated responses, the last N services will be returned."
+        },
+        {
+          "name": "page_before",
+          "wire_name": "page[before]",
+          "type": "string",
+          "location": "query",
+          "description": "Cursor before which elements will be returned as a page. The page size is provided by page[last]."
+        }
+      ]
+    },
+    {
+      "name": "stat_read-oid-statistics",
+      "description": "Use the Read OID Statistics API to fetch the last recorded value of a monitored device OID. Required: statId (default: deviceMonitor). Optional: filter_deviceId, filter_deviceType, filter_oid (plus 5 more). Returns array of DeviceOidMonitorResourceObject.",
+      "method": "GET",
+      "path": "/v1/stat/oid/{statId}",
+      "params": [
+        {
+          "name": "statId",
+          "type": "string",
+          "location": "path",
+          "description": "ID of statistic to return",
+          "required": true
+        },
+        {
+          "name": "filter_deviceId",
+          "wire_name": "filter[deviceId]",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by device ID"
+        },
+        {
+          "name": "filter_deviceType",
+          "wire_name": "filter[deviceType]",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by device type."
+        },
+        {
+          "name": "filter_oid",
+          "wire_name": "filter[oid]",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by OID"
+        },
+        {
+          "name": "tenants",
+          "type": "string",
+          "location": "query",
+          "description": "Comma delimited list of tenant IDs to request info from."
+        },
+        {
+          "name": "page_first",
+          "wire_name": "page[first]",
+          "type": "float",
+          "location": "query",
+          "description": "For paginated responses, the first N elements will be returned."
+        },
+        {
+          "name": "page_after",
+          "wire_name": "page[after]",
+          "type": "string",
+          "location": "query",
+          "description": "Cursor after which elements will be returned as a page. The page size is provided by page[first]."
+        },
+        {
+          "name": "page_last",
+          "wire_name": "page[last]",
+          "type": "float",
+          "location": "query",
+          "description": "For paginated responses, the last N services will be returned."
+        },
+        {
+          "name": "page_before",
+          "wire_name": "page[before]",
+          "type": "string",
+          "location": "query",
+          "description": "Cursor before which elements will be returned as a page. The page size is provided by page[last]."
+        }
+      ]
+    },
+    {
+      "name": "stat_read-service-statistics",
+      "description": "Use the Read Service Statistics API to fetch detailed statistics of a client’s (and client’s children if a multi-client) services for a given time range. Required: statId (default: pingTime), filter_fromTime, filter_interval. Optional: filter_thruTime, filter_serviceId, tenants (plus 4 more). Returns the ServiceStatisticsRead.",
+      "method": "GET",
+      "path": "/v1/stat/service/{statId}",
+      "params": [
+        {
+          "name": "statId",
+          "type": "string",
+          "location": "path",
+          "description": "ID of statistic to return",
+          "required": true
+        },
+        {
+          "name": "filter_fromTime",
+          "wire_name": "filter[fromTime]",
+          "type": "string",
+          "location": "query",
+          "description": "Timestamp from which you want to query",
+          "required": true
+        },
+        {
+          "name": "filter_thruTime",
+          "wire_name": "filter[thruTime]",
+          "type": "string",
+          "location": "query",
+          "description": "Timestamp to which you want to query (defaults to current time)"
+        },
+        {
+          "name": "filter_interval",
+          "wire_name": "filter[interval]",
+          "type": "string",
+          "location": "query",
+          "description": "Statistics reporting interval",
+          "required": true
+        },
+        {
+          "name": "filter_serviceId",
+          "wire_name": "filter[serviceId]",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by service ID"
+        },
+        {
+          "name": "tenants",
+          "type": "string",
+          "location": "query",
+          "description": "Comma delimited list of tenant IDs to request info from."
+        },
+        {
+          "name": "page_first",
+          "wire_name": "page[first]",
+          "type": "float",
+          "location": "query",
+          "description": "For paginated responses, the first N elements will be returned."
+        },
+        {
+          "name": "page_after",
+          "wire_name": "page[after]",
+          "type": "string",
+          "location": "query",
+          "description": "Cursor after which elements will be returned as a page. The page size is provided by page[first]."
+        },
+        {
+          "name": "page_last",
+          "wire_name": "page[last]",
+          "type": "float",
+          "location": "query",
+          "description": "For paginated responses, the last N services will be returned."
+        },
+        {
+          "name": "page_before",
+          "wire_name": "page[before]",
+          "type": "string",
+          "location": "query",
+          "description": "Cursor before which elements will be returned as a page. The page size is provided by page[last]."
+        }
+      ]
+    },
+    {
+      "name": "tenants_read-multiple",
+      "description": "Use the Read Multiple Tenants API to pull access detail about multiple multi-clients and clients associated with your Auvik user account. Returns array of TenantsResourceObject.",
+      "method": "GET",
+      "path": "/v1/tenants",
+      "params": []
+    },
+    {
+      "name": "tenants_read-multiple-detail",
+      "description": "Use the Read Multiple Tenants API to pull details for multiple multi-clients and clients associated with your main Auvik account. Required: tenantDomainPrefix. Optional: filter_availableTenants. Returns array of TenantDetailResourceObject.",
+      "method": "GET",
+      "path": "/v1/tenants/detail",
+      "params": [
+        {
+          "name": "tenantDomainPrefix",
+          "type": "string",
+          "location": "query",
+          "description": "Domain prefix of your main Auvik account (tenant).",
+          "required": true
+        },
+        {
+          "name": "filter_availableTenants",
+          "wire_name": "filter[availableTenants]",
+          "type": "bool",
+          "location": "query",
+          "description": "Filter whether or not a tenant is available, i.e. data can be gotten from them via the API."
+        }
+      ]
+    },
+    {
+      "name": "tenants_read-single-detail",
+      "description": "Use the Read a Single Tenant API to pull detail about a specific multi-client and client associated with your main Auvik account. You’ll need the tenant ID for the specific multi-client or client you want detail for. You can find the tenant ID for the multi-client or client by Read Multiple Tenants Detail. Required: tenantDomainPrefix, id. Returns the TenantsDetailReadSingle.",
+      "method": "GET",
+      "path": "/v1/tenants/detail/{id}",
+      "params": [
+        {
+          "name": "tenantDomainPrefix",
+          "type": "string",
+          "location": "query",
+          "description": "Domain prefix of your main Auvik account (tenant).",
+          "required": true
+        },
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "ID of tenant",
+          "required": true
+        }
+      ]
+    }
+  ],
+  "novel_features": [
+    {
+      "name": "Fleet end-of-life \u0026 warranty rollup",
+      "command": "eol",
+      "description": "See every device approaching or past end-of-support across all your clients at once, bucketed by urgency."
+    },
+    {
+      "name": "Device change forensics timeline",
+      "command": "changes",
+      "description": "Merge config revisions, audit entries, notes, and alerts for one device into a single chronological story."
+    },
+    {
+      "name": "Configuration backup audit",
+      "command": "configuration audit",
+      "description": "Find devices with no configuration backup, a stale backup, or no running-config backup, across every client."
+    },
+    {
+      "name": "Fleet inventory diff between syncs",
+      "command": "inventory diff",
+      "description": "List devices added, removed, or changed fleet-wide since the last sync, attributed to each client."
+    },
+    {
+      "name": "Billable-count reconciliation",
+      "command": "usage reconcile",
+      "description": "Put each client's billable usage count next to the actual synced inventory and show the device rows behind the difference."
+    },
+    {
+      "name": "Discovery blind spots",
+      "command": "device discovery-gaps",
+      "description": "List every device Auvik cannot fully poll, per client, with the credential state behind each gap."
+    },
+    {
+      "name": "Alert noise ranking",
+      "command": "alert noise",
+      "description": "Rank devices and clients by alert volume over a window, with device names, types, clients and severity mix resolved."
+    },
+    {
+      "name": "SaaS license waste rollup",
+      "command": "asm shadow",
+      "description": "Surface SaaS apps with active users but no license record, and licenses nobody is using, per client."
+    },
+    {
+      "name": "Client network health scorecard",
+      "command": "tenants scorecard",
+      "description": "Per-client health rollup: end-of-support exposure, backup gaps, blind spots and alerts."
+    }
+  ]
+}

@@ -90,7 +90,7 @@ clients. Do NOT use this command for the change history of one device; use
 'changes' instead.
 
 Reads the local mirror. Run this first:
-  auvik-cli sync --resources tenants,inventory,inventory-configuration --full
+  auvik-cli sync --resources tenants,inventory-device-info,inventory-configuration --full
 `, "\n"),
 		Example: strings.Trim(`
   # Everything not properly backed up, worst first
@@ -131,8 +131,8 @@ Reads the local mirror. Run this first:
 			}
 			defer db.Close()
 
-			if !hintIfUnsynced(cmd, db, "inventory-configuration") {
-				hintIfStale(cmd, db, "inventory-configuration", flags.maxAge)
+			if !hintIfUnsynced(cmd, db, rtConfigurations.current()) {
+				hintIfStale(cmd, db, rtConfigurations.current(), flags.maxAge)
 			}
 
 			ctx := cmd.Context()
@@ -174,7 +174,7 @@ Reads the local mirror. Run this first:
 			report.Findings = out
 
 			if report.DevicesTotal == 0 {
-				report.Note = "no devices in the local mirror; run 'auvik-cli sync --resources inventory --full'"
+				report.Note = "no devices in the local mirror; run 'auvik-cli sync --resources inventory-device-info --full'"
 			} else if report.ConfigsTotal == 0 {
 				report.Note = "no configuration backups in the local mirror; run 'auvik-cli sync --resources inventory-configuration --full'. Every device is reported as no_backup until then."
 			}

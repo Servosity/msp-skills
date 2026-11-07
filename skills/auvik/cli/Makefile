@@ -3,7 +3,7 @@
 BIN_EXT := $(if $(filter windows,$(shell go env GOOS)),.exe,)
 
 build:
-	go build -o bin/auvik-cli$(BIN_EXT) ./cmd/auvik-cli
+	go build -trimpath -o bin/auvik-cli$(BIN_EXT) ./cmd/auvik-cli
 
 test:
 	go test ./...
@@ -18,7 +18,7 @@ clean:
 	rm -rf bin/
 
 build-mcp:
-	go build -o bin/auvik-mcp$(BIN_EXT) ./cmd/auvik-mcp
+	go build -trimpath -o bin/auvik-mcp$(BIN_EXT) ./cmd/auvik-mcp
 
 install-mcp:
 	go install ./cmd/auvik-mcp

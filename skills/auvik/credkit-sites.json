@@ -1,0 +1,188 @@
+{
+ "sites": [
+  {
+   "file": "internal/cli/auvik_local.go",
+   "func": "emitLocalReport",
+   "what": "writer:io.Writer",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "a report writer of an auvik command; it runs only inside the command's RunE, after credkit.Start, and writes to the command's stdout/stderr, which the kit owns at the file-descriptor level"
+  },
+  {
+   "file": "internal/cli/auvik_local.go",
+   "func": "loadResources",
+   "what": "database/sql.DB.QueryContext",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reads the local mirror opened through internal/credsql (credkit.SQLDriver) inside the command's RunE, after credkit.Start"
+  },
+  {
+   "file": "internal/cli/auvik_local.go",
+   "func": "openLocalMirror",
+   "what": "fmt.Fprintf",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "a report writer of an auvik command; it runs only inside the command's RunE, after credkit.Start, and writes to the command's stdout/stderr, which the kit owns at the file-descriptor level"
+  },
+  {
+   "file": "internal/cli/auvik_local.go",
+   "func": "openLocalMirror",
+   "what": "writer:io.Writer",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "a report writer of an auvik command; it runs only inside the command's RunE, after credkit.Start, and writes to the command's stdout/stderr, which the kit owns at the file-descriptor level"
+  },
+  {
+   "file": "internal/cli/auvik_snapshot_lock_unix.go",
+   "func": "acquireSnapshotLock",
+   "what": "os.OpenFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "creates the inventory-diff snapshot lock file (O_CREATE, 0600) and writes nothing to it; the lock is held by the advisory file lock only"
+  },
+  {
+   "file": "internal/cli/auvik_snapshot_lock_unix.go",
+   "func": "acquireSnapshotLock",
+   "what": "syscall.Flock",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "takes or releases an advisory lock on the snapshot lock file; it writes no data, reads no environment and starts no process"
+  },
+  {
+   "file": "internal/cli/auvik_snapshot_lock_windows.go",
+   "func": "acquireSnapshotLock",
+   "what": "golang.org/x/sys/windows.LockFileEx",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "takes or releases an advisory lock on the snapshot lock file; it writes no data, reads no environment and starts no process"
+  },
+  {
+   "file": "internal/cli/auvik_snapshot_lock_windows.go",
+   "func": "acquireSnapshotLock",
+   "what": "golang.org/x/sys/windows.UnlockFileEx",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "takes or releases an advisory lock on the snapshot lock file; it writes no data, reads no environment and starts no process"
+  },
+  {
+   "file": "internal/cli/auvik_snapshot_lock_windows.go",
+   "func": "acquireSnapshotLock",
+   "what": "os.OpenFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "creates the inventory-diff snapshot lock file (O_CREATE, 0600) and writes nothing to it; the lock is held by the advisory file lock only"
+  },
+  {
+   "file": "internal/cli/configuration_audit.go",
+   "func": "newNovelConfigurationAuditCmd",
+   "what": "fmt.Fprintf",
+   "count": 4,
+   "kind": "exempt",
+   "reason": "a report writer of an auvik command; it runs only inside the command's RunE, after credkit.Start, and writes to the command's stdout/stderr, which the kit owns at the file-descriptor level"
+  },
+  {
+   "file": "internal/cli/configuration_audit.go",
+   "func": "newNovelConfigurationAuditCmd",
+   "what": "fmt.Fprintln",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "a report writer of an auvik command; it runs only inside the command's RunE, after credkit.Start, and writes to the command's stdout/stderr, which the kit owns at the file-descriptor level"
+  },
+  {
+   "file": "internal/cli/configuration_audit.go",
+   "func": "newNovelConfigurationAuditCmd",
+   "what": "writer:io.Writer",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "a report writer of an auvik command; it runs only inside the command's RunE, after credkit.Start, and writes to the command's stdout/stderr, which the kit owns at the file-descriptor level"
+  },
+  {
+   "file": "internal/cli/device_discovery_gaps.go",
+   "func": "newNovelDeviceDiscoveryGapsCmd",
+   "what": "fmt.Fprintf",
+   "count": 4,
+   "kind": "exempt",
+   "reason": "a report writer of an auvik command; it runs only inside the command's RunE, after credkit.Start, and writes to the command's stdout/stderr, which the kit owns at the file-descriptor level"
+  },
+  {
+   "file": "internal/cli/device_discovery_gaps.go",
+   "func": "newNovelDeviceDiscoveryGapsCmd",
+   "what": "fmt.Fprintln",
+   "count": 3,
+   "kind": "exempt",
+   "reason": "a report writer of an auvik command; it runs only inside the command's RunE, after credkit.Start, and writes to the command's stdout/stderr, which the kit owns at the file-descriptor level"
+  },
+  {
+   "file": "internal/cli/device_discovery_gaps.go",
+   "func": "newNovelDeviceDiscoveryGapsCmd",
+   "what": "writer:io.Writer",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "a report writer of an auvik command; it runs only inside the command's RunE, after credkit.Start, and writes to the command's stdout/stderr, which the kit owns at the file-descriptor level"
+  },
+  {
+   "file": "internal/cli/usage_reconcile.go",
+   "func": "newNovelUsageReconcileCmd",
+   "what": "fmt.Fprintf",
+   "count": 4,
+   "kind": "exempt",
+   "reason": "a report writer of an auvik command; it runs only inside the command's RunE, after credkit.Start, and writes to the command's stdout/stderr, which the kit owns at the file-descriptor level"
+  },
+  {
+   "file": "internal/cli/usage_reconcile.go",
+   "func": "newNovelUsageReconcileCmd",
+   "what": "fmt.Fprintln",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "a report writer of an auvik command; it runs only inside the command's RunE, after credkit.Start, and writes to the command's stdout/stderr, which the kit owns at the file-descriptor level"
+  },
+  {
+   "file": "internal/cli/usage_reconcile.go",
+   "func": "newNovelUsageReconcileCmd",
+   "what": "writer:io.Writer",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "a report writer of an auvik command; it runs only inside the command's RunE, after credkit.Start, and writes to the command's stdout/stderr, which the kit owns at the file-descriptor level"
+  },
+  {
+   "file": "internal/credsql/credsql.go",
+   "func": "applyLengthLimit",
+   "what": "database/sql.DB.Conn",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "lends a connection already opened through credkit.SQLDriver to set SQLITE_LIMIT_LENGTH: it runs no statement and writes no value, and the hook only runs when a store opens, after Start"
+  },
+  {
+   "file": "internal/credsql/credsql.go",
+   "func": "applyLengthLimit",
+   "what": "database/sql.OpenDB",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "lends a connection already opened through credkit.SQLDriver to set SQLITE_LIMIT_LENGTH: it runs no statement and writes no value, and the hook only runs when a store opens, after Start"
+  },
+  {
+   "file": "internal/credwire/declarations.go",
+   "func": "readRegular",
+   "what": "os.ReadFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reads only the credential sources credentialFiles names and the run-profile stores, inside Start, and the bytes go only to credkit.HoldBody and credkit.Hold"
+  },
+  {
+   "file": "internal/credwire/declarations.go",
+   "func": "takeStdinBody",
+   "what": "os.File.Stat",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reads stdin's mode inside Start's Files hook, before anything prints, so a terminal is not read; it writes nothing"
+  },
+  {
+   "file": "internal/credwire/declarations.go",
+   "func": "takeStdinBody",
+   "what": "writer:*os.File",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "os.Stdin read with io.ReadAll inside Start's Files hook: the --stdin body, whose credential fields credkit.HoldBody holds before anything prints, handed back on a new pipe after Start; nothing is written to it"
+  }
+ ]
+}

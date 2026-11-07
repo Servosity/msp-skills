@@ -14,8 +14,9 @@ func newNovelDeviceCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "device",
-		Short:       "device subcommands: discovery-gaps",
-		Annotations: map[string]string{"mcp:read-only": "true"},
+		Short:       "Work with device",
+		Example:     "  auvik-cli device discovery-gaps --agent",
+		Annotations: map[string]string{"mcp:read-only": "true", "pp:data-source": "auto", "pp:typed-exit-codes": "0,2"},
 		RunE:        parentNoSubcommandRunE(flags),
 	}
 	addNovelCommandIfAbsent(cmd, newNovelDeviceDiscoveryGapsCmd(flags))

@@ -21,30 +21,76 @@ import (
 	"auvik-pp-cli/internal/store"
 )
 
-// Sync resource names, which are also the `resource_type` values written by
-// `sync` (see defaultSyncResources/knownSyncResourceNames in sync.go). Several
-// families are addressed by more than one name depending on whether the API
-// exposed them flat or parent-scoped, so lookups use the candidate-list form.
+// auvikFamily is one Auvik record family as the local store holds it.
+//
+// partitions are the `resource_type` values `sync` writes it under: the CURRENT
+// partition first (what this build's syncer writes; see syncResourcePath in
+// sync.go), then names an older print wrote, so a mirror synced before an
+// upgrade is still read until a writable open moves those rows into the
+// current partition (see loadResources and auvikLegacyMoves). The press renames partitions between versions: 4.35.1
+// moved "inventory" from devices to components, "asm" from apps to clients and
+// "auvik-inventory" from v2 devices to v2 discovery status.
+//
+// types are the JSON:API `type` values Auvik documents for the family's
+// records (auvik-v1/v2 OpenAPI). A row is read only when its type is listed,
+// so a partition that holds another family under the same name can never leak
+// into a report, whatever any print called it.
+//
+// path is the list endpoint the current partition must sync from;
+// TestAuvikFamiliesPinTheirEndpoint fails the build when a reprint points the
+// current name somewhere else.
+type auvikFamily struct {
+	partitions []string
+	types      []string
+	path       string
+}
+
+// current is the partition this build's `sync` writes the family to: the name
+// every hint and every sync instruction must use.
+func (f auvikFamily) current() string { return f.partitions[0] }
+
 var (
-	rtDevices         = []string{"inventory", "inventory-device-info"}
-	rtDeviceDetail    = []string{"inventory-device-detail"}
-	rtDeviceLifecycle = []string{"inventory-device-lifecycle"}
+	rtDevices         = auvikFamily{[]string{"inventory-device-info", "inventory"}, []string{"device"}, "/v1/inventory/device/info"}
+	rtDeviceDetail    = auvikFamily{[]string{"inventory-device-detail"}, []string{"deviceDetail"}, "/v1/inventory/device/detail"}
+	rtDeviceLifecycle = auvikFamily{[]string{"inventory-device-lifecycle"}, []string{"deviceLifecycle"}, "/v1/inventory/device/lifecycle"}
 	// v1 lifecycle carries only STATUS enums; the actual end-of-support and
 	// end-of-sale DATES exist only on the v2 lifecycle resource.
-	rtDeviceLifecycleV2 = []string{"auvik-inventory-lifecycle"}
-	rtDeviceWarranty    = []string{"inventory-device-warranty"}
-	rtConfigurations    = []string{"inventory-configuration"}
-	rtEntityAudit       = []string{"inventory-entity-audit"}
-	rtEntityNote        = []string{"inventory-entity-note"}
-	rtAlerts            = []string{"alert"}
-	rtTenants           = []string{"tenants", "tenants-detail"}
-	rtDiscoveryStatus   = []string{"auvik-inventory-discovery-status"}
-	rtBilling           = []string{"billing"}
-	rtASMApps           = []string{"asm", "asm-app-info"}
-	rtASMUsers          = []string{"asm-user-info"}
-	rtASMLicenses       = []string{"asm-license-info"}
-	rtASMClients        = []string{"asm-client-info"}
+	rtDeviceLifecycleV2 = auvikFamily{[]string{"auvik-inventory-lifecycle"}, []string{"deviceLifecycle"}, "/v2/api/inventory/device/lifecycle"}
+	rtDeviceWarranty    = auvikFamily{[]string{"inventory-device-warranty"}, []string{"deviceWarranty"}, "/v1/inventory/device/warranty"}
+	rtConfigurations    = auvikFamily{[]string{"inventory-configuration"}, []string{"configuration"}, "/v1/inventory/configuration"}
+	rtEntityAudit       = auvikFamily{[]string{"inventory-entity-audit"}, []string{"entityAudit"}, "/v1/inventory/entity/audit"}
+	rtEntityNote        = auvikFamily{[]string{"inventory-entity-note"}, []string{"entityNote"}, "/v1/inventory/entity/note"}
+	rtAlerts            = auvikFamily{[]string{"alert"}, []string{"alert"}, "/v1/alert/history/info"}
+	rtTenants           = auvikFamily{[]string{"tenants", "tenants-detail"}, []string{"tenant", "tenants"}, "/v1/tenants"}
+	rtDiscoveryStatus   = auvikFamily{[]string{"auvik-inventory", "auvik-inventory-discovery-status"}, []string{"deviceDiscoveryStatus"}, "/v2/api/inventory/device/discoveryStatus"}
+	rtBilling           = auvikFamily{[]string{"billing"}, []string{"clientUsage"}, "/v1/billing/usage/client"}
+	rtASMApps           = auvikFamily{[]string{"asm-app-info", "asm"}, []string{"asmApp"}, "/v1/asm/app/info"}
+	rtASMUsers          = auvikFamily{[]string{"asm-user-info"}, []string{"asmUser"}, "/v1/asm/user/info"}
+	rtASMLicenses       = auvikFamily{[]string{"asm-license-info"}, []string{"asmLicense"}, "/v1/asm/license/info"}
+	rtASMClients        = auvikFamily{[]string{"asm", "asm-client-info"}, []string{"asmClient"}, "/v1/asm/client/info"}
 )
+
+// auvikLegacyMoves are the partitions the 4.30 print wrote a family under that
+// this build writes another family to (or nothing): their rows of the family's
+// types move into the current partition at every writable store open. A listed
+// partition that is NOT here is one this build still syncs (tenants-detail).
+var auvikLegacyMoves = []store.PartitionMove{
+	{From: "inventory", To: rtDevices.current(), Types: rtDevices.types},
+	{From: "asm", To: rtASMApps.current(), Types: rtASMApps.types},
+	{From: "auvik-inventory-discovery-status", To: rtDiscoveryStatus.current(), Types: rtDiscoveryStatus.types},
+	{From: "asm-client-info", To: rtASMClients.current(), Types: rtASMClients.types},
+}
+
+func init() { store.LegacyPartitionMoves = auvikLegacyMoves }
+
+// auvikFamilies is every family a novel reads; the partition tests walk it.
+var auvikFamilies = map[string]auvikFamily{
+	"devices": rtDevices, "device-detail": rtDeviceDetail, "device-lifecycle": rtDeviceLifecycle,
+	"device-lifecycle-v2": rtDeviceLifecycleV2, "device-warranty": rtDeviceWarranty,
+	"configurations": rtConfigurations, "entity-audit": rtEntityAudit, "entity-note": rtEntityNote,
+	"alerts": rtAlerts, "tenants": rtTenants, "discovery-status": rtDiscoveryStatus, "billing": rtBilling,
+	"asm-apps": rtASMApps, "asm-users": rtASMUsers, "asm-licenses": rtASMLicenses, "asm-clients": rtASMClients,
+}
 
 // auvikRow is one stored JSON:API resource object plus its primary key.
 type auvikRow struct {
@@ -155,7 +201,7 @@ func openLocalMirror(cmd *cobra.Command, flags *rootFlags, dbPath string, empty 
 	}
 	if _, statErr := os.Stat(dbPath); os.IsNotExist(statErr) {
 		fmt.Fprintf(cmd.ErrOrStderr(),
-			"no local mirror at %s\nrun: auvik-cli sync --resources tenants,inventory --db %s\n",
+			"no local mirror at %s\nrun: auvik-cli sync --resources tenants,inventory-device-info --db %s\n",
 			dbPath, dbPath)
 		if !wantsHumanTable(cmd.OutOrStdout(), flags) {
 			return nil, true, printJSONFiltered(cmd.OutOrStdout(), empty, flags)
@@ -169,22 +215,42 @@ func openLocalMirror(cmd *cobra.Command, flags *rootFlags, dbPath string, empty 
 	return st, false, nil
 }
 
-// loadResources drains every row for the first candidate resource_type that has
-// data. Drain-first is mandatory: SQLite uses a single connection, so no
-// follow-up query may run while this parent *sql.Rows is open.
-func loadResources(ctx context.Context, db *store.Store, candidates []string) ([]auvikRow, error) {
-	if len(candidates) == 0 {
+// loadResources drains every row of a family, keeping only rows whose JSON:API
+// type the family allows, one row per id (the most recently synced copy wins).
+//
+// It reads every partition the family lists. Rows an older print left under a
+// partition this build no longer writes the family to are moved into the
+// current partition at the first writable store open (auvikLegacyMoves,
+// store.moveLegacyPartitions), which every `sync` performs before it walks, so
+// the current partition's reconcile governs them: an unfiltered full sync
+// prunes a record Auvik stopped returning, a filtered one prunes nothing. A
+// mirror read before any post-upgrade sync still answers from the legacy rows.
+//
+// Drain-first is mandatory: SQLite uses a single connection, so no follow-up
+// query may run while this parent *sql.Rows is open.
+func loadResources(ctx context.Context, db *store.Store, family auvikFamily) ([]auvikRow, error) {
+	candidates := family.partitions
+	if len(candidates) == 0 || len(family.types) == 0 {
 		return nil, nil
 	}
 	placeholders := make([]string, len(candidates))
-	args := make([]any, len(candidates))
+	args := make([]any, 0, len(candidates)+len(family.types))
 	for i, c := range candidates {
 		placeholders[i] = "?"
-		args[i] = c
+		args = append(args, c)
 	}
+	typePlaceholders := make([]string, len(family.types))
+	for i, t := range family.types {
+		typePlaceholders[i] = "?"
+		args = append(args, t)
+	}
+	// Allowlist by the record's own documented type; a row with no type, or
+	// another family's type stored under a shared partition name, is not read.
+	// Newest first, so the first copy of an id kept below is the freshest.
 	q := fmt.Sprintf(
-		`SELECT id, data FROM resources WHERE resource_type IN (%s)`,
-		strings.Join(placeholders, ","))
+		`SELECT id, data FROM resources WHERE resource_type IN (%s) AND json_valid(data) AND json_extract(data, '$.type') IN (%s)
+		 ORDER BY synced_at DESC, updated_at DESC`,
+		strings.Join(placeholders, ","), strings.Join(typePlaceholders, ","))
 
 	rows, err := db.DB().QueryContext(ctx, q, args...)
 	if err != nil {
@@ -212,12 +278,17 @@ func loadResources(ctx context.Context, db *store.Store, candidates []string) ([
 	}
 
 	out := make([]auvikRow, 0, len(raw))
+	seen := make(map[string]bool, len(raw))
 	for _, rr := range raw {
+		if seen[rr.id] {
+			continue
+		}
 		var obj map[string]any
 		if err := json.Unmarshal(rr.data, &obj); err != nil {
 			// A single malformed row must not sink the whole report.
 			continue
 		}
+		seen[rr.id] = true
 		out = append(out, auvikRow{ID: rr.id, Data: obj})
 	}
 	return out, nil
