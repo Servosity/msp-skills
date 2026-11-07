@@ -24,6 +24,7 @@ const stdioTok = "stdio-token-0123456789"
 func TestMain(m *testing.M) {
 	switch os.Getenv(childModeEnv) {
 	case "":
+		RegisterConstants(kitcpuTable()) // every test runs with the shortcut on (kitcpu_test.go)
 		os.Exit(m.Run())
 	case "held":
 		childHeld()

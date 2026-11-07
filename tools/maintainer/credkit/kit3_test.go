@@ -924,7 +924,7 @@ func TestKit3StopsGoThroughLimits(t *testing.T) {
 			}
 		}
 	}
-	for _, f := range []string{"match.go", "decode.go", "charset.go", "deflateprobe.go"} {
+	for _, f := range []string{"match.go", "decode.go", "charset.go", "deflateprobe.go", "consttable.go"} {
 		src, err := os.ReadFile(f)
 		if err != nil {
 			t.Fatal(err)
