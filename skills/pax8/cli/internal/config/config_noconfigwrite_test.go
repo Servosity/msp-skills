@@ -63,13 +63,24 @@ func ncwFilesMentioning(snap map[string]string, needle string) []string {
 	return hits
 }
 
+// ncwHome sandboxes every directory the connector resolves (HOME and
+// USERPROFILE, the per-kind and XDG overrides) under one throwaway home, so
+// the snapshot sees every file a save writes. Setting HOME alone left the
+// credentials file in the runner's real profile on Windows, where
+// os.UserHomeDir reads USERPROFILE.
+func ncwHome(t *testing.T) string {
+	t.Helper()
+	isolateCredentials(t)
+	home := os.Getenv("PAX8_HOME")
+	t.Setenv("PAX8_CONFIG", filepath.Join(home, "config.toml"))
+	return home
+}
+
 // ncwMint runs one "an ordinary command minted a token" cycle under a
 // throwaway HOME and returns everything that landed on disk.
 func ncwMint(t *testing.T, value string, set bool) map[string]string {
 	t.Helper()
-	home := t.TempDir()
-	t.Setenv("HOME", home)
-	t.Setenv("PAX8_CONFIG", filepath.Join(home, "config.toml"))
+	home := ncwHome(t)
 	if set {
 		t.Setenv(NoConfigWriteEnv, value)
 	} else {
@@ -128,10 +139,7 @@ func TestWithoutTheSwitchTheCacheIsByteIdentical(t *testing.T) {
 // that is already on disk, even with the switch set - guarding save()
 // unconditionally would make logout silently inert.
 func TestNoConfigWriteStillAllowsTheWipe(t *testing.T) {
-	home := t.TempDir()
-	cfgPath := filepath.Join(home, "config.toml")
-	t.Setenv("HOME", home)
-	t.Setenv("PAX8_CONFIG", cfgPath)
+	home := ncwHome(t)
 
 	// Seed through the connector's own writer so the on-disk format is
 	// whatever this connector actually uses.
