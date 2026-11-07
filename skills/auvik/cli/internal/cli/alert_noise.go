@@ -62,7 +62,7 @@ history. Do NOT use this command for working the live alert queue or dismissing
 alerts; use 'alert list' to read the queue and 'alert dismiss' to clear one.
 
 Reads the local mirror. Run this first:
-  auvik-cli sync --resources tenants,inventory,alert --full
+  auvik-cli sync --resources tenants,inventory-device-info,alert --full
 `, "\n"),
 		Example: strings.Trim(`
   # Who ate my shift, last 30 days
@@ -103,8 +103,8 @@ Reads the local mirror. Run this first:
 			}
 			defer db.Close()
 
-			if !hintIfUnsynced(cmd, db, "alert") {
-				hintIfStale(cmd, db, "alert", flags.maxAge)
+			if !hintIfUnsynced(cmd, db, rtAlerts.current()) {
+				hintIfStale(cmd, db, rtAlerts.current(), flags.maxAge)
 			}
 
 			ctx := cmd.Context()

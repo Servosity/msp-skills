@@ -19,12 +19,36 @@ This CLI ships as a Claude Code Skill and MCP server in [Servosity/msp-skills](h
 3. Verify: `auvik-cli --version`
 4. Ensure `~/.local/bin` (macOS / Linux) or `%LOCALAPPDATA%\Programs\msp-skills` (Windows) is on `$PATH`.
 
-If `--version` reports "command not found" after install, the install step did not put the binary on `$PATH`. Do not proceed with skill commands until verification succeeds.
+If `--version` reports "command not found" after install, the install step did not put the binary on `$PATH`. Do not proceed until verification succeeds.
 
 ### Pre-built binary
 
 Download a pre-built binary for your platform from the [latest release](https://github.com/Servosity/msp-skills/releases?q=auvik). On macOS, clear the Gatekeeper quarantine: `xattr -d com.apple.quarantine <binary>`. On Unix, mark it executable: `chmod +x <binary>`.
 
+<!-- pp-hermes-install-anchor -->
+## Install for Hermes
+
+From the Hermes CLI:
+
+```bash
+hermes skills install Servosity/msp-skills/skills/auvik --force
+```
+
+Inside a Hermes chat session:
+
+```bash
+/skills install Servosity/msp-skills/skills/auvik --force
+```
+
+Hermes [speaks MCP natively](https://hermes-agent.nousresearch.com), so it can also use the `auvik-mcp` server directly - same install path, same environment variables. Restart the Hermes session or gateway if the newly installed skill is not visible immediately.
+
+## Install for OpenClaw
+
+Tell your OpenClaw agent (copy this):
+
+> Install the auvik skill from https://github.com/Servosity/msp-skills/tree/main/skills/auvik. The skill defines how its required CLI (`auvik-cli`) can be installed via the `openclaw:` frontmatter block.
+
+OpenClaw isn't generally available yet; the frontmatter wiring is pre-shipped and will activate the moment OpenClaw launches.
 
 ## Use with Claude Desktop
 
@@ -32,11 +56,11 @@ This CLI ships an [MCPB](https://github.com/modelcontextprotocol/mcpb) bundle  -
 
 To install:
 
-1. Download the `.mcpb` for your platform from the [latest release](https://github.com/Servosity/msp-skills/releases).
+1. Download the `.mcpb` for your platform from the [latest release](https://github.com/Servosity/msp-skills/releases?q=auvik).
 2. Double-click the `.mcpb` file. Claude Desktop opens and walks you through the install.
-3. Fill in `AUVIK_USERNAME` (your Auvik user email) and `AUVIK_API_KEY` when Claude Desktop prompts you. Set `AUVIK_BASE_URL` to your region's host (`us1`, `us2`, `eu1`, ...) if you are not on `us1`.
+3. Fill in `AUVIK_USERNAME` when Claude Desktop prompts you.
 
-Requires Claude Desktop 1.0.0 or later. A bundle carries the five platform binaries the builder downloads - macOS (`darwin-arm64`, `darwin-amd64`), Linux (`linux-arm64`, `linux-amd64`) and Windows (`windows-amd64`). Windows on ARM is released as a standalone binary but is not bundled, so use the manual config below there.
+Requires Claude Desktop 1.0.0 or later. Pre-built bundles ship for macOS Apple Silicon (`darwin-arm64`) and Windows (`amd64`, `arm64`); for other platforms, use the manual config below.
 
 <details>
 <summary>Manual JSON config (advanced)</summary>
@@ -51,7 +75,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/sk
 iwr -useb https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/auvik/install.ps1 | iex            # Windows
 ```
 
-Add to your Claude Desktop config (`%APPDATA%\Claude\claude_desktop_config.json` on Windows, `~/Library/Application Support/Claude/claude_desktop_config.json` on macOS):
+Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS, `%APPDATA%\Claude\claude_desktop_config.json` on Windows):
 
 ```json
 {
@@ -59,9 +83,7 @@ Add to your Claude Desktop config (`%APPDATA%\Claude\claude_desktop_config.json`
     "auvik": {
       "command": "auvik-mcp",
       "env": {
-        "AUVIK_USERNAME": "<your-auvik-user-email>",
-        "AUVIK_API_KEY": "<your-auvik-api-key>",
-        "AUVIK_BASE_URL": "https://auvikapi.us1.my.auvik.com"
+        "AUVIK_USERNAME": "<your-key>"
       }
     }
   }
@@ -69,6 +91,17 @@ Add to your Claude Desktop config (`%APPDATA%\Claude\claude_desktop_config.json`
 ```
 
 </details>
+
+### Remote MCP over HTTP
+
+`auvik-mcp --transport http` (or `PP_MCP_TRANSPORT=http`) serves streamable HTTP at `http://127.0.0.1:7777/mcp`. It refuses to start until `AUVIK_MCP_HTTP_TOKEN` is set to at least 32 characters, and every request must send `Authorization: Bearer <token>`. The command below prints 64 hex characters and meets that minimum. Plain HTTP is allowed only on a loopback `--addr`; any other bind, including `:7777` (every interface), also needs `--tls-cert` and `--tls-key`. Requests with no `Origin` header are accepted, as are loopback origins (`localhost`, `127.0.0.1`, or `[::1]`, any port). Any other `Origin` is refused unless it is listed in `AUVIK_MCP_HTTP_ALLOWED_ORIGINS`, a comma-separated list of `scheme://host[:port]` values with no path. That list is not a CORS policy; the server does not emit CORS headers.
+
+```bash
+export AUVIK_MCP_HTTP_TOKEN="$(openssl rand -hex 32)"
+auvik-mcp --transport http
+```
+
+Set `AUVIK_MCP_READ_ONLY=1` (exactly `1`) to drop mirrored commands that are not marked read-only and make the raw execute tool refuse state-changing calls. Commands marked local-write, which write only this CLI's own learn store, stay available.
 
 ## Authentication
 
@@ -88,7 +121,7 @@ auvik-cli doctor --dry-run
 auvik-cli tenants list --agent
 
 # Build the local mirror the cross-client commands read from
-auvik-cli sync --resources tenants,inventory,auvik-inventory-lifecycle,inventory-device-warranty --full
+auvik-cli sync --resources tenants,inventory-device-info,auvik-inventory-lifecycle,inventory-device-warranty --full
 
 # The headline question: what is aging out across every client
 auvik-cli eol --agent
@@ -99,8 +132,6 @@ auvik-cli configuration audit --agent
 ```
 
 ## Unique Features
-
-These capabilities aren't available in any other tool for this API.
 
 ### Cross-client answers Auvik cannot give
 - **`eol`**  -  See every device approaching or past end-of-support across all your clients at once, bucketed by urgency.
@@ -123,6 +154,13 @@ These capabilities aren't available in any other tool for this API.
 
   ```bash
   auvik-cli inventory diff --since 7d --agent
+  ```
+- **`tenants scorecard`**  -  Per-client health rollup: end-of-support exposure, backup gaps, blind spots and alerts.
+
+  _Use this to prepare a client review or to pick which client needs attention first. Every number is computed from the local mirror, so sync first._
+
+  ```bash
+  auvik-cli tenants scorecard --since 30d --agent
   ```
 
 ### Config integrity at fleet scale
@@ -171,10 +209,10 @@ These capabilities aren't available in any other tool for this API.
 ### End-of-support exposure across the whole book
 
 ```bash
-auvik-cli eol --agent --select rows.client,rows.device_name,rows.make_model,rows.last_support_date
+auvik-cli eol --agent --select rows.client,rows.device_name,rows.make_model,rows.end_of_support
 ```
 
-The quarterly-business-review answer in one line. The report is an envelope, so select through 'rows.' to narrow to the four fields that go on the slide (Auvik exposes no single end-of-life date; `last_support_date` is the support-lifecycle one).
+The quarterly-business-review answer in one line. The report is an envelope, so select through 'rows.' to narrow to the four fields that go on the slide.
 
 ### Prove which devices are not backed up
 
@@ -247,6 +285,15 @@ auvik-cli doctor
 
 Under `AUVIK_HOME=/srv/auvik`, the four dirs resolve to `/srv/auvik/config`, `/srv/auvik/data`, `/srv/auvik/state`, and `/srv/auvik/cache`.
 
+On Windows, set the same variable in PowerShell:
+
+```powershell
+$env:AUVIK_HOME = "C:\srv\auvik"
+auvik-cli doctor
+```
+
+Under `$env:AUVIK_HOME = "C:\srv\auvik"`, the four dirs resolve to `C:\srv\auvik\config`, `C:\srv\auvik\data`, `C:\srv\auvik\state`, and `C:\srv\auvik\cache`.
+
 MCP servers do not receive CLI flags from the host. Put relocation in the host `env` block:
 
 ```json
@@ -267,6 +314,16 @@ Precedence matters in fleets: an ambient per-kind variable such as `AUVIK_DATA_D
 Relocation is one-way. Unsetting `AUVIK_HOME` does not move files back to platform defaults, and `doctor` cannot find credentials left under a former root. Move the files manually before unsetting relocation variables.
 
 Existing installs keep working because the platform-default rung matches the legacy layout. On the first auth write, stored secrets leave `config.toml` and are consolidated into `credentials.toml` under the data directory. Run `auvik-cli doctor --fail-on warn` to check path and credential-location warnings in automation.
+
+### Local data
+
+Reads are saved locally by default: in `--data-source auto` mode every successful read is also written to the SQLite store (`data.db`, or `data-<hash>.db` per credential) in the data directory. GET responses are cached for five minutes under `http/` in the cache directory. Credentials live in `credentials.toml` in the data directory. The learn journal lives under `learn/` in the state directory. `auvik-cli doctor` prints the resolved paths, every store file, and the response-cache size.
+
+None of it is encrypted. New files are created owner-only; beyond that the data relies on OS account permissions and full-disk encryption (FileVault, BitLocker, LUKS).
+
+- **Erase it:** `auvik-cli local-data purge` lists the store files, response cache, and learn journal it would delete; add `--yes` to delete them, or `--only store|cache|journal` to narrow it. Config and credentials are kept.
+- **Run without a local copy:** set `AUVIK_NO_LOCAL_DATA=1`. Reads go to the API (`--data-source live`; `--data-source local` still reads an existing store), the response cache is off (`--no-cache`), nothing new is written to the store, and `sync` and `workflow archive` refuse to run. Set it in an MCP host's `env` block and every command the server runs inherits it.
+- **Choose the read source without flags:** `AUVIK_DATA_SOURCE=auto|live|local` sets the `--data-source` default; an explicit flag wins.
 
 ## Commands
 
@@ -466,6 +523,62 @@ The Auvik Tenant API allows you to see if you have access to multi-clients or cl
  You can find the tenant ID for the multi-client or client by Read Multiple Tenants Detail.
 
 
+### alert
+
+
+- **`auvik-cli alert noise`** - Rank devices and clients by alert volume over a window, with device names, types, clients and severity mix resolved.
+
+
+### asm
+
+
+- **`auvik-cli asm shadow`** - Surface SaaS apps with active users but no license record, and licenses nobody is using, per client.
+
+
+### changes
+
+
+- **`auvik-cli changes`** - Merge config revisions, audit entries, notes, and alerts for one device into a single chronological story.
+
+
+### configuration
+
+
+- **`auvik-cli configuration audit`** - Find devices with no configuration backup, a stale backup, or no running-config backup, across every client.
+
+
+### device
+
+
+- **`auvik-cli device discovery-gaps`** - List every device Auvik cannot fully poll, per client, with the credential state behind each gap.
+
+
+### eol
+
+
+- **`auvik-cli eol`** - See every device approaching or past end-of-support across all your clients at once, bucketed by urgency.
+
+
+### inventory
+
+
+- **`auvik-cli inventory diff`** - List devices added, removed, or changed fleet-wide since the last sync, attributed to each client.
+
+
+### tenants
+
+
+- **`auvik-cli tenants scorecard`** - Per-client health rollup: end-of-support exposure, backup gaps, blind spots and alerts.
+
+
+### usage
+
+
+- **`auvik-cli usage reconcile`** - Put each client's billable usage count next to the actual synced inventory and show the device rows behind the difference.
+
+
+
+
 ### Self-learning loop
 
 This CLI caches per-question discovery so repeat queries skip the walk and structurally similar queries get answered via entity substitution. The loop also self-captures: every invocation is journaled locally, and failed-flag corrections plus fresh teaches surface as candidates on the next `recall` for confirm/reject judgment. Agents call `recall` before discovery and fire `teach &` after answering. See the `## Automatic learning` section in `SKILL.md` for the full protocol.
@@ -492,7 +605,7 @@ auvik-cli alert read-multiple-info
 # JSON for scripting and agents
 auvik-cli alert read-multiple-info --json
 # Filter to specific fields
-auvik-cli alert read-multiple-info --json --select attributes.alertDefinitionId,attributes.description,attributes.detectedOn
+auvik-cli alert read-multiple-info --json --select alertDefinitionId,description,detectedOn
 
 # Dry run  -  show the request without sending
 auvik-cli alert read-multiple-info --dry-run
@@ -501,6 +614,8 @@ auvik-cli alert read-multiple-info --dry-run
 auvik-cli alert read-multiple-info --agent
 ```
 
+`--csv` prefixes a leading `'` on cells and header keys that start with `=`, `+`, `-`, `@`, a tab, or a line break (including fullwidth `＝＋－＠`) so a spreadsheet does not run them as formulas. Plain signed numbers such as `-5` and `+2.5e3` are left unchanged.
+
 ## Agent Usage
 
 This CLI is designed for AI agent consumption:
@@ -508,16 +623,14 @@ This CLI is designed for AI agent consumption:
 - **Non-interactive** - never prompts, every input is a flag
 - **Pipeable** - `--json` output to stdout, errors to stderr
 - **Filterable** - `--select <field>[,<field>...]` returns only fields you need
-- **Previewable** - `--dry-run` shows the request without sending. This guards the
-  Auvik API write only: `auth set-credentials`, `auth logout` and `profile save`
-  write to your own machine and run regardless of the flag.
+- **Previewable** - `--dry-run` shows the request without sending
 - **Explicit retries** - add `--idempotent` to create retries when a no-op success is acceptable
-- **Confirmable** - `--yes` for explicit confirmation of destructive actions
+- **Explicit confirmation** - `--agent` does not imply `--yes`; pass `--yes` separately only after the target, arguments, and side effects are clear
 - **Piped input** - write commands can accept structured input when their help lists `--stdin`
 - **Offline-friendly** - sync/search commands can use the local SQLite store when available
 - **Agent-safe by default** - no colors or formatting unless `--human-friendly` is set
 
-Exit codes: `0` success, `2` usage error, `3` not found, `4` auth error, `5` API error, `7` rate limited, `10` config error.
+Exit codes: `0` success, `2` usage error, `3` not found, `4` auth error, `5` API error, `6` partial failure, `7` rate limited, `10` config error.
 
 ## Health Check
 
@@ -529,17 +642,18 @@ Verifies configuration, credentials, and connectivity to the API.
 
 ## Configuration
 
-Run `auvik-cli doctor` to see the resolved config, data, state, and cache directories. The platform-default config path is `~/.config/auvik-cli/config.toml` (`%USERPROFILE%\.config\auvik-cli\config.toml` on Windows); `--home`, `AUVIK_HOME`, and per-kind env vars can relocate it.
+Run `auvik-cli doctor` to see the resolved config, data, state, and cache directories. The platform-default config path is `~/.config/auvik-cli/config.toml` on macOS/Linux and `%USERPROFILE%\.config\auvik-cli\config.toml` on Windows; `--home`, `AUVIK_HOME`, and per-kind env vars can relocate it.
 
 Static request headers can be configured under `headers`; per-command header overrides take precedence.
+
+`--ca-cert`, `AUVIK_CA_CERT`, or `ca_cert` adds a PEM CA bundle to the system trust roots. `--tls-server-name`, `AUVIK_TLS_SERVER_NAME`, or `tls_server_name` is the name checked against the certificate when the dialed address does not match it. Precedence is flag, then environment, then the config file. A config file other users can change does not supply these settings. Certificate verification failures are not retried.
 
 Environment variables:
 
 | Name | Kind | Required | Description |
 | --- | --- | --- | --- |
-| `AUVIK_USERNAME` | per_call | Yes | Your Auvik user email - the username half of the HTTP Basic credential. |
-| `AUVIK_API_KEY` | per_call | Yes | Your Auvik API key (Auvik > Admin > Integrations > Auvik API) - the password half. |
-| `AUVIK_BASE_URL` | per_call | Yes unless you are on us1 | Your region's API host, e.g. `https://auvikapi.eu1.my.auvik.com`, with no path suffix. A valid key against the wrong region returns a 401 that looks exactly like a bad key. |
+| `AUVIK_USERNAME` | per_call | Yes |  |
+| `AUVIK_API_KEY` | per_call | Yes | Set to your API credential. |
 
 ### agentcookie (optional)
 

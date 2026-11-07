@@ -14,8 +14,9 @@ func newNovelUsageCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "usage",
-		Short:       "usage subcommands: reconcile",
-		Annotations: map[string]string{"mcp:read-only": "true"},
+		Short:       "Work with usage",
+		Example:     "  auvik-cli usage reconcile --agent",
+		Annotations: map[string]string{"mcp:read-only": "true", "pp:data-source": "auto", "pp:typed-exit-codes": "0,2"},
 		RunE:        parentNoSubcommandRunE(flags),
 	}
 	addNovelCommandIfAbsent(cmd, newNovelUsageReconcileCmd(flags))

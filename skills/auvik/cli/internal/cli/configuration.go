@@ -14,8 +14,9 @@ func newNovelConfigurationCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "configuration",
-		Short:       "configuration subcommands: grep",
-		Annotations: map[string]string{"mcp:read-only": "true"},
+		Short:       "Work with configuration",
+		Example:     "  auvik-cli configuration audit --agent",
+		Annotations: map[string]string{"mcp:read-only": "true", "pp:data-source": "auto", "pp:typed-exit-codes": "0,2"},
 		RunE:        parentNoSubcommandRunE(flags),
 	}
 	addNovelCommandIfAbsent(cmd, newNovelConfigurationAuditCmd(flags))
