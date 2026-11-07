@@ -72,6 +72,11 @@ type matcher struct {
 	distinct [256][]int
 	multiO   sync.Once
 	multi    *multiIndex // multi-byte charsets
+
+	// prefixes is the first eight bytes of every pattern when the matcher
+	// is of constTable's class (consttable.go), else nil.
+	prefixes map[uint64]struct{}
+	rec      func([]byte) // ConstantTable's: every text matched (nil on every matcher a sink uses)
 }
 
 func (m *matcher) prepare() {
@@ -112,18 +117,21 @@ func (m *matcher) multiIndex() *multiIndex {
 	return m.multi
 }
 
-func newMatcher(vals []string) *matcher { return buildMatcher(vals, false, false) }
+func newMatcher(vals []string) *matcher { return buildMatcher(vals, nil, false, false) }
 
 // newWholeMatcher finds each value only whole, by 2(a): the collision
 // check with public text, where a piece is no collision.
-func newWholeMatcher(vals []string) *matcher { return buildMatcher(vals, false, true) }
+func newWholeMatcher(vals []string) *matcher { return buildMatcher(vals, nil, false, true) }
 
 // newRequestMatcher is the matcher for an outbound request, judged by
 // contract 2(c) alone: a held value in any form, so a short value counts
 // anywhere, not only as a whole token.
-func newRequestMatcher(vals []string) *matcher { return buildMatcher(vals, true, false) }
+func newRequestMatcher(vals []string) *matcher { return buildMatcher(vals, nil, true, false) }
 
-func buildMatcher(vals []string, anywhere, whole bool) *matcher {
+// buildMatcher builds the matcher for vals. A value in userCut is a Basic
+// pair "user:password" whose user is an Identifier: a piece lying wholly
+// inside "user:" is not held, by position alone (KF-JSM-1, userKeep).
+func buildMatcher(vals []string, userCut map[string]bool, anywhere, whole bool) *matcher {
 	m := &matcher{numWhole: map[string]struct{}{}, numWin: map[string]struct{}{}}
 	pats := map[string]bool{} // normalized pattern -> short (whole token only)
 	for _, v := range vals {
@@ -150,14 +158,24 @@ func buildMatcher(vals []string, anywhere, whole bool) *matcher {
 		m.norms = append(m.norms, n)
 		m.maxLen = max(m.maxLen, len(n))
 		long := nc >= pieceLen || rnc >= pieceLen
+		keepRaw, keepNorm := func(int) bool { return true }, func(int) bool { return true }
+		if userCut[v] {
+			keepRaw, keepNorm = userKeep(v, rs, cs)
+		}
 		if long && whole {
 			pats[string(n)], pats[rot13s(string(n))] = false, false
 		} else if long {
 			for i := 0; i+pieceLen <= nc; i++ {
+				if !keepNorm(i) {
+					continue
+				}
 				w := string(n[cs[i]:cs[i+pieceLen]])
 				pats[w], pats[rot13s(w)] = false, false
 			}
 			for i := 0; i+pieceLen <= rnc && !bytes.Equal(rv, n); i++ {
+				if !keepRaw(i) {
+					continue
+				}
 				w := string(normalize(rv[rs[i]:rs[i+pieceLen]]))
 				pats[w], pats[rot13s(w)] = false, false
 			}
@@ -189,7 +207,33 @@ func buildMatcher(vals []string, anywhere, whole bool) *matcher {
 		m.norms = append(m.norms, []byte(w))
 	}
 	m.ac = newAutomaton(pats)
+	m.prefixes = constPrefixes(m, pats)
 	return m
+}
+
+// userKeep reports, for the Basic pair v with its user cut, which of its
+// 8-character pieces stay held: by index as written (rs, v's character
+// starts) and normalized (cs, the normalized pair's). A piece is released
+// only when every character of it is a character of "user:", by position:
+// as written, it ends at or before the colon's end; normalized, only when the
+// normalized pair is the normalized user followed by the normalized ":" and
+// password (so each of its characters comes from one side), and the piece
+// ends at or before that colon. Any other piece, one with a password
+// character in it, stays held exactly as for the pair held whole; so does
+// every piece of a pair that is not valid UTF-8 (contract 2 counts it by
+// bytes).
+func userKeep(v string, rs, cs []int) (raw, norm func(int) bool) {
+	all := func(int) bool { return true }
+	user, pass, ok := strings.Cut(v, ":")
+	if !ok || !utf8.ValidString(v) {
+		return all, all
+	}
+	raw = func(i int) bool { return rs[i+pieceLen] > len(user)+1 }
+	nu, nr := normalize([]byte(user)), normalize([]byte(":"+pass))
+	if len(nr) == 0 || nr[0] != ':' || !bytes.Equal(normalize([]byte(v)), append(slices.Clip(nu), nr...)) {
+		return raw, all
+	}
+	return raw, func(i int) bool { return cs[i+pieceLen] > len(nu)+1 }
 }
 
 // rot13s rotates the ASCII letters of s (a normalized value is lower case).
@@ -302,6 +346,9 @@ func (m *matcher) hit(n []byte) bool { return m.hitIn(n, false) }
 // hitIn is hit, with a short value counted anywhere when anywhere is set
 // (a run decoder's output, every span of which is a view of its own).
 func (m *matcher) hitIn(n []byte, anywhere bool) bool {
+	if m.rec != nil {
+		m.rec(n)
+	}
 	a := m.ac
 	s := int32(0)
 	for i, c := range n {

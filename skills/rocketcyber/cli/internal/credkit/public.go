@@ -126,8 +126,15 @@ func startupCollisionLocked() (Source, bool) {
 	if all == nil {
 		return "", false
 	}
-	// Every entry is its own unit; they are checked side by side.
 	entries := publicText()
+	units := make([][]byte, len(entries))
+	for i, e := range entries {
+		units[i] = []byte(e)
+	}
+	if all.constClean(true, units...) { // exact: consttable.go
+		return "", false
+	}
+	// Every entry is its own unit; they are checked side by side.
 	hit := make([]bool, len(entries))
 	var next atomic.Int64
 	var wg sync.WaitGroup
