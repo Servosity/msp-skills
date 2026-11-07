@@ -73,7 +73,7 @@
       "name": "appdirect",
       "source": "./skills/appdirect",
       "description": "Every documented AppDirect marketplace operation in one binary, plus offline sync and billing-reconciliation joins.",
-      "version": "0.1.9",
+      "version": "0.1.10",
       "category": "billing",
       "tags": [
         "appdirect",
@@ -1142,7 +1142,7 @@
       "name": "threatdown",
       "source": "./skills/threatdown",
       "description": "Every ThreatDown OneView API, plus fleet-wide stale-endpoint, health and seat reports across all your sites, and guarded isolate/scan/restore jobs.",
-      "version": "0.1.3",
+      "version": "0.1.4",
       "category": "security",
       "tags": [
         "threatdown",
@@ -1235,7 +1235,7 @@
       "name": "watchguard",
       "source": "./skills/watchguard",
       "description": "WatchGuard Cloud's Firebox, Endpoint Security, ThreatSync, AuthPoint, NDR and MSP account APIs in one CLI and MCP server.",
-      "version": "0.1.3",
+      "version": "0.1.4",
       "category": "security",
       "tags": [
         "watchguard",
@@ -1265,7 +1265,7 @@
       "name": "proxmox",
       "source": "./skills/proxmox",
       "description": "Read-only Proxmox VE + Backup Server CLI: per-guest backup verdicts across every cluster, no write calls to Proxmox.",
-      "version": "0.1.2",
+      "version": "0.1.3",
       "category": "backup-dr",
       "tags": [
         "proxmox",

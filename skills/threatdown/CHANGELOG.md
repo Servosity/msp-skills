@@ -4,7 +4,7 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
-## [0.1.4] - unreleased
+## [0.1.4] - 2026-11-07
 
 ### Security
 - Rebuilt on CLI Printing Press 4.35.1 ([GHSA-jh26-vhqh-692c](https://github.com/advisories/GHSA-jh26-vhqh-692c)). The MCP server's HTTP mode refuses to start until `THREATDOWN_MCP_HTTP_TOKEN` is set (32 characters or more), listens on `127.0.0.1:7777` by default, needs `--tls-cert` and `--tls-key` on any other address, and refuses browser origins it was not told to trust.

@@ -4,7 +4,7 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
-## [0.1.10] - unreleased
+## [0.1.10] - 2026-11-07
 
 Reprinted on cli-printing-press **4.34.2** (from 4.24.0). Every command and MCP tool that shipped in 0.1.9 is still here except where named below.
 

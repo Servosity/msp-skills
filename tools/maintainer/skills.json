@@ -118,8 +118,8 @@
       "tagline": "Reconcile AppDirect marketplace billing and chase failed payments across every reseller company before month-close.",
       "cli_hash": "sha256:5af057aa3347601c88a15d7b05ae10631075a228f672b7624c26ab5baf62e74e",
       "template_version": 3,
-      "version": "0.1.9",
-      "cli_hash_at_release": "sha256:085bc169d03b82a4eb92d66f813eb4e77bb2ee7f19b44bfa426493bc499c7336",
+      "version": "0.1.10",
+      "cli_hash_at_release": "sha256:5af057aa3347601c88a15d7b05ae10631075a228f672b7624c26ab5baf62e74e",
       "has_video": true,
       "live_verified": {
         "status": "awaiting",
@@ -1859,8 +1859,8 @@
       "has_video": true,
       "cli_hash": "sha256:84e0a3c2184efef2b4d21e930ddeeeb494b404d4dd143d6648838d731d724312",
       "template_version": 3,
-      "version": "0.1.2",
-      "cli_hash_at_release": "sha256:7b3ff5c941c1664ba6eb0271748a11ff83f857844de61645279990ba9a1859b0",
+      "version": "0.1.3",
+      "cli_hash_at_release": "sha256:84e0a3c2184efef2b4d21e930ddeeeb494b404d4dd143d6648838d731d724312",
       "live_verified": {
         "status": "awaiting",
         "date": null,
@@ -2426,8 +2426,8 @@
       "has_video": true,
       "cli_hash": "sha256:e24747d8511bdf72339a77be7eeca4f290db0add2a870467d1eedc4fa2b6c7a3",
       "template_version": 3,
-      "version": "0.1.3",
-      "cli_hash_at_release": "sha256:6d4e8cfd8182feaae38a38ad21e7e809d496be48dbd588229edb28f823ea7764",
+      "version": "0.1.4",
+      "cli_hash_at_release": "sha256:e24747d8511bdf72339a77be7eeca4f290db0add2a870467d1eedc4fa2b6c7a3",
       "live_verified": {
         "status": "awaiting",
         "date": null,
@@ -2594,8 +2594,8 @@
       "has_video": true,
       "cli_hash": "sha256:20b87e3236ad48cc489392756afff1a1a6d410bc2a2a5ca86201b6aa75b31eed",
       "template_version": 3,
-      "version": "0.1.3",
-      "cli_hash_at_release": "sha256:f1b8f698de834b9c86bca4e3f98a0aa0797cfc789c64fa0f06a200a24e7e1e4e",
+      "version": "0.1.4",
+      "cli_hash_at_release": "sha256:20b87e3236ad48cc489392756afff1a1a6d410bc2a2a5ca86201b6aa75b31eed",
       "live_verified": {
         "status": "awaiting",
         "date": null,
