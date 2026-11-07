@@ -202,7 +202,7 @@
       "type": "skill-md",
       "description": "Use when the user asks to find offline or silent ConnectWise RMM (Asio) agents across clients, rank clients by patch compliance, build the patch-week reboot queue, find which machine a user is logged on to, prepare one client's health card, run a script on endpoints with a preview first, or see why a script run failed. Syncs companies, sites, endpoints and tickets into a local SQLite mirror so cross-client questions answer in one command. Trigger phrases: `which endpoints are offline in ConnectWise RMM`, `patch compliance for a client in Asio`, `run a script on an endpoint with ConnectWise RMM`, `which machine is a user logged on to in ConnectWise RMM`, `list ConnectWise RMM companies`, `use connectwise-rmm`, `run connectwise-rmm`.",
       "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/connectwise-rmm/SKILL.md",
-      "digest": "sha256:f6519ee0a27e043e3c5a9815346af30b20ee8d737852321654ed9a3b2741f53c"
+      "digest": "sha256:55f6d68c501a01048b54ba1c08ffed6f88e85fa020f98b28e7a092474fce09ca"
     },
     {
       "name": "cork",

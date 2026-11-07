@@ -47,10 +47,11 @@ type PatchSummary struct {
 
 // User is one logged-on session from system-state-info.
 type User struct {
-	Username  string `json:"username"`
-	Status    string `json:"status,omitempty"`
-	LogonTime string `json:"logon_time,omitempty"`
-	IsAdmin   bool   `json:"is_admin,omitempty"`
+	Username    string `json:"username"`
+	SessionName string `json:"session_name,omitempty"`
+	Status      string `json:"status,omitempty"`
+	LogonTime   string `json:"logon_time,omitempty"`
+	IsAdmin     bool   `json:"is_admin,omitempty"`
 }
 
 // SystemState is the subset of system-state-info the fleet commands use.
@@ -279,10 +280,11 @@ func ParsePatchSummary(raw json.RawMessage) (PatchSummary, bool) {
 
 func parseUser(m map[string]any) User {
 	return User{
-		Username:  Str(m, "username", "userName"),
-		Status:    Str(m, "status"),
-		LogonTime: Str(m, "logonTime"),
-		IsAdmin:   boolean(m, "isAdmin"),
+		Username:    Str(m, "username", "userName"),
+		SessionName: Str(m, "sessionName"),
+		Status:      Str(m, "status"),
+		LogonTime:   Str(m, "logonTime"),
+		IsAdmin:     boolean(m, "isAdmin"),
 	}
 }
 
@@ -309,11 +311,16 @@ func ParseSystemState(raw json.RawMessage) (st SystemState, ok bool) {
 		}
 	}
 	_, st.SessionsKnown = field(m, "loggedOnUsers").([]any)
+	// Every session is kept: username is optional in the documented schema
+	// (SystemStateLoggedOnUsers), so dropping a username-less one would read
+	// as "nobody logged on". activeUsers decides which sessions block a reboot.
 	for _, it := range list(m, "loggedOnUsers") {
 		if u, ok := it.(map[string]any); ok {
-			if pu := parseUser(u); pu.Username != "" {
-				st.LoggedOn = append(st.LoggedOn, pu)
-			}
+			st.LoggedOn = append(st.LoggedOn, parseUser(u))
+		} else {
+			// An entry that is not an object is still a session whose activity
+			// is unknown: keep it so it blocks a reboot instead of vanishing.
+			st.LoggedOn = append(st.LoggedOn, User{})
 		}
 	}
 	return st, true
@@ -509,12 +516,14 @@ func RebootTriage(eps []Endpoint, sums map[string]PatchSummary, hb map[string]He
 	return rows
 }
 
-// activeUsers drops service sessions with no username and sessions that are
-// disconnected, so a console-less server does not block a reboot.
+// activeUsers drops only sessions explicitly reported Disconnected. Username
+// and status are both optional in SystemStateLoggedOnUsers, so any other
+// session (named or not, with any or no status) has activity this CLI cannot
+// rule out and blocks a reboot: it fails closed to "coordinate".
 func activeUsers(us []User) []User {
 	out := make([]User, 0)
 	for _, u := range us {
-		if u.Username == "" || strings.EqualFold(u.Status, "Disconnected") {
+		if strings.EqualFold(strings.TrimSpace(u.Status), "Disconnected") {
 			continue
 		}
 		out = append(out, u)

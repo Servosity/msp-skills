@@ -4,6 +4,24 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.1.4] - unreleased
+
+### Security
+- **Rebuilt on Printing Press 4.35.1.** The MCP server's HTTP mode (`connectwise-rmm-mcp --transport http`) now refuses to start until `CONNECTWISE_RMM_MCP_HTTP_TOKEN` is set to at least 32 characters, binds `127.0.0.1:7777` by default, needs `--tls-cert` and `--tls-key` for any other address, limits request size and time, and refuses a browser `Origin` that is not loopback or listed in `CONNECTWISE_RMM_MCP_HTTP_ALLOWED_ORIGINS`. The default stdio transport is unchanged. Remote agents (ChatGPT, Copilot Studio, the Gemini app) can use the hosted HTTPS path again; see [mcp-install.md](./mcp-install.md).
+- **MCP tools check argument types.** A mirrored MCP tool now refuses an argument whose JSON type does not match the CLI flag behind it (for example the string `"true"` for a true/false flag) instead of passing it on as text.
+- **`scopes` token requests use the same guard as every other token request.** They refuse plain HTTP and stay on the configured token host, like `auth login` and the automatic token request.
+- **One shared credential layer.** The CLI and MCP server now use the msp-skills credential kit: the client secret, the client ID, every token minted from them, the MCP HTTP token and the Spacefast token are known before anything prints, and any output unit that repeats one in any encoding (stdout, stderr, files, the local store, MCP results) is replaced whole by a notice. Each credential is sent only to its own API origin: the configured base URL, the ConnectWise RMM regional token host (picked from the client ID, or set with `CONNECTWISE_RMM_TOKEN_URL`), or `https://api.spacefast.com` for the Spacefast token; the MCP HTTP token is sent nowhere.
+- **The learn journal no longer records text typed in place of a flag name,** and a `CONNECTWISE_RMM_LEARN_SESSION` value is stored hashed.
+
+### Fixed
+- **`fleet reboot-due` no longer puts an endpoint with a logged-on session in `reboot_now` because the session lacks a username or a status.** Both are optional in the ConnectWise RMM system-state response. Only a session reported `Disconnected` is ignored now; any other session, named or not, with any or no status, puts the endpoint in `coordinate`.
+- The MCP `execute` tool's preview of a DELETE request now shows the request body it would send.
+
+### Added
+- `local-data purge` lists the local store, response cache and learn journal and deletes them only with `--yes`; `CONNECTWISE_RMM_NO_LOCAL_DATA=1` runs with no local copy, and `CONNECTWISE_RMM_DATA_SOURCE` sets the `--data-source` default.
+- `--ca-cert` / `CONNECTWISE_RMM_CA_CERT` adds a PEM CA bundle for a TLS-inspecting proxy with a private CA, and `--tls-server-name` / `CONNECTWISE_RMM_TLS_SERVER_NAME` sets the name checked against the certificate.
+- `--csv` prefixes `'` on a cell that a spreadsheet would run as a formula; `--deliver file:` writes a private 0600 file; `--deliver webhook:` no longer follows redirects.
+
 ## [0.1.3] - 2026-10-23
 
 ### Security

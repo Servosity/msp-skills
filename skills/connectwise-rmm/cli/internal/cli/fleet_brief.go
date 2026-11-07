@@ -228,7 +228,7 @@ func printBrief(cmd *cobra.Command, v briefView) error {
 	if s, ok := v.SystemState.(fleet.SystemState); ok {
 		users := make([]string, 0, len(s.LoggedOn))
 		for _, u := range s.LoggedOn {
-			users = append(users, u.Username)
+			users = append(users, firstNonEmpty(u.Username, "("+firstNonEmpty(u.SessionName, "session")+")"))
 		}
 		fmt.Fprintf(w, "  last boot: %s  logged on: %s\n", s.LastBoot, strings.Join(users, ", "))
 	}
