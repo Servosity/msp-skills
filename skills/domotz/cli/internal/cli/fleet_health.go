@@ -31,19 +31,19 @@ type fleetHealthReport struct {
 	Sites                   []fleetHealthSite `json:"sites"`
 }
 
-const fleetHealthAgentsQuery = `
+var fleetHealthAgentsQuery = `
 SELECT
   id                                                       AS agent_id,
   COALESCE(NULLIF(display_name, ''), id)                   AS site,
-  COALESCE(json_extract(data, '$.status.value'), '')       AS status
+  COALESCE(` + agentField("", "status") + `, '')       AS status
 FROM "agent"`
 
-const fleetHealthDevicesQuery = `
+var fleetHealthDevicesQuery = `
 SELECT
   agent_id,
   COUNT(*)                                                              AS total,
-  SUM(CASE WHEN json_extract(data, '$.status') IN ('OFFLINE', 'DOWN') THEN 1 ELSE 0 END) AS offline
-FROM "device"
+  SUM(CASE WHEN ` + deviceField("", "status") + ` IN ('OFFLINE', 'DOWN') THEN 1 ELSE 0 END) AS offline
+FROM ` + fleetDeviceSource + `
 GROUP BY agent_id`
 
 // pp:data-source local
@@ -62,7 +62,7 @@ func newNovelFleetHealthCmd(flags *rootFlags) *cobra.Command {
 			if dryRunOK(flags) {
 				return nil
 			}
-			db, err := novelOpenStoreChecked(cmd, flags, dbPath, "")
+			db, err := novelOpenStoreChecked(cmd, flags, dbPath, "", "agent", "agent_device")
 			if err != nil {
 				return err
 			}

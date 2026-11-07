@@ -14,24 +14,36 @@ import (
 	"aws-billing-pp-cli/internal/cliutil"
 )
 
+// awsDoctorReport owns the api and credentials rows for this connector: the
+// AWS SDK resolves the credential chain and calls AWS directly, so base_url is
+// never probed. credentials is positive only when STS answered for the
+// resolved credentials.
 func awsDoctorReport(ctx context.Context, profile, region string, report map[string]any) {
 	if cliutil.IsVerifyEnv() {
 		report["aws_credentials"] = "INFO skipped under verify mode (no AWS calls)"
+		report["api"] = "INFO not probed under verify mode (no AWS calls)"
+		report["credentials"] = "INFO not verified under verify mode (no AWS calls)"
 		return
 	}
 
 	client, err := awsx.New(ctx, profile, region)
 	if err != nil {
 		report["aws_credentials"] = fmt.Sprintf("ERROR loading AWS config: %s", err)
+		report["api"] = "ERROR not probed: the AWS configuration did not load"
+		report["credentials"] = "ERROR not verified: the AWS configuration did not load"
 		return
 	}
 
 	account, arn, err := client.CallerIdentity(ctx)
 	if err != nil {
 		report["aws_credentials"] = "ERROR no AWS credentials resolved — run 'aws sso login --profile <p>' or set AWS_PROFILE; pass --profile-aws to pick one"
+		report["api"] = fmt.Sprintf("ERROR AWS STS GetCallerIdentity failed: %s", err)
+		report["credentials"] = "ERROR not verified: sts:GetCallerIdentity failed (no AWS credential resolved, or AWS refused it)"
 		return
 	}
 	report["aws_credentials"] = "valid"
+	report["api"] = "ok (AWS STS answered for the resolved credentials)"
+	report["credentials"] = "valid (sts:GetCallerIdentity succeeded)"
 	report["aws_account"] = fmt.Sprintf("%s (region %s) %s", account, client.Region, arn)
 
 	// Management vs member account.

@@ -2,6 +2,7 @@
 // `waste gp2-gp3` — gp2 EBS volumes with the exact monthly dollars saved by converting to gp3.
 //
 // pp:client-call
+// pp:data-source auto
 package cli
 
 import (
@@ -24,7 +25,7 @@ func newNovelWasteGp2Gp3Cmd(flags *rootFlags) *cobra.Command {
 converting each to gp3 (gp3 is ~20% cheaper at baseline). Read-only: shows the
 'aws ec2 modify-volume' you would run, never runs it.`,
 		Example:     `  aws-billing-cli waste gp2-gp3 --profile-aws dev`,
-		Annotations: map[string]string{"mcp:read-only": "true"},
+		Annotations: map[string]string{"mcp:read-only": "true", "pp:data-source": "auto"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if dryRunOK(flags) {
 				return nil

@@ -60,7 +60,7 @@ func newOrganizationsWirelessGetOrganizationSsidsProfilesAssignmentsByNetworkCmd
 					}
 				}
 				if !validSortBy {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagSortBy, "sort-by", allowedSortBy)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagSortBy, "sort-by", allowedSortBy))
 				}
 			}
 			if cmd.Flags().Changed("sort-order") {
@@ -73,7 +73,7 @@ func newOrganizationsWirelessGetOrganizationSsidsProfilesAssignmentsByNetworkCmd
 					}
 				}
 				if !validSortOrder {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagSortOrder, "sort-order", allowedSortOrder)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagSortOrder, "sort-order", allowedSortOrder))
 				}
 			}
 			path := "/organizations/{organizationId}/wireless/ssids/profiles/assignments/byNetwork"
@@ -105,7 +105,7 @@ func newOrganizationsWirelessGetOrganizationSsidsProfilesAssignmentsByNetworkCmd
 				"perPage":            formatCLIParamValue(flagPerPage),
 				"startingAfter":      formatCLIParamValue(flagStartingAfter),
 				"endingBefore":       formatCLIParamValue(flagEndingBefore),
-			}, map[string][]string{"includeAllNetworks": {"include-all-networks"}, "sortBy": {"sort-by"}, "sortOrder": {"sort-order"}, "search": {"search"}, "perPage": {"per-page"}, "startingAfter": {"starting-after"}, "endingBefore": {"ending-before"}}, "", "offset"), nil, flagAll, "", "offset", "perPage", 0, "", "", "assignments", cmd.ErrOrStderr())
+			}, map[string][]string{"includeAllNetworks": {"include-all-networks"}, "sortBy": {"sort-by"}, "sortOrder": {"sort-order"}, "search": {"search"}, "perPage": {"per-page"}, "startingAfter": {"starting-after"}, "endingBefore": {"ending-before"}}, "", "offset"), nil, flagAll, "", "offset", "perPage", 0, "", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}
@@ -132,7 +132,7 @@ func newOrganizationsWirelessGetOrganizationSsidsProfilesAssignmentsByNetworkCmd
 					filtered, selectErr = filterFieldsChecked(filtered, flags.selectFields)
 					selectErr = selectErrorForDryRun(selectErr, flags, data)
 				} else if flags.compact {
-					filtered = compactFields(filtered, nil)
+					filtered = compactFields(filtered, map[string]bool{"clientsUrl": true, "id": true, "name": true})
 				}
 				wrapped, wrapErr := wrapWithProvenance(filtered, prov)
 				if wrapErr != nil {
@@ -164,7 +164,7 @@ func newOrganizationsWirelessGetOrganizationSsidsProfilesAssignmentsByNetworkCmd
 			if flags.csv || flags.plain {
 				formatData = outputData
 			}
-			return printOutputWithFlagsMeta(cmd.OutOrStdout(), formatData, flags, map[string]any{"source": "live"}, nil)
+			return printOutputWithFlagsMeta(cmd.OutOrStdout(), formatData, flags, map[string]any{"source": "live"}, map[string]bool{"clientsUrl": true, "id": true, "name": true})
 		},
 	}
 	cmd.Flags().StringVar(&flagNetworkIds, "network-ids", "", "The network IDs to include in the result set.")

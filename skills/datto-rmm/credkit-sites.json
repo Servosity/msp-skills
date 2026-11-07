@@ -1,0 +1,116 @@
+{
+ "sites": [
+  {
+   "file": "cmd/datto-rmm-mcp/main.go",
+   "func": "run",
+   "what": "convert:github.com/mark3labs/mcp-go/server.StreamableHTTPServer.ServeHTTP",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "the streamable HTTP server is the next handler of requireBearerAuthWithLimits, which serves every response through credkit.MCPHTTP (handfixes.json credkit-wiring)"
+  },
+  {
+   "file": "internal/cli/credkit_client.go",
+   "func": "kitClient",
+   "what": "call:dynamic",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "config.OutboundGuard is credkit.Transport in every binary; the variable exists so unit tests that run no credkit.Start can swap it"
+  },
+  {
+   "file": "internal/cli/credkit_client.go",
+   "func": "kitClient",
+   "what": "convert:datto-rmm-pp-cli/internal/cli.dryRunTripper.RoundTrip",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "dryRunTripper refuses every request and sends nothing"
+  },
+  {
+   "file": "internal/cli/credkit_client.go",
+   "func": "kitClient",
+   "what": "net/http.Client.Transport",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "config.OutboundGuard is credkit.Transport in every binary; the variable exists so unit tests that run no credkit.Start can swap it"
+  },
+  {
+   "file": "internal/cli/credkit_client.go",
+   "func": "kitClient",
+   "what": "sink:net/http.RoundTripper",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "kitClient returns the base beneath the kit only to build the token client, whose NewDattoTokenClient wraps it in OutboundGuard; nil means NewDattoTokenClient uses its own base"
+  },
+  {
+   "file": "internal/config/datto_oauth.go",
+   "func": "MintDattoToken",
+   "what": "net/http.NewRequestWithContext",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "sent only by the client NewDattoTokenClient builds, whose Transport is the kit"
+  },
+  {
+   "file": "internal/config/datto_oauth.go",
+   "func": "MintDattoToken",
+   "what": "sink:net/http.RoundTripper",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "a nil check that picks NewDattoTokenClient, which passes the kit"
+  },
+  {
+   "file": "internal/config/datto_oauth.go",
+   "func": "NewDattoTokenClient",
+   "what": "call:dynamic",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "OutboundGuard is credkit.Transport in every binary; the variable exists so unit tests that run no credkit.Start can swap it"
+  },
+  {
+   "file": "internal/config/datto_oauth.go",
+   "func": "NewDattoTokenClient",
+   "what": "carrier",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "dattoTokenTripper sits beneath the kit, adds the fixed public OAuth client and refuses any other origin"
+  },
+  {
+   "file": "internal/config/datto_oauth.go",
+   "func": "NewDattoTokenClient",
+   "what": "convert:datto-rmm-pp-cli/internal/config.dattoTokenTripper.RoundTrip",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "dattoTokenTripper sits beneath the kit, adds the fixed public OAuth client and refuses any other origin"
+  },
+  {
+   "file": "internal/config/datto_oauth.go",
+   "func": "NewDattoTokenClient",
+   "what": "net/http.Client{}",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the token client: its Transport is OutboundGuard, which is credkit.Transport in every binary"
+  },
+  {
+   "file": "internal/config/datto_oauth.go",
+   "func": "NewDattoTokenClient",
+   "what": "net/http.DefaultTransport",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the base beneath OutboundGuard when the caller gives none; every request through it passes the kit above dattoTokenTripper"
+  },
+  {
+   "file": "internal/config/datto_oauth.go",
+   "func": "dattoTokenTripper.RoundTrip",
+   "what": "net/http.RoundTripper.RoundTrip",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "dattoTokenTripper is reached only through the kit in NewDattoTokenClient"
+  },
+  {
+   "file": "internal/credwire/declarations.go",
+   "func": "readRegular",
+   "what": "os.DirFS",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reads only the config, credential store and profile files credentialFiles names, inside Start, and the bytes go only to the kit"
+  }
+ ]
+}

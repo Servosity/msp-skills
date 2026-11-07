@@ -55,7 +55,7 @@ func newOrganizationsApplianceGetOrganizationDevicesRedundancyByNetworkCmd(flags
 				"perPage":       formatCLIParamValue(flagPerPage),
 				"startingAfter": formatCLIParamValue(flagStartingAfter),
 				"endingBefore":  formatCLIParamValue(flagEndingBefore),
-			}, map[string][]string{"perPage": {"per-page"}, "startingAfter": {"starting-after"}, "endingBefore": {"ending-before"}}, "", "offset"), nil, flagAll, "", "offset", "perPage", 0, "", "", "designations", cmd.ErrOrStderr())
+			}, map[string][]string{"perPage": {"per-page"}, "startingAfter": {"starting-after"}, "endingBefore": {"ending-before"}}, "", "offset"), nil, flagAll, "", "offset", "perPage", 0, "", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}
@@ -82,7 +82,7 @@ func newOrganizationsApplianceGetOrganizationDevicesRedundancyByNetworkCmd(flags
 					filtered, selectErr = filterFieldsChecked(filtered, flags.selectFields)
 					selectErr = selectErrorForDryRun(selectErr, flags, data)
 				} else if flags.compact {
-					filtered = compactFields(filtered, map[string]bool{"priority": true})
+					filtered = compactFields(filtered, map[string]bool{"name": true, "networkId": true})
 				}
 				wrapped, wrapErr := wrapWithProvenance(filtered, prov)
 				if wrapErr != nil {
@@ -114,7 +114,7 @@ func newOrganizationsApplianceGetOrganizationDevicesRedundancyByNetworkCmd(flags
 			if flags.csv || flags.plain {
 				formatData = outputData
 			}
-			return printOutputWithFlagsMeta(cmd.OutOrStdout(), formatData, flags, map[string]any{"source": "live"}, map[string]bool{"priority": true})
+			return printOutputWithFlagsMeta(cmd.OutOrStdout(), formatData, flags, map[string]any{"source": "live"}, map[string]bool{"name": true, "networkId": true})
 		},
 	}
 	cmd.Flags().IntVar(&flagPerPage, "per-page", 0, "The number of entries per page returned. Acceptable range is 5 - 1000. Default is 50.")

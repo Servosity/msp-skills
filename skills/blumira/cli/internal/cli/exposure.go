@@ -19,7 +19,10 @@ func newNovelExposureCmd(flags *rootFlags) *cobra.Command {
 		Short: "Agent devices that are stale, isolated, or unprotected — domain controllers first",
 		Long: "Roll up synced agent devices and flag the concerning ones: stale check-in, never\n" +
 			"checked in, isolated, excluded, or sleeping. Domain controllers sort first. Use\n" +
-			"--flag-dc-stale to restrict to domain controllers. Reads the local store.",
+			"--flag-dc-stale to restrict to domain controllers. Covers the direct org and\n" +
+			"every MSP sub-account; a sub-account whose device list sync could not read\n" +
+			"leads the report as a coverage_gap row (devices-not-synced), never as healthy.\n" +
+			"Reads the local store.",
 		Example: "  blumira-cli exposure --flag-dc-stale\n" +
 			"  blumira-cli exposure --stale-after 12h --json",
 		Annotations: map[string]string{"mcp:read-only": "true"},
@@ -46,14 +49,21 @@ func newNovelExposureCmd(flags *rootFlags) *cobra.Command {
 			if err != nil {
 				return apiErr(err)
 			}
-			if len(devices) == 0 {
+			cov, err := loadDeviceCoverage(s)
+			if err != nil {
+				return apiErr(err)
+			}
+			if !flags.quiet {
+				warnDeviceCoverageGaps(cmd.ErrOrStderr(), cov.Gaps)
+			}
+			if len(devices) == 0 && len(cov.Gaps) == 0 {
 				return emitAnalyticsRows(cmd, flags, []exposureRow{}, 0,
 					"no agent devices in the local store — run 'sync --resource org-agents-devices' first")
 			}
-			rows := computeExposure(devices, time.Now().UTC(), exposureOpts{
+			rows := append(exposureGapRows(cov.Gaps), computeExposure(devices, time.Now().UTC(), exposureOpts{
 				staleAfter: staleAfter,
 				onlyDCs:    flagFlagDcStale,
-			})
+			})...)
 			hint := "no exposed devices: all agents are healthy and checked in recently"
 			if flagFlagDcStale {
 				hint = "no exposed domain controllers: all DC agents are healthy and checked in recently"

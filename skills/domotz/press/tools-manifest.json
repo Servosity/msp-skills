@@ -3504,7 +3504,7 @@
         },
         {
           "name": "is_external",
-          "type": "string",
+          "type": "bool",
           "location": "body",
           "description": "Is external"
         },
@@ -3609,7 +3609,7 @@
         },
         {
           "name": "is_external",
-          "type": "string",
+          "type": "bool",
           "location": "body",
           "description": "Is external"
         },
@@ -3773,6 +3773,88 @@
           "required": true
         }
       ]
+    }
+  ],
+  "novel_features": [
+    {
+      "name": "Fleet health rollup",
+      "command": "fleet health",
+      "description": "One status board across every Domotz Collector: online/offline agents, degraded sites, and down-device counts per site."
+    },
+    {
+      "name": "Cross-site offline devices",
+      "command": "fleet offline",
+      "description": "Every unreachable or offline device across all sites in one prioritized list, with site and importance."
+    },
+    {
+      "name": "New / rogue device detection",
+      "command": "fleet new",
+      "description": "Devices first-seen anywhere in the fleet within a time window — a rogue-device security signal."
+    },
+    {
+      "name": "Unified fleet inventory export",
+      "command": "fleet inventory",
+      "description": "One asset table — vendor, model, type, OS, serial, site — for every device across every agent."
+    },
+    {
+      "name": "Active alerts \u0026 sensor rollup",
+      "command": "fleet alerts",
+      "description": "Alert profiles (alerting rules) and their device bindings, aggregated across the fleet."
+    },
+    {
+      "name": "Fleet IP-conflict sweep",
+      "command": "fleet ip-conflicts",
+      "description": "IP address conflicts across all sites in one prioritized list."
+    },
+    {
+      "name": "Device-type \u0026 vendor breakdown",
+      "command": "fleet breakdown",
+      "description": "Counts of devices by type, vendor, and OS across the fleet for capacity and security posture."
+    },
+    {
+      "name": "WAN speed-test trends",
+      "command": "fleet speedtest",
+      "description": "Per-site WAN speed-test history aggregated into fleet min/avg/max and a worst-site ranking."
+    },
+    {
+      "name": "Offline network topology",
+      "command": "topology",
+      "description": "Cached network topology for a site, summarized (node/edge counts, gateways) and queryable offline."
+    },
+    {
+      "name": "Config / inventory drift",
+      "command": "drift",
+      "description": "Diffs two local snapshots for a site to surface configuration and inventory changes over time."
+    },
+    {
+      "name": "Fleet degraded-agent sweep",
+      "command": "fleet agents",
+      "description": "Only the sites (Collectors) that are offline or degraded right now, with location, organization, and version, in one prioritized list."
+    },
+    {
+      "name": "Stale-agent / sync-freshness check",
+      "command": "fleet stale",
+      "description": "Collectors whose local snapshot has gone quiet — last-synced or last-seen older than a threshold, a silent monitoring blind spot."
+    },
+    {
+      "name": "Fleet down-sensor sweep",
+      "command": "fleet triggers",
+      "description": "TCP service sensors (eyes) currently DOWN across every device on every agent, in one fleet-wide list."
+    },
+    {
+      "name": "Monitoring-coverage audit",
+      "command": "fleet unmonitored",
+      "description": "Devices Domotz can't fully monitor — failed or missing authentication and SNMP status — surfaced fleet-wide as a coverage-gap audit."
+    },
+    {
+      "name": "Fleet event timeline",
+      "command": "fleet events",
+      "description": "Per-agent activity-log and network-event history merged into one chronological fleet-wide timeline."
+    },
+    {
+      "name": "Fleet alert-coverage audit",
+      "command": "fleet unalerted",
+      "description": "Devices no enabled alert profile watches, across every Collector, VITAL first: the devices that can go down without anyone being told."
     }
   ]
 }

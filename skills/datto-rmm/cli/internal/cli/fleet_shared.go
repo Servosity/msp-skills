@@ -137,8 +137,17 @@ func loadFleetDevices(ctx context.Context, db *store.Store) ([]fleetDevice, erro
 	return out, nil
 }
 
+// loadFleetAlerts returns one record per alert across the open and resolved
+// partitions. datto-rmm handfix fleet-alerts-one-record-per-uid (Codex review
+// r1 class "one record counted in two partitions"): an alert synced while open
+// keeps its open row until a full sync prunes it, and sits in the resolved
+// partition once Datto resolves it; the partitions were concatenated, so it
+// counted twice in storm volume and still counted as open. A resolved record
+// wins (any resolved signal wins); records with no alertUid are kept as they
+// are (nothing to match them by).
 func loadFleetAlerts(ctx context.Context, db *store.Store) ([]fleetAlert, error) {
 	out := []fleetAlert{}
+	byUID := map[string]int{}
 	for _, rt := range []string{fleetAlertsOpenResource, fleetAlertsResolvedResource} {
 		raws, err := queryRaw(ctx, db, rt)
 		if err != nil {
@@ -149,6 +158,20 @@ func loadFleetAlerts(ctx context.Context, db *store.Store) ([]fleetAlert, error)
 			if err := json.Unmarshal(raw, &a); err != nil {
 				continue
 			}
+			if rt == fleetAlertsResolvedResource {
+				a.Resolved = true
+			}
+			if a.AlertUID == "" {
+				out = append(out, a)
+				continue
+			}
+			if i, seen := byUID[a.AlertUID]; seen {
+				if a.Resolved && !out[i].Resolved {
+					out[i] = a
+				}
+				continue
+			}
+			byUID[a.AlertUID] = len(out)
 			out = append(out, a)
 		}
 	}
@@ -293,8 +316,18 @@ func shouldPrintJSON(cmd *cobra.Command, flags *rootFlags) bool {
 // same device never gets three different verdicts.
 func avIsHealthy(status string) bool {
 	switch normalizeAvStatus(status) {
-	case "running", "runninganduptodate", "running and up to date":
+	case "running", "runninganduptodate":
 		return true
 	}
 	return false
+}
+
+// patchIsHealthy is the one patch-OK predicate (scorecard): the documented
+// patchStatus FullyPatched with no approved-pending and no not-approved
+// patch. Any other signal wins: NoPolicy, NoData, RebootRequired,
+// InstallError, ApprovedPending or an empty status is not patched, whatever
+// the counters say (zero counters under NoData mean nothing is known).
+// datto-rmm handfix fleet-posture-reads-the-documented-enums (Codex review r1).
+func patchIsHealthy(p fleetPatch) bool {
+	return normalizeAvStatus(p.PatchStatus) == "fullypatched" && p.PatchesApprovedPending == 0 && p.PatchesNotApproved == 0
 }

@@ -4,6 +4,11 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.1.1] - unreleased
+
+### Security
+- **Updated two compression libraries to fix GO-2026-6888 and GO-2026-6865.** `github.com/andybalholm/brotli` moves from v1.0.6 to v1.2.8: a crafted Brotli stream could make the program allocate excessive memory while decompressing it (GO-2026-6888). `github.com/klauspost/compress` moves from v1.18.7 to v1.20.2: a crafted zstd stream with two-block frames could make the program crash with a panic while decompressing it (GO-2026-6865). No other dependency changed and commands behave the same.
+
 ## [0.1.0] - 2026-11-05
 
 ### Added

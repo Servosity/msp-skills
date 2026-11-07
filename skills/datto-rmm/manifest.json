@@ -20,7 +20,11 @@
         "DATTO_RMM_BASE_URL": "${user_config.datto_rmm_base_url}",
         "DATTO_RMM_PLATFORM": "${user_config.datto_rmm_platform}",
         "DATTO_RMM_TOKEN": "${user_config.datto_rmm_token}",
-        "DATTO_RMM_NO_CONFIG_WRITE": "${user_config.datto_rmm_no_config_write}"
+        "DATTO_RMM_NO_CONFIG_WRITE": "${user_config.datto_rmm_no_config_write}",
+        "DATTO_RMM_MCP_READ_ONLY": "${user_config.datto_rmm_mcp_read_only}",
+        "DATTO_RMM_NO_LOCAL_DATA": "${user_config.datto_rmm_no_local_data}",
+        "DATTO_RMM_MCP_HTTP_TOKEN": "${user_config.datto_rmm_mcp_http_token}",
+        "DATTO_RMM_USER_AGENT": "${user_config.datto_rmm_user_agent}"
       }
     }
   },
@@ -42,9 +46,9 @@
     "datto_rmm_token": {
       "type": "string",
       "title": "DATTO_RMM_TOKEN",
-      "description": "Optional. Optional pre-minted OAuth bearer token (skips the auto-mint).",
+      "description": "Optional pre-minted OAuth bearer token; when set, nothing is minted.",
       "sensitive": true,
-      "required": true
+      "required": false
     },
     "datto_rmm_base_url": {
       "type": "string",
@@ -55,15 +59,43 @@
     "datto_rmm_platform": {
       "type": "string",
       "title": "Datto RMM platform",
-      "description": "Regional platform shortcut that selects the API host: pinotage, merlot, concord, vidal, zinfandel, or syrah. It is the 'merlot' in merlot.centrastage.net. Leave blank if you set the base URL directly.",
+      "description": "Regional platform shortcut that selects the API host: pinotage, merlot, concord, vidal, zinfandel, or syrah. It is the 'merlot' in merlot-api.centrastage.net. Leave blank if you set the base URL directly.",
       "required": false
     },
     "datto_rmm_no_config_write": {
       "type": "string",
       "title": "Keep credentials off disk",
-      "description": "Set to 1 to keep credentials off disk. The token cache becomes a no-op, so the connector mints a fresh token each run instead of writing one to config.toml. Leave blank for the default cached behaviour.",
+      "description": "Set to 1 to keep credentials off disk. The token cache becomes a no-op, so the connector mints a fresh token each run instead of caching one in credentials.toml. Leave blank for the default cached behaviour.",
       "required": false,
       "default": ""
+    },
+    "datto_rmm_mcp_read_only": {
+      "type": "string",
+      "title": "Read-only MCP mode",
+      "description": "Optional. Set to exactly 1 to expose only read-only tools and refuse any state-changing call. Leave blank to keep every tool available.",
+      "required": false,
+      "sensitive": false
+    },
+    "datto_rmm_no_local_data": {
+      "type": "string",
+      "title": "Run without a local copy",
+      "description": "Optional. Set to 1 to keep no local copy of API responses: reads go to the API and the response cache is off. Leave blank to keep the local store.",
+      "required": false,
+      "sensitive": false
+    },
+    "datto_rmm_mcp_http_token": {
+      "type": "string",
+      "title": "MCP HTTP transport bearer token",
+      "description": "Required only when running the MCP server with --transport http (32 characters or more). Callers must send a matching Authorization: Bearer header. Not needed for the default local stdio transport that Claude Desktop uses.",
+      "required": false,
+      "sensitive": true
+    },
+    "datto_rmm_user_agent": {
+      "type": "string",
+      "title": "Datto RMM User-Agent override",
+      "description": "Optional. Overrides the User-Agent header the connector sends. Leave blank for the default.",
+      "required": false,
+      "sensitive": false
     }
   },
   "compatibility": {
@@ -74,11 +106,11 @@
       "win32"
     ]
   },
-  "printing_press_version": "4.24.0",
+  "printing_press_version": "4.34.2",
   "press_provenance": {
-    "printing_press_version": "4.24.0",
-    "generated_at": "2026-06-13T03:40:38.265725Z",
-    "spec_checksum": "sha256:392cc374179c2fbdbf54b04ccc03a2c8ef58852910047c285b9592e68fc495e3",
+    "printing_press_version": "4.34.2",
+    "generated_at": "2026-10-29T14:28:12.835912Z",
+    "spec_checksum": "sha256:e4a9d6405b8e5525b37ecd40b37598ecefb5a42331f79e8085a989c16877c509",
     "spec_format": "openapi3"
   }
 }

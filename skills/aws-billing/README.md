@@ -6,13 +6,13 @@
 <!-- media:start -->
 <p align="center">
   <a href="https://msp-skills.compoundingteams.com/skills/aws-billing/">
-    <img src="../../docs/assets/social/aws-billing/wide-1200x630.png" alt="AWS - MCP server and Claude Code Skill" width="600">
+    <img src="../../docs/assets/video/aws-billing/animated-og.gif" alt="AWS demo - animated preview" width="600">
   </a>
 </p>
-<p align="center"><sub><a href="https://msp-skills.compoundingteams.com/skills/aws-billing/">Full skill page</a> - install, outcomes, safety model.</sub></p>
+<p align="center"><sub>▶ <a href="https://msp-skills.compoundingteams.com/skills/aws-billing/">Watch the 30-second demo</a> - demo data is simulated; every command shown exists in the real CLI.</sub></p>
 <!-- media:end -->
 
-Get a non-expert from zero to a Slack-delivered, plain-English, waste-flagged AWS bill breakdown  -  and cache it so you don't pay per Cost Explorer call. Works with the AI you already use - **ChatGPT** (desktop app), **Claude Desktop**, **Codex**, **Claude Code**, **Claude Cowork**, and **GitHub Copilot** - plus **Gemini CLI**. Free, open source, runs on your laptop. Built for MSP owners. No code required.
+Get a non-expert from zero to a Slack-delivered, plain-English, waste-flagged AWS bill breakdown, and cache it so you don't pay per Cost Explorer call. Works with the AI you already use - **ChatGPT** (desktop app), **Claude Desktop**, **Codex**, **Claude Code**, **Claude Cowork**, and **GitHub Copilot** - plus **Gemini CLI**. Free, open source, runs on your laptop. Built for MSP owners. No code required.
 
 ## Works with your agent
 
@@ -55,7 +55,7 @@ Big install base, but an honest heads-up: Gemini CLI runs the local binary you j
 
 > **Claude Desktop bundle:** the `.mcpb` launches on macOS (Intel and Apple Silicon), Windows x64 and Linux x64. Every tool shells out to the companion `aws-billing-cli`. Releases cut from 2026-09-18 on ship that CLI inside the bundle; older bundles contain only the MCP server, so if yours lacks the companion, run the Path A or Path B installer below first (or set `AWS_BILLING_CLI_PATH` to an existing binary). Details: [#331](https://github.com/Servosity/msp-skills/issues/331).
 
-[**Download Amazon Web Services MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/aws-billing-v0.1.8/aws-billing-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every Amazon Web Services release on the [releases page](https://github.com/servosity/msp-skills/releases?q=aws-billing).)
+[**Download Amazon Web Services MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/aws-billing-v0.1.9/aws-billing-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every Amazon Web Services release on the [releases page](https://github.com/servosity/msp-skills/releases?q=aws-billing).)
 
 Prefer the Claude Code plugin? Add the marketplace once, then install - works immediately, no directory listing required:
 
@@ -205,7 +205,7 @@ No - that's the point of the local cache. `sync` pulls your cost data once (each
 
 ### Do I need the `aws` CLI installed?
 
-No. The binary signs its own AWS requests (SigV4) using the native credential chain - environment variables, a shared `--profile-aws`, SSO, assume-role, or instance metadata. There's nothing to paste and no `aws` CLI dependency.
+No. The binary signs its own AWS requests (SigV4) using the native credential chain - environment variables, a shared `--profile-aws`, SSO, or assume-role (EC2 instance-metadata credentials are not used; on EC2 use a profile, SSO or environment keys). There's nothing to paste and no `aws` CLI dependency.
 
 ### Does it work from a member account, or only the payer?
 

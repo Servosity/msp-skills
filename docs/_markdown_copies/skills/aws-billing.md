@@ -133,7 +133,7 @@ No - that is the point of the local cache. 'sync' pulls your cost data once (eac
 
 ### Do I need the aws CLI installed?
 
-No. The binary signs its own AWS requests (SigV4) using the native credential chain - environment variables, a shared --profile-aws, SSO, assume-role, or instance metadata. There is nothing to paste and no aws CLI dependency.
+No. The binary signs its own AWS requests (SigV4) using the native credential chain - environment variables, a shared --profile-aws, SSO, or assume-role (EC2 instance-metadata credentials are not used; on EC2 use a profile, SSO or environment keys). There is nothing to paste and no aws CLI dependency.
 
 ### Does it work from a member account, or only the payer?
 

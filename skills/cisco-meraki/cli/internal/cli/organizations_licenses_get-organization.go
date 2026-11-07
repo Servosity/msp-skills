@@ -56,7 +56,7 @@ func newOrganizationsLicensesGetOrganizationCmd(flags *rootFlags) *cobra.Command
 					}
 				}
 				if !validState {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagState, "state", allowedState)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagState, "state", allowedState))
 				}
 			}
 			path := "/organizations/{organizationId}/licenses"

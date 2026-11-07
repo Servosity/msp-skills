@@ -16,7 +16,13 @@
       "args": [],
       "env": {
         "RIVERSIDE_FM_BASE_URL": "${user_config.riverside_fm_base_url}",
-        "RIVERSIDE_FM_NO_CONFIG_WRITE": "${user_config.riverside_fm_no_config_write}"
+        "RIVERSIDE_FM_NO_CONFIG_WRITE": "${user_config.riverside_fm_no_config_write}",
+        "RIVERSIDE_FM_MCP_READ_ONLY": "${user_config.riverside_fm_mcp_read_only}",
+        "RIVERSIDE_FM_NO_LOCAL_DATA": "${user_config.riverside_fm_no_local_data}",
+        "RIVERSIDE_FM_MCP_HTTP_TOKEN": "${user_config.riverside_fm_mcp_http_token}",
+        "RIVERSIDE_FM_SKIP_TLS_VERIFY": "${user_config.riverside_fm_skip_tls_verify}",
+        "RIVERSIDE_FM_USER_AGENT": "${user_config.riverside_fm_user_agent}",
+        "PRINTING_PRESS_CLIENT_PROFILE": "${user_config.printing_press_client_profile}"
       }
     }
   },
@@ -34,6 +40,48 @@
       "description": "Set to 1 to keep credentials off disk. The rotated session cookie is kept in memory for the run and never written back to config.toml; an existing config file is read but not updated. Leave blank for the default cached behaviour.",
       "required": false,
       "default": ""
+    },
+    "riverside_fm_mcp_read_only": {
+      "type": "string",
+      "title": "Read-only mode",
+      "description": "Set to exactly 1 to hide compute_per_speaker_talktime_stats and every tool that writes the local learning store (teach, teach-pattern, teach-lookup, teach-playbook, playbook amend, learnings confirm, learnings forget and learnings reject). No tool changes anything in your Riverside account either way. Any other value, including true or yes, leaves every tool enabled. Leave blank for the full tool set.",
+      "required": false,
+      "default": ""
+    },
+    "riverside_fm_no_local_data": {
+      "type": "string",
+      "title": "No local data",
+      "description": "Optional. Set to exactly 1 to keep no local copy of Riverside data: reads go to the API, the response cache is off, and nothing new is written to the local store. Leave blank to keep the local copy.",
+      "required": false,
+      "default": ""
+    },
+    "riverside_fm_mcp_http_token": {
+      "type": "string",
+      "title": "MCP HTTP transport bearer token",
+      "description": "Required only when running the MCP server with --transport http. Callers must send a matching Authorization: Bearer header. Not needed for the default local stdio transport that Claude Desktop uses.",
+      "sensitive": true,
+      "required": false
+    },
+    "riverside_fm_skip_tls_verify": {
+      "type": "string",
+      "title": "Skip TLS verification (optional)",
+      "description": "Optional. Set to 1 only to reach a test server with a self-signed certificate. Leave blank to verify certificates.",
+      "required": false,
+      "default": ""
+    },
+    "riverside_fm_user_agent": {
+      "type": "string",
+      "title": "User-Agent header (optional)",
+      "description": "Overrides the User-Agent the CLI sends. Leave blank to use the built-in one.",
+      "required": false,
+      "default": ""
+    },
+    "printing_press_client_profile": {
+      "type": "string",
+      "title": "Client profile (optional)",
+      "description": "Has no effect for this connector unless you saved a client profile. Leave blank.",
+      "required": false,
+      "default": ""
     }
   },
   "compatibility": {
@@ -44,11 +92,11 @@
       "win32"
     ]
   },
-  "printing_press_version": "4.4.0",
+  "printing_press_version": "4.35.1",
   "press_provenance": {
-    "printing_press_version": "4.4.0",
-    "generated_at": "2026-05-12T18:17:58.06046Z",
-    "spec_checksum": "sha256:a6186a43aa63135be2c55822320a0eaa83176bae653892f4a90416540534349c",
+    "printing_press_version": "4.35.1",
+    "generated_at": "2026-11-02T23:59:34.354065Z",
+    "spec_checksum": "sha256:d48fe655419183ecc72c8a15ef2422512d19ca7510910b57dce65c2166b9b043",
     "spec_format": "internal"
   }
 }

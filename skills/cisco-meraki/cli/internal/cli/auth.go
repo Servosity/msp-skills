@@ -12,6 +12,7 @@ import (
 
 	"cisco-meraki-pp-cli/internal/cliutil"
 	"cisco-meraki-pp-cli/internal/config"
+	"cisco-meraki-pp-cli/internal/credkit"
 	"github.com/spf13/cobra"
 )
 
@@ -45,7 +46,7 @@ func newAuthSetupCmd(_ *rootFlags) *cobra.Command {
 			fmt.Fprintln(w, "Get a key at: https://documentation.meraki.com/Platform_Management/Dashboard_Administration/Operate_and_Maintain/How-Tos/How_to_Use_the_Cisco_Meraki_Dashboard_API")
 			fmt.Fprintln(w, "")
 			fmt.Fprintln(w, "Then set:")
-			fmt.Fprintln(w, "  export MERAKI_DASHBOARD_API_KEY=\"your-token-here\"")
+			fmt.Fprintln(w, "  "+cliutil.EnvAssignHint(true, "MERAKI_DASHBOARD_API_KEY", "your-token-here"))
 			fmt.Fprintln(w, "  echo \"$TOKEN\" | cisco-meraki-cli auth set-token")
 			if !launch {
 				return nil
@@ -79,7 +80,7 @@ func openSetupURL(url string) error {
 	default:
 		return fmt.Errorf("unsupported OS: %s", runtime.GOOS)
 	}
-	return c.Start()
+	return credkit.StartCommand(c) // Hand-fix (handfixes.json credkit-wiring)
 }
 
 func newAuthStatusCmd(flags *rootFlags) *cobra.Command {
@@ -140,7 +141,7 @@ func newAuthStatusCmd(flags *rootFlags) *cobra.Command {
 				fmt.Fprintln(w, red("Not authenticated"))
 				fmt.Fprintln(w, "")
 				fmt.Fprintln(w, "Set your token:")
-				fmt.Fprintln(w, "  export MERAKI_DASHBOARD_API_KEY=\"your-token-here\"")
+				fmt.Fprintln(w, "  "+cliutil.EnvAssignHint(true, "MERAKI_DASHBOARD_API_KEY", "your-token-here"))
 				fmt.Fprintf(w, "  echo \"$TOKEN\" | cisco-meraki-cli auth set-token\n")
 				return authErr(fmt.Errorf("no credentials configured"))
 			}
@@ -151,7 +152,7 @@ func newAuthStatusCmd(flags *rootFlags) *cobra.Command {
 			if _, line, expired, ok := jwtCredentialExpiry(jwtExpirySource(cfg)); ok {
 				fmt.Fprintf(w, "  Token expires: %s\n", line)
 				if expired {
-					fmt.Fprintf(w, "  %s\n", "Set your API key with: export MERAKI_DASHBOARD_API_KEY=\"your-token-here\"")
+					fmt.Fprintf(w, "  %s\n", "Set your API key with: "+cliutil.EnvAssignHint(true, "MERAKI_DASHBOARD_API_KEY", "your-token-here"))
 				}
 			}
 			return nil

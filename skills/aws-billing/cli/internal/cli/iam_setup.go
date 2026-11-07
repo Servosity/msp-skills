@@ -5,6 +5,7 @@
 // Curated static reference; emits text, makes no API call.
 //
 // pp:novel-static-reference
+// pp:data-source computed
 package cli
 
 import (
@@ -96,7 +97,7 @@ there. The waste tier works in any account.`,
 
   # Admin bootstrap script
   aws-billing-cli iam-setup --tier all --format bootstrap`,
-		Annotations: map[string]string{"mcp:read-only": "true"},
+		Annotations: map[string]string{"mcp:read-only": "true", "pp:data-source": "computed"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if dryRunOK(flags) {
 				return nil

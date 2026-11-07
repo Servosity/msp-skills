@@ -50,7 +50,7 @@ func newDevicesSwitchGetDeviceRoutingInterfacesCmd(flags *rootFlags) *cobra.Comm
 					}
 				}
 				if !validMode {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagMode, "mode", allowedMode)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagMode, "mode", allowedMode))
 				}
 			}
 			if cmd.Flags().Changed("protocol") {
@@ -63,7 +63,7 @@ func newDevicesSwitchGetDeviceRoutingInterfacesCmd(flags *rootFlags) *cobra.Comm
 					}
 				}
 				if !validProtocol {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagProtocol, "protocol", allowedProtocol)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagProtocol, "protocol", allowedProtocol))
 				}
 			}
 			path := "/devices/{serial}/switch/routing/interfaces"

@@ -1,7 +1,7 @@
 // Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 // Hand-built analytics engine extension for the 2026-06 reprint's new novel
 // commands (overview, reconcile, dc-roster, workload, evidence-search), plus
-// shared record decoders (decodeOwners) used by decodeFinding in
+// shared record decoders (decodeOwnership) used by decodeFinding in
 // analytics_engine.go. Pure computation functions take plain Go slices so they
 // unit-test offline; the command RunE bodies load records from the local
 // SQLite store and call in.
@@ -18,40 +18,149 @@ import (
 	"blumira-pp-cli/internal/store"
 )
 
-// decodeOwners extracts a finding's owner list tolerantly: Blumira payloads may
-// carry owners as an array of strings, an array of objects (email/name/id), or
-// a single string. Missing/unknown shapes return nil.
-func decodeOwners(m map[string]any) []string {
-	v, ok := m["owners"]
-	if !ok || v == nil {
-		v, ok = m["owner"]
-		if !ok || v == nil {
-			return nil
+// ownershipFields are the finding fields that carry owners. finding_detail_record
+// (the /msp/accounts/findings and .../details items) documents `owners` as an
+// object keyed by role (analysts, managers, responders), each a
+// response_owners array of {email, first_name, last_name, id}, plus
+// `owners_by_email`; older payloads carried a plain list or a single owner.
+var ownershipFields = []string{"owners", "owner", "owners_by_email"}
+
+// decodeOwnership is the one owner parser every analytics command uses. It
+// returns the distinct owners and whether ownership is known. Known means at
+// least one owner field is present and every part of it was understood; an
+// empty but understood value (all role lists empty) is known and unassigned.
+// No owner field, a null one, or any shape it cannot read is unknown, so a
+// caller never reports an unreadable assignment as "unassigned".
+func decodeOwnership(m map[string]any) ([]string, bool) {
+	var out []string
+	seen := map[string]bool{}
+	// addOwner keeps one owner per identity. An owner is a duplicate when any
+	// of its identity keys (id, lower-cased email, else name) was seen, so
+	// the role lists and owners_by_email never list one person twice, while
+	// two owners that share a name but not an id stay two owners.
+	addOwner := func(keys []string, label string) {
+		if label == "" || len(keys) == 0 {
+			return
+		}
+		dup := false
+		for _, k := range keys {
+			dup = dup || seen[k]
+		}
+		for _, k := range keys {
+			seen[k] = true
+		}
+		if !dup {
+			out = append(out, label)
 		}
 	}
-	var out []string
 	add := func(s string) {
 		s = strings.TrimSpace(s)
-		if s != "" {
-			out = append(out, s)
+		if s == "" {
+			return
+		}
+		if strings.Contains(s, "@") {
+			addOwner([]string{"email:" + strings.ToLower(s)}, s)
+		} else {
+			addOwner([]string{"name:" + strings.ToLower(s)}, s)
 		}
 	}
-	switch t := v.(type) {
-	case string:
-		add(t)
-	case []any:
-		for _, item := range t {
-			switch e := item.(type) {
-			case string:
-				add(e)
-			case map[string]any:
-				add(mapString(e, "email", "name", "user", "id"))
+	var walk func(v any, top bool) bool
+	walk = func(v any, top bool) bool {
+		switch t := v.(type) {
+		case string:
+			add(t)
+			return true
+		case []any:
+			ok := true
+			for _, item := range t {
+				if !walk(item, false) {
+					ok = false
+				}
 			}
+			return ok
+		case map[string]any:
+			if keys, label := ownerIdentity(t); label != "" {
+				addOwner(keys, label)
+				return true
+			}
+			if !top || len(t) == 0 {
+				return false
+			}
+			// A role-keyed object: every role holds an owner list (or null).
+			roles := make([]string, 0, len(t))
+			for role := range t {
+				roles = append(roles, role)
+			}
+			sort.Strings(roles)
+			ok := true
+			for _, role := range roles {
+				switch rv := t[role].(type) {
+				case nil:
+				case []any:
+					if !walk(rv, false) {
+						ok = false
+					}
+				default:
+					ok = false
+				}
+			}
+			return ok
 		}
-	case map[string]any:
-		add(mapString(t, "email", "name", "user", "id"))
+		return false
 	}
-	return out
+	present, understood := false, true
+	for _, key := range ownershipFields {
+		v, ok := m[key]
+		if !ok {
+			continue
+		}
+		if v == nil {
+			if key != "owners_by_email" { // documented nullable; null there says nothing
+				understood = false
+			}
+			continue
+		}
+		present = true
+		if !walk(v, true) {
+			understood = false
+		}
+	}
+	if !present || !understood {
+		return out, false
+	}
+	return out, true
+}
+
+// ownerIdentity reads one owner object. Its identity keys are the documented
+// id and the lower-cased email (either alone identifies the owner), else the
+// name; the label (also the workload bucket) is the email, else the full name
+// with the id, so two owners that share a name never share a label. Returns
+// no label when the object carries none of these fields.
+func ownerIdentity(o map[string]any) ([]string, string) {
+	id := strings.TrimSpace(mapString(o, "id"))
+	email := strings.TrimSpace(mapString(o, "email"))
+	name := strings.TrimSpace(strings.TrimSpace(mapString(o, "first_name")) + " " + strings.TrimSpace(mapString(o, "last_name")))
+	if name == "" {
+		name = strings.TrimSpace(mapString(o, "name", "user"))
+	}
+	var keys []string
+	if id != "" {
+		keys = append(keys, "id:"+id)
+	}
+	if email != "" {
+		keys = append(keys, "email:"+strings.ToLower(email))
+	}
+	switch {
+	case email != "":
+		return keys, email
+	case name != "" && id != "":
+		return keys, name + " (" + id + ")"
+	case name != "":
+		return []string{"name:" + strings.ToLower(name)}, name
+	case id != "":
+		return keys, id
+	}
+	return nil, ""
 }
 
 // ---- pure compute: overview ------------------------------------------------
@@ -67,6 +176,38 @@ type overviewRow struct {
 	Devices       int    `json:"devices"`
 	DomainCtrls   int    `json:"domain_controllers"`
 	StaleDevices  int    `json:"stale_devices"`
+	// DeviceCoverage is "complete" when the store holds this account's whole
+	// device list, "incomplete" for a sub-account whose device walk failed or
+	// never ran (its device counts are then not the real ones), "unknown" when
+	// no device list is attributed to the account.
+	DeviceCoverage string `json:"device_coverage"`
+}
+
+// applyDeviceCoverage stamps each overview row with its device coverage and
+// adds a row for every uncovered sub-account that has no findings.
+func applyDeviceCoverage(rows []overviewRow, cov deviceCoverage) []overviewRow {
+	gap := map[string]deviceCoverageGap{}
+	for _, g := range cov.Gaps {
+		gap[g.Account] = g
+	}
+	present := map[string]bool{}
+	for i := range rows {
+		present[rows[i].Account] = true
+		switch {
+		case gap[rows[i].Account].Account != "":
+			rows[i].DeviceCoverage = "incomplete"
+		case cov.Complete[rows[i].Account]:
+			rows[i].DeviceCoverage = "complete"
+		default:
+			rows[i].DeviceCoverage = "unknown"
+		}
+	}
+	for _, g := range cov.Gaps {
+		if !present[g.Account] {
+			rows = append(rows, overviewRow{Account: g.Account, AccountName: g.AccountName, DeviceCoverage: "incomplete"})
+		}
+	}
+	return rows
 }
 
 // computeOverview rolls findings (and any synced agent devices) up per account:
@@ -151,6 +292,7 @@ type reconcileRow struct {
 	Priority    int    `json:"priority"`
 	Status      string `json:"status"`
 	Assignees   string `json:"assignees,omitempty"` // comma-joined for flat CSV diffing
+	Ownership   string `json:"ownership"`           // "assigned" | "unassigned" | "unknown"
 	Created     string `json:"created,omitempty"`
 	Modified    string `json:"modified,omitempty"`
 }
@@ -164,12 +306,19 @@ func computeReconcile(findings []findingRec, statusMatch func(findingRec) bool) 
 		if statusMatch != nil && !statusMatch(f) {
 			continue
 		}
+		ownership, assignees := "unknown", ""
+		if f.OwnershipKnown {
+			ownership, assignees = "unassigned", strings.Join(f.Owners, ",")
+			if len(f.Owners) > 0 {
+				ownership = "assigned"
+			}
+		}
 		rows = append(rows, reconcileRow{
 			Account: f.Account, AccountName: f.AccountName,
 			FindingID: f.ID, ShortID: f.ShortID, Name: f.Name,
 			Priority: f.Priority, Status: statusLabel(f),
-			Assignees: strings.Join(f.Owners, ","),
-			Created:   f.Created, Modified: f.Modified,
+			Assignees: assignees, Ownership: ownership,
+			Created: f.Created, Modified: f.Modified,
 		})
 	}
 	sort.SliceStable(rows, func(i, j int) bool {
@@ -188,11 +337,23 @@ func computeReconcile(findings []findingRec, statusMatch func(findingRec) bool) 
 
 type dcRosterRow struct {
 	Account     string `json:"account,omitempty"`
+	AccountName string `json:"account_name,omitempty"`
 	DeviceID    string `json:"device_id"`
 	Hostname    string `json:"hostname"`
 	Platform    string `json:"platform,omitempty"`
 	LastSeenHrs int    `json:"last_seen_hours"` // -1 when never checked in
-	State       string `json:"state"`           // "protected" | "stale" | "never-checked-in"
+	State       string `json:"state"`           // "protected" | "stale" | "never-checked-in" | "devices-not-synced"
+	Detail      string `json:"detail,omitempty"`
+}
+
+// dcRosterGapRows lists the sub-accounts whose domain controllers are unknown
+// because their device list could not be read; they lead the roster.
+func dcRosterGapRows(gaps []deviceCoverageGap) []dcRosterRow {
+	rows := make([]dcRosterRow, 0, len(gaps))
+	for _, g := range gaps {
+		rows = append(rows, dcRosterRow{Account: g.Account, AccountName: g.AccountName, LastSeenHrs: -1, State: "devices-not-synced", Detail: g.Detail})
+	}
+	return rows
 }
 
 // computeDCRoster lists every domain controller across the synced fleet with
@@ -243,11 +404,21 @@ type workloadRow struct {
 	P1Open     int    `json:"p1_open"`
 	Accounts   int    `json:"accounts"`
 	Unassigned bool   `json:"unassigned,omitempty"`
+	// OwnershipUnknown marks the bucket of findings whose payload carries no
+	// readable owner data (every /org/findings row): not the same as unassigned.
+	OwnershipUnknown bool `json:"ownership_unknown,omitempty"`
 }
 
+// Workload bucket names for findings without a named owner.
+const (
+	workloadUnassigned       = "(unassigned)"
+	workloadOwnershipUnknown = "(ownership unknown)"
+)
+
 // computeWorkload groups open findings by assignee across every account with
-// age buckets. Findings with no owner aggregate under "(unassigned)" so triage
-// gaps are visible, not hidden.
+// age buckets. Findings whose owner data says nobody is assigned aggregate
+// under "(unassigned)" so triage gaps are visible, not hidden; findings with no
+// readable owner data aggregate under "(ownership unknown)".
 func computeWorkload(findings []findingRec, now time.Time) []workloadRow {
 	type agg struct {
 		row      workloadRow
@@ -257,7 +428,7 @@ func computeWorkload(findings []findingRec, now time.Time) []workloadRow {
 	bucket := func(owner string) *agg {
 		a := byOwner[owner]
 		if a == nil {
-			a = &agg{row: workloadRow{Assignee: owner, Unassigned: owner == "(unassigned)"}, accounts: map[string]bool{}}
+			a = &agg{row: workloadRow{Assignee: owner, Unassigned: owner == workloadUnassigned, OwnershipUnknown: owner == workloadOwnershipUnknown}, accounts: map[string]bool{}}
 			byOwner[owner] = a
 		}
 		return a
@@ -267,8 +438,11 @@ func computeWorkload(findings []findingRec, now time.Time) []workloadRow {
 			continue
 		}
 		owners := f.Owners
-		if len(owners) == 0 {
-			owners = []string{"(unassigned)"}
+		switch {
+		case !f.OwnershipKnown:
+			owners = []string{workloadOwnershipUnknown}
+		case len(owners) == 0:
+			owners = []string{workloadUnassigned}
 		}
 		ageHrs := -1
 		if t, ok := f.CreatedTime(); ok {
@@ -357,16 +531,23 @@ type evidenceMatch struct {
 	Snippet   string `json:"snippet"`
 }
 
-// searchEvidenceCache greps the cached evidence rows case-insensitively.
+// searchEvidenceCache finds cached evidence rows that contain term literally
+// (ASCII case-insensitive; LIKE wildcards in the term are escaped). It returns
+// one match per finding, its first matching row, and applies limit to
+// findings, not rows. A negative limit (evidenceScanAll) scans every match.
 func searchEvidenceCache(db *sql.DB, term string, limit int) ([]evidenceMatch, error) {
 	if err := ensureEvidenceCache(db); err != nil {
 		return nil, err
 	}
-	if limit <= 0 {
+	if limit == 0 {
 		limit = 50
 	}
-	rows, err := db.Query(`SELECT finding_id, account, content FROM finding_evidence_cache
-		WHERE content LIKE '%' || ? || '%' COLLATE NOCASE LIMIT ?`, term, limit)
+	if limit < 0 {
+		limit = -1 // SQLite: LIMIT -1 is no limit
+	}
+	rows, err := db.Query(`SELECT finding_id, account, content, MIN(item_no) FROM finding_evidence_cache
+		WHERE content LIKE '%' || ? || '%' ESCAPE '\'
+		GROUP BY finding_id ORDER BY finding_id LIMIT ?`, escapeLikeLiteral(term), limit)
 	if err != nil {
 		return nil, err
 	}
@@ -375,7 +556,8 @@ func searchEvidenceCache(db *sql.DB, term string, limit int) ([]evidenceMatch, e
 	for rows.Next() {
 		var id string
 		var account, content sql.NullString
-		if err := rows.Scan(&id, &account, &content); err != nil {
+		var itemNo sql.NullInt64
+		if err := rows.Scan(&id, &account, &content, &itemNo); err != nil {
 			return nil, err
 		}
 		out = append(out, evidenceMatch{
@@ -386,10 +568,17 @@ func searchEvidenceCache(db *sql.DB, term string, limit int) ([]evidenceMatch, e
 	return out, rows.Err()
 }
 
+// escapeLikeLiteral makes term match only itself in a LIKE pattern that uses
+// ESCAPE '\': the escape character and both wildcards are escaped.
+func escapeLikeLiteral(term string) string {
+	return strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`).Replace(term)
+}
+
 // matchFindingsRaw greps the raw synced finding payloads for the term — catches
-// indicators embedded in the finding body that the FTS name index misses.
+// indicators embedded in the finding body that the FTS name index misses. A
+// negative limit (evidenceScanAll) returns every match.
 func matchFindingsRaw(findings []findingRec, raws map[string]string, term string, limit int) []evidenceMatch {
-	if limit <= 0 {
+	if limit == 0 {
 		limit = 50
 	}
 	lower := strings.ToLower(term)
@@ -406,12 +595,16 @@ func matchFindingsRaw(findings []findingRec, raws map[string]string, term string
 			FindingID: f.ID, Name: f.Name, Account: f.Account,
 			Source: "finding", Snippet: evidenceSnippet(raw, term),
 		})
-		if len(out) >= limit {
+		if limit > 0 && len(out) >= limit {
 			break
 		}
 	}
 	return out
 }
+
+// evidenceScanAll asks the match helpers for every match, so a merge can
+// de-duplicate across sources before any limit applies.
+const evidenceScanAll = -1
 
 // evidenceSnippet trims content around the first case-insensitive occurrence of
 // term to a readable window.
@@ -448,40 +641,6 @@ func evidenceSnippet(content, term string) string {
 		snippet += "…"
 	}
 	return strings.Join(strings.Fields(snippet), " ")
-}
-
-// extractEvidenceItems flattens an evidence API response into displayable
-// strings: a JSON array becomes one string per element, an object with a list
-// payload unwraps it, anything else is kept whole.
-func extractEvidenceItems(raw json.RawMessage) []string {
-	var arr []json.RawMessage
-	if err := json.Unmarshal(raw, &arr); err == nil {
-		items := make([]string, 0, len(arr))
-		for _, e := range arr {
-			items = append(items, string(e))
-		}
-		return items
-	}
-	var obj map[string]json.RawMessage
-	if err := json.Unmarshal(raw, &obj); err == nil {
-		for _, key := range []string{"data", "evidence", "items", "results"} {
-			if inner, ok := obj[key]; ok {
-				var innerArr []json.RawMessage
-				if err := json.Unmarshal(inner, &innerArr); err == nil {
-					items := make([]string, 0, len(innerArr))
-					for _, e := range innerArr {
-						items = append(items, string(e))
-					}
-					return items
-				}
-			}
-		}
-	}
-	s := strings.TrimSpace(string(raw))
-	if s == "" || s == "null" {
-		return nil
-	}
-	return []string{s}
 }
 
 // loadFindingRaws returns finding_id -> raw JSON payload for every synced

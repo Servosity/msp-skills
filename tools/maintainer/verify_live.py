@@ -44,6 +44,13 @@ This is a DOCS-ONLY flip. It changes skills.json (which the catalog + per-skill
 pages render from); it does NOT cut a release or push a tag. After a flip,
 regenerate the catalog and commit.
 
+Once live-verified, always live-verified. Only the owner takes a badge off:
+--revoke needs --owner-override "<reason>" and writes {"status": "awaiting",
+"revoked": {"date", "reason"}}. check_registry_state.py (CI) fails any change
+where a live-verified badge changes status or disappears without that record,
+so a tool that rewrites a registry entry can no longer drop one (servosity lost
+its badge that way in #248, 2026-08-17).
+
 Beta and live-verified are mutually exclusive. A flip also sets the registry
 "status" to "live-verified" and rewrites the first paragraph under "## Status"
 in skills/<dir>/README.md and pain-point.md; a revoke puts both back to Beta.
@@ -64,7 +71,8 @@ Usage:
     python3 tools/maintainer/verify_live.py --slug cove --source github \\
         --evidence "https://github.com/Servosity/msp-skills/issues/139" \\
         --verified-by "@AvlCompCo (MSP)"   # issue_url defaults from --evidence
-    python3 tools/maintainer/verify_live.py --revoke --slug halopsa
+    python3 tools/maintainer/verify_live.py --revoke --slug halopsa \\
+        --owner-override "vendor retired the API (owner, 2026-11-06)"
     python3 tools/maintainer/verify_live.py --bind --slug cove --verified-version 0.1.3
     python3 tools/maintainer/verify_live.py --bind --slug cove --unknown
     python3 tools/maintainer/verify_live.py --status
@@ -533,17 +541,25 @@ def cmd_bind(slug: str, version: str | None, unknown: bool) -> int:
     return 0
 
 
-def cmd_revoke(slug: str) -> int:
+def cmd_revoke(slug: str, reason: str | None) -> int:
     reg = _read_registry()
     skills = reg.get("skills", {})
     if slug not in skills:
         print(f"verify_live: unknown slug '{slug}'", file=sys.stderr)
         return 1
-    # Absence of the key IS "awaiting" (tools tolerate it), so revoke removes the
-    # key entirely rather than writing an explicit nulled block. This makes a
-    # flip -> revoke round-trip a true no-op on skills.json for a skill that had
-    # never been verified, leaving the registry byte-for-byte as it started.
-    skills[slug].pop("live_verified", None)
+    if not (reason or "").strip():
+        print("verify_live: --revoke needs --owner-override \"<reason>\": once live-verified, always "
+              "live-verified, and only the owner takes a badge off.", file=sys.stderr)
+        return 1
+    if _entry_state(skills[slug]).get("status") != "live-verified":
+        print(f"verify_live: '{slug}' is not live-verified; nothing to revoke", file=sys.stderr)
+        return 1
+    # The record is what lets check_registry_state.py tell the owner's revoke from a
+    # rewrite that dropped the badge.
+    skills[slug]["live_verified"] = {
+        "status": "awaiting",
+        "revoked": {"date": dt.date.today().isoformat(), "reason": reason.strip()},
+    }
     _sync(slug, skills[slug])
     _write_registry(reg)
     print(f"{slug}: reverted to awaiting")
@@ -563,6 +579,7 @@ def parse_args(argv: list[str]) -> dict:
         "verified_by": None,
         "issue_url": None,
         "revoke": False,
+        "owner_override": None,
         "status": False,
         "check": False,
         "sync": False,
@@ -606,6 +623,9 @@ def parse_args(argv: list[str]) -> dict:
             opts["unknown"] = True
         elif a == "--revoke":
             opts["revoke"] = True
+        elif a == "--owner-override":
+            i += 1
+            opts["owner_override"] = argv[i]
         elif a == "--status":
             opts["status"] = True
         elif a in ("--check", "--sync"):
@@ -635,7 +655,7 @@ def main(argv: list[str]) -> int:
     if opts["revoke"]:
         if not opts["slug"]:
             raise SystemExit("verify_live: --revoke requires --slug")
-        return cmd_revoke(opts["slug"])
+        return cmd_revoke(opts["slug"], opts["owner_override"])
 
     if opts["bind"]:
         if not opts["slug"]:

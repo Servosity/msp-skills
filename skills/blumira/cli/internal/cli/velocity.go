@@ -19,9 +19,11 @@ func newNovelVelocityCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "velocity",
 		Short: "Mean-time-to-resolve and open-rate from the snapshot history, per account or overall",
-		Long: "Derive MTTR (time from a finding's first appearance to its first resolved\n" +
-			"snapshot) and open-rate from the local snapshot history within --window. Group\n" +
-			"by account or report overall. History accrues as 'sync' runs over time.",
+		Long: "Derive MTTR (time from a finding's first appearance to the snapshot that\n" +
+			"began its current resolved stretch) and open-rate from the local snapshot\n" +
+			"history within --window. A finding counts by its latest observed state, so one\n" +
+			"resolved and then reopened is open. Group by account or report overall. Every\n" +
+			"sync records a snapshot, so history accrues as 'sync' runs over time.",
 		Example: "  blumira-cli velocity --window 30d --by account\n" +
 			"  blumira-cli velocity --window 7d --json",
 		Annotations: map[string]string{"mcp:read-only": "true"},

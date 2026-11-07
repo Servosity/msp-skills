@@ -5,6 +5,7 @@
 package cli
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -17,7 +18,8 @@ func newNovelWorkloadCmd(flags *rootFlags) *cobra.Command {
 		Long: "Group every open synced finding by its assignee across all accounts, with age\n" +
 			"buckets (<24h, 1-3d, >3d), P1 counts, and the number of accounts each analyst\n" +
 			"touches. Findings with no owner aggregate under '(unassigned)' so triage gaps\n" +
-			"stay visible. Reads the local store.",
+			"stay visible; findings whose synced record carries no owner data (direct-org\n" +
+			"/org/findings rows) aggregate under '(ownership unknown)'. Reads the local store.",
 		Example: "  blumira-cli workload\n" +
 			"  blumira-cli workload --json --select assignee,open_total,p1_open",
 		Annotations: map[string]string{"mcp:read-only": "true"},
@@ -41,6 +43,11 @@ func newNovelWorkloadCmd(flags *rootFlags) *cobra.Command {
 				return apiErr(err)
 			}
 			rows := computeWorkload(findings, time.Now().UTC())
+			for _, r := range rows {
+				if r.OwnershipUnknown && !flags.quiet {
+					fmt.Fprintf(cmd.ErrOrStderr(), "note: %d open finding(s) have no owner data in the synced record (direct-org /org/findings rows); they are counted under %s, not as unassigned\n", r.OpenTotal, workloadOwnershipUnknown)
+				}
+			}
 			return emitAnalyticsRows(cmd, flags, rows, len(rows), emptyStoreHint)
 		},
 	}

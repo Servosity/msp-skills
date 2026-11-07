@@ -1,0 +1,243 @@
+{
+  "schema_version": 2,
+  "generated_at": "2026-10-27T16:02:49.99251Z",
+  "printing_press_version": "4.34.2",
+  "api_name": "eset-protect",
+  "display_name": "ESET PROTECT",
+  "cli_name": "eset-protect-pp-cli",
+  "creator": {
+    "handle": "DamienStevens",
+    "name": "Damien Stevens"
+  },
+  "owner": "damienstevens",
+  "printer": "DamienStevens",
+  "printer_name": "Damien Stevens",
+  "spec_path": "spec.json",
+  "spec_format": "internal",
+  "spec_source": "official",
+  "spec_checksum": "sha256:865f4d07c17c7a712c2eac0b7ddeabec40825001fa68c6a0327c59946e9ccf31",
+  "run_id": "20261027-102053-d5a546fb",
+  "category": "monitoring",
+  "description": "Every ESET Connect endpoint in one binary, plus per-customer health, exposure and QBR reports for MSP trees.",
+  "mcp_binary": "eset-protect-pp-mcp",
+  "mcp_tool_count": 101,
+  "mcp_ready": "full",
+  "api_version": "1.0",
+  "auth_type": "bearer_token",
+  "auth_preference": "Bearer",
+  "auth_env_vars": [
+    "ESET_PROTECT_USERNAME",
+    "ESET_PROTECT_PASSWORD",
+    "ESET_PROTECT_TOKEN"
+  ],
+  "auth_env_var_specs": [
+    {
+      "name": "ESET_PROTECT_USERNAME",
+      "kind": "auth_flow_input",
+      "required": false,
+      "sensitive": false,
+      "description": "Email of the dedicated ESET Connect API user."
+    },
+    {
+      "name": "ESET_PROTECT_PASSWORD",
+      "kind": "auth_flow_input",
+      "required": false,
+      "sensitive": true,
+      "description": "Password of the dedicated ESET Connect API user."
+    },
+    {
+      "name": "ESET_PROTECT_TOKEN",
+      "kind": "per_call",
+      "required": false,
+      "sensitive": true,
+      "description": "Optional pre-minted bearer access token (expires after one hour)."
+    }
+  ],
+  "endpoint_template_vars": [
+    "region"
+  ],
+  "endpoint_template_var_defaults": {
+    "region": "eu"
+  },
+  "auth_key_url": "https://help.eset.com/eset_connect/en-US/",
+  "auth_title": "ESET Connect API user",
+  "novel_features": [
+    {
+      "name": "Per-customer fleet health",
+      "command": "fleet health",
+      "description": "One row per customer with device count, attention-required and attention-recommended devices, problem count, muted, stale and unenrolled devices, worst customer first."
+    },
+    {
+      "name": "Customer QBR one-pager",
+      "command": "report customer",
+      "description": "One customer's QBR one-pager: current device health, detections by severity and response, incidents with triage and response times, top CVEs, pending and failed security patches, and vulnerability-scan coverage (ESET keeps only a few days of scan and patching history)."
+    },
+    {
+      "name": "CVE and application exposure",
+      "command": "exposure",
+      "description": "Which customers and devices have a given CVE or vulnerable application, with risk score, first detection and whether a patch is available."
+    },
+    {
+      "name": "Hash spread with executable verdict",
+      "command": "detections spread",
+      "description": "How far each detected file hash has spread across devices and customers in a window, joined to whether that executable is blocked, its signer and its LiveGrid reputation when executables are synced."
+    },
+    {
+      "name": "Peer-relative coverage gaps",
+      "command": "fleet gaps",
+      "description": "Devices missing a component or product their customer's other devices have, running an older component version, or not finished enrolling."
+    },
+    {
+      "name": "Named response actions",
+      "command": "respond",
+      "description": "Scan, isolate or release a device by name (or scan a whole customer): prints the exact ESET task first and creates it only with --yes; with --wait it polls the task runs until they finish. Over MCP the root --yes is never forwarded, so the tool only previews."
+    },
+    {
+      "name": "Patch backlog",
+      "command": "patches backlog",
+      "description": "Available-but-not-installed patches ranked by the devices and CVE risk they fix per customer, plus recent failed patch attempts by reason."
+    },
+    {
+      "name": "Morning triage queue",
+      "command": "triage",
+      "description": "Endpoint detections in a window (v1 has no resolved state) and open incidents in one ranked queue, worst first, with device, customer and a suggested next command."
+    },
+    {
+      "name": "Stale device list",
+      "command": "fleet stale",
+      "description": "Devices that stopped checking in for N days, most stale first, with customer and group path."
+    },
+    {
+      "name": "Latest detections",
+      "command": "detections latest",
+      "description": "The newest endpoint detections straight from ESET for a time window and minimum severity, with device and customer names when the mirror is synced."
+    },
+    {
+      "name": "Device profile",
+      "command": "devices profile",
+      "description": "Everything about one device in one call: health, recent detections, CVEs, pending patches and recent scans, with partial-failure reporting."
+    },
+    {
+      "name": "Incident context",
+      "command": "incidents context",
+      "description": "One incident with its comments and every linked detection and device, falling back from v1 to v2 detection lookups."
+    },
+    {
+      "name": "Vulnerability rollup",
+      "command": "report vulnerabilities",
+      "description": "Vulnerable devices, CVE counts by severity, top CVEs and patchable share per customer from a live vulnerability scan."
+    },
+    {
+      "name": "Executable lookup",
+      "command": "executables find",
+      "description": "Turn an MD5, SHA-1 or SHA-256 hash or a name into the executable UUID that 'executables block' needs, with blocked state and signer."
+    },
+    {
+      "name": "Policy decoder",
+      "command": "policies decode",
+      "description": "Decode a policy's base64 and LZMA settings blobs into readable JSON, list settings that mention a word, or pull one value by path."
+    },
+    {
+      "name": "Policy clone",
+      "command": "policies clone",
+      "description": "Copy an existing policy's feature settings byte for byte into a new policy under a new name; preview unless --yes."
+    }
+  ],
+  "novel_features_built": [
+    {
+      "name": "Per-customer fleet health",
+      "command": "fleet health",
+      "description": "One row per customer with device count, attention-required and attention-recommended devices, problem count, muted, stale and unenrolled devices, worst customer first."
+    },
+    {
+      "name": "Customer QBR one-pager",
+      "command": "report customer",
+      "description": "One customer's QBR one-pager: current device health, detections by severity and response, incidents with triage and response times, top CVEs, pending and failed security patches, and vulnerability-scan coverage (ESET keeps only a few days of scan and patching history)."
+    },
+    {
+      "name": "CVE and application exposure",
+      "command": "exposure",
+      "description": "Which customers and devices have a given CVE or vulnerable application, with risk score, first detection and whether a patch is available."
+    },
+    {
+      "name": "Hash spread with executable verdict",
+      "command": "detections spread",
+      "description": "How far each detected file hash has spread across devices and customers in a window, joined to whether that executable is blocked, its signer and its LiveGrid reputation when executables are synced."
+    },
+    {
+      "name": "Peer-relative coverage gaps",
+      "command": "fleet gaps",
+      "description": "Devices missing a component or product their customer's other devices have, running an older component version, or not finished enrolling."
+    },
+    {
+      "name": "Named response actions",
+      "command": "respond",
+      "description": "Scan, isolate or release a device by name (or scan a whole customer): prints the exact ESET task first and creates it only with --yes; with --wait it polls the task runs until they finish. Over MCP the root --yes is never forwarded, so the tool only previews."
+    },
+    {
+      "name": "Patch backlog",
+      "command": "patches backlog",
+      "description": "Available-but-not-installed patches ranked by the devices and CVE risk they fix per customer, plus recent failed patch attempts by reason."
+    },
+    {
+      "name": "Morning triage queue",
+      "command": "triage",
+      "description": "Endpoint detections in a window (v1 has no resolved state) and open incidents in one ranked queue, worst first, with device, customer and a suggested next command."
+    },
+    {
+      "name": "Stale device list",
+      "command": "fleet stale",
+      "description": "Devices that stopped checking in for N days, most stale first, with customer and group path."
+    },
+    {
+      "name": "Latest detections",
+      "command": "detections latest",
+      "description": "The newest endpoint detections straight from ESET for a time window and minimum severity, with device and customer names when the mirror is synced."
+    },
+    {
+      "name": "Device profile",
+      "command": "devices profile",
+      "description": "Everything about one device in one call: health, recent detections, CVEs, pending patches and recent scans, with partial-failure reporting."
+    },
+    {
+      "name": "Incident context",
+      "command": "incidents context",
+      "description": "One incident with its comments and every linked detection and device, falling back from v1 to v2 detection lookups."
+    },
+    {
+      "name": "Vulnerability rollup",
+      "command": "report vulnerabilities",
+      "description": "Vulnerable devices, CVE counts by severity, top CVEs and patchable share per customer from a live vulnerability scan."
+    },
+    {
+      "name": "Executable lookup",
+      "command": "executables find",
+      "description": "Turn an MD5, SHA-1 or SHA-256 hash or a name into the executable UUID that 'executables block' needs, with blocked state and signer."
+    },
+    {
+      "name": "Policy decoder",
+      "command": "policies decode",
+      "description": "Decode a policy's base64 and LZMA settings blobs into readable JSON, list settings that mention a word, or pull one value by path."
+    },
+    {
+      "name": "Policy clone",
+      "command": "policies clone",
+      "description": "Copy an existing policy's feature settings byte for byte into a new policy under a new name; preview unless --yes."
+    }
+  ],
+  "verify": {
+    "mode": "mock",
+    "pass_rate": 100,
+    "passed": 138,
+    "total": 138,
+    "data_pipeline": true,
+    "verdict": "PASS"
+  },
+  "scorecard": {
+    "steinberger": {
+      "percentage": 90,
+      "grade": "A",
+      "total": 90
+    }
+  }
+}
