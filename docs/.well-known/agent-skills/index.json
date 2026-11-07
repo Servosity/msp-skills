@@ -104,7 +104,7 @@
       "type": "skill-md",
       "description": "Use when the user asks about Bitdefender GravityZone across every customer: which child companies have unmanaged, outdated or unscanned endpoints, what changed since the last check, the open EDR/XDR incident queue, malware quarantined at several clients, which company a machine is in, RMM devices with no agent, or monthly seat usage for billing. Covers 140 GravityZone Public API methods as commands. Trigger phrases: `which customers have unprotected endpoints`, `gravityzone monthly usage for billing`, `open bitdefender incidents across all clients`, `find a machine across all gravityzone customers`, `same malware quarantined at several clients`, `use bitdefender gravityzone`.",
       "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/bitdefender/SKILL.md",
-      "digest": "sha256:5bb4dedcfe042f9669d3ef7e3c89bb3c2d9f771fe8096aadb52905e8246bd823"
+      "digest": "sha256:bea5df24d5c1762fc7fef0c5221e37472b70196afc9a8c8bd5356dcf2605836d"
     },
     {
       "name": "blackpoint",
@@ -179,9 +179,9 @@
     {
       "name": "connectwise-automate",
       "type": "skill-md",
-      "description": "Use when the user asks to check ConnectWise Automate fleet health, find stale or offline agents, report patch compliance by client, triage open alerts across clients, inventory end-of-life OSes, or see what changed overnight across an RMM fleet. Syncs your whole Automate server into a local SQLite mirror so it answers cross-client questions the per-server console can't. Trigger phrases: `connectwise automate fleet health`, `stale automate agents`, `automate patch compliance by client`, `triage automate alerts`, `use connectwise automate`, `run connectwise-automate-cli`.",
+      "description": "Every ConnectWise Automate endpoint plus a local SQLite mirror that answers cross-client fleet questions the per-server web UI can't. Trigger phrases: `automate fleet health`, `which automate agents are offline`, `automate patch compliance by client`, `triage automate alerts`, `connectwise automate computers`, `use connectwise-automate`, `run connectwise-automate`.",
       "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/connectwise-automate/SKILL.md",
-      "digest": "sha256:9ee5f6d9e6a236d9e4972869b37268fb6a1f76311b8de868ce65c1012c9c16a8"
+      "digest": "sha256:b04e302a4c5f4064f935f23eacb9993893710706f738e835437d164327df1cb1"
     },
     {
       "name": "connectwise-control",
@@ -202,7 +202,7 @@
       "type": "skill-md",
       "description": "Use when the user asks to find offline or silent ConnectWise RMM (Asio) agents across clients, rank clients by patch compliance, build the patch-week reboot queue, find which machine a user is logged on to, prepare one client's health card, run a script on endpoints with a preview first, or see why a script run failed. Syncs companies, sites, endpoints and tickets into a local SQLite mirror so cross-client questions answer in one command. Trigger phrases: `which endpoints are offline in ConnectWise RMM`, `patch compliance for a client in Asio`, `run a script on an endpoint with ConnectWise RMM`, `which machine is a user logged on to in ConnectWise RMM`, `list ConnectWise RMM companies`, `use connectwise-rmm`, `run connectwise-rmm`.",
       "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/connectwise-rmm/SKILL.md",
-      "digest": "sha256:f6519ee0a27e043e3c5a9815346af30b20ee8d737852321654ed9a3b2741f53c"
+      "digest": "sha256:55f6d68c501a01048b54ba1c08ffed6f88e85fa020f98b28e7a092474fce09ca"
     },
     {
       "name": "cork",
@@ -671,7 +671,7 @@
       "type": "skill-md",
       "description": "Every Tactical RMM endpoint as a typed command, plus an offline SQLite mirror and cross-entity fleet queries the web UI can't express. Trigger phrases: `tactical rmm fleet health`, `which agents are offline`, `triage my rmm fleet`, `patch posture by client`, `run a script on all windows agents`, `use tactical-rmm`, `run tactical-rmm`.",
       "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/tactical-rmm/SKILL.md",
-      "digest": "sha256:734556c3a3dfc3ab00231a568b59835060cb44118a1f22224b86d7d3ac7c1db5"
+      "digest": "sha256:c0f517cd5d75329f959afbcc654bce7284432b2c60eb49478d289f5339ab737e"
     },
     {
       "name": "td-synnex",

@@ -38,7 +38,7 @@ permissions:
 jobs:
   credkit:
     runs-on: ubuntu-latest
-    timeout-minutes: 150
+    timeout-minutes: 210
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -76,11 +76,13 @@ jobs:
       # shared runner; go test's own ten-minute default is not a kit limit.
       # The rich-text budget makes the hostile 12-layer hex stream test read much
       # further before it withholds (about 4 minutes, roughly 46 under race), so
-      # the limit leaves room; every test still runs.
+      # the limit leaves room; every test still runs. With the constant-text table
+      # tests the whole suite took 117 and 121 minutes on a shared runner
+      # (2026-11-07; 121 hit the old 120m limit), so it gets 180.
       - name: Contract tests (race detector)
         if: steps.kit.outputs.changed == 'true'
         working-directory: tools/maintainer/credkit
-        run: go test -race -count=1 -timeout 120m ./...
+        run: go test -race -count=1 -timeout 180m ./...
 
       # These tests read connector source and testdata (the fleet checks and the
       # ordinary corpus), so a connector PR gives them new input: every trigger.

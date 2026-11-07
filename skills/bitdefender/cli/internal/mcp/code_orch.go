@@ -4,11 +4,14 @@
 
 // Package mcp — code-orchestration thin surface.
 //
-// Three tools cover the entire API: <api>_search to discover endpoints,
-// <api>_get to inspect one GET endpoint, and <api>_execute to invoke one.
-// This collapses a large API (50+ endpoints)
-// to ~1K tokens of tool definitions while preserving full coverage — the
-// agent writes the composition logic in its own sandbox.
+// <api>_search discovers endpoints and <api>_get returns registry metadata
+// for one GET. <api>_read calls read-only endpoints (GET reads and
+// codegen-marked read-only POSTs). <api>_execute calls state-changing
+// endpoints and returns a preview until confirm is boolean true. A spec
+// with no state-changing endpoints registers the read tool and omits
+// execute. This collapses a large API (50+ endpoints) to a small tool
+// list while preserving full coverage — the agent writes the composition
+// logic in its own sandbox.
 //
 // Pattern source: Anthropic 2026-04-22 "Building agents that reach
 // production systems with MCP" — Cloudflare's MCP server covers ~2,500
@@ -37,7 +40,7 @@ import (
 func RegisterCodeOrchestrationTools(s *server.MCPServer) {
 	s.AddTool(
 		mcplib.NewTool("bitdefender_search",
-			mcplib.WithDescription("Search the bitdefender API for endpoints matching a natural-language query. Returns a ranked list of {endpoint_id, method, path, summary} entries. Call this first to find the endpoint to execute."),
+			mcplib.WithDescription("Search the bitdefender API for endpoints matching a natural-language query. Returns a ranked list of {endpoint_id, method, path, summary} entries. Call this first to find the endpoint to read or execute."),
 			mcplib.WithString("query", mcplib.Required(), mcplib.Description("Natural-language description of what you want to do.")),
 			mcplib.WithNumber("limit", mcplib.Description("Max endpoints to return (default 10, max 100).")),
 			mcplib.WithReadOnlyHintAnnotation(true),
@@ -57,12 +60,26 @@ func RegisterCodeOrchestrationTools(s *server.MCPServer) {
 		),
 		handleCodeOrchGet,
 	)
-
+	s.AddTool(
+		mcplib.NewTool("bitdefender_read",
+			mcplib.WithDescription("Call one read-only bitdefender API endpoint by its endpoint_id (from bitdefender_search). GET reads and read-only POSTs run immediately. Params are a JSON object; path placeholders and query strings are resolved automatically. State-changing endpoints, including deletes and mutating GETs, are rejected; use bitdefender_execute."),
+			mcplib.WithString("endpoint_id", mcplib.Required(), mcplib.Description("Read-only endpoint identifier returned by bitdefender_search (e.g., \"users.list\").")),
+			mcplib.WithObject("params", mcplib.Description("Parameters for the endpoint. Path placeholders match by name; remaining entries become the query string on GET or the JSON body on a read-only POST.")),
+			mcplib.WithReadOnlyHintAnnotation(true),
+			mcplib.WithDestructiveHintAnnotation(false),
+			mcplib.WithOpenWorldHintAnnotation(true),
+		),
+		handleCodeOrchRead,
+	)
 	s.AddTool(
 		mcplib.NewTool("bitdefender_execute",
-			mcplib.WithDescription("Execute one bitdefender API endpoint by its endpoint_id (from bitdefender_search). Params are passed as a JSON object; path placeholders and query strings are resolved automatically."),
-			mcplib.WithString("endpoint_id", mcplib.Required(), mcplib.Description("Endpoint identifier returned by bitdefender_search (e.g., \"users.list\").")),
+			mcplib.WithDescription("Call one state-changing bitdefender API endpoint by its endpoint_id (from bitdefender_search). DELETE and other mutating calls, including mutating GETs, return a preview and do not run until confirm is boolean true. Params are a JSON object; path placeholders and query strings are resolved automatically. Read-only endpoints are rejected; use bitdefender_read."),
+			mcplib.WithString("endpoint_id", mcplib.Required(), mcplib.Description("State-changing endpoint identifier returned by bitdefender_search (e.g., \"users.delete\").")),
 			mcplib.WithObject("params", mcplib.Description("Parameters for the endpoint. Path placeholders match by name; remaining entries become query string on GET/DELETE or JSON body on POST/PUT/PATCH.")),
+			mcplib.WithBoolean("confirm", mcplib.Description("Set to boolean true to perform the previewed call. Any other value, including the string \"true\", leaves the call as a preview and does not contact the API.")),
+			mcplib.WithReadOnlyHintAnnotation(false),
+			mcplib.WithDestructiveHintAnnotation(true),
+			mcplib.WithOpenWorldHintAnnotation(true),
 		),
 		handleCodeOrchExecute,
 	)
@@ -102,8 +119,18 @@ type codeOrchEndpoint struct {
 	// params object; a strict-mapping API rejects an object at the body
 	// root with HTTP 422 "Invalid json".
 	BodyIsArray bool
-	Mutating    bool
-	keywords    []string
+	// Page carries the GET list paging settings the per-endpoint tools use, so
+	// an over-budget list resumes inside the bounded page instead of handing
+	// the agent the server cursor for the following page (which skips the
+	// rows the bound dropped).
+	Page mcpPageConfig
+	// NeedsConfirm is the read-command classifier's write signal, plus every
+	// DELETE. It stays separate from Mutating: Mutating selects the GET
+	// transport that bypasses the response cache, including GETs the
+	// classifier does not treat as reads.
+	NeedsConfirm bool
+	Mutating     bool
+	keywords     []string
 }
 
 type codeOrchParamBinding struct {
@@ -125,6 +152,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("accounts", "create", "Create a user account and assign it a password.", "/v1.0/jsonrpc/accounts#createAccount"),
 	},
@@ -137,6 +165,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("accounts", "delete", "Delete a specific user account.", "/v1.0/jsonrpc/accounts#deleteAccount"),
 	},
@@ -149,6 +178,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("accounts", "get", "Retrieve information for a specific GravityZone account.", "/v1.0/jsonrpc/accounts#getAccountDetails"),
 	},
@@ -161,6 +191,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("accounts", "list", "Display all the user accounts that belong to a company.", "/v1.0/jsonrpc/accounts#getAccountsList"),
 	},
@@ -173,6 +204,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("accounts", "update", "Updates a user account identified through the account ID.", "/v1.0/jsonrpc/accounts#updateAccount"),
 	},
@@ -185,6 +217,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("api_key", "key-get", "Returns details about the API key used.", "/v1.0/jsonrpc/general#getApiKeyDetails"),
 	},
@@ -197,6 +230,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("aws_ec2", "company-by-account", "Retrieves information regarding the managed companies that have configured the Amazon EC2 integration with a specific", "/v1.0/jsonrpc/integrations#getCompanyDetailsByAWSAccountId"),
 	},
@@ -209,6 +243,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("aws_ec2", "configure", "Configures the Amazon EC2 integration using the provided Amazon Resource Name of a valid AWS Cross-Account Role.", "/v1.0/jsonrpc/integrations#configureAmazonEC2IntegrationUsingCrossAccountRole"),
 	},
@@ -221,6 +256,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("aws_ec2", "disable", "Disables a previously configured Amazon EC2 integration.", "/v1.0/jsonrpc/integrations#disableAmazonEC2Integration"),
 	},
@@ -233,6 +269,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("aws_ec2", "external-id", "Returns the last External ID that was generated using the generateAmazonEC2ExternalIdForCrossAccountRole method.", "/v1.0/jsonrpc/integrations#getAmazonEC2ExternalIdForCrossAccountRole"),
 	},
@@ -245,6 +282,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("aws_ec2", "generate-external-id", "Generates an External ID.", "/v1.0/jsonrpc/integrations#generateAmazonEC2ExternalIdForCrossAccountRole"),
 	},
@@ -257,6 +295,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("aws_ec2", "hourly-usage", "Exposes the hourly usage for each Amazon instance category (micro, medium etc.).", "/v1.0/jsonrpc/integrations#getHourlyUsageForAmazonEC2Instances"),
 	},
@@ -269,6 +308,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("blocklist", "add", "Set up one or more rules that you can use to add items to blocklists.", "/v1.2/jsonrpc/incidents#addToBlocklist"),
 	},
@@ -281,6 +321,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("blocklist", "list", "Lists all items present in a Blocklist.", "/v1.2/jsonrpc/incidents#getBlocklistItems"),
 	},
@@ -293,6 +334,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("blocklist", "remove", "Removes one or more items from the Blocklist, identified by their IDs.", "/v1.2/jsonrpc/incidents#removeFromBlocklist"),
 	},
@@ -305,6 +347,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("companies", "activate", "Activates a suspended company.", "/v1.0/jsonrpc/companies#activateCompany"),
 	},
@@ -317,6 +360,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("companies", "create", "Creates a Customer or Partner company account.", "/v1.0/jsonrpc/companies#createCompany"),
 	},
@@ -329,6 +373,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("companies", "delete", "Deletes a company.", "/v1.0/jsonrpc/companies#deleteCompany"),
 	},
@@ -341,6 +386,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("companies", "find", "Searches for all managed companies containing the specified string in their name.", "/v1.0/jsonrpc/companies#findCompaniesByName"),
 	},
@@ -353,6 +399,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("companies", "get", "Retrieves the details of a company that you manage.", "/v1.0/jsonrpc/companies#getCompanyDetails"),
 	},
@@ -365,6 +412,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("companies", "get-by-user", "Retrieves the details of a company linked to an account identified through the given username.", "/v1.0/jsonrpc/companies#getCompanyDetailsByUser"),
 	},
@@ -377,6 +425,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("companies", "list", "Returns the list of companies under a parent company or from a company folder.", "/v1.0/jsonrpc/network#getCompaniesList"),
 	},
@@ -389,6 +438,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("companies", "suspend", "Suspends an active company account, with the following implications:", "/v1.0/jsonrpc/companies#suspendCompany"),
 	},
@@ -401,6 +451,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("companies", "update", "Updates the details of a company that you manage.", "/v1.0/jsonrpc/companies#updateCompanyDetails"),
 	},
@@ -413,6 +464,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("company_folders", "create", "Creates a new folder under an existing folder or company.", "/v1.0/jsonrpc/network#createCompanyFolder"),
 	},
@@ -425,6 +477,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("company_folders", "delete", "Deletes a company folder.", "/v1.0/jsonrpc/network#deleteCompanyFolder"),
 	},
@@ -437,6 +490,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("company_folders", "list", "Returns the list of company folders under a company or under a company folder.", "/v1.0/jsonrpc/network#getCompanyFoldersList"),
 	},
@@ -449,6 +503,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("company_folders", "move", "Moves a company or company folder under a parent company or company folder.", "/v1.0/jsonrpc/network#moveCompanyOrCompanyFolder"),
 	},
@@ -461,6 +516,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("custom_fields", "create", "Creates a custom field definition.", "/v1.0/jsonrpc/companies#createCustomFieldDefinition"),
 	},
@@ -473,6 +529,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("custom_fields", "delete", "Deletes a custom field definition.", "/v1.0/jsonrpc/companies#deleteCustomFieldDefinition"),
 	},
@@ -485,6 +542,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("custom_fields", "list", "Retrieves the custom fields definitions.", "/v1.0/jsonrpc/companies#getCustomFieldsDefinitions"),
 	},
@@ -497,6 +555,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("custom_fields", "update", "Updates a custom field definition.", "/v1.0/jsonrpc/companies#updateCustomFieldDefinition"),
 	},
@@ -509,6 +568,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("custom_rules", "create", "Create a custom rule.", "/v1.0/jsonrpc/incidents#createCustomRule"),
 	},
@@ -521,6 +581,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("custom_rules", "delete", "Delete a custom rule.", "/v1.0/jsonrpc/incidents#deleteCustomRule"),
 	},
@@ -533,6 +594,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("custom_rules", "list", "Retrieves the list of custom rules for a specified company.", "/v1.0/jsonrpc/incidents#getCustomRulesList"),
 	},
@@ -545,6 +607,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("custom_rules", "update", "Edit any existing custom exclusion or detection rule by referencing its Rule ID.", "/v1.0/jsonrpc/incidents#updateCustomRule"),
 	},
@@ -557,6 +620,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("email_verification", "send", "Send a verification code to a specific email address and verify that a user has access to it.", "/v1.0/jsonrpc/general#generateEmailVerificationCode"),
 	},
@@ -569,6 +633,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("endpoint_tags", "list", "Returns details about the endpoint tags associated with the specified companies.", "/v1.0/jsonrpc/network#getEndpointTags"),
 	},
@@ -581,6 +646,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("endpoints", "assign-policy", "Assign a policy to one or more endpoints. This method works on all endpoint types, including containers.", "/v1.0/jsonrpc/network#assignPolicy"),
 	},
@@ -593,6 +659,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("endpoints", "delete", "Deletes an endpoint.", "/v1.0/jsonrpc/network#deleteEndpoint"),
 	},
@@ -605,6 +672,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("endpoints", "get", "Retrieves comprehensive information about a specific endpoint managed in GravityZone.", "/v1.0/jsonrpc/network#getManagedEndpointDetails"),
 	},
@@ -617,6 +685,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("endpoints", "kill-process", "Terminate an active process using its process ID, its path, the endpoint where it is running, and, if available", "/v1.0/jsonrpc/network#killProcess"),
 	},
@@ -629,6 +698,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("endpoints", "list", "Returns the list of endpoints.", "/v1.1/jsonrpc/network#getEndpointsList"),
 	},
@@ -641,6 +711,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("endpoints", "move", "Moves a list of endpoints to a custom group.", "/v1.0/jsonrpc/network#moveEndpoints"),
 	},
@@ -653,6 +724,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("endpoints", "move-to-company", "Moves a list of endpoints to another protected entity (move between companies)", "/v1.0/jsonrpc/network#moveEndpointsBetweenCompanies"),
 	},
@@ -665,6 +737,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("endpoints", "set-label", "Sets a new label to an endpoint.", "/v1.0/jsonrpc/network#setEndpointLabel"),
 	},
@@ -677,6 +750,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("groups", "create", "Creates a new custom group of endpoints.", "/v1.0/jsonrpc/network#createCustomGroup"),
 	},
@@ -689,6 +763,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("groups", "delete", "Deletes a custom group.", "/v1.0/jsonrpc/network#deleteCustomGroup"),
 	},
@@ -701,6 +776,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("groups", "list", "Retrieves the list of groups under a specified group.", "/v1.0/jsonrpc/network#getCustomGroupsList"),
 	},
@@ -713,6 +789,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("groups", "move", "Moves a custom group to another custom group.", "/v1.0/jsonrpc/network#moveCustomGroup"),
 	},
@@ -725,6 +802,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("incidents", "assign", "Enables bulk assignment and reassignment of EDR and XDR incidents to eligible GravityZone users.", "/v1.0/jsonrpc/incidents#assignIncident"),
 	},
@@ -737,6 +815,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("incidents", "get", "Retrieve information regarding a specific incident, by referencing its ID.", "/v1.2/jsonrpc/incidents#getIncident"),
 	},
@@ -749,6 +828,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("incidents", "get-many", "Retrieve information on multiple incidents, by referencing their IDs.", "/v1.2/jsonrpc/incidents#getIncidentsByIds"),
 	},
@@ -761,6 +841,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("incidents", "list", "Retrieves details about Endpoint and Organization incidents for a specified company based on the applied filters.", "/v1.2/jsonrpc/incidents#getIncidentsList"),
 	},
@@ -773,6 +854,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("incidents", "note", "Assigns a note to an incident.", "/v1.1/jsonrpc/incidents#updateIncidentNote"),
 	},
@@ -785,6 +867,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("incidents", "set-priority", "Change the priority of an incident.", "/v1.0/jsonrpc/incidents#changeIncidentPriority"),
 	},
@@ -797,6 +880,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("incidents", "set-status", "Changes the status of an incident.", "/v1.0/jsonrpc/incidents#changeIncidentStatus"),
 	},
@@ -809,6 +893,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("incidents", "similar-emails", "Retrieve emails similar to a given email, scoped to the same company.", "/v1.0/jsonrpc/incidents#getSimilarEmails"),
 	},
@@ -821,6 +906,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("integrations", "create", "Create a new integration under the Integrations hub.", "/v1.0/jsonrpc/integrations#createIntegration"),
 	},
@@ -833,6 +919,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("integrations", "delete", "Delete a specific integration that was configured under the Integrations hub from a target company.", "/v1.0/jsonrpc/integrations#deleteIntegration"),
 	},
@@ -845,6 +932,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("integrations", "get", "Request information about an integration configured under the Integrations hub.", "/v1.0/jsonrpc/integrations#getIntegrationDetails"),
 	},
@@ -857,6 +945,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("integrations", "list", "Allows you to get a list of all the integrations configured on a specific company under the Integrations hub.", "/v1.0/jsonrpc/integrations#getConfiguredIntegrations"),
 	},
@@ -869,6 +958,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("integrations", "manage", "Enable or disable an integration configured under the Integrations hub.", "/v1.0/jsonrpc/integrations#manageIntegration"),
 	},
@@ -881,6 +971,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("integrations", "update", "Update an integration configured under the Integrations hub.", "/v1.0/jsonrpc/integrations#updateIntegration"),
 	},
@@ -893,6 +984,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("integrators", "add", "Assign an endpoint as an integrator for a specific integration.", "/v1.0/jsonrpc/network#addIntegrators"),
 	},
@@ -905,6 +997,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("integrators", "list", "Retrieve a list of integrators configured for a specific integration.", "/v1.0/jsonrpc/network#getIntegrators"),
 	},
@@ -917,6 +1010,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("integrators", "remove", "Unassign a specific endpoint as an integrator.", "/v1.0/jsonrpc/network#removeIntegrators"),
 	},
@@ -929,6 +1023,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("inventory", "list", "Returns network inventory items.", "/v1.1/jsonrpc/network#getNetworkInventoryItems"),
 	},
@@ -941,6 +1036,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("inventory", "roots", "Returns the root containers for a company.", "/v1.0/jsonrpc/network#getRootContainers"),
 	},
@@ -953,6 +1049,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("investigation", "collect-package", "Initiate a forensic collection task on an endpoint.", "/v1.0/jsonrpc/investigation#collectInvestigationPackage"),
 	},
@@ -965,6 +1062,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("investigation", "file-url", "Check the status of a task started through the collectInvestigationPackage method.", "/v1.0/jsonrpc/investigation#getInvestigationFileUrl"),
 	},
@@ -977,6 +1075,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("investigation", "kill-process", "Initiate a task that terminates a running process on a managed endpoint.", "/v1.0/jsonrpc/investigation#killProcess"),
 	},
@@ -989,6 +1088,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("investigation", "retrieve-file", "Retrieve a file from an endpoint within your company and upload it as an archive to a centralized storage location in", "/v1.0/jsonrpc/investigation#startRetrieveInvestigationFileFromEndpoint"),
 	},
@@ -1001,6 +1101,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("investigation", "run-command", "Remotely execute a command on an endpoint and upload the resulting output as a log file to the GravityZone centralized", "/v1.0/jsonrpc/investigation#startCommandExecutionOnEndpoint"),
 	},
@@ -1013,6 +1114,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("isolation", "isolate", "Creates one or more tasks to isolate the specified endpoint or endpoints.", "/v1.2/jsonrpc/incidents#createIsolateEndpointTask"),
 	},
@@ -1025,6 +1127,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("isolation", "restore", "Creates one or more tasks to restore the specified endpoint or endpoints from isolation.", "/v1.2/jsonrpc/incidents#createRestoreEndpointFromIsolationTask"),
 	},
@@ -1037,6 +1140,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("license", "add-product-key", "Adds a license or add-on key to the existing list of licenses and add-on keys.", "/v1.0/jsonrpc/licensing#addProductKey"),
 	},
@@ -1049,6 +1153,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("license", "get", "Retrieves the license information for a company.", "/v1.0/jsonrpc/licensing#getLicenseInfo"),
 	},
@@ -1061,6 +1166,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("license", "remove-product-key", "Removes a license key from the given company.", "/v1.0/jsonrpc/licensing#removeProductKey"),
 	},
@@ -1073,6 +1179,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("license", "set-key", "Sets a standalone or an add-on license key for a company.", "/v1.0/jsonrpc/licensing#setLicenseKey"),
 	},
@@ -1085,6 +1192,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("license", "set-monthly-subscription", "Enables monthly subscription for a company.", "/v1.0/jsonrpc/licensing#setMonthlySubscription"),
 	},
@@ -1097,6 +1205,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("live_search", "run", "Create tasks that retrieve information about events and system statistics directly from online endpoints.", "/v1.0/jsonrpc/network#runLiveSearchQuery"),
 	},
@@ -1109,6 +1218,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("maintenance_windows", "approved-patches", "Returns a list of manually approved patches from the endpoints of a specific company.", "/v1.0/jsonrpc/maintenanceWindows#getManuallyApprovedPatches"),
 	},
@@ -1121,6 +1231,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("maintenance_windows", "assign", "Assigns a set of maintenance windows to a policy.", "/v1.0/jsonrpc/maintenanceWindows#assignMaintenanceWindows"),
 	},
@@ -1133,6 +1244,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("maintenance_windows", "create", "Creates a maintenance window which you can use in Patch Management.", "/v1.0/jsonrpc/maintenanceWindows#createPatchManagementMaintenanceWindow"),
 	},
@@ -1145,6 +1257,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("maintenance_windows", "delete", "Deletes a maintenance window.", "/v1.0/jsonrpc/maintenanceWindows#deleteMaintenanceWindow"),
 	},
@@ -1157,6 +1270,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("maintenance_windows", "get", "Retrieves all the information related to a maintenance window.", "/v1.0/jsonrpc/maintenanceWindows#getMaintenanceWindowDetails"),
 	},
@@ -1169,6 +1283,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("maintenance_windows", "list", "Will display a list of available Maintenance Windows for a company.", "/v1.0/jsonrpc/maintenanceWindows#getMaintenanceWindowsList"),
 	},
@@ -1181,6 +1296,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("maintenance_windows", "unassign", "Unassigns a set of maintenance windows from a policy.", "/v1.0/jsonrpc/maintenanceWindows#unassignMaintenanceWindows"),
 	},
@@ -1193,6 +1309,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("maintenance_windows", "update", "Modifies a patch management maintenance window.", "/v1.0/jsonrpc/maintenanceWindows#updatePatchManagementMaintenanceWindow"),
 	},
@@ -1205,6 +1322,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("notifications", "configure", "Configures the notification settings for a given user account.", "/v1.0/jsonrpc/accounts#configureNotificationsSettings"),
 	},
@@ -1217,6 +1335,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("notifications", "get", "Returns the notifications settings.", "/v1.0/jsonrpc/accounts#getNotificationsSettings"),
 	},
@@ -1229,6 +1348,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("packages", "create", "Creates an installation package.", "/v1.0/jsonrpc/packages#createPackage"),
 	},
@@ -1241,6 +1361,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("packages", "delete", "Deletes a package identified through the provided package ID.", "/v1.0/jsonrpc/packages#deletePackage"),
 	},
@@ -1253,6 +1374,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("packages", "get", "Retrieves information about the configuration of a specific package identified through the provided ID.", "/v1.0/jsonrpc/packages#getPackageDetails"),
 	},
@@ -1265,6 +1387,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("packages", "install-links", "Returns the installation links and full kits for an installation package.", "/v1.0/jsonrpc/packages#getInstallationLinks"),
 	},
@@ -1277,6 +1400,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("packages", "list", "Returns the list of available packages.", "/v1.0/jsonrpc/packages#getPackagesList"),
 	},
@@ -1289,6 +1413,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("packages", "update", "Update an installation package.", "/v1.0/jsonrpc/packages#updatePackage"),
 	},
@@ -1301,6 +1426,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("patches", "installed", "Request a list of installed patches that are associated to specific endpoints or a specific company.", "/v1.0/jsonrpc/patchManagement#getInstalledPatches"),
 	},
@@ -1313,6 +1439,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("patches", "missing", "Request a list of missing patches that are associated to specific endpoints or a specific company.", "/v1.0/jsonrpc/patchManagement#getMissingPatches"),
 	},
@@ -1325,6 +1452,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("phasr", "apply", "Applies recommendations by ID and returns success and failure details for each one requested.", "/v1.0/jsonrpc/phasr#applyRecommendations"),
 	},
@@ -1337,6 +1465,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("phasr", "edit-rules-access", "Restrict or allow access to behavioral profiles based on the recommendation generated by a specific PHASR rule.", "/v1.0/jsonrpc/phasr#editMonitoredRulesAccess"),
 	},
@@ -1349,6 +1478,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("phasr", "identities", "Retrieve all detected identities for a company.", "/v1.0/jsonrpc/phasr#getAllCompanyIdentities"),
 	},
@@ -1361,6 +1491,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("phasr", "monitored-rules", "Displays all the monitored PHASR rules across all behavioral categories for a specific company.", "/v1.0/jsonrpc/phasr#getMonitoredRules"),
 	},
@@ -1373,6 +1504,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("phasr", "profiles", "Retrieve information for the behavioral profiles that a specific recommendation applies to.", "/v1.0/jsonrpc/phasr#getRecommendationProfiles"),
 	},
@@ -1385,6 +1517,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("phasr", "recommendations", "Retrieve PHASR recommendations for a company.", "/v1.0/jsonrpc/phasr#getPhasrRecommendations"),
 	},
@@ -1397,6 +1530,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("phasr", "request-access-action", "Takes action on request access recommendations by either allowing or denying them.", "/v1.0/jsonrpc/phasr#takeRequestAccessAction"),
 	},
@@ -1409,6 +1543,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("phasr", "resources", "Retrieve all detected resources for a company.", "/v1.0/jsonrpc/phasr#getAllCompanyResources"),
 	},
@@ -1421,6 +1556,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("phasr", "rule-data", "Retrieved detailed information regarding a specific PHASR rule and the behavioral profiles it applies to.", "/v1.0/jsonrpc/phasr#getMonitoredRuleData"),
 	},
@@ -1433,6 +1569,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("policies", "get", "Retrieves all information related to a security policy.", "/v1.1/jsonrpc/policies#getPolicyDetails"),
 	},
@@ -1445,6 +1582,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("policies", "list", "Retrieves the list of available policies.", "/v1.0/jsonrpc/policies#getPoliciesList"),
 	},
@@ -1457,6 +1595,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("policies", "set-modules", "Enable or disable the settings associated to a specific policy.", "/v1.0/jsonrpc/policies#setPolicyModulesState"),
 	},
@@ -1469,6 +1608,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("push", "get", "Gets the push event settings.", "/v1.0/jsonrpc/push#getPushEventSettings"),
 	},
@@ -1481,6 +1621,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("push", "reset-stats", "Resets the push event statistics and errors.", "/v1.0/jsonrpc/push#resetPushEventStats"),
 	},
@@ -1493,6 +1634,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("push", "set", "Sets the push event settings.", "/v1.0/jsonrpc/push#setPushEventSettings"),
 	},
@@ -1505,6 +1647,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("push", "stats", "Gets the push event statistics and errors.", "/v1.0/jsonrpc/push#getPushEventStats"),
 	},
@@ -1517,6 +1660,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("push", "test", "Sends a test event.", "/v1.0/jsonrpc/push#sendTestPushEvent"),
 	},
@@ -1529,6 +1673,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("quarantine", "add-file", "Creates a new task to add a file to quarantine.", "/v1.1/jsonrpc/quarantine/computers#createAddFileToQuarantineTask"),
 	},
@@ -1541,6 +1686,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("quarantine", "empty", "Creates a new task to empty the quarantine.", "/v1.1/jsonrpc/quarantine/{service}#createEmptyQuarantineTask"),
 	},
@@ -1553,6 +1699,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("quarantine", "list", "Retrieves the list of quarantined items available for a company.", "/v1.0/jsonrpc/quarantine/{service}#getQuarantineItemsList"),
 	},
@@ -1565,6 +1712,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("quarantine", "release-exchange", "Creates a new task to release items from the quarantine to their intended recipients.", "/v1.0/jsonrpc/quarantine/exchange#createReleaseQuarantineExchangeItemTask"),
 	},
@@ -1577,6 +1725,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("quarantine", "remove", "Creates a new task to remove items from quarantine.", "/v1.1/jsonrpc/quarantine/{service}#createRemoveQuarantineItemTask"),
 	},
@@ -1589,6 +1738,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("quarantine", "restore", "Creates a new task to restore items from the quarantine.", "/v1.1/jsonrpc/quarantine/computers#createRestoreQuarantineItemTask"),
 	},
@@ -1601,6 +1751,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("quarantine", "restore-exchange", "Creates a new task to restore items from the quarantine for Exchange Servers.", "/v1.1/jsonrpc/quarantine/exchange#createRestoreQuarantineExchangeItemTask"),
 	},
@@ -1613,6 +1764,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("reports", "create", "Creates a new instant or scheduled report, based on the parameters received", "/v1.0/jsonrpc/reports#createReport"),
 	},
@@ -1625,6 +1777,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("reports", "delete", "Deletes a report by its ID.", "/v1.0/jsonrpc/reports#deleteReport"),
 	},
@@ -1637,6 +1790,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("reports", "download-links", "Returns an Object with information regarding the report availability for download and the corresponding download links.", "/v1.0/jsonrpc/reports#getDownloadLinks"),
 	},
@@ -1649,6 +1803,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("reports", "list", "Returns the list of scheduled reports, according to the parameters received.", "/v1.0/jsonrpc/reports#getReportsList"),
 	},
@@ -1661,6 +1816,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("response_actions", "create", "Take response actions on user nodes generated in GravityZone XDR incidents or your own SOC-generated incidents.", "/v1.0/jsonrpc/incidents#createResponseAction"),
 	},
@@ -1673,6 +1829,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("response_actions", "status", "Request the status and the result of a response action.", "/v1.0/jsonrpc/incidents#getResponseActionStatus"),
 	},
@@ -1685,6 +1842,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("tasks", "delete", "Delete a specific task, based on its ID.", "/v1.0/jsonrpc/network#deleteTask"),
 	},
@@ -1697,6 +1855,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("tasks", "gather-logs", "Create a task that collects diagnostic logs from an online endpoint.", "/v1.0/jsonrpc/network#runGatherLogsTask"),
 	},
@@ -1709,6 +1868,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("tasks", "list-scans", "Returns the list of scan tasks.", "/v1.0/jsonrpc/network#getScanTasksList"),
 	},
@@ -1721,6 +1881,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("tasks", "reconfigure", "Creates a new Reconfigure Agent task. With this task you can choose which modules to install on target agents.", "/v1.1/jsonrpc/network#createReconfigureClientTask"),
 	},
@@ -1733,6 +1894,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("tasks", "sandbox-submit", "Create a Sandbox Analyzer task and submit up to 5 files for analysis.", "/v1.0/jsonrpc/network#createSubmitToSandboxAnalyzerTask"),
 	},
@@ -1745,6 +1907,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("tasks", "scan", "Creates a new scan task.", "/v1.0/jsonrpc/network#createScanTask"),
 	},
@@ -1757,6 +1920,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("tasks", "scan-by-mac", "Generate a scan task for managed endpoints identified by their MAC address.", "/v1.0/jsonrpc/network#createScanTaskByMac"),
 	},
@@ -1769,6 +1933,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("tasks", "status", "Retrieves information about the status of a given task identified using its ID.", "/v1.1/jsonrpc/network#getTaskStatus"),
 	},
@@ -1781,6 +1946,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("usage", "monthly", "Exposes the monthly usage for a company in a target month.", "/v1.0/jsonrpc/licensing#getMonthlyUsage"),
 	},
@@ -1793,6 +1959,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("usage", "monthly-by-product", "Exposes the monthly usage of a company in a target month.", "/v1.0/jsonrpc/licensing#getMonthlyUsagePerProductType"),
 	},
@@ -1805,6 +1972,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("yara", "scan", "Initiate an On-demand scan on the specified targets, using a YARA rule to detect files that match the rule conditions.", "/v1.0/jsonrpc/incidents#startYaraScan"),
 	},
@@ -1854,6 +2022,10 @@ func codeOrchEndpointMetadata(ep *codeOrchEndpoint) map[string]any {
 		"method":      ep.Method,
 		"path":        ep.Path,
 		"summary":     ep.Summary,
+	}
+	// next_cursor comes back in params under this endpoint's page cursor name.
+	if ep.Page.CursorParam != "" {
+		out["cursor_param"] = ep.Page.CursorParam
 	}
 	return out
 }
@@ -1951,10 +2123,31 @@ func handleCodeOrchGet(ctx context.Context, req mcplib.CallToolRequest) (*mcplib
 }
 
 func codeOrchBlockedByMCPReadOnly(method string) bool {
-	return cliutil.IsMCPReadOnlyEnv() && method != "GET"
+	return cliutil.IsMCPReadOnlyEnv() && !strings.EqualFold(strings.TrimSpace(method), "GET")
+}
+
+// codeOrchRefuseForReadOnlySwitch reports calls the MCP read-only env must
+// reject before a client is built. Mutating GETs are writes even though the
+// verb is GET. _execute also refuses every non-GET, including read-only POSTs.
+func codeOrchRefuseForReadOnlySwitch(ep *codeOrchEndpoint, method string, executeTool bool) bool {
+	if !cliutil.IsMCPReadOnlyEnv() {
+		return false
+	}
+	if method == "DELETE" || ep.NeedsConfirm || ep.Mutating {
+		return true
+	}
+	return executeTool && codeOrchBlockedByMCPReadOnly(method)
+}
+
+func handleCodeOrchRead(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.CallToolResult, error) {
+	return codeOrchInvoke(ctx, req, false)
 }
 
 func handleCodeOrchExecute(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.CallToolResult, error) {
+	return codeOrchInvoke(ctx, req, true)
+}
+
+func codeOrchInvoke(ctx context.Context, req mcplib.CallToolRequest, executeTool bool) (*mcplib.CallToolResult, error) {
 	args := req.GetArguments()
 	id, ok := args["endpoint_id"].(string)
 	if !ok || id == "" {
@@ -1965,10 +2158,11 @@ func handleCodeOrchExecute(ctx context.Context, req mcplib.CallToolRequest) (*mc
 	if ep == nil {
 		return mcplib.NewToolResultError(fmt.Sprintf("unknown endpoint_id %q — call bitdefender_search to discover valid ids", id)), nil
 	}
-	// Hand-wired (handfixes.json: mcp-read-only-allows-gravityzone-reads):
-	// every GravityZone method is a POST, so listed read methods pass.
-	if codeOrchBlockedByMCPReadOnly(ep.Method) && !gravityZoneReadOnlyAllows(ep.Path) {
-		return mcplib.NewToolResultError(fmt.Sprintf("refusing %s %s while %s=1", ep.Method, id, cliutil.MCPReadOnlyEnvVar)), nil
+	method := codeOrchNormalizeMethod(ep.Method)
+	// Hand-wired (handfixes.json: mcp-read-only-allows-gravityzone-reads): under the
+	// switch bitdefender_read runs only the listed GravityZone reads.
+	if codeOrchRefuseForReadOnlySwitch(ep, method, executeTool) || gravityZoneReadOnlyRefusesRead(ep) {
+		return mcplib.NewToolResultError(fmt.Sprintf("refusing %s %s while %s=1", method, id, cliutil.MCPReadOnlyEnvVar)), nil
 	}
 
 	params, _ := args["params"].(map[string]any)
@@ -2016,11 +2210,32 @@ func handleCodeOrchExecute(ctx context.Context, req mcplib.CallToolRequest) (*mc
 		hdrs = nil
 	}
 
+	// An opaque MCP cursor from a bounded page resumes that page; a raw
+	// upstream cursor is sent as-is and anchors any local continuation.
+	mcpCursor, requestCursor := "", ""
+	if method == "GET" && ep.Page.CursorParam != "" {
+		// Offset- and page-numbered APIs take numbers here, so stringify before decoding.
+		if v, ok := params[ep.Page.CursorParam]; ok && v != nil {
+			if s := formatMCPParamValue(v); s != "" {
+				if upstream, err := bound.UpstreamCursor(s); err == nil {
+					mcpCursor, requestCursor = s, upstream
+					if upstream == "" {
+						delete(params, ep.Page.CursorParam)
+					} else {
+						params[ep.Page.CursorParam] = upstream
+					}
+				} else {
+					requestCursor = s
+				}
+			}
+		}
+	}
+
 	// Route params to their runtime slots. GET/DELETE params are query
 	// strings; write methods split spec-declared query params from the
 	// remaining params used as the request body below.
 	query := map[string]string{}
-	if ep.Method == "GET" || ep.Method == "DELETE" {
+	if method == "GET" || method == "DELETE" {
 		for k, v := range params {
 			query[codeOrchWireQueryName(ep.QueryParams, k)] = formatMCPParamValue(v)
 		}
@@ -2045,8 +2260,50 @@ func handleCodeOrchExecute(ctx context.Context, req mcplib.CallToolRequest) (*mc
 		}
 		return codeOrchWriteBody(params)
 	}
+	// Confirm after path and query resolution so a path param or fixed query
+	// selector cannot retarget a read onto a gated endpoint without confirm.
+	// Only a top-level boolean true counts; the string "true" stays a preview.
+	resolvedPath := path
+
+	gated := codeOrchResolvedNeedsConfirm(ep, method, resolvedPath, query)
+	if cliutil.IsMCPReadOnlyEnv() && gated {
+		return mcplib.NewToolResultError(fmt.Sprintf("refusing %s %s while %s=1", method, id, cliutil.MCPReadOnlyEnvVar)), nil
+	}
+	if executeTool {
+		if !gated {
+
+			return mcplib.NewToolResultError(fmt.Sprintf("endpoint_id %q is read-only; call bitdefender_read", id)), nil
+
+		}
+		if !codeOrchConfirmAccepted(args["confirm"]) {
+			previewBody := any(nil)
+			if method != "GET" && method != "DELETE" {
+				previewBody = writeBody()
+			}
+
+			preview := map[string]any{
+				"preview":               true,
+				"confirmation_required": true,
+				"endpoint_id":           ep.ID,
+				"method":                method,
+				"path":                  resolvedPath,
+				"query":                 query,
+				"body":                  previewBody,
+			}
+			text, previewErr := bound.JSON(preview)
+			if previewErr != nil {
+				return mcplib.NewToolResultError(fmt.Sprintf("encoding confirmation preview: %v", previewErr)), nil
+			}
+			return mcplib.NewToolResultText(text), nil
+		}
+	} else if gated {
+
+		return mcplib.NewToolResultError(fmt.Sprintf("resolved %s %s changes state; call bitdefender_execute with confirm set to boolean true", method, resolvedPath)), nil
+
+	}
+	path = resolvedPath
 	var data json.RawMessage
-	switch ep.Method {
+	switch method {
 	case "GET":
 		if len(hdrs) > 0 {
 			if ep.Mutating {
@@ -2089,12 +2346,22 @@ func handleCodeOrchExecute(ctx context.Context, req mcplib.CallToolRequest) (*mc
 			data, _, err = c.Patch(ctx, path, body)
 		}
 	default:
-		return mcplib.NewToolResultError(fmt.Sprintf("unsupported method %q", ep.Method)), nil
+		return mcplib.NewToolResultError(fmt.Sprintf("unsupported method %q", method)), nil
 	}
 	if err != nil {
 		return mcplib.NewToolResultError(err.Error()), nil
 	}
-	text := bound.EndpointResponse(ep.Method, data)
+	var text string
+	if method == "GET" && (ep.Page.CursorParam != "" || ep.Page.NextCursorPath != "") {
+		text = bound.EndpointPageResponse(method, data, bound.PageOptions{
+			Cursor:         mcpCursor,
+			CursorParam:    ep.Page.CursorParam,
+			NextCursorPath: ep.Page.NextCursorPath,
+			RequestCursor:  requestCursor,
+		})
+	} else {
+		text = bound.EndpointResponse(method, data)
+	}
 	if platformSession != nil {
 		text = bound.WithMetadata(text, platformSession.OutputMetadata())
 	}
@@ -2161,4 +2428,198 @@ func codeOrchWireQueryName(queryParams []codeOrchParamBinding, name string) stri
 		}
 	}
 	return name
+}
+
+func codeOrchNormalizeMethod(method string) string {
+	return strings.ToUpper(strings.TrimSpace(method))
+}
+
+func codeOrchConfirmAccepted(v any) bool {
+	confirmed, ok := v.(bool)
+	return ok && confirmed
+}
+
+func codeOrchPreviewPath(path string, templateVars map[string]string) string {
+	if len(templateVars) == 0 || !strings.Contains(path, "{") {
+		return path
+	}
+	names := make([]string, 0, len(templateVars))
+	for name := range templateVars {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	for _, name := range names {
+		value := templateVars[name]
+		if name == "" || value == "" {
+			continue
+		}
+		path = strings.ReplaceAll(path, "{"+name+"}", neturl.PathEscape(value))
+	}
+	return path
+}
+
+func codeOrchResolvedNeedsConfirm(selected *codeOrchEndpoint, method, resolvedPath string, query map[string]string) bool {
+	method = codeOrchNormalizeMethod(method)
+	if method == "DELETE" || selected.NeedsConfirm || selected.Mutating {
+		return true
+	}
+	effective := codeOrchEffectiveQuery(resolvedPath, query)
+	resolvedBase := codeOrchPathBase(resolvedPath)
+	// A literal route is the destination when a placeholder route also
+	// matches. POST /reports/search stays a read even though POST
+	// /reports/{id} matches the same path.
+	selectedMatches := codeOrchRequestMatchesEndpoint(selected.Path, resolvedBase, effective)
+	selectedSpecificity := codeOrchPatternSpecificity(selected.Path)
+	for i := range codeOrchEndpoints {
+		other := &codeOrchEndpoints[i]
+		if other == selected {
+			continue
+		}
+		if !other.NeedsConfirm && !other.Mutating && codeOrchNormalizeMethod(other.Method) != "DELETE" {
+			continue
+		}
+		if codeOrchNormalizeMethod(other.Method) != method {
+			continue
+		}
+		if !codeOrchRequestMatchesEndpoint(other.Path, resolvedBase, effective) {
+			continue
+		}
+		if selectedMatches && selectedSpecificity > codeOrchPatternSpecificity(other.Path) {
+			continue
+		}
+		return true
+	}
+	return codeOrchFixedQueryOverridden(selected.Path, effective)
+}
+
+func codeOrchPatternSpecificity(pattern string) int {
+	base := strings.Trim(codeOrchPathBase(pattern), "/")
+	if base == "" {
+		return 0
+	}
+	score := 0
+	for _, seg := range strings.Split(base, "/") {
+		if len(seg) >= 2 && seg[0] == '{' && seg[len(seg)-1] == '}' {
+			continue
+		}
+		score++
+	}
+	return score
+}
+
+func codeOrchPathBase(path string) string {
+	if i := strings.Index(path, "?"); i >= 0 {
+		return path[:i]
+	}
+	return path
+}
+
+func codeOrchEffectiveQuery(path string, query map[string]string) neturl.Values {
+	vals := neturl.Values{}
+	if i := strings.Index(path, "?"); i >= 0 && i+1 < len(path) {
+		if parsed, err := neturl.ParseQuery(path[i+1:]); err == nil {
+			for key, items := range parsed {
+				for _, item := range items {
+					vals.Add(key, item)
+				}
+			}
+		}
+	}
+	for key, value := range query {
+		vals.Add(key, value)
+	}
+	return vals
+}
+
+func codeOrchFixedQueryOverridden(pattern string, effective neturl.Values) bool {
+	_, raw, ok := strings.Cut(pattern, "?")
+	if !ok || raw == "" {
+		return false
+	}
+	fixed, err := neturl.ParseQuery(raw)
+	if err != nil {
+		return false
+	}
+	for name, want := range fixed {
+		got, exists := effective[name]
+		if !exists {
+			continue
+		}
+		for _, value := range got {
+			matched := false
+			for _, allowed := range want {
+				if value == allowed {
+					matched = true
+					break
+				}
+			}
+			if !matched {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func codeOrchRequestMatchesEndpoint(pattern, resolvedBase string, effective neturl.Values) bool {
+	patternBase, patternQuery, _ := strings.Cut(pattern, "?")
+	if !codeOrchSegmentsMatch(patternBase, resolvedBase) {
+		return false
+	}
+	if patternQuery == "" {
+		return true
+	}
+	fixed, err := neturl.ParseQuery(patternQuery)
+	if err != nil {
+		return false
+	}
+	for key, want := range fixed {
+		got := effective[key]
+		if len(got) == 0 {
+			return false
+		}
+		for _, value := range want {
+			found := false
+			for _, have := range got {
+				if have == value {
+					found = true
+					break
+				}
+			}
+			if !found {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+func codeOrchSegmentsMatch(pattern, resolved string) bool {
+	pattern = strings.Trim(pattern, "/")
+	resolved = strings.Trim(resolved, "/")
+	if pattern == "" || resolved == "" {
+		return pattern == resolved
+	}
+	patternSegs := strings.Split(pattern, "/")
+	resolvedSegs := strings.Split(resolved, "/")
+	if len(patternSegs) != len(resolvedSegs) {
+		return false
+	}
+	for i := range patternSegs {
+		seg := patternSegs[i]
+		if len(seg) >= 2 && seg[0] == '{' && seg[len(seg)-1] == '}' {
+			if resolvedSegs[i] == "" {
+				return false
+			}
+			continue
+		}
+		got := resolvedSegs[i]
+		if unescaped, err := neturl.PathUnescape(got); err == nil {
+			got = unescaped
+		}
+		if seg != got {
+			return false
+		}
+	}
+	return true
 }

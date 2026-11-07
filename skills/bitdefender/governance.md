@@ -60,13 +60,15 @@ response cache only ever holds GET responses. So the reads that return a credent
   only to your local snapshot store. `fleet incident-queue` and `fleet threats`
   print the ids to act on and leave the action to `incidents set-status`,
   `incidents assign` or `blocklist add`.
-- **The MCP server can still write.** Its generic `bitdefender_execute` tool can
-  call any GravityZone method, including isolation, kill process, remote command
-  execution and deletes, gated only by your AI app's per-tool approval prompt.
+- **The MCP server can still write.** Reads go through `bitdefender_read`; the
+  generic `bitdefender_execute` tool can call any data-changing GravityZone method,
+  including isolation, kill process, remote command execution and deletes. It first
+  returns a preview and sends nothing until the agent repeats the call with
+  `confirm` set to true, and your AI app's per-tool approval prompt is the second gate.
   For an agent that should only read, set `BITDEFENDER_MCP_READ_ONLY=1` in the MCP
-  server's environment (the value must be exactly `1`): `bitdefender_execute` then
-  runs only an explicit list of GravityZone read methods and refuses every write
-  and every Credential and access read below. Incident reads stay allowed for
+  server's environment (the value must be exactly `1`): `bitdefender_execute` is
+  then removed, and `bitdefender_read` runs only an explicit list of GravityZone
+  read methods and refuses every Credential and access read below. Incident reads stay allowed for
   triage, and an XDR incident's evidence can include connection metadata captured
   on the endpoint (for example a WinRM authorization header), so treat incident
   output as sensitive. The `import` tool and the tools that delete local

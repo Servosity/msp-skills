@@ -37,7 +37,7 @@
   "tools": [
     {
       "name": "companies_get-company",
-      "description": "Get a company by ID. Scope: platform.companies.read. Required: companyId. Returns array of CompaniesGetCompanyItem.",
+      "description": "Get a company by ID. Scope: platform.companies.read. Required: companyId. Returns the Company.",
       "method": "GET",
       "path": "/api/platform/v1/company/companies/{companyId}",
       "params": [
@@ -98,7 +98,7 @@
     },
     {
       "name": "custom_fields_get-definition",
-      "description": "Get one custom field definition. Scope: platform.custom_fields_definitions.read. Required: definitionID. Returns array of string.",
+      "description": "Get one custom field definition. Scope: platform.custom_fields_definitions.read. Required: definitionID. Returns the PartnerAttributeDefinition.",
       "method": "GET",
       "path": "/api/platform/v1/custom-field/definitions/{definitionID}",
       "params": [
@@ -485,7 +485,7 @@
     },
     {
       "name": "endpoints_get-system-state",
-      "description": "Get last boot time and logged-on users of an endpoint. Scope: platform.devices.read. Required: endpointId. Returns array of SystemStateLoggedOnUsers.",
+      "description": "Get last boot time and logged-on users of an endpoint. Scope: platform.devices.read. Required: endpointId. Returns the SystemStateCollection.",
       "method": "GET",
       "path": "/api/platform/v1/device/endpoints/{endpointId}/system-state-info",
       "params": [
@@ -631,7 +631,7 @@
     },
     {
       "name": "hypervisors_list-guests",
-      "description": "List guest VMs of a hypervisor host. Scope: platform.devices.read. Required: clientID, siteID, hostID. Returns array of Guest.",
+      "description": "List guest VMs of a hypervisor host. Scope: platform.devices.read. Required: clientID, siteID, hostID. Returns the Guestinventory.",
       "method": "GET",
       "path": "/api/platform/v1/device/hypervisors/clients/{clientID}/sites/{siteID}/hosts/{hostID}/guests",
       "params": [
@@ -667,7 +667,7 @@
     },
     {
       "name": "patches_get-endpoint",
-      "description": "Get patch compliance summary and patch list for an endpoint. Scope: platform.patching.read. Required: endpointID. Returns array of PatchDetail.",
+      "description": "Get patch compliance summary and patch list for an endpoint. Scope: platform.patching.read. Required: endpointID. Returns the PatchDetails.",
       "method": "GET",
       "path": "/api/platform/v1/patching/{endpointID}/patches",
       "params": [
@@ -937,7 +937,7 @@
     },
     {
       "name": "sites_create",
-      "description": "Create a site under a company. Scope: platform.sites.write. Required: companyId, name, timeZone. Optional: activeFlag, description, externalIds (plus 9 more). Returns array of SitesCreateItem.",
+      "description": "Create a site under a company. Scope: platform.sites.write. Required: companyId, name, timeZone. Optional: activeFlag, description, externalIds (plus 9 more). Returns the new Site.",
       "method": "POST",
       "path": "/api/platform/v1/company/companies/{companyId}/sites",
       "params": [
@@ -1279,7 +1279,7 @@
     },
     {
       "name": "sites_get",
-      "description": "Get a site by ID. Scope: platform.sites.read. Required: siteId. Returns array of SitesGetItem.",
+      "description": "Get a site by ID. Scope: platform.sites.read. Required: siteId. Returns the Site.",
       "method": "GET",
       "path": "/api/platform/v1/company/sites/{siteId}",
       "params": [
@@ -1316,7 +1316,7 @@
     },
     {
       "name": "sites_update",
-      "description": "Partially update a site. Scope: platform.sites.write. Required: companyId, siteId. Returns array of SitesUpdateItem.",
+      "description": "Partially update a site. Scope: platform.sites.write. Required: companyId, siteId. Returns the updated Site.",
       "method": "PATCH",
       "path": "/api/platform/v1/company/companies/{companyId}/sites/{siteId}",
       "params": [

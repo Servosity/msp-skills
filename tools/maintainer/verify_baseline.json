@@ -29,11 +29,6 @@
   "backup-radar": [
    "mcp-stdio"
   ],
-  "bitdefender": [
-   "write-gating",
-   "read-only",
-   "local-data"
-  ],
   "cisco-duo": [
    "write-gating",
    "read-only",
@@ -44,18 +39,8 @@
    "read-only",
    "local-data"
   ],
-  "connectwise-automate": [
-   "mcp-http",
-   "read-only",
-   "local-data"
-  ],
   "connectwise-manage": [
    "mcp-http",
-   "write-gating",
-   "read-only",
-   "local-data"
-  ],
-  "connectwise-rmm": [
    "write-gating",
    "read-only",
    "local-data"
@@ -177,11 +162,7 @@
    "local-data"
   ],
   "tactical-rmm": [
-   "mcp-stdio",
-   "mcp-http",
-   "write-gating",
-   "read-only",
-   "local-data"
+   "mcp-stdio"
   ],
   "td-synnex": [
    "local-data"

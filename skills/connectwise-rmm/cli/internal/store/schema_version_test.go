@@ -2127,6 +2127,13 @@ func TestMigrate_V8ToV9AddsCandidatesAndEvents(t *testing.T) {
 	if notes != "hand-authored notes" {
 		t.Fatalf("preserved playbook notes = %q, want original", notes)
 	}
+	var ingress string
+	if err := s.DB().QueryRow(`SELECT ingress_surface FROM learning_playbooks WHERE query_family = 'family_X'`).Scan(&ingress); err != nil {
+		t.Fatalf("read upgraded ingress_surface: %v", err)
+	}
+	if ingress != "cli" {
+		t.Fatalf("upgraded ingress_surface = %q, want cli", ingress)
+	}
 
 	// v8 is past the FTS content pin (4) but before the tokenizer pin, so
 	// the trigram rebuild must replace the porter sentinel with leaves.
@@ -2246,10 +2253,6 @@ func TestMigrate_AddsColumnsOnUpgrade_Companies(t *testing.T) {
 	}
 
 	for _, want := range []string{
-		"company_id",
-		"external_id",
-		"product_id",
-		"product_instance_id",
 		"acquired_date",
 		"created_by",
 		"created_date",
@@ -2488,12 +2491,12 @@ func TestMigrate_AddsColumnsOnUpgrade_Endpoints(t *testing.T) {
 
 	for _, want := range []string{
 		"status",
-		"client",
-		"is_admin",
-		"logon_time",
-		"session_id",
-		"session_name",
-		"username",
+		"client_id",
+		"create_time_utc",
+		"endpoint_id",
+		"name",
+		"site_id",
+		"type",
 		"display_name",
 		"service_name",
 	} {
@@ -2509,89 +2512,6 @@ func TestMigrate_AddsColumnsOnUpgrade_Endpoints(t *testing.T) {
 			wantIdx,
 		).Scan(&got); err != nil {
 			t.Fatalf("%s index missing from endpoints after migrate: %v", wantIdx, err)
-		}
-	}
-}
-
-// TestMigrate_AddsColumnsOnUpgrade_Patches verifies that opening a
-// database created by an older binary succeeds and adds newly generated
-// columns before CREATE INDEX runs against the pre-existing table. Regression
-// coverage for parent_id upgrades and indexed generated columns.
-func TestMigrate_AddsColumnsOnUpgrade_Patches(t *testing.T) {
-	dbPath := filepath.Join(t.TempDir(), "data.db")
-
-	// Pre-create the DB with the older table shape: id, data, synced_at and
-	// none of the newer generated columns. user_version stays 0 (pre-gate).
-	raw, err := sql.Open("sqlite", dbPath)
-	if err != nil {
-		t.Fatalf("open raw: %v", err)
-	}
-	if _, err := raw.Exec(`CREATE TABLE "patches" (
-		id TEXT PRIMARY KEY,
-		data JSON NOT NULL,
-		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
-	)`); err != nil {
-		raw.Close()
-		t.Fatalf("create old table: %v", err)
-	}
-	raw.Close()
-
-	// Opening with the new binary must run CREATE INDEX statements without
-	// erroring on missing generated columns.
-	s, err := Open(dbPath)
-	if err != nil {
-		t.Fatalf("open upgraded db: %v", err)
-	}
-	defer s.Close()
-
-	// table_info hides generated columns; table_xinfo is the verify
-	// surface for VIRTUAL backfills such as bare_id.
-	rows, err := s.DB().Query(`SELECT name FROM pragma_table_xinfo(?)`, "patches")
-	if err != nil {
-		t.Fatalf("table_xinfo: %v", err)
-	}
-	defer rows.Close()
-
-	hasColumn := make(map[string]bool)
-	for rows.Next() {
-		var name string
-		if err := rows.Scan(&name); err != nil {
-			t.Fatalf("scan: %v", err)
-		}
-		hasColumn[name] = true
-	}
-	if err := rows.Err(); err != nil {
-		t.Fatalf("rows: %v", err)
-	}
-
-	for _, want := range []string{
-		"classification",
-		"installed_by",
-		"installed_date",
-		"kb_article_id",
-		"more_information_link",
-		"msrc_id",
-		"msrc_severity",
-		"noc_testing_status",
-		"partner_approval_status",
-		"policy_match",
-		"reboot_behavior",
-		"size",
-		"status",
-		"update_id",
-	} {
-		if !hasColumn[want] {
-			t.Fatalf("%s column missing from patches after migrate", want)
-		}
-	}
-
-	for _, wantIdx := range []string{} {
-		var got string
-		if err := s.DB().QueryRow(
-			`SELECT name FROM sqlite_master WHERE type='index' AND name=?`,
-			wantIdx,
-		).Scan(&got); err != nil {
-			t.Fatalf("%s index missing from patches after migrate: %v", wantIdx, err)
 		}
 	}
 }
@@ -2813,11 +2733,6 @@ func TestMigrate_AddsColumnsOnUpgrade_Sites(t *testing.T) {
 	}
 
 	for _, want := range []string{
-		"backsynced",
-		"external_id",
-		"product_id",
-		"product_instance_id",
-		"site_id",
 		"active_flag",
 		"created_by",
 		"created_date",
@@ -3276,5 +3191,512 @@ func TestMigrate_AddsColumnsOnUpgrade_SyncState(t *testing.T) {
 		).Scan(&got); err != nil {
 			t.Fatalf("%s index missing from sync_state after migrate: %v", wantIdx, err)
 		}
+	}
+}
+
+func TestColumnNeedsBackfill(t *testing.T) {
+	known := map[string]map[string]struct{}{
+		"items": {"id": {}, "name": {}},
+	}
+	cases := []struct {
+		table  string
+		column string
+		want   bool
+	}{
+		{table: "missing", column: "name", want: false},
+		{table: "items", column: "name", want: false},
+		{table: "items", column: "note", want: true},
+		{table: "Items", column: "name", want: false},
+		{table: "items", column: "Name", want: true},
+	}
+	for _, tc := range cases {
+		if got := columnNeedsBackfill(known, tc.table, tc.column); got != tc.want {
+			t.Errorf("columnNeedsBackfill(%q, %q) = %v, want %v", tc.table, tc.column, got, tc.want)
+		}
+	}
+	if columnNeedsBackfill(nil, "items", "name") {
+		t.Fatal("nil map must not need a backfill")
+	}
+	markColumnPresent(known, "items", "note")
+	if columnNeedsBackfill(known, "items", "note") {
+		t.Fatal("marked column must not need a backfill")
+	}
+	markColumnPresent(known, "fresh", "id")
+	if columnNeedsBackfill(known, "fresh", "id") {
+		t.Fatal("column marked on a new table must be present")
+	}
+	noteBackfillProbe(context.Background())
+	noteBackfillAlter(context.Background())
+}
+
+func TestBackfillColumns_OneSnapshotPerOpen(t *testing.T) {
+	want := []struct{ table, column string }{
+		{"sync_state", "last_attempt_complete"},
+		{"sync_state", "scope_key"},
+		{"companies", "acquired_date"},
+		{"companies", "created_by"},
+		{"companies", "created_date"},
+		{"companies", "delete_txn_id"},
+		{"companies", "deleted_by"},
+		{"companies", "deleted_date"},
+		{"companies", "description"},
+		{"companies", "friendly_name"},
+		{"companies", "inactive_date"},
+		{"companies", "industry_code"},
+		{"companies", "name"},
+		{"companies", "partner_id"},
+		{"companies", "updated_by"},
+		{"companies", "updated_date"},
+		{"custom_fields", "attribute_id"},
+		{"custom_fields", "value"},
+		{"custom_fields", "default_value"},
+		{"custom_fields", "description"},
+		{"custom_fields", "name"},
+		{"custom_fields", "required"},
+		{"custom_fields", "type"},
+		{"device_groups", "created_at"},
+		{"device_groups", "description"},
+		{"device_groups", "name"},
+		{"device_groups", "predefined"},
+		{"device_groups", "static"},
+		{"device_groups", "updated_at"},
+		{"endpoints", "status"},
+		{"endpoints", "client_id"},
+		{"endpoints", "create_time_utc"},
+		{"endpoints", "endpoint_id"},
+		{"endpoints", "name"},
+		{"endpoints", "site_id"},
+		{"endpoints", "type"},
+		{"endpoints", "display_name"},
+		{"endpoints", "service_name"},
+		{"policies", "created_at"},
+		{"policies", "updated_at"},
+		{"policies", "created_by"},
+		{"policies", "updated_by"},
+		{"policies", "icon"},
+		{"policies", "label"},
+		{"scripts", "created_at"},
+		{"scripts", "description"},
+		{"scripts", "has_parameters"},
+		{"scripts", "name"},
+		{"scripts", "script_category"},
+		{"scripts", "updated_at"},
+		{"scripts", "json_schema"},
+		{"scripts", "executor_engine"},
+		{"scripts", "type"},
+		{"scripts", "user_parameters"},
+		{"scripts", "created_on"},
+		{"scripts", "expected_execution_time_sec"},
+		{"scripts", "state"},
+		{"scripts", "template_id"},
+		{"scripts", "updated_on"},
+		{"sites", "active_flag"},
+		{"sites", "created_by"},
+		{"sites", "created_date"},
+		{"sites", "delete_txn_id"},
+		{"sites", "deleted_by"},
+		{"sites", "deleted_date"},
+		{"sites", "description"},
+		{"sites", "friendly_name"},
+		{"sites", "inactive_date"},
+		{"sites", "industry_code"},
+		{"sites", "last_lock_creation_date"},
+		{"sites", "name"},
+		{"sites", "partner_id"},
+		{"sites", "physical_address_flag"},
+		{"sites", "primary_flag"},
+		{"sites", "sub_entity_updated_by"},
+		{"sites", "sub_entity_updated_date"},
+		{"sites", "time_zone"},
+		{"sites", "updated_by"},
+		{"sites", "updated_date"},
+		{"tasks", "completion_status"},
+		{"tasks", "created_on"},
+		{"tasks", "endpoint_id"},
+		{"tasks", "error_details"},
+		{"tasks", "executiontime"},
+		{"tasks", "result_details"},
+		{"tasks", "task_id"},
+		{"tasks", "task_instance_id"},
+		{"tasks", "canceled_count"},
+		{"tasks", "device_count"},
+		{"tasks", "disabled_count"},
+		{"tasks", "executed_on"},
+		{"tasks", "failed_count"},
+		{"tasks", "name"},
+		{"tasks", "next_schedule"},
+		{"tasks", "overall_status"},
+		{"tasks", "postponed_count"},
+		{"tasks", "regularity"},
+		{"tasks", "running_count"},
+		{"tasks", "scheduled_count"},
+		{"tasks", "success_count"},
+		{"tasks", "waiting_count"},
+		{"tasks", "template_id"},
+		{"tasks", "template_type"},
+		{"tasks", "can_be_cancelled"},
+		{"tasks", "can_be_postponed"},
+		{"tasks", "description"},
+		{"tasks", "execution_status"},
+		{"tasks", "modified_on"},
+		{"tasks", "schedule_type"},
+		{"tasks", "state"},
+		{"tasks", "triggered_by"},
+		{"tasks", "created_on_day"},
+		{"tasks", "time_zone"},
+		{"tasks", "is_deactivated"},
+		{"ticket_notes", "created_at"},
+		{"ticket_notes", "created_by"},
+		{"ticket_notes", "created_by_id"},
+		{"ticket_notes", "detail"},
+		{"ticket_notes", "self_created"},
+		{"ticket_notes", "ticket_id"},
+		{"ticket_notes", "updated_at"},
+		{"ticket_notes", "updated_by"},
+		{"ticket_notes", "updated_by_id"},
+		{"ticket_notes", "visibility"},
+		{"ticket_settings", "created_at"},
+		{"ticket_settings", "created_by"},
+		{"ticket_settings", "service_board_id"},
+		{"ticket_settings", "team_id"},
+		{"ticket_settings", "team_name"},
+		{"ticket_settings", "updated_at"},
+		{"ticket_settings", "updated_by"},
+		{"ticket_settings", "description"},
+		{"ticket_settings", "inactive_flag"},
+		{"ticket_settings", "name"},
+		{"ticket_settings", "category"},
+		{"ticket_settings", "sla_status"},
+		{"tickets", "created_at"},
+		{"tickets", "description"},
+		{"tickets", "due_date"},
+		{"tickets", "noc_ticket_id"},
+		{"tickets", "number"},
+		{"tickets", "summary"},
+		{"tickets", "updated_at"},
+		{"tickets", "version"},
+		{"tickets", "count"},
+		{"tickets", "name"},
+	}
+	if len(want) < 2 {
+		t.Fatal("backfill fixture must list more than one column")
+	}
+
+	dbPath := filepath.Join(t.TempDir(), "data.db")
+	raw, err := sql.Open("sqlite", dbPath)
+	if err != nil {
+		t.Fatalf("open raw: %v", err)
+	}
+	if _, err := raw.Exec(`PRAGMA journal_mode = DELETE`); err != nil {
+		raw.Close()
+		t.Fatalf("journal_mode: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE sync_state (
+		resource_type TEXT PRIMARY KEY,
+		last_cursor TEXT,
+		last_synced_at DATETIME,
+		total_count INTEGER
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old sync_state: %v", err)
+	}
+	if _, err := raw.Exec(`INSERT INTO sync_state (resource_type, last_cursor) VALUES ('items', 'cursor-1')`); err != nil {
+		raw.Close()
+		t.Fatalf("seed sync_state: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "companies" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old companies: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "custom_fields" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old custom_fields: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "device_groups" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old device_groups: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "endpoints" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old endpoints: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "policies" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old policies: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "scripts" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old scripts: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "sites" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old sites: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "tasks" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old tasks: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "ticket_notes" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old ticket_notes: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "ticket_settings" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old ticket_settings: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "tickets" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old tickets: %v", err)
+	}
+	if err := raw.Close(); err != nil {
+		t.Fatalf("close raw: %v", err)
+	}
+
+	ctx, stats := contextWithBackfillStats(context.Background())
+	s, err := OpenWithContext(ctx, dbPath)
+	if err != nil {
+		t.Fatalf("open upgraded db: %v", err)
+	}
+	if stats.probes != 1 {
+		s.Close()
+		t.Fatalf("probes = %d, want 1 for %d columns", stats.probes, len(want))
+	}
+	if stats.alters != len(want) {
+		s.Close()
+		t.Fatalf("alters = %d, want %d (one per missing column, not per probe)", stats.alters, len(want))
+	}
+	for _, c := range want {
+		var name string
+		if err := s.DB().QueryRow(`SELECT name FROM pragma_table_xinfo(?) WHERE name = ?`, c.table, c.column).Scan(&name); err != nil {
+			s.Close()
+			t.Fatalf("%s.%s missing after backfill: %v", c.table, c.column, err)
+		}
+	}
+	var cursor string
+	if err := s.DB().QueryRow(`SELECT last_cursor FROM sync_state WHERE resource_type = 'items'`).Scan(&cursor); err != nil {
+		s.Close()
+		t.Fatalf("read upgraded sync_state: %v", err)
+	}
+	if cursor != "cursor-1" {
+		s.Close()
+		t.Fatalf("last_cursor = %q, want cursor-1", cursor)
+	}
+	var ingress string
+	if err := s.DB().QueryRow(`SELECT name FROM pragma_table_xinfo('learning_playbooks') WHERE name = 'ingress_surface'`).Scan(&ingress); err != nil {
+		s.Close()
+		t.Fatalf("missing learning_playbooks must be created with ingress_surface, not skipped: %v", err)
+	}
+	if err := s.Close(); err != nil {
+		t.Fatalf("close upgraded db: %v", err)
+	}
+
+	ctx, stats = contextWithBackfillStats(context.Background())
+	s, err = OpenWithContext(ctx, dbPath)
+	if err != nil {
+		t.Fatalf("reopen upgraded db: %v", err)
+	}
+	defer s.Close()
+	if stats.probes != 1 || stats.alters != 0 {
+		t.Fatalf("reopen probes=%d alters=%d, want 1 and 0", stats.probes, stats.alters)
+	}
+}
+
+func TestBackfillColumns_GeneratedColumnNotReAdded(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "data.db")
+	raw, err := sql.Open("sqlite", dbPath)
+	if err != nil {
+		t.Fatalf("open raw: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE sync_state (
+		resource_type TEXT PRIMARY KEY,
+		last_cursor TEXT,
+		last_synced_at DATETIME,
+		total_count INTEGER,
+		scope_key TEXT GENERATED ALWAYS AS ('') VIRTUAL
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create generated scope_key: %v", err)
+	}
+	if err := raw.Close(); err != nil {
+		t.Fatalf("close raw: %v", err)
+	}
+
+	ctx, stats := contextWithBackfillStats(context.Background())
+	s, err := OpenWithContext(ctx, dbPath)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	if stats.probes != 1 {
+		s.Close()
+		t.Fatalf("probes = %d, want 1", stats.probes)
+	}
+	if stats.alters != 1 {
+		s.Close()
+		t.Fatalf("alters = %d, want 1 (last_attempt_complete only; table_info would also retry scope_key)", stats.alters)
+	}
+	var hidden int
+	if err := s.DB().QueryRow(`SELECT hidden FROM pragma_table_xinfo('sync_state') WHERE name = 'scope_key'`).Scan(&hidden); err != nil {
+		s.Close()
+		t.Fatalf("scope_key visibility: %v", err)
+	}
+	if hidden != 2 && hidden != 3 {
+		s.Close()
+		t.Fatalf("scope_key hidden = %d, want a generated column", hidden)
+	}
+	var present string
+	if err := s.DB().QueryRow(`SELECT name FROM pragma_table_xinfo('sync_state') WHERE name = 'last_attempt_complete'`).Scan(&present); err != nil {
+		s.Close()
+		t.Fatalf("last_attempt_complete missing: %v", err)
+	}
+	if err := s.Close(); err != nil {
+		t.Fatalf("close: %v", err)
+	}
+
+	ctx, stats = contextWithBackfillStats(context.Background())
+	s, err = OpenWithContext(ctx, dbPath)
+	if err != nil {
+		t.Fatalf("reopen: %v", err)
+	}
+	defer s.Close()
+	if stats.probes != 1 || stats.alters != 0 {
+		t.Fatalf("reopen probes=%d alters=%d, want 1 and 0", stats.probes, stats.alters)
+	}
+}
+
+func TestBackfillColumns_FreshStoreDoesNotAlter(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "data.db")
+	ctx, stats := contextWithBackfillStats(context.Background())
+	s, err := OpenWithContext(ctx, dbPath)
+	if err != nil {
+		t.Fatalf("open fresh: %v", err)
+	}
+	if stats.probes != 1 || stats.alters != 0 {
+		s.Close()
+		t.Fatalf("fresh probes=%d alters=%d, want 1 and 0", stats.probes, stats.alters)
+	}
+	version, err := s.SchemaVersion()
+	if err != nil {
+		s.Close()
+		t.Fatalf("schema version: %v", err)
+	}
+	if version != StoreSchemaVersion {
+		s.Close()
+		t.Fatalf("user_version = %d, want %d", version, StoreSchemaVersion)
+	}
+	var scope string
+	if err := s.DB().QueryRow(`SELECT name FROM pragma_table_xinfo('sync_state') WHERE name = 'scope_key'`).Scan(&scope); err != nil {
+		s.Close()
+		t.Fatalf("fresh sync_state missing scope_key: %v", err)
+	}
+	if err := s.Close(); err != nil {
+		t.Fatalf("close fresh: %v", err)
+	}
+
+	ctx, stats = contextWithBackfillStats(context.Background())
+	s, err = OpenWithContext(ctx, dbPath)
+	if err != nil {
+		t.Fatalf("reopen fresh: %v", err)
+	}
+	defer s.Close()
+	if stats.probes != 1 || stats.alters != 0 {
+		t.Fatalf("reopen probes=%d alters=%d, want 1 and 0", stats.probes, stats.alters)
+	}
+}
+
+func TestSnapshotTableColumnsCanceled(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "data.db")
+	db, err := sql.Open("sqlite", dbPath)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer db.Close()
+	if _, err := db.Exec(`CREATE TABLE t (id TEXT)`); err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	conn, err := db.Conn(context.Background())
+	if err != nil {
+		t.Fatalf("conn: %v", err)
+	}
+	defer conn.Close()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	_, err = snapshotTableColumns(ctx, conn)
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("snapshot error = %v, want context.Canceled", err)
+	}
+}
+
+func TestAddColumnDuplicateAndInvalid(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "data.db")
+	db, err := sql.Open("sqlite", dbPath)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer db.Close()
+	if _, err := db.Exec(`CREATE TABLE sync_state (resource_type TEXT PRIMARY KEY)`); err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	conn, err := db.Conn(context.Background())
+	if err != nil {
+		t.Fatalf("conn: %v", err)
+	}
+	defer conn.Close()
+
+	ctx := context.Background()
+	if err := addColumn(ctx, conn, "sync_state", "resource_type", "TEXT"); err != nil {
+		t.Fatalf("duplicate column must be swallowed: %v", err)
+	}
+	err = addColumn(ctx, conn, "sync_state", "bad_pk", "INTEGER PRIMARY KEY")
+	if err == nil || strings.Contains(err.Error(), "duplicate column name") {
+		t.Fatalf("primary key add = %v, want a non-duplicate error", err)
+	}
+	err = addColumn(ctx, conn, "missing_table", "col", "TEXT")
+	if err == nil || !strings.Contains(err.Error(), "missing_table.col") {
+		t.Fatalf("missing table add = %v, want wrapped missing_table.col", err)
 	}
 }

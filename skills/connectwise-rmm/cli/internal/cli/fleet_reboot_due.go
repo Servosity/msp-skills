@@ -119,7 +119,7 @@ patch-posture' instead.`, "\n"),
 			for _, r := range view.Endpoints {
 				users := make([]string, 0, len(r.LoggedOn))
 				for _, u := range r.LoggedOn {
-					users = append(users, u.Username)
+					users = append(users, firstNonEmpty(u.Username, "("+firstNonEmpty(u.SessionName, "session")+")"))
 				}
 				rows = append(rows, map[string]any{"bucket": r.Bucket, "company": r.CompanyName, "endpoint": firstNonEmpty(r.Name, r.ID), "pending": r.PendingReboot, "users": strings.Join(users, ", ")})
 			}

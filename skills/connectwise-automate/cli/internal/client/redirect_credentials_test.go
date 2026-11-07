@@ -65,6 +65,11 @@ func TestRedirectLeavingTheOriginStripsEveryCredential(t *testing.T) {
 	} {
 		next, via := redirectTestHop(t, http.MethodGet, "https://api.example.test/v1/items", to)
 		if err := c.HTTPClient.CheckRedirect(next, via); err != nil {
+			// Press 4.35 refuses an https-to-http downgrade outright, which
+			// sends nothing at all; any other refusal is a regression.
+			if to == "http://api.example.test/x" {
+				continue
+			}
 			t.Fatalf("GET redirect to %s refused: %v", to, err)
 		}
 		for k := range redirectTestCredentials {
@@ -105,10 +110,15 @@ func TestSameOriginRedirectKeepsAuth(t *testing.T) {
 			t.Errorf("same-origin redirect to %s: Authorization = %q, want the configured credential", to, got)
 		}
 	}
-	// http up to https on the same host is not a downgrade.
+	// http up to https on the same host is another endpoint (port 80 -> 443)
+	// than the one configured: it carries no credential, the clientId included.
 	next, via := redirectTestHop(t, http.MethodGet, "http://api.example.test/v1/items", "https://api.example.test/v1/items")
-	next.Header.Del("Authorization")
-	if err := c.HTTPClient.CheckRedirect(next, via); err != nil || next.Header.Get("Authorization") != "primary-credential" {
-		t.Errorf("http to https on the same host: err=%v Authorization=%q", err, next.Header.Get("Authorization"))
+	if err := c.HTTPClient.CheckRedirect(next, via); err != nil {
+		t.Fatalf("http to https on the same host refused: %v", err)
+	}
+	for k := range redirectTestCredentials {
+		if v := next.Header.Get(k); v != "" {
+			t.Errorf("http to https on the same host kept %s", k)
+		}
 	}
 }

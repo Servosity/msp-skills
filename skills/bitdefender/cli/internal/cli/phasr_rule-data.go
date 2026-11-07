@@ -47,7 +47,7 @@ func newPhasrRuleDataCmd(flags *rootFlags) *cobra.Command {
 			}
 			if !stdinBody {
 				if !cmd.Flags().Changed("rule-id") && bodyRuleId == 0 && !requiredInputWaived() {
-					return fmt.Errorf("required flag \"%s\" not set", "rule-id")
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "rule-id"))
 				}
 			}
 			path := "/v1.0/jsonrpc/phasr#getMonitoredRuleData"

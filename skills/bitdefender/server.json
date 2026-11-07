@@ -49,7 +49,7 @@
         },
         {
           "name": "BITDEFENDER_MCP_READ_ONLY",
-          "description": "Optional: set to 1 so the MCP server runs GravityZone read methods only.",
+          "description": "Optional: set to 1 so the MCP server only reads (bitdefender_execute and import removed; Credential-tier reads refused).",
           "isRequired": false,
           "isSecret": false,
           "default": "1"
@@ -63,6 +63,12 @@
         {
           "name": "PRINTING_PRESS_CLIENT_PROFILE",
           "description": "Not enforced by this connector (no tenant-gated profiles); leave unset. It does not limit access.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "BITDEFENDER_NO_LOCAL_DATA",
+          "description": "Optional: set to 1 to keep no local copy of GravityZone data (no response cache, no store writes, sync refused).",
           "isRequired": false,
           "isSecret": false
         }

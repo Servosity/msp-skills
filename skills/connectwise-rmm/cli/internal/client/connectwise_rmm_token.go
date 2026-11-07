@@ -9,6 +9,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"io"
 	"net/http"
 	"regexp"
 	"strings"
@@ -28,10 +29,22 @@ func RedactTokenBody(body, secret string) string {
 		}
 	}
 	body = tokenFieldRe.ReplaceAllString(body, "${1}<redacted>${2}")
-	// Hand-fix (handfixes.json secret-echo-decoded-funnel): an echo of the
-	// secret the replacements above missed, in any encoding the shared funnel
-	// decodes, withholds the whole body before the cut.
-	return cliutil.SanitizeErrorBody(cliutil.FunnelWithhold(body, []string{secret}))
+	return cliutil.SanitizeErrorBody(body)
+}
+
+// AsioTokenBody returns the JSON body NewAsioTokenRequest set, so the press's
+// outbound guard (plaintext refusal, host pinning) sees the credential it carries.
+func AsioTokenBody(req *http.Request) []byte {
+	if req == nil || req.GetBody == nil {
+		return nil
+	}
+	rc, err := req.GetBody()
+	if err != nil {
+		return nil
+	}
+	defer rc.Close()
+	b, _ := io.ReadAll(rc)
+	return b
 }
 
 // ApplyAsioRequestHeaders adds the Origin and per-request X-Request-ID headers

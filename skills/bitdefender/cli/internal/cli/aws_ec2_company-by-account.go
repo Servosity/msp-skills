@@ -44,7 +44,7 @@ func newAwsEc2CompanyByAccountCmd(flags *rootFlags) *cobra.Command {
 			}
 			if !stdinBody {
 				if !cmd.Flags().Changed("account-id") && bodyAccountId == "" && !requiredInputWaived() {
-					return fmt.Errorf("required flag \"%s\" not set", "account-id")
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "account-id"))
 				}
 			}
 			path := "/v1.0/jsonrpc/integrations#getCompanyDetailsByAWSAccountId"
