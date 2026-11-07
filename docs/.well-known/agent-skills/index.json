@@ -734,7 +734,7 @@
       "type": "skill-md",
       "description": "Use when the user asks which WatchGuard Cloud customer needs attention first, which Fireboxes are offline or behind on firmware, which endpoints are unprotected, isolated or waiting on a reboot across customers, which ThreatSync incidents are untouched, who is exposed to a CVE, whether license allocations match the Fireboxes that report in, or to wait for a Firebox deployment to finish; also to run any WatchGuard Cloud API call (Firebox, FireCloud, Endpoint Security, ThreatSync, NDR, AuthPoint, accounts, operators, allocations). Trigger phrases: `which fireboxes are offline`, `which customers have unprotected endpoints`, `who is exposed to this CVE`, `threatsync incident queue`, `fireboxes behind on firmware`, `wait for the firebox deployment`, `watchguard license allocation`, `use watchguard`, `run watchguard-cli`.",
       "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/watchguard/SKILL.md",
-      "digest": "sha256:6c743bcfbe6ed412d05b3162a6d7633b40801f1f162c8a61796eb0b0e96072ec"
+      "digest": "sha256:a708f011e27837f737303738f5de383b331acfb87ebd2a4edcc58bdac6a181a9"
     },
     {
       "name": "windows-server",

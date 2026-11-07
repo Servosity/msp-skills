@@ -213,9 +213,13 @@ func TestExpiringWithin(t *testing.T) {
 	 {"productName":"AuthPoint","daysUntilExpiry":"90"},
 	 {"productName":"NDR","allocationExpiryDate":"2026-10-20T00:00:00Z"},
 	 {"productName":"NoDate"}]}`, "data")
-	got := expiringWithin("endPoint", rows, 30*24*time.Hour, now)
+	got, unknown := expiringWithin("endPoint", rows, 30*24*time.Hour, now)
 	if len(got) != 2 || got[0].Product != "EPDR" || got[1].Product != "NDR" || got[1].DaysLeft != 6 {
 		t.Fatalf("expiring = %+v", got)
+	}
+	// A row with no expiry evidence is expiry-unknown, never "not expiring".
+	if len(unknown) != 1 || unknown[0].Product != "NoDate" {
+		t.Fatalf("unknown = %+v", unknown)
 	}
 }
 
@@ -371,11 +375,11 @@ func TestEntityActionsMatchPerEntity(t *testing.T) {
 }
 
 func TestProductFromRowKeepsAbsentQuantitiesAbsent(t *testing.T) {
-	sub := productFromRow("endPoint", mustMaps(t, `[{"productName":"EPDR","allocationType":"subscription","subscriptionTotal":"unlimited","usage":42}]`, "data")[0])
+	sub := productFromRow("endPoint", mustMaps(t, `[{"productName":"EPDR","allocationType":"subscription","subscriptionTotal":"unlimited","usage":42}]`, "data")[0], time.Now())
 	if sub.Total != nil || sub.Allocated != nil || sub.Available != nil || sub.SubscriptionTotal != "unlimited" || sub.Usage == nil || *sub.Usage != 42 {
 		t.Fatalf("subscription row = %+v", sub)
 	}
-	term := productFromRow("endPoint", mustMaps(t, `[{"productName":"EPDR","quantityTotal":50,"quantityAllocated":30,"quantityAvailable":20}]`, "data")[0])
+	term := productFromRow("endPoint", mustMaps(t, `[{"productName":"EPDR","quantityTotal":50,"quantityAllocated":30,"quantityAvailable":20}]`, "data")[0], time.Now())
 	if term.Total == nil || *term.Total != 50 || *term.Available != 20 {
 		t.Fatalf("term row = %+v", term)
 	}

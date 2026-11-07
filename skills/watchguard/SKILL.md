@@ -124,8 +124,8 @@ Do not use this CLI for:
 
 - **Read freely:** `accounts health`, `endpoint-devices posture`, `threatsync-incidents queue`, `endpoint-patches exposure`, `allocations reconcile`, `firebox-devices changes` / `firmware-lag`, `firebox-transactions wait`, `sync`, `search`, and every `list` / `get` except the credential reads below.
 - **Ask a human first, every time:** `firebox-bovpn-tunnels list` / `get` (BOVPN pre-shared keys), `firebox-certificates list` / `get` (private keys and their passwords), `firebox-networks list` / `get` (PPPoE, Dynamic DNS and Wi-Fi credentials), `firebox-users list` / `get` and `firebox-content-filtering list` / `get` (passwords), `activations list-recent` / `status` (activation keys), `allocations list-owned` / `list-assigned` / `summary` (serial numbers and software license keys) and `endpoint-installers` (an enrollment download link) print secrets in plaintext; `export activations` prints or writes activation keys too; and `--deliver webhook:<url>` on any command posts its output off the machine. The response cache never stores those responses, and the local mirror never stores those fields: allocation rows keep Firebox and access point serial numbers, and a software license key only as a one-way fingerprint (see governance.md).
-- **Preview, then ask:** no write asks for confirmation. Pass `--dry-run` first and show the user the request (it sends nothing, requests no token and changes nothing on disk; `jobs prune`, `profile save` and `profile delete` refuse it). `endpoint-devices isolate` / `stop-isolation` / `scan` / `action` / `uninstall` act on customer computers, `threatsync-actions perform` and `threatsync-incident-actions perform` act on incident entities, `authpoint push` sends a push to a user's phone, `firebox-deployments` pushes configuration to Fireboxes, and the `firebox-policies`, exception, BOVPN, certificate, template, allocation, account and operator writes change configuration or licensing. Never run these, or any `delete`, without explicit confirmation. `accounts delete` with no flags targets `--account-id`, which defaults to your own `WATCHGUARD_ACCOUNT_ID`.
-- **MCP read-only mode:** with `WATCHGUARD_MCP_READ_ONLY=1` the MCP server drops its write tools and `watchguard_execute` refuses every non-GET call; GET credential reads still pass and return their secrets to the agent, and the cross-customer report tools still send the audience lookup, so pair it with the read-only Access ID. Through MCP there is no preview: `watchguard_execute` sends a write as soon as it is called. `tail` and `import` are not MCP tools, and MCP tools never take a local file path for the CLI to read (`teach-playbook` notes and playbook files, `import --input`).
+- **Preview, then ask:** no CLI write asks for confirmation. Pass `--dry-run` first and show the user the request (it sends nothing, requests no token and changes nothing on disk; `jobs prune`, `profile save` and `profile delete` refuse it). `endpoint-devices isolate` / `stop-isolation` / `scan` / `action` / `uninstall` act on customer computers, `threatsync-actions perform` and `threatsync-incident-actions perform` act on incident entities, `authpoint push` sends a push to a user's phone, `firebox-deployments` pushes configuration to Fireboxes, and the `firebox-policies`, exception, BOVPN, certificate, template, allocation, account and operator writes change configuration or licensing. Never run these, or any `delete`, without explicit confirmation. `accounts delete` with no flags targets `--account-id`, which defaults to your own `WATCHGUARD_ACCOUNT_ID`.
+- **MCP read-only mode:** with `WATCHGUARD_MCP_READ_ONLY=1` the MCP server drops its write tools and `watchguard_execute` refuses every state-changing call; GET credential reads still pass and return their secrets to the agent, and the cross-customer report tools still send the audience lookup, so pair it with the read-only Access ID. Through MCP, `watchguard_execute` returns a preview of a write and sends it only when called again with `confirm` set to the JSON boolean `true`. `tail` and `import` are not MCP tools, and MCP tools never take a local file path for the CLI to read (`teach-playbook` notes and playbook files, `import --input`).
 - **Credentials:** a cached token is reused only by a process with the same Access ID, scope and token URL; a process with a different Access ID and no password stops with exit 4 instead of borrowing it. Give a reporting agent the read-only Access ID.
 - **Service Provider fan-out:** `accounts health`, `endpoint-devices posture`, `endpoint-patches exposure`, `threatsync-incidents queue` and `allocations reconcile` exit 6 when any read failed (listed in `fetch_failures`, each row's `errors`, or `incidents_error` / `licenses_error` / `account_names_error`) and 5 when nothing could be read; a 401 or 403 on the first shared lookup (the managed-account list, the incident read or the allocation lookup) exits 4 (an auth or permission error) instead. WatchGuard documents no separate answer for a product a customer does not have, so that also counts as a failed read. In `accounts health` a failed count is `null`, the row says `complete: false` and is listed first. Report the failures; never read a missing count as zero or healthy.
 - Refresh the mirror with `sync --full`, not a bare `sync`: no WatchGuard resource syncs incrementally, and only a full run prunes Fireboxes and rows that disappeared, so `firebox-devices changes` reports them as removed. The Firebox device sync includes every Subscriber account's devices by default (`include_hierarchy=true`).
@@ -620,7 +620,8 @@ Global format flags share one contract on promoted, novel, sync, and `--deliver`
 
 - `--json`  -  one JSON document on stdout (sync progress events go to stderr)
 - `--compact`  -  keep identity/status/timestamp fields; does not change the document vs stream shape
-- `--csv` / `--plain`  -  tabular rows (collection envelopes unwrap to the row array)
+- `--csv` / `--plain`  -  tabular rows (collection envelopes unwrap to the row array). `--csv` prefixes `'` on a cell or header key that starts with `=`, `+`, `-`, `@`, tab, CR, or LF (fullwidth `＝＋－＠` too) so a spreadsheet does not run it as a formula; a plain signed number such as `-5` or `+2.5e3` is unchanged.
+- `--quiet`  -  one identity value per row, no envelope
 - `--quiet`  -  one identity value per row, no envelope
 
 - **Pipeable**  -  JSON on stdout, errors on stderr
@@ -629,7 +630,7 @@ Global format flags share one contract on promoted, novel, sync, and `--deliver`
   ```bash
   watchguard-cli accounts get --agent --select accountInfo
   ```
-- **Previewable**  -  `--dry-run` shows the request without sending
+- **Previewable**  -  `--dry-run` shows the request without sending. A completed dry run exits 0 with `"success": true` and `"dry_run": true` and no HTTP `status`; validation failures still exit non-zero with `"success": false`.
 - **Offline-friendly**  -  sync/search commands can use the local SQLite store when available
 - **Non-interactive**  -  never prompts, every input is a flag
 - **Explicit confirmation**  -  `--agent` does not imply `--yes`; pass `--yes` separately only after the target, arguments, and side effects are clear
@@ -674,6 +675,8 @@ Agents should treat the CLI's path resolver as part of the runtime contract:
   ```
 
 Fleet precedence: an inherited per-kind env var overrides an explicit `--home` for that kind. Use `WATCHGUARD_HOME` or per-kind vars as durable fleet levers, and use `--home` only for a single invocation. Relocation is not reversible by unsetting env vars; move files manually before clearing `WATCHGUARD_HOME`, or `doctor` will not find credentials left under the former root.
+
+Local data is unencrypted and relies on OS account permissions plus disk encryption. Reads in the default `--data-source auto` mode are written to the SQLite store; GET responses are cached for five minutes under the cache dir. `local-data purge` previews what it would erase (store files, response cache, learn journal) and deletes only with `--yes`; it is not exposed over MCP. `WATCHGUARD_NO_LOCAL_DATA=1` disables the response cache and store writes, turns `auto` reads into live reads, and blocks `sync` and `workflow archive`; `--data-source local` still reads an existing store, and `WATCHGUARD_DATA_SOURCE` sets the `--data-source` default.
 
 ## Automatic learning
 
@@ -901,10 +904,10 @@ Every command accepts `--deliver <sink>`. The output goes to the named sink in a
 | Sink | Effect |
 |------|--------|
 | `stdout` | Default; write to stdout only |
-| `file:<path>` | Atomically write output to `<path>` (tmp + rename). Binary-response commands write decoded payload bytes (not the base64 JSON envelope) and print a small JSON receipt on stdout; `--json`/`--csv` do not refuse when this sink is set. |
-| `webhook:<url>` | POST the output body to the URL (`application/json`) |
+| `file:<path>` | Atomically write output to `<path>` as a private 0600 file (exclusive randomly named temp in the destination directory, then rename; a planted symlink is not followed). Binary-response commands write decoded payload bytes (not the base64 JSON envelope) and print a small JSON receipt on stdout; `--json`/`--csv` do not refuse when this sink is set. |
+| `webhook:<url>` | POST the output body to the URL (`application/json`). Redirects are not followed; a 3xx response fails the delivery and the body is not sent to the `Location`. |
 
-Unknown schemes are refused with a structured error naming the supported set. Webhook failures return non-zero and log the URL + HTTP status on stderr.
+Unknown schemes are refused with a structured error naming the supported set. Webhook failures, including redirects, return non-zero and log the URL and HTTP status on stderr.
 
 ## Named Profiles
 
@@ -965,6 +968,8 @@ Parse `$ARGUMENTS`:
    claude mcp add watchguard-mcp --env WATCHGUARD_CLIENT_ID=<access-id> --env WATCHGUARD_CLIENT_SECRET=<api-password> --env WATCHGUARD_API_KEY=<api-key> --env WATCHGUARD_ACCOUNT_ID=ACC-1234567 -- watchguard-mcp
    ```
 3. Verify: `claude mcp list`
+
+For a remote host, `watchguard-mcp --transport http` requires `WATCHGUARD_MCP_HTTP_TOKEN` set to at least 32 characters (callers send `Authorization: Bearer <token>`; `openssl rand -hex 32` prints 64 hex characters and meets that minimum), serves `http://127.0.0.1:7777/mcp` by default, and needs `--tls-cert`/`--tls-key` for any non-loopback `--addr`. Requests with no `Origin` header are accepted. Loopback origins are accepted; any other `Origin` is refused unless listed in `WATCHGUARD_MCP_HTTP_ALLOWED_ORIGINS` (comma-separated `scheme://host[:port]` values). `WATCHGUARD_MCP_READ_ONLY=1` drops mirrored write commands (local-write commands that only touch the CLI's own learn store stay) and makes the raw execute tool refuse state-changing calls.
 
 ## Direct Use
 

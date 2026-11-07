@@ -4,11 +4,14 @@
 
 // Package mcp — code-orchestration thin surface.
 //
-// Three tools cover the entire API: <api>_search to discover endpoints,
-// <api>_get to inspect one GET endpoint, and <api>_execute to invoke one.
-// This collapses a large API (50+ endpoints)
-// to ~1K tokens of tool definitions while preserving full coverage — the
-// agent writes the composition logic in its own sandbox.
+// <api>_search discovers endpoints and <api>_get returns registry metadata
+// for one GET. <api>_read calls read-only endpoints (GET reads and
+// codegen-marked read-only POSTs). <api>_execute calls state-changing
+// endpoints and returns a preview until confirm is boolean true. A spec
+// with no state-changing endpoints registers the read tool and omits
+// execute. This collapses a large API (50+ endpoints) to a small tool
+// list while preserving full coverage — the agent writes the composition
+// logic in its own sandbox.
 //
 // Pattern source: Anthropic 2026-04-22 "Building agents that reach
 // production systems with MCP" — Cloudflare's MCP server covers ~2,500
@@ -37,7 +40,7 @@ import (
 func RegisterCodeOrchestrationTools(s *server.MCPServer) {
 	s.AddTool(
 		mcplib.NewTool("watchguard_search",
-			mcplib.WithDescription("Search the watchguard API for endpoints matching a natural-language query. Returns a ranked list of {endpoint_id, method, path, summary} entries. Call this first to find the endpoint to execute."),
+			mcplib.WithDescription("Search the watchguard API for endpoints matching a natural-language query. Returns a ranked list of {endpoint_id, method, path, summary} entries. Call this first to find the endpoint to read or execute."),
 			mcplib.WithString("query", mcplib.Required(), mcplib.Description("Natural-language description of what you want to do.")),
 			mcplib.WithNumber("limit", mcplib.Description("Max endpoints to return (default 10, max 100).")),
 			mcplib.WithReadOnlyHintAnnotation(true),
@@ -57,12 +60,26 @@ func RegisterCodeOrchestrationTools(s *server.MCPServer) {
 		),
 		handleCodeOrchGet,
 	)
-
+	s.AddTool(
+		mcplib.NewTool("watchguard_read",
+			mcplib.WithDescription("Call one read-only watchguard API endpoint by its endpoint_id (from watchguard_search). GET reads and read-only POSTs run immediately. Params are a JSON object; path placeholders and query strings are resolved automatically. State-changing endpoints, including deletes and mutating GETs, are rejected; use watchguard_execute."),
+			mcplib.WithString("endpoint_id", mcplib.Required(), mcplib.Description("Read-only endpoint identifier returned by watchguard_search (e.g., \"users.list\").")),
+			mcplib.WithObject("params", mcplib.Description("Parameters for the endpoint. Path placeholders match by name; remaining entries become the query string on GET or the JSON body on a read-only POST.")),
+			mcplib.WithReadOnlyHintAnnotation(true),
+			mcplib.WithDestructiveHintAnnotation(false),
+			mcplib.WithOpenWorldHintAnnotation(true),
+		),
+		handleCodeOrchRead,
+	)
 	s.AddTool(
 		mcplib.NewTool("watchguard_execute",
-			mcplib.WithDescription("Execute one watchguard API endpoint by its endpoint_id (from watchguard_search). Params are passed as a JSON object; path placeholders and query strings are resolved automatically."),
-			mcplib.WithString("endpoint_id", mcplib.Required(), mcplib.Description("Endpoint identifier returned by watchguard_search (e.g., \"users.list\").")),
+			mcplib.WithDescription("Call one state-changing watchguard API endpoint by its endpoint_id (from watchguard_search). DELETE and other mutating calls, including mutating GETs, return a preview and do not run until confirm is boolean true. Params are a JSON object; path placeholders and query strings are resolved automatically. Read-only endpoints are rejected; use watchguard_read."),
+			mcplib.WithString("endpoint_id", mcplib.Required(), mcplib.Description("State-changing endpoint identifier returned by watchguard_search (e.g., \"users.delete\").")),
 			mcplib.WithObject("params", mcplib.Description("Parameters for the endpoint. Path placeholders match by name; remaining entries become query string on GET/DELETE or JSON body on POST/PUT/PATCH.")),
+			mcplib.WithBoolean("confirm", mcplib.Description("Set to boolean true to perform the previewed call. Any other value, including the string \"true\", leaves the call as a preview and does not contact the API.")),
+			mcplib.WithReadOnlyHintAnnotation(false),
+			mcplib.WithDestructiveHintAnnotation(true),
+			mcplib.WithOpenWorldHintAnnotation(true),
 		),
 		handleCodeOrchExecute,
 	)
@@ -102,8 +119,18 @@ type codeOrchEndpoint struct {
 	// params object; a strict-mapping API rejects an object at the body
 	// root with HTTP 422 "Invalid json".
 	BodyIsArray bool
-	Mutating    bool
-	keywords    []string
+	// Page carries the GET list paging settings the per-endpoint tools use, so
+	// an over-budget list resumes inside the bounded page instead of handing
+	// the agent the server cursor for the following page (which skips the
+	// rows the bound dropped).
+	Page mcpPageConfig
+	// NeedsConfirm is the read-command classifier's write signal, plus every
+	// DELETE. It stays separate from Mutating: Mutating selects the GET
+	// transport that bypasses the response cache, including GETs the
+	// classifier does not treat as reads.
+	NeedsConfirm bool
+	Mutating     bool
+	keywords     []string
 }
 
 type codeOrchParamBinding struct {
@@ -128,6 +155,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("accounts", "create", "Creates a managed account.", "/rest/platform/accounts/v2/accounts/{accountId}"),
 	},
@@ -140,6 +168,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "force", WireName: "force"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("accounts", "delete", "Deletes the specified account.", "/rest/platform/accounts/v2/accounts/{accountId}"),
 	},
@@ -152,6 +181,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "fields", WireName: "fields", QueryArray: true, QueryStyle: "form", QueryExplode: false}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("accounts", "get", "Retrieves information for the specified account.", "/rest/platform/accounts/v2/accounts/{accountId}"),
 	},
@@ -164,6 +194,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "type", WireName: "type"}, {PublicName: "sortBy", WireName: "sortBy"}, {PublicName: "sortOrder", WireName: "sortOrder"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "name", WireName: "name"}, {PublicName: "includeDelegatedAccounts", WireName: "includeDelegatedAccounts"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "offset", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("accounts", "list-managed", "Retrieves a list of managed accounts.", "/rest/platform/accounts/v2/accounts/{accountId}/children"),
 	},
@@ -176,6 +208,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("accounts", "update", "Updates a managed account.", "/rest/platform/accounts/v2/accounts/{accountId}"),
 	},
@@ -188,6 +221,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("activations", "activate", "Activates one or more hardware devices or software licenses.", "/rest/platform/activation/v1/activate"),
 	},
@@ -200,6 +234,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "limit", WireName: "limit"}, {PublicName: "sortBy", WireName: "sortBy"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "offset", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("activations", "list-recent", "Returns activations from the last 30 days for the account.", "/rest/platform/activation/v1/recentactivations"),
 	},
@@ -212,6 +248,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "limit", WireName: "limit"}, {PublicName: "sortBy", WireName: "sortBy"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "offset", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("activations", "status", "Returns activation statuses for the specified batch ID.", "/rest/platform/activation/v1/activationbatchstatuses/{batchId}"),
 	},
@@ -224,6 +262,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("allocations", "allocate", "Allocate an asset to a managed account.", "/rest/platform/allocation/v2/{accountId}/assets"),
 	},
@@ -236,6 +275,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "managedAccountId", WireName: "accountId"}, {PublicName: "productName", WireName: "productName"}, {PublicName: "allocationType", WireName: "allocationType"}, {PublicName: "serialOrLicense", WireName: "serialOrLicense"}}, // Hand-fix (handfixes.json: deallocate-managed-account-query)
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("allocations", "deallocate", "Remove an allocated asset from a managed account.", "/rest/platform/allocation/v2/{accountId}/assets"),
 	},
@@ -248,6 +288,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "accountType", WireName: "accountType"}, {PublicName: "sortBy", WireName: "sortBy"}, {PublicName: "sortOrder", WireName: "sortOrder"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "filterBy", WireName: "filterBy"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "offset", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("allocations", "list-allocated", "Returns a list of allocated assets (devices and software licenses) for a Service Provider's managed accounts.", "/rest/platform/allocation/v2/{accountId}/assets/allocations/{resourceType}"),
 	},
@@ -260,6 +302,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "limit", WireName: "limit"}, {PublicName: "filterBy", WireName: "filterBy"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "offset", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("allocations", "list-assigned", "Returns a list of assets (devices and software licenses) allocated to a specific account.", "/rest/platform/allocation/v2/{accountId}/assets/assigned/{resourceType}"),
 	},
@@ -272,6 +316,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "limit", WireName: "limit"}, {PublicName: "filterBy", WireName: "filterBy"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "offset", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("allocations", "list-owned", "Returns a list of assets (devices and software licenses) owned by a specific account.", "/rest/platform/allocation/v2/{accountId}/assets/licenses/{resourceType}"),
 	},
@@ -284,6 +330,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "allocationStatus", WireName: "allocationStatus"}, {PublicName: "limit", WireName: "limit"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "offset", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("allocations", "summary", "Get an inventory summary for a Service Provider account, based on allocation status.", "/rest/platform/allocation/v2/{accountId}/assets/summary/{resourceType}"),
 	},
@@ -296,6 +344,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("allocations", "update-hardware", "For hardware devices, you can update the allocationExpiryDate and allocationExpiryType of an existing allocation.", "/rest/platform/allocation/v2/{accountId}/assets/productName/{productName}/serialOrLicense/{serialOrLicense}"),
 	},
@@ -308,6 +357,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("allocations", "update-software", "For software products, you can update the quantity, allocationExpiryDate", "/rest/platform/allocation/v2/{accountId}/assets/productName/{productName}/allocationType/{allocationType}"),
 	},
@@ -320,6 +370,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("audiences", "lookup", "Sets and returns the audience parameter value for the specified managed account.", "/rest/platform/authorization/v1/audiences"),
 	},
@@ -332,6 +383,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("authpoint", "check-policy", "Returns whether the user can authenticate and which authentication methods they can use (Push, QR code, and OTP).", "/rest/authpoint/authentication/v1/accounts/{accountId}/resources/{resourceId}/authenticationpolicy"),
 	},
@@ -344,6 +396,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("authpoint", "forgot-token", "Validates the Forgot Token Verification Code and enables Forgot Token mode for the user.", "/rest/authpoint/authentication/v1/accounts/{accountId}/resources/{resourceId}/forgottoken"),
 	},
@@ -356,6 +409,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("authpoint", "otp", "Validates the one-time password provided by the user.", "/rest/authpoint/authentication/v1/accounts/{accountId}/resources/{resourceId}/otp"),
 	},
@@ -368,6 +422,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("authpoint", "password", "Validates a user's password.", "/rest/authpoint/authentication/v1/accounts/{accountId}/resources/{resourceId}/password"),
 	},
@@ -380,6 +435,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("authpoint", "push", "Request a QR code be generated or a push notification be sent to the user.", "/rest/authpoint/authentication/v1/accounts/{accountId}/resources/{resourceId}/transactions"),
 	},
@@ -392,6 +448,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("authpoint", "qrcode", "Validates the Verification Code provided by a user for the generated QR code.", "/rest/authpoint/authentication/v1/accounts/{accountId}/resources/{resourceId}/qrcode"),
 	},
@@ -404,6 +461,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("authpoint", "transaction-status", "Check the status of the push notification sent to the user.", "/rest/authpoint/authentication/v1/accounts/{accountId}/resources/{resourceId}/transactions/{transactionId}"),
 	},
@@ -416,6 +474,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("endpoint_configurations", "assign", "Links devices to a specified configuration.", "/rest/endpoint-security/management/api/v1/accounts/{accountId}/managedconfigurations/{type}/{configId}"),
 	},
@@ -428,6 +487,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "top", WireName: "$top"}, {PublicName: "search", WireName: "$search"}, {PublicName: "count", WireName: "$count"}, {PublicName: "orderby", WireName: "$orderby"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "$skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("endpoint_configurations", "list", "Retrieves a list of the specified type of managed configurations associated with your WatchGuard Cloud account.", "/rest/endpoint-security/management/api/v1/accounts/{accountId}/managedconfigurations/{type}"),
 	},
@@ -440,6 +501,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("endpoint_devices", "action", "Initiates an action on the specified devices. For example, send an action to reboot a device.", "/rest/endpoint-security/management/api/v1/accounts/{accountId}/devices/action"),
 	},
@@ -452,6 +514,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("endpoint_devices", "hardware", "Retrieves the characteristics of a device BIOS.", "/rest/endpoint-security/management/api/v1/accounts/{accountId}/devices/{deviceId}/hardwareinventory"),
 	},
@@ -464,6 +527,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("endpoint_devices", "isolate", "Isolates the specified devices.", "/rest/endpoint-security/management/api/v1/accounts/{accountId}/devices/isolation"),
 	},
@@ -476,6 +540,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "top", WireName: "$top"}, {PublicName: "search", WireName: "$search"}, {PublicName: "count", WireName: "$count"}, {PublicName: "orderby", WireName: "$orderby"}, {PublicName: "config", WireName: "$config"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "$skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("endpoint_devices", "list", "Retrieves a list of devices, and additional information, such as the device IP address and operating system.", "/rest/endpoint-security/management/api/v1/accounts/{accountId}/devices"),
 	},
@@ -488,6 +554,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "top", WireName: "$top"}, {PublicName: "search", WireName: "$search"}, {PublicName: "count", WireName: "$count"}, {PublicName: "orderby", WireName: "$orderby"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "$skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("endpoint_devices", "protection-status", "Retrieves a list of devices with their protection status and other device information.", "/rest/endpoint-security/management/api/v1/accounts/{accountId}/devicesprotectionstatus"),
 	},
@@ -500,6 +568,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("endpoint_devices", "scan", "Starts a task to scan the specified devices immediately.", "/rest/endpoint-security/management/api/v1/accounts/{accountId}/immediatescan"),
 	},
@@ -512,6 +581,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("endpoint_devices", "stop-isolation", "Stops isolation on the specified devices.", "/rest/endpoint-security/management/api/v1/accounts/{accountId}/devices/noisolation"),
 	},
@@ -524,6 +594,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("endpoint_devices", "uninstall", "Uninstalls protection from the specified devices.", "/rest/endpoint-security/management/api/v1/accounts/{accountId}/devices/uninstall"),
 	},
@@ -536,6 +607,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "platformId", WireName: "platformId"}, {PublicName: "managedConfigurationId", WireName: "managedConfigurationId"}, {PublicName: "useActiveDirectory", WireName: "useActiveDirectory"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("endpoint_installers", "get", "Retrieves the URL to download an installation package that installs Panda software with the specified managed", "/rest/endpoint-security/management/api/v1/accounts/{accountId}/installers"),
 	},
@@ -548,6 +620,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("endpoint_licenses", "get", "Retrieves license information for Panda products associated with your WatchGuard Cloud account.", "/rest/endpoint-security/management/api/v1/accounts/{accountId}/licenses"),
 	},
@@ -560,6 +633,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "top", WireName: "$top"}, {PublicName: "count", WireName: "$count"}, {PublicName: "filter", WireName: "$filter"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "$skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("endpoint_patches", "list", "Retrieves published patches not installed on the devices on the network.", "/rest/endpoint-security/management/api/v1/accounts/{accountId}/patchavailability"),
 	},
@@ -572,6 +647,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("endpoint_risks", "company-summary", "Retrieves a summary of the company risk status.", "/rest/endpoint-security/management/api/v1/accounts/{accountId}/riskassessment/companyrisksummary"),
 	},
@@ -584,6 +660,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "filter", WireName: "$filter"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("endpoint_risks", "detected", "Retrieves a count of detected devices for each type of risk.", "/rest/endpoint-security/management/api/v1/accounts/{accountId}/riskassessment/detectedrisks"),
 	},
@@ -596,6 +673,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "top", WireName: "$top"}, {PublicName: "search", WireName: "$search"}, {PublicName: "count", WireName: "$count"}, {PublicName: "filter", WireName: "$filter"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "$skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("endpoint_risks", "devices", "Retrieves a count of risks detected on each device by risk level.", "/rest/endpoint-security/management/api/v1/accounts/{accountId}/riskassessment/devicesrisk"),
 	},
@@ -608,6 +687,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("endpoint_risks", "get-config", "Retrieves the risk configuration.", "/rest/endpoint-security/management/api/v1/accounts/{accountId}/riskassessment/configuration"),
 	},
@@ -620,6 +700,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("endpoint_risks", "statistics", "Retrieves an overview of the number and types of risks detected over time.", "/rest/endpoint-security/management/api/v1/accounts/{accountId}/riskassessment/statisticsbydate/{period}"),
 	},
@@ -632,6 +713,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("endpoint_risks", "update-config", "Modifies the risk configuration.", "/rest/endpoint-security/management/api/v1/accounts/{accountId}/riskassessment/updateconfiguration"),
 	},
@@ -644,6 +726,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "filter", WireName: "filter"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("endpoint_security_events", "counters", "Retrieves counts of detected security events for the specified types.", "/rest/endpoint-security/management/api/v1/accounts/{accountId}/securityeventcounters/{type}"),
 	},
@@ -656,6 +739,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "hostname", WireName: "hostname"}, {PublicName: "top", WireName: "top"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("endpoint_security_events", "export", "Retrieves a list of security events of the specified type for the specified device.", "/rest/endpoint-security/management/api/v1/accounts/{accountId}/securityevents/{type}/export/{period}"),
 	},
@@ -668,6 +753,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("endpoint_security_events", "overview", "Retrieves counters for security overview.", "/rest/endpoint-security/management/api/v1/accounts/{accountId}/securityoverview/{period}"),
 	},
@@ -680,6 +766,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "top", WireName: "$top"}, {PublicName: "count", WireName: "$count"}, {PublicName: "filter", WireName: "$filter"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "$skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("endpoint_software", "list", "Retrieves the software installed on the computers on the network.", "/rest/endpoint-security/management/api/v1/accounts/{accountId}/softwareinventory"),
 	},
@@ -692,6 +780,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("endpoint_tasks", "details", "Retrieves the details of a specific task.", "/rest/endpoint-security/management/api/v1/accounts/{accountId}/taskdetails/{type}/{taskId}"),
 	},
@@ -704,6 +793,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "top", WireName: "$top"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "$skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("endpoint_tasks", "job-results", "Retrieves the results of a task specific repetition.", "/rest/endpoint-security/management/api/v1/accounts/{accountId}/tasks/{type}/{taskId}/jobs/{jobId}/results"),
 	},
@@ -716,6 +807,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "top", WireName: "$top"}, {PublicName: "count", WireName: "$count"}, {PublicName: "filter", WireName: "$filter"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "$skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("endpoint_tasks", "job-status", "Retrieves the status of task repetitions for a specific task.", "/rest/endpoint-security/management/api/v1/accounts/{accountId}/tasks/{type}/{taskId}/jobs/{jobId}/status"),
 	},
@@ -728,6 +821,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("endpoint_tasks", "jobs", "Retrieves task repetitions for a specific task.", "/rest/endpoint-security/management/api/v1/accounts/{accountId}/tasks/{type}/{taskId}/jobs"),
 	},
@@ -740,6 +834,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "top", WireName: "$top"}, {PublicName: "count", WireName: "$count"}, {PublicName: "filter", WireName: "$filter"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "$skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("endpoint_tasks", "list", "Retrieves a list of all tasks created.", "/rest/endpoint-security/management/api/v1/accounts/{accountId}/tasks"),
 	},
@@ -752,6 +848,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "top", WireName: "$top"}, {PublicName: "count", WireName: "$count"}, {PublicName: "orderby", WireName: "$orderby"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "$skip", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("endpoint_unmanaged_devices", "list", "Retrieves a list of unmanaged devices discovered on the network.", "/rest/endpoint-security/management/api/v1/accounts/{accountId}/unmanageddevices"),
 	},
@@ -764,6 +862,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firebox_aliases", "get", "Retrieves the alias with the specified object ID.", "/rest/firebox/management/v1/configuration/{accountId}/firewall/aliases/{objectid}"),
 	},
@@ -776,6 +875,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "device", WireName: "device"}, {PublicName: "templateid", WireName: "templateid"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firebox_aliases", "list", "Retrieves a list of aliases for the account or for a specific device or template.", "/rest/firebox/management/v1/configuration/{accountId}/firewall/aliases"),
 	},
@@ -788,6 +888,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firebox_auth_groups", "get", "Retrieves the auth group with the specified object ID.", "/rest/firebox/management/v1/configuration/{accountId}/authentication/auth_groups/{objectid}"),
 	},
@@ -800,6 +901,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "device", WireName: "device"}, {PublicName: "templateid", WireName: "templateid"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firebox_auth_groups", "list", "Retrieves a list of auth groups for the account or for a specific device or template.", "/rest/firebox/management/v1/configuration/{accountId}/authentication/auth_groups"),
 	},
@@ -812,6 +914,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firebox_authpoint_user_groups", "get", "Retrieves the AuthPoint user group with the specified object ID.", "/rest/firebox/management/v1/configuration/{accountId}/authentication/authpoint_user_groups/{objectid}"),
 	},
@@ -824,6 +927,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "device", WireName: "device"}, {PublicName: "templateid", WireName: "templateid"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firebox_authpoint_user_groups", "list", "Retrieves a list of AuthPoint user groups.", "/rest/firebox/management/v1/configuration/{accountId}/authentication/authpoint_user_groups"),
 	},
@@ -836,6 +940,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firebox_blocked_sites", "create", "Creates a new blocked sites exception.", "/rest/firebox/management/v1/configuration/{accountId}/exceptions/blockedsite"),
 	},
@@ -848,6 +953,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firebox_blocked_sites", "delete", "Deletes the specified blocked sites exception.", "/rest/firebox/management/v1/configuration/{accountId}/exceptions/blockedsite/{objectid}"),
 	},
@@ -860,6 +966,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firebox_blocked_sites", "get", "Retrieves the specified blocked sites exception.", "/rest/firebox/management/v1/configuration/{accountId}/exceptions/blockedsite/{objectid}"),
 	},
@@ -872,6 +979,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "limit", WireName: "limit"}, {PublicName: "query", WireName: "query"}, {PublicName: "start_after", WireName: "start_after"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firebox_blocked_sites", "list", "Retrieves blocked sites exceptions saved in the specified WatchGuard Cloud account.", "/rest/firebox/management/v2/configuration/{accountId}/exceptions/blockedsite"),
 	},
@@ -884,6 +992,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firebox_blocked_sites", "update", "Updates the specified blocked sites exception.", "/rest/firebox/management/v1/configuration/{accountId}/exceptions/blockedsite/{objectid}"),
 	},
@@ -896,6 +1005,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firebox_botnet_exceptions", "create", "Creates a new botnet site exception.", "/rest/firebox/management/v1/configuration/{accountId}/exceptions/botnet"),
 	},
@@ -908,6 +1018,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firebox_botnet_exceptions", "delete", "Deletes the specified botnet site exception.", "/rest/firebox/management/v1/configuration/{accountId}/exceptions/botnet/{objectid}"),
 	},
@@ -920,6 +1031,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firebox_botnet_exceptions", "get", "Retrieves the specified botnet site exception.", "/rest/firebox/management/v1/configuration/{accountId}/exceptions/botnet/{objectid}"),
 	},
@@ -932,6 +1044,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "limit", WireName: "limit"}, {PublicName: "query", WireName: "query"}, {PublicName: "start_after", WireName: "start_after"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firebox_botnet_exceptions", "list", "Retrieves botnet site exceptions saved in the specified WatchGuard Cloud account.", "/rest/firebox/management/v2/configuration/{accountId}/exceptions/botnet"),
 	},
@@ -944,6 +1057,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firebox_botnet_exceptions", "update", "Updates the specified botnet site exception.", "/rest/firebox/management/v1/configuration/{accountId}/exceptions/botnet/{objectid}"),
 	},
@@ -956,6 +1070,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firebox_bovpn_p1_settings", "create", "Creates a shared P1 settings object. One object can exist per Firebox.", "/rest/firebox/management/v1/configuration/{accountId}/bovpn/ipsec/p1_shared_settings"),
 	},
@@ -968,6 +1083,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "device", WireName: "device"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firebox_bovpn_p1_settings", "get", "Retrieves the BOVPN IPSec P1 shared settings object for the given device ID.", "/rest/firebox/management/v1/configuration/{accountId}/bovpn/ipsec/p1_shared_settings"),
 	},
@@ -980,6 +1096,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firebox_bovpn_p1_settings", "update", "Updates the specified BOVPN IPSec P1 shared settings object for the device.", "/rest/firebox/management/v1/configuration/{accountId}/bovpn/ipsec/p1_shared_settings"),
 	},
@@ -992,6 +1109,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firebox_bovpn_tunnels", "create", "Creates a BOVPN IPSec tunnel in the given account. All tunnels require at least one cloud-managed Firebox endpoint.", "/rest/firebox/management/v1/configuration/{accountId}/bovpn/ipsec/tunnels"),
 	},
@@ -1004,6 +1122,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firebox_bovpn_tunnels", "delete", "Deletes the BOVPN IPSec tunnel with the given object ID.", "/rest/firebox/management/v1/configuration/{accountId}/bovpn/ipsec/tunnels/{objectid}"),
 	},
@@ -1016,6 +1135,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "name", WireName: "name"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firebox_bovpn_tunnels", "delete-by-name", "Deletes the BOVPN IPSec tunnel with the given tunnel name.", "/rest/firebox/management/v1/configuration/{accountId}/bovpn/ipsec/tunnels"),
 	},
@@ -1028,6 +1148,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firebox_bovpn_tunnels", "get", "Retrieves the BOVPN IPSec tunnel with the given object ID.", "/rest/firebox/management/v1/configuration/{accountId}/bovpn/ipsec/tunnels/{objectid}"),
 	},
@@ -1040,6 +1161,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "device", WireName: "device"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firebox_bovpn_tunnels", "list", "Given an account ID, retrieves a list of BOVPN tunnels for the account or for a specific device.", "/rest/firebox/management/v1/configuration/{accountId}/bovpn/ipsec/tunnels"),
 	},
@@ -1052,6 +1174,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firebox_bovpn_tunnels", "patch", "Update the routes list or certificate of a specific BOVPN tunnel.", "/rest/firebox/management/v1/configuration/{accountId}/bovpn/ipsec/tunnels/{objectid}"),
 	},
@@ -1064,6 +1187,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firebox_bovpn_tunnels", "patch-by-name", "Update the routes list or certificate of a specific BOVPN tunnel.", "/rest/firebox/management/v1/configuration/{accountId}/bovpn/ipsec/tunnels"),
 	},
@@ -1076,6 +1200,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firebox_bovpn_tunnels", "update", "Updates the BOVPN IPSec tunnel with the given object ID.", "/rest/firebox/management/v1/configuration/{accountId}/bovpn/ipsec/tunnels/{objectid}"),
 	},
@@ -1088,6 +1213,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firebox_bovpn_tunnels", "update-by-name", "Update a BOVPN IPSec tunnel specified by its name through a URL parameter.", "/rest/firebox/management/v1/configuration/{accountId}/bovpn/ipsec/tunnels"),
 	},
@@ -1100,6 +1226,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firebox_certificates", "create", "Creates an account-level or device-level certificate.", "/rest/firebox/management/v1/configuration/{accountId}/system/certificates"),
 	},
@@ -1112,6 +1239,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firebox_certificates", "delete", "Deletes the certificate with the given object ID.", "/rest/firebox/management/v1/configuration/{accountId}/system/certificates/{objectid}"),
 	},
@@ -1124,6 +1252,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firebox_certificates", "get", "Retrieves the certificate with the given object ID.", "/rest/firebox/management/v1/configuration/{accountId}/system/certificates/{objectid}"),
 	},
@@ -1136,6 +1265,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firebox_certificates", "install", "Install a certificate on a Firebox or a list of Fireboxes.", "/rest/firebox/management/v1/commands/{accountId}/system/certificates/install"),
 	},
@@ -1148,6 +1278,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "device", WireName: "device"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firebox_certificates", "list", "Retrieves a list of certificates for the account.", "/rest/firebox/management/v1/configuration/{accountId}/system/certificates"),
 	},
@@ -1160,6 +1291,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firebox_content_filtering", "get", "Retrieves the content filtering rule with the specified object ID.", "/rest/firebox/management/v1/configuration/{accountId}/content_filtering/{objectid}"),
 	},
@@ -1172,6 +1304,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "device", WireName: "device"}, {PublicName: "templateid", WireName: "templateid"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firebox_content_filtering", "list", "Retrieves a list of content filtering rules for the account or for a specific device or template.", "/rest/firebox/management/v1/configuration/{accountId}/content_filtering"),
 	},
@@ -1184,6 +1317,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firebox_deployments", "deploy", "Deploys exceptions or full configurations saved in WatchGuard Cloud to the specified devices.", "/rest/firebox/management/v1/commands/{accountId}/deployments"),
 	},
@@ -1196,6 +1330,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "device_type", WireName: "device_type"}, {PublicName: "include_hierarchy", WireName: "include_hierarchy"}, {PublicName: "device", WireName: "device"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firebox_devices", "list", "Retrieves a list of Fireboxes, FireClusters, and Access Points for the specified WatchGuard Cloud account.", "/rest/firebox/management/v1/info/{accountId}/devices"),
 	},
@@ -1208,6 +1343,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firebox_exceptions", "disable-global", "Disables the ability to manage and deploy global exceptions with the Firebox Management API for the specified device(s).", "/rest/firebox/management/v1/commands/{accountId}/global_exceptions/disable"),
 	},
@@ -1220,6 +1356,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firebox_exceptions", "enable-global", "Enables the ability to manage and deploy exceptions with the Firebox Management API for the specified device(s).", "/rest/firebox/management/v1/commands/{accountId}/global_exceptions/enable"),
 	},
@@ -1232,6 +1369,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "limit", WireName: "limit"}, {PublicName: "query", WireName: "query"}, {PublicName: "start_after", WireName: "start_after"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firebox_exceptions", "list", "Retrieves exceptions saved in the specified WatchGuard Cloud account.", "/rest/firebox/management/v2/configuration/{accountId}/exceptions"),
 	},
@@ -1244,6 +1382,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firebox_file_exceptions", "create", "Creates a new file exception.", "/rest/firebox/management/v1/configuration/{accountId}/exceptions/file"),
 	},
@@ -1256,6 +1395,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firebox_file_exceptions", "delete", "Deletes the specified file exception.", "/rest/firebox/management/v1/configuration/{accountId}/exceptions/file/{objectid}"),
 	},
@@ -1268,6 +1408,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firebox_file_exceptions", "get", "Retrieves the specified file exception.", "/rest/firebox/management/v1/configuration/{accountId}/exceptions/file/{objectid}"),
 	},
@@ -1280,6 +1421,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "limit", WireName: "limit"}, {PublicName: "query", WireName: "query"}, {PublicName: "start_after", WireName: "start_after"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firebox_file_exceptions", "list", "Retrieves file exceptions saved in the specified WatchGuard Cloud account.", "/rest/firebox/management/v2/configuration/{accountId}/exceptions/file"),
 	},
@@ -1292,6 +1434,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firebox_file_exceptions", "update", "Updates the specified file exception.", "/rest/firebox/management/v1/configuration/{accountId}/exceptions/file/{objectid}"),
 	},
@@ -1304,6 +1447,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firebox_geo_exceptions", "create", "Creates a new Geolocation exception.", "/rest/firebox/management/v1/configuration/{accountId}/exceptions/geolocation"),
 	},
@@ -1316,6 +1460,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firebox_geo_exceptions", "delete", "Deletes the specified Geolocation exception.", "/rest/firebox/management/v1/configuration/{accountId}/exceptions/geolocation/{objectid}"),
 	},
@@ -1328,6 +1473,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firebox_geo_exceptions", "get", "Retrieves the specified Geolocation exception.", "/rest/firebox/management/v1/configuration/{accountId}/exceptions/geolocation/{objectid}"),
 	},
@@ -1340,6 +1486,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "limit", WireName: "limit"}, {PublicName: "query", WireName: "query"}, {PublicName: "start_after", WireName: "start_after"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firebox_geo_exceptions", "list", "Retrieves all Geolocation exceptions saved in the specified WatchGuard Cloud account.", "/rest/firebox/management/v2/configuration/{accountId}/exceptions/geolocation"),
 	},
@@ -1352,6 +1499,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firebox_geo_exceptions", "update", "Updates the specified Geolocation exception.", "/rest/firebox/management/v1/configuration/{accountId}/exceptions/geolocation/{objectid}"),
 	},
@@ -1364,6 +1512,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firebox_groups", "get", "Retrieves the group with the specified object ID.", "/rest/firebox/management/v1/configuration/{accountId}/authentication/groups/{objectid}"),
 	},
@@ -1376,6 +1525,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "device", WireName: "device"}, {PublicName: "templateid", WireName: "templateid"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firebox_groups", "list", "Retrieves a list of groups for the account or for a specific device or template.", "/rest/firebox/management/v1/configuration/{accountId}/authentication/groups"),
 	},
@@ -1388,6 +1538,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firebox_ips_exceptions", "create", "Creates a new IPS signature exception.", "/rest/firebox/management/v1/configuration/{accountId}/exceptions/ips"),
 	},
@@ -1400,6 +1551,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firebox_ips_exceptions", "delete", "Deletes the specified IPS signature exception.", "/rest/firebox/management/v1/configuration/{accountId}/exceptions/ips/{objectid}"),
 	},
@@ -1412,6 +1564,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firebox_ips_exceptions", "get", "Retrieves the specified IPS signature exception.", "/rest/firebox/management/v1/configuration/{accountId}/exceptions/ips/{objectid}"),
 	},
@@ -1424,6 +1577,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "limit", WireName: "limit"}, {PublicName: "query", WireName: "query"}, {PublicName: "start_after", WireName: "start_after"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firebox_ips_exceptions", "list", "Retrieves all IPS signature exceptions.", "/rest/firebox/management/v2/configuration/{accountId}/exceptions/ips"),
 	},
@@ -1436,6 +1590,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firebox_ips_exceptions", "update", "Updates the specified IPS signature exception.", "/rest/firebox/management/v1/configuration/{accountId}/exceptions/ips/{objectid}"),
 	},
@@ -1448,6 +1603,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firebox_networks", "get", "Retrieves the network with the specified object ID.", "/rest/firebox/management/v1/configuration/{accountId}/networking/networks/{objectid}"),
 	},
@@ -1460,6 +1616,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "device", WireName: "device"}, {PublicName: "templateid", WireName: "templateid"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firebox_networks", "list", "Retrieves a list of networks for the account or for a specific device or template.", "/rest/firebox/management/v1/configuration/{accountId}/networking/networks"),
 	},
@@ -1472,6 +1629,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firebox_policies", "create", "Creates a new firewall policy for a device.", "/rest/firebox/management/v1/configuration/{accountId}/firewall/policies"),
 	},
@@ -1484,6 +1642,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firebox_policies", "delete", "Deletes the firewall policy with the specified object ID. Permanent policies cannot be deleted.", "/rest/firebox/management/v1/configuration/{accountId}/firewall/policies/{objectid}"),
 	},
@@ -1496,6 +1655,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firebox_policies", "get", "Retrieves the firewall policy with the specified object ID.", "/rest/firebox/management/v1/configuration/{accountId}/firewall/policies/{objectid}"),
 	},
@@ -1508,6 +1668,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "device", WireName: "device"}, {PublicName: "full", WireName: "full"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firebox_policies", "list", "Retrieves a list of firewall policies for the account or for a specific device.", "/rest/firebox/management/v1/configuration/{accountId}/firewall/policies"),
 	},
@@ -1520,6 +1681,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firebox_policies", "set-enabled", "Enables or disables the firewall policy with the specified object ID without modifying other settings.", "/rest/firebox/management/v1/configuration/{accountId}/firewall/policies/{objectid}"),
 	},
@@ -1532,6 +1694,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firebox_policies", "update", "Updates the firewall policy with the specified object ID.", "/rest/firebox/management/v1/configuration/{accountId}/firewall/policies/{objectid}"),
 	},
@@ -1544,6 +1707,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firebox_policy_groups", "get", "Retrieves the policy group with the specified object ID.", "/rest/firebox/management/v1/configuration/{accountId}/firewall/policy_groups/{objectid}"),
 	},
@@ -1556,6 +1720,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "device", WireName: "device"}, {PublicName: "templateid", WireName: "templateid"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firebox_policy_groups", "list", "Retrieves a list of policy groups for the account or for a specific device or template.", "/rest/firebox/management/v1/configuration/{accountId}/firewall/policy_groups"),
 	},
@@ -1568,6 +1733,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "view", WireName: "view"}, {PublicName: "startDate", WireName: "startDate"}, {PublicName: "endDate", WireName: "endDate"}, {PublicName: "devices", WireName: "devices"}, {PublicName: "rowCount", WireName: "rowCount"}, {PublicName: "filter", WireName: "filter"}, {PublicName: "filterValue", WireName: "filterValue"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firebox_reports", "executive", "Retrieves the specified Executive Dashboard records for the specified devices.", "/rest/firebox/reports/v1/report/{accountId}/executive"),
 	},
@@ -1580,6 +1746,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "view", WireName: "view"}, {PublicName: "startDate", WireName: "startDate"}, {PublicName: "endDate", WireName: "endDate"}, {PublicName: "devices", WireName: "devices"}, {PublicName: "rowCount", WireName: "rowCount"}, {PublicName: "filter", WireName: "filter"}, {PublicName: "filterValue", WireName: "filterValue"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firebox_reports", "security", "Retrieves the specified Security Dashboard records for the specified devices.", "/rest/firebox/reports/v1/report/{accountId}/security"),
 	},
@@ -1592,6 +1759,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firebox_saml_user_groups", "get", "Retrieves the SAML user group with the specified object ID.", "/rest/firebox/management/v1/configuration/{accountId}/authentication/saml_user_groups/{objectid}"),
 	},
@@ -1604,6 +1772,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "device", WireName: "device"}, {PublicName: "templateid", WireName: "templateid"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firebox_saml_user_groups", "list", "Retrieves a list of SAML user groups.", "/rest/firebox/management/v1/configuration/{accountId}/authentication/saml_user_groups"),
 	},
@@ -1616,6 +1785,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firebox_schedules", "get", "Retrieves the schedule with the specified object ID.", "/rest/firebox/management/v1/configuration/{accountId}/system/schedule/{objectid}"),
 	},
@@ -1628,6 +1798,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "device", WireName: "device"}, {PublicName: "templateid", WireName: "templateid"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firebox_schedules", "list", "Retrieves a list of schedules for the account or for a specific device or template.", "/rest/firebox/management/v1/configuration/{accountId}/system/schedule"),
 	},
@@ -1640,6 +1811,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firebox_sdwans", "get", "Retrieves the SD-WAN with the specified object ID.", "/rest/firebox/management/v1/configuration/{accountId}/networking/sdwans/{objectid}"),
 	},
@@ -1652,6 +1824,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "device", WireName: "device"}, {PublicName: "templateid", WireName: "templateid"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firebox_sdwans", "list", "Retrieves a list of SD-WANs for the account or for a specific device or template.", "/rest/firebox/management/v1/configuration/{accountId}/networking/sdwans"),
 	},
@@ -1664,6 +1837,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firebox_snat_actions", "get", "Retrieves the SNAT action with the specified object ID.", "/rest/firebox/management/v1/configuration/{accountId}/firewall/snat_actions/{objectid}"),
 	},
@@ -1676,6 +1850,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "device", WireName: "device"}, {PublicName: "templateid", WireName: "templateid"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firebox_snat_actions", "list", "Retrieves a list of SNAT actions for the account or for a specific device or template.", "/rest/firebox/management/v1/configuration/{accountId}/firewall/snat_actions"),
 	},
@@ -1688,6 +1863,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "device", WireName: "device"}, {PublicName: "templateid", WireName: "templateid"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firebox_templates", "list-subscriptions", "With no query parameters, returns templates available to the account, including inherited templates.", "/rest/firebox/management/v1/configuration/{accountId}/templates/subscribe"),
 	},
@@ -1700,6 +1876,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firebox_templates", "subscribe", "Subscribes, unsubscribes, or changes the order of Firebox templates on a Firebox.", "/rest/firebox/management/v1/configuration/{accountId}/templates/subscribe"),
 	},
@@ -1712,6 +1889,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firebox_traffic_shaping_rules", "get", "Retrieves the traffic shaping rule with the specified object ID.", "/rest/firebox/management/v1/configuration/{accountId}/traffic_shaping/rules/{objectid}"),
 	},
@@ -1724,6 +1902,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "device", WireName: "device"}, {PublicName: "templateid", WireName: "templateid"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firebox_traffic_shaping_rules", "list", "Retrieves a list of traffic shaping rules for the account or for a specific device or template.", "/rest/firebox/management/v1/configuration/{accountId}/traffic_shaping/rules"),
 	},
@@ -1736,6 +1915,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firebox_traffic_types", "get", "Retrieves the traffic type with the specified object ID.", "/rest/firebox/management/v1/configuration/{accountId}/firewall/traffic_types/{objectid}"),
 	},
@@ -1748,6 +1928,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "device", WireName: "device"}, {PublicName: "templateid", WireName: "templateid"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firebox_traffic_types", "list", "Retrieves a list of traffic types for the account or for a specific device or template.", "/rest/firebox/management/v1/configuration/{accountId}/firewall/traffic_types"),
 	},
@@ -1760,6 +1941,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firebox_transactions", "cancel", "Deletes the specified transaction record.", "/rest/firebox/management/v1/commands/{accountId}/transactions/{objectid}"),
 	},
@@ -1772,6 +1954,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firebox_transactions", "get", "Retrieves the specified transaction record, which includes details of a specific deployment.", "/rest/firebox/management/v1/commands/{accountId}/transactions/{objectid}"),
 	},
@@ -1784,6 +1967,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "device", WireName: "device"}, {PublicName: "tx_type", WireName: "tx_type"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firebox_transactions", "list", "Retrieves a list of transaction records, which include details of individual deployments.", "/rest/firebox/management/v1/commands/{accountId}/transactions"),
 	},
@@ -1796,6 +1980,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firebox_transactions", "update", "Updates the specified transaction record.", "/rest/firebox/management/v1/commands/{accountId}/transactions/{objectid}"),
 	},
@@ -1808,6 +1993,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firebox_users", "get", "Retrieves the user with the specified object ID.", "/rest/firebox/management/v1/configuration/{accountId}/authentication/users/{objectid}"),
 	},
@@ -1820,6 +2006,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "device", WireName: "device"}, {PublicName: "templateid", WireName: "templateid"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firebox_users", "list", "Retrieves a list of users for the account or for a specific device or template.", "/rest/firebox/management/v1/configuration/{accountId}/authentication/users"),
 	},
@@ -1832,6 +2019,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firebox_webblocker_exceptions", "create", "Creates a new WebBlocker exception.", "/rest/firebox/management/v1/configuration/{accountId}/exceptions/webblocker"),
 	},
@@ -1844,6 +2032,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firebox_webblocker_exceptions", "delete", "Deletes the specified WebBlocker exception.", "/rest/firebox/management/v1/configuration/{accountId}/exceptions/webblocker/{objectid}"),
 	},
@@ -1856,6 +2045,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firebox_webblocker_exceptions", "get", "Retrieves the specified WebBlocker exception.", "/rest/firebox/management/v1/configuration/{accountId}/exceptions/webblocker/{objectid}"),
 	},
@@ -1868,6 +2058,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "limit", WireName: "limit"}, {PublicName: "query", WireName: "query"}, {PublicName: "start_after", WireName: "start_after"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firebox_webblocker_exceptions", "list", "Retrieves all WebBlocker exceptions.", "/rest/firebox/management/v2/configuration/{accountId}/exceptions/webblocker"),
 	},
@@ -1880,6 +2071,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firebox_webblocker_exceptions", "update", "Updates the specified WebBlocker exception.", "/rest/firebox/management/v1/configuration/{accountId}/exceptions/webblocker/{objectid}"),
 	},
@@ -1892,6 +2084,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firecloud_blocked_sites", "create", "Creates a new blocked sites exception.", "/rest/firecloud/management/v1/configuration/{accountId}/exceptions/blockedsite"),
 	},
@@ -1904,6 +2097,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firecloud_blocked_sites", "delete", "Deletes the specified blocked sites exception.", "/rest/firecloud/management/v1/configuration/{accountId}/exceptions/blockedsite/{objectid}"),
 	},
@@ -1916,6 +2110,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firecloud_blocked_sites", "get", "Retrieves the specified blocked sites exception.", "/rest/firecloud/management/v1/configuration/{accountId}/exceptions/blockedsite/{objectid}"),
 	},
@@ -1928,6 +2123,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firecloud_blocked_sites", "list", "Retrieves all blocked sites exceptions in the specified FireCloud account.", "/rest/firecloud/management/v1/configuration/{accountId}/exceptions/blockedsite"),
 	},
@@ -1940,6 +2136,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firecloud_blocked_sites", "update", "Updates the specified blocked sites exception.", "/rest/firecloud/management/v1/configuration/{accountId}/exceptions/blockedsite/{objectid}"),
 	},
@@ -1952,6 +2149,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firecloud_botnet_exceptions", "create", "Creates a new botnet site exception.", "/rest/firecloud/management/v1/configuration/{accountId}/exceptions/botnet"),
 	},
@@ -1964,6 +2162,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firecloud_botnet_exceptions", "delete", "Deletes the specified botnet site exception.", "/rest/firecloud/management/v1/configuration/{accountId}/exceptions/botnet/{objectid}"),
 	},
@@ -1976,6 +2175,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firecloud_botnet_exceptions", "get", "Retrieves the specified botnet site exception.", "/rest/firecloud/management/v1/configuration/{accountId}/exceptions/botnet/{objectid}"),
 	},
@@ -1988,6 +2188,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firecloud_botnet_exceptions", "list", "Retrieves all botnet site exceptions in the specified FireCloud account.", "/rest/firecloud/management/v1/configuration/{accountId}/exceptions/botnet"),
 	},
@@ -2000,6 +2201,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firecloud_botnet_exceptions", "update", "Updates the specified botnet site exception.", "/rest/firecloud/management/v1/configuration/{accountId}/exceptions/botnet/{objectid}"),
 	},
@@ -2012,6 +2214,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firecloud_exceptions", "list", "Retrieves all exceptions in the specified FireCloud account.", "/rest/firecloud/management/v1/configuration/{accountId}/exceptions"),
 	},
@@ -2024,6 +2227,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firecloud_file_exceptions", "create", "Creates a new file exception.", "/rest/firecloud/management/v1/configuration/{accountId}/exceptions/file"),
 	},
@@ -2036,6 +2240,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firecloud_file_exceptions", "delete", "Deletes the specified file exception.", "/rest/firecloud/management/v1/configuration/{accountId}/exceptions/file/{objectid}"),
 	},
@@ -2048,6 +2253,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firecloud_file_exceptions", "get", "Retrieves the specified file exception.", "/rest/firecloud/management/v1/configuration/{accountId}/exceptions/file/{objectid}"),
 	},
@@ -2060,6 +2266,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firecloud_file_exceptions", "list", "Retrieves all file exceptions in the specified FireCloud account.", "/rest/firecloud/management/v1/configuration/{accountId}/exceptions/file"),
 	},
@@ -2072,6 +2279,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firecloud_file_exceptions", "update", "Updates the specified file exception.", "/rest/firecloud/management/v1/configuration/{accountId}/exceptions/file/{objectid}"),
 	},
@@ -2084,6 +2292,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firecloud_geo_exceptions", "create", "Creates a new Geolocation exception.", "/rest/firecloud/management/v1/configuration/{accountId}/exceptions/geolocation"),
 	},
@@ -2096,6 +2305,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firecloud_geo_exceptions", "delete", "Deletes the specified Geolocation exception.", "/rest/firecloud/management/v1/configuration/{accountId}/exceptions/geolocation/{objectid}"),
 	},
@@ -2108,6 +2318,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firecloud_geo_exceptions", "get", "Retrieves the specified Geolocation exception.", "/rest/firecloud/management/v1/configuration/{accountId}/exceptions/geolocation/{objectid}"),
 	},
@@ -2120,6 +2331,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firecloud_geo_exceptions", "list", "Retrieves all Geolocation exceptions in the specified FireCloud account.", "/rest/firecloud/management/v1/configuration/{accountId}/exceptions/geolocation"),
 	},
@@ -2132,6 +2344,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firecloud_geo_exceptions", "update", "Updates the specified Geolocation exception.", "/rest/firecloud/management/v1/configuration/{accountId}/exceptions/geolocation/{objectid}"),
 	},
@@ -2144,6 +2357,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firecloud_https_exceptions", "create", "Creates a new HTTPS decryption exception.", "/rest/firecloud/management/v1/configuration/{accountId}/exceptions/https"),
 	},
@@ -2156,6 +2370,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firecloud_https_exceptions", "delete", "Deletes the specified HTTPS decryption exception.", "/rest/firecloud/management/v1/configuration/{accountId}/exceptions/https/{objectid}"),
 	},
@@ -2168,6 +2383,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firecloud_https_exceptions", "get", "Retrieves the specified HTTPS decryption exception.", "/rest/firecloud/management/v1/configuration/{accountId}/exceptions/https/{objectid}"),
 	},
@@ -2180,6 +2396,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firecloud_https_exceptions", "list", "Retrieves all HTTPS decryption exceptions in the specified FireCloud account.", "/rest/firecloud/management/v1/configuration/{accountId}/exceptions/https"),
 	},
@@ -2192,6 +2409,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firecloud_https_exceptions", "update", "Updates the specified HTTPS decryption exception.", "/rest/firecloud/management/v1/configuration/{accountId}/exceptions/https/{objectid}"),
 	},
@@ -2204,6 +2422,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firecloud_ips_exceptions", "create", "Creates a new IPS signature exception.", "/rest/firecloud/management/v1/configuration/{accountId}/exceptions/ips"),
 	},
@@ -2216,6 +2435,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firecloud_ips_exceptions", "delete", "Deletes the specified IPS signature exception.", "/rest/firecloud/management/v1/configuration/{accountId}/exceptions/ips/{objectid}"),
 	},
@@ -2228,6 +2448,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firecloud_ips_exceptions", "get", "Retrieves the specified IPS signature exception.", "/rest/firecloud/management/v1/configuration/{accountId}/exceptions/ips/{objectid}"),
 	},
@@ -2240,6 +2461,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firecloud_ips_exceptions", "list", "Retrieves all IPS signature exceptions in the specified FireCloud account.", "/rest/firecloud/management/v1/configuration/{accountId}/exceptions/ips"),
 	},
@@ -2252,6 +2474,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firecloud_ips_exceptions", "update", "Updates the specified IPS signature exception.", "/rest/firecloud/management/v1/configuration/{accountId}/exceptions/ips/{objectid}"),
 	},
@@ -2264,6 +2487,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firecloud_webblocker_exceptions", "create", "Creates a new WebBlocker exception.", "/rest/firecloud/management/v1/configuration/{accountId}/exceptions/webblocker"),
 	},
@@ -2276,6 +2500,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firecloud_webblocker_exceptions", "delete", "Deletes the specified WebBlocker exception.", "/rest/firecloud/management/v1/configuration/{accountId}/exceptions/webblocker/{objectid}"),
 	},
@@ -2288,6 +2513,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firecloud_webblocker_exceptions", "get", "Retrieves the specified WebBlocker exception.", "/rest/firecloud/management/v1/configuration/{accountId}/exceptions/webblocker/{objectid}"),
 	},
@@ -2300,6 +2526,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firecloud_webblocker_exceptions", "list", "Retrieves all WebBlocker exceptions in the specified FireCloud account.", "/rest/firecloud/management/v1/configuration/{accountId}/exceptions/webblocker"),
 	},
@@ -2312,6 +2539,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("firecloud_webblocker_exceptions", "update", "Updates the specified WebBlocker exception.", "/rest/firecloud/management/v1/configuration/{accountId}/exceptions/webblocker/{objectid}"),
 	},
@@ -2324,6 +2552,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "tenantName", WireName: "tenantName"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("ndr_assets", "create", "Creates an asset.", "/rest/watchguard-ndr/assets/v2/accounts/{accountId}/assets"),
 	},
@@ -2336,6 +2565,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "tenantName", WireName: "tenantName"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("ndr_assets", "delete", "Deletes an asset specified by asset ID.", "/rest/watchguard-ndr/assets/v2/accounts/{accountId}/assets/{assetId}"),
 	},
@@ -2348,6 +2578,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "tenantName", WireName: "tenantName"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("ndr_assets", "get", "Retrieves details for an asset specified by asset ID.", "/rest/watchguard-ndr/assets/v2/accounts/{accountId}/assets/{assetId}"),
 	},
@@ -2360,6 +2591,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "tenantName", WireName: "tenantName"}, {PublicName: "field", WireName: "field"}, {PublicName: "value", WireName: "value"}, {PublicName: "size", WireName: "size"}, {PublicName: "sort", WireName: "sort"}, {PublicName: "order", WireName: "order"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "offset", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("ndr_assets", "list", "Retrieves a list of all the assets for the specified tenant.", "/rest/watchguard-ndr/assets/v2/accounts/{accountId}/assets"),
 	},
@@ -2372,6 +2605,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "tenantName", WireName: "tenantName"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("ndr_assets", "update", "Updates an asset detail specified by asset ID.", "/rest/watchguard-ndr/assets/v2/accounts/{accountId}/assets/{assetId}"),
 	},
@@ -2384,6 +2618,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "tenantName", WireName: "tenantName"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("ndr_smart_alerts", "close", "Closes a Smart Alert specified by a Smart Alert ID. You can also specify the reason to close the Smart Alert.", "/rest/watchguard-ndr/smartalerts/v2/accounts/{accountId}/smartalerts/{smartAlertId}/close"),
 	},
@@ -2396,6 +2631,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "tenantName", WireName: "tenantName"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("ndr_smart_alerts", "get", "Retrieves details of a Smart Alert specified by a Smart Alert ID.", "/rest/watchguard-ndr/smartalerts/v2/accounts/{accountId}/smartalerts/{smartAlertId}"),
 	},
@@ -2409,6 +2645,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
 		BodyIsArray:    true,
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("operators", "create", "Creates new operators in the specified account. In the request body, specify the details of the operators to create.", "/rest/platform/operator-mgmt/v1/operators"),
 	},
@@ -2422,6 +2659,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
 		BodyIsArray:    true,
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("operators", "delete", "Deletes operators from the specified account. In the request body, specify the details of the operators to delete.", "/rest/platform/operator-mgmt/v1/DeleteOperators"),
 	},
@@ -2434,6 +2672,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "account_id", WireName: "account_id"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("operators", "list", "To get details of all operators for an account, specify the account ID in the query parameter.", "/rest/platform/operator-mgmt/v1/OperatorsByAccountId"),
 	},
@@ -2446,6 +2685,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "transaction_id", WireName: "transaction_id"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("operators", "transaction-status", "To get the status of a transaction, specify the transaction ID in the query parameter.", "/rest/platform/operator-mgmt/v1/TransactionStatus"),
 	},
@@ -2459,6 +2699,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
 		BodyIsArray:    true,
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("operators", "update", "Updates existing operators in the specified account.", "/rest/platform/operator-mgmt/v1/operators"),
 	},
@@ -2471,6 +2712,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "query", WireName: "query"}, {PublicName: "sortBy", WireName: "sortBy"}, {PublicName: "sortOrder", WireName: "sortOrder"}, {PublicName: "groupBy", WireName: "groupBy"}, {PublicName: "fields", WireName: "fields"}, {PublicName: "countOnly", WireName: "countOnly"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "startAfter", WireName: "startAfter"}, {PublicName: "duration", WireName: "duration"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("threatsync_actions", "list", "Retrieves a list of actions.", "/rest/threatsync/management/v1/{accountId}/actions"),
 	},
@@ -2483,6 +2725,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("threatsync_actions", "perform", "Performs a specified action.", "/rest/threatsync/management/v1/{accountId}/actions"),
 	},
@@ -2495,6 +2738,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("threatsync_comments", "create", "Create comment for a specific incident.", "/rest/threatsync/management/v1/{accountId}/incidents/{incidentId}/comments"),
 	},
@@ -2507,6 +2751,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("threatsync_comments", "delete", "Deletes a specific comment.", "/rest/threatsync/management/v1/{accountId}/incidents/{incidentId}/comments/{commentId}"),
 	},
@@ -2519,6 +2764,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "sortOrder", WireName: "sortOrder"}, {PublicName: "sortBy", WireName: "sortBy"}, {PublicName: "fields", WireName: "fields"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "duration", WireName: "duration"}, {PublicName: "startAfter", WireName: "startAfter"}, {PublicName: "groupBy", WireName: "groupBy"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("threatsync_comments", "list", "Retrieves a list of comments for a specific incident.", "/rest/threatsync/management/v1/{accountId}/incidents/{incidentId}/comments"),
 	},
@@ -2531,6 +2777,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("threatsync_comments", "update", "Updates a specific comment.", "/rest/threatsync/management/v1/{accountId}/incidents/{incidentId}/comments/{commentId}"),
 	},
@@ -2543,6 +2790,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("threatsync_incident_actions", "get", "Retrieves details of a specific action for an incident.", "/rest/threatsync/management/v1/{accountId}/incidents/{incidentId}/actions/{actionId}"),
 	},
@@ -2555,6 +2803,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "query", WireName: "query"}, {PublicName: "sortBy", WireName: "sortBy"}, {PublicName: "sortOrder", WireName: "sortOrder"}, {PublicName: "groupBy", WireName: "groupBy"}, {PublicName: "fields", WireName: "fields"}, {PublicName: "countOnly", WireName: "countOnly"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "startAfter", WireName: "startAfter"}, {PublicName: "duration", WireName: "duration"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("threatsync_incident_actions", "list", "Retrieves a list of actions for a specific incident.", "/rest/threatsync/management/v1/{accountId}/incidents/{incidentId}/actions"),
 	},
@@ -2567,6 +2816,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("threatsync_incident_actions", "perform", "Performs an action for a specific incident.", "/rest/threatsync/management/v1/{accountId}/incidents/{incidentId}/actions"),
 	},
@@ -2579,6 +2829,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "includeActions", WireName: "includeActions"}, {PublicName: "includeComments", WireName: "includeComments"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("threatsync_incidents", "get", "Retrieves a specific incident by incident ID.", "/rest/threatsync/management/v1/{accountId}/incidents/{incidentId}"),
 	},
@@ -2591,6 +2842,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "query", WireName: "query"}, {PublicName: "sortBy", WireName: "sortBy"}, {PublicName: "sortOrder", WireName: "sortOrder"}, {PublicName: "groupBy", WireName: "groupBy"}, {PublicName: "fields", WireName: "fields"}, {PublicName: "countOnly", WireName: "countOnly"}, {PublicName: "limit", WireName: "limit"}, {PublicName: "startAfter", WireName: "startAfter"}, {PublicName: "duration", WireName: "duration"}, {PublicName: "tenants", WireName: "tenants"}, {PublicName: "includeActions", WireName: "includeActions"}, {PublicName: "includeComments", WireName: "includeComments"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("threatsync_incidents", "list", "Retrieves a list of specific ThreatSync incidents for an account.", "/rest/threatsync/management/v1/{accountId}/incidents"),
 	},
@@ -2603,6 +2855,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("threatsync_incidents", "set-status", "Updates the status of a specific incident.", "/rest/threatsync/management/v1/{accountId}/incidents/{incidentId}"),
 	},
@@ -2616,6 +2869,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
 		BodyIsArray:    true,
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("threatsync_transactions", "create", "Submits multiple requests to ThreatSync Management API endpoints at the same time.", "/rest/threatsync/management/v1/transact"),
 	},
@@ -2665,6 +2919,10 @@ func codeOrchEndpointMetadata(ep *codeOrchEndpoint) map[string]any {
 		"method":      ep.Method,
 		"path":        ep.Path,
 		"summary":     ep.Summary,
+	}
+	// next_cursor comes back in params under this endpoint's page cursor name.
+	if ep.Page.CursorParam != "" {
+		out["cursor_param"] = ep.Page.CursorParam
 	}
 	return out
 }
@@ -2762,10 +3020,31 @@ func handleCodeOrchGet(ctx context.Context, req mcplib.CallToolRequest) (*mcplib
 }
 
 func codeOrchBlockedByMCPReadOnly(method string) bool {
-	return cliutil.IsMCPReadOnlyEnv() && method != "GET"
+	return cliutil.IsMCPReadOnlyEnv() && !strings.EqualFold(strings.TrimSpace(method), "GET")
+}
+
+// codeOrchRefuseForReadOnlySwitch reports calls the MCP read-only env must
+// reject before a client is built. Mutating GETs are writes even though the
+// verb is GET. _execute also refuses every non-GET, including read-only POSTs.
+func codeOrchRefuseForReadOnlySwitch(ep *codeOrchEndpoint, method string, executeTool bool) bool {
+	if !cliutil.IsMCPReadOnlyEnv() {
+		return false
+	}
+	if method == "DELETE" || ep.NeedsConfirm || ep.Mutating {
+		return true
+	}
+	return executeTool && codeOrchBlockedByMCPReadOnly(method)
+}
+
+func handleCodeOrchRead(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.CallToolResult, error) {
+	return codeOrchInvoke(ctx, req, false)
 }
 
 func handleCodeOrchExecute(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.CallToolResult, error) {
+	return codeOrchInvoke(ctx, req, true)
+}
+
+func codeOrchInvoke(ctx context.Context, req mcplib.CallToolRequest, executeTool bool) (*mcplib.CallToolResult, error) {
 	args := req.GetArguments()
 	id, ok := args["endpoint_id"].(string)
 	if !ok || id == "" {
@@ -2776,8 +3055,9 @@ func handleCodeOrchExecute(ctx context.Context, req mcplib.CallToolRequest) (*mc
 	if ep == nil {
 		return mcplib.NewToolResultError(fmt.Sprintf("unknown endpoint_id %q — call watchguard_search to discover valid ids", id)), nil
 	}
-	if codeOrchBlockedByMCPReadOnly(ep.Method) {
-		return mcplib.NewToolResultError(fmt.Sprintf("refusing %s %s while %s is on", ep.Method, id, cliutil.MCPReadOnlyEnvVar)), nil
+	method := codeOrchNormalizeMethod(ep.Method)
+	if codeOrchRefuseForReadOnlySwitch(ep, method, executeTool) {
+		return mcplib.NewToolResultError(fmt.Sprintf("refusing %s %s while %s is on", method, id, cliutil.MCPReadOnlyEnvVar)), nil
 	}
 
 	params, _ := args["params"].(map[string]any)
@@ -2834,11 +3114,32 @@ func handleCodeOrchExecute(ctx context.Context, req mcplib.CallToolRequest) (*mc
 		hdrs = nil
 	}
 
+	// An opaque MCP cursor from a bounded page resumes that page; a raw
+	// upstream cursor is sent as-is and anchors any local continuation.
+	mcpCursor, requestCursor := "", ""
+	if method == "GET" && ep.Page.CursorParam != "" {
+		// Offset- and page-numbered APIs take numbers here, so stringify before decoding.
+		if v, ok := params[ep.Page.CursorParam]; ok && v != nil {
+			if s := formatMCPParamValue(v); s != "" {
+				if upstream, err := bound.UpstreamCursor(s); err == nil {
+					mcpCursor, requestCursor = s, upstream
+					if upstream == "" {
+						delete(params, ep.Page.CursorParam)
+					} else {
+						params[ep.Page.CursorParam] = upstream
+					}
+				} else {
+					requestCursor = s
+				}
+			}
+		}
+	}
+
 	// Route params to their runtime slots. GET/DELETE params are query
 	// strings; write methods split spec-declared query params from the
 	// remaining params used as the request body below.
 	query := map[string]string{}
-	if ep.Method == "GET" || ep.Method == "DELETE" {
+	if method == "GET" || method == "DELETE" {
 		path = codeOrchSplitQuery(path, ep.QueryParams, params)
 		for k, v := range params {
 			query[codeOrchWireQueryName(ep.QueryParams, k)] = formatMCPParamValue(v)
@@ -2858,8 +3159,52 @@ func handleCodeOrchExecute(ctx context.Context, req mcplib.CallToolRequest) (*mc
 		}
 		return codeOrchWriteBody(params)
 	}
+	// Confirm after path and query resolution so a path param or fixed query
+	// selector cannot retarget a read onto a gated endpoint without confirm.
+	// Only a top-level boolean true counts; the string "true" stays a preview.
+	resolvedPath := path
+
+	resolvedPath = codeOrchPreviewPath(path, c.Config.TemplateVars)
+
+	gated := codeOrchResolvedNeedsConfirm(ep, method, resolvedPath, query)
+	if cliutil.IsMCPReadOnlyEnv() && gated {
+		return mcplib.NewToolResultError(fmt.Sprintf("refusing %s %s while %s is on", method, id, cliutil.MCPReadOnlyEnvVar)), nil
+	}
+	if executeTool {
+		if !gated {
+
+			return mcplib.NewToolResultError(fmt.Sprintf("endpoint_id %q is read-only; call watchguard_read", id)), nil
+
+		}
+		if !codeOrchConfirmAccepted(args["confirm"]) {
+			previewBody := any(nil)
+			if method != "GET" && method != "DELETE" {
+				previewBody = writeBody()
+			}
+
+			preview := map[string]any{
+				"preview":               true,
+				"confirmation_required": true,
+				"endpoint_id":           ep.ID,
+				"method":                method,
+				"path":                  resolvedPath,
+				"query":                 query,
+				"body":                  previewBody,
+			}
+			text, previewErr := bound.JSON(preview)
+			if previewErr != nil {
+				return mcplib.NewToolResultError(fmt.Sprintf("encoding confirmation preview: %v", previewErr)), nil
+			}
+			return mcplib.NewToolResultText(text), nil
+		}
+	} else if gated {
+
+		return mcplib.NewToolResultError(fmt.Sprintf("resolved %s %s changes state; call watchguard_execute with confirm set to boolean true", method, resolvedPath)), nil
+
+	}
+	path = resolvedPath
 	var data json.RawMessage
-	switch ep.Method {
+	switch method {
 	case "GET":
 		if len(hdrs) > 0 {
 			if ep.Mutating {
@@ -2902,12 +3247,22 @@ func handleCodeOrchExecute(ctx context.Context, req mcplib.CallToolRequest) (*mc
 			data, _, err = c.Patch(ctx, path, body)
 		}
 	default:
-		return mcplib.NewToolResultError(fmt.Sprintf("unsupported method %q", ep.Method)), nil
+		return mcplib.NewToolResultError(fmt.Sprintf("unsupported method %q", method)), nil
 	}
 	if err != nil {
 		return mcplib.NewToolResultError(err.Error()), nil
 	}
-	text := bound.EndpointResponse(ep.Method, data)
+	var text string
+	if method == "GET" && (ep.Page.CursorParam != "" || ep.Page.NextCursorPath != "") {
+		text = bound.EndpointPageResponse(method, data, bound.PageOptions{
+			Cursor:         mcpCursor,
+			CursorParam:    ep.Page.CursorParam,
+			NextCursorPath: ep.Page.NextCursorPath,
+			RequestCursor:  requestCursor,
+		})
+	} else {
+		text = bound.EndpointResponse(method, data)
+	}
 	if platformSession != nil {
 		text = bound.WithMetadata(text, platformSession.OutputMetadata())
 	}
@@ -2985,4 +3340,198 @@ func codeOrchWireQueryName(queryParams []codeOrchParamBinding, name string) stri
 		}
 	}
 	return name
+}
+
+func codeOrchNormalizeMethod(method string) string {
+	return strings.ToUpper(strings.TrimSpace(method))
+}
+
+func codeOrchConfirmAccepted(v any) bool {
+	confirmed, ok := v.(bool)
+	return ok && confirmed
+}
+
+func codeOrchPreviewPath(path string, templateVars map[string]string) string {
+	if len(templateVars) == 0 || !strings.Contains(path, "{") {
+		return path
+	}
+	names := make([]string, 0, len(templateVars))
+	for name := range templateVars {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	for _, name := range names {
+		value := templateVars[name]
+		if name == "" || value == "" {
+			continue
+		}
+		path = strings.ReplaceAll(path, "{"+name+"}", neturl.PathEscape(value))
+	}
+	return path
+}
+
+func codeOrchResolvedNeedsConfirm(selected *codeOrchEndpoint, method, resolvedPath string, query map[string]string) bool {
+	method = codeOrchNormalizeMethod(method)
+	if method == "DELETE" || selected.NeedsConfirm || selected.Mutating {
+		return true
+	}
+	effective := codeOrchEffectiveQuery(resolvedPath, query)
+	resolvedBase := codeOrchPathBase(resolvedPath)
+	// A literal route is the destination when a placeholder route also
+	// matches. POST /reports/search stays a read even though POST
+	// /reports/{id} matches the same path.
+	selectedMatches := codeOrchRequestMatchesEndpoint(selected.Path, resolvedBase, effective)
+	selectedSpecificity := codeOrchPatternSpecificity(selected.Path)
+	for i := range codeOrchEndpoints {
+		other := &codeOrchEndpoints[i]
+		if other == selected {
+			continue
+		}
+		if !other.NeedsConfirm && !other.Mutating && codeOrchNormalizeMethod(other.Method) != "DELETE" {
+			continue
+		}
+		if codeOrchNormalizeMethod(other.Method) != method {
+			continue
+		}
+		if !codeOrchRequestMatchesEndpoint(other.Path, resolvedBase, effective) {
+			continue
+		}
+		if selectedMatches && selectedSpecificity > codeOrchPatternSpecificity(other.Path) {
+			continue
+		}
+		return true
+	}
+	return codeOrchFixedQueryOverridden(selected.Path, effective)
+}
+
+func codeOrchPatternSpecificity(pattern string) int {
+	base := strings.Trim(codeOrchPathBase(pattern), "/")
+	if base == "" {
+		return 0
+	}
+	score := 0
+	for _, seg := range strings.Split(base, "/") {
+		if len(seg) >= 2 && seg[0] == '{' && seg[len(seg)-1] == '}' {
+			continue
+		}
+		score++
+	}
+	return score
+}
+
+func codeOrchPathBase(path string) string {
+	if i := strings.Index(path, "?"); i >= 0 {
+		return path[:i]
+	}
+	return path
+}
+
+func codeOrchEffectiveQuery(path string, query map[string]string) neturl.Values {
+	vals := neturl.Values{}
+	if i := strings.Index(path, "?"); i >= 0 && i+1 < len(path) {
+		if parsed, err := neturl.ParseQuery(path[i+1:]); err == nil {
+			for key, items := range parsed {
+				for _, item := range items {
+					vals.Add(key, item)
+				}
+			}
+		}
+	}
+	for key, value := range query {
+		vals.Add(key, value)
+	}
+	return vals
+}
+
+func codeOrchFixedQueryOverridden(pattern string, effective neturl.Values) bool {
+	_, raw, ok := strings.Cut(pattern, "?")
+	if !ok || raw == "" {
+		return false
+	}
+	fixed, err := neturl.ParseQuery(raw)
+	if err != nil {
+		return false
+	}
+	for name, want := range fixed {
+		got, exists := effective[name]
+		if !exists {
+			continue
+		}
+		for _, value := range got {
+			matched := false
+			for _, allowed := range want {
+				if value == allowed {
+					matched = true
+					break
+				}
+			}
+			if !matched {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func codeOrchRequestMatchesEndpoint(pattern, resolvedBase string, effective neturl.Values) bool {
+	patternBase, patternQuery, _ := strings.Cut(pattern, "?")
+	if !codeOrchSegmentsMatch(patternBase, resolvedBase) {
+		return false
+	}
+	if patternQuery == "" {
+		return true
+	}
+	fixed, err := neturl.ParseQuery(patternQuery)
+	if err != nil {
+		return false
+	}
+	for key, want := range fixed {
+		got := effective[key]
+		if len(got) == 0 {
+			return false
+		}
+		for _, value := range want {
+			found := false
+			for _, have := range got {
+				if have == value {
+					found = true
+					break
+				}
+			}
+			if !found {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+func codeOrchSegmentsMatch(pattern, resolved string) bool {
+	pattern = strings.Trim(pattern, "/")
+	resolved = strings.Trim(resolved, "/")
+	if pattern == "" || resolved == "" {
+		return pattern == resolved
+	}
+	patternSegs := strings.Split(pattern, "/")
+	resolvedSegs := strings.Split(resolved, "/")
+	if len(patternSegs) != len(resolvedSegs) {
+		return false
+	}
+	for i := range patternSegs {
+		seg := patternSegs[i]
+		if len(seg) >= 2 && seg[0] == '{' && seg[len(seg)-1] == '}' {
+			if resolvedSegs[i] == "" {
+				return false
+			}
+			continue
+		}
+		got := resolvedSegs[i]
+		if unescaped, err := neturl.PathUnescape(got); err == nil {
+			got = unescaped
+		}
+		if seg != got {
+			return false
+		}
+	}
+	return true
 }

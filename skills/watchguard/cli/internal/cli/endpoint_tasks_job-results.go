@@ -61,7 +61,7 @@ func newEndpointTasksJobResultsCmd(flags *rootFlags) *cobra.Command {
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "live", "endpoint_tasks", path, retainCLIQueryParams(cmd, map[string]string{
 				"$top":  formatCLIParamValue(flagTop),
 				"$skip": formatCLIParamValue(flagSkip),
-			}, map[string][]string{"$top": {"top"}, "$skip": {"skip"}}, "skip", "offset"), nil, flagAll, "skip", "offset", "", 0, "", "", "", cmd.ErrOrStderr())
+			}, map[string][]string{"$top": {"top"}, "$skip": {"skip"}}, "$skip", "offset"), nil, flagAll, "$skip", "offset", "$top", 0, "", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}

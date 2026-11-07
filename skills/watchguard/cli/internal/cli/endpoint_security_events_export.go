@@ -38,7 +38,7 @@ func newEndpointSecurityEventsExportCmd(flags *rootFlags) *cobra.Command {
 				"hostname": formatCLIParamValue(flagHostname),
 				"top":      formatCLIParamValue(flagTop),
 				"skip":     formatCLIParamValue(flagSkip),
-			}, map[string][]string{"hostname": {"hostname"}, "top": {"top"}, "skip": {"skip"}}, "skip", "offset"), nil, flagAll, "skip", "offset", "", 0, "", "", "", cmd.ErrOrStderr())
+			}, map[string][]string{"hostname": {"hostname"}, "top": {"top"}, "skip": {"skip"}}, "skip", "offset"), nil, flagAll, "skip", "offset", "top", 0, "", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}

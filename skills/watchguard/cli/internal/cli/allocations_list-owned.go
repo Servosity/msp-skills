@@ -36,7 +36,7 @@ func newAllocationsListOwnedCmd(flags *rootFlags) *cobra.Command {
 					}
 				}
 				if !validResourceType {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagResourceType, "resource-type", allowedResourceType)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagResourceType, "resource-type", allowedResourceType))
 				}
 			}
 			path := "/rest/platform/allocation/v2/{accountId}/assets/licenses/{resourceType}"

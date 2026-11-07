@@ -42,7 +42,7 @@ func newAudiencesPromotedCmd(flags *rootFlags) *cobra.Command {
 				return cmd.Help()
 			}
 			if !cmd.Flags().Changed("account-id") && bodyAccountId == "" && !requiredInputWaived() {
-				return fmt.Errorf("required flag \"%s\" not set", "account-id")
+				return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "account-id"))
 			}
 			c, err := flags.newClient()
 			if err != nil {
@@ -93,6 +93,9 @@ func newAudiencesPromotedCmd(flags *rootFlags) *cobra.Command {
 			// opt out of the auto-JSON path so piped consumers that asked for a
 			// non-JSON format reach the standard pipeline below.
 			if flags.asJSON || (!isTerminal(cmd.OutOrStdout()) && !flags.csv && !flags.quiet && !flags.plain) {
+				// --select and --compact can drop the transport sentinel.
+				// Read it before those filters so a verify noop is not stamped as a completed preview.
+				verifyNoop := isVerifySyntheticResponse(data)
 				var selectErr error
 				filtered := data
 				if flags.selectFields != "" {
@@ -112,7 +115,7 @@ func newAudiencesPromotedCmd(flags *rootFlags) *cobra.Command {
 				// Stamp after provenance and platform wrapping so those wrappers
 				// cannot hide dry_run and action under results.
 				if flags.dryRun {
-					stamped, stampErr := stampDryRunEnvelope(wrapped, "post")
+					stamped, stampErr := stampDryRunEnvelope(wrapped, "post", verifyNoop)
 					if stampErr != nil {
 						return stampErr
 					}

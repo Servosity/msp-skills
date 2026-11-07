@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+
+	"watchguard-pp-cli/internal/cliutil"
 )
 
 // odataTransport fixes Endpoint Security list paging on the wire. Those lists
@@ -64,7 +66,7 @@ func InstallODataQueryTransport(c *Client) error {
 	}
 	base := c.HTTPClient.Transport
 	if base == nil {
-		base = http.DefaultTransport
+		base = cliutil.OutboundGuard(nil) // Hand-fix (handfixes.json credkit-wiring): a nil transport is the kit's guard over the default
 	}
 	if _, wrapped := base.(odataTransport); !wrapped {
 		c.HTTPClient.Transport = odataTransport{base: base}

@@ -36,7 +36,7 @@ func newAllocationsSummaryCmd(flags *rootFlags) *cobra.Command {
 					}
 				}
 				if !validResourceType {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagResourceType, "resource-type", allowedResourceType)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagResourceType, "resource-type", allowedResourceType))
 				}
 			}
 			if cmd.Flags().Changed("allocation-status") {
@@ -49,7 +49,7 @@ func newAllocationsSummaryCmd(flags *rootFlags) *cobra.Command {
 					}
 				}
 				if !validAllocationStatus {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagAllocationStatus, "allocation-status", allowedAllocationStatus)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagAllocationStatus, "allocation-status", allowedAllocationStatus))
 				}
 			}
 			path := "/rest/platform/allocation/v2/{accountId}/assets/summary/{resourceType}"

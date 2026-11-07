@@ -678,20 +678,89 @@ func incidentRows(raw json.RawMessage) ([]map[string]any, error) {
 	return nil, fmt.Errorf("unexpected response: no \"items\" or \"groups\" list")
 }
 
-// expiryOf returns when a row expires: the allocation/license expiry date, or
-// now + daysUntilExpiry when only the day count is given.
-func expiryOf(m map[string]any, now time.Time) (time.Time, string, bool) {
-	date := strField(m, "allocationExpiryDate")
-	if date == "" {
-		date = strField(m, "licenseExpiryDate")
+// expiryState says what an allocation row tells about its expiry.
+type expiryState int
+
+const (
+	// expiryUnknown: the row allocates something but carries no usable expiry
+	// (the documented per-account Firebox aggregate, an unparseable date).
+	expiryUnknown expiryState = iota
+	expiryDated
+	expiryNever        // allocationExpiryType "never" and no date
+	expiryNoAllocation // an account-only placeholder row (accountId/accountName only)
+)
+
+func (s expiryState) String() string {
+	return [...]string{"unknown", "dated", "never", "no-allocation"}[s]
+}
+
+// placeholderKeys are the only fields an account-only row may carry (the
+// documented "Subscriber4" rows in the allocation examples).
+var placeholderKeys = map[string]bool{"accountId": true, "accountName": true}
+
+// expiryOf returns when a row expires and which field said so. Hand-fix
+// (handfixes.json: expiry-reads-the-earliest-evidence): a row expires at the
+// EARLIEST of its documented expiry evidence (allocationExpiryDate,
+// licenseExpiryDate, now + daysUntilExpiry), because Allocv2DeviceInfoObject
+// carries the allocation and license dates independently. Evidence that is
+// present but unreadable makes the earliest unknowable: expiryUnknown.
+// Hand-fix (handfixes.json: expiry-unknown-never-read-as-not-expiring): a row
+// with no evidence is "never" only when allocationExpiryType says so, and an
+// account-only row is no allocation; anything else is expiryUnknown, never
+// "not expiring".
+func expiryOf(m map[string]any, now time.Time) (time.Time, string, string, expiryState) {
+	var at time.Time
+	var date, field string
+	seen := false
+	take := func(t time.Time, d, f string) {
+		if !seen || t.Before(at) {
+			at, date, field, seen = t, d, f, true
+		}
 	}
-	if t, ok := parseTime(date); ok {
-		return t, date, true
+	for _, k := range []string{"allocationExpiryDate", "licenseExpiryDate"} {
+		d := strings.TrimSpace(strField(m, k))
+		if d == "" {
+			continue
+		}
+		t, ok := parseTime(d)
+		if !ok {
+			return time.Time{}, "", "", expiryUnknown
+		}
+		take(t, d, k)
 	}
-	if n, ok := intField(m, "daysUntilExpiry"); ok {
-		return now.Add(time.Duration(n) * 24 * time.Hour), date, true
+	if strings.TrimSpace(strField(m, "daysUntilExpiry")) != "" {
+		n, ok := intField(m, "daysUntilExpiry")
+		if !ok {
+			return time.Time{}, "", "", expiryUnknown
+		}
+		take(now.Add(time.Duration(n)*24*time.Hour), "", "daysUntilExpiry")
 	}
-	return time.Time{}, date, false
+	if seen {
+		return at, date, field, expiryDated
+	}
+	if strings.EqualFold(strings.TrimSpace(strField(m, "allocationExpiryType")), "never") {
+		return time.Time{}, "", "", expiryNever
+	}
+	placeholder := true
+	for k, v := range m {
+		if v != nil && !placeholderKeys[k] {
+			placeholder = false
+			break
+		}
+	}
+	if placeholder {
+		return time.Time{}, "", "", expiryNoAllocation
+	}
+	return time.Time{}, "", "", expiryUnknown
+}
+
+// expiryUnknownItem is an allocation row whose expiry the response does not
+// tell. The serial or license is left out: a software license key is a secret.
+type expiryUnknownItem struct {
+	ResourceType string `json:"resource_type"`
+	Product      string `json:"product,omitempty"`
+	AccountID    string `json:"account_id,omitempty"`
+	AccountName  string `json:"account_name,omitempty"`
 }
 
 type expiringItem struct {
@@ -701,26 +770,34 @@ type expiringItem struct {
 	AccountID    string `json:"account_id,omitempty"`
 	AccountName  string `json:"account_name,omitempty"`
 	ExpiryDate   string `json:"expiry_date"`
+	ExpiryField  string `json:"expiry_field,omitempty"`
 	DaysLeft     int    `json:"days_left"`
 	Expired      bool   `json:"expired"`
 }
 
-// expiringWithin lists rows that expire by now+window; already-expired rows are kept, flagged expired.
-func expiringWithin(resourceType string, rows []map[string]any, window time.Duration, now time.Time) []expiringItem {
-	out := make([]expiringItem, 0)
+// expiringWithin lists rows that expire by now+window; already-expired rows are
+// kept, flagged expired. Rows whose expiry the response does not tell come back
+// in unknown, so a caller can never read them as "not expiring".
+func expiringWithin(resourceType string, rows []map[string]any, window time.Duration, now time.Time) (out []expiringItem, unknown []expiryUnknownItem) {
+	out, unknown = make([]expiringItem, 0), make([]expiryUnknownItem, 0)
 	for _, m := range rows {
-		at, date, ok := expiryOf(m, now)
-		if !ok || at.After(now.Add(window)) {
+		at, date, field, state := expiryOf(m, now)
+		if state == expiryUnknown {
+			unknown = append(unknown, expiryUnknownItem{ResourceType: resourceType, Product: strField(m, "productName"),
+				AccountID: strField(m, "accountId"), AccountName: strField(m, "accountName")})
+			continue
+		}
+		if state != expiryDated || at.After(now.Add(window)) {
 			continue
 		}
 		if date == "" {
 			date = at.UTC().Format(time.RFC3339)
 		}
 		out = append(out, expiringItem{ResourceType: resourceType, Product: strField(m, "productName"), Serial: strField(m, "serialOrLicense"),
-			AccountID: strField(m, "accountId"), AccountName: strField(m, "accountName"), ExpiryDate: date,
+			AccountID: strField(m, "accountId"), AccountName: strField(m, "accountName"), ExpiryDate: date, ExpiryField: field,
 			DaysLeft: int(math.Floor(at.Sub(now).Hours() / 24)), Expired: at.Before(now)})
 	}
-	return out
+	return out, unknown
 }
 
 // fanoutVerdict reports partial and total failure after a fan-out's output is written:

@@ -44,8 +44,8 @@ but do not stop the import.`,
 			if err != nil {
 				return usageErr(err)
 			}
-			// Hand-fix (handfixes.json: import-dry-run-honors-root-flag): the
-			// root --dry-run reaches newClient, so a scoped process never mints.
+			// Root --dry-run reaches newClient. A command-local flag of the
+			// same name would leave flags.dryRun false and still deliver.
 			c, err := flags.newClient()
 			if err != nil {
 				return err

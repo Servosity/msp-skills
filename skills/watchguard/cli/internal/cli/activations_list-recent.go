@@ -41,7 +41,7 @@ func newActivationsListRecentCmd(flags *rootFlags) *cobra.Command {
 					}
 				}
 				if !validSortBy {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagSortBy, "sort-by", allowedSortBy)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagSortBy, "sort-by", allowedSortBy))
 				}
 			}
 			path := "/rest/platform/activation/v1/recentactivations"
