@@ -4,7 +4,7 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
-## [0.1.8] - unreleased
+## [0.1.8] - 2026-11-06
 
 ### Security
 - Rebuilt on CLI Printing Press 4.34.2 ([GHSA-jh26-vhqh-692c](https://github.com/advisories/GHSA-jh26-vhqh-692c)). The MCP server's HTTP mode refuses to start until `DOMOTZ_MCP_HTTP_TOKEN` is set (32 characters or more), serves `http://127.0.0.1:7777/mcp` by default, and needs `--tls-cert` and `--tls-key` on any other address. Every MCP write previews first and sends only when called again with `confirm` set to `true`. `DOMOTZ_MCP_HTTP_TOKEN`, `DOMOTZ_MCP_READ_ONLY`, `DOMOTZ_NO_LOCAL_DATA`, `DOMOTZ_USER_AGENT` and `PRINTING_PRESS_CLIENT_PROFILE` are now declared on every install channel.

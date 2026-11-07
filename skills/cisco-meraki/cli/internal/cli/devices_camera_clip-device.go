@@ -61,10 +61,10 @@ func newDevicesCameraClipDeviceCmd(flags *rootFlags) *cobra.Command {
 				return usageErr(fmt.Errorf("missing required argument\nUsage: %s%s", cmd.CommandPath(), " <serial>"))
 			}
 			if !cmd.Flags().Changed("start-timestamp") && flagStartTimestamp == "" && !requiredInputWaived() {
-				return fmt.Errorf("required flag \"%s\" not set", "start-timestamp")
+				return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "start-timestamp"))
 			}
 			if !cmd.Flags().Changed("end-timestamp") && flagEndTimestamp == "" && !requiredInputWaived() {
-				return fmt.Errorf("required flag \"%s\" not set", "end-timestamp")
+				return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "end-timestamp"))
 			}
 			path := "/devices/{serial}/camera/clip"
 			if len(args) < 1 || args[0] == "" {

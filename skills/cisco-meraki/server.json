@@ -48,6 +48,12 @@
           "default": "1"
         },
         {
+          "name": "CISCO_MERAKI_NO_LOCAL_DATA",
+          "description": "Set to 1 to keep no local copy of API responses (reads go to the API; the response cache is off).",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
           "name": "CISCO_MERAKI_USER_AGENT",
           "description": "Overrides the User-Agent the CLI sends on Meraki requests.",
           "isRequired": false,

@@ -1,4 +1,5 @@
 // Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
+// pp:data-source live
 
 package cli
 
@@ -9,6 +10,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"riverside-fm-pp-cli/internal/credkit"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -30,10 +32,11 @@ func newGrabCmd(flags *rootFlags) *cobra.Command {
   3. video       (/api/v4/vod/{sessionId}/{participantHandle} — HLS manifest per participant)
 
 Writes the first tier that exists to disk (transcript text or JSON, asset metadata, manifest body)
-and exits with code 0 on success. Exit code 13 means none of the three tiers returned usable data.`,
+and exits with code 0 on success. Exit code 13 means every tier answered and none had usable data;
+a tier whose request FAILS stops the walk with that API error instead of falling back.`,
 		Example: `  riverside-fm-cli grab bf487406-af40-4bb4-b7f9-a6b49047b55d
   riverside-fm-cli grab <session-id> --out ./downloads --json`,
-		Annotations: map[string]string{"mcp:read-only": "true", "pp:typed-exit-codes": "0,4,5,13"},
+		Annotations: map[string]string{"mcp:hidden": "true", "pp:typed-exit-codes": "0,4,5,13"}, // writes media files; never an MCP tool
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
 				return cmd.Help()
@@ -56,10 +59,17 @@ and exits with code 0 on success. Exit code 13 means none of the three tiers ret
 				return err
 			}
 
+			// A tier whose fetch FAILS stops the walk. Riverside answers a missing
+			// transcript with 200 and no speakers, so an error is a failure, not
+			// absence: falling through would report a lower tier (or "nothing
+			// available") for data this command never managed to read.
 			// Tier 1: transcript
 			tPath := "/api/v4/transcriptions/editableWithVoiceActivity/" + url.PathEscape(sessionID)
-			tData, tErr := c.Get(tPath, nil)
-			if tErr == nil && hasTranscriptContent(tData) {
+			tData, tErr := c.Get(cmd.Context(), tPath, nil)
+			if tErr != nil {
+				return classifyAPIError(cmd.OutOrStdout(), fmt.Errorf("grab %s: transcript tier: %w", sessionID, tErr), flags)
+			}
+			if hasTranscriptContent(tData) {
 				result := map[string]any{"tier": "transcript", "session_id": sessionID}
 				if format == "json" || flags.asJSON {
 					return writeGrabResult(cmd, flags, outDir, sessionID, "transcript.json", tData, result)
@@ -70,31 +80,34 @@ and exits with code 0 on success. Exit code 13 means none of the three tiers ret
 
 			// Tier 2: audio (via take assets)
 			aPath := "/api/v4/take/" + url.PathEscape(sessionID) + "/assets"
-			aData, aErr := c.Get(aPath, nil)
-			if aErr == nil && hasAudioTracks(aData) {
+			aData, aErr := c.Get(cmd.Context(), aPath, nil)
+			if aErr != nil {
+				return classifyAPIError(cmd.OutOrStdout(), fmt.Errorf("grab %s: audio tier: %w", sessionID, aErr), flags)
+			}
+			if hasAudioTracks(aData) {
 				result := map[string]any{"tier": "audio", "session_id": sessionID}
 				return writeGrabResult(cmd, flags, outDir, sessionID, "take-assets.json", aData, result)
 			}
 
-			// Tier 3: video — need a participant handle; pull from take assets if we have it
-			if aErr == nil {
-				handles := extractParticipantHandles(aData)
-				if len(handles) > 0 {
-					vPath := "/api/v4/vod/" + url.PathEscape(sessionID) + "/" + url.PathEscape(handles[0])
-					vData, vErr := c.Get(vPath, nil)
-					if vErr == nil && len(vData) > 0 {
-						result := map[string]any{
-							"tier":        "video",
-							"session_id":  sessionID,
-							"participant": handles[0],
-							"manifest":    "hls m3u8",
-						}
-						return writeGrabResult(cmd, flags, outDir, sessionID, handles[0]+"-manifest.m3u8", vData, result)
+			// Tier 3: video — need a participant handle from the take assets
+			if handles := extractParticipantHandles(aData); len(handles) > 0 {
+				vPath := "/api/v4/vod/" + url.PathEscape(sessionID) + "/" + url.PathEscape(handles[0])
+				vData, vErr := c.Get(cmd.Context(), vPath, nil)
+				if vErr != nil {
+					return classifyAPIError(cmd.OutOrStdout(), fmt.Errorf("grab %s: video tier: %w", sessionID, vErr), flags)
+				}
+				if len(responseFileBytes(vData)) > 0 {
+					result := map[string]any{
+						"tier":        "video",
+						"session_id":  sessionID,
+						"participant": handles[0],
+						"manifest":    "hls m3u8",
 					}
+					return writeGrabResult(cmd, flags, outDir, sessionID, handles[0]+"-manifest.m3u8", vData, result)
 				}
 			}
 
-			// All tiers failed
+			// Every tier answered and none had usable data
 			if flags.asJSON {
 				fmt.Fprintln(cmd.OutOrStdout(), `{"tier":"none","session_id":"`+sessionID+`","error":"no transcript, audio, or video available for this session"}`)
 			} else {
@@ -178,11 +191,14 @@ func extractParticipantHandles(data json.RawMessage) []string {
 }
 
 func writeGrabResult(cmd *cobra.Command, flags *rootFlags, outDir, sessionID, filename string, body []byte, result map[string]any) error {
+	// The manifest tier arrives as application/x-mpegurl, which the client
+	// wraps in a _pp_binary envelope; write the manifest, not the envelope.
+	body = responseFileBytes(body)
 	path := safeJoin(outDir, sessionID+"-"+filename)
 	if path == "" {
 		return fmt.Errorf("refusing to write %q: the session id or filename would escape --out", sessionID+"-"+filename)
 	}
-	if err := os.WriteFile(path, body, 0o600); err != nil {
+	if err := credkit.WriteFile(path, body, 0o600); err != nil {
 		return fmt.Errorf("writing %s: %w", path, err)
 	}
 	result["path"] = path

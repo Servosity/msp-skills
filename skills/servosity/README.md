@@ -250,7 +250,7 @@ Keep autonomous agents to **Read plus previewed writes**; gate everything below 
 
 ## Status
 
-Already used inside Servosity's own backup / DR operations; published here for MSP partners. The public surface is in beta and being validated with MSPs in live Build Sessions. RSVP at [compoundingteams.com/build-sessions](https://compoundingteams.com/build-sessions).
+Live-verified. Confirmed by Servosity (maintainer) against their own production tenant. More MSPs run it live in our weekly Build Sessions. RSVP at [compoundingteams.com/build-sessions](https://compoundingteams.com/build-sessions).
 
 ---
 

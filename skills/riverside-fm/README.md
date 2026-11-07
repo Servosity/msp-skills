@@ -6,10 +6,10 @@
 <!-- media:start -->
 <p align="center">
   <a href="https://msp-skills.compoundingteams.com/skills/riverside-fm/">
-    <img src="../../docs/assets/social/riverside-fm/wide-1200x630.png" alt="Riverside.fm - MCP server and Claude Code Skill" width="600">
+    <img src="../../docs/assets/video/riverside-fm/animated-og.gif" alt="Riverside.fm demo - animated preview" width="600">
   </a>
 </p>
-<p align="center"><sub><a href="https://msp-skills.compoundingteams.com/skills/riverside-fm/">Full skill page</a> - install, outcomes, safety model.</sub></p>
+<p align="center"><sub>▶ <a href="https://msp-skills.compoundingteams.com/skills/riverside-fm/">Watch the 30-second demo</a> - demo data is simulated; every command shown exists in the real CLI.</sub></p>
 <!-- media:end -->
 
 Riverside API surface as MCP tools. Works with the AI you already use - **ChatGPT** (desktop app), **Claude Desktop**, **Codex**, **Claude Code**, **Claude Cowork**, and **GitHub Copilot** - plus **Gemini CLI**. Free, open source, runs on your laptop. Built for MSP owners. No code required.
@@ -163,7 +163,7 @@ Full command reference: [guide.md](./guide.md). For the AI-agent operating contr
 
 Most Riverside integrations and MCP servers proxy each question into a live API call. That's fine for one record. It dies at scale, when you're asking "find the episode where we mentioned that customer story across two years of a weekly show" or "archive every take in this studio before we cancel the plan."
 
-This skill syncs Riverside into a **local SQLite mirror** with full-text search. Aggregate questions become one local query: instant, offline, and the AI sees the answer, not the raw data. Compound commands like `bulk export`, `clips harvest`, and `search` join across studios, projects, takes, transcripts, and clip-assets - work a stateless API wrapper can't do.
+This skill saves what you read from Riverside into a **local SQLite mirror** with full-text search. Aggregate questions become one local query: instant, offline, and the AI sees the answer, not the raw data. Compound commands like `bulk export`, `clips harvest`, and `search` join across studios, projects, takes, transcripts, and clip-assets - work a stateless API wrapper can't do.
 
 ## The pain this closes
 
@@ -207,7 +207,7 @@ No. It authenticates as **you**, with your own browser session, and only reaches
 
 ### Will this change anything in my Riverside account?
 
-The commands you use to export, search, and convert all **read** - they only download and transform your data. The CLI does include the generic `import` command, which can POST records from a local file via the API's create/upsert path; it is not part of any workflow in this skill, and an agent should treat it as a reviewed write. Nothing in this CLI deletes or publishes.
+The commands you use to export, search, and convert all **read** - they only download and transform your data. Nothing in this CLI writes to Riverside, deletes or publishes.
 
 ### What does it cost?
 
@@ -215,12 +215,12 @@ Free. Apache-2.0 licensed. You pay only for whichever AI agent you use (Claude, 
 
 ## Safety model
 
-The Riverside data commands in this skill **read**: the export, search, download, and transcript commands only GET from your account. The one mutating command is the generic `import`, which POSTs records from a local JSONL file - it is not part of any export workflow here.
+The Riverside data commands in this skill **read**: the export, search, download, and transcript commands only GET from your account. No command changes anything in your Riverside account.
 
 | Tier | Examples | Recommended agent policy |
 | --- | --- | --- |
-| Read | `bulk export`, `grab`, `search`, `transcripts convert`, `transcripts talktime`, `clips harvest`, `media refresh`, `ready`, `wait`, `sync` | Allow |
-| Write (routine) | `import` (POSTs records from a local JSONL via the API's create/upsert path); the endpoint-mirror capability checks the safety scanner flagged by verb name (`ai can-create-event`, `takes get-assets`, `clips get-patches`) are themselves read-only GETs | Preview with `--dry-run`, then a reviewed write |
+| Read | `bulk export`, `grab`, `search`, `transcripts convert`, `transcripts talktime`, `clips harvest`, `media refresh`, `ready`, `wait` | Allow |
+| Write (routine) | none - no command sends a write to Riverside; the endpoint-mirror capability checks the safety scanner flagged by verb name (`ai can-create-event`, `takes get-assets`, `clips get-patches`) are themselves read-only GETs | Preview with `--dry-run`, then a reviewed write |
 | Destructive / config | none - this CLI exposes no delete, publish, or account-config command | Human-in-the-loop only |
 
 The strongest control is the **scope you grant the Riverside credentials** - the CLI can only do what the credentials are permitted to do. Full details, including how to lock it down, are in [governance.md](./governance.md).

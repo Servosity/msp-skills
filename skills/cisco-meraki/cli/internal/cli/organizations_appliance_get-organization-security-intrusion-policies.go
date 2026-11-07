@@ -55,7 +55,7 @@ func newOrganizationsApplianceGetOrganizationSecurityIntrusionPoliciesCmd(flags 
 					}
 				}
 				if !validMode {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagMode, "mode", allowedMode)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagMode, "mode", allowedMode))
 				}
 			}
 			path := "/organizations/{organizationId}/appliance/security/intrusion/policies"
