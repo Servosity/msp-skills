@@ -139,7 +139,7 @@
       "type": "skill-md",
       "description": "Use when the user asks about Cisco Meraki across one or many client organizations: what is offline or alerting right now, failed MX WAN uplinks, license, subscription and end-of-support renewals, who changed the Dashboard config, which org owns a MAC, IP or serial, admins without two-factor or a departed tech's access, or any Meraki Dashboard API operation. Trigger phrases: `which meraki devices are offline`, `meraki license expirations across clients`, `find this mac in meraki`, `who changed the meraki config`, `did a change take this site down`, `meraki admins without 2fa`, `use cisco-meraki`, `run cisco-meraki`.",
       "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/cisco-meraki/SKILL.md",
-      "digest": "sha256:cf5c3851fd5a2796f70cee74e7c21ed267ea37dc62745bac1836201c6cd81481"
+      "digest": "sha256:b2098704a37ce220302d456b7f10bb7da0d1ac1f618a3c9ed5816e1b06244517"
     },
     {
       "name": "cisco-umbrella",

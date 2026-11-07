@@ -66,7 +66,7 @@ func newOrganizationsDevicesGetOrganizationCellularDataUsageHistoryByByIntervalC
 				return usageErr(fmt.Errorf("missing required argument\nUsage: %s%s", cmd.CommandPath(), " <organizationId>"))
 			}
 			if !cmd.Flags().Changed("serials") && flagSerials == "" && !requiredInputWaived() {
-				return fmt.Errorf("required flag \"%s\" not set", "serials")
+				return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "serials"))
 			}
 			path := "/organizations/{organizationId}/devices/cellular/data/usage/history/byDevice/byInterval"
 			if len(args) < 1 || args[0] == "" {
