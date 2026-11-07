@@ -525,8 +525,193 @@ def run(m) -> int:  # m: the replay_handfixes module
         finally:
             m.resolved_version, m.raise_floor = real
 
+    sync_writer_cases(m, expect)
+
     print("PASS: replay_handfixes self-test" if ok else "FAIL: replay_handfixes self-test")
     return 0 if ok else 1
+
+
+# --------------------------------------------------------------------------- #
+# sync-event-writer-serialized: adoption, both generated shapes, fail-closed.
+# --------------------------------------------------------------------------- #
+
+SYNC_HEAD = ("package cli\n\nfunc newSyncCmd(flags *rootFlags) *cobra.Command {\n"
+             "\tcmd := &cobra.Command{\n\t\tRunE: func(cmd *cobra.Command, args []string) error {\n")
+SYNC_DECL = "\t\t\tsyncEventWriter := cmd.OutOrStdout()\n"
+SYNC_MACHINE = (SYNC_DECL + "\t\t\tmachineFormat := wantsMachineOutput(flags)\n\t\t\tif machineFormat {\n"
+                "\t\t\t\tsyncEventWriter = cmd.ErrOrStderr()\n\t\t\t}\n")
+SYNC_TAIL = ("\t\t\tfor i := 0; i < 4; i++ {\n\t\t\t\tgo func() { _ = syncResource(cmd.Context(), syncEventWriter) }()\n"
+             "\t\t\t}\n\t\t\tfmt.Fprintf(syncEventWriter, \"done\\n\")\n\t\t\treturn nil\n\t\t},\n\t}\n\treturn cmd\n}\n")
+
+
+def sync_source(shape: str) -> str:
+    """A generated sync.go in one of the press's shapes, or a variant."""
+    return GEN + SYNC_HEAD + {
+        "machine": SYNC_MACHINE,          # press 4.34.x
+        "plain": SYNC_DECL,               # press 4.24.0
+        "own-wrap": SYNC_MACHINE + "\t\t\tsyncEventWriter = &serialWriter{w: syncEventWriter}\n",
+        "twice": SYNC_DECL + SYNC_DECL.replace(":=", "="),
+        "other-machine": SYNC_DECL + "\t\t\tif wantsMachineOutput(flags) {\n\t\t\t\tsyncEventWriter = cmd.ErrOrStderr()\n\t\t\t}\n",
+    }[shape] + SYNC_TAIL
+
+
+def sync_writer_cases(m, expect) -> None:
+    hid = "sync-event-writer-serialized"
+    real = json.loads((HERE / "fleet_handfixes.json").read_text(encoding="utf-8"))["handfixes"][hid]
+    reg = {"handfixes": {hid: real}}
+    rel_sync, rel_helper, rel_test = (m.SEW_SYNC, m.SEW_HELPER, m.SEW_TEST)
+    wrap = "syncEventWriter = &syncSerialWriter{w: syncEventWriter}"
+    with tempfile.TemporaryDirectory(prefix="replay-sync-writer-") as td:
+        root = Path(td)
+        tools = root / "tools" / "maintainer"
+        tools.mkdir(parents=True)
+        shutil.copyfile(HERE / "check_handfixes.py", tools / "check_handfixes.py")
+        (tools / "fleet_handfixes.json").write_text(json.dumps(reg), encoding="utf-8")
+        sink: list[str] = []
+
+        def prove(r, slug, full, p, pkgs):
+            return m.run_proofs(r, slug, False, p, pkgs)  # the REAL ledger check
+
+        def connector(slug: str, shape: str | None, ledger: bool = True) -> Path:
+            skill = root / "skills" / slug
+            if skill.exists():
+                shutil.rmtree(skill)
+            if shape:
+                w(skill / rel_sync, sync_source(shape))
+            w(skill / "cli/internal/cli/root.go", GEN + "package cli\n\nfunc RootCmd() {}\n")
+            w(skill / "cli/go.mod", f"module {slug}-pp-cli\n\ngo 1.24\n")
+            if ledger:
+                w(skill / "handfixes.json", json.dumps({"slug": slug, "handfixes": [
+                    {"id": "own-fix", "asserts": [{"file": "cli/internal/cli/root.go", "contains": "func RootCmd("}]}]},
+                    indent=1) + "\n")
+            return skill
+
+        def apply(slug: str, check: bool = False) -> int:
+            sink.clear()
+            return m.run_slug(root, slug, check=check, out=sink.append, prove=prove, registry=reg)
+
+        def snap(skill: Path) -> dict:
+            return {q: q.read_bytes() for q in skill.rglob("*") if q.is_file()}
+
+        # Both generated shapes: the entry is adopted, the wrap lands right
+        # after the code that makes the writer, and a re-run is a no-op.
+        for shape, anchor in (("machine", SYNC_MACHINE), ("plain", SYNC_DECL)):
+            skill = connector("acme", shape)
+            expect(apply("acme", check=True) == 1 and any("adopt [" + hid in x for x in sink)
+                   and wrap not in (skill / rel_sync).read_text(),
+                   f"{shape}: --check names the adoption and the edit, and writes nothing")
+            rc = apply("acme")
+            text = (skill / rel_sync).read_text()
+            led = json.loads((skill / "handfixes.json").read_text())
+            entry = next((e for e in led["handfixes"] if e["id"] == hid), None)
+            expect(rc == 0 and anchor + m.SEW_BLOCK.replace("{tag}", m.tag(hid)) in text and text.count(wrap) == 1,
+                   f"{shape}: the wrap is added once, directly after the writer is made: "
+                   + " | ".join(x for x in sink if "NEEDS" in x or "PROOF" in x or "FAIL" in x)[:400])
+            expect((skill / rel_helper).read_text() == m.render("sync_event_writer.go.tmpl", MODULE="acme-pp-cli")
+                   and (skill / rel_test).read_text() == m.render("sync_event_writer_test.go.tmpl", MODULE="acme-pp-cli"),
+                   f"{shape}: the serializer and its regression test are the canonical templates")
+            expect(entry is not None and entry["asserts"] == real["adopt"]["entry"]["asserts"]
+                   and led["handfixes"][0]["id"] == "own-fix" and text.index(wrap) < text.index("go func()"),
+                   f"{shape}: the ledger gains the registry's entry (asserts as recorded), keeps its own, "
+                   f"and the wrap precedes every worker")
+            before = snap(skill)
+            expect(apply("acme") == 0 and snap(skill) == before and any("already applied" in x for x in sink),
+                   f"{shape}: a second run changes nothing")
+
+        # A reprint regenerates sync.go and may drop the hand-written files:
+        # the recorded entry brings all three back.
+        skill = connector("acme", "machine")
+        apply("acme")
+        w(skill / rel_sync, sync_source("machine"))
+        (skill / rel_helper).unlink()
+        expect(apply("acme") == 0 and wrap in (skill / rel_sync).read_text() and (skill / rel_helper).is_file(),
+               "after a reprint the recorded entry re-applies the wrap and restores the serializer")
+
+        # A print with no ledger gets one, holding only this entry.
+        skill = connector("fresh", "plain", ledger=False)
+        expect(apply("fresh") == 0 and [e["id"] for e in json.loads((skill / "handfixes.json").read_text())["handfixes"]]
+               == [hid], "a print with no ledger gets one holding the adopted entry")
+
+        # Not adopted: no sync.go, the shape only in a comment, keep_manual.
+        skill = connector("quiet", None)
+        before = snap(skill)
+        expect(apply("quiet") == 0 and snap(skill) == before, "a connector without the shape is not touched")
+        skill = connector("quiet", "machine")
+        w(skill / rel_sync, sync_source("machine").replace(SYNC_DECL, "\t\t\t// syncEventWriter := cmd.OutOrStdout()\n"
+                                                                     "\t\t\tsyncEventWriter := io.Discard\n", 1))
+        before = snap(skill)
+        expect(apply("quiet") == 0 and snap(skill) == before, "the shape only in a comment adopts nothing")
+        reg["handfixes"][hid] = dict(real, keep_manual={"manual": "its own wiring"})
+        (tools / "fleet_handfixes.json").write_text(json.dumps(reg), encoding="utf-8")
+        skill = connector("manual", "machine")
+        before = snap(skill)
+        expect(apply("manual") == 0 and snap(skill) == before, "a keep_manual connector is left to a person")
+        reg["handfixes"][hid] = real
+        (tools / "fleet_handfixes.json").write_text(json.dumps(reg), encoding="utf-8")
+
+        # Fail closed, writing nothing: shapes the recipe does not know.
+        for shape, why in (("own-wrap", "already wrapped by another writer"),
+                           ("twice", "the writer is declared twice"),
+                           ("other-machine", "a machine-format branch of another shape")):
+            skill = connector("odd", shape)
+            before = snap(skill)
+            rc = apply("odd")
+            after = snap(skill)
+            expect(rc == 1 and any("NEEDS HAND WIRING [sync-event-writer]" in x for x in sink)
+                   and after.get(skill / rel_sync) == before[skill / rel_sync]
+                   and not (skill / rel_helper).exists() and not (skill / rel_test).exists(),
+                   f"{why}: named for a person; sync.go, the serializer and the test are not written")
+        skill = connector("odd", "machine")
+        w(skill / rel_sync, (skill / rel_sync).read_text().replace("func newSyncCmd(", "func newSyncCommand("))
+        expect(apply("odd") == 1 and any("is not one top-level function" in x for x in sink),
+               "no newSyncCmd: named for a person")
+        skill = connector("odd", "machine")
+        w(skill / rel_sync, sync_source("machine").replace(SYNC_MACHINE, SYNC_MACHINE + "\t\t\tx := 1\n\t\t\t_ = x\n"
+                              "\t\t\t" + wrap + "\n"))
+        expect(apply("odd") == 1 and any("not directly after" in x for x in sink),
+               "a wrap placed after other code is named, not trusted")
+        skill = connector("odd", "machine")
+        w(skill / rel_helper, m.render("sync_event_writer.go.tmpl", MODULE="acme-pp-cli").replace("one call at a time", "in order"))
+        before = snap(skill)
+        expect(apply("odd") == 1 and any("differs from tools/maintainer/handfix_replay" in x for x in sink)
+               and snap(skill)[skill / rel_sync] == before[skill / rel_sync],
+               "a serializer that drifted from its template is named, and sync.go is left as it was")
+        skill = connector("odd", "machine")
+        w(skill / "cli/internal/cli/other.go", "package cli\n\ntype syncSerialWriter struct{}\n")
+        expect(apply("odd") == 1 and any("already names syncSerialWriter" in x for x in sink),
+               "a package that already declares the serializer's name is named")
+        skill = connector("odd", "machine")
+        w(skill / "cli/internal/cli/x_test.go", "package cli\n\nfunc TestSyncWorkerPoolSerializesEventWrites(t *testing.T) {}\n")
+        expect(apply("odd") == 1 and any("TestSyncWorkerPoolSerializesEventWrites" in x and "NEEDS" in x for x in sink),
+               "a package that already declares the test's name is named")
+
+        # A package file whose literals carry characters str.splitlines() reads
+        # as line breaks (eset-protect's terminal-scrub test) is scanned, not
+        # crashed on.
+        skill = connector("acme", "machine")
+        w(skill / "cli/internal/cli/scrub_test.go", "package cli\n\nvar scrub = \"a\u2028b\x0cc\x85d\x1ce\"\n\n"
+                                                    "func TestScrub(t *testing.T) {\n\t_ = `\u2029`\n}\n")
+        expect(apply("acme") == 0 and wrap in (skill / rel_sync).read_text(),
+               "a package file with Unicode line separators inside its literals does not stop the recipe")
+
+        # The markers can all hold while the shape around them is wrong: a
+        # second assignment after the wrap hands the workers the bare writer
+        # again. The recipe's shape checks run even then.
+        skill = connector("acme", "machine")
+        apply("acme")
+        text = (skill / rel_sync).read_text()
+        w(skill / rel_sync, text.replace("\t\t\t" + wrap + "\n", "\t\t\t" + wrap + "\n\t\t\tsyncEventWriter = cmd.OutOrStdout()\n"))
+        expect(apply("acme", check=True) == 1 and any("NEEDS HAND WIRING [sync-event-writer]" in x for x in sink),
+               "a writer reassigned after the wrap is named even though every marker holds")
+        w(skill / rel_sync, text)
+
+        # The real ledger check demands what the replay pins: drop the wrap
+        # by hand and both tools see it.
+        skill = connector("acme", "machine")
+        apply("acme")
+        w(skill / rel_sync, (skill / rel_sync).read_text().replace("\t\t\t" + wrap + "\n", ""))
+        expect(apply("acme", check=True) == 1 and any("would change " + rel_sync in x for x in sink),
+               "a wrap removed by hand is found again (would re-apply)")
 
 
 # --------------------------------------------------------------------------- #

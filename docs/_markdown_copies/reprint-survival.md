@@ -165,6 +165,16 @@ once per press release:
   every release OS), tests and the id's gates. A file the reprint carries is kept
   as printed, never replaced by its pre-reprint copy; if it lacks the entry's
   needle, the run names it for a person.
+  A replay id may also **adopt**: the registry names the code shape of the
+  defect (`adopt.file`, `adopt.contains`, matched in code, never in a comment)
+  and the ledger entry to record for it. A connector that carries the shape
+  but whose ledger lacks the id, a fresh print included, gets the entry from
+  `replay_handfixes.py --slug <slug>`, which then wires the recipe, and
+  `check_handfixes.py` fails that connector until it does. The first adopting
+  id is `sync-event-writer-serialized` (mvanhorn/cli-printing-press#5369):
+  sync's worker pool shares one event writer, so the recipe wraps it once in a
+  serializing writer and writes the serializer and its regression test from
+  `tools/maintainer/handfix_replay/`.
 - **delegated**: another tool owns the id (the secret-echo funnel).
 - **keep_manual**: the shared id carries a connector's own part; a person
   reconciles that connector.

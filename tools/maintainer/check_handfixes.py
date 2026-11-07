@@ -145,6 +145,13 @@ Below `retire_at`, with no recorded version, with versions that disagree, or
 for a connector the registry lists under `keep_manual`, every entry is
 demanded exactly as before. Every id the registry does not retire is always
 demanded.
+
+A replay id may also carry `adopt` (`file`, `contains`, `entry`): the code
+shape of a defect every connector printed with it carries. A connector whose
+`file` holds the `contains` needle in code (not in a comment), whose ledger has
+neither an entry nor a `retired` record for the id, and that is not listed in
+`keep_manual`, fails, ledger or no ledger: replay_handfixes.py --slug adds the
+registry's entry and wires it.
 """
 from __future__ import annotations
 
@@ -340,12 +347,61 @@ def load_registry(path: Path | None = None) -> tuple[dict, str | None]:
                             and isinstance(r.get("native_asserts"), list) and r["native_asserts"]):
                         err = (f"{p.name}: '{hid}' is retired without an X.Y.Z retire_at and at least "
                                f"one native assert, so its retirement cannot be checked")
+                    elif "adopt" in r:
+                        err = _adopt_error(p.name, hid, r)
                     if err:
                         data = {}
                         break
         res = (data, err)
     _REGISTRY_CACHE[key] = res
     return res
+
+
+def _adopt_error(name: str, hid: str, r: dict) -> str | None:
+    """Why a registry `adopt` record cannot be applied, or None. An adoption
+    that could not be read would let a connector carrying the shape go without
+    the fix, so a malformed one is a registry error, never a skip."""
+    ad = r.get("adopt")
+    entry = ad.get("entry") if isinstance(ad, dict) else None
+    if r.get("verdict") != "replay":
+        return f"{name}: '{hid}' declares adopt, which only a replay id can (its recipe wires the adopted entry)"
+    if not (isinstance(ad, dict) and isinstance(ad.get("file"), str) and ad["file"]
+            and isinstance(ad.get("contains"), str) and ad["contains"]
+            and strip_comments(ad["file"], "")[0] is not None):
+        return (f"{name}: '{hid}' adopt needs a 'file' with comment syntax and a non-empty 'contains' "
+                f"(the code-only shape that means a connector carries the defect)")
+    if not (isinstance(entry, dict) and "id" not in entry and isinstance(entry.get("asserts"), list)
+            and entry["asserts"] and all(isinstance(a, dict) and a.get("file") for a in entry["asserts"])):
+        return (f"{name}: '{hid}' adopt needs an 'entry' (no 'id' of its own) with at least one assert, "
+                f"each naming a file")
+    return None
+
+
+def adopt_applies(adopt: dict, read: Callable[[str], str | None]) -> bool:
+    """True when the connector carries the shape an adoption fixes: the
+    adopt `contains` needle in the comment-stripped text of the adopt `file`."""
+    text = read(adopt["file"])
+    if text is None:
+        return False
+    stripped, _ = strip_comments(adopt["file"], text)
+    return adopt["contains"] in (text if stripped is None else stripped)
+
+
+def missing_adoptions(registry: dict, slug: str, data: dict | None,
+                      read: Callable[[str], str | None]) -> list[str]:
+    """The registry ids this connector must carry but whose entry its ledger
+    lacks: replay ids with an `adopt` whose shape the connector carries, with
+    neither an entry nor a `retired` record for the id, and not keep_manual
+    here. replay_handfixes.py --slug adds each such entry and wires it."""
+    have = {e.get("id") for e in (data or {}).get("handfixes") or [] if isinstance(e, dict)}
+    have |= {x.get("id") for x in (data or {}).get("retired") or [] if isinstance(x, dict)}
+    out = []
+    for hid, r in sorted((registry.get("handfixes") or {}).items()):
+        ad = r.get("adopt") if isinstance(r, dict) and r.get("verdict") == "replay" else None
+        if isinstance(ad, dict) and hid not in have and slug not in (r.get("keep_manual") or {}) \
+                and adopt_applies(ad, read):
+            out.append(hid)
+    return out
 
 
 def recorded_press_version(skill_dir: Path) -> tuple[str | None, str]:
@@ -441,8 +497,17 @@ def check_skill(slug: str, registry: dict | None = None, exclude_ids: set | None
     step still has its own entries to wire)."""
     skill_dir = SKILLS / slug
     ledger_path = skill_dir / "handfixes.json"
+    if registry is None:
+        registry, rerr = _registry()
+    else:
+        rerr = None
+    unadopted = [hid for hid in missing_adoptions(registry, slug, None, lambda rel: _read_in(skill_dir, rel))
+                 if hid not in (exclude_ids or set()) and (only_ids is None or hid in only_ids)]
     if not ledger_path.exists():
-        return []  # no ledger -> nothing to enforce for this skill
+        # no ledger -> nothing to enforce, unless the connector carries a
+        # defect a fleet-wide hand-fix adopts. An unreadable registry cannot
+        # say whether it does, so it fails here too.
+        return ([f"[{slug}] {rerr}"] if rerr else []) + [_unadopted(slug, hid) for hid in unadopted]
 
     data, err = _load_ledger(ledger_path)
     if err or data is None:
@@ -450,10 +515,10 @@ def check_skill(slug: str, registry: dict | None = None, exclude_ids: set | None
 
     doc = data.get("doc", "docs/reprint-survival.md")
     failures: list[str] = []
-    if registry is None:
-        registry, rerr = _registry()
-        if rerr:
-            failures.append(f"[{slug}] {rerr}")
+    if rerr:
+        failures.append(f"[{slug}] {rerr}")
+    failures.extend(_unadopted(slug, hid) for hid in missing_adoptions(registry, slug, data, lambda rel: _read_in(skill_dir, rel))
+                    if hid in unadopted)
     version, _why = recorded_press_version(skill_dir)
     exclude = set(exclude_ids or set())
     if only_ids is not None:
@@ -491,6 +556,20 @@ def check_skill(slug: str, registry: dict | None = None, exclude_ids: set | None
             continue
         failures.extend(_native_failures(slug, hid, skill_dir, retired, doc))
     return failures
+
+
+def _read_in(skill_dir: Path, rel: str) -> str | None:
+    p = skill_dir / rel
+    try:
+        return p.read_text(encoding="utf-8", errors="replace") if p.is_file() and not p.is_symlink() else None
+    except OSError:
+        return None
+
+
+def _unadopted(slug: str, hid: str) -> str:
+    return (f"[{slug}] carries the defect fleet-wide hand-fix '{hid}' fixes (tools/maintainer/fleet_handfixes.json "
+            f"adopt), but its ledger has no '{hid}' entry. Run python3 tools/maintainer/replay_handfixes.py "
+            f"--slug {slug}, which adds the entry and wires the fix. See docs/reprint-survival.md.")
 
 
 def _assert_failures(slug: str, hid: str, skill_dir: Path, a: dict, doc: str) -> list[str]:
@@ -1282,6 +1361,95 @@ def _self_test_retirement() -> list[str]:
     return out
 
 
+def _self_test_adoption() -> list[str]:
+    """Both directions for a registry `adopt` (a fleet-wide fix every connector
+    carrying a defect's shape must record), on fixtures.
+
+        shape in code, no entry                                -> FAIL (named)
+        shape in code, no ledger at all                        -> FAIL (named)
+        shape in code, entry present and holding               -> PASS
+        shape in code, entry present, marker dropped           -> FAIL (REGRESSED)
+        shape only in a comment                                -> PASS (not adopted)
+        a retired record for the id                            -> not an adoption failure
+        connector in keep_manual                               -> PASS (a person reconciles it)
+        --exclude-id / --only-id leaving the id out            -> PASS
+        an adopt on a non-replay id, or without an entry       -> registry error
+    """
+    import tempfile
+
+    out: list[str] = []
+    entry = {"summary": "s", "asserts": [{"file": "cli/sync.go", "contains": "lock(w)", "code_only": True}]}
+    reg = {"handfixes": {"fx-adopt": {"verdict": "replay", "recipe": "x", "keep_manual": {"manualco": "own"},
+                                      "adopt": {"file": "cli/sync.go", "contains": "shared := w", "entry": entry}}}}
+    shape, fixed = "func f() {\n\tshared := w\n}\n", "func f() {\n\tshared := w\n\tlock(w)\n}\n"
+
+    def run(src: str, entries: list | None, slug: str = "acme", retired: list | None = None, **kw) -> list[str]:
+        with tempfile.TemporaryDirectory() as td:
+            skill = Path(td) / "skills" / slug
+            (skill / "cli").mkdir(parents=True)
+            (skill / "cli" / "sync.go").write_text(src, encoding="utf-8")
+            if entries is not None:
+                led = {"handfixes": entries}
+                if retired is not None:
+                    led["retired"] = retired
+                (skill / "handfixes.json").write_text(json.dumps(led), encoding="utf-8")
+            saved = globals()["SKILLS"]
+            try:
+                globals()["SKILLS"] = skill.parent
+                return check_skill(slug, registry=reg, **kw)
+            finally:
+                globals()["SKILLS"] = saved
+
+    recorded = [dict({"id": "fx-adopt"}, **entry)]
+    if not any("has no 'fx-adopt' entry" in f for f in run(shape, [])):
+        out.append("adoption: a connector carrying the shape without the entry must fail")
+    if not any("has no 'fx-adopt' entry" in f for f in run(shape, None)):
+        out.append("adoption: a connector carrying the shape with no ledger at all must fail")
+    saved_registry = globals()["_registry"]
+    try:
+        globals()["_registry"] = lambda: ({}, "fleet_handfixes.json: unreadable fleet registry (fixture)")
+        with tempfile.TemporaryDirectory() as td:
+            skill = Path(td) / "skills" / "acme"
+            (skill / "cli").mkdir(parents=True)
+            (skill / "cli" / "sync.go").write_text(shape, encoding="utf-8")
+            saved = globals()["SKILLS"]
+            try:
+                globals()["SKILLS"] = skill.parent
+                fresh = check_skill("acme")
+            finally:
+                globals()["SKILLS"] = saved
+    finally:
+        globals()["_registry"] = saved_registry
+    if not any("unreadable fleet registry" in f for f in fresh):
+        out.append("adoption: an unreadable registry must fail a connector with no ledger too (it cannot be "
+                   "told whether the connector must adopt)")
+    if run(fixed, recorded):
+        out.append("adoption: a recorded, holding entry must pass")
+    if not any("REGRESSED" in f for f in run(shape, recorded)):
+        out.append("adoption: a recorded entry whose marker a reprint dropped must fail")
+    if run("func f() {\n\t// shared := w\n}\n", []):
+        out.append("adoption: the shape only in a comment must not be demanded")
+    if any("has no 'fx-adopt' entry" in f for f in run(shape, [], retired=[{"id": "fx-adopt"}])):
+        out.append("adoption: a retired record for the id is the retirement path's to judge, not an adoption failure")
+    if run(shape, [], slug="manualco"):
+        out.append("adoption: a keep_manual connector must not be demanded")
+    if run(shape, [], exclude_ids={"fx-adopt"}) or run(shape, [], only_ids={"other"}):
+        out.append("adoption: --exclude-id and --only-id must leave the id out")
+    with tempfile.TemporaryDirectory() as td:
+        for bad in ({"verdict": "retire", "retire_at": "4.34.0", "native_asserts": [{"file": "a"}],
+                     "adopt": {"file": "cli/sync.go", "contains": "x", "entry": entry}},
+                    {"verdict": "replay", "recipe": "x", "adopt": {"file": "cli/sync.go", "contains": "x"}},
+                    {"verdict": "replay", "recipe": "x", "adopt": {"file": "cli/sync.json", "contains": "x", "entry": entry}},
+                    {"verdict": "replay", "recipe": "x", "adopt": {"file": "cli/sync.go", "contains": "",
+                                                                   "entry": entry}}):
+            path = Path(td) / f"r{len(out)}-{id(bad)}.json"
+            path.write_text(json.dumps({"handfixes": {"x": bad}}), encoding="utf-8")
+            _data, err = load_registry(path)
+            if not err:
+                out.append(f"adoption: a malformed adopt must be a registry error ({bad})")
+    return out
+
+
 def self_test() -> int:
     """Both-directions proof for the comment strippers, `code_only`, and the lint.
 
@@ -1481,6 +1649,7 @@ def self_test() -> int:
 
     # --- fleet retirements: never demand a retired marker, always demand the rest
     failures.extend(_self_test_retirement())
+    failures.extend(_self_test_adoption())
 
     if failures:
         print("FAIL: check_handfixes self-test\n")
@@ -1498,6 +1667,18 @@ def self_test() -> int:
           "a connector recorded at or above retire_at while demanding its native asserts, every "
           "other entry, and every entry below retire_at, on disagreeing versions or for keep_manual.")
     return 0
+
+
+def _adopt_candidates() -> list[str]:
+    """Connectors without a ledger that carry a shape a registry adoption names
+    (so --all checks them too)."""
+    registry, _err = _registry()
+    out = []
+    for skill in sorted(p for p in SKILLS.iterdir() if p.is_dir() and not (p / "handfixes.json").exists()) \
+            if SKILLS.is_dir() else []:
+        if missing_adoptions(registry, skill.name, None, lambda rel, d=skill: _read_in(d, rel)):
+            out.append(skill.name)
+    return out
 
 
 def main() -> int:
@@ -1545,7 +1726,7 @@ def main() -> int:
     if args.slug:
         slugs = [args.slug]
     else:
-        slugs = sorted(p.parent.name for p in SKILLS.glob("*/handfixes.json"))
+        slugs = sorted({p.parent.name for p in SKILLS.glob("*/handfixes.json")} | set(_adopt_candidates()))
 
     checked = 0
     all_failures: list[str] = []

@@ -622,6 +622,34 @@
      "not_contains": "connects only to remote"
     }
    ]
+  },
+  {
+   "id": "sync-event-writer-serialized",
+   "class": "concurrent-writer",
+   "summary": "sync wraps the event writer its parallel workers share in syncSerialWriter (internal/cli/sync_event_writer.go), so two workers never call Write on it at once.",
+   "why": "The generated sync hands cmd.OutOrStdout() (or ErrOrStderr() in machine output) to every --concurrency worker, and each writes sync_start, progress and error events. os.Stdout tolerates that; the writers --deliver (a mirror into a bytes.Buffer) and --receipt-file / --audit-dir (a running SHA-256) install do not, nor does an in-process caller's buffer: Windows CI on PR #655 panicked in bytes.Buffer.grow from syncResource, and go test -race found 28 races on veeam. TestSyncWorkerPoolSerializesEventWrites pins it. A reprint regenerates sync.go and drops the wrap; tools/maintainer/replay_handfixes.py re-applies it (fleet_handfixes.json sync-event-writer-serialized).",
+   "status": "active",
+   "spec_encode_followup": "Press-side (mvanhorn/cli-printing-press#5369): the sync template should serialize the event writer its top-level worker pool shares, as its dependent path already does with lockedWriter.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "syncEventWriter = &syncSerialWriter{w: syncEventWriter}",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync_event_writer.go",
+     "contains": "func (s *syncSerialWriter) Write(p []byte) (int, error) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync_event_writer_test.go",
+     "contains": "func TestSyncWorkerPoolSerializesEventWrites(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
   }
  ]
 }

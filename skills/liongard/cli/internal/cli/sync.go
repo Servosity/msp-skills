@@ -200,6 +200,9 @@ Narrowed syncs:
 			if machineFormat {
 				syncEventWriter = cmd.ErrOrStderr()
 			}
+			// Hand-fix (handfixes.json sync-event-writer-serialized): every sync worker
+			// writes its events here, and only os.Stdout is safe for concurrent writes.
+			syncEventWriter = &syncSerialWriter{w: syncEventWriter}
 
 			// If no specific resources, sync top-level resources
 			if len(resources) == 0 {

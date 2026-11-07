@@ -9,11 +9,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"unifi-network-pp-cli/internal/client"
-	"unifi-network-pp-cli/internal/cliutil"
-	"unifi-network-pp-cli/internal/learn"
-	"unifi-network-pp-cli/internal/learn/lookups"
-	"unifi-network-pp-cli/internal/store"
 	"github.com/spf13/cobra"
 	"io"
 	"net/url"
@@ -25,6 +20,11 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+	"unifi-network-pp-cli/internal/client"
+	"unifi-network-pp-cli/internal/cliutil"
+	"unifi-network-pp-cli/internal/learn"
+	"unifi-network-pp-cli/internal/learn/lookups"
+	"unifi-network-pp-cli/internal/store"
 )
 
 // unresolvedPathKeyRE matches `{key}` placeholders left in a sync path
@@ -134,6 +134,9 @@ Resource scoping:
 			defer db.Close()
 
 			syncEventWriter := cmd.OutOrStdout()
+			// Hand-fix (handfixes.json sync-event-writer-serialized): every sync worker
+			// writes its events here, and only os.Stdout is safe for concurrent writes.
+			syncEventWriter = &syncSerialWriter{w: syncEventWriter}
 			// Snapshot before defaults expand, so an empty user filter stays empty
 			// and dependents inherit "sync everything" instead of the default list.
 			parentFilter := append([]string(nil), resources...)
