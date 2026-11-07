@@ -4,6 +4,21 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.1.4] - unreleased
+
+### Security
+- Rebuilt on CLI Printing Press 4.35.1 ([GHSA-jh26-vhqh-692c](https://github.com/advisories/GHSA-jh26-vhqh-692c)). The MCP server's HTTP mode refuses to start until `THREATDOWN_MCP_HTTP_TOKEN` is set (32 characters or more), listens on `127.0.0.1:7777` by default, needs `--tls-cert` and `--tls-key` on any other address, and refuses browser origins it was not told to trust.
+- **MCP on/off switches take only a real boolean.** Every switch on a mirrored MCP tool accepts only a JSON `true` or `false`, so the string `"true"` can never stand in for `confirm`.
+- **A credential this program holds stays out of output, files and other servers.** The CLI and the MCP server now run on the shared credential kit. Your client ID and secret, the token minted from them, `THREATDOWN_MCP_HTTP_TOKEN`, `SPACEFAST_TOKEN` and every credential in `config.toml`, the credential store and saved profiles are held from the moment either program starts. Any text that carries one, a piece of one, or one HTML-entity-encoded, JSON-escaped, double URL-encoded, base64 or hex, is replaced by `[credkit: withheld from <where>: it carried a credential this program holds]`: errors, `--json` and `--agent` output, MCP results and the learn journal. `auth login` no longer prints a token endpoint error that repeats your client secret. A held credential is sent only to the ThreatDown API over HTTPS: never over plain http, never to a `--deliver` webhook whose address carries it, and never to a token URL on another server (that request now fails with exit code 5).
+- `--deliver file:` writes a private 0600 file and never follows a planted symlink; `--deliver webhook:` does not follow redirects. `--csv` escapes cells a spreadsheet would run as a formula.
+
+### Fixed
+- **`fleet sync` mirrors the console.** Accounts, endpoints and detections that are gone from OneView, and vendor fields that were cleared, used to stay in the local store and in every report built on it. A full fleet sync now replaces what it read, and reads with the response cache off so a five-minute-old site list cannot decide what to remove.
+- **A timestamp the CLI cannot read no longer hides a row.** Fleet reports used to drop a job or detection whose time field did not parse; it is now listed or counted as undated (`undated_detections` in `threats spread` and the customer report).
+
+### Added
+- `local-data purge` previews and (with `--yes`) erases the local store, response cache and learn journal. `THREATDOWN_NO_LOCAL_DATA=1` turns off the cache and store; it is declared on every install channel, with `THREATDOWN_MCP_HTTP_TOKEN` and `THREATDOWN_MCP_READ_ONLY`.
+
 ## [0.1.3] - 2026-10-23
 
 ### Security

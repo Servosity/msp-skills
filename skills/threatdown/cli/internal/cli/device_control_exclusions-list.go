@@ -58,7 +58,7 @@ func newDeviceControlExclusionsListCmd(flags *rootFlags) *cobra.Command {
 					}
 				}
 				if !validSortBy {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagSortBy, "sort-by", allowedSortBy)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagSortBy, "sort-by", allowedSortBy))
 				}
 			}
 			if cmd.Flags().Changed("sort-order") {
@@ -71,7 +71,7 @@ func newDeviceControlExclusionsListCmd(flags *rootFlags) *cobra.Command {
 					}
 				}
 				if !validSortOrder {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagSortOrder, "sort-order", allowedSortOrder)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagSortOrder, "sort-order", allowedSortOrder))
 				}
 			}
 			path := "/v1/accounts/{account_id}/devicecontrol/exclusions"
@@ -94,7 +94,7 @@ func newDeviceControlExclusionsListCmd(flags *rootFlags) *cobra.Command {
 				"sort_order":    formatCLIParamValue(flagSortOrder),
 				"populate_risk": formatCLIParamValue(flagPopulateRisk),
 				"risk":          formatCLIParamValue(flagRisk),
-			}, map[string][]string{"next_cursor": {"cursor"}, "search_string": {"search-string"}, "policy_ids": {"policy-ids"}, "type": {"type"}, "since": {"since"}, "until": {"until"}, "sort_by": {"sort-by"}, "sort_order": {"sort-order"}, "populate_risk": {"populate-risk"}, "risk": {"risk"}}, "cursor", "cursor"), nil, flagAll, "cursor", "cursor", "", 0, "next_cursor", "", "exclusions", cmd.ErrOrStderr())
+			}, map[string][]string{"next_cursor": {"cursor"}, "search_string": {"search-string"}, "policy_ids": {"policy-ids"}, "type": {"type"}, "since": {"since"}, "until": {"until"}, "sort_by": {"sort-by"}, "sort_order": {"sort-order"}, "populate_risk": {"populate-risk"}, "risk": {"risk"}}, "next_cursor", "cursor"), nil, flagAll, "next_cursor", "cursor", "", 0, "next_cursor", "", "exclusions", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}

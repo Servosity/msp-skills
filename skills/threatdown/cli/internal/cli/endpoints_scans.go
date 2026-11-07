@@ -53,7 +53,7 @@ func newEndpointsScansCmd(flags *rootFlags) *cobra.Command {
 					}
 				}
 				if !validThreatsDetected {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagThreatsDetected, "threats-detected", allowedThreatsDetected)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagThreatsDetected, "threats-detected", allowedThreatsDetected))
 				}
 			}
 			path := "/v1/accounts/{account_id}/endpoints/{id}/scans"

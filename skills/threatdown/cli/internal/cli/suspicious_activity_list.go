@@ -57,7 +57,7 @@ func newSuspiciousActivityListCmd(flags *rootFlags) *cobra.Command {
 					}
 				}
 				if !validSortField {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagSortField, "sort-field", allowedSortField)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagSortField, "sort-field", allowedSortField))
 				}
 			}
 			if cmd.Flags().Changed("sort-direction") {
@@ -70,7 +70,7 @@ func newSuspiciousActivityListCmd(flags *rootFlags) *cobra.Command {
 					}
 				}
 				if !validSortDirection {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagSortDirection, "sort-direction", allowedSortDirection)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagSortDirection, "sort-direction", allowedSortDirection))
 				}
 			}
 			path := "/v1/accounts/{account_id}/sa"
@@ -92,7 +92,7 @@ func newSuspiciousActivityListCmd(flags *rootFlags) *cobra.Command {
 				"since":          formatCLIParamValue(flagSince),
 				"before":         formatCLIParamValue(flagBefore),
 				"per_page":       formatCLIParamValue(flagPerPage),
-			}, map[string][]string{"sort_field": {"sort-field"}, "sort_direction": {"sort-direction"}, "next_cursor": {"cursor"}, "since": {"since"}, "before": {"before"}, "per_page": {"per-page"}}, "cursor", "cursor"), nil, flagAll, "cursor", "cursor", "per_page", 0, "next_cursor", "", "sa", cmd.ErrOrStderr())
+			}, map[string][]string{"sort_field": {"sort-field"}, "sort_direction": {"sort-direction"}, "next_cursor": {"cursor"}, "since": {"since"}, "before": {"before"}, "per_page": {"per-page"}}, "next_cursor", "cursor"), nil, flagAll, "next_cursor", "cursor", "per_page", 0, "next_cursor", "", "sa", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}

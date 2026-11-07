@@ -52,7 +52,7 @@ func newAssetIgnoreRulesListCmd(flags *rootFlags) *cobra.Command {
 					}
 				}
 				if !validType {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagType, "type", allowedType)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagType, "type", allowedType))
 				}
 			}
 			path := "/v1/accounts/{account_id}/assets/ignore-rules"
@@ -69,7 +69,7 @@ func newAssetIgnoreRulesListCmd(flags *rootFlags) *cobra.Command {
 				"next_cursor": formatCLIParamValue(flagCursor),
 				"type":        formatCLIParamValue(flagType),
 				"ids":         formatCLIParamValue(flagIds),
-			}, map[string][]string{"page_size": {"page-size"}, "next_cursor": {"cursor"}, "type": {"type"}, "ids": {"ids"}}, "cursor", "cursor"), nil, flagAll, "cursor", "cursor", "page_size", 0, "", "", "ignore_rules", cmd.ErrOrStderr())
+			}, map[string][]string{"page_size": {"page-size"}, "next_cursor": {"cursor"}, "type": {"type"}, "ids": {"ids"}}, "next_cursor", "cursor"), nil, flagAll, "next_cursor", "cursor", "page_size", 0, "", "", "ignore_rules", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}

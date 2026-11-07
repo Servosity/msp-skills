@@ -1,0 +1,142 @@
+{
+  "schema_version": 2,
+  "generated_at": "2026-11-02T22:33:56.203864Z",
+  "printing_press_version": "4.35.1",
+  "api_name": "threatdown",
+  "display_name": "ThreatDown OneView",
+  "cli_name": "threatdown-pp-cli",
+  "creator": {
+    "handle": "DamienStevens",
+    "name": "Damien Stevens"
+  },
+  "owner": "damienstevens",
+  "printer": "DamienStevens",
+  "printer_name": "Damien Stevens",
+  "spec_path": "spec.json",
+  "spec_format": "openapi3",
+  "spec_source": "official",
+  "spec_checksum": "sha256:79ddfcd8cb172d03ada9ae7a4535128a66a8fd4c1ea0052c23429a708cc04fe4",
+  "run_id": "20261102-170748-fd1e6d3f",
+  "category": "monitoring",
+  "description": "Every ThreatDown OneView API, plus fleet-wide stale-endpoint, health and seat reports across all your sites, and guarded isolate/scan/restore jobs.",
+  "mcp_binary": "threatdown-pp-mcp",
+  "mcp_tool_count": 418,
+  "mcp_ready": "full",
+  "api_version": "1.0.0",
+  "auth_type": "bearer_token",
+  "auth_preference": "client_credentials",
+  "auth_env_vars": [
+    "THREATDOWN_CLIENT_ID",
+    "THREATDOWN_CLIENT_SECRET"
+  ],
+  "novel_features": [
+    {
+      "name": "Stale endpoints fleet query",
+      "command": "fleet stale",
+      "description": "Every endpoint not seen in N hours across all your sites, with site name and exact hours since last seen."
+    },
+    {
+      "name": "Per-site health scorecard",
+      "command": "fleet health",
+      "description": "One ranked row per site with total, online, stale, infected, suspicious, isolated, reboot-required, unprotected, scan-overdue and update-available counts plus an attention score."
+    },
+    {
+      "name": "Cross-site fleet sync",
+      "command": "fleet sync",
+      "description": "Pull sites, endpoints, detections and jobs from every managed site into one local database."
+    },
+    {
+      "name": "Guarded response jobs",
+      "command": "respond isolate",
+      "description": "Isolate endpoints by host name with a target preview and a 25-endpoint blast-radius guard; sibling commands respond restore, respond scan, respond reboot and respond update work the same way."
+    },
+    {
+      "name": "Jobs that never ran",
+      "command": "respond pending",
+      "description": "Jobs that timed out, expired or failed, plus jobs still waiting after --min-age (default 1h), grouped by site and command with a re-issue hint."
+    },
+    {
+      "name": "Seat reconciliation",
+      "command": "seats reconcile",
+      "description": "Per-site seat allocations compared with deployed and recently seen endpoints, with expiry flags."
+    },
+    {
+      "name": "Cross-site threat spread",
+      "command": "threats spread",
+      "description": "Every threat in a window ranked by reach (distinct sites and endpoints), by hash or threat name; add --min-sites 2 for cross-site threats only."
+    },
+    {
+      "name": "Actionable triage queue",
+      "command": "threats queue",
+      "description": "Prioritized list of infected or suspicious endpoints with online and isolated state and a suggested response."
+    },
+    {
+      "name": "One-customer profile",
+      "command": "customer report",
+      "description": "Everything about one customer site in one output: health, stale machines, top threats, isolated endpoints and pending jobs."
+    }
+  ],
+  "novel_features_built": [
+    {
+      "name": "Stale endpoints fleet query",
+      "command": "fleet stale",
+      "description": "Every endpoint not seen in N hours across all your sites, with site name and exact hours since last seen."
+    },
+    {
+      "name": "Per-site health scorecard",
+      "command": "fleet health",
+      "description": "One ranked row per site with total, online, stale, infected, suspicious, isolated, reboot-required, unprotected, scan-overdue and update-available counts plus an attention score."
+    },
+    {
+      "name": "Cross-site fleet sync",
+      "command": "fleet sync",
+      "description": "Pull sites, endpoints, detections and jobs from every managed site into one local database."
+    },
+    {
+      "name": "Guarded response jobs",
+      "command": "respond isolate",
+      "description": "Isolate endpoints by host name with a target preview and a 25-endpoint blast-radius guard; sibling commands respond restore, respond scan, respond reboot and respond update work the same way."
+    },
+    {
+      "name": "Jobs that never ran",
+      "command": "respond pending",
+      "description": "Jobs that timed out, expired or failed, plus jobs still waiting after --min-age (default 1h), grouped by site and command with a re-issue hint."
+    },
+    {
+      "name": "Seat reconciliation",
+      "command": "seats reconcile",
+      "description": "Per-site seat allocations compared with deployed and recently seen endpoints, with expiry flags."
+    },
+    {
+      "name": "Cross-site threat spread",
+      "command": "threats spread",
+      "description": "Every threat in a window ranked by reach (distinct sites and endpoints), by hash or threat name; add --min-sites 2 for cross-site threats only."
+    },
+    {
+      "name": "Actionable triage queue",
+      "command": "threats queue",
+      "description": "Prioritized list of infected or suspicious endpoints with online and isolated state and a suggested response."
+    },
+    {
+      "name": "One-customer profile",
+      "command": "customer report",
+      "description": "Everything about one customer site in one output: health, stale machines, top threats, isolated endpoints and pending jobs."
+    }
+  ],
+  "verify": {
+    "mode": "mock",
+    "pass_rate": 100,
+    "passed": 351,
+    "total": 351,
+    "data_pipeline": true,
+    "verdict": "PASS"
+  },
+  "scorecard": {
+    "steinberger": {
+      "percentage": 96,
+      "grade": "A",
+      "total": 96
+    }
+  },
+  "spec_url": "https://cloud.malwarebytes.com/api/v2/oneview/docs"
+}

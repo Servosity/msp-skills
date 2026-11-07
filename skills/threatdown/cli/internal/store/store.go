@@ -28,8 +28,8 @@ import (
 	"unicode/utf8"
 
 	_ "modernc.org/sqlite"
-
 	"threatdown-pp-cli/internal/cliutil"
+	"threatdown-pp-cli/internal/credsql"
 )
 
 var uuidPattern = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)
@@ -55,14 +55,15 @@ func IsUUID(s string) bool {
 
 // StoreSchemaVersion is the on-disk schema version this binary understands.
 // It is stamped into SQLite's PRAGMA user_version on fresh databases and
-// checked on every open. Learn-enabled CLIs advance to v12 for the
-// parent-key storage-id migration, on top of v11's trigram resources_fts
-// rebuild (CJK substring search), v10's learn_candidates and learn_events
-// tables plus the latest-sync-attempt completion marker, the v8
-// learning_playbooks table, and the v6 canonical learn-loop tables
-// (including the v3 resources_fts rowid rehash and v4 resources_fts content
-// extraction).
-const StoreSchemaVersion = 12
+// checked on every open. Learn-enabled CLIs advance to v14
+// to record which surface wrote each learning_playbooks row, on top of v13's
+// checkpoint scope beside each resource, v12's
+// parent-key storage-id migration, v11's trigram resources_fts rebuild
+// (CJK substring search), v10's learn_candidates and learn_events tables
+// plus the latest-sync-attempt completion marker, the v8 learning_playbooks
+// table, and the v6 canonical learn-loop tables (including the v3
+// resources_fts rowid rehash and v4 resources_fts content extraction).
+const StoreSchemaVersion = 14
 
 // resourcesFTSContentSchemaVersion pins the schema bump that rewrote
 // resources_fts content from raw JSON to searchable leaf values. Keep this
@@ -137,13 +138,29 @@ func Open(dbPath string) (*Store, error) {
 // OpenReadOnlyContext so a cancelled command (SIGINT, deadline) interrupts the
 // SQLITE_BUSY retry during driver init instead of waiting out the full timeout.
 func OpenReadOnly(dbPath string) (*Store, error) {
-	return OpenReadOnlyContext(context.Background(), dbPath)
+	return openReadOnly(context.Background(), dbPath, 0)
+}
+
+// OpenReadOnlyValueCapped is OpenReadOnly with SQLITE_LIMIT_LENGTH set to
+// maxValueBytes on every connection (0: no cap), so no string or blob longer
+// than that is built or returned. // Hand-fix (handfixes.json credkit-wiring): the MCP sql
+// tool's value cap, set when the connection opens because sqlite.Limit cannot
+// reach a kit-wrapped one.
+func OpenReadOnlyValueCapped(dbPath string, maxValueBytes int) (*Store, error) {
+	return openReadOnly(context.Background(), dbPath, maxValueBytes)
 }
 
 // OpenReadOnlyContext is OpenReadOnly with a caller-supplied context honored by
 // the driver-init SQLITE_BUSY retry.
 func OpenReadOnlyContext(ctx context.Context, dbPath string) (*Store, error) {
+	return openReadOnly(ctx, dbPath, 0)
+}
+
+func openReadOnly(ctx context.Context, dbPath string, maxValueBytes int) (*Store, error) {
 	dsn := "file:" + dbPath + "?mode=ro&_pragma=busy_timeout(5000)&_pragma=foreign_keys(ON)&_pragma=temp_store(MEMORY)&_pragma=mmap_size(0)"
+	if maxValueBytes > 0 { // Hand-fix (handfixes.json credkit-wiring)
+		dsn += "&" + credsql.LengthLimitParam + "=" + strconv.Itoa(maxValueBytes)
+	}
 	db, err := openReadOnlySQLite(ctx, dsn)
 
 	// Writable directories stay on the first open so committed WAL frames
@@ -165,11 +182,14 @@ func openReadOnlySQLite(ctx context.Context, dsn string) (*sql.DB, error) {
 	if err := ensureSQLiteDriverInitialized(ctx, dsn); err != nil {
 		return nil, err
 	}
-	db, err := sql.Open("sqlite", dsn)
+	db, err := sql.Open(credsql.Driver, dsn) // Hand-fix (handfixes.json credkit-wiring)
 	if err != nil {
 		return nil, err
 	}
-	if err := db.PingContext(ctx); err != nil {
+	// Hand-fix (handfixes.json credkit-wiring): the statement modernc's Ping
+	// runs; the kit's connection does not forward Ping, so PingContext alone would open
+	// the file without reading it, and a missing -shm would not fail here.
+	if _, err := db.ExecContext(ctx, "select 1"); err != nil {
 		_ = db.Close()
 		return nil, err
 	}
@@ -199,6 +219,7 @@ func OpenWithContext(ctx context.Context, dbPath string) (*Store, error) {
 	if err := os.MkdirAll(filepath.Dir(dbPath), 0o700); err != nil {
 		return nil, fmt.Errorf("creating db directory: %w", err)
 	}
+	hardenOwnDataDir(filepath.Dir(dbPath))
 	hardenSQLiteFiles(dbPath)
 	defer hardenSQLiteFiles(dbPath)
 	if err := rejectNewerSchemaBeforeJournalMode(ctx, dbPath); err != nil {
@@ -216,7 +237,7 @@ func OpenWithContext(ctx context.Context, dbPath string) (*Store, error) {
 		return nil, err
 	}
 
-	db, err := sql.Open("sqlite", dsn)
+	db, err := sql.Open(credsql.Driver, dsn) // Hand-fix (handfixes.json credkit-wiring)
 	if err != nil {
 		return nil, fmt.Errorf("opening database: %w", err)
 	}
@@ -247,7 +268,7 @@ func rejectNewerSchemaBeforeJournalMode(ctx context.Context, dbPath string) erro
 	if err != nil {
 		return fmt.Errorf("stating database for schema preflight: %w", err)
 	}
-	probe, err := sql.Open("sqlite", "file:"+filepath.ToSlash(dbPath)+"?mode=ro&_pragma=busy_timeout(1000)&_pragma=mmap_size(0)")
+	probe, err := sql.Open(credsql.Driver, "file:"+filepath.ToSlash(dbPath)+"?mode=ro&_pragma=busy_timeout(1000)&_pragma=mmap_size(0)") // Hand-fix (handfixes.json credkit-wiring)
 	if err != nil {
 		return nil
 	}
@@ -283,6 +304,23 @@ func hardenSQLiteFiles(dbPath string) {
 		}
 		_ = os.Chmod(path, 0o600)
 	}
+}
+
+// hardenOwnDataDir drops group and other access from this CLI's own data
+// directory. MkdirAll leaves an existing directory's mode alone, so one created
+// world-listable by an older release would otherwise stay that way. It is
+// best-effort, follows no symlink, and skips a directory the operator chose:
+// a --db parent or an explicit per-kind data directory.
+func hardenOwnDataDir(dir string) {
+	own, err := cliutil.ResolveKindDir(cliutil.PathKindData)
+	if err != nil || own.Rung == "per-kind-env" || filepath.Clean(own.Dir) != filepath.Clean(dir) {
+		return
+	}
+	info, err := os.Lstat(dir)
+	if err != nil || !info.IsDir() || info.Mode().Perm()&0o077 == 0 {
+		return
+	}
+	_ = os.Chmod(dir, info.Mode().Perm()&0o700)
 }
 
 // ensureSQLiteJournalPrivate creates the cache-profile rollback journal before
@@ -322,7 +360,7 @@ func ensureSQLiteDriverInitialized(ctx context.Context, dsn string) error {
 		return nil
 	}
 
-	db, err := sql.Open("sqlite", dsn)
+	db, err := sql.Open(credsql.Driver, dsn) // Hand-fix (handfixes.json credkit-wiring)
 	if err != nil {
 		return fmt.Errorf("opening database for driver initialization: %w", err)
 	}
@@ -381,51 +419,95 @@ func (s *Store) SchemaVersion() (int, error) {
 	return v, nil
 }
 
-// ensureColumn adds a column to an existing table if it isn't already
-// present. It is the upgrade-path safety valve for schema additions:
-// CREATE TABLE IF NOT EXISTS is a no-op when the table already exists, so
-// columns added by newer binaries (e.g. parent_id from the dependent-
-// resources work) never land on databases created by older binaries —
-// which then trip "no such column" when a follow-on CREATE INDEX runs.
+// backfillStatsKey carries a *backfillStats on the context when a test
+// wants to observe how many schema probes and ALTERs one Open performed.
+// Production callers never set it. The counters are not safe to share
+// across goroutines; Open's migration runs on the caller's goroutine.
+type backfillStatsKey struct{}
+
+type backfillStats struct {
+	probes int
+	alters int
+}
+
+func contextWithBackfillStats(ctx context.Context) (context.Context, *backfillStats) {
+	stats := &backfillStats{}
+	return context.WithValue(ctx, backfillStatsKey{}, stats), stats
+}
+
+func noteBackfillProbe(ctx context.Context) {
+	if stats, ok := ctx.Value(backfillStatsKey{}).(*backfillStats); ok {
+		stats.probes++
+	}
+}
+
+func noteBackfillAlter(ctx context.Context) {
+	if stats, ok := ctx.Value(backfillStatsKey{}).(*backfillStats); ok {
+		stats.alters++
+	}
+}
+
+// snapshotTableColumns reads every existing table's columns once,
+// including generated columns. table_info omits VIRTUAL/STORED columns,
+// so a later Open would try to ADD a column CREATE TABLE already
+// declared (bare_id). Per-column sqlite_master and table_xinfo probes
+// made Open scale with the spec; one join does not.
 //
-// Skips silently if the table doesn't yet exist (fresh install — the
-// CREATE TABLE migration will create it with the column already declared)
-// or if the column already exists. Runs on the pinned migration
-// connection so it sees the writes performed by the in-flight BEGIN
-// IMMEDIATE transaction; using s.db here would route through the pool
-// and BUSY against the holding writer under concurrent migrators.
-func (s *Store) ensureColumn(ctx context.Context, conn *sql.Conn, table, column, decl string) error {
-	var name string
-	err := conn.QueryRowContext(ctx,
-		`SELECT name FROM sqlite_master WHERE type='table' AND name=?`, table,
-	).Scan(&name)
-	if err == sql.ErrNoRows {
-		return nil
-	}
+// A table absent from the map does not exist yet. Fresh installs create
+// it later in the migration with the column already declared.
+func snapshotTableColumns(ctx context.Context, conn *sql.Conn) (map[string]map[string]struct{}, error) {
+	noteBackfillProbe(ctx)
+	rows, err := conn.QueryContext(ctx, `
+		SELECT m.name, p.name
+		FROM sqlite_master AS m, pragma_table_xinfo(m.name) AS p
+		WHERE m.type = 'table'`)
 	if err != nil {
-		return fmt.Errorf("checking table %s: %w", table, err)
+		return nil, fmt.Errorf("reading table columns: %w", err)
 	}
+	defer rows.Close()
 
-	// table_info omits generated columns (VIRTUAL/STORED). table_xinfo
-	// reports them so a later Open does not re-ADD a column CREATE TABLE
-	// already declared, and so upgrades can see a prior ADD of bare_id.
-	var existing string
-	err = conn.QueryRowContext(ctx,
-		`SELECT name FROM pragma_table_xinfo(?) WHERE name=?`,
-		table, column,
-	).Scan(&existing)
-	if err == nil {
-		return nil
+	known := map[string]map[string]struct{}{}
+	for rows.Next() {
+		var table, column string
+		if err := rows.Scan(&table, &column); err != nil {
+			return nil, fmt.Errorf("reading table columns: %w", err)
+		}
+		markColumnPresent(known, table, column)
 	}
-	if err != sql.ErrNoRows {
-		return fmt.Errorf("table_xinfo %s: %w", table, err)
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("reading table columns: %w", err)
 	}
+	return known, nil
+}
 
+// columnNeedsBackfill reports whether table exists and lacks column.
+// Lookup is case-sensitive, matching SQLite's BINARY collation on the
+// name probes this replaced.
+func columnNeedsBackfill(known map[string]map[string]struct{}, table, column string) bool {
+	cols, ok := known[table]
+	if !ok {
+		return false
+	}
+	_, present := cols[column]
+	return !present
+}
+
+func markColumnPresent(known map[string]map[string]struct{}, table, column string) {
+	cols := known[table]
+	if cols == nil {
+		cols = map[string]struct{}{}
+		known[table] = cols
+	}
+	cols[column] = struct{}{}
+}
+
+// addColumn ALTERs a column onto a table the snapshot says is missing it.
+// A concurrent Open may have added the column between the snapshot and
+// this ALTER. SQLite returns SQLITE_ERROR with "duplicate column name",
+// which busy_timeout does not retry. The DB is in the desired state
+// regardless of who won.
+func addColumn(ctx context.Context, conn *sql.Conn, table, column, decl string) error {
 	if _, err := conn.ExecContext(ctx, fmt.Sprintf(`ALTER TABLE "%s" ADD COLUMN "%s" %s`, table, column, decl)); err != nil {
-		// A concurrent Open() may have added the column between our
-		// PRAGMA check and this ALTER. SQLite returns SQLITE_ERROR with
-		// "duplicate column name", which busy_timeout does not retry.
-		// The DB is now in the desired state regardless of who won.
 		if strings.Contains(err.Error(), "duplicate column name") {
 			return nil
 		}
@@ -441,18 +523,27 @@ func (s *Store) ensureColumn(ctx context.Context, conn *sql.Conn, table, column,
 // table. Idempotent: safe to call on fresh DBs (table-not-found short-
 // circuit) and on already-current DBs (column-exists short-circuit).
 //
-// Table names are emitted bare (no safeName) — ensureColumn double-quotes
-// them at SQL emit time and uses parameter binding for the sqlite_master
-// lookup, so the values flow as Go string literals first and SQL
-// identifiers second. Wrapping with safeName here would embed literal
-// double-quote characters into the Go string and break compilation for
-// any spec whose dependent-resource snake_cased name is a SQL reserved
-// word.
+// Table names are emitted bare (no safeName) — addColumn double-quotes
+// them at SQL emit time, so the values flow as Go string literals first
+// and SQL identifiers second. Wrapping with safeName here would embed
+// literal double-quote characters into the Go string and break
+// compilation for any spec whose dependent-resource snake_cased name is
+// a SQL reserved word.
 func (s *Store) backfillColumns(ctx context.Context, conn *sql.Conn) error {
+	known, err := snapshotTableColumns(ctx, conn)
+	if err != nil {
+		return err
+	}
 	for _, c := range []struct{ table, column, decl string }{
 		// Legacy checkpoints cannot prove lossless completion: even an empty
 		// cursor may have come from a capped or partially stored page.
 		{table: "sync_state", column: "last_attempt_complete", decl: "INTEGER NOT NULL DEFAULT 0"},
+		// scope_key is not part of the primary key: one row per resource, and a
+		// changed scope resets the cursor instead of keeping both tenants.
+		{table: "sync_state", column: "scope_key", decl: "TEXT NOT NULL DEFAULT ''"},
+		// Pre-v14 playbook rows have no surface. Default cli so existing
+		// notes stay on the trusted recall fields.
+		{table: "learning_playbooks", column: "ingress_surface", decl: "TEXT NOT NULL DEFAULT 'cli'"},
 		{table: "account_info", column: "account_id", decl: "TEXT"},
 		{table: "account_info", column: "nebula_parent_account_id", decl: "TEXT"},
 		{table: "aidr", column: "account_id", decl: "TEXT"},
@@ -543,38 +634,31 @@ func (s *Store) backfillColumns(ctx context.Context, conn *sql.Conn) error {
 		{table: "cve", column: "published_epoch", decl: "INTEGER"},
 		{table: "cve", column: "severity", decl: "TEXT"},
 		{table: "cve", column: "severity_index", decl: "INTEGER"},
-		{table: "detections", column: "account", decl: "TEXT"},
-		{table: "detections", column: "account_id", decl: "TEXT"},
 		{table: "detections", column: "action_taken", decl: "TEXT"},
 		{table: "detections", column: "affected_application", decl: "TEXT"},
-		{table: "detections", column: "agent", decl: "TEXT"},
+		{table: "detections", column: "auto_removal_at", decl: "DATETIME"},
 		{table: "detections", column: "category", decl: "TEXT"},
-		{table: "detections", column: "child_trace_count", decl: "INTEGER"},
-		{table: "detections", column: "cleaned_at", decl: "TEXT"},
-		{table: "detections", column: "destination_location", decl: "TEXT"},
 		{table: "detections", column: "detection_id", decl: "TEXT"},
 		{table: "detections", column: "group_id", decl: "TEXT"},
-		{table: "detections", column: "is_root_detection", decl: "INTEGER"},
-		{table: "detections", column: "is_rtp_stream_event", decl: "INTEGER"},
-		{table: "detections", column: "last_user", decl: "TEXT"},
+		{table: "detections", column: "group_name", decl: "TEXT"},
+		{table: "detections", column: "ip_address", decl: "TEXT"},
 		{table: "detections", column: "machine_id", decl: "TEXT"},
-		{table: "detections", column: "machine_ip", decl: "TEXT"},
-		{table: "detections", column: "machine_location", decl: "TEXT"},
 		{table: "detections", column: "machine_name", decl: "TEXT"},
 		{table: "detections", column: "md5", decl: "TEXT"},
 		{table: "detections", column: "path", decl: "TEXT"},
+		{table: "detections", column: "policy_id", decl: "TEXT"},
+		{table: "detections", column: "policy_name", decl: "TEXT"},
+		{table: "detections", column: "port", decl: "TEXT"},
 		{table: "detections", column: "process_name", decl: "TEXT"},
 		{table: "detections", column: "reported_at", decl: "TEXT"},
 		{table: "detections", column: "resource_created_at", decl: "DATETIME"},
 		{table: "detections", column: "resource_modified_at", decl: "DATETIME"},
 		{table: "detections", column: "scan_id", decl: "TEXT"},
 		{table: "detections", column: "scanned_at", decl: "TEXT"},
-		{table: "detections", column: "scanned_at_offset_seconds", decl: "INTEGER"},
-		{table: "detections", column: "sha256", decl: "TEXT"},
-		{table: "detections", column: "source_location", decl: "TEXT"},
+		{table: "detections", column: "scanned_at_local", decl: "TEXT"},
 		{table: "detections", column: "status", decl: "TEXT"},
 		{table: "detections", column: "threat_name", decl: "TEXT"},
-		{table: "detections", column: "trace_id", decl: "TEXT"},
+		{table: "detections", column: "url", decl: "TEXT"},
 		{table: "device_control", column: "account_level", decl: "INTEGER"},
 		{table: "device_control", column: "comment", decl: "TEXT"},
 		{table: "device_control", column: "created_at", decl: "TEXT"},
@@ -587,21 +671,40 @@ func (s *Store) backfillColumns(ctx context.Context, conn *sql.Conn) error {
 		{table: "device_control", column: "updated_by", decl: "TEXT"},
 		{table: "device_control", column: "value", decl: "TEXT"},
 		{table: "device_control", column: "vendor", decl: "TEXT"},
+		{table: "device_control", column: "account", decl: "TEXT"},
+		{table: "device_control", column: "account_id", decl: "TEXT"},
+		{table: "device_control", column: "action_taken", decl: "TEXT"},
+		{table: "device_control", column: "affected_application", decl: "TEXT"},
+		{table: "device_control", column: "agent", decl: "TEXT"},
+		{table: "device_control", column: "category", decl: "TEXT"},
+		{table: "device_control", column: "child_trace_count", decl: "INTEGER"},
+		{table: "device_control", column: "cleaned_at", decl: "TEXT"},
+		{table: "device_control", column: "destination_location", decl: "TEXT"},
+		{table: "device_control", column: "detection_id", decl: "TEXT"},
+		{table: "device_control", column: "group_id", decl: "TEXT"},
+		{table: "device_control", column: "is_root_detection", decl: "INTEGER"},
+		{table: "device_control", column: "is_rtp_stream_event", decl: "INTEGER"},
+		{table: "device_control", column: "last_user", decl: "TEXT"},
+		{table: "device_control", column: "machine_id", decl: "TEXT"},
+		{table: "device_control", column: "machine_ip", decl: "TEXT"},
+		{table: "device_control", column: "machine_location", decl: "TEXT"},
+		{table: "device_control", column: "machine_name", decl: "TEXT"},
+		{table: "device_control", column: "md5", decl: "TEXT"},
+		{table: "device_control", column: "path", decl: "TEXT"},
+		{table: "device_control", column: "process_name", decl: "TEXT"},
+		{table: "device_control", column: "reported_at", decl: "TEXT"},
+		{table: "device_control", column: "scan_id", decl: "TEXT"},
+		{table: "device_control", column: "scanned_at", decl: "TEXT"},
+		{table: "device_control", column: "scanned_at_offset_seconds", decl: "INTEGER"},
+		{table: "device_control", column: "sha256", decl: "TEXT"},
+		{table: "device_control", column: "source_location", decl: "TEXT"},
+		{table: "device_control", column: "status", decl: "TEXT"},
+		{table: "device_control", column: "threat_name", decl: "TEXT"},
+		{table: "device_control", column: "trace_id", decl: "TEXT"},
 		{table: "device_control", column: "parent_id", decl: "TEXT"},
 		{table: "device_control", column: "bare_id", decl: "TEXT GENERATED ALWAYS AS (substr(id, 1, coalesce(nullif(instr(id, char(0)), 0) - 1, length(id)))) VIRTUAL"},
-		{table: "dns", column: "@timestamp", decl: "TEXT"},
-		{table: "dns", column: "account_id", decl: "TEXT"},
-		{table: "dns", column: "action", decl: "TEXT"},
-		{table: "dns", column: "group_id", decl: "TEXT"},
-		{table: "dns", column: "group_name", decl: "TEXT"},
-		{table: "dns", column: "log", decl: "TEXT"},
-		{table: "dns", column: "machine_id", decl: "TEXT"},
-		{table: "dns", column: "parent_account_id", decl: "TEXT"},
-		{table: "dns", column: "policy_id", decl: "TEXT"},
-		{table: "dns", column: "policy_name", decl: "TEXT"},
-		{table: "dns", column: "rule_id", decl: "TEXT"},
-		{table: "dns", column: "rule_name", decl: "TEXT"},
 		{table: "dns", column: "next_cursor", decl: "TEXT"},
+		{table: "dns", column: "total_count", decl: "INTEGER"},
 		{table: "email_protection", column: "email", decl: "TEXT"},
 		{table: "email_protection", column: "enabled_mailboxes_count", decl: "INTEGER"},
 		{table: "email_protection", column: "failed_mailboxes_count", decl: "INTEGER"},
@@ -660,8 +763,6 @@ func (s *Store) backfillColumns(ctx context.Context, conn *sql.Conn) error {
 		{table: "email_protection", column: "silent_mode_msg", decl: "INTEGER"},
 		{table: "email_protection", column: "st_bundle", decl: "INTEGER"},
 		{table: "email_protection", column: "st_plus_bundle", decl: "INTEGER"},
-		{table: "email_protection", column: "active_mailboxes", decl: "INTEGER"},
-		{table: "email_protection", column: "total_mailboxes", decl: "INTEGER"},
 		{table: "endpoint_jobs", column: "command", decl: "TEXT"},
 		{table: "endpoint_jobs", column: "expires_at", decl: "DATETIME"},
 		{table: "endpoint_jobs", column: "issued_at", decl: "TEXT"},
@@ -715,16 +816,12 @@ func (s *Store) backfillColumns(ctx context.Context, conn *sql.Conn) error {
 		{table: "endpoints", column: "os_platform", decl: "TEXT"},
 		{table: "endpoints", column: "os_release_name", decl: "TEXT"},
 		{table: "endpoints", column: "policy_id", decl: "TEXT"},
-		{table: "endpoints", column: "account_id", decl: "TEXT"},
-		{table: "endpoints", column: "account_name", decl: "TEXT"},
-		{table: "endpoints", column: "group_name", decl: "TEXT"},
-		{table: "endpoints", column: "total", decl: "INTEGER"},
-		{table: "endpoints", column: "value", decl: "TEXT"},
 		{table: "endpoints", column: "action_taken", decl: "TEXT"},
 		{table: "endpoints", column: "affected_application", decl: "TEXT"},
 		{table: "endpoints", column: "auto_removal_at", decl: "DATETIME"},
 		{table: "endpoints", column: "category", decl: "TEXT"},
 		{table: "endpoints", column: "detection_id", decl: "TEXT"},
+		{table: "endpoints", column: "group_name", decl: "TEXT"},
 		{table: "endpoints", column: "ip_address", decl: "TEXT"},
 		{table: "endpoints", column: "machine_id", decl: "TEXT"},
 		{table: "endpoints", column: "machine_name", decl: "TEXT"},
@@ -754,6 +851,10 @@ func (s *Store) backfillColumns(ctx context.Context, conn *sql.Conn) error {
 		{table: "endpoints", column: "started_at", decl: "TEXT"},
 		{table: "endpoints", column: "started_at_local", decl: "TEXT"},
 		{table: "endpoints", column: "total_count", decl: "INTEGER"},
+		{table: "endpoints", column: "account_id", decl: "TEXT"},
+		{table: "endpoints", column: "account_name", decl: "TEXT"},
+		{table: "endpoints", column: "total", decl: "INTEGER"},
+		{table: "endpoints", column: "value", decl: "TEXT"},
 		{table: "endpoints", column: "closed", decl: "INTEGER"},
 		{table: "endpoints", column: "detected_by_count", decl: "INTEGER"},
 		{table: "endpoints", column: "level", decl: "INTEGER"},
@@ -869,158 +970,47 @@ func (s *Store) backfillColumns(ctx context.Context, conn *sql.Conn) error {
 		{table: "flight_recorder", column: "timestamp", decl: "TEXT"},
 		{table: "flight_recorder", column: "winlog_event_id", decl: "TEXT"},
 		{table: "flight_recorder", column: "endpoints", decl: "INTEGER"},
+		{table: "grid", column: "next_cursor", decl: "TEXT"},
+		{table: "grid", column: "total_count", decl: "INTEGER"},
+		{table: "grid", column: "aggregation_next_cursor", decl: "TEXT"},
+		{table: "grid", column: "after", decl: "TEXT"},
 		{table: "grid", column: "account_id", decl: "TEXT"},
 		{table: "grid", column: "account_name", decl: "TEXT"},
-		{table: "grid", column: "action_source", decl: "TEXT"},
-		{table: "grid", column: "action_type", decl: "TEXT"},
-		{table: "grid", column: "document_id", decl: "TEXT"},
-		{table: "grid", column: "ip_address", decl: "TEXT"},
-		{table: "grid", column: "logged_at", decl: "TEXT"},
-		{table: "grid", column: "machine_id", decl: "TEXT"},
-		{table: "grid", column: "parent_account_id", decl: "TEXT"},
-		{table: "grid", column: "resource_type", decl: "TEXT"},
-		{table: "grid", column: "user_email", decl: "TEXT"},
-		{table: "grid", column: "user_id", decl: "TEXT"},
-		{table: "grid", column: "user_mode", decl: "TEXT"},
-		{table: "grid", column: "user_name", decl: "TEXT"},
-		{table: "grid", column: "next_cursor", decl: "TEXT"},
-		{table: "grid", column: "ai_category", decl: "TEXT"},
-		{table: "grid", column: "ai_status", decl: "TEXT"},
-		{table: "grid", column: "ai_tool", decl: "TEXT"},
-		{table: "grid", column: "ai_tool_id", decl: "TEXT"},
-		{table: "grid", column: "ai_tool_provider", decl: "TEXT"},
-		{table: "grid", column: "alias", decl: "TEXT"},
-		{table: "grid", column: "domain", decl: "TEXT"},
-		{table: "grid", column: "first_seen", decl: "DATETIME"},
+		{table: "grid", column: "action", decl: "TEXT"},
+		{table: "grid", column: "created_at", decl: "DATETIME"},
+		{table: "grid", column: "friendly_type", decl: "TEXT"},
 		{table: "grid", column: "group_id", decl: "TEXT"},
 		{table: "grid", column: "group_name", decl: "TEXT"},
-		{table: "grid", column: "host_name", decl: "TEXT"},
-		{table: "grid", column: "last_seen", decl: "DATETIME"},
-		{table: "grid", column: "last_user", decl: "TEXT"},
-		{table: "grid", column: "os_platform", decl: "TEXT"},
-		{table: "grid", column: "os_type", decl: "TEXT"},
+		{table: "grid", column: "machine_id", decl: "TEXT"},
+		{table: "grid", column: "machine_name", decl: "TEXT"},
+		{table: "grid", column: "online", decl: "INTEGER"},
+		{table: "grid", column: "parent_account_id", decl: "TEXT"},
 		{table: "grid", column: "policy_id", decl: "TEXT"},
 		{table: "grid", column: "policy_name", decl: "TEXT"},
-		{table: "grid", column: "process_name", decl: "TEXT"},
-		{table: "grid", column: "query_count", decl: "INTEGER"},
-		{table: "grid", column: "ai_risk", decl: "TEXT"},
-		{table: "grid", column: "ai_tier", decl: "TEXT"},
-		{table: "grid", column: "architecture", decl: "TEXT"},
-		{table: "grid", column: "created_at", decl: "DATETIME"},
-		{table: "grid", column: "cves_by_status", decl: "TEXT"},
-		{table: "grid", column: "cves_count", decl: "INTEGER"},
-		{table: "grid", column: "cves_count_by_status", decl: "TEXT"},
-		{table: "grid", column: "cves_score", decl: "REAL"},
-		{table: "grid", column: "display_installed_version", decl: "TEXT"},
-		{table: "grid", column: "display_product", decl: "TEXT"},
-		{table: "grid", column: "display_vendor", decl: "TEXT"},
-		{table: "grid", column: "domain_name", decl: "TEXT"},
-		{table: "grid", column: "fully_qualified_host_name", decl: "TEXT"},
-		{table: "grid", column: "ignored_until", decl: "DATETIME"},
-		{table: "grid", column: "installation_date", decl: "TEXT"},
-		{table: "grid", column: "installed_version", decl: "TEXT"},
-		{table: "grid", column: "language", decl: "TEXT"},
-		{table: "grid", column: "latest_version_available", decl: "TEXT"},
-		{table: "grid", column: "normalized_installed_version", decl: "TEXT"},
-		{table: "grid", column: "normalized_product", decl: "TEXT"},
-		{table: "grid", column: "normalized_vendor", decl: "TEXT"},
-		{table: "grid", column: "object_guid", decl: "TEXT"},
-		{table: "grid", column: "os_info", decl: "TEXT"},
-		{table: "grid", column: "product", decl: "TEXT"},
-		{table: "grid", column: "product_signature", decl: "INTEGER"},
 		{table: "grid", column: "root_group_id", decl: "TEXT"},
-		{table: "grid", column: "vendor", decl: "TEXT"},
-		{table: "grid", column: "cisa_exploitable", decl: "INTEGER"},
-		{table: "grid", column: "cve_id", decl: "TEXT"},
-		{table: "grid", column: "cvss20_score", decl: "REAL"},
-		{table: "grid", column: "cvss30_score", decl: "REAL"},
-		{table: "grid", column: "description", decl: "TEXT"},
-		{table: "grid", column: "ignored_by", decl: "TEXT"},
-		{table: "grid", column: "ignored_by_name", decl: "TEXT"},
-		{table: "grid", column: "ignored_reason", decl: "TEXT"},
-		{table: "grid", column: "known_ransomware_campaign_use", decl: "INTEGER"},
-		{table: "grid", column: "published_at", decl: "TEXT"},
 		{table: "grid", column: "severity", decl: "TEXT"},
-		{table: "grid", column: "severity_score", decl: "REAL"},
-		{table: "grid", column: "account", decl: "TEXT"},
-		{table: "grid", column: "action_taken", decl: "TEXT"},
-		{table: "grid", column: "affected_application", decl: "TEXT"},
-		{table: "grid", column: "agent", decl: "TEXT"},
-		{table: "grid", column: "category", decl: "TEXT"},
-		{table: "grid", column: "child_trace_count", decl: "INTEGER"},
-		{table: "grid", column: "cleaned_at", decl: "TEXT"},
-		{table: "grid", column: "destination_location", decl: "TEXT"},
-		{table: "grid", column: "detection_id", decl: "TEXT"},
-		{table: "grid", column: "is_root_detection", decl: "INTEGER"},
-		{table: "grid", column: "is_rtp_stream_event", decl: "INTEGER"},
-		{table: "grid", column: "machine_ip", decl: "TEXT"},
-		{table: "grid", column: "machine_location", decl: "TEXT"},
-		{table: "grid", column: "machine_name", decl: "TEXT"},
-		{table: "grid", column: "md5", decl: "TEXT"},
-		{table: "grid", column: "path", decl: "TEXT"},
-		{table: "grid", column: "reported_at", decl: "TEXT"},
-		{table: "grid", column: "resource_created_at", decl: "DATETIME"},
-		{table: "grid", column: "resource_modified_at", decl: "DATETIME"},
-		{table: "grid", column: "scan_id", decl: "TEXT"},
-		{table: "grid", column: "scanned_at", decl: "TEXT"},
-		{table: "grid", column: "scanned_at_offset_seconds", decl: "INTEGER"},
-		{table: "grid", column: "sha256", decl: "TEXT"},
-		{table: "grid", column: "source_location", decl: "TEXT"},
-		{table: "grid", column: "status", decl: "TEXT"},
-		{table: "grid", column: "threat_name", decl: "TEXT"},
-		{table: "grid", column: "trace_id", decl: "TEXT"},
-		{table: "grid", column: "@timestamp", decl: "TEXT"},
-		{table: "grid", column: "action", decl: "TEXT"},
-		{table: "grid", column: "log", decl: "TEXT"},
-		{table: "grid", column: "rule_id", decl: "TEXT"},
-		{table: "grid", column: "rule_name", decl: "TEXT"},
-		{table: "grid", column: "display_name", decl: "TEXT"},
-		{table: "grid", column: "link", decl: "TEXT"},
-		{table: "grid", column: "machine_version", decl: "INTEGER"},
-		{table: "grid", column: "protection_status", decl: "TEXT"},
-		{table: "grid", column: "friendly_type", decl: "TEXT"},
-		{table: "grid", column: "online", decl: "INTEGER"},
 		{table: "grid", column: "source", decl: "TEXT"},
-		{table: "grid", column: "total_count", decl: "INTEGER"},
-		{table: "grid", column: "direction", decl: "TEXT"},
-		{table: "grid", column: "end_time", decl: "TEXT"},
-		{table: "grid", column: "hits", decl: "INTEGER"},
-		{table: "grid", column: "location", decl: "TEXT"},
-		{table: "grid", column: "program", decl: "TEXT"},
-		{table: "grid", column: "protocol", decl: "TEXT"},
-		{table: "grid", column: "ruleset_id", decl: "TEXT"},
-		{table: "grid", column: "ruleset_name", decl: "TEXT"},
-		{table: "grid", column: "service", decl: "TEXT"},
-		{table: "grid", column: "start_time", decl: "TEXT"},
+		{table: "grid", column: "type", decl: "TEXT"},
 		{table: "grid", column: "correlation_id", decl: "TEXT"},
-		{table: "grid", column: "endpoint", decl: "TEXT"},
-		{table: "grid", column: "patch_id", decl: "TEXT"},
-		{table: "grid", column: "preview_patch", decl: "INTEGER"},
-		{table: "grid", column: "reboot_required", decl: "INTEGER"},
-		{table: "grid", column: "released_at", decl: "TEXT"},
-		{table: "grid", column: "security_update_id", decl: "TEXT"},
-		{table: "grid", column: "size", decl: "REAL"},
-		{table: "grid", column: "title", decl: "TEXT"},
-		{table: "grid", column: "attack_user", decl: "TEXT"},
-		{table: "grid", column: "attempts", decl: "INTEGER"},
-		{table: "grid", column: "create_time", decl: "TEXT"},
-		{table: "grid", column: "duration", decl: "INTEGER"},
-		{table: "grid", column: "expire_time", decl: "TEXT"},
-		{table: "grid", column: "ip", decl: "TEXT"},
-		{table: "grid", column: "parent_id", decl: "TEXT"},
-		{table: "grid", column: "port", decl: "INTEGER"},
 		{table: "grid", column: "action_outcome", decl: "TEXT"},
+		{table: "grid", column: "action_taken", decl: "TEXT"},
 		{table: "grid", column: "action_user_email", decl: "TEXT"},
 		{table: "grid", column: "action_user_name", decl: "TEXT"},
 		{table: "grid", column: "alert_name", decl: "TEXT"},
 		{table: "grid", column: "attack_category", decl: "TEXT"},
 		{table: "grid", column: "attack_detection_type", decl: "TEXT"},
+		{table: "grid", column: "category", decl: "TEXT"},
 		{table: "grid", column: "city", decl: "TEXT"},
 		{table: "grid", column: "country", decl: "TEXT"},
+		{table: "grid", column: "detection_id", decl: "INTEGER"},
+		{table: "grid", column: "display_name", decl: "TEXT"},
+		{table: "grid", column: "domain", decl: "TEXT"},
 		{table: "grid", column: "has_impacted_asset_hostname", decl: "INTEGER"},
 		{table: "grid", column: "identity_primary_identifier", decl: "TEXT"},
+		{table: "grid", column: "ip", decl: "TEXT"},
 		{table: "grid", column: "pid", decl: "TEXT"},
 		{table: "grid", column: "process_path", decl: "TEXT"},
+		{table: "grid", column: "status", decl: "TEXT"},
 		{table: "grid", column: "technique", decl: "TEXT"},
 		{table: "grid", column: "updated_at", decl: "DATETIME"},
 		{table: "groups", column: "account_id", decl: "TEXT"},
@@ -1054,35 +1044,13 @@ func (s *Store) backfillColumns(ctx context.Context, conn *sql.Conn) error {
 		{table: "notifications", column: "owner", decl: "TEXT"},
 		{table: "notifications", column: "updated_at", decl: "DATETIME"},
 		{table: "notifications", column: "updated_by", decl: "TEXT"},
+		{table: "os_patches", column: "next_cursor", decl: "TEXT"},
+		{table: "os_patches", column: "total_count", decl: "INTEGER"},
 		{table: "os_patches", column: "account_id", decl: "TEXT"},
-		{table: "os_patches", column: "category", decl: "TEXT"},
-		{table: "os_patches", column: "created_at", decl: "TEXT"},
-		{table: "os_patches", column: "description", decl: "TEXT"},
-		{table: "os_patches", column: "display_name", decl: "TEXT"},
-		{table: "os_patches", column: "domain_name", decl: "TEXT"},
-		{table: "os_patches", column: "endpoint", decl: "TEXT"},
+		{table: "os_patches", column: "account_name", decl: "TEXT"},
 		{table: "os_patches", column: "fully_qualified_host_name", decl: "TEXT"},
-		{table: "os_patches", column: "group", decl: "TEXT"},
-		{table: "os_patches", column: "group_id", decl: "TEXT"},
 		{table: "os_patches", column: "group_name", decl: "TEXT"},
 		{table: "os_patches", column: "host_name", decl: "TEXT"},
-		{table: "os_patches", column: "ignored_until", decl: "DATETIME"},
-		{table: "os_patches", column: "machine_id", decl: "TEXT"},
-		{table: "os_patches", column: "object_guid", decl: "TEXT"},
-		{table: "os_patches", column: "os_info", decl: "TEXT"},
-		{table: "os_patches", column: "parent_account_id", decl: "TEXT"},
-		{table: "os_patches", column: "patch_id", decl: "TEXT"},
-		{table: "os_patches", column: "preview_patch", decl: "INTEGER"},
-		{table: "os_patches", column: "product", decl: "TEXT"},
-		{table: "os_patches", column: "reboot_required", decl: "INTEGER"},
-		{table: "os_patches", column: "released_at", decl: "TEXT"},
-		{table: "os_patches", column: "root_group_id", decl: "TEXT"},
-		{table: "os_patches", column: "security_update_id", decl: "TEXT"},
-		{table: "os_patches", column: "severity", decl: "TEXT"},
-		{table: "os_patches", column: "size", decl: "REAL"},
-		{table: "os_patches", column: "title", decl: "TEXT"},
-		{table: "os_patches", column: "vendor", decl: "TEXT"},
-		{table: "os_patches", column: "account_name", decl: "TEXT"},
 		{table: "os_patches", column: "total", decl: "INTEGER"},
 		{table: "os_patches", column: "value", decl: "TEXT"},
 		{table: "policies", column: "host_type", decl: "INTEGER"},
@@ -1197,23 +1165,10 @@ func (s *Store) backfillColumns(ctx context.Context, conn *sql.Conn) error {
 		{table: "reports", column: "updated_by_username", decl: "TEXT"},
 		{table: "reports", column: "parent_id", decl: "TEXT"},
 		{table: "reports", column: "bare_id", decl: "TEXT GENERATED ALWAYS AS (substr(id, 1, coalesce(nullif(instr(id, char(0)), 0) - 1, length(id)))) VIRTUAL"},
+		{table: "rid", column: "next_cursor", decl: "TEXT"},
+		{table: "rid", column: "total_count", decl: "INTEGER"},
 		{table: "rid", column: "account_id", decl: "TEXT"},
 		{table: "rid", column: "account_name", decl: "TEXT"},
-		{table: "rid", column: "attack_user", decl: "TEXT"},
-		{table: "rid", column: "attempts", decl: "INTEGER"},
-		{table: "rid", column: "create_time", decl: "TEXT"},
-		{table: "rid", column: "deleted", decl: "INTEGER"},
-		{table: "rid", column: "duration", decl: "INTEGER"},
-		{table: "rid", column: "expire_time", decl: "TEXT"},
-		{table: "rid", column: "group_id", decl: "TEXT"},
-		{table: "rid", column: "ip", decl: "TEXT"},
-		{table: "rid", column: "machine_id", decl: "TEXT"},
-		{table: "rid", column: "machine_name", decl: "TEXT"},
-		{table: "rid", column: "parent_id", decl: "TEXT"},
-		{table: "rid", column: "port", decl: "INTEGER"},
-		{table: "rid", column: "protocol", decl: "TEXT"},
-		{table: "rid", column: "root_group_id", decl: "TEXT"},
-		{table: "rid", column: "rule_id", decl: "TEXT"},
 		{table: "rid", column: "fully_qualified_host_name", decl: "TEXT"},
 		{table: "rid", column: "group_name", decl: "TEXT"},
 		{table: "rid", column: "host_name", decl: "TEXT"},
@@ -1227,14 +1182,13 @@ func (s *Store) backfillColumns(ctx context.Context, conn *sql.Conn) error {
 		{table: "schedules", column: "splay", decl: "INTEGER"},
 		{table: "schedules", column: "parent_id", decl: "TEXT"},
 		{table: "schedules", column: "bare_id", decl: "TEXT GENERATED ALWAYS AS (substr(id, 1, coalesce(nullif(instr(id, char(0)), 0) - 1, length(id)))) VIRTUAL"},
-		{table: "sites", column: "email", decl: "TEXT"},
-		{table: "sites", column: "firstname", decl: "TEXT"},
-		{table: "sites", column: "lastname", decl: "TEXT"},
-		{table: "sites", column: "roles", decl: "TEXT"},
 		{table: "sites", column: "account_id", decl: "TEXT"},
 		{table: "sites", column: "account_status", decl: "TEXT"},
 		{table: "sites", column: "cloud_evaluation", decl: "INTEGER"},
 		{table: "sites", column: "company_name", decl: "TEXT"},
+		{table: "sites", column: "email", decl: "TEXT"},
+		{table: "sites", column: "firstname", decl: "TEXT"},
+		{table: "sites", column: "lastname", decl: "TEXT"},
 		{table: "sites", column: "site_end_date", decl: "TEXT"},
 		{table: "sites", column: "consent", decl: "INTEGER"},
 		{table: "sites", column: "endpoint_isolation", decl: "INTEGER"},
@@ -1245,46 +1199,13 @@ func (s *Store) backfillColumns(ctx context.Context, conn *sql.Conn) error {
 		{table: "sites", column: "product", decl: "TEXT"},
 		{table: "sites", column: "remediation_type", decl: "TEXT"},
 		{table: "sites", column: "secret", decl: "TEXT"},
+		{table: "software", column: "next_cursor", decl: "TEXT"},
+		{table: "software", column: "total_count", decl: "INTEGER"},
 		{table: "software", column: "account_id", decl: "TEXT"},
 		{table: "software", column: "account_name", decl: "TEXT"},
-		{table: "software", column: "ai_category", decl: "TEXT"},
-		{table: "software", column: "ai_risk", decl: "TEXT"},
-		{table: "software", column: "ai_status", decl: "TEXT"},
-		{table: "software", column: "ai_tier", decl: "TEXT"},
-		{table: "software", column: "ai_tool", decl: "TEXT"},
-		{table: "software", column: "alias", decl: "TEXT"},
-		{table: "software", column: "architecture", decl: "TEXT"},
-		{table: "software", column: "created_at", decl: "TEXT"},
-		{table: "software", column: "cves_by_status", decl: "TEXT"},
-		{table: "software", column: "cves_count", decl: "INTEGER"},
-		{table: "software", column: "cves_count_by_status", decl: "TEXT"},
-		{table: "software", column: "cves_score", decl: "REAL"},
-		{table: "software", column: "display_installed_version", decl: "TEXT"},
-		{table: "software", column: "display_product", decl: "TEXT"},
-		{table: "software", column: "display_vendor", decl: "TEXT"},
-		{table: "software", column: "domain_name", decl: "TEXT"},
 		{table: "software", column: "fully_qualified_host_name", decl: "TEXT"},
-		{table: "software", column: "group_id", decl: "TEXT"},
 		{table: "software", column: "group_name", decl: "TEXT"},
 		{table: "software", column: "host_name", decl: "TEXT"},
-		{table: "software", column: "ignored_until", decl: "DATETIME"},
-		{table: "software", column: "installation_date", decl: "TEXT"},
-		{table: "software", column: "installed_version", decl: "TEXT"},
-		{table: "software", column: "language", decl: "TEXT"},
-		{table: "software", column: "latest_version_available", decl: "TEXT"},
-		{table: "software", column: "machine_id", decl: "TEXT"},
-		{table: "software", column: "normalized_installed_version", decl: "TEXT"},
-		{table: "software", column: "normalized_product", decl: "TEXT"},
-		{table: "software", column: "normalized_vendor", decl: "TEXT"},
-		{table: "software", column: "object_guid", decl: "TEXT"},
-		{table: "software", column: "os_info", decl: "TEXT"},
-		{table: "software", column: "parent_account_id", decl: "TEXT"},
-		{table: "software", column: "policy_id", decl: "TEXT"},
-		{table: "software", column: "policy_name", decl: "TEXT"},
-		{table: "software", column: "product", decl: "TEXT"},
-		{table: "software", column: "product_signature", decl: "INTEGER"},
-		{table: "software", column: "root_group_id", decl: "TEXT"},
-		{table: "software", column: "vendor", decl: "TEXT"},
 		{table: "software", column: "total", decl: "INTEGER"},
 		{table: "software", column: "value", decl: "TEXT"},
 		{table: "subscriptions", column: "add_on_allocation", decl: "INTEGER"},
@@ -1300,17 +1221,13 @@ func (s *Store) backfillColumns(ctx context.Context, conn *sql.Conn) error {
 		{table: "subscriptions", column: "reset_count", decl: "TEXT"},
 		{table: "subscriptions", column: "status", decl: "TEXT"},
 		{table: "subscriptions", column: "term_ends_on", decl: "TEXT"},
+		{table: "subscriptions", column: "version", decl: "TEXT"},
 		{table: "subscriptions", column: "volume_purchased", decl: "INTEGER"},
 		{table: "subscriptions", column: "volume_used", decl: "INTEGER"},
 		{table: "subscriptions", column: "is_nfr_allowed", decl: "INTEGER"},
-		{table: "subscriptions", column: "version", decl: "TEXT"},
 		{table: "subscriptions", column: "timestamp", decl: "TEXT"},
 		{table: "subscriptions", column: "auto_convert_trial_to_paid", decl: "INTEGER"},
 		{table: "subscriptions", column: "machine_type", decl: "TEXT"},
-		{table: "subscriptions", column: "code", decl: "TEXT"},
-		{table: "subscriptions", column: "name", decl: "TEXT"},
-		{table: "subscriptions", column: "volume_allocated", decl: "INTEGER"},
-		{table: "subscriptions", column: "volume_available", decl: "INTEGER"},
 		{table: "suspicious_activity", column: "account_id", decl: "TEXT"},
 		{table: "suspicious_activity", column: "closed", decl: "INTEGER"},
 		{table: "suspicious_activity", column: "detected_by_count", decl: "INTEGER"},
@@ -1322,7 +1239,6 @@ func (s *Store) backfillColumns(ctx context.Context, conn *sql.Conn) error {
 		{table: "suspicious_activity", column: "timestamp", decl: "TEXT"},
 		{table: "suspicious_activity", column: "parent_id", decl: "TEXT"},
 		{table: "suspicious_activity", column: "bare_id", decl: "TEXT GENERATED ALWAYS AS (substr(id, 1, coalesce(nullif(instr(id, char(0)), 0) - 1, length(id)))) VIRTUAL"},
-		{table: "syslog", column: "enabled", decl: "INTEGER"},
 		{table: "syslog", column: "account_id", decl: "TEXT"},
 		{table: "syslog", column: "format", decl: "TEXT"},
 		{table: "syslog", column: "host", decl: "TEXT"},
@@ -1366,9 +1282,14 @@ func (s *Store) backfillColumns(ctx context.Context, conn *sql.Conn) error {
 		{table: "sync_state", column: "last_synced_at", decl: "DATETIME"},
 		{table: "sync_state", column: "total_count", decl: "INTEGER DEFAULT 0"},
 	} {
-		if err := s.ensureColumn(ctx, conn, c.table, c.column, c.decl); err != nil {
+		if !columnNeedsBackfill(known, c.table, c.column) {
+			continue
+		}
+		noteBackfillAlter(ctx)
+		if err := addColumn(ctx, conn, c.table, c.column, c.decl); err != nil {
 			return err
 		}
+		markColumnPresent(known, c.table, c.column)
 	}
 	return nil
 }
@@ -1425,7 +1346,8 @@ func (s *Store) migrate(ctx context.Context) error {
 			last_cursor TEXT,
 			last_synced_at DATETIME,
 			total_count INTEGER DEFAULT 0,
-			last_attempt_complete INTEGER NOT NULL DEFAULT 0
+			last_attempt_complete INTEGER NOT NULL DEFAULT 0,
+			scope_key TEXT NOT NULL DEFAULT ''
 		)`,
 		resourcesFTSCreateSQL,
 		// CLI Printing Press: learn migrations
@@ -1528,6 +1450,7 @@ func (s *Store) migrate(ctx context.Context) error {
 			notes_text TEXT,
 			source TEXT NOT NULL DEFAULT 'taught',
 			confidence INTEGER NOT NULL DEFAULT 2,
+			ingress_surface TEXT NOT NULL DEFAULT 'cli',
 			created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			last_observed_at TIMESTAMP
 		)`,
@@ -1768,6 +1691,53 @@ func (s *Store) migrate(ctx context.Context) error {
 			"id" TEXT PRIMARY KEY,
 			"data" JSON NOT NULL,
 			"synced_at" DATETIME DEFAULT CURRENT_TIMESTAMP,
+			"action_taken" TEXT,
+			"affected_application" TEXT,
+			"auto_removal_at" DATETIME,
+			"category" TEXT,
+			"detection_id" TEXT,
+			"group_id" TEXT,
+			"group_name" TEXT,
+			"ip_address" TEXT,
+			"machine_id" TEXT,
+			"machine_name" TEXT,
+			"md5" TEXT,
+			"path" TEXT,
+			"policy_id" TEXT,
+			"policy_name" TEXT,
+			"port" TEXT,
+			"process_name" TEXT,
+			"reported_at" TEXT,
+			"resource_created_at" DATETIME,
+			"resource_modified_at" DATETIME,
+			"scan_id" TEXT,
+			"scanned_at" TEXT,
+			"scanned_at_local" TEXT,
+			"status" TEXT,
+			"threat_name" TEXT,
+			"url" TEXT
+		)`,
+		`CREATE INDEX IF NOT EXISTS "idx_detections_detection_id" ON "detections"("detection_id")`,
+		`CREATE INDEX IF NOT EXISTS "idx_detections_group_id" ON "detections"("group_id")`,
+		`CREATE INDEX IF NOT EXISTS "idx_detections_machine_id" ON "detections"("machine_id")`,
+		`CREATE INDEX IF NOT EXISTS "idx_detections_policy_id" ON "detections"("policy_id")`,
+		`CREATE INDEX IF NOT EXISTS "idx_detections_scan_id" ON "detections"("scan_id")`,
+		`CREATE TABLE IF NOT EXISTS "device_control" (
+			"id" TEXT PRIMARY KEY,
+			"data" JSON NOT NULL,
+			"synced_at" DATETIME DEFAULT CURRENT_TIMESTAMP,
+			"account_level" INTEGER,
+			"comment" TEXT,
+			"created_at" TEXT,
+			"created_by" TEXT,
+			"enabled" INTEGER,
+			"product" TEXT,
+			"serial" TEXT,
+			"type" INTEGER,
+			"updated_at" TEXT,
+			"updated_by" TEXT,
+			"value" TEXT,
+			"vendor" TEXT,
 			"account" TEXT,
 			"account_id" TEXT,
 			"action_taken" TEXT,
@@ -1790,8 +1760,6 @@ func (s *Store) migrate(ctx context.Context) error {
 			"path" TEXT,
 			"process_name" TEXT,
 			"reported_at" TEXT,
-			"resource_created_at" DATETIME,
-			"resource_modified_at" DATETIME,
 			"scan_id" TEXT,
 			"scanned_at" TEXT,
 			"scanned_at_offset_seconds" INTEGER,
@@ -1799,61 +1767,47 @@ func (s *Store) migrate(ctx context.Context) error {
 			"source_location" TEXT,
 			"status" TEXT,
 			"threat_name" TEXT,
-			"trace_id" TEXT
-		)`,
-		`CREATE INDEX IF NOT EXISTS "idx_detections_account_id" ON "detections"("account_id")`,
-		`CREATE INDEX IF NOT EXISTS "idx_detections_detection_id" ON "detections"("detection_id")`,
-		`CREATE INDEX IF NOT EXISTS "idx_detections_group_id" ON "detections"("group_id")`,
-		`CREATE INDEX IF NOT EXISTS "idx_detections_machine_id" ON "detections"("machine_id")`,
-		`CREATE INDEX IF NOT EXISTS "idx_detections_scan_id" ON "detections"("scan_id")`,
-		`CREATE INDEX IF NOT EXISTS "idx_detections_trace_id" ON "detections"("trace_id")`,
-		`CREATE TABLE IF NOT EXISTS "device_control" (
-			"id" TEXT PRIMARY KEY,
-			"data" JSON NOT NULL,
-			"synced_at" DATETIME DEFAULT CURRENT_TIMESTAMP,
-			"account_level" INTEGER,
-			"comment" TEXT,
-			"created_at" TEXT,
-			"created_by" TEXT,
-			"enabled" INTEGER,
-			"product" TEXT,
-			"serial" TEXT,
-			"type" INTEGER,
-			"updated_at" TEXT,
-			"updated_by" TEXT,
-			"value" TEXT,
-			"vendor" TEXT,
+			"trace_id" TEXT,
 			"parent_id" TEXT,
 			"bare_id" TEXT GENERATED ALWAYS AS (substr(id, 1, coalesce(nullif(instr(id, char(0)), 0) - 1, length(id)))) VIRTUAL
 		)`,
+		`CREATE INDEX IF NOT EXISTS "idx_device_control_account_id" ON "device_control"("account_id")`,
+		`CREATE INDEX IF NOT EXISTS "idx_device_control_detection_id" ON "device_control"("detection_id")`,
+		`CREATE INDEX IF NOT EXISTS "idx_device_control_group_id" ON "device_control"("group_id")`,
+		`CREATE INDEX IF NOT EXISTS "idx_device_control_machine_id" ON "device_control"("machine_id")`,
+		`CREATE INDEX IF NOT EXISTS "idx_device_control_scan_id" ON "device_control"("scan_id")`,
+		`CREATE INDEX IF NOT EXISTS "idx_device_control_trace_id" ON "device_control"("trace_id")`,
 		`CREATE INDEX IF NOT EXISTS "idx_device_control_created_at" ON "device_control"("created_at")`,
 		`CREATE INDEX IF NOT EXISTS "idx_device_control_updated_at" ON "device_control"("updated_at")`,
 		`CREATE INDEX IF NOT EXISTS "idx_device_control_parent_id" ON "device_control"("parent_id")`,
 		`CREATE INDEX IF NOT EXISTS "idx_device_control_bare_id" ON "device_control"("bare_id")`,
+		`CREATE VIRTUAL TABLE IF NOT EXISTS "device_control_fts" USING fts5(
+			"comment",
+			"category",
+			content='device_control',
+			content_rowid='rowid'
+		)`,
+		`CREATE TRIGGER IF NOT EXISTS "device_control_ai" AFTER INSERT ON "device_control" BEGIN
+			INSERT INTO "device_control_fts"(rowid, "comment", "category")
+			VALUES (new.rowid,new."comment", new."category");
+		END`,
+		`CREATE TRIGGER IF NOT EXISTS "device_control_ad" AFTER DELETE ON "device_control" BEGIN
+			INSERT INTO "device_control_fts"("device_control_fts", rowid, "comment", "category")
+			VALUES ('delete', old.rowid,old."comment", old."category");
+		END`,
+		`CREATE TRIGGER IF NOT EXISTS "device_control_au" AFTER UPDATE ON "device_control" BEGIN
+			INSERT INTO "device_control_fts"("device_control_fts", rowid, "comment", "category")
+			VALUES ('delete', old.rowid,old."comment", old."category");
+			INSERT INTO "device_control_fts"(rowid, "comment", "category")
+			VALUES (new.rowid,new."comment", new."category");
+		END`,
 		`CREATE TABLE IF NOT EXISTS "dns" (
 			"id" TEXT PRIMARY KEY,
 			"data" JSON NOT NULL,
 			"synced_at" DATETIME DEFAULT CURRENT_TIMESTAMP,
-			"@timestamp" TEXT,
-			"account_id" TEXT,
-			"action" TEXT,
-			"group_id" TEXT,
-			"group_name" TEXT,
-			"log" TEXT,
-			"machine_id" TEXT,
-			"parent_account_id" TEXT,
-			"policy_id" TEXT,
-			"policy_name" TEXT,
-			"rule_id" TEXT,
-			"rule_name" TEXT,
-			"next_cursor" TEXT
+			"next_cursor" TEXT,
+			"total_count" INTEGER
 		)`,
-		`CREATE INDEX IF NOT EXISTS "idx_dns_account_id" ON "dns"("account_id")`,
-		`CREATE INDEX IF NOT EXISTS "idx_dns_group_id" ON "dns"("group_id")`,
-		`CREATE INDEX IF NOT EXISTS "idx_dns_machine_id" ON "dns"("machine_id")`,
-		`CREATE INDEX IF NOT EXISTS "idx_dns_parent_account_id" ON "dns"("parent_account_id")`,
-		`CREATE INDEX IF NOT EXISTS "idx_dns_policy_id" ON "dns"("policy_id")`,
-		`CREATE INDEX IF NOT EXISTS "idx_dns_rule_id" ON "dns"("rule_id")`,
 		`CREATE TABLE IF NOT EXISTS "email_protection" (
 			"id" TEXT PRIMARY KEY,
 			"data" JSON NOT NULL,
@@ -1915,9 +1869,7 @@ func (s *Store) migrate(ctx context.Context) error {
 			"silent_mode" INTEGER,
 			"silent_mode_msg" INTEGER,
 			"st_bundle" INTEGER,
-			"st_plus_bundle" INTEGER,
-			"active_mailboxes" INTEGER,
-			"total_mailboxes" INTEGER
+			"st_plus_bundle" INTEGER
 		)`,
 		`CREATE INDEX IF NOT EXISTS "idx_email_protection_company_id" ON "email_protection"("company_id")`,
 		`CREATE INDEX IF NOT EXISTS "idx_email_protection_incident_id" ON "email_protection"("incident_id")`,
@@ -1991,16 +1943,12 @@ func (s *Store) migrate(ctx context.Context) error {
 			"os_platform" TEXT,
 			"os_release_name" TEXT,
 			"policy_id" TEXT,
-			"account_id" TEXT,
-			"account_name" TEXT,
-			"group_name" TEXT,
-			"total" INTEGER,
-			"value" TEXT,
 			"action_taken" TEXT,
 			"affected_application" TEXT,
 			"auto_removal_at" DATETIME,
 			"category" TEXT,
 			"detection_id" TEXT,
+			"group_name" TEXT,
 			"ip_address" TEXT,
 			"machine_id" TEXT,
 			"machine_name" TEXT,
@@ -2030,6 +1978,10 @@ func (s *Store) migrate(ctx context.Context) error {
 			"started_at" TEXT,
 			"started_at_local" TEXT,
 			"total_count" INTEGER,
+			"account_id" TEXT,
+			"account_name" TEXT,
+			"total" INTEGER,
+			"value" TEXT,
 			"closed" INTEGER,
 			"detected_by_count" INTEGER,
 			"level" INTEGER,
@@ -2038,11 +1990,11 @@ func (s *Store) migrate(ctx context.Context) error {
 		)`,
 		`CREATE INDEX IF NOT EXISTS "idx_endpoints_group_id" ON "endpoints"("group_id")`,
 		`CREATE INDEX IF NOT EXISTS "idx_endpoints_policy_id" ON "endpoints"("policy_id")`,
-		`CREATE INDEX IF NOT EXISTS "idx_endpoints_account_id" ON "endpoints"("account_id")`,
 		`CREATE INDEX IF NOT EXISTS "idx_endpoints_detection_id" ON "endpoints"("detection_id")`,
 		`CREATE INDEX IF NOT EXISTS "idx_endpoints_machine_id" ON "endpoints"("machine_id")`,
 		`CREATE INDEX IF NOT EXISTS "idx_endpoints_scan_id" ON "endpoints"("scan_id")`,
 		`CREATE INDEX IF NOT EXISTS "idx_endpoints_schedule_id" ON "endpoints"("schedule_id")`,
+		`CREATE INDEX IF NOT EXISTS "idx_endpoints_account_id" ON "endpoints"("account_id")`,
 		`CREATE VIRTUAL TABLE IF NOT EXISTS "endpoints_fts" USING fts5(
 			"name",
 			"category",
@@ -2234,203 +2186,60 @@ func (s *Store) migrate(ctx context.Context) error {
 			"id" TEXT PRIMARY KEY,
 			"data" JSON NOT NULL,
 			"synced_at" DATETIME DEFAULT CURRENT_TIMESTAMP,
+			"next_cursor" TEXT,
+			"total_count" INTEGER,
+			"aggregation_next_cursor" TEXT,
+			"after" TEXT,
 			"account_id" TEXT,
 			"account_name" TEXT,
-			"action_source" TEXT,
-			"action_type" TEXT,
-			"document_id" TEXT,
-			"ip_address" TEXT,
-			"logged_at" TEXT,
-			"machine_id" TEXT,
-			"parent_account_id" TEXT,
-			"resource_type" TEXT,
-			"user_email" TEXT,
-			"user_id" TEXT,
-			"user_mode" TEXT,
-			"user_name" TEXT,
-			"next_cursor" TEXT,
-			"ai_category" TEXT,
-			"ai_status" TEXT,
-			"ai_tool" TEXT,
-			"ai_tool_id" TEXT,
-			"ai_tool_provider" TEXT,
-			"alias" TEXT,
-			"domain" TEXT,
-			"first_seen" DATETIME,
+			"action" TEXT,
+			"created_at" DATETIME,
+			"friendly_type" TEXT,
 			"group_id" TEXT,
 			"group_name" TEXT,
-			"host_name" TEXT,
-			"last_seen" DATETIME,
-			"last_user" TEXT,
-			"os_platform" TEXT,
-			"os_type" TEXT,
+			"machine_id" TEXT,
+			"machine_name" TEXT,
+			"online" INTEGER,
+			"parent_account_id" TEXT,
 			"policy_id" TEXT,
 			"policy_name" TEXT,
-			"process_name" TEXT,
-			"query_count" INTEGER,
-			"ai_risk" TEXT,
-			"ai_tier" TEXT,
-			"architecture" TEXT,
-			"created_at" DATETIME,
-			"cves_by_status" TEXT,
-			"cves_count" INTEGER,
-			"cves_count_by_status" TEXT,
-			"cves_score" REAL,
-			"display_installed_version" TEXT,
-			"display_product" TEXT,
-			"display_vendor" TEXT,
-			"domain_name" TEXT,
-			"fully_qualified_host_name" TEXT,
-			"ignored_until" DATETIME,
-			"installation_date" TEXT,
-			"installed_version" TEXT,
-			"language" TEXT,
-			"latest_version_available" TEXT,
-			"normalized_installed_version" TEXT,
-			"normalized_product" TEXT,
-			"normalized_vendor" TEXT,
-			"object_guid" TEXT,
-			"os_info" TEXT,
-			"product" TEXT,
-			"product_signature" INTEGER,
 			"root_group_id" TEXT,
-			"vendor" TEXT,
-			"cisa_exploitable" INTEGER,
-			"cve_id" TEXT,
-			"cvss20_score" REAL,
-			"cvss30_score" REAL,
-			"description" TEXT,
-			"ignored_by" TEXT,
-			"ignored_by_name" TEXT,
-			"ignored_reason" TEXT,
-			"known_ransomware_campaign_use" INTEGER,
-			"published_at" TEXT,
 			"severity" TEXT,
-			"severity_score" REAL,
-			"account" TEXT,
-			"action_taken" TEXT,
-			"affected_application" TEXT,
-			"agent" TEXT,
-			"category" TEXT,
-			"child_trace_count" INTEGER,
-			"cleaned_at" TEXT,
-			"destination_location" TEXT,
-			"detection_id" TEXT,
-			"is_root_detection" INTEGER,
-			"is_rtp_stream_event" INTEGER,
-			"machine_ip" TEXT,
-			"machine_location" TEXT,
-			"machine_name" TEXT,
-			"md5" TEXT,
-			"path" TEXT,
-			"reported_at" TEXT,
-			"resource_created_at" DATETIME,
-			"resource_modified_at" DATETIME,
-			"scan_id" TEXT,
-			"scanned_at" TEXT,
-			"scanned_at_offset_seconds" INTEGER,
-			"sha256" TEXT,
-			"source_location" TEXT,
-			"status" TEXT,
-			"threat_name" TEXT,
-			"trace_id" TEXT,
-			"@timestamp" TEXT,
-			"action" TEXT,
-			"log" TEXT,
-			"rule_id" TEXT,
-			"rule_name" TEXT,
-			"display_name" TEXT,
-			"link" TEXT,
-			"machine_version" INTEGER,
-			"protection_status" TEXT,
-			"friendly_type" TEXT,
-			"online" INTEGER,
 			"source" TEXT,
-			"total_count" INTEGER,
-			"direction" TEXT,
-			"end_time" TEXT,
-			"hits" INTEGER,
-			"location" TEXT,
-			"program" TEXT,
-			"protocol" TEXT,
-			"ruleset_id" TEXT,
-			"ruleset_name" TEXT,
-			"service" TEXT,
-			"start_time" TEXT,
+			"type" TEXT,
 			"correlation_id" TEXT,
-			"endpoint" TEXT,
-			"patch_id" TEXT,
-			"preview_patch" INTEGER,
-			"reboot_required" INTEGER,
-			"released_at" TEXT,
-			"security_update_id" TEXT,
-			"size" REAL,
-			"title" TEXT,
-			"attack_user" TEXT,
-			"attempts" INTEGER,
-			"create_time" TEXT,
-			"duration" INTEGER,
-			"expire_time" TEXT,
-			"ip" TEXT,
-			"parent_id" TEXT,
-			"port" INTEGER,
 			"action_outcome" TEXT,
+			"action_taken" TEXT,
 			"action_user_email" TEXT,
 			"action_user_name" TEXT,
 			"alert_name" TEXT,
 			"attack_category" TEXT,
 			"attack_detection_type" TEXT,
+			"category" TEXT,
 			"city" TEXT,
 			"country" TEXT,
+			"detection_id" INTEGER,
+			"display_name" TEXT,
+			"domain" TEXT,
 			"has_impacted_asset_hostname" INTEGER,
 			"identity_primary_identifier" TEXT,
+			"ip" TEXT,
 			"pid" TEXT,
 			"process_path" TEXT,
+			"status" TEXT,
 			"technique" TEXT,
 			"updated_at" DATETIME
 		)`,
 		`CREATE INDEX IF NOT EXISTS "idx_grid_account_id" ON "grid"("account_id")`,
-		`CREATE INDEX IF NOT EXISTS "idx_grid_document_id" ON "grid"("document_id")`,
+		`CREATE INDEX IF NOT EXISTS "idx_grid_group_id" ON "grid"("group_id")`,
 		`CREATE INDEX IF NOT EXISTS "idx_grid_machine_id" ON "grid"("machine_id")`,
 		`CREATE INDEX IF NOT EXISTS "idx_grid_parent_account_id" ON "grid"("parent_account_id")`,
-		`CREATE INDEX IF NOT EXISTS "idx_grid_user_id" ON "grid"("user_id")`,
-		`CREATE INDEX IF NOT EXISTS "idx_grid_ai_tool_id" ON "grid"("ai_tool_id")`,
-		`CREATE INDEX IF NOT EXISTS "idx_grid_group_id" ON "grid"("group_id")`,
 		`CREATE INDEX IF NOT EXISTS "idx_grid_policy_id" ON "grid"("policy_id")`,
 		`CREATE INDEX IF NOT EXISTS "idx_grid_root_group_id" ON "grid"("root_group_id")`,
-		`CREATE INDEX IF NOT EXISTS "idx_grid_cve_id" ON "grid"("cve_id")`,
-		`CREATE INDEX IF NOT EXISTS "idx_grid_detection_id" ON "grid"("detection_id")`,
-		`CREATE INDEX IF NOT EXISTS "idx_grid_scan_id" ON "grid"("scan_id")`,
-		`CREATE INDEX IF NOT EXISTS "idx_grid_trace_id" ON "grid"("trace_id")`,
-		`CREATE INDEX IF NOT EXISTS "idx_grid_rule_id" ON "grid"("rule_id")`,
-		`CREATE INDEX IF NOT EXISTS "idx_grid_ruleset_id" ON "grid"("ruleset_id")`,
 		`CREATE INDEX IF NOT EXISTS "idx_grid_correlation_id" ON "grid"("correlation_id")`,
-		`CREATE INDEX IF NOT EXISTS "idx_grid_patch_id" ON "grid"("patch_id")`,
-		`CREATE INDEX IF NOT EXISTS "idx_grid_security_update_id" ON "grid"("security_update_id")`,
-		`CREATE INDEX IF NOT EXISTS "idx_grid_parent_id" ON "grid"("parent_id")`,
+		`CREATE INDEX IF NOT EXISTS "idx_grid_detection_id" ON "grid"("detection_id")`,
 		`CREATE INDEX IF NOT EXISTS "idx_grid_created_at" ON "grid"("created_at")`,
 		`CREATE INDEX IF NOT EXISTS "idx_grid_updated_at" ON "grid"("updated_at")`,
-		`CREATE VIRTUAL TABLE IF NOT EXISTS "grid_fts" USING fts5(
-			"description",
-			"category",
-			"title",
-			content='grid',
-			content_rowid='rowid'
-		)`,
-		`CREATE TRIGGER IF NOT EXISTS "grid_ai" AFTER INSERT ON "grid" BEGIN
-			INSERT INTO "grid_fts"(rowid, "description", "category", "title")
-			VALUES (new.rowid,new."description", new."category", new."title");
-		END`,
-		`CREATE TRIGGER IF NOT EXISTS "grid_ad" AFTER DELETE ON "grid" BEGIN
-			INSERT INTO "grid_fts"("grid_fts", rowid, "description", "category", "title")
-			VALUES ('delete', old.rowid,old."description", old."category", old."title");
-		END`,
-		`CREATE TRIGGER IF NOT EXISTS "grid_au" AFTER UPDATE ON "grid" BEGIN
-			INSERT INTO "grid_fts"("grid_fts", rowid, "description", "category", "title")
-			VALUES ('delete', old.rowid,old."description", old."category", old."title");
-			INSERT INTO "grid_fts"(rowid, "description", "category", "title")
-			VALUES (new.rowid,new."description", new."category", new."title");
-		END`,
 		`CREATE TABLE IF NOT EXISTS "groups" (
 			"id" TEXT PRIMARY KEY,
 			"data" JSON NOT NULL,
@@ -2514,67 +2323,17 @@ func (s *Store) migrate(ctx context.Context) error {
 			"id" TEXT PRIMARY KEY,
 			"data" JSON NOT NULL,
 			"synced_at" DATETIME DEFAULT CURRENT_TIMESTAMP,
+			"next_cursor" TEXT,
+			"total_count" INTEGER,
 			"account_id" TEXT,
-			"category" TEXT,
-			"created_at" TEXT,
-			"description" TEXT,
-			"display_name" TEXT,
-			"domain_name" TEXT,
-			"endpoint" TEXT,
+			"account_name" TEXT,
 			"fully_qualified_host_name" TEXT,
-			"group" TEXT,
-			"group_id" TEXT,
 			"group_name" TEXT,
 			"host_name" TEXT,
-			"ignored_until" DATETIME,
-			"machine_id" TEXT,
-			"object_guid" TEXT,
-			"os_info" TEXT,
-			"parent_account_id" TEXT,
-			"patch_id" TEXT,
-			"preview_patch" INTEGER,
-			"product" TEXT,
-			"reboot_required" INTEGER,
-			"released_at" TEXT,
-			"root_group_id" TEXT,
-			"security_update_id" TEXT,
-			"severity" TEXT,
-			"size" REAL,
-			"title" TEXT,
-			"vendor" TEXT,
-			"account_name" TEXT,
 			"total" INTEGER,
 			"value" TEXT
 		)`,
 		`CREATE INDEX IF NOT EXISTS "idx_os_patches_account_id" ON "os_patches"("account_id")`,
-		`CREATE INDEX IF NOT EXISTS "idx_os_patches_group_id" ON "os_patches"("group_id")`,
-		`CREATE INDEX IF NOT EXISTS "idx_os_patches_machine_id" ON "os_patches"("machine_id")`,
-		`CREATE INDEX IF NOT EXISTS "idx_os_patches_parent_account_id" ON "os_patches"("parent_account_id")`,
-		`CREATE INDEX IF NOT EXISTS "idx_os_patches_patch_id" ON "os_patches"("patch_id")`,
-		`CREATE INDEX IF NOT EXISTS "idx_os_patches_root_group_id" ON "os_patches"("root_group_id")`,
-		`CREATE INDEX IF NOT EXISTS "idx_os_patches_security_update_id" ON "os_patches"("security_update_id")`,
-		`CREATE INDEX IF NOT EXISTS "idx_os_patches_created_at" ON "os_patches"("created_at")`,
-		`CREATE VIRTUAL TABLE IF NOT EXISTS "os_patches_fts" USING fts5(
-			"category",
-			"description",
-			"title",
-			content='os_patches',
-			content_rowid='rowid'
-		)`,
-		`CREATE TRIGGER IF NOT EXISTS "os_patches_ai" AFTER INSERT ON "os_patches" BEGIN
-			INSERT INTO "os_patches_fts"(rowid, "category", "description", "title")
-			VALUES (new.rowid,new."category", new."description", new."title");
-		END`,
-		`CREATE TRIGGER IF NOT EXISTS "os_patches_ad" AFTER DELETE ON "os_patches" BEGIN
-			INSERT INTO "os_patches_fts"("os_patches_fts", rowid, "category", "description", "title")
-			VALUES ('delete', old.rowid,old."category", old."description", old."title");
-		END`,
-		`CREATE TRIGGER IF NOT EXISTS "os_patches_au" AFTER UPDATE ON "os_patches" BEGIN
-			INSERT INTO "os_patches_fts"("os_patches_fts", rowid, "category", "description", "title")
-			VALUES ('delete', old.rowid,old."category", old."description", old."title");
-			INSERT INTO "os_patches_fts"(rowid, "category", "description", "title")
-			VALUES (new.rowid,new."category", new."description", new."title");
-		END`,
 		`CREATE TABLE IF NOT EXISTS "policies" (
 			"id" TEXT PRIMARY KEY,
 			"data" JSON NOT NULL,
@@ -2745,23 +2504,10 @@ func (s *Store) migrate(ctx context.Context) error {
 			"id" TEXT PRIMARY KEY,
 			"data" JSON NOT NULL,
 			"synced_at" DATETIME DEFAULT CURRENT_TIMESTAMP,
+			"next_cursor" TEXT,
+			"total_count" INTEGER,
 			"account_id" TEXT,
 			"account_name" TEXT,
-			"attack_user" TEXT,
-			"attempts" INTEGER,
-			"create_time" TEXT,
-			"deleted" INTEGER,
-			"duration" INTEGER,
-			"expire_time" TEXT,
-			"group_id" TEXT,
-			"ip" TEXT,
-			"machine_id" TEXT,
-			"machine_name" TEXT,
-			"parent_id" TEXT,
-			"port" INTEGER,
-			"protocol" TEXT,
-			"root_group_id" TEXT,
-			"rule_id" TEXT,
 			"fully_qualified_host_name" TEXT,
 			"group_name" TEXT,
 			"host_name" TEXT,
@@ -2769,11 +2515,6 @@ func (s *Store) migrate(ctx context.Context) error {
 			"value" TEXT
 		)`,
 		`CREATE INDEX IF NOT EXISTS "idx_rid_account_id" ON "rid"("account_id")`,
-		`CREATE INDEX IF NOT EXISTS "idx_rid_group_id" ON "rid"("group_id")`,
-		`CREATE INDEX IF NOT EXISTS "idx_rid_machine_id" ON "rid"("machine_id")`,
-		`CREATE INDEX IF NOT EXISTS "idx_rid_parent_id" ON "rid"("parent_id")`,
-		`CREATE INDEX IF NOT EXISTS "idx_rid_root_group_id" ON "rid"("root_group_id")`,
-		`CREATE INDEX IF NOT EXISTS "idx_rid_rule_id" ON "rid"("rule_id")`,
 		`CREATE TABLE IF NOT EXISTS "schedules" (
 			"id" TEXT PRIMARY KEY,
 			"data" JSON NOT NULL,
@@ -2793,14 +2534,13 @@ func (s *Store) migrate(ctx context.Context) error {
 			"id" TEXT PRIMARY KEY,
 			"data" JSON NOT NULL,
 			"synced_at" DATETIME DEFAULT CURRENT_TIMESTAMP,
-			"email" TEXT,
-			"firstname" TEXT,
-			"lastname" TEXT,
-			"roles" TEXT,
 			"account_id" TEXT,
 			"account_status" TEXT,
 			"cloud_evaluation" INTEGER,
 			"company_name" TEXT,
+			"email" TEXT,
+			"firstname" TEXT,
+			"lastname" TEXT,
 			"site_end_date" TEXT,
 			"consent" INTEGER,
 			"endpoint_isolation" INTEGER,
@@ -2817,56 +2557,17 @@ func (s *Store) migrate(ctx context.Context) error {
 			"id" TEXT PRIMARY KEY,
 			"data" JSON NOT NULL,
 			"synced_at" DATETIME DEFAULT CURRENT_TIMESTAMP,
+			"next_cursor" TEXT,
+			"total_count" INTEGER,
 			"account_id" TEXT,
 			"account_name" TEXT,
-			"ai_category" TEXT,
-			"ai_risk" TEXT,
-			"ai_status" TEXT,
-			"ai_tier" TEXT,
-			"ai_tool" TEXT,
-			"alias" TEXT,
-			"architecture" TEXT,
-			"created_at" TEXT,
-			"cves_by_status" TEXT,
-			"cves_count" INTEGER,
-			"cves_count_by_status" TEXT,
-			"cves_score" REAL,
-			"display_installed_version" TEXT,
-			"display_product" TEXT,
-			"display_vendor" TEXT,
-			"domain_name" TEXT,
 			"fully_qualified_host_name" TEXT,
-			"group_id" TEXT,
 			"group_name" TEXT,
 			"host_name" TEXT,
-			"ignored_until" DATETIME,
-			"installation_date" TEXT,
-			"installed_version" TEXT,
-			"language" TEXT,
-			"latest_version_available" TEXT,
-			"machine_id" TEXT,
-			"normalized_installed_version" TEXT,
-			"normalized_product" TEXT,
-			"normalized_vendor" TEXT,
-			"object_guid" TEXT,
-			"os_info" TEXT,
-			"parent_account_id" TEXT,
-			"policy_id" TEXT,
-			"policy_name" TEXT,
-			"product" TEXT,
-			"product_signature" INTEGER,
-			"root_group_id" TEXT,
-			"vendor" TEXT,
 			"total" INTEGER,
 			"value" TEXT
 		)`,
 		`CREATE INDEX IF NOT EXISTS "idx_software_account_id" ON "software"("account_id")`,
-		`CREATE INDEX IF NOT EXISTS "idx_software_group_id" ON "software"("group_id")`,
-		`CREATE INDEX IF NOT EXISTS "idx_software_machine_id" ON "software"("machine_id")`,
-		`CREATE INDEX IF NOT EXISTS "idx_software_parent_account_id" ON "software"("parent_account_id")`,
-		`CREATE INDEX IF NOT EXISTS "idx_software_policy_id" ON "software"("policy_id")`,
-		`CREATE INDEX IF NOT EXISTS "idx_software_root_group_id" ON "software"("root_group_id")`,
-		`CREATE INDEX IF NOT EXISTS "idx_software_created_at" ON "software"("created_at")`,
 		`CREATE TABLE IF NOT EXISTS "subscriptions" (
 			"id" TEXT PRIMARY KEY,
 			"data" JSON NOT NULL,
@@ -2884,17 +2585,13 @@ func (s *Store) migrate(ctx context.Context) error {
 			"reset_count" TEXT,
 			"status" TEXT,
 			"term_ends_on" TEXT,
+			"version" TEXT,
 			"volume_purchased" INTEGER,
 			"volume_used" INTEGER,
 			"is_nfr_allowed" INTEGER,
-			"version" TEXT,
 			"timestamp" TEXT,
 			"auto_convert_trial_to_paid" INTEGER,
-			"machine_type" TEXT,
-			"code" TEXT,
-			"name" TEXT,
-			"volume_allocated" INTEGER,
-			"volume_available" INTEGER
+			"machine_type" TEXT
 		)`,
 		`CREATE TABLE IF NOT EXISTS "suspicious_activity" (
 			"id" TEXT PRIMARY KEY,
@@ -2920,7 +2617,6 @@ func (s *Store) migrate(ctx context.Context) error {
 			"id" TEXT PRIMARY KEY,
 			"data" JSON NOT NULL,
 			"synced_at" DATETIME DEFAULT CURRENT_TIMESTAMP,
-			"enabled" INTEGER,
 			"account_id" TEXT,
 			"format" TEXT,
 			"host" TEXT,
@@ -3656,6 +3352,13 @@ func (s *Store) mergeIncomingResourceData(tx *sql.Tx, resourceType, id string, i
 	if resourceType == "installers" {
 		return json.RawMessage(`{}`)
 	}
+	// hand-fix (handfixes.json fleet-sync-mirrors-the-console): fleet sync's
+	// rows are the console's whole record and replace the stored one; merging
+	// kept a field the console had cleared (a site's account_id).
+	if s.replacing(resourceType) {
+		redacted, _ := cliutil.RedactSecretFields(incoming)
+		return redacted
+	}
 	redacted, _ := cliutil.RedactSecretFields(s.mergeIncomingResourceDataRaw(tx, resourceType, id, incoming))
 	return redacted
 }
@@ -3977,6 +3680,13 @@ func (s *Store) TypedListScan(resourceType string, fn func(id string, data json.
 }
 
 func (s *Store) Search(query string, limit int, resourceTypes ...string) ([]json.RawMessage, error) {
+	return s.SearchContext(context.Background(), query, limit, resourceTypes...)
+}
+
+func (s *Store) SearchContext(ctx context.Context, query string, limit int, resourceTypes ...string) ([]json.RawMessage, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	if limit <= 0 {
 		limit = 50
 	}
@@ -4030,7 +3740,7 @@ func (s *Store) Search(query string, limit int, resourceTypes ...string) ([]json
 			args = []any{matchQuery, limit}
 		}
 	}
-	rows, err := s.db.Query(q, args...)
+	rows, err := s.db.QueryContext(ctx, q, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -5252,44 +4962,37 @@ func (s *Store) UpsertCve(data json.RawMessage) error {
 // domain inserts per item without opening a per-item transaction.
 func (s *Store) upsertDetectionsTx(tx *sql.Tx, id string, obj map[string]any, data json.RawMessage) error {
 	if _, err := tx.Exec(
-		`INSERT INTO "detections" ("id", "data", "synced_at", "account", "account_id", "action_taken", "affected_application", "agent", "category", "child_trace_count", "cleaned_at", "destination_location", "detection_id", "group_id", "is_root_detection", "is_rtp_stream_event", "last_user", "machine_id", "machine_ip", "machine_location", "machine_name", "md5", "path", "process_name", "reported_at", "resource_created_at", "resource_modified_at", "scan_id", "scanned_at", "scanned_at_offset_seconds", "sha256", "source_location", "status", "threat_name", "trace_id")
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-		 ON CONFLICT("id") DO UPDATE SET "data" = excluded."data", "synced_at" = excluded."synced_at", "account" = excluded."account", "account_id" = excluded."account_id", "action_taken" = excluded."action_taken", "affected_application" = excluded."affected_application", "agent" = excluded."agent", "category" = excluded."category", "child_trace_count" = excluded."child_trace_count", "cleaned_at" = excluded."cleaned_at", "destination_location" = excluded."destination_location", "detection_id" = excluded."detection_id", "group_id" = excluded."group_id", "is_root_detection" = excluded."is_root_detection", "is_rtp_stream_event" = excluded."is_rtp_stream_event", "last_user" = excluded."last_user", "machine_id" = excluded."machine_id", "machine_ip" = excluded."machine_ip", "machine_location" = excluded."machine_location", "machine_name" = excluded."machine_name", "md5" = excluded."md5", "path" = excluded."path", "process_name" = excluded."process_name", "reported_at" = excluded."reported_at", "resource_created_at" = excluded."resource_created_at", "resource_modified_at" = excluded."resource_modified_at", "scan_id" = excluded."scan_id", "scanned_at" = excluded."scanned_at", "scanned_at_offset_seconds" = excluded."scanned_at_offset_seconds", "sha256" = excluded."sha256", "source_location" = excluded."source_location", "status" = excluded."status", "threat_name" = excluded."threat_name", "trace_id" = excluded."trace_id"`,
+		`INSERT INTO "detections" ("id", "data", "synced_at", "action_taken", "affected_application", "auto_removal_at", "category", "detection_id", "group_id", "group_name", "ip_address", "machine_id", "machine_name", "md5", "path", "policy_id", "policy_name", "port", "process_name", "reported_at", "resource_created_at", "resource_modified_at", "scan_id", "scanned_at", "scanned_at_local", "status", "threat_name", "url")
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		 ON CONFLICT("id") DO UPDATE SET "data" = excluded."data", "synced_at" = excluded."synced_at", "action_taken" = excluded."action_taken", "affected_application" = excluded."affected_application", "auto_removal_at" = excluded."auto_removal_at", "category" = excluded."category", "detection_id" = excluded."detection_id", "group_id" = excluded."group_id", "group_name" = excluded."group_name", "ip_address" = excluded."ip_address", "machine_id" = excluded."machine_id", "machine_name" = excluded."machine_name", "md5" = excluded."md5", "path" = excluded."path", "policy_id" = excluded."policy_id", "policy_name" = excluded."policy_name", "port" = excluded."port", "process_name" = excluded."process_name", "reported_at" = excluded."reported_at", "resource_created_at" = excluded."resource_created_at", "resource_modified_at" = excluded."resource_modified_at", "scan_id" = excluded."scan_id", "scanned_at" = excluded."scanned_at", "scanned_at_local" = excluded."scanned_at_local", "status" = excluded."status", "threat_name" = excluded."threat_name", "url" = excluded."url"`,
 		id,
 		string(data),
 		time.Now().UTC().Format(time.RFC3339),
-		lookupFieldValue(obj, "account"),
-		lookupFieldValue(obj, "account_id"),
 		lookupFieldValue(obj, "action_taken"),
 		lookupFieldValue(obj, "affected_application"),
-		lookupFieldValue(obj, "agent"),
+		lookupFieldValue(obj, "auto_removal_at"),
 		lookupFieldValue(obj, "category"),
-		lookupFieldValue(obj, "child_trace_count"),
-		lookupFieldValue(obj, "cleaned_at"),
-		lookupFieldValue(obj, "destination_location"),
 		lookupFieldValue(obj, "detection_id"),
 		lookupFieldValue(obj, "group_id"),
-		lookupFieldValue(obj, "is_root_detection"),
-		lookupFieldValue(obj, "is_rtp_stream_event"),
-		lookupFieldValue(obj, "last_user"),
+		lookupFieldValue(obj, "group_name"),
+		lookupFieldValue(obj, "ip_address"),
 		lookupFieldValue(obj, "machine_id"),
-		lookupFieldValue(obj, "machine_ip"),
-		lookupFieldValue(obj, "machine_location"),
 		lookupFieldValue(obj, "machine_name"),
 		lookupFieldValue(obj, "md5"),
 		lookupFieldValue(obj, "path"),
+		lookupFieldValue(obj, "policy_id"),
+		lookupFieldValue(obj, "policy_name"),
+		lookupFieldValue(obj, "port"),
 		lookupFieldValue(obj, "process_name"),
 		lookupFieldValue(obj, "reported_at"),
 		lookupFieldValue(obj, "resource_created_at"),
 		lookupFieldValue(obj, "resource_modified_at"),
 		lookupFieldValue(obj, "scan_id"),
 		lookupFieldValue(obj, "scanned_at"),
-		lookupFieldValue(obj, "scanned_at_offset_seconds"),
-		lookupFieldValue(obj, "sha256"),
-		lookupFieldValue(obj, "source_location"),
+		lookupFieldValue(obj, "scanned_at_local"),
 		lookupFieldValue(obj, "status"),
 		lookupFieldValue(obj, "threat_name"),
-		lookupFieldValue(obj, "trace_id"),
+		lookupFieldValue(obj, "url"),
 	); err != nil {
 		return fmt.Errorf("insert into detections: %w", err)
 	}
@@ -5340,9 +5043,9 @@ func (s *Store) UpsertDetections(data json.RawMessage) error {
 // domain inserts per item without opening a per-item transaction.
 func (s *Store) upsertDeviceControlTx(tx *sql.Tx, id string, obj map[string]any, data json.RawMessage) error {
 	if _, err := tx.Exec(
-		`INSERT INTO "device_control" ("id", "data", "synced_at", "account_level", "comment", "created_at", "created_by", "enabled", "product", "serial", "type", "updated_at", "updated_by", "value", "vendor", "parent_id")
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-		 ON CONFLICT("id") DO UPDATE SET "data" = excluded."data", "synced_at" = excluded."synced_at", "account_level" = excluded."account_level", "comment" = excluded."comment", "created_at" = excluded."created_at", "created_by" = excluded."created_by", "enabled" = excluded."enabled", "product" = excluded."product", "serial" = excluded."serial", "type" = excluded."type", "updated_at" = excluded."updated_at", "updated_by" = excluded."updated_by", "value" = excluded."value", "vendor" = excluded."vendor", "parent_id" = excluded."parent_id"`,
+		`INSERT INTO "device_control" ("id", "data", "synced_at", "account_level", "comment", "created_at", "created_by", "enabled", "product", "serial", "type", "updated_at", "updated_by", "value", "vendor", "account", "account_id", "action_taken", "affected_application", "agent", "category", "child_trace_count", "cleaned_at", "destination_location", "detection_id", "group_id", "is_root_detection", "is_rtp_stream_event", "last_user", "machine_id", "machine_ip", "machine_location", "machine_name", "md5", "path", "process_name", "reported_at", "scan_id", "scanned_at", "scanned_at_offset_seconds", "sha256", "source_location", "status", "threat_name", "trace_id", "parent_id")
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		 ON CONFLICT("id") DO UPDATE SET "data" = excluded."data", "synced_at" = excluded."synced_at", "account_level" = excluded."account_level", "comment" = excluded."comment", "created_at" = excluded."created_at", "created_by" = excluded."created_by", "enabled" = excluded."enabled", "product" = excluded."product", "serial" = excluded."serial", "type" = excluded."type", "updated_at" = excluded."updated_at", "updated_by" = excluded."updated_by", "value" = excluded."value", "vendor" = excluded."vendor", "account" = excluded."account", "account_id" = excluded."account_id", "action_taken" = excluded."action_taken", "affected_application" = excluded."affected_application", "agent" = excluded."agent", "category" = excluded."category", "child_trace_count" = excluded."child_trace_count", "cleaned_at" = excluded."cleaned_at", "destination_location" = excluded."destination_location", "detection_id" = excluded."detection_id", "group_id" = excluded."group_id", "is_root_detection" = excluded."is_root_detection", "is_rtp_stream_event" = excluded."is_rtp_stream_event", "last_user" = excluded."last_user", "machine_id" = excluded."machine_id", "machine_ip" = excluded."machine_ip", "machine_location" = excluded."machine_location", "machine_name" = excluded."machine_name", "md5" = excluded."md5", "path" = excluded."path", "process_name" = excluded."process_name", "reported_at" = excluded."reported_at", "scan_id" = excluded."scan_id", "scanned_at" = excluded."scanned_at", "scanned_at_offset_seconds" = excluded."scanned_at_offset_seconds", "sha256" = excluded."sha256", "source_location" = excluded."source_location", "status" = excluded."status", "threat_name" = excluded."threat_name", "trace_id" = excluded."trace_id", "parent_id" = excluded."parent_id"`,
 		id,
 		string(data),
 		time.Now().UTC().Format(time.RFC3339),
@@ -5358,6 +5061,36 @@ func (s *Store) upsertDeviceControlTx(tx *sql.Tx, id string, obj map[string]any,
 		lookupFieldValue(obj, "updated_by"),
 		lookupFieldValue(obj, "value"),
 		lookupFieldValue(obj, "vendor"),
+		lookupFieldValue(obj, "account"),
+		lookupFieldValue(obj, "account_id"),
+		lookupFieldValue(obj, "action_taken"),
+		lookupFieldValue(obj, "affected_application"),
+		lookupFieldValue(obj, "agent"),
+		lookupFieldValue(obj, "category"),
+		lookupFieldValue(obj, "child_trace_count"),
+		lookupFieldValue(obj, "cleaned_at"),
+		lookupFieldValue(obj, "destination_location"),
+		lookupFieldValue(obj, "detection_id"),
+		lookupFieldValue(obj, "group_id"),
+		lookupFieldValue(obj, "is_root_detection"),
+		lookupFieldValue(obj, "is_rtp_stream_event"),
+		lookupFieldValue(obj, "last_user"),
+		lookupFieldValue(obj, "machine_id"),
+		lookupFieldValue(obj, "machine_ip"),
+		lookupFieldValue(obj, "machine_location"),
+		lookupFieldValue(obj, "machine_name"),
+		lookupFieldValue(obj, "md5"),
+		lookupFieldValue(obj, "path"),
+		lookupFieldValue(obj, "process_name"),
+		lookupFieldValue(obj, "reported_at"),
+		lookupFieldValue(obj, "scan_id"),
+		lookupFieldValue(obj, "scanned_at"),
+		lookupFieldValue(obj, "scanned_at_offset_seconds"),
+		lookupFieldValue(obj, "sha256"),
+		lookupFieldValue(obj, "source_location"),
+		lookupFieldValue(obj, "status"),
+		lookupFieldValue(obj, "threat_name"),
+		lookupFieldValue(obj, "trace_id"),
 		lookupFieldValue(obj, "parent_id"),
 	); err != nil {
 		return fmt.Errorf("insert into device_control: %w", err)
@@ -5409,25 +5142,14 @@ func (s *Store) UpsertDeviceControl(data json.RawMessage) error {
 // domain inserts per item without opening a per-item transaction.
 func (s *Store) upsertDnsTx(tx *sql.Tx, id string, obj map[string]any, data json.RawMessage) error {
 	if _, err := tx.Exec(
-		`INSERT INTO "dns" ("id", "data", "synced_at", "@timestamp", "account_id", "action", "group_id", "group_name", "log", "machine_id", "parent_account_id", "policy_id", "policy_name", "rule_id", "rule_name", "next_cursor")
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-		 ON CONFLICT("id") DO UPDATE SET "data" = excluded."data", "synced_at" = excluded."synced_at", "@timestamp" = excluded."@timestamp", "account_id" = excluded."account_id", "action" = excluded."action", "group_id" = excluded."group_id", "group_name" = excluded."group_name", "log" = excluded."log", "machine_id" = excluded."machine_id", "parent_account_id" = excluded."parent_account_id", "policy_id" = excluded."policy_id", "policy_name" = excluded."policy_name", "rule_id" = excluded."rule_id", "rule_name" = excluded."rule_name", "next_cursor" = excluded."next_cursor"`,
+		`INSERT INTO "dns" ("id", "data", "synced_at", "next_cursor", "total_count")
+		 VALUES (?, ?, ?, ?, ?)
+		 ON CONFLICT("id") DO UPDATE SET "data" = excluded."data", "synced_at" = excluded."synced_at", "next_cursor" = excluded."next_cursor", "total_count" = excluded."total_count"`,
 		id,
 		string(data),
 		time.Now().UTC().Format(time.RFC3339),
-		lookupFieldValue(obj, "@timestamp"),
-		lookupFieldValue(obj, "account_id"),
-		lookupFieldValue(obj, "action"),
-		lookupFieldValue(obj, "group_id"),
-		lookupFieldValue(obj, "group_name"),
-		lookupFieldValue(obj, "log"),
-		lookupFieldValue(obj, "machine_id"),
-		lookupFieldValue(obj, "parent_account_id"),
-		lookupFieldValue(obj, "policy_id"),
-		lookupFieldValue(obj, "policy_name"),
-		lookupFieldValue(obj, "rule_id"),
-		lookupFieldValue(obj, "rule_name"),
 		lookupFieldValue(obj, "next_cursor"),
+		lookupFieldValue(obj, "total_count"),
 	); err != nil {
 		return fmt.Errorf("insert into dns: %w", err)
 	}
@@ -5478,9 +5200,9 @@ func (s *Store) UpsertDns(data json.RawMessage) error {
 // domain inserts per item without opening a per-item transaction.
 func (s *Store) upsertEmailProtectionTx(tx *sql.Tx, id string, obj map[string]any, data json.RawMessage) error {
 	if _, err := tx.Exec(
-		`INSERT INTO "email_protection" ("id", "data", "synced_at", "email", "enabled_mailboxes_count", "failed_mailboxes_count", "in_progress", "last_synced_at", "mailboxes_total_count", "protected_mailboxes_count", "country", "domain", "is_msp", "last_mailbox_sync_date", "name", "owner_email", "owner_name", "registration_date", "test_mode", "advisor_probability", "advisor_verdict", "affected_mailbox_count", "banner_displayed", "can_revert", "challenge_reason", "challenged_by", "challenged_comment", "challenged_date", "challenged_type", "classification", "company_id", "company_name", "email_body_text", "first_challenged_date", "first_reported_by", "first_reported_date", "incident_id", "is_reclassified", "original_cluster_incident_id", "original_email_body", "reply_to", "reported_by_end_user", "reporter_name", "revert_blocked_reason", "sender_email", "sender_is_internal", "sender_reputation", "spf_result", "advisor", "ai_empower_bundle", "api", "ato", "attachments_scan", "autopilot_enabled", "awareness_training", "links_scan", "service_management", "silent_mode", "silent_mode_msg", "st_bundle", "st_plus_bundle", "active_mailboxes", "total_mailboxes")
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-		 ON CONFLICT("id") DO UPDATE SET "data" = excluded."data", "synced_at" = excluded."synced_at", "email" = excluded."email", "enabled_mailboxes_count" = excluded."enabled_mailboxes_count", "failed_mailboxes_count" = excluded."failed_mailboxes_count", "in_progress" = excluded."in_progress", "last_synced_at" = excluded."last_synced_at", "mailboxes_total_count" = excluded."mailboxes_total_count", "protected_mailboxes_count" = excluded."protected_mailboxes_count", "country" = excluded."country", "domain" = excluded."domain", "is_msp" = excluded."is_msp", "last_mailbox_sync_date" = excluded."last_mailbox_sync_date", "name" = excluded."name", "owner_email" = excluded."owner_email", "owner_name" = excluded."owner_name", "registration_date" = excluded."registration_date", "test_mode" = excluded."test_mode", "advisor_probability" = excluded."advisor_probability", "advisor_verdict" = excluded."advisor_verdict", "affected_mailbox_count" = excluded."affected_mailbox_count", "banner_displayed" = excluded."banner_displayed", "can_revert" = excluded."can_revert", "challenge_reason" = excluded."challenge_reason", "challenged_by" = excluded."challenged_by", "challenged_comment" = excluded."challenged_comment", "challenged_date" = excluded."challenged_date", "challenged_type" = excluded."challenged_type", "classification" = excluded."classification", "company_id" = excluded."company_id", "company_name" = excluded."company_name", "email_body_text" = excluded."email_body_text", "first_challenged_date" = excluded."first_challenged_date", "first_reported_by" = excluded."first_reported_by", "first_reported_date" = excluded."first_reported_date", "incident_id" = excluded."incident_id", "is_reclassified" = excluded."is_reclassified", "original_cluster_incident_id" = excluded."original_cluster_incident_id", "original_email_body" = excluded."original_email_body", "reply_to" = excluded."reply_to", "reported_by_end_user" = excluded."reported_by_end_user", "reporter_name" = excluded."reporter_name", "revert_blocked_reason" = excluded."revert_blocked_reason", "sender_email" = excluded."sender_email", "sender_is_internal" = excluded."sender_is_internal", "sender_reputation" = excluded."sender_reputation", "spf_result" = excluded."spf_result", "advisor" = excluded."advisor", "ai_empower_bundle" = excluded."ai_empower_bundle", "api" = excluded."api", "ato" = excluded."ato", "attachments_scan" = excluded."attachments_scan", "autopilot_enabled" = excluded."autopilot_enabled", "awareness_training" = excluded."awareness_training", "links_scan" = excluded."links_scan", "service_management" = excluded."service_management", "silent_mode" = excluded."silent_mode", "silent_mode_msg" = excluded."silent_mode_msg", "st_bundle" = excluded."st_bundle", "st_plus_bundle" = excluded."st_plus_bundle", "active_mailboxes" = excluded."active_mailboxes", "total_mailboxes" = excluded."total_mailboxes"`,
+		`INSERT INTO "email_protection" ("id", "data", "synced_at", "email", "enabled_mailboxes_count", "failed_mailboxes_count", "in_progress", "last_synced_at", "mailboxes_total_count", "protected_mailboxes_count", "country", "domain", "is_msp", "last_mailbox_sync_date", "name", "owner_email", "owner_name", "registration_date", "test_mode", "advisor_probability", "advisor_verdict", "affected_mailbox_count", "banner_displayed", "can_revert", "challenge_reason", "challenged_by", "challenged_comment", "challenged_date", "challenged_type", "classification", "company_id", "company_name", "email_body_text", "first_challenged_date", "first_reported_by", "first_reported_date", "incident_id", "is_reclassified", "original_cluster_incident_id", "original_email_body", "reply_to", "reported_by_end_user", "reporter_name", "revert_blocked_reason", "sender_email", "sender_is_internal", "sender_reputation", "spf_result", "advisor", "ai_empower_bundle", "api", "ato", "attachments_scan", "autopilot_enabled", "awareness_training", "links_scan", "service_management", "silent_mode", "silent_mode_msg", "st_bundle", "st_plus_bundle")
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		 ON CONFLICT("id") DO UPDATE SET "data" = excluded."data", "synced_at" = excluded."synced_at", "email" = excluded."email", "enabled_mailboxes_count" = excluded."enabled_mailboxes_count", "failed_mailboxes_count" = excluded."failed_mailboxes_count", "in_progress" = excluded."in_progress", "last_synced_at" = excluded."last_synced_at", "mailboxes_total_count" = excluded."mailboxes_total_count", "protected_mailboxes_count" = excluded."protected_mailboxes_count", "country" = excluded."country", "domain" = excluded."domain", "is_msp" = excluded."is_msp", "last_mailbox_sync_date" = excluded."last_mailbox_sync_date", "name" = excluded."name", "owner_email" = excluded."owner_email", "owner_name" = excluded."owner_name", "registration_date" = excluded."registration_date", "test_mode" = excluded."test_mode", "advisor_probability" = excluded."advisor_probability", "advisor_verdict" = excluded."advisor_verdict", "affected_mailbox_count" = excluded."affected_mailbox_count", "banner_displayed" = excluded."banner_displayed", "can_revert" = excluded."can_revert", "challenge_reason" = excluded."challenge_reason", "challenged_by" = excluded."challenged_by", "challenged_comment" = excluded."challenged_comment", "challenged_date" = excluded."challenged_date", "challenged_type" = excluded."challenged_type", "classification" = excluded."classification", "company_id" = excluded."company_id", "company_name" = excluded."company_name", "email_body_text" = excluded."email_body_text", "first_challenged_date" = excluded."first_challenged_date", "first_reported_by" = excluded."first_reported_by", "first_reported_date" = excluded."first_reported_date", "incident_id" = excluded."incident_id", "is_reclassified" = excluded."is_reclassified", "original_cluster_incident_id" = excluded."original_cluster_incident_id", "original_email_body" = excluded."original_email_body", "reply_to" = excluded."reply_to", "reported_by_end_user" = excluded."reported_by_end_user", "reporter_name" = excluded."reporter_name", "revert_blocked_reason" = excluded."revert_blocked_reason", "sender_email" = excluded."sender_email", "sender_is_internal" = excluded."sender_is_internal", "sender_reputation" = excluded."sender_reputation", "spf_result" = excluded."spf_result", "advisor" = excluded."advisor", "ai_empower_bundle" = excluded."ai_empower_bundle", "api" = excluded."api", "ato" = excluded."ato", "attachments_scan" = excluded."attachments_scan", "autopilot_enabled" = excluded."autopilot_enabled", "awareness_training" = excluded."awareness_training", "links_scan" = excluded."links_scan", "service_management" = excluded."service_management", "silent_mode" = excluded."silent_mode", "silent_mode_msg" = excluded."silent_mode_msg", "st_bundle" = excluded."st_bundle", "st_plus_bundle" = excluded."st_plus_bundle"`,
 		id,
 		string(data),
 		time.Now().UTC().Format(time.RFC3339),
@@ -5542,8 +5264,6 @@ func (s *Store) upsertEmailProtectionTx(tx *sql.Tx, id string, obj map[string]an
 		lookupFieldValue(obj, "silent_mode_msg"),
 		lookupFieldValue(obj, "st_bundle"),
 		lookupFieldValue(obj, "st_plus_bundle"),
-		lookupFieldValue(obj, "active_mailboxes"),
-		lookupFieldValue(obj, "total_mailboxes"),
 	); err != nil {
 		return fmt.Errorf("insert into email_protection: %w", err)
 	}
@@ -5679,9 +5399,9 @@ func (s *Store) UpsertEndpointJobs(data json.RawMessage) error {
 // domain inserts per item without opening a per-item transaction.
 func (s *Store) upsertEndpointsTx(tx *sql.Tx, id string, obj map[string]any, data json.RawMessage) error {
 	if _, err := tx.Exec(
-		`INSERT INTO "endpoints" ("id", "data", "synced_at", "agent_info_last_updated_at", "dhcp_scope_name", "domain_name", "engine_version", "fully_qualified_host_name", "has_alerts", "host_name", "last_seen_at", "last_user", "policy_etag", "culture", "object_guid", "object_sid", "plugin_version", "time_zone", "url", "group_id", "is_deleted", "name", "online", "os_architecture", "os_platform", "os_release_name", "policy_id", "account_id", "account_name", "group_name", "total", "value", "action_taken", "affected_application", "auto_removal_at", "category", "detection_id", "ip_address", "machine_id", "machine_name", "md5", "path", "policy_name", "port", "process_name", "reported_at", "resource_created_at", "resource_modified_at", "scan_id", "scanned_at", "scanned_at_local", "status", "threat_name", "command_line", "deleted_count", "duration_seconds", "found_count", "from_cloud", "ondemand", "quarantined_count", "scan_type", "schedule_id", "schedule_name", "started_at", "started_at_local", "total_count", "closed", "detected_by_count", "level", "pc_hostname", "timestamp")
+		`INSERT INTO "endpoints" ("id", "data", "synced_at", "agent_info_last_updated_at", "dhcp_scope_name", "domain_name", "engine_version", "fully_qualified_host_name", "has_alerts", "host_name", "last_seen_at", "last_user", "policy_etag", "culture", "object_guid", "object_sid", "plugin_version", "time_zone", "url", "group_id", "is_deleted", "name", "online", "os_architecture", "os_platform", "os_release_name", "policy_id", "action_taken", "affected_application", "auto_removal_at", "category", "detection_id", "group_name", "ip_address", "machine_id", "machine_name", "md5", "path", "policy_name", "port", "process_name", "reported_at", "resource_created_at", "resource_modified_at", "scan_id", "scanned_at", "scanned_at_local", "status", "threat_name", "command_line", "deleted_count", "duration_seconds", "found_count", "from_cloud", "ondemand", "quarantined_count", "scan_type", "schedule_id", "schedule_name", "started_at", "started_at_local", "total_count", "account_id", "account_name", "total", "value", "closed", "detected_by_count", "level", "pc_hostname", "timestamp")
 		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-		 ON CONFLICT("id") DO UPDATE SET "data" = excluded."data", "synced_at" = excluded."synced_at", "agent_info_last_updated_at" = excluded."agent_info_last_updated_at", "dhcp_scope_name" = excluded."dhcp_scope_name", "domain_name" = excluded."domain_name", "engine_version" = excluded."engine_version", "fully_qualified_host_name" = excluded."fully_qualified_host_name", "has_alerts" = excluded."has_alerts", "host_name" = excluded."host_name", "last_seen_at" = excluded."last_seen_at", "last_user" = excluded."last_user", "policy_etag" = excluded."policy_etag", "culture" = excluded."culture", "object_guid" = excluded."object_guid", "object_sid" = excluded."object_sid", "plugin_version" = excluded."plugin_version", "time_zone" = excluded."time_zone", "url" = excluded."url", "group_id" = excluded."group_id", "is_deleted" = excluded."is_deleted", "name" = excluded."name", "online" = excluded."online", "os_architecture" = excluded."os_architecture", "os_platform" = excluded."os_platform", "os_release_name" = excluded."os_release_name", "policy_id" = excluded."policy_id", "account_id" = excluded."account_id", "account_name" = excluded."account_name", "group_name" = excluded."group_name", "total" = excluded."total", "value" = excluded."value", "action_taken" = excluded."action_taken", "affected_application" = excluded."affected_application", "auto_removal_at" = excluded."auto_removal_at", "category" = excluded."category", "detection_id" = excluded."detection_id", "ip_address" = excluded."ip_address", "machine_id" = excluded."machine_id", "machine_name" = excluded."machine_name", "md5" = excluded."md5", "path" = excluded."path", "policy_name" = excluded."policy_name", "port" = excluded."port", "process_name" = excluded."process_name", "reported_at" = excluded."reported_at", "resource_created_at" = excluded."resource_created_at", "resource_modified_at" = excluded."resource_modified_at", "scan_id" = excluded."scan_id", "scanned_at" = excluded."scanned_at", "scanned_at_local" = excluded."scanned_at_local", "status" = excluded."status", "threat_name" = excluded."threat_name", "command_line" = excluded."command_line", "deleted_count" = excluded."deleted_count", "duration_seconds" = excluded."duration_seconds", "found_count" = excluded."found_count", "from_cloud" = excluded."from_cloud", "ondemand" = excluded."ondemand", "quarantined_count" = excluded."quarantined_count", "scan_type" = excluded."scan_type", "schedule_id" = excluded."schedule_id", "schedule_name" = excluded."schedule_name", "started_at" = excluded."started_at", "started_at_local" = excluded."started_at_local", "total_count" = excluded."total_count", "closed" = excluded."closed", "detected_by_count" = excluded."detected_by_count", "level" = excluded."level", "pc_hostname" = excluded."pc_hostname", "timestamp" = excluded."timestamp"`,
+		 ON CONFLICT("id") DO UPDATE SET "data" = excluded."data", "synced_at" = excluded."synced_at", "agent_info_last_updated_at" = excluded."agent_info_last_updated_at", "dhcp_scope_name" = excluded."dhcp_scope_name", "domain_name" = excluded."domain_name", "engine_version" = excluded."engine_version", "fully_qualified_host_name" = excluded."fully_qualified_host_name", "has_alerts" = excluded."has_alerts", "host_name" = excluded."host_name", "last_seen_at" = excluded."last_seen_at", "last_user" = excluded."last_user", "policy_etag" = excluded."policy_etag", "culture" = excluded."culture", "object_guid" = excluded."object_guid", "object_sid" = excluded."object_sid", "plugin_version" = excluded."plugin_version", "time_zone" = excluded."time_zone", "url" = excluded."url", "group_id" = excluded."group_id", "is_deleted" = excluded."is_deleted", "name" = excluded."name", "online" = excluded."online", "os_architecture" = excluded."os_architecture", "os_platform" = excluded."os_platform", "os_release_name" = excluded."os_release_name", "policy_id" = excluded."policy_id", "action_taken" = excluded."action_taken", "affected_application" = excluded."affected_application", "auto_removal_at" = excluded."auto_removal_at", "category" = excluded."category", "detection_id" = excluded."detection_id", "group_name" = excluded."group_name", "ip_address" = excluded."ip_address", "machine_id" = excluded."machine_id", "machine_name" = excluded."machine_name", "md5" = excluded."md5", "path" = excluded."path", "policy_name" = excluded."policy_name", "port" = excluded."port", "process_name" = excluded."process_name", "reported_at" = excluded."reported_at", "resource_created_at" = excluded."resource_created_at", "resource_modified_at" = excluded."resource_modified_at", "scan_id" = excluded."scan_id", "scanned_at" = excluded."scanned_at", "scanned_at_local" = excluded."scanned_at_local", "status" = excluded."status", "threat_name" = excluded."threat_name", "command_line" = excluded."command_line", "deleted_count" = excluded."deleted_count", "duration_seconds" = excluded."duration_seconds", "found_count" = excluded."found_count", "from_cloud" = excluded."from_cloud", "ondemand" = excluded."ondemand", "quarantined_count" = excluded."quarantined_count", "scan_type" = excluded."scan_type", "schedule_id" = excluded."schedule_id", "schedule_name" = excluded."schedule_name", "started_at" = excluded."started_at", "started_at_local" = excluded."started_at_local", "total_count" = excluded."total_count", "account_id" = excluded."account_id", "account_name" = excluded."account_name", "total" = excluded."total", "value" = excluded."value", "closed" = excluded."closed", "detected_by_count" = excluded."detected_by_count", "level" = excluded."level", "pc_hostname" = excluded."pc_hostname", "timestamp" = excluded."timestamp"`,
 		id,
 		string(data),
 		time.Now().UTC().Format(time.RFC3339),
@@ -5709,16 +5429,12 @@ func (s *Store) upsertEndpointsTx(tx *sql.Tx, id string, obj map[string]any, dat
 		lookupFieldValue(obj, "os_platform"),
 		lookupFieldValue(obj, "os_release_name"),
 		lookupFieldValue(obj, "policy_id"),
-		lookupFieldValue(obj, "account_id"),
-		lookupFieldValue(obj, "account_name"),
-		lookupFieldValue(obj, "group_name"),
-		lookupFieldValue(obj, "total"),
-		lookupFieldValue(obj, "value"),
 		lookupFieldValue(obj, "action_taken"),
 		lookupFieldValue(obj, "affected_application"),
 		lookupFieldValue(obj, "auto_removal_at"),
 		lookupFieldValue(obj, "category"),
 		lookupFieldValue(obj, "detection_id"),
+		lookupFieldValue(obj, "group_name"),
 		lookupFieldValue(obj, "ip_address"),
 		lookupFieldValue(obj, "machine_id"),
 		lookupFieldValue(obj, "machine_name"),
@@ -5748,6 +5464,10 @@ func (s *Store) upsertEndpointsTx(tx *sql.Tx, id string, obj map[string]any, dat
 		lookupFieldValue(obj, "started_at"),
 		lookupFieldValue(obj, "started_at_local"),
 		lookupFieldValue(obj, "total_count"),
+		lookupFieldValue(obj, "account_id"),
+		lookupFieldValue(obj, "account_name"),
+		lookupFieldValue(obj, "total"),
+		lookupFieldValue(obj, "value"),
 		lookupFieldValue(obj, "closed"),
 		lookupFieldValue(obj, "detected_by_count"),
 		lookupFieldValue(obj, "level"),
@@ -6137,164 +5857,53 @@ func (s *Store) UpsertFlightRecorder(data json.RawMessage) error {
 // domain inserts per item without opening a per-item transaction.
 func (s *Store) upsertGridTx(tx *sql.Tx, id string, obj map[string]any, data json.RawMessage) error {
 	if _, err := tx.Exec(
-		`INSERT INTO "grid" ("id", "data", "synced_at", "account_id", "account_name", "action_source", "action_type", "document_id", "ip_address", "logged_at", "machine_id", "parent_account_id", "resource_type", "user_email", "user_id", "user_mode", "user_name", "next_cursor", "ai_category", "ai_status", "ai_tool", "ai_tool_id", "ai_tool_provider", "alias", "domain", "first_seen", "group_id", "group_name", "host_name", "last_seen", "last_user", "os_platform", "os_type", "policy_id", "policy_name", "process_name", "query_count", "ai_risk", "ai_tier", "architecture", "created_at", "cves_by_status", "cves_count", "cves_count_by_status", "cves_score", "display_installed_version", "display_product", "display_vendor", "domain_name", "fully_qualified_host_name", "ignored_until", "installation_date", "installed_version", "language", "latest_version_available", "normalized_installed_version", "normalized_product", "normalized_vendor", "object_guid", "os_info", "product", "product_signature", "root_group_id", "vendor", "cisa_exploitable", "cve_id", "cvss20_score", "cvss30_score", "description", "ignored_by", "ignored_by_name", "ignored_reason", "known_ransomware_campaign_use", "published_at", "severity", "severity_score", "account", "action_taken", "affected_application", "agent", "category", "child_trace_count", "cleaned_at", "destination_location", "detection_id", "is_root_detection", "is_rtp_stream_event", "machine_ip", "machine_location", "machine_name", "md5", "path", "reported_at", "resource_created_at", "resource_modified_at", "scan_id", "scanned_at", "scanned_at_offset_seconds", "sha256", "source_location", "status", "threat_name", "trace_id", "@timestamp", "action", "log", "rule_id", "rule_name", "display_name", "link", "machine_version", "protection_status", "friendly_type", "online", "source", "total_count", "direction", "end_time", "hits", "location", "program", "protocol", "ruleset_id", "ruleset_name", "service", "start_time", "correlation_id", "endpoint", "patch_id", "preview_patch", "reboot_required", "released_at", "security_update_id", "size", "title", "attack_user", "attempts", "create_time", "duration", "expire_time", "ip", "parent_id", "port", "action_outcome", "action_user_email", "action_user_name", "alert_name", "attack_category", "attack_detection_type", "city", "country", "has_impacted_asset_hostname", "identity_primary_identifier", "pid", "process_path", "technique", "updated_at")
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-		 ON CONFLICT("id") DO UPDATE SET "data" = excluded."data", "synced_at" = excluded."synced_at", "account_id" = excluded."account_id", "account_name" = excluded."account_name", "action_source" = excluded."action_source", "action_type" = excluded."action_type", "document_id" = excluded."document_id", "ip_address" = excluded."ip_address", "logged_at" = excluded."logged_at", "machine_id" = excluded."machine_id", "parent_account_id" = excluded."parent_account_id", "resource_type" = excluded."resource_type", "user_email" = excluded."user_email", "user_id" = excluded."user_id", "user_mode" = excluded."user_mode", "user_name" = excluded."user_name", "next_cursor" = excluded."next_cursor", "ai_category" = excluded."ai_category", "ai_status" = excluded."ai_status", "ai_tool" = excluded."ai_tool", "ai_tool_id" = excluded."ai_tool_id", "ai_tool_provider" = excluded."ai_tool_provider", "alias" = excluded."alias", "domain" = excluded."domain", "first_seen" = excluded."first_seen", "group_id" = excluded."group_id", "group_name" = excluded."group_name", "host_name" = excluded."host_name", "last_seen" = excluded."last_seen", "last_user" = excluded."last_user", "os_platform" = excluded."os_platform", "os_type" = excluded."os_type", "policy_id" = excluded."policy_id", "policy_name" = excluded."policy_name", "process_name" = excluded."process_name", "query_count" = excluded."query_count", "ai_risk" = excluded."ai_risk", "ai_tier" = excluded."ai_tier", "architecture" = excluded."architecture", "created_at" = excluded."created_at", "cves_by_status" = excluded."cves_by_status", "cves_count" = excluded."cves_count", "cves_count_by_status" = excluded."cves_count_by_status", "cves_score" = excluded."cves_score", "display_installed_version" = excluded."display_installed_version", "display_product" = excluded."display_product", "display_vendor" = excluded."display_vendor", "domain_name" = excluded."domain_name", "fully_qualified_host_name" = excluded."fully_qualified_host_name", "ignored_until" = excluded."ignored_until", "installation_date" = excluded."installation_date", "installed_version" = excluded."installed_version", "language" = excluded."language", "latest_version_available" = excluded."latest_version_available", "normalized_installed_version" = excluded."normalized_installed_version", "normalized_product" = excluded."normalized_product", "normalized_vendor" = excluded."normalized_vendor", "object_guid" = excluded."object_guid", "os_info" = excluded."os_info", "product" = excluded."product", "product_signature" = excluded."product_signature", "root_group_id" = excluded."root_group_id", "vendor" = excluded."vendor", "cisa_exploitable" = excluded."cisa_exploitable", "cve_id" = excluded."cve_id", "cvss20_score" = excluded."cvss20_score", "cvss30_score" = excluded."cvss30_score", "description" = excluded."description", "ignored_by" = excluded."ignored_by", "ignored_by_name" = excluded."ignored_by_name", "ignored_reason" = excluded."ignored_reason", "known_ransomware_campaign_use" = excluded."known_ransomware_campaign_use", "published_at" = excluded."published_at", "severity" = excluded."severity", "severity_score" = excluded."severity_score", "account" = excluded."account", "action_taken" = excluded."action_taken", "affected_application" = excluded."affected_application", "agent" = excluded."agent", "category" = excluded."category", "child_trace_count" = excluded."child_trace_count", "cleaned_at" = excluded."cleaned_at", "destination_location" = excluded."destination_location", "detection_id" = excluded."detection_id", "is_root_detection" = excluded."is_root_detection", "is_rtp_stream_event" = excluded."is_rtp_stream_event", "machine_ip" = excluded."machine_ip", "machine_location" = excluded."machine_location", "machine_name" = excluded."machine_name", "md5" = excluded."md5", "path" = excluded."path", "reported_at" = excluded."reported_at", "resource_created_at" = excluded."resource_created_at", "resource_modified_at" = excluded."resource_modified_at", "scan_id" = excluded."scan_id", "scanned_at" = excluded."scanned_at", "scanned_at_offset_seconds" = excluded."scanned_at_offset_seconds", "sha256" = excluded."sha256", "source_location" = excluded."source_location", "status" = excluded."status", "threat_name" = excluded."threat_name", "trace_id" = excluded."trace_id", "@timestamp" = excluded."@timestamp", "action" = excluded."action", "log" = excluded."log", "rule_id" = excluded."rule_id", "rule_name" = excluded."rule_name", "display_name" = excluded."display_name", "link" = excluded."link", "machine_version" = excluded."machine_version", "protection_status" = excluded."protection_status", "friendly_type" = excluded."friendly_type", "online" = excluded."online", "source" = excluded."source", "total_count" = excluded."total_count", "direction" = excluded."direction", "end_time" = excluded."end_time", "hits" = excluded."hits", "location" = excluded."location", "program" = excluded."program", "protocol" = excluded."protocol", "ruleset_id" = excluded."ruleset_id", "ruleset_name" = excluded."ruleset_name", "service" = excluded."service", "start_time" = excluded."start_time", "correlation_id" = excluded."correlation_id", "endpoint" = excluded."endpoint", "patch_id" = excluded."patch_id", "preview_patch" = excluded."preview_patch", "reboot_required" = excluded."reboot_required", "released_at" = excluded."released_at", "security_update_id" = excluded."security_update_id", "size" = excluded."size", "title" = excluded."title", "attack_user" = excluded."attack_user", "attempts" = excluded."attempts", "create_time" = excluded."create_time", "duration" = excluded."duration", "expire_time" = excluded."expire_time", "ip" = excluded."ip", "parent_id" = excluded."parent_id", "port" = excluded."port", "action_outcome" = excluded."action_outcome", "action_user_email" = excluded."action_user_email", "action_user_name" = excluded."action_user_name", "alert_name" = excluded."alert_name", "attack_category" = excluded."attack_category", "attack_detection_type" = excluded."attack_detection_type", "city" = excluded."city", "country" = excluded."country", "has_impacted_asset_hostname" = excluded."has_impacted_asset_hostname", "identity_primary_identifier" = excluded."identity_primary_identifier", "pid" = excluded."pid", "process_path" = excluded."process_path", "technique" = excluded."technique", "updated_at" = excluded."updated_at"`,
+		`INSERT INTO "grid" ("id", "data", "synced_at", "next_cursor", "total_count", "aggregation_next_cursor", "after", "account_id", "account_name", "action", "created_at", "friendly_type", "group_id", "group_name", "machine_id", "machine_name", "online", "parent_account_id", "policy_id", "policy_name", "root_group_id", "severity", "source", "type", "correlation_id", "action_outcome", "action_taken", "action_user_email", "action_user_name", "alert_name", "attack_category", "attack_detection_type", "category", "city", "country", "detection_id", "display_name", "domain", "has_impacted_asset_hostname", "identity_primary_identifier", "ip", "pid", "process_path", "status", "technique", "updated_at")
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		 ON CONFLICT("id") DO UPDATE SET "data" = excluded."data", "synced_at" = excluded."synced_at", "next_cursor" = excluded."next_cursor", "total_count" = excluded."total_count", "aggregation_next_cursor" = excluded."aggregation_next_cursor", "after" = excluded."after", "account_id" = excluded."account_id", "account_name" = excluded."account_name", "action" = excluded."action", "created_at" = excluded."created_at", "friendly_type" = excluded."friendly_type", "group_id" = excluded."group_id", "group_name" = excluded."group_name", "machine_id" = excluded."machine_id", "machine_name" = excluded."machine_name", "online" = excluded."online", "parent_account_id" = excluded."parent_account_id", "policy_id" = excluded."policy_id", "policy_name" = excluded."policy_name", "root_group_id" = excluded."root_group_id", "severity" = excluded."severity", "source" = excluded."source", "type" = excluded."type", "correlation_id" = excluded."correlation_id", "action_outcome" = excluded."action_outcome", "action_taken" = excluded."action_taken", "action_user_email" = excluded."action_user_email", "action_user_name" = excluded."action_user_name", "alert_name" = excluded."alert_name", "attack_category" = excluded."attack_category", "attack_detection_type" = excluded."attack_detection_type", "category" = excluded."category", "city" = excluded."city", "country" = excluded."country", "detection_id" = excluded."detection_id", "display_name" = excluded."display_name", "domain" = excluded."domain", "has_impacted_asset_hostname" = excluded."has_impacted_asset_hostname", "identity_primary_identifier" = excluded."identity_primary_identifier", "ip" = excluded."ip", "pid" = excluded."pid", "process_path" = excluded."process_path", "status" = excluded."status", "technique" = excluded."technique", "updated_at" = excluded."updated_at"`,
 		id,
 		string(data),
 		time.Now().UTC().Format(time.RFC3339),
+		lookupFieldValue(obj, "next_cursor"),
+		lookupFieldValue(obj, "total_count"),
+		lookupFieldValue(obj, "aggregation_next_cursor"),
+		lookupFieldValue(obj, "after"),
 		lookupFieldValue(obj, "account_id"),
 		lookupFieldValue(obj, "account_name"),
-		lookupFieldValue(obj, "action_source"),
-		lookupFieldValue(obj, "action_type"),
-		lookupFieldValue(obj, "document_id"),
-		lookupFieldValue(obj, "ip_address"),
-		lookupFieldValue(obj, "logged_at"),
-		lookupFieldValue(obj, "machine_id"),
-		lookupFieldValue(obj, "parent_account_id"),
-		lookupFieldValue(obj, "resource_type"),
-		lookupFieldValue(obj, "user_email"),
-		lookupFieldValue(obj, "user_id"),
-		lookupFieldValue(obj, "user_mode"),
-		lookupFieldValue(obj, "user_name"),
-		lookupFieldValue(obj, "next_cursor"),
-		lookupFieldValue(obj, "ai_category"),
-		lookupFieldValue(obj, "ai_status"),
-		lookupFieldValue(obj, "ai_tool"),
-		lookupFieldValue(obj, "ai_tool_id"),
-		lookupFieldValue(obj, "ai_tool_provider"),
-		lookupFieldValue(obj, "alias"),
-		lookupFieldValue(obj, "domain"),
-		lookupFieldValue(obj, "first_seen"),
+		lookupFieldValue(obj, "action"),
+		lookupFieldValue(obj, "created_at"),
+		lookupFieldValue(obj, "friendly_type"),
 		lookupFieldValue(obj, "group_id"),
 		lookupFieldValue(obj, "group_name"),
-		lookupFieldValue(obj, "host_name"),
-		lookupFieldValue(obj, "last_seen"),
-		lookupFieldValue(obj, "last_user"),
-		lookupFieldValue(obj, "os_platform"),
-		lookupFieldValue(obj, "os_type"),
+		lookupFieldValue(obj, "machine_id"),
+		lookupFieldValue(obj, "machine_name"),
+		lookupFieldValue(obj, "online"),
+		lookupFieldValue(obj, "parent_account_id"),
 		lookupFieldValue(obj, "policy_id"),
 		lookupFieldValue(obj, "policy_name"),
-		lookupFieldValue(obj, "process_name"),
-		lookupFieldValue(obj, "query_count"),
-		lookupFieldValue(obj, "ai_risk"),
-		lookupFieldValue(obj, "ai_tier"),
-		lookupFieldValue(obj, "architecture"),
-		lookupFieldValue(obj, "created_at"),
-		lookupFieldValue(obj, "cves_by_status"),
-		lookupFieldValue(obj, "cves_count"),
-		lookupFieldValue(obj, "cves_count_by_status"),
-		lookupFieldValue(obj, "cves_score"),
-		lookupFieldValue(obj, "display_installed_version"),
-		lookupFieldValue(obj, "display_product"),
-		lookupFieldValue(obj, "display_vendor"),
-		lookupFieldValue(obj, "domain_name"),
-		lookupFieldValue(obj, "fully_qualified_host_name"),
-		lookupFieldValue(obj, "ignored_until"),
-		lookupFieldValue(obj, "installation_date"),
-		lookupFieldValue(obj, "installed_version"),
-		lookupFieldValue(obj, "language"),
-		lookupFieldValue(obj, "latest_version_available"),
-		lookupFieldValue(obj, "normalized_installed_version"),
-		lookupFieldValue(obj, "normalized_product"),
-		lookupFieldValue(obj, "normalized_vendor"),
-		lookupFieldValue(obj, "object_guid"),
-		lookupFieldValue(obj, "os_info"),
-		lookupFieldValue(obj, "product"),
-		lookupFieldValue(obj, "product_signature"),
 		lookupFieldValue(obj, "root_group_id"),
-		lookupFieldValue(obj, "vendor"),
-		lookupFieldValue(obj, "cisa_exploitable"),
-		lookupFieldValue(obj, "cve_id"),
-		lookupFieldValue(obj, "cvss20_score"),
-		lookupFieldValue(obj, "cvss30_score"),
-		lookupFieldValue(obj, "description"),
-		lookupFieldValue(obj, "ignored_by"),
-		lookupFieldValue(obj, "ignored_by_name"),
-		lookupFieldValue(obj, "ignored_reason"),
-		lookupFieldValue(obj, "known_ransomware_campaign_use"),
-		lookupFieldValue(obj, "published_at"),
 		lookupFieldValue(obj, "severity"),
-		lookupFieldValue(obj, "severity_score"),
-		lookupFieldValue(obj, "account"),
-		lookupFieldValue(obj, "action_taken"),
-		lookupFieldValue(obj, "affected_application"),
-		lookupFieldValue(obj, "agent"),
-		lookupFieldValue(obj, "category"),
-		lookupFieldValue(obj, "child_trace_count"),
-		lookupFieldValue(obj, "cleaned_at"),
-		lookupFieldValue(obj, "destination_location"),
-		lookupFieldValue(obj, "detection_id"),
-		lookupFieldValue(obj, "is_root_detection"),
-		lookupFieldValue(obj, "is_rtp_stream_event"),
-		lookupFieldValue(obj, "machine_ip"),
-		lookupFieldValue(obj, "machine_location"),
-		lookupFieldValue(obj, "machine_name"),
-		lookupFieldValue(obj, "md5"),
-		lookupFieldValue(obj, "path"),
-		lookupFieldValue(obj, "reported_at"),
-		lookupFieldValue(obj, "resource_created_at"),
-		lookupFieldValue(obj, "resource_modified_at"),
-		lookupFieldValue(obj, "scan_id"),
-		lookupFieldValue(obj, "scanned_at"),
-		lookupFieldValue(obj, "scanned_at_offset_seconds"),
-		lookupFieldValue(obj, "sha256"),
-		lookupFieldValue(obj, "source_location"),
-		lookupFieldValue(obj, "status"),
-		lookupFieldValue(obj, "threat_name"),
-		lookupFieldValue(obj, "trace_id"),
-		lookupFieldValue(obj, "@timestamp"),
-		lookupFieldValue(obj, "action"),
-		lookupFieldValue(obj, "log"),
-		lookupFieldValue(obj, "rule_id"),
-		lookupFieldValue(obj, "rule_name"),
-		lookupFieldValue(obj, "display_name"),
-		lookupFieldValue(obj, "link"),
-		lookupFieldValue(obj, "machine_version"),
-		lookupFieldValue(obj, "protection_status"),
-		lookupFieldValue(obj, "friendly_type"),
-		lookupFieldValue(obj, "online"),
 		lookupFieldValue(obj, "source"),
-		lookupFieldValue(obj, "total_count"),
-		lookupFieldValue(obj, "direction"),
-		lookupFieldValue(obj, "end_time"),
-		lookupFieldValue(obj, "hits"),
-		lookupFieldValue(obj, "location"),
-		lookupFieldValue(obj, "program"),
-		lookupFieldValue(obj, "protocol"),
-		lookupFieldValue(obj, "ruleset_id"),
-		lookupFieldValue(obj, "ruleset_name"),
-		lookupFieldValue(obj, "service"),
-		lookupFieldValue(obj, "start_time"),
+		lookupFieldValue(obj, "type"),
 		lookupFieldValue(obj, "correlation_id"),
-		lookupFieldValue(obj, "endpoint"),
-		lookupFieldValue(obj, "patch_id"),
-		lookupFieldValue(obj, "preview_patch"),
-		lookupFieldValue(obj, "reboot_required"),
-		lookupFieldValue(obj, "released_at"),
-		lookupFieldValue(obj, "security_update_id"),
-		lookupFieldValue(obj, "size"),
-		lookupFieldValue(obj, "title"),
-		lookupFieldValue(obj, "attack_user"),
-		lookupFieldValue(obj, "attempts"),
-		lookupFieldValue(obj, "create_time"),
-		lookupFieldValue(obj, "duration"),
-		lookupFieldValue(obj, "expire_time"),
-		lookupFieldValue(obj, "ip"),
-		lookupFieldValue(obj, "parent_id"),
-		lookupFieldValue(obj, "port"),
 		lookupFieldValue(obj, "action_outcome"),
+		lookupFieldValue(obj, "action_taken"),
 		lookupFieldValue(obj, "action_user_email"),
 		lookupFieldValue(obj, "action_user_name"),
 		lookupFieldValue(obj, "alert_name"),
 		lookupFieldValue(obj, "attack_category"),
 		lookupFieldValue(obj, "attack_detection_type"),
+		lookupFieldValue(obj, "category"),
 		lookupFieldValue(obj, "city"),
 		lookupFieldValue(obj, "country"),
+		lookupFieldValue(obj, "detection_id"),
+		lookupFieldValue(obj, "display_name"),
+		lookupFieldValue(obj, "domain"),
 		lookupFieldValue(obj, "has_impacted_asset_hostname"),
 		lookupFieldValue(obj, "identity_primary_identifier"),
+		lookupFieldValue(obj, "ip"),
 		lookupFieldValue(obj, "pid"),
 		lookupFieldValue(obj, "process_path"),
+		lookupFieldValue(obj, "status"),
 		lookupFieldValue(obj, "technique"),
 		lookupFieldValue(obj, "updated_at"),
 	); err != nil {
@@ -6545,41 +6154,19 @@ func (s *Store) UpsertNotifications(data json.RawMessage) error {
 // domain inserts per item without opening a per-item transaction.
 func (s *Store) upsertOsPatchesTx(tx *sql.Tx, id string, obj map[string]any, data json.RawMessage) error {
 	if _, err := tx.Exec(
-		`INSERT INTO "os_patches" ("id", "data", "synced_at", "account_id", "category", "created_at", "description", "display_name", "domain_name", "endpoint", "fully_qualified_host_name", "group", "group_id", "group_name", "host_name", "ignored_until", "machine_id", "object_guid", "os_info", "parent_account_id", "patch_id", "preview_patch", "product", "reboot_required", "released_at", "root_group_id", "security_update_id", "severity", "size", "title", "vendor", "account_name", "total", "value")
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-		 ON CONFLICT("id") DO UPDATE SET "data" = excluded."data", "synced_at" = excluded."synced_at", "account_id" = excluded."account_id", "category" = excluded."category", "created_at" = excluded."created_at", "description" = excluded."description", "display_name" = excluded."display_name", "domain_name" = excluded."domain_name", "endpoint" = excluded."endpoint", "fully_qualified_host_name" = excluded."fully_qualified_host_name", "group" = excluded."group", "group_id" = excluded."group_id", "group_name" = excluded."group_name", "host_name" = excluded."host_name", "ignored_until" = excluded."ignored_until", "machine_id" = excluded."machine_id", "object_guid" = excluded."object_guid", "os_info" = excluded."os_info", "parent_account_id" = excluded."parent_account_id", "patch_id" = excluded."patch_id", "preview_patch" = excluded."preview_patch", "product" = excluded."product", "reboot_required" = excluded."reboot_required", "released_at" = excluded."released_at", "root_group_id" = excluded."root_group_id", "security_update_id" = excluded."security_update_id", "severity" = excluded."severity", "size" = excluded."size", "title" = excluded."title", "vendor" = excluded."vendor", "account_name" = excluded."account_name", "total" = excluded."total", "value" = excluded."value"`,
+		`INSERT INTO "os_patches" ("id", "data", "synced_at", "next_cursor", "total_count", "account_id", "account_name", "fully_qualified_host_name", "group_name", "host_name", "total", "value")
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		 ON CONFLICT("id") DO UPDATE SET "data" = excluded."data", "synced_at" = excluded."synced_at", "next_cursor" = excluded."next_cursor", "total_count" = excluded."total_count", "account_id" = excluded."account_id", "account_name" = excluded."account_name", "fully_qualified_host_name" = excluded."fully_qualified_host_name", "group_name" = excluded."group_name", "host_name" = excluded."host_name", "total" = excluded."total", "value" = excluded."value"`,
 		id,
 		string(data),
 		time.Now().UTC().Format(time.RFC3339),
+		lookupFieldValue(obj, "next_cursor"),
+		lookupFieldValue(obj, "total_count"),
 		lookupFieldValue(obj, "account_id"),
-		lookupFieldValue(obj, "category"),
-		lookupFieldValue(obj, "created_at"),
-		lookupFieldValue(obj, "description"),
-		lookupFieldValue(obj, "display_name"),
-		lookupFieldValue(obj, "domain_name"),
-		lookupFieldValue(obj, "endpoint"),
+		lookupFieldValue(obj, "account_name"),
 		lookupFieldValue(obj, "fully_qualified_host_name"),
-		lookupFieldValue(obj, "group"),
-		lookupFieldValue(obj, "group_id"),
 		lookupFieldValue(obj, "group_name"),
 		lookupFieldValue(obj, "host_name"),
-		lookupFieldValue(obj, "ignored_until"),
-		lookupFieldValue(obj, "machine_id"),
-		lookupFieldValue(obj, "object_guid"),
-		lookupFieldValue(obj, "os_info"),
-		lookupFieldValue(obj, "parent_account_id"),
-		lookupFieldValue(obj, "patch_id"),
-		lookupFieldValue(obj, "preview_patch"),
-		lookupFieldValue(obj, "product"),
-		lookupFieldValue(obj, "reboot_required"),
-		lookupFieldValue(obj, "released_at"),
-		lookupFieldValue(obj, "root_group_id"),
-		lookupFieldValue(obj, "security_update_id"),
-		lookupFieldValue(obj, "severity"),
-		lookupFieldValue(obj, "size"),
-		lookupFieldValue(obj, "title"),
-		lookupFieldValue(obj, "vendor"),
-		lookupFieldValue(obj, "account_name"),
 		lookupFieldValue(obj, "total"),
 		lookupFieldValue(obj, "value"),
 	); err != nil {
@@ -6966,29 +6553,16 @@ func (s *Store) UpsertReports(data json.RawMessage) error {
 // domain inserts per item without opening a per-item transaction.
 func (s *Store) upsertRidTx(tx *sql.Tx, id string, obj map[string]any, data json.RawMessage) error {
 	if _, err := tx.Exec(
-		`INSERT INTO "rid" ("id", "data", "synced_at", "account_id", "account_name", "attack_user", "attempts", "create_time", "deleted", "duration", "expire_time", "group_id", "ip", "machine_id", "machine_name", "parent_id", "port", "protocol", "root_group_id", "rule_id", "fully_qualified_host_name", "group_name", "host_name", "total", "value")
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-		 ON CONFLICT("id") DO UPDATE SET "data" = excluded."data", "synced_at" = excluded."synced_at", "account_id" = excluded."account_id", "account_name" = excluded."account_name", "attack_user" = excluded."attack_user", "attempts" = excluded."attempts", "create_time" = excluded."create_time", "deleted" = excluded."deleted", "duration" = excluded."duration", "expire_time" = excluded."expire_time", "group_id" = excluded."group_id", "ip" = excluded."ip", "machine_id" = excluded."machine_id", "machine_name" = excluded."machine_name", "parent_id" = excluded."parent_id", "port" = excluded."port", "protocol" = excluded."protocol", "root_group_id" = excluded."root_group_id", "rule_id" = excluded."rule_id", "fully_qualified_host_name" = excluded."fully_qualified_host_name", "group_name" = excluded."group_name", "host_name" = excluded."host_name", "total" = excluded."total", "value" = excluded."value"`,
+		`INSERT INTO "rid" ("id", "data", "synced_at", "next_cursor", "total_count", "account_id", "account_name", "fully_qualified_host_name", "group_name", "host_name", "total", "value")
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		 ON CONFLICT("id") DO UPDATE SET "data" = excluded."data", "synced_at" = excluded."synced_at", "next_cursor" = excluded."next_cursor", "total_count" = excluded."total_count", "account_id" = excluded."account_id", "account_name" = excluded."account_name", "fully_qualified_host_name" = excluded."fully_qualified_host_name", "group_name" = excluded."group_name", "host_name" = excluded."host_name", "total" = excluded."total", "value" = excluded."value"`,
 		id,
 		string(data),
 		time.Now().UTC().Format(time.RFC3339),
+		lookupFieldValue(obj, "next_cursor"),
+		lookupFieldValue(obj, "total_count"),
 		lookupFieldValue(obj, "account_id"),
 		lookupFieldValue(obj, "account_name"),
-		lookupFieldValue(obj, "attack_user"),
-		lookupFieldValue(obj, "attempts"),
-		lookupFieldValue(obj, "create_time"),
-		lookupFieldValue(obj, "deleted"),
-		lookupFieldValue(obj, "duration"),
-		lookupFieldValue(obj, "expire_time"),
-		lookupFieldValue(obj, "group_id"),
-		lookupFieldValue(obj, "ip"),
-		lookupFieldValue(obj, "machine_id"),
-		lookupFieldValue(obj, "machine_name"),
-		lookupFieldValue(obj, "parent_id"),
-		lookupFieldValue(obj, "port"),
-		lookupFieldValue(obj, "protocol"),
-		lookupFieldValue(obj, "root_group_id"),
-		lookupFieldValue(obj, "rule_id"),
 		lookupFieldValue(obj, "fully_qualified_host_name"),
 		lookupFieldValue(obj, "group_name"),
 		lookupFieldValue(obj, "host_name"),
@@ -7107,20 +6681,19 @@ func (s *Store) UpsertSchedules(data json.RawMessage) error {
 // domain inserts per item without opening a per-item transaction.
 func (s *Store) upsertSitesTx(tx *sql.Tx, id string, obj map[string]any, data json.RawMessage) error {
 	if _, err := tx.Exec(
-		`INSERT INTO "sites" ("id", "data", "synced_at", "email", "firstname", "lastname", "roles", "account_id", "account_status", "cloud_evaluation", "company_name", "site_end_date", "consent", "endpoint_isolation", "is_trial", "mdr_enabled", "primary_contact_id", "primary_contact_phone", "product", "remediation_type", "secret")
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-		 ON CONFLICT("id") DO UPDATE SET "data" = excluded."data", "synced_at" = excluded."synced_at", "email" = excluded."email", "firstname" = excluded."firstname", "lastname" = excluded."lastname", "roles" = excluded."roles", "account_id" = excluded."account_id", "account_status" = excluded."account_status", "cloud_evaluation" = excluded."cloud_evaluation", "company_name" = excluded."company_name", "site_end_date" = excluded."site_end_date", "consent" = excluded."consent", "endpoint_isolation" = excluded."endpoint_isolation", "is_trial" = excluded."is_trial", "mdr_enabled" = excluded."mdr_enabled", "primary_contact_id" = excluded."primary_contact_id", "primary_contact_phone" = excluded."primary_contact_phone", "product" = excluded."product", "remediation_type" = excluded."remediation_type", "secret" = excluded."secret"`,
+		`INSERT INTO "sites" ("id", "data", "synced_at", "account_id", "account_status", "cloud_evaluation", "company_name", "email", "firstname", "lastname", "site_end_date", "consent", "endpoint_isolation", "is_trial", "mdr_enabled", "primary_contact_id", "primary_contact_phone", "product", "remediation_type", "secret")
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		 ON CONFLICT("id") DO UPDATE SET "data" = excluded."data", "synced_at" = excluded."synced_at", "account_id" = excluded."account_id", "account_status" = excluded."account_status", "cloud_evaluation" = excluded."cloud_evaluation", "company_name" = excluded."company_name", "email" = excluded."email", "firstname" = excluded."firstname", "lastname" = excluded."lastname", "site_end_date" = excluded."site_end_date", "consent" = excluded."consent", "endpoint_isolation" = excluded."endpoint_isolation", "is_trial" = excluded."is_trial", "mdr_enabled" = excluded."mdr_enabled", "primary_contact_id" = excluded."primary_contact_id", "primary_contact_phone" = excluded."primary_contact_phone", "product" = excluded."product", "remediation_type" = excluded."remediation_type", "secret" = excluded."secret"`,
 		id,
 		string(data),
 		time.Now().UTC().Format(time.RFC3339),
-		lookupFieldValue(obj, "email"),
-		lookupFieldValue(obj, "firstname"),
-		lookupFieldValue(obj, "lastname"),
-		lookupFieldValue(obj, "roles"),
 		lookupFieldValue(obj, "account_id"),
 		lookupFieldValue(obj, "account_status"),
 		lookupFieldValue(obj, "cloud_evaluation"),
 		lookupFieldValue(obj, "company_name"),
+		lookupFieldValue(obj, "email"),
+		lookupFieldValue(obj, "firstname"),
+		lookupFieldValue(obj, "lastname"),
 		lookupFieldValue(obj, "site_end_date"),
 		lookupFieldValue(obj, "consent"),
 		lookupFieldValue(obj, "endpoint_isolation"),
@@ -7181,52 +6754,19 @@ func (s *Store) UpsertSites(data json.RawMessage) error {
 // domain inserts per item without opening a per-item transaction.
 func (s *Store) upsertSoftwareTx(tx *sql.Tx, id string, obj map[string]any, data json.RawMessage) error {
 	if _, err := tx.Exec(
-		`INSERT INTO "software" ("id", "data", "synced_at", "account_id", "account_name", "ai_category", "ai_risk", "ai_status", "ai_tier", "ai_tool", "alias", "architecture", "created_at", "cves_by_status", "cves_count", "cves_count_by_status", "cves_score", "display_installed_version", "display_product", "display_vendor", "domain_name", "fully_qualified_host_name", "group_id", "group_name", "host_name", "ignored_until", "installation_date", "installed_version", "language", "latest_version_available", "machine_id", "normalized_installed_version", "normalized_product", "normalized_vendor", "object_guid", "os_info", "parent_account_id", "policy_id", "policy_name", "product", "product_signature", "root_group_id", "vendor", "total", "value")
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-		 ON CONFLICT("id") DO UPDATE SET "data" = excluded."data", "synced_at" = excluded."synced_at", "account_id" = excluded."account_id", "account_name" = excluded."account_name", "ai_category" = excluded."ai_category", "ai_risk" = excluded."ai_risk", "ai_status" = excluded."ai_status", "ai_tier" = excluded."ai_tier", "ai_tool" = excluded."ai_tool", "alias" = excluded."alias", "architecture" = excluded."architecture", "created_at" = excluded."created_at", "cves_by_status" = excluded."cves_by_status", "cves_count" = excluded."cves_count", "cves_count_by_status" = excluded."cves_count_by_status", "cves_score" = excluded."cves_score", "display_installed_version" = excluded."display_installed_version", "display_product" = excluded."display_product", "display_vendor" = excluded."display_vendor", "domain_name" = excluded."domain_name", "fully_qualified_host_name" = excluded."fully_qualified_host_name", "group_id" = excluded."group_id", "group_name" = excluded."group_name", "host_name" = excluded."host_name", "ignored_until" = excluded."ignored_until", "installation_date" = excluded."installation_date", "installed_version" = excluded."installed_version", "language" = excluded."language", "latest_version_available" = excluded."latest_version_available", "machine_id" = excluded."machine_id", "normalized_installed_version" = excluded."normalized_installed_version", "normalized_product" = excluded."normalized_product", "normalized_vendor" = excluded."normalized_vendor", "object_guid" = excluded."object_guid", "os_info" = excluded."os_info", "parent_account_id" = excluded."parent_account_id", "policy_id" = excluded."policy_id", "policy_name" = excluded."policy_name", "product" = excluded."product", "product_signature" = excluded."product_signature", "root_group_id" = excluded."root_group_id", "vendor" = excluded."vendor", "total" = excluded."total", "value" = excluded."value"`,
+		`INSERT INTO "software" ("id", "data", "synced_at", "next_cursor", "total_count", "account_id", "account_name", "fully_qualified_host_name", "group_name", "host_name", "total", "value")
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		 ON CONFLICT("id") DO UPDATE SET "data" = excluded."data", "synced_at" = excluded."synced_at", "next_cursor" = excluded."next_cursor", "total_count" = excluded."total_count", "account_id" = excluded."account_id", "account_name" = excluded."account_name", "fully_qualified_host_name" = excluded."fully_qualified_host_name", "group_name" = excluded."group_name", "host_name" = excluded."host_name", "total" = excluded."total", "value" = excluded."value"`,
 		id,
 		string(data),
 		time.Now().UTC().Format(time.RFC3339),
+		lookupFieldValue(obj, "next_cursor"),
+		lookupFieldValue(obj, "total_count"),
 		lookupFieldValue(obj, "account_id"),
 		lookupFieldValue(obj, "account_name"),
-		lookupFieldValue(obj, "ai_category"),
-		lookupFieldValue(obj, "ai_risk"),
-		lookupFieldValue(obj, "ai_status"),
-		lookupFieldValue(obj, "ai_tier"),
-		lookupFieldValue(obj, "ai_tool"),
-		lookupFieldValue(obj, "alias"),
-		lookupFieldValue(obj, "architecture"),
-		lookupFieldValue(obj, "created_at"),
-		lookupFieldValue(obj, "cves_by_status"),
-		lookupFieldValue(obj, "cves_count"),
-		lookupFieldValue(obj, "cves_count_by_status"),
-		lookupFieldValue(obj, "cves_score"),
-		lookupFieldValue(obj, "display_installed_version"),
-		lookupFieldValue(obj, "display_product"),
-		lookupFieldValue(obj, "display_vendor"),
-		lookupFieldValue(obj, "domain_name"),
 		lookupFieldValue(obj, "fully_qualified_host_name"),
-		lookupFieldValue(obj, "group_id"),
 		lookupFieldValue(obj, "group_name"),
 		lookupFieldValue(obj, "host_name"),
-		lookupFieldValue(obj, "ignored_until"),
-		lookupFieldValue(obj, "installation_date"),
-		lookupFieldValue(obj, "installed_version"),
-		lookupFieldValue(obj, "language"),
-		lookupFieldValue(obj, "latest_version_available"),
-		lookupFieldValue(obj, "machine_id"),
-		lookupFieldValue(obj, "normalized_installed_version"),
-		lookupFieldValue(obj, "normalized_product"),
-		lookupFieldValue(obj, "normalized_vendor"),
-		lookupFieldValue(obj, "object_guid"),
-		lookupFieldValue(obj, "os_info"),
-		lookupFieldValue(obj, "parent_account_id"),
-		lookupFieldValue(obj, "policy_id"),
-		lookupFieldValue(obj, "policy_name"),
-		lookupFieldValue(obj, "product"),
-		lookupFieldValue(obj, "product_signature"),
-		lookupFieldValue(obj, "root_group_id"),
-		lookupFieldValue(obj, "vendor"),
 		lookupFieldValue(obj, "total"),
 		lookupFieldValue(obj, "value"),
 	); err != nil {
@@ -7279,9 +6819,9 @@ func (s *Store) UpsertSoftware(data json.RawMessage) error {
 // domain inserts per item without opening a per-item transaction.
 func (s *Store) upsertSubscriptionsTx(tx *sql.Tx, id string, obj map[string]any, data json.RawMessage) error {
 	if _, err := tx.Exec(
-		`INSERT INTO "subscriptions" ("id", "data", "synced_at", "add_on_allocation", "product", "term_length", "term_type", "trial_extension_available", "billing_date", "billing_duration", "catalog_code", "catalog_name", "original_start_date", "reset_count", "status", "term_ends_on", "volume_purchased", "volume_used", "is_nfr_allowed", "version", "timestamp", "auto_convert_trial_to_paid", "machine_type", "code", "name", "volume_allocated", "volume_available")
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-		 ON CONFLICT("id") DO UPDATE SET "data" = excluded."data", "synced_at" = excluded."synced_at", "add_on_allocation" = excluded."add_on_allocation", "product" = excluded."product", "term_length" = excluded."term_length", "term_type" = excluded."term_type", "trial_extension_available" = excluded."trial_extension_available", "billing_date" = excluded."billing_date", "billing_duration" = excluded."billing_duration", "catalog_code" = excluded."catalog_code", "catalog_name" = excluded."catalog_name", "original_start_date" = excluded."original_start_date", "reset_count" = excluded."reset_count", "status" = excluded."status", "term_ends_on" = excluded."term_ends_on", "volume_purchased" = excluded."volume_purchased", "volume_used" = excluded."volume_used", "is_nfr_allowed" = excluded."is_nfr_allowed", "version" = excluded."version", "timestamp" = excluded."timestamp", "auto_convert_trial_to_paid" = excluded."auto_convert_trial_to_paid", "machine_type" = excluded."machine_type", "code" = excluded."code", "name" = excluded."name", "volume_allocated" = excluded."volume_allocated", "volume_available" = excluded."volume_available"`,
+		`INSERT INTO "subscriptions" ("id", "data", "synced_at", "add_on_allocation", "product", "term_length", "term_type", "trial_extension_available", "billing_date", "billing_duration", "catalog_code", "catalog_name", "original_start_date", "reset_count", "status", "term_ends_on", "version", "volume_purchased", "volume_used", "is_nfr_allowed", "timestamp", "auto_convert_trial_to_paid", "machine_type")
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		 ON CONFLICT("id") DO UPDATE SET "data" = excluded."data", "synced_at" = excluded."synced_at", "add_on_allocation" = excluded."add_on_allocation", "product" = excluded."product", "term_length" = excluded."term_length", "term_type" = excluded."term_type", "trial_extension_available" = excluded."trial_extension_available", "billing_date" = excluded."billing_date", "billing_duration" = excluded."billing_duration", "catalog_code" = excluded."catalog_code", "catalog_name" = excluded."catalog_name", "original_start_date" = excluded."original_start_date", "reset_count" = excluded."reset_count", "status" = excluded."status", "term_ends_on" = excluded."term_ends_on", "version" = excluded."version", "volume_purchased" = excluded."volume_purchased", "volume_used" = excluded."volume_used", "is_nfr_allowed" = excluded."is_nfr_allowed", "timestamp" = excluded."timestamp", "auto_convert_trial_to_paid" = excluded."auto_convert_trial_to_paid", "machine_type" = excluded."machine_type"`,
 		id,
 		string(data),
 		time.Now().UTC().Format(time.RFC3339),
@@ -7298,17 +6838,13 @@ func (s *Store) upsertSubscriptionsTx(tx *sql.Tx, id string, obj map[string]any,
 		lookupFieldValue(obj, "reset_count"),
 		lookupFieldValue(obj, "status"),
 		lookupFieldValue(obj, "term_ends_on"),
+		lookupFieldValue(obj, "version"),
 		lookupFieldValue(obj, "volume_purchased"),
 		lookupFieldValue(obj, "volume_used"),
 		lookupFieldValue(obj, "is_nfr_allowed"),
-		lookupFieldValue(obj, "version"),
 		lookupFieldValue(obj, "timestamp"),
 		lookupFieldValue(obj, "auto_convert_trial_to_paid"),
 		lookupFieldValue(obj, "machine_type"),
-		lookupFieldValue(obj, "code"),
-		lookupFieldValue(obj, "name"),
-		lookupFieldValue(obj, "volume_allocated"),
-		lookupFieldValue(obj, "volume_available"),
 	); err != nil {
 		return fmt.Errorf("insert into subscriptions: %w", err)
 	}
@@ -7425,13 +6961,12 @@ func (s *Store) UpsertSuspiciousActivity(data json.RawMessage) error {
 // domain inserts per item without opening a per-item transaction.
 func (s *Store) upsertSyslogTx(tx *sql.Tx, id string, obj map[string]any, data json.RawMessage) error {
 	if _, err := tx.Exec(
-		`INSERT INTO "syslog" ("id", "data", "synced_at", "enabled", "account_id", "format", "host", "interval", "name", "port", "protocol", "severity", "parent_id")
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-		 ON CONFLICT("id") DO UPDATE SET "data" = excluded."data", "synced_at" = excluded."synced_at", "enabled" = excluded."enabled", "account_id" = excluded."account_id", "format" = excluded."format", "host" = excluded."host", "interval" = excluded."interval", "name" = excluded."name", "port" = excluded."port", "protocol" = excluded."protocol", "severity" = excluded."severity", "parent_id" = excluded."parent_id"`,
+		`INSERT INTO "syslog" ("id", "data", "synced_at", "account_id", "format", "host", "interval", "name", "port", "protocol", "severity", "parent_id")
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		 ON CONFLICT("id") DO UPDATE SET "data" = excluded."data", "synced_at" = excluded."synced_at", "account_id" = excluded."account_id", "format" = excluded."format", "host" = excluded."host", "interval" = excluded."interval", "name" = excluded."name", "port" = excluded."port", "protocol" = excluded."protocol", "severity" = excluded."severity", "parent_id" = excluded."parent_id"`,
 		id,
 		string(data),
 		time.Now().UTC().Format(time.RFC3339),
-		lookupFieldValue(obj, "enabled"),
 		lookupFieldValue(obj, "account_id"),
 		lookupFieldValue(obj, "format"),
 		lookupFieldValue(obj, "host"),
@@ -7760,7 +7295,6 @@ var resourceIDFieldOverrides = map[string]string{
 	"schedules":                     "id",
 	"sites":                         "id",
 	"subscriptions":                 "catalog_name",
-	"subscriptions-quantity":        "name",
 	"syslog":                        "id",
 	"users":                         "id",
 	"v1_accounts_firewall_policies": "id",
@@ -8834,6 +8368,38 @@ func (s *Store) SearchContentFiltering(query string, limit int) ([]json.RawMessa
 	return results, rows.Err()
 }
 
+// SearchDeviceControl searches the device_control_fts index with optional filters.
+func (s *Store) SearchDeviceControl(query string, limit int) ([]json.RawMessage, error) {
+	if limit <= 0 {
+		limit = 50
+	}
+	matchQuery := FTSMatchQuery(query)
+	if matchQuery == "" {
+		return nil, nil
+	}
+	rows, err := s.db.Query(
+		`SELECT t.data FROM "device_control" t
+		 JOIN "device_control_fts" ON "device_control_fts".rowid = t.rowid
+		 WHERE "device_control_fts" MATCH ?
+		 ORDER BY "device_control_fts".rank LIMIT ?`,
+		matchQuery, limit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var results []json.RawMessage
+	for rows.Next() {
+		var data string
+		if err := rows.Scan(&data); err != nil {
+			return nil, err
+		}
+		results = append(results, json.RawMessage(data))
+	}
+	return results, rows.Err()
+}
+
 // SearchEndpoints searches the endpoints_fts index with optional filters.
 func (s *Store) SearchEndpoints(query string, limit int) ([]json.RawMessage, error) {
 	if limit <= 0 {
@@ -8898,38 +8464,6 @@ func (s *Store) SearchFirewall(query string, limit int) ([]json.RawMessage, erro
 	return results, rows.Err()
 }
 
-// SearchGrid searches the grid_fts index with optional filters.
-func (s *Store) SearchGrid(query string, limit int) ([]json.RawMessage, error) {
-	if limit <= 0 {
-		limit = 50
-	}
-	matchQuery := FTSMatchQuery(query)
-	if matchQuery == "" {
-		return nil, nil
-	}
-	rows, err := s.db.Query(
-		`SELECT t.data FROM "grid" t
-		 JOIN "grid_fts" ON "grid_fts".rowid = t.rowid
-		 WHERE "grid_fts" MATCH ?
-		 ORDER BY "grid_fts".rank LIMIT ?`,
-		matchQuery, limit,
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var results []json.RawMessage
-	for rows.Next() {
-		var data string
-		if err := rows.Scan(&data); err != nil {
-			return nil, err
-		}
-		results = append(results, json.RawMessage(data))
-	}
-	return results, rows.Err()
-}
-
 // SearchNotifications searches the notifications_fts index with optional filters.
 func (s *Store) SearchNotifications(query string, limit int) ([]json.RawMessage, error) {
 	if limit <= 0 {
@@ -8944,38 +8478,6 @@ func (s *Store) SearchNotifications(query string, limit int) ([]json.RawMessage,
 		 JOIN "notifications_fts" ON "notifications_fts".rowid = t.rowid
 		 WHERE "notifications_fts" MATCH ?
 		 ORDER BY "notifications_fts".rank LIMIT ?`,
-		matchQuery, limit,
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var results []json.RawMessage
-	for rows.Next() {
-		var data string
-		if err := rows.Scan(&data); err != nil {
-			return nil, err
-		}
-		results = append(results, json.RawMessage(data))
-	}
-	return results, rows.Err()
-}
-
-// SearchOsPatches searches the os_patches_fts index with optional filters.
-func (s *Store) SearchOsPatches(query string, limit int) ([]json.RawMessage, error) {
-	if limit <= 0 {
-		limit = 50
-	}
-	matchQuery := FTSMatchQuery(query)
-	if matchQuery == "" {
-		return nil, nil
-	}
-	rows, err := s.db.Query(
-		`SELECT t.data FROM "os_patches" t
-		 JOIN "os_patches_fts" ON "os_patches_fts".rowid = t.rowid
-		 WHERE "os_patches_fts" MATCH ?
-		 ORDER BY "os_patches_fts".rank LIMIT ?`,
 		matchQuery, limit,
 	)
 	if err != nil {
@@ -9062,6 +8564,50 @@ func (s *Store) SaveSyncProgress(resourceType, cursor string, count int) error {
 	return err
 }
 
+// SaveSyncStateInScope records a completed checkpoint for a walk that already
+// bound scopeKey. A row another walk has since rebound is left unchanged.
+func (s *Store) SaveSyncStateInScope(resourceType, scopeKey, cursor string, count int) error {
+	return s.SaveSyncStateAtInScope(resourceType, scopeKey, cursor, count, time.Now().UTC())
+}
+
+// SaveSyncStateAtInScope stores the watermark for a walk that already bound
+// scopeKey. A row another walk has since rebound is left unchanged.
+func (s *Store) SaveSyncStateAtInScope(resourceType, scopeKey, cursor string, count int, at time.Time) error {
+	return s.updateSyncCheckpointInScope(resourceType,
+		`UPDATE sync_state SET last_cursor = ?, last_synced_at = ?, total_count = ?, last_attempt_complete = 1
+		 WHERE resource_type = ? AND scope_key = ?`,
+		cursor, at.UTC().Format(time.RFC3339), count, resourceType, scopeKey,
+	)
+}
+
+// SaveSyncProgressInScope stores pagination progress for a walk that already
+// bound scopeKey and leaves the last completed watermark in place. A row
+// another walk has since rebound is left unchanged.
+func (s *Store) SaveSyncProgressInScope(resourceType, scopeKey, cursor string, count int) error {
+	return s.updateSyncCheckpointInScope(resourceType,
+		`UPDATE sync_state SET last_cursor = ?, total_count = ?, last_attempt_complete = 0
+		 WHERE resource_type = ? AND scope_key = ?`,
+		cursor, count, resourceType, scopeKey,
+	)
+}
+
+func (s *Store) updateSyncCheckpointInScope(resourceType, query string, args ...any) error {
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
+	res, err := s.db.Exec(query, args...)
+	if err != nil {
+		return err
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if n == 0 {
+		return fmt.Errorf("sync scope for %s changed before the checkpoint was saved", resourceType)
+	}
+	return nil
+}
+
 func (s *Store) GetSyncState(resourceType string) (cursor string, lastSynced time.Time, count int, err error) {
 	var savedCursor sql.NullString
 	var savedTime sql.NullTime
@@ -9098,6 +8644,115 @@ func (s *Store) GetSyncCursor(resourceType string) string {
 		return cursor.String
 	}
 	return ""
+}
+
+// BindSyncScope returns the checkpoint when scopeKey matches the stored scope.
+// A different scope drops the cursor and watermark so a later tenant cannot
+// resume the previous one. The primary key stays resource_type; scope_key is
+// recorded beside it so existing ON CONFLICT(resource_type) writers keep working.
+func (s *Store) BindSyncScope(resourceType, scopeKey string) (string, time.Time, int, error) {
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
+	return s.readSyncScope(resourceType, scopeKey, true)
+}
+
+// ReadSyncScope is the dry-run twin. A scope mismatch reports an empty
+// checkpoint and leaves the stored row alone.
+func (s *Store) ReadSyncScope(resourceType, scopeKey string) (string, time.Time, int, error) {
+	return s.readSyncScope(resourceType, scopeKey, false)
+}
+
+func (s *Store) readSyncScope(resourceType, scopeKey string, bind bool) (string, time.Time, int, error) {
+	var savedCursor sql.NullString
+	var savedTime sql.NullTime
+	var savedScope sql.NullString
+	var count int
+	err := s.db.QueryRow(
+		`SELECT last_cursor, last_synced_at, total_count, scope_key FROM sync_state WHERE resource_type = ?`,
+		resourceType,
+	).Scan(&savedCursor, &savedTime, &count, &savedScope)
+	if err == sql.ErrNoRows {
+		if !bind {
+			return "", time.Time{}, 0, nil
+		}
+		_, err = s.db.Exec(
+			`INSERT INTO sync_state (resource_type, last_cursor, last_synced_at, total_count, last_attempt_complete, scope_key)
+			 VALUES (?, '', NULL, 0, 0, ?)`,
+			resourceType, scopeKey,
+		)
+		return "", time.Time{}, 0, err
+	}
+	if err != nil {
+		return "", time.Time{}, 0, err
+	}
+	if savedScope.String == scopeKey {
+		return savedCursor.String, savedTime.Time, count, nil
+	}
+	if !bind {
+		return "", time.Time{}, 0, nil
+	}
+	_, err = s.db.Exec(
+		`UPDATE sync_state SET scope_key = ?, last_cursor = '', last_synced_at = NULL, total_count = 0, last_attempt_complete = 0 WHERE resource_type = ?`,
+		scopeKey, resourceType,
+	)
+	return "", time.Time{}, 0, err
+}
+
+// ClearSyncScopeIfCurrent drops the resume cursor when scopeKey is already
+// the stored scope. A different scope is left intact so a full sync cannot
+// wipe another tenant before that tenant's walk starts. No row stays absent.
+// Completion stays unset: the clear has not walked the resource, so a crash
+// before the walk must not read as a finished sync of zero rows.
+func (s *Store) ClearSyncScopeIfCurrent(resourceType, scopeKey string) error {
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
+	var savedScope sql.NullString
+	err := s.db.QueryRow(
+		`SELECT scope_key FROM sync_state WHERE resource_type = ?`,
+		resourceType,
+	).Scan(&savedScope)
+	if err == sql.ErrNoRows {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if savedScope.String != scopeKey {
+		return nil
+	}
+	_, err = s.db.Exec(
+		`UPDATE sync_state SET last_cursor = '', last_synced_at = ?, total_count = 0, last_attempt_complete = 0 WHERE resource_type = ?`,
+		time.Time{}.UTC().Format(time.RFC3339), resourceType,
+	)
+	return err
+}
+
+// MarkSyncAttemptIncompleteIfCurrent clears the completion flag when scopeKey
+// is already stored. Cursor, watermark, and count stay. A different scope and
+// a missing row are left alone so a failed parent lookup cannot reset another
+// tenant before a request is made.
+func (s *Store) MarkSyncAttemptIncompleteIfCurrent(resourceType, scopeKey string) error {
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
+	var savedScope sql.NullString
+	err := s.db.QueryRow(
+		`SELECT scope_key FROM sync_state WHERE resource_type = ?`,
+		resourceType,
+	).Scan(&savedScope)
+	if err == sql.ErrNoRows {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if savedScope.String != scopeKey {
+		return nil
+	}
+	_, err = s.db.Exec(
+		`UPDATE sync_state SET last_attempt_complete = 0 WHERE resource_type = ? AND scope_key = ?`,
+		resourceType, scopeKey,
+	)
+	return err
 }
 
 // ListIDs returns all IDs from a resource's domain table, or from the generic

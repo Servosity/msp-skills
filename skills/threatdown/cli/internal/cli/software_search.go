@@ -216,7 +216,7 @@ func newSoftwareSearchCmd(flags *rootFlags) *cobra.Command {
 			}
 			if !stdinBody {
 				if !cmd.Flags().Changed("account-ids") && bodyAccountIds == "" && !requiredInputWaived() {
-					return fmt.Errorf("required flag \"%s\" not set", "account-ids")
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "account-ids"))
 				}
 			}
 			path := "/v1/assets/software"
@@ -824,7 +824,7 @@ func newSoftwareSearchCmd(flags *rootFlags) *cobra.Command {
 					filtered, selectErr = filterFieldsChecked(filtered, flags.selectFields)
 					selectErr = selectErrorForDryRun(selectErr, flags, data)
 				} else if flags.compact {
-					filtered = compactFields(filtered, map[string]bool{"account_id": true, "account_name": true, "ai_status": true, "created_at": true, "cves_by_status": true, "cves_count": true, "cves_count_by_status": true, "domain_name": true, "fully_qualified_host_name": true, "group_id": true, "group_name": true, "host_name": true, "language": true, "machine_id": true, "parent_account_id": true, "policy_id": true, "policy_name": true, "root_group_id": true})
+					filtered = compactFields(filtered, map[string]bool{"total_count": true})
 				}
 				wrapped, wrapErr := wrapWithProvenance(filtered, prov)
 				if wrapErr != nil {
@@ -856,7 +856,7 @@ func newSoftwareSearchCmd(flags *rootFlags) *cobra.Command {
 			if flags.csv || flags.plain {
 				formatData = outputData
 			}
-			return printOutputWithFlagsMeta(cmd.OutOrStdout(), formatData, flags, map[string]any{"source": "live"}, map[string]bool{"account_id": true, "account_name": true, "ai_status": true, "created_at": true, "cves_by_status": true, "cves_count": true, "cves_count_by_status": true, "domain_name": true, "fully_qualified_host_name": true, "group_id": true, "group_name": true, "host_name": true, "language": true, "machine_id": true, "parent_account_id": true, "policy_id": true, "policy_name": true, "root_group_id": true})
+			return printOutputWithFlagsMeta(cmd.OutOrStdout(), formatData, flags, map[string]any{"source": "live"}, map[string]bool{"total_count": true})
 		},
 	}
 	cmd.Flags().StringVar(&bodyAccountIds, "account-ids", "", "The account ids to filter your search")

@@ -169,11 +169,6 @@
   "td-synnex": [
    "local-data"
   ],
-  "threatdown": [
-   "write-gating",
-   "read-only",
-   "local-data"
-  ],
   "unifi-network": [
    "mcp-http",
    "write-gating",

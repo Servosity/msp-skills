@@ -32,7 +32,7 @@ func newUsersListCmd(flags *rootFlags) *cobra.Command {
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "users", path, retainCLIQueryParams(cmd, map[string]string{
 				"next_cursor": formatCLIParamValue(flagCursor),
 				"page_size":   formatCLIParamValue(flagPageSize),
-			}, map[string][]string{"next_cursor": {"cursor"}, "page_size": {"page-size"}}, "cursor", "cursor"), nil, flagAll, "cursor", "cursor", "page_size", 0, "next_cursor", "", "users", cmd.ErrOrStderr())
+			}, map[string][]string{"next_cursor": {"cursor"}, "page_size": {"page-size"}}, "next_cursor", "cursor"), nil, flagAll, "next_cursor", "cursor", "page_size", 0, "next_cursor", "", "users", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}

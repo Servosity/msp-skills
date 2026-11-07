@@ -36,7 +36,7 @@ func newNotificationsListCmd(flags *rootFlags) *cobra.Command {
 				"next_cursor":        formatCLIParamValue(flagCursor),
 				"only_current_owner": formatCLIParamValue(flagOnlyCurrentOwner),
 				"parent_account_id":  formatCLIParamValue(flagParentAccountId),
-			}, map[string][]string{"page_size": {"page-size"}, "next_cursor": {"cursor"}, "only_current_owner": {"only-current-owner"}, "parent_account_id": {"parent-account-id"}}, "cursor", "cursor"), nil, flagAll, "cursor", "cursor", "page_size", 0, "next_cursor", "", "records", cmd.ErrOrStderr())
+			}, map[string][]string{"page_size": {"page-size"}, "next_cursor": {"cursor"}, "only_current_owner": {"only-current-owner"}, "parent_account_id": {"parent-account-id"}}, "next_cursor", "cursor"), nil, flagAll, "next_cursor", "cursor", "page_size", 0, "next_cursor", "", "records", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}

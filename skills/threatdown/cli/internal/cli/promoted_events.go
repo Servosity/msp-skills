@@ -59,7 +59,7 @@ func newEventsPromotedCmd(flags *rootFlags) *cobra.Command {
 				"end":            formatCLIParamValue(flagEnd),
 				"severity_flags": formatCLIParamValue(flagSeverityFlags),
 				"source":         formatCLIParamValue(flagSource),
-			}, map[string][]string{"next_cursor": {"cursor"}, "search_string": {"search-string"}, "machine_id": {"machine-id"}, "start": {"start"}, "end": {"end"}, "severity_flags": {"severity-flags"}, "source": {"source"}}, "cursor", "cursor"), nil, flagAll, "cursor", "cursor", "", 0, "next_cursor", "", "events", cmd.ErrOrStderr())
+			}, map[string][]string{"next_cursor": {"cursor"}, "search_string": {"search-string"}, "machine_id": {"machine-id"}, "start": {"start"}, "end": {"end"}, "severity_flags": {"severity-flags"}, "source": {"source"}}, "next_cursor", "cursor"), nil, flagAll, "next_cursor", "cursor", "", 0, "next_cursor", "", "events", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}

@@ -291,7 +291,7 @@ func newRidSearchCmd(flags *rootFlags) *cobra.Command {
 			}
 			if !stdinBody {
 				if !cmd.Flags().Changed("account-ids") && bodyAccountIds == "" && !requiredInputWaived() {
-					return fmt.Errorf("required flag \"%s\" not set", "account-ids")
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "account-ids"))
 				}
 			}
 			path := "/v1/rid/rules"
@@ -1100,7 +1100,7 @@ func newRidSearchCmd(flags *rootFlags) *cobra.Command {
 					filtered, selectErr = filterFieldsChecked(filtered, flags.selectFields)
 					selectErr = selectErrorForDryRun(selectErr, flags, data)
 				} else if flags.compact {
-					filtered = compactFields(filtered, map[string]bool{"account_id": true, "account_name": true, "group_id": true, "machine_id": true, "machine_name": true, "parent_id": true, "root_group_id": true, "rule_id": true})
+					filtered = compactFields(filtered, map[string]bool{"total_count": true})
 				}
 				wrapped, wrapErr := wrapWithProvenance(filtered, prov)
 				if wrapErr != nil {
@@ -1132,7 +1132,7 @@ func newRidSearchCmd(flags *rootFlags) *cobra.Command {
 			if flags.csv || flags.plain {
 				formatData = outputData
 			}
-			return printOutputWithFlagsMeta(cmd.OutOrStdout(), formatData, flags, map[string]any{"source": "live"}, map[string]bool{"account_id": true, "account_name": true, "group_id": true, "machine_id": true, "machine_name": true, "parent_id": true, "root_group_id": true, "rule_id": true})
+			return printOutputWithFlagsMeta(cmd.OutOrStdout(), formatData, flags, map[string]any{"source": "live"}, map[string]bool{"total_count": true})
 		},
 	}
 	cmd.Flags().StringVar(&bodyAccountIds, "account-ids", "", "The account ids to filter your search")

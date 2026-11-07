@@ -222,7 +222,7 @@ func newCveSearchCmd(flags *rootFlags) *cobra.Command {
 			}
 			if !stdinBody {
 				if !cmd.Flags().Changed("account-ids") && bodyAccountIds == "" && !requiredInputWaived() {
-					return fmt.Errorf("required flag \"%s\" not set", "account-ids")
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "account-ids"))
 				}
 			}
 			path := "/v1/cve"
@@ -836,7 +836,7 @@ func newCveSearchCmd(flags *rootFlags) *cobra.Command {
 					filtered, selectErr = filterFieldsChecked(filtered, flags.selectFields)
 					selectErr = selectErrorForDryRun(selectErr, flags, data)
 				} else if flags.compact {
-					filtered = compactFields(filtered, map[string]bool{"account_id": true, "created_at": true, "cve_id": true, "fully_qualified_host_name": true, "group_id": true, "host_name": true, "ignored_by_name": true, "machine_id": true, "parent_account_id": true, "published_at": true, "root_group_id": true})
+					filtered = compactFields(filtered, map[string]bool{"total_count": true})
 				}
 				wrapped, wrapErr := wrapWithProvenance(filtered, prov)
 				if wrapErr != nil {
@@ -868,7 +868,7 @@ func newCveSearchCmd(flags *rootFlags) *cobra.Command {
 			if flags.csv || flags.plain {
 				formatData = outputData
 			}
-			return printOutputWithFlagsMeta(cmd.OutOrStdout(), formatData, flags, map[string]any{"source": "live"}, map[string]bool{"account_id": true, "created_at": true, "cve_id": true, "fully_qualified_host_name": true, "group_id": true, "host_name": true, "ignored_by_name": true, "machine_id": true, "parent_account_id": true, "published_at": true, "root_group_id": true})
+			return printOutputWithFlagsMeta(cmd.OutOrStdout(), formatData, flags, map[string]any{"source": "live"}, map[string]bool{"total_count": true})
 		},
 	}
 	cmd.Flags().StringVar(&bodyAccountIds, "account-ids", "", "The account ids to filter your search")

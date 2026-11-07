@@ -50,7 +50,7 @@ func newCasesCommentsListCmd(flags *rootFlags) *cobra.Command {
 					}
 				}
 				if !validRegion {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagRegion, "region", allowedRegion)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagRegion, "region", allowedRegion))
 				}
 			}
 			path := "/v1/casemgmt/accounts/{account_id}/cases/comments"

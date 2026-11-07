@@ -56,7 +56,7 @@ func newAidrRulesListCmd(flags *rootFlags) *cobra.Command {
 				"next_cursor":               formatCLIParamValue(flagCursor),
 				"filter[rule.tool][eq]":     formatCLIParamValue(flagFilterRuleToolEq),
 				"filter[rule.tool][exists]": formatCLIParamValue(flagFilterRuleToolExists),
-			}, map[string][]string{"page_size": {"page-size"}, "next_cursor": {"cursor"}, "filter[rule.tool][eq]": {"filter-rule-tool-eq"}, "filter[rule.tool][exists]": {"filter-rule-tool-exists"}}, "cursor", "cursor"), nil, flagAll, "cursor", "cursor", "page_size", 0, "", "", "rules", cmd.ErrOrStderr())
+			}, map[string][]string{"page_size": {"page-size"}, "next_cursor": {"cursor"}, "filter[rule.tool][eq]": {"filter-rule-tool-eq"}, "filter[rule.tool][exists]": {"filter-rule-tool-exists"}}, "next_cursor", "cursor"), nil, flagAll, "next_cursor", "cursor", "page_size", 0, "", "", "rules", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}

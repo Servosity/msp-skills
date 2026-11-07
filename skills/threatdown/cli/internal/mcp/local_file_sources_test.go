@@ -12,6 +12,8 @@ import (
 
 	mcplib "github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
+
+	"threatdown-pp-cli/internal/mcp/cobratree"
 )
 
 // localPathUsage matches flag help that names a path on this machine.
@@ -52,6 +54,8 @@ func TestTeachPlaybookRefusesNotesFile(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Setenv("THREATDOWN_CLI_PATH", stub)
+	cobratree.ResetSiblingCLIPathCache()
+	t.Cleanup(cobratree.ResetSiblingCLIPathCache)
 	s := server.NewMCPServer("threatdown", "test")
 	RegisterTools(s)
 	tool := s.GetTool("teach_playbook")

@@ -49,7 +49,7 @@ func newGroupsSearchCmd(flags *rootFlags) *cobra.Command {
 			}
 			if !stdinBody {
 				if !cmd.Flags().Changed("account-ids") && bodyAccountIds == "" && !requiredInputWaived() {
-					return fmt.Errorf("required flag \"%s\" not set", "account-ids")
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "account-ids"))
 				}
 			}
 			path := "/v1/accounts/groups"

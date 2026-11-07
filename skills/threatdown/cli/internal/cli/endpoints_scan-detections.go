@@ -15,7 +15,6 @@ import (
 func newEndpointsScanDetectionsCmd(flags *rootFlags) *cobra.Command {
 	var flagCursor string
 	var flagSince string
-	var flagAll bool
 
 	cmd := &cobra.Command{
 		Use:   "scan-detections <account_id> <id> <scan_id>",
@@ -23,7 +22,7 @@ func newEndpointsScanDetectionsCmd(flags *rootFlags) *cobra.Command {
 		Args: func(cmd *cobra.Command, args []string) error {
 			return endpointPositionalArgs(cmd, flags, args, cobra.MaximumNArgs(3))
 		},
-		Annotations: map[string]string{"pp:endpoint": "endpoints.scan-detections", "pp:method": "GET", "pp:path": "/v1/accounts/{account_id}/endpoints/{id}/scans/{scan_id}/detections", "mcp:read-only": "true"},
+		Annotations: map[string]string{"pp:endpoint": "endpoints.scan-detections", "pp:method": "GET", "pp:path": "/v1/accounts/{account_id}/endpoints/{id}/scans/{scan_id}/detections"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
 				// A missing required positional is a usage error in every output
@@ -57,14 +56,22 @@ func newEndpointsScanDetectionsCmd(flags *rootFlags) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "live", "endpoints", path, retainCLIQueryParams(cmd, map[string]string{
-				"next_cursor": formatCLIParamValue(flagCursor),
-				"since":       formatCLIParamValue(flagSince),
-			}, map[string][]string{"next_cursor": {"cursor"}, "since": {"since"}}, "cursor", "cursor"), nil, flagAll, "cursor", "cursor", "", 0, "next_cursor", "", "detections", cmd.ErrOrStderr())
+			params := map[string]string{}
+			if cmd.Flags().Changed("cursor") || flagCursor != "" {
+				params["next_cursor"] = formatCLIParamValue(flagCursor)
+			}
+			if cmd.Flags().Changed("since") || flagSince != "" {
+				params["since"] = formatCLIParamValue(flagSince)
+			}
+			var prov DataProvenance
+			data, err := c.GetMutating(cmd.Context(), path, params)
+			if err == nil {
+				prov = attachFreshness(DataProvenance{Source: "live"}, flags)
+			}
 			if err != nil {
 				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}
-			outputData := collectionItemsForOutput(data, path)
+			outputData := data
 			// Print provenance to stderr for human-facing output only.
 			// Machine-format flags (--json, --csv, --compact, --quiet, --plain,
 			// --select) and piped stdout suppress this line; the JSON envelope
@@ -124,7 +131,6 @@ func newEndpointsScanDetectionsCmd(flags *rootFlags) *cobra.Command {
 	}
 	cmd.Flags().StringVar(&flagCursor, "cursor", "", "The pagination cursor for next set of results. For further documentation, check Pagination section.")
 	cmd.Flags().StringVar(&flagSince, "since", "", "The Since Schema (Ex. '2020-03-23T17:23:17.860482Z')")
-	cmd.Flags().BoolVar(&flagAll, "all", false, "Fetch all pages")
 
 	return cmd
 }
