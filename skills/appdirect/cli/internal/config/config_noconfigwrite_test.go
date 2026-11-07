@@ -10,6 +10,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"appdirect-pp-cli/internal/cliutil/testenv"
 )
 
 // Issue #270: a supported way to run this connector with no credential
@@ -64,11 +66,13 @@ func ncwFilesMentioning(snap map[string]string, needle string) []string {
 }
 
 // ncwMint runs one "an ordinary command minted a token" cycle under a
-// throwaway HOME and returns everything that landed on disk.
+// throwaway home and returns everything that landed on disk. The home goes
+// through testenv.Isolate, which sets USERPROFILE as well as HOME: on Windows
+// os.UserHomeDir reads USERPROFILE, so a HOME-only sandbox wrote the token
+// into the runner's real profile and this snapshot saw nothing.
 func ncwMint(t *testing.T, value string, set bool) map[string]string {
 	t.Helper()
-	home := t.TempDir()
-	t.Setenv("HOME", home)
+	home := testenv.Isolate(t)
 	t.Setenv("APPDIRECT_CONFIG", filepath.Join(home, "config.toml"))
 	if set {
 		t.Setenv(NoConfigWriteEnv, value)
@@ -128,9 +132,8 @@ func TestWithoutTheSwitchTheCacheIsByteIdentical(t *testing.T) {
 // that is already on disk, even with the switch set - guarding save()
 // unconditionally would make logout silently inert.
 func TestNoConfigWriteStillAllowsTheWipe(t *testing.T) {
-	home := t.TempDir()
+	home := testenv.Isolate(t)
 	cfgPath := filepath.Join(home, "config.toml")
-	t.Setenv("HOME", home)
 	t.Setenv("APPDIRECT_CONFIG", cfgPath)
 
 	// Seed through the connector's own writer so the on-disk format is

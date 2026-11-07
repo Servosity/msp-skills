@@ -60,9 +60,7 @@ To install:
 2. Double-click the `.mcpb` file. Claude Desktop opens and walks you through the install.
 3. Fill in `APPDIRECT_CLIENT_ID` when Claude Desktop prompts you.
 
-Requires Claude Desktop 1.0.0 or later. A bundle carries the five platform binaries the builder downloads - macOS (`darwin-arm64`, `darwin-amd64`), Linux (`linux-arm64`, `linux-amd64`) and Windows (`windows-amd64`). Windows on ARM is released as a standalone binary but is not bundled, so use the manual config below there.
-
-> **Claude Desktop bundle:** the `.mcpb` launches on macOS (Intel and Apple Silicon), Windows x64 and Linux x64. Every tool shells out to the companion `appdirect-cli`. Releases cut from 2026-09-18 on ship that CLI inside the bundle; older bundles contain only the MCP server, so if yours lacks the companion, run the installer above first (or set `APPDIRECT_CLI_PATH` to an existing binary). Details: [#331](https://github.com/Servosity/msp-skills/issues/331).
+Requires Claude Desktop 1.0.0 or later. Pre-built bundles ship for macOS Apple Silicon (`darwin-arm64`) and Windows (`amd64`, `arm64`); for other platforms, use the manual config below.
 
 <details>
 <summary>Manual JSON config (advanced)</summary>
@@ -77,7 +75,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/sk
 iwr -useb https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/appdirect/install.ps1 | iex            # Windows
 ```
 
-Add to your Claude Desktop config (`%APPDATA%\Claude\claude_desktop_config.json` on Windows, `~/Library/Application Support/Claude/claude_desktop_config.json` on macOS):
+Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS, `%APPDATA%\Claude\claude_desktop_config.json` on Windows):
 
 ```json
 {
@@ -94,9 +92,20 @@ Add to your Claude Desktop config (`%APPDATA%\Claude\claude_desktop_config.json`
 
 </details>
 
+### Remote MCP over HTTP
+
+`appdirect-mcp --transport http` (or `PP_MCP_TRANSPORT=http`) serves streamable HTTP at `http://127.0.0.1:7777/mcp`. It refuses to start until `APPDIRECT_MCP_HTTP_TOKEN` is set to at least 32 characters, and every request must send `Authorization: Bearer <token>`. The command below prints 64 hex characters and meets that minimum. Plain HTTP is allowed only on a loopback `--addr`; any other bind, including `:7777` (every interface), also needs `--tls-cert` and `--tls-key`. Requests with no `Origin` header are accepted, as are loopback origins (`localhost`, `127.0.0.1`, or `[::1]`, any port). Any other `Origin` is refused unless it is listed in `APPDIRECT_MCP_HTTP_ALLOWED_ORIGINS`, a comma-separated list of `scheme://host[:port]` values with no path. That list is not a CORS policy; the server does not emit CORS headers.
+
+```bash
+export APPDIRECT_MCP_HTTP_TOKEN="$(openssl rand -hex 32)"
+appdirect-mcp --transport http
+```
+
+Set `APPDIRECT_MCP_READ_ONLY=1` (exactly `1`) to drop mirrored commands that are not marked read-only and make the raw execute tool refuse state-changing calls. Commands marked local-write, which write only this CLI's own learn store, stay available.
+
 ## Authentication
 
-AppDirect uses OAuth 2.0 client-credentials per marketplace. Create an API client in your marketplace settings (Settings > API Clients), then set three environment variables: APPDIRECT_BASE_URL (your marketplace host, e.g. https://marketplace.appdirect.com), APPDIRECT_CLIENT_ID, and APPDIRECT_CLIENT_SECRET. The CLI mints bearer tokens from <base-url>/oauth2/token automatically and re-mints on expiry - no manual token handling. Client-credentials grants are limited to the ROLE_PARTNER and ROLE_PARTNER_READ scopes; user-context endpoints outside those scopes will return 403.
+AppDirect uses OAuth 2.0 client-credentials per marketplace. Create an API client in your marketplace settings (Settings > API Clients), then set three environment variables: APPDIRECT_BASE_URL (your marketplace's API root, e.g. https://marketplace.appdirect.com/api), APPDIRECT_CLIENT_ID, and APPDIRECT_CLIENT_SECRET. The CLI mints bearer tokens from /oauth2/token on your marketplace host (or APPDIRECT_TOKEN_URL) automatically and re-mints on expiry - no manual token handling. Client-credentials grants are limited to the ROLE_PARTNER and ROLE_PARTNER_READ scopes; user-context endpoints outside those scopes will return 403.
 
 ## Quick Start
 
@@ -120,8 +129,6 @@ appdirect-cli search "acme" --limit 10
 
 ## Unique Features
 
-These capabilities aren't available in any other tool for this API.
-
 ### Local joins that close the books
 - **`reconcile`**  -  Flag active subscriptions with no matching invoice, orphan invoices, and failed or unpaid payments across every company before month-close.
 
@@ -137,7 +144,7 @@ These capabilities aren't available in any other tool for this API.
   ```bash
   appdirect-cli payments unpaid --since 7d --json
   ```
-- **`company show`**  -  One customer's full picture - users, subscriptions, invoices, and open opportunities - in a single view.
+- **`company show`**  -  One customer's full picture - subscriptions, invoices, and open opportunities, and the command that lists its users - in a single view.
 
   _Pick this for onboarding or support questions about a specific customer instead of four separate API calls._
 
@@ -172,7 +179,6 @@ These capabilities aren't available in any other tool for this API.
 
 ## Recipes
 
-
 ### Month-close billing reconciliation
 
 ```bash
@@ -187,7 +193,7 @@ Narrow the reconciliation report to just the mismatch type, subscription, and co
 appdirect-cli payments unpaid --since 7d --json
 ```
 
-Failed, declined, and overdue payments across all companies, sorted by amount and age.
+Failed or unavailable-gateway payments across all companies, sorted by amount and age.
 
 ### What changed this week
 
@@ -195,7 +201,7 @@ Failed, declined, and overdue payments across all companies, sorted by amount an
 appdirect-cli subs changed --since 7d --json
 ```
 
-Cross-company subscription lifecycle diff - created, cancelled, suspended.
+Cross-company subscription lifecycle diff - created, ended, or in an inactive status.
 
 ### Pipeline review before forecast call
 
@@ -216,6 +222,81 @@ Users, subscriptions, invoices, and open opportunities for one company in a sing
 ## Usage
 
 Run `appdirect-cli --help` for the full command reference and flag list.
+
+## Paths & environment variables
+
+This CLI separates local files into four path kinds:
+
+| Kind | Contents |
+|------|----------|
+| `config` | User-editable settings such as `config.toml` and saved profiles |
+| `data` | Durable local data: `credentials.toml`, `data.db`, cookies, browser-session proof files, and other auth sidecars |
+| `state` | Runtime state such as persisted queries, jobs, and `teach.log` |
+| `cache` | Regenerable HTTP/cache files |
+
+Each kind resolves independently. The ladder is:
+
+1. Per-kind env var: `APPDIRECT_CONFIG_DIR`, `APPDIRECT_DATA_DIR`, `APPDIRECT_STATE_DIR`, or `APPDIRECT_CACHE_DIR`
+2. `--home <dir>` for this invocation
+3. `APPDIRECT_HOME` for a flat relocated root
+4. XDG env vars: `XDG_CONFIG_HOME`, `XDG_DATA_HOME`, `XDG_STATE_HOME`, `XDG_CACHE_HOME`
+5. Platform defaults matching existing installs
+
+For containers and agent sandboxes, prefer a single relocated root:
+
+```bash
+export APPDIRECT_HOME=/srv/appdirect
+appdirect-cli doctor
+```
+
+On Windows (PowerShell):
+
+```powershell
+$env:APPDIRECT_HOME = "C:\ProgramData\appdirect"
+appdirect-cli doctor
+```
+
+Under `APPDIRECT_HOME=/srv/appdirect`, the four dirs resolve to `/srv/appdirect/config`, `/srv/appdirect/data`, `/srv/appdirect/state`, and `/srv/appdirect/cache`.
+
+On Windows, set the same variable in PowerShell:
+
+```powershell
+$env:APPDIRECT_HOME = "C:\srv\appdirect"
+appdirect-cli doctor
+```
+
+Under `$env:APPDIRECT_HOME = "C:\srv\appdirect"`, the four dirs resolve to `C:\srv\appdirect\config`, `C:\srv\appdirect\data`, `C:\srv\appdirect\state`, and `C:\srv\appdirect\cache`.
+
+MCP servers do not receive CLI flags from the host. Put relocation in the host `env` block:
+
+```json
+{
+  "mcpServers": {
+    "appdirect": {
+      "command": "appdirect-mcp",
+      "env": {
+        "APPDIRECT_HOME": "/srv/appdirect"
+      }
+    }
+  }
+}
+```
+
+Precedence matters in fleets: an ambient per-kind variable such as `APPDIRECT_DATA_DIR` overrides an explicit `--home` for that kind. Use `APPDIRECT_HOME` or the per-kind variables for durable fleet relocation; treat `--home` as the weaker per-invocation lever.
+
+Relocation is one-way. Unsetting `APPDIRECT_HOME` does not move files back to platform defaults, and `doctor` cannot find credentials left under a former root. Move the files manually before unsetting relocation variables.
+
+Existing installs keep working because the platform-default rung matches the legacy layout. On the first auth write, stored secrets leave `config.toml` and are consolidated into `credentials.toml` under the data directory. Run `appdirect-cli doctor --fail-on warn` to check path and credential-location warnings in automation.
+
+### Local data
+
+Reads are saved locally by default: in `--data-source auto` mode every successful read is also written to the SQLite store (`data.db`, or `data-<hash>.db` per credential) in the data directory. GET responses are never cached on disk. Credentials live in `credentials.toml` in the data directory. The learn journal lives under `learn/` in the state directory. `appdirect-cli doctor` prints the resolved paths, every store file, and the response-cache size.
+
+None of it is encrypted. New files are created owner-only; beyond that the data relies on OS account permissions and full-disk encryption (FileVault, BitLocker, LUKS).
+
+- **Erase it:** `appdirect-cli local-data purge` lists the store files, response cache, and learn journal it would delete; add `--yes` to delete them, or `--only store|cache|journal` to narrow it. Config and credentials are kept.
+- **Run without a local copy:** set `APPDIRECT_NO_LOCAL_DATA=1`. Reads go to the API (`--data-source live`; `--data-source local` still reads an existing store), the response cache is off (`--no-cache`), nothing new is written to the store, and `sync` and `workflow archive` refuse to run. Set it in an MCP host's `env` block and every command the server runs inherits it.
+- **Choose the read source without flags:** `APPDIRECT_DATA_SOURCE=auto|live|local` sets the `--data-source` default; an explicit flag wins.
 
 ## Commands
 
@@ -593,6 +674,7 @@ The parameters can be used to filter the results.
 
 Manage checkout
 
+- **`appdirect-cli checkout create-and-finalize-shopping-cart`** - Creates and finalizes a shopping cart in a single request
 - **`appdirect-cli checkout create-shopping-cart`** - Creates a shopping cart
 - **`appdirect-cli checkout create-shopping-cart-fee`** - Creates a fee and applies it to the specified cart
 - **`appdirect-cli checkout create-shopping-cart-item`** - Adds the specified item to the shopping cart
@@ -602,6 +684,7 @@ Manage checkout
 - **`appdirect-cli checkout delete-shopping-cart-accredited-agents`** - Removes the accredited agent from the specified cart
 - **`appdirect-cli checkout delete-shopping-cart-fee`** - Removes fees from the specified cart
 - **`appdirect-cli checkout delete-shopping-cart-item`** - Removes the specified item from the shopping cart
+- **`appdirect-cli checkout finalize-shopping-cart`** - Returns requested shopping cart
 - **`appdirect-cli checkout get-item-details`** - Retrieves product details such as branding, pricing, and so on.
 - **`appdirect-cli checkout get-pre-auth`** - Retrieves the payment pre-authorization for the specified cart.
 - **`appdirect-cli checkout get-pricing-summary`** - Retrieves a pricing summary for the cart. The pricing summary includes the detailed and effective costs as well as the billing schedule and recurring charges. The effective cost indicates the price that the customer pays whereas the detailed cost provides the price sources used in the calculation of the effective cost. Prices are not prorated and tax is not included in the pricing summary.
@@ -764,24 +847,76 @@ Operations related to shopping carts
 
 
 
+### company
+
+
+- **`appdirect-cli company show`** - One customer's full picture - subscriptions, invoices, and open opportunities, and the command that lists its users - in a single view.
+
+
+### payments
+
+
+- **`appdirect-cli payments unpaid`** - List failed or unavailable-gateway payments across all companies, sorted by amount and age.
+
+
+### pipeline
+
+
+- **`appdirect-cli pipeline`** - Roll up the assisted-sales pipeline by status or owner with opportunity counts and ages.
+
+- **`appdirect-cli pipeline stale`** - Find open opportunities created more than N days ago, oldest first.
+
+
+### reconcile
+
+
+- **`appdirect-cli reconcile`** - Flag active subscriptions with no matching invoice, orphan invoices, and failed or unpaid payments across every company before month-close.
+
+
+### subs
+
+
+- **`appdirect-cli subs changed`** - See subscriptions created, ended, or in an inactive status (suspended/cancelled/failed) across all companies in a time window.
+
+
+
+
+### Self-learning loop
+
+This CLI caches per-question discovery so repeat queries skip the walk and structurally similar queries get answered via entity substitution. The loop also self-captures: every invocation is journaled locally, and failed-flag corrections plus fresh teaches surface as candidates on the next `recall` for confirm/reject judgment. Agents call `recall` before discovery and fire `teach &` after answering. See the `## Automatic learning` section in `SKILL.md` for the full protocol.
+
+- **`appdirect-cli recall <query>`** - Look up cached resources for a query before running discovery
+- **`appdirect-cli teach`** - Record a query -> resource mapping (silent on success, safe to background with `&`)
+- **`appdirect-cli learnings list`** - Inspect taught rows
+- **`appdirect-cli learnings forget <query>`** - Undo a teach
+- **`appdirect-cli learnings candidates`** - List auto-captured candidates awaiting confirm/reject
+- **`appdirect-cli learnings stats`** - Local loop metrics: recall hit rate, teach-to-reuse, playbook resolution, candidate counts
+- **`appdirect-cli teach-pattern`** - Install a query/resource template up front
+- **`appdirect-cli teach-lookup`** - Add an entity mapping (e.g. country code, team alias) for pattern substitution
+
+Pass `--no-learn` or set `APPDIRECT_NO_LEARN=true` to disable the loop for deterministic flows.
+
+The local store's schema version stamp is one-way: once this version of `appdirect-cli` opens the database, older binaries refuse it with a version error  -  upgrade the binary rather than downgrading.
+
 ## Output Formats
 
 ```bash
 # Human-readable table (default in terminal, JSON when piped)
-appdirect-cli account resource-company-create-active-user-post <id>
+appdirect-cli account resource-company-get-invited-users-get mock-value
 
 # JSON for scripting and agents
-appdirect-cli account resource-company-create-active-user-post <id> --json
-
+appdirect-cli account resource-company-get-invited-users-get mock-value --json
 # Filter to specific fields
-appdirect-cli account resource-company-create-active-user-post <id> --json --select id,name,status
+appdirect-cli account resource-company-get-invited-users-get mock-value --json --select content,links,page
 
 # Dry run  -  show the request without sending
-appdirect-cli account resource-company-create-active-user-post <id> --dry-run
+appdirect-cli account resource-company-get-invited-users-get mock-value --dry-run
 
 # Agent mode  -  JSON + compact + no prompts in one flag
-appdirect-cli account resource-company-create-active-user-post <id> --agent
+appdirect-cli account resource-company-get-invited-users-get mock-value --agent
 ```
+
+`--csv` prefixes a leading `'` on cells and header keys that start with `=`, `+`, `-`, `@`, a tab, or a line break (including fullwidth `＝＋－＠`) so a spreadsheet does not run them as formulas. Plain signed numbers such as `-5` and `+2.5e3` are left unchanged.
 
 ## Agent Usage
 
@@ -789,15 +924,15 @@ This CLI is designed for AI agent consumption:
 
 - **Non-interactive** - never prompts, every input is a flag
 - **Pipeable** - `--json` output to stdout, errors to stderr
-- **Filterable** - `--select id,name` returns only fields you need
+- **Filterable** - `--select <field>[,<field>...]` returns only fields you need
 - **Previewable** - `--dry-run` shows the request without sending
-- **Explicit retries** - add `--idempotent` to create retries and `--ignore-missing` to delete retries when a no-op success is acceptable
-- **Confirmable** - `--yes` for explicit confirmation of destructive actions
+- **Explicit retries** - add `--idempotent` to create retries and add `--ignore-missing` to delete retries when a no-op success is acceptable
+- **Explicit confirmation** - `--agent` does not imply `--yes`; pass `--yes` separately only after the target, arguments, and side effects are clear
 - **Piped input** - write commands can accept structured input when their help lists `--stdin`
 - **Offline-friendly** - sync/search commands can use the local SQLite store when available
 - **Agent-safe by default** - no colors or formatting unless `--human-friendly` is set
 
-Exit codes: `0` success, `2` usage error, `3` not found, `4` auth error, `5` API error, `7` rate limited, `10` config error.
+Exit codes: `0` success, `2` usage error, `3` not found, `4` auth error, `5` API error, `6` partial failure, `7` rate limited, `8` async job submitted but not finished (rerun the printed recovery command; do not resubmit), `10` config error.
 
 ## Health Check
 
@@ -809,9 +944,11 @@ Verifies configuration, credentials, and connectivity to the API.
 
 ## Configuration
 
-Config file: `~/.config/appdirect-cli/config.toml`
+Run `appdirect-cli doctor` to see the resolved config, data, state, and cache directories. The platform-default config path is `~/.config/appdirect-cli/config.toml` on macOS/Linux and `%USERPROFILE%\.config\appdirect-cli\config.toml` on Windows; `--home`, `APPDIRECT_HOME`, and per-kind env vars can relocate it.
 
 Static request headers can be configured under `headers`; per-command header overrides take precedence.
+
+`--ca-cert`, `APPDIRECT_CA_CERT`, or `ca_cert` adds a PEM CA bundle to the system trust roots. `--tls-server-name`, `APPDIRECT_TLS_SERVER_NAME`, or `tls_server_name` is the name checked against the certificate when the dialed address does not match it. Precedence is flag, then environment, then the config file. A config file other users can change does not supply these settings. Certificate verification failures are not retried.
 
 Environment variables:
 
@@ -826,23 +963,31 @@ If you use agentcookie to sync secrets across machines, this CLI auto-adopts age
 
 ### Keeping credentials off disk (optional)
 
-By default the connector caches the token it mints in the config file so the next
+By default the connector caches the token it mints in `credentials.toml` (mode 0600) so the next
 command does not have to mint another one. Set `APPDIRECT_NO_CONFIG_WRITE=1` to turn that
 off: nothing is written, and each run mints a fresh token instead. Use it when
 your secrets live in Keychain, Windows Credential Manager, or any launcher that
 injects them as environment variables at process start, and you do not want a
-plaintext copy on disk.
+copy on disk.
 
 | What changes | With `APPDIRECT_NO_CONFIG_WRITE=1` |
 | --- | --- |
 | Token cache | Not written. A fresh token is minted per invocation. |
 | `auth login` / `auth set-token` | Refuse, naming the variable, instead of reporting a save that did not happen. |
-| `auth logout` | Still clears an existing config file. The erase is not a credential write. |
-| MCP server | Honours the same variable, so a Claude Desktop install gets no plaintext token cache either. |
+| `auth logout` | Still clears stored credentials. The erase is not a credential write. |
+| MCP server | Honours the same variable, so a Claude Desktop install gets no token cache either. |
 
 Set it in the shell for CLI use, or through the install prompt of the same name
 for the MCP server. Any value other than blank, `0`, `false`, `no` or `off`
 turns it on. See issue #270.
+
+
+## Credential safety
+
+- Every API request and the bearer token go only to the scheme, host and port of `APPDIRECT_BASE_URL` (default `https://marketplace.appdirect.com/api`). The client ID and secret go only to the token URL: `APPDIRECT_TOKEN_URL`, else `/oauth2/token` on your marketplace's own host, so a reseller marketplace mints from itself, never from AppDirect's. A redirect to any other host is refused, so a credential never reaches it.
+- Any output, file or MCP result that would repeat `APPDIRECT_CLIENT_ID`, `APPDIRECT_CLIENT_SECRET`, a minted token or a credential-named value from a response is replaced whole by "[credkit: withheld from <sink>: it carried a credential this program holds]", whether it repeats the value whole, as a piece of 8 or more characters, or in a decoded form (base64, hex, percent, JSON escapes and the other encodings the credential leak contract lists). The check can withhold ordinary text it cannot finish reading; it says so the same way. Responses are never cached on disk, and credential-named fields are dropped before anything reaches the local store.
+- Only `credentials.toml` (mode 0600) holds a credential. A client ID and secret supplied by the environment are never written to disk, and nor is the token minted for them: the process keeps it in memory (the MCP server reuses it until it expires). A token is cached in `credentials.toml` only beside the client pair stored there (not at all under `APPDIRECT_NO_CONFIG_WRITE=1`), and a token is only ever sent for the client and marketplace it was minted for.
+- `--dry-run` sends nothing and never mints a token. Over MCP, a call that changes AppDirect returns a preview and sends only with `confirm: true`, and a tool argument can never name a file to read or write.
 
 ## Troubleshooting
 **Authentication errors (exit code 4)**
@@ -854,7 +999,7 @@ turns it on. See issue #270.
 
 ### API-specific
 - **401 Unauthorized on every call**  -  Check APPDIRECT_CLIENT_ID / APPDIRECT_CLIENT_SECRET and confirm the API client is enabled in your marketplace's Settings > API Clients.
-- **Requests hit the wrong marketplace or DNS fails**  -  Set APPDIRECT_BASE_URL to your own marketplace host (every AppDirect tenant has its own URL).
+- **Requests hit the wrong marketplace or DNS fails**  -  Set APPDIRECT_BASE_URL to your own marketplace's API root, e.g. https://marketplace.example.com/api (every AppDirect tenant has its own URL).
 - **403 Forbidden on specific endpoints**  -  Client-credentials tokens carry only ROLE_PARTNER / ROLE_PARTNER_READ; endpoints requiring user context need a different grant type.
 - **reconcile / pipeline / company show return empty results**  -  Run `appdirect-cli sync --full` first - these commands read the local store.
 

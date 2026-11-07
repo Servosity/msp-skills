@@ -12,7 +12,7 @@ faqs:
   - q: "Is the AppDirect MCP server safe for client data?"
     a: "Yes, by design - and the exceptions are ones you switch on yourself. The CLI, the MCP server, and any local data mirror run on your own machine, and nothing is sent to MSP Skills or any third party unless you ask for it. Three paths can move data off the machine, all opt-in: `--deliver webhook:<url>` posts a command's output to a URL you name; `APPDIRECT_FEEDBACK_AUTO_SEND=true` posts feedback you typed to the URL in `APPDIRECT_FEEDBACK_ENDPOINT` (with no endpoint set, `feedback` only writes a local file); `--transport http` opens a local MCP listener you then choose whether to expose. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page."
   - q: "Does this work with ChatGPT?"
-    a: "Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way appdirect-mcp runs, and shares MCP configuration with Codex: add appdirect-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote (HTTP) server, and this connector's HTTP mode is paused until it is reprinted; the security note at the top of the install guide explains why. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list."
+    a: "Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way appdirect-mcp runs, and shares MCP configuration with Codex: add appdirect-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote server. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list."
   - q: "Do I need to know how to code?"
     a: "No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once."
   - q: "Is my AppDirect data safe?"
@@ -58,7 +58,7 @@ Ask 'which AppDirect payments failed this week?' or 'reconcile billing before mo
 **just ask:** *"Reconcile AppDirect billing for the last 30 days - what's active but unbilled, overdue, or failed?"*
 <sub>Your agent runs: <code>appdirect-cli reconcile --since 30d --agent</code></sub>
 
-**Instead of** Click through four console screens - users, subscriptions, invoices, opportunities - to brief one customer before a renewal call.
+**Instead of** Click through four console screens - subscriptions, invoices and open opportunities - to brief one customer before a renewal call.
 **just ask:** *"Show me everything on AppDirect company <companyId>."*
 <sub>Your agent runs: <code>appdirect-cli company show &lt;companyId&gt;</code></sub>
 
@@ -76,7 +76,7 @@ Ask 'which AppDirect payments failed this week?' or 'reconcile billing before mo
 | Which payments failed or stalled in the last week, across every company? | `appdirect-cli payments unpaid --since 7d --json` |
 | What's active-but-unbilled, overdue, or failed before month-close? | `appdirect-cli reconcile --since 30d --agent` |
 | What changed in subscriptions this week - new, ended, or suspended? | `appdirect-cli subs changed --since 7d --json` |
-| Show one customer's full picture - users, subscriptions, invoices, opportunities. | `appdirect-cli company show <companyId>` |
+| Show one customer's full picture - subscriptions, invoices and open opportunities. | `appdirect-cli company show <companyId>` |
 | What does my assisted-sales pipeline look like by status? | `appdirect-cli pipeline --group-by status --agent` |
 | Which open opportunities have gone stale? | `appdirect-cli pipeline stale --days 14 --json` |
 | Find any company, subscription, invoice, or opportunity by keyword. | `appdirect-cli search "<text>"` |
@@ -128,7 +128,7 @@ After install, authenticate once with your AppDirect credentials, then verify wi
 
 | Tier | Examples | Recommended agent policy |
 | --- | --- | --- |
-| Read | payments unpaid, reconcile, subs changed, company show, pipeline, search, and every GET (companies, users, subscriptions, invoices, opportunities) | Allow |
+| Read | payments unpaid, reconcile, subs changed, company show, pipeline, search, and every GET (companies, subscriptions, invoices and open opportunities) | Allow |
 | Write (routine) | create/update companies, users, memberships, groups, and opportunities; invite users; request a purchase; finalize or clone an opportunity; apply a discount | Preview with --dry-run, then a reviewed write |
 | Credential / financial | set a temporary password; create, update, or set a default payment method or payment instrument | Human-in-the-loop only |
 | Destructive | delete a company membership, user group, subscription assignment, or shopping cart; cancel a subscription or add-on; expire a developer account | Human-in-the-loop only |
@@ -147,7 +147,7 @@ Yes, by design - and the exceptions are ones you switch on yourself. The CLI, th
 
 ### Does this work with ChatGPT?
 
-Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way appdirect-mcp runs, and shares MCP configuration with Codex: add appdirect-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote (HTTP) server, and this connector's HTTP mode is paused until it is reprinted; the security note at the top of the install guide explains why. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
+Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way appdirect-mcp runs, and shares MCP configuration with Codex: add appdirect-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote server. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
 
 ### Do I need to know how to code?
 
