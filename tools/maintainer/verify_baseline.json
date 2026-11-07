@@ -16,11 +16,6 @@
    "read-only",
    "local-data"
   ],
-  "auvik": [
-   "mcp-http",
-   "read-only",
-   "local-data"
-  ],
   "axcient": [
    "mcp-http",
    "read-only",
