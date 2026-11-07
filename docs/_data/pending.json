@@ -679,9 +679,9 @@
     "released_hash": "sha256:5e53a3c88ce12a15e618ec800c001689d99ac53584cd72cb7d325e8e70eeb1a8"
   },
   "threatdown": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.4",
-    "latest_tag": "threatdown-v0.1.3",
+    "latest_tag": "threatdown-v0.1.4",
     "current_hash": "sha256:e24747d8511bdf72339a77be7eeca4f290db0add2a870467d1eedc4fa2b6c7a3",
     "released_hash": "sha256:e24747d8511bdf72339a77be7eeca4f290db0add2a870467d1eedc4fa2b6c7a3"
   },
@@ -728,9 +728,9 @@
     "released_hash": "sha256:9e7f2eeabb2b7875aff3bc70c5ac38f7bc465c2ddc85aabe0ac1a72497b4bf4f"
   },
   "watchguard": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.4",
-    "latest_tag": "watchguard-v0.1.3",
+    "latest_tag": "watchguard-v0.1.4",
     "current_hash": "sha256:20b87e3236ad48cc489392756afff1a1a6d410bc2a2a5ca86201b6aa75b31eed",
     "released_hash": "sha256:20b87e3236ad48cc489392756afff1a1a6d410bc2a2a5ca86201b6aa75b31eed"
   },
