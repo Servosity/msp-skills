@@ -4,6 +4,32 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.1.6] - unreleased
+
+### Security
+- **Rebuilt on Printing Press 4.35.1 ([GHSA-jh26-vhqh-692c](https://github.com/advisories/GHSA-jh26-vhqh-692c)).** The MCP server's HTTP mode listens on `127.0.0.1:7777` by default, refuses to start until `RIVERSIDE_FM_MCP_HTTP_TOKEN` is set (at least 32 characters), requires `Authorization: Bearer <token>` on every request, and needs `--tls-cert` and `--tls-key` for any address other than loopback.
+- **Adopted the shared credential kit.** Session cookies, the Spacefast token and the MCP HTTP token are withheld from every output, file and child process, and refused on any request to another host or over plain http.
+- **Studio join secrets never leave the client.** `producerSecret`, `guestSecret` and `shareToken` are removed from every API response before any command sees it.
+- The cookie jar is written atomically and privately, so a crash cannot leave it truncated.
+- `RIVERSIDE_FM_MCP_READ_ONLY=1` hides `compute_per_speaker_talktime_stats` and every tool that writes the local learning store.
+
+### Added
+- `RIVERSIDE_FM_NO_LOCAL_DATA=1` keeps no local copy of Riverside data: reads go to the API, the response cache is off, and nothing new is written to the local store. Declared on every install channel with `RIVERSIDE_FM_MCP_READ_ONLY` and `RIVERSIDE_FM_MCP_HTTP_TOKEN`.
+- `local-data purge` previews the local store files, response cache and learning journal it would erase, and deletes them only with `--yes`.
+
+### Fixed
+- **`media refresh` and `clips harvest` exit non-zero when a row fails.** Every row still prints with its status; a fetch, download or path failure now fails the run. `bulk export` counts a take as checkpointed only after its resume file is written.
+
+- **`bulk export`, `ready`, `stale`, `media refresh` and `clips list` read every page.** They stopped at the first page, so a studio with more than 200 projects or a project with more than 100 takes was cut short with no warning.
+- **Long titles no longer collide on disk.** A name over 80 bytes kept only its start, which dropped the id and extension, so two items with a long shared title landed on one path and one overwrote the other. The name now keeps its id and extension, and is always valid UTF-8.
+
+- `bulk export` help and docs say what it writes: each take's transcript, asset list and HLS manifests, with its resume cursor in `<out>/.resume.json`. It downloads no audio or video; use `grab` for those.
+
+- `doctor` no longer reports the API as reachable when its probe answers with an error status; it names `RIVERSIDE_FM_BASE_URL` instead.
+
+### Removed
+- `sync`, `export`, `import` and `analytics`. Every Riverside endpoint is nested under a studio, project or take id, so the press no longer renders them; the published `sync` had nothing to sync and the spec has no write endpoint for `import`. Use `bulk export`, `grab` and `search`.
+
 ## [0.1.5] - 2026-10-23
 
 ### Changed

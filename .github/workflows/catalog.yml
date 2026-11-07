@@ -199,9 +199,26 @@ jobs:
             mkdir -p docs/_data
             python3 tools/maintainer/release_state.py --json --released-tags "$released" > docs/_data/pending.json
           }
+          # CI skips this commit ([skip ci]) when it builds no connector row, so
+          # the next push's github.event.before IS this commit and CI's
+          # parent-comparing checks (registry state never regresses, pinned
+          # artifacts, env schema, press metadata) would never compare it with
+          # what it replaced; a live-verified badge was lost that way before
+          # (#248). bot_self_check.py runs those checks here, on this commit
+          # against the one it builds on, and a failure stops the push. A
+          # commit that builds a row (a release stamp) keeps CI.
           commit_derived() {
+            local msg="chore: regenerate derived files (catalog/llms/pending) [bot]" decision
             git add "${derived[@]}"
-            git commit -s -m "chore: regenerate derived files (catalog/llms/pending) [bot]"
+            git commit -s -m "$msg"
+            if ! decision=$(python3 tools/maintainer/bot_self_check.py --base HEAD^); then
+              echo "::error::the derived-files commit fails a push check against its parent; not pushing"
+              exit 1
+            fi
+            echo "bot self-check passed; $decision"
+            if [ "$decision" = "skip-ci: yes" ]; then
+              git commit -q --amend -s -m "$msg [skip ci]"
+            fi
           }
 
           fetch_released

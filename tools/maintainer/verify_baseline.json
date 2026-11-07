@@ -44,11 +44,6 @@
    "read-only",
    "local-data"
   ],
-  "cisco-meraki": [
-   "write-gating",
-   "read-only",
-   "local-data"
-  ],
   "connectsecure": [
    "write-gating",
    "read-only",
@@ -87,11 +82,7 @@
    "local-data"
   ],
   "datto-rmm": [
-   "mcp-stdio",
-   "mcp-http",
-   "write-gating",
-   "read-only",
-   "local-data"
+   "mcp-stdio"
   ],
   "fortinet": [
    "read-only",
@@ -162,11 +153,6 @@
   "resourceguru": [
    "mcp-http",
    "write-gating",
-   "read-only",
-   "local-data"
-  ],
-  "riverside-fm": [
-   "mcp-http",
    "read-only",
    "local-data"
   ],

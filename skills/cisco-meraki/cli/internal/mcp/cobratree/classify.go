@@ -28,11 +28,11 @@ const (
 	// LocalWriteAnnotation, when set on a Cobra command to "true"/"1"/"yes",
 	// marks a command whose only writes land in the CLI's own local store
 	// (teach-style learn writes, playbook notes) - never external state and
-	// never user-visible files. The walker registers the resulting MCP tool
-	// with destructiveHint=false and openWorldHint=false; readOnlyHint stays
-	// unset because the command genuinely writes locally. Commands that
-	// delete user-visible data keep honest destructive semantics and must
-	// not carry this annotation.
+	// never user-visible files. The walker leaves destructiveHint at the
+	// possibly-destructive default and sets openWorldHint true so hosts
+	// prompt; readOnlyHint stays unset because the command genuinely writes
+	// locally. Commands that delete user-visible data keep honest
+	// destructive semantics and must not carry this annotation.
 	LocalWriteAnnotation = "mcp:local-write"
 	// PositionalWriteSinksAnnotation lists zero-based positional argument
 	// indexes that write to user-visible files when populated. It is enforced
@@ -46,6 +46,13 @@ const (
 	// is a different flag. Separate names with commas, semicolons, or
 	// whitespace. A leading "--" is ignored.
 	FlagWriteSinksAnnotation = "mcp:write-flags"
+	// FlagInputSinksAnnotation lists Cobra flag names whose values are
+	// filesystem paths opened for reading. The walker drops them from the
+	// MCP schema and rejects them as arguments. Inheritance matches
+	// mcp:write-flags: an ancestor annotation covers a persistent flag that
+	// ancestor supplies, and a nearer redeclaration of that name is a
+	// different flag. Separate names with commas, semicolons, or whitespace.
+	FlagInputSinksAnnotation = "mcp:read-flags"
 	// ReadOnlyUnlessFlagsAnnotation lists Cobra flag names that turn an
 	// otherwise readable command into a write. With the MCP read-only switch
 	// on, the walker still registers the command, drops those flags, and
@@ -157,11 +164,19 @@ func annotationListParts(raw string) []string {
 }
 
 func flagWriteSinkNames(cmd *cobra.Command) map[string]bool {
+	return flagScopedAnnotationNames(cmd, FlagWriteSinksAnnotation)
+}
+
+func flagReadSinkNames(cmd *cobra.Command) map[string]bool {
+	return flagScopedAnnotationNames(cmd, FlagInputSinksAnnotation)
+}
+
+func flagScopedAnnotationNames(cmd *cobra.Command, key string) map[string]bool {
 	if cmd == nil {
 		return nil
 	}
 	out := map[string]bool{}
-	for name := range annotationFlagNames(cmd.Annotations) {
+	for name := range annotationNamedFlags(cmd.Annotations, key) {
 		out[name] = true
 	}
 	// Persistent flags show up on the child, but the annotation stays on the
@@ -170,7 +185,7 @@ func flagWriteSinkNames(cmd *cobra.Command) map[string]bool {
 	// redeclares the persistent name supplies the flag the child inherits,
 	// so a more distant annotation does not apply.
 	for parent := cmd.Parent(); parent != nil; parent = parent.Parent() {
-		for name := range annotationFlagNames(parent.Annotations) {
+		for name := range annotationNamedFlags(parent.Annotations, key) {
 			if inheritedWriteSink(cmd, name) && persistentFlagSupplier(cmd, name) == parent {
 				out[name] = true
 			}
@@ -180,10 +195,6 @@ func flagWriteSinkNames(cmd *cobra.Command) map[string]bool {
 		return nil
 	}
 	return out
-}
-
-func annotationFlagNames(annotations map[string]string) map[string]bool {
-	return annotationNamedFlags(annotations, FlagWriteSinksAnnotation)
 }
 
 func annotationNamedFlags(annotations map[string]string, key string) map[string]bool {
@@ -264,6 +275,30 @@ func CommandAtPath(root *cobra.Command, path []string) *cobra.Command {
 	return cmd
 }
 
+// CommandExposableOverMCP reports whether cmd may be surfaced as an MCP tool:
+// cmd must be non-nil, and neither it nor any ancestor may be Cobra-hidden or
+// mcp:hidden. Recipe intents call it so a recipe cannot re-expose a command the
+// mirror walker would have pruned (for example a hidden `share publish`).
+func CommandExposableOverMCP(cmd *cobra.Command) bool {
+	if cmd == nil {
+		return false
+	}
+	for c := cmd; c != nil; c = c.Parent() {
+		if c.Hidden || isMCPHidden(c) {
+			return false
+		}
+	}
+	return true
+}
+
+// CommandAllowedUnderMCPReadOnly reports whether a recipe wrapping cmd may be
+// exposed while the MCP read-only switch is on. It mirrors the endpoint rule:
+// only a command annotated mcp:read-only or mcp:local-write stays available.
+// Callers gate on this only when the read-only switch is actually set.
+func CommandAllowedUnderMCPReadOnly(cmd *cobra.Command) bool {
+	return isMCPReadOnly(cmd) || isMCPLocalWrite(cmd)
+}
+
 func commandChild(cmd *cobra.Command, name string) *cobra.Command {
 	if cmd == nil || name == "" {
 		return nil
@@ -285,6 +320,17 @@ func DestinationFlagBlocked(cmd *cobra.Command, flagName string) bool {
 		return true
 	}
 	return flagWriteSinkNames(cmd)[flagName]
+}
+
+// InputFlagBlocked reports whether flagName is a filesystem path opened for
+// reading. Unambiguous names are blocked on every command, including a nil
+// cmd. mcp:read-flags on cmd, and on ancestors when the flag is inherited,
+// are blocked too.
+func InputFlagBlocked(cmd *cobra.Command, flagName string) bool {
+	if blockedInputFlags[flagName] {
+		return true
+	}
+	return flagReadSinkNames(cmd)[flagName]
 }
 
 func positionalWriteSinkIndexes(cmd *cobra.Command) map[int]bool {

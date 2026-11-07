@@ -1,0 +1,300 @@
+{
+ "sites": [
+  {
+   "file": "internal/cli/fleet_admins.go",
+   "func": "newNovelFleetAdminsCmd",
+   "what": "fmt.Fprintf",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "output from a command's RunE, after Start, so the kit's output layer checks it: the checker reaches it only through the client-hook closure the init in internal/cli/meraki_link_pagination.go registers (registerClientHook)"
+  },
+  {
+   "file": "internal/cli/fleet_admins.go",
+   "func": "newNovelFleetAdminsCmd",
+   "what": "writer:io.Writer",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "output from a command's RunE, after Start, so the kit's output layer checks it: the checker reaches it only through the client-hook closure the init in internal/cli/meraki_link_pagination.go registers (registerClientHook)"
+  },
+  {
+   "file": "internal/cli/fleet_blame.go",
+   "func": "newNovelFleetBlameCmd",
+   "what": "fmt.Fprintln",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "output from a command's RunE, after Start, so the kit's output layer checks it: the checker reaches it only through the client-hook closure the init in internal/cli/meraki_link_pagination.go registers (registerClientHook)"
+  },
+  {
+   "file": "internal/cli/fleet_blame.go",
+   "func": "newNovelFleetBlameCmd",
+   "what": "writer:io.Writer",
+   "count": 5,
+   "kind": "exempt",
+   "reason": "output from a command's RunE, after Start, so the kit's output layer checks it: the checker reaches it only through the client-hook closure the init in internal/cli/meraki_link_pagination.go registers (registerClientHook)"
+  },
+  {
+   "file": "internal/cli/fleet_changes.go",
+   "func": "localChanges",
+   "what": "database/sql.DB.QueryContext",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "a query of the local store, opened through the credkit.SQLDriver internal/credsql registers, from a command's RunE after Start: the checker reaches it only through the client-hook closure the init in internal/cli/meraki_link_pagination.go registers (registerClientHook)"
+  },
+  {
+   "file": "internal/cli/fleet_changes.go",
+   "func": "newNovelFleetChangesCmd",
+   "what": "fmt.Fprintln",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "output from a command's RunE, after Start, so the kit's output layer checks it: the checker reaches it only through the client-hook closure the init in internal/cli/meraki_link_pagination.go registers (registerClientHook)"
+  },
+  {
+   "file": "internal/cli/fleet_changes.go",
+   "func": "newNovelFleetChangesCmd",
+   "what": "writer:io.Writer",
+   "count": 4,
+   "kind": "exempt",
+   "reason": "output from a command's RunE, after Start, so the kit's output layer checks it: the checker reaches it only through the client-hook closure the init in internal/cli/meraki_link_pagination.go registers (registerClientHook)"
+  },
+  {
+   "file": "internal/cli/fleet_common.go",
+   "func": "fleetClientOrgs",
+   "what": "writer:io.Writer",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "output from a command's RunE, after Start, so the kit's output layer checks it: the checker reaches it only through the client-hook closure the init in internal/cli/meraki_link_pagination.go registers (registerClientHook)"
+  },
+  {
+   "file": "internal/cli/fleet_common.go",
+   "func": "printFleetRows",
+   "what": "fmt.Fprintln",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "output from a command's RunE, after Start, so the kit's output layer checks it: the checker reaches it only through the client-hook closure the init in internal/cli/meraki_link_pagination.go registers (registerClientHook)"
+  },
+  {
+   "file": "internal/cli/fleet_common.go",
+   "func": "printFleetRows",
+   "what": "writer:io.Writer",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "output from a command's RunE, after Start, so the kit's output layer checks it: the checker reaches it only through the client-hook closure the init in internal/cli/meraki_link_pagination.go registers (registerClientHook)"
+  },
+  {
+   "file": "internal/cli/fleet_common.go",
+   "func": "reportFleetFailures",
+   "what": "fmt.Fprintf",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "output from a command's RunE, after Start, so the kit's output layer checks it: the checker reaches it only through the client-hook closure the init in internal/cli/meraki_link_pagination.go registers (registerClientHook)"
+  },
+  {
+   "file": "internal/cli/fleet_common.go",
+   "func": "warnPartial",
+   "what": "fmt.Fprintf",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "output from a command's RunE, after Start, so the kit's output layer checks it: the checker reaches it only through the client-hook closure the init in internal/cli/meraki_link_pagination.go registers (registerClientHook)"
+  },
+  {
+   "file": "internal/cli/fleet_down.go",
+   "func": "newNovelFleetDownCmd",
+   "what": "writer:io.Writer",
+   "count": 3,
+   "kind": "exempt",
+   "reason": "output from a command's RunE, after Start, so the kit's output layer checks it: the checker reaches it only through the client-hook closure the init in internal/cli/meraki_link_pagination.go registers (registerClientHook)"
+  },
+  {
+   "file": "internal/cli/fleet_fanout.go",
+   "func": "newNovelFleetFanoutCmd",
+   "what": "fmt.Fprintf",
+   "count": 3,
+   "kind": "exempt",
+   "reason": "output from a command's RunE, after Start, so the kit's output layer checks it: the checker reaches it only through the client-hook closure the init in internal/cli/meraki_link_pagination.go registers (registerClientHook)"
+  },
+  {
+   "file": "internal/cli/fleet_fanout.go",
+   "func": "newNovelFleetFanoutCmd",
+   "what": "writer:io.Writer",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "output from a command's RunE, after Start, so the kit's output layer checks it: the checker reaches it only through the client-hook closure the init in internal/cli/meraki_link_pagination.go registers (registerClientHook)"
+  },
+  {
+   "file": "internal/cli/fleet_find.go",
+   "func": "findLocal",
+   "what": "database/sql.DB.QueryContext",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "a query of the local store, opened through the credkit.SQLDriver internal/credsql registers, from a command's RunE after Start: the checker reaches it only through the client-hook closure the init in internal/cli/meraki_link_pagination.go registers (registerClientHook)"
+  },
+  {
+   "file": "internal/cli/fleet_find.go",
+   "func": "newNovelFleetFindCmd",
+   "what": "fmt.Fprintf",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "output from a command's RunE, after Start, so the kit's output layer checks it: the checker reaches it only through the client-hook closure the init in internal/cli/meraki_link_pagination.go registers (registerClientHook)"
+  },
+  {
+   "file": "internal/cli/fleet_find.go",
+   "func": "newNovelFleetFindCmd",
+   "what": "fmt.Fprintln",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "output from a command's RunE, after Start, so the kit's output layer checks it: the checker reaches it only through the client-hook closure the init in internal/cli/meraki_link_pagination.go registers (registerClientHook)"
+  },
+  {
+   "file": "internal/cli/fleet_find.go",
+   "func": "newNovelFleetFindCmd",
+   "what": "writer:io.Writer",
+   "count": 4,
+   "kind": "exempt",
+   "reason": "output from a command's RunE, after Start, so the kit's output layer checks it: the checker reaches it only through the client-hook closure the init in internal/cli/meraki_link_pagination.go registers (registerClientHook)"
+  },
+  {
+   "file": "internal/cli/fleet_flaps.go",
+   "func": "newNovelFleetFlapsCmd",
+   "what": "fmt.Fprintln",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "output from a command's RunE, after Start, so the kit's output layer checks it: the checker reaches it only through the client-hook closure the init in internal/cli/meraki_link_pagination.go registers (registerClientHook)"
+  },
+  {
+   "file": "internal/cli/fleet_flaps.go",
+   "func": "newNovelFleetFlapsCmd",
+   "what": "writer:io.Writer",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "output from a command's RunE, after Start, so the kit's output layer checks it: the checker reaches it only through the client-hook closure the init in internal/cli/meraki_link_pagination.go registers (registerClientHook)"
+  },
+  {
+   "file": "internal/cli/fleet_health.go",
+   "func": "newNovelFleetHealthCmd",
+   "what": "fmt.Fprintf",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "output from a command's RunE, after Start, so the kit's output layer checks it: the checker reaches it only through the client-hook closure the init in internal/cli/meraki_link_pagination.go registers (registerClientHook)"
+  },
+  {
+   "file": "internal/cli/fleet_health.go",
+   "func": "newNovelFleetHealthCmd",
+   "what": "writer:io.Writer",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "output from a command's RunE, after Start, so the kit's output layer checks it: the checker reaches it only through the client-hook closure the init in internal/cli/meraki_link_pagination.go registers (registerClientHook)"
+  },
+  {
+   "file": "internal/cli/fleet_push.go",
+   "func": "newNovelFleetPushCmd",
+   "what": "fmt.Fprintf",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "output from a command's RunE, after Start, so the kit's output layer checks it: the checker reaches it only through the client-hook closure the init in internal/cli/meraki_link_pagination.go registers (registerClientHook)"
+  },
+  {
+   "file": "internal/cli/fleet_push.go",
+   "func": "newNovelFleetPushCmd",
+   "what": "writer:io.Writer",
+   "count": 3,
+   "kind": "exempt",
+   "reason": "output from a command's RunE, after Start, so the kit's output layer checks it: the checker reaches it only through the client-hook closure the init in internal/cli/meraki_link_pagination.go registers (registerClientHook)"
+  },
+  {
+   "file": "internal/cli/fleet_push.go",
+   "func": "planOrgPush",
+   "what": "reflect",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reflect.DeepEqual compares two decoded JSON values (maps, slices and scalars); no command, client or transport reaches it"
+  },
+  {
+   "file": "internal/cli/fleet_push.go",
+   "func": "readPushBody",
+   "what": "os.ReadFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reads the --body JSON file the caller named to send as a request body; not a credential file"
+  },
+  {
+   "file": "internal/cli/fleet_renewals.go",
+   "func": "newNovelFleetRenewalsCmd",
+   "what": "writer:io.Writer",
+   "count": 3,
+   "kind": "exempt",
+   "reason": "output from a command's RunE, after Start, so the kit's output layer checks it: the checker reaches it only through the client-hook closure the init in internal/cli/meraki_link_pagination.go registers (registerClientHook)"
+  },
+  {
+   "file": "internal/cli/meraki_link_pagination.go",
+   "func": "init",
+   "what": "call:dynamic",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "linkCaptureTransport wraps the API client's own transport, which is the kit-guarded one (client.guardTransport, cliutil.OutboundGuard = credkit.Transport); it only records the Link header after the guarded RoundTrip returns, and a client with no transport gets cliutil.OutboundGuard(nil), never http.DefaultTransport"
+  },
+  {
+   "file": "internal/cli/meraki_link_pagination.go",
+   "func": "init",
+   "what": "convert:cisco-meraki-pp-cli/internal/cli.linkCaptureTransport.RoundTrip",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "linkCaptureTransport wraps the API client's own transport, which is the kit-guarded one (client.guardTransport, cliutil.OutboundGuard = credkit.Transport); it only records the Link header after the guarded RoundTrip returns, and a client with no transport gets cliutil.OutboundGuard(nil), never http.DefaultTransport"
+  },
+  {
+   "file": "internal/cli/meraki_link_pagination.go",
+   "func": "init",
+   "what": "net/http.Client.Transport",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "linkCaptureTransport wraps the API client's own transport, which is the kit-guarded one (client.guardTransport, cliutil.OutboundGuard = credkit.Transport); it only records the Link header after the guarded RoundTrip returns, and a client with no transport gets cliutil.OutboundGuard(nil), never http.DefaultTransport"
+  },
+  {
+   "file": "internal/cli/meraki_link_pagination.go",
+   "func": "init",
+   "what": "sink:net/http.RoundTripper",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "linkCaptureTransport wraps the API client's own transport, which is the kit-guarded one (client.guardTransport, cliutil.OutboundGuard = credkit.Transport); it only records the Link header after the guarded RoundTrip returns, and a client with no transport gets cliutil.OutboundGuard(nil), never http.DefaultTransport"
+  },
+  {
+   "file": "internal/cli/meraki_link_pagination.go",
+   "func": "linkCaptureTransport.RoundTrip",
+   "what": "net/http.RoundTripper.RoundTrip",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "linkCaptureTransport wraps the API client's own transport, which is the kit-guarded one (client.guardTransport, cliutil.OutboundGuard = credkit.Transport); it only records the Link header after the guarded RoundTrip returns, and a client with no transport gets cliutil.OutboundGuard(nil), never http.DefaultTransport"
+  },
+  {
+   "file": "internal/cli/meraki_link_pagination.go",
+   "func": "paginatedGetLinkNext",
+   "what": "fmt.Fprintf",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "output from a command's RunE, after Start, so the kit's output layer checks it: the checker reaches it only through the client-hook closure the init in internal/cli/meraki_link_pagination.go registers (registerClientHook)"
+  },
+  {
+   "file": "internal/credsql/credsql.go",
+   "func": "applyLengthLimit",
+   "what": "database/sql.DB.Conn",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the lent connection of the same hook, used only for the sqlite3_limit call, inside credkit.SQLDriver"
+  },
+  {
+   "file": "internal/credsql/credsql.go",
+   "func": "applyLengthLimit",
+   "what": "database/sql.OpenDB",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "a connection hook of the inner SQLite driver, run when credkit.SQLDriver opens a connection (never in init): it makes one sqlite3_limit call on that connection and runs no statement; nothing else reaches this handle"
+  },
+  {
+   "file": "internal/credwire/declarations.go",
+   "func": "holdProfileStores",
+   "what": "os.DirFS",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reads the run profile stores (profiles.json) only to hold their values with credkit.HoldBody and credkit.HoldURL; they are JSON, so Declarations.Files cannot name them"
+  }
+ ]
+}

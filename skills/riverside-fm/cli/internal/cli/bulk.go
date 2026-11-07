@@ -1,4 +1,5 @@
 // Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
+// pp:data-source live
 
 package cli
 
@@ -8,6 +9,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"riverside-fm-pp-cli/internal/credkit"
 	"strings"
 	"time"
 
@@ -32,9 +34,9 @@ func newBulkExportCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "export",
 		Short:       "Export every project / take / asset for a studio with resume.",
-		Long:        "Walks projects-by-studio -> takes-by-project -> transcripts + take/assets endpoints. Writes each take's transcript + assets-manifest + per-participant HLS manifest URL to <out>/<studio>/<project>/<session>/. Resume state lives in <out>/.resume.json so interruption never restarts the walk.",
+		Long:        "Walks projects-by-studio -> takes-by-project -> transcripts + take/assets endpoints. Writes each take's transcript + assets-manifest + per-participant HLS manifest URL to <out>/<studio>/<project>/<session>/. Resume state lives in <out>/.resume.json so interruption never restarts the walk. A take is checkpointed only once every fetch and write for it succeeded and Riverside has finished it; any failure is named on stderr, exits non-zero, and is retried on the next run.",
 		Example:     `  riverside-fm-cli bulk export --studio damien-stevenss-studio --since 2026-04-01 --out ./archive`,
-		Annotations: map[string]string{"mcp:read-only": "true"},
+		Annotations: map[string]string{"mcp:hidden": "true"}, // writes media files; never an MCP tool
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if studio == "" {
 				return cmd.Help()
@@ -75,13 +77,26 @@ func newBulkExportCmd(flags *rootFlags) *cobra.Command {
 			summary := bulkSummary{}
 
 			// 1. List projects in studio
-			pp := "/api/v4/projects/studio/" + url.PathEscape(studio)
-			projData, err := c.Get(pp, map[string]string{"offset": "0", "limit": "200", "sortBy": "createdAt", "orderBy": "desc"})
+			projects, err := listStudioProjects(cmd.Context(), c, studio)
 			if err != nil {
-				return classifyAPIError(err, flags)
+				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}
-			projects := extractProjects(projData)
 			fmt.Fprintf(cmd.OutOrStdout(), "Found %d projects in studio %s\n", len(projects), studio)
+
+			// A take is checkpointed in .resume.json only once every fetch and every
+			// write for it succeeded and Riverside has finished it (transcript has
+			// content, every track done). A failed fetch or write is counted, named
+			// on stderr and leaves the take un-checkpointed, so the next run retries
+			// it instead of skipping it forever; the command then exits non-zero.
+			var firstErr error
+			firstIsFetch := false
+			failed := func(e error, fetch bool) {
+				summary.Errors++
+				fmt.Fprintf(cmd.ErrOrStderr(), "WARN: %v\n", e)
+				if firstErr == nil {
+					firstErr, firstIsFetch = e, fetch
+				}
+			}
 
 			for _, proj := range projects {
 				if sinceTime != nil && proj.CreatedAt.Before(*sinceTime) {
@@ -90,21 +105,19 @@ func newBulkExportCmd(flags *rootFlags) *cobra.Command {
 				}
 				projDir := safeJoin(outDir, studio, proj.Title+"-"+proj.ID)
 				if projDir == "" {
-					continue // API-supplied name/id would have escaped --out
+					failed(fmt.Errorf("project %s: its title/id would escape --out; not exported", proj.ID), false)
+					continue
 				}
 				if err := os.MkdirAll(projDir, 0o700); err != nil {
 					return err
 				}
 
 				// 2. List takes per project
-				tp := "/api/v4/projects/" + url.PathEscape(proj.ID) + "/takes"
-				takesData, err := c.Get(tp, map[string]string{"offset": "0", "limit": "100"})
+				takes, err := listProjectTakes(cmd.Context(), c, proj.ID)
 				if err != nil {
-					fmt.Fprintf(cmd.ErrOrStderr(), "WARN: list takes for %s: %v\n", proj.ID, err)
-					summary.Errors++
+					failed(fmt.Errorf("list takes for %s: %w", proj.ID, err), true)
 					continue
 				}
-				takes := extractTakes(takesData)
 
 				for _, take := range takes {
 					if done[take.SessionID] {
@@ -113,47 +126,91 @@ func newBulkExportCmd(flags *rootFlags) *cobra.Command {
 					}
 					takeDir := safeJoin(projDir, take.Title+"-"+take.SessionID)
 					if takeDir == "" {
-						continue // API-supplied name/id would have escaped --out
+						failed(fmt.Errorf("take %s: its title/id would escape --out; not exported", take.SessionID), false)
+						continue
 					}
 					if err := os.MkdirAll(takeDir, 0o700); err != nil {
 						return err
 					}
+					summary.TakesProcessed++
+					takeFailed := false
+					takeFinished := true
+					fetchFailed := func(what string, e error) {
+						takeFailed = true
+						failed(fmt.Errorf("take %s %s: %w", take.SessionID, what, e), true)
+					}
+					write := func(name string, body []byte) bool {
+						if werr := writeUnderDir(takeDir, name, body); werr != nil {
+							takeFailed = true
+							failed(fmt.Errorf("take %s: writing %s: %w", take.SessionID, name, werr), false)
+							return false
+						}
+						return true
+					}
 
 					// 3a. Transcript
 					tt := "/api/v4/transcriptions/editableWithVoiceActivity/" + url.PathEscape(take.SessionID)
-					tdata, terr := c.Get(tt, nil)
-					if terr == nil && hasTranscriptContent(tdata) {
-						_ = os.WriteFile(filepath.Join(takeDir, "transcript.json"), tdata, 0o600)
-						_ = os.WriteFile(filepath.Join(takeDir, "transcript.txt"), []byte(transcriptToPlainText(tdata)), 0o600)
-						summary.TranscriptsWritten++
+					tdata, terr := c.Get(cmd.Context(), tt, nil)
+					switch {
+					case terr != nil:
+						fetchFailed("transcript", terr)
+					case hasTranscriptContent(tdata):
+						okJSON := write("transcript.json", responseFileBytes(tdata))
+						okTxt := write("transcript.txt", []byte(transcriptToPlainText(tdata)))
+						if okJSON && okTxt {
+							summary.TranscriptsWritten++
+						}
+					default:
+						takeFinished = false // Riverside has not transcribed it yet
 					}
 
 					// 3b. Asset metadata
 					ap := "/api/v4/take/" + url.PathEscape(take.SessionID) + "/assets"
-					adata, aerr := c.Get(ap, nil)
-					if aerr == nil {
-						_ = os.WriteFile(filepath.Join(takeDir, "assets.json"), adata, 0o600)
-						summary.AssetManifestsWritten++
+					adata, aerr := c.Get(cmd.Context(), ap, nil)
+					if aerr != nil {
+						fetchFailed("assets", aerr)
+					} else {
+						if write("assets.json", responseFileBytes(adata)) {
+							summary.AssetManifestsWritten++
+						}
+						if !allTracksDone(adata) {
+							takeFinished = false // a track is still uploading or processing
+						}
 
 						// 3c. VOD manifest per participant
 						handles := extractParticipantHandles(adata)
 						for _, h := range handles {
 							vp := "/api/v4/vod/" + url.PathEscape(take.SessionID) + "/" + url.PathEscape(h)
-							vdata, verr := c.Get(vp, nil)
-							if verr == nil && len(vdata) > 0 {
-								_ = writeUnderDir(takeDir, h+".m3u8", vdata)
+							vdata, verr := c.Get(cmd.Context(), vp, nil)
+							if verr != nil {
+								fetchFailed("manifest "+h, verr)
+								continue
+							}
+							if manifest := responseFileBytes(vdata); len(manifest) > 0 && write(h+".m3u8", manifest) {
 								summary.HlsManifestsWritten++
 							}
 						}
 					}
 
-					done[take.SessionID] = true
-					summary.TakesProcessed++
-
-					// Persist resume cursor every take
-					if rb, err := json.Marshal(done); err == nil {
-						_ = os.WriteFile(resumePath, rb, 0o600)
+					if takeFailed {
+						continue
 					}
+					if !takeFinished {
+						summary.Pending++
+						continue
+					}
+					// A take counts as checkpointed only once the cursor is on disk.
+					done[take.SessionID] = true
+					rb, merr := json.Marshal(done)
+					if merr == nil {
+						merr = credkit.WriteFile(resumePath, rb, 0o600)
+					}
+					if merr != nil {
+						delete(done, take.SessionID)
+						failed(fmt.Errorf("take %s: writing the resume cursor: %w", take.SessionID, merr), false)
+						continue
+					}
+					summary.TakesCheckpointed++
 				}
 			}
 
@@ -161,9 +218,16 @@ func newBulkExportCmd(flags *rootFlags) *cobra.Command {
 				sb, _ := json.MarshalIndent(summary, "", "  ")
 				fmt.Fprintln(cmd.OutOrStdout(), string(sb))
 			} else {
-				fmt.Fprintf(cmd.OutOrStdout(), "\nDone. takes=%d transcripts=%d assets=%d hls=%d errors=%d skipped_resume=%d skipped_since=%d\n",
-					summary.TakesProcessed, summary.TranscriptsWritten, summary.AssetManifestsWritten, summary.HlsManifestsWritten,
+				fmt.Fprintf(cmd.OutOrStdout(), "\nDone. takes=%d checkpointed=%d pending=%d transcripts=%d assets=%d hls=%d errors=%d skipped_resume=%d skipped_since=%d\n",
+					summary.TakesProcessed, summary.TakesCheckpointed, summary.Pending, summary.TranscriptsWritten, summary.AssetManifestsWritten, summary.HlsManifestsWritten,
 					summary.Errors, summary.AlreadyDone, summary.SkippedOlderThanSince)
+			}
+			if firstErr != nil {
+				incomplete := fmt.Errorf("bulk export incomplete: %d error(s); the affected takes were not checkpointed, so re-running retries them. First: %w", summary.Errors, firstErr)
+				if firstIsFetch {
+					return classifyAPIErrorOnly(incomplete)
+				}
+				return incomplete
 			}
 			return nil
 		},
@@ -178,6 +242,8 @@ func newBulkExportCmd(flags *rootFlags) *cobra.Command {
 
 type bulkSummary struct {
 	TakesProcessed        int `json:"takes_processed"`
+	TakesCheckpointed     int `json:"takes_checkpointed"`
+	Pending               int `json:"pending"`
 	TranscriptsWritten    int `json:"transcripts_written"`
 	AssetManifestsWritten int `json:"asset_manifests_written"`
 	HlsManifestsWritten   int `json:"hls_manifests_written"`
@@ -275,7 +341,9 @@ func sanitize(s string) string {
 		return r
 	}, s)
 	if len(s) > 80 {
-		s = s[:80]
+		// Keep the tail as well as the head: callers end a name with its id and
+		// extension, and two long titles that differ only there must stay two files.
+		s = strings.ToValidUTF8(s[:39], "") + "-" + strings.ToValidUTF8(s[len(s)-40:], "")
 	}
 	s = strings.TrimSpace(s)
 	// A component that is entirely dots is a traversal primitive even with the
@@ -343,5 +411,5 @@ func writeUnderDir(dir, name string, body []byte) error {
 	if p == "" {
 		return fmt.Errorf("refusing to write %q: it would escape %s", name, dir)
 	}
-	return os.WriteFile(p, body, 0o600)
+	return credkit.WriteFile(p, body, 0o600)
 }

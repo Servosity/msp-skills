@@ -52,7 +52,7 @@ func newOrganizationsAdaptivePolicyGetOrganizationPolicyCmd(flags *rootFlags) *c
 				return err
 			}
 			params := map[string]string{}
-			data, prov, err := resolveReadWithStrategyAndResponsePath(cmd.Context(), c, flags, "live", "adaptive-policy", false, path, params, nil, "acls", cmd.ErrOrStderr())
+			data, prov, err := resolveReadWithStrategyAndResponsePath(cmd.Context(), c, flags, "live", "adaptive-policy", false, path, params, nil, "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}
@@ -79,7 +79,7 @@ func newOrganizationsAdaptivePolicyGetOrganizationPolicyCmd(flags *rootFlags) *c
 					filtered, selectErr = filterFieldsChecked(filtered, flags.selectFields)
 					selectErr = selectErrorForDryRun(selectErr, flags, data)
 				} else if flags.compact {
-					filtered = compactFields(filtered, map[string]bool{"id": true, "name": true})
+					filtered = compactFields(filtered, map[string]bool{"adaptivePolicyId": true, "createdAt": true, "updatedAt": true})
 				}
 				wrapped, wrapErr := wrapWithProvenance(filtered, prov)
 				if wrapErr != nil {
@@ -111,7 +111,7 @@ func newOrganizationsAdaptivePolicyGetOrganizationPolicyCmd(flags *rootFlags) *c
 			if flags.csv || flags.plain {
 				formatData = outputData
 			}
-			return printOutputWithFlagsMeta(cmd.OutOrStdout(), formatData, flags, map[string]any{"source": "live"}, map[string]bool{"id": true, "name": true})
+			return printOutputWithFlagsMeta(cmd.OutOrStdout(), formatData, flags, map[string]any{"source": "live"}, map[string]bool{"adaptivePolicyId": true, "createdAt": true, "updatedAt": true})
 		},
 	}
 

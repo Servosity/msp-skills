@@ -62,10 +62,10 @@ func newOrganizationsSwitchCloneOrganizationDevicesCmd(flags *rootFlags) *cobra.
 			}
 			if !stdinBody {
 				if !cmd.Flags().Changed("source-serial") && bodySourceSerial == "" && !requiredInputWaived() {
-					return fmt.Errorf("required flag \"%s\" not set", "source-serial")
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "source-serial"))
 				}
 				if !cmd.Flags().Changed("target-serials") && bodyTargetSerials == "" && !requiredInputWaived() {
-					return fmt.Errorf("required flag \"%s\" not set", "target-serials")
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "target-serials"))
 				}
 			}
 			path := "/organizations/{organizationId}/switch/devices/clone"
@@ -126,7 +126,7 @@ func newOrganizationsSwitchCloneOrganizationDevicesCmd(flags *rootFlags) *cobra.
 				}
 			}
 			if !flags.dryRun && statusCode >= 200 && statusCode < 300 && (partialFailure == nil || flags.allowPartialFailure) {
-				writeMutationResponseToStore(cmd.Context(), "switch", data, "targetSerials")
+				writeMutationResponseToStore(cmd.Context(), "switch", data, "")
 			}
 			if wantsHumanTable(cmd.OutOrStdout(), flags) {
 				// Check if response contains an array (directly or wrapped in "data")
@@ -177,16 +177,13 @@ func newOrganizationsSwitchCloneOrganizationDevicesCmd(flags *rootFlags) *cobra.
 					envelope["partial_failure"] = partialFailure
 				}
 				if flags.dryRun {
-					envelope["dry_run"] = true
-					envelope["status"] = 0
-					envelope["success"] = false
+					markCompletedDryRun(envelope)
 				}
 				// Verify-mode synthetic envelope detection runs against RAW data
 				// (before --compact/--select filtering) so the sentinel field is
 				// guaranteed to be visible even if the operator passes a filter
-				// flag that would otherwise strip it. Surfaces a top-level
-				// verify_noop signal + flips success to false. Mirrors the dry_run
-				// shape above.
+				// flag that would otherwise strip it. A synthetic noop did not
+				// mutate, so it forces success false after a completed dry-run mark.
 				if len(data) > 0 {
 					var rawParsed any
 					if err := json.Unmarshal(data, &rawParsed); err == nil {

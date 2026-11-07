@@ -61,6 +61,7 @@ body:
         - domain-cert-tracker
         - domotz
         - dropsuite
+        - eset-protect
         - exchange-online
         - fortinet
         - google-workspace

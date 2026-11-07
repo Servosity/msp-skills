@@ -793,6 +793,26 @@
       }
     },
     {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:eset-protect",
+      "displayName": "ESET PROTECT",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/eset-protect/SKILL.md",
+      "description": "Devices, detections, incidents and response actions across every ESET PROTECT client.",
+      "tags": [
+        "Security"
+      ],
+      "representativeQueries": [
+        "Which customers have devices that need attention, are muted or stopped checking in?",
+        "What should my techs work first this morning, detections and open incidents together?",
+        "Which customers and devices are exposed to this CVE, and is a patch available?",
+        "Give me one customer's quarter: device health, detections, incidents, top CVEs and patches",
+        "Which devices have not checked in for two weeks, most stale first?"
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/eset-protect.md"
+      }
+    },
+    {
       "identifier": "urn:air:msp-skills.compoundingteams.com:skills:exchange-online",
       "displayName": "Exchange Online",
       "type": "text/markdown; profile=\"urn:air:agent-skills\"",

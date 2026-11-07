@@ -48,7 +48,7 @@ func newOrganizationsEarlyAccessGetOrganizationFeaturesOptInsCmd(flags *rootFlag
 				return err
 			}
 			params := map[string]string{}
-			data, prov, err := resolveReadWithStrategyAndResponsePath(cmd.Context(), c, flags, "live", "early-access", false, path, params, nil, "limitScopeToNetworks", cmd.ErrOrStderr())
+			data, prov, err := resolveReadWithStrategyAndResponsePath(cmd.Context(), c, flags, "live", "early-access", false, path, params, nil, "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}
@@ -75,7 +75,7 @@ func newOrganizationsEarlyAccessGetOrganizationFeaturesOptInsCmd(flags *rootFlag
 					filtered, selectErr = filterFieldsChecked(filtered, flags.selectFields)
 					selectErr = selectErrorForDryRun(selectErr, flags, data)
 				} else if flags.compact {
-					filtered = compactFields(filtered, map[string]bool{"id": true, "name": true})
+					filtered = compactFields(filtered, map[string]bool{"createdAt": true, "id": true, "shortName": true})
 				}
 				wrapped, wrapErr := wrapWithProvenance(filtered, prov)
 				if wrapErr != nil {
@@ -107,7 +107,7 @@ func newOrganizationsEarlyAccessGetOrganizationFeaturesOptInsCmd(flags *rootFlag
 			if flags.csv || flags.plain {
 				formatData = outputData
 			}
-			return printOutputWithFlagsMeta(cmd.OutOrStdout(), formatData, flags, map[string]any{"source": "live"}, map[string]bool{"id": true, "name": true})
+			return printOutputWithFlagsMeta(cmd.OutOrStdout(), formatData, flags, map[string]any{"source": "live"}, map[string]bool{"createdAt": true, "id": true, "shortName": true})
 		},
 	}
 

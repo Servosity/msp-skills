@@ -64,7 +64,7 @@ func newDevicesLossAndLatencyHistoryGetDeviceCmd(flags *rootFlags) *cobra.Comman
 				return usageErr(fmt.Errorf("missing required argument\nUsage: %s%s", cmd.CommandPath(), " <serial>"))
 			}
 			if !cmd.Flags().Changed("ip") && flagIp == "" && !requiredInputWaived() {
-				return fmt.Errorf("required flag \"%s\" not set", "ip")
+				return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "ip"))
 			}
 			if cmd.Flags().Changed("uplink") {
 				allowedUplink := []string{"cellular", "wan1", "wan2", "wan3", "wan4"}
@@ -76,7 +76,7 @@ func newDevicesLossAndLatencyHistoryGetDeviceCmd(flags *rootFlags) *cobra.Comman
 					}
 				}
 				if !validUplink {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagUplink, "uplink", allowedUplink)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagUplink, "uplink", allowedUplink))
 				}
 			}
 			path := "/devices/{serial}/lossAndLatencyHistory"

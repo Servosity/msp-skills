@@ -56,7 +56,7 @@ func newOrganizationsWirelessGetOrganizationDevicesProvisioningDeploymentsCmd(fl
 					}
 				}
 				if !validSortBy {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagSortBy, "sort-by", allowedSortBy)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagSortBy, "sort-by", allowedSortBy))
 				}
 			}
 			if cmd.Flags().Changed("sort-order") {
@@ -69,7 +69,7 @@ func newOrganizationsWirelessGetOrganizationDevicesProvisioningDeploymentsCmd(fl
 					}
 				}
 				if !validSortOrder {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagSortOrder, "sort-order", allowedSortOrder)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagSortOrder, "sort-order", allowedSortOrder))
 				}
 			}
 			if cmd.Flags().Changed("deployment-type") {
@@ -82,7 +82,7 @@ func newOrganizationsWirelessGetOrganizationDevicesProvisioningDeploymentsCmd(fl
 					}
 				}
 				if !validDeploymentType {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagDeploymentType, "deployment-type", allowedDeploymentType)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagDeploymentType, "deployment-type", allowedDeploymentType))
 				}
 			}
 			path := "/organizations/{organizationId}/wireless/devices/provisioning/deployments"
