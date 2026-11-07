@@ -23,15 +23,21 @@ func TestMCPClientHonoursTheConfigEnvVar(t *testing.T) {
 		t.Fatalf("seeding config: %v", err)
 	}
 	t.Setenv("HOME", dir)
+	t.Setenv("USERPROFILE", dir) // os.UserHomeDir reads USERPROFILE on Windows
 	t.Setenv("DATTO_RMM_CONFIG", path)
-	// Guard against a stray ambient override changing the assertion.
-	os.Unsetenv("DATTO_RMM_BASE_URL")
+	// Guard against a stray ambient override changing the assertion (the
+	// platform variables choose the base URL too, datto-rmm handfix
+	// platform-routes-every-request).
+	for _, k := range []string{"DATTO_RMM_BASE_URL", "DATTO_RMM_PLATFORM", "DATTO_RMM_API_URL"} {
+		t.Setenv(k, "")
+		os.Unsetenv(k)
+	}
 
-	c, err := newMCPClient()
+	// Press 4.34.2 builds the MCP client from newMCPConfig (config.Load("")).
+	cfg, err := newMCPConfig()
 	if err != nil {
 		t.Fatalf("resolving the MCP config: %v", err)
 	}
-	cfg := c.Config
 	if cfg == nil {
 		t.Fatal("the MCP server resolved no config")
 	}

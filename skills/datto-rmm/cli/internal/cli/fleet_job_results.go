@@ -37,6 +37,14 @@ type jobDeviceResult struct {
 	Components []jobComponentResult `json:"components,omitempty"`
 }
 
+// jobResultsRecord is Datto's JobResults (GET /v2/job/{jobUid}/results/{deviceUid}).
+type jobResultsRecord struct {
+	DeviceUID           string               `json:"deviceUid"`
+	RanOn               json.RawMessage      `json:"ranOn"`
+	JobDeploymentStatus string               `json:"jobDeploymentStatus"`
+	ComponentResults    []jobComponentResult `json:"componentResults"`
+}
+
 type jobResultsFailure struct {
 	DeviceUID string `json:"deviceUid"`
 	Error     string `json:"error"`
@@ -233,12 +241,7 @@ Results are fetched live per device; the local store supplies the cohort.`),
 						outs <- fetchOut{idx: idx, err: err, result: jobDeviceResult{DeviceUID: dev.UID, Hostname: dev.Hostname, SiteName: dev.SiteName}}
 						return
 					}
-					var parsed struct {
-						DeviceUID           string               `json:"deviceUid"`
-						RanOn               json.RawMessage      `json:"ranOn"`
-						JobDeploymentStatus string               `json:"jobDeploymentStatus"`
-						ComponentResults    []jobComponentResult `json:"componentResults"`
-					}
+					var parsed jobResultsRecord
 					r := jobDeviceResult{DeviceUID: dev.UID, Hostname: dev.Hostname, SiteName: dev.SiteName}
 					if err := json.Unmarshal(raw, &parsed); err != nil {
 						r.Verdict = "no-result"

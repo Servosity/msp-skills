@@ -926,8 +926,20 @@ def search_endpoints(cli: StdioClient, tool: str, query: str, limit: int = 50) -
 
 
 def endpoint_params(item: dict) -> dict:
+    """Placeholders a connector's own params_schema accepts: an enum's first
+    value, and one item for an array that must not be empty. A connector that
+    validates the body before sending would otherwise refuse the probe, and
+    the confirm path would never be exercised."""
     schema = item.get("params_schema")
     params = gate.placeholder_args(schema) if isinstance(schema, dict) else {}
+    props = (schema.get("properties") or {}) if isinstance(schema, dict) else {}
+    for name in params:
+        prop = props.get(name) if isinstance(props.get(name), dict) else {}
+        if isinstance(prop.get("enum"), list) and prop["enum"]:
+            params[name] = prop["enum"][0]
+        elif prop.get("type") == "array" and (prop.get("minItems") or 0) >= 1:
+            item_schema = prop.get("items") if isinstance(prop.get("items"), dict) else {}
+            params[name] = [gate.placeholder_args({"required": ["x"], "properties": {"x": item_schema}})["x"]]
     for name in re.findall(r"\{([^}/]+)\}", item.get("path") or ""):
         params.setdefault(name, PROBE_VALUE)
     return params
@@ -1527,12 +1539,43 @@ def self_test() -> int:
         print(f"  [{'PASS' if ok else 'FAIL'}] {mode} (allowlist expected: {expected}): "
               + "; ".join(f"{k} {v[0]}" for k, v in got.items()) + (" (token leaked into the record)" if leaked else ""))
     bad += redaction_self_test()
+    req = lambda m, p: {"method": m, "path": p, "header_names": [], "body_head": ""}
+    for reqs, method, tmpl, want in (
+        ([req("POST", "/v2/roles")], "POST", "https://{region}.iam.eset.systems/v2/roles", 1),
+        ([req("POST", "/v2/roles/x")], "POST", "https://{region}.iam.eset.systems/v2/roles", 0),
+        ([req("POST", "/v2/users")], "POST", "https://{region}.iam.eset.systems/v2/roles", 0),
+        ([req("POST", "/v1/items/42")], "POST", "/v1/items/{id}", 1),
+        ([req("GET", "/v1/items/42")], "POST", "/v1/items/{id}", 0),
+    ):
+        got = len(endpoint_requests(reqs, method, tmpl))
+        ok = got == want
+        bad += not ok
+        print(f"  [{'PASS' if ok else 'FAIL'}] endpoint_requests {method} {tmpl} vs {reqs[0]['path']}: {got} (want {want})")
     bad += dsm_self_test()
     bad += vcenter_self_test()
     bad += kit_tls_self_test()
+    bad += endpoint_params_self_test()
     bad += winrm_self_test()
     print("PASS: verify.py self-test" if not bad else f"FAIL: verify.py self-test ({bad} case(s))")
     return 0 if not bad else 1
+
+
+def endpoint_params_self_test() -> int:
+    """The write-gating probe's placeholders pass a connector that validates the
+    body before sending (datto-saas's bulk seat guard): an enum takes its first
+    value, an array that must not be empty gets one item, a path parameter and a
+    plain string keep the probe value, and an optional property stays unset."""
+    item = {"path": "/saas/{saasCustomerId}/bulkSeatChange", "params_schema": {
+        "required": ["seat_type", "ids", "note"],
+        "properties": {"seat_type": {"type": "string", "enum": ["User", "SharedMailbox"]},
+                       "ids": {"type": "array", "minItems": 1, "items": {"type": "string"}},
+                       "note": {"type": "string"}, "extra": {"type": "string", "enum": ["a"]}}}}
+    got = endpoint_params(item)
+    want = {"seat_type": "User", "ids": ["mcp-gate-probe"], "note": "mcp-gate-probe",
+            "saasCustomerId": PROBE_VALUE}
+    ok = got == want
+    print(f"  [{'PASS' if ok else 'FAIL'}] write-gating placeholders a validating connector accepts: {got}")
+    return 0 if ok else 1
 
 
 def kit_tls_self_test() -> int:
@@ -1850,6 +1893,9 @@ def endpoint_requests(reqs: list[dict], method: str, path: str) -> list[dict]:
     path) a request path ending in that path, placeholders matching one
     segment. A fragment (JSON-RPC '#method') is never sent, so it is dropped."""
     template = (path or "").split("#", 1)[0].split("?", 1)[0].rstrip("/")
+    # An absolute template (one host per service, e.g. https://{region}.iam.x/v2/roles)
+    # reaches the fake vendor as its path only.
+    template = re.sub(r"^[A-Za-z][A-Za-z0-9+.-]*://[^/]*", "", template)
     rx = None
     if template and template != "?":
         rx = re.compile(re.sub(r"\\\{[^}/]+\\\}", "[^/]+", re.escape(template)) + "/?$")

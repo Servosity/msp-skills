@@ -12,7 +12,7 @@ faqs:
   - q: "Is the Action1 MCP server safe for client data?"
     a: "Yes, by design - and the exceptions are ones you switch on yourself. The CLI, the MCP server, and any local data mirror run on your own machine, and nothing is sent to MSP Skills or any third party unless you ask for it. Three paths can move data off the machine, all opt-in: `--deliver webhook:<url>` posts a command's output to a URL you name; `ACTION1_FEEDBACK_AUTO_SEND=true` posts feedback you typed to the URL in `ACTION1_FEEDBACK_ENDPOINT` (with no endpoint set, `feedback` only writes a local file); `--transport http` opens a local MCP listener you then choose whether to expose. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page."
   - q: "Does this work with ChatGPT?"
-    a: "Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way action1-mcp runs, and shares MCP configuration with Codex: add action1-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote (HTTP) server, and this connector's HTTP mode is paused until it is reprinted; the security note at the top of the install guide explains why. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list."
+    a: "Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way action1-mcp runs, and shares MCP configuration with Codex: add action1-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote server. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list."
   - q: "Do I need to know how to code?"
     a: "No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once."
   - q: "Is my Action1 data safe?"
@@ -20,7 +20,7 @@ faqs:
   - q: "What does it cost?"
     a: "Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use."
   - q: "Which Action1 region and credentials do I need?"
-    a: "An API client (Client ID + Client Secret) from your Action1 console's API Credentials page, plus ACTION1_REGION set to us, eu, or au to match your console URL. The CLI mints and refreshes the bearer token for you. Scope the client to read-only permissions if you only need reporting."
+    a: "An API client (Client ID + Client Secret) from your Action1 console's API Credentials page, plus ACTION1_BASE_URL set to your data center (the US host is the default; EU is https://app.eu.action1.com/api/3.0, Australia https://app.au.action1.com/api/3.0). The CLI mints and refreshes the bearer token for you. Scope the client to read-only permissions if you only need reporting."
   - q: "Does this replace the Action1 console?"
     a: "No. The console stays your place to configure automations and approve patches interactively. This skill answers the cross-organization questions the console shows one org at a time - fleet patch posture, CVE blast-radius, per-client scorecards - and lets your AI agent run them."
 howto:
@@ -149,7 +149,7 @@ Yes, by design - and the exceptions are ones you switch on yourself. The CLI, th
 
 ### Does this work with ChatGPT?
 
-Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way action1-mcp runs, and shares MCP configuration with Codex: add action1-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote (HTTP) server, and this connector's HTTP mode is paused until it is reprinted; the security note at the top of the install guide explains why. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
+Yes, in the ChatGPT desktop app. It runs MCP servers locally (STDIO), the way action1-mcp runs, and shares MCP configuration with Codex: add action1-mcp under Settings > MCP servers as a STDIO server, or add it once to Codex's ~/.codex/config.toml. ChatGPT on the web is not supported by msp-skills yet: it needs a remote server. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
 
 ### Do I need to know how to code?
 
@@ -165,7 +165,7 @@ Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
 
 ### Which Action1 region and credentials do I need?
 
-An API client (Client ID + Client Secret) from your Action1 console's API Credentials page, plus ACTION1_REGION set to us, eu, or au to match your console URL. The CLI mints and refreshes the bearer token for you. Scope the client to read-only permissions if you only need reporting.
+An API client (Client ID + Client Secret) from your Action1 console's API Credentials page, plus ACTION1_BASE_URL set to your data center (the US host is the default; EU is https://app.eu.action1.com/api/3.0, Australia https://app.au.action1.com/api/3.0). The CLI mints and refreshes the bearer token for you. Scope the client to read-only permissions if you only need reporting.
 
 ### Does this replace the Action1 console?
 

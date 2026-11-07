@@ -16,10 +16,24 @@ import (
 	"action1-pp-cli/internal/config"
 )
 
+// isolateCredentialStore points every config, data and credential path at a
+// temp dir. From press 4.34 a mint saves the token in the credential store
+// under the data dir, not next to cfg.Path: without this the tests wrote their
+// fake tokens into the operator's real credentials.toml.
+func isolateCredentialStore(t *testing.T) {
+	t.Helper()
+	dir := t.TempDir()
+	t.Setenv("ACTION1_HOME", dir)
+	t.Setenv("HOME", dir)
+	t.Setenv("XDG_DATA_HOME", filepath.Join(dir, "data"))
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(dir, "config"))
+}
+
 // Action1's token endpoint takes a JSON body (not form-encoded). This pins that
 // contract: a fresh grant POSTs {client_id, client_secret} as application/json
 // and the returned bearer is cached on the config.
 func TestMintClientCredentials_JSONBody(t *testing.T) {
+	isolateCredentialStore(t)
 	var gotCT, gotMethod, gotPath string
 	var gotBody map[string]any
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -72,6 +86,7 @@ func TestMintClientCredentials_JSONBody(t *testing.T) {
 // An expired access token with a refresh token re-mints using the
 // refresh_token grant shape.
 func TestMintClientCredentials_RefreshGrant(t *testing.T) {
+	isolateCredentialStore(t)
 	var gotBody map[string]any
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		raw, _ := io.ReadAll(r.Body)
@@ -108,6 +123,7 @@ func TestMintClientCredentials_RefreshGrant(t *testing.T) {
 // error, even when a misconfigured/echoing endpoint sends the request body
 // back. Only a charset-validated RFC-6749 error code may survive.
 func TestMintClientCredentials_FailureDoesNotEchoSecret(t *testing.T) {
+	isolateCredentialStore(t)
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		raw, _ := io.ReadAll(r.Body)
 		w.Header().Set("Content-Type", "application/json")
@@ -140,6 +156,7 @@ func TestMintClientCredentials_FailureDoesNotEchoSecret(t *testing.T) {
 }
 
 func TestTokenErrCode_RejectsUnsafeCodes(t *testing.T) {
+	isolateCredentialStore(t)
 	cases := map[string]string{
 		`{"error":"invalid_client"}`:        " (invalid_client)",
 		`{"error":"has spaces and secret"}`: "",

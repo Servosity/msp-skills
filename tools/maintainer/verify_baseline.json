@@ -4,12 +4,6 @@
   "acronis": [
    "install"
   ],
-  "action1": [
-   "mcp-http",
-   "write-gating",
-   "read-only",
-   "local-data"
-  ],
   "appdirect": [
    "mcp-http",
    "write-gating",
@@ -23,11 +17,6 @@
    "local-data"
   ],
   "auvik": [
-   "mcp-http",
-   "read-only",
-   "local-data"
-  ],
-  "aws-billing": [
    "mcp-http",
    "read-only",
    "local-data"
@@ -98,17 +87,7 @@
    "local-data"
   ],
   "datto-rmm": [
-   "mcp-stdio",
-   "mcp-http",
-   "write-gating",
-   "read-only",
-   "local-data"
-  ],
-  "domotz": [
-   "mcp-http",
-   "write-gating",
-   "read-only",
-   "local-data"
+   "mcp-stdio"
   ],
   "fortinet": [
    "read-only",
@@ -130,11 +109,6 @@
    "read-only",
    "local-data"
   ],
-  "knowbe4": [
-   "mcp-http",
-   "read-only",
-   "local-data"
-  ],
   "levelio": [
    "mcp-http",
    "read-only",
@@ -147,12 +121,6 @@
   ],
   "n-central": [
    "mcp-http",
-   "read-only",
-   "local-data"
-  ],
-  "pagerduty": [
-   "mcp-http",
-   "write-gating",
    "read-only",
    "local-data"
   ],
@@ -193,30 +161,13 @@
    "read-only",
    "local-data"
   ],
-  "riverside-fm": [
-   "mcp-http",
-   "read-only",
-   "local-data"
-  ],
   "rootly": [
    "mcp-http",
    "write-gating",
    "read-only",
    "local-data"
   ],
-  "runzero": [
-   "mcp-http",
-   "write-gating",
-   "read-only",
-   "local-data"
-  ],
   "saas-alerts": [
-   "write-gating",
-   "read-only",
-   "local-data"
-  ],
-  "salesbuildr": [
-   "mcp-http",
    "write-gating",
    "read-only",
    "local-data"

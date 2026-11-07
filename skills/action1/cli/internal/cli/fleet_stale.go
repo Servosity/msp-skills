@@ -32,8 +32,9 @@ func newNovelFleetStaleCmd(flags *rootFlags) *cobra.Command {
 		Annotations: map[string]string{"mcp:read-only": "true"},
 		Long: `Dark-agent detection across the whole fleet. Reads locally synced endpoints
 from every organization and surfaces those whose last check-in is older than
---days, or that report an offline status. Action1 has no "show me dark agents"
-query; this is a time-windowed scan over the local store.`,
+--days (or cannot be read), or whose online_status is not SUCCESS (WARNING:
+last seen 8 to 30 days ago; ERROR: more than 30). Action1 has no "show me dark
+agents" query; this is a time-windowed scan over the local store.`,
 		Example: `  action1-cli fleet stale --days 14 --agent
   action1-cli fleet stale --days 30 --org <org-uuid>`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -48,9 +49,9 @@ query; this is a time-windowed scan over the local store.`,
 				return err
 			}
 			defer db.Close()
-			maybeEmitSyncHints(cmd, db, "endpoints", flags.maxAge)
+			maybeEmitSyncHints(cmd, db, "endpoints_managed", flags.maxAge)
 
-			endpoints, err := fleetLoadAll(cmd.Context(), db, "endpoints")
+			endpoints, err := fleetLoadAll(cmd.Context(), db, "endpoints_managed")
 			if err != nil {
 				return err
 			}
@@ -65,26 +66,32 @@ query; this is a time-windowed scan over the local store.`,
 				}
 				lastSeenStr := fleetStrField(e, "last_seen")
 				online := fleetStrField(e, "online_status")
-				offline := includeOffline && online != "" && !isOnlineStatus(online)
+				offline := includeOffline && fleetOnlineStatusOffline(online)
 
 				var daysSince float64
 				stale := false
 				reason := ""
-				if t, ok := fleetParseTime(lastSeenStr); ok {
+				if t, known, unreadable := fleetLastSeen(e); known {
 					age := now.Sub(t)
 					daysSince = age.Hours() / 24
 					if age >= cutoff {
 						stale = true
 						reason = "last seen > threshold"
 					}
-				} else if lastSeenStr == "" {
-					// No last_seen recorded — treat as stale only when offline.
+				} else {
+					// No last_seen recorded: stale only when offline. A value
+					// no documented layout reads is reported, never taken as
+					// recent.
 					daysSince = -1
+					if unreadable {
+						stale = true
+						reason = "last_seen unreadable"
+					}
 				}
 				if offline {
 					stale = true
 					if reason == "" {
-						reason = "offline"
+						reason = "offline (online_status " + online + ")"
 					} else {
 						reason += " + offline"
 					}
@@ -130,22 +137,6 @@ query; this is a time-windowed scan over the local store.`,
 	cmd.Flags().IntVar(&limit, "limit", 0, "Maximum endpoints to return (0 = all)")
 	cmd.Flags().BoolVar(&includeOffline, "include-offline", true, "Also flag endpoints reporting an offline status")
 	return cmd
-}
-
-// isOnlineStatus reports whether an online_status string means the agent is up.
-func isOnlineStatus(s string) bool {
-	switch {
-	case s == "":
-		return true // unknown — don't flag on status alone
-	default:
-		ls := s
-		for _, on := range []string{"Online", "online", "Connected", "connected", "Up"} {
-			if ls == on {
-				return true
-			}
-		}
-		return false
-	}
 }
 
 // round1 rounds to one decimal place.

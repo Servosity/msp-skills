@@ -1,0 +1,292 @@
+{
+ "sites": [
+  {
+   "file": "cmd/runzero-mcp/main.go",
+   "func": "run",
+   "what": "convert:github.com/mark3labs/mcp-go/server.StreamableHTTPServer.ServeHTTP",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "the streamable HTTP server is handed to requireBearerAuthWithLimits, whose every response, refusals included, is written through credkit.MCPHTTP"
+  },
+  {
+   "file": "internal/cli/deliver.go",
+   "func": "writeDownloadUnder",
+   "what": "os.File.Close",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "runs after credkit.Start: the checker reaches it before main only through the press template's internal/mcp/intents.go initializer (recipeCommandRoot = cli.RootCmd), which names the command tree but builds and runs nothing until Execute; closes the empty temp file before credkit.WriteFile writes the download into it"
+  },
+  {
+   "file": "internal/cli/deliver.go",
+   "func": "deliverWebhook",
+   "what": "net/http.Client.Do",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs after credkit.Start: the checker reaches it before main only through the press template's internal/mcp/intents.go initializer (recipeCommandRoot = cli.RootCmd), which names the command tree but builds and runs nothing until Execute; the webhook client's Transport is credkit.Transport(nil)"
+  },
+  {
+   "file": "internal/cli/export.go",
+   "func": "newExportCmd",
+   "what": "writer:*os.File",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs after credkit.Start: the checker reaches it before main only through the press template's internal/mcp/intents.go initializer (recipeCommandRoot = cli.RootCmd), which names the command tree but builds and runs nothing until Execute; the --output file is handed only to credkit.NewWriter(f, credkit.SinkFile)"
+  },
+  {
+   "file": "internal/cli/export.go",
+   "func": "newExportCmd",
+   "what": "writer:io.Writer",
+   "count": 3,
+   "kind": "exempt",
+   "reason": "runs after credkit.Start: the checker reaches it before main only through the press template's internal/mcp/intents.go initializer (recipeCommandRoot = cli.RootCmd), which names the command tree but builds and runs nothing until Execute; the export writer is the kit's own file writer (credkit.NewWriter) or a buffer over the command's stdout, which the kit's output layer guards"
+  },
+  {
+   "file": "internal/cli/export.go",
+   "func": "newExportCmd",
+   "what": "bufio.Writer.Flush",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs after credkit.Start: the checker reaches it before main only through the press template's internal/mcp/intents.go initializer (recipeCommandRoot = cli.RootCmd), which names the command tree but builds and runs nothing until Execute; flushes the buffer over the command's stdout, which the kit's output layer guards (an --output file is written unbuffered through credkit.NewWriter)"
+  },
+  {
+   "file": "internal/cli/export.go",
+   "func": "newExportCmd",
+   "what": "runzero-pp-cli/internal/credkit.Writer.Close",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs after credkit.Start: the checker reaches it before main only through the press template's internal/mcp/intents.go initializer (recipeCommandRoot = cli.RootCmd), which names the command tree but builds and runs nothing until Execute; closes the kit's own file writer"
+  },
+  {
+   "file": "internal/cli/feedback.go",
+   "func": "appendFeedback",
+   "what": "writer:*runzero-pp-cli/internal/credkit.Writer",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs after credkit.Start: the checker reaches it before main only through the press template's internal/mcp/intents.go initializer (recipeCommandRoot = cli.RootCmd), which names the command tree but builds and runs nothing until Execute; the kit's own file writer from credkit.OpenFile"
+  },
+  {
+   "file": "internal/cli/feedback.go",
+   "func": "postFeedback",
+   "what": "net/http.Client.Do",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs after credkit.Start: the checker reaches it before main only through the press template's internal/mcp/intents.go initializer (recipeCommandRoot = cli.RootCmd), which names the command tree but builds and runs nothing until Execute; the feedback client's Transport is credkit.Transport(nil)"
+  },
+  {
+   "file": "internal/cli/helpers.go",
+   "func": "isTerminal",
+   "what": "writer:*os.File",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs after credkit.Start: the checker reaches it before main only through the press template's internal/mcp/intents.go initializer (recipeCommandRoot = cli.RootCmd), which names the command tree but builds and runs nothing until Execute; the file goes only to credkit.Terminal, which writes nothing"
+  },
+  {
+   "file": "internal/cli/helpers.go",
+   "func": "claimLegacyUnscopedDB",
+   "what": "os.File.Close",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs after credkit.Start: the checker reaches it before main only through the press template's internal/mcp/intents.go initializer (recipeCommandRoot = cli.RootCmd), which names the command tree but builds and runs nothing until Execute; closes the empty temp file before credkit.WriteFile writes the scope marker into it"
+  },
+  {
+   "file": "internal/cli/teach.go",
+   "func": "writeTeachErrLog",
+   "what": "fmt.Fprintf",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs after credkit.Start: the checker reaches it before main only through the press template's internal/mcp/intents.go initializer (recipeCommandRoot = cli.RootCmd), which names the command tree but builds and runs nothing until Execute; writes to the kit's own file writer from credkit.OpenFile"
+  },
+  {
+   "file": "internal/cli/teach.go",
+   "func": "appendLearningsAudit",
+   "what": "writer:*runzero-pp-cli/internal/credkit.Writer",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs after credkit.Start: the checker reaches it before main only through the press template's internal/mcp/intents.go initializer (recipeCommandRoot = cli.RootCmd), which names the command tree but builds and runs nothing until Execute; the kit's own file writer from credkit.OpenFile"
+  },
+  {
+   "file": "internal/client/client.go",
+   "func": "StreamingHTTPClient",
+   "what": "net/http.Client{}",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the Transport is guardTransport(tr), which is client.OutboundGuard (credkit.Transport) around tr; only in-process unit tests reassign OutboundGuard"
+  },
+  {
+   "file": "internal/client/client.go",
+   "func": "StreamingHTTPClient",
+   "what": "net/http.Client.Transport",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "each clone's Transport is guardTransport(tr), which is client.OutboundGuard (credkit.Transport) around the cloned transport"
+  },
+  {
+   "file": "internal/client/client.go",
+   "func": "NewPlainHTTPClient",
+   "what": "net/http.Client.Transport",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the Transport is guardTransport(tr), which is client.OutboundGuard (credkit.Transport) around tr"
+  },
+  {
+   "file": "internal/client/client.go",
+   "func": "New",
+   "what": "net/http.Client.Transport",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the Transport is guardTransport(tr), which is client.OutboundGuard (credkit.Transport) around tr"
+  },
+  {
+   "file": "internal/client/client.go",
+   "func": "StreamingHTTPClient",
+   "what": "convert:net/http.RoundTripper.RoundTrip",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "guardTransport returns the concrete guardedTransport, whose RoundTrip is the embedded credkit.Transport round tripper's (client.OutboundGuard; only in-process unit tests reassign it), so the RoundTripper stored as the client's Transport sends every request through the kit"
+  },
+  {
+   "file": "internal/client/client.go",
+   "func": "NewPlainHTTPClient",
+   "what": "convert:net/http.RoundTripper.RoundTrip",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "guardTransport returns the concrete guardedTransport, whose RoundTrip is the embedded credkit.Transport round tripper's (client.OutboundGuard; only in-process unit tests reassign it), so the RoundTripper stored as the client's Transport sends every request through the kit"
+  },
+  {
+   "file": "internal/client/client.go",
+   "func": "New",
+   "what": "convert:net/http.RoundTripper.RoundTrip",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "guardTransport returns the concrete guardedTransport, whose RoundTrip is the embedded credkit.Transport round tripper's (client.OutboundGuard; only in-process unit tests reassign it), so the RoundTripper stored as the client's Transport sends every request through the kit"
+  },
+  {
+   "file": "internal/client/credkit_guard.go",
+   "func": "guardTransport",
+   "what": "sink:net/http.Transport",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "the transport is handed to credkit.Transport (through OutboundGuard) and kept only so StreamingHTTPClient can clone it and guard the clone"
+  },
+  {
+   "file": "internal/client/credkit_guard.go",
+   "func": "guardTransport",
+   "what": "call:dynamic",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "OutboundGuard is credkit.Transport; only in-process unit tests reassign it, to the identity"
+  },
+  {
+   "file": "internal/cliutil/paths.go",
+   "func": "AtomicWriteCredentialFile",
+   "what": "os.File.Write",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "writes the connector's own 0600 credential store or config file, credential sources Declarations.Files names, which stay outside the kit by contract"
+  },
+  {
+   "file": "internal/cliutil/paths.go",
+   "func": "AtomicWriteCredentialFile",
+   "what": "os.File.Close",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "closes the 0600 credential store or config temp file it wrote, outside the kit by contract"
+  },
+  {
+   "file": "internal/cliutil/paths.go",
+   "func": "atomicWritePrivate",
+   "what": "writer:*os.File",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the temp file goes only to the write callback: credkit.WriteFile for AtomicWritePrivateFile, the credential store or config bytes for AtomicWriteCredentialFile"
+  },
+  {
+   "file": "internal/config/credkit_hold.go",
+   "func": "ReadRegularFile",
+   "what": "os.ReadFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reads only the config, credential store and run profile files credwire.credentialFiles names, inside Start, and the bytes go only to the kit's HoldBody and HoldURL"
+  },
+  {
+   "file": "internal/credsql/credsql.go",
+   "func": "applyLengthLimit",
+   "what": "database/sql.OpenDB",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "lends a connection already opened through credkit.SQLDriver to set SQLITE_LIMIT_LENGTH: it runs no statement and writes no value, and the hook only runs when the store opens, after Start"
+  },
+  {
+   "file": "internal/credsql/credsql.go",
+   "func": "applyLengthLimit",
+   "what": "database/sql.DB.Conn",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "lends a connection already opened through credkit.SQLDriver to set SQLITE_LIMIT_LENGTH: it runs no statement and writes no value, and the hook only runs when the store opens, after Start"
+  },
+  {
+   "file": "internal/learn/teach_log.go",
+   "func": "appendTeachLogEntry",
+   "what": "runzero-pp-cli/internal/credkit.Writer.Write",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs after credkit.Start: the checker reaches it before main only through the press template's internal/mcp/intents.go initializer (recipeCommandRoot = cli.RootCmd), which names the command tree but builds and runs nothing until Execute; writes to the kit's own file writer from credkit.OpenFile"
+  },
+  {
+   "file": "internal/platform/migration.go",
+   "func": "AdoptVerifiedLegacyDatabase",
+   "what": "database/sql.Open",
+   "count": 4,
+   "kind": "exempt",
+   "reason": "runs after credkit.Start: the checker reaches it before main only through the press template's internal/mcp/intents.go initializer (recipeCommandRoot = cli.RootCmd), which names the command tree but builds and runs nothing until Execute; every open uses credsql.Driver, registered through credkit.SQLDriver"
+  },
+  {
+   "file": "internal/platform/profile.go",
+   "func": "writePrivateFile",
+   "what": "os.File.Close",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "runs after credkit.Start: the checker reaches it before main only through the press template's internal/mcp/intents.go initializer (recipeCommandRoot = cli.RootCmd), which names the command tree but builds and runs nothing until Execute; closes the empty temp file before credkit.WriteFile writes the profile store into it"
+  },
+  {
+   "file": "internal/store/store.go",
+   "func": "openReadOnlySQLite",
+   "what": "database/sql.Open",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs after credkit.Start: the checker reaches it before main only through the press template's internal/mcp/intents.go initializer (recipeCommandRoot = cli.RootCmd), which names the command tree but builds and runs nothing until Execute; opens through credsql.Driver, registered through credkit.SQLDriver"
+  },
+  {
+   "file": "internal/store/store.go",
+   "func": "openReadOnlySQLite",
+   "what": "database/sql.DB.ExecContext",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs after credkit.Start: the checker reaches it before main only through the press template's internal/mcp/intents.go initializer (recipeCommandRoot = cli.RootCmd), which names the command tree but builds and runs nothing until Execute; a select 1 on a database opened through credsql.Driver"
+  },
+  {
+   "file": "internal/store/store.go",
+   "func": "OpenWithContext",
+   "what": "database/sql.Open",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs after credkit.Start: the checker reaches it before main only through the press template's internal/mcp/intents.go initializer (recipeCommandRoot = cli.RootCmd), which names the command tree but builds and runs nothing until Execute; opens through credsql.Driver, registered through credkit.SQLDriver"
+  },
+  {
+   "file": "internal/store/store.go",
+   "func": "rejectNewerSchemaBeforeJournalMode",
+   "what": "database/sql.Open",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs after credkit.Start: the checker reaches it before main only through the press template's internal/mcp/intents.go initializer (recipeCommandRoot = cli.RootCmd), which names the command tree but builds and runs nothing until Execute; opens through credsql.Driver, registered through credkit.SQLDriver"
+  },
+  {
+   "file": "internal/store/store.go",
+   "func": "ensureSQLiteDriverInitialized",
+   "what": "database/sql.Open",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "runs after credkit.Start: the checker reaches it before main only through the press template's internal/mcp/intents.go initializer (recipeCommandRoot = cli.RootCmd), which names the command tree but builds and runs nothing until Execute; opens through credsql.Driver, registered through credkit.SQLDriver"
+  }
+ ]
+}

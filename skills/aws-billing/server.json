@@ -3,7 +3,7 @@
   "name": "io.github.Servosity/aws-billing-mcp",
   "title": "Amazon Web Services MCP",
   "description": "Get a non-expert from zero to a Slack-delivered, plain-English, waste-flagged AWS bill breakdown",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "icons": [
     {
       "src": "https://raw.githubusercontent.com/servosity/msp-skills/main/docs/assets/social/aws-billing/aws-billing-512x512.png",
@@ -21,8 +21,8 @@
   "packages": [
     {
       "registryType": "mcpb",
-      "identifier": "https://github.com/servosity/msp-skills/releases/download/aws-billing-v0.1.8/aws-billing-mcp.mcpb",
-      "version": "0.1.8",
+      "identifier": "https://github.com/servosity/msp-skills/releases/download/aws-billing-v0.1.9/aws-billing-mcp.mcpb",
+      "version": "0.1.9",
       "fileSha256": "PLACEHOLDER_SHA256_FILLED_BY_CI",
       "transport": {
         "type": "stdio"
@@ -63,6 +63,36 @@
         {
           "name": "AWS_SESSION_TOKEN",
           "description": "Session token, required only when the keys above are temporary STS or SSO credentials. Leave blank for long-lived IAM user keys.",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "AWS_PROFILE",
+          "description": "Optional. Name of a profile in ~/.aws/config (SSO, assume-role or credential_process).",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "AWS_BILLING_MCP_READ_ONLY",
+          "description": "Optional. Set to exactly 1 to expose only read-only tools and refuse any state-changing execute call.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "AWS_BILLING_NO_LOCAL_DATA",
+          "description": "Optional. Set to 1 to keep no local copy of API responses: reads go to the API instead of the local store.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "AWS_BILLING_USER_AGENT",
+          "description": "Overrides the User-Agent the CLI sends on its own HTTP requests.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "AWS_BILLING_MCP_HTTP_TOKEN",
+          "description": "Required only when running the MCP server with --transport http. Not needed for the default local stdio transport.",
           "isRequired": false,
           "isSecret": true
         }

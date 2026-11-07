@@ -134,9 +134,9 @@ func TestCertsExpiring(t *testing.T) {
 	ctx := context.Background()
 	db := openTestDB(t)
 
-	soon := time.Now().Add(10 * 24 * time.Hour).Unix()
-	far := time.Now().Add(365 * 24 * time.Hour).Unix()
-	expired := time.Now().Add(-5 * 24 * time.Hour).Unix()
+	soon := clock().Add(10 * 24 * time.Hour).Unix()
+	far := clock().Add(365 * 24 * time.Hour).Unix()
+	expired := clock().Add(-5 * 24 * time.Hour).Unix()
 
 	payloads := seedRun1()
 	payloads["/export/org/certificates.json"] = `[

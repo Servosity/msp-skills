@@ -21,6 +21,9 @@ type healthScoreRow struct {
 	CriticalVulns   int     `json:"critical_vulns"`
 	RebootRequired  bool    `json:"reboot_required"`
 	DaysSinceSeen   float64 `json:"days_since_seen"`
+	// PostureKnown is false when the endpoint carries no missing_updates or
+	// vulnerabilities summary: the score then counts only what is known.
+	PostureKnown bool `json:"posture_known"`
 }
 
 // pp:data-source local
@@ -51,9 +54,9 @@ a local join across signals that only exist together in the store.`,
 				return err
 			}
 			defer db.Close()
-			maybeEmitSyncHints(cmd, db, "endpoints", flags.maxAge)
+			maybeEmitSyncHints(cmd, db, "endpoints_managed", flags.maxAge)
 
-			endpoints, err := fleetLoadAll(cmd.Context(), db, "endpoints")
+			endpoints, err := fleetLoadAll(cmd.Context(), db, "endpoints_managed")
 			if err != nil {
 				return err
 			}
@@ -65,20 +68,12 @@ a local join across signals that only exist together in the store.`,
 				if orgFilter != "" && org != orgFilter {
 					continue
 				}
-				var crit, other, critVuln int
-				if mu := fleetNested(e, "missing_updates"); mu != nil {
-					c, _ := fleetNum(mu["critical"])
-					o, _ := fleetNum(mu["other"])
-					crit, other = int(c), int(o)
-				}
-				if vu := fleetNested(e, "vulnerabilities"); vu != nil {
-					c, _ := fleetNum(vu["critical"])
-					critVuln = int(c)
-				}
+				crit, other, muKnown := fleetCounts(e, "missing_updates")
+				critVuln, _, vuKnown := fleetCounts(e, "vulnerabilities")
 				reboot := fleetBoolish(fleetField(e, "reboot_required"))
 
 				daysSince := -1.0
-				if t, ok := fleetParseTime(fleetStrField(e, "last_seen")); ok {
+				if t, known, _ := fleetLastSeen(e); known {
 					daysSince = round1(now.Sub(t).Hours() / 24)
 				}
 
@@ -111,10 +106,14 @@ a local join across signals that only exist together in the store.`,
 					CriticalVulns:   critVuln,
 					RebootRequired:  reboot,
 					DaysSinceSeen:   daysSince,
+					PostureKnown:    muKnown && vuKnown,
 				})
 			}
 
 			sort.SliceStable(rows, func(i, j int) bool {
+				if rows[i].PostureKnown != rows[j].PostureKnown {
+					return !rows[i].PostureKnown // unknown posture first: never ranked healthy
+				}
 				return rows[i].RiskScore > rows[j].RiskScore
 			})
 			if limit > 0 && len(rows) > limit {

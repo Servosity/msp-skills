@@ -1,7 +1,7 @@
 {
-  "schema_version": 1,
-  "generated_at": "2026-06-13T04:06:30.709989Z",
-  "printing_press_version": "4.24.0",
+  "schema_version": 2,
+  "generated_at": "2026-10-29T23:49:08.093087Z",
+  "printing_press_version": "4.34.2",
   "api_name": "knowbe4",
   "display_name": "KnowBe4",
   "cli_name": "knowbe4-pp-cli",
@@ -18,9 +18,10 @@
   "owner": "dstevens",
   "printer": "dstevens",
   "printer_name": "Damien Stevens",
+  "spec_path": "spec.yaml",
   "spec_format": "internal",
-  "spec_checksum": "sha256:9b9005bbd5063501ec82550ce31a8cd74b696fdab8a2c5f31dd9c09f48414dbd",
-  "run_id": "20260606-175947",
+  "spec_checksum": "sha256:aefe121af1c716eaaf2e26c771b9a310f0ab2972f8d5380fc559328009b68db4",
+  "run_id": "20261029-155759-a46b1a69",
   "category": "monitoring",
   "description": "Every KnowBe4 KMSAT reporting feature, plus a local SQLite store for the questions the console cannot answer.",
   "mcp_binary": "knowbe4-pp-mcp",
@@ -89,5 +90,72 @@
       "command": "freshness",
       "description": "See per-table sync freshness and whether the cross-entity commands have the data they need - before trusting a clicker hunt."
     }
-  ]
+  ],
+  "novel_features_built": [
+    {
+      "name": "Repeat clickers across PSTs",
+      "command": "repeat-clickers",
+      "description": "Surface users who clicked the bait in two or more distinct phishing security tests within a window — your hardest-to-train humans."
+    },
+    {
+      "name": "Risk drift over time",
+      "command": "risk-drift",
+      "description": "Rank users and groups by how much their risk score worsened (or improved) between a prior snapshot and now."
+    },
+    {
+      "name": "Untrained clickers",
+      "command": "untrained-clickers",
+      "description": "Anti-join: users who clicked a phish but have no Passed training enrollment to show for it."
+    },
+    {
+      "name": "Coverage gaps",
+      "command": "coverage-gaps",
+      "description": "Find active users enrolled in zero phishing campaigns or zero training campaigns — the people your program silently misses."
+    },
+    {
+      "name": "Phish-prone trend",
+      "command": "phish-prone-trend",
+      "description": "Plot a group's phish-prone percentage across sequential phishing tests to show whether training is actually working."
+    },
+    {
+      "name": "Risk leaderboard",
+      "command": "risk-leaderboard",
+      "description": "Highest-risk users ranked, each enriched with click history, report rate, and overdue-training context."
+    },
+    {
+      "name": "Group risk contribution",
+      "command": "group-risk-contribution",
+      "description": "Attribute account-level risk movement to the specific groups (departments) driving it up or down."
+    },
+    {
+      "name": "Client QBR pack",
+      "command": "qbr",
+      "description": "One command that assembles the full quarterly review: risk trend, phish-prone trend, training completion, and the top-risk humans."
+    },
+    {
+      "name": "Report-vs-click leaderboard",
+      "command": "report-rate",
+      "description": "Rank users and groups by how often they report simulated phish versus falling for them - surfacing who never uses the Phish Alert Button."
+    },
+    {
+      "name": "Sync freshness / input-readiness",
+      "command": "freshness",
+      "description": "See per-table sync freshness and whether the cross-entity commands have the data they need - before trusting a clicker hunt."
+    }
+  ],
+  "verify": {
+    "mode": "mock",
+    "pass_rate": 100,
+    "passed": 67,
+    "total": 67,
+    "data_pipeline": true,
+    "verdict": "PASS"
+  },
+  "scorecard": {
+    "steinberger": {
+      "percentage": 95,
+      "grade": "A",
+      "total": 95
+    }
+  }
 }

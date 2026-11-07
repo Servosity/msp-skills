@@ -87,9 +87,13 @@ func buildOncallHours(oncalls []map[string]any, win pdWindow, userFilter string)
 	res.Window.Until = win.Until.UTC().Format(time.RFC3339)
 	res.Users = []pdOncallHoursUser{}
 
+	// pagerduty handfix r1-duty-double-counted: GET /oncalls returns one entry
+	// per policy and level a shift serves, so a user's hours are the union of
+	// their intervals, and a shift is one stretch of that union.
+	type span struct{ from, to time.Time }
 	type acc struct {
 		u     pdOncallHoursUser
-		hours float64
+		spans []span
 	}
 	byUser := map[string]*acc{}
 	order := []string{}
@@ -126,13 +130,28 @@ func buildOncallHours(oncalls []map[string]any, win pdWindow, userFilter string)
 			byUser[key] = a
 			order = append(order, key)
 		}
-		a.hours += end.Sub(start).Hours()
-		a.u.Shifts++
+		a.spans = append(a.spans, span{start, end})
 	}
 
 	for _, key := range order {
 		a := byUser[key]
-		a.u.Hours = pdRound2(a.hours)
+		sort.Slice(a.spans, func(i, j int) bool { return a.spans[i].from.Before(a.spans[j].from) })
+		var hours float64
+		cur := a.spans[0]
+		for _, sp := range a.spans[1:] {
+			if !sp.from.After(cur.to) {
+				if sp.to.After(cur.to) {
+					cur.to = sp.to
+				}
+				continue
+			}
+			hours += cur.to.Sub(cur.from).Hours()
+			a.u.Shifts++
+			cur = sp
+		}
+		hours += cur.to.Sub(cur.from).Hours()
+		a.u.Shifts++
+		a.u.Hours = pdRound2(hours)
 		res.TotalHours += a.u.Hours
 		res.Users = append(res.Users, a.u)
 	}

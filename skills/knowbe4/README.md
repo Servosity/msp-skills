@@ -16,12 +16,15 @@ Every KnowBe4 KMSAT reporting feature plus a local SQLite store that answers the
 
 ## Works with your agent
 
-> **Security note (until this connector is reprinted).** Do not run HTTP mode
-> (`--transport http`), not even on localhost. This build has no password,
-> listens on every network interface, and predates the browser-rebinding guard,
-> so a web page you open can reach it. The MCP tools can also read your data
-> with your credentials. Use the default stdio transport. If you set up a tunnel
-> for a remote agent, shut it down. A fix is on the way.
+> **Security note.** Local agents use the default stdio transport and need no
+> network listener. HTTP mode (`--transport http`, for remote agents) refuses to
+> start until `KNOWBE4_MCP_HTTP_TOKEN` is set, rejects any request without that
+> bearer token, serves `http://127.0.0.1:7777/mcp` by default, and needs `--tls-cert`
+> and `--tls-key` for any other address. It refuses a request body over 4 MiB or
+> one that takes longer than 30 seconds to arrive. Whoever holds the token can
+> call every tool with your KnowBe4 credentials, so treat it like a password, and
+> keep `KNOWBE4_MCP_READ_ONLY=1` on a remote host that only needs to read. See
+> [mcp-install.md](./mcp-install.md).
 
 The six agents MSP owners actually use (self-serve, works today):
 
@@ -34,7 +37,7 @@ The six agents MSP owners actually use (self-serve, works today):
 | **Claude Cowork** | Paste the install prompt below. |
 | **GitHub Copilot** (VS Code) | Run installer, add `knowbe4-mcp` to `mcp.json` under the `servers` key, then pick **Agent** mode. |
 
-The ChatGPT desktop app runs `knowbe4-mcp` locally and shares MCP configuration with Codex ([OpenAI](https://learn.chatgpt.com/docs/extend/mcp)). ChatGPT on the web needs a remote (HTTP) server, and this connector's HTTP mode is paused until it is reprinted (see the security note in [mcp-install.md](./mcp-install.md)), so msp-skills does not support it yet. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
+The ChatGPT desktop app runs `knowbe4-mcp` locally and shares MCP configuration with Codex ([OpenAI](https://learn.chatgpt.com/docs/extend/mcp)). ChatGPT on the web needs a remote server, which msp-skills does not support yet. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
 
 ### Also for the Microsoft and Google stacks
 
@@ -55,7 +58,7 @@ Big install base, but an honest heads-up: Gemini CLI runs the local binary you j
 
 > **Claude Desktop bundle:** the `.mcpb` launches on macOS (Intel and Apple Silicon), Windows x64 and Linux x64. Every tool shells out to the companion `knowbe4-cli`. Releases cut from 2026-09-18 on ship that CLI inside the bundle; older bundles contain only the MCP server, so if yours lacks the companion, run the Path A or Path B installer below first (or set `KNOWBE4_CLI_PATH` to an existing binary). Details: [#331](https://github.com/Servosity/msp-skills/issues/331).
 
-[**Download KnowBe4 MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/knowbe4-v0.1.7/knowbe4-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every KnowBe4 release on the [releases page](https://github.com/servosity/msp-skills/releases?q=knowbe4).)
+[**Download KnowBe4 MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/knowbe4-v0.1.8/knowbe4-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every KnowBe4 release on the [releases page](https://github.com/servosity/msp-skills/releases?q=knowbe4).)
 
 Prefer the Claude Code plugin? Add the marketplace once, then install - works immediately, no directory listing required:
 
@@ -184,7 +187,7 @@ See [pain-point.md](./pain-point.md) for the longer narrative.
 
 ### Does this work with ChatGPT?
 
-Yes, in the **ChatGPT desktop app**. It runs MCP servers locally (STDIO), the way `knowbe4-mcp` runs, and shares MCP configuration with Codex ([OpenAI](https://learn.chatgpt.com/docs/extend/mcp)): add `knowbe4-mcp` under **Settings > MCP servers** as a STDIO server, or add it once to Codex's `~/.codex/config.toml`. **ChatGPT on the web** is not supported by msp-skills yet: it needs a remote (HTTP) server, and this connector's HTTP mode is paused until it is reprinted; the security note in [mcp-install.md](./mcp-install.md) explains why. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
+Yes, in the **ChatGPT desktop app**. It runs MCP servers locally (STDIO), the way `knowbe4-mcp` runs, and shares MCP configuration with Codex ([OpenAI](https://learn.chatgpt.com/docs/extend/mcp)): add `knowbe4-mcp` under **Settings > MCP servers** as a STDIO server, or add it once to Codex's `~/.codex/config.toml`. **ChatGPT on the web** is not supported by msp-skills yet: it needs a remote server (see **Web-only AI apps** in [mcp-install.md](./mcp-install.md)). If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
 
 ### Does this work with Codex, Cursor, Windsurf, Cline, Copilot, or Gemini?
 
@@ -208,7 +211,7 @@ The console and VRO give you per-tenant dashboards. This skill adds the cross-cl
 
 ### Can the AI change anything in my KnowBe4 account?
 
-The bundled MCP server is **read-only** - it exposes reporting tools only. The write paths are CLI-only and preview with `--dry-run`: `events create` / `events delete` push or remove a custom risk event (these use a separate, opt-in User Event API key), and `import` bulk-upserts records through your standard Reporting API key. See [governance.md](./governance.md).
+Only by pushing or removing a custom risk event: `events create` / `events delete` (CLI) or the `events_create` / `events_delete` MCP tools. They use a separate, opt-in User Event API key. On the CLI, preview with `--dry-run`; over MCP each returns a preview and sends only with `confirm: true`, and `KNOWBE4_MCP_READ_ONLY=1` removes them. Everything else is read-only reporting. See [governance.md](./governance.md).
 
 ### What does it cost?
 
@@ -219,10 +222,10 @@ Free. Apache-2.0 licensed. You pay only for whichever AI agent you use (Claude, 
 | Tier | Examples | Recommended agent policy |
 | --- | --- | --- |
 | Read | `account info`, `users list`, `groups list`, `phishing-tests list`, `training-enrollments list`, `risk-leaderboard`, `repeat-clickers`, `sync`, `search`, `qbr` | Allow |
-| Write (routine) | `events create` (push a custom risk event), `import` (bulk create/upsert from JSONL) | Preview with `--dry-run`, then a reviewed write |
+| Write (routine) | `events create` (push a custom risk event) | Preview with `--dry-run`, then a reviewed write |
 | Destructive / config | `events delete` (remove a custom risk event from a user's timeline) | Human-in-the-loop only |
 
-The MCP server exposes the Read tier only. The Write and Destructive tiers are CLI-only; the `events` commands use a separate, opt-in `KNOWBE4_USER_EVENT_API_KEY`, while `import` writes through your standard `KNOWBE4_API_KEY`.
+Over MCP, the Write and Destructive tiers are the `events_create` and `events_delete` tools: each returns a preview and sends only with `confirm: true`, and `KNOWBE4_MCP_READ_ONLY=1` removes them. The `events` commands use a separate, opt-in `KNOWBE4_USER_EVENT_API_KEY`.
 
 The strongest control is the **scope you grant the KnowBe4 credentials** - the CLI can only do what the credentials are permitted to do. Full details, including how to lock it down, are in [governance.md](./governance.md).
 

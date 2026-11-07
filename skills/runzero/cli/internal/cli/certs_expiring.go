@@ -54,7 +54,10 @@ Reads the local store; run 'inventory sync' first.`, "\n"),
 			if err != nil {
 				return err
 			}
-			return flags.printJSON(cmd, rows)
+			if err := flags.printJSON(cmd, rows); err != nil {
+				return err
+			}
+			return inventoryReadComplete(cmd, flags, st, "certificates", "assets")
 		},
 	}
 	cmd.Flags().IntVar(&days, "days", 30, "Expiry lookahead window in days (already-expired certs are always included)")

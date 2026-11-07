@@ -57,7 +57,7 @@
           "wire_name": "group_id",
           "type": "int",
           "location": "path",
-          "description": "Group id",
+          "description": "Group id (e.g. 3264)",
           "required": true
         }
       ]
@@ -100,7 +100,7 @@
           "wire_name": "group_id",
           "type": "int",
           "location": "path",
-          "description": "Group id",
+          "description": "Group id (e.g. 3264)",
           "required": true
         },
         {
@@ -129,7 +129,7 @@
           "wire_name": "group_id",
           "type": "int",
           "location": "path",
-          "description": "Group id",
+          "description": "Group id (e.g. 3264)",
           "required": true
         },
         {
@@ -151,7 +151,7 @@
           "wire_name": "campaign_id",
           "type": "int",
           "location": "path",
-          "description": "Phishing campaign id",
+          "description": "Phishing campaign id (e.g. 3423)",
           "required": true
         }
       ]
@@ -188,7 +188,7 @@
           "wire_name": "campaign_id",
           "type": "int",
           "location": "path",
-          "description": "Phishing campaign id",
+          "description": "Phishing campaign id (e.g. 3423)",
           "required": true
         }
       ]
@@ -204,7 +204,7 @@
           "wire_name": "pst_id",
           "type": "int",
           "location": "path",
-          "description": "Phishing security test (PST) id",
+          "description": "Phishing security test (PST) id (e.g. 16142)",
           "required": true
         }
       ]
@@ -241,7 +241,7 @@
           "wire_name": "pst_id",
           "type": "int",
           "location": "path",
-          "description": "Phishing security test (PST) id",
+          "description": "Phishing security test (PST) id (e.g. 16142)",
           "required": true
         },
         {
@@ -249,7 +249,7 @@
           "wire_name": "recipient_id",
           "type": "int",
           "location": "path",
-          "description": "Recipient id",
+          "description": "Recipient id (e.g. 3077742)",
           "required": true
         }
       ]
@@ -265,7 +265,7 @@
           "wire_name": "pst_id",
           "type": "int",
           "location": "path",
-          "description": "Phishing security test (PST) id",
+          "description": "Phishing security test (PST) id (e.g. 16142)",
           "required": true
         },
         {
@@ -294,7 +294,7 @@
           "wire_name": "policy_id",
           "type": "int",
           "location": "path",
-          "description": "Policy id",
+          "description": "Policy id (e.g. 1)",
           "required": true
         }
       ]
@@ -331,7 +331,7 @@
           "wire_name": "store_purchase_id",
           "type": "int",
           "location": "path",
-          "description": "Store purchase id",
+          "description": "Store purchase id (e.g. 11)",
           "required": true
         }
       ]
@@ -368,7 +368,7 @@
           "wire_name": "campaign_id",
           "type": "int",
           "location": "path",
-          "description": "Training campaign id",
+          "description": "Training campaign id (e.g. 3423)",
           "required": true
         }
       ]
@@ -405,7 +405,7 @@
           "wire_name": "enrollment_id",
           "type": "int",
           "location": "path",
-          "description": "Enrollment id",
+          "description": "Enrollment id (e.g. 1425526)",
           "required": true
         }
       ]
@@ -456,7 +456,7 @@
           "wire_name": "user_id",
           "type": "int",
           "location": "path",
-          "description": "User id",
+          "description": "User id (e.g. 667542)",
           "required": true
         }
       ]
@@ -506,7 +506,7 @@
           "wire_name": "user_id",
           "type": "int",
           "location": "path",
-          "description": "User id",
+          "description": "User id (e.g. 667542)",
           "required": true
         },
         {
@@ -516,6 +516,58 @@
           "description": "Set 'true' to return the full history"
         }
       ]
+    }
+  ],
+  "novel_features": [
+    {
+      "name": "Repeat clickers across PSTs",
+      "command": "repeat-clickers",
+      "description": "Surface users who clicked the bait in two or more distinct phishing security tests within a window — your hardest-to-train humans."
+    },
+    {
+      "name": "Risk drift over time",
+      "command": "risk-drift",
+      "description": "Rank users and groups by how much their risk score worsened (or improved) between a prior snapshot and now."
+    },
+    {
+      "name": "Untrained clickers",
+      "command": "untrained-clickers",
+      "description": "Anti-join: users who clicked a phish but have no Passed training enrollment to show for it."
+    },
+    {
+      "name": "Coverage gaps",
+      "command": "coverage-gaps",
+      "description": "Find active users enrolled in zero phishing campaigns or zero training campaigns — the people your program silently misses."
+    },
+    {
+      "name": "Phish-prone trend",
+      "command": "phish-prone-trend",
+      "description": "Plot a group's phish-prone percentage across sequential phishing tests to show whether training is actually working."
+    },
+    {
+      "name": "Risk leaderboard",
+      "command": "risk-leaderboard",
+      "description": "Highest-risk users ranked, each enriched with click history, report rate, and overdue-training context."
+    },
+    {
+      "name": "Group risk contribution",
+      "command": "group-risk-contribution",
+      "description": "Attribute account-level risk movement to the specific groups (departments) driving it up or down."
+    },
+    {
+      "name": "Client QBR pack",
+      "command": "qbr",
+      "description": "One command that assembles the full quarterly review: risk trend, phish-prone trend, training completion, and the top-risk humans."
+    },
+    {
+      "name": "Report-vs-click leaderboard",
+      "command": "report-rate",
+      "description": "Rank users and groups by how often they report simulated phish versus falling for them - surfacing who never uses the Phish Alert Button."
+    },
+    {
+      "name": "Sync freshness / input-readiness",
+      "command": "freshness",
+      "description": "See per-table sync freshness and whether the cross-entity commands have the data they need - before trusting a clicker hunt."
     }
   ]
 }

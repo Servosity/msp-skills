@@ -56,10 +56,12 @@ body:
         - datagate
         - datto-bcdr
         - datto-rmm
+        - datto-saas
         - dnsfilter
         - domain-cert-tracker
         - domotz
         - dropsuite
+        - eset-protect
         - exchange-online
         - fortinet
         - google-workspace
@@ -122,6 +124,7 @@ body:
         - vsphere
         - warranty
         - watchguard
+        - windows-server
         - wordpress
         - xero
         - zammad
