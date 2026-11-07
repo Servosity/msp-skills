@@ -47,6 +47,7 @@ the statusline, you do not need anything in this folder - see the root
 | `cut_tags.sh` | Cuts release tags one per push behind the pipeline probe and the CHANGELOG check; `--receipts` proves each release sealed complete and sweeps for drafts. `--self-test`. |
 | `stamp_release.py` | Stamps `cli_hash_at_release` from the tagged tree once a release has sealed, and dates its CHANGELOG heading. `catalog.yml` runs it in the post-release bot commit. `--self-test`. |
 | `check_release_pipeline.py` | Refuses a SHA (`--sha`) or a whole tag (`--tag T --sha S`) that must not be released. Run it before every `git tag`. |
+| `bot_self_check.py` | The catalog bot's push-time checks. Before it pushes, `catalog.yml` runs the checks CI runs against `github.event.before` on its own commit against the commit it builds on, and does not push if any fails; it marks the commit `[skip ci]` only when it builds no connector row. `--self-test` (run by `ci_guards.sh --self-test`) fails when a workflow gains a parent-comparing step this tool does not run. |
 | `burned_versions.json` | Version numbers a destroyed release already spent. Retired forever; never cut again. |
 | `hooks/pre-push` | Optional hook: refuses a release-tag push the probe refuses. Install with `git config core.hooksPath tools/maintainer/hooks`. |
 
@@ -618,7 +619,10 @@ skills changed since its merge-base, and a push to `main` builds the skills chan
 `docs/skills/`, the `.mcpb` pin in a skill README, ...) and build nothing, except that a bot
 commit which also stamps a sealed release (`stamp_release.py`) builds that one connector's
 row, as the stamp PR it replaces did; a hand edit to the same README builds that skill; a change to a matrix-row checker or a build-feeding workflow
-builds all 65. A Windows known-failures ledger edit builds exactly the skills whose exclusions
+builds all 65. A bot commit that builds no row carries `[skip ci]`, so it costs no CI run at all;
+before pushing it, the bot runs every check CI compares with `github.event.before`
+(`bot_self_check.py`), because the next push's `before` is the bot commit and CI would never
+compare the bot's change with what it replaced. A Windows known-failures ledger edit builds exactly the skills whose exclusions
 changed (an every-connector entry, or a missing or invalid revision, builds the fleet). A weekly full-matrix sweep (Sunday 06:00 UTC, also `workflow_dispatch`) bounds
 anything scoping could miss. Before 2026-09-07 every push to `main` built the whole fleet,
 which is ~210-240 runner-minutes per docs-only bot commit and, during a 21-tag release wave,
@@ -655,7 +659,10 @@ old scrollback is still checked against today's facts. It refuses the tag unless
   `check_release_assets.py --with-mcpb`, and seals last;
 - the tag is not already cut, here or on `origin`;
 - the version number is not retired in [`burned_versions.json`](./burned_versions.json);
-- `skills/<slug>/manifest.json` **at that commit** carries exactly the version the tag names.
+- `skills/<slug>/manifest.json` **at that commit** carries exactly the version the tag names;
+- that commit's message carries no GitHub skip instruction (`[skip ci]` and its variants). The
+  catalog bot marks its derived-files commits `[skip ci]`, and a tag push on one may run no
+  workflow at all. Tag the merge or release commit under it: the bot never changes a version.
 
 On success it prints the pinned `git tag` command it just endorsed, so a passing probe is the
 only place an endorsed tag command comes from. `release.py` deliberately prints no runnable

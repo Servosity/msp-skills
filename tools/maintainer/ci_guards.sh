@@ -128,6 +128,16 @@ if [ "${1:-}" = "--self-test" ]; then
   else
     echo "  FAIL fresh_render_diff.py --self-test"; sed 's/^/       /' "$tmp/frd-selftest.out"; bad=1
   fi
+  # bot_self_check.py is the catalog bot's push-time check, not a guard; its
+  # self-test fails when a push-triggered workflow gains a step comparing with
+  # github.event.before that the bot does not run. It reads the real workflows.
+  BSC_SRC="$(dirname "$SELF")/bot_self_check.py"
+  [ -f "$BSC_SRC" ] || { echo "FAIL: ci_guards self-test needs $BSC_SRC" >&2; exit 1; }
+  if python3 -I "$BSC_SRC" --self-test >"$tmp/bsc-selftest.out" 2>&1; then
+    echo "  ok   bot_self_check.py --self-test"
+  else
+    echo "  FAIL bot_self_check.py --self-test"; sed 's/^/       /' "$tmp/bsc-selftest.out"; bad=1
+  fi
   sf_install="cp \"$SF_SRC\" \"$(dirname "$SELF")/check_handfixes.py\" tools/maintainer/ && cp -R \"$SF_CANON\" tools/maintainer/"
   sf_carrier="mkdir -p skills/acme/cli/internal/cliutil skills/acme/cli/internal/cli skills/acme/cli/cmd/acme-mcp \
     && printf 'package main\n\nfunc main() { _ = server.NewMCPServer(\n\t\"acme\",\n\tversion,\n) }\n' > skills/acme/cli/cmd/acme-mcp/main.go \
