@@ -32,6 +32,9 @@ type fleetSyncView struct {
 	Since     string            `json:"since"`
 	DBPath    string            `json:"db"`
 	Resources []fleetSyncResult `json:"resources"`
+	// VanishedAccountRows counts endpoint, detection and job rows removed
+	// because their account is no longer in the console.
+	VanishedAccountRows int `json:"vanished_account_rows_removed"`
 }
 
 func newNovelFleetSyncCmd(flags *rootFlags) *cobra.Command {
@@ -81,6 +84,9 @@ read what this command stores.`,
 			if err != nil {
 				return err
 			}
+			// hand-fix (handfixes.json fleet-sync-mirrors-the-console): the site
+			// list decides what gets deleted, so it is never a cached answer.
+			c.NoCache = true
 			sites, err := fetchSites(ctx, c)
 			if err != nil {
 				return classifyAPIErrorOnly(fmt.Errorf("listing sites: %w", err))
@@ -103,6 +109,16 @@ read what this command stores.`,
 			// --site sync refreshes part of the fleet and must not read as all.
 			fullScope := strings.TrimSpace(siteFilter) == ""
 
+			// hand-fix (handfixes.json fleet-sync-mirrors-the-console): the site
+			// list is the whole console, so rows of an account it no longer has
+			// are gone even when no per-account pull runs (no sites at all).
+			if fullScope && !cliutil.IsAnyHarness() {
+				n, perr := purgeVanishedAccounts(db, accounts)
+				if perr != nil {
+					return fmt.Errorf("removing rows of accounts no longer in the console: %w", perr)
+				}
+				view.VanishedAccountRows = n
+			}
 			if want["sites"] {
 				items := make([]json.RawMessage, 0, len(sites))
 				for _, s := range sites {
@@ -220,7 +236,7 @@ func storeFleet(db *store.Store, resource string, items []json.RawMessage, pages
 	}
 	skipped := 0
 	if len(items) > 0 {
-		stored, failed, err := db.UpsertBatch(resource, items)
+		stored, failed, err := db.UpsertBatchReplacing(resource, items)
 		res.Stored, skipped = stored, failed
 		if err != nil {
 			res.Error = strings.TrimSpace(res.Error + "; store: " + err.Error())
@@ -294,6 +310,40 @@ func recordFreshness(db *store.Store, res *fleetSyncResult, more, fullScope, cer
 			saved = true
 		}
 	}
+}
+
+// purgeVanishedAccounts deletes endpoint, detection and job rows whose
+// account_id is not one of the console's current accounts. Rows without an
+// account_id are left alone (nothing to compare).
+func purgeVanishedAccounts(db *store.Store, accounts []string) (int, error) {
+	current := make(map[string]bool, len(accounts))
+	for _, a := range accounts {
+		current[a] = true
+	}
+	removed := 0
+	for _, res := range []string{tdResEndpoints, tdResDetections, tdResJobs} {
+		raws, err := db.List(res, 0)
+		if err != nil {
+			return removed, err
+		}
+		gone := map[string]bool{}
+		for _, raw := range raws {
+			var row struct {
+				AccountID string `json:"account_id"`
+			}
+			if json.Unmarshal(raw, &row) == nil && row.AccountID != "" && !current[row.AccountID] {
+				gone[row.AccountID] = true
+			}
+		}
+		for acct := range gone {
+			n, err := db.ReconcilePartition(res, "$.account_id", acct, nil, res, nil)
+			if err != nil {
+				return removed, err
+			}
+			removed += n
+		}
+	}
+	return removed, nil
 }
 
 // reconcileEndpoints deletes stored endpoints of the synced accounts that the

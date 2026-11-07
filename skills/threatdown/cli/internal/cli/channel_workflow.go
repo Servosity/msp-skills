@@ -93,7 +93,7 @@ and full resync. After archiving, use 'search' for instant full-text search.`,
 			}
 			defer s.Close()
 
-			resources := []string{"exclusions", "notifications", "policies", "sites", "subscriptions", "subscriptions-quantity", "users"}
+			resources := []string{"exclusions", "notifications", "policies", "sites", "subscriptions", "users"}
 			if cliutil.IsDogfoodEnv() {
 				if len(resources) > 3 {
 					resources = resources[:3]

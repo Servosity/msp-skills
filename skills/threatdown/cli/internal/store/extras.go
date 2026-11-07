@@ -5,7 +5,9 @@ package store
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
+	"sync"
 )
 
 // migrateExtras runs after the generated store migrations and before the
@@ -25,4 +27,44 @@ func (s *Store) migrateExtras(ctx context.Context, conn *sql.Conn) error {
 		}
 	}
 	return nil
+}
+
+// UpsertBatchReplacing is UpsertBatch for a caller that holds the console's
+// whole record (fleet sync): each row replaces the stored one instead of
+// keeping richer old fields, so a field the console cleared is cleared here.
+// Every other writer (live reads, mutation responses, generic sync) keeps the
+// merge, because those bodies can be partial. Hand-fix (handfixes.json
+// fleet-sync-mirrors-the-console).
+func (s *Store) UpsertBatchReplacing(resourceType string, items []json.RawMessage) (int, int, error) {
+	replaceMu.Lock()
+	if replaceFor[s] == nil {
+		replaceFor[s] = map[string]int{}
+	}
+	replaceFor[s][resourceType]++
+	replaceMu.Unlock()
+	defer func() {
+		replaceMu.Lock()
+		if replaceFor[s][resourceType]--; replaceFor[s][resourceType] <= 0 {
+			delete(replaceFor[s], resourceType)
+		}
+		if len(replaceFor[s]) == 0 {
+			delete(replaceFor, s)
+		}
+		replaceMu.Unlock()
+	}()
+	return s.UpsertBatch(resourceType, items)
+}
+
+// ponytail: per-store flag map, not a per-call option, because UpsertBatch's
+// generated signature has no room for one; a concurrent writer of the same
+// resource on the same *Store during a replacing batch would replace too.
+var (
+	replaceMu  sync.Mutex
+	replaceFor = map[*Store]map[string]int{}
+)
+
+func (s *Store) replacing(resourceType string) bool {
+	replaceMu.Lock()
+	defer replaceMu.Unlock()
+	return replaceFor[s][resourceType] > 0
 }

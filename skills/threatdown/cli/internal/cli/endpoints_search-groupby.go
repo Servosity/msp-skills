@@ -153,13 +153,13 @@ func newEndpointsSearchGroupbyCmd(flags *rootFlags) *cobra.Command {
 			}
 			if !stdinBody {
 				if !cmd.Flags().Changed("account-ids") && bodyAccountIds == "" && !requiredInputWaived() {
-					return fmt.Errorf("required flag \"%s\" not set", "account-ids")
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "account-ids"))
 				}
 				if !cmd.Flags().Changed("group-by") && bodyGroupBy == "" && !requiredInputWaived() {
-					return fmt.Errorf("required flag \"%s\" not set", "group-by")
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "group-by"))
 				}
 				if !cmd.Flags().Changed("page-size") && bodyPageSize == 0.0 && !requiredInputWaived() {
-					return fmt.Errorf("required flag \"%s\" not set", "page-size")
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "page-size"))
 				}
 			}
 			path := "/v1/endpoints/search-groupby"

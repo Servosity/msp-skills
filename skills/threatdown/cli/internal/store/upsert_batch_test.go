@@ -1987,6 +1987,40 @@ func TestUpsertBatch_DeviceControlSearchableViaGenericFTS(t *testing.T) {
 	}
 }
 
+func TestSearchDeviceControlQuotesFTSQuerySyntax(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "data.db")
+	s, err := Open(dbPath)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer s.Close()
+
+	items := []json.RawMessage{
+		json.RawMessage(`{"id": "typed-ip", "comment": "10.0.0.1"}`),
+		json.RawMessage(`{"id": "typed-host", "comment": "host.example.com"}`),
+		json.RawMessage(`{"id": "typed-multi", "comment": "error with extra words before timeout"}`),
+	}
+	if stored, failed, err := s.UpsertBatch("device_control", items); err != nil {
+		t.Fatalf("UpsertBatch: %v", err)
+	} else if failed != 0 || stored != len(items) {
+		t.Fatalf("UpsertBatch stored=%d failed=%d, want stored=%d failed=0", stored, failed, len(items))
+	}
+
+	for _, query := range []string{
+		"10.0.0.1",
+		"host.example.com",
+		"error timeout",
+	} {
+		results, err := s.SearchDeviceControl(query, 10)
+		if err != nil {
+			t.Fatalf("SearchDeviceControl(%q): %v", query, err)
+		}
+		if len(results) == 0 {
+			t.Fatalf("SearchDeviceControl(%q) returned no results", query)
+		}
+	}
+}
+
 // TestUpsertBatch_PopulatesDnsTable verifies that UpsertBatch
 // dispatches paginated items into both the generic resources table AND the
 // typed dns table. Regression for issue #268: before the fix, paginated
@@ -2433,115 +2467,6 @@ func TestUpsertBatch_PopulatesGridTable(t *testing.T) {
 	}
 }
 
-// TestUpsertBatch_SetsGridParentID verifies that dependent-resource
-// sync (which injects parent_id into each item's JSON) populates the typed
-// parent_id column when items go through UpsertBatch. Regression for issue #268.
-func TestUpsertBatch_SetsGridParentID(t *testing.T) {
-	dbPath := filepath.Join(t.TempDir(), "data.db")
-	s, err := Open(dbPath)
-	if err != nil {
-		t.Fatalf("open: %v", err)
-	}
-	defer s.Close()
-
-	items := []json.RawMessage{
-		json.RawMessage(`{"id": "child-001", "parent_id": "parent-A"}`),
-		json.RawMessage(`{"id": "child-002", "parent_id": "parent-A"}`),
-		json.RawMessage(`{"id": "child-003", "parent_id": "parent-B"}`),
-	}
-	if _, _, err := s.UpsertBatch("grid", items); err != nil {
-		t.Fatalf("UpsertBatch: %v", err)
-	}
-
-	db := s.DB()
-
-	var matchedA int
-	parentQuery := fmt.Sprintf(`SELECT COUNT(*) FROM "%s" WHERE parent_id = ?`, "grid")
-	if err := db.QueryRow(parentQuery, "parent-A").Scan(&matchedA); err != nil {
-		t.Fatalf("count by parent_id: %v", err)
-	}
-	if matchedA != 2 {
-		t.Fatalf("parent_id=parent-A count = %d, want 2 (parent_id column not populated)", matchedA)
-	}
-}
-
-// TestUpsertBatch_GridSearchableViaGenericFTS verifies that a
-// dependent-resource row stored via UpsertBatch — the exact path dependent
-// sync uses (upsertResourceBatch -> UpsertBatch) — is reachable through the
-// generic resources_fts index via Store.Search. That index is the substrate
-// both `search` surfaces query (the empty-type search directly, and the
-// non-FTS5 `--type grid` fallback), so populating it is the
-// precondition issue #2629 reported missing — dependent resources stored in
-// the typed table but absent from any FTS index. This asserts the store layer
-// where the claimed defect lived; it does not exercise the CLI search wiring.
-func TestUpsertBatch_GridSearchableViaGenericFTS(t *testing.T) {
-	dbPath := filepath.Join(t.TempDir(), "data.db")
-	s, err := Open(dbPath)
-	if err != nil {
-		t.Fatalf("open: %v", err)
-	}
-	defer s.Close()
-
-	// resources_fts indexes the full JSON blob, so a distinctive token in any
-	// field is matchable regardless of which columns grid declares.
-	const probe = "zqxjpp2629probe"
-	items := []json.RawMessage{
-		json.RawMessage(`{"id": "search-001", "pp_fts_probe": "` + probe + `", "parent_id": "parent-A"}`),
-	}
-	stored, _, err := s.UpsertBatch("grid", items)
-	if err != nil {
-		t.Fatalf("UpsertBatch: %v", err)
-	}
-	// Assert the probe row actually landed before searching for it: a PK
-	// extraction miss would leave stored == 0, and the FTS check below would
-	// then fail with a misleading "stored but not searchable" message.
-	if stored != 1 {
-		t.Fatalf("UpsertBatch stored %d rows, want 1 (probe row dropped before the FTS check)", stored)
-	}
-
-	results, err := s.Search(probe, 50)
-	if err != nil {
-		t.Fatalf("Search: %v", err)
-	}
-	if len(results) == 0 {
-		t.Fatalf("dependent resource %q stored but not searchable via generic resources_fts (issue #2629)", "grid")
-	}
-}
-
-func TestSearchGridQuotesFTSQuerySyntax(t *testing.T) {
-	dbPath := filepath.Join(t.TempDir(), "data.db")
-	s, err := Open(dbPath)
-	if err != nil {
-		t.Fatalf("open: %v", err)
-	}
-	defer s.Close()
-
-	items := []json.RawMessage{
-		json.RawMessage(`{"id": "typed-ip", "description": "10.0.0.1"}`),
-		json.RawMessage(`{"id": "typed-host", "description": "host.example.com"}`),
-		json.RawMessage(`{"id": "typed-multi", "description": "error with extra words before timeout"}`),
-	}
-	if stored, failed, err := s.UpsertBatch("grid", items); err != nil {
-		t.Fatalf("UpsertBatch: %v", err)
-	} else if failed != 0 || stored != len(items) {
-		t.Fatalf("UpsertBatch stored=%d failed=%d, want stored=%d failed=0", stored, failed, len(items))
-	}
-
-	for _, query := range []string{
-		"10.0.0.1",
-		"host.example.com",
-		"error timeout",
-	} {
-		results, err := s.SearchGrid(query, 10)
-		if err != nil {
-			t.Fatalf("SearchGrid(%q): %v", query, err)
-		}
-		if len(results) == 0 {
-			t.Fatalf("SearchGrid(%q) returned no results", query)
-		}
-	}
-}
-
 // TestUpsertBatch_PopulatesGroupsTable verifies that UpsertBatch
 // dispatches paginated items into both the generic resources table AND the
 // typed groups table. Regression for issue #268: before the fix, paginated
@@ -2816,40 +2741,6 @@ func TestUpsertBatch_PopulatesOsPatchesTable(t *testing.T) {
 	}
 	if typed != len(items) {
 		t.Fatalf("os_patches count = %d, want %d (typed table not populated by UpsertBatch)", typed, len(items))
-	}
-}
-
-func TestSearchOsPatchesQuotesFTSQuerySyntax(t *testing.T) {
-	dbPath := filepath.Join(t.TempDir(), "data.db")
-	s, err := Open(dbPath)
-	if err != nil {
-		t.Fatalf("open: %v", err)
-	}
-	defer s.Close()
-
-	items := []json.RawMessage{
-		json.RawMessage(`{"id": "typed-ip", "category": "10.0.0.1"}`),
-		json.RawMessage(`{"id": "typed-host", "category": "host.example.com"}`),
-		json.RawMessage(`{"id": "typed-multi", "category": "error with extra words before timeout"}`),
-	}
-	if stored, failed, err := s.UpsertBatch("os_patches", items); err != nil {
-		t.Fatalf("UpsertBatch: %v", err)
-	} else if failed != 0 || stored != len(items) {
-		t.Fatalf("UpsertBatch stored=%d failed=%d, want stored=%d failed=0", stored, failed, len(items))
-	}
-
-	for _, query := range []string{
-		"10.0.0.1",
-		"host.example.com",
-		"error timeout",
-	} {
-		results, err := s.SearchOsPatches(query, 10)
-		if err != nil {
-			t.Fatalf("SearchOsPatches(%q): %v", query, err)
-		}
-		if len(results) == 0 {
-			t.Fatalf("SearchOsPatches(%q) returned no results", query)
-		}
 	}
 }
 
@@ -3244,81 +3135,6 @@ func TestUpsertBatch_PopulatesRidTable(t *testing.T) {
 	}
 	if typed != len(items) {
 		t.Fatalf("rid count = %d, want %d (typed table not populated by UpsertBatch)", typed, len(items))
-	}
-}
-
-// TestUpsertBatch_SetsRidParentID verifies that dependent-resource
-// sync (which injects parent_id into each item's JSON) populates the typed
-// parent_id column when items go through UpsertBatch. Regression for issue #268.
-func TestUpsertBatch_SetsRidParentID(t *testing.T) {
-	dbPath := filepath.Join(t.TempDir(), "data.db")
-	s, err := Open(dbPath)
-	if err != nil {
-		t.Fatalf("open: %v", err)
-	}
-	defer s.Close()
-
-	items := []json.RawMessage{
-		json.RawMessage(`{"id": "child-001", "parent_id": "parent-A"}`),
-		json.RawMessage(`{"id": "child-002", "parent_id": "parent-A"}`),
-		json.RawMessage(`{"id": "child-003", "parent_id": "parent-B"}`),
-	}
-	if _, _, err := s.UpsertBatch("rid", items); err != nil {
-		t.Fatalf("UpsertBatch: %v", err)
-	}
-
-	db := s.DB()
-
-	var matchedA int
-	parentQuery := fmt.Sprintf(`SELECT COUNT(*) FROM "%s" WHERE parent_id = ?`, "rid")
-	if err := db.QueryRow(parentQuery, "parent-A").Scan(&matchedA); err != nil {
-		t.Fatalf("count by parent_id: %v", err)
-	}
-	if matchedA != 2 {
-		t.Fatalf("parent_id=parent-A count = %d, want 2 (parent_id column not populated)", matchedA)
-	}
-}
-
-// TestUpsertBatch_RidSearchableViaGenericFTS verifies that a
-// dependent-resource row stored via UpsertBatch — the exact path dependent
-// sync uses (upsertResourceBatch -> UpsertBatch) — is reachable through the
-// generic resources_fts index via Store.Search. That index is the substrate
-// both `search` surfaces query (the empty-type search directly, and the
-// non-FTS5 `--type rid` fallback), so populating it is the
-// precondition issue #2629 reported missing — dependent resources stored in
-// the typed table but absent from any FTS index. This asserts the store layer
-// where the claimed defect lived; it does not exercise the CLI search wiring.
-func TestUpsertBatch_RidSearchableViaGenericFTS(t *testing.T) {
-	dbPath := filepath.Join(t.TempDir(), "data.db")
-	s, err := Open(dbPath)
-	if err != nil {
-		t.Fatalf("open: %v", err)
-	}
-	defer s.Close()
-
-	// resources_fts indexes the full JSON blob, so a distinctive token in any
-	// field is matchable regardless of which columns rid declares.
-	const probe = "zqxjpp2629probe"
-	items := []json.RawMessage{
-		json.RawMessage(`{"id": "search-001", "pp_fts_probe": "` + probe + `", "parent_id": "parent-A"}`),
-	}
-	stored, _, err := s.UpsertBatch("rid", items)
-	if err != nil {
-		t.Fatalf("UpsertBatch: %v", err)
-	}
-	// Assert the probe row actually landed before searching for it: a PK
-	// extraction miss would leave stored == 0, and the FTS check below would
-	// then fail with a misleading "stored but not searchable" message.
-	if stored != 1 {
-		t.Fatalf("UpsertBatch stored %d rows, want 1 (probe row dropped before the FTS check)", stored)
-	}
-
-	results, err := s.Search(probe, 50)
-	if err != nil {
-		t.Fatalf("Search: %v", err)
-	}
-	if len(results) == 0 {
-		t.Fatalf("dependent resource %q stored but not searchable via generic resources_fts (issue #2629)", "rid")
 	}
 }
 

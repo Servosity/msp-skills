@@ -64,7 +64,7 @@ func newEndpointsQuarantineCmd(flags *rootFlags) *cobra.Command {
 				"type":        formatCLIParamValue(flagType),
 				"since":       formatCLIParamValue(flagSince),
 				"until":       formatCLIParamValue(flagUntil),
-			}, map[string][]string{"next_cursor": {"cursor"}, "name": {"name"}, "category": {"category"}, "type": {"type"}, "since": {"since"}, "until": {"until"}}, "cursor", "cursor"), nil, flagAll, "cursor", "cursor", "", 0, "next_cursor", "", "quarantined_threats", cmd.ErrOrStderr())
+			}, map[string][]string{"next_cursor": {"cursor"}, "name": {"name"}, "category": {"category"}, "type": {"type"}, "since": {"since"}, "until": {"until"}}, "next_cursor", "cursor"), nil, flagAll, "next_cursor", "cursor", "", 0, "next_cursor", "", "quarantined_threats", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}

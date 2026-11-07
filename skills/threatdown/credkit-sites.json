@@ -1,0 +1,114 @@
+{
+ "sites": [
+  {
+   "file": "cmd/threatdown-mcp/main.go",
+   "func": "run",
+   "what": "convert:github.com/mark3labs/mcp-go/server.StreamableHTTPServer.ServeHTTP",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "the streamable HTTP server is the next handler of requireBearerAuthWithLimits, which serves every response through credkit.MCPHTTP (handfixes.json credkit-wiring)"
+  },
+  {
+   "file": "internal/credsql/credsql.go",
+   "func": "applyLengthLimit",
+   "what": "database/sql.DB.Conn",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "lends a connection already opened through credkit.SQLDriver to set SQLITE_LIMIT_LENGTH: it runs no statement and writes no value, and the hook only runs when a store opens, after Start"
+  },
+  {
+   "file": "internal/credsql/credsql.go",
+   "func": "applyLengthLimit",
+   "what": "database/sql.OpenDB",
+   "count": 2,
+   "kind": "exempt",
+   "reason": "lends a connection already opened through credkit.SQLDriver to set SQLITE_LIMIT_LENGTH: it runs no statement and writes no value, and the hook only runs when a store opens, after Start"
+  },
+  {
+   "file": "internal/credwire/declarations.go",
+   "func": "holdURLSettings",
+   "what": "os.Getenv",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reads the URL settings inside Start's Files hook and hands each only to credkit.HoldURL; each name is a URLEnv entry or the BaseURL env",
+   "names": [
+    "THREATDOWN_BASE_URL",
+    "THREATDOWN_TOKEN_URL",
+    "THREATDOWN_FEEDBACK_ENDPOINT",
+    "SPACEFAST_API_URL"
+   ]
+  },
+  {
+   "file": "internal/credwire/declarations.go",
+   "func": "holdConfigURLs",
+   "what": "os.Open",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reads only the credential sources credentialFiles names, inside Start, and the base_url and token_url in them go only to credkit.HoldURL"
+  },
+  {
+   "file": "internal/credwire/declarations.go",
+   "func": "holdConfigURLs",
+   "what": "os.File.Close",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "closes that read-only descriptor; no output"
+  },
+  {
+   "file": "internal/credwire/declarations.go",
+   "func": "holdConfigURLs",
+   "what": "os.File.Stat",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reads the descriptor's mode so only a regular file is read; it writes nothing"
+  },
+  {
+   "file": "internal/credwire/declarations.go",
+   "func": "holdConfigURLs",
+   "what": "writer:*os.File",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the read-only descriptor handed to io.LimitReader for io.ReadAll; nothing is written to it"
+  },
+  {
+   "file": "internal/credwire/declarations.go",
+   "func": "readRegular",
+   "what": "os.ReadFile",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reads only the credential sources credentialFiles names, inside Start, and the bytes go only to credkit.HoldBody"
+  },
+  {
+   "file": "internal/credwire/declarations.go",
+   "func": "compactStdinBody",
+   "what": "os.File.Stat",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "reads stdin's mode inside Start's Files hook, before anything prints; it writes nothing"
+  },
+  {
+   "file": "internal/credwire/declarations.go",
+   "func": "compactStdinBody",
+   "what": "writer:*os.File",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "os.Stdin read with io.ReadAll inside Start's Files hook, so the kit then holds the body from the new pipe; nothing is written to it"
+  },
+  {
+   "file": "internal/credwire/declarations.go",
+   "func": "compactStdinBody",
+   "what": "os.File.Write",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "the write end of a pipe that refills os.Stdin with the same body, compacted: an input to this process that the kit holds next, not an output"
+  },
+  {
+   "file": "internal/credwire/declarations.go",
+   "func": "compactStdinBody",
+   "what": "os.File.Close",
+   "count": 1,
+   "kind": "exempt",
+   "reason": "closes that pipe's write end, which ends the body; no output"
+  }
+ ]
+}

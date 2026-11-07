@@ -21,7 +21,7 @@ func newEndpointsScanCmd(flags *rootFlags) *cobra.Command {
 		Args: func(cmd *cobra.Command, args []string) error {
 			return endpointPositionalArgs(cmd, flags, args, cobra.MaximumNArgs(3))
 		},
-		Annotations: map[string]string{"pp:endpoint": "endpoints.scan", "pp:method": "GET", "pp:path": "/v1/accounts/{account_id}/endpoints/{id}/scans/{scan_id}", "mcp:read-only": "true"},
+		Annotations: map[string]string{"pp:endpoint": "endpoints.scan", "pp:method": "GET", "pp:path": "/v1/accounts/{account_id}/endpoints/{id}/scans/{scan_id}"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
 				// A missing required positional is a usage error in every output
@@ -59,7 +59,11 @@ func newEndpointsScanCmd(flags *rootFlags) *cobra.Command {
 			if cmd.Flags().Changed("populate-schedule-name") || flagPopulateScheduleName != false {
 				params["populate_schedule_name"] = formatCLIParamValue(flagPopulateScheduleName)
 			}
-			data, prov, err := resolveReadWithStrategyAndResponsePath(cmd.Context(), c, flags, "live", "endpoints", false, path, params, nil, "", cmd.ErrOrStderr())
+			var prov DataProvenance
+			data, err := c.GetMutating(cmd.Context(), path, params)
+			if err == nil {
+				prov = attachFreshness(DataProvenance{Source: "live"}, flags)
+			}
 			if err != nil {
 				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}

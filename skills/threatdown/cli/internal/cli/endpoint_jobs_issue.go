@@ -5,12 +5,10 @@
 package cli
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"os"
-	"time"
 
 	"github.com/spf13/cobra"
 	"threatdown-pp-cli/internal/cliutil"
@@ -62,9 +60,6 @@ func newEndpointJobsIssueCmd(flags *rootFlags) *cobra.Command {
 	var bodyRequiresConnected bool
 	var bodySourceId string
 	var stdinBody bool
-	var flagWait bool
-	var flagWaitTimeout time.Duration
-	var flagWaitInterval time.Duration
 
 	cmd := &cobra.Command{
 		Use:   "issue <account_id>",
@@ -109,10 +104,10 @@ func newEndpointJobsIssueCmd(flags *rootFlags) *cobra.Command {
 			}
 			if !stdinBody {
 				if !cmd.Flags().Changed("command") && bodyCommand == "" && !requiredInputWaived() {
-					return fmt.Errorf("required flag \"%s\" not set", "command")
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "command"))
 				}
 				if !cmd.Flags().Changed("machine-ids") && bodyMachineIds == "" && !requiredInputWaived() {
-					return fmt.Errorf("required flag \"%s\" not set", "machine-ids")
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "machine-ids"))
 				}
 			}
 			path := "/v1/accounts/{account_id}/jobs"
@@ -320,56 +315,6 @@ func newEndpointJobsIssueCmd(flags *rootFlags) *cobra.Command {
 			if err != nil {
 				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}
-			if asyncJobID := ExtractJobID(data, "job_id"); asyncJobID != "" {
-				asyncSubmittedAt := time.Now().UTC()
-				_ = RecordJob(JobRow{
-					JobID:          asyncJobID,
-					Resource:       "endpoint_jobs",
-					Endpoint:       "issue",
-					Status:         "submitted",
-					SubmittedAt:    asyncSubmittedAt,
-					StatusResource: "endpoint_jobs",
-					StatusEndpoint: "get",
-				})
-				if flagWait {
-					ctx := cmd.Context()
-					if ctx == nil {
-						ctx = context.Background()
-					}
-					final, werr := WaitForJob(ctx, c, "/v1/accounts/{account_id}/jobs/{id}", asyncJobID, WaitOptions{
-						Interval: flagWaitInterval,
-						Timeout:  flagWaitTimeout,
-					})
-					if werr != nil {
-						// The job was accepted; only the wait failed. Keep the
-						// row "submitted" so `jobs get` still points at it, and
-						// hand back the ID plus the command that fetches the
-						// result instead of an error that invites a resubmit.
-						_ = RecordJob(JobRow{
-							JobID:          asyncJobID,
-							Resource:       "endpoint_jobs",
-							Endpoint:       "issue",
-							Status:         "submitted",
-							SubmittedAt:    asyncSubmittedAt,
-							StatusResource: "endpoint_jobs",
-							StatusEndpoint: "get",
-							Error:          werr.Error(),
-						})
-						return asyncJobPendingErr(cmd, flags, asyncJobID, "threatdown-cli jobs get "+asyncJobID, werr)
-					}
-					if b, merr := json.Marshal(final); merr == nil {
-						data = b
-					}
-					if st, _ := final["status"].(string); st != "" {
-						_ = RecordJob(JobRow{
-							JobID:    asyncJobID,
-							Resource: "endpoint_jobs",
-							Endpoint: "issue",
-							Status:   st,
-						})
-					}
-				}
-			}
 			// Inspect the mutate response body for a partial-failure-shaped
 			// field (e.g. Google Ads `partialFailureError`). Several Google
 			// APIs return 200 OK with a partial-failure field when some
@@ -389,7 +334,7 @@ func newEndpointJobsIssueCmd(flags *rootFlags) *cobra.Command {
 				}
 			}
 			if !flags.dryRun && statusCode >= 200 && statusCode < 300 && (partialFailure == nil || flags.allowPartialFailure) {
-				writeMutationResponseToStore(cmd.Context(), "endpoint_jobs", data, "jobs")
+				writeMutationResponseToStore(cmd.Context(), "endpoint_jobs", data, "")
 			}
 			if wantsHumanTable(cmd.OutOrStdout(), flags) {
 				// Check if response contains an array (directly or wrapped in "data")
@@ -440,16 +385,13 @@ func newEndpointJobsIssueCmd(flags *rootFlags) *cobra.Command {
 					envelope["partial_failure"] = partialFailure
 				}
 				if flags.dryRun {
-					envelope["dry_run"] = true
-					envelope["status"] = 0
-					envelope["success"] = false
+					markCompletedDryRun(envelope)
 				}
 				// Verify-mode synthetic envelope detection runs against RAW data
 				// (before --compact/--select filtering) so the sentinel field is
 				// guaranteed to be visible even if the operator passes a filter
-				// flag that would otherwise strip it. Surfaces a top-level
-				// verify_noop signal + flips success to false. Mirrors the dry_run
-				// shape above.
+				// flag that would otherwise strip it. A synthetic noop did not
+				// mutate, so it forces success false after a completed dry-run mark.
 				if len(data) > 0 {
 					var rawParsed any
 					if err := json.Unmarshal(data, &rawParsed); err == nil {
@@ -476,7 +418,7 @@ func newEndpointJobsIssueCmd(flags *rootFlags) *cobra.Command {
 					filtered, selectErr = filterFieldsChecked(filtered, flags.selectFields)
 					selectErr = selectErrorForDryRun(selectErr, flags, data)
 				} else if flags.compact {
-					filtered = compactFields(filtered, map[string]bool{"job_id": true, "machine_id": true})
+					filtered = compactFields(filtered, map[string]bool{"correlation_id": true, "total_count": true})
 				}
 				if len(filtered) > 0 {
 					var parsed any
@@ -516,7 +458,7 @@ func newEndpointJobsIssueCmd(flags *rootFlags) *cobra.Command {
 			// partial failure would exit 0 for these output modes — the exact
 			// silent-swallow regression the surrounding patch is preventing
 			// for asJSON / piped output.
-			printErr := printOutputWithFlagsMeta(cmd.OutOrStdout(), data, flags, map[string]any{"source": "live"}, map[string]bool{"job_id": true, "machine_id": true})
+			printErr := printOutputWithFlagsMeta(cmd.OutOrStdout(), data, flags, map[string]any{"source": "live"}, map[string]bool{"correlation_id": true, "total_count": true})
 			if partialFailure != nil && !flags.allowPartialFailure {
 				return partialFailureErr(fmt.Errorf("partial failure in %s response: %s", "endpoint_jobs", partialFailure.Message))
 			}
@@ -568,9 +510,6 @@ func newEndpointJobsIssueCmd(flags *rootFlags) *cobra.Command {
 	cmd.Flags().BoolVar(&bodyRequiresConnected, "requires-connected", false, "Whether a connection needs to be initiated before issuing this jobs (i.e. active response shell)")
 	cmd.Flags().StringVar(&bodySourceId, "source-id", "", "Source ID for relating the new parent job to an existing parent job without add them as children of that parent job.")
 	cmd.Flags().BoolVar(&stdinBody, "stdin", false, "Read request body as JSON from stdin")
-	cmd.Flags().BoolVar(&flagWait, "wait", false, "Block until the submitted job reaches a terminal status")
-	cmd.Flags().DurationVar(&flagWaitTimeout, "wait-timeout", 10*time.Minute, "Maximum duration to wait when --wait is set (0 = no timeout)")
-	cmd.Flags().DurationVar(&flagWaitInterval, "wait-interval", 2*time.Second, "Initial poll interval when --wait is set")
 
 	return cmd
 }
