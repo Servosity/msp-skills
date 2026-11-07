@@ -3148,6 +3148,26 @@
       "reason": "threatdown, press 4.35.1 reprint, reviewed 2026-11-06. credential kit wiring (hand-written). holdConfigURLs opens a credential source the program reads anyway (its config or credential store, from the kit's declared runFiles, named by the operator's own --config or environment) so Start can hold the base_url and token_url it carries before anything prints. It refuses anything but a regular file, caps the read at 8 MiB (maxHeldConfigBytes), only parses TOML and never writes. The MCP server refuses file-path flags (check_mcp_file_flags). Same shape as the watchguard and google-workspace credwire G703 entries."
     },
     {
+      "file": "skills/datto-bcdr/cli/internal/cliutil/filelock.go",
+      "rule": "G304",
+      "bind": "decl",
+      "sha256": [
+        "sha256:b11fd7668bb1cd62f82f591c43d78004a3f6e871b776ab6bd799ca01723bd771"
+      ],
+      "press": "4.32.5",
+      "reason": "datto-bcdr only (press 4.32.5 template, reviewed 2026-11-07). WithFileLock opens path + \".lock\" with O_CREATE|O_RDWR, mode 0600; path is the CLI's own state-directory log (teach.log, learnings.jsonl), never a user or MCP argument. The fleet precedent (cli/internal/cliutil/filelock.go, slug neutral) binds the same open after 4.34 moved it into openLockFile, so this older declaration has its own digest; wordpress carries the byte-identical declaration. A reprint to 4.34+ retires this entry."
+    },
+    {
+      "file": "skills/wordpress/cli/internal/cliutil/filelock.go",
+      "rule": "G304",
+      "bind": "decl",
+      "sha256": [
+        "sha256:b11fd7668bb1cd62f82f591c43d78004a3f6e871b776ab6bd799ca01723bd771"
+      ],
+      "press": "4.32.5",
+      "reason": "wordpress only (press 4.32.5 template, reviewed 2026-11-07). WithFileLock opens path + \".lock\" with O_CREATE|O_RDWR, mode 0600; path is the CLI's own state-directory log (teach.log, learnings.jsonl), never a user or MCP argument. The fleet precedent (cli/internal/cliutil/filelock.go, slug neutral) binds the same open after 4.34 moved it into openLockFile, so this older declaration has its own digest; datto-bcdr carries the byte-identical declaration. A reprint to 4.34+ retires this entry."
+    },
+    {
       "file": "skills/auvik/cli/internal/cliutil/creds_perms_unix.go",
       "rule": "G115",
       "bind": "decl",
