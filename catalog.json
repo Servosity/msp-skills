@@ -519,7 +519,7 @@
       "cli_binary": "connectsecure-cli",
       "mcp_binary": "connectsecure-mcp",
       "version": "0.1.4",
-      "printing_press_version": "4.33.5",
+      "printing_press_version": "4.35.1",
       "license": "Apache-2.0",
       "vendor": "ConnectSecure",
       "vendor_trademark_owner": "ConnectSecure",

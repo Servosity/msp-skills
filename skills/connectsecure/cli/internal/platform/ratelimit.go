@@ -5,6 +5,7 @@
 package platform
 
 import (
+	"connectsecure-pp-cli/internal/credkit"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -148,8 +149,9 @@ func acquireLedgerLock(ctx context.Context, path string) (func(), error) {
 	for {
 		file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
 		if err == nil {
-			_, _ = fmt.Fprintf(file, "%d", time.Now().UnixNano())
 			_ = file.Close()
+			// Hand-fix (handfixes.json credkit-wiring): the lock's age is its mtime; a timestamp the kit withholds costs nothing.
+			_ = credkit.WriteFile(path, []byte(strconv.FormatInt(time.Now().UnixNano(), 10)), 0o600)
 			return func() { _ = os.Remove(path) }, nil
 		}
 		if !errors.Is(err, os.ErrExist) {

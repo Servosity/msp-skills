@@ -174,7 +174,7 @@
       "type": "skill-md",
       "description": "Use when the user asks to rank ConnectSecure (formerly CyberCNS) vulnerabilities across every client, find which clients and assets a CVE hits, prep a client QBR risk pack, find assets with stale or unauthenticated scans or silent agents, audit expired or self-approved vulnerability suppressions, review Active Directory password hygiene across clients, or run any ConnectSecure V4 API operation. Trigger phrases: `which clients have critical vulnerabilities`, `connectsecure exposure across all clients`, `are we affected by this CVE`, `prep the QBR risk numbers`, `find stale or unauthenticated scans`, `audit vulnerability suppressions`, `check AD password hygiene across clients`, `use connectsecure`, `run connectsecure`.",
       "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/connectsecure/SKILL.md",
-      "digest": "sha256:77f54a2aa306125df5d0aa5c8cbda57eca6dd833002718e9008488bbeb39534a"
+      "digest": "sha256:ae80576e1de1bbc18aeaa808ce5f428997d808b472148f81f78b87ffb396a9f6"
     },
     {
       "name": "connectwise-automate",

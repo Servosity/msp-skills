@@ -12,6 +12,7 @@ import (
 
 	"connectsecure-pp-cli/internal/cliutil"
 	"connectsecure-pp-cli/internal/config"
+	"connectsecure-pp-cli/internal/credkit"
 	"github.com/spf13/cobra"
 )
 
@@ -47,7 +48,7 @@ func newAuthSetupCmd(_ *rootFlags) *cobra.Command {
 			fmt.Fprintln(w, "  echo \"$TOKEN\" | connectsecure-cli auth set-token")
 			fmt.Fprintln(w, "")
 			fmt.Fprintln(w, "Optional request credentials:")
-			fmt.Fprintln(w, "  export CONNECTSECURE_ACCESS_TOKEN=\"your-token-here\"")
+			fmt.Fprintln(w, "  "+cliutil.EnvAssignHint(true, "CONNECTSECURE_ACCESS_TOKEN", "your-token-here"))
 			if !launch {
 				return nil
 			}
@@ -80,7 +81,7 @@ func openSetupURL(url string) error {
 	default:
 		return fmt.Errorf("unsupported OS: %s", runtime.GOOS)
 	}
-	return c.Start()
+	return credkit.StartCommand(c) // Hand-fix (handfixes.json credkit-wiring)
 }
 
 func newAuthStatusCmd(flags *rootFlags) *cobra.Command {
@@ -148,7 +149,7 @@ func newAuthStatusCmd(flags *rootFlags) *cobra.Command {
 				fmt.Fprintf(w, "  echo \"$TOKEN\" | connectsecure-cli auth set-token\n")
 				fmt.Fprintln(w, "")
 				fmt.Fprintln(w, "Optional request credentials:")
-				fmt.Fprintln(w, "  export CONNECTSECURE_ACCESS_TOKEN=\"your-token-here\" # Pre-minted JWT from /w/authorize. Optional: set this OR CONNECTSECURE_TENANT + CONNECTSECURE_CLIENT_ID + CONNECTSECURE_CLIENT_SECRET and the CLI mints and caches it.")
+				fmt.Fprintln(w, "  "+cliutil.EnvAssignHint(true, "CONNECTSECURE_ACCESS_TOKEN", "your-token-here")+" # Pre-minted JWT from /w/authorize. Optional: set this OR CONNECTSECURE_TENANT + CONNECTSECURE_CLIENT_ID + CONNECTSECURE_CLIENT_SECRET and the CLI mints and caches it.")
 				return authErr(fmt.Errorf("no credentials configured"))
 			}
 

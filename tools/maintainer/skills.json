@@ -614,7 +614,7 @@
       "category": "Security",
       "display_name": "ConnectSecure",
       "tagline": "See which vulnerabilities hit which assets at which clients, across your whole client base, in one command.",
-      "cli_hash": "sha256:fbc4762b20379538ac19ba8696f86ab0931e9178ecc79040a2c464484ba06c8b",
+      "cli_hash": "sha256:403b74d4f57aa5a6e5699821141dbb9e5f146a65ffcde734c86b1100525bc45b",
       "template_version": 3,
       "version": "0.1.4",
       "cli_hash_at_release": "sha256:17bbc92b2313a3eb1d6b0291838ad042c99474c8815fb3db9b13ff04182bc070",

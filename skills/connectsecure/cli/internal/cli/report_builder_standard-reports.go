@@ -43,7 +43,7 @@ func newReportBuilderStandardReportsCmd(flags *rootFlags) *cobra.Command {
 				return cmd.Help()
 			}
 			if !cmd.Flags().Changed("is-global") && flagIsGlobal == "" && !requiredInputWaived() {
-				return fmt.Errorf("required flag \"%s\" not set", "is-global")
+				return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "is-global"))
 			}
 			path := "/report_builder/standard_reports"
 			c, err := flags.newClient()
@@ -54,7 +54,7 @@ func newReportBuilderStandardReportsCmd(flags *rootFlags) *cobra.Command {
 				"skip":     formatCLIParamValue(flagSkip),
 				"limit":    formatCLIParamValue(flagLimit),
 				"isGlobal": formatCLIParamValue(flagIsGlobal),
-			}, map[string][]string{"skip": {"skip"}, "limit": {"limit"}, "isGlobal": {"is-global"}}, "skip", "offset"), nil, flagAll, "skip", "offset", "limit", 0, "", "", "message", cmd.ErrOrStderr())
+			}, map[string][]string{"skip": {"skip"}, "limit": {"limit"}, "isGlobal": {"is-global"}}, "skip", "offset"), nil, flagAll, "skip", "offset", "limit", 0, "", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}
@@ -81,7 +81,7 @@ func newReportBuilderStandardReportsCmd(flags *rootFlags) *cobra.Command {
 					filtered, selectErr = filterFieldsChecked(filtered, flags.selectFields)
 					selectErr = selectErrorForDryRun(selectErr, flags, data)
 				} else if flags.compact {
-					filtered = compactFields(filtered, nil)
+					filtered = compactFields(filtered, map[string]bool{"status": true})
 				}
 				wrapped, wrapErr := wrapWithProvenance(filtered, prov)
 				if wrapErr != nil {
@@ -113,7 +113,7 @@ func newReportBuilderStandardReportsCmd(flags *rootFlags) *cobra.Command {
 			if flags.csv || flags.plain {
 				formatData = outputData
 			}
-			return printOutputWithFlagsMeta(cmd.OutOrStdout(), formatData, flags, map[string]any{"source": "live"}, nil)
+			return printOutputWithFlagsMeta(cmd.OutOrStdout(), formatData, flags, map[string]any{"source": "live"}, map[string]bool{"status": true})
 		},
 	}
 	cmd.Flags().IntVar(&flagSkip, "skip", 0, "Skip")

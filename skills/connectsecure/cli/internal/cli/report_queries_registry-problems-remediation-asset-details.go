@@ -45,14 +45,14 @@ func newReportQueriesRegistryProblemsRemediationAssetDetailsCmd(flags *rootFlags
 				return cmd.Help()
 			}
 			if !cmd.Flags().Changed("asset-id") && flagAssetId == "" && !requiredInputWaived() {
-				return fmt.Errorf("required flag \"%s\" not set", "asset-id")
+				return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "asset-id"))
 			}
 			path := "/r/report_queries/registry_problems_remediation_asset_details"
 			c, err := flags.newClient()
 			if err != nil {
 				return err
 			}
-			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "report_queries", path, retainCLIQueryParams(cmd, map[string]string{
+			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "r_report_queries_registry_problems_remediation_asset_details", path, retainCLIQueryParams(cmd, map[string]string{
 				"asset_id":  formatCLIParamValue(flagAssetId),
 				"condition": formatCLIParamValue(flagCondition),
 				"skip":      formatCLIParamValue(flagSkip),

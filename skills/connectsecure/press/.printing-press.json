@@ -1,0 +1,169 @@
+{
+  "schema_version": 2,
+  "generated_at": "2026-11-02T20:18:37.082248Z",
+  "printing_press_version": "4.35.1",
+  "api_name": "connectsecure",
+  "display_name": "ConnectSecure",
+  "cli_name": "connectsecure-pp-cli",
+  "creator": {
+    "handle": "DamienStevens",
+    "name": "Damien Stevens"
+  },
+  "owner": "damienstevens",
+  "printer": "DamienStevens",
+  "printer_name": "Damien Stevens",
+  "spec_path": "spec.yaml",
+  "spec_format": "openapi3",
+  "spec_source": "official",
+  "spec_checksum": "sha256:6473a8ea8d5b64735ba88a82144728d888aef5ea9c3bd257b06022bb8ec2ab66",
+  "run_id": "20261102-145412-0cb89067",
+  "category": "monitoring",
+  "description": "Every ConnectSecure API operation, plus a local store that answers vulnerability x asset x client questions across your whole client base in one command.",
+  "mcp_binary": "connectsecure-pp-mcp",
+  "mcp_tool_count": 359,
+  "mcp_public_tool_count": 1,
+  "mcp_ready": "full",
+  "api_version": "1.0.0",
+  "auth_type": "bearer_token",
+  "auth_preference": "BearerAuth",
+  "auth_env_vars": [
+    "CONNECTSECURE_ACCESS_TOKEN",
+    "CONNECTSECURE_TENANT",
+    "CONNECTSECURE_CLIENT_ID",
+    "CONNECTSECURE_CLIENT_SECRET"
+  ],
+  "auth_env_var_specs": [
+    {
+      "name": "CONNECTSECURE_ACCESS_TOKEN",
+      "kind": "per_call",
+      "required": false,
+      "sensitive": true,
+      "description": "Pre-minted JWT from /w/authorize. Optional: set this OR CONNECTSECURE_TENANT + CONNECTSECURE_CLIENT_ID + CONNECTSECURE_CLIENT_SECRET and the CLI mints and caches it."
+    },
+    {
+      "name": "CONNECTSECURE_TENANT",
+      "kind": "auth_flow_input",
+      "required": false,
+      "sensitive": false,
+      "description": "Tenant name you type on the ConnectSecure portal login screen."
+    },
+    {
+      "name": "CONNECTSECURE_CLIENT_ID",
+      "kind": "auth_flow_input",
+      "required": false,
+      "sensitive": false,
+      "description": "API client ID from Settings \u003e Users \u003e (user) \u003e API Key."
+    },
+    {
+      "name": "CONNECTSECURE_CLIENT_SECRET",
+      "kind": "auth_flow_input",
+      "required": false,
+      "sensitive": true,
+      "description": "API client secret from Settings \u003e Users \u003e (user) \u003e API Key."
+    }
+  ],
+  "auth_additional_headers": [
+    {
+      "header": "X-USER-ID",
+      "in": "header",
+      "scheme": "UserID",
+      "env_var": {
+        "name": "CONNECTSECURE_USER_ID",
+        "kind": "per_call",
+        "required": false,
+        "sensitive": false,
+        "description": "user_id from /w/authorize. Only needed with a pre-minted CONNECTSECURE_ACCESS_TOKEN; minting fills it automatically."
+      }
+    }
+  ],
+  "auth_key_url": "https://cybercns.atlassian.net/wiki/spaces/CVB/pages/2128314664/V4+API+Information",
+  "novel_features": [
+    {
+      "name": "Cross-client exposure matrix",
+      "command": "exposure",
+      "description": "Reads the synced local store (run sync first): rank open vulnerabilities across all clients at asset level, one row per problem x asset x client, top 50 by default (--limit 0 for all), filtered by EPSS, severity, KEV or first-seen window."
+    },
+    {
+      "name": "Client portfolio",
+      "command": "portfolio",
+      "description": "Reads the synced local store (run sync first): one row per client with asset count, critical and high findings, max EPSS, KEV count, risk score, stale assets and active suppressions."
+    },
+    {
+      "name": "Scan blind spots",
+      "command": "blind-spots",
+      "description": "Reads the synced local store (run sync first): list assets whose scan data cannot be trusted (stale discovery, unauthenticated scan, silent agent), sorted by client with reason codes; the unauthenticated check is a keyword heuristic unless you pass --auth-ok."
+    },
+    {
+      "name": "QBR risk pack",
+      "command": "qbr",
+      "description": "Live API call: one client's QBR numbers in one call, with risk score, latest company stats, open findings by age, top fixes and remediation speed; compliance pass/fail is added only when --compliance-type, --compliance-platform and --compliance-section are all set."
+    },
+    {
+      "name": "Suppression audit",
+      "command": "suppression-audit",
+      "description": "Reads the synced local store (run sync first): flag suppressions that expired but are still active, expire soon, never expire, or were unapproved or self-approved, with the suppressed issue's current EPSS."
+    },
+    {
+      "name": "CVE impact",
+      "command": "cve-impact",
+      "description": "Live API call: for one CVE, show affected clients with asset counts, affected software, available fixes and CVSS/EPSS, and report any assets the API could not attribute to a client."
+    },
+    {
+      "name": "AD hygiene",
+      "command": "ad-hygiene",
+      "description": "Reads the synced local store (run sync first): per client, risky Active Directory accounts (password never expires, not required, no MFA, stale logon), weak password policies and Azure secure score."
+    }
+  ],
+  "novel_features_built": [
+    {
+      "name": "Cross-client exposure matrix",
+      "command": "exposure",
+      "description": "Reads the synced local store (run sync first): rank open vulnerabilities across all clients at asset level, one row per problem x asset x client, top 50 by default (--limit 0 for all), filtered by EPSS, severity, KEV or first-seen window."
+    },
+    {
+      "name": "Client portfolio",
+      "command": "portfolio",
+      "description": "Reads the synced local store (run sync first): one row per client with asset count, critical and high findings, max EPSS, KEV count, risk score, stale assets and active suppressions."
+    },
+    {
+      "name": "Scan blind spots",
+      "command": "blind-spots",
+      "description": "Reads the synced local store (run sync first): list assets whose scan data cannot be trusted (stale discovery, unauthenticated scan, silent agent), sorted by client with reason codes; the unauthenticated check is a keyword heuristic unless you pass --auth-ok."
+    },
+    {
+      "name": "QBR risk pack",
+      "command": "qbr",
+      "description": "Live API call: one client's QBR numbers in one call, with risk score, latest company stats, open findings by age, top fixes and remediation speed; compliance pass/fail is added only when --compliance-type, --compliance-platform and --compliance-section are all set."
+    },
+    {
+      "name": "Suppression audit",
+      "command": "suppression-audit",
+      "description": "Reads the synced local store (run sync first): flag suppressions that expired but are still active, expire soon, never expire, or were unapproved or self-approved, with the suppressed issue's current EPSS."
+    },
+    {
+      "name": "CVE impact",
+      "command": "cve-impact",
+      "description": "Live API call: for one CVE, show affected clients with asset counts, affected software, available fixes and CVSS/EPSS, and report any assets the API could not attribute to a client."
+    },
+    {
+      "name": "AD hygiene",
+      "command": "ad-hygiene",
+      "description": "Reads the synced local store (run sync first): per client, risky Active Directory accounts (password never expires, not required, no MFA, stale logon), weak password policies and Azure secure score."
+    }
+  ],
+  "verify": {
+    "mode": "mock",
+    "pass_rate": 100,
+    "passed": 178,
+    "total": 178,
+    "data_pipeline": true,
+    "verdict": "PASS"
+  },
+  "scorecard": {
+    "steinberger": {
+      "percentage": 98,
+      "grade": "A",
+      "total": 98
+    }
+  }
+}

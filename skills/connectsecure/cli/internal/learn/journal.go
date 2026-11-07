@@ -6,6 +6,7 @@ package learn
 
 import (
 	"bytes"
+	"connectsecure-pp-cli/internal/credkit"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -271,16 +272,9 @@ func AppendJournalEntry(entry JournalEntry) error {
 	if err := repairJournalSegmentTail(p); err != nil {
 		return err
 	}
-	f, err := os.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600) // #nosec G304 -- path derived from state dir
-	if err != nil {
-		return fmt.Errorf("journal: open %s: %w", p, err)
-	}
-	if _, err := f.Write(append(line, '\n')); err != nil {
-		f.Close()
-		return fmt.Errorf("journal: write: %w", err)
-	}
-	if err := f.Close(); err != nil {
-		return fmt.Errorf("journal: close: %w", err)
+	// Hand-fix (handfixes.json credkit-wiring): the journal entry is appended through the credential kit as one record.
+	if err := credkit.AppendFile(p, append(line, '\n'), 0o600); err != nil {
+		return fmt.Errorf("journal: write %s: %w", p, err)
 	}
 	// Best-effort: retention failures never fail the append (the
 	// entry is already durable).

@@ -45,7 +45,7 @@ func newReportQueriesLightweightAssetsCmd(flags *rootFlags) *cobra.Command {
 				return cmd.Help()
 			}
 			if !cmd.Flags().Changed("company-id") && flagCompanyId == "" && !requiredInputWaived() {
-				return fmt.Errorf("required flag \"%s\" not set", "company-id")
+				return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "company-id"))
 			}
 			path := "/r/report_queries/lightweight_assets"
 			c, err := flags.newClient()

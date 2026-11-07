@@ -24,7 +24,9 @@
         "CONNECTSECURE_MCP_READ_ONLY": "${user_config.connectsecure_mcp_read_only}",
         "CONNECTSECURE_USER_AGENT": "${user_config.connectsecure_user_agent}",
         "CONNECTSECURE_MCP_HTTP_TOKEN": "${user_config.connectsecure_mcp_http_token}",
-        "PRINTING_PRESS_CLIENT_PROFILE": "${user_config.printing_press_client_profile}"
+        "PRINTING_PRESS_CLIENT_PROFILE": "${user_config.printing_press_client_profile}",
+        "CONNECTSECURE_NO_LOCAL_DATA": "${user_config.connectsecure_no_local_data}",
+        "CONNECTSECURE_MCP_UPLOAD_ROOT": "${user_config.connectsecure_mcp_upload_root}"
       }
     }
   },
@@ -92,6 +94,20 @@
       "description": "Only used when the MCP server is bound to a tenant-gated Printing Press client profile. This connector registers no tenant-gated source, so leave it blank unless you set one up yourself.",
       "required": false,
       "sensitive": true
+    },
+    "connectsecure_no_local_data": {
+      "type": "string",
+      "title": "Run without a local copy",
+      "description": "Optional. Set to 1 to keep no local copy of API responses: reads go to the API, the response cache is off, and sync refuses to run. Leave blank to keep the local store.",
+      "required": false,
+      "sensitive": false
+    },
+    "connectsecure_mcp_upload_root": {
+      "type": "string",
+      "title": "MCP upload folder (optional)",
+      "description": "Optional. Leave blank: MCP file uploads then take the file as base64 content and the server never opens a local path. Set it to a folder only to let MCP uploads read files from inside that folder.",
+      "required": false,
+      "sensitive": false
     }
   },
   "compatibility": {
@@ -102,10 +118,10 @@
       "win32"
     ]
   },
-  "printing_press_version": "4.33.5",
+  "printing_press_version": "4.35.1",
   "press_provenance": {
-    "printing_press_version": "4.33.5",
-    "generated_at": "2026-10-14T02:14:28.994266Z",
+    "printing_press_version": "4.35.1",
+    "generated_at": "2026-11-02T20:18:37.082248Z",
     "spec_checksum": "sha256:6473a8ea8d5b64735ba88a82144728d888aef5ea9c3bd257b06022bb8ec2ab66",
     "spec_format": "openapi3"
   }

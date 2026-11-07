@@ -44,7 +44,7 @@ func newCvePromotedCmd(flags *rootFlags) *cobra.Command {
 				return cmd.Help()
 			}
 			if !cmd.Flags().Changed("cve") && flagCve == "" && !requiredInputWaived() {
-				return fmt.Errorf("required flag \"%s\" not set", "cve")
+				return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "cve"))
 			}
 			c, err := flags.newClient()
 			if err != nil {

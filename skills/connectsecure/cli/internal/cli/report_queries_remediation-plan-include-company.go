@@ -46,10 +46,10 @@ func newReportQueriesRemediationPlanIncludeCompanyCmd(flags *rootFlags) *cobra.C
 				return cmd.Help()
 			}
 			if !cmd.Flags().Changed("having") && flagHaving == "" && !requiredInputWaived() {
-				return fmt.Errorf("required flag \"%s\" not set", "having")
+				return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "having"))
 			}
 			if !cmd.Flags().Changed("company-id") && flagCompanyId == "" && !requiredInputWaived() {
-				return fmt.Errorf("required flag \"%s\" not set", "company-id")
+				return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "company-id"))
 			}
 			path := "/r/report_queries/remediation_plan_include_company"
 			c, err := flags.newClient()

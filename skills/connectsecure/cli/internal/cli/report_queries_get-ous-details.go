@@ -47,13 +47,13 @@ func newReportQueriesGetOusDetailsCmd(flags *rootFlags) *cobra.Command {
 				return cmd.Help()
 			}
 			if !cmd.Flags().Changed("company-id") && flagCompanyId == "" && !requiredInputWaived() {
-				return fmt.Errorf("required flag \"%s\" not set", "company-id")
+				return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "company-id"))
 			}
 			if !cmd.Flags().Changed("object-guid") && flagObjectGuid == "" && !requiredInputWaived() {
-				return fmt.Errorf("required flag \"%s\" not set", "object-guid")
+				return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "object-guid"))
 			}
 			if !cmd.Flags().Changed("source") && flagSource == "" && !requiredInputWaived() {
-				return fmt.Errorf("required flag \"%s\" not set", "source")
+				return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "source"))
 			}
 			path := "/report_queries/get_ous_details"
 			c, err := flags.newClient()

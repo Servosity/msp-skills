@@ -46,7 +46,7 @@ func newAssetsRemediationPlanCmd(flags *rootFlags) *cobra.Command {
 				return cmd.Help()
 			}
 			if !cmd.Flags().Changed("having") && flagHaving == "" && !requiredInputWaived() {
-				return fmt.Errorf("required flag \"%s\" not set", "having")
+				return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "having"))
 			}
 			path := "/r/asset/get_asset_remediation_plan"
 			c, err := flags.newClient()
