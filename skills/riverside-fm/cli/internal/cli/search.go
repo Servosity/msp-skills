@@ -1,4 +1,5 @@
 // Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
+// pp:data-source local
 
 package cli
 
@@ -6,7 +7,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -15,8 +15,8 @@ import (
 )
 
 // newSearchCmd queries the resources_fts virtual table for full-text matches
-// across every synced resource, with optional filters on resource_type and a
-// speaker substring (transcripts only).
+// across every resource earlier live reads cached in the local store, with
+// optional filters on resource_type and a speaker substring (transcripts only).
 func newSearchCmd(flags *rootFlags) *cobra.Command {
 	var resourceType string
 	var speaker string
@@ -25,9 +25,10 @@ func newSearchCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "search <query>",
-		Short: "Full-text search across synced resources (recordings, projects, transcripts).",
-		Long: `Runs a FTS5 query against the resources_fts virtual table built by ` + "`sync`" + `.
-Without a query, prints usage. Use --type to scope to a resource type (transcriptions,
+		Short: "Full-text search across locally cached resources (recordings, projects, transcripts).",
+		Long: `Runs a FTS5 query against the local store's resources_fts table. The store holds
+what earlier live reads (projects, takes, transcriptions) cached; read a resource
+first to make it searchable. Without a query, prints usage. Use --type to scope to a resource type (transcriptions,
 projects, recordings); use --speaker to substring-match speaker names inside transcript
 bodies; use --limit to cap result count.`,
 		Example: `  riverside-fm-cli search "compounding loop" --json
@@ -45,11 +46,14 @@ bodies; use --limit to cap result count.`,
 				return usageErr(fmt.Errorf("search query required"))
 			}
 			if dbPath == "" {
-				dbPath = defaultRiversideDB()
+				dbPath = defaultDBPath("riverside-fm-cli")
+			}
+			if _, statErr := os.Stat(dbPath); statErr != nil {
+				return fmt.Errorf("no local store at %s yet: read some projects, takes or transcriptions first", dbPath)
 			}
 			s, err := store.OpenReadOnly(dbPath)
 			if err != nil {
-				return fmt.Errorf("opening store: %w (run `sync` first)", err)
+				return fmt.Errorf("opening store: %w", err)
 			}
 			defer s.Close()
 
@@ -94,7 +98,7 @@ FROM resources_fts WHERE resources_fts MATCH ?`
 				return nil
 			}
 			if len(out) == 0 {
-				fmt.Fprintf(cmd.OutOrStdout(), "No matches for %q in the local store. Run `sync` if you haven't yet.\n", query)
+				fmt.Fprintf(cmd.OutOrStdout(), "No matches for %q in the local store. Only resources you have read are searchable.\n", query)
 				return nil
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), "Found %d matches:\n", len(out))
@@ -108,14 +112,6 @@ FROM resources_fts WHERE resources_fts MATCH ?`
 	cmd.Flags().StringVar(&resourceType, "type", "", "Scope to one resource type (e.g. transcriptions, projects)")
 	cmd.Flags().StringVar(&speaker, "speaker", "", "Speaker substring filter (transcript-only matches)")
 	cmd.Flags().IntVar(&limit, "limit", 50, "Max results")
-	cmd.Flags().StringVar(&dbPath, "db", "", "Database path (default: ~/.local/share/riverside-fm-cli/store.db)")
+	cmd.Flags().StringVar(&dbPath, "db", "", "Database path (default: the local store live reads cache into)")
 	return cmd
-}
-
-func defaultRiversideDB() string {
-	if v := os.Getenv("XDG_DATA_HOME"); v != "" {
-		return filepath.Join(v, "riverside-fm-cli", "store.db")
-	}
-	home, _ := os.UserHomeDir()
-	return filepath.Join(home, ".local", "share", "riverside-fm-cli", "store.db")
 }

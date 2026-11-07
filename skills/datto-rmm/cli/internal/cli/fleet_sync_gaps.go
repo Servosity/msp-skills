@@ -44,11 +44,17 @@ type syncGapsView struct {
 type syncStateRow struct {
 	lastSyncedAt string
 	totalCount   int
+	complete     bool
 }
 
 // computeSyncGaps merges stored row counts with sync_state records into the
-// per-resource audit rows. A resource is a gap when it was never synced or
-// when stored rows drifted from the count recorded at sync time.
+// per-resource audit rows. A resource is a gap when it was never synced, when
+// its last sync attempt did not finish, or when stored rows drifted from the
+// count recorded at sync time. datto-rmm handfix
+// sync-gaps-any-failure-signal-wins (Codex review r1 class "incomplete sync
+// reported healthy"): the recorded count is the count of rows sync stored, so
+// a sync that stopped before the next page showed no drift; the store's own
+// last_attempt_complete flag wins over the counts.
 func computeSyncGaps(rowCounts map[string]int, states map[string]syncStateRow) []syncGapRow {
 	names := map[string]struct{}{}
 	for n := range rowCounts {
@@ -69,10 +75,13 @@ func computeSyncGaps(rowCounts map[string]int, states map[string]syncStateRow) [
 		row.RecordedCount = st.totalCount
 		row.LastSyncedAt = st.lastSyncedAt
 		row.Drift = row.StoredRows - st.totalCount
-		if row.Drift == 0 {
-			row.Status = "ok"
-		} else {
+		switch {
+		case !st.complete || st.lastSyncedAt == "":
+			row.Status = "incomplete"
+		case row.Drift != 0:
 			row.Status = "drift"
+		default:
+			row.Status = "ok"
 		}
 		out = append(out, row)
 	}
@@ -99,7 +108,7 @@ func loadResourceRowCounts(ctx context.Context, db *store.Store) (map[string]int
 }
 
 func loadSyncStates(ctx context.Context, db *store.Store) (map[string]syncStateRow, error) {
-	rows, err := db.DB().QueryContext(ctx, `SELECT resource_type, COALESCE(last_synced_at, ''), COALESCE(total_count, 0) FROM sync_state`)
+	rows, err := db.DB().QueryContext(ctx, `SELECT resource_type, COALESCE(last_synced_at, ''), COALESCE(total_count, 0), COALESCE(last_attempt_complete, 0) FROM sync_state`)
 	if err != nil {
 		return nil, err
 	}
@@ -107,11 +116,11 @@ func loadSyncStates(ctx context.Context, db *store.Store) (map[string]syncStateR
 	out := map[string]syncStateRow{}
 	for rows.Next() {
 		var rt, at string
-		var n int
-		if err := rows.Scan(&rt, &at, &n); err != nil {
+		var n, complete int
+		if err := rows.Scan(&rt, &at, &n, &complete); err != nil {
 			return nil, err
 		}
-		out[rt] = syncStateRow{lastSyncedAt: at, totalCount: n}
+		out[rt] = syncStateRow{lastSyncedAt: at, totalCount: n, complete: complete == 1}
 	}
 	return out, rows.Err()
 }

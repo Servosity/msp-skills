@@ -1,12 +1,5 @@
 # ConnectWise MCP - install for every agent that speaks MCP
 
-> **Security note (until this connector is reprinted).** Do not put this
-> connector behind the `supergateway` bridge or any other stdio-to-HTTP bridge,
-> not even on localhost. The bridge adds no password, so anyone who can reach
-> its port can use the MCP tools with your credentials. Use the default stdio
-> transport. If you set up a bridge or a tunnel for a remote agent, shut it
-> down. A fix is on the way.
-
 This page wires the ConnectWise MCP server into any MCP client. If you use Claude
 Code, Codex CLI, or Cowork, install the Skill instead (see [README.md](./README.md)) -
 it's simpler. Everyone else: pick your agent below.
@@ -15,7 +8,7 @@ it's simpler. Everyone else: pick your agent below.
 GitHub Copilot, Gemini CLI) launch `connectwise-automate-mcp` directly on your
 machine - no hosting. *Web-only* AI apps (ChatGPT on the web, Microsoft 365
 Copilot / Copilot Studio, the Gemini app) need a remote server, which msp-skills
-does not support yet; see **Remote agents** below.
+does not support yet; see **Web-only AI apps** below.
 
 ## Prerequisite: install the MCP binary
 
@@ -48,7 +41,12 @@ Add (or merge with your existing `mcpServers` block):
         "CONNECTWISE_AUTOMATE_BASE_URL": "",
         "CONNECTWISE_AUTOMATE_CLIENT_ID": "<your-connectwise_automate_client_id>",
         "CONNECTWISE_AUTOMATE_SERVER": "<your-connectwise_automate_server>",
-        "CONNECTWISE_AUTOMATE_TOKEN": "<your-connectwise_automate_token>"
+        "CONNECTWISE_AUTOMATE_TOKEN": "<your-connectwise_automate_token>",
+        "CONNECTWISE_AUTOMATE_USER_AGENT": "<your-connectwise_automate_user_agent>",
+        "PRINTING_PRESS_CLIENT_PROFILE": "<your-printing_press_client_profile>",
+        "CONNECTWISE_AUTOMATE_MCP_READ_ONLY": "<your-connectwise_automate_mcp_read_only>",
+        "CONNECTWISE_AUTOMATE_NO_LOCAL_DATA": "<your-connectwise_automate_no_local_data>",
+        "CONNECTWISE_AUTOMATE_MCP_HTTP_TOKEN": "<your-connectwise_automate_mcp_http_token>"
       }
     }
   }
@@ -70,7 +68,7 @@ above. To keep them in a file, add the server once to Codex's
 = "connectwise-automate-mcp"` and an `env` table); the desktop app reads that file
 too.
 
-ChatGPT on the web is a different case: see **Remote agents** below.
+ChatGPT on the web is a different case: see **Web-only AI apps** below.
 
 ## GitHub Copilot (VS Code)
 
@@ -91,7 +89,12 @@ Configuration**) and add:
         "CONNECTWISE_AUTOMATE_BASE_URL": "",
         "CONNECTWISE_AUTOMATE_CLIENT_ID": "<your-connectwise_automate_client_id>",
         "CONNECTWISE_AUTOMATE_SERVER": "<your-connectwise_automate_server>",
-        "CONNECTWISE_AUTOMATE_TOKEN": "<your-connectwise_automate_token>"
+        "CONNECTWISE_AUTOMATE_TOKEN": "<your-connectwise_automate_token>",
+        "CONNECTWISE_AUTOMATE_USER_AGENT": "<your-connectwise_automate_user_agent>",
+        "PRINTING_PRESS_CLIENT_PROFILE": "<your-printing_press_client_profile>",
+        "CONNECTWISE_AUTOMATE_MCP_READ_ONLY": "<your-connectwise_automate_mcp_read_only>",
+        "CONNECTWISE_AUTOMATE_NO_LOCAL_DATA": "<your-connectwise_automate_no_local_data>",
+        "CONNECTWISE_AUTOMATE_MCP_HTTP_TOKEN": "<your-connectwise_automate_mcp_http_token>"
       }
     }
   }
@@ -115,7 +118,12 @@ Claude Desktop:
         "CONNECTWISE_AUTOMATE_BASE_URL": "",
         "CONNECTWISE_AUTOMATE_CLIENT_ID": "<your-connectwise_automate_client_id>",
         "CONNECTWISE_AUTOMATE_SERVER": "<your-connectwise_automate_server>",
-        "CONNECTWISE_AUTOMATE_TOKEN": "<your-connectwise_automate_token>"
+        "CONNECTWISE_AUTOMATE_TOKEN": "<your-connectwise_automate_token>",
+        "CONNECTWISE_AUTOMATE_USER_AGENT": "<your-connectwise_automate_user_agent>",
+        "PRINTING_PRESS_CLIENT_PROFILE": "<your-printing_press_client_profile>",
+        "CONNECTWISE_AUTOMATE_MCP_READ_ONLY": "<your-connectwise_automate_mcp_read_only>",
+        "CONNECTWISE_AUTOMATE_NO_LOCAL_DATA": "<your-connectwise_automate_no_local_data>",
+        "CONNECTWISE_AUTOMATE_MCP_HTTP_TOKEN": "<your-connectwise_automate_mcp_http_token>"
       }
     }
   }
@@ -123,31 +131,38 @@ Claude Desktop:
 ```
 
 Restart Gemini CLI; the ConnectWise tools appear in its tool list. (The **Gemini app /
-web** is remote-only - see the remote section below.)
+web** is web-only - see **Web-only AI apps** below.)
 
 ---
 
-# Remote agents (paused until this connector is reprinted)
+# Web-only AI apps (not supported yet)
 
 **Not supported by msp-skills yet.** ChatGPT on the web, Microsoft 365 Copilot /
 Copilot Studio and the Gemini app reach MCP servers at a web address, not programs
-on your machine. `connectwise-automate-mcp` speaks stdio only, so that would mean
-putting a stdio-to-HTTP bridge in front of it. Do not set up a bridge with this
-build: it adds no password, so anyone who can reach its port can use the MCP tools
-with your credentials (see the security note at the top of this page). Do not put
-it behind a tunnel or reverse proxy either. If your team works in one of those
+on your machine, so they need a remote server. If your team works in one of those
 apps, a
 [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick)
 is the better pick; check that your AI app is on the gateway's setup list. The
-ChatGPT desktop app is different: it runs `connectwise-automate-mcp` locally (see
-above).
+ChatGPT desktop app is different: it runs `connectwise-automate-mcp` locally (see above).
 
-The bridge launch command is kept below for reference. It is commented out on
-purpose, so pasting it does nothing:
+## HTTP mode in this build (reference)
+
+This build's HTTP mode is documented here for reference; msp-skills does not
+support a web-only AI app on it yet. Keep stdio (the default) for every local
+agent above. HTTP mode serves `http://127.0.0.1:7777/mcp` by default and refuses
+to start until `CONNECTWISE_AUTOMATE_MCP_HTTP_TOKEN` is set; every request must send
+`Authorization: Bearer <token>`. Any address other than loopback also needs TLS:
 
 ```bash
-# CONNECTWISE_AUTOMATE_BASE_URL=<value> CONNECTWISE_AUTOMATE_CLIENT_ID=<value> CONNECTWISE_AUTOMATE_SERVER=<value> CONNECTWISE_AUTOMATE_TOKEN=<value> npx -y supergateway --stdio "connectwise-automate-mcp" --port 7777
+export CONNECTWISE_AUTOMATE_MCP_HTTP_TOKEN="$(openssl rand -hex 32)"
+CONNECTWISE_AUTOMATE_SERVER=<value> CONNECTWISE_AUTOMATE_TOKEN=<value> CONNECTWISE_AUTOMATE_CLIENT_ID=<value> CONNECTWISE_AUTOMATE_MCP_READ_ONLY=1 CONNECTWISE_AUTOMATE_NO_LOCAL_DATA=<value> connectwise-automate-mcp --transport http --addr <host>:7777 --tls-cert <cert.pem> --tls-key <key.pem>
 ```
+
+The endpoint is `https://<host>:7777/mcp`: the server answers Streamable HTTP at
+`/mcp` and returns 404 at the bare root. The server rejects any request without
+`Authorization: Bearer <token>`, so every client must send that header. **Treat
+the token like a password** - whoever holds it can call every tool with your
+ConnectWise credentials.
 
 ---
 

@@ -3,6 +3,9 @@
 package cli
 
 import (
+	"encoding/json"
+	"fmt"
+	"net/url"
 	"sort"
 	"strconv"
 	"strings"
@@ -110,15 +113,52 @@ func newNovelFleetSprawlCmd(flags *rootFlags) *cobra.Command {
 				if err != nil {
 					return err
 				}
+				// datto-rmm handfix fleet-live-reads-walk-every-page (Codex review r1):
+				// every SoftwarePage of a device is read (pageDetails.nextPageUrl);
+				// a device whose pages cannot all be read keeps its last synced
+				// software and is reported, never silently skipped.
+				var failed []string
+				refreshed := 0
 				for _, dev := range devices {
 					if dev.UID == "" {
 						continue
 					}
-					raw, err := c.Get(ctx, "/v2/audit/device/"+dev.UID+"/software", nil)
+					items, err := dattoReadAllPages(ctx, c, "/v2/audit/device/"+url.PathEscape(dev.UID)+"/software", "software", "max", 250)
 					if err != nil {
+						failed = append(failed, dev.UID)
 						continue
 					}
-					_ = db.Upsert(fleetSoftwareResource, dev.UID, raw)
+					if items == nil {
+						items = []json.RawMessage{}
+					}
+					body, err := json.Marshal(map[string]any{"software": items})
+					if err != nil {
+						failed = append(failed, dev.UID)
+						continue
+					}
+					// datto-rmm handfix refreshed-collection-replaces-inventory: this
+					// list is what the device has now, so it replaces the stored one.
+					if err := db.ReplaceResource(fleetSoftwareResource, dev.UID, body); err != nil {
+						failed = append(failed, dev.UID)
+						continue
+					}
+					refreshed++
+				}
+				if len(failed) > 0 {
+					fmt.Fprintf(cmd.ErrOrStderr(), "warning: %d of %d device software refreshes failed (%s); those devices show their last synced software\n",
+						len(failed), refreshed+len(failed), strings.Join(failed, ", "))
+				}
+				// A device the synced fleet no longer has keeps no inventory; a
+				// device whose read failed is still in the fleet and keeps its list.
+				// With no device table there is nothing to compare against.
+				if len(devices) > 0 {
+					uids := make([]string, 0, len(devices))
+					for _, dev := range devices {
+						uids = append(uids, dev.UID)
+					}
+					if _, err := db.ReconcileAll(fleetSoftwareResource, uids, "", nil); err != nil {
+						return err
+					}
 				}
 			}
 
@@ -140,7 +180,7 @@ func newNovelFleetSprawlCmd(flags *rootFlags) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&name, "name", "", "Case-insensitive substring filter on software name")
-	cmd.Flags().BoolVar(&refresh, "refresh", false, "Fetch per-device software live and upsert before aggregating")
+	cmd.Flags().BoolVar(&refresh, "refresh", false, "Fetch per-device software live and replace the stored lists before aggregating")
 	cmd.Flags().StringVar(&dbPath, "db", "", "Database path")
 	return cmd
 }

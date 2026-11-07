@@ -56,7 +56,7 @@ func newHypervisorsListGuestsCmd(flags *rootFlags) *cobra.Command {
 				return err
 			}
 			params := map[string]string{}
-			data, prov, err := resolveReadWithStrategyAndResponsePath(cmd.Context(), c, flags, "live", "hypervisors", false, path, params, nil, "guests", cmd.ErrOrStderr())
+			data, prov, err := resolveReadWithStrategyAndResponsePath(cmd.Context(), c, flags, "live", "hypervisors", false, path, params, nil, "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}
@@ -83,7 +83,7 @@ func newHypervisorsListGuestsCmd(flags *rootFlags) *cobra.Command {
 					filtered, selectErr = filterFieldsChecked(filtered, flags.selectFields)
 					selectErr = selectErrorForDryRun(selectErr, flags, data)
 				} else if flags.compact {
-					filtered = compactFields(filtered, map[string]bool{"clientId": true, "endpointId": true, "friendlyName": true, "guestName": true, "instanceId": true, "machineName": true, "morefId": true, "partnerId": true, "siteId": true, "vmState": true, "vmStatus": true})
+					filtered = compactFields(filtered, map[string]bool{"endpointId": true})
 				}
 				wrapped, wrapErr := wrapWithProvenance(filtered, prov)
 				if wrapErr != nil {
@@ -115,7 +115,7 @@ func newHypervisorsListGuestsCmd(flags *rootFlags) *cobra.Command {
 			if flags.csv || flags.plain {
 				formatData = outputData
 			}
-			return printOutputWithFlagsMeta(cmd.OutOrStdout(), formatData, flags, map[string]any{"source": "live"}, map[string]bool{"clientId": true, "endpointId": true, "friendlyName": true, "guestName": true, "instanceId": true, "machineName": true, "morefId": true, "partnerId": true, "siteId": true, "vmState": true, "vmStatus": true})
+			return printOutputWithFlagsMeta(cmd.OutOrStdout(), formatData, flags, map[string]any{"source": "live"}, map[string]bool{"endpointId": true})
 		},
 	}
 

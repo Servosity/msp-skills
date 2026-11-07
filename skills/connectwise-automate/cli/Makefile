@@ -1,7 +1,9 @@
 .PHONY: build test lint install clean
 
+BIN_EXT := $(if $(filter windows,$(shell go env GOOS)),.exe,)
+
 build:
-	go build -o bin/connectwise-automate-cli ./cmd/connectwise-automate-cli
+	go build -trimpath -o bin/connectwise-automate-cli$(BIN_EXT) ./cmd/connectwise-automate-cli
 
 test:
 	go test ./...
@@ -16,7 +18,7 @@ clean:
 	rm -rf bin/
 
 build-mcp:
-	go build -o bin/connectwise-automate-mcp ./cmd/connectwise-automate-mcp
+	go build -trimpath -o bin/connectwise-automate-mcp$(BIN_EXT) ./cmd/connectwise-automate-mcp
 
 install-mcp:
 	go install ./cmd/connectwise-automate-mcp

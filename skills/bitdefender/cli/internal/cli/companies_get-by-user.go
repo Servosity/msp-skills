@@ -45,7 +45,7 @@ func newCompaniesGetByUserCmd(flags *rootFlags) *cobra.Command {
 			}
 			if !stdinBody {
 				if !cmd.Flags().Changed("username") && bodyUsername == "" && !requiredInputWaived() {
-					return fmt.Errorf("required flag \"%s\" not set", "username")
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "username"))
 				}
 			}
 			path := "/v1.0/jsonrpc/companies#getCompanyDetailsByUser"

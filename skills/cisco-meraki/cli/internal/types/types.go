@@ -6,16 +6,24 @@ package types
 
 import "encoding/json"
 
-type ActionBatchesCreateOrganizationActionBatchItem struct {
-	Body      json.RawMessage `json:"body"`
-	Operation string          `json:"operation"`
-	Resource  string          `json:"resource"`
+type ActionBatchesCreateOrganizationActionBatchResponse struct {
+	Actions        json.RawMessage `json:"actions"`
+	Callback       json.RawMessage `json:"callback"`
+	Confirmed      bool            `json:"confirmed"`
+	Id             string          `json:"id"`
+	OrganizationId string          `json:"organizationId"`
+	Status         json.RawMessage `json:"status"`
+	Synchronous    bool            `json:"synchronous"`
 }
 
-type ActionBatchesGetOrganizationActionBatchItem struct {
-	Body      json.RawMessage `json:"body"`
-	Operation string          `json:"operation"`
-	Resource  string          `json:"resource"`
+type ActionBatchesGetOrganizationActionBatchResponse struct {
+	Actions        json.RawMessage `json:"actions"`
+	Callback       json.RawMessage `json:"callback"`
+	Confirmed      bool            `json:"confirmed"`
+	Id             string          `json:"id"`
+	OrganizationId string          `json:"organizationId"`
+	Status         json.RawMessage `json:"status"`
+	Synchronous    bool            `json:"synchronous"`
 }
 
 type ActionBatchesGetOrganizationItem struct {
@@ -27,19 +35,23 @@ type ActionBatchesGetOrganizationItem struct {
 	Synchronous    bool            `json:"synchronous"`
 }
 
-type ActionBatchesUpdateOrganizationActionBatchItem struct {
-	Body      json.RawMessage `json:"body"`
-	Operation string          `json:"operation"`
-	Resource  string          `json:"resource"`
+type ActionBatchesUpdateOrganizationActionBatchResponse struct {
+	Actions        json.RawMessage `json:"actions"`
+	Confirmed      bool            `json:"confirmed"`
+	Id             string          `json:"id"`
+	OrganizationId string          `json:"organizationId"`
+	Status         json.RawMessage `json:"status"`
+	Synchronous    bool            `json:"synchronous"`
 }
 
-type AdaptivePolicyCreateOrganizationAclItem struct {
-	DstPort        string `json:"dstPort"`
-	Log            bool   `json:"log"`
-	Policy         string `json:"policy"`
-	Protocol       string `json:"protocol"`
-	SrcPort        string `json:"srcPort"`
-	TcpEstablished bool   `json:"tcpEstablished"`
+type AdaptivePolicyCreateOrganizationAclResponse struct {
+	AclId       string          `json:"aclId"`
+	CreatedAt   string          `json:"createdAt"`
+	Description string          `json:"description"`
+	IpVersion   string          `json:"ipVersion"`
+	Name        string          `json:"name"`
+	Rules       json.RawMessage `json:"rules"`
+	UpdatedAt   string          `json:"updatedAt"`
 }
 
 type AdaptivePolicyCreateOrganizationGroupResponse struct {
@@ -54,18 +66,24 @@ type AdaptivePolicyCreateOrganizationGroupResponse struct {
 	UpdatedAt          string          `json:"updatedAt"`
 }
 
-type AdaptivePolicyCreateOrganizationPolicyItem struct {
-	Id   string `json:"id"`
-	Name string `json:"name"`
+type AdaptivePolicyCreateOrganizationPolicyResponse struct {
+	Acls             json.RawMessage `json:"acls"`
+	AdaptivePolicyId string          `json:"adaptivePolicyId"`
+	CreatedAt        string          `json:"createdAt"`
+	DestinationGroup json.RawMessage `json:"destinationGroup"`
+	LastEntryRule    string          `json:"lastEntryRule"`
+	SourceGroup      json.RawMessage `json:"sourceGroup"`
+	UpdatedAt        string          `json:"updatedAt"`
 }
 
-type AdaptivePolicyGetOrganizationAclItem struct {
-	DstPort        string `json:"dstPort"`
-	Log            bool   `json:"log"`
-	Policy         string `json:"policy"`
-	Protocol       string `json:"protocol"`
-	SrcPort        string `json:"srcPort"`
-	TcpEstablished bool   `json:"tcpEstablished"`
+type AdaptivePolicyGetOrganizationAclResponse struct {
+	AclId       string          `json:"aclId"`
+	CreatedAt   string          `json:"createdAt"`
+	Description string          `json:"description"`
+	IpVersion   string          `json:"ipVersion"`
+	Name        string          `json:"name"`
+	Rules       json.RawMessage `json:"rules"`
+	UpdatedAt   string          `json:"updatedAt"`
 }
 
 type AdaptivePolicyGetOrganizationAclsItem struct {
@@ -117,18 +135,24 @@ type AdaptivePolicyGetOrganizationPoliciesItem struct {
 	UpdatedAt        string          `json:"updatedAt"`
 }
 
-type AdaptivePolicyGetOrganizationPolicyItem struct {
-	Id   string `json:"id"`
-	Name string `json:"name"`
+type AdaptivePolicyGetOrganizationPolicyResponse struct {
+	Acls             json.RawMessage `json:"acls"`
+	AdaptivePolicyId string          `json:"adaptivePolicyId"`
+	CreatedAt        string          `json:"createdAt"`
+	DestinationGroup json.RawMessage `json:"destinationGroup"`
+	LastEntryRule    string          `json:"lastEntryRule"`
+	SourceGroup      json.RawMessage `json:"sourceGroup"`
+	UpdatedAt        string          `json:"updatedAt"`
 }
 
-type AdaptivePolicyUpdateOrganizationAclItem struct {
-	DstPort        string `json:"dstPort"`
-	Log            bool   `json:"log"`
-	Policy         string `json:"policy"`
-	Protocol       string `json:"protocol"`
-	SrcPort        string `json:"srcPort"`
-	TcpEstablished bool   `json:"tcpEstablished"`
+type AdaptivePolicyUpdateOrganizationAclResponse struct {
+	AclId       string          `json:"aclId"`
+	CreatedAt   string          `json:"createdAt"`
+	Description string          `json:"description"`
+	IpVersion   string          `json:"ipVersion"`
+	Name        string          `json:"name"`
+	Rules       json.RawMessage `json:"rules"`
+	UpdatedAt   string          `json:"updatedAt"`
 }
 
 type AdaptivePolicyUpdateOrganizationGroupResponse struct {
@@ -143,9 +167,14 @@ type AdaptivePolicyUpdateOrganizationGroupResponse struct {
 	UpdatedAt          string          `json:"updatedAt"`
 }
 
-type AdaptivePolicyUpdateOrganizationPolicyItem struct {
-	Id   string `json:"id"`
-	Name string `json:"name"`
+type AdaptivePolicyUpdateOrganizationPolicyResponse struct {
+	Acls             json.RawMessage `json:"acls"`
+	AdaptivePolicyId string          `json:"adaptivePolicyId"`
+	CreatedAt        string          `json:"createdAt"`
+	DestinationGroup json.RawMessage `json:"destinationGroup"`
+	LastEntryRule    string          `json:"lastEntryRule"`
+	SourceGroup      json.RawMessage `json:"sourceGroup"`
+	UpdatedAt        string          `json:"updatedAt"`
 }
 
 type AdministeredBindLicensingSubscriptionSubscriptionResponse struct {
@@ -282,6 +311,16 @@ type AdminsUpdateOrganizationResponse struct {
 	TwoFactorAuthEnabled bool            `json:"twoFactorAuthEnabled"`
 }
 
+type AlertsCreateOrganizationProfileResponse struct {
+	AlertCondition json.RawMessage `json:"alertCondition"`
+	Description    string          `json:"description"`
+	Enabled        bool            `json:"enabled"`
+	Id             string          `json:"id"`
+	NetworkTags    json.RawMessage `json:"networkTags"`
+	Recipients     json.RawMessage `json:"recipients"`
+	Type           string          `json:"type"`
+}
+
 type AlertsGetNetworkHistoryItem struct {
 	AlertData    json.RawMessage `json:"alertData"`
 	AlertType    string          `json:"alertType"`
@@ -291,11 +330,10 @@ type AlertsGetNetworkHistoryItem struct {
 	OccurredAt   string          `json:"occurredAt"`
 }
 
-type AlertsGetNetworkSettingsItem struct {
-	AlertDestinations json.RawMessage `json:"alertDestinations"`
-	Enabled           bool            `json:"enabled"`
-	Filters           json.RawMessage `json:"filters"`
-	Type              string          `json:"type"`
+type AlertsGetNetworkSettingsResponse struct {
+	Alerts              json.RawMessage `json:"alerts"`
+	DefaultDestinations json.RawMessage `json:"defaultDestinations"`
+	Muting              json.RawMessage `json:"muting"`
 }
 
 type AlertsGetOrganizationProfilesItem struct {
@@ -308,11 +346,20 @@ type AlertsGetOrganizationProfilesItem struct {
 	Type           string          `json:"type"`
 }
 
-type AlertsUpdateNetworkSettingsItem struct {
-	AlertDestinations json.RawMessage `json:"alertDestinations"`
-	Enabled           bool            `json:"enabled"`
-	Filters           json.RawMessage `json:"filters"`
-	Type              string          `json:"type"`
+type AlertsUpdateNetworkSettingsResponse struct {
+	Alerts              json.RawMessage `json:"alerts"`
+	DefaultDestinations json.RawMessage `json:"defaultDestinations"`
+	Muting              json.RawMessage `json:"muting"`
+}
+
+type AlertsUpdateOrganizationProfileResponse struct {
+	AlertCondition json.RawMessage `json:"alertCondition"`
+	Description    string          `json:"description"`
+	Enabled        bool            `json:"enabled"`
+	Id             string          `json:"id"`
+	NetworkTags    json.RawMessage `json:"networkTags"`
+	Recipients     json.RawMessage `json:"recipients"`
+	Type           string          `json:"type"`
 }
 
 type ApiGetOrganizationRestProvisioningPipelinesItem struct {
@@ -362,8 +409,9 @@ type ApiRequestsGetOrganizationOverviewResponseCodesByIntervalItem struct {
 	StartTs string          `json:"startTs"`
 }
 
-type ApplianceAddNetworkUmbrellaPoliciesItem struct {
-	Id string `json:"id"`
+type ApplianceAddNetworkUmbrellaPoliciesResponse struct {
+	Network  json.RawMessage `json:"network"`
+	Policies json.RawMessage `json:"policies"`
 }
 
 type ApplianceBulkOrganizationDnsLocalProfilesAssignmentsCreateItem struct {
@@ -392,9 +440,13 @@ type ApplianceCreateDeviceVmxAuthenticationTokenResponse struct {
 	Token     string `json:"token"`
 }
 
-type ApplianceCreateNetworkDevicesRedundancySwapItem struct {
-	Priority int    `json:"priority"`
-	Serial   string `json:"serial"`
+type ApplianceCreateNetworkDevicesRedundancySwapResponse struct {
+	Designations json.RawMessage `json:"designations"`
+	Enabled      bool            `json:"enabled"`
+	Mode         string          `json:"mode"`
+	Name         string          `json:"name"`
+	NetworkId    string          `json:"networkId"`
+	Uplink       json.RawMessage `json:"uplink"`
 }
 
 type ApplianceCreateNetworkInterfacesL3Response struct {
@@ -421,10 +473,18 @@ type ApplianceCreateNetworkRfProfileResponse struct {
 	TwoFourGhzSettings json.RawMessage `json:"twoFourGhzSettings"`
 }
 
-type ApplianceCreateNetworkStaticRouteItem struct {
-	Comment string `json:"comment"`
-	End     string `json:"end"`
-	Start   string `json:"start"`
+type ApplianceCreateNetworkStaticRouteResponse struct {
+	Enabled            bool            `json:"enabled"`
+	FixedIpAssignments json.RawMessage `json:"fixedIpAssignments"`
+	GatewayIp          string          `json:"gatewayIp"`
+	GatewayVlanId      int             `json:"gatewayVlanId"`
+	Id                 string          `json:"id"`
+	IpVersion          int             `json:"ipVersion"`
+	Name               string          `json:"name"`
+	NetworkId          string          `json:"networkId"`
+	ReservedIpRanges   json.RawMessage `json:"reservedIpRanges"`
+	Subnet             string          `json:"subnet"`
+	Vrf                json.RawMessage `json:"vrf"`
 }
 
 type ApplianceCreateNetworkTrafficShapingCustomPerformanceClassResponse struct {
@@ -467,6 +527,13 @@ type ApplianceCreateOrganizationDnsLocalRecordItem struct {
 	Hostname string          `json:"hostname"`
 	Profile  json.RawMessage `json:"profile"`
 	RecordId string          `json:"recordId"`
+}
+
+type ApplianceCreateOrganizationDnsSplitProfileResponse struct {
+	Hostnames   json.RawMessage `json:"hostnames"`
+	Name        string          `json:"name"`
+	Nameservers json.RawMessage `json:"nameservers"`
+	ProfileId   string          `json:"profileId"`
 }
 
 type ApplianceCreateOrganizationDnsSplitProfilesAssignmentsBulkCreateItem struct {
@@ -586,6 +653,12 @@ type ApplianceGetNetworkFirewallCellularFirewallRulesItem struct {
 	SyslogEnabled bool   `json:"syslogEnabled"`
 }
 
+type ApplianceGetNetworkFirewallFirewalledServiceResponse struct {
+	Access     string          `json:"access"`
+	AllowedIps json.RawMessage `json:"allowedIps"`
+	Service    string          `json:"service"`
+}
+
 type ApplianceGetNetworkFirewallFirewalledServicesItem struct {
 	Access     string          `json:"access"`
 	AllowedIps json.RawMessage `json:"allowedIps"`
@@ -603,15 +676,9 @@ type ApplianceGetNetworkFirewallInboundCellularFirewallRulesItem struct {
 	SyslogEnabled bool   `json:"syslogEnabled"`
 }
 
-type ApplianceGetNetworkFirewallInboundFirewallRulesItem struct {
-	Comment       string `json:"comment"`
-	DestCidr      string `json:"destCidr"`
-	DestPort      string `json:"destPort"`
-	Policy        string `json:"policy"`
-	Protocol      string `json:"protocol"`
-	SrcCidr       string `json:"srcCidr"`
-	SrcPort       string `json:"srcPort"`
-	SyslogEnabled bool   `json:"syslogEnabled"`
+type ApplianceGetNetworkFirewallInboundFirewallRulesResponse struct {
+	Rules             json.RawMessage `json:"rules"`
+	SyslogDefaultRule bool            `json:"syslogDefaultRule"`
 }
 
 type ApplianceGetNetworkFirewallL3FirewallRulesItem struct {
@@ -750,9 +817,16 @@ type ApplianceGetNetworkSingleLanResponse struct {
 	Vrf           json.RawMessage `json:"vrf"`
 }
 
-type ApplianceGetNetworkSsidItem struct {
-	Host string `json:"host"`
-	Port int    `json:"port"`
+type ApplianceGetNetworkSsidResponse struct {
+	AuthMode          string          `json:"authMode"`
+	DefaultVlanId     int             `json:"defaultVlanId"`
+	Enabled           bool            `json:"enabled"`
+	EncryptionMode    string          `json:"encryptionMode"`
+	Name              string          `json:"name"`
+	Number            int             `json:"number"`
+	RadiusServers     json.RawMessage `json:"radiusServers"`
+	Visible           bool            `json:"visible"`
+	WpaEncryptionMode string          `json:"wpaEncryptionMode"`
 }
 
 type ApplianceGetNetworkSsidsItem struct {
@@ -767,10 +841,18 @@ type ApplianceGetNetworkSsidsItem struct {
 	WpaEncryptionMode string          `json:"wpaEncryptionMode"`
 }
 
-type ApplianceGetNetworkStaticRouteItem struct {
-	Comment string `json:"comment"`
-	End     string `json:"end"`
-	Start   string `json:"start"`
+type ApplianceGetNetworkStaticRouteResponse struct {
+	Enabled            bool            `json:"enabled"`
+	FixedIpAssignments json.RawMessage `json:"fixedIpAssignments"`
+	GatewayIp          string          `json:"gatewayIp"`
+	GatewayVlanId      int             `json:"gatewayVlanId"`
+	Id                 string          `json:"id"`
+	IpVersion          int             `json:"ipVersion"`
+	Name               string          `json:"name"`
+	NetworkId          string          `json:"networkId"`
+	ReservedIpRanges   json.RawMessage `json:"reservedIpRanges"`
+	Subnet             string          `json:"subnet"`
+	Vrf                json.RawMessage `json:"vrf"`
 }
 
 type ApplianceGetNetworkStaticRoutesItem struct {
@@ -807,11 +889,9 @@ type ApplianceGetNetworkTrafficShapingResponse struct {
 	GlobalBandwidthLimits json.RawMessage `json:"globalBandwidthLimits"`
 }
 
-type ApplianceGetNetworkTrafficShapingRulesItem struct {
-	Definitions              json.RawMessage `json:"definitions"`
-	DscpTagValue             int             `json:"dscpTagValue"`
-	PerClientBandwidthLimits json.RawMessage `json:"perClientBandwidthLimits"`
-	Priority                 string          `json:"priority"`
+type ApplianceGetNetworkTrafficShapingRulesResponse struct {
+	DefaultRulesEnabled bool            `json:"defaultRulesEnabled"`
+	Rules               json.RawMessage `json:"rules"`
 }
 
 type ApplianceGetNetworkTrafficShapingUplinkBandwidthResponse struct {
@@ -891,26 +971,16 @@ type ApplianceGetNetworkVlansSettingsResponse struct {
 	VlansEnabled bool `json:"vlansEnabled"`
 }
 
-type ApplianceGetNetworkVpnBgpItem struct {
-	AllowTransit                       bool            `json:"allowTransit"`
-	Authentication                     json.RawMessage `json:"authentication"`
-	CommunityOut                       json.RawMessage `json:"communityOut"`
-	EbgpHoldTimer                      int             `json:"ebgpHoldTimer"`
-	EbgpMultihop                       int             `json:"ebgpMultihop"`
-	ExplicitOutboundRouteAdvertisement json.RawMessage `json:"explicitOutboundRouteAdvertisement"`
-	Filter                             json.RawMessage `json:"filter"`
-	FilterIn                           json.RawMessage `json:"filterIn"`
-	Ip                                 string          `json:"ip"`
-	Ipv6                               json.RawMessage `json:"ipv6"`
-	MultiExitDiscriminator             int             `json:"multiExitDiscriminator"`
-	NextHopIp                          string          `json:"nextHopIp"`
-	PathPrepend                        json.RawMessage `json:"pathPrepend"`
-	ReceiveLimit                       int             `json:"receiveLimit"`
-	RemoteAsNumber                     int             `json:"remoteAsNumber"`
-	SourceInterface                    string          `json:"sourceInterface"`
-	TtlSecurity                        json.RawMessage `json:"ttlSecurity"`
-	Vrf                                json.RawMessage `json:"vrf"`
-	Weight                             int             `json:"weight"`
+type ApplianceGetNetworkVpnBgpResponse struct {
+	AsNumber              int             `json:"asNumber"`
+	Enabled               bool            `json:"enabled"`
+	IbgpHoldTimer         int             `json:"ibgpHoldTimer"`
+	Ipv6                  json.RawMessage `json:"ipv6"`
+	LocalAsNumber         int             `json:"localAsNumber"`
+	Neighbors             json.RawMessage `json:"neighbors"`
+	PriorityRoute         string          `json:"priorityRoute"`
+	RouterId              string          `json:"routerId"`
+	TunnelDownTermination json.RawMessage `json:"tunnelDownTermination"`
 }
 
 type ApplianceGetNetworkVpnSiteToSiteVpnResponse struct {
@@ -955,9 +1025,13 @@ type ApplianceGetOrganizationDevicesPortsTransceiversReadingsHistoryByDeviceItem
 	Serial  string          `json:"serial"`
 }
 
-type ApplianceGetOrganizationDevicesRedundancyByNetworkItem struct {
-	Priority int    `json:"priority"`
-	Serial   string `json:"serial"`
+type ApplianceGetOrganizationDevicesRedundancyByNetworkResponse struct {
+	Designations json.RawMessage `json:"designations"`
+	Enabled      bool            `json:"enabled"`
+	Mode         string          `json:"mode"`
+	Name         string          `json:"name"`
+	NetworkId    string          `json:"networkId"`
+	Uplink       json.RawMessage `json:"uplink"`
 }
 
 type ApplianceGetOrganizationDnsLocalProfilesAssignmentsItem struct {
@@ -1202,9 +1276,13 @@ type ApplianceUpdateNetworkContentFilteringResponse struct {
 	UrlCategoryListSize  string          `json:"urlCategoryListSize"`
 }
 
-type ApplianceUpdateNetworkDevicesRedundancyItem struct {
-	Priority int    `json:"priority"`
-	Serial   string `json:"serial"`
+type ApplianceUpdateNetworkDevicesRedundancyResponse struct {
+	Designations json.RawMessage `json:"designations"`
+	Enabled      bool            `json:"enabled"`
+	Mode         string          `json:"mode"`
+	Name         string          `json:"name"`
+	NetworkId    string          `json:"networkId"`
+	Uplink       json.RawMessage `json:"uplink"`
 }
 
 type ApplianceUpdateNetworkFirewallCellularFirewallRulesItem struct {
@@ -1218,6 +1296,12 @@ type ApplianceUpdateNetworkFirewallCellularFirewallRulesItem struct {
 	SyslogEnabled bool   `json:"syslogEnabled"`
 }
 
+type ApplianceUpdateNetworkFirewallFirewalledServiceResponse struct {
+	Access     string          `json:"access"`
+	AllowedIps json.RawMessage `json:"allowedIps"`
+	Service    string          `json:"service"`
+}
+
 type ApplianceUpdateNetworkFirewallInboundCellularFirewallRulesItem struct {
 	Comment       string `json:"comment"`
 	DestCidr      string `json:"destCidr"`
@@ -1229,15 +1313,9 @@ type ApplianceUpdateNetworkFirewallInboundCellularFirewallRulesItem struct {
 	SyslogEnabled bool   `json:"syslogEnabled"`
 }
 
-type ApplianceUpdateNetworkFirewallInboundFirewallRulesItem struct {
-	Comment       string `json:"comment"`
-	DestCidr      string `json:"destCidr"`
-	DestPort      string `json:"destPort"`
-	Policy        string `json:"policy"`
-	Protocol      string `json:"protocol"`
-	SrcCidr       string `json:"srcCidr"`
-	SrcPort       string `json:"srcPort"`
-	SyslogEnabled bool   `json:"syslogEnabled"`
+type ApplianceUpdateNetworkFirewallInboundFirewallRulesResponse struct {
+	Rules             json.RawMessage `json:"rules"`
+	SyslogDefaultRule bool            `json:"syslogDefaultRule"`
 }
 
 type ApplianceUpdateNetworkFirewallL3FirewallRulesItem struct {
@@ -1257,10 +1335,9 @@ type ApplianceUpdateNetworkFirewallL7FirewallRulesItem struct {
 	Value  string `json:"value"`
 }
 
-type ApplianceUpdateNetworkFirewallMulticastForwardingItem struct {
-	Address     string          `json:"address"`
-	Description string          `json:"description"`
-	VlanIds     json.RawMessage `json:"vlanIds"`
+type ApplianceUpdateNetworkFirewallMulticastForwardingResponse struct {
+	Network json.RawMessage `json:"network"`
+	Rules   json.RawMessage `json:"rules"`
 }
 
 type ApplianceUpdateNetworkFirewallOneToManyNatRulesItem struct {
@@ -1360,15 +1437,30 @@ type ApplianceUpdateNetworkSingleLanResponse struct {
 	Vrf           json.RawMessage `json:"vrf"`
 }
 
-type ApplianceUpdateNetworkSsidItem struct {
-	Host string `json:"host"`
-	Port int    `json:"port"`
+type ApplianceUpdateNetworkSsidResponse struct {
+	AuthMode          string          `json:"authMode"`
+	DefaultVlanId     int             `json:"defaultVlanId"`
+	Enabled           bool            `json:"enabled"`
+	EncryptionMode    string          `json:"encryptionMode"`
+	Name              string          `json:"name"`
+	Number            int             `json:"number"`
+	RadiusServers     json.RawMessage `json:"radiusServers"`
+	Visible           bool            `json:"visible"`
+	WpaEncryptionMode string          `json:"wpaEncryptionMode"`
 }
 
-type ApplianceUpdateNetworkStaticRouteItem struct {
-	Comment string `json:"comment"`
-	End     string `json:"end"`
-	Start   string `json:"start"`
+type ApplianceUpdateNetworkStaticRouteResponse struct {
+	Enabled            bool            `json:"enabled"`
+	FixedIpAssignments json.RawMessage `json:"fixedIpAssignments"`
+	GatewayIp          string          `json:"gatewayIp"`
+	GatewayVlanId      int             `json:"gatewayVlanId"`
+	Id                 string          `json:"id"`
+	IpVersion          int             `json:"ipVersion"`
+	Name               string          `json:"name"`
+	NetworkId          string          `json:"networkId"`
+	ReservedIpRanges   json.RawMessage `json:"reservedIpRanges"`
+	Subnet             string          `json:"subnet"`
+	Vrf                json.RawMessage `json:"vrf"`
 }
 
 type ApplianceUpdateNetworkTrafficShapingCustomPerformanceClassResponse struct {
@@ -1383,11 +1475,9 @@ type ApplianceUpdateNetworkTrafficShapingResponse struct {
 	GlobalBandwidthLimits json.RawMessage `json:"globalBandwidthLimits"`
 }
 
-type ApplianceUpdateNetworkTrafficShapingRulesItem struct {
-	Definitions              json.RawMessage `json:"definitions"`
-	DscpTagValue             int             `json:"dscpTagValue"`
-	PerClientBandwidthLimits json.RawMessage `json:"perClientBandwidthLimits"`
-	Priority                 string          `json:"priority"`
+type ApplianceUpdateNetworkTrafficShapingRulesResponse struct {
+	DefaultRulesEnabled bool            `json:"defaultRulesEnabled"`
+	Rules               json.RawMessage `json:"rules"`
 }
 
 type ApplianceUpdateNetworkTrafficShapingUplinkBandwidthResponse struct {
@@ -1446,26 +1536,16 @@ type ApplianceUpdateNetworkVlansSettingsResponse struct {
 	VlansEnabled bool `json:"vlansEnabled"`
 }
 
-type ApplianceUpdateNetworkVpnBgpItem struct {
-	AllowTransit                       bool            `json:"allowTransit"`
-	Authentication                     json.RawMessage `json:"authentication"`
-	CommunityOut                       json.RawMessage `json:"communityOut"`
-	EbgpHoldTimer                      int             `json:"ebgpHoldTimer"`
-	EbgpMultihop                       int             `json:"ebgpMultihop"`
-	ExplicitOutboundRouteAdvertisement json.RawMessage `json:"explicitOutboundRouteAdvertisement"`
-	Filter                             json.RawMessage `json:"filter"`
-	FilterIn                           json.RawMessage `json:"filterIn"`
-	Ip                                 string          `json:"ip"`
-	Ipv6                               json.RawMessage `json:"ipv6"`
-	MultiExitDiscriminator             int             `json:"multiExitDiscriminator"`
-	NextHopIp                          string          `json:"nextHopIp"`
-	PathPrepend                        json.RawMessage `json:"pathPrepend"`
-	ReceiveLimit                       int             `json:"receiveLimit"`
-	RemoteAsNumber                     int             `json:"remoteAsNumber"`
-	SourceInterface                    string          `json:"sourceInterface"`
-	TtlSecurity                        json.RawMessage `json:"ttlSecurity"`
-	Vrf                                json.RawMessage `json:"vrf"`
-	Weight                             int             `json:"weight"`
+type ApplianceUpdateNetworkVpnBgpResponse struct {
+	AsNumber              int             `json:"asNumber"`
+	Enabled               bool            `json:"enabled"`
+	IbgpHoldTimer         int             `json:"ibgpHoldTimer"`
+	Ipv6                  json.RawMessage `json:"ipv6"`
+	LocalAsNumber         int             `json:"localAsNumber"`
+	Neighbors             json.RawMessage `json:"neighbors"`
+	PriorityRoute         string          `json:"priorityRoute"`
+	RouterId              string          `json:"routerId"`
+	TunnelDownTermination json.RawMessage `json:"tunnelDownTermination"`
 }
 
 type ApplianceUpdateNetworkVpnSiteToSiteVpnResponse struct {
@@ -1496,6 +1576,13 @@ type ApplianceUpdateOrganizationDnsLocalRecordResponse struct {
 	Hostname string          `json:"hostname"`
 	Profile  json.RawMessage `json:"profile"`
 	RecordId string          `json:"recordId"`
+}
+
+type ApplianceUpdateOrganizationDnsSplitProfileResponse struct {
+	Hostnames   json.RawMessage `json:"hostnames"`
+	Name        string          `json:"name"`
+	Nameservers json.RawMessage `json:"nameservers"`
+	ProfileId   string          `json:"profileId"`
 }
 
 type ApplianceUpdateOrganizationRoutingVrfsSettingsResponse struct {
@@ -1711,6 +1798,20 @@ type BluetoothClientsGetNetworkItem struct {
 	Tags            json.RawMessage `json:"tags"`
 }
 
+type BluetoothClientsGetNetworkNetworksResponse struct {
+	DeviceName      string          `json:"deviceName"`
+	Id              string          `json:"id"`
+	InSightAlert    bool            `json:"inSightAlert"`
+	LastSeen        int             `json:"lastSeen"`
+	Mac             string          `json:"mac"`
+	Manufacturer    string          `json:"manufacturer"`
+	Name            string          `json:"name"`
+	NetworkId       string          `json:"networkId"`
+	OutOfSightAlert bool            `json:"outOfSightAlert"`
+	SeenByDeviceMac string          `json:"seenByDeviceMac"`
+	Tags            json.RawMessage `json:"tags"`
+}
+
 type BrandingPoliciesCreateOrganizationBrandingPolicyResponse struct {
 	AdminSettings json.RawMessage `json:"adminSettings"`
 	Appearance    json.RawMessage `json:"appearance"`
@@ -1833,9 +1934,10 @@ type CameraGetDeviceAnalyticsZonesItem struct {
 	Type             string          `json:"type"`
 }
 
-type CameraGetDeviceCustomAnalyticsItem struct {
-	Name  string  `json:"name"`
-	Value float64 `json:"value"`
+type CameraGetDeviceCustomAnalyticsResponse struct {
+	ArtifactId string          `json:"artifactId"`
+	Enabled    bool            `json:"enabled"`
+	Parameters json.RawMessage `json:"parameters"`
 }
 
 type CameraGetDeviceQualityAndRetentionResponse struct {
@@ -1851,6 +1953,14 @@ type CameraGetDeviceQualityAndRetentionResponse struct {
 type CameraGetDeviceSenseObjectDetectionModelsItem struct {
 	Description string `json:"description"`
 	Id          string `json:"id"`
+}
+
+type CameraGetDeviceSenseResponse struct {
+	AudioDetection   json.RawMessage `json:"audioDetection"`
+	DetectionModelId string          `json:"detectionModelId"`
+	MqttBrokerId     string          `json:"mqttBrokerId"`
+	MqttTopics       json.RawMessage `json:"mqttTopics"`
+	SenseEnabled     bool            `json:"senseEnabled"`
 }
 
 type CameraGetDeviceVideoLinkResponse struct {
@@ -1985,9 +2095,10 @@ type CameraGetOrganizationRolesItem struct {
 	Name              string          `json:"name"`
 }
 
-type CameraUpdateDeviceCustomAnalyticsItem struct {
-	Name  string  `json:"name"`
-	Value float64 `json:"value"`
+type CameraUpdateDeviceCustomAnalyticsResponse struct {
+	ArtifactId string          `json:"artifactId"`
+	Enabled    bool            `json:"enabled"`
+	Parameters json.RawMessage `json:"parameters"`
 }
 
 type CameraUpdateDeviceQualityAndRetentionResponse struct {
@@ -1998,6 +2109,14 @@ type CameraUpdateDeviceQualityAndRetentionResponse struct {
 	Quality                        string `json:"quality"`
 	Resolution                     string `json:"resolution"`
 	RestrictedBandwidthModeEnabled bool   `json:"restrictedBandwidthModeEnabled"`
+}
+
+type CameraUpdateDeviceSenseResponse struct {
+	AudioDetection   json.RawMessage `json:"audioDetection"`
+	DetectionModelId string          `json:"detectionModelId"`
+	MqttBrokerId     string          `json:"mqttBrokerId"`
+	MqttTopics       json.RawMessage `json:"mqttTopics"`
+	SenseEnabled     bool            `json:"senseEnabled"`
 }
 
 type CameraUpdateDeviceVideoSettingsResponse struct {
@@ -2190,8 +2309,9 @@ type CampusGatewayUpdateNetworkClusterResponse struct {
 	Url          string          `json:"url"`
 }
 
-type CampusGatewayUpdateNetworkSsidMdnsItem struct {
-	Services json.RawMessage `json:"services"`
+type CampusGatewayUpdateNetworkSsidMdnsResponse struct {
+	Enabled bool            `json:"enabled"`
+	Rules   json.RawMessage `json:"rules"`
 }
 
 type CellularCreateDeviceUplinksBandsMasksUpdateItem struct {
@@ -2237,11 +2357,17 @@ type CellularGatewayGetNetworkConnectivityMonitoringDestinationsItem struct {
 	Ip          string `json:"ip"`
 }
 
-type CellularGatewayGetNetworkSubnetPoolItem struct {
-	ApplianceIp string `json:"applianceIp"`
-	Name        string `json:"name"`
-	Serial      string `json:"serial"`
-	Subnet      string `json:"subnet"`
+type CellularGatewayGetNetworkDhcpResponse struct {
+	DhcpLeaseTime        string          `json:"dhcpLeaseTime"`
+	DnsCustomNameservers json.RawMessage `json:"dnsCustomNameservers"`
+	DnsNameservers       string          `json:"dnsNameservers"`
+}
+
+type CellularGatewayGetNetworkSubnetPoolResponse struct {
+	Cidr           string          `json:"cidr"`
+	DeploymentMode string          `json:"deploymentMode"`
+	Mask           int             `json:"mask"`
+	Subnets        json.RawMessage `json:"subnets"`
 }
 
 type CellularGatewayGetNetworkUplinkResponse struct {
@@ -2312,22 +2438,30 @@ type CellularGatewayUpdateNetworkConnectivityMonitoringDestinationsItem struct {
 	Ip          string `json:"ip"`
 }
 
-type CellularGatewayUpdateNetworkSubnetPoolItem struct {
-	ApplianceIp string `json:"applianceIp"`
-	Name        string `json:"name"`
-	Serial      string `json:"serial"`
-	Subnet      string `json:"subnet"`
+type CellularGatewayUpdateNetworkDhcpResponse struct {
+	DhcpLeaseTime        string          `json:"dhcpLeaseTime"`
+	DnsCustomNameservers json.RawMessage `json:"dnsCustomNameservers"`
+	DnsNameservers       string          `json:"dnsNameservers"`
+}
+
+type CellularGatewayUpdateNetworkSubnetPoolResponse struct {
+	Cidr           string          `json:"cidr"`
+	DeploymentMode string          `json:"deploymentMode"`
+	Mask           int             `json:"mask"`
+	Subnets        json.RawMessage `json:"subnets"`
 }
 
 type CellularGatewayUpdateNetworkUplinkResponse struct {
 	BandwidthLimits json.RawMessage `json:"bandwidthLimits"`
 }
 
-type CellularGatewayUpdateOrganizationEsimsInventoryItem struct {
-	CustomApns      json.RawMessage `json:"customApns"`
-	Iccid           string          `json:"iccid"`
-	ServiceProvider json.RawMessage `json:"serviceProvider"`
-	Status          string          `json:"status"`
+type CellularGatewayUpdateOrganizationEsimsInventoryResponse struct {
+	Active        bool            `json:"active"`
+	Device        json.RawMessage `json:"device"`
+	Eid           string          `json:"eid"`
+	LastUpdatedAt string          `json:"lastUpdatedAt"`
+	Network       json.RawMessage `json:"network"`
+	Profiles      json.RawMessage `json:"profiles"`
 }
 
 type CellularGatewayUpdateOrganizationEsimsServiceProvidersAccountResponse struct {
@@ -2463,10 +2597,11 @@ type ClientsGetNetworkOverviewResponse struct {
 	Usages json.RawMessage `json:"usages"`
 }
 
-type ClientsGetNetworkPolicyItem struct {
-	DevicePolicy  string `json:"devicePolicy"`
-	GroupPolicyId string `json:"groupPolicyId"`
-	SsidNumber    int    `json:"ssidNumber"`
+type ClientsGetNetworkPolicyResponse struct {
+	DevicePolicy   string          `json:"devicePolicy"`
+	GroupPolicyId  string          `json:"groupPolicyId"`
+	Mac            string          `json:"mac"`
+	PoliciesBySsid json.RawMessage `json:"policiesBySsid"`
 }
 
 type ClientsGetNetworkSplashAuthorizationStatusResponse struct {
@@ -2510,38 +2645,24 @@ type ClientsGetOrganizationOverviewResponse struct {
 	Usage  json.RawMessage `json:"usage"`
 }
 
-type ClientsGetOrganizationSearchItem struct {
-	Cdp                  json.RawMessage `json:"cdp"`
-	ClientVpnConnections json.RawMessage `json:"clientVpnConnections"`
-	Description          string          `json:"description"`
-	FirstSeen            int             `json:"firstSeen"`
-	Ip                   string          `json:"ip"`
-	Ip6                  string          `json:"ip6"`
-	LastSeen             int             `json:"lastSeen"`
-	Lldp                 json.RawMessage `json:"lldp"`
-	Network              json.RawMessage `json:"network"`
-	Os                   string          `json:"os"`
-	RecentDeviceMac      string          `json:"recentDeviceMac"`
-	SmInstalled          bool            `json:"smInstalled"`
-	Ssid                 string          `json:"ssid"`
-	Status               string          `json:"status"`
-	Switchport           string          `json:"switchport"`
-	User                 string          `json:"user"`
-	Vlan                 string          `json:"vlan"`
-	WirelessCapabilities string          `json:"wirelessCapabilities"`
+type ClientsGetOrganizationSearchResponse struct {
+	ClientId     string          `json:"clientId"`
+	Mac          string          `json:"mac"`
+	Manufacturer string          `json:"manufacturer"`
+	Records      json.RawMessage `json:"records"`
 }
 
-type ClientsProvisionNetworkItem struct {
-	ClientId string `json:"clientId"`
-	Mac      string `json:"mac"`
-	Message  string `json:"message"`
-	Name     string `json:"name"`
+type ClientsProvisionNetworkResponse struct {
+	Clients       json.RawMessage `json:"clients"`
+	DevicePolicy  string          `json:"devicePolicy"`
+	GroupPolicyId string          `json:"groupPolicyId"`
 }
 
-type ClientsUpdateNetworkPolicyItem struct {
-	DevicePolicy  string `json:"devicePolicy"`
-	GroupPolicyId string `json:"groupPolicyId"`
-	SsidNumber    int    `json:"ssidNumber"`
+type ClientsUpdateNetworkPolicyResponse struct {
+	DevicePolicy   string          `json:"devicePolicy"`
+	GroupPolicyId  string          `json:"groupPolicyId"`
+	Mac            string          `json:"mac"`
+	PoliciesBySsid json.RawMessage `json:"policiesBySsid"`
 }
 
 type ClientsUpdateNetworkSplashAuthorizationStatusResponse struct {
@@ -2559,7 +2680,23 @@ type CloneOrganizationResponse struct {
 	Url        string          `json:"url"`
 }
 
+type ConfigTemplatesCreateOrganizationResponse struct {
+	Id           string          `json:"id"`
+	Name         string          `json:"name"`
+	ProductTypes json.RawMessage `json:"productTypes"`
+	TimeZone     string          `json:"timeZone"`
+	Url          string          `json:"url"`
+}
+
 type ConfigTemplatesGetOrganizationItem struct {
+	Id           string          `json:"id"`
+	Name         string          `json:"name"`
+	ProductTypes json.RawMessage `json:"productTypes"`
+	TimeZone     string          `json:"timeZone"`
+	Url          string          `json:"url"`
+}
+
+type ConfigTemplatesGetOrganizationOrganizationsResponse struct {
 	Id           string          `json:"id"`
 	Name         string          `json:"name"`
 	ProductTypes json.RawMessage `json:"productTypes"`
@@ -2645,6 +2782,14 @@ type ConfigTemplatesGetOrganizationSwitchProfilesItem struct {
 	Model           string `json:"model"`
 	Name            string `json:"name"`
 	SwitchProfileId string `json:"switchProfileId"`
+}
+
+type ConfigTemplatesUpdateOrganizationResponse struct {
+	Id           string          `json:"id"`
+	Name         string          `json:"name"`
+	ProductTypes json.RawMessage `json:"productTypes"`
+	TimeZone     string          `json:"timeZone"`
+	Url          string          `json:"url"`
 }
 
 type ConfigTemplatesUpdateOrganizationSwitchProfilePortResponse struct {
@@ -2734,12 +2879,12 @@ type DevicesClaimNetworkResponse struct {
 	Serials json.RawMessage `json:"serials"`
 }
 
-type DevicesCreateOrganizationCellularDataProfileItem struct {
-	Actions json.RawMessage `json:"actions"`
-	Cap     json.RawMessage `json:"cap"`
-	RuleId  string          `json:"ruleId"`
-	Slot    string          `json:"slot"`
-	Uplink  json.RawMessage `json:"uplink"`
+type DevicesCreateOrganizationCellularDataProfileResponse struct {
+	Description   string          `json:"description"`
+	LastUpdatedAt string          `json:"lastUpdatedAt"`
+	Name          string          `json:"name"`
+	ProfileId     string          `json:"profileId"`
+	Rules         json.RawMessage `json:"rules"`
 }
 
 type DevicesCreateOrganizationMigrationItem struct {
@@ -3083,20 +3228,17 @@ type DevicesStopOrganizationPacketCaptureCaptureResponse struct {
 	Status           string          `json:"status"`
 }
 
-type DevicesUpdateNetworkSyslogServersItem struct {
-	Encryption        json.RawMessage `json:"encryption"`
-	Host              string          `json:"host"`
-	Port              int             `json:"port"`
-	Roles             json.RawMessage `json:"roles"`
-	TransportProtocol string          `json:"transportProtocol"`
+type DevicesUpdateNetworkSyslogServersResponse struct {
+	Network json.RawMessage `json:"network"`
+	Servers json.RawMessage `json:"servers"`
 }
 
-type DevicesUpdateOrganizationCellularDataProfileItem struct {
-	Actions json.RawMessage `json:"actions"`
-	Cap     json.RawMessage `json:"cap"`
-	RuleId  string          `json:"ruleId"`
-	Slot    string          `json:"slot"`
-	Uplink  json.RawMessage `json:"uplink"`
+type DevicesUpdateOrganizationCellularDataProfileResponse struct {
+	Description   string          `json:"description"`
+	LastUpdatedAt string          `json:"lastUpdatedAt"`
+	Name          string          `json:"name"`
+	ProfileId     string          `json:"profileId"`
+	Rules         json.RawMessage `json:"rules"`
 }
 
 type DevicesUpdateOrganizationPacketCaptureScheduleResponse struct {
@@ -3155,9 +3297,12 @@ type DevicesVmxNetworkClaimResponse struct {
 	Tags                   json.RawMessage `json:"tags"`
 }
 
-type EarlyAccessCreateOrganizationFeaturesOptInItem struct {
-	Id   string `json:"id"`
-	Name string `json:"name"`
+type EarlyAccessCreateOrganizationFeaturesOptInResponse struct {
+	CreatedAt            string          `json:"createdAt"`
+	Id                   string          `json:"id"`
+	LimitScopeToNetworks json.RawMessage `json:"limitScopeToNetworks"`
+	OptOutEligibility    json.RawMessage `json:"optOutEligibility"`
+	ShortName            string          `json:"shortName"`
 }
 
 type EarlyAccessGetOrganizationFeaturesItem struct {
@@ -3173,34 +3318,35 @@ type EarlyAccessGetOrganizationFeaturesItem struct {
 	Topic             string          `json:"topic"`
 }
 
-type EarlyAccessGetOrganizationFeaturesOptInItem struct {
-	Id   string `json:"id"`
-	Name string `json:"name"`
+type EarlyAccessGetOrganizationFeaturesOptInResponse struct {
+	CreatedAt            string          `json:"createdAt"`
+	Id                   string          `json:"id"`
+	LimitScopeToNetworks json.RawMessage `json:"limitScopeToNetworks"`
+	OptOutEligibility    json.RawMessage `json:"optOutEligibility"`
+	ShortName            string          `json:"shortName"`
 }
 
-type EarlyAccessGetOrganizationFeaturesOptInsItem struct {
-	Id   string `json:"id"`
-	Name string `json:"name"`
+type EarlyAccessGetOrganizationFeaturesOptInsResponse struct {
+	CreatedAt            string          `json:"createdAt"`
+	Id                   string          `json:"id"`
+	LimitScopeToNetworks json.RawMessage `json:"limitScopeToNetworks"`
+	OptOutEligibility    json.RawMessage `json:"optOutEligibility"`
+	ShortName            string          `json:"shortName"`
 }
 
-type EarlyAccessUpdateOrganizationFeaturesOptInItem struct {
-	Id   string `json:"id"`
-	Name string `json:"name"`
+type EarlyAccessUpdateOrganizationFeaturesOptInResponse struct {
+	CreatedAt            string          `json:"createdAt"`
+	Id                   string          `json:"id"`
+	LimitScopeToNetworks json.RawMessage `json:"limitScopeToNetworks"`
+	OptOutEligibility    json.RawMessage `json:"optOutEligibility"`
+	ShortName            string          `json:"shortName"`
 }
 
-type EventsGetNetworkItem struct {
-	Category          string          `json:"category"`
-	ClientDescription string          `json:"clientDescription"`
-	ClientId          string          `json:"clientId"`
-	ClientMac         string          `json:"clientMac"`
-	Description       string          `json:"description"`
-	DeviceName        string          `json:"deviceName"`
-	DeviceSerial      string          `json:"deviceSerial"`
-	EventData         json.RawMessage `json:"eventData"`
-	NetworkId         string          `json:"networkId"`
-	OccurredAt        string          `json:"occurredAt"`
-	SsidNumber        int             `json:"ssidNumber"`
-	Type              string          `json:"type"`
+type EventsGetNetworkResponse struct {
+	Events      json.RawMessage `json:"events"`
+	Message     string          `json:"message"`
+	PageEndAt   string          `json:"pageEndAt"`
+	PageStartAt string          `json:"pageStartAt"`
 }
 
 type EventsGetNetworkTypesItem struct {
@@ -3240,9 +3386,14 @@ type FirmwareGetOrganizationUpgradesItem struct {
 	UpgradeId      string          `json:"upgradeId"`
 }
 
-type FirmwareUpgradesCreateNetworkRollbackItem struct {
-	Category string `json:"category"`
-	Comment  string `json:"comment"`
+type FirmwareUpgradesCreateNetworkRollbackResponse struct {
+	Predownload    json.RawMessage `json:"predownload"`
+	Product        string          `json:"product"`
+	Reasons        json.RawMessage `json:"reasons"`
+	Status         string          `json:"status"`
+	Time           string          `json:"time"`
+	ToVersion      json.RawMessage `json:"toVersion"`
+	UpgradeBatchId string          `json:"upgradeBatchId"`
 }
 
 type FirmwareUpgradesCreateNetworkStagedEventResponse struct {
@@ -3343,42 +3494,40 @@ type FloorPlansBatchNetworkDevicesUpdateResponse struct {
 	Success bool `json:"success"`
 }
 
-type FloorPlansCreateNetworkItem struct {
-	Address                string          `json:"address"`
-	ConfigurationUpdatedAt string          `json:"configurationUpdatedAt"`
-	Details                json.RawMessage `json:"details"`
-	Firmware               string          `json:"firmware"`
-	Imei                   string          `json:"imei"`
-	LanIp                  string          `json:"lanIp"`
-	Lat                    float64         `json:"lat"`
-	Lng                    float64         `json:"lng"`
-	Mac                    string          `json:"mac"`
-	Model                  string          `json:"model"`
-	Name                   string          `json:"name"`
-	NetworkId              string          `json:"networkId"`
-	Notes                  string          `json:"notes"`
-	ProductType            string          `json:"productType"`
-	Serial                 string          `json:"serial"`
-	Tags                   json.RawMessage `json:"tags"`
+type FloorPlansCreateNetworkResponse struct {
+	BottomLeftCorner  json.RawMessage `json:"bottomLeftCorner"`
+	BottomRightCorner json.RawMessage `json:"bottomRightCorner"`
+	Center            json.RawMessage `json:"center"`
+	Devices           json.RawMessage `json:"devices"`
+	FloorNumber       float64         `json:"floorNumber"`
+	FloorPlanId       string          `json:"floorPlanId"`
+	Height            float64         `json:"height"`
+	ImageExtension    string          `json:"imageExtension"`
+	ImageMd5          string          `json:"imageMd5"`
+	ImageUrl          string          `json:"imageUrl"`
+	ImageUrlExpiresAt string          `json:"imageUrlExpiresAt"`
+	Name              string          `json:"name"`
+	TopLeftCorner     json.RawMessage `json:"topLeftCorner"`
+	TopRightCorner    json.RawMessage `json:"topRightCorner"`
+	Width             float64         `json:"width"`
 }
 
-type FloorPlansDeleteNetworkItem struct {
-	Address                string          `json:"address"`
-	ConfigurationUpdatedAt string          `json:"configurationUpdatedAt"`
-	Details                json.RawMessage `json:"details"`
-	Firmware               string          `json:"firmware"`
-	Imei                   string          `json:"imei"`
-	LanIp                  string          `json:"lanIp"`
-	Lat                    float64         `json:"lat"`
-	Lng                    float64         `json:"lng"`
-	Mac                    string          `json:"mac"`
-	Model                  string          `json:"model"`
-	Name                   string          `json:"name"`
-	NetworkId              string          `json:"networkId"`
-	Notes                  string          `json:"notes"`
-	ProductType            string          `json:"productType"`
-	Serial                 string          `json:"serial"`
-	Tags                   json.RawMessage `json:"tags"`
+type FloorPlansDeleteNetworkResponse struct {
+	BottomLeftCorner  json.RawMessage `json:"bottomLeftCorner"`
+	BottomRightCorner json.RawMessage `json:"bottomRightCorner"`
+	Center            json.RawMessage `json:"center"`
+	Devices           json.RawMessage `json:"devices"`
+	FloorNumber       float64         `json:"floorNumber"`
+	FloorPlanId       string          `json:"floorPlanId"`
+	Height            float64         `json:"height"`
+	ImageExtension    string          `json:"imageExtension"`
+	ImageMd5          string          `json:"imageMd5"`
+	ImageUrl          string          `json:"imageUrl"`
+	ImageUrlExpiresAt string          `json:"imageUrlExpiresAt"`
+	Name              string          `json:"name"`
+	TopLeftCorner     json.RawMessage `json:"topLeftCorner"`
+	TopRightCorner    json.RawMessage `json:"topRightCorner"`
+	Width             float64         `json:"width"`
 }
 
 type FloorPlansGetNetworkItem struct {
@@ -3399,23 +3548,22 @@ type FloorPlansGetNetworkItem struct {
 	Width             float64         `json:"width"`
 }
 
-type FloorPlansGetNetworkNetworksItem struct {
-	Address                string          `json:"address"`
-	ConfigurationUpdatedAt string          `json:"configurationUpdatedAt"`
-	Details                json.RawMessage `json:"details"`
-	Firmware               string          `json:"firmware"`
-	Imei                   string          `json:"imei"`
-	LanIp                  string          `json:"lanIp"`
-	Lat                    float64         `json:"lat"`
-	Lng                    float64         `json:"lng"`
-	Mac                    string          `json:"mac"`
-	Model                  string          `json:"model"`
-	Name                   string          `json:"name"`
-	NetworkId              string          `json:"networkId"`
-	Notes                  string          `json:"notes"`
-	ProductType            string          `json:"productType"`
-	Serial                 string          `json:"serial"`
-	Tags                   json.RawMessage `json:"tags"`
+type FloorPlansGetNetworkNetworksResponse struct {
+	BottomLeftCorner  json.RawMessage `json:"bottomLeftCorner"`
+	BottomRightCorner json.RawMessage `json:"bottomRightCorner"`
+	Center            json.RawMessage `json:"center"`
+	Devices           json.RawMessage `json:"devices"`
+	FloorNumber       float64         `json:"floorNumber"`
+	FloorPlanId       string          `json:"floorPlanId"`
+	Height            float64         `json:"height"`
+	ImageExtension    string          `json:"imageExtension"`
+	ImageMd5          string          `json:"imageMd5"`
+	ImageUrl          string          `json:"imageUrl"`
+	ImageUrlExpiresAt string          `json:"imageUrlExpiresAt"`
+	Name              string          `json:"name"`
+	TopLeftCorner     json.RawMessage `json:"topLeftCorner"`
+	TopRightCorner    json.RawMessage `json:"topRightCorner"`
+	Width             float64         `json:"width"`
 }
 
 type FloorPlansGetOrganizationAutoLocateDevicesItem struct {
@@ -3436,23 +3584,22 @@ type FloorPlansRecalculateNetworkAutoLocateJobResponse struct {
 	Success bool `json:"success"`
 }
 
-type FloorPlansUpdateNetworkItem struct {
-	Address                string          `json:"address"`
-	ConfigurationUpdatedAt string          `json:"configurationUpdatedAt"`
-	Details                json.RawMessage `json:"details"`
-	Firmware               string          `json:"firmware"`
-	Imei                   string          `json:"imei"`
-	LanIp                  string          `json:"lanIp"`
-	Lat                    float64         `json:"lat"`
-	Lng                    float64         `json:"lng"`
-	Mac                    string          `json:"mac"`
-	Model                  string          `json:"model"`
-	Name                   string          `json:"name"`
-	NetworkId              string          `json:"networkId"`
-	Notes                  string          `json:"notes"`
-	ProductType            string          `json:"productType"`
-	Serial                 string          `json:"serial"`
-	Tags                   json.RawMessage `json:"tags"`
+type FloorPlansUpdateNetworkResponse struct {
+	BottomLeftCorner  json.RawMessage `json:"bottomLeftCorner"`
+	BottomRightCorner json.RawMessage `json:"bottomRightCorner"`
+	Center            json.RawMessage `json:"center"`
+	Devices           json.RawMessage `json:"devices"`
+	FloorNumber       float64         `json:"floorNumber"`
+	FloorPlanId       string          `json:"floorPlanId"`
+	Height            float64         `json:"height"`
+	ImageExtension    string          `json:"imageExtension"`
+	ImageMd5          string          `json:"imageMd5"`
+	ImageUrl          string          `json:"imageUrl"`
+	ImageUrlExpiresAt string          `json:"imageUrlExpiresAt"`
+	Name              string          `json:"name"`
+	TopLeftCorner     json.RawMessage `json:"topLeftCorner"`
+	TopRightCorner    json.RawMessage `json:"topRightCorner"`
+	Width             float64         `json:"width"`
 }
 
 type GroupPoliciesCreateNetworkGroupPolicyResponse struct {
@@ -3614,14 +3761,9 @@ type InventoryClaimOrganizationOrdersResponse struct {
 	Subscriptions json.RawMessage `json:"subscriptions"`
 }
 
-type InventoryCreateOrganizationDevicesSwapsBulkItem struct {
-	AfterAction string          `json:"afterAction"`
-	CompletedAt string          `json:"completedAt"`
-	CreatedAt   string          `json:"createdAt"`
-	Devices     json.RawMessage `json:"devices"`
-	Errors      json.RawMessage `json:"errors"`
-	Id          string          `json:"id"`
-	Status      string          `json:"status"`
+type InventoryCreateOrganizationDevicesSwapsBulkResponse struct {
+	JobId string          `json:"jobId"`
+	Swaps json.RawMessage `json:"swaps"`
 }
 
 type InventoryGetOrganizationDeviceResponse struct {
@@ -3664,24 +3806,17 @@ type InventoryGetOrganizationDevicesItem struct {
 	Tags                  json.RawMessage `json:"tags"`
 }
 
-type InventoryGetOrganizationDevicesSwapsBulkItem struct {
-	AfterAction string          `json:"afterAction"`
-	CompletedAt string          `json:"completedAt"`
-	CreatedAt   string          `json:"createdAt"`
-	Devices     json.RawMessage `json:"devices"`
-	Errors      json.RawMessage `json:"errors"`
-	Id          string          `json:"id"`
-	Status      string          `json:"status"`
+type InventoryGetOrganizationDevicesSwapsBulkResponse struct {
+	JobId string          `json:"jobId"`
+	Swaps json.RawMessage `json:"swaps"`
 }
 
-type InventoryPreviewOrganizationOrdersItem struct {
-	Counts         json.RawMessage `json:"counts"`
-	Description    string          `json:"description"`
-	EndDate        string          `json:"endDate"`
-	IsClaimed      bool            `json:"isClaimed"`
-	Name           string          `json:"name"`
-	StartDate      string          `json:"startDate"`
-	SubscriptionId string          `json:"subscriptionId"`
+type InventoryPreviewOrganizationOrdersResponse struct {
+	ClaimId       string          `json:"claimId"`
+	Number        string          `json:"number"`
+	Resolution    json.RawMessage `json:"resolution"`
+	Shipping      json.RawMessage `json:"shipping"`
+	Subscriptions json.RawMessage `json:"subscriptions"`
 }
 
 type LicensesAssignOrganizationSeatsItem struct {
@@ -3720,17 +3855,37 @@ type LicensesGetOrganizationItem struct {
 	TotalDurationInDays       int             `json:"totalDurationInDays"`
 }
 
-type LicensesGetOrganizationOrganizationsItem struct {
-	DurationInDays int    `json:"durationInDays"`
-	Id             string `json:"id"`
-	LicenseKey     string `json:"licenseKey"`
-	LicenseType    string `json:"licenseType"`
-	OrderNumber    string `json:"orderNumber"`
+type LicensesGetOrganizationOrganizationsResponse struct {
+	ActivationDate            string          `json:"activationDate"`
+	ClaimDate                 string          `json:"claimDate"`
+	DeviceSerial              string          `json:"deviceSerial"`
+	DurationInDays            int             `json:"durationInDays"`
+	ExpirationDate            string          `json:"expirationDate"`
+	HeadLicenseId             string          `json:"headLicenseId"`
+	Id                        string          `json:"id"`
+	LicenseKey                string          `json:"licenseKey"`
+	LicenseType               string          `json:"licenseType"`
+	NetworkId                 string          `json:"networkId"`
+	OrderNumber               string          `json:"orderNumber"`
+	PermanentlyQueuedLicenses json.RawMessage `json:"permanentlyQueuedLicenses"`
+	SeatCount                 int             `json:"seatCount"`
+	State                     string          `json:"state"`
+	TotalDurationInDays       int             `json:"totalDurationInDays"`
 }
 
-type LicensesGetOrganizationOverviewItem struct {
-	Counts      json.RawMessage `json:"counts"`
-	LicenseType string          `json:"licenseType"`
+type LicensesGetOrganizationOverviewResponse struct {
+	ExpirationDate       string          `json:"expirationDate"`
+	LicenseCount         int             `json:"licenseCount"`
+	LicenseTypes         json.RawMessage `json:"licenseTypes"`
+	LicensedDeviceCounts json.RawMessage `json:"licensedDeviceCounts"`
+	States               json.RawMessage `json:"states"`
+	Status               string          `json:"status"`
+	SystemsManager       json.RawMessage `json:"systemsManager"`
+}
+
+type LicensesMoveOrganizationResponse struct {
+	DestOrganizationId string          `json:"destOrganizationId"`
+	LicenseIds         json.RawMessage `json:"licenseIds"`
 }
 
 type LicensesMoveOrganizationSeatsResponse struct {
@@ -3757,12 +3912,22 @@ type LicensesRenewOrganizationSeatsItem struct {
 	TotalDurationInDays       int             `json:"totalDurationInDays"`
 }
 
-type LicensesUpdateOrganizationItem struct {
-	DurationInDays int    `json:"durationInDays"`
-	Id             string `json:"id"`
-	LicenseKey     string `json:"licenseKey"`
-	LicenseType    string `json:"licenseType"`
-	OrderNumber    string `json:"orderNumber"`
+type LicensesUpdateOrganizationResponse struct {
+	ActivationDate            string          `json:"activationDate"`
+	ClaimDate                 string          `json:"claimDate"`
+	DeviceSerial              string          `json:"deviceSerial"`
+	DurationInDays            int             `json:"durationInDays"`
+	ExpirationDate            string          `json:"expirationDate"`
+	HeadLicenseId             string          `json:"headLicenseId"`
+	Id                        string          `json:"id"`
+	LicenseKey                string          `json:"licenseKey"`
+	LicenseType               string          `json:"licenseType"`
+	NetworkId                 string          `json:"networkId"`
+	OrderNumber               string          `json:"orderNumber"`
+	PermanentlyQueuedLicenses json.RawMessage `json:"permanentlyQueuedLicenses"`
+	SeatCount                 int             `json:"seatCount"`
+	State                     string          `json:"state"`
+	TotalDurationInDays       int             `json:"totalDurationInDays"`
 }
 
 type LicensingGetOrganizationCotermLicensesItem struct {
@@ -3899,20 +4064,22 @@ type LiveToolsCreateDeviceWakeOnLanResponse struct {
 	WakeOnLanId string          `json:"wakeOnLanId"`
 }
 
-type LiveToolsGetDeviceArpTableItem struct {
-	Interface     string `json:"interface"`
-	Ip            string `json:"ip"`
-	LastUpdatedAt string `json:"lastUpdatedAt"`
-	Mac           string `json:"mac"`
-	VlanId        int    `json:"vlanId"`
+type LiveToolsGetDeviceArpTableResponse struct {
+	ArpTableId string          `json:"arpTableId"`
+	Entries    json.RawMessage `json:"entries"`
+	Error      string          `json:"error"`
+	Request    json.RawMessage `json:"request"`
+	Status     string          `json:"status"`
+	Url        string          `json:"url"`
 }
 
-type LiveToolsGetDeviceCableTestItem struct {
-	Error     string          `json:"error"`
-	Pairs     json.RawMessage `json:"pairs"`
-	Port      string          `json:"port"`
-	SpeedMbps int             `json:"speedMbps"`
-	Status    string          `json:"status"`
+type LiveToolsGetDeviceCableTestResponse struct {
+	CableTestId string          `json:"cableTestId"`
+	Error       string          `json:"error"`
+	Request     json.RawMessage `json:"request"`
+	Results     json.RawMessage `json:"results"`
+	Status      string          `json:"status"`
+	Url         string          `json:"url"`
 }
 
 type LiveToolsGetDeviceLedsBlinkResponse struct {
@@ -3923,10 +4090,13 @@ type LiveToolsGetDeviceLedsBlinkResponse struct {
 	Url         string          `json:"url"`
 }
 
-type LiveToolsGetDeviceMacTableItem struct {
-	Mac    string `json:"mac"`
-	Port   string `json:"port"`
-	VlanId int    `json:"vlanId"`
+type LiveToolsGetDeviceMacTableResponse struct {
+	Entries    json.RawMessage `json:"entries"`
+	Error      string          `json:"error"`
+	MacTableId string          `json:"macTableId"`
+	Request    json.RawMessage `json:"request"`
+	Status     string          `json:"status"`
+	Url        string          `json:"url"`
 }
 
 type LiveToolsGetDeviceMulticastRoutingResponse struct {
@@ -3973,6 +4143,15 @@ type LiveToolsGetDevicePortsStatusResponse struct {
 	Url     string          `json:"url"`
 }
 
+type LiveToolsGetDevicePowerUsageResponse struct {
+	Errors  json.RawMessage `json:"errors"`
+	JobId   string          `json:"jobId"`
+	Request json.RawMessage `json:"request"`
+	Results json.RawMessage `json:"results"`
+	Status  string          `json:"status"`
+	Url     string          `json:"url"`
+}
+
 type LiveToolsGetDeviceRoutingTableLookupResponse struct {
 	Entries  json.RawMessage `json:"entries"`
 	Errors   json.RawMessage `json:"errors"`
@@ -3980,6 +4159,14 @@ type LiveToolsGetDeviceRoutingTableLookupResponse struct {
 	Request  json.RawMessage `json:"request"`
 	Status   string          `json:"status"`
 	Url      string          `json:"url"`
+}
+
+type LiveToolsGetDeviceRoutingTableSummaryResponse struct {
+	Counts    json.RawMessage `json:"counts"`
+	Errors    json.RawMessage `json:"errors"`
+	Status    string          `json:"status"`
+	SummaryId string          `json:"summaryId"`
+	Url       string          `json:"url"`
 }
 
 type LiveToolsGetDeviceThroughputTestResponse struct {
@@ -4004,6 +4191,42 @@ type LldpCdpGetDeviceResponse struct {
 	SourceMac string          `json:"sourceMac"`
 }
 
+type LoginSecurityGetOrganizationResponse struct {
+	AccountLockoutAttempts    int             `json:"accountLockoutAttempts"`
+	ApiAuthentication         json.RawMessage `json:"apiAuthentication"`
+	EnforceAccountLockout     bool            `json:"enforceAccountLockout"`
+	EnforceDifferentPasswords bool            `json:"enforceDifferentPasswords"`
+	EnforceIdleTimeout        bool            `json:"enforceIdleTimeout"`
+	EnforceLockedIpSessions   bool            `json:"enforceLockedIpSessions"`
+	EnforceLoginIpRanges      bool            `json:"enforceLoginIpRanges"`
+	EnforcePasswordExpiration bool            `json:"enforcePasswordExpiration"`
+	EnforceStrongPasswords    bool            `json:"enforceStrongPasswords"`
+	EnforceTwoFactorAuth      bool            `json:"enforceTwoFactorAuth"`
+	IdleTimeoutMinutes        int             `json:"idleTimeoutMinutes"`
+	LoginIpRanges             json.RawMessage `json:"loginIpRanges"`
+	MinimumPasswordLength     int             `json:"minimumPasswordLength"`
+	NumDifferentPasswords     int             `json:"numDifferentPasswords"`
+	PasswordExpirationDays    int             `json:"passwordExpirationDays"`
+}
+
+type LoginSecurityUpdateOrganizationResponse struct {
+	AccountLockoutAttempts    int             `json:"accountLockoutAttempts"`
+	ApiAuthentication         json.RawMessage `json:"apiAuthentication"`
+	EnforceAccountLockout     bool            `json:"enforceAccountLockout"`
+	EnforceDifferentPasswords bool            `json:"enforceDifferentPasswords"`
+	EnforceIdleTimeout        bool            `json:"enforceIdleTimeout"`
+	EnforceLockedIpSessions   bool            `json:"enforceLockedIpSessions"`
+	EnforceLoginIpRanges      bool            `json:"enforceLoginIpRanges"`
+	EnforcePasswordExpiration bool            `json:"enforcePasswordExpiration"`
+	EnforceStrongPasswords    bool            `json:"enforceStrongPasswords"`
+	EnforceTwoFactorAuth      bool            `json:"enforceTwoFactorAuth"`
+	IdleTimeoutMinutes        int             `json:"idleTimeoutMinutes"`
+	LoginIpRanges             json.RawMessage `json:"loginIpRanges"`
+	MinimumPasswordLength     int             `json:"minimumPasswordLength"`
+	NumDifferentPasswords     int             `json:"numDifferentPasswords"`
+	PasswordExpirationDays    int             `json:"passwordExpirationDays"`
+}
+
 type LossAndLatencyHistoryGetDeviceItem struct {
 	EndTime     string  `json:"endTime"`
 	Goodput     int     `json:"goodput"`
@@ -4025,12 +4248,14 @@ type ManagementInterfaceUpdateDeviceResponse struct {
 	Wan2          json.RawMessage `json:"wan2"`
 }
 
-type MerakiAuthUsersCreateNetworkItem struct {
-	AuthorizedByEmail string `json:"authorizedByEmail"`
-	AuthorizedByName  string `json:"authorizedByName"`
-	AuthorizedZone    string `json:"authorizedZone"`
-	ExpiresAt         string `json:"expiresAt"`
-	SsidNumber        int    `json:"ssidNumber"`
+type MerakiAuthUsersCreateNetworkResponse struct {
+	AccountType    string          `json:"accountType"`
+	Authorizations json.RawMessage `json:"authorizations"`
+	CreatedAt      string          `json:"createdAt"`
+	Email          string          `json:"email"`
+	Id             string          `json:"id"`
+	IsAdmin        bool            `json:"isAdmin"`
+	Name           string          `json:"name"`
 }
 
 type MerakiAuthUsersGetNetworkItem struct {
@@ -4043,20 +4268,24 @@ type MerakiAuthUsersGetNetworkItem struct {
 	Name           string          `json:"name"`
 }
 
-type MerakiAuthUsersGetNetworkNetworksItem struct {
-	AuthorizedByEmail string `json:"authorizedByEmail"`
-	AuthorizedByName  string `json:"authorizedByName"`
-	AuthorizedZone    string `json:"authorizedZone"`
-	ExpiresAt         string `json:"expiresAt"`
-	SsidNumber        int    `json:"ssidNumber"`
+type MerakiAuthUsersGetNetworkNetworksResponse struct {
+	AccountType    string          `json:"accountType"`
+	Authorizations json.RawMessage `json:"authorizations"`
+	CreatedAt      string          `json:"createdAt"`
+	Email          string          `json:"email"`
+	Id             string          `json:"id"`
+	IsAdmin        bool            `json:"isAdmin"`
+	Name           string          `json:"name"`
 }
 
-type MerakiAuthUsersUpdateNetworkItem struct {
-	AuthorizedByEmail string `json:"authorizedByEmail"`
-	AuthorizedByName  string `json:"authorizedByName"`
-	AuthorizedZone    string `json:"authorizedZone"`
-	ExpiresAt         string `json:"expiresAt"`
-	SsidNumber        int    `json:"ssidNumber"`
+type MerakiAuthUsersUpdateNetworkResponse struct {
+	AccountType    string          `json:"accountType"`
+	Authorizations json.RawMessage `json:"authorizations"`
+	CreatedAt      string          `json:"createdAt"`
+	Email          string          `json:"email"`
+	Id             string          `json:"id"`
+	IsAdmin        bool            `json:"isAdmin"`
+	Name           string          `json:"name"`
 }
 
 type MqttBrokersCreateNetworkResponse struct {
@@ -4775,6 +5004,16 @@ type SaseUpdateOrganizationSiteResponse struct {
 	Vpn     json.RawMessage `json:"vpn"`
 }
 
+type SensorCreateDeviceCommandResponse struct {
+	CommandId   string          `json:"commandId"`
+	CompletedAt string          `json:"completedAt"`
+	CreatedAt   string          `json:"createdAt"`
+	CreatedBy   json.RawMessage `json:"createdBy"`
+	Errors      json.RawMessage `json:"errors"`
+	Operation   string          `json:"operation"`
+	Status      string          `json:"status"`
+}
+
 type SensorCreateNetworkAlertsProfileResponse struct {
 	Conditions       json.RawMessage `json:"conditions"`
 	IncludeSensorUrl bool            `json:"includeSensorUrl"`
@@ -4784,6 +5023,16 @@ type SensorCreateNetworkAlertsProfileResponse struct {
 	Recipients       json.RawMessage `json:"recipients"`
 	Schedule         json.RawMessage `json:"schedule"`
 	Serials          json.RawMessage `json:"serials"`
+}
+
+type SensorGetDeviceCommandResponse struct {
+	CommandId   string          `json:"commandId"`
+	CompletedAt string          `json:"completedAt"`
+	CreatedAt   string          `json:"createdAt"`
+	CreatedBy   json.RawMessage `json:"createdBy"`
+	Errors      json.RawMessage `json:"errors"`
+	Operation   string          `json:"operation"`
+	Status      string          `json:"status"`
 }
 
 type SensorGetDeviceCommandsItem struct {
@@ -4798,6 +5047,11 @@ type SensorGetDeviceCommandsItem struct {
 
 type SensorGetDeviceRelationshipsResponse struct {
 	Livestream json.RawMessage `json:"livestream"`
+}
+
+type SensorGetNetworkAlertsCurrentOverviewByMetricResponse struct {
+	Counts           json.RawMessage `json:"counts"`
+	SupportedMetrics json.RawMessage `json:"supportedMetrics"`
 }
 
 type SensorGetNetworkAlertsOverviewByMetricItem struct {
@@ -4924,6 +5178,20 @@ type SettingsUpdateNetworkResponse struct {
 	NamedVlans              json.RawMessage `json:"namedVlans"`
 	RemoteStatusPageEnabled bool            `json:"remoteStatusPageEnabled"`
 	SecurePort              json.RawMessage `json:"securePort"`
+}
+
+type SmCreateNetworkTargetGroupResponse struct {
+	Id    string          `json:"id"`
+	Name  string          `json:"name"`
+	Scope string          `json:"scope"`
+	Tags  json.RawMessage `json:"tags"`
+}
+
+type SmCreateOrganizationAdminsRoleResponse struct {
+	Name   string          `json:"name"`
+	RoleId string          `json:"roleId"`
+	Scope  string          `json:"scope"`
+	Tags   json.RawMessage `json:"tags"`
 }
 
 type SmGetNetworkDeviceCellularUsageHistoryItem struct {
@@ -5086,6 +5354,13 @@ type SmGetNetworkProfilesItem struct {
 	Tags         json.RawMessage `json:"tags"`
 }
 
+type SmGetNetworkTargetGroupResponse struct {
+	Id    string          `json:"id"`
+	Name  string          `json:"name"`
+	Scope string          `json:"scope"`
+	Tags  json.RawMessage `json:"tags"`
+}
+
 type SmGetNetworkTargetGroupsItem struct {
 	Id    string          `json:"id"`
 	Name  string          `json:"name"`
@@ -5172,6 +5447,13 @@ type SmGetNetworkUsersItem struct {
 	Username               string          `json:"username"`
 }
 
+type SmGetOrganizationAdminsRoleResponse struct {
+	Name   string          `json:"name"`
+	RoleId string          `json:"roleId"`
+	Scope  string          `json:"scope"`
+	Tags   json.RawMessage `json:"tags"`
+}
+
 type SmGetOrganizationAdminsRolesItem struct {
 	Name   string          `json:"name"`
 	RoleId string          `json:"roleId"`
@@ -5186,6 +5468,24 @@ type SmGetOrganizationApnsCertResponse struct {
 type SmGetOrganizationSentryPoliciesAssignmentsByNetworkItem struct {
 	Items json.RawMessage `json:"items"`
 	Meta  json.RawMessage `json:"meta"`
+}
+
+type SmGetOrganizationVppAccountResponse struct {
+	AllowedAdmins        string          `json:"allowedAdmins"`
+	AssignableNetworkIds json.RawMessage `json:"assignableNetworkIds"`
+	AssignableNetworks   string          `json:"assignableNetworks"`
+	ContentToken         string          `json:"contentToken"`
+	Email                string          `json:"email"`
+	Id                   string          `json:"id"`
+	LastForceSyncedAt    string          `json:"lastForceSyncedAt"`
+	LastSyncedAt         string          `json:"lastSyncedAt"`
+	Name                 string          `json:"name"`
+	NetworkIdAdmins      string          `json:"networkIdAdmins"`
+	ParsedToken          json.RawMessage `json:"parsedToken"`
+	VppAccountId         string          `json:"vppAccountId"`
+	VppLocationId        string          `json:"vppLocationId"`
+	VppLocationName      string          `json:"vppLocationName"`
+	VppServiceToken      string          `json:"vppServiceToken"`
 }
 
 type SmGetOrganizationVppAccountsItem struct {
@@ -5213,6 +5513,11 @@ type SmModifyNetworkDevicesTagsItem struct {
 	WifiMac string          `json:"wifiMac"`
 }
 
+type SmMoveNetworkDevicesResponse struct {
+	Ids        json.RawMessage `json:"ids"`
+	NewNetwork string          `json:"newNetwork"`
+}
+
 type SmUnenrollNetworkDeviceResponse struct {
 	Success bool `json:"success"`
 }
@@ -5225,6 +5530,20 @@ type SmUpdateNetworkDevicesFieldsItem struct {
 	WifiMac string `json:"wifiMac"`
 }
 
+type SmUpdateNetworkTargetGroupResponse struct {
+	Id    string          `json:"id"`
+	Name  string          `json:"name"`
+	Scope string          `json:"scope"`
+	Tags  json.RawMessage `json:"tags"`
+}
+
+type SmUpdateOrganizationAdminsRoleResponse struct {
+	Name   string          `json:"name"`
+	RoleId string          `json:"roleId"`
+	Scope  string          `json:"scope"`
+	Tags   json.RawMessage `json:"tags"`
+}
+
 type SmUpdateOrganizationSentryPoliciesAssignmentsItem struct {
 	NetworkId string          `json:"networkId"`
 	Policies  json.RawMessage `json:"policies"`
@@ -5234,14 +5553,52 @@ type SmWipeNetworkDevicesResponse struct {
 	Id string `json:"id"`
 }
 
-type SnmpGetNetworkItem struct {
-	Passphrase string `json:"passphrase"`
-	Username   string `json:"username"`
+type SnmpGetNetworkResponse struct {
+	Access          string          `json:"access"`
+	Authentication  json.RawMessage `json:"authentication"`
+	CommunityString string          `json:"communityString"`
+	Privacy         json.RawMessage `json:"privacy"`
+	Users           json.RawMessage `json:"users"`
 }
 
-type SnmpUpdateNetworkItem struct {
-	Passphrase string `json:"passphrase"`
-	Username   string `json:"username"`
+type SnmpGetOrganizationResponse struct {
+	Hostname          string          `json:"hostname"`
+	PeerIps           json.RawMessage `json:"peerIps"`
+	Port              int             `json:"port"`
+	V2CommunityString string          `json:"v2CommunityString"`
+	V2cEnabled        bool            `json:"v2cEnabled"`
+	V3AuthMode        string          `json:"v3AuthMode"`
+	V3Enabled         bool            `json:"v3Enabled"`
+	V3PrivMode        string          `json:"v3PrivMode"`
+	V3User            string          `json:"v3User"`
+}
+
+type SnmpUpdateNetworkResponse struct {
+	Access          string          `json:"access"`
+	Authentication  json.RawMessage `json:"authentication"`
+	CommunityString string          `json:"communityString"`
+	Privacy         json.RawMessage `json:"privacy"`
+	Users           json.RawMessage `json:"users"`
+}
+
+type SnmpUpdateOrganizationResponse struct {
+	Hostname          string          `json:"hostname"`
+	PeerIps           json.RawMessage `json:"peerIps"`
+	Port              int             `json:"port"`
+	V2CommunityString string          `json:"v2CommunityString"`
+	V2cEnabled        bool            `json:"v2cEnabled"`
+	V3AuthMode        string          `json:"v3AuthMode"`
+	V3Enabled         bool            `json:"v3Enabled"`
+	V3PrivMode        string          `json:"v3PrivMode"`
+	V3User            string          `json:"v3User"`
+}
+
+type SpacesGetOrganizationIntegrateStatusResponse struct {
+	AccountName string          `json:"accountName"`
+	AccountType string          `json:"accountType"`
+	Email       string          `json:"email"`
+	States      json.RawMessage `json:"states"`
+	Status      bool            `json:"status"`
 }
 
 type SpacesRemoveOrganizationIntegrationResponse struct {
@@ -5255,9 +5612,11 @@ type SplashCreateOrganizationThemeAssetResponse struct {
 	Name     string `json:"name"`
 }
 
-type SplashCreateOrganizationThemeItem struct {
-	Id   string `json:"id"`
-	Name string `json:"name"`
+type SplashCreateOrganizationThemeResponse struct {
+	Id            string          `json:"id"`
+	IsSystemTheme bool            `json:"isSystemTheme"`
+	Name          string          `json:"name"`
+	ThemeAssets   json.RawMessage `json:"themeAssets"`
 }
 
 type SplashGetOrganizationAssetResponse struct {
@@ -5297,15 +5656,13 @@ type SplitNetworkItem struct {
 	Url                     string          `json:"url"`
 }
 
-type SummaryGetOrganizationSustainabilityConsumerMetricsDeviceCategoriesAggregatedItem struct {
-	CarbonEmissions   float64 `json:"carbonEmissions"`
-	DeviceCategory    string  `json:"deviceCategory"`
-	EndTime           string  `json:"endTime"`
-	IsEstimated       int     `json:"isEstimated"`
-	PercentageOfTotal float64 `json:"percentageOfTotal"`
-	PowerConsumption  float64 `json:"powerConsumption"`
-	PowerCost         float64 `json:"powerCost"`
-	StartTime         string  `json:"startTime"`
+type SummaryGetOrganizationSustainabilityConsumerMetricsDeviceCategoriesAggregatedResponse struct {
+	Contents    json.RawMessage `json:"contents"`
+	HasNext     bool            `json:"hasNext"`
+	HasPrevious bool            `json:"hasPrevious"`
+	PageIndex   int             `json:"pageIndex"`
+	PageItems   int             `json:"pageItems"`
+	TotalItems  int             `json:"totalItems"`
 }
 
 type SummaryGetOrganizationSustainabilityConsumerMetricsDeviceCategoriesResponse struct {
@@ -5317,19 +5674,13 @@ type SummaryGetOrganizationSustainabilityConsumerMetricsDeviceCategoriesResponse
 	Switches           json.RawMessage `json:"switches"`
 }
 
-type SummaryGetOrganizationSustainabilityConsumerMetricsDevicesItem struct {
-	CarbonEmissions   float64         `json:"carbonEmissions"`
-	DeviceCategory    string          `json:"deviceCategory"`
-	DeviceType        string          `json:"deviceType"`
-	EndTime           string          `json:"endTime"`
-	IsEstimated       int             `json:"isEstimated"`
-	Location          json.RawMessage `json:"location"`
-	NetworkId         string          `json:"networkId"`
-	PercentageOfTotal float64         `json:"percentageOfTotal"`
-	PowerConsumption  float64         `json:"powerConsumption"`
-	PowerCost         float64         `json:"powerCost"`
-	Serial            string          `json:"serial"`
-	StartTime         string          `json:"startTime"`
+type SummaryGetOrganizationSustainabilityConsumerMetricsDevicesResponse struct {
+	Contents    json.RawMessage `json:"contents"`
+	HasNext     bool            `json:"hasNext"`
+	HasPrevious bool            `json:"hasPrevious"`
+	PageIndex   int             `json:"pageIndex"`
+	PageItems   int             `json:"pageItems"`
+	TotalItems  int             `json:"totalItems"`
 }
 
 type SummaryGetOrganizationSustainabilityConsumerMetricsNetworksAggregatedResponse struct {
@@ -5340,23 +5691,18 @@ type SummaryGetOrganizationSustainabilityConsumerMetricsNetworksAggregatedRespon
 	StartTime        string  `json:"startTime"`
 }
 
-type SummaryGetOrganizationSustainabilityConsumerMetricsNetworksItem struct {
-	CarbonEmissions   float64         `json:"carbonEmissions"`
-	EndTime           string          `json:"endTime"`
-	Location          json.RawMessage `json:"location"`
-	NetworkId         string          `json:"networkId"`
-	PercentageOfTotal float64         `json:"percentageOfTotal"`
-	PowerConsumption  float64         `json:"powerConsumption"`
-	PowerCost         float64         `json:"powerCost"`
-	StartTime         string          `json:"startTime"`
+type SummaryGetOrganizationSustainabilityConsumerMetricsNetworksResponse struct {
+	Contents    json.RawMessage `json:"contents"`
+	HasNext     bool            `json:"hasNext"`
+	HasPrevious bool            `json:"hasPrevious"`
+	PageIndex   int             `json:"pageIndex"`
+	PageItems   int             `json:"pageItems"`
+	TotalItems  int             `json:"totalItems"`
 }
 
-type SummaryGetOrganizationSustainabilityDailyConsumerMetricsNetworksItem struct {
-	CarbonEmissions  float64 `json:"carbonEmissions"`
-	EndTime          string  `json:"endTime"`
-	PowerConsumption float64 `json:"powerConsumption"`
-	PowerCost        float64 `json:"powerCost"`
-	StartTime        string  `json:"startTime"`
+type SummaryGetOrganizationSustainabilityDailyConsumerMetricsNetworksResponse struct {
+	Contents  json.RawMessage `json:"contents"`
+	PageItems int             `json:"pageItems"`
 }
 
 type SummaryGetOrganizationSwitchPowerHistoryItem struct {
@@ -5456,6 +5802,11 @@ type SwitchAddNetworkStackResponse struct {
 	VirtualMac    string          `json:"virtualMac"`
 }
 
+type SwitchCloneOrganizationDevicesResponse struct {
+	SourceSerial  string          `json:"sourceSerial"`
+	TargetSerials json.RawMessage `json:"targetSerials"`
+}
+
 type SwitchCreateDeviceRoutingInterfaceResponse struct {
 	BidirectionalForwardingDetection json.RawMessage `json:"bidirectionalForwardingDetection"`
 	DefaultGateway                   string          `json:"defaultGateway"`
@@ -5521,9 +5872,9 @@ type SwitchCreateNetworkDhcpServerPolicyArpInspectionTrustedServerResponse struc
 	Vlan            int             `json:"vlan"`
 }
 
-type SwitchCreateNetworkLinkAggregationItem struct {
-	PortId string `json:"portId"`
-	Serial string `json:"serial"`
+type SwitchCreateNetworkLinkAggregationResponse struct {
+	Id          string          `json:"id"`
+	SwitchPorts json.RawMessage `json:"switchPorts"`
 }
 
 type SwitchCreateNetworkPortScheduleResponse struct {
@@ -5550,6 +5901,13 @@ type SwitchCreateNetworkRoutingMulticastRendezvousPointResponse struct {
 	MulticastGroup    string `json:"multicastGroup"`
 	RendezvousPointId string `json:"rendezvousPointId"`
 	Serial            string `json:"serial"`
+}
+
+type SwitchCreateNetworkStackResponse struct {
+	Id         string          `json:"id"`
+	Name       string          `json:"name"`
+	Serials    json.RawMessage `json:"serials"`
+	WorkflowId string          `json:"workflowId"`
 }
 
 type SwitchCreateNetworkStackRoutingInterfaceResponse struct {
@@ -5898,10 +6256,9 @@ type SwitchGetNetworkLinkAggregationsItem struct {
 	SwitchPorts json.RawMessage `json:"switchPorts"`
 }
 
-type SwitchGetNetworkMtuItem struct {
-	MtuSize        int             `json:"mtuSize"`
-	SwitchProfiles json.RawMessage `json:"switchProfiles"`
-	Switches       json.RawMessage `json:"switches"`
+type SwitchGetNetworkMtuResponse struct {
+	DefaultMtuSize int             `json:"defaultMtuSize"`
+	Overrides      json.RawMessage `json:"overrides"`
 }
 
 type SwitchGetNetworkPortSchedulesItem struct {
@@ -5933,14 +6290,6 @@ type SwitchGetNetworkQosRulesItem struct {
 	Vlan         int    `json:"vlan"`
 }
 
-type SwitchGetNetworkRoutingMulticastItem struct {
-	FloodUnknownMulticastTrafficEnabled bool            `json:"floodUnknownMulticastTrafficEnabled"`
-	IgmpSnoopingEnabled                 bool            `json:"igmpSnoopingEnabled"`
-	Stacks                              json.RawMessage `json:"stacks"`
-	SwitchProfiles                      json.RawMessage `json:"switchProfiles"`
-	Switches                            json.RawMessage `json:"switches"`
-}
-
 type SwitchGetNetworkRoutingMulticastRendezvousPointResponse struct {
 	InterfaceIp       string `json:"interfaceIp"`
 	InterfaceName     string `json:"interfaceName"`
@@ -5957,15 +6306,30 @@ type SwitchGetNetworkRoutingMulticastRendezvousPointsItem struct {
 	Serial            string `json:"serial"`
 }
 
-type SwitchGetNetworkRoutingOspfItem struct {
-	AreaId   string `json:"areaId"`
-	AreaName string `json:"areaName"`
-	AreaType string `json:"areaType"`
+type SwitchGetNetworkRoutingMulticastResponse struct {
+	DefaultSettings json.RawMessage `json:"defaultSettings"`
+	Overrides       json.RawMessage `json:"overrides"`
 }
 
-type SwitchGetNetworkSettingsItem struct {
-	PowerType string `json:"powerType"`
-	Serial    string `json:"serial"`
+type SwitchGetNetworkRoutingOspfResponse struct {
+	Areas                    json.RawMessage `json:"areas"`
+	DeadTimerInSeconds       int             `json:"deadTimerInSeconds"`
+	Enabled                  bool            `json:"enabled"`
+	HelloTimerInSeconds      int             `json:"helloTimerInSeconds"`
+	Md5AuthenticationEnabled bool            `json:"md5AuthenticationEnabled"`
+	Md5AuthenticationKey     json.RawMessage `json:"md5AuthenticationKey"`
+	V3                       json.RawMessage `json:"v3"`
+	Vrf                      json.RawMessage `json:"vrf"`
+}
+
+type SwitchGetNetworkSettingsResponse struct {
+	MacBlocklist         json.RawMessage `json:"macBlocklist"`
+	PortChannelFallback  bool            `json:"portChannelFallback"`
+	PowerExceptions      json.RawMessage `json:"powerExceptions"`
+	UplinkClientSampling json.RawMessage `json:"uplinkClientSampling"`
+	UplinkSelection      json.RawMessage `json:"uplinkSelection"`
+	UseCombinedPower     bool            `json:"useCombinedPower"`
+	Vlan                 int             `json:"vlan"`
 }
 
 type SwitchGetNetworkStackResponse struct {
@@ -6068,11 +6432,16 @@ type SwitchGetNetworkStacksItem struct {
 	VirtualMac    string          `json:"virtualMac"`
 }
 
-type SwitchGetNetworkStpItem struct {
-	Stacks         json.RawMessage `json:"stacks"`
-	StpPriority    int             `json:"stpPriority"`
-	SwitchProfiles json.RawMessage `json:"switchProfiles"`
-	Switches       json.RawMessage `json:"switches"`
+type SwitchGetNetworkStormControlResponse struct {
+	BroadcastThreshold                   int             `json:"broadcastThreshold"`
+	MulticastThreshold                   int             `json:"multicastThreshold"`
+	TreatTheseTrafficTypesAsOneThreshold json.RawMessage `json:"treatTheseTrafficTypesAsOneThreshold"`
+	UnknownUnicastThreshold              int             `json:"unknownUnicastThreshold"`
+}
+
+type SwitchGetNetworkStpResponse struct {
+	RstpEnabled       bool            `json:"rstpEnabled"`
+	StpBridgePriority json.RawMessage `json:"stpBridgePriority"`
 }
 
 type SwitchGetOrganizationPortsByItem struct {
@@ -6295,15 +6664,14 @@ type SwitchUpdateNetworkDscpToCosMappingsItem struct {
 	Title string `json:"title"`
 }
 
-type SwitchUpdateNetworkLinkAggregationItem struct {
-	PortId string `json:"portId"`
-	Serial string `json:"serial"`
+type SwitchUpdateNetworkLinkAggregationResponse struct {
+	Id          string          `json:"id"`
+	SwitchPorts json.RawMessage `json:"switchPorts"`
 }
 
-type SwitchUpdateNetworkMtuItem struct {
-	MtuSize        int             `json:"mtuSize"`
-	SwitchProfiles json.RawMessage `json:"switchProfiles"`
-	Switches       json.RawMessage `json:"switches"`
+type SwitchUpdateNetworkMtuResponse struct {
+	DefaultMtuSize int             `json:"defaultMtuSize"`
+	Overrides      json.RawMessage `json:"overrides"`
 }
 
 type SwitchUpdateNetworkPortScheduleResponse struct {
@@ -6324,14 +6692,6 @@ type SwitchUpdateNetworkQosRuleResponse struct {
 	Vlan         int    `json:"vlan"`
 }
 
-type SwitchUpdateNetworkRoutingMulticastItem struct {
-	FloodUnknownMulticastTrafficEnabled bool            `json:"floodUnknownMulticastTrafficEnabled"`
-	IgmpSnoopingEnabled                 bool            `json:"igmpSnoopingEnabled"`
-	Stacks                              json.RawMessage `json:"stacks"`
-	SwitchProfiles                      json.RawMessage `json:"switchProfiles"`
-	Switches                            json.RawMessage `json:"switches"`
-}
-
 type SwitchUpdateNetworkRoutingMulticastRendezvousPointResponse struct {
 	InterfaceIp       string `json:"interfaceIp"`
 	InterfaceName     string `json:"interfaceName"`
@@ -6340,15 +6700,30 @@ type SwitchUpdateNetworkRoutingMulticastRendezvousPointResponse struct {
 	Serial            string `json:"serial"`
 }
 
-type SwitchUpdateNetworkRoutingOspfItem struct {
-	AreaId   string `json:"areaId"`
-	AreaName string `json:"areaName"`
-	AreaType string `json:"areaType"`
+type SwitchUpdateNetworkRoutingMulticastResponse struct {
+	DefaultSettings json.RawMessage `json:"defaultSettings"`
+	Overrides       json.RawMessage `json:"overrides"`
 }
 
-type SwitchUpdateNetworkSettingsItem struct {
-	PowerType string `json:"powerType"`
-	Serial    string `json:"serial"`
+type SwitchUpdateNetworkRoutingOspfResponse struct {
+	Areas                    json.RawMessage `json:"areas"`
+	DeadTimerInSeconds       int             `json:"deadTimerInSeconds"`
+	Enabled                  bool            `json:"enabled"`
+	HelloTimerInSeconds      int             `json:"helloTimerInSeconds"`
+	Md5AuthenticationEnabled bool            `json:"md5AuthenticationEnabled"`
+	Md5AuthenticationKey     json.RawMessage `json:"md5AuthenticationKey"`
+	V3                       json.RawMessage `json:"v3"`
+	Vrf                      json.RawMessage `json:"vrf"`
+}
+
+type SwitchUpdateNetworkSettingsResponse struct {
+	MacBlocklist         json.RawMessage `json:"macBlocklist"`
+	PortChannelFallback  bool            `json:"portChannelFallback"`
+	PowerExceptions      json.RawMessage `json:"powerExceptions"`
+	UplinkClientSampling json.RawMessage `json:"uplinkClientSampling"`
+	UplinkSelection      json.RawMessage `json:"uplinkSelection"`
+	UseCombinedPower     bool            `json:"useCombinedPower"`
+	Vlan                 int             `json:"vlan"`
 }
 
 type SwitchUpdateNetworkStackResponse struct {
@@ -6408,11 +6783,16 @@ type SwitchUpdateNetworkStackRoutingStaticRouteResponse struct {
 	Vrf                         json.RawMessage `json:"vrf"`
 }
 
-type SwitchUpdateNetworkStpItem struct {
-	Stacks         json.RawMessage `json:"stacks"`
-	StpPriority    int             `json:"stpPriority"`
-	SwitchProfiles json.RawMessage `json:"switchProfiles"`
-	Switches       json.RawMessage `json:"switches"`
+type SwitchUpdateNetworkStormControlResponse struct {
+	BroadcastThreshold                   int             `json:"broadcastThreshold"`
+	MulticastThreshold                   int             `json:"multicastThreshold"`
+	TreatTheseTrafficTypesAsOneThreshold json.RawMessage `json:"treatTheseTrafficTypesAsOneThreshold"`
+	UnknownUnicastThreshold              int             `json:"unknownUnicastThreshold"`
+}
+
+type SwitchUpdateNetworkStpResponse struct {
+	RstpEnabled       bool            `json:"rstpEnabled"`
+	StpBridgePriority json.RawMessage `json:"stpBridgePriority"`
 }
 
 type SyslogServersGetNetworkItem struct {
@@ -6433,16 +6813,14 @@ type TopologyGetNetworkLinkLayerResponse struct {
 	Nodes  json.RawMessage `json:"nodes"`
 }
 
-type TrafficAnalysisGetNetworkItem struct {
-	Name  string `json:"name"`
-	Type  string `json:"type"`
-	Value string `json:"value"`
+type TrafficAnalysisGetNetworkResponse struct {
+	CustomPieChartItems json.RawMessage `json:"customPieChartItems"`
+	Mode                string          `json:"mode"`
 }
 
-type TrafficAnalysisUpdateNetworkItem struct {
-	Name  string `json:"name"`
-	Type  string `json:"type"`
-	Value string `json:"value"`
+type TrafficAnalysisUpdateNetworkResponse struct {
+	CustomPieChartItems json.RawMessage `json:"customPieChartItems"`
+	Mode                string          `json:"mode"`
 }
 
 type TrafficGetNetworkItem struct {
@@ -6551,9 +6929,13 @@ type WebhooksCreateNetworkHttpServerResponse struct {
 	Url             string          `json:"url"`
 }
 
-type WebhooksCreateNetworkPayloadTemplateItem struct {
-	Name     string `json:"name"`
-	Template string `json:"template"`
+type WebhooksCreateNetworkPayloadTemplateResponse struct {
+	Body              string          `json:"body"`
+	Headers           json.RawMessage `json:"headers"`
+	Name              string          `json:"name"`
+	PayloadTemplateId string          `json:"payloadTemplateId"`
+	Sharing           json.RawMessage `json:"sharing"`
+	Type              string          `json:"type"`
 }
 
 type WebhooksCreateNetworkTestResponse struct {
@@ -6580,9 +6962,13 @@ type WebhooksGetNetworkHttpServersItem struct {
 	Url             string          `json:"url"`
 }
 
-type WebhooksGetNetworkPayloadTemplateItem struct {
-	Name     string `json:"name"`
-	Template string `json:"template"`
+type WebhooksGetNetworkPayloadTemplateResponse struct {
+	Body              string          `json:"body"`
+	Headers           json.RawMessage `json:"headers"`
+	Name              string          `json:"name"`
+	PayloadTemplateId string          `json:"payloadTemplateId"`
+	Sharing           json.RawMessage `json:"sharing"`
+	Type              string          `json:"type"`
 }
 
 type WebhooksGetNetworkPayloadTemplatesItem struct {
@@ -6606,6 +6992,14 @@ type WebhooksGetOrganizationAlertTypesItem struct {
 	Example     json.RawMessage `json:"example"`
 }
 
+type WebhooksGetOrganizationCallbacksStatusResponse struct {
+	CallbackId string          `json:"callbackId"`
+	CreatedBy  json.RawMessage `json:"createdBy"`
+	Errors     json.RawMessage `json:"errors"`
+	Status     string          `json:"status"`
+	Webhook    json.RawMessage `json:"webhook"`
+}
+
 type WebhooksGetOrganizationLogsItem struct {
 	AlertType        string `json:"alertType"`
 	LoggedAt         string `json:"loggedAt"`
@@ -6626,9 +7020,18 @@ type WebhooksUpdateNetworkHttpServerResponse struct {
 	Url             string          `json:"url"`
 }
 
-type WebhooksUpdateNetworkPayloadTemplateItem struct {
-	Name     string `json:"name"`
-	Template string `json:"template"`
+type WebhooksUpdateNetworkPayloadTemplateResponse struct {
+	Body              string          `json:"body"`
+	Headers           json.RawMessage `json:"headers"`
+	Name              string          `json:"name"`
+	PayloadTemplateId string          `json:"payloadTemplateId"`
+	Sharing           json.RawMessage `json:"sharing"`
+	Type              string          `json:"type"`
+}
+
+type WirelessAssignNetworkEthernetPortsProfilesResponse struct {
+	ProfileId string          `json:"profileId"`
+	Serials   json.RawMessage `json:"serials"`
 }
 
 type WirelessControllerGetOrganizationWirelessAvailabilitiesChangeHistoryItem struct {
@@ -6849,13 +7252,11 @@ type WirelessGetDeviceLatencyStatsResponse struct {
 	Serial       string          `json:"serial"`
 }
 
-type WirelessGetDeviceRadioOverridesItem struct {
-	Band         string `json:"band"`
-	Channel      int    `json:"channel"`
-	ChannelWidth int    `json:"channelWidth"`
-	Enabled      bool   `json:"enabled"`
-	Index        string `json:"index"`
-	TargetPower  int    `json:"targetPower"`
+type WirelessGetDeviceRadioOverridesResponse struct {
+	Network   json.RawMessage `json:"network"`
+	Radios    json.RawMessage `json:"radios"`
+	RfProfile json.RawMessage `json:"rfProfile"`
+	Serial    string          `json:"serial"`
 }
 
 type WirelessGetDeviceRadioSettingsResponse struct {
@@ -6878,18 +7279,13 @@ type WirelessGetDeviceStatusItem struct {
 	Visible      bool   `json:"visible"`
 }
 
-type WirelessGetDeviceZigbeeEnrollmentItem struct {
-	DoorLockId string          `json:"doorLockId"`
-	EnrolledAt string          `json:"enrolledAt"`
-	Eui64      string          `json:"eui64"`
-	Gateway    json.RawMessage `json:"gateway"`
-	LastSeenAt string          `json:"lastSeenAt"`
-	Lqi        string          `json:"lqi"`
-	Name       string          `json:"name"`
-	Network    json.RawMessage `json:"network"`
-	Rssi       string          `json:"rssi"`
-	ShortId    string          `json:"shortId"`
-	Status     string          `json:"status"`
+type WirelessGetDeviceZigbeeEnrollmentResponse struct {
+	DoorLocks           json.RawMessage `json:"doorLocks"`
+	EnrollmentId        string          `json:"enrollmentId"`
+	EnrollmentStartedAt string          `json:"enrollmentStartedAt"`
+	Request             json.RawMessage `json:"request"`
+	Status              string          `json:"status"`
+	Url                 string          `json:"url"`
 }
 
 type WirelessGetNetworkAirMarshalItem struct {
@@ -6906,11 +7302,9 @@ type WirelessGetNetworkAirMarshalItem struct {
 	WiredVlans    json.RawMessage `json:"wiredVlans"`
 }
 
-type WirelessGetNetworkBillingItem struct {
-	BandwidthLimits json.RawMessage `json:"bandwidthLimits"`
-	Id              string          `json:"id"`
-	Price           float64         `json:"price"`
-	TimeLimit       string          `json:"timeLimit"`
+type WirelessGetNetworkBillingResponse struct {
+	Currency string          `json:"currency"`
+	Plans    json.RawMessage `json:"plans"`
 }
 
 type WirelessGetNetworkBluetoothSettingsResponse struct {
@@ -7117,16 +7511,15 @@ type WirelessGetNetworkSignalQualityHistoryItem struct {
 	StartTs string `json:"startTs"`
 }
 
-type WirelessGetNetworkSsidBonjourForwardingItem struct {
-	Description string          `json:"description"`
-	Services    json.RawMessage `json:"services"`
-	VlanId      string          `json:"vlanId"`
+type WirelessGetNetworkSsidBonjourForwardingResponse struct {
+	Enabled   bool            `json:"enabled"`
+	Exception json.RawMessage `json:"exception"`
+	Rules     json.RawMessage `json:"rules"`
 }
 
-type WirelessGetNetworkSsidDeviceTypeGroupPoliciesItem struct {
-	DevicePolicy  string `json:"devicePolicy"`
-	DeviceType    string `json:"deviceType"`
-	GroupPolicyId int    `json:"groupPolicyId"`
+type WirelessGetNetworkSsidDeviceTypeGroupPoliciesResponse struct {
+	DeviceTypePolicies json.RawMessage `json:"deviceTypePolicies"`
+	Enabled            bool            `json:"enabled"`
 }
 
 type WirelessGetNetworkSsidEapOverrideResponse struct {
@@ -7136,13 +7529,9 @@ type WirelessGetNetworkSsidEapOverrideResponse struct {
 	Timeout    int             `json:"timeout"`
 }
 
-type WirelessGetNetworkSsidFirewallL3FirewallRulesItem struct {
-	Comment  string `json:"comment"`
-	DestCidr string `json:"destCidr"`
-	DestPort string `json:"destPort"`
-	IpVer    string `json:"ipVer"`
-	Policy   string `json:"policy"`
-	Protocol string `json:"protocol"`
+type WirelessGetNetworkSsidFirewallL3FirewallRulesResponse struct {
+	AllowLanAccess bool            `json:"allowLanAccess"`
+	Rules          json.RawMessage `json:"rules"`
 }
 
 type WirelessGetNetworkSsidFirewallL7FirewallRulesItem struct {
@@ -7277,11 +7666,10 @@ type WirelessGetNetworkSsidSplashSettingsResponse struct {
 	WelcomeMessage                  string          `json:"welcomeMessage"`
 }
 
-type WirelessGetNetworkSsidTrafficShapingRulesItem struct {
-	Definitions              json.RawMessage `json:"definitions"`
-	DscpTagValue             int             `json:"dscpTagValue"`
-	PcpTagValue              int             `json:"pcpTagValue"`
-	PerClientBandwidthLimits json.RawMessage `json:"perClientBandwidthLimits"`
+type WirelessGetNetworkSsidTrafficShapingRulesResponse struct {
+	DefaultRulesEnabled   bool            `json:"defaultRulesEnabled"`
+	Rules                 json.RawMessage `json:"rules"`
+	TrafficShapingEnabled bool            `json:"trafficShapingEnabled"`
 }
 
 type WirelessGetNetworkSsidVpnResponse struct {
@@ -7583,9 +7971,12 @@ type WirelessGetOrganizationSsidsOweByNetworkItem struct {
 	Transitions json.RawMessage `json:"transitions"`
 }
 
-type WirelessGetOrganizationSsidsProfilesAssignmentsByNetworkItem struct {
-	Profile json.RawMessage `json:"profile"`
-	Ssid    json.RawMessage `json:"ssid"`
+type WirelessGetOrganizationSsidsProfilesAssignmentsByNetworkResponse struct {
+	Assignments json.RawMessage `json:"assignments"`
+	ClientsUrl  string          `json:"clientsUrl"`
+	Group       json.RawMessage `json:"group"`
+	Id          string          `json:"id"`
+	Name        string          `json:"name"`
 }
 
 type WirelessGetOrganizationSsidsProfilesAssignmentsItem struct {
@@ -7635,9 +8026,12 @@ type WirelessGetOrganizationZigbeeDevicesItem struct {
 	TransmitPowerLevel int             `json:"transmitPowerLevel"`
 }
 
-type WirelessGetOrganizationZigbeeDisenrollmentItem struct {
-	DoorLockId string `json:"doorLockId"`
-	Status     string `json:"status"`
+type WirelessGetOrganizationZigbeeDisenrollmentResponse struct {
+	DisenrollmentId string          `json:"disenrollmentId"`
+	DoorLocks       json.RawMessage `json:"doorLocks"`
+	Request         json.RawMessage `json:"request"`
+	Status          string          `json:"status"`
+	Url             string          `json:"url"`
 }
 
 type WirelessGetOrganizationZigbeeDoorLocksItem struct {
@@ -7687,13 +8081,11 @@ type WirelessUpdateDeviceElectronicShelfLabelResponse struct {
 	Serial    string `json:"serial"`
 }
 
-type WirelessUpdateDeviceRadioOverridesItem struct {
-	Band         string `json:"band"`
-	Channel      int    `json:"channel"`
-	ChannelWidth int    `json:"channelWidth"`
-	Enabled      bool   `json:"enabled"`
-	Index        string `json:"index"`
-	TargetPower  int    `json:"targetPower"`
+type WirelessUpdateDeviceRadioOverridesResponse struct {
+	Network   json.RawMessage `json:"network"`
+	Radios    json.RawMessage `json:"radios"`
+	RfProfile json.RawMessage `json:"rfProfile"`
+	Serial    string          `json:"serial"`
 }
 
 type WirelessUpdateDeviceRadioSettingsResponse struct {
@@ -7717,11 +8109,9 @@ type WirelessUpdateNetworkAirMarshalSettingsResponse struct {
 	NetworkId     string `json:"networkId"`
 }
 
-type WirelessUpdateNetworkBillingItem struct {
-	BandwidthLimits json.RawMessage `json:"bandwidthLimits"`
-	Id              string          `json:"id"`
-	Price           float64         `json:"price"`
-	TimeLimit       string          `json:"timeLimit"`
+type WirelessUpdateNetworkBillingResponse struct {
+	Currency string          `json:"currency"`
+	Plans    json.RawMessage `json:"plans"`
 }
 
 type WirelessUpdateNetworkBluetoothSettingsResponse struct {
@@ -7793,16 +8183,15 @@ type WirelessUpdateNetworkSettingsResponse struct {
 	UpgradeStrategy              string          `json:"upgradeStrategy"`
 }
 
-type WirelessUpdateNetworkSsidBonjourForwardingItem struct {
-	Description string          `json:"description"`
-	Services    json.RawMessage `json:"services"`
-	VlanId      string          `json:"vlanId"`
+type WirelessUpdateNetworkSsidBonjourForwardingResponse struct {
+	Enabled   bool            `json:"enabled"`
+	Exception json.RawMessage `json:"exception"`
+	Rules     json.RawMessage `json:"rules"`
 }
 
-type WirelessUpdateNetworkSsidDeviceTypeGroupPoliciesItem struct {
-	DevicePolicy  string `json:"devicePolicy"`
-	DeviceType    string `json:"deviceType"`
-	GroupPolicyId int    `json:"groupPolicyId"`
+type WirelessUpdateNetworkSsidDeviceTypeGroupPoliciesResponse struct {
+	DeviceTypePolicies json.RawMessage `json:"deviceTypePolicies"`
+	Enabled            bool            `json:"enabled"`
 }
 
 type WirelessUpdateNetworkSsidEapOverrideResponse struct {
@@ -7812,13 +8201,9 @@ type WirelessUpdateNetworkSsidEapOverrideResponse struct {
 	Timeout    int             `json:"timeout"`
 }
 
-type WirelessUpdateNetworkSsidFirewallL3FirewallRulesItem struct {
-	Comment  string `json:"comment"`
-	DestCidr string `json:"destCidr"`
-	DestPort string `json:"destPort"`
-	IpVer    string `json:"ipVer"`
-	Policy   string `json:"policy"`
-	Protocol string `json:"protocol"`
+type WirelessUpdateNetworkSsidFirewallL3FirewallRulesResponse struct {
+	AllowLanAccess bool            `json:"allowLanAccess"`
+	Rules          json.RawMessage `json:"rules"`
 }
 
 type WirelessUpdateNetworkSsidFirewallL7FirewallRulesItem struct {
@@ -7948,11 +8333,10 @@ type WirelessUpdateNetworkSsidSplashSettingsResponse struct {
 	WelcomeMessage                  string          `json:"welcomeMessage"`
 }
 
-type WirelessUpdateNetworkSsidTrafficShapingRulesItem struct {
-	Definitions              json.RawMessage `json:"definitions"`
-	DscpTagValue             int             `json:"dscpTagValue"`
-	PcpTagValue              int             `json:"pcpTagValue"`
-	PerClientBandwidthLimits json.RawMessage `json:"perClientBandwidthLimits"`
+type WirelessUpdateNetworkSsidTrafficShapingRulesResponse struct {
+	DefaultRulesEnabled   bool            `json:"defaultRulesEnabled"`
+	Rules                 json.RawMessage `json:"rules"`
+	TrafficShapingEnabled bool            `json:"trafficShapingEnabled"`
 }
 
 type WirelessUpdateNetworkSsidVpnResponse struct {

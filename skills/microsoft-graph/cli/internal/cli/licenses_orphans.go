@@ -28,7 +28,7 @@ first (pull requests assignedLicenses via $select).`, "\n"),
 		Example: strings.Trim(`
   microsoft-graph-cli licenses orphans --json
   microsoft-graph-cli licenses orphans --agent`, "\n"),
-		Annotations: map[string]string{"mcp:read-only": "true"},
+		Annotations: map[string]string{"mcp:read-only": "true", "pp:data-source": "local"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if dryRunOK(flags) {
 				return nil

@@ -148,7 +148,7 @@
       "name": "aws-billing",
       "source": "./skills/aws-billing",
       "description": "Get a non-expert from zero to a Slack-delivered, plain-English, waste-flagged AWS bill breakdown \u2014 and cache it so you don't pay per Cost Explorer call.",
-      "version": "0.1.8",
+      "version": "0.1.9",
       "category": "billing",
       "tags": [
         "aws-billing",
@@ -164,7 +164,7 @@
       "name": "axcient",
       "source": "./skills/axcient",
       "description": "Every x360Recover endpoint, plus the fleet-wide backup-health answers the API alone can't give \u2014 offline, joined, and agent-ready.",
-      "version": "0.2.17",
+      "version": "0.2.18",
       "category": "backup-dr",
       "tags": [
         "axcient",
@@ -194,7 +194,7 @@
     {
       "name": "blumira",
       "source": "./skills/blumira",
-      "description": "Every Blumira finding, detection, and agent across your direct org and every MSP sub-account - in one offline-searchable store with cross-account triage and over-time trends no single API call can answer.",
+      "description": "Every Blumira finding, detection, and agent across your direct org and every MSP sub-account \u2014 in one offline-searchable store with cross-account triage and over-time trends no single API call can answer.",
       "version": "0.1.6",
       "category": "security",
       "tags": [
@@ -386,7 +386,7 @@
       "name": "domotz",
       "source": "./skills/domotz",
       "description": "Every Domotz endpoint, plus a local SQLite fleet mirror that answers cross-site questions.",
-      "version": "0.1.7",
+      "version": "0.1.8",
       "category": "network-monitoring",
       "tags": [
         "domotz",
@@ -701,7 +701,7 @@
       "name": "pagerduty",
       "source": "./skills/pagerduty",
       "description": "Every PagerDuty incident, on-call and service operation from the terminal, plus a local SQLite mirror that answers cross-entity questions \u2014 MTTA/MTTR, on-call coverage gaps, responder load \u2014 that neither the API nor the web UI can.",
-      "version": "0.1.7",
+      "version": "0.1.8",
       "category": "incident-response",
       "tags": [
         "pagerduty",
@@ -821,11 +821,12 @@
     {
       "name": "riverside-fm",
       "source": "./skills/riverside-fm",
-      "description": "Every Riverside.fm studio, take, transcript, and asset as one agent-native CLI plus a local SQLite mirror - bulk studio export with resume, priority-fallback download, transcript search and talktime, and signed-URL refresh the web app never exposes.",
-      "version": "0.1.5",
-      "category": "msp",
+      "description": "The first programmatic way to download every transcript, audio track, and video from your own Riverside.com account \u2014 no Business plan or API key required.",
+      "version": "0.1.6",
+      "category": "marketing",
       "tags": [
         "riverside-fm",
+        "riverside",
         "marketing",
         "msp",
         "mcp",
@@ -1170,7 +1171,7 @@
     {
       "name": "cisco-meraki",
       "source": "./skills/cisco-meraki",
-      "description": "Every Meraki Dashboard operation, plus cross-org fleet views that read every page, and a local mirror built for MSPs running many client orgs.",
+      "description": "Every Meraki Dashboard operation, plus cross-org fleet views that read every page, built for MSPs running many client orgs.",
       "version": "0.1.3",
       "category": "network-monitoring",
       "tags": [
@@ -1355,6 +1356,22 @@
       ]
     },
     {
+      "name": "eset-protect",
+      "source": "./skills/eset-protect",
+      "description": "Every ESET Connect endpoint in one binary, plus per-customer health, exposure and QBR reports built from a local mirror of your MSP tree.",
+      "version": "0.1.0",
+      "category": "security",
+      "tags": [
+        "eset-protect",
+        "eset",
+        "security",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
+    },
+    {
       "name": "blackpoint",
       "source": "./skills/blackpoint",
       "description": "CompassOne from the terminal: tenants, detections, assets, vulnerabilities, posture, reports and Cloud Response admin, plus a cross-tenant fleet view of open detections, stale agents and coverage gaps.",
@@ -1436,7 +1453,7 @@
       "name": "exchange-online",
       "source": "./skills/exchange-online",
       "description": "Exchange Online admin for MSPs over REST: forwarding audits, EWS posture, offboarding and quarantine across client tenants, no PowerShell session.",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "category": "security",
       "tags": [
         "exchange-online",
@@ -1467,7 +1484,7 @@
       "name": "kaseya-vsa",
       "source": "./skills/kaseya-vsa",
       "description": "Every VSA 10 API endpoint, plus a local fleet database that answers patch, health, and software questions across all your clients offline.",
-      "version": "0.1.1",
+      "version": "0.1.2",
       "category": "rmm",
       "tags": [
         "kaseya-vsa",
@@ -1677,6 +1694,22 @@
         "windows-server",
         "windows server",
         "monitoring",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
+    },
+    {
+      "name": "datto-saas",
+      "source": "./skills/datto-saas",
+      "description": "Every Datto SaaS Protection (Backupify) client in one local database: seat audits, protection gaps, backup health ranking, exit inventories and plan-first bulk seat changes.",
+      "version": "0.1.0",
+      "category": "backup-dr",
+      "tags": [
+        "datto-saas",
+        "datto saas protection",
+        "backup-dr",
         "msp",
         "mcp",
         "claude-code",

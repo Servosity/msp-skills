@@ -18,18 +18,18 @@ import (
 // argument values. Fragments use `?` placeholders so apostrophe-bearing client
 // names (e.g. O'Brien) match correctly without escaping hacks. Shared by
 // bulk-run and maintenance set so the two cohort selectors behave identically.
-// Recognised keys: os/plat, client, site, status, online.
-func novelAgentFilterWhere(filter []string) (fragments []string, args []any) {
+// Recognised keys: os/plat, client, site, status, online; any other entry is refused.
+func novelAgentFilterWhere(filter []string, all bool) (fragments []string, args []any, err error) {
 	fragments = []string{}
 	args = []any{}
+	// tactical-rmm handfix cohort-filter-fails-closed: an entry the selector
+	// cannot apply is refused, never dropped (dropping it widens the cohort),
+	// and an empty filter selects nothing unless --all says the whole fleet.
 	for _, kv := range filter {
 		kv = strings.TrimSpace(kv)
-		if kv == "" {
-			continue
-		}
 		p := strings.SplitN(kv, "=", 2)
-		if len(p) != 2 {
-			continue
+		if len(p) != 2 || strings.TrimSpace(p[0]) == "" || strings.TrimSpace(p[1]) == "" {
+			return nil, nil, usageErr(fmt.Errorf("invalid --filter entry %q: want key=value with key os, plat, client, site, status or online", kv))
 		}
 		k := strings.ToLower(strings.TrimSpace(p[0]))
 		v := strings.TrimSpace(p[1])
@@ -47,16 +47,23 @@ func novelAgentFilterWhere(filter []string) (fragments []string, args []any) {
 			fragments = append(fragments, "json_extract(data,'$.status')=?")
 			args = append(args, v)
 		case "online":
-			if v == "true" {
+			switch v {
+			case "true":
 				fragments = append(fragments, "json_extract(data,'$.status')=?")
-				args = append(args, "online")
-			} else {
+			case "false":
 				fragments = append(fragments, "json_extract(data,'$.status')<>?")
-				args = append(args, "online")
+			default:
+				return nil, nil, usageErr(fmt.Errorf("invalid --filter entry %q: online is true or false", kv))
 			}
+			args = append(args, "online")
+		default:
+			return nil, nil, usageErr(fmt.Errorf("unknown --filter key %q: use os, plat, client, site, status or online", k))
 		}
 	}
-	return fragments, args
+	if len(fragments) == 0 && !all {
+		return nil, nil, usageErr(fmt.Errorf("no --filter given: name the cohort with --filter, or pass --all for every synced agent"))
+	}
+	return fragments, args, nil
 }
 
 // novelSelectCohort resolves (agent_ids, hostnames) from the local store for a
@@ -91,12 +98,14 @@ func newNovelAgentsBulkRunCmd(flags *rootFlags) *cobra.Command {
 	var script, timeout int
 	var command, shell string
 	var filter []string
-	var execute bool
+	var execute, all bool
 	cmd := &cobra.Command{
-		Use:     "bulk-run",
-		Short:   "Run a script or command across a filtered cohort of agents",
-		Long:    "Resolves target agents from the local store using --filter (os/client/site/status/online), previews the cohort, and with --execute calls the Tactical RMM bulk action endpoint. Previews by default; never runs under verify. Use this to run a script/command on a cohort. To put a cohort into maintenance mode instead, use 'maintenance set'.",
-		Example: "  tactical-rmm-cli agents bulk-run --command whoami --filter os=windows,online=true\n  tactical-rmm-cli agents bulk-run --command whoami --filter client=Acme --execute",
+		Use: "bulk-run",
+		// tactical-rmm handfix mcp-mirror-write-confirm: --execute is the write; over MCP it needs confirm: true.
+		Annotations: map[string]string{"mcp:read-only-unless-flags": "execute"},
+		Short:       "Run a script or command across a filtered cohort of agents",
+		Long:        "Resolves target agents from the local store using --filter (os/client/site/status/online; an unknown key or malformed entry is refused, a site name that more than one client uses needs client= as well, and with no --filter pass --all to target every synced agent), previews the cohort, and with --execute calls the Tactical RMM bulk action endpoint. Previews by default; never runs under verify. Use this to run a script/command on a cohort. To put a cohort into maintenance mode instead, use 'maintenance set'.",
+		Example:     "  tactical-rmm-cli agents bulk-run --command whoami --filter os=windows,online=true\n  tactical-rmm-cli agents bulk-run --command whoami --filter client=Acme --execute",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if dryRunOK(flags) {
 				return nil
@@ -108,7 +117,15 @@ func newNovelAgentsBulkRunCmd(flags *rootFlags) *cobra.Command {
 				_ = cmd.Usage()
 				return usageErr(fmt.Errorf("provide --script <id> or --command <text>"))
 			}
-			where, whereArgs := novelAgentFilterWhere(filter)
+			where, whereArgs, err := novelAgentFilterWhere(filter, all)
+			if err != nil {
+				return err
+			}
+			// tactical-rmm handfix site-identity-client-and-site: a site name
+			// held by more than one client needs client= to pick the site.
+			if err := novelRefuseAmbiguousSite(cmd, flags, filter); err != nil {
+				return err
+			}
 			ids, hosts := novelSelectCohort(cmd, flags, where, whereArgs)
 			mode := "command"
 			if script != 0 {
@@ -139,7 +156,7 @@ func newNovelAgentsBulkRunCmd(flags *rootFlags) *cobra.Command {
 				return err
 			}
 			if _, _, err := c.Post(cmd.Context(), "/agents/actions/bulk/", body); err != nil {
-				return classifyAPIError(err, flags)
+				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), "bulk %s submitted to %d agents\n", mode, len(ids))
 			return nil
@@ -151,5 +168,6 @@ func newNovelAgentsBulkRunCmd(flags *rootFlags) *cobra.Command {
 	cmd.Flags().StringSliceVar(&filter, "filter", nil, "Cohort filter, e.g. os=windows,online=true,client=Acme")
 	cmd.Flags().IntVar(&timeout, "timeout", 30, "Per-agent timeout (seconds)")
 	cmd.Flags().BoolVar(&execute, "execute", false, "Actually run (default: preview only)")
+	cmd.Flags().BoolVar(&all, "all", false, "Target every synced agent (required when no --filter is given)")
 	return cmd
 }

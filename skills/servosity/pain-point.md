@@ -35,5 +35,4 @@ intelligence:
 
 ## Status
 
-Already used inside Servosity's own backup/DR operations; published here for MSP
-partners. The public surface is in beta and being validated with MSPs in live Build Sessions.
+Live-verified. Confirmed by Servosity (maintainer) against their own production tenant.

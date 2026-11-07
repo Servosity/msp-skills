@@ -1,7 +1,9 @@
 .PHONY: build test lint install clean
 
+BIN_EXT := $(if $(filter windows,$(shell go env GOOS)),.exe,)
+
 build:
-	go build -o bin/tactical-rmm-cli ./cmd/tactical-rmm-cli
+	go build -trimpath -o bin/tactical-rmm-cli$(BIN_EXT) ./cmd/tactical-rmm-cli
 
 test:
 	go test ./...
@@ -16,7 +18,7 @@ clean:
 	rm -rf bin/
 
 build-mcp:
-	go build -o bin/tactical-rmm-mcp ./cmd/tactical-rmm-mcp
+	go build -trimpath -o bin/tactical-rmm-mcp$(BIN_EXT) ./cmd/tactical-rmm-mcp
 
 install-mcp:
 	go install ./cmd/tactical-rmm-mcp

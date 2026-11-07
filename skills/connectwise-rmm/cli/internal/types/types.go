@@ -29,14 +29,6 @@ type Category struct {
 	UpdatedBy string `json:"updatedBy"`
 }
 
-type CompaniesGetCompanyItem struct {
-	CompanyId         string `json:"companyId"`
-	ExternalId        string `json:"externalId"`
-	Id                string `json:"id"`
-	ProductId         string `json:"productId"`
-	ProductInstanceId string `json:"productInstanceId"`
-}
-
 type Company struct {
 	Account        json.RawMessage `json:"account"`
 	AcquiredDate   string          `json:"acquiredDate"`
@@ -410,33 +402,6 @@ type SiteCreateRequest struct {
 	PrimarySocialMedia  json.RawMessage `json:"primarySocialMedia"`
 	TimeZone            string          `json:"timeZone"`
 	Type                json.RawMessage `json:"type"`
-}
-
-type SitesCreateItem struct {
-	Backsynced        bool   `json:"backsynced"`
-	ExternalId        string `json:"externalId"`
-	Id                string `json:"id"`
-	ProductId         string `json:"productId"`
-	ProductInstanceId string `json:"productInstanceId"`
-	SiteId            string `json:"siteId"`
-}
-
-type SitesGetItem struct {
-	Backsynced        bool   `json:"backsynced"`
-	ExternalId        string `json:"externalId"`
-	Id                string `json:"id"`
-	ProductId         string `json:"productId"`
-	ProductInstanceId string `json:"productInstanceId"`
-	SiteId            string `json:"siteId"`
-}
-
-type SitesUpdateItem struct {
-	Backsynced        bool   `json:"backsynced"`
-	ExternalId        string `json:"externalId"`
-	Id                string `json:"id"`
-	ProductId         string `json:"productId"`
-	ProductInstanceId string `json:"productInstanceId"`
-	SiteId            string `json:"siteId"`
 }
 
 type Source struct {

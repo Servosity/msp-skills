@@ -144,8 +144,12 @@ func TestJournal_SessionKeyFromEnv(t *testing.T) {
 		t.Fatalf("version: %v", err)
 	}
 	entries := readAllJournalEntries(t)
-	if len(entries) != 1 || entries[0].SessionKey != "session-abc123" {
-		t.Errorf("session_key = %+v, want session-abc123", entries)
+	// Hand-fix (handfixes.json journal-credential-hardening): the override is stored hashed, never raw.
+	if len(entries) != 1 || entries[0].SessionKey != "o:93da339544719ff4" {
+		t.Errorf("session_key = %+v, want o:93da339544719ff4 (the hashed override)", entries)
+	}
+	if strings.Contains(journalRawBytes(t), "session-abc123") {
+		t.Error("the raw LEARN_SESSION value must not appear anywhere in the journal")
 	}
 }
 
@@ -180,8 +184,12 @@ func TestJournal_LearnSessionOverridesHarness(t *testing.T) {
 		t.Fatalf("version: %v", err)
 	}
 	entries := readAllJournalEntries(t)
-	if len(entries) != 1 || entries[0].SessionKey != "session-abc123" {
-		t.Errorf("LEARN_SESSION must win over harness id; got %+v", entries)
+	// Hand-fix (handfixes.json journal-credential-hardening): the override wins, stored hashed.
+	if len(entries) != 1 || entries[0].SessionKey != "o:93da339544719ff4" {
+		t.Errorf("LEARN_SESSION must win over harness id, hashed; got %+v", entries)
+	}
+	if strings.Contains(journalRawBytes(t), "session-abc123") {
+		t.Error("the raw LEARN_SESSION value must not appear anywhere in the journal")
 	}
 	if strings.Contains(journalRawBytes(t), "harness-should-lose") {
 		t.Error("raw harness session id must not appear when LEARN_SESSION is set")
@@ -207,8 +215,9 @@ func TestJournal_UnknownFlagJournalsFailedFlagAndSuggestion(t *testing.T) {
 		t.Fatalf("want 1 entry, got %d", len(entries))
 	}
 	e := entries[0]
-	if e.FailedFlag != "--jso" {
-		t.Errorf("failed_flag = %q, want --jso", e.FailedFlag)
+	// Hand-fix (handfixes.json journal-credential-hardening): the typed name is never kept; an opaque identity pairs the correction.
+	if !strings.HasPrefix(e.FailedFlag, "--<undeclared>:") || strings.Contains(e.FailedFlag, "jso") {
+		t.Errorf("failed_flag = %q, want --<undeclared>:<hash of the typed name>", e.FailedFlag)
 	}
 	if e.SuggestedFlag != "--json" {
 		t.Errorf("suggested_flag = %q, want --json", e.SuggestedFlag)
@@ -325,8 +334,12 @@ func TestJournal_TokenBearingFlagIsRedacted(t *testing.T) {
 	if len(entries) != 1 {
 		t.Fatalf("want 1 entry, got %d", len(entries))
 	}
-	if got := entries[0].ArgvShape["api-token"]; got != "redacted" {
-		t.Errorf("argv_shape[api-token] = %q, want redacted", got)
+	// Hand-fix (handfixes.json journal-credential-hardening): --api-token is not declared, so only the placeholder is recorded.
+	if got := entries[0].ArgvShape["<undeclared>"]; got != "redacted" {
+		t.Errorf("argv_shape[<undeclared>] = %q, want redacted", got)
+	}
+	if _, ok := entries[0].ArgvShape["api-token"]; ok {
+		t.Errorf("an undeclared flag name reached the journal: %v", entries[0].ArgvShape)
 	}
 	if raw := journalRawBytes(t); strings.Contains(raw, "sekretvalue123") {
 		t.Errorf("token value leaked into journal:\n%s", raw)
@@ -360,6 +373,8 @@ func TestJournal_UnknownCommandRecordsNoPositionalTokens(t *testing.T) {
 func TestJournalArgvShape_Classes(t *testing.T) {
 	boolFlags := map[string]bool{"json": true, "compact": true}
 	lookup := func(name string) bool { return boolFlags[name] }
+	// Hand-fix (handfixes.json journal-credential-hardening): every name the cases use is declared but undeclared-x.
+	declared := func(name string) bool { return name != "undeclared-x" }
 	cases := []struct {
 		name string
 		args []string
@@ -381,6 +396,11 @@ func TestJournalArgvShape_Classes(t *testing.T) {
 			want: map[string]string{"api-token": "redacted", "auth-cookie": "redacted", "password": "redacted"},
 		},
 		{
+			name: "undeclared names are only a placeholder",
+			args: []string{"--undeclared-x", "s3cr3t", "--limit", "3"},
+			want: map[string]string{"<undeclared>": "redacted", "limit": "int"},
+		},
+		{
 			name: "positionals ignored",
 			args: []string{"list", "things", "--compact"},
 			want: map[string]string{"compact": "bool"},
@@ -388,7 +408,7 @@ func TestJournalArgvShape_Classes(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			got := learn.JournalArgvShape(tc.args, lookup)
+			got := learn.JournalArgvShape(tc.args, lookup, declared)
 			if len(got) != len(tc.want) {
 				t.Fatalf("shape = %v, want %v", got, tc.want)
 			}

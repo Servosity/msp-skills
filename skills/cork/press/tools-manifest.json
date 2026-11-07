@@ -1,0 +1,1027 @@
+{
+  "api_name": "cork",
+  "base_url": "https://api.corkinc.com/api/v1",
+  "description": "Every Cork API operation, plus cross-client risk attribution, exploitability-first triage, and stale-connector detection that a stateless API mirror cannot do.",
+  "mcp_ready": "full",
+  "http_transport": "standard",
+  "auth": {
+    "type": "bearer_token",
+    "header": "Authorization",
+    "env_vars": [
+      "CORK_API_KEY"
+    ],
+    "env_var_specs": [
+      {
+        "name": "CORK_API_KEY",
+        "kind": "per_call",
+        "required": true,
+        "sensitive": true,
+        "inferred": true
+      }
+    ],
+    "key_url": "https://help.corkinc.com/articles/3092729300-cork-public-api-mcp-server"
+  },
+  "required_headers": [],
+  "tools": [
+    {
+      "name": "clients_get",
+      "description": "List clients with their financial protection status (`warranty_status`), associated integration tenants, and the 10 most recent Cork Cyber Scores (`score_history`, newest first). For older scores, such as quarter-over-quarter trends or filtering by a date range, use `Get Client Score History`. Client UUIDs from this response are required by `Get Client Devices`, `Get Client Inboxes`, `Get Client Domains`, `Get Compliance Events`, and vulnerability tools. _note: If API user is a distributor, use partner_uuid to scope results to a specific partner._. Optional: page (default: 1), page_size (default: 10), show_hidden (default: false) (plus 1 more). Returns array of Client.",
+      "method": "GET",
+      "path": "/clients",
+      "params": [
+        {
+          "name": "page",
+          "type": "string",
+          "location": "query",
+          "description": "Page number"
+        },
+        {
+          "name": "page_size",
+          "type": "int",
+          "location": "query",
+          "description": "Page size"
+        },
+        {
+          "name": "show_hidden",
+          "type": "bool",
+          "location": "query",
+          "description": "Include hidden/archived clients when true"
+        },
+        {
+          "name": "partner_uuid",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by partner UUID (distributor users only). Obtain partner UUIDs from Get Partners."
+        }
+      ]
+    },
+    {
+      "name": "clients_devices_get-client",
+      "description": "List devices observed for a client across all connected integrations, including hostnames, IP addresses, the integration each device was seen in, whether each device can receive an `Install Software` call (`can_install_software`), normalized operating system details (`os`), resolved device type (`device_type`: workstation/laptop/server/other), and hardware model (`model`). Device UUIDs can be used to filter `Get Software Vulnerabilities`. Requires a client UUID from `Get Clients`. Required: client-uuid. Optional: page (default: 1), page_size (default: 10). Returns array of Device.",
+      "method": "GET",
+      "path": "/clients/{client-uuid}/devices",
+      "params": [
+        {
+          "name": "page",
+          "type": "string",
+          "location": "query",
+          "description": "Page number"
+        },
+        {
+          "name": "page_size",
+          "type": "int",
+          "location": "query",
+          "description": "Page size"
+        },
+        {
+          "name": "client-uuid",
+          "type": "string",
+          "location": "path",
+          "description": "(e.g. 550e8400-e29b-41d4-a716-446655440000)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "clients_domains_get-client",
+      "description": "List email domains observed for a client. Domain UUIDs can be used to filter `Get Compliance Events`. Requires a client UUID from `Get Clients`. Required: client-uuid. Optional: page (default: 1), page_size (default: 10). Returns array of Domain.",
+      "method": "GET",
+      "path": "/clients/{client-uuid}/domains",
+      "params": [
+        {
+          "name": "page",
+          "type": "string",
+          "location": "query",
+          "description": "Page number"
+        },
+        {
+          "name": "page_size",
+          "type": "int",
+          "location": "query",
+          "description": "Page size"
+        },
+        {
+          "name": "client-uuid",
+          "type": "string",
+          "location": "path",
+          "description": "(e.g. 550e8400-e29b-41d4-a716-446655440000)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "clients_inboxes_get-clients",
+      "description": "List email inboxes (users and shared mailboxes) observed for a client, with inbox type, associated domains, and the integration each inbox was sourced from. Requires a client UUID from `Get Clients`. Required: client-uuid. Optional: page (default: 1), page_size (default: 10). Returns array of Inbox.",
+      "method": "GET",
+      "path": "/clients/{client-uuid}/inboxes",
+      "params": [
+        {
+          "name": "page",
+          "type": "string",
+          "location": "query",
+          "description": "Page number"
+        },
+        {
+          "name": "page_size",
+          "type": "int",
+          "location": "query",
+          "description": "Page size"
+        },
+        {
+          "name": "client-uuid",
+          "type": "string",
+          "location": "path",
+          "description": "(e.g. 550e8400-e29b-41d4-a716-446655440000)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "clients_score-history_get-client",
+      "description": "List a client's full Cork Cyber Score history, newest first, with the risk points each category (coverage, compliance, vulnerabilities, claims) deducted from that score. Use created_after and created_before to bound a period, e.g. one call per quarter, for trend reporting over time. Both bounds are inclusive, so a score timestamped exactly on a boundary is returned by both of two adjacent periods. `Get Clients` only carries the 10 most recent scores. Requires a client UUID from `Get Clients`. Required: client-uuid. Optional: created_after, created_before, page (default: 1) (plus 1 more). Returns array of ClientScoreHistory.",
+      "method": "GET",
+      "path": "/clients/{client-uuid}/score-history",
+      "params": [
+        {
+          "name": "created_after",
+          "type": "string",
+          "location": "query",
+          "description": "Created after"
+        },
+        {
+          "name": "created_before",
+          "type": "string",
+          "location": "query",
+          "description": "Created before"
+        },
+        {
+          "name": "page",
+          "type": "string",
+          "location": "query",
+          "description": "Page number"
+        },
+        {
+          "name": "page_size",
+          "type": "int",
+          "location": "query",
+          "description": "Page size"
+        },
+        {
+          "name": "client-uuid",
+          "type": "string",
+          "location": "path",
+          "description": "(e.g. 550e8400-e29b-41d4-a716-446655440000)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "compliance_get-event-notification-settings",
+      "description": "List the notification and alerting rules configured for compliance events on client assets. Shows which event types trigger alerts and how they are routed. Required: client-uuid. Optional: device_uuid, inbox_uuid, domain_uuid (plus 2 more). Returns array of ComplianceEventNotificationSetting.",
+      "method": "GET",
+      "path": "/compliance/client/{client-uuid}/notification-settings",
+      "params": [
+        {
+          "name": "device_uuid",
+          "type": "string",
+          "location": "query",
+          "description": "Device uuid"
+        },
+        {
+          "name": "inbox_uuid",
+          "type": "string",
+          "location": "query",
+          "description": "Inbox uuid"
+        },
+        {
+          "name": "domain_uuid",
+          "type": "string",
+          "location": "query",
+          "description": "Domain uuid"
+        },
+        {
+          "name": "page",
+          "type": "string",
+          "location": "query",
+          "description": "Page number"
+        },
+        {
+          "name": "page_size",
+          "type": "int",
+          "location": "query",
+          "description": "Page size"
+        },
+        {
+          "name": "client-uuid",
+          "type": "string",
+          "location": "path",
+          "description": "(e.g. 550e8400-e29b-41d4-a716-446655440000)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "compliance_get-event-types",
+      "description": "List all compliance event types with their descriptions and cure periods. Use this to discover valid event_type values before filtering `Get Compliance Events`. Returns array of ComplianceEventType.",
+      "method": "GET",
+      "path": "/compliance/event-types",
+      "params": []
+    },
+    {
+      "name": "compliance_get-events",
+      "description": "List policy violations and risk events detected for a client's assets. Filter by event_type (use `Get Compliance Event Types` for valid values), device, inbox, or domain UUID. Use at_risk=true to show only currently active risks. Resolved events are excluded by default; set show_resolved=true to include them. Required: client-uuid. Optional: event_type, device_uuid, inbox_uuid (plus 10 more). Returns array of ComplianceEvent.",
+      "method": "GET",
+      "path": "/compliance/client/{client-uuid}/events",
+      "params": [
+        {
+          "name": "event_type",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by event type. Use Get Compliance Event Types for valid values."
+        },
+        {
+          "name": "device_uuid",
+          "type": "string",
+          "location": "query",
+          "description": "Filter events to a specific device UUID from Get Client Devices"
+        },
+        {
+          "name": "inbox_uuid",
+          "type": "string",
+          "location": "query",
+          "description": "Filter events to a specific inbox UUID from Get Client Inboxes"
+        },
+        {
+          "name": "domain_uuid",
+          "type": "string",
+          "location": "query",
+          "description": "Filter events to a specific domain UUID from Get Client Domains"
+        },
+        {
+          "name": "at_risk",
+          "type": "bool",
+          "location": "query",
+          "description": "When true, only return currently active (unresolved, unsuppressed) risk events"
+        },
+        {
+          "name": "show_silenced",
+          "type": "bool",
+          "location": "query",
+          "description": "Include silenced/suppressed events in results"
+        },
+        {
+          "name": "show_resolved",
+          "type": "bool",
+          "location": "query",
+          "description": "Include resolved events in results. Required to use resolved_after or resolved_before filters."
+        },
+        {
+          "name": "created_after",
+          "type": "string",
+          "location": "query",
+          "description": "Created after"
+        },
+        {
+          "name": "created_before",
+          "type": "string",
+          "location": "query",
+          "description": "Created before"
+        },
+        {
+          "name": "resolved_after",
+          "type": "string",
+          "location": "query",
+          "description": "show_resolved must be true"
+        },
+        {
+          "name": "resolved_before",
+          "type": "string",
+          "location": "query",
+          "description": "show_resolved must be true"
+        },
+        {
+          "name": "page",
+          "type": "string",
+          "location": "query",
+          "description": "Page number"
+        },
+        {
+          "name": "page_size",
+          "type": "int",
+          "location": "query",
+          "description": "Page size"
+        },
+        {
+          "name": "client-uuid",
+          "type": "string",
+          "location": "path",
+          "description": "(e.g. 550e8400-e29b-41d4-a716-446655440000)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "distributor_get-partners",
+      "description": "List partner sub-accounts managed by this distributor. Returns partner UUIDs that can be passed as partner_uuid to `Get Clients` and other tools to scope results to a specific partner. _note: distributor accounts only_. Optional: page (default: 1), page_size (default: 10).",
+      "method": "GET",
+      "path": "/distributor/partners",
+      "params": [
+        {
+          "name": "page",
+          "type": "string",
+          "location": "query",
+          "description": "Page number"
+        },
+        {
+          "name": "page_size",
+          "type": "int",
+          "location": "query",
+          "description": "Page size"
+        }
+      ]
+    },
+    {
+      "name": "distributor_provision-partner",
+      "description": "Provision a new Partner account in the system. _note: Requires distributor privileges._. Required: partner_name, primary_contact_email, primary_contact_name. Optional: enable_default_notifications (default: true), send_welcome_email (default: true). Returns the new Partner.",
+      "method": "POST",
+      "path": "/distributor/partners",
+      "params": [
+        {
+          "name": "enable_default_notifications",
+          "type": "bool",
+          "location": "body",
+          "description": "Whether to enable default notifications for the partner"
+        },
+        {
+          "name": "partner_name",
+          "type": "string",
+          "location": "body",
+          "description": "Partner name",
+          "required": true
+        },
+        {
+          "name": "primary_contact_email",
+          "type": "string",
+          "location": "body",
+          "description": "Primary contact email",
+          "required": true
+        },
+        {
+          "name": "primary_contact_name",
+          "type": "string",
+          "location": "body",
+          "description": "Primary contact name",
+          "required": true
+        },
+        {
+          "name": "send_welcome_email",
+          "type": "bool",
+          "location": "body",
+          "description": "Whether to send a welcome email to the primary contact"
+        }
+      ]
+    },
+    {
+      "name": "integrations_connect",
+      "description": "Connect an API-based integration. This creates a new integration that will immediately begin syncing data. Requires valid API credentials. Required: credential_fields, vendor_key. Optional: display_name, partner_uuid. Returns the new NewIntegrationResponse.",
+      "method": "POST",
+      "path": "/integrations",
+      "params": [
+        {
+          "name": "credential_fields",
+          "type": "object",
+          "location": "body",
+          "description": "Credential fields",
+          "required": true
+        },
+        {
+          "name": "display_name",
+          "type": "string",
+          "location": "body",
+          "description": "Display name"
+        },
+        {
+          "name": "partner_uuid",
+          "type": "string",
+          "location": "body",
+          "description": "Partner uuid"
+        },
+        {
+          "name": "vendor_key",
+          "type": "string",
+          "location": "body",
+          "description": "Vendor key",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "integrations_delete",
+      "description": "Delete an integration and stop all data collection from it. _note: Only API-created integrations can be deleted._. Required: integration-uuid. Destructive.",
+      "method": "DELETE",
+      "path": "/integrations/{integration-uuid}",
+      "params": [
+        {
+          "name": "integration-uuid",
+          "type": "string",
+          "location": "path",
+          "description": "(e.g. 550e8400-e29b-41d4-a716-446655440000)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "integrations_get-available",
+      "description": "List integration types that can be connected to Cork, including required credential fields. Use this before `Connect an Integration` to determine which vendor keys and credential schemas are supported. Optional: vendor_type, page (default: 1), page_size (default: 10). Returns array of AvailableIntegration.",
+      "method": "GET",
+      "path": "/integrations/available",
+      "params": [
+        {
+          "name": "vendor_type",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by vendor type (e.g. 'rmm', 'edr', 'mfa')"
+        },
+        {
+          "name": "page",
+          "type": "string",
+          "location": "query",
+          "description": "Page number"
+        },
+        {
+          "name": "page_size",
+          "type": "int",
+          "location": "query",
+          "description": "Page size"
+        }
+      ]
+    },
+    {
+      "name": "integrations_get-connected",
+      "description": "List integrations that have been connected to Cork, including their vendor, connection status, and sync details. RMM integrations also carry an `installer` block describing whether software installs can run through them (`capable`, `requires_manual_setup`, `authorized`, `configured_package_managers`). Use it with `Get Client Devices` (`associated_endpoints[].integration`) to decide which integration an `Install Software` call will route through and whether it needs setup. Use this to discover integration UUIDs needed by `Get Integration Devices`, `Get Integration Users`, and `Get Integration Tenants`. Optional: partner_uuid, page (default: 1), page_size (default: 10). Returns array of Integration.",
+      "method": "GET",
+      "path": "/integrations/connected",
+      "params": [
+        {
+          "name": "partner_uuid",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by partner UUID (distributor users only). Obtain partner UUIDs from Get Partners."
+        },
+        {
+          "name": "page",
+          "type": "string",
+          "location": "query",
+          "description": "Page number"
+        },
+        {
+          "name": "page_size",
+          "type": "int",
+          "location": "query",
+          "description": "Page size"
+        }
+      ]
+    },
+    {
+      "name": "integrations_update",
+      "description": "Update an API-created integration's display name and/or credentials. _note: Only API-created integrations can be updated. When updating credentials, all credential fields must be provided._. Required: integration-uuid, integration-uuid-2. Optional: credential_fields, display_name. Returns the updated UpdateIntegrationResponse.",
+      "method": "PATCH",
+      "path": "/integrations/{integration-uuid}",
+      "params": [
+        {
+          "name": "integration-uuid",
+          "type": "string",
+          "location": "path",
+          "description": "(e.g. 550e8400-e29b-41d4-a716-446655440000)",
+          "required": true
+        },
+        {
+          "name": "credential_fields",
+          "type": "object",
+          "location": "body",
+          "description": "Credential fields"
+        },
+        {
+          "name": "display_name",
+          "type": "string",
+          "location": "body",
+          "description": "Display name"
+        },
+        {
+          "name": "integration-uuid-2",
+          "wire_name": "integration_uuid",
+          "type": "string",
+          "location": "body",
+          "description": "Integration uuid",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "integrations_credentials_get-integration",
+      "description": "Get an integration's credentials. _note: Integration must have been created via API to retrieve credentials._. Required: integration-uuid. Returns the IntegrationCredentials.",
+      "method": "GET",
+      "path": "/integrations/{integration-uuid}/credentials",
+      "params": [
+        {
+          "name": "integration-uuid",
+          "type": "string",
+          "location": "path",
+          "description": "(e.g. 550e8400-e29b-41d4-a716-446655440000)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "integrations_devices_get-integration",
+      "description": "List devices observed from an integration, including hostnames, IP addresses, device properties (hardware, device type, model), and normalized operating system details (`os`) for devices that have been mapped. Required: integration-uuid. Optional: page (default: 1), page_size (default: 10), tenant_uuid. Returns array of IntegrationDevice.",
+      "method": "GET",
+      "path": "/integrations/{integration-uuid}/devices",
+      "params": [
+        {
+          "name": "page",
+          "type": "string",
+          "location": "query",
+          "description": "Page number"
+        },
+        {
+          "name": "page_size",
+          "type": "int",
+          "location": "query",
+          "description": "Page size"
+        },
+        {
+          "name": "tenant_uuid",
+          "type": "string",
+          "location": "query",
+          "description": "Tenant uuid"
+        },
+        {
+          "name": "integration-uuid",
+          "type": "string",
+          "location": "path",
+          "description": "(e.g. 550e8400-e29b-41d4-a716-446655440000)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "integrations_raw-data_get-integration",
+      "description": "Get a presigned download URL for an integration's raw synced data (10-minute expiry). _note: Requires distributor privileges and integration must have been created via API._. Required: integration-uuid. Returns the IntegrationRawData.",
+      "method": "GET",
+      "path": "/integrations/{integration-uuid}/raw-data",
+      "params": [
+        {
+          "name": "integration-uuid",
+          "type": "string",
+          "location": "path",
+          "description": "(e.g. 550e8400-e29b-41d4-a716-446655440000)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "integrations_resync_integration",
+      "description": "Manually trigger a data refresh for an individual integration. Required: integration-uuid.",
+      "method": "POST",
+      "path": "/integrations/{integration-uuid}/resync",
+      "params": [
+        {
+          "name": "integration-uuid",
+          "type": "string",
+          "location": "path",
+          "description": "(e.g. 550e8400-e29b-41d4-a716-446655440000)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "integrations_tenants_get-integration",
+      "description": "List customer tenants observed from an integration. Required: integration-uuid. Optional: page (default: 1), page_size (default: 10), tenant_uuid. Returns array of IntegrationTenant.",
+      "method": "GET",
+      "path": "/integrations/{integration-uuid}/tenants",
+      "params": [
+        {
+          "name": "page",
+          "type": "string",
+          "location": "query",
+          "description": "Page number"
+        },
+        {
+          "name": "page_size",
+          "type": "int",
+          "location": "query",
+          "description": "Page size"
+        },
+        {
+          "name": "tenant_uuid",
+          "type": "string",
+          "location": "query",
+          "description": "Tenant uuid"
+        },
+        {
+          "name": "integration-uuid",
+          "type": "string",
+          "location": "path",
+          "description": "(e.g. 550e8400-e29b-41d4-a716-446655440000)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "integrations_users_get-integration",
+      "description": "List users observed from an integration. Required: integration-uuid. Optional: page (default: 1), page_size (default: 10), tenant_uuid. Returns array of IntegrationUser.",
+      "method": "GET",
+      "path": "/integrations/{integration-uuid}/users",
+      "params": [
+        {
+          "name": "page",
+          "type": "string",
+          "location": "query",
+          "description": "Page number"
+        },
+        {
+          "name": "page_size",
+          "type": "int",
+          "location": "query",
+          "description": "Page size"
+        },
+        {
+          "name": "tenant_uuid",
+          "type": "string",
+          "location": "query",
+          "description": "Tenant uuid"
+        },
+        {
+          "name": "integration-uuid",
+          "type": "string",
+          "location": "path",
+          "description": "(e.g. 550e8400-e29b-41d4-a716-446655440000)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "invoices_get",
+      "description": "List billing invoices. Returns invoice UUIDs required by `Get Invoice Line Items`. _note: If API user is a distributor, use partner_uuid to scope results to a specific partner._. Optional: partner_uuid, page (default: 1), page_size (default: 10).",
+      "method": "GET",
+      "path": "/invoices",
+      "params": [
+        {
+          "name": "partner_uuid",
+          "type": "string",
+          "location": "query",
+          "description": "Partner uuid"
+        },
+        {
+          "name": "page",
+          "type": "string",
+          "location": "query",
+          "description": "Page number"
+        },
+        {
+          "name": "page_size",
+          "type": "int",
+          "location": "query",
+          "description": "Page size"
+        }
+      ]
+    },
+    {
+      "name": "invoices_line-items_get-invoice",
+      "description": "List billed, top-level line items for an invoice (obtained via `Get Invoices`). Only items with a nonzero total billed are returned; discount line items are included and carry a negative total_billed. Sub-items billed as part of a parent line item (e.g. individual licenses within a bundle) are nested under that item's `children` field, and always carry a total_billed of 0 since their amount is rolled into the parent. Required: invoice-uuid. Optional: page (default: 1), page_size (default: 10). Returns array of InvoiceLineItem.",
+      "method": "GET",
+      "path": "/invoices/{invoice-uuid}/line-items",
+      "params": [
+        {
+          "name": "page",
+          "type": "string",
+          "location": "query",
+          "description": "Page number"
+        },
+        {
+          "name": "page_size",
+          "type": "int",
+          "location": "query",
+          "description": "Page size"
+        },
+        {
+          "name": "invoice-uuid",
+          "type": "string",
+          "location": "path",
+          "description": "(e.g. 550e8400-e29b-41d4-a716-446655440000)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "me_who-am-i",
+      "description": "Information on the authenticated user. Returns the WhoAmi.",
+      "method": "GET",
+      "path": "/me",
+      "params": []
+    },
+    {
+      "name": "software_get-installer-history",
+      "description": "List past software install attempts (most recent first) with their dispatch state, target client/device, package, and any errors. Every `Install Software` call appears here once dispatched. Filter by `client_uuid` or `device_uuid` to scope to a single client or device. `state` is one of queued, running, success, partial, error; 'success' means the RMM accepted the job, not that the on-device install finished. Optional: page (default: 1), page_size (default: 10), client_uuid (plus 2 more). Returns array of InstallerHistoryItem.",
+      "method": "GET",
+      "path": "/software/installer/history",
+      "params": [
+        {
+          "name": "page",
+          "type": "string",
+          "location": "query",
+          "description": "Page number"
+        },
+        {
+          "name": "page_size",
+          "type": "int",
+          "location": "query",
+          "description": "Page size"
+        },
+        {
+          "name": "client_uuid",
+          "type": "string",
+          "location": "query",
+          "description": "Filter to installs targeting a single client. Obtain from Get Clients."
+        },
+        {
+          "name": "device_uuid",
+          "type": "string",
+          "location": "query",
+          "description": "Filter to installs targeting a single mapped device. Obtain from Get Client Devices."
+        },
+        {
+          "name": "partner_uuid",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by partner UUID (distributor users only). Obtain partner UUIDs from Get Partners."
+        }
+      ]
+    },
+    {
+      "name": "software_get-installer-setup",
+      "description": "Get the one-time setup steps for an RMM vendor that requires manual setup before software installs work. Returns the script to create in the RMM, the exact name to give it, the settings to match, and the variables to declare. Use this when a connected integration shows `installer.requires_manual_setup=true` (and the package manager is missing from `installer.configured_package_managers`), or when `Install Software` returns `setup_required`. Vendors that auto-provision their script (e.g. Intune) report `requires_manual_setup=false` and need no setup. Required: vendor_key, package_manager_key.",
+      "method": "GET",
+      "path": "/software/installer/setup",
+      "params": [
+        {
+          "name": "vendor_key",
+          "type": "string",
+          "location": "query",
+          "description": "RMM vendor key to set up (e.g. NINJA_RMM, DATTO_RMM). Obtain from a connected integration's vendor.key where installer.",
+          "required": true
+        },
+        {
+          "name": "package_manager_key",
+          "type": "string",
+          "location": "query",
+          "description": "Package manager the setup is for (e.g. WINGET, CHOC).",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "software_get-packages",
+      "description": "List software packages available to install across supported package managers (WinGet, Chocolatey). Filter by `package_manager_key` to scope to a single manager, or `search` to substring-match name/publisher. Returns package_id values to pass to `Install Software`. Optional: page (default: 1), page_size (default: 10), package_manager_key (plus 1 more).",
+      "method": "GET",
+      "path": "/software/installer/packages",
+      "params": [
+        {
+          "name": "page",
+          "type": "string",
+          "location": "query",
+          "description": "Page number"
+        },
+        {
+          "name": "page_size",
+          "type": "int",
+          "location": "query",
+          "description": "Page size"
+        },
+        {
+          "name": "package_manager_key",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by package manager key (e.g. WINGET, CHOC)"
+        },
+        {
+          "name": "search",
+          "type": "string",
+          "location": "query",
+          "description": "Case-insensitive substring match against package name and publisher"
+        }
+      ]
+    },
+    {
+      "name": "software_install",
+      "description": "Install a software package on a single mapped device via the device's RMM integration. The install is dispatched asynchronously through the RMM (Intune, NinjaRMM, Datto RMM); check `Get Installer History` for completion state. The device must have `can_install_software=true` in `Get Client Devices`. Required inputs: `mapped_device_uuid`, `package_manager_key`, `package_id`, `interpreter_key` (use `PS` for PowerShell). If this returns `setup_required` or `not_authorized`, the routing RMM integration needs setup; see `Get Installer Setup Instructions`. Required: interpreter_key, mapped_device_uuid, package_id, package_manager_key. Optional: run_as, scope, version.",
+      "method": "POST",
+      "path": "/software/installer/install",
+      "params": [
+        {
+          "name": "interpreter_key",
+          "type": "string",
+          "location": "body",
+          "description": "Interpreter to run the install with (e.g. PS for PowerShell)",
+          "required": true
+        },
+        {
+          "name": "mapped_device_uuid",
+          "type": "string",
+          "location": "body",
+          "description": "Mapped device UUID to install on. Obtain from Get Client Devices; the device's can_install_software field must be true.",
+          "required": true
+        },
+        {
+          "name": "package_id",
+          "type": "string",
+          "location": "body",
+          "description": "Package identifier within the package manager",
+          "required": true
+        },
+        {
+          "name": "package_manager_key",
+          "type": "string",
+          "location": "body",
+          "description": "Package manager key (e.g. WINGET, CHOC)",
+          "required": true
+        },
+        {
+          "name": "run_as",
+          "type": "string",
+          "location": "body",
+          "description": "Execution context"
+        },
+        {
+          "name": "scope",
+          "type": "string",
+          "location": "body",
+          "description": "Install scope for WinGet"
+        },
+        {
+          "name": "version",
+          "type": "string",
+          "location": "body",
+          "description": "Specific version to install; leave empty for the package manager's default"
+        }
+      ]
+    },
+    {
+      "name": "vulnerabilities_get-software",
+      "description": "List individual software vulnerabilities with full CVE details including CVSS score, EPSS score, KEV (known exploited) status, and impacted version. Filter by minimum_cvss_score, minimum_epss_score, minimum_priority, or only_known_exploited=true to focus on the highest-risk findings. Scope by client_uuid or device_uuid. Optional: page (default: 1), page_size (default: 10), sw_vendor (plus 9 more). Returns array of SoftwareVulnerability.",
+      "method": "GET",
+      "path": "/vulnerabilities/software",
+      "params": [
+        {
+          "name": "page",
+          "type": "string",
+          "location": "query",
+          "description": "Page number"
+        },
+        {
+          "name": "page_size",
+          "type": "int",
+          "location": "query",
+          "description": "Page size"
+        },
+        {
+          "name": "sw_vendor",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by software vendor"
+        },
+        {
+          "name": "client_uuid",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by client"
+        },
+        {
+          "name": "partner_uuid",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by partner, for distributors only"
+        },
+        {
+          "name": "sort_direction",
+          "type": "string",
+          "location": "query",
+          "description": "Sort direction"
+        },
+        {
+          "name": "sort_by",
+          "type": "string",
+          "location": "query",
+          "description": "Sort by"
+        },
+        {
+          "name": "only_known_exploited",
+          "type": "bool",
+          "location": "query",
+          "description": "Only show known exploited vulnerabilities"
+        },
+        {
+          "name": "minimum_cvss_score",
+          "type": "float",
+          "location": "query",
+          "description": "Minimum CVSS score"
+        },
+        {
+          "name": "minimum_epss_score",
+          "type": "float",
+          "location": "query",
+          "description": "Minimum EPS score"
+        },
+        {
+          "name": "minimum_priority",
+          "type": "string",
+          "location": "query",
+          "description": "Minimum priority"
+        },
+        {
+          "name": "device_uuid",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by device"
+        }
+      ]
+    },
+    {
+      "name": "vulnerabilities_get-software-vulnerability-summary",
+      "description": "Get a rollup of CVEs grouped by software product, showing number of impacted devices, impacted versions, and highest severity rating. Use client_uuid to scope to a single client. Follow up with `Get Software Vulnerabilities` to drill into specific CVEs for a product. Optional: page (default: 1), page_size (default: 10), sw_vendor (plus 4 more). Returns array of SoftwareVulnerabilitySummary.",
+      "method": "GET",
+      "path": "/vulnerabilities/software/summary",
+      "params": [
+        {
+          "name": "page",
+          "type": "string",
+          "location": "query",
+          "description": "Page number"
+        },
+        {
+          "name": "page_size",
+          "type": "int",
+          "location": "query",
+          "description": "Page size"
+        },
+        {
+          "name": "sw_vendor",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by software vendor"
+        },
+        {
+          "name": "client_uuid",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by client"
+        },
+        {
+          "name": "partner_uuid",
+          "type": "string",
+          "location": "query",
+          "description": "Filter by partner, for distributors only"
+        },
+        {
+          "name": "sort_direction",
+          "type": "string",
+          "location": "query",
+          "description": "Sort direction"
+        },
+        {
+          "name": "sort_by",
+          "type": "string",
+          "location": "query",
+          "description": "Sort by"
+        }
+      ]
+    },
+    {
+      "name": "warranties_get",
+      "description": "List active cyber warranty packages. To identify which clients lack coverage, check the warranty_status field in `Get Clients` results - clients with 'unwarranted' status have no active warranty. Optional: partner_uuid, page (default: 1), page_size (default: 10). Returns array of Warranty.",
+      "method": "GET",
+      "path": "/warranties",
+      "params": [
+        {
+          "name": "partner_uuid",
+          "type": "string",
+          "location": "query",
+          "description": "Partner uuid"
+        },
+        {
+          "name": "page",
+          "type": "string",
+          "location": "query",
+          "description": "Page number"
+        },
+        {
+          "name": "page_size",
+          "type": "int",
+          "location": "query",
+          "description": "Page size"
+        }
+      ]
+    }
+  ]
+}

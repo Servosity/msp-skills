@@ -1,7 +1,7 @@
 {
   "schema_version": 2,
-  "generated_at": "2026-10-13T23:02:50.825169Z",
-  "printing_press_version": "4.33.5",
+  "generated_at": "2026-11-02T19:53:37.633942Z",
+  "printing_press_version": "4.35.1",
   "api_name": "connectwise-rmm",
   "display_name": "ConnectWise RMM",
   "cli_name": "connectwise-rmm-pp-cli",
@@ -15,8 +15,8 @@
   "spec_path": "spec.yaml",
   "spec_format": "openapi3",
   "spec_source": "community",
-  "spec_checksum": "sha256:26527a257678343a78cfd4c6299ee3eaf99231e9098ddff2a88bfd156a3b9b3d",
-  "run_id": "20261013-163926-78b59e8f",
+  "spec_checksum": "sha256:d42a163786ed43d5933d9fee3d5831d4181b264bd89672405bdf0261e7376744",
+  "run_id": "20261102-195337",
   "category": "monitoring",
   "description": "66 ConnectWise RMM (Asio) partner API operations, plus a local fleet database, patch-compliance rollups, and script runs you can preview, schedule and watch in one command.",
   "mcp_binary": "connectwise-rmm-pp-mcp",
@@ -107,16 +107,16 @@
   "verify": {
     "mode": "mock",
     "pass_rate": 100,
-    "passed": 87,
-    "total": 87,
+    "passed": 88,
+    "total": 88,
     "data_pipeline": true,
     "verdict": "PASS"
   },
   "scorecard": {
     "steinberger": {
-      "percentage": 97,
+      "percentage": 96,
       "grade": "A",
-      "total": 97
+      "total": 96
     }
   }
 }

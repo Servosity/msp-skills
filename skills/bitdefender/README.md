@@ -12,35 +12,27 @@
 <p align="center"><sub>▶ <a href="https://msp-skills.compoundingteams.com/skills/bitdefender/">Watch the 30-second demo</a> - demo data is simulated; every command shown exists in the real CLI.</sub></p>
 <!-- media:end -->
 
-140 GravityZone API methods, plus fleet health, billing and incident views across child companies. Works with the AI you already use - **ChatGPT** (desktop app), **Claude Desktop**, **Codex**, **Claude Code**, **Claude Cowork**, and **GitHub Copilot** - plus **Gemini CLI**. Free, open source, runs on your laptop. Built for MSP owners. No code required.
+140 GravityZone API methods, plus fleet health, billing and incident views across child companies. Works with the AI you already use - **Claude Desktop**, **Codex**, **Claude Code**, **Claude Cowork**, and **GitHub Copilot**, no code required - plus the **ChatGPT** desktop app and **Gemini CLI**. Free, open source, runs on your laptop. Built for MSP owners.
 
 ## Works with your agent
 
-> **Security note (until this connector is reprinted).** Do not run HTTP mode
-> (`--transport http`), not even on localhost. This build checks a token, but it
-> predates the fix release's request size and time limits. The MCP tools can
-> also make changes with your credentials. Use the default stdio transport. If
-> you set up a tunnel for a remote agent, shut it down. A fix is on the way.
-
-The six agents MSP owners actually use (self-serve, works today):
+The agents MSP owners use most (self-serve, works today):
 
 | Your AI agent | How to install the Bitdefender skill |
 | --- | --- |
 | **Claude Desktop** | Run installer, then **Settings > Extensions** to register `bitdefender-mcp` (no JSON editing). |
-| **ChatGPT** (desktop app) | Run installer, then add `bitdefender-mcp` in **Settings > MCP servers** as a local (STDIO) server. ChatGPT on the web is not supported yet. |
 | **Codex CLI** | Paste the install prompt below. |
 | **Claude Code** | Paste the install prompt below. |
 | **Claude Cowork** | Paste the install prompt below. |
 | **GitHub Copilot** (VS Code) | Run installer, add `bitdefender-mcp` to `mcp.json` under the `servers` key, then pick **Agent** mode. |
 
-The ChatGPT desktop app runs `bitdefender-mcp` locally and shares MCP configuration with Codex ([OpenAI](https://learn.chatgpt.com/docs/extend/mcp)). ChatGPT on the web needs a remote (HTTP) server, and this connector's HTTP mode is paused until it is reprinted (see the security note in [mcp-install.md](./mcp-install.md)), so msp-skills does not support it yet. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
-
-### Also for the Microsoft and Google stacks
+### Also for ChatGPT and the Microsoft and Google stacks
 
 Big install base, but an honest heads-up: Gemini CLI runs the local binary you just installed, while Microsoft 365 Copilot and the Gemini app need a remote server, which msp-skills does not support yet.
 
 | Agent | What it takes |
 | --- | --- |
+| **ChatGPT** (desktop app) | Run installer, then add `bitdefender-mcp` in **Settings > MCP servers** as a local (STDIO) server. ChatGPT on the web is not supported yet. |
 | **Microsoft 365 Copilot / Copilot Studio** | Not supported by msp-skills yet: it needs a remote server. A [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list. |
 | **Google Gemini** | **Gemini CLI** is local - same as Claude Code. See [mcp-install.md](./mcp-install.md). The **Gemini app** needs a remote server and is not supported by msp-skills yet. |
 
@@ -194,7 +186,7 @@ See [pain-point.md](./pain-point.md) for the longer narrative.
 
 ### Does this work with ChatGPT?
 
-Yes, in the **ChatGPT desktop app**. It runs MCP servers locally (STDIO), the way `bitdefender-mcp` runs, and shares MCP configuration with Codex ([OpenAI](https://learn.chatgpt.com/docs/extend/mcp)): add `bitdefender-mcp` under **Settings > MCP servers** as a STDIO server, or add it once to Codex's `~/.codex/config.toml`. **ChatGPT on the web** is not supported by msp-skills yet: it needs a remote (HTTP) server, and this connector's HTTP mode is paused until it is reprinted; the security note in [mcp-install.md](./mcp-install.md) explains why. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list.
+Yes, in the **ChatGPT desktop app**. It runs MCP servers locally (STDIO), the way `bitdefender-mcp` runs, and shares MCP configuration with Codex ([OpenAI](https://learn.chatgpt.com/docs/extend/mcp)): add `bitdefender-mcp` under **Settings > MCP servers** as a STDIO server, or add it once to Codex's `~/.codex/config.toml`. **ChatGPT on the web** is not supported by msp-skills yet: it needs a remote server. If your team works there, a [hosted gateway](https://msp-skills.compoundingteams.com/answers/mcp-servers-for-msps-2026/#when-a-hosted-gateway-is-the-better-pick) is the better pick; check that your AI app is on the gateway's setup list. Setup steps: [mcp-install.md](./mcp-install.md).
 
 ### Does this work with Codex, Cursor, Windsurf, Cline, Copilot, or Gemini?
 
@@ -222,7 +214,7 @@ Control Center limits each API key to a number of requests per second and answer
 
 ### Can the AI isolate a machine or run a command on an endpoint by itself?
 
-Only if you let it. Generated commands run as soon as they are invoked and do not prompt, so preview with `--dry-run` first: it prints the JSON-RPC method and parameters it would send, without sending. Over MCP, the generic `bitdefender_execute` tool can call any GravityZone method, including isolation, kill process, remote command execution and deletes, gated only by your AI app's approval prompt. For an agent that should only read, set `BITDEFENDER_MCP_READ_ONLY=1` in the MCP server's environment: `bitdefender_execute` then runs only GravityZone read methods, refuses every write and the Credential-tier reads, and the `import` tool is hidden. Incident reads stay allowed, and XDR evidence can hold connection headers captured on the endpoint, so treat incident output as sensitive. Keep the approval prompt on.
+Only if you let it. Generated commands run as soon as they are invoked and do not prompt, so preview with `--dry-run` first: it prints the JSON-RPC method and parameters it would send, without sending. Over MCP, the generic `bitdefender_execute` tool can call any data-changing GravityZone method, including isolation, kill process, remote command execution and deletes, but it first returns a preview and sends nothing until the agent repeats the call with `confirm` set to true; your AI app's approval prompt is the second gate. For an agent that should only read, set `BITDEFENDER_MCP_READ_ONLY=1` in the MCP server's environment: `bitdefender_execute` and the `import` tool are then removed, and `bitdefender_read` runs only GravityZone read methods on an explicit list, refusing the Credential-tier reads. Incident reads stay allowed, and XDR evidence can hold connection headers captured on the endpoint, so treat incident output as sensitive. Keep the approval prompt on.
 
 ### Why does `fleet changes` say it has nothing to compare?
 
@@ -256,7 +248,7 @@ Free. Apache-2.0 licensed. You pay only for whichever AI agent you use (Claude, 
 | Credential and access | `push get` (returns the webhook Authorization value), `license get` (returns the license key), `companies get-by-user` (takes a user's password), `packages get`, `packages install-links`, `integrations get`, `policies get` (policy password settings), `inventory list` (can return license keys), `accounts create`, `accounts update`, `accounts delete`, `email-verification`, `auth set-token` | Human-in-the-loop only |
 | Destructive and commercial | `import` (one create per JSONL line, so it can reach any tier above), `endpoints delete`, `endpoints move-to-company`, `company-folders move`, `companies create`, `companies suspend`, `companies delete`, `company-folders delete`, `groups delete`, `packages delete`, `license set-key`, `license add-product-key`, `license remove-product-key`, `license set-monthly-subscription` | Human-in-the-loop only, explicit confirmation |
 
-Generated commands run as soon as they are invoked; preview with `--dry-run`. Over MCP, the generic `bitdefender_execute` tool can reach every write in the table; set `BITDEFENDER_MCP_READ_ONLY=1` for an agent that should only read.
+Generated commands run as soon as they are invoked; preview with `--dry-run`. Over MCP, the generic `bitdefender_execute` tool can reach every write in the table after a preview and `confirm: true`; set `BITDEFENDER_MCP_READ_ONLY=1` for an agent that should only read.
 
 The strongest control is the **scope you grant the Bitdefender credentials** - the CLI can only do what the credentials are permitted to do. Full details, including how to lock it down, are in [governance.md](./governance.md).
 

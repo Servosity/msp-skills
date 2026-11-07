@@ -40,6 +40,54 @@
           "description": "Set the MICROSOFT_GRAPH_TOKEN credential for the Microsoft Graph MCP server.",
           "isRequired": true,
           "isSecret": true
+        },
+        {
+          "name": "MICROSOFT_GRAPH_HOME_TENANT",
+          "description": "Optional. Your own Microsoft 365 tenant ID (Entra admin center > Overview > Tenant ID). The transcripts commands need it: they read meeting transcripts in this tenant only and refuse a token for any other tenant. Leave blank if you do not use transcripts.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "MICROSOFT_GRAPH_TRANSCRIPTS_APP_ONLY",
+          "description": "Optional. Set to exactly 1 to let the transcripts commands use an app-only token in your own tenant. Do this only after a Teams application access policy limits the app to named users (New-CsApplicationAccessPolicy, then Grant-CsApplicationAccessPolicy). Leave blank to accept a signed-in user's token only.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "MICROSOFT_GRAPH_MCP_NO_TRANSCRIPTS",
+          "description": "Optional. Set to exactly 1 to hide the transcripts tools from the MCP server and refuse them. Leave blank to keep the read-only transcripts tools.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "MICROSOFT_GRAPH_MCP_READ_ONLY",
+          "description": "Optional. Set to exactly 1 to expose only read-only tools and refuse any state-changing execute call. Leave blank to keep every tool available.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "MICROSOFT_GRAPH_NO_LOCAL_DATA",
+          "description": "Optional. Set to 1 to keep no local copy of API responses: nothing new is written to the local store. Leave blank to keep the local store.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "MICROSOFT_GRAPH_USER_AGENT",
+          "description": "Overrides the User-Agent the CLI sends on Microsoft Graph requests. Leave blank to use the CLI's own built-in User-Agent.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "PRINTING_PRESS_CLIENT_PROFILE",
+          "description": "Only for tenant-gated multi-client deployments: binds the MCP server to an existing Printing Press client profile. Leave blank for a single-tenant install.",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "MICROSOFT_GRAPH_MCP_HTTP_TOKEN",
+          "description": "Required only when running the MCP server with --transport http (a remote/hosted deployment). Callers must send a matching Authorization: Bearer header. Not needed for the default local stdio transport that Claude Desktop uses.",
+          "isRequired": false,
+          "isSecret": true
         }
       ]
     }

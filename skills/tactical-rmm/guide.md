@@ -60,9 +60,7 @@ To install:
 2. Double-click the `.mcpb` file. Claude Desktop opens and walks you through the install.
 3. Fill in `TRMM_API_KEY` when Claude Desktop prompts you.
 
-Requires Claude Desktop 1.0.0 or later. A bundle carries the five platform binaries the builder downloads - macOS (`darwin-arm64`, `darwin-amd64`), Linux (`linux-arm64`, `linux-amd64`) and Windows (`windows-amd64`). Windows on ARM is released as a standalone binary but is not bundled, so use the manual config below there.
-
-> **Claude Desktop bundle:** the `.mcpb` launches on macOS (Intel and Apple Silicon), Windows x64 and Linux x64. Every tool shells out to the companion `tactical-rmm-cli`. Releases cut from 2026-09-18 on ship that CLI inside the bundle; older bundles contain only the MCP server, so if yours lacks the companion, run the installer above first (or set `TACTICAL_RMM_CLI_PATH` to an existing binary). Details: [#331](https://github.com/Servosity/msp-skills/issues/331).
+Requires Claude Desktop 1.0.0 or later. Pre-built bundles ship for macOS Apple Silicon (`darwin-arm64`) and Windows (`amd64`, `arm64`); for other platforms, use the manual config below.
 
 <details>
 <summary>Manual JSON config (advanced)</summary>
@@ -77,7 +75,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/sk
 iwr -useb https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/tactical-rmm/install.ps1 | iex            # Windows
 ```
 
-Add to your Claude Desktop config (`%APPDATA%\Claude\claude_desktop_config.json` on Windows, `~/Library/Application Support/Claude/claude_desktop_config.json` on macOS):
+Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS, `%APPDATA%\Claude\claude_desktop_config.json` on Windows):
 
 ```json
 {
@@ -93,6 +91,17 @@ Add to your Claude Desktop config (`%APPDATA%\Claude\claude_desktop_config.json`
 ```
 
 </details>
+
+### Remote MCP over HTTP
+
+`tactical-rmm-mcp --transport http` (or `PP_MCP_TRANSPORT=http`) serves streamable HTTP at `http://127.0.0.1:7777/mcp`. It refuses to start until `TACTICAL_RMM_MCP_HTTP_TOKEN` is set to at least 32 characters, and every request must send `Authorization: Bearer <token>`. The command below prints 64 hex characters and meets that minimum. Plain HTTP is allowed only on a loopback `--addr`; any other bind, including `:7777` (every interface), also needs `--tls-cert` and `--tls-key`. Requests with no `Origin` header are accepted, as are loopback origins (`localhost`, `127.0.0.1`, or `[::1]`, any port). Any other `Origin` is refused unless it is listed in `TACTICAL_RMM_MCP_HTTP_ALLOWED_ORIGINS`, a comma-separated list of `scheme://host[:port]` values with no path. That list is not a CORS policy; the server does not emit CORS headers.
+
+```bash
+export TACTICAL_RMM_MCP_HTTP_TOKEN="$(openssl rand -hex 32)"
+tactical-rmm-mcp --transport http
+```
+
+Set `TACTICAL_RMM_MCP_READ_ONLY=1` (exactly `1`) to drop mirrored commands that are not marked read-only and make the raw execute tool refuse state-changing calls. Commands marked local-write, which write only this CLI's own learn store, stay available.
 
 ## Authentication
 
@@ -114,7 +123,7 @@ tactical-rmm-cli fleet health
 tactical-rmm-cli triage --limit 20
 
 # Offline FTS across synced entities.
-tactical-rmm-cli search <query>
+tactical-rmm-cli search term
 
 ```
 
@@ -172,7 +181,7 @@ These capabilities aren't available in any other tool for this API.
   _Answer who is exposed during a CVE scramble._
 
   ```bash
-  tactical-rmm-cli software find <name>
+  tactical-rmm-cli software find openssl
   ```
 - **`services down`**  -  Agents where a named Windows service is stopped, across the whole fleet. Live fan-out: requires TRMM_API_KEY (agent list comes from the local store).
 
@@ -195,7 +204,7 @@ These capabilities aren't available in any other tool for this API.
   _Reach for this when silencing monitoring for a planned window across many agents at once; previews by default, mutates only with --execute and a live TRMM_API_KEY._
 
   ```bash
-  tactical-rmm-cli maintenance set --filter site=HQ --until 4h
+  tactical-rmm-cli maintenance set --filter client=Acme,site=HQ --until 4h
   ```
 - **`actions pending`**  -  Queued agent actions across the fleet grouped by agent and age, so stuck dispatches surface. Live fan-out: requires TRMM_API_KEY (agent list comes from the local store).
 
@@ -206,7 +215,7 @@ These capabilities aren't available in any other tool for this API.
   ```
 
 ### Monitoring quality
-- **`checks flapping`**  -  Checks that repeatedly flipped pass/fail within a window, from local snapshots.
+- **`checks flapping`**  -  Checks that repeatedly flipped pass/fail within a window, from local snapshots (`--snapshot` reads each agent's checks live).
 
   _Catch noisy monitors that erode alert trust._
 
@@ -227,7 +236,7 @@ These capabilities aren't available in any other tool for this API.
   ```bash
   tactical-rmm-cli coverage
   ```
-- **`checks worst`**  -  Failing checks ranked by blast radius - how many agents are red on each check.
+- **`checks worst`**  -  Failing checks ranked by blast radius - how many agents are red on each check. Reads each failing agent's checks live, so it needs `TRMM_API_KEY`; the agent list comes from the local store.
 
   _Use this to find the single failure hurting the most endpoints before triaging agent-by-agent._
 
@@ -236,7 +245,6 @@ These capabilities aren't available in any other tool for this API.
   ```
 
 ## Recipes
-
 
 ### Morning fleet triage
 
@@ -249,7 +257,7 @@ Ranked attention list across offline state, failing checks, reboots, patches.
 ### CVE exposure sweep
 
 ```bash
-tactical-rmm-cli software find <name> --select agent_id,name,version
+tactical-rmm-cli software find openssl --select agent_id,name,version
 ```
 
 Which agents carry a package, narrowed to the fields that matter.
@@ -273,6 +281,81 @@ New alerts and newly-offline agents since your last shift.
 ## Usage
 
 Run `tactical-rmm-cli --help` for the full command reference and flag list.
+
+## Paths & environment variables
+
+This CLI separates local files into four path kinds:
+
+| Kind | Contents |
+|------|----------|
+| `config` | User-editable settings such as `config.toml` and saved profiles |
+| `data` | Durable local data: `credentials.toml`, `data.db`, cookies, browser-session proof files, and other auth sidecars |
+| `state` | Runtime state such as persisted queries, jobs, and `teach.log` |
+| `cache` | Regenerable HTTP/cache files |
+
+Each kind resolves independently. The ladder is:
+
+1. Per-kind env var: `TACTICAL_RMM_CONFIG_DIR`, `TACTICAL_RMM_DATA_DIR`, `TACTICAL_RMM_STATE_DIR`, or `TACTICAL_RMM_CACHE_DIR`
+2. `--home <dir>` for this invocation
+3. `TACTICAL_RMM_HOME` for a flat relocated root
+4. XDG env vars: `XDG_CONFIG_HOME`, `XDG_DATA_HOME`, `XDG_STATE_HOME`, `XDG_CACHE_HOME`
+5. Platform defaults matching existing installs
+
+For containers and agent sandboxes, prefer a single relocated root:
+
+```bash
+export TACTICAL_RMM_HOME=/srv/tactical-rmm
+tactical-rmm-cli doctor
+```
+
+On Windows (PowerShell):
+
+```powershell
+$env:TACTICAL_RMM_HOME = "C:\ProgramData\tactical-rmm"
+tactical-rmm-cli doctor
+```
+
+Under `TACTICAL_RMM_HOME=/srv/tactical-rmm`, the four dirs resolve to `/srv/tactical-rmm/config`, `/srv/tactical-rmm/data`, `/srv/tactical-rmm/state`, and `/srv/tactical-rmm/cache`.
+
+On Windows, set the same variable in PowerShell:
+
+```powershell
+$env:TACTICAL_RMM_HOME = "C:\srv\tactical-rmm"
+tactical-rmm-cli doctor
+```
+
+Under `$env:TACTICAL_RMM_HOME = "C:\srv\tactical-rmm"`, the four dirs resolve to `C:\srv\tactical-rmm\config`, `C:\srv\tactical-rmm\data`, `C:\srv\tactical-rmm\state`, and `C:\srv\tactical-rmm\cache`.
+
+MCP servers do not receive CLI flags from the host. Put relocation in the host `env` block:
+
+```json
+{
+  "mcpServers": {
+    "tactical-rmm": {
+      "command": "tactical-rmm-mcp",
+      "env": {
+        "TACTICAL_RMM_HOME": "/srv/tactical-rmm"
+      }
+    }
+  }
+}
+```
+
+Precedence matters in fleets: an ambient per-kind variable such as `TACTICAL_RMM_DATA_DIR` overrides an explicit `--home` for that kind. Use `TACTICAL_RMM_HOME` or the per-kind variables for durable fleet relocation; treat `--home` as the weaker per-invocation lever.
+
+Relocation is one-way. Unsetting `TACTICAL_RMM_HOME` does not move files back to platform defaults, and `doctor` cannot find credentials left under a former root. Move the files manually before unsetting relocation variables.
+
+Existing installs keep working because the platform-default rung matches the legacy layout. On the first auth write, stored secrets leave `config.toml` and are consolidated into `credentials.toml` under the data directory. Run `tactical-rmm-cli doctor --fail-on warn` to check path and credential-location warnings in automation.
+
+### Local data
+
+Reads are saved locally by default: in `--data-source auto` mode every successful read is also written to the SQLite store (`data.db`, or `data-<hash>.db` per credential) in the data directory. GET responses are cached for five minutes under `http/` in the cache directory. Credentials live in `credentials.toml` in the data directory. The learn journal lives under `learn/` in the state directory. `tactical-rmm-cli doctor` prints the resolved paths, every store file, and the response-cache size.
+
+None of it is encrypted. New files are created owner-only; beyond that the data relies on OS account permissions and full-disk encryption (FileVault, BitLocker, LUKS).
+
+- **Erase it:** `tactical-rmm-cli local-data purge` lists the store files, response cache, and learn journal it would delete; add `--yes` to delete them, or `--only store|cache|journal` to narrow it. Config and credentials are kept.
+- **Run without a local copy:** set `TACTICAL_RMM_NO_LOCAL_DATA=1`. Reads go to the API (`--data-source live`; `--data-source local` still reads an existing store), the response cache is off (`--no-cache`), nothing new is written to the store, and `sync` and `workflow archive` refuse to run. Set it in an MCP host's `env` block and every command the server runs inherits it.
+- **Choose the read source without flags:** `TACTICAL_RMM_DATA_SOURCE=auto|live|local` sets the `--data-source` default; an explicit flag wins.
 
 ## Commands
 
@@ -505,6 +588,107 @@ Manage winupdate
 - **`tactical-rmm-cli winupdate winupdate-pk`** - PUT /winupdate/{pk}/
 
 
+### actions
+
+
+- **`tactical-rmm-cli actions pending`** - Queued agent actions across the fleet grouped by agent and age, so stuck dispatches surface. Live fan-out: requires TRMM_API_KEY (agent list comes from the local store).
+
+
+### agents
+
+
+- **`tactical-rmm-cli agents stale`** - Agents whose last check-in exceeds a threshold, with client and site.
+
+- **`tactical-rmm-cli agents bulk-run`** - Run a script/command across every agent matching a local-store filter (client/site/os/online).
+
+
+### alerts
+
+
+- **`tactical-rmm-cli alerts digest`** - Grouped alert summary by client/severity/type over a time window.
+
+
+### checks
+
+
+- **`tactical-rmm-cli checks flapping`** - Checks that repeatedly flipped pass/fail within a window, from local snapshots (`--snapshot` reads each agent's checks live).
+
+- **`tactical-rmm-cli checks worst`** - Failing checks ranked by blast radius - how many agents are red on each check. Reads each failing agent's checks live, so it needs `TRMM_API_KEY`; the agent list comes from the local store.
+
+
+### clients
+
+
+- **`tactical-rmm-cli clients scorecard`** - One posture row per client: agent count, online share, failing checks, pending patches, open alerts.
+
+
+### coverage
+
+
+- **`tactical-rmm-cli coverage`** - Agents missing checks (unmonitored endpoints).
+
+
+### fleet
+
+
+- **`tactical-rmm-cli fleet health`** - Whole-fleet posture in one command: online/offline/overdue agents, failing checks, pending reboots, outstanding patches, active alerts.
+
+
+### maintenance
+
+
+- **`tactical-rmm-cli maintenance set`** - Put a filtered cohort of agents into maintenance mode in one command, with a reminder window (re-run with --clear to end it; Tactical RMM has no server-side expiry).
+
+
+### patch
+
+
+- **`tactical-rmm-cli patch posture`** - Per-client/site rollup of pending Windows updates and reboots.
+
+
+### services
+
+
+- **`tactical-rmm-cli services down`** - Agents where a named Windows service is stopped, across the whole fleet. Live fan-out: requires TRMM_API_KEY (agent list comes from the local store).
+
+
+### since
+
+
+- **`tactical-rmm-cli since`** - What changed across the fleet since a window: new alerts, newly-offline agents.
+
+
+### software
+
+
+- **`tactical-rmm-cli software find`** - Which agents have a given software package installed across the fleet.
+
+
+### triage
+
+
+- **`tactical-rmm-cli triage`** - Ranked list of agents needing attention, scored across offline state, failing checks, reboots and patches.
+
+
+
+
+### Self-learning loop
+
+This CLI caches per-question discovery so repeat queries skip the walk and structurally similar queries get answered via entity substitution. The loop also self-captures: every invocation is journaled locally, and failed-flag corrections plus fresh teaches surface as candidates on the next `recall` for confirm/reject judgment. Agents call `recall` before discovery and fire `teach &` after answering. See the `## Automatic learning` section in `SKILL.md` for the full protocol.
+
+- **`tactical-rmm-cli recall <query>`** - Look up cached resources for a query before running discovery
+- **`tactical-rmm-cli teach`** - Record a query -> resource mapping (silent on success, safe to background with `&`)
+- **`tactical-rmm-cli learnings list`** - Inspect taught rows
+- **`tactical-rmm-cli learnings forget <query>`** - Undo a teach
+- **`tactical-rmm-cli learnings candidates`** - List auto-captured candidates awaiting confirm/reject
+- **`tactical-rmm-cli learnings stats`** - Local loop metrics: recall hit rate, teach-to-reuse, playbook resolution, candidate counts
+- **`tactical-rmm-cli teach-pattern`** - Install a query/resource template up front
+- **`tactical-rmm-cli teach-lookup`** - Add an entity mapping (e.g. country code, team alias) for pattern substitution
+
+Pass `--no-learn` or set `TACTICAL_RMM_NO_LEARN=true` to disable the loop for deterministic flows.
+
+The local store's schema version stamp is one-way: once this version of `tactical-rmm-cli` opens the database, older binaries refuse it with a version error  -  upgrade the binary rather than downgrading.
+
 ## Output Formats
 
 ```bash
@@ -513,9 +697,8 @@ tactical-rmm-cli accounts accounts
 
 # JSON for scripting and agents
 tactical-rmm-cli accounts accounts --json
-
-# Filter to specific fields
-tactical-rmm-cli accounts accounts --json --select id,name,status
+# Filter to specific fields by name
+tactical-rmm-cli accounts accounts --json --select <field>[,<field>...]
 
 # Dry run  -  show the request without sending
 tactical-rmm-cli accounts accounts --dry-run
@@ -524,21 +707,23 @@ tactical-rmm-cli accounts accounts --dry-run
 tactical-rmm-cli accounts accounts --agent
 ```
 
+`--csv` prefixes a leading `'` on cells and header keys that start with `=`, `+`, `-`, `@`, a tab, or a line break (including fullwidth `＝＋－＠`) so a spreadsheet does not run them as formulas. Plain signed numbers such as `-5` and `+2.5e3` are left unchanged.
+
 ## Agent Usage
 
 This CLI is designed for AI agent consumption:
 
 - **Non-interactive** - never prompts, every input is a flag
 - **Pipeable** - `--json` output to stdout, errors to stderr
-- **Filterable** - `--select id,name` returns only fields you need
+- **Filterable** - `--select <field>[,<field>...]` returns only fields you need
 - **Previewable** - `--dry-run` shows the request without sending
-- **Explicit retries** - add `--idempotent` to create retries and `--ignore-missing` to delete retries when a no-op success is acceptable
-- **Confirmable** - `--yes` for explicit confirmation of destructive actions
+- **Explicit retries** - add `--idempotent` to create retries and add `--ignore-missing` to delete retries when a no-op success is acceptable
+- **Explicit confirmation** - `--agent` does not imply `--yes`; pass `--yes` separately only after the target, arguments, and side effects are clear
 - **Piped input** - write commands can accept structured input when their help lists `--stdin`
 - **Offline-friendly** - sync/search commands can use the local SQLite store when available
 - **Agent-safe by default** - no colors or formatting unless `--human-friendly` is set
 
-Exit codes: `0` success, `2` usage error, `3` not found, `4` auth error, `5` API error, `7` rate limited, `10` config error.
+Exit codes: `0` success, `2` usage error, `3` not found, `4` auth error, `5` API error, `6` partial failure, `7` rate limited, `10` config error.
 
 ## Health Check
 
@@ -550,9 +735,11 @@ Verifies configuration, credentials, and connectivity to the API.
 
 ## Configuration
 
-Config file: `~/.config/tactical-rmm-cli/config.toml`
+Run `tactical-rmm-cli doctor` to see the resolved config, data, state, and cache directories. The platform-default config path is `~/.config/tactical-rmm-cli/config.toml` on macOS/Linux and `%USERPROFILE%\.config\tactical-rmm-cli\config.toml` on Windows; `--home`, `TACTICAL_RMM_HOME`, and per-kind env vars can relocate it.
 
 Static request headers can be configured under `headers`; per-command header overrides take precedence.
+
+`--ca-cert`, `TACTICAL_RMM_CA_CERT`, or `ca_cert` adds a PEM CA bundle to the system trust roots. `--tls-server-name`, `TACTICAL_RMM_TLS_SERVER_NAME`, or `tls_server_name` is the name checked against the certificate when the dialed address does not match it. Precedence is flag, then environment, then the config file. A config file other users can change does not supply these settings. Certificate verification failures are not retried.
 
 Environment variables:
 

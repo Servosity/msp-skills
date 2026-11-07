@@ -80,7 +80,12 @@ missing or no scope could be minted.`, "\n"),
 			ctx, cancel := boundCtx(cmd.Context(), flags)
 			defer cancel()
 			view := scopesView{TokenURL: cfg.AsioTokenURL(), Granted: make([]string, 0), Denied: make([]scopeDenial, 0)}
-			hc := cliutil.OAuthTokenHTTPClient(http.DefaultClient)
+			// The press's dial-pinned client (TLS settings, host pin), as auth login uses.
+			plain, err := flags.oauthHTTPClient(cfg)
+			if err != nil {
+				return err
+			}
+			hc := cliutil.OAuthTokenHTTPClient(plain)
 			for _, s := range candidates {
 				if err := probeScope(ctx, hc, view.TokenURL, id, secret, s); err != nil {
 					view.Denied = append(view.Denied, scopeDenial{Scope: s, Error: err.Error()})
@@ -131,6 +136,14 @@ func probeScope(ctx context.Context, hc *http.Client, tokenURL, id, secret, scop
 	if err != nil {
 		return err
 	}
+	// Hand-fix (handfixes.json credkit-wiring): the pair may go to the regional token host this config resolves.
+	config.HoldForAsioRegion(tokenURL, id, secret)
+	// The secret rides in the JSON body: the press's outbound guard refuses
+	// plaintext http off loopback and pins the dial to the token host.
+	req, err = client.GuardTokenRequest(hc, req, client.AsioTokenBody(req))
+	if err != nil {
+		return err
+	}
 	resp, err := hc.Do(req)
 	if err != nil {
 		return err
@@ -146,5 +159,7 @@ func probeScope(ctx context.Context, hc *http.Client, tokenURL, id, secret, scop
 	if json.Unmarshal(body, &tok) != nil || tok.AccessToken == "" {
 		return fmt.Errorf("HTTP 200 without an access_token")
 	}
+	// Hand-fix (handfixes.json credkit-wiring): the probe's token is discarded, and held first.
+	cliutil.Hold("minted:access_token", tok.AccessToken)
 	return nil
 }

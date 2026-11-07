@@ -4,6 +4,25 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.1.7] - unreleased
+
+### Security
+- **Rebuilt on Printing Press 4.35.1 ([GHSA-jh26-vhqh-692c](https://github.com/advisories/GHSA-jh26-vhqh-692c)).** The MCP server now has a native HTTP mode: it listens on `127.0.0.1:7777` by default, refuses to start until `BLUMIRA_MCP_HTTP_TOKEN` is set (at least 32 characters), requires `Authorization: Bearer <token>` on every request, and needs `--tls-cert` and `--tls-key` for any address other than loopback. Remote agents (ChatGPT, Copilot Studio, the Gemini app) are supported again through a hosted HTTPS endpoint; see [mcp-install.md](./mcp-install.md).
+- **Every MCP write previews first.** The six Blumira write tools (resolve a finding, set owners, add a comment and the rest) return a preview and send nothing until they are called again with `confirm` set to boolean true.
+- `auth login` sends the client secret only to the token endpoint: it refuses every redirect and refuses a plaintext `--auth-url` other than loopback.
+
+### Added
+- `BLUMIRA_MCP_READ_ONLY` (preset to `1` in the Claude Desktop bundle and the install configs) makes the MCP server refuse every write. `BLUMIRA_NO_LOCAL_DATA=1` keeps no local copy of API responses. Both are declared on every install channel.
+
+### Fixed
+- **`sync` reads every page.** Blumira returns 50 rows a page unless asked for more, and `sync` treated that first page as the whole list, so a partition over 50 rows (findings, devices, rules, accounts) was cut at 50 and recorded as complete. `sync` now asks for 200 rows a page, follows the next-page link and the total counts Blumira returns, and records a walk as complete only when it reached the end.
+- **Over-time reports see every sync.** A sync that returned no findings was not recorded, so `drift` missed the first finding that appeared after it; `sync` also records a history point for every findings walk, so `drift`, `velocity`, `audit` and `recurring` no longer depend on an analytics command running between syncs.
+- **Device reports cover MSP sub-accounts.** `sync` now reads each MSP sub-account's device list, and `exposure`, `dc-roster` and `overview` name every account whose devices could not be read completely instead of reporting it as healthy.
+- **Owners are read from Blumira's role-keyed `owners` object**, unknown ownership is no longer reported as unassigned, and two owners who share a name stay two people in `workload` and `reconcile`.
+- **`evidence-search` reads every evidence page**, matches the search term literally (a `%` or `_` is not a wildcard), and applies `--limit` to findings after merging evidence and finding matches, so a finding found in both places no longer hides another match.
+- `velocity` reads a finding's latest state, so a resolution that was later reopened no longer counts as current.
+- `doctor` probes the real Blumira host and checks the credential instead of reporting every install as an unset placeholder.
+
 ## [0.1.6] - 2026-10-22
 
 ### Security

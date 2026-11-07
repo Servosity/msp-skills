@@ -57,7 +57,7 @@ func newOrganizationsDevicesGetOrganizationUplinksAddressesByCmd(flags *rootFlag
 					}
 				}
 				if !validTagsFilterType {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagTagsFilterType, "tags-filter-type", allowedTagsFilterType)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagTagsFilterType, "tags-filter-type", allowedTagsFilterType))
 				}
 			}
 			path := "/organizations/{organizationId}/devices/uplinks/addresses/byDevice"

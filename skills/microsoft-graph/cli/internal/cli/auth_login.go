@@ -5,6 +5,7 @@ package cli
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -16,6 +17,7 @@ import (
 
 	"microsoft-graph-pp-cli/internal/cliutil"
 	"microsoft-graph-pp-cli/internal/config"
+	"microsoft-graph-pp-cli/internal/credkit"
 )
 
 // newAuthLoginCmd implements app-only authentication via the OAuth2
@@ -86,11 +88,17 @@ Alternatively, skip this and export a pre-minted token as MICROSOFT_GRAPH_TOKEN
 	return cmd
 }
 
+// entraLoginURLFormat is the Entra v2.0 token endpoint format (a variable only so a
+// test can point it at a local server).
+var entraLoginURLFormat = "https://login.microsoftonline.com/%s/oauth2/v2.0/token"
+
+var errTokenRedirectRefused = errors.New("the Entra token endpoint answered with a redirect; refused (the client secret is sent to login.microsoftonline.com only)")
+
 // mintClientCredentialsToken exchanges client credentials for an access token
 // at the Entra v2.0 token endpoint. It applies a 60-second safety margin to the
 // returned expiry so callers re-auth before the token actually lapses.
 func mintClientCredentialsToken(ctx context.Context, timeout time.Duration, tenant, clientID, clientSecret, scope string) (string, time.Time, error) {
-	endpoint := fmt.Sprintf("https://login.microsoftonline.com/%s/oauth2/v2.0/token", url.PathEscape(tenant))
+	endpoint := fmt.Sprintf(entraLoginURLFormat, url.PathEscape(tenant))
 	form := url.Values{}
 	form.Set("grant_type", "client_credentials")
 	form.Set("client_id", clientID)
@@ -107,7 +115,16 @@ func mintClientCredentialsToken(ctx context.Context, timeout time.Duration, tena
 	if timeout <= 0 {
 		timeout = 60 * time.Second
 	}
-	httpClient := &http.Client{Timeout: timeout}
+	// microsoft-graph handfix (api-origin-pinned): the client secret goes to the
+	// Entra token endpoint only. A redirect is refused, never followed, so no
+	// Location header can carry the form to another host.
+	httpClient := &http.Client{
+		Timeout:   timeout,
+		Transport: credkit.Transport(nil), // Hand-fix (handfixes.json credkit-wiring): the client id and secret may reach only the Entra token host
+		CheckRedirect: func(*http.Request, []*http.Request) error {
+			return errTokenRedirectRefused
+		},
+	}
 	resp, err := httpClient.Do(req)
 	if err != nil {
 		return "", time.Time{}, fmt.Errorf("requesting token from Entra: %w", err)
@@ -122,12 +139,12 @@ func mintClientCredentialsToken(ctx context.Context, timeout time.Duration, tena
 		ErrorDescription string `json:"error_description"`
 	}
 	_ = json.Unmarshal(body, &parsed)
+	// Hand-fix (handfixes.json auth-login-pinned-and-held): the minted token is
+	// held before anything prints; the kit's transport held the answer's
+	// declared response fields already.
+	credkit.Hold("minted:entra", parsed.AccessToken)
 
 	if resp.StatusCode != http.StatusOK || parsed.AccessToken == "" {
-		// Hand-fix (handfixes.json secret-echo-decoded-funnel): the complete raw body passes the funnel once, before any branch formats a field out of it.
-		if w := cliutil.FunnelWithhold(string(body), []string{clientSecret}); cliutil.FunnelWithheld(w) {
-			return "", time.Time{}, fmt.Errorf("token request failed (HTTP %d): %s", resp.StatusCode, w)
-		}
 		msg := parsed.ErrorDescription
 		if msg == "" {
 			msg = parsed.Error

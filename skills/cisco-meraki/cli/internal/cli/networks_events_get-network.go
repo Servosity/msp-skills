@@ -67,7 +67,7 @@ func newNetworksEventsGetNetworkCmd(flags *rootFlags) *cobra.Command {
 					}
 				}
 				if !validProductType {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagProductType, "product-type", allowedProductType)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagProductType, "product-type", allowedProductType))
 				}
 			}
 			path := "/networks/{networkId}/events"
@@ -101,7 +101,7 @@ func newNetworksEventsGetNetworkCmd(flags *rootFlags) *cobra.Command {
 				"perPage":       formatCLIParamValue(flagPerPage),
 				"startingAfter": formatCLIParamValue(flagStartingAfter),
 				"endingBefore":  formatCLIParamValue(flagEndingBefore),
-			}, map[string][]string{"productType": {"product-type"}, "deviceMac": {"device-mac"}, "deviceSerial": {"device-serial"}, "deviceName": {"device-name"}, "clientIp": {"client-ip"}, "clientMac": {"client-mac"}, "clientName": {"client-name"}, "smDeviceMac": {"sm-device-mac"}, "smDeviceName": {"sm-device-name"}, "eventDetails": {"event-details"}, "eventSeverity": {"event-severity"}, "isCatalyst": {"is-catalyst"}, "perPage": {"per-page"}, "startingAfter": {"starting-after"}, "endingBefore": {"ending-before"}}, "", "offset"), nil, flagAll, "", "offset", "perPage", 0, "", "", "events", cmd.ErrOrStderr())
+			}, map[string][]string{"productType": {"product-type"}, "deviceMac": {"device-mac"}, "deviceSerial": {"device-serial"}, "deviceName": {"device-name"}, "clientIp": {"client-ip"}, "clientMac": {"client-mac"}, "clientName": {"client-name"}, "smDeviceMac": {"sm-device-mac"}, "smDeviceName": {"sm-device-name"}, "eventDetails": {"event-details"}, "eventSeverity": {"event-severity"}, "isCatalyst": {"is-catalyst"}, "perPage": {"per-page"}, "startingAfter": {"starting-after"}, "endingBefore": {"ending-before"}}, "", "offset"), nil, flagAll, "", "offset", "perPage", 0, "", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}
@@ -128,7 +128,7 @@ func newNetworksEventsGetNetworkCmd(flags *rootFlags) *cobra.Command {
 					filtered, selectErr = filterFieldsChecked(filtered, flags.selectFields)
 					selectErr = selectErrorForDryRun(selectErr, flags, data)
 				} else if flags.compact {
-					filtered = compactFields(filtered, map[string]bool{"clientId": true, "deviceName": true, "networkId": true, "occurredAt": true, "type": true})
+					filtered = compactFields(filtered, map[string]bool{"pageEndAt": true, "pageStartAt": true})
 				}
 				wrapped, wrapErr := wrapWithProvenance(filtered, prov)
 				if wrapErr != nil {
@@ -160,7 +160,7 @@ func newNetworksEventsGetNetworkCmd(flags *rootFlags) *cobra.Command {
 			if flags.csv || flags.plain {
 				formatData = outputData
 			}
-			return printOutputWithFlagsMeta(cmd.OutOrStdout(), formatData, flags, map[string]any{"source": "live"}, map[string]bool{"clientId": true, "deviceName": true, "networkId": true, "occurredAt": true, "type": true})
+			return printOutputWithFlagsMeta(cmd.OutOrStdout(), formatData, flags, map[string]any{"source": "live"}, map[string]bool{"pageEndAt": true, "pageStartAt": true})
 		},
 	}
 	cmd.Flags().StringVar(&flagProductType, "product-type", "", "The product type to fetch events for. This parameter is required for networks with multiple device types. (one of: appliance, camera, campusGateway, cellularGateway, secureConnect, switch, systemsManager, wireless, wirelessController)")

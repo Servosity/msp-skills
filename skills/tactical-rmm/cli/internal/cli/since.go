@@ -21,7 +21,7 @@ var (
 	// ("alert_time"); the only runtime value (the cutoff) is bound via the ?
 	// placeholder, so there is no user-controlled input in this query string.
 	sinceNewAlertsQuery = "SELECT json_extract(data,'$.hostname'),json_extract(data,'$.severity'),json_extract(data,'$.message') " +
-		"FROM resources WHERE resource_type='alerts' AND " + sqlISOToDatetime("alert_time") + ">=datetime(?)"
+		"FROM resources WHERE resource_type='" + trmmAlertsResource + "' AND " + sqlISOToDatetime("alert_time") + ">=datetime(?)"
 	// #nosec G202 -- sqlISOToDatetime is called with a compile-time string literal
 	// ("last_seen"); the only runtime value (the cutoff) is bound via the ?
 	// placeholder, so there is no user-controlled input in this query string.

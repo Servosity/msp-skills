@@ -39,7 +39,7 @@ func newQuarantineListCmd(flags *rootFlags) *cobra.Command {
 					}
 				}
 				if !validService {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagService, "service", allowedService)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagService, "service", allowedService))
 				}
 			}
 			if !stdinBody {
@@ -118,7 +118,7 @@ func newQuarantineListCmd(flags *rootFlags) *cobra.Command {
 					filtered, selectErr = filterFieldsChecked(filtered, flags.selectFields)
 					selectErr = selectErrorForDryRun(selectErr, flags, data)
 				} else if flags.compact {
-					filtered = compactFields(filtered, map[string]bool{"actionStatus": true, "companyId": true, "endpointId": true, "endpointName": true, "id": true})
+					filtered = compactFields(filtered, map[string]bool{"pagesCount": true})
 				}
 				wrapped, wrapErr := wrapWithProvenance(filtered, prov)
 				if wrapErr != nil {
@@ -150,7 +150,7 @@ func newQuarantineListCmd(flags *rootFlags) *cobra.Command {
 			if flags.csv || flags.plain {
 				formatData = outputData
 			}
-			return printOutputWithFlagsMeta(cmd.OutOrStdout(), formatData, flags, map[string]any{"source": "live"}, map[string]bool{"actionStatus": true, "companyId": true, "endpointId": true, "endpointName": true, "id": true})
+			return printOutputWithFlagsMeta(cmd.OutOrStdout(), formatData, flags, map[string]any{"source": "live"}, map[string]bool{"pagesCount": true})
 		},
 	}
 	cmd.Flags().StringVar(&flagService, "service", "computers", "Quarantine service: computers (Computers and Virtual Machines) or exchange (Security for Exchange). (one of: computers, exchange)")
