@@ -87,11 +87,7 @@
    "local-data"
   ],
   "datto-rmm": [
-   "mcp-stdio",
-   "mcp-http",
-   "write-gating",
-   "read-only",
-   "local-data"
+   "mcp-stdio"
   ],
   "fortinet": [
    "read-only",

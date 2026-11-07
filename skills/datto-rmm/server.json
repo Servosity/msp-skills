@@ -48,19 +48,43 @@
         },
         {
           "name": "DATTO_RMM_PLATFORM",
-          "description": "Regional platform shortcut that selects the API host: pinotage, merlot, concord, vidal, zinfandel, or syrah. It is the 'merlot' in merlot.centrastage.net. Leave blank if you set the base URL directly.",
+          "description": "Regional platform shortcut that selects the API host: pinotage, merlot, concord, vidal, zinfandel, or syrah. It is the 'merlot' in merlot-api.centrastage.net. Leave blank if you set the base URL directly.",
           "isRequired": false,
           "isSecret": false
         },
         {
           "name": "DATTO_RMM_TOKEN",
-          "description": "Set the DATTO_RMM_TOKEN credential for the Datto RMM MCP server.",
-          "isRequired": true,
+          "description": "Optional pre-minted OAuth bearer token; when set, nothing is minted.",
+          "isRequired": false,
           "isSecret": true
         },
         {
           "name": "DATTO_RMM_NO_CONFIG_WRITE",
           "description": "Set to 1 to keep credentials off disk. The token cache becomes a no-op, so the connector mints a fresh token each run instead of writing one to config.toml. Leave blank for the default cached behaviour.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "DATTO_RMM_MCP_READ_ONLY",
+          "description": "Optional. Set to exactly 1 to expose only read-only tools and refuse any state-changing call. Leave blank to keep every tool available.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "DATTO_RMM_NO_LOCAL_DATA",
+          "description": "Optional. Set to 1 to keep no local copy of API responses: reads go to the API and the response cache is off. Leave blank to keep the local store.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "DATTO_RMM_MCP_HTTP_TOKEN",
+          "description": "Required only when running the MCP server with --transport http (32 characters or more). Callers must send a matching Authorization: Bearer header. Not needed for the default local stdio transport that Claude Desktop uses.",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "DATTO_RMM_USER_AGENT",
+          "description": "Optional. Overrides the User-Agent header the connector sends. Leave blank for the default.",
           "isRequired": false,
           "isSecret": false
         }
