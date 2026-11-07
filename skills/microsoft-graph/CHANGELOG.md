@@ -4,6 +4,25 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.2.8] - unreleased
+
+### Added
+- **Teams Phone reads.** `phone-numbers list` and `phone-numbers get` show the tenant's Teams telephone numbers with their type, activation and assignment (needs `TeamsTelephoneNumber.Read.All`). `teams-users list` and `teams-users get` show each user's Teams configuration: numbers, Enterprise Voice and effective Teams policy assignments. Both are read-only, read the whole collection (every page, not the first 500 numbers) and work in every tenant the credential reaches.
+- **Teams meeting transcripts, own tenant only.** `transcripts list`, `transcripts download` (WebVTT to stdout or a 0600 file) and `transcripts all`. They need `MICROSOFT_GRAPH_HOME_TENANT` set to your own tenant ID and refuse a token for any other tenant, a user who signed in from another tenant (GDAP or guest), and an app-only token unless `MICROSOFT_GRAPH_TRANSCRIPTS_APP_ONLY=1` is set after a Teams application access policy limits the app to named users. Nothing is kept on disk. Through MCP they return the text, never write a file, and `MICROSOFT_GRAPH_MCP_NO_TRANSCRIPTS=1` switches them off.
+- `pull` also syncs Teams Phone numbers and Teams user configurations, reading every page (`$skip` windows and `@odata.nextLink`) through the configured host only.
+
+### Changed
+- **Rebuilt on CLI Printing Press 4.34.2** ([GHSA-jh26-vhqh-692c](https://github.com/Servosity/msp-skills/security/advisories/GHSA-jh26-vhqh-692c)). The MCP server's HTTP mode (`--transport http`) now refuses to start until `MICROSOFT_GRAPH_MCP_HTTP_TOKEN` is set, checks that bearer token on every request, binds to loopback by default and needs TLS on any other address. `MICROSOFT_GRAPH_MCP_READ_ONLY=1` exposes only read-only tools; `pull` and `sync`, which rewrite the local store, are dropped too.
+- One credential layer, the shared credential kit every msp-skills connector uses: every credential from the environment, config, flags, saved profiles or the credentials file is held before anything prints, and any output line, error, MCP message, file write, local-store record or request that would carry one is withheld whole, with a notice in its place. A credential is sent only to the configured Graph host (redirects to another host are refused), and the client id and secret only to the Entra token endpoint.
+- Credentials `auth login` mints live in a separate 0600 credentials file under the data directory; the response cache is off, and `MICROSOFT_GRAPH_NO_LOCAL_DATA=1` keeps no local copy of API responses. `local-data purge` erases what the CLI keeps.
+- `pull` replaces each resource's local snapshot only when every page of it was read, so a failed read keeps the previous snapshot instead of leaving a partial one. `apps consent` reads every page of every collection it joins.
+- **Every list reads the whole collection.** Each list command (`users list`, `groups list`, `groups members`, `devices list`, `security alerts`, `users messages` and the rest), `export`, `tail`, `sync`, `workflow archive` and every MCP list tool (with the MCP `sync` and `workflow_archive` tools) follows Graph's `@odata.nextLink` to the last page through the configured host, or fails; the first page is never shown or stored as the whole tenant. `sync` used to store and report a short first page as the whole resource (50 of 120 alerts when Graph answered in pages of 50). Now a `sync` read that cannot be finished (a page that fails or is not a Graph collection, or a nextLink naming another host or a page already read) is a `sync_error` that stores nothing of that resource, and `--max-pages` still reports `max_pages_cap_hit`. `--top` sets the page size. Teams Phone numbers are read in `$skip` windows to the end.
+- A credential a Graph response carries (`password`, `secretText`, `accessToken`, a temporary access pass, a recovery `key` and the like) is held as the response arrives, so nothing can repeat it later.
+- `doctor` reports whether the credential works (valid, rejected, scope-limited or not verified) and where it came from, instead of a redacted value. When the probe fails, the error is shown under `probe_error`; an error that repeats a credential is withheld.
+
+### Removed
+- `import`, the bulk create command. No command writes to your tenant in this release.
+
 ## [0.2.7] - 2026-10-23
 
 ### Security

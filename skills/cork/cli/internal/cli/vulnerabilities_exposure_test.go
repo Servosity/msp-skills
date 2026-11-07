@@ -8,6 +8,8 @@ import (
 	"bytes"
 	"strings"
 	"testing"
+
+	"cork-pp-cli/internal/cliutil/testenv"
 )
 
 // TestNovelVulnerabilitiesExposureHelpWires smoke-tests that the vulnerabilities exposure command
@@ -15,6 +17,7 @@ import (
 // regressions (missing AddCommand, panicking RunE on --help, etc.) before
 // review. Keep this smoke test when adding behavior-specific cases.
 func TestNovelVulnerabilitiesExposureHelpWires(t *testing.T) {
+	testenv.Isolate(t)
 	cmd := RootCmd()
 	cmd.SetArgs([]string{"vulnerabilities", "exposure", "--help"})
 	var out bytes.Buffer

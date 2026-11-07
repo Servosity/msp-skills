@@ -115,9 +115,11 @@ func newNovelComplianceOverdueCmd(flags *rootFlags) *cobra.Command {
 			}
 
 			// 1. Cure periods, keyed by event type.
-			rawTypes, _, _, err := corkFetchPages(ctx, c, "/compliance/event-types", nil, 1)
+			// The cap travels with the result: an event whose type sat on an
+			// unread catalog page has no cure period and would be skipped.
+			rawTypes, _, typesCap, err := corkFetchPages(ctx, c, "/compliance/event-types", nil, 1)
 			if err != nil {
-				return classifyAPIError(err, flags)
+				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}
 			cure := map[string]int{}
 			badTypes := 0
@@ -141,6 +143,7 @@ func newNovelComplianceOverdueCmd(flags *rootFlags) *cobra.Command {
 			// call; a missing mirror falls back to fetching the roster.
 			type target struct{ uuid, name string }
 			targets := make([]target, 0)
+			rosterPartial := false
 			if flagClientUUID != "" {
 				targets = append(targets, target{uuid: flagClientUUID})
 			} else {
@@ -161,14 +164,16 @@ func newNovelComplianceOverdueCmd(flags *rootFlags) *cobra.Command {
 					}
 				}
 				if len(targets) == 0 {
-					rawClients, _, _, cErr := corkFetchPages(ctx, c, "/clients", nil, flagMaxScanPages)
+					rawClients, _, rosterCap, cErr := corkFetchPages(ctx, c, "/clients", nil, flagMaxScanPages)
 					if cErr != nil {
-						return classifyAPIError(cErr, flags)
+						return classifyAPIError(cmd.OutOrStdout(), cErr, flags)
 					}
 					roster, undecodable := corkDecodeClients(rawClients)
 					if len(roster) == 0 && undecodable > 0 {
 						return corkDecodeFailure("client record(s)", undecodable)
 					}
+					// A roster cut at --max-scan-pages is a partial sweep, not a clean one.
+					rosterPartial = rosterCap
 					for _, cl := range roster {
 						if cl.Hidden {
 							continue
@@ -178,7 +183,7 @@ func newNovelComplianceOverdueCmd(flags *rootFlags) *cobra.Command {
 				}
 			}
 
-			capHit := false
+			capHit := typesCap || rosterPartial
 			if flagMaxClients > 0 && len(targets) > flagMaxClients {
 				targets = targets[:flagMaxClients]
 				capHit = true
