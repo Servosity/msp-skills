@@ -3146,6 +3146,47 @@
       ],
       "press": "4.35.1",
       "reason": "threatdown, press 4.35.1 reprint, reviewed 2026-11-06. credential kit wiring (hand-written). holdConfigURLs opens a credential source the program reads anyway (its config or credential store, from the kit's declared runFiles, named by the operator's own --config or environment) so Start can hold the base_url and token_url it carries before anything prints. It refuses anything but a regular file, caps the read at 8 MiB (maxHeldConfigBytes), only parses TOML and never writes. The MCP server refuses file-path flags (check_mcp_file_flags). Same shape as the watchguard and google-workspace credwire G703 entries."
+    },
+    {
+      "file": "skills/auvik/cli/internal/cliutil/creds_perms_unix.go",
+      "rule": "G115",
+      "bind": "decl",
+      "sha256": [
+        "sha256:ba5b7307221acae36fd84ca89c0de2d80f6a122badffbeaebef908000b88e8be",
+        "sha256:8b017713ba88e73ec54cee2c66a934e3bd3db8164a53a3d0ef528b82daf89610"
+      ],
+      "press": "4.35.1",
+      "reason": "auvik, press 4.35.1 security reprint, reviewed 2026-11-07. uint32(os.Geteuid()), twice: the POSIX effective uid is a non-negative uid_t, compared for equality with the file or directory owner. Same declaration digests as the jira-service-management entries; the file is !windows."
+    },
+    {
+      "file": "skills/auvik/cli/internal/cli/deliver_spacefast.go",
+      "rule": "G304",
+      "bind": "decl",
+      "sha256": [
+        "sha256:991de2fbb979c2c73f3873850ad79e0ce83f8f06ceaaa3f0481f23c06bc9b7f1"
+      ],
+      "press": "4.35.1",
+      "reason": "auvik, press 4.35.1 security reprint, reviewed 2026-11-07. Same read as the G703 entry: the CLI's own Spacefast delivery record, state dir plus a SHA-256 hex file name."
+    },
+    {
+      "file": "skills/auvik/cli/internal/cli/deliver_spacefast.go",
+      "rule": "G703",
+      "bind": "decl",
+      "sha256": [
+        "sha256:991de2fbb979c2c73f3873850ad79e0ce83f8f06ceaaa3f0481f23c06bc9b7f1"
+      ],
+      "press": "4.35.1",
+      "reason": "auvik, press 4.35.1 security reprint, reviewed 2026-11-07. loadSpacefastDelivery reads this program's own delivery record: the directory is the CLI's state dir and the file name is the hex of a SHA-256 of the delivery key, so no input picks a path outside that directory. --deliver is refused over MCP (check_mcp_file_flags PASS)."
+    },
+    {
+      "file": "skills/auvik/cli/internal/cli/helpers.go",
+      "rule": "G304",
+      "bind": "decl",
+      "sha256": [
+        "sha256:62ee24e2c14754be389c41795461475ec6aa23ec17308bd3166bf8610b765949"
+      ],
+      "press": "4.35.1",
+      "reason": "auvik, press 4.35.1 security reprint, reviewed 2026-11-07. Press template claimLegacyUnscopedDB with the credential kit edit (the owner-marker write goes through credkit.WriteFile, handfixes.json credkit-wiring), same declaration digest as the entries for apple-business, blumira and xero. Both flagged reads open markerPath (<data.db>.owner) beside the CLI's own store in its resolved data directory; no MCP, API or tenant input reaches the path."
     }
   ]
 }
