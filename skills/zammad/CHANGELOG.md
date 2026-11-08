@@ -4,7 +4,7 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
-## [0.1.13] - unreleased
+## [0.1.13] - 2026-11-08
 
 ### Fixed
 - The first sync finishes in a 1 GB container; the store-write credential check no longer holds memory near its decode budget ([#612](https://github.com/Servosity/msp-skills/issues/612)).
