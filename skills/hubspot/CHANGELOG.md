@@ -4,6 +4,12 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.2.7] - unreleased
+
+### Fixed
+- The first sync finishes in a 1 GB container; the store-write credential check no longer holds memory near its decode budget ([#612](https://github.com/Servosity/msp-skills/issues/612)).
+- A record the credential check withholds from the local database no longer stops the sync of its resource: the record is skipped, every other record is stored, and the sync names the skipped records and exits non-zero so the next run fetches them again ([#612](https://github.com/Servosity/msp-skills/issues/612)).
+
 ## [0.2.6] - 2026-11-05
 
 ### Fixed

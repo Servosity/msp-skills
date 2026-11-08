@@ -2322,6 +2322,98 @@
      "code_only": true
     }
    ]
+  },
+  {
+   "id": "sync-skips-withheld-row",
+   "summary": "a row the credential kit withholds from the store is skipped and named; the rest of the batch is stored and sync keeps walking, then ends that resource failed with the row ids",
+   "why": "One withheld row aborted the whole batch transaction, and sync returned on it, so a single large ordinary record (or one that really carried a held credential) stopped the resource and every row after it was never synced (#612, hubspot-calls-crm). The row is still withheld; it is now named in a sync_error event and in the resource's error, the run exits non-zero, and the watermark stays so the next run fetches it again. Re-applied after a reprint by replay_handfixes.py (recipe withheld-rows).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/store/withheld.go",
+     "contains": "func isWithheldRow(err error) bool",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "\tvar withheld []string",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "upsertGenericResourceTx(tx, resourceType, storageID, item); isWithheldRow(err) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "&WithheldRowsError{Resource: resourceType, IDs: withheld}",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "\tvar withheldIDs []string",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "if errors.As(err, &pageWithheld) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "&store.WithheldRowsError{Resource: resource, IDs: withheldIDs}",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "if errors.As(err, &pageWithheld) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "&store.WithheldRowsError{Resource: resource, IDs: withheldIDs}",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "stored == 0 && pageWithheld == nil && !anomalyEmitted {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "db.SaveSyncProgressInScope(resource, scopeKey, existingCursor, totalCount); err != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "progressCursor = existingCursor",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/superops_withheld_resume_test.go",
+     "contains": "func TestSyncAfterAWithheldRowReadsItAgain(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/superops_withheld_resume_test.go",
+     "contains": "func TestSyncAfterAWithheldRowAndALaterErrorReadsItAgain(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
   }
  ],
  "retired": [

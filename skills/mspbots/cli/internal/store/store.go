@@ -3279,6 +3279,7 @@ func (s *Store) UpsertBatchDetailed(resourceType string, items []json.RawMessage
 	}
 	defer tx.Rollback()
 
+	var withheld []string // Hand-fix (handfixes.json sync-skips-withheld-row)
 	var stored, skippedCount, extractFailures, typedFailures int
 	for _, item := range items {
 		obj, err := DecodeJSONObject(item)
@@ -3312,7 +3313,12 @@ func (s *Store) UpsertBatchDetailed(resourceType string, items []json.RawMessage
 			obj = merged
 		}
 
-		if err := s.upsertGenericResourceTx(tx, resourceType, storageID, item); err != nil {
+		if err := s.upsertGenericResourceTx(tx, resourceType, storageID, item); isWithheldRow(err) {
+			// Hand-fix (handfixes.json sync-skips-withheld-row): the credential check refused this row whole. Skip it, keep
+			// the batch, and name it once the batch commits.
+			withheld = append(withheld, storageID)
+			continue
+		} else if err != nil {
 			// A non-nil error aborts this transaction through the deferred
 			// rollback, so no earlier in-memory progress was committed.
 			return 0, extractFailures, typedFailures, fmt.Errorf("upserting %s/%s: %w", resourceType, storageID, err)
@@ -3330,6 +3336,9 @@ func (s *Store) UpsertBatchDetailed(resourceType string, items []json.RawMessage
 	}
 	if err := tx.Commit(); err != nil {
 		return 0, extractFailures, typedFailures, err
+	}
+	if len(withheld) > 0 { // Hand-fix (handfixes.json sync-skips-withheld-row)
+		return stored, extractFailures, typedFailures, &WithheldRowsError{Resource: resourceType, IDs: withheld}
 	}
 	return stored, extractFailures, typedFailures, nil
 }

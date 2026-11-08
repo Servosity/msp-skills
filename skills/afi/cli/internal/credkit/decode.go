@@ -101,7 +101,6 @@ type decoding struct {
 type bucket struct {
 	bytes [][]byte // whole parts, read by every decoder
 	text  [][]byte // whole text readings, read by the text decoders
-	junk  []byte   // decodings of runs, NUL-separated: one byte part
 	tjunk []byte   // substitution text readings (NFKC), NUL-separated: one text part
 	tany  []byte   // charset and wide readings, NUL-separated: one text part in
 	// which a short value counts anywhere, since every start offset of a
@@ -295,7 +294,13 @@ func readsAsText(b []byte) bool {
 }
 
 // out adds a decoding: whole when it reads as text (a document a writer
-// encoded), else as a piece of the view's NUL-separated part.
+// encoded), else a byte part of its own as well (#612). Joined with the
+// view's other decodings into one part, the charset and stream readings ran
+// from each piece across the separator into the next, and those readings,
+// decoded in turn, joined again: on an ordinary 270 KB call record they made
+// longer new parts at every level until the depth limit withheld it. Each
+// decoding is a view of its own (contract 3, Views); a reading across two of
+// them is none of their readings.
 func (d *decoding) out(b []byte) {
 	if d.tiny(b, false) || !d.once(idOut, b) { // exact: a view read already
 		return
@@ -305,8 +310,7 @@ func (d *decoding) out(b []byte) {
 		return
 	}
 	if d.s.charge(len(b) + 1) {
-		k := &d.bk[d.f]
-		k.junk = append(append(k.junk, sep), b...)
+		d.bk[d.f].bytes = append(d.bk[d.f].bytes, bytes.Clone(b))
 	}
 }
 
@@ -1419,13 +1423,13 @@ func (d *decoding) rawStreams(p []byte) {
 			// what it decoded before the join is the end of what the other
 			// had there, every back-reference after it reads the same bytes:
 			// its output is a stretch of the other's, already checked.
-			o, ja := m.outs[m.from], m.joinA
+			o, ja := m.out(p, m.from), m.joinA
 			pre, _, _ := inflateFixed(p[i:], s.inf[:0], max(0, int(s.budget.Load())), m.joinBit)
 			s.inf = pre[:0]
 			if ja <= len(o) && len(pre) <= ja && bytes.Equal(pre, o[ja-len(pre):ja]) {
 				cur = m.id
 				if cur >= 0 {
-					m.outs[cur] = o[ja-len(pre):]
+					m.setOf(cur, m.from, ja-len(pre), len(o))
 				}
 				continue
 			}
@@ -1446,7 +1450,7 @@ func (d *decoding) rawStreams(p []byte) {
 				return
 			}
 			if cur = m.id; cur >= 0 {
-				m.outs[cur] = bytes.Clone(out)
+				m.setOwn(cur, out)
 			}
 			d.broken(out)
 		case inflateDone, inflateRedo:
@@ -1465,17 +1469,19 @@ func (d *decoding) rawStreams(p []byte) {
 				// queued whole, it is nothing new: every decoder reads
 				// every offset of the other.
 				if res == inflateRedo {
-					o, ja, jb := m.outs[m.from], m.joinA, m.joinB
+					o, ja, jb := m.out(p, m.from), m.joinA, m.joinB
 					if o != nil && ja <= len(o) && jb <= ja && jb <= len(out) && ja-jb+len(out) <= len(o) &&
 						bytes.Equal(out, o[ja-jb:ja-jb+len(out)]) {
 						if cur = m.id; cur >= 0 {
-							m.outs[cur], m.done[cur] = o[ja-jb:ja-jb+len(out)], true
+							m.setOf(cur, m.from, ja-jb, ja-jb+len(out))
+							m.done[cur] = true
 						}
 						break
 					}
 				}
 				if cur = m.id; cur >= 0 {
-					m.outs[cur], m.done[cur] = bytes.Clone(out), true
+					m.setOwn(cur, out)
+					m.done[cur] = true
 				}
 				d.whole(out)
 				after(i + used)
@@ -1637,6 +1643,50 @@ func (d *decoding) finalOut(b []byte) {
 	}
 	k := &d.bk[d.f]
 	k.bjunk = append(append(k.bjunk, sep), b...)
+	if len(k.bjunk) >= finalFlush { // exact: scheduling, the part is read now or at the next level
+		d.readFinal(d.f)
+	}
+}
+
+// finalFlush: a level's final part (the bytes broken raw deflate streams
+// yield, NUL-separated) this large is read where it stands, not held for
+// the next level (#612). Garbage that fixed-Huffman decoding drew from a few
+// MB of binary views made one 150 MB final part at a 198 KB call record's
+// eleventh level, and the record's check peaked near 2 GB.
+const finalFlush = 1 << 20
+
+// readFinalHook, when set, sees the size of each final part readFinal reads.
+var readFinalHook func(int)
+
+// readFinal reads bucket f's final part now, as the next level would read
+// it: once per unit (fresh), past the depth limit exhausted, and with a
+// final view's decoders, which compare what they decode and queue nothing
+// (tiny), so reading it here or there reads the same views. It reads on a
+// scan of its own: the caller may be inside a decoder whose scratch it
+// holds (rawStreams, broken).
+func (d *decoding) readFinal(f int) {
+	s, k := d.s, &d.bk[f]
+	p := k.bjunk
+	if readFinalHook != nil {
+		readFinalHook(len(p))
+	}
+	if s.fresh(p, true, f) && s.ok() {
+		if d.depth > maxDepth {
+			s.stop(exhausted)
+			return
+		}
+		if s.fin == nil {
+			s.fin = &scan{closure: s.closure, segs: map[string]string{}, defl: memoPool.Get().(*deflateMemo)}
+		}
+		r := decoding{s: s.fin, depth: d.depth + 1, f: f, final: true}
+		r.part(p, true, famAll, nil)
+		for i := range r.bk {
+			if b := &r.bk[i]; len(b.bytes)+len(b.text)+len(b.tjunk)+len(b.tany)+len(b.bjunk)+len(b.rjunk)+len(b.tbytes)+len(b.ttext) > 0 {
+				s.stop(exhausted) // fail closed: a final view's decoders queue nothing (tiny)
+			}
+		}
+	}
+	k.bjunk = p[:0]
 }
 
 // inflated queues what a gzip or zlib stream read from r decodes, however

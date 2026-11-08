@@ -62,8 +62,9 @@ func TestJobsLedgerNeverKeepsAHeldCredential(t *testing.T) {
 }
 
 // The round-1 input: a successful tickets page whose record repeats the API
-// token. Sync refuses the batch; no row and nothing of the token reach the
-// store file.
+// token. Sync refuses that record (nothing of the token reaches the store
+// file), stores the others (#612: one refused record no longer drops its
+// batch) and exits failed.
 func TestSyncNeverStoresARecordThatRepeatsTheToken(t *testing.T) {
 	if !heldChild(t) {
 		return
@@ -74,11 +75,11 @@ func TestSyncNeverStoresARecordThatRepeatsTheToken(t *testing.T) {
 	dir := t.TempDir()
 	db := filepath.Join(dir, "held.db")
 	out, err := runSuperOpsCLI(t, "sync", "--resources", "tickets", "--db", db)
-	if err == nil && !strings.Contains(out, "records not stored") {
-		t.Logf("sync output:\n%s", out)
+	if err == nil {
+		t.Fatalf("sync exited clean with a withheld record\n%s", out)
 	}
-	if got := storeTicketRows(t, db); got != 0 {
-		t.Fatalf("stored %d tickets from a page that repeats the token, want 0 (err %v)\n%s", got, err, out)
+	if got, want := storeTicketRows(t, db), len(a.data["getTicketList"])-1; got != want {
+		t.Fatalf("stored %d tickets, want %d: every record but the one that repeats the token (err %v)\n%s", got, want, err, out)
 	}
 	files, _ := filepath.Glob(filepath.Join(dir, "held.db*"))
 	for _, p := range files {

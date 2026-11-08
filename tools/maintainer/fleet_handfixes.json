@@ -318,6 +318,18 @@
     }
    ]
   },
+  "sync-skips-withheld-row": {
+   "verdict": "replay",
+   "recipe": "withheld-rows",
+   "reason": "Press 4.35.1 aborts a whole batch, and with it the resource's sync, when the credential kit's SQLite driver withholds one row (#612: hubspot-calls-crm stopped at one row). The press has no withheld-row notion; the recipe skips the row, keeps the batch and the walk, and ends the resource failed with the row ids and its watermark kept.",
+   "proof": "store/withheld_test.go TestUpsertBatchSkipsWithheldRow in every carrier; zammad and hubspot adopter syncs with one row carrying the CLI's own token (.review/adopter-proof.md).",
+   "gates": [],
+   "upstream": "none: the kit is downstream of the press",
+   "keep_manual": {
+    "dnsfilter": "upsertResourceBatch returns the stored ids too (sync-seen-ids-are-stored-ids): the batch's withheld return and the page's pageWithheld block are wired by hand, and UpsertBatchStoredIDs keeps the stored ids when the error is a withheld row.",
+    "superops": "sync walks GraphQL pages through db.UpsertBatch, not upsertResourceBatch: the pageWithheld block, the empty-page guard and the failed end are wired by hand in syncResource; superops_held_record_test.go and superops_held_sinks_test.go assert the skip-the-row contract."
+   }
+  },
   "sync-event-writer-serialized": {
    "verdict": "replay",
    "recipe": "sync-event-writer-serialized",

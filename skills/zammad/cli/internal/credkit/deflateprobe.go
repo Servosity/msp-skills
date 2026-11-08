@@ -305,14 +305,106 @@ type deflateMemo struct {
 	reads []copyReads       // per numbered attempt: fixedCopies, once asked for
 	cache [1 << 16]memoEntry
 	gen   uint32
-	done  []bool   // per numbered attempt: its stream ended
-	outs  [][]byte // per numbered attempt that ended: what it decoded
-	from  int32    // the attempt an inflateRedo or inflateJoin joined
+	done  []bool    // per numbered attempt: its stream ended
+	outs  []memoOut // per numbered attempt that ended: what it decoded
+	kept  memoKept  // the outputs held now (#612)
+	from  int32     // the attempt an inflateRedo or inflateJoin joined
 	// where it joined: the output each attempt had there, and the bit
 	joinA, joinB, joinBit int
 	id                    int32 // the current attempt's number, or -1
 	used                  int   // the bytes the last fixedEnds read
 	n                     int   // the output it counted
+}
+
+// memoOut is what a numbered attempt decoded: bytes [off, end) of what
+// attempt root decoded itself (root is the attempt, off 0, when it decoded
+// its own), or nothing (root -1).
+type memoOut struct {
+	root     int32
+	off, end int
+}
+
+// memoKept holds the outputs of the attempts that decoded their own, the
+// latest first, up to keptBytes; an older one is decoded again when an
+// attempt joins it (out). One 198 KB call record's part held 642 MB of them
+// at once, every attempt's output to the end of the part (#612). A join
+// reads the same bytes either way, so verdicts and the budget are as when
+// all were held (TestKitmemMemoKeepsJoins).
+type memoKept struct {
+	outs  map[int32][]byte
+	order []int32 // kept roots, oldest first from head
+	head  int
+	bytes int
+	redo  int // outputs decoded again (a test's counter)
+}
+
+// keptBytes is the most attempt output a memo holds at once: 99 in 100
+// joins on that record reached at most 7,107 attempts back.
+var keptBytes = 32 << 20
+
+func (k *memoKept) reset() {
+	clear(k.outs)
+	k.order, k.head, k.bytes = k.order[:0], 0, 0
+}
+
+func (k *memoKept) add(id int32, b []byte) {
+	if k.outs == nil {
+		k.outs = map[int32][]byte{}
+	}
+	k.outs[id] = b
+	k.order = append(k.order, id)
+	k.bytes += len(b)
+	for k.bytes > keptBytes && k.head < len(k.order)-1 {
+		old := k.order[k.head]
+		k.head++
+		k.bytes -= len(k.outs[old])
+		delete(k.outs, old)
+	}
+	if k.head > 1024 && 2*k.head > len(k.order) {
+		k.order = append(k.order[:0], k.order[k.head:]...)
+		k.head = 0
+	}
+}
+
+// setOwn records out (scratch: it is copied) as what attempt id decoded.
+func (m *deflateMemo) setOwn(id int32, out []byte) {
+	m.outs[id] = memoOut{root: id, end: len(out)}
+	m.kept.add(id, bytes.Clone(out))
+}
+
+// setOf records bytes [off, end) of what attempt from decoded as what
+// attempt id decoded.
+func (m *deflateMemo) setOf(id, from int32, off, end int) {
+	f := m.outs[from]
+	if f.root < 0 {
+		m.outs[id] = memoOut{root: -1}
+		return
+	}
+	m.outs[id] = memoOut{root: f.root, off: f.off + off, end: f.off + end}
+}
+
+// out is what attempt id decoded (nil when nothing is recorded), decoded
+// again from p when it is no longer held: the same bytes, since a fixed
+// Huffman decode is a function of its input, and its output was cut by no
+// limit (an attempt the limit stopped withheld the unit). It is not charged
+// again: the budget counts it once, as when it was held.
+func (m *deflateMemo) out(p []byte, id int32) []byte {
+	e := m.outs[id]
+	if e.root < 0 {
+		return nil
+	}
+	b, ok := m.kept.outs[e.root]
+	if !ok {
+		n := m.outs[e.root].end
+		var end inflateEnd
+		b, end, _ = inflateFixed(p[m.base[e.root]:], make([]byte, 0, n), n+1, -1)
+		if len(b) != n || end == inflateLimit {
+			return nil // exact: a join not taken decodes the attempt itself
+		}
+		m.kept.redo++
+		m.kept.add(e.root, b)
+	}
+	return b[e.off:e.end:e.end]
 }
 
 type memoEntry struct {
@@ -328,6 +420,7 @@ func (m *deflateMemo) reset() {
 	m.gen++
 	m.done, m.outs = m.done[:0], m.outs[:0]
 	m.base, m.reads = m.base[:0], m.reads[:0]
+	m.kept.reset()
 	clear(m.tails)
 }
 
@@ -515,7 +608,7 @@ func (m *deflateMemo) fixedEnds(p []byte, base int) inflateEnd {
 			if syms++; syms > memoAfter {
 				if m.id < 0 {
 					m.id = i32(len(m.done))
-					m.done, m.outs = append(m.done, false), append(m.outs, nil)
+					m.done, m.outs = append(m.done, false), append(m.outs, memoOut{root: -1})
 					m.base, m.reads = append(m.base, base), append(m.reads, copyReads{})
 				}
 				key := u64(base*8+br.pos)*2 + uint64(final)

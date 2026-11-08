@@ -2783,15 +2783,16 @@ func TestMCPSplitRecordWithheldWhole(t *testing.T) {
 // through to the local store as its own record, and the two halves of a
 // held token that arrive on two pages never land in the store file both.
 // Each half is a piece of 8 or more characters (leak contract section
-// 2(b)), so the kit's SQLite driver withholds the first record that carries
-// one, and the walk stops there with the kit's notice.
+// 2(b)), so the kit's SQLite driver withholds each record that carries one:
+// the walk skips it and sync names it as withheld by the credential check
+// (#612), or, without that, stops there with the kit's notice.
 func TestStoreSplitAcrossRecordsWithheld(t *testing.T) {
 	budget(t)
 	sv := echoServer(t)
 	e := newEnv(t, sv, credStored)
 	out := e.run(t, "sync", "--resources", "pages", "--json")
 	assertNoEcho(t, "sync output", out)
-	if !strings.Contains(out, "[credkit: withheld from sqlite: ") {
+	if !strings.Contains(out, "[credkit: withheld from sqlite: ") && !strings.Contains(out, "withheld by the credential check") {
 		t.Errorf("the store took the record carrying half the token:\n%.1500s", out)
 	}
 	var stores int

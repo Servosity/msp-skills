@@ -1259,6 +1259,253 @@ def r_sync_event_writer(p: Plan, hid: str, entry: dict) -> dict:
     return {}
 
 
+# sync-skips-withheld-row (#612): a row the credential check withholds from the
+# store is skipped, not the batch; sync keeps walking and ends the resource
+# failed, naming the rows, with its watermark where it was.
+WITHHELD_GO = """// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
+//
+// Hand-written (NOT generated): HID. A row the credential check withholds
+// from the store is skipped and named, so one row never aborts a batch (#612).
+
+package store
+
+import (
+\t"errors"
+\t"fmt"
+\t"strings"
+
+\t"MODULE/internal/credkit"
+)
+
+// WithheldRowsError names the rows of a batch the credential check refused
+// whole: each carried a credential this program holds, or its check ran out
+// of budget. The batch's other rows were stored. errors.Is(err,
+// credkit.ErrWithheld) holds for it.
+type WithheldRowsError struct {
+\tResource string
+\tIDs      []string
+}
+
+func (e *WithheldRowsError) Error() string {
+\treturn fmt.Sprintf("%s: %d row(s) not stored, withheld by the credential check (each carried a credential this program holds, or its check ran out of budget): %s",
+\t\te.Resource, len(e.IDs), strings.Join(e.IDs, ", "))
+}
+
+func (e *WithheldRowsError) Is(target error) bool { return target == credkit.ErrWithheld }
+
+func isWithheldRow(err error) bool { return errors.Is(err, credkit.ErrWithheld) }
+"""
+
+WITHHELD_TEST_GO = """// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
+//
+// Hand-written (NOT generated): HID.
+
+package store
+
+import (
+\t"bytes"
+\t"encoding/json"
+\t"errors"
+\t"os"
+\t"os/exec"
+\t"path/filepath"
+\t"strings"
+\t"testing"
+
+\t"MODULE/internal/credkit"
+)
+
+// One row carrying a held credential is withheld and named; the rows around
+// it are stored, and the credential is nowhere in the store file (#612).
+// It runs in a process of its own: a value stays held until exit, and this
+// package's other tests must not run with it held.
+func TestUpsertBatchSkipsWithheldRow(t *testing.T) {
+\tif os.Getenv("WITHHELD_ROW_TEST_PROCESS") != "1" {
+\t\tcmd := exec.Command(os.Args[0], "-test.run=^TestUpsertBatchSkipsWithheldRow$", "-test.count=1", "-test.v")
+\t\tcmd.Env = append(os.Environ(), "WITHHELD_ROW_TEST_PROCESS=1")
+\t\tout, err := cmd.CombinedOutput()
+\t\tif err != nil || !bytes.Contains(out, []byte("--- PASS: TestUpsertBatchSkipsWithheldRow")) {
+\t\t\tt.Fatalf("in a process of its own: %v\\n%s", err, out)
+\t\t}
+\t\treturn
+\t}
+\tsecret := "kitmem-" + strings.Repeat("Qx7v", 10)
+\tcredkit.Hold("minted:kitmem-test", secret)
+\tpath := filepath.Join(t.TempDir(), "store.db")
+\ts, err := Open(path)
+\tif err != nil {
+\t\tt.Fatal(err)
+\t}
+\titems := []json.RawMessage{
+\t\tjson.RawMessage(`{"id":"1","name":"first"}`),
+\t\tjson.RawMessage(`{"id":"2","name":"note ` + secret + `"}`),
+\t\tjson.RawMessage(`{"id":"3","name":"third"}`),
+\t}
+\tstored, _, _, err := s.UpsertBatchDetailed("kitmem_rows", items)
+\tvar w *WithheldRowsError
+\tif !errors.As(err, &w) || len(w.IDs) != 1 || !errors.Is(err, credkit.ErrWithheld) {
+\t\tt.Fatalf("err = %v, want the one withheld row named", err)
+\t}
+\tif stored != 2 {
+\t\tt.Fatalf("stored %d rows, want the 2 around the withheld one", stored)
+\t}
+\tif n, err := s.Count("kitmem_rows"); err != nil || n != 2 {
+\t\tt.Fatalf("Count = %d, %v; want 2", n, err)
+\t}
+\t// A clean batch names nothing.
+\tif _, _, _, err := s.UpsertBatchDetailed("kitmem_rows", items[:1]); err != nil {
+\t\tt.Fatalf("a clean batch: %v", err)
+\t}
+\ts.Close()
+\tfor _, f := range []string{path, path + "-wal"} {
+\t\tif b, err := os.ReadFile(f); err == nil && bytes.Contains(b, []byte(secret)) {
+\t\t\tt.Fatalf("%s carries the held credential", filepath.Base(f))
+\t\t}
+\t}
+}
+"""
+
+WH_STORE = [
+    ("withheld rows declared",
+     "\tvar stored, skippedCount, extractFailures, typedFailures",
+     "\tvar withheld []string // TAG\n\tvar stored, skippedCount, extractFailures, typedFailures",
+     "\tvar withheld []string"),
+    ("a withheld row is skipped",
+     "\t\tif err := s.upsertGenericResourceTx(tx, resourceType, storageID, item); err != nil {\n",
+     "\t\tif err := s.upsertGenericResourceTx(tx, resourceType, storageID, item); isWithheldRow(err) {\n"
+     "\t\t\t// TAG: the credential check refused this row whole. Skip it, keep\n"
+     "\t\t\t// the batch, and name it once the batch commits.\n"
+     "\t\t\twithheld = append(withheld, storageID)\n"
+     "\t\t\tcontinue\n"
+     "\t\t} else if err != nil {\n",
+     "upsertGenericResourceTx(tx, resourceType, storageID, item); isWithheldRow(err) {"),
+    ("withheld rows named after the commit",
+     "\treturn stored, extractFailures, typedFailures, nil\n}\n",
+     "\tif len(withheld) > 0 { // TAG\n"
+     "\t\treturn stored, extractFailures, typedFailures, &WithheldRowsError{Resource: resourceType, IDs: withheld}\n"
+     "\t}\n"
+     "\treturn stored, extractFailures, typedFailures, nil\n}\n",
+     "&WithheldRowsError{Resource: resourceType, IDs: withheld}"),
+]
+
+WH_SYNC = [
+    ("upsertResourceBatch", "every target's withheld rows declared",
+     "\tvar stored, extractFailures, typedFailures int\n\tfor _, target := range order {\n",
+     "\tvar stored, extractFailures, typedFailures int\n\tvar withheld []string // TAG\n\tfor _, target := range order {\n",
+     "\tvar withheld []string"),
+    ("upsertResourceBatch", "every target's withheld rows collected",
+     "grouped[target])\n\t\tif err != nil {\n",
+     "grouped[target])\n"
+     "\t\tif w := (*store.WithheldRowsError)(nil); errors.As(err, &w) { // TAG\n"
+     "\t\t\twithheld = append(withheld, w.IDs...)\n"
+     "\t\t\terr = nil\n"
+     "\t\t}\n"
+     "\t\tif err != nil {\n",
+     "if w := (*store.WithheldRowsError)(nil); errors.As(err, &w) {"),
+    ("upsertResourceBatch", "every target's withheld rows named",
+     "\treturn stored, extractFailures, typedFailures, nil\n}\n",
+     "\tif len(withheld) > 0 { // TAG\n"
+     "\t\treturn stored, extractFailures, typedFailures, &store.WithheldRowsError{Resource: resource, IDs: withheld}\n"
+     "\t}\n"
+     "\treturn stored, extractFailures, typedFailures, nil\n}\n",
+     "&store.WithheldRowsError{Resource: resource, IDs: withheld}"),
+    ("syncResource", "the resource's withheld rows declared",
+     "\tvar consumedTotal int\n",
+     "\tvar consumedTotal int\n\tvar withheldIDs []string // TAG\n",
+     "\tvar withheldIDs []string"),
+    ("syncResource", "a withheld row does not stop the walk",
+     "\t\tstored, extractFailures, typedFailures, err := upsertResourceBatch(db, resource, items)\n\t\tif err != nil {\n",
+     "\t\tstored, extractFailures, typedFailures, err := upsertResourceBatch(db, resource, items)\n"
+     "\t\tvar pageWithheld *store.WithheldRowsError\n"
+     "\t\tif errors.As(err, &pageWithheld) {\n"
+     "\t\t\t// TAG: the credential check refused these rows whole; the rest of\n"
+     "\t\t\t// the page is stored and the walk goes on. The resource ends failed,\n"
+     "\t\t\t// naming them, and keeps its watermark, so the next run fetches\n"
+     "\t\t\t// them again.\n"
+     "\t\t\twithheldIDs = append(withheldIDs, pageWithheld.IDs...)\n"
+     "\t\t\ttimestampOrderSafe = false\n"
+     "\t\t\tif !humanFriendly {\n"
+     "\t\t\t\tfmt.Fprintln(syncEvents, syncErrorJSON(resource, \"\", err))\n"
+     "\t\t\t}\n"
+     "\t\t\terr = nil\n"
+     "\t\t}\n"
+     "\t\tif err != nil {\n",
+     "if errors.As(err, &pageWithheld) {"),
+    ("syncResource", "a page of withheld rows is not an empty page",
+     "\t\tif fetchedThisPage > 0 && stored == 0 {\n",
+     "\t\tif fetchedThisPage > 0 && stored == 0 && pageWithheld == nil { // TAG\n",
+     "stored == 0 && pageWithheld == nil {"),
+    ("syncResource", "the resource ends failed, naming its withheld rows",
+     "\t// Integrity verdicts must precede completion persistence.",
+     "\tif len(withheldIDs) > 0 { // TAG: before any completion is saved\n"
+     "\t\terr := &store.WithheldRowsError{Resource: resource, IDs: withheldIDs}\n"
+     "\t\treturn syncResult{Resource: resource, Count: cachedCount, Err: err, IntegrityFailure: true, Duration: time.Since(started)}\n"
+     "\t}\n"
+     "\t// Integrity verdicts must precede completion persistence.",
+     "&store.WithheldRowsError{Resource: resource, IDs: withheldIDs}"),
+    ("syncResource", "the resume point stays where the attempt began",
+     "\t\terr := &store.WithheldRowsError{Resource: resource, IDs: withheldIDs}\n",
+     "\t\t// TAG: resume where this attempt began, not after\n"
+     "\t\t// the page that held the withheld rows, so the next run reads them again.\n"
+     "\t\tif err := SAVE(resource, SCOPEexistingCursor, cachedCount); err != nil {\n"
+     "\t\t\treturn syncResult{Resource: resource, Count: cachedCount, Err: fmt.Errorf(\"saving sync progress for %s: %w\", resource, err), Duration: time.Since(started)}\n"
+     "\t\t}\n"
+     "\t\terr := &store.WithheldRowsError{Resource: resource, IDs: withheldIDs}\n",
+     "existingCursor, cachedCount); err != nil {"),
+    ("syncResource", "a walk with withheld rows proves no partition",
+     "\tif prune && flatReconcilable {\n",
+     "\tif len(withheldIDs) > 0 { // TAG: reconcile never deletes a row the walk could not store\n"
+     "\t\toutcome.complete = false\n"
+     "\t\toutcome.reason = \"rows_withheld\"\n"
+     "\t}\n"
+     "\tif prune && flatReconcilable {\n",
+     "outcome.reason = \"rows_withheld\""),
+    ("syncResource", "no page moves the resume point past a withheld row",
+     "\t\tif err := SAVE(resource, SCOPEnextCursor, totalCount); err != nil {\n",
+     "\t\tpageCursor := nextCursor\n"
+     "\t\tif len(withheldIDs) > 0 { // TAG: whatever ends this walk, the\n"
+     "\t\t\t// next run resumes where it began and reads the withheld rows again.\n"
+     "\t\t\tpageCursor = existingCursor\n"
+     "\t\t}\n"
+     "\t\tif err := SAVE(resource, SCOPEpageCursor, totalCount); err != nil {\n",
+     "pageCursor = existingCursor"),
+]
+
+
+def r_withheld_rows(p: Plan, hid: str, entry: dict) -> dict:
+    t = tag(hid)
+    store_rel = "cli/internal/store/store.go"
+    for rel, tpl in (("cli/internal/store/withheld.go", WITHHELD_GO),
+                     ("cli/internal/store/withheld_test.go", WITHHELD_TEST_GO)):
+        if not p.exists(rel):
+            if not p.module:
+                p.hand("withheld-rows", "cli/go.mod names no module")
+                return {}
+            p.write(rel, tpl.replace("MODULE", p.module).replace("HID", t), "withheld rows named")
+        p.add_tests_from(rel)
+    p.pin(hid, "cli/internal/store/withheld.go", "func isWithheldRow(err error) bool")
+    for label, before, after, marker in WH_STORE:
+        if p.edit("withheld-rows", store_rel, label, before, after.replace("TAG", t), marker):
+            p.pin(hid, store_rel, marker)
+    sync_rel = "cli/internal/cli/sync.go"
+    if not p.exists(sync_rel) or "func upsertResourceBatch(" not in (p.read(sync_rel) or ""):
+        return {}  # no REST sync walk: the store names the rows to every caller
+    text = p.read(sync_rel) or ""
+    walk = next((name for name in ("syncResource", "syncResourceWalk")
+                 if any("upsertResourceBatch(db, resource, items)" in text[a:b] for a, b in func_spans(text, name))),
+                None)  # the function that stores each page; None: the whole file, each anchor still unique
+    scoped = "SaveSyncProgressInScope(resource, scopeKey," in text
+    save, sc = ("db.SaveSyncProgressInScope", "scopeKey, ") if scoped else ("db.SaveSyncProgress", "")
+    for scope, label, before, after, marker in WH_SYNC:
+        scope = walk if scope == "syncResource" else scope
+        before = before.replace("SAVE(", save + "(").replace("SCOPE", sc)
+        after = after.replace("TAG", t).replace("SAVE(", save + "(").replace("SCOPE", sc)
+        optional = label == "a walk with withheld rows proves no partition"  # no reconcile in this print
+        if p.edit("withheld-rows", sync_rel, label, before, after, marker, scope=scope, required=not optional):
+            p.pin(hid, sync_rel, marker)
+    return {}
+
+
 RECIPES = {
     "derive-lock-canonical": r_derive_lock,
     "token-host-compare": r_token_host,
@@ -1268,6 +1515,7 @@ RECIPES = {
     "no-config-write": r_no_config_write,
     "manifest-env-union": r_manifest_env,
     "sync-event-writer-serialized": r_sync_event_writer,
+    "withheld-rows": r_withheld_rows,
 }
 
 # Recipes that are run even when their entry's markers all hold: they check

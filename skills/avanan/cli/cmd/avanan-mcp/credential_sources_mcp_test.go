@@ -330,7 +330,8 @@ func TestEveryCredentialSourceIsWithheldFromMCPOutput(t *testing.T) {
 			if strings.Contains(strings.ToLower(out), hex.EncodeToString([]byte(src.cred))) {
 				t.Errorf("MCP output carries the credential in hex:\n%s", out)
 			}
-			if !strings.Contains(out, "[credkit: withheld") {
+			// a sync reports a withheld row by name and skips it (#612); every other path prints the kit's notice
+			if !strings.Contains(out, "[credkit: withheld") && !strings.Contains(out, "withheld by the credential check") {
 				t.Errorf("the reflected answer was not withheld:\n%s", out)
 			}
 			_ = filepath.WalkDir(home, func(path string, d fs.DirEntry, err error) error {
