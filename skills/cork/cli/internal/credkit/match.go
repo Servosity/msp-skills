@@ -29,6 +29,7 @@ import (
 	"io"
 	mbits "math/bits"
 	"runtime"
+	"runtime/debug"
 	"slices"
 	"sort"
 	"strings"
@@ -54,7 +55,8 @@ const (
 const pieceLen = 8
 
 type matcher struct {
-	ac       *automaton
+	ac       *automaton          // nil when every pattern is a word
+	words    *wordSet            // the patterns of exactly pieceLen bytes that count anywhere
 	numWhole map[string]struct{} // canonical forms of digit-only values
 	numWin   map[string]struct{} // 8-digit windows of those forms
 	maxLen   int                 // the longest normalized value, in bytes
@@ -206,9 +208,85 @@ func buildMatcher(vals []string, userCut map[string]bool, anywhere, whole bool) 
 	for w := range pats {
 		m.norms = append(m.norms, []byte(w))
 	}
-	m.ac = newAutomaton(pats)
+	// Every pattern, before the words leave pats below: constPrefixes
+	// takes each pattern's first eight bytes, a word's included.
 	m.prefixes = constPrefixes(m, pats)
+	// A pattern of exactly pieceLen bytes that counts anywhere (each piece
+	// of a long value) is a word in a set, not states of the automaton
+	// (#612): the dense automaton took about 200 KB per 130-character
+	// cookie, and a sync holds a new cookie from every page. hitIn reads
+	// words as the automaton reads patterns, ASCII upper case as lower.
+	words := map[uint64]struct{}{}
+	for p, short := range pats {
+		if len(p) == pieceLen && !short && useWords {
+			words[word8([]byte(p))] = struct{}{}
+			delete(pats, p)
+		}
+	}
+	if len(words) > 0 {
+		m.words = newWordSet(words)
+	}
+	if len(pats) > 0 {
+		m.ac = newAutomaton(pats)
+	}
 	return m
+}
+
+// useWords: tests turn it off to compare with the automaton alone.
+var useWords = true
+
+// lowerASCII reads ASCII upper case as lower case, as the automaton's
+// classes do.
+var lowerASCII = func() (t [256]byte) {
+	for i := range t {
+		t[i] = byte(i)
+	}
+	for c := 'A'; c <= 'Z'; c++ {
+		t[c] = byte(c + 'a' - 'A')
+	}
+	return
+}()
+
+// word8 is b's pieceLen bytes, ASCII upper case as lower, as one word.
+func word8(b []byte) (w uint64) {
+	for _, c := range b {
+		w = w<<8 | uint64(lowerASCII[c])
+	}
+	return w
+}
+
+// wordSet is a set of words with a bitmap in front of it: most text
+// matches no word, and a bitmap bit costs less than a lookup.
+type wordSet struct {
+	bits  []uint64
+	shift uint
+	set   map[uint64]struct{}
+}
+
+func newWordSet(words map[uint64]struct{}) *wordSet {
+	// At least 16 bits per word: a text word that is in no set finds its
+	// bit set about one time in 16, and then the set says no.
+	n := 1 << 12
+	for n < 16*len(words) {
+		n <<= 1
+	}
+	ws := &wordSet{bits: make([]uint64, n/64), shift: uint(64 - mbits.TrailingZeros(uint(n))), set: words}
+	for w := range words {
+		h := ws.slot(w)
+		ws.bits[h/64] |= 1 << (h % 64)
+	}
+	return ws
+}
+
+func (ws *wordSet) slot(w uint64) uint64 { return (w * 0x9E3779B97F4A7C15) >> ws.shift }
+
+func (ws *wordSet) has(w uint64) bool {
+	h := ws.slot(w)
+	if ws.bits[h/64]&(1<<(h%64)) == 0 {
+		return false
+	}
+	_, ok := ws.set[w]
+	return ok
 }
 
 // userKeep reports, for the Basic pair v with its user cut, which of its
@@ -349,14 +427,24 @@ func (m *matcher) hitIn(n []byte, anywhere bool) bool {
 	if m.rec != nil {
 		m.rec(n)
 	}
-	a := m.ac
-	s := int32(0)
-	for i, c := range n {
-		s = a.next[int(s)*a.width+int(a.class[c])]
-		if o := a.out[s]; o >= 0 {
-			for _, p := range a.outs[o] {
-				if !p.short || anywhere || tokenAt(n, i+1-p.n, i+1) {
-					return true
+	if ws := m.words; ws != nil {
+		var w uint64
+		for i, c := range n {
+			w = w<<8 | uint64(lowerASCII[c])
+			if i >= pieceLen-1 && ws.has(w) {
+				return true
+			}
+		}
+	}
+	if a := m.ac; a != nil {
+		s := int32(0)
+		for i, c := range n {
+			s = a.next[int(s)*a.width+int(a.class[c])]
+			if o := a.out[s]; o >= 0 {
+				for _, p := range a.outs[o] {
+					if !p.short || anywhere || tokenAt(n, i+1-p.n, i+1) {
+						return true
+					}
 				}
 			}
 		}
@@ -437,6 +525,7 @@ type scan struct {
 	zl, fl io.ReadCloser
 	defl   *deflateMemo
 	segs   map[string]string // normalized segments (appendNormalized)
+	fin    *scan             // readFinal's scan
 }
 
 func (c *closure) ok() bool         { return c.v.Load() == int32(clean) }
@@ -474,6 +563,9 @@ func (m *matcher) checkWork(unit []byte) (_ verdict, _ bool, decoded, deflated i
 	}
 	if len(unit) > maxUnit {
 		return exhausted, false, 0, 0
+	}
+	if len(unit) >= bigUnit { // exact: scheduling, every unit is checked in full either way
+		defer bigCheck()()
 	}
 	m.prepare()
 	c := &closure{m: m}
@@ -588,22 +680,28 @@ func (c *closure) step(level []view, depth int) []view {
 	if !c.ok() {
 		return nil
 	}
+	// The level is read: let the collector have it while the next one is
+	// assembled (#612).
+	for i := range level {
+		level[i].parts = nil
+	}
+	for i := range tasks {
+		tasks[i].parts = nil
+	}
 	var out []view
 	for f := 0; f <= maxRawNest; f++ {
 		var by, tx, ta, rj, bj, tby, ttx [][]byte
-		var junk, tjunk, tany, rjunk, bjunk []byte
+		var tjunk, tany, rjunk, bjunk []byte
 		for i := range tasks {
 			k := &tasks[i].d.bk[f]
 			by, tx = append(by, k.bytes...), append(tx, k.text...)
-			junk, tjunk, rjunk = append(junk, k.junk...), append(tjunk, k.tjunk...), append(rjunk, k.rjunk...)
+			tjunk, rjunk = append(tjunk, k.tjunk...), append(rjunk, k.rjunk...)
 			tany, bjunk = append(tany, k.tany...), append(bjunk, k.bjunk...)
 			tby, ttx = append(tby, k.tbytes...), append(ttx, k.ttext...)
+			k.tjunk, k.rjunk, k.tany, k.bjunk = nil, nil, nil, nil // copied: the collector may have them
 		}
 		if len(bjunk) > 0 && c.fresh(bjunk, true, f) {
 			bj = append(bj, bjunk)
-		}
-		if len(junk) > 0 && c.fresh(junk, false, f) {
-			by = append(by, junk)
 		}
 		if len(tjunk) > 0 && c.fresh(tjunk, true, f) {
 			tx = append(tx, tjunk)
@@ -639,10 +737,57 @@ func (c *closure) worker(i int) *scan {
 
 func (c *closure) release() {
 	for _, s := range c.scans {
-		memoPool.Put(s.defl)
+		for _, t := range []*scan{s, s.fin} {
+			if t != nil {
+				t.defl.reset() // what it holds goes to the collector, not the pool (#612)
+				memoPool.Put(t.defl)
+			}
+		}
 	}
-	setPool.Put(c.done)
-	setPool.Put(c.seen)
+	// A set a large unit grew is left to the collector, not pooled: the
+	// pool kept the largest set any unit had grown, so a sync's memory
+	// ratcheted up with each larger record and stayed there (#612).
+	for _, t := range []*stripedSet{c.done, c.seen} {
+		slots := 0
+		for i := range t.stripes {
+			slots += cap(t.stripes[i].keys)
+		}
+		if slots <= keptSlots { // exact: memory, not reading
+			setPool.Put(t)
+		}
+	}
+}
+
+// keptSlots is the most key slots (16 bytes each) a pooled set keeps.
+const keptSlots = 1 << 20
+
+// bigUnit: a unit this large is checked one at a time, with the collector
+// held close to the live heap while it runs (#612). Such a check holds a
+// few hundred bytes of decodings and dedup keys per unit byte at once and
+// allocates about a hundred times its live heap, so with the default
+// collector the heap ran to twice the live heap, and syncing several
+// resources at once added one such check per resource: a 1 GB container
+// was killed on a 300 KB ticket. Smaller units run as before.
+const bigUnit = 64 << 10
+
+// bigGCPercent is the collector's target while a large unit is checked: a
+// heap about a quarter above the live heap, for more collector work.
+const bigGCPercent = 25
+
+var bigMu sync.Mutex // a leaf lock: held only while a unit is checked
+
+// bigCheck waits for any other large check to end, tightens the collector,
+// and returns what undoes both.
+func bigCheck() func() {
+	bigMu.Lock()
+	old := debug.SetGCPercent(bigGCPercent)
+	if old < bigGCPercent { // the program asked for less (or none): keep it
+		debug.SetGCPercent(old)
+	}
+	return func() {
+		debug.SetGCPercent(old)
+		bigMu.Unlock()
+	}
 }
 
 var setPool = sync.Pool{New: func() any { return new(stripedSet) }}

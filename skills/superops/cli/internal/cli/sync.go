@@ -378,6 +378,7 @@ func syncResource(ctx context.Context, c *client.Client, db *store.Store, resour
 	// anomalyEmitted rate-limits per-resource warnings to one per sync run.
 	consumedTotal := 0
 	extractFailureTotal := 0
+	var withheldIDs []string // Hand-fix (handfixes.json sync-skips-withheld-row)
 	anomalyEmitted := false
 	capExitCursor := ""
 	attemptComplete := false
@@ -471,6 +472,18 @@ func syncResource(ctx context.Context, c *client.Client, db *store.Store, resour
 		// store layer so it inherits the per-resource ID-field override
 		// map and reduced fallback list automatically.
 		stored, extractFailures, err := db.UpsertBatch(resource, conn.Nodes)
+		var pageWithheld *store.WithheldRowsError
+		if errors.As(err, &pageWithheld) {
+			// Hand-fix (handfixes.json sync-skips-withheld-row): the credential check refused these rows whole; the rest of
+			// the page is stored and the walk goes on. The resource ends failed,
+			// naming them, and resumes where this attempt began, so the next
+			// run fetches them again.
+			withheldIDs = append(withheldIDs, pageWithheld.IDs...)
+			if !humanFriendly {
+				fmt.Fprintln(os.Stderr, syncErrorJSON(resource, "", err))
+			}
+			err = nil
+		}
 		if err != nil {
 			if !humanFriendly {
 				fmt.Fprintln(os.Stderr, syncErrorJSON(resource, "", err))
@@ -480,7 +493,7 @@ func syncResource(ctx context.Context, c *client.Client, db *store.Store, resour
 		// Emit at most one anomaly event per resource per sync run to avoid
 		// log spam when extraction fails on every page. Order matches the
 		// REST path (sync.go.tmpl): all-fail first, then partial-fail.
-		if len(conn.Nodes) > 0 && stored == 0 && !anomalyEmitted {
+		if len(conn.Nodes) > 0 && stored == 0 && pageWithheld == nil && !anomalyEmitted { // Hand-fix (handfixes.json sync-skips-withheld-row)
 			if humanFriendly {
 				fmt.Fprintf(os.Stderr, "warning: %s returned %d items but stored 0 — the local store will be empty for this resource. Likely cause: scalar item shape rather than objects with extractable IDs.\n", resource, len(conn.Nodes))
 			} else {
@@ -508,6 +521,10 @@ func syncResource(ctx context.Context, c *client.Client, db *store.Store, resour
 		}
 		if next != "" {
 			progressCursor = next
+		}
+		if len(withheldIDs) > 0 { // Hand-fix (handfixes.json sync-skips-withheld-row): whatever ends this walk, the
+			// next run resumes where it began and reads the withheld rows again.
+			progressCursor = existingCursor
 		}
 
 		// Progress reporting
@@ -563,6 +580,15 @@ func syncResource(ctx context.Context, c *client.Client, db *store.Store, resour
 		cursor = next
 	}
 
+	if len(withheldIDs) > 0 { // Hand-fix (handfixes.json sync-skips-withheld-row): before any completion is saved
+		// Hand-fix (handfixes.json sync-skips-withheld-row): resume where this attempt began, not after
+		// the page that held the withheld rows, so the next run reads them again.
+		if err := db.SaveSyncProgressInScope(resource, scopeKey, existingCursor, totalCount); err != nil {
+			return syncResult{Resource: resource, Count: totalCount, Err: fmt.Errorf("saving sync progress for %s: %w", resource, err), Duration: time.Since(started)}
+		}
+		err := &store.WithheldRowsError{Resource: resource, IDs: withheldIDs}
+		return syncResult{Resource: resource, Count: totalCount, Err: err, IntegrityFailure: true, Duration: time.Since(started)}
+	}
 	// F4b symptom probe: rows extracted successfully but none landed.
 	// Likely cause is below the PK-extraction layer (FTS5 trigger,
 	// transaction rollback, character encoding). Emits the symptom so

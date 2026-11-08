@@ -639,6 +639,7 @@ func syncResource(ctx context.Context, c interface {
 	var extractFailureTotal int
 	var hydrateFailureTotal int
 	var consumedTotal int
+	var withheldIDs []string // Hand-fix (handfixes.json sync-skips-withheld-row)
 	anomalyEmitted := false
 
 	// Flat reconcile bookkeeping (mirrors the dependent loop's partitionOutcome
@@ -809,6 +810,19 @@ func syncResource(ctx context.Context, c interface {
 		// partial primary-key misses, typed projection failures, and rows that
 		// extracted cleanly but still failed to land.
 		stored, extractFailures, typedFailures, err := upsertResourceBatch(db, resource, items)
+		var pageWithheld *store.WithheldRowsError
+		if errors.As(err, &pageWithheld) {
+			// Hand-fix (handfixes.json sync-skips-withheld-row): the credential check refused these rows whole; the rest of
+			// the page is stored and the walk goes on. The resource ends failed,
+			// naming them, and keeps its watermark, so the next run fetches
+			// them again.
+			withheldIDs = append(withheldIDs, pageWithheld.IDs...)
+			timestampOrderSafe = false
+			if !humanFriendly {
+				fmt.Fprintln(syncEvents, syncErrorJSON(resource, "", err))
+			}
+			err = nil
+		}
 		if err != nil {
 			if !humanFriendly {
 				fmt.Fprintln(syncEvents, syncErrorJSON(resource, "", err))
@@ -833,7 +847,7 @@ func syncResource(ctx context.Context, c interface {
 			return syncResult{Resource: resource, Count: totalCount + stored, Err: err, IntegrityFailure: true, Duration: time.Since(started)}
 		}
 
-		if fetchedThisPage > 0 && stored == 0 {
+		if fetchedThisPage > 0 && stored == 0 && pageWithheld == nil { // Hand-fix (handfixes.json sync-skips-withheld-row)
 			reason := "all_items_failed_id_extraction"
 			cause := "scalar item shape rather than objects with extractable IDs"
 			if hydrationEnabled && hydrateFailures > 0 {
@@ -1013,6 +1027,10 @@ func syncResource(ctx context.Context, c interface {
 		if !plainQuery {
 			savedCursor = persistedCursor // Hand-fix (handfixes.json sync-bound-moves-only-on-covering-run)
 		}
+		if len(withheldIDs) > 0 { // Hand-fix (handfixes.json sync-skips-withheld-row): whatever ends this walk, the
+			// next run resumes where it began and reads the withheld rows again.
+			savedCursor = existingCursor
+		}
 		if err := db.SaveSyncProgressInScope(resource, scopeKey, savedCursor, totalCount); err != nil {
 			return syncResult{Resource: resource, Count: totalCount, Err: fmt.Errorf("saving sync progress for %s: %w", resource, err), Duration: time.Since(started)}
 		}
@@ -1033,6 +1051,10 @@ func syncResource(ctx context.Context, c interface {
 	//   - Incomplete sync (outcome.complete==false) ⇒ SKIP with the recorded
 	//     reason; an abnormal or unprovable end never proves the partition was
 	//     enumerated.
+	if len(withheldIDs) > 0 { // Hand-fix (handfixes.json sync-skips-withheld-row): reconcile never deletes a row the walk could not store
+		outcome.complete = false
+		outcome.reason = "rows_withheld"
+	}
 	if prune && flatReconcilable {
 		if reason := syncPruneSkipReason(resource, false, effectiveSince, "", userParams, reconcileMode, scopeKey); reason != "" {
 			if reconcileMode == "flat_global" {
@@ -1109,6 +1131,15 @@ func syncResource(ctx context.Context, c interface {
 	cachedCount, countErr := db.Count(resource)
 	if countErr != nil {
 		return syncResult{Resource: resource, Count: totalCount, Err: fmt.Errorf("counting stored %s rows: %w", resource, countErr), Duration: time.Since(started)}
+	}
+	if len(withheldIDs) > 0 { // Hand-fix (handfixes.json sync-skips-withheld-row): before any completion is saved
+		// Hand-fix (handfixes.json sync-skips-withheld-row): resume where this attempt began, not after
+		// the page that held the withheld rows, so the next run reads them again.
+		if err := db.SaveSyncProgressInScope(resource, scopeKey, existingCursor, cachedCount); err != nil {
+			return syncResult{Resource: resource, Count: cachedCount, Err: fmt.Errorf("saving sync progress for %s: %w", resource, err), Duration: time.Since(started)}
+		}
+		err := &store.WithheldRowsError{Resource: resource, IDs: withheldIDs}
+		return syncResult{Resource: resource, Count: cachedCount, Err: err, IntegrityFailure: true, Duration: time.Since(started)}
 	}
 	// Integrity verdicts must precede completion persistence. Otherwise a
 	// run can advance its watermark and only then report that no rows landed.
@@ -2625,14 +2656,22 @@ func upsertResourceBatch(db *store.Store, resource string, items []json.RawMessa
 	}
 
 	var stored, extractFailures, typedFailures int
+	var withheld []string // Hand-fix (handfixes.json sync-skips-withheld-row)
 	for _, target := range order {
 		targetStored, targetExtractFailures, targetTypedFailures, err := db.UpsertBatchDetailed(target, grouped[target])
+		if w := (*store.WithheldRowsError)(nil); errors.As(err, &w) { // Hand-fix (handfixes.json sync-skips-withheld-row)
+			withheld = append(withheld, w.IDs...)
+			err = nil
+		}
 		if err != nil {
 			return stored, extractFailures + targetExtractFailures, typedFailures + targetTypedFailures, err
 		}
 		stored += targetStored
 		extractFailures += targetExtractFailures
 		typedFailures += targetTypedFailures
+	}
+	if len(withheld) > 0 { // Hand-fix (handfixes.json sync-skips-withheld-row)
+		return stored, extractFailures, typedFailures, &store.WithheldRowsError{Resource: resource, IDs: withheld}
 	}
 	return stored, extractFailures, typedFailures, nil
 }

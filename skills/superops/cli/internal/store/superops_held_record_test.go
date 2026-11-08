@@ -16,9 +16,10 @@ import (
 	"superops-pp-cli/internal/credkit"
 )
 
-// A vendor batch in which any record repeats a held credential, as written or
-// encoded, at any length, is refused whole: no row, no search index entry,
-// nothing of it in the database file.
+// A record that repeats a held credential, as written or encoded, at any
+// length, is refused: no row, no search index entry, nothing of it in the
+// database file. The batch's other records are stored (#612: one refused
+// record no longer drops the rest of its batch).
 func TestUpsertBatchRefusesARecordThatRepeatsAHeldCredential(t *testing.T) {
 	if !heldChild(t) {
 		return
@@ -38,8 +39,12 @@ func TestUpsertBatchRefusesARecordThatRepeatsAHeldCredential(t *testing.T) {
 			t.Fatalf("UpsertBatch = %v, want credkit.ErrWithheld naming no value", err)
 		}
 		var n int
-		if err := db.DB().QueryRow(`SELECT COUNT(*) FROM resources`).Scan(&n); err != nil || n != 0 {
-			t.Fatalf("stored %d rows (%v), want none", n, err)
+		if err := db.DB().QueryRow(`SELECT COUNT(*) FROM resources`).Scan(&n); err != nil || n != 1 {
+			t.Fatalf("stored %d rows (%v), want only the clean one", n, err)
+		}
+		var kept string
+		if err := db.DB().QueryRow(`SELECT data FROM resources`).Scan(&kept); err != nil || !strings.Contains(kept, "printer") {
+			t.Fatalf("the stored row is %q (%v), want the clean record", kept, err)
 		}
 		_ = db.Close()
 		files, _ := filepath.Glob(filepath.Join(dir, "data.db*"))

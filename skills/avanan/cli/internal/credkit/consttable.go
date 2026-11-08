@@ -16,8 +16,9 @@ package credkit
 //     the class: the closure reads the matcher only through rel (and the
 //     tables, masks and multi-byte index built from it), binary, heldNUL,
 //     short and numWhole (TestKitcpuClassDecodesOneViewSet checks it).
-//  2. Such a matcher finds a pattern only through hitIn's automaton: the
-//     pattern as a substring of a view, ASCII upper case read as lower.
+//  2. Such a matcher finds a pattern only through hitIn's automaton or
+//     word set: the pattern as a substring of a view, ASCII upper case
+//     read as lower.
 //     So a pattern found has its first eight bytes, folded, as a window
 //     of a view.
 //  3. The table holds every such window of every view of each unit it
