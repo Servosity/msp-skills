@@ -371,9 +371,9 @@
     "released_hash": "sha256:f65b37f65d9976b0feb13673537868f06d38309978d4874246bf176cb5e1a1ca"
   },
   "jira-service-management": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.5",
-    "latest_tag": "jira-service-management-v0.1.4",
+    "latest_tag": "jira-service-management-v0.1.5",
     "current_hash": "sha256:c1dc7dbf313b79fc54977284200052bc9f41c9b2ba18e79f4fc7fe4015d37a93",
     "released_hash": "sha256:c1dc7dbf313b79fc54977284200052bc9f41c9b2ba18e79f4fc7fe4015d37a93"
   },
@@ -756,9 +756,9 @@
     "released_hash": "sha256:a05ee08b697de2a8e48cecb81b60785e3589d4c5c9c74048996339de1b397442"
   },
   "zammad": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.13",
-    "latest_tag": "zammad-v0.1.12",
+    "latest_tag": "zammad-v0.1.13",
     "current_hash": "sha256:13e3cf15d2b6ba00bb779a727d884d33c6adcdf0538f7dd047899330b6f02671",
     "released_hash": "sha256:13e3cf15d2b6ba00bb779a727d884d33c6adcdf0538f7dd047899330b6f02671"
   },
