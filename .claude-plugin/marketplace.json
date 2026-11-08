@@ -1295,7 +1295,7 @@
       "name": "jira-service-management",
       "source": "./skills/jira-service-management",
       "description": "Every Jira Service Management Cloud request-API (servicedeskapi) and Assets endpoint in one binary, plus SLA breach radar, internal notes, ticket timelines, and CMDB-to-ticket joins.",
-      "version": "0.1.4",
+      "version": "0.1.5",
       "category": "psa",
       "tags": [
         "jira-service-management",
