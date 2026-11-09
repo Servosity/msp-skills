@@ -462,9 +462,9 @@
     "released_hash": "sha256:e295062be23a2fdd3fcc3acbbacb4bc588acc48bfe3e5a5be2164f9a382a3dac"
   },
   "nerdio": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.10",
-    "latest_tag": "nerdio-v0.1.9",
+    "latest_tag": "nerdio-v0.1.10",
     "current_hash": "sha256:79bebd4a2bda451db934dda605eacc3eafa092def0c73241edba3ab997ce5a05",
     "released_hash": "sha256:79bebd4a2bda451db934dda605eacc3eafa092def0c73241edba3ab997ce5a05"
   },
