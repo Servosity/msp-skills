@@ -46,7 +46,7 @@ Big install base, but an honest heads-up: these are the **remote / enterprise** 
 
 ### Fastest for Claude Desktop - one-click `.mcpb`
 
-[**Download Cisco Umbrella MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/cisco-umbrella-v0.1.1/cisco-umbrella-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every Cisco Umbrella release on the [releases page](https://github.com/servosity/msp-skills/releases?q=cisco-umbrella).)
+[**Download Cisco Umbrella MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/cisco-umbrella-v0.1.2/cisco-umbrella-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every Cisco Umbrella release on the [releases page](https://github.com/servosity/msp-skills/releases?q=cisco-umbrella).)
 
 Prefer the Claude Code plugin? Add the marketplace once, then install - works immediately, no directory listing required:
 
