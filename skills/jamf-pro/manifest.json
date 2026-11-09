@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "jamf-pro-mcp",
   "display_name": "Jamf Pro",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Every client's Jamf Pro in one CLI: register each instance once, then find devices, check posture and patch status, and audit policies across all of them.",
   "author": {
     "name": "Servosity Inc."

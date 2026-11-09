@@ -422,7 +422,7 @@
       "name": "gradient",
       "source": "./skills/gradient",
       "description": "The Synthesize partner API from the terminal - every endpoint, plus a usage-push ledger, billing drift detection, and alert-to-ticket tracing no other Gradient tool has.",
-      "version": "0.1.9",
+      "version": "0.1.10",
       "category": "billing",
       "tags": [
         "gradient",
@@ -438,7 +438,7 @@
       "name": "halopsa",
       "source": "./skills/halopsa",
       "description": "Every HaloPSA, HaloITSM and HaloCRM feature, plus a local SQLite store and cross-entity views the API can't return.",
-      "version": "0.2.22",
+      "version": "0.2.23",
       "category": "psa",
       "tags": [
         "halopsa",
@@ -468,7 +468,7 @@
       "name": "hudu",
       "source": "./skills/hudu",
       "description": "Every Hudu cmdlet, plus an offline SQLite mirror, cross-entity audits, and agent-native output no PowerShell module or read-only MCP ships.",
-      "version": "0.1.17",
+      "version": "0.1.18",
       "category": "documentation",
       "tags": [
         "hudu",
@@ -483,7 +483,7 @@
       "name": "huntress",
       "source": "./skills/huntress",
       "description": "Every Huntress endpoint, plus fleet-wide incident, coverage, and billing rollups the API can't.",
-      "version": "0.1.12",
+      "version": "0.1.13",
       "category": "security",
       "tags": [
         "huntress",
@@ -498,7 +498,7 @@
       "name": "immybot",
       "source": "./skills/immybot",
       "description": "Every ImmyBot endpoint typed, plus a local mirror that joins what the web UI keeps per tenant.",
-      "version": "0.1.12",
+      "version": "0.1.13",
       "category": "rmm",
       "tags": [
         "immybot",
@@ -513,7 +513,7 @@
       "name": "itglue",
       "source": "./skills/itglue",
       "description": "Every IT Glue resource, plus an offline SQLite mirror, fleet-wide cross-resource search, and documentation-hygiene analytics no other IT Glue tool offers.",
-      "version": "0.1.7",
+      "version": "0.1.8",
       "category": "documentation",
       "tags": [
         "itglue",
@@ -529,7 +529,7 @@
       "name": "kaseya-bms",
       "source": "./skills/kaseya-bms",
       "description": "The first dedicated CLI and MCP server for Kaseya BMS - the full PSA surface plus offline sync, full-text search, and the queue, contract-burn, and unbilled-revenue analytics the web grid can't compute.",
-      "version": "0.1.9",
+      "version": "0.1.10",
       "category": "psa",
       "tags": [
         "kaseya-bms",
@@ -1484,7 +1484,7 @@
       "name": "kaseya-vsa",
       "source": "./skills/kaseya-vsa",
       "description": "Every VSA 10 API endpoint, plus a local fleet database that answers patch, health, and software questions across all your clients offline.",
-      "version": "0.1.2",
+      "version": "0.1.3",
       "category": "rmm",
       "tags": [
         "kaseya-vsa",
@@ -1593,7 +1593,7 @@
       "name": "keeper",
       "source": "./skills/keeper",
       "description": "Read-only Keeper MSP posture across every client, with history, a change feed and no path to a vault secret.",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "category": "security",
       "tags": [
         "keeper",
@@ -1625,7 +1625,7 @@
       "name": "jamf-pro",
       "source": "./skills/jamf-pro",
       "description": "Every client's Jamf Pro in one CLI: register each instance once, then find devices, check posture and patch status, and audit policies across all of them.",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "category": "mdm",
       "tags": [
         "jamf-pro",
