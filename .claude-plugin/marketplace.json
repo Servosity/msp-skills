@@ -370,7 +370,7 @@
       "name": "datto-rmm",
       "source": "./skills/datto-rmm",
       "description": "Every Datto RMM API operation, plus a local SQLite fleet store and fleet-wide analytics no other Datto tool has.",
-      "version": "0.1.11",
+      "version": "0.1.12",
       "category": "rmm",
       "tags": [
         "datto-rmm",
@@ -386,7 +386,7 @@
       "name": "domotz",
       "source": "./skills/domotz",
       "description": "Every Domotz endpoint, plus a local SQLite fleet mirror that answers cross-site questions.",
-      "version": "0.1.8",
+      "version": "0.1.9",
       "category": "network-monitoring",
       "tags": [
         "domotz",
@@ -1111,7 +1111,7 @@
       "name": "fortinet",
       "source": "./skills/fortinet",
       "description": "Read every FortiGate's configuration and live state, then audit the whole client fleet for firmware, SSL-VPN exposure, admin accounts and licence expiry in one command.",
-      "version": "0.1.5",
+      "version": "0.1.6",
       "category": "security",
       "tags": [
         "fortinet",
@@ -1126,7 +1126,7 @@
       "name": "google-workspace",
       "source": "./skills/google-workspace",
       "description": "Cross-client Google Workspace admin: 2SV gaps, licence waste, sharing drift, safe offboarding.",
-      "version": "0.1.5",
+      "version": "0.1.6",
       "category": "security",
       "tags": [
         "google-workspace",
@@ -1359,7 +1359,7 @@
       "name": "eset-protect",
       "source": "./skills/eset-protect",
       "description": "Every ESET Connect endpoint in one binary, plus per-customer health, exposure and QBR reports built from a local mirror of your MSP tree.",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "category": "security",
       "tags": [
         "eset-protect",
@@ -1453,7 +1453,7 @@
       "name": "exchange-online",
       "source": "./skills/exchange-online",
       "description": "Exchange Online admin for MSPs over REST: forwarding audits, EWS posture, offboarding and quarantine across client tenants, no PowerShell session.",
-      "version": "0.1.1",
+      "version": "0.1.2",
       "category": "security",
       "tags": [
         "exchange-online",
@@ -1469,7 +1469,7 @@
       "name": "dnsfilter",
       "source": "./skills/dnsfilter",
       "description": "Every DNSFilter API operation, plus one-command answers to 'why is this site blocked for this client' and 'which clients are behind on the roaming agent'.",
-      "version": "0.1.1",
+      "version": "0.1.2",
       "category": "security",
       "tags": [
         "dnsfilter",
@@ -1547,7 +1547,7 @@
       "name": "dropsuite",
       "source": "./skills/dropsuite",
       "description": "Every Dropsuite (NinjaOne SaaS Backup) read, plus fleet-wide backup health, coverage gaps and billing reconciliation from one reseller credential.",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "category": "backup-dr",
       "tags": [
         "dropsuite",
@@ -1657,7 +1657,7 @@
       "name": "domain-cert-tracker",
       "source": "./skills/domain-cert-tracker",
       "description": "Every client's domains and certificates in one inventory: what expires, unlocks or changes.",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "category": "monitoring",
       "tags": [
         "domain-cert-tracker",
@@ -1704,7 +1704,7 @@
       "name": "datto-saas",
       "source": "./skills/datto-saas",
       "description": "Every Datto SaaS Protection (Backupify) client in one local database: seat audits, protection gaps, backup health ranking, exit inventories and plan-first bulk seat changes.",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "category": "backup-dr",
       "tags": [
         "datto-saas",

@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "domain-cert-tracker-mcp",
   "display_name": "Domain and Certificate Tracker",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Every client's domains and certificates in one inventory: what expires, unlocks or changes.",
   "author": {
     "name": "Servosity Inc."
