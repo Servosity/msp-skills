@@ -686,7 +686,7 @@
       "name": "ninjaone",
       "source": "./skills/ninjaone",
       "description": "Every NinjaOne report, plus a local store that answers fleet-wide questions no single API call can: patch compliance, backup gaps, AV blast-radius, health, drift.",
-      "version": "0.1.22",
+      "version": "0.1.23",
       "category": "rmm",
       "tags": [
         "ninjaone",
@@ -701,7 +701,7 @@
       "name": "pagerduty",
       "source": "./skills/pagerduty",
       "description": "Every PagerDuty incident, on-call and service operation from the terminal, plus a local SQLite mirror that answers cross-entity questions \u2014 MTTA/MTTR, on-call coverage gaps, responder load \u2014 that neither the API nor the web UI can.",
-      "version": "0.1.8",
+      "version": "0.1.9",
       "category": "incident-response",
       "tags": [
         "pagerduty",
@@ -716,7 +716,7 @@
       "name": "pandadoc",
       "source": "./skills/pandadoc",
       "description": "Every PandaDoc endpoint, plus an offline document pipeline no other PandaDoc tool has \u2014 stalled deals, aging, recipient engagement, and open quote value from a local store.",
-      "version": "0.1.7",
+      "version": "0.1.8",
       "category": "documentation",
       "tags": [
         "pandadoc",
@@ -731,7 +731,7 @@
       "name": "pax8",
       "source": "./skills/pax8",
       "description": "Every Pax8 Partner API endpoint, plus an offline store that reconciles billing, tracks MRR, and catches usage overages no Pax8 tool surfaces.",
-      "version": "0.1.9",
+      "version": "0.1.10",
       "category": "billing",
       "tags": [
         "pax8",
@@ -746,7 +746,7 @@
       "name": "pipedrive",
       "source": "./skills/pipedrive",
       "description": "Full Pipedrive CRUD plus a local SQLite pipeline copy: stale deals, forecasts, aging, dupes, rep leaderboards.",
-      "version": "0.1.7",
+      "version": "0.1.8",
       "category": "crm",
       "tags": [
         "pipedrive",
@@ -761,7 +761,7 @@
       "name": "proofpoint",
       "source": "./skills/proofpoint",
       "description": "Every TAP Threat Insight endpoint, plus a local threat store that answers the cross-endpoint questions \u2014 who is both attacked and clicking, what touched this user \u2014 inside Proofpoint's punishing daily quotas.",
-      "version": "0.1.7",
+      "version": "0.1.8",
       "category": "security",
       "tags": [
         "proofpoint",
@@ -776,7 +776,7 @@
       "name": "quickbooks",
       "source": "./skills/quickbooks",
       "description": "Every QuickBooks Online entity, plus an offline SQLite mirror, AR/AP aging and close checks.",
-      "version": "0.1.15",
+      "version": "0.1.16",
       "category": "billing",
       "tags": [
         "quickbooks",
@@ -1188,7 +1188,7 @@
       "name": "quotewerks",
       "source": "./skills/quotewerks",
       "description": "Typed quote tools for QuoteWerks Web that use the real column names, preview typed writes before sending them, and add margin, win-rate and pipeline answers from a local mirror.",
-      "version": "0.1.3",
+      "version": "0.1.4",
       "category": "crm",
       "tags": [
         "quotewerks",
@@ -1265,7 +1265,7 @@
       "name": "proxmox",
       "source": "./skills/proxmox",
       "description": "Read-only Proxmox VE + Backup Server CLI: per-guest backup verdicts across every cluster, no write calls to Proxmox.",
-      "version": "0.1.3",
+      "version": "0.1.4",
       "category": "backup-dr",
       "tags": [
         "proxmox",
@@ -1516,7 +1516,7 @@
       "name": "prtg",
       "source": "./skills/prtg",
       "description": "Every PRTG API v2 endpoint, plus a fleet view across every client's PRTG core: alarms, status, handoffs, hygiene and safe bulk actions in one command.",
-      "version": "0.1.1",
+      "version": "0.1.2",
       "category": "network-monitoring",
       "tags": [
         "prtg",

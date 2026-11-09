@@ -1,6 +1,6 @@
 {
   "name": "prtg",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Every PRTG API v2 endpoint, plus a fleet view across every client's PRTG core: alarms, status, handoffs, hygiene and safe bulk actions in one command.",
   "author": {
     "name": "Servosity",
