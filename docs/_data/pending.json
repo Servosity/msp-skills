@@ -154,11 +154,11 @@
     "released_hash": "sha256:f93d340443f2e4af6879a70a185466b78878f4709578b6c6be32b9f2658e43a6"
   },
   "comet-backup": {
-    "state": "binary-pending",
-    "version": "0.1.0",
-    "latest_tag": "comet-backup-v0.1.0",
+    "state": "up-to-date",
+    "version": "0.1.1",
+    "latest_tag": "comet-backup-v0.1.1",
     "current_hash": "sha256:d3ab842aafdb87d8a891deb229102aa607a0c6c98917d698706e47000c693319",
-    "released_hash": "sha256:5cf0d2ffd1c268867f0a123ae914f1fd92f496e2d2b8b3a14c15426e7ab60a45"
+    "released_hash": "sha256:d3ab842aafdb87d8a891deb229102aa607a0c6c98917d698706e47000c693319"
   },
   "connect-tool": {
     "state": "markdown-only",
@@ -168,46 +168,46 @@
     "released_hash": null
   },
   "connectsecure": {
-    "state": "binary-pending",
-    "version": "0.1.5",
-    "latest_tag": "connectsecure-v0.1.5",
+    "state": "up-to-date",
+    "version": "0.1.6",
+    "latest_tag": "connectsecure-v0.1.6",
     "current_hash": "sha256:be41bfb6515e1201690d3734851c87db1769e9de54a681cb36ee7065419d4629",
-    "released_hash": "sha256:b4597b4033f2f6143ff1432854894413b8966dfe8ef8ca39f9f2b1ae4745f712"
+    "released_hash": "sha256:be41bfb6515e1201690d3734851c87db1769e9de54a681cb36ee7065419d4629"
   },
   "connectwise-automate": {
-    "state": "binary-pending",
-    "version": "0.1.8",
-    "latest_tag": "connectwise-automate-v0.1.8",
+    "state": "up-to-date",
+    "version": "0.1.9",
+    "latest_tag": "connectwise-automate-v0.1.9",
     "current_hash": "sha256:5e62b158a3633c369bc7845a72b98e8ebbb1354e878b706cdf2d4d3eaf977562",
-    "released_hash": "sha256:a809e9fe29c2a40924d699a55a9c6e203ee8b23dbb40d90ec3846d9d751ed2d4"
+    "released_hash": "sha256:5e62b158a3633c369bc7845a72b98e8ebbb1354e878b706cdf2d4d3eaf977562"
   },
   "connectwise-control": {
-    "state": "binary-pending",
-    "version": "0.1.10",
-    "latest_tag": "connectwise-control-v0.1.10",
+    "state": "up-to-date",
+    "version": "0.1.11",
+    "latest_tag": "connectwise-control-v0.1.11",
     "current_hash": "sha256:96b33e0f3663c2399f2c20e01dd13e5178952a179ecf356c1938d4122185baff",
-    "released_hash": "sha256:3dec6d89db34453dac21b226f7972797e1a0ec32b458b2f5b740570433be0a34"
+    "released_hash": "sha256:96b33e0f3663c2399f2c20e01dd13e5178952a179ecf356c1938d4122185baff"
   },
   "connectwise-manage": {
-    "state": "binary-pending",
-    "version": "0.2.4",
-    "latest_tag": "connectwise-manage-v0.2.4",
+    "state": "up-to-date",
+    "version": "0.2.5",
+    "latest_tag": "connectwise-manage-v0.2.5",
     "current_hash": "sha256:2faa25061e7d03c9670e171c6032f493184bd74bf8a43a11800c3eae4e099f7e",
-    "released_hash": "sha256:f43a4321aae0f06f0342101aec2d9e3d0c760b0cdf17d4e2cc8813617867dff8"
+    "released_hash": "sha256:2faa25061e7d03c9670e171c6032f493184bd74bf8a43a11800c3eae4e099f7e"
   },
   "connectwise-rmm": {
-    "state": "binary-pending",
-    "version": "0.1.4",
-    "latest_tag": "connectwise-rmm-v0.1.4",
+    "state": "up-to-date",
+    "version": "0.1.5",
+    "latest_tag": "connectwise-rmm-v0.1.5",
     "current_hash": "sha256:4d2f94fec4835221ea73ccbfe91a837c21ff84eed908f280647fc68359849916",
-    "released_hash": "sha256:349288c8ab3ab6c503b421fa6ead1c08fe1148a00947468b7704192c86927d3d"
+    "released_hash": "sha256:4d2f94fec4835221ea73ccbfe91a837c21ff84eed908f280647fc68359849916"
   },
   "cork": {
-    "state": "binary-pending",
-    "version": "0.1.9",
-    "latest_tag": "cork-v0.1.9",
+    "state": "up-to-date",
+    "version": "0.1.10",
+    "latest_tag": "cork-v0.1.10",
     "current_hash": "sha256:b6323c709ecf2a9235ee2dbb7b07503b78c5158690a57df598e8f6789e8d8cca",
-    "released_hash": "sha256:9ac4a2262cca7a1ab169bf8bd547bf218a820df90b63a4ad27d0c5b7fa84a6bf"
+    "released_hash": "sha256:b6323c709ecf2a9235ee2dbb7b07503b78c5158690a57df598e8f6789e8d8cca"
   },
   "cove": {
     "state": "up-to-date",
@@ -217,25 +217,25 @@
     "released_hash": "sha256:3f7bd3dc267dff47df35c2d7529f354fc0f70355199c1fe5075573704434b4a2"
   },
   "crowdstrike": {
-    "state": "binary-pending",
-    "version": "0.1.11",
-    "latest_tag": "crowdstrike-v0.1.11",
+    "state": "up-to-date",
+    "version": "0.1.12",
+    "latest_tag": "crowdstrike-v0.1.12",
     "current_hash": "sha256:e3bc0db3f7aef391d96029dc31d0dde4f0b95e45c215e8a88083f3a8c620b272",
-    "released_hash": "sha256:32c27b34cc69ce367085a5c368a68c6931341da614e4431eefd8c49af5d015e7"
+    "released_hash": "sha256:e3bc0db3f7aef391d96029dc31d0dde4f0b95e45c215e8a88083f3a8c620b272"
   },
   "datagate": {
-    "state": "binary-pending",
-    "version": "0.1.5",
+    "state": "version-pending",
+    "version": "0.1.6",
     "latest_tag": "datagate-v0.1.5",
     "current_hash": "sha256:c36280d89336f6e8e0dbca56fdc74bf16a8b79eb8ea338507214246aba959b2e",
-    "released_hash": "sha256:13ed9e7473754e2d3c4c76e04bde9b5cec3ecd88958c30ebb55f2e64f6ee1f45"
+    "released_hash": "sha256:c36280d89336f6e8e0dbca56fdc74bf16a8b79eb8ea338507214246aba959b2e"
   },
   "datto-bcdr": {
-    "state": "binary-pending",
-    "version": "0.1.10",
+    "state": "version-pending",
+    "version": "0.1.11",
     "latest_tag": "datto-bcdr-v0.1.10",
     "current_hash": "sha256:adfd3137846273128a62a43c4a0816ca82b8d54ac9edd124247fe7e5ce423ed8",
-    "released_hash": "sha256:20ba7e2e78c5aee297696afa98967989fdf9b801c3e9c50f7ca049376468d130"
+    "released_hash": "sha256:adfd3137846273128a62a43c4a0816ca82b8d54ac9edd124247fe7e5ce423ed8"
   },
   "datto-rmm": {
     "state": "binary-pending",
