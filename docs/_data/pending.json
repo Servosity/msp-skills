@@ -63,9 +63,9 @@
     "released_hash": "sha256:ecc94d93c894e700824ca0759a4c91ce093d1fe72dad4b844a0f547df113c3d9"
   },
   "avanan": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.14",
-    "latest_tag": "avanan-v0.1.13",
+    "latest_tag": "avanan-v0.1.14",
     "current_hash": "sha256:15262400383dbc3cb37199e5b09c3f31a4bb39f5195900b61773d062d1ab8a7b",
     "released_hash": "sha256:15262400383dbc3cb37199e5b09c3f31a4bb39f5195900b61773d062d1ab8a7b"
   },
