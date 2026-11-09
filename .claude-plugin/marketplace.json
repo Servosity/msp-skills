@@ -164,7 +164,7 @@
       "name": "axcient",
       "source": "./skills/axcient",
       "description": "Every x360Recover endpoint, plus the fleet-wide backup-health answers the API alone can't give \u2014 offline, joined, and agent-ready.",
-      "version": "0.2.18",
+      "version": "0.2.19",
       "category": "backup-dr",
       "tags": [
         "axcient",
@@ -179,7 +179,7 @@
       "name": "betterstack",
       "source": "./skills/betterstack",
       "description": "Every Better Stack Uptime feature, plus an offline SQLite mirror and cross-resource fleet analytics \u2014 what's down and who's paged, coverage gaps, MTTA/MTTR, flapping, on-call gaps, and status-page drift \u2014 that the API alone can't answer.",
-      "version": "0.1.8",
+      "version": "0.1.9",
       "category": "monitoring",
       "tags": [
         "betterstack",
@@ -195,7 +195,7 @@
       "name": "blumira",
       "source": "./skills/blumira",
       "description": "Every Blumira finding, detection, and agent across your direct org and every MSP sub-account \u2014 in one offline-searchable store with cross-account triage and over-time trends no single API call can answer.",
-      "version": "0.1.7",
+      "version": "0.1.8",
       "category": "security",
       "tags": [
         "blumira",
@@ -1172,7 +1172,7 @@
       "name": "cisco-meraki",
       "source": "./skills/cisco-meraki",
       "description": "Every Meraki Dashboard operation, plus cross-org fleet views that read every page, built for MSPs running many client orgs.",
-      "version": "0.1.4",
+      "version": "0.1.5",
       "category": "network-monitoring",
       "tags": [
         "cisco-meraki",
@@ -1219,7 +1219,7 @@
       "name": "cisco-duo",
       "source": "./skills/cisco-duo",
       "description": "Fix Duo MFA lockouts in one command and see every MSP subaccount at once, with signed Admin API calls.",
-      "version": "0.1.4",
+      "version": "0.1.5",
       "category": "security",
       "tags": [
         "cisco-duo",
@@ -1280,7 +1280,7 @@
       "name": "bitdefender",
       "source": "./skills/bitdefender",
       "description": "140 GravityZone API methods, plus fleet health, billing and incident views across child companies.",
-      "version": "0.1.5",
+      "version": "0.1.6",
       "category": "security",
       "tags": [
         "bitdefender",
@@ -1311,7 +1311,7 @@
       "name": "backup-radar",
       "source": "./skills/backup-radar",
       "description": "Every Backup Radar v3 and v2 endpoint plus a local store that finds the backups nobody is watching.",
-      "version": "0.1.4",
+      "version": "0.1.5",
       "category": "backup-dr",
       "tags": [
         "backup-radar",
@@ -1375,7 +1375,7 @@
       "name": "blackpoint",
       "source": "./skills/blackpoint",
       "description": "CompassOne from the terminal: tenants, detections, assets, vulnerabilities, posture, reports and Cloud Response admin, plus a cross-tenant fleet view of open detections, stale agents and coverage gaps.",
-      "version": "0.1.1",
+      "version": "0.1.2",
       "category": "security",
       "tags": [
         "blackpoint",
@@ -1500,7 +1500,7 @@
       "name": "cisco-umbrella",
       "source": "./skills/cisco-umbrella",
       "description": "Every Cisco Umbrella v2 API call, plus MSP child-org switching, domain verdicts, list diffs, and fleet health.",
-      "version": "0.1.1",
+      "version": "0.1.2",
       "category": "security",
       "tags": [
         "cisco-umbrella",
@@ -1578,7 +1578,7 @@
       "name": "cloudally",
       "source": "./skills/cloudally",
       "description": "See every CloudAlly customer's backup status, tasks and billing, and run backups and recovery jobs, from one CLI and MCP server.",
-      "version": "0.2.0",
+      "version": "0.2.1",
       "category": "backup-dr",
       "tags": [
         "cloudally",

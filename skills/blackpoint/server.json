@@ -3,7 +3,7 @@
   "name": "io.github.Servosity/blackpoint-mcp",
   "title": "Blackpoint Cyber CompassOne MCP",
   "description": "Blackpoint Cyber CompassOne: tenants, detections, assets, vulnerabilities and a cross-tenant view.",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "icons": [
     {
       "src": "https://raw.githubusercontent.com/servosity/msp-skills/main/docs/assets/social/blackpoint/blackpoint-512x512.png",
@@ -21,8 +21,8 @@
   "packages": [
     {
       "registryType": "mcpb",
-      "identifier": "https://github.com/servosity/msp-skills/releases/download/blackpoint-v0.1.1/blackpoint-mcp.mcpb",
-      "version": "0.1.1",
+      "identifier": "https://github.com/servosity/msp-skills/releases/download/blackpoint-v0.1.2/blackpoint-mcp.mcpb",
+      "version": "0.1.2",
       "fileSha256": "PLACEHOLDER_SHA256_FILLED_BY_CI",
       "transport": {
         "type": "stdio"
