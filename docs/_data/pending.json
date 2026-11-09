@@ -231,9 +231,9 @@
     "released_hash": "sha256:c36280d89336f6e8e0dbca56fdc74bf16a8b79eb8ea338507214246aba959b2e"
   },
   "datto-bcdr": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.11",
-    "latest_tag": "datto-bcdr-v0.1.10",
+    "latest_tag": "datto-bcdr-v0.1.11",
     "current_hash": "sha256:adfd3137846273128a62a43c4a0816ca82b8d54ac9edd124247fe7e5ce423ed8",
     "released_hash": "sha256:adfd3137846273128a62a43c4a0816ca82b8d54ac9edd124247fe7e5ce423ed8"
   },
