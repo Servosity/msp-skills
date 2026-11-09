@@ -539,9 +539,9 @@
     "released_hash": "sha256:a7581d82ae42f7805be0515052b8f69a371b30352bfde775672d92f136e8a51d"
   },
   "quotewerks": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.4",
-    "latest_tag": "quotewerks-v0.1.3",
+    "latest_tag": "quotewerks-v0.1.4",
     "current_hash": "sha256:cdf63a6af3c6a896c8dad377ed0ade29f01f6eb53a1692dede33f24e8f7b367d",
     "released_hash": "sha256:cdf63a6af3c6a896c8dad377ed0ade29f01f6eb53a1692dede33f24e8f7b367d"
   },
