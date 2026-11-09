@@ -43,7 +43,7 @@ howto:
 > Published by Servosity Inc. for MSP partners. Servosity is a trademark of
 > Servosity Inc.. Apache-2.0 licensed.
 
-**✓ Live-verified by Servosity (maintainer)** against a production tenant · 2026-11-06.
+**✓ Live-verified by Servosity (maintainer)** against a production tenant · 2026-11-06. Verified on v0.6.13; the current release has changed since.
 
 Yes - there is an MCP server for Servosity. It's free, open source, and runs on your own machine, so your client data stays local unless you route it somewhere yourself. It connects Servosity to Claude, ChatGPT, Copilot, or any MCP-capable agent, and installs in about 60 seconds.
 
@@ -195,7 +195,7 @@ Run more than one Backup/DR tool, or comparing options? These connectors work th
 
 ## Status
 
-Live-verified. Confirmed by Servosity (maintainer) against their own production tenant. More MSPs run it live in our weekly **[Build Sessions](https://compoundingteams.com/build-sessions)**.
+Live-verified. Confirmed by Servosity (maintainer) against their own production tenant. Verified on v0.6.13; the current release has changed since. More MSPs run it live in our weekly **[Build Sessions](https://compoundingteams.com/build-sessions)**.
 
 Build Sessions are free and stay free - [The Build Room](https://compoundingteams.com) is where the deep work happens.
 
