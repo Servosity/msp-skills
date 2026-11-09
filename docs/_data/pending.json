@@ -112,9 +112,9 @@
     "released_hash": "sha256:47033504080395c28f7d11aef8d56f8d38b3711a0724725b17fe23afaeace8ff"
   },
   "blumira": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.8",
-    "latest_tag": "blumira-v0.1.7",
+    "latest_tag": "blumira-v0.1.8",
     "current_hash": "sha256:e18a59861f0297db8666c0d16c38a5b626ce9783a1bfe9b1e7e165743b5fd6f7",
     "released_hash": "sha256:e18a59861f0297db8666c0d16c38a5b626ce9783a1bfe9b1e7e165743b5fd6f7"
   },
