@@ -532,9 +532,9 @@
     "released_hash": "sha256:e9986c816cb6ccf3d2ca46bb414b04e3e23d194e14ac3b02a1a20fd8bb7c4930"
   },
   "quickbooks": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.16",
-    "latest_tag": "quickbooks-v0.1.15",
+    "latest_tag": "quickbooks-v0.1.16",
     "current_hash": "sha256:a7581d82ae42f7805be0515052b8f69a371b30352bfde775672d92f136e8a51d",
     "released_hash": "sha256:a7581d82ae42f7805be0515052b8f69a371b30352bfde775672d92f136e8a51d"
   },
