@@ -545,7 +545,7 @@
       "name": "knowbe4",
       "source": "./skills/knowbe4",
       "description": "Every KnowBe4 KMSAT reporting feature, plus a local SQLite store for the questions the console cannot answer.",
-      "version": "0.1.8",
+      "version": "0.1.9",
       "category": "security",
       "tags": [
         "knowbe4",
@@ -560,7 +560,7 @@
       "name": "levelio",
       "source": "./skills/levelio",
       "description": "Every Level RMM endpoint, plus a local SQLite fleet store and offline cross-entity rollups no Level tool has: at-risk ranking, patch posture, alert triage, and stale-device detection in one command.",
-      "version": "0.1.8",
+      "version": "0.1.9",
       "category": "rmm",
       "tags": [
         "levelio",
@@ -576,7 +576,7 @@
       "name": "liongard",
       "source": "./skills/liongard",
       "description": "Every Liongard endpoint, plus an offline copy of your whole MSP estate you can join, search, and drift-check from one command.",
-      "version": "0.1.8",
+      "version": "0.1.9",
       "category": "documentation",
       "tags": [
         "liongard",
@@ -591,7 +591,7 @@
       "name": "maxio",
       "source": "./skills/maxio",
       "description": "Open, local revenue-intelligence CLI for Maxio Advanced Billing \u2014 MRR waterfalls, retention, and per-client history computed offline from a SQLite mirror, so the trended history survives even though the live API returns only point-in-time figures.",
-      "version": "0.1.8",
+      "version": "0.1.9",
       "category": "billing",
       "tags": [
         "maxio",
@@ -606,7 +606,7 @@
       "name": "microsoft-graph",
       "source": "./skills/microsoft-graph",
       "description": "The maintained single-binary successor to the retiring mgc \u2014 every MSP-relevant Microsoft Graph surface, plus an offline store that finds wasted licenses, privileged-access risks, and stale devices no single API call can.",
-      "version": "0.2.8",
+      "version": "0.2.9",
       "category": "security",
       "tags": [
         "microsoft-graph",
@@ -640,7 +640,7 @@
       "name": "mspbots",
       "source": "./skills/mspbots",
       "description": "The first MSPbots tool anywhere \u2014 readable filters, alias-named resources, full exports, and the KPI history MSPbots itself doesn't keep.",
-      "version": "0.1.8",
+      "version": "0.1.9",
       "category": "msp",
       "tags": [
         "mspbots",
@@ -654,7 +654,7 @@
       "name": "n-central",
       "source": "./skills/n-central",
       "description": "Every N-central REST endpoint, plus an offline SQLite mirror of your whole org tree, cross-tenant search, issue-triage rollups, and a JWT-expiry guardian no other N-central tool has.",
-      "version": "0.1.8",
+      "version": "0.1.9",
       "category": "rmm",
       "tags": [
         "n-central",
@@ -670,7 +670,7 @@
       "name": "nerdio",
       "source": "./skills/nerdio",
       "description": "The first non-PowerShell client for the Nerdio Manager for MSP API - cross-account AVD fleet audits, async-job plumbing, and offline search no other Nerdio tool has.",
-      "version": "0.1.9",
+      "version": "0.1.10",
       "category": "rmm",
       "tags": [
         "nerdio",
@@ -1391,7 +1391,7 @@
       "name": "mimecast",
       "source": "./skills/mimecast",
       "description": "Find a held or blocked Mimecast message, explain why in one verdict, and release it behind a safety check, with hold-queue triage, mail-flow health and phish click tracing built in.",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "category": "security",
       "tags": [
         "mimecast",
@@ -1406,7 +1406,7 @@
       "name": "netsapiens",
       "source": "./skills/netsapiens",
       "description": "Every NetSapiens v2 endpoint plus a reseller-wide fleet view: seat limits, offline phones, unrouted numbers and E911 gaps across every client at once.",
-      "version": "0.1.1",
+      "version": "0.1.2",
       "category": "telephony",
       "tags": [
         "netsapiens",
