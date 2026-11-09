@@ -385,16 +385,16 @@
     "released_hash": "sha256:f7dc277883be19e937c55a16c62f700ce32489672f5579e1341c91b86708d263"
   },
   "kaseya-vsa": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.3",
-    "latest_tag": "kaseya-vsa-v0.1.2",
+    "latest_tag": "kaseya-vsa-v0.1.3",
     "current_hash": "sha256:6fe04e0c91a27290d5f1bb41d0b18a5b9186316eba782b9a7dcf90f6d66e39f7",
     "released_hash": "sha256:6fe04e0c91a27290d5f1bb41d0b18a5b9186316eba782b9a7dcf90f6d66e39f7"
   },
   "keeper": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.1",
-    "latest_tag": "keeper-v0.1.0",
+    "latest_tag": "keeper-v0.1.1",
     "current_hash": "sha256:2e7f0484e3c841e5f377692948810ad00964e2a8e5c55a7b2d389b66d8141c4b",
     "released_hash": "sha256:2e7f0484e3c841e5f377692948810ad00964e2a8e5c55a7b2d389b66d8141c4b"
   },
