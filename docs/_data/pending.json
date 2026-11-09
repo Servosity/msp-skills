@@ -238,74 +238,74 @@
     "released_hash": "sha256:adfd3137846273128a62a43c4a0816ca82b8d54ac9edd124247fe7e5ce423ed8"
   },
   "datto-rmm": {
-    "state": "binary-pending",
-    "version": "0.1.11",
-    "latest_tag": "datto-rmm-v0.1.11",
+    "state": "up-to-date",
+    "version": "0.1.12",
+    "latest_tag": "datto-rmm-v0.1.12",
     "current_hash": "sha256:43608a756ee2fc2273feb6989a097542ed0588d029d34578745a5a66bdb39b4c",
-    "released_hash": "sha256:9bc5776f1f73c902167cff8c358837b42b83309fa4fbcdc58faf1205af95ccd8"
+    "released_hash": "sha256:43608a756ee2fc2273feb6989a097542ed0588d029d34578745a5a66bdb39b4c"
   },
   "datto-saas": {
-    "state": "binary-pending",
-    "version": "0.1.0",
-    "latest_tag": "datto-saas-v0.1.0",
+    "state": "up-to-date",
+    "version": "0.1.1",
+    "latest_tag": "datto-saas-v0.1.1",
     "current_hash": "sha256:24d3dcbae3f72bd79056714d49a118837dad9f8d3ec3fb2a9290bd1dcc52870d",
-    "released_hash": "sha256:e3f9e9ee4bdd769314ca8878368439338ee3358d60f07c34b867c1eb8c656767"
+    "released_hash": "sha256:24d3dcbae3f72bd79056714d49a118837dad9f8d3ec3fb2a9290bd1dcc52870d"
   },
   "dnsfilter": {
-    "state": "binary-pending",
-    "version": "0.1.1",
-    "latest_tag": "dnsfilter-v0.1.1",
+    "state": "up-to-date",
+    "version": "0.1.2",
+    "latest_tag": "dnsfilter-v0.1.2",
     "current_hash": "sha256:e5120d6bbeaaa64f17e020a42d4408b8d8e67858a7d41152fd0343b80cd7cc41",
-    "released_hash": "sha256:4462315152a61c8b108546580e4595392a580068bd2e0212bddaba2cff095da0"
+    "released_hash": "sha256:e5120d6bbeaaa64f17e020a42d4408b8d8e67858a7d41152fd0343b80cd7cc41"
   },
   "domain-cert-tracker": {
-    "state": "binary-pending",
-    "version": "0.1.0",
-    "latest_tag": "domain-cert-tracker-v0.1.0",
+    "state": "up-to-date",
+    "version": "0.1.1",
+    "latest_tag": "domain-cert-tracker-v0.1.1",
     "current_hash": "sha256:8bad16b59f2573ed0008e961cfac55e5b6d76eef92ee63a2023225f20cbb0f24",
-    "released_hash": "sha256:02ea1a85df686633bf778b7fa455b214709b6f36ae6b2deb9addc21b2b6abe5a"
+    "released_hash": "sha256:8bad16b59f2573ed0008e961cfac55e5b6d76eef92ee63a2023225f20cbb0f24"
   },
   "domotz": {
-    "state": "binary-pending",
-    "version": "0.1.8",
-    "latest_tag": "domotz-v0.1.8",
+    "state": "up-to-date",
+    "version": "0.1.9",
+    "latest_tag": "domotz-v0.1.9",
     "current_hash": "sha256:23e1a99e6e1a8ebd224f5886191e10adfafe2880ed23cc141eaa8660c907ef7e",
-    "released_hash": "sha256:b8da85446af15d544bac0dcd88338ed55719ab37110e6c985577c4ad928ec771"
+    "released_hash": "sha256:23e1a99e6e1a8ebd224f5886191e10adfafe2880ed23cc141eaa8660c907ef7e"
   },
   "dropsuite": {
-    "state": "binary-pending",
-    "version": "0.1.0",
-    "latest_tag": "dropsuite-v0.1.0",
+    "state": "up-to-date",
+    "version": "0.1.1",
+    "latest_tag": "dropsuite-v0.1.1",
     "current_hash": "sha256:5897856e686fb82b96c5c40cef7f4d9dcb4c16f60e0d8230bb73506fc27aa934",
-    "released_hash": "sha256:491fa94b7c357d0608a42a70c518e5eb25a78a2c7f049736119c3bf37f513825"
+    "released_hash": "sha256:5897856e686fb82b96c5c40cef7f4d9dcb4c16f60e0d8230bb73506fc27aa934"
   },
   "eset-protect": {
-    "state": "binary-pending",
-    "version": "0.1.0",
-    "latest_tag": "eset-protect-v0.1.0",
+    "state": "up-to-date",
+    "version": "0.1.1",
+    "latest_tag": "eset-protect-v0.1.1",
     "current_hash": "sha256:68e29b7ce9c5f24f6beaf64c62a62642088aa0da24bb118ff222db2d09d1a7fe",
-    "released_hash": "sha256:4dbb307b89b31ab70e91fc49f357519308af2698a8556d79a10dc2551500b767"
+    "released_hash": "sha256:68e29b7ce9c5f24f6beaf64c62a62642088aa0da24bb118ff222db2d09d1a7fe"
   },
   "exchange-online": {
-    "state": "binary-pending",
-    "version": "0.1.1",
+    "state": "version-pending",
+    "version": "0.1.2",
     "latest_tag": "exchange-online-v0.1.1",
     "current_hash": "sha256:70545b3804665d33b5ba8cc678171b1556fb8fb766440e808d7d59357dd018ed",
-    "released_hash": "sha256:7e821728f609847ee158daf6173a22df1c7735e78833537338d8cdcec7076adc"
+    "released_hash": "sha256:70545b3804665d33b5ba8cc678171b1556fb8fb766440e808d7d59357dd018ed"
   },
   "fortinet": {
-    "state": "binary-pending",
-    "version": "0.1.5",
+    "state": "version-pending",
+    "version": "0.1.6",
     "latest_tag": "fortinet-v0.1.5",
     "current_hash": "sha256:02508f88c607a252fac8ead1a28cf9aaedca8c7b226267b6f9d0800cd641aa6d",
-    "released_hash": "sha256:4c2f7de180f72e7ce5574ed9104993598a5cb08912227bfe87d164568c271824"
+    "released_hash": "sha256:02508f88c607a252fac8ead1a28cf9aaedca8c7b226267b6f9d0800cd641aa6d"
   },
   "google-workspace": {
-    "state": "binary-pending",
-    "version": "0.1.5",
+    "state": "version-pending",
+    "version": "0.1.6",
     "latest_tag": "google-workspace-v0.1.5",
     "current_hash": "sha256:eff44f8c69055f21d2d21cfdb804ace3ffaf8b820d5945c26a4535c5c205f5a1",
-    "released_hash": "sha256:e4431db90b2474237bc7d1aa60608c82553b2c8c2bba75fa6d0de7de0ff1fc53"
+    "released_hash": "sha256:eff44f8c69055f21d2d21cfdb804ace3ffaf8b820d5945c26a4535c5c205f5a1"
   },
   "grab-cookie": {
     "state": "markdown-only",
