@@ -50,7 +50,7 @@ Big install base, but an honest heads-up: these are the **remote / enterprise** 
 
 ### Fastest for Claude Desktop - one-click `.mcpb`
 
-[**Download CloudAlly MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/cloudally-v0.2.0/cloudally-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every CloudAlly release on the [releases page](https://github.com/servosity/msp-skills/releases?q=cloudally).)
+[**Download CloudAlly MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/cloudally-v0.2.1/cloudally-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every CloudAlly release on the [releases page](https://github.com/servosity/msp-skills/releases?q=cloudally).)
 
 CloudAlly still needs one sign-in from a terminal: the extension calls `cloudally-cli` for its tools and reads its saved token, so also install the CLI (Path B below) and run `cloudally-cli auth login --partner` (or `auth login` for one company) once.
 

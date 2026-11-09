@@ -147,9 +147,9 @@
     "released_hash": "sha256:1c3c12fc42eb0a5227098586c90c5f7b10bd107f5915698a5ef4c30d4d542b74"
   },
   "cloudally": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.2.1",
-    "latest_tag": "cloudally-v0.2.0",
+    "latest_tag": "cloudally-v0.2.1",
     "current_hash": "sha256:f93d340443f2e4af6879a70a185466b78878f4709578b6c6be32b9f2658e43a6",
     "released_hash": "sha256:f93d340443f2e4af6879a70a185466b78878f4709578b6c6be32b9f2658e43a6"
   },
