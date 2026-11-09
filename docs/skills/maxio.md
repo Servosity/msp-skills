@@ -38,7 +38,7 @@ howto:
 > under Apache-2.0 - built for the MSP community, vendor-neutral by design.
 > Not affiliated with, endorsed by, or sponsored by Maxio LLC.
 
-**✓ Live-verified by Servosity (maintainer)** against a production tenant · 2026-11-06.
+**✓ Live-verified by Servosity (maintainer)** against a production tenant · 2026-11-06. Verified on v0.1.8; the current release has changed since.
 
 Yes - there is an MCP server for Maxio. It's free, open source, and runs on your own machine, so your client data stays local unless you route it somewhere yourself. It connects Maxio to Claude, ChatGPT, Copilot, or any MCP-capable agent, and installs in about 60 seconds.
 
@@ -175,7 +175,7 @@ Run more than one Billing tool, or comparing options? These connectors work the 
 
 ## Status
 
-Live-verified. Confirmed by Servosity (maintainer) against their own production tenant. More MSPs run it live in our weekly **[Build Sessions](https://compoundingteams.com/build-sessions)**.
+Live-verified. Confirmed by Servosity (maintainer) against their own production tenant. Verified on v0.1.8; the current release has changed since. More MSPs run it live in our weekly **[Build Sessions](https://compoundingteams.com/build-sessions)**.
 
 Build Sessions are free and stay free - [The Build Room](https://compoundingteams.com) is where the deep work happens.
 
