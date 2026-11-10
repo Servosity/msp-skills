@@ -46,7 +46,7 @@ Big install base, but an honest heads-up: these are the **remote / enterprise** 
 
 ### Fastest for Claude Desktop - one-click `.mcpb`
 
-[**Download Jamf Pro MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/jamf-pro-v0.1.1/jamf-pro-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every Jamf Pro release on the [releases page](https://github.com/servosity/msp-skills/releases?q=jamf-pro).)
+[**Download Jamf Pro MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/jamf-pro-v0.1.2/jamf-pro-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every Jamf Pro release on the [releases page](https://github.com/servosity/msp-skills/releases?q=jamf-pro).)
 
 Prefer the Claude Code plugin? Add the marketplace once, then install - works immediately, no directory listing required:
 
