@@ -1609,7 +1609,7 @@
       "name": "zoom-phone",
       "source": "./skills/zoom-phone",
       "description": "Every Zoom Phone admin operation plus E911, routing and footprint audits, across every client account.",
-      "version": "0.1.1",
+      "version": "0.1.2",
       "category": "telephony",
       "tags": [
         "zoom-phone",

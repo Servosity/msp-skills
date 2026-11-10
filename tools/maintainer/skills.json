@@ -2720,8 +2720,8 @@
       "has_video": true,
       "cli_hash": "sha256:c5f0bbbfe5c335cbffc60c0ecc0a3819b63ef4948ce1f689c76d93fef17a9934",
       "template_version": 3,
-      "version": "0.1.1",
-      "cli_hash_at_release": "sha256:c5f0bbbfe5c335cbffc60c0ecc0a3819b63ef4948ce1f689c76d93fef17a9934",
+      "version": "0.1.2",
+      "cli_hash_at_release": "sha256:6194f38b93a99cbb6f7149cc230254f2def0dc5ef7592d24eb7a6ca28b609f14",
       "live_verified": {
         "status": "awaiting",
         "date": null,
