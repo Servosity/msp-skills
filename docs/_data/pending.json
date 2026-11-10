@@ -742,9 +742,9 @@
     "released_hash": "sha256:a5a9a9660eee332b2af35dd1159e67b62fa211bbc74f530fce1bf46c45e193eb"
   },
   "wordpress": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.10",
-    "latest_tag": "wordpress-v0.1.9",
+    "latest_tag": "wordpress-v0.1.10",
     "current_hash": "sha256:0a71a25b3d74bf9c64fcce9c79f69c0f07a157102f1aec3b235f7c81fd2dd0c8",
     "released_hash": "sha256:0a71a25b3d74bf9c64fcce9c79f69c0f07a157102f1aec3b235f7c81fd2dd0c8"
   },
