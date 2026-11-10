@@ -287,9 +287,9 @@
     "released_hash": "sha256:6d68ab572b244e51375d84a34c6be1bf35ccea9eeea99081b2ebaf152fabada2"
   },
   "exchange-online": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.3",
-    "latest_tag": "exchange-online-v0.1.2",
+    "latest_tag": "exchange-online-v0.1.3",
     "current_hash": "sha256:5d71d6cfe7d8b05b22747789183af44c6748f730b70e4987e72e7143b1e41278",
     "released_hash": "sha256:5d71d6cfe7d8b05b22747789183af44c6748f730b70e4987e72e7143b1e41278"
   },
