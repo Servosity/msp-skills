@@ -609,9 +609,9 @@
     "released_hash": "sha256:f3149e1216f285a8b79088463521b6e073658eb2ceb622c1109fd8c47f33a171"
   },
   "servosity": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.6.15",
-    "latest_tag": "servosity-v0.6.14",
+    "latest_tag": "servosity-v0.6.15",
     "current_hash": "sha256:317ea9015533cff1fdfb654285efa12cda201cd3ef9c5de470a4954a5bc2f400",
     "released_hash": "sha256:317ea9015533cff1fdfb654285efa12cda201cd3ef9c5de470a4954a5bc2f400"
   },
