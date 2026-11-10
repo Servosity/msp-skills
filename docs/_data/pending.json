@@ -399,9 +399,9 @@
     "released_hash": "sha256:2742820c34b79b880b7493e4205e30ebc2be538f169d07f0291d17a4ae05c37b"
   },
   "knowbe4": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.10",
-    "latest_tag": "knowbe4-v0.1.9",
+    "latest_tag": "knowbe4-v0.1.10",
     "current_hash": "sha256:ea13909e001ac79b89147728940cc8918349951e49f6b887067583802300bf3c",
     "released_hash": "sha256:ea13909e001ac79b89147728940cc8918349951e49f6b887067583802300bf3c"
   },
