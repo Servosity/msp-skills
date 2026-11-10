@@ -672,9 +672,9 @@
     "released_hash": "sha256:f3319b71e4436c880d68351833b46229c18e3e97501a324b83b3bd82fd5784d8"
   },
   "td-synnex": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.4",
-    "latest_tag": "td-synnex-v0.1.3",
+    "latest_tag": "td-synnex-v0.1.4",
     "current_hash": "sha256:e5ed122077486028bc84ec4dd8d21bbebb0a7cc09571bd37e0a54b2ae3183deb",
     "released_hash": "sha256:e5ed122077486028bc84ec4dd8d21bbebb0a7cc09571bd37e0a54b2ae3183deb"
   },
