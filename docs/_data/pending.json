@@ -175,9 +175,9 @@
     "released_hash": "sha256:208871c100ccdf243f52afa655f1bf2e33c9f486138073584d780152940f4cd9"
   },
   "connectwise-automate": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.10",
-    "latest_tag": "connectwise-automate-v0.1.9",
+    "latest_tag": "connectwise-automate-v0.1.10",
     "current_hash": "sha256:fb0abdac36a3e8cb8af5c254566e78a594b9f5b8ff7db1dc5c02b7190f2a8f2e",
     "released_hash": "sha256:fb0abdac36a3e8cb8af5c254566e78a594b9f5b8ff7db1dc5c02b7190f2a8f2e"
   },
