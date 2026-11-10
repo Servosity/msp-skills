@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "netsapiens-mcp",
   "display_name": "NetSapiens",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Every NetSapiens v2 endpoint plus a reseller-wide fleet view: seat limits, offline phones, unrouted numbers and E911 gaps across every client at once.",
   "author": {
     "name": "Servosity Inc."
