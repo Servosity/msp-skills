@@ -261,7 +261,7 @@
       "name": "connectwise-control",
       "source": "./skills/connectwise-control",
       "description": "Manage ConnectWise Control (ScreenConnect) remote support and access sessions from the terminal or your AI agent: list and inspect sessions across groups, run commands on guest machines, rename and tag sessions, manage instance users, and query the audit log - the whole instance from one CLI.",
-      "version": "0.1.11",
+      "version": "0.1.12",
       "category": "remote-access",
       "tags": [
         "connectwise-control",
@@ -293,7 +293,7 @@
       "name": "cork",
       "source": "./skills/cork",
       "description": "Every Cork API operation, plus cross-client risk attribution, exploitability-first vulnerability triage, overdue-compliance detection, and stale-connector health checks that a stateless API mirror cannot answer in a single call.",
-      "version": "0.1.10",
+      "version": "0.1.11",
       "category": "security",
       "tags": [
         "cork",
@@ -324,7 +324,7 @@
       "name": "crowdstrike",
       "source": "./skills/crowdstrike",
       "description": "Every CrowdStrike Falcon MSP operation, plus a Flight-Control-aware local store that answers fleet-wide questions across all your tenants at once \u2014 something no other Falcon tool (including the official MCP server) does.",
-      "version": "0.1.12",
+      "version": "0.1.13",
       "category": "security",
       "tags": [
         "crowdstrike",
@@ -370,7 +370,7 @@
       "name": "datto-rmm",
       "source": "./skills/datto-rmm",
       "description": "Every Datto RMM API operation, plus a local SQLite fleet store and fleet-wide analytics no other Datto tool has.",
-      "version": "0.1.12",
+      "version": "0.1.13",
       "category": "rmm",
       "tags": [
         "datto-rmm",
@@ -386,7 +386,7 @@
       "name": "domotz",
       "source": "./skills/domotz",
       "description": "Every Domotz endpoint, plus a local SQLite fleet mirror that answers cross-site questions.",
-      "version": "0.1.9",
+      "version": "0.1.10",
       "category": "network-monitoring",
       "tags": [
         "domotz",
@@ -1095,7 +1095,7 @@
       "name": "connectwise-rmm",
       "source": "./skills/connectwise-rmm",
       "description": "66 ConnectWise RMM (Asio) partner API operations, plus a local fleet database, patch-compliance rollups, and script runs you can preview, schedule and watch in one command.",
-      "version": "0.1.5",
+      "version": "0.1.6",
       "category": "rmm",
       "tags": [
         "connectwise-rmm",
@@ -1453,7 +1453,7 @@
       "name": "exchange-online",
       "source": "./skills/exchange-online",
       "description": "Exchange Online admin for MSPs over REST: forwarding audits, EWS posture, offboarding and quarantine across client tenants, no PowerShell session.",
-      "version": "0.1.2",
+      "version": "0.1.3",
       "category": "security",
       "tags": [
         "exchange-online",
@@ -1469,7 +1469,7 @@
       "name": "dnsfilter",
       "source": "./skills/dnsfilter",
       "description": "Every DNSFilter API operation, plus one-command answers to 'why is this site blocked for this client' and 'which clients are behind on the roaming agent'.",
-      "version": "0.1.2",
+      "version": "0.1.3",
       "category": "security",
       "tags": [
         "dnsfilter",
@@ -1547,7 +1547,7 @@
       "name": "dropsuite",
       "source": "./skills/dropsuite",
       "description": "Every Dropsuite (NinjaOne SaaS Backup) read, plus fleet-wide backup health, coverage gaps and billing reconciliation from one reseller credential.",
-      "version": "0.1.1",
+      "version": "0.1.2",
       "category": "backup-dr",
       "tags": [
         "dropsuite",
@@ -1657,7 +1657,7 @@
       "name": "domain-cert-tracker",
       "source": "./skills/domain-cert-tracker",
       "description": "Every client's domains and certificates in one inventory: what expires, unlocks or changes.",
-      "version": "0.1.1",
+      "version": "0.1.2",
       "category": "monitoring",
       "tags": [
         "domain-cert-tracker",

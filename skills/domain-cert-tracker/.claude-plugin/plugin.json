@@ -1,6 +1,6 @@
 {
   "name": "domain-cert-tracker",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Every client's domains and certificates in one inventory: what expires, unlocks or changes.",
   "author": {
     "name": "Servosity",

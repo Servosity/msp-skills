@@ -1,6 +1,6 @@
 {
   "name": "dropsuite",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Every Dropsuite (NinjaOne SaaS Backup) read, plus fleet-wide backup health, coverage gaps and billing reconciliation from one reseller credential.",
   "author": {
     "name": "Servosity",
