@@ -273,9 +273,9 @@
     "released_hash": "sha256:7006bf3493957498c6b0c330f190acd441a61ee2999e150c47f77dc150f200a2"
   },
   "dropsuite": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.2",
-    "latest_tag": "dropsuite-v0.1.1",
+    "latest_tag": "dropsuite-v0.1.2",
     "current_hash": "sha256:4df8b2e615bc5a3e59485ab7fbce0317a95086b94e3b018b35bf56513dbf98da",
     "released_hash": "sha256:4df8b2e615bc5a3e59485ab7fbce0317a95086b94e3b018b35bf56513dbf98da"
   },
