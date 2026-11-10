@@ -644,11 +644,11 @@
     "released_hash": "sha256:9a6d1c1ffc8bc4f119ba2832715795117188762ac86b729c90eb6a421fea5cec"
   },
   "superops": {
-    "state": "binary-pending",
-    "version": "0.1.16",
-    "latest_tag": "superops-v0.1.16",
+    "state": "up-to-date",
+    "version": "0.1.17",
+    "latest_tag": "superops-v0.1.17",
     "current_hash": "sha256:1b033a70e1d36d92bd8c9d749e0585ca0255b4740a18e9be131ca006ae175b19",
-    "released_hash": "sha256:a8df810bf346c1f897ae7b1e0be806d1fb2e8351a1084d9629c3300997d16b64"
+    "released_hash": "sha256:1b033a70e1d36d92bd8c9d749e0585ca0255b4740a18e9be131ca006ae175b19"
   },
   "syncro": {
     "state": "up-to-date",
@@ -658,32 +658,32 @@
     "released_hash": "sha256:6521757fc6b5fd37155e50cb3d20dc643c6169b498e6f3cd286671976a21c7bd"
   },
   "synology": {
-    "state": "binary-pending",
-    "version": "0.1.2",
-    "latest_tag": "synology-v0.1.2",
+    "state": "up-to-date",
+    "version": "0.1.3",
+    "latest_tag": "synology-v0.1.3",
     "current_hash": "sha256:48e604cc1061447f4d1d599052a4e99a9c2329bb5ad6c8a034d6751a14a582d6",
-    "released_hash": "sha256:818739911c327202b290d7e883c00ed9c5009cf632685046f055c1f3b9d8b868"
+    "released_hash": "sha256:48e604cc1061447f4d1d599052a4e99a9c2329bb5ad6c8a034d6751a14a582d6"
   },
   "tactical-rmm": {
-    "state": "binary-pending",
-    "version": "0.1.9",
-    "latest_tag": "tactical-rmm-v0.1.9",
+    "state": "up-to-date",
+    "version": "0.1.10",
+    "latest_tag": "tactical-rmm-v0.1.10",
     "current_hash": "sha256:2a9b502e69455f3e845ecb6a76e1cb1b326b0068d17416364635d0dc36a99985",
-    "released_hash": "sha256:f3319b71e4436c880d68351833b46229c18e3e97501a324b83b3bd82fd5784d8"
+    "released_hash": "sha256:2a9b502e69455f3e845ecb6a76e1cb1b326b0068d17416364635d0dc36a99985"
   },
   "td-synnex": {
-    "state": "binary-pending",
-    "version": "0.1.4",
-    "latest_tag": "td-synnex-v0.1.4",
+    "state": "up-to-date",
+    "version": "0.1.5",
+    "latest_tag": "td-synnex-v0.1.5",
     "current_hash": "sha256:a38f0355f736a13599c56a30b898d9de1d9932bc345d91d9be9f20358074e042",
-    "released_hash": "sha256:e5ed122077486028bc84ec4dd8d21bbebb0a7cc09571bd37e0a54b2ae3183deb"
+    "released_hash": "sha256:a38f0355f736a13599c56a30b898d9de1d9932bc345d91d9be9f20358074e042"
   },
   "threatdown": {
-    "state": "binary-pending",
-    "version": "0.1.5",
-    "latest_tag": "threatdown-v0.1.5",
+    "state": "up-to-date",
+    "version": "0.1.6",
+    "latest_tag": "threatdown-v0.1.6",
     "current_hash": "sha256:e23716f885d1f8da6e391710f9118ee7c4577c61735efc4fc67650f2906db26b",
-    "released_hash": "sha256:ac022a1eda9990521953f5a93f8be7e9642b370046873fcc3cf0418ed2f016fc"
+    "released_hash": "sha256:e23716f885d1f8da6e391710f9118ee7c4577c61735efc4fc67650f2906db26b"
   },
   "threatlocker": {
     "state": "up-to-date",
@@ -693,11 +693,11 @@
     "released_hash": "sha256:3336bd08af94908eec58fafd27a357774d4a1c6664ea106cc0eccfcabb38f427"
   },
   "threecx": {
-    "state": "binary-pending",
-    "version": "0.1.1",
-    "latest_tag": "threecx-v0.1.1",
+    "state": "up-to-date",
+    "version": "0.1.2",
+    "latest_tag": "threecx-v0.1.2",
     "current_hash": "sha256:3ce286fea7e95ceed0aefff4927cad863bd9585250ddfa6a3954aa917544b8cd",
-    "released_hash": "sha256:ca0b9339cfe51b51d28dc1cb5942eed4784ddf463f6c5e88da4ee9279b99cb81"
+    "released_hash": "sha256:3ce286fea7e95ceed0aefff4927cad863bd9585250ddfa6a3954aa917544b8cd"
   },
   "unifi-network": {
     "state": "up-to-date",
@@ -707,32 +707,32 @@
     "released_hash": "sha256:09e07eaa8cb2316410721be57a82c7c1227a586cf1f3456d78b76735e3e62d0c"
   },
   "veeam": {
-    "state": "binary-pending",
-    "version": "0.1.9",
+    "state": "version-pending",
+    "version": "0.1.10",
     "latest_tag": "veeam-v0.1.9",
     "current_hash": "sha256:550d405189d5593dd30ee0a0d579366a1516eac129ed63351a332f2af261bbb0",
-    "released_hash": "sha256:854842cfeb7c647e265068543ad3967367690516172530bff5de538258597d6f"
+    "released_hash": "sha256:550d405189d5593dd30ee0a0d579366a1516eac129ed63351a332f2af261bbb0"
   },
   "vsphere": {
-    "state": "binary-pending",
-    "version": "0.1.1",
-    "latest_tag": "vsphere-v0.1.1",
+    "state": "up-to-date",
+    "version": "0.1.2",
+    "latest_tag": "vsphere-v0.1.2",
     "current_hash": "sha256:c84be5408013a9936b83c1d5be6333502c8d1040f9ad2157171d91ee798fc4dc",
-    "released_hash": "sha256:00c161385666093f3ea88659dd5f7534f9c1a9e8d2910d5778df46f95e5ed5af"
+    "released_hash": "sha256:c84be5408013a9936b83c1d5be6333502c8d1040f9ad2157171d91ee798fc4dc"
   },
   "warranty": {
-    "state": "binary-pending",
-    "version": "0.1.2",
+    "state": "version-pending",
+    "version": "0.1.3",
     "latest_tag": "warranty-v0.1.2",
     "current_hash": "sha256:ef01044fc4f2dcf1d731c0e261069cc6351b8392760da42fd19cfbd37b6f38c6",
-    "released_hash": "sha256:f79f3b4f97c1395ffa2bb3dc039468c2a817083e8ff8e5c521cf9b22f183e9c1"
+    "released_hash": "sha256:ef01044fc4f2dcf1d731c0e261069cc6351b8392760da42fd19cfbd37b6f38c6"
   },
   "watchguard": {
-    "state": "binary-pending",
-    "version": "0.1.5",
+    "state": "version-pending",
+    "version": "0.1.6",
     "latest_tag": "watchguard-v0.1.5",
     "current_hash": "sha256:cc5d2a45b4cb6b445f52e7c26a7d5a8a091dda30a8ca80f6e2cae2f996f577d0",
-    "released_hash": "sha256:7aecfdd6360ff1869c32705ccad746091ec70ce06d39cfcb7cfc992f8113b1af"
+    "released_hash": "sha256:cc5d2a45b4cb6b445f52e7c26a7d5a8a091dda30a8ca80f6e2cae2f996f577d0"
   },
   "windows-server": {
     "state": "binary-pending",
