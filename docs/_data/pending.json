@@ -84,9 +84,9 @@
     "released_hash": "sha256:20437970328248e050baf6753757aa0d0260460abb8b809f25d757d18b8ab710"
   },
   "backup-radar": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.6",
-    "latest_tag": "backup-radar-v0.1.5",
+    "latest_tag": "backup-radar-v0.1.6",
     "current_hash": "sha256:52cedf62aac72c3de6d7f22024ecec7fc8c04539e6eafe45941cd815e74ba12c",
     "released_hash": "sha256:52cedf62aac72c3de6d7f22024ecec7fc8c04539e6eafe45941cd815e74ba12c"
   },
