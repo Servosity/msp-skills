@@ -749,9 +749,9 @@
     "released_hash": "sha256:0a71a25b3d74bf9c64fcce9c79f69c0f07a157102f1aec3b235f7c81fd2dd0c8"
   },
   "xero": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.11",
-    "latest_tag": "xero-v0.1.10",
+    "latest_tag": "xero-v0.1.11",
     "current_hash": "sha256:9aaac0dd5a0787a3fd51c495b50439aebc8e79a27226759c4bb779781a5be420",
     "released_hash": "sha256:9aaac0dd5a0787a3fd51c495b50439aebc8e79a27226759c4bb779781a5be420"
   },
