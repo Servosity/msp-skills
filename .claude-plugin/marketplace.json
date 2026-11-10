@@ -422,7 +422,7 @@
       "name": "gradient",
       "source": "./skills/gradient",
       "description": "The Synthesize partner API from the terminal - every endpoint, plus a usage-push ledger, billing drift detection, and alert-to-ticket tracing no other Gradient tool has.",
-      "version": "0.1.10",
+      "version": "0.1.11",
       "category": "billing",
       "tags": [
         "gradient",
@@ -498,7 +498,7 @@
       "name": "immybot",
       "source": "./skills/immybot",
       "description": "Every ImmyBot endpoint typed, plus a local mirror that joins what the web UI keeps per tenant.",
-      "version": "0.1.13",
+      "version": "0.1.14",
       "category": "rmm",
       "tags": [
         "immybot",
@@ -529,7 +529,7 @@
       "name": "kaseya-bms",
       "source": "./skills/kaseya-bms",
       "description": "The first dedicated CLI and MCP server for Kaseya BMS - the full PSA surface plus offline sync, full-text search, and the queue, contract-burn, and unbilled-revenue analytics the web grid can't compute.",
-      "version": "0.1.10",
+      "version": "0.1.11",
       "category": "psa",
       "tags": [
         "kaseya-bms",
@@ -545,7 +545,7 @@
       "name": "knowbe4",
       "source": "./skills/knowbe4",
       "description": "Every KnowBe4 KMSAT reporting feature, plus a local SQLite store for the questions the console cannot answer.",
-      "version": "0.1.9",
+      "version": "0.1.10",
       "category": "security",
       "tags": [
         "knowbe4",
@@ -1111,7 +1111,7 @@
       "name": "fortinet",
       "source": "./skills/fortinet",
       "description": "Read every FortiGate's configuration and live state, then audit the whole client fleet for firmware, SSL-VPN exposure, admin accounts and licence expiry in one command.",
-      "version": "0.1.6",
+      "version": "0.1.7",
       "category": "security",
       "tags": [
         "fortinet",
@@ -1126,7 +1126,7 @@
       "name": "google-workspace",
       "source": "./skills/google-workspace",
       "description": "Cross-client Google Workspace admin: 2SV gaps, licence waste, sharing drift, safe offboarding.",
-      "version": "0.1.6",
+      "version": "0.1.7",
       "category": "security",
       "tags": [
         "google-workspace",
@@ -1295,7 +1295,7 @@
       "name": "jira-service-management",
       "source": "./skills/jira-service-management",
       "description": "Every Jira Service Management Cloud request-API (servicedeskapi) and Assets endpoint in one binary, plus SLA breach radar, internal notes, ticket timelines, and CMDB-to-ticket joins.",
-      "version": "0.1.5",
+      "version": "0.1.6",
       "category": "psa",
       "tags": [
         "jira-service-management",
@@ -1484,7 +1484,7 @@
       "name": "kaseya-vsa",
       "source": "./skills/kaseya-vsa",
       "description": "Every VSA 10 API endpoint, plus a local fleet database that answers patch, health, and software questions across all your clients offline.",
-      "version": "0.1.3",
+      "version": "0.1.4",
       "category": "rmm",
       "tags": [
         "kaseya-vsa",
@@ -1593,7 +1593,7 @@
       "name": "keeper",
       "source": "./skills/keeper",
       "description": "Read-only Keeper MSP posture across every client, with history, a change feed and no path to a vault secret.",
-      "version": "0.1.1",
+      "version": "0.1.2",
       "category": "security",
       "tags": [
         "keeper",
@@ -1625,7 +1625,7 @@
       "name": "jamf-pro",
       "source": "./skills/jamf-pro",
       "description": "Every client's Jamf Pro in one CLI: register each instance once, then find devices, check posture and patch status, and audit policies across all of them.",
-      "version": "0.1.1",
+      "version": "0.1.2",
       "category": "mdm",
       "tags": [
         "jamf-pro",
