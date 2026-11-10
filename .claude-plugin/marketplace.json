@@ -958,7 +958,7 @@
       "name": "superops",
       "source": "./skills/superops",
       "description": "Every SuperOps PSA+RMM entity in your terminal, plus a local SQLite mirror that answers cross-entity questions the web UI can't.",
-      "version": "0.1.16",
+      "version": "0.1.17",
       "category": "psa",
       "tags": [
         "superops",
@@ -988,7 +988,7 @@
       "name": "tactical-rmm",
       "source": "./skills/tactical-rmm",
       "description": "Every Tactical RMM endpoint as a typed command, plus an offline SQLite mirror and cross-entity fleet queries the web UI can't express.",
-      "version": "0.1.9",
+      "version": "0.1.10",
       "category": "rmm",
       "tags": [
         "tactical-rmm",
@@ -1035,7 +1035,7 @@
       "name": "veeam",
       "source": "./skills/veeam",
       "description": "Every Veeam Service Provider Console endpoint as a typed command, plus a local multi-tenant mirror, cross-company rollups, and drift detection no per-instance Veeam tool offers.",
-      "version": "0.1.9",
+      "version": "0.1.10",
       "category": "backup-dr",
       "tags": [
         "veeam",
@@ -1142,7 +1142,7 @@
       "name": "threatdown",
       "source": "./skills/threatdown",
       "description": "Every ThreatDown OneView API, plus fleet-wide stale-endpoint, health and seat reports across all your sites, and guarded isolate/scan/restore jobs.",
-      "version": "0.1.5",
+      "version": "0.1.6",
       "category": "security",
       "tags": [
         "threatdown",
@@ -1235,7 +1235,7 @@
       "name": "watchguard",
       "source": "./skills/watchguard",
       "description": "WatchGuard Cloud's Firebox, Endpoint Security, ThreatSync, AuthPoint, NDR and MSP account APIs in one CLI and MCP server.",
-      "version": "0.1.5",
+      "version": "0.1.6",
       "category": "security",
       "tags": [
         "watchguard",
@@ -1327,7 +1327,7 @@
       "name": "td-synnex",
       "source": "./skills/td-synnex",
       "description": "The StreamOne ION v3 reseller API (customers, catalog, orders, subscriptions, carts, reports), plus a local licence book for renewals, margin and cross-distributor true-up.",
-      "version": "0.1.4",
+      "version": "0.1.5",
       "category": "billing",
       "tags": [
         "td-synnex",
@@ -1437,7 +1437,7 @@
       "name": "warranty",
       "source": "./skills/warranty",
       "description": "Dell, Lenovo and Apple warranty end dates for every client's devices, in one local mirror.",
-      "version": "0.1.2",
+      "version": "0.1.3",
       "category": "documentation",
       "tags": [
         "warranty",
@@ -1532,7 +1532,7 @@
       "name": "synology",
       "source": "./skills/synology",
       "description": "Every client NAS's Active Backup jobs and storage health, mirrored into one local SQLite database and checked with one command.",
-      "version": "0.1.2",
+      "version": "0.1.3",
       "category": "backup-dr",
       "tags": [
         "synology",
@@ -1563,7 +1563,7 @@
       "name": "vsphere",
       "source": "./skills/vsphere",
       "description": "Read-only vCenter inventory for migration planning: blockers, snapshots, per-core licence exposure and Proxmox mapping, as JSON an agent can use.",
-      "version": "0.1.1",
+      "version": "0.1.2",
       "category": "msp",
       "tags": [
         "vsphere",
@@ -1673,7 +1673,7 @@
       "name": "threecx",
       "source": "./skills/threecx",
       "description": "Run every client's 3CX phone system from one CLI: trunk, version, licence and backup health across the whole fleet, plus the full Configuration API on any single PBX.",
-      "version": "0.1.1",
+      "version": "0.1.2",
       "category": "msp",
       "tags": [
         "threecx",
