@@ -30,6 +30,12 @@ Your agent runs: `avanan-cli campaign --since 7d`
 **just ask:** *"Is this domain excepted anywhere in Avanan?"*
 Your agent runs: `avanan-cli exceptions find example.com`
 
+## See it in 30 seconds
+
+[Watch the 30-second demo](https://msp-skills.compoundingteams.com/assets/video/avanan/demo-30s.mp4)
+
+Demo data is simulated. Every command shown exists in the real CLI.
+
 ## What it does
 
 | Question your MSP keeps asking | Command your agent runs |

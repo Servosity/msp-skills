@@ -75,6 +75,12 @@ Ask your AI to restore or download every CloudAlly mailbox as it stood on a past
 <sub>Your agent runs: <code>cloudally-cli tasks get 64b0e9 --select entities.entity,entities.status</code></sub>
 
 
+## See it in 30 seconds
+
+<video controls preload="metadata" style="width:100%; max-width:960px; border-radius:12px;" poster="/assets/social/cloudally/wide-1200x630.png" src="/assets/video/cloudally/demo-30s.mp4">Your browser does not support the video tag. <a href="/assets/video/cloudally/demo-30s.mp4">Watch the 30-second demo</a>.</video>
+
+<sub>Demo data is simulated. Every command shown exists in the real CLI.</sub>
+
 ## What it does
 
 | Question your MSP keeps asking | Command your agent runs |

@@ -51,6 +51,12 @@ MSPs and telecom resellers who bill through DataGate normally work through its w
 <sub>Your agent runs: <code>datagate-cli search "&lt;customer name&gt;" --data-source local</code></sub>
 
 
+## See it in 30 seconds
+
+<video controls preload="metadata" style="width:100%; max-width:960px; border-radius:12px;" poster="/assets/social/datagate/wide-1200x630.png" src="/assets/video/datagate/demo-30s.mp4">Your browser does not support the video tag. <a href="/assets/video/datagate/demo-30s.mp4">Watch the 30-second demo</a>.</video>
+
+<sub>Demo data is simulated. Every command shown exists in the real CLI.</sub>
+
 ## What it does
 
 | Question your MSP keeps asking | Command your agent runs |

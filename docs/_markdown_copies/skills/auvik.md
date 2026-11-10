@@ -30,6 +30,12 @@ Your agent runs: `auvik-cli configuration audit --finding no_backup`
 **just ask:** *"Which clients' billed device counts do not match their inventory?"*
 Your agent runs: `auvik-cli usage reconcile --mismatch-only`
 
+## See it in 30 seconds
+
+[Watch the 30-second demo](https://msp-skills.compoundingteams.com/assets/video/auvik/demo-30s.mp4)
+
+Demo data is simulated. Every command shown exists in the real CLI.
+
 ## What it does
 
 | Question your MSP keeps asking | Command your agent runs |

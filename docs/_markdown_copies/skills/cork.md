@@ -30,6 +30,12 @@ Your agent runs: `cork-cli vulnerabilities triage`
 **just ask:** *"Which of our Cork connectors have quietly stopped syncing?"*
 Your agent runs: `cork-cli integrations health`
 
+## See it in 30 seconds
+
+[Watch the 30-second demo](https://msp-skills.compoundingteams.com/assets/video/cork/demo-30s.mp4)
+
+Demo data is simulated. Every command shown exists in the real CLI.
+
 ## What it does
 
 | Question your MSP keeps asking | Command your agent runs |

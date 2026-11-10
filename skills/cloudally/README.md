@@ -7,9 +7,10 @@
 <!-- media:start -->
 <p align="center">
   <a href="https://msp-skills.compoundingteams.com/skills/cloudally/">
-    <img src="../../docs/assets/social/cloudally/wide-1200x630.png" alt="CloudAlly skill - preview card" width="600">
+    <img src="../../docs/assets/video/cloudally/animated-og.gif" alt="CloudAlly demo - animated preview" width="600">
   </a>
 </p>
+<p align="center"><sub>▶ <a href="https://msp-skills.compoundingteams.com/skills/cloudally/">Watch the 30-second demo</a> - demo data is simulated; every command shown exists in the real CLI.</sub></p>
 <!-- media:end -->
 
 <!-- backup-vendor-note:start -->
