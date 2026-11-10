@@ -1,6 +1,6 @@
 {
   "name": "warranty",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Dell, Lenovo and Apple warranty end dates for every client's devices, in one local mirror.",
   "author": {
     "name": "Servosity",

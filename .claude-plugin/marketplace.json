@@ -1004,7 +1004,7 @@
       "name": "threatlocker",
       "source": "./skills/threatlocker",
       "description": "Every ThreatLocker Portal API feature, plus the write operations the read-only tools lack and a cross-tenant offline store no other ThreatLocker tool has.",
-      "version": "0.3.13",
+      "version": "0.3.14",
       "category": "security",
       "tags": [
         "threatlocker",
@@ -1019,7 +1019,7 @@
       "name": "unifi-network",
       "source": "./skills/unifi-network",
       "description": "Every UniFi Network API operation, plus drift detection, topology, and rule prediction no other UniFi tool has.",
-      "version": "0.1.9",
+      "version": "0.1.10",
       "category": "network-monitoring",
       "tags": [
         "unifi-network",
@@ -1035,7 +1035,7 @@
       "name": "veeam",
       "source": "./skills/veeam",
       "description": "Every Veeam Service Provider Console endpoint as a typed command, plus a local multi-tenant mirror, cross-company rollups, and drift detection no per-instance Veeam tool offers.",
-      "version": "0.1.8",
+      "version": "0.1.9",
       "category": "backup-dr",
       "tags": [
         "veeam",
@@ -1050,7 +1050,7 @@
       "name": "wordpress",
       "source": "./skills/wordpress",
       "description": "Publish and manage WordPress pages, posts, media",
-      "version": "0.1.9",
+      "version": "0.1.10",
       "category": "marketing",
       "tags": [
         "wordpress",
@@ -1065,7 +1065,7 @@
       "name": "xero",
       "source": "./skills/xero",
       "description": "Every Xero Accounting read plus a local SQLite ledger \u2014 aging, reconciliation, and GL tie-out that no other Xero tool computes offline.",
-      "version": "0.1.10",
+      "version": "0.1.11",
       "category": "billing",
       "tags": [
         "xero",
@@ -1235,7 +1235,7 @@
       "name": "watchguard",
       "source": "./skills/watchguard",
       "description": "WatchGuard Cloud's Firebox, Endpoint Security, ThreatSync, AuthPoint, NDR and MSP account APIs in one CLI and MCP server.",
-      "version": "0.1.4",
+      "version": "0.1.5",
       "category": "security",
       "tags": [
         "watchguard",
@@ -1437,7 +1437,7 @@
       "name": "warranty",
       "source": "./skills/warranty",
       "description": "Dell, Lenovo and Apple warranty end dates for every client's devices, in one local mirror.",
-      "version": "0.1.1",
+      "version": "0.1.2",
       "category": "documentation",
       "tags": [
         "warranty",
@@ -1563,7 +1563,7 @@
       "name": "vsphere",
       "source": "./skills/vsphere",
       "description": "Read-only vCenter inventory for migration planning: blockers, snapshots, per-core licence exposure and Proxmox mapping, as JSON an agent can use.",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "category": "msp",
       "tags": [
         "vsphere",
@@ -1673,7 +1673,7 @@
       "name": "threecx",
       "source": "./skills/threecx",
       "description": "Run every client's 3CX phone system from one CLI: trunk, version, licence and backup health across the whole fleet, plus the full Configuration API on any single PBX.",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "category": "msp",
       "tags": [
         "threecx",
@@ -1688,7 +1688,7 @@
       "name": "windows-server",
       "source": "./skills/windows-server",
       "description": "Agentless Windows Server health checks over WinRM: one verdict per server, a diffable inventory, and no arbitrary PowerShell.",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "category": "monitoring",
       "tags": [
         "windows-server",

@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "threecx-mcp",
   "display_name": "3CX",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Run every client's 3CX phone system from one CLI: trunk, version, licence and backup health across the whole fleet, plus the full Configuration API on any single PBX.",
   "author": {
     "name": "Servosity Inc."

@@ -1,6 +1,6 @@
 {
   "name": "windows-server",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Agentless Windows Server health checks over WinRM: one verdict per server, a diffable inventory, and no arbitrary PowerShell.",
   "author": {
     "name": "Servosity",
