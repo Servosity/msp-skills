@@ -763,10 +763,10 @@
     "released_hash": "sha256:13e3cf15d2b6ba00bb779a727d884d33c6adcdf0538f7dd047899330b6f02671"
   },
   "zoom-phone": {
-    "state": "binary-pending",
-    "version": "0.1.1",
-    "latest_tag": "zoom-phone-v0.1.1",
+    "state": "up-to-date",
+    "version": "0.1.2",
+    "latest_tag": "zoom-phone-v0.1.2",
     "current_hash": "sha256:6194f38b93a99cbb6f7149cc230254f2def0dc5ef7592d24eb7a6ca28b609f14",
-    "released_hash": "sha256:c5f0bbbfe5c335cbffc60c0ecc0a3819b63ef4948ce1f689c76d93fef17a9934"
+    "released_hash": "sha256:6194f38b93a99cbb6f7149cc230254f2def0dc5ef7592d24eb7a6ca28b609f14"
   }
 }
