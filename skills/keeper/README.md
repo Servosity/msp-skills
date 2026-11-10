@@ -46,7 +46,7 @@ Big install base, but an honest heads-up: these are the **remote / enterprise** 
 
 ### Fastest for Claude Desktop - one-click `.mcpb`
 
-[**Download Keeper Security MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/keeper-v0.1.1/keeper-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every Keeper Security release on the [releases page](https://github.com/servosity/msp-skills/releases?q=keeper).)
+[**Download Keeper Security MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/keeper-v0.1.2/keeper-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every Keeper Security release on the [releases page](https://github.com/servosity/msp-skills/releases?q=keeper).)
 
 Prefer the Claude Code plugin? Add the marketplace once, then install - works immediately, no directory listing required:
 

@@ -392,9 +392,9 @@
     "released_hash": "sha256:15343ba2a7a60c9bfe4fae37bb95728b9b1aa27e4de374a514b42781ca549ca2"
   },
   "keeper": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.2",
-    "latest_tag": "keeper-v0.1.1",
+    "latest_tag": "keeper-v0.1.2",
     "current_hash": "sha256:2742820c34b79b880b7493e4205e30ebc2be538f169d07f0291d17a4ae05c37b",
     "released_hash": "sha256:2742820c34b79b880b7493e4205e30ebc2be538f169d07f0291d17a4ae05c37b"
   },
