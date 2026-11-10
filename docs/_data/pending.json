@@ -630,16 +630,16 @@
     "released_hash": "sha256:828ad067f7a4ced962f85ddee0d453532942682b6612906ffc8a128e2ad56271"
   },
   "sonicwall": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.6",
-    "latest_tag": "sonicwall-v0.1.5",
+    "latest_tag": "sonicwall-v0.1.6",
     "current_hash": "sha256:259aabd41de5864e7d0472c67807ed5107dfa1133d898916de266083eb3946d7",
     "released_hash": "sha256:259aabd41de5864e7d0472c67807ed5107dfa1133d898916de266083eb3946d7"
   },
   "sophos-central": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.6",
-    "latest_tag": "sophos-central-v0.1.5",
+    "latest_tag": "sophos-central-v0.1.6",
     "current_hash": "sha256:9a6d1c1ffc8bc4f119ba2832715795117188762ac86b729c90eb6a421fea5cec",
     "released_hash": "sha256:9a6d1c1ffc8bc4f119ba2832715795117188762ac86b729c90eb6a421fea5cec"
   },
