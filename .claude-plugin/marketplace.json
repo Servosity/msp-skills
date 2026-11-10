@@ -179,7 +179,7 @@
       "name": "betterstack",
       "source": "./skills/betterstack",
       "description": "Every Better Stack Uptime feature, plus an offline SQLite mirror and cross-resource fleet analytics \u2014 what's down and who's paged, coverage gaps, MTTA/MTTR, flapping, on-call gaps, and status-page drift \u2014 that the API alone can't answer.",
-      "version": "0.1.9",
+      "version": "0.1.10",
       "category": "monitoring",
       "tags": [
         "betterstack",
@@ -195,7 +195,7 @@
       "name": "blumira",
       "source": "./skills/blumira",
       "description": "Every Blumira finding, detection, and agent across your direct org and every MSP sub-account \u2014 in one offline-searchable store with cross-account triage and over-time trends no single API call can answer.",
-      "version": "0.1.8",
+      "version": "0.1.9",
       "category": "security",
       "tags": [
         "blumira",
@@ -245,7 +245,7 @@
       "name": "connectwise-automate",
       "source": "./skills/connectwise-automate",
       "description": "Sync your entire ConnectWise Automate fleet into local SQLite and answer cross-client questions the per-server web UI can't: fleet-wide health roll-ups, stale-agent sweeps, patch-compliance-by-client, and overnight drift.",
-      "version": "0.1.9",
+      "version": "0.1.10",
       "category": "rmm",
       "tags": [
         "connectwise-automate",
@@ -1157,7 +1157,7 @@
       "name": "connectsecure",
       "source": "./skills/connectsecure",
       "description": "Every ConnectSecure API operation, plus a local store that answers vulnerability x asset x client questions across your whole client base in one command.",
-      "version": "0.1.6",
+      "version": "0.1.7",
       "category": "security",
       "tags": [
         "connectsecure",
@@ -1172,7 +1172,7 @@
       "name": "cisco-meraki",
       "source": "./skills/cisco-meraki",
       "description": "Every Meraki Dashboard operation, plus cross-org fleet views that read every page, built for MSPs running many client orgs.",
-      "version": "0.1.5",
+      "version": "0.1.6",
       "category": "network-monitoring",
       "tags": [
         "cisco-meraki",
@@ -1280,7 +1280,7 @@
       "name": "bitdefender",
       "source": "./skills/bitdefender",
       "description": "140 GravityZone API methods, plus fleet health, billing and incident views across child companies.",
-      "version": "0.1.6",
+      "version": "0.1.7",
       "category": "security",
       "tags": [
         "bitdefender",
@@ -1375,7 +1375,7 @@
       "name": "blackpoint",
       "source": "./skills/blackpoint",
       "description": "CompassOne from the terminal: tenants, detections, assets, vulnerabilities, posture, reports and Cloud Response admin, plus a cross-tenant fleet view of open detections, stale agents and coverage gaps.",
-      "version": "0.1.2",
+      "version": "0.1.3",
       "category": "security",
       "tags": [
         "blackpoint",
@@ -1500,7 +1500,7 @@
       "name": "cisco-umbrella",
       "source": "./skills/cisco-umbrella",
       "description": "Every Cisco Umbrella v2 API call, plus MSP child-org switching, domain verdicts, list diffs, and fleet health.",
-      "version": "0.1.2",
+      "version": "0.1.3",
       "category": "security",
       "tags": [
         "cisco-umbrella",
@@ -1578,7 +1578,7 @@
       "name": "cloudally",
       "source": "./skills/cloudally",
       "description": "See every CloudAlly customer's backup status, tasks and billing, and run backups and recovery jobs, from one CLI and MCP server.",
-      "version": "0.2.1",
+      "version": "0.2.2",
       "category": "backup-dr",
       "tags": [
         "cloudally",
@@ -1641,7 +1641,7 @@
       "name": "comet-backup",
       "source": "./skills/comet-backup",
       "description": "Fleet-wide backup health, failure triage and usage reports for every tenant on your Comet Server, plus the admin API calls an MSP uses day to day.",
-      "version": "0.1.1",
+      "version": "0.1.2",
       "category": "backup-dr",
       "tags": [
         "comet-backup",

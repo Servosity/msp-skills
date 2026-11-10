@@ -1,6 +1,6 @@
 {
   "name": "cloudally",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "CloudAlly SaaS backup for Microsoft 365 and Google Workspace: partner, reseller and customer accounts, backup tasks and their status, users, billing and recovery jobs through the Management API v2.",
   "author": {
     "name": "Servosity",
