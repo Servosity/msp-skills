@@ -5,9 +5,10 @@
 <!-- media:start -->
 <p align="center">
   <a href="https://msp-skills.compoundingteams.com/skills/datagate/">
-    <img src="../../docs/assets/social/datagate/wide-1200x630.png" alt="DataGate MCP server for Claude, ChatGPT and Copilot" width="600">
+    <img src="../../docs/assets/video/datagate/animated-og.gif" alt="DataGate demo - animated preview" width="600">
   </a>
 </p>
+<p align="center"><sub>▶ <a href="https://msp-skills.compoundingteams.com/skills/datagate/">Watch the 30-second demo</a> - demo data is simulated; every command shown exists in the real CLI.</sub></p>
 <!-- media:end -->
 
 Add **DataGate customer, agreement, and invoice lookups** to the AI you already use -

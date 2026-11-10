@@ -30,6 +30,12 @@ Your agent runs: `immybot-cli version-spread "Google Chrome" --min-version 140`
 **just ask:** *"Why didn't this computer get the deployment?"*
 Your agent runs: `immybot-cli assignment-explain 4821`
 
+## See it in 30 seconds
+
+[Watch the 30-second demo](https://msp-skills.compoundingteams.com/assets/video/immybot/demo-30s.mp4)
+
+Demo data is simulated. Every command shown exists in the real CLI.
+
 ## What it does
 
 | Question your MSP keeps asking | Command your agent runs |

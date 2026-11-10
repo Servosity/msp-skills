@@ -30,6 +30,12 @@ Your agent runs: `datagate-cli agreements list --select id,customerId,name,statu
 **just ask:** *"Search DataGate for this customer by name."*
 Your agent runs: `datagate-cli search "<customer name>" --data-source local`
 
+## See it in 30 seconds
+
+[Watch the 30-second demo](https://msp-skills.compoundingteams.com/assets/video/datagate/demo-30s.mp4)
+
+Demo data is simulated. Every command shown exists in the real CLI.
+
 ## What it does
 
 | Question your MSP keeps asking | Command your agent runs |

@@ -38,6 +38,12 @@ Your agent runs: `cloudally-cli tasks list --type BACKUP --all`
 **just ask:** *"What state is every mailbox on this backup task in, and when did each last back up?"*
 Your agent runs: `cloudally-cli tasks get 64b0e9 --select entities.entity,entities.status`
 
+## See it in 30 seconds
+
+[Watch the 30-second demo](https://msp-skills.compoundingteams.com/assets/video/cloudally/demo-30s.mp4)
+
+Demo data is simulated. Every command shown exists in the real CLI.
+
 ## What it does
 
 | Question your MSP keeps asking | Command your agent runs |

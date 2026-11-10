@@ -65,6 +65,12 @@ Ask "what failed in last night's maintenance window?" and get back a handful of 
 <sub>Your agent runs: <code>immybot-cli assignment-explain 4821</code></sub>
 
 
+## See it in 30 seconds
+
+<video controls preload="metadata" style="width:100%; max-width:960px; border-radius:12px;" poster="/assets/social/immybot/wide-1200x630.png" src="/assets/video/immybot/demo-30s.mp4">Your browser does not support the video tag. <a href="/assets/video/immybot/demo-30s.mp4">Watch the 30-second demo</a>.</video>
+
+<sub>Demo data is simulated. Every command shown exists in the real CLI.</sub>
+
 ## What it does
 
 | Question your MSP keeps asking | Command your agent runs |

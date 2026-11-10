@@ -217,7 +217,7 @@
       "template_version": 3,
       "version": "0.2.10",
       "cli_hash_at_release": "sha256:ecc94d93c894e700824ca0759a4c91ce093d1fe72dad4b844a0f547df113c3d9",
-      "has_video": false,
+      "has_video": true,
       "live_verified": {
         "status": "awaiting",
         "date": null,
@@ -241,7 +241,7 @@
       "template_version": 3,
       "version": "0.1.14",
       "cli_hash_at_release": "sha256:15262400383dbc3cb37199e5b09c3f31a4bb39f5195900b61773d062d1ab8a7b",
-      "has_video": false,
+      "has_video": true,
       "install_auth_hint": "Then set your Avanan API credentials: `export AVANAN_APP_ID=<your application id>` and `export AVANAN_CLIENT_SECRET=<your client secret>` (Avanan portal > Settings > API Keys), run `avanan-cli auth login --region <us|eu|ca|ap|uk|uae|in> --save`, and run `avanan-cli doctor` to confirm it works",
       "live_verified": {
         "status": "live-verified",
@@ -558,7 +558,8 @@
         "verified_cli_hash": "sha256:20966c685624bfc657a30ce99cea344da2b0cbfac423e944767e2b72aeaa264a",
         "verified_basis": "latest-release-at-flip"
       },
-      "install_auth_hint": "Then set your CloudAlly API key pair (`CLOUDALLY_CLIENT_ID`, `CLOUDALLY_CLIENT_SECRET`; partner portal > Integrations > REST API), run `cloudally-cli auth login --partner` (or `auth login` for one company), and check `cloudally-cli doctor`"
+      "install_auth_hint": "Then set your CloudAlly API key pair (`CLOUDALLY_CLIENT_ID`, `CLOUDALLY_CLIENT_SECRET`; partner portal > Integrations > REST API), run `cloudally-cli auth login --partner` (or `auth login` for one company), and check `cloudally-cli doctor`",
+      "has_video": true
     },
     "comet-backup": {
       "system": "White-label backup: users, devices, jobs, policies, and storage across every tenant on an MSP's Comet server",
@@ -739,7 +740,7 @@
       "template_version": 3,
       "version": "0.1.10",
       "cli_hash_at_release": "sha256:b6323c709ecf2a9235ee2dbb7b07503b78c5158690a57df598e8f6789e8d8cca",
-      "has_video": false,
+      "has_video": true,
       "install_auth_hint": "Then set your Cork API key: `export CORK_API_KEY=<your key>` (Cork portal > Settings > API Keys), and run `cork-cli doctor` to confirm it works",
       "live_verified": {
         "status": "awaiting",
@@ -816,7 +817,7 @@
       "tagline": "Pull DataGate customer, agreement, and invoice data by asking, instead of clicking through the portal.",
       "template_version": 3,
       "version": "0.1.6",
-      "has_video": false,
+      "has_video": true,
       "cli_hash_at_release": "sha256:c36280d89336f6e8e0dbca56fdc74bf16a8b79eb8ea338507214246aba959b2e",
       "live_verified": {
         "status": "live-verified",
@@ -1268,7 +1269,7 @@
       "template_version": 3,
       "version": "0.1.13",
       "cli_hash_at_release": "sha256:47554ea328c5ef07762b0a5b26921ca6226771d7fcae7ea1a0796b7b9cbb04bb",
-      "has_video": false,
+      "has_video": true,
       "install_auth_hint": "Then register an app in Microsoft Entra ID, add the Enterprise Application object ID as an admin person in ImmyBot (Show More > People > New > AD External ID), set `IMMYBOT_SUBDOMAIN`, `IMMYBOT_TENANT_ID`, `IMMYBOT_CLIENT_ID` and `IMMYBOT_CLIENT_SECRET`, then run `immybot-cli doctor` to confirm it works",
       "live_verified": {
         "status": "live-verified",
