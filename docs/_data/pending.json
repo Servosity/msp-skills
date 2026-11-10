@@ -721,9 +721,9 @@
     "released_hash": "sha256:c84be5408013a9936b83c1d5be6333502c8d1040f9ad2157171d91ee798fc4dc"
   },
   "warranty": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.3",
-    "latest_tag": "warranty-v0.1.2",
+    "latest_tag": "warranty-v0.1.3",
     "current_hash": "sha256:ef01044fc4f2dcf1d731c0e261069cc6351b8392760da42fd19cfbd37b6f38c6",
     "released_hash": "sha256:ef01044fc4f2dcf1d731c0e261069cc6351b8392760da42fd19cfbd37b6f38c6"
   },
