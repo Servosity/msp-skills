@@ -46,7 +46,7 @@ Big install base, but an honest heads-up: these are the **remote / enterprise** 
 
 ### Fastest for Claude Desktop - one-click `.mcpb`
 
-[**Download NetSapiens MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/netsapiens-v0.1.2/netsapiens-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every NetSapiens release on the [releases page](https://github.com/servosity/msp-skills/releases?q=netsapiens).)
+[**Download NetSapiens MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/netsapiens-v0.1.3/netsapiens-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every NetSapiens release on the [releases page](https://github.com/servosity/msp-skills/releases?q=netsapiens).)
 
 Prefer the Claude Code plugin? Add the marketplace once, then install - works immediately, no directory listing required:
 
