@@ -728,9 +728,9 @@
     "released_hash": "sha256:ef01044fc4f2dcf1d731c0e261069cc6351b8392760da42fd19cfbd37b6f38c6"
   },
   "watchguard": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.6",
-    "latest_tag": "watchguard-v0.1.5",
+    "latest_tag": "watchguard-v0.1.6",
     "current_hash": "sha256:cc5d2a45b4cb6b445f52e7c26a7d5a8a091dda30a8ca80f6e2cae2f996f577d0",
     "released_hash": "sha256:cc5d2a45b4cb6b445f52e7c26a7d5a8a091dda30a8ca80f6e2cae2f996f577d0"
   },
