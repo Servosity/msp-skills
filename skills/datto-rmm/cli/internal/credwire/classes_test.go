@@ -114,7 +114,7 @@ func TestHeldValuesNeverPrintOrLand(t *testing.T) {
 			)
 			check("the MCP session", out)
 			for path, body := range e.files(t) {
-				if strings.HasPrefix(filepath.Base(path), "credentials") {
+				if strings.HasPrefix(filepath.Base(path), "credentials") || synccpuStoreFile(path) { // synccpu: the local store is not checked
 					continue
 				}
 				check("file "+path, body)

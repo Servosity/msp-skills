@@ -297,7 +297,9 @@ func TestNoCredentialInAnyWrittenFile(t *testing.T) {
 			}
 			return nil
 		}
-		assertNoEcho(t, "file "+rel, string(data))
+		if !synccpuStoreFile(path) { // synccpu: the local store is not checked
+			assertNoEcho(t, "file "+rel, string(data))
+		}
 		if path != exportFile && path != deliverFile && bytes.Contains(data, []byte(bbTenantValue)) {
 			t.Errorf("file %s holds a custom-field value", rel)
 		}

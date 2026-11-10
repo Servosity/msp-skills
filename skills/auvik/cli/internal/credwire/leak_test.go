@@ -182,7 +182,7 @@ func assertNoFileCarries(t *testing.T, root string, skip []string, secrets ...st
 			return nil
 		}
 		for _, s := range secrets {
-			if bytes.Contains(data, []byte(s)) {
+			if !synccpuStoreFile(p) && bytes.Contains(data, []byte(s)) { // synccpu: the local store is not checked
 				t.Errorf("%s holds %q", p, s)
 			}
 		}

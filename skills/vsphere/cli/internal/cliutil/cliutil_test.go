@@ -685,6 +685,13 @@ func TestAdaptiveLimiter_NilSafeMethods(t *testing.T) {
 func TestAdaptiveLimiter_RampsUpAfterSuccesses(t *testing.T) {
 	l := NewAdaptiveLimiterAuto(2.0)
 	startRate := l.Rate()
+	for i := 0; i < 5*l.rampAfter; i++ { // Hand-fix (handfixes.json limiter-ramps-only-while-pacing)
+		l.OnSuccess() // no Wait slept: the rate is not what holds requests back
+	}
+	if got := l.Rate(); got != startRate {
+		t.Fatalf("Rate() ramped to %v with no Wait pacing, want %v", got, startRate)
+	}
+	l.paced = true
 	for i := 0; i < l.rampAfter; i++ {
 		l.OnSuccess()
 	}

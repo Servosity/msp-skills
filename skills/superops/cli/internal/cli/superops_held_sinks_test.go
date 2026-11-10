@@ -61,30 +61,32 @@ func TestJobsLedgerNeverKeepsAHeldCredential(t *testing.T) {
 	}
 }
 
-// The round-1 input: a successful tickets page whose record repeats the API
-// token. Sync refuses that record (nothing of the token reaches the store
-// file), stores the others (#612: one refused record no longer drops its
-// batch) and exits failed.
+// The round-1 input, held as a vendor response value (synccpu: the one value
+// the store refuses): a successful tickets page whose record repeats it. Sync
+// refuses that record (nothing of the value reaches the store file), stores
+// the others (#612: one refused record no longer drops its batch) and exits
+// clean, naming the record it withheld.
 func TestSyncNeverStoresARecordThatRepeatsTheToken(t *testing.T) {
 	if !heldChild(t) {
 		return
 	}
+	credkit.Hold("response:token", heldResp)
 	a, _ := twoTenantFakes(t)
 	t.Setenv("SUPEROPS_SUBDOMAIN", "acme-a")
-	a.data["getTicketList"][3]["subject"] = "echo " + reviewToken
+	a.data["getTicketList"][3]["subject"] = "echo " + heldResp
 	dir := t.TempDir()
 	db := filepath.Join(dir, "held.db")
-	out, err := runSuperOpsCLI(t, "sync", "--resources", "tickets", "--db", db)
-	if err == nil {
-		t.Fatalf("sync exited clean with a withheld record\n%s", out)
+	out, errOut, err := syncCapturingStderr(t, "sync", "--resources", "tickets", "--db", db)
+	if err != nil || !strings.Contains(errOut, "withheld by the credential check") {
+		t.Fatalf("want a clean exit naming the withheld record (err %v)\n%s\n%s", err, out, errOut)
 	}
 	if got, want := storeTicketRows(t, db), len(a.data["getTicketList"])-1; got != want {
-		t.Fatalf("stored %d tickets, want %d: every record but the one that repeats the token (err %v)\n%s", got, want, err, out)
+		t.Fatalf("stored %d tickets, want %d: every record but the one that repeats the value (err %v)\n%s", got, want, err, out)
 	}
 	files, _ := filepath.Glob(filepath.Join(dir, "held.db*"))
 	for _, p := range files {
-		if b, _ := os.ReadFile(p); strings.Contains(string(b), reviewToken) {
-			t.Fatalf("%s keeps the API token", filepath.Base(p))
+		if b, _ := os.ReadFile(p); strings.Contains(string(b), heldResp) {
+			t.Fatalf("%s keeps the held value", filepath.Base(p))
 		}
 	}
 }

@@ -8,9 +8,7 @@ package credkit
 
 import (
 	"bufio"
-	"database/sql"
 	"database/sql/driver"
-	"fmt"
 	"io"
 	"net"
 	"net/http"
@@ -228,39 +226,3 @@ type openRec struct {
 }
 
 func (d *openRec) Open(n string) (driver.Conn, error) { d.opened++; return d.recDriver.Open(n) }
-
-// Classes sqlite-open-statements-unchecked and sqlite-bound-value-mismatch
-// (contract 2 SQLite unit, 4, 5): the connection name is checked before
-// the driver opens it, and a time value is checked in the spelling the
-// driver stores, its zone's name included.
-func TestKit8rvSQLiteOpenNameAndTimeValue(t *testing.T) {
-	resetForTest(Declarations{})
-	Hold("minted:session", "12345678")
-	rec := &openRec{}
-	sqlTestRuns++
-	name := fmt.Sprintf("credkit-kit8rv-%d", sqlTestRuns)
-	sql.Register(name, SQLDriver(rec))
-	db, err := sql.Open(name, "file:review?mode=memory&cache=shared&_pragma=application_id(12345678)") // Codex's input
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := db.Ping(); err == nil || rec.opened != 0 {
-		t.Errorf("a connection name carrying a credential was opened: err %v, opens %d", err, rec.opened)
-	}
-	db.Close()
-
-	resetForTest(Declarations{})
-	Hold("minted:session", "secret!!")
-	db, err = sql.Open(name, "file:clean")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer db.Close()
-	ts := time.Date(2026, 1, 1, 0, 0, 0, 0, time.FixedZone("secret!!", 0)) // Codex's input
-	if _, err := db.Exec("INSERT INTO t VALUES (?)", ts); err == nil {
-		t.Errorf("a time whose zone name is the credential reached the driver (it stores %q)", ts.String())
-	}
-	if _, err := db.Exec("INSERT INTO t VALUES (?)", time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)); err != nil {
-		t.Errorf("over-withholding: an ordinary time was withheld: %v", err)
-	}
-}

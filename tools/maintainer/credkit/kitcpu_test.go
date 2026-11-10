@@ -22,7 +22,6 @@ import (
 	"encoding/base32"
 	"encoding/base64"
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"hash/maphash"
 	"os"
@@ -308,57 +307,6 @@ func publicUnits() [][]byte {
 		u = append(u, []byte(e))
 	}
 	return u
-}
-
-// TestKitcpuSQLVerdictUnchanged: a held value in a constant statement or a
-// bound value, in every encoding, is withheld with the table as without,
-// and a value outside the table's class is checked as before.
-func TestKitcpuSQLVerdictUnchanged(t *testing.T) {
-	db := kitcpuDB(t)
-	exec := func(q string, args ...any) (with, without bool) {
-		_, err := db.Exec(q, args...)
-		with = errors.Is(err, ErrWithheld)
-		withoutTables(func() {
-			_, err := db.Exec(q, args...)
-			without = errors.Is(err, ErrWithheld)
-		})
-		return
-	}
-	resetForTest(Declarations{})
-	Hold("env:K", kitcpuLeak)
-	for name, enc := range kitcpuEncodings(kitcpuLeak) {
-		q := kitcpuStatement(enc)
-		if constUnitClean([]byte(q)) {
-			t.Errorf("%s in a constant statement: the table called it clean", name)
-		}
-		if with, without := exec(q); !with || !without {
-			t.Errorf("%s in a constant statement: withheld %v with the table, %v without", name, with, without)
-		}
-		if with, without := exec(kitcpuBound, "x", enc); !with || !without {
-			t.Errorf("%s in a bound value: withheld %v with the table, %v without", name, with, without)
-		}
-	}
-	for _, q := range kitcpuDDL {
-		if with, without := exec(q); with || without {
-			t.Errorf("%q withheld: %v with the table, %v without", q, with, without)
-		}
-	}
-	if with, without := exec(kitcpuBound, "x", "clean data"); with || without {
-		t.Errorf("a clean bound value withheld: %v with the table, %v without", with, without)
-	}
-	// Held values the statements carry, of the class and outside it (a
-	// short token, digits, non-ASCII, a value the statement holds whole):
-	// withheld as before.
-	for _, v := range []string{"resource_type", "CURRENT_TIMESTAMP", "TEXT", "id", "12345678", "Größe-resources", "idx_learn_unique ON"} {
-		resetForTest(Declarations{})
-		Hold("env:K", v)
-		for _, q := range kitcpuDDL {
-			with, without := exec(q)
-			if with != without {
-				t.Errorf("held %q, %q: withheld %v with the table, %v without", v, q, with, without)
-			}
-		}
-	}
 }
 
 // TestKitcpuClassDecodesOneViewSet checks consttable.go's first premise: every

@@ -5,7 +5,6 @@
 package store
 
 import (
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"os"
@@ -16,17 +15,17 @@ import (
 	"superops-pp-cli/internal/credkit"
 )
 
-// A record that repeats a held credential, as written or encoded, at any
-// length, is refused: no row, no search index entry, nothing of it in the
-// database file. The batch's other records are stored (#612: one refused
+// A record that repeats a held vendor response value whole, at any length,
+// is refused: no row, no search index entry, nothing of it in the database
+// file (synccpu, owner GO 2026-11-09: the store decodes nothing). The batch's other records are stored (#612: one refused
 // record no longer drops the rest of its batch).
 func TestUpsertBatchRefusesARecordThatRepeatsAHeldCredential(t *testing.T) {
 	if !heldChild(t) {
 		return
 	}
 	const long, short = "storeHeldTok5530", "j~W9xR"
-	credkit.Hold("minted:test", long, short)
-	for _, echo := range []string{long, base64.StdEncoding.EncodeToString([]byte(short))} {
+	credkit.Hold("response:token", long, short) // synccpu: the store refuses only a held vendor response value
+	for _, echo := range []string{long, short} {
 		dir := t.TempDir()
 		db, err := Open(filepath.Join(dir, "data.db"))
 		if err != nil {

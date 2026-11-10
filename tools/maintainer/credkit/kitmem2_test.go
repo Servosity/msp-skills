@@ -12,12 +12,9 @@ package credkit
 // hold for any cross-statement state a matcher may keep.
 
 import (
-	"encoding/base64"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"maps"
-	"net/url"
 	"runtime"
 	"slices"
 	"strings"
@@ -152,48 +149,6 @@ func TestKitmemMemoKeepsJoins(t *testing.T) {
 // text: the attempt at its first byte yields text, then breaks.
 func fixedStreamWith(text string) []byte {
 	return newFixedStream().lit(text).bytes()
-}
-
-// The memo never clears a held value: a record checked clean, then the
-// same record carrying a credential (raw, percent-encoded, base64) in the
-// next statement, is withheld; and values held after the memo was made
-// are found in what it covered.
-func TestKitmemMemoStillWithholds(t *testing.T) {
-	size := 30_000
-	if raceBuild || testing.Short() {
-		size = 6_000
-	}
-	holding(t, kitsafeHeld)
-	db, rec := kitmemDB(t)
-	row := string(callRecord(11, size))
-	if err := kitmemRow(db, "11", []byte(row)); err != nil {
-		t.Fatalf("the ordinary record was not stored: %v", err)
-	}
-	b64 := base64.StdEncoding.EncodeToString([]byte(kitsafeHeld))
-	for name, spell := range map[string]string{
-		"raw":     kitsafeHeld,
-		"percent": url.QueryEscape("https://x.example/?t=" + kitsafeHeld),
-		"base64":  "sdata=" + url.QueryEscape(b64),
-	} {
-		at := strings.Index(row, "<br>") + 4
-		unit := row[:at] + " " + spell + " " + row[at:]
-		if err := kitmemRow(db, "11", []byte(unit)); !errors.Is(err, ErrWithheld) {
-			t.Errorf("%s, after the clean record: not withheld (%v)", name, err)
-		}
-		if err := kitmemRow(db, "11", []byte(row)); err != nil {
-			t.Fatalf("the ordinary record again: %v", err)
-		}
-	}
-	// A value inside the record, held only now: the memo was made without
-	// it, so it must not stand for this check.
-	inside := "pat.doe@contoso.example"
-	Hold("test", inside)
-	if err := kitmemRow(db, "11", []byte(row)); !errors.Is(err, ErrWithheld) {
-		t.Errorf("a value held after the memo was made, inside the record: not withheld (%v)", err)
-	}
-	if want := 4; len(rec.stmts) != want {
-		t.Errorf("statements reaching the driver: %d, want %d (the clean ones)", len(rec.stmts), want)
-	}
 }
 
 // Checks on one matcher at once, their workers running in parallel (go

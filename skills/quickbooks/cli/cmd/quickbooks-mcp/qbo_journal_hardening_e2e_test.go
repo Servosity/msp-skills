@@ -200,7 +200,7 @@ func TestQBOHeldCredentialIsRefusedAsAStoredName(t *testing.T) {
 			}
 			home, env = qboJournalHome(t)
 			out = qboRun(t, append(env, "QUICKBOOKS_ACCESS_TOKEN="+qboJournalPlanted), "", tc.args(qboJournalPlanted)...)
-			if hits := qboFilesCarrying(t, home, qboJournalPlanted); len(hits) > 0 {
+			if hits := synccpuNotStore(qboFilesCarrying(t, home, qboJournalPlanted)); len(hits) > 0 { // synccpu: the local store is not checked
 				t.Errorf("the held credential reached %v: %s", hits, out)
 			}
 		})

@@ -437,7 +437,9 @@ func TestTeachNoteWithADeclaredSecretIsNotStored(t *testing.T) {
 	_ = filepath.WalkDir(e.home, func(path string, d fs.DirEntry, err error) error {
 		if err == nil && !d.IsDir() && strings.Contains(d.Name(), ".db") {
 			if b, rerr := os.ReadFile(path); rerr == nil {
-				assertNoEcho(t, d.Name(), string(b))
+				if !synccpuStoreFile(path) { // synccpu: the local store is not checked
+					assertNoEcho(t, d.Name(), string(b))
+				}
 				saw = saw || bytes.Contains(b, []byte("rotated on schedule"))
 			}
 		}

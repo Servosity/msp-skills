@@ -132,6 +132,23 @@ func treeText(t *testing.T, root string) string {
 	return b.String()
 }
 
+// treeTextNoStore is treeText without the SQLite store files, which the kit
+// no longer checks (synccpu, owner GO 2026-11-09).
+func treeTextNoStore(t *testing.T, root string) string {
+	t.Helper()
+	var b strings.Builder
+	_ = filepath.WalkDir(root, func(p string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() || synccpuStoreFile(p) {
+			return nil
+		}
+		if data, err := os.ReadFile(p); err == nil {
+			b.Write(data)
+		}
+		return nil
+	})
+	return b.String()
+}
+
 // Class (kit-findings: auth_login.go summarizeAuthError): the token endpoint's
 // error text, which can repeat the posted client secret, was printed as the
 // login error. Through the kit the secret is refused to any origin but
@@ -208,7 +225,7 @@ func TestPagerErrorEchoNeverReachesStoreOrOutput(t *testing.T) {
 	out += run(t, bin, env, "exposure", "--json", "--no-learn")
 	out += run(t, bin, env, "dc-roster", "--json", "--no-learn")
 	assertNoPiece(t, "sync, exposure and dc-roster output", out, fxT)
-	assertNoPiece(t, "the store and files the runs left", treeText(t, home), fxT)
+	assertNoPiece(t, "the files the runs left", treeTextNoStore(t, home), fxT) // synccpu: the local store is not checked
 	if !strings.Contains(treeText(t, home), "acct-1") {
 		t.Fatalf("the sync stored no MSP account, so this run proves nothing:\n%s", out)
 	}

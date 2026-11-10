@@ -13,7 +13,7 @@ import (
 	"warranty-pp-cli/internal/warranty"
 )
 
-// The kit's SQL driver refuses a mirror write that carries a held credential,
+// The kit's SQL driver refuses a mirror write that carries a held vendor response value,
 // and the transaction leaves nothing behind.
 func TestMirrorRefusesHeldValues(t *testing.T) {
 	if inFreshProcess(t) {
@@ -25,7 +25,7 @@ func TestMirrorRefusesHeldValues(t *testing.T) {
 	}
 	defer s.Close()
 	held := "store-held-secret-9P8O"
-	credkit.Hold("config:auth_header", held)
+	credkit.Hold("response:password", held) // synccpu: the store refuses only a held vendor response value
 	ctx := context.Background()
 	if _, err := s.UpsertDevice(ctx, DeviceUpsert{Serial: "1ABC234", Customer: held}); !errors.Is(err, credkit.ErrWithheld) {
 		t.Fatalf("upsert with a held customer: err = %v", err)

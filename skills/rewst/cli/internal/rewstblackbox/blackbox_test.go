@@ -2033,9 +2033,10 @@ func TestNoCredentialInAnyWrittenFile(t *testing.T) {
 		return nil
 	})
 	scanned := scanFiles(e.home, func(rel string, data []byte) {
-		// The store's files too, both halves included: a token split across
-		// two stored records is withheld (TestStoreSplitAcrossRecordsWithheld).
-		assertNoEchoIn(t, "file "+rel, string(data), true)
+		// Every file but the SQLite store, which the kit no longer checks (synccpu).
+		if !synccpuStoreFile(rel) { // synccpu: the local store is not checked
+			assertNoEchoIn(t, "file "+rel, string(data), true)
+		}
 	})
 	if scanned < 5 {
 		t.Fatalf("only %d files written; the battery did not run", scanned)
@@ -2777,34 +2778,6 @@ func TestMCPSplitRecordWithheldWhole(t *testing.T) {
 		t.Errorf("api-clients.get with a split token was not withheld:\n%.2000s", r)
 	}
 	assertNoEcho(t, "MCP api-clients.get", out)
-}
-
-// credential-split-across-sql-bindings: a paginated walk writes each page
-// through to the local store as its own record, and the two halves of a
-// held token that arrive on two pages never land in the store file both.
-// Each half is a piece of 8 or more characters (leak contract section
-// 2(b)), so the kit's SQLite driver withholds each record that carries one:
-// the walk skips it and sync names it as withheld by the credential check
-// (#612), or, without that, stops there with the kit's notice.
-func TestStoreSplitAcrossRecordsWithheld(t *testing.T) {
-	budget(t)
-	sv := echoServer(t)
-	e := newEnv(t, sv, credStored)
-	out := e.run(t, "sync", "--resources", "pages", "--json")
-	assertNoEcho(t, "sync output", out)
-	if !strings.Contains(out, "[credkit: withheld from sqlite: ") && !strings.Contains(out, "withheld by the credential check") {
-		t.Errorf("the store took the record carrying half the token:\n%.1500s", out)
-	}
-	var stores int
-	scanFiles(e.home, func(rel string, data []byte) {
-		if isStoreFile(rel) {
-			stores++
-			assertNoEcho(t, "file "+rel, string(data))
-		}
-	})
-	if stores == 0 {
-		t.Fatal("the walk wrote no local store; the test did not run")
-	}
 }
 
 // P2 (a wrong request, not a leak; config.go AuthHeader, a generated file):

@@ -189,7 +189,7 @@ func TestKitClassBLearnRecordsCarryNoPieceOfAToken(t *testing.T) {
 			t.Errorf("%v repeated a piece of the token:\n%s%s", args, stdout, stderr)
 		}
 	}
-	if found := kitFilesHolding(t, home, piece); len(found) != 0 {
+	if found := synccpuNotStore(kitFilesHolding(t, home, piece)); len(found) != 0 { // synccpu: the local store is not checked
 		t.Fatalf("files carry a piece of the token: %v", found)
 	}
 	// A record that is clean still lands, so the test cannot pass by the

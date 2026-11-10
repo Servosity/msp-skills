@@ -552,6 +552,7 @@ var kitExits = map[string]string{
 	"sql.go sqlStmt.Exec s.Stmt.Exec":                  "SQLite: the statement and its values after the check",
 	"sql.go sqlStmt.ExecContext s.Stmt.Exec":           "SQLite: the statement and its values after the check",
 	"sql.go sqlStmt.ExecContext e.ExecContext":         "SQLite: the statement and its values after the check",
+	"sql.go sqlConn.ExecContext e.ExecContext":         "SQLite: a direct statement and its values after the store rule",
 	"exec.go StartCommand cmd.Start":                   "child processes: argv and the final environment after the check",
 	"exec.go StartCommand json.NewEncoder().Encode":    "child processes: the held set the child must get (contract 1)",
 	"transport.go transport.RoundTrip inner.RoundTrip": "outbound requests: the request after the given check, through the wire-checking transport",

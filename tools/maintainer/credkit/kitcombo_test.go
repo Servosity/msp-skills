@@ -185,7 +185,7 @@ func TestKitcomboTableEqualsCold(t *testing.T) {
 					if j.m != nil {
 						hit = j.m.check(j.unit) != clean
 					} else {
-						hit = withheld(sqlUnit(string(j.unit), nil))
+						hit = withheld(j.unit)
 					}
 					if hit && bad.Add(1) <= 20 {
 						t.Errorf("%s: the table called %q clean; cold, the kit withholds it", j.set, j.unit)

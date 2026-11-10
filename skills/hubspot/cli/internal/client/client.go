@@ -1191,7 +1191,13 @@ func New(cfg *config.Config, timeout time.Duration, rateLimit float64) *Client {
 	if dir, err := cliutil.CacheDir(); err == nil {
 		cacheDir = filepath.Join(dir, "http")
 	}
-	httpClient, tlsErr := newHTTPClient(timeout, nil, tlsSettingsFromConfig(cfg))
+	// Hand-fix (handfixes.json api-client-keeps-cookies): HubSpot's edge mints
+	// a fresh Cloudflare __cf_bm cookie on every request that carries none,
+	// and the credential kit holds every Set-Cookie value until exit, so a
+	// jar-less sync held one more value per page and grew without bound
+	// (synccpu2). Sending the cookie back keeps the held set to one per expiry.
+	jar := hostOnlyCookieJar()
+	httpClient, tlsErr := newHTTPClient(timeout, jar, tlsSettingsFromConfig(cfg))
 	c := &Client{
 		BaseURL:      strings.TrimRight(cfg.BaseURL, "/"),
 		Config:       cfg,

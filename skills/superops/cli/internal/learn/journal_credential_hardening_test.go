@@ -117,10 +117,27 @@ func runJournalHardening(t *testing.T, held bool) {
 				if needle == "" {
 					needle = journalHardeningSecret
 				}
-				if hits := filesCarrying(t, home, needle); len(hits) > 0 {
+				hits := filesCarrying(t, home, needle)
+				if held {
+					hits = synccpuNotStore(hits) // synccpu: the local store is not checked for a held value
+				}
+				if len(hits) > 0 {
 					t.Errorf("the credential reached %v", hits)
 				}
 			})
 		}
 	}
+}
+
+// synccpuNotStore drops the SQLite store files: the kit no longer checks what
+// the local store holds (credential leak contract section 5, owner GO
+// 2026-11-09); every other file the run wrote is still checked.
+func synccpuNotStore(paths []string) []string {
+	var out []string
+	for _, p := range paths {
+		if !strings.HasSuffix(p, ".db") && !strings.Contains(p, ".db-") {
+			out = append(out, p)
+		}
+	}
+	return out
 }

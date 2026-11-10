@@ -312,8 +312,9 @@ func jhSinks() []jhSink {
 
 // TestLearnSinksRefuseHeldCredential drives every writer under internal/learn
 // that stores operator-supplied text: a probe that is not held must be stored
-// (the sink was reached), then a held credential in the same place must be
-// withheld by the kit, not stored in any form, and reach no file under the test home.
+// (the sink was reached), then a held credential in the same place must reach
+// no file under the test home but the local store, which synccpu (owner GO
+// 2026-11-09) no longer checks for a configured credential.
 func TestLearnSinksRefuseHeldCredential(t *testing.T) {
 	if os.Getenv(jhModeEnv) != "held" {
 		jhRunChild(t, "TestLearnSinksRefuseHeldCredential", "held")
@@ -330,12 +331,23 @@ func TestLearnSinksRefuseHeldCredential(t *testing.T) {
 				t.Fatalf("the probe reached no file, so this run proves nothing about the sink")
 			}
 			home = withJournalHome(t)
-			if sink.write(t, home, jhName) {
-				t.Errorf("a record carrying the held credential was stored; want it refused")
-			}
-			if hits := jhFilesCarrying(t, home, jhName, sink.planted...); len(hits) > 0 {
+			_ = sink.write(t, home, jhName) // synccpu: the local store keeps it (not checked)
+			if hits := synccpuNotStore(jhFilesCarrying(t, home, jhName, sink.planted...)); len(hits) > 0 {
 				t.Errorf("the held credential reached %v", hits)
 			}
 		})
 	}
+}
+
+// synccpuNotStore drops the SQLite store files: the kit no longer checks what
+// the local store holds (credential leak contract section 5, owner GO
+// 2026-11-09); every other file the run wrote is still checked.
+func synccpuNotStore(paths []string) []string {
+	var out []string
+	for _, p := range paths {
+		if !strings.HasSuffix(p, ".db") && !strings.Contains(p, ".db-") {
+			out = append(out, p)
+		}
+	}
+	return out
 }

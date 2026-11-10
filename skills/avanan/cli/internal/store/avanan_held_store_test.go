@@ -5,7 +5,6 @@
 package store
 
 import (
-	"encoding/hex"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -15,14 +14,15 @@ import (
 	"avanan-pp-cli/internal/credkit"
 )
 
-// TestStoreRefusesAHeldValue: a write carrying a held credential, in any
-// spelling the check decodes, is refused and never reaches the database files.
+// TestStoreRefusesAHeldValue: a write carrying a held vendor response value
+// whole is refused and never reaches the database files (synccpu: the store
+// reads no other source and decodes nothing).
 func TestStoreRefusesAHeldValue(t *testing.T) {
 	if !heldChild(t) {
 		return
 	}
 	const v = "store-held-value-ST1"
-	credkit.Hold("config:unclassified", v)
+	credkit.Hold("response:password", v) // synccpu: the store refuses only a held vendor response value
 	dir := t.TempDir()
 	s, err := Open(filepath.Join(dir, "data.db"))
 	if err != nil {
@@ -31,16 +31,14 @@ func TestStoreRefusesAHeldValue(t *testing.T) {
 	if err := s.Upsert("msp-tenants", "ok-1", json.RawMessage(`{"name":"ordinary"}`)); err != nil {
 		t.Fatalf("an ordinary write was refused: %v", err)
 	}
-	for _, body := range []string{`{"key":"` + v + `"}`, `{"blob":"` + strings.ToUpper(hex.EncodeToString([]byte(v))[:6]) + hex.EncodeToString([]byte(v))[6:] + `"}`} {
-		if err := s.Upsert("msp-tenants", "held-1", json.RawMessage(body)); err == nil {
-			t.Errorf("a write carrying the held value was accepted: %s", body)
-		}
+	if body := `{"key":"` + v + `"}`; s.Upsert("msp-tenants", "held-1", json.RawMessage(body)) == nil {
+		t.Errorf("a write carrying the held value was accepted: %s", body)
 	}
 	_ = s.Close()
 	entries, _ := os.ReadDir(dir)
 	for _, e := range entries {
 		b, _ := os.ReadFile(filepath.Join(dir, e.Name()))
-		if strings.Contains(string(b), v) || strings.Contains(strings.ToLower(string(b)), hex.EncodeToString([]byte(v))) {
+		if strings.Contains(string(b), v) {
 			t.Errorf("%s carries the held value", e.Name())
 		}
 	}

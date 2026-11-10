@@ -5,7 +5,6 @@ package credkit
 import (
 	"bytes"
 	"context"
-	"errors"
 	"io"
 	"net"
 	"net/http"
@@ -13,7 +12,6 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
-	"slices"
 	"sync"
 	"syscall"
 	"testing"
@@ -64,25 +62,6 @@ func TestKit15R2OpaqueQuery(t *testing.T) {
 	NewWriter(&out, SinkFile).Write([]byte("secret!!"))
 	if received == "secret!!" && bytes.Contains(out.Bytes(), []byte("secret!!")) {
 		t.Fatalf("the query sent through an Opaque URL was not read; held %v", isHeld("secret!!"))
-	}
-}
-
-type kit15R2CommitCleanup struct{ ran []string }
-
-func (x *kit15R2CommitCleanup) Commit() error {
-	x.ran = append(x.ran, "commit", "rollback")
-	return errors.New("SQLITE_BUSY")
-}
-func (x *kit15R2CommitCleanup) Rollback() error { x.ran = append(x.ran, "rollback"); return nil }
-
-// sqlite-transaction-statements-unchecked: a failed commit runs rollback.
-func TestKit15R2CommitCleanupRollback(t *testing.T) {
-	resetForTest(Declarations{})
-	Hold("minted:x", "rollback")
-	inner := &kit15R2CommitCleanup{}
-	(sqlTx{inner}).Commit()
-	if slices.Contains(inner.ran, "rollback") {
-		t.Fatalf("a held rollback ran through the driver's commit cleanup: %q", inner.ran)
 	}
 }
 

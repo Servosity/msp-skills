@@ -7,7 +7,6 @@ package credkit
 import (
 	"bufio"
 	"bytes"
-	"context"
 	"database/sql/driver"
 	"io"
 	"net"
@@ -16,7 +15,6 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"slices"
 	"strings"
 	"syscall"
 	"testing"
@@ -165,29 +163,6 @@ func TestKit15R1StaleHeldSnapshot(t *testing.T) {
 	b, _ := os.ReadFile(p)
 	if bytes.Contains(b, []byte("secret!!")) {
 		t.Fatalf("err=%v held=%v output=%q", err, isHeld("secret!!"), b)
-	}
-}
-
-// kit15rv Codex r1, sqlite-transaction-statements-unchecked (the reviewer's own input).
-func TestKit15R1TxRollbackBypasses(t *testing.T) {
-	resetForTest(Declarations{})
-	Hold("minted:x", "rollback")
-	if !withheld([]byte("rollback")) {
-		t.Fatal("test held value not matched")
-	}
-	d := &reviewTxDriver{}
-	c, err := SQLDriver(d).Open("x")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer c.Close()
-	tx, err := c.(driver.ConnBeginTx).BeginTx(context.Background(), driver.TxOptions{})
-	if err != nil {
-		t.Fatal(err)
-	}
-	err = tx.Rollback()
-	if err == nil && slices.Contains(d.ran, "rollback") {
-		t.Fatalf("unchecked driver transaction statement ran: %q", d.ran)
 	}
 }
 

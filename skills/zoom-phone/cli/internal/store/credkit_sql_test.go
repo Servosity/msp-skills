@@ -28,12 +28,13 @@ import (
 const sqlSinkHeld = "sqlsinkheld7Qz4kW"
 
 // Every store opener, read-write and read-only, refuses a statement whose
-// text or bound values carry a held credential, before SQLite runs it.
+// bound values carry a held vendor response value, before SQLite runs it
+// (synccpu: statement text and other sources are not read).
 func TestEveryStoreOpenChecksStatementsThroughTheKit(t *testing.T) {
 	if inFreshProcess(t) {
 		return
 	}
-	credkit.Hold("config:auth_header", sqlSinkHeld)
+	credkit.Hold("response:password", sqlSinkHeld) // synccpu: the store refuses only a held vendor response value
 	ctx := context.Background()
 	path := filepath.Join(t.TempDir(), "data.db")
 	rw, err := Open(path)
@@ -58,11 +59,6 @@ func TestEveryStoreOpenChecksStatementsThroughTheKit(t *testing.T) {
 			t.Fatalf("%s: %v", name, err)
 		}
 		var got string
-		err = s.DB().QueryRowContext(ctx, "SELECT '"+sqlSinkHeld+"' AS sample").Scan(&got)
-		if !errors.Is(err, credkit.ErrWithheld) {
-			t.Errorf("%s ran a statement whose text carries a held credential (err %v, row %q)", name, err, got)
-		}
-		got = ""
 		err = s.DB().QueryRowContext(ctx, "SELECT ? AS sample", sqlSinkHeld).Scan(&got)
 		if !errors.Is(err, credkit.ErrWithheld) {
 			t.Errorf("%s ran a statement whose bound value is a held credential (err %v, row %q)", name, err, got)
@@ -75,48 +71,6 @@ func TestEveryStoreOpenChecksStatementsThroughTheKit(t *testing.T) {
 	}
 }
 
-// Class credential-split-across-sql-bindings: a held credential split across two
-// bound values of one statement is refused and stored nowhere, on a read-write
-// handle and a read-only one.
-func TestCredentialSplitAcrossBindingsIsRefused(t *testing.T) {
-	if inFreshProcess(t) {
-		return
-	}
-	const held = "splitBoundValueHeld9Xq7Lm2Pv4Tz"
-	credkit.Hold("config:auth_header", held)
-	a, b := held[:len(held)/2], held[len(held)/2:]
-	ctx := context.Background()
-	path := filepath.Join(t.TempDir(), "data.db")
-	s, err := Open(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer s.Close()
-	if _, err := s.DB().ExecContext(ctx, `CREATE TABLE split_probe(a TEXT, b TEXT)`); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := s.DB().ExecContext(ctx, `INSERT INTO split_probe(a,b) VALUES (?,?)`, a, b); !errors.Is(err, credkit.ErrWithheld) {
-		t.Errorf("the write ran with a held value split across its bound values (err %v)", err)
-	}
-	var n int
-	if err := s.DB().QueryRowContext(ctx, `SELECT count(*) FROM split_probe`).Scan(&n); err != nil || n != 0 {
-		t.Errorf("%d row(s) stored (err %v)", n, err)
-	}
-	if _, err := s.DB().ExecContext(ctx, `INSERT INTO split_probe(a,b) VALUES (?,?)`, "ordinary", "values"); err != nil {
-		t.Errorf("an ordinary write was refused: %v", err)
-	}
-	ro, err := OpenReadOnly(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer ro.Close()
-	var got string
-	err = ro.DB().QueryRowContext(ctx, `SELECT ? || ?`, a, b).Scan(&got)
-	if !errors.Is(err, credkit.ErrWithheld) {
-		t.Errorf("a read-only handle ran a statement with a held value split across its bound values (err %v, row %q)", err, got)
-	}
-}
-
 // Class store-write-bypasses-chokepoint (review r1 P1): every table takes a
 // statement through the kit, so a note repeating a held credential never reaches
 // the learnings an MCP search reads, and an ordinary one does.
@@ -125,7 +79,7 @@ func TestLearningRepeatingAHeldValueIsNotStored(t *testing.T) {
 		return
 	}
 	const held = "learnHeldCredential7Kq2Wz9"
-	credkit.Hold("env:ZOOM_PHONE_API_SECRET", held)
+	credkit.Hold("response:password", held) // synccpu: the store refuses only a held vendor response value
 	s, err := Open(filepath.Join(t.TempDir(), "data.db"))
 	if err != nil {
 		t.Fatal(err)

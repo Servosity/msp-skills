@@ -429,7 +429,7 @@ func TestKitLearningLogsNeverPersistCredential(t *testing.T) {
 		t.Fatal(err)
 	}
 	res = run(t, cli, d.env(), "teach", "--query", "find items", "--resource-type", "domain", "--resource", "example.com", "--notes", secret)
-	if hits := filesHolding(t, d.home, secret, defCfg); len(hits) > 0 {
+	if hits := synccpuNotStore(filesHolding(t, d.home, secret, defCfg)); len(hits) > 0 { // synccpu: the local store is not checked
 		t.Errorf("teach persisted the credential to %v (exit %d, stderr=%q)", hits, res.code, res.stderr)
 	}
 	// The same teach with an ordinary note persists it, so the absence

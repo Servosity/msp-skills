@@ -2,74 +2,125 @@
 
 package credkit
 
-// Contracts 4 and 5 for SQLite: one statement, its text and its bound
-// values, is one unit. SQLDriver wraps the SQLite driver so every statement
-// is prepared through the wrapper (it offers no direct Exec or Query of its
-// own for database/sql to go around it) and checked when it runs. A
-// withheld statement does not run; its error is the notice.
+// SQLite (owner GO 2026-11-09, synccpu): the store is not checked like the
+// other sinks. The full check cost about 1 CPU-s per stored row and was 99.8%
+// of a sync's CPU, so SQLDriver passes every statement through EXCEPT one
+// rule: while a value from a declared vendor response field (ResponseFields,
+// source "response:*") is held, a statement whose string or []byte argument
+// carries that whole value, raw or JSON-escaped, is refused. A vendor secret
+// then never persists to print unheld in a later run. No decoders, no pieces;
+// one atomic load while no response value is held. Accepted risk: a
+// credential from any other source can sit in the local store unchecked.
 //
 //	sql.Register("credkit-sqlite", credkit.SQLDriver(&sqlite.Driver{}))
 //	db, err := sql.Open("credkit-sqlite", path)
 
 import (
+	"bytes"
 	"context"
 	"database/sql/driver"
-	"fmt"
-	"net/url"
-	"strconv"
+	"encoding/json"
+	"slices"
 	"strings"
-	"time"
+	"sync/atomic"
 )
 
-// SQLDriver wraps inner so every statement is checked before it runs.
-func SQLDriver(inner driver.Driver) driver.Driver { return sqlDriver{inner} }
+// storeArmed is set once a response value is held or the held set becomes
+// unknown; until then every statement runs unread.
+var storeArmed atomic.Bool
 
-type sqlDriver struct{ inner driver.Driver }
-
-// openStatements is every statement a SQLite driver may build from the
-// connection name's query (after the first '?', at index 1 or later, as
-// modernc.org/sqlite reads it). Blunt rule, the class's second round: each
-// _pragma value as "pragma <value>"; each other _ key that is not a plain
-// setting, in every spelling a driver writes it ("pragma k = v",
-// "pragma k=v", "pragma k(v)", "pragma k v"); the begin a _txlock gives.
-// ok is false for a query the kit cannot parse: the name is withheld.
-func openStatements(name string) (out []string, ok bool) {
-	i := strings.IndexByte(name, '?')
-	if i < 1 {
-		return nil, true
+// storeRefuses reports whether args must not be stored: one carries a held
+// response value whole, raw or as encoding/json writes it, or the held set
+// is unknown (fail closed, as before).
+func storeRefuses(args []driver.NamedValue) bool {
+	if !storeArmed.Load() {
+		return false
 	}
-	q, err := url.ParseQuery(name[i+1:])
-	if err != nil {
-		return nil, false
+	needles, unknown := storeNeedles()
+	if unknown {
+		return true
 	}
-	for k, vs := range q {
-		for _, v := range vs {
-			switch k {
-			case "_pragma":
-				out = append(out, "pragma "+v)
-			case "_txlock":
-				out = append(out, "begin "+v)
-			case "_time_format", "_inttotime", "_texttotime", "_timezone":
-			default:
-				if p, ok := strings.CutPrefix(k, "_"); ok {
-					out = append(out, "pragma "+p+" = "+v, "pragma "+p+"="+v, "pragma "+p+"("+v+")", "pragma "+p+" "+v)
+	for _, a := range args {
+		switch v := a.Value.(type) {
+		case string:
+			for _, n := range needles {
+				if strings.Contains(v, n) {
+					return true
+				}
+			}
+		case []byte:
+			for _, n := range needles {
+				if bytes.Contains(v, []byte(n)) {
+					return true
 				}
 			}
 		}
 	}
-	return out, true
+	return false
 }
 
-func (d sqlDriver) Open(name string) (driver.Conn, error) {
-	defer emitEnd(emitBegin()) // the barrier, to the end of the call (held.go heldMu)
-	// The name is a unit too, and so is every statement a driver builds
-	// from it before any statement of the program's (openStatements).
-	stmts, ok := openStatements(name)
-	for _, u := range append([]string{name}, stmts...) {
-		if !ok || withheld([]byte(u)) {
-			return nil, withheldError{SinkSQLite}
+// storeNeedles is every held response value, raw and JSON-escaped (with and
+// without encoding/json's HTML escapes), cached per held-set generation.
+// (The JSON words true, false and null are public text: never held from a
+// response, so never needles.) ponytail: a very short held value refuses every
+// row carrying it; add a minimum length if a connector ever declares one.
+
+// noHTMLEscape turns encoding/json's default output into its
+// SetEscapeHTML(false) form: it undoes the \u003c, \u003e and \u0026
+// escapes and nothing else, walking escape pairs so an escaped backslash
+// followed by "u003c" (a literal in the value) stays as it is.
+func noHTMLEscape(s string) string {
+	var b strings.Builder
+	for i := 0; i < len(s); i++ {
+		if s[i] != '\\' || i+1 >= len(s) {
+			b.WriteByte(s[i])
+			continue
 		}
+		if r := map[string]byte{"u003c": '<', "u003e": '>', "u0026": '&'}[s[i+1:min(i+6, len(s))]]; r != 0 {
+			b.WriteByte(r)
+			i += 5
+			continue
+		}
+		b.WriteString(s[i : i+2])
+		i++
 	}
+	return b.String()
+}
+
+func storeNeedles() ([]string, bool) {
+	reg.Lock()
+	defer reg.Unlock()
+	if reg.unknown {
+		return nil, true
+	}
+	if reg.sgen != reg.gen {
+		reg.store = reg.store[:0]
+		add := func(n string) {
+			if n != "" && !slices.Contains(reg.store, n) {
+				reg.store = append(reg.store, n)
+			}
+		}
+		for v, e := range reg.vals {
+			if !e.resp {
+				continue
+			}
+			add(v)
+			if b, err := json.Marshal(v); err == nil {
+				add(string(b[1 : len(b)-1]))               // encoding/json's default
+				add(noHTMLEscape(string(b[1 : len(b)-1]))) // SetEscapeHTML(false)
+			}
+		}
+		reg.sgen = reg.gen
+	}
+	return reg.store, false
+}
+
+// SQLDriver wraps inner so each statement's arguments meet the one store rule.
+func SQLDriver(inner driver.Driver) driver.Driver { return sqlDriver{inner} }
+
+type sqlDriver struct{ inner driver.Driver }
+
+func (d sqlDriver) Open(name string) (driver.Conn, error) {
 	c, err := d.inner.Open(name)
 	if err != nil {
 		return nil, err
@@ -77,9 +128,8 @@ func (d sqlDriver) Open(name string) (driver.Conn, error) {
 	return &sqlConn{c}, nil
 }
 
-// sqlConn embeds the driver.Conn interface, so only Prepare, Close and Begin
-// are promoted: the inner connection's ExecerContext and QueryerContext are
-// hidden, and database/sql prepares every statement through Prepare.
+// sqlConn passes everything through; the statements it prepares and the
+// ones it runs directly meet the store rule.
 type sqlConn struct{ driver.Conn }
 
 func (c *sqlConn) Prepare(query string) (driver.Stmt, error) {
@@ -87,7 +137,7 @@ func (c *sqlConn) Prepare(query string) (driver.Stmt, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &sqlStmt{s, query}, nil
+	return &sqlStmt{s}, nil
 }
 
 func (c *sqlConn) PrepareContext(ctx context.Context, query string) (driver.Stmt, error) {
@@ -99,64 +149,36 @@ func (c *sqlConn) PrepareContext(ctx context.Context, query string) (driver.Stmt
 	if err != nil {
 		return nil, err
 	}
-	return &sqlStmt{s, query}, nil
+	return &sqlStmt{s}, nil
 }
 
-// checkTx checks the statements a driver runs for a transaction itself,
-// each a unit (kit15rv: they ran unchecked): modernc.org/sqlite's begin
-// (with the lock mode a DSN's _txlock names), commit and rollback.
-func checkTx(units ...string) error {
-	for _, u := range units {
-		if withheld([]byte(u)) {
-			return withheldError{SinkSQLite}
-		}
+func (c *sqlConn) ExecContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Result, error) {
+	e, ok := c.Conn.(driver.ExecerContext)
+	if !ok {
+		return nil, driver.ErrSkip
 	}
-	return nil
+	if storeRefuses(args) {
+		return nil, withheldError{SinkSQLite}
+	}
+	return e.ExecContext(ctx, query, args)
+}
+
+func (c *sqlConn) QueryContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
+	q, ok := c.Conn.(driver.QueryerContext)
+	if !ok {
+		return nil, driver.ErrSkip
+	}
+	if storeRefuses(args) {
+		return nil, withheldError{SinkSQLite}
+	}
+	return q.QueryContext(ctx, query, args)
 }
 
 func (c *sqlConn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx, error) {
-	defer emitEnd(emitBegin()) // the barrier, to the end of the call (held.go heldMu)
-	if err := checkTx("begin", "begin deferred", "begin immediate", "begin exclusive"); err != nil {
-		return nil, err
-	}
-	var tx driver.Tx
-	var err error
 	if bt, ok := c.Conn.(driver.ConnBeginTx); ok {
-		tx, err = bt.BeginTx(ctx, opts)
-	} else {
-		tx, err = c.Conn.Begin() //nolint:staticcheck // the fallback database/sql itself uses
+		return bt.BeginTx(ctx, opts)
 	}
-	if err != nil {
-		return nil, err
-	}
-	return sqlTx{tx}, nil
-}
-
-// Begin hides the inner connection's: every transaction is a sqlTx.
-func (c *sqlConn) Begin() (driver.Tx, error) {
-	return c.BeginTx(context.Background(), driver.TxOptions{})
-}
-
-// sqlTx checks the statement each end of a transaction runs before the
-// driver runs it; a withheld one is not run (fail closed).
-type sqlTx struct{ driver.Tx }
-
-// Commit checks rollback too: a driver may run it itself when the commit
-// fails with the transaction still open (modernc tx.go, kit15rv round 2).
-func (t sqlTx) Commit() error {
-	defer emitEnd(emitBegin()) // the barrier, to the end of the call (held.go heldMu)
-	if err := checkTx("commit", "rollback"); err != nil {
-		return err
-	}
-	return t.Tx.Commit()
-}
-
-func (t sqlTx) Rollback() error {
-	defer emitEnd(emitBegin()) // the barrier, to the end of the call (held.go heldMu)
-	if err := checkTx("rollback"); err != nil {
-		return err
-	}
-	return t.Tx.Rollback()
+	return c.Conn.Begin() //nolint:staticcheck // the fallback database/sql itself uses
 }
 
 func (c *sqlConn) ResetSession(ctx context.Context) error {
@@ -180,41 +202,7 @@ func (c *sqlConn) CheckNamedValue(nv *driver.NamedValue) error {
 	return driver.ErrSkip
 }
 
-type sqlStmt struct {
-	driver.Stmt
-	query string
-}
-
-// sqlUnit is one statement as a unit: its text, then each bound value on a
-// line of its own.
-func sqlUnit(query string, args []driver.NamedValue) []byte {
-	var b strings.Builder
-	b.WriteString(query)
-	for _, a := range args {
-		b.WriteString("\n")
-		if a.Name != "" {
-			b.WriteString(a.Name + "=")
-		}
-		switch v := a.Value.(type) {
-		case nil:
-		case string:
-			b.WriteString(v)
-		case []byte:
-			b.Write(v)
-		case int64:
-			b.WriteString(strconv.FormatInt(v, 10))
-		case float64:
-			b.WriteString(strconv.FormatFloat(v, 'f', -1, 64))
-		case time.Time:
-			// Every spelling a driver stores: RFC 3339, and the default
-			// String form with the zone's name (modernc SQLite's).
-			b.WriteString(v.Format(time.RFC3339Nano) + "\n" + v.String())
-		default:
-			fmt.Fprint(&b, v)
-		}
-	}
-	return []byte(b.String())
-}
+type sqlStmt struct{ driver.Stmt }
 
 func named(args []driver.Value) []driver.NamedValue {
 	out := make([]driver.NamedValue, len(args))
@@ -232,38 +220,23 @@ func values(args []driver.NamedValue) []driver.Value {
 	return out
 }
 
-func (s *sqlStmt) check(args []driver.NamedValue) error {
-	// A statement with no bound value is its text alone: a constant one
-	// is read from a table (consttable.go, exact).
-	if len(args) == 0 && constUnitClean([]byte(s.query)) {
-		return nil
-	}
-	if withheld(sqlUnit(s.query, args)) {
-		return withheldError{SinkSQLite}
-	}
-	return nil
-}
-
 func (s *sqlStmt) Exec(args []driver.Value) (driver.Result, error) {
-	defer emitEnd(emitBegin()) // the barrier, to the end of the call (held.go heldMu)
-	if err := s.check(named(args)); err != nil {
-		return nil, err
+	if storeRefuses(named(args)) {
+		return nil, withheldError{SinkSQLite}
 	}
 	return s.Stmt.Exec(args) //nolint:staticcheck // the driver.Stmt interface method
 }
 
 func (s *sqlStmt) Query(args []driver.Value) (driver.Rows, error) {
-	defer emitEnd(emitBegin()) // the barrier, to the end of the call (held.go heldMu)
-	if err := s.check(named(args)); err != nil {
-		return nil, err
+	if storeRefuses(named(args)) {
+		return nil, withheldError{SinkSQLite}
 	}
 	return s.Stmt.Query(args) //nolint:staticcheck // the driver.Stmt interface method
 }
 
 func (s *sqlStmt) ExecContext(ctx context.Context, args []driver.NamedValue) (driver.Result, error) {
-	defer emitEnd(emitBegin()) // the barrier, to the end of the call (held.go heldMu)
-	if err := s.check(args); err != nil {
-		return nil, err
+	if storeRefuses(args) {
+		return nil, withheldError{SinkSQLite}
 	}
 	if e, ok := s.Stmt.(driver.StmtExecContext); ok {
 		return e.ExecContext(ctx, args)
@@ -272,9 +245,8 @@ func (s *sqlStmt) ExecContext(ctx context.Context, args []driver.NamedValue) (dr
 }
 
 func (s *sqlStmt) QueryContext(ctx context.Context, args []driver.NamedValue) (driver.Rows, error) {
-	defer emitEnd(emitBegin()) // the barrier, to the end of the call (held.go heldMu)
-	if err := s.check(args); err != nil {
-		return nil, err
+	if storeRefuses(args) {
+		return nil, withheldError{SinkSQLite}
 	}
 	if q, ok := s.Stmt.(driver.StmtQueryContext); ok {
 		return q.QueryContext(ctx, args)

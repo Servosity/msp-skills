@@ -667,7 +667,9 @@ func (e *bbEnv) assertNoCredentialInFiles(t *testing.T) map[string]string {
 	t.Helper()
 	files := e.writtenFiles(t)
 	for rel, data := range files {
-		assertNoEcho(t, "file "+rel, data)
+		if !synccpuStoreFile(rel) { // synccpu: the local store is not checked
+			assertNoEcho(t, "file "+rel, data)
+		}
 	}
 	return files
 }

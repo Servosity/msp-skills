@@ -15,7 +15,6 @@ package cli
 
 import (
 	"bytes"
-	"database/sql"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -27,7 +26,6 @@ import (
 	"testing"
 
 	"knowbe4-pp-cli/internal/cliutil/testenv"
-	"knowbe4-pp-cli/internal/credkit"
 
 	_ "modernc.org/sqlite"
 )
@@ -144,75 +142,6 @@ func TestNeitherKeyReachesTheOtherAPIsHost(t *testing.T) {
 		if strings.Contains(events.all(), k) {
 			t.Errorf("the User Event host received the Reporting key %s", k)
 		}
-	}
-}
-
-// Class non-text-sql-binding-unheld. The failing input from the review: a
-// phishing-test recipient whose recipient_id equals a number the process
-// holds as a credential; the recipient writer bound the integer and the store
-// kept the complete value. The store's SQLite driver is the credential kit's
-// (internal/credsql), which judges every bound value, numbers included; the
-// test holds the number in a child, as the kit holds a credential.
-func TestSyncNeverStoresAHeldNumber(t *testing.T) {
-	if runInChild(t) {
-		return
-	}
-	const held = "58293417"
-	credkit.Hold("config:test", held)
-	testenv.Isolate(t)
-	fake := newFakeKnowBe4(t)
-	fake.bodies["/phishing/security_tests/16142/recipients"] = `[{"recipient_id":` + held + `,"pst_id":16142,` +
-		`"user":{"id":667542,"email":"wmarcoux@kb4-demo.com"},` +
-		`"delivered_at":"2026-08-02T15:03:00.000Z","clicked_at":"2026-08-02T16:00:00.000Z"}]`
-	db := filepath.Join(t.TempDir(), "data.db")
-	_, errOut, err := runKnowBe4(t, "sync", "--db", db, "--no-learn")
-	t.Logf("sync: %v\n%s", err, errOut)
-	h, err := sql.Open("sqlite", db)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer h.Close()
-	tables, err := h.Query(`SELECT name FROM sqlite_master WHERE type='table'`)
-	if err != nil {
-		t.Fatal(err)
-	}
-	var names []string
-	reached := 0
-	for tables.Next() {
-		var n string
-		_ = tables.Scan(&n)
-		names = append(names, n)
-	}
-	_ = tables.Close()
-	for _, table := range names {
-		rows, err := h.Query(`SELECT * FROM "` + table + `"`)
-		if err != nil {
-			continue
-		}
-		cols, _ := rows.Columns()
-		for rows.Next() {
-			vals := make([]any, len(cols))
-			ptrs := make([]any, len(cols))
-			for i := range vals {
-				ptrs[i] = &vals[i]
-			}
-			_ = rows.Scan(ptrs...)
-			for i, v := range vals {
-				if b, ok := v.([]byte); ok {
-					v = string(b)
-				}
-				if strings.Contains(fmt.Sprint(v), held) {
-					t.Errorf("table %s column %s keeps the held number: %v", table, cols[i], v)
-				}
-				if strings.Contains(fmt.Sprint(v), "667542") {
-					reached++
-				}
-			}
-		}
-		_ = rows.Close()
-	}
-	if reached == 0 {
-		t.Errorf("no table keeps the synced user 667542, so this run proves nothing about the store")
 	}
 }
 

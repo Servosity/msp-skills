@@ -178,15 +178,16 @@ func TestR2StoredAnswerIsReplacedAndReadWhole(t *testing.T) {
 }
 
 // Codex r2 P2 (redacted rows counted as complete coverage): a group whose
-// key repeats a held credential is refused by the kit's SQL driver, so the
-// whole replacement fails and the period stays uncovered. A read never
+// key repeats a held vendor response value is refused by the kit's SQL
+// driver, so the whole replacement fails and the period stays uncovered. A read never
 // counts a period as covered while one of its groups is missing.
 func TestR2WithheldGroupKeyLeavesThePeriodUncovered(t *testing.T) {
 	if inFreshProcess(t) {
 		return
 	}
 	secret := "qZ7vX2mK9wL4pR6tN1sB/hJ3d" // no 8-character piece of the test name or its temp path
-	credkit.Hold("config:aws_secret_access_key", secret)
+	// synccpu: the store refuses only a held vendor response value
+	credkit.Hold("response:sessiontoken", secret)
 	ctx := context.Background()
 	path := filepath.Join(t.TempDir(), "withheld.db")
 	db, err := store.OpenWithContext(ctx, path)

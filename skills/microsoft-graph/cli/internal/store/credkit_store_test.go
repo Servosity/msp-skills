@@ -2,7 +2,8 @@
 
 // Hand-written (NOT generated; handfixes.json credkit-sqlite-every-handle):
 // the local store opens through the credential kit's SQL driver, so a record
-// that carries a held value is refused whole and an ordinary one is kept.
+// that carries a held vendor response value is refused whole and an
+// ordinary one is kept.
 
 package store
 
@@ -21,7 +22,7 @@ func TestStoreRefusesAHeldValue(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer s.Close()
-	credkit.Hold("minted:entra", "StoreHeldTok-4e7a91")
+	credkit.Hold("response:access_token", "StoreHeldTok-4e7a91") // synccpu: the store refuses only a held vendor response value
 	if err := s.Upsert("users", "u1", json.RawMessage(`{"id":"u1","displayName":"Ordinary Person"}`)); err != nil {
 		t.Fatalf("an ordinary record was refused: %v", err)
 	}

@@ -1511,7 +1511,9 @@ func TestNoCredentialInAnyWrittenFile(t *testing.T) {
 		return nil
 	})
 	scanned := scanFiles(e.home, func(rel string, data []byte) {
-		assertNoEchoIn(t, "file "+rel, string(data), !isStoreFile(rel))
+		if !synccpuStoreFile(rel) { // synccpu: the local store is not checked
+			assertNoEchoIn(t, "file "+rel, string(data), !isStoreFile(rel))
+		}
 	})
 	if scanned < 5 {
 		t.Fatalf("only %d files written; the battery did not run", scanned)

@@ -160,7 +160,7 @@ func assertNoPiece(t *testing.T, where, text, cred string) {
 func assertNoPieceInFiles(t *testing.T, root, cred string) {
 	t.Helper()
 	for path, text := range filesUnder(t, root) {
-		if isCredentialStore(path) {
+		if isCredentialStore(path) || synccpuStoreFile(path) { // synccpu: the local store is not checked
 			continue
 		}
 		assertNoPiece(t, path, text, cred)

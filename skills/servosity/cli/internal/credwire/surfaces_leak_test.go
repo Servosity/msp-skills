@@ -235,8 +235,8 @@ func mcpReloadCarriesNothing(t *testing.T, mcp, body, carried string, silent boo
 	requireAbsent(t, "MCP stderr", errb.String(), carried)
 }
 
-// A statement carrying a held value is refused at the SQLite sink, before
-// SQLite runs it, and an ordinary one still runs.
+// A statement carrying a held value runs (synccpu: the store does not read
+// statement text) and its answer is withheld whole; an ordinary one still runs.
 func TestMCPSQLStatementWithheldAtSQLite(t *testing.T) {
 	t.Parallel()
 	cli, mcp := binaries(t)
@@ -249,8 +249,8 @@ func TestMCPSQLStatementWithheldAtSQLite(t *testing.T) {
 	}
 	frames, stderr := mcpCall(t, mcp, env, "sql", map[string]any{"query": "SELECT '" + secret + "' AS sample"})
 	requireAbsent(t, "MCP sql", frames+stderr, secret)
-	if !strings.Contains(frames, credkit.Notice(credkit.SinkSQLite)) {
-		t.Errorf("the statement was not refused at the SQLite sink; frames:\n%s", frames)
+	if !strings.Contains(frames, credkit.Notice(credkit.SinkMCP)) { // synccpu: the store does not read statement text
+		t.Errorf("the answer was not withheld at the MCP sink; frames:\n%s", frames)
 	}
 	frames, _ = mcpCall(t, mcp, env, "sql", map[string]any{"query": "SELECT 'an ordinary value' AS sample"})
 	if !strings.Contains(frames, "an ordinary value") {
