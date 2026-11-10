@@ -776,7 +776,7 @@
       "name": "quickbooks",
       "source": "./skills/quickbooks",
       "description": "Every QuickBooks Online entity, plus an offline SQLite mirror, AR/AP aging and close checks.",
-      "version": "0.1.16",
+      "version": "0.1.17",
       "category": "billing",
       "tags": [
         "quickbooks",
@@ -807,7 +807,7 @@
       "name": "rewst",
       "source": "./skills/rewst",
       "description": "Operate and monitor Rewst RPA across every client org from the terminal or your AI agent: workflow execution health, failure triage, automation ROI, dormant-workflow cleanup, cross-org config drift, and integration-pack coverage - the multi-tenant answers the web console makes you assemble one org at a time.",
-      "version": "0.1.9",
+      "version": "0.1.10",
       "category": "automation",
       "tags": [
         "rewst",
@@ -822,7 +822,7 @@
       "name": "riverside-fm",
       "source": "./skills/riverside-fm",
       "description": "The first programmatic way to download every transcript, audio track, and video from your own Riverside.com account \u2014 no Business plan or API key required.",
-      "version": "0.1.7",
+      "version": "0.1.8",
       "category": "marketing",
       "tags": [
         "riverside-fm",
@@ -838,7 +838,7 @@
       "name": "rocketcyber",
       "source": "./skills/rocketcyber",
       "description": "The first CLI and MCP server for RocketCyber Managed SOC, with triage and posture analytics no console page or API call computes.",
-      "version": "0.1.10",
+      "version": "0.1.11",
       "category": "security",
       "tags": [
         "rocketcyber",
@@ -868,7 +868,7 @@
       "name": "runzero",
       "source": "./skills/runzero",
       "description": "Every runZero query, plus a local SQLite copy of your whole attack surface that diffs over time, joins assets to vulnerabilities offline, and costs zero API quota to re-slice.",
-      "version": "0.1.9",
+      "version": "0.1.10",
       "category": "security",
       "tags": [
         "runzero",
@@ -883,7 +883,7 @@
       "name": "salesbuildr",
       "source": "./skills/salesbuildr",
       "description": "Every Salesbuildr resource as a scriptable command, plus offline margin and pipeline analytics.",
-      "version": "0.1.9",
+      "version": "0.1.10",
       "category": "crm",
       "tags": [
         "salesbuildr",
@@ -913,7 +913,7 @@
       "name": "servosity",
       "source": "./skills/servosity",
       "description": "The first MSP-fleet CLI for backup. Every Servosity API endpoint as a typed command, plus a local mirror that lets you ask questions the dashboard can't \u2014 across your whole book of clients.",
-      "version": "0.6.14",
+      "version": "0.6.15",
       "category": "backup-dr",
       "tags": [
         "servosity",
@@ -1203,7 +1203,7 @@
       "name": "sophos-central",
       "source": "./skills/sophos-central",
       "description": "The Sophos Central partner, organization and tenant APIs, routed to the right tenant and region automatically, plus a cross-tenant triage queue, fleet tamper remediation, a multi-tenant SIEM collector and hostname-based containment.",
-      "version": "0.1.5",
+      "version": "0.1.6",
       "category": "security",
       "tags": [
         "sophos-central",
@@ -1250,7 +1250,7 @@
       "name": "sonicwall",
       "source": "./skills/sonicwall",
       "description": "Cyber-insurance posture for a whole SonicWall fleet: firmware, advisories, MFA, SSL-VPN exposure and licences, one row per firewall.",
-      "version": "0.1.5",
+      "version": "0.1.6",
       "category": "security",
       "tags": [
         "sonicwall",
@@ -1516,7 +1516,7 @@
       "name": "prtg",
       "source": "./skills/prtg",
       "description": "Every PRTG API v2 endpoint, plus a fleet view across every client's PRTG core: alarms, status, handoffs, hygiene and safe bulk actions in one command.",
-      "version": "0.1.2",
+      "version": "0.1.3",
       "category": "network-monitoring",
       "tags": [
         "prtg",
