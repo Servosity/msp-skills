@@ -707,9 +707,9 @@
     "released_hash": "sha256:09e07eaa8cb2316410721be57a82c7c1227a586cf1f3456d78b76735e3e62d0c"
   },
   "veeam": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.10",
-    "latest_tag": "veeam-v0.1.9",
+    "latest_tag": "veeam-v0.1.10",
     "current_hash": "sha256:550d405189d5593dd30ee0a0d579366a1516eac129ed63351a332f2af261bbb0",
     "released_hash": "sha256:550d405189d5593dd30ee0a0d579366a1516eac129ed63351a332f2af261bbb0"
   },
