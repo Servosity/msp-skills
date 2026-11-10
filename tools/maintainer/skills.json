@@ -1596,6 +1596,27 @@
         "evidence": null
       }
     },
+    "nizlo": {
+      "system": "Windows-first RMM for MSP and internal IT endpoint operations",
+      "status": "beta",
+      "vendor": "Nizlo",
+      "vendor_trademark_owner": "Cloud 84 Holdings LLC",
+      "first_party": false,
+      "markdown_only": true,
+      "category": "RMM",
+      "display_name": "Nizlo",
+      "tagline": "Inspect Nizlo fleet health, endpoint inventory, customers, sites, and active alerts through a deliberately read-only helper.",
+      "template_version": 2,
+      "has_video": false,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null,
+        "verified_by": null,
+        "issue_url": "https://github.com/Servosity/msp-skills/issues/514"
+      }
+    },
     "msp-skills-concierge": {
       "system": "Connector recommendations + guided install for the msp-skills catalog",
       "status": "beta",
