@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "windows-server-mcp",
   "display_name": "Windows Server",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Agentless Windows Server health checks over WinRM: one verdict per server, a diffable inventory, and no arbitrary PowerShell.",
   "author": {
     "name": "Servosity Inc."
