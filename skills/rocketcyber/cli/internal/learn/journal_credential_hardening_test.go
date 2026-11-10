@@ -165,7 +165,7 @@ func TestJournalCredentialHardening(t *testing.T) {
 			}
 			home = withJournalHome(t)
 			_ = runCLI(t, withValue(op.args, journalHardeningName)...)
-			if hits := filesCarrying(t, home, journalHardeningName); len(hits) > 0 {
+			if hits := synccpuNotStore(filesCarrying(t, home, journalHardeningName)); len(hits) > 0 {
 				t.Errorf("the held credential reached %v", hits)
 			}
 		})
@@ -201,4 +201,17 @@ func TestJournalFailedFlagIdentity(t *testing.T) {
 	if !strings.HasPrefix(a, "--<undeclared>:") || !strings.HasPrefix(b, "--<undeclared>:") || a == b {
 		t.Errorf("failed flags %q and %q: want two distinct opaque identities", a, b)
 	}
+}
+
+// synccpuNotStore drops the SQLite store files: the kit no longer checks what
+// the local store holds (credential leak contract section 5, owner GO
+// 2026-11-09); every other file the run wrote is still checked.
+func synccpuNotStore(paths []string) []string {
+	var out []string
+	for _, p := range paths {
+		if !strings.HasSuffix(p, ".db") && !strings.Contains(p, ".db-") {
+			out = append(out, p)
+		}
+	}
+	return out
 }

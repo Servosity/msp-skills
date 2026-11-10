@@ -6,7 +6,6 @@ import (
 	"bufio"
 	"bytes"
 	"context"
-	"database/sql"
 	"database/sql/driver"
 	"encoding/json"
 	"errors"
@@ -138,40 +137,6 @@ func (s *recStmt) Exec(args []driver.Value) (driver.Result, error) {
 func (s *recStmt) Query([]driver.Value) (driver.Rows, error) { return nil, errors.New("no rows") }
 
 var sqlTestRuns int
-
-func TestContract5SQLiteStatementAndBoundValues(t *testing.T) {
-	holding(t, cred)
-	rec := &recDriver{}
-	// A name of its own per run: database/sql panics on a second Register
-	// of one name, and -count runs this test again in the same process.
-	sqlTestRuns++
-	name := fmt.Sprintf("credkit-test-%d", sqlTestRuns)
-	sql.Register(name, SQLDriver(rec))
-	db, err := sql.Open(name, "x")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer db.Close()
-	if _, err := db.Exec("INSERT INTO t VALUES (?)", "clean"); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := db.Exec("INSERT INTO t VALUES (?)", "x"+cred); !errors.Is(err, ErrWithheld) {
-		t.Errorf("bound value carrying a credential not withheld: %v", err)
-	}
-	if _, err := db.Exec("INSERT INTO t VALUES ('" + cred + "')"); !errors.Is(err, ErrWithheld) {
-		t.Errorf("statement text carrying a credential not withheld: %v", err)
-	}
-	if _, err := db.Exec("INSERT INTO t VALUES (?, ?)", cred[:9], cred[9:]); err == nil {
-		// Two bound values that join to the credential: each line is a
-		// piece of 9 and 10 characters, so each alone is a leak.
-		t.Error("a credential split across bound values not withheld")
-	}
-	rec.mu.Lock()
-	defer rec.mu.Unlock()
-	if len(rec.stmts) != 1 || strings.HasPrefix(rec.stmts[0], "DIRECT") {
-		t.Errorf("statements reaching the driver = %q, want only the clean one, prepared", rec.stmts)
-	}
-}
 
 // --- MCP (contract 5: results, errors, protocol frames, logs) ---
 

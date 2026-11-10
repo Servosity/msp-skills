@@ -1591,6 +1591,38 @@
      "code_only": true
     }
    ]
+  },
+  {
+   "id": "limiter-ramps-only-while-pacing",
+   "summary": "the adaptive limiter's blind ramp raises only a rate the last Wait slept on, so sync's rate_rps reports a real pace",
+   "why": "On a header-less API the ramp multiplied the rate by 1.25 every 10 successes with no ceiling: mcp2's hubspot sync printed rate_rps 6.6e24 (about 2,500 requests), and after such a ramp a 429's halving could no longer slow a single request. A rate the requests never reach is no longer raised. Re-applied after a reprint by replay_handfixes.py (recipe limiter-paced).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cliutil/ratelimit.go",
+     "contains": "\tpaced        bool",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/ratelimit.go",
+     "contains": "\tl.paced = sleep > 0\n",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/ratelimit.go",
+     "contains": "\tif !l.paced {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/cliutil_test.go",
+     "contains": "with no Wait pacing, want %v",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
   }
  ],
  "retired": [

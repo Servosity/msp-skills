@@ -140,7 +140,7 @@ func TestClassNoCredentialReachesAnyOutput(t *testing.T) {
 		}
 	})
 	for p, data := range filesUnder(t, home) {
-		if f := shown(data, apiKey, "SmtpSecret55443322", "SipSecret55443322"); f != "" {
+		if f := shown(data, apiKey, "SmtpSecret55443322", "SipSecret55443322"); !synccpuStoreFile(p) && f != "" { // synccpu: the local store is not checked
 			t.Errorf("%s holds a credential (%q); only the credential store may", p, f)
 		}
 	}

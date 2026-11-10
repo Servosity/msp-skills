@@ -16,15 +16,13 @@ import (
 
 // With an existing store and auth_header = "lowercasecredential123", MCP
 // sql {"query":"SELECT 'lowercasecredential123' AS sample"} must be refused
-// at the SQLite sink, before SQLite runs it: the statement text is a sink of
-// its own (contract sections 2 and 5), not only the rows it would return.
+// whole. Since synccpu (owner GO 2026-11-09) the store does not read statement
+// text, so the statement runs and the MCP server withholds the answer.
 //
 // The reviewer's credential shares the piece "credential" with every kit
 // notice, so the kit drops the notice from the reply too and the reply
 // cannot say which sink refused. The second run holds a credential that
-// shares no piece with any notice: there the reply names the sink, SQLite
-// when the statement is refused before it runs, the MCP server when it ran
-// and only its row was withheld.
+// shares no piece with any notice: there the reply names the MCP sink.
 func TestKitMCPSQLStatementWithheldAtSQLite(t *testing.T) {
 	cli, mcp := binaries(t)
 	for _, secret := range []string{"lowercasecredential123", "zq7Wsinkvalu3Kx"} {
@@ -50,8 +48,10 @@ func TestKitMCPSQLStatementWithheldAtSQLite(t *testing.T) {
 		if !strings.Contains(frames, `"isError":true`) {
 			t.Errorf("%s: the sql tool did not fail; frames:\n%s", secret, frames)
 		}
-		if !strings.Contains(strings.ToLower(secret), "credential") && !strings.Contains(frames, credkit.Notice(credkit.SinkSQLite)) {
-			t.Errorf("%s: the statement was not refused at the SQLite sink (it ran, and only its output was withheld); frames:\n%s", secret, frames)
+		if !strings.Contains(strings.ToLower(secret), "credential") && !strings.Contains(frames, credkit.Notice(credkit.SinkMCP)) {
+			// synccpu: the store no longer reads statement text, so the statement
+			// runs and the MCP server withholds its answer whole
+			t.Errorf("%s: the answer was not withheld at the MCP sink; frames:\n%s", secret, frames)
 		}
 
 		// An ordinary statement still runs.

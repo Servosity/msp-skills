@@ -44,6 +44,7 @@ type syncResult struct {
 	Err              error
 	Warn             error
 	IntegrityFailure bool
+	Withheld         []string // Hand-fix (handfixes.json sync-skips-withheld-row): rows not stored; every other row was
 	Duration         time.Duration
 	// Hand-fix (handfixes.json sync-json-only-bounded): the warning means rows
 	// are missing because of what the response body was, so --strict fails on it.
@@ -287,7 +288,12 @@ Resource scoping:
 			var criticalFailedResources []string
 			var firstErr error
 			var firstPlaceholderErr error
+			withheldRows := map[string][]string{} // Hand-fix (handfixes.json sync-skips-withheld-row)
 			for res := range results {
+				if len(res.Withheld) > 0 { // a withheld row is reported, never fatal: every other row stored, and the next sync fetches it again
+					fmt.Fprintf(os.Stderr, "warning: %v\n", &store.WithheldRowsError{Resource: res.Resource, IDs: res.Withheld})
+					withheldRows[res.Resource] = res.Withheld
+				}
 				if res.Err != nil {
 					if humanFriendly {
 						fmt.Fprintf(os.Stderr, "  %s: error: %v\n", res.Resource, res.Err)
@@ -336,7 +342,7 @@ Resource scoping:
 				}
 			} else {
 				fmt.Fprintf(syncEventWriter, `{"event":"sync_summary","total_records":%d,"resources":%d,"success":%d,"warned":%d,"errored":%d,"duration_ms":%d%s}`+"\n",
-					totalSynced, totalResources, successCount, warnCount, errCount, elapsed.Milliseconds(), syncWarnedSummaryField(warnedResources))
+					totalSynced, totalResources, successCount, warnCount, errCount, elapsed.Milliseconds(), syncWarnedSummaryField(warnedResources)+store.WithheldSummary(withheldRows)) // Hand-fix (handfixes.json sync-skips-withheld-row)
 			}
 
 			// Lookup refresh (learn loop): derive entity_lookups rows under
@@ -396,6 +402,9 @@ Resource scoping:
 					"warned":        warnCount,
 					"errored":       errCount,
 					"duration_ms":   elapsed.Milliseconds(),
+				}
+				if len(withheldRows) > 0 { // Hand-fix (handfixes.json sync-skips-withheld-row)
+					summary["withheld"] = withheldRows
 				}
 				if len(warnedResources) > 0 {
 					summary["warned_resources"] = warnedResources
@@ -783,13 +792,13 @@ func syncResource(ctx context.Context, c interface {
 		var pageWithheld *store.WithheldRowsError
 		if errors.As(err, &pageWithheld) {
 			// Hand-fix (handfixes.json sync-skips-withheld-row): the credential check refused these rows whole; the rest of
-			// the page is stored and the walk goes on. The resource ends failed,
+			// the page is stored and the walk goes on. The resource ends stored,
 			// naming them, and keeps its watermark, so the next run fetches
 			// them again.
 			withheldIDs = append(withheldIDs, pageWithheld.IDs...)
 			timestampOrderSafe = false
 			if !humanFriendly {
-				fmt.Fprintln(syncEvents, syncErrorJSON(resource, "", err))
+				fmt.Fprintln(syncEvents, store.WithheldEvent(resource, pageWithheld.IDs))
 			}
 			err = nil
 		}
@@ -1102,8 +1111,7 @@ func syncResource(ctx context.Context, c interface {
 		if err := db.SaveSyncProgressInScope(resource, scopeKey, existingCursor, cachedCount); err != nil {
 			return syncResult{Resource: resource, Count: cachedCount, Err: fmt.Errorf("saving sync progress for %s: %w", resource, err), Duration: time.Since(started)}
 		}
-		err := &store.WithheldRowsError{Resource: resource, IDs: withheldIDs}
-		return syncResult{Resource: resource, Count: cachedCount, Err: err, IntegrityFailure: true, Duration: time.Since(started)}
+		return syncResult{Resource: resource, Count: cachedCount, Withheld: withheldIDs, Duration: time.Since(started)}
 	}
 	// Integrity verdicts must precede completion persistence. Otherwise a
 	// run can advance its watermark and only then report that no rows landed.

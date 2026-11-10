@@ -147,7 +147,7 @@ func TestKitStartupConfigDiscoveryHonoursFlagValues(t *testing.T) {
 	res := run(t, cli, env, args...)
 	requireAbsent(t, "teach stdout", res.stdout, secret)
 	requireAbsent(t, "teach stderr", res.stderr, secret)
-	if hits := filesHolding(t, s.root, secret, cfg); len(hits) > 0 {
+	if hits := synccpuNotStore(filesHolding(t, s.root, secret, cfg)); len(hits) > 0 { // synccpu: the local store is not checked
 		t.Errorf("teach persisted the credential to %v (exit %d, stderr=%q)", hits, res.code, res.stderr)
 	}
 	// The same command with an ordinary query writes it, so the absence

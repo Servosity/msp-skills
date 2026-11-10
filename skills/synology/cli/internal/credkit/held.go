@@ -27,6 +27,7 @@ type heldEntry struct {
 	// (basic-user, KF-JSM-1): its pieces lying wholly inside "user:" are
 	// not held (userCuts). Held whole from anywhere else, it is held whole.
 	userCut bool
+	resp    bool // held from a vendor response field (source "response:*"): the store rule's (sql.go)
 }
 
 // heldMu is reg's lock. When the held set changed while it was held,
@@ -142,6 +143,8 @@ var reg = struct {
 	ogen     uint64
 	startup  bool     // Start is holding the startup credentials
 	recorded []Source // values acquired while running not held: public text
+	store    []string // storeNeedles' cache, for generation sgen
+	sgen     uint64
 }{heldMu: heldMu{gen: 1}, vals: map[string]*heldEntry{}, headers: map[string]bool{}}
 
 // Hold holds each value under source from now until the process exits. A
@@ -247,6 +250,7 @@ func holdAllowedLocked(source Source, extra []string, values ...string) {
 			}
 		}
 	}
+	fromResp := strings.HasPrefix(source, "response:")
 	own, declared := allowedLocked(source)
 	base := append(slices.Clone(own), extra...)
 	// A source with no declaration of its own (a request header) lends a
@@ -278,15 +282,23 @@ func holdAllowedLocked(source Source, extra []string, values ...string) {
 				recordLocked(source) // contract 2: public text acquired while running
 				continue
 			}
-			e = &heldEntry{src: source}
+			e = &heldEntry{src: source, resp: fromResp}
 			reg.vals[p] = e
 			reg.gen++
+			if fromResp {
+				storeArmed.Store(true)
+			}
 			e.userCut = !whole[p]
 			bind(e, base)
 			if !declared {
 				bind(e, inherited)
 			}
 			continue
+		}
+		if fromResp && !e.resp {
+			e.resp = true
+			reg.gen++
+			storeArmed.Store(true)
 		}
 		if e.userCut && whole[p] {
 			e.userCut = false
@@ -316,6 +328,7 @@ func markUnknown() {
 	reg.Lock()
 	reg.unknown = true
 	reg.gen++
+	storeArmed.Store(true)
 	reg.Unlock()
 }
 
@@ -424,4 +437,6 @@ func resetForTest(d Declarations) {
 	reg.headers = map[string]bool{}
 	reg.startup = false
 	reg.recorded = nil
+	reg.store, reg.sgen = nil, 0
+	storeArmed.Store(false)
 }

@@ -95,7 +95,7 @@ func TestTheLearnJournalKeepsNoCredential(t *testing.T) {
 				if needle == "" {
 					needle = secret
 				}
-				if hits := e2eFilesCarrying(t, home, needle); len(hits) > 0 {
+				if hits := synccpuNotStore(e2eFilesCarrying(t, home, needle)); len(hits) > 0 { // synccpu: the local store is not checked
 					t.Errorf("the credential reached %v", hits)
 				}
 			})

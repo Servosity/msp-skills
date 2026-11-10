@@ -9,7 +9,6 @@ package credkit
 import (
 	"bufio"
 	"bytes"
-	"database/sql"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -67,50 +66,6 @@ func TestKit9rvMCPExpectContinueRefused(t *testing.T) {
 	resp.Body.Close()
 	if resp.StatusCode != 200 || !bytes.Contains(b, []byte(`"result"`)) {
 		t.Errorf("over-withholding: an ordinary request failed: %d %q", resp.StatusCode, b)
-	}
-}
-
-// Class sqlite-open-statements-unchecked (contract 2 SQLite unit, 4, 5):
-// blunt rule, the class's second round. Every statement the driver can
-// build from the connection name (a _pragma value, any other _ key in each
-// spelling a driver writes it, the _txlock begin) is checked before Open.
-func TestKit9rvSQLiteOpenDerivedStatements(t *testing.T) {
-	for _, tc := range []struct{ held, name string }{
-		{"pragma a", "file:round2?mode=memory&cache=shared&_pragma=application_id(17)"}, // Codex's input
-		{"pragma b", "file:x.db?_busy_timeout=5000"},
-		{"_timeout = 5", "file:x.db?_busy_timeout=5000"},
-		{"begin im", "file:x.db?_txlock=immediate"},
-		{"pragma f", "x.db?_pragma=foreign_keys(1)"},
-		{"pragma f", "file:x.db?_pragma=%66oreign_keys(1)"},
-	} {
-		resetForTest(Declarations{})
-		Hold("minted:session", tc.held)
-		rec := &openRec{}
-		sqlTestRuns++
-		name := fmt.Sprintf("credkit-kit9rv-%d", sqlTestRuns)
-		sql.Register(name, SQLDriver(rec))
-		db, _ := sql.Open(name, tc.name)
-		if err := db.Ping(); err == nil || rec.opened != 0 {
-			t.Errorf("held %q, name %q: opened (err %v, opens %d)", tc.held, tc.name, err, rec.opened)
-		}
-		db.Close()
-	}
-	// The fleet's connection names open with 20 credentials held.
-	resetForTest(Declarations{})
-	Hold("bench", append(benchCreds(), nonASCIICred)...)
-	rec := &openRec{}
-	sqlTestRuns++
-	name := fmt.Sprintf("credkit-kit9rv-%d", sqlTestRuns)
-	sql.Register(name, SQLDriver(rec))
-	for _, dsn := range []string{
-		"file:/srv/jane/.cache/zammad/data.db?_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)&_pragma=foreign_keys(ON)&_pragma=temp_store(MEMORY)&_pragma=mmap_size(268435456)&_pragma=synchronous(NORMAL)&_txlock=immediate",
-		"/srv/jane/.cache/x.db?_journal_mode=WAL&_busy_timeout=5000&_foreign_keys=on&_synchronous=NORMAL&_temp_store=MEMORY&_mmap_size=0",
-	} {
-		db, _ := sql.Open(name, dsn)
-		if err := db.Ping(); err != nil {
-			t.Errorf("over-withholding: %q: %v", dsn, err)
-		}
-		db.Close()
 	}
 }
 

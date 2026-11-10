@@ -604,7 +604,9 @@ func TestNoCredentialInAnyWrittenFile(t *testing.T) {
 			}
 			return nil
 		}
-		assertNoEcho(t, "file "+rel, string(data))
+		if !synccpuStoreFile(path) { // synccpu: the local store is not checked
+			assertNoEcho(t, "file "+rel, string(data))
+		}
 		if strings.Contains(d.Name(), ".db") {
 			sawStore = sawStore || bytes.Contains(data, []byte("HQ-Record"))
 			sawLearning = sawLearning || bytes.Contains(data, []byte("rotated control"))

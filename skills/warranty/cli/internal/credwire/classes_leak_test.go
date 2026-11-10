@@ -312,7 +312,7 @@ func TestKitVendorEchoesNeverReachASink(t *testing.T) {
 		t.Helper()
 		for name, secret := range held {
 			for _, f := range forms(secret) {
-				if hits := filesHolding(t, s.home, f, skip...); len(hits) > 0 {
+				if hits := synccpuNotStore(filesHolding(t, s.home, f, skip...)); len(hits) > 0 { // synccpu: the local store is not checked
 					t.Errorf("the %s is in %v", name, hits)
 				}
 			}

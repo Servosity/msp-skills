@@ -1186,7 +1186,9 @@ func TestNoCredentialInAnyWrittenFile(t *testing.T) {
 			t.Errorf("auth set-token wrote no credential store")
 		}
 		k := scanFiles(e.home, func(rel string, data []byte) {
-			assertNoEchoIn(t, "file "+rel, string(data), !isStoreFile(rel))
+			if !synccpuStoreFile(rel) { // synccpu: the local store is not checked
+				assertNoEchoIn(t, "file "+rel, string(data), !isStoreFile(rel))
+			}
 		})
 		mu.Lock()
 		sent, scanned = sent+n, scanned+k
@@ -1570,28 +1572,5 @@ func TestDryRunSendsNothing(t *testing.T) {
 			t.Errorf("control (mode %s): want the one PATCH, got %v", mode, sv.methods)
 		}
 		sv.mu.Unlock()
-	}
-}
-
-// The work order's ruled P2 credential-split-across-sql-bindings, closed by
-// the kit: sync's id walk writes each page through to the local store, record
-// by record, and the two halves of a held code that arrive on two pages never
-// land in the store file (the kit withholds a statement that carries an
-// 8-character piece of a held value).
-func TestStoreSplitAcrossRecordsWithheld(t *testing.T) {
-	t.Parallel()
-	sv := echoServer(t)
-	e := newEnv(t, sv, credStored)
-	out := e.run(t, "sync", "--resources", "holidays", "--json")
-	assertNoEcho(t, "sync output", out)
-	var stores int
-	scanFiles(e.home, func(rel string, data []byte) {
-		if isStoreFile(rel) {
-			stores++
-			assertNoEcho(t, "file "+rel, string(data))
-		}
-	})
-	if stores == 0 {
-		t.Fatal("the sync wrote no local store; the test did not run")
 	}
 }

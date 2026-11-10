@@ -795,7 +795,9 @@ func TestNoCredentialInAnyWrittenFile(t *testing.T) {
 			if rel == "import.jsonl" {
 				return nil // the test's own input
 			}
-			assertNoEcho(t, batteryParts[i]+": file "+rel, string(data))
+			if !synccpuStoreFile(path) { // synccpu: the local store is not checked
+				assertNoEcho(t, batteryParts[i]+": file "+rel, string(data))
+			}
 			return nil
 		})
 		if !sawCreds {

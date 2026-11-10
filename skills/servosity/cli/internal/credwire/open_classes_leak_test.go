@@ -44,8 +44,8 @@ func watchSinks(t *testing.T, s sandbox, f *fakeAPI, env []string, poisoned stri
 	}
 	requireAbsent(t, "issues watch", res.all(), forms...)
 
-	if hits := s.filesHolding(t, forms...); len(hits) > 0 {
-		t.Errorf("the credential reached the store: %v", hits)
+	if hits := synccpuNotStoreHits(s.filesHolding(t, forms...)); len(hits) > 0 { // synccpu: the local store is not checked
+		t.Errorf("the credential reached a file: %v", hits)
 	}
 	res = run(t, cli, env, "events", "list", "--since", "0", "--json")
 	requireAbsent(t, "events list", res.all(), forms...)
@@ -67,7 +67,7 @@ func readSinks(t *testing.T, s sandbox, env []string, forms ...string) {
 		"endpoint_id": "resellers.issues.resellers", "params": map[string]any{"id": "7"},
 	})
 	requireAbsent(t, "MCP servosity-msp_read", frames+stderr, forms...)
-	if hits := s.filesHolding(t, forms...); len(hits) > 0 {
+	if hits := synccpuNotStoreHits(s.filesHolding(t, forms...)); len(hits) > 0 { // synccpu: the local store is not checked
 		t.Errorf("the credential reached a file: %v", hits)
 	}
 }
@@ -85,7 +85,7 @@ func operatorSinks(t *testing.T, s sandbox, env []string, form string) {
 	} {
 		res := run(t, cli, env, args...)
 		requireAbsent(t, strings.Join(args[:2], " "), res.all(), form)
-		if hits := s.filesHolding(t, form); len(hits) > 0 {
+		if hits := synccpuNotStoreHits(s.filesHolding(t, form)); len(hits) > 0 { // synccpu: the local store is not checked
 			t.Errorf("%s persisted it: %v", strings.Join(args[:2], " "), hits)
 		}
 	}
@@ -300,3 +300,15 @@ var (
 	syntheticAuthHeader = "Token " + "feedface" + "c0ffee22" + "01234567"
 	syntheticBearer     = "b16b00b5" + "deadc0de" + "76543210"
 )
+
+// synccpuNotStoreHits drops the hits ("<file> holds <form>") in a SQLite store
+// file, which the kit no longer checks (synccpu, owner GO 2026-11-09).
+func synccpuNotStoreHits(hits []string) []string {
+	var out []string
+	for _, h := range hits {
+		if p, _, _ := strings.Cut(h, " holds "); !synccpuStoreFile(p) {
+			out = append(out, h)
+		}
+	}
+	return out
+}

@@ -938,7 +938,9 @@ func TestNoCredentialInAnyWrittenFile(t *testing.T) {
 					}
 					return nil
 				}
-				assertNoEcho(t, "file "+rel, string(data))
+				if !synccpuStoreFile(path) { // synccpu: the local store is not checked
+					assertNoEcho(t, "file "+rel, string(data))
+				}
 				return nil
 			})
 			if scanned < 5 {
@@ -1035,7 +1037,12 @@ func TestNoCredentialInAnyOutput(t *testing.T) {
 				t.Fatalf("quiet fake: want valid JSON with the record, got:\n%.1500s", stdout)
 			}
 			qe.run(t, "sync", "--json")
-			if fleet := qe.run(t, "fleet", "patch-posture", "--json"); !strings.Contains(fleet, "HQ-Endpoint") && !strings.Contains(fleet, bbEndpoint) {
+			// The same home still holds what the echoing fake returned (synccpu:
+			// the local store is not checked), so a fleet view may be withheld
+			// whole, and it carries no credential either way.
+			fleet := qe.run(t, "fleet", "patch-posture", "--json")
+			assertNoEcho(t, "quiet fleet patch-posture", fleet)
+			if !strings.Contains(fleet, "HQ-Endpoint") && !strings.Contains(fleet, bbEndpoint) && !strings.Contains(fleet, kitNotice("stdout")) {
 				t.Errorf("quiet fake: fleet patch-posture printed no synced endpoint:\n%.1500s", fleet)
 			}
 			if qout := qe.mcpCalls(t, mcpReads()); !strings.Contains(qout, "HQ-Record") {

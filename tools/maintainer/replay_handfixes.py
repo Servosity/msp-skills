@@ -1261,7 +1261,7 @@ def r_sync_event_writer(p: Plan, hid: str, entry: dict) -> dict:
 
 # sync-skips-withheld-row (#612): a row the credential check withholds from the
 # store is skipped, not the batch; sync keeps walking and ends the resource
-# failed, naming the rows, with its watermark where it was.
+# stored, naming the rows (never fatal: synccpu), with its watermark where it was.
 WITHHELD_GO = """// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 //
 // Hand-written (NOT generated): HID. A row the credential check withholds
@@ -1270,6 +1270,7 @@ WITHHELD_GO = """// Copyright 2026 Servosity Inc. and msp-skills contributors. L
 package store
 
 import (
+\t"encoding/json"
 \t"errors"
 \t"fmt"
 \t"strings"
@@ -1287,13 +1288,29 @@ type WithheldRowsError struct {
 }
 
 func (e *WithheldRowsError) Error() string {
-\treturn fmt.Sprintf("%s: %d row(s) not stored, withheld by the credential check (each carried a credential this program holds, or its check ran out of budget): %s",
+\treturn fmt.Sprintf("%s: %d row(s) not stored, withheld by the credential check (each carries a secret a vendor response returned); the next sync fetches them again: %s",
 \t\te.Resource, len(e.IDs), strings.Join(e.IDs, ", "))
 }
 
 func (e *WithheldRowsError) Is(target error) bool { return target == credkit.ErrWithheld }
 
 func isWithheldRow(err error) bool { return errors.Is(err, credkit.ErrWithheld) }
+
+// WithheldEvent is the sync_warning event line that names a page's withheld rows.
+func WithheldEvent(resource string, ids []string) string {
+\tb, _ := json.Marshal(map[string]any{"event": "sync_warning", "resource": resource, "reason": "rows_withheld", "ids": ids})
+\treturn string(b)
+}
+
+// WithheldSummary is the sync_summary event's "withheld" member (resource to
+// row ids), or "" when no row was withheld.
+func WithheldSummary(rows map[string][]string) string {
+\tif len(rows) == 0 {
+\t\treturn ""
+\t}
+\tb, _ := json.Marshal(rows)
+\treturn `,"withheld":` + string(b)
+}
 """
 
 WITHHELD_TEST_GO = """// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
@@ -1330,7 +1347,7 @@ func TestUpsertBatchSkipsWithheldRow(t *testing.T) {
 \t\treturn
 \t}
 \tsecret := "kitmem-" + strings.Repeat("Qx7v", 10)
-\tcredkit.Hold("minted:kitmem-test", secret)
+\tcredkit.Hold("response:password", secret) // the store refuses only a held vendor response value (synccpu)
 \tpath := filepath.Join(t.TempDir(), "store.db")
 \ts, err := Open(path)
 \tif err != nil {
@@ -1419,13 +1436,13 @@ WH_SYNC = [
      "\t\tvar pageWithheld *store.WithheldRowsError\n"
      "\t\tif errors.As(err, &pageWithheld) {\n"
      "\t\t\t// TAG: the credential check refused these rows whole; the rest of\n"
-     "\t\t\t// the page is stored and the walk goes on. The resource ends failed,\n"
+     "\t\t\t// the page is stored and the walk goes on. The resource ends stored,\n"
      "\t\t\t// naming them, and keeps its watermark, so the next run fetches\n"
      "\t\t\t// them again.\n"
      "\t\t\twithheldIDs = append(withheldIDs, pageWithheld.IDs...)\n"
      "\t\t\ttimestampOrderSafe = false\n"
      "\t\t\tif !humanFriendly {\n"
-     "\t\t\t\tfmt.Fprintln(syncEvents, syncErrorJSON(resource, \"\", err))\n"
+     "\t\t\t\tfmt.Fprintln(syncEvents, store.WithheldEvent(resource, pageWithheld.IDs))\n"
      "\t\t\t}\n"
      "\t\t\terr = nil\n"
      "\t\t}\n"
@@ -1435,22 +1452,21 @@ WH_SYNC = [
      "\t\tif fetchedThisPage > 0 && stored == 0 {\n",
      "\t\tif fetchedThisPage > 0 && stored == 0 && pageWithheld == nil { // TAG\n",
      "stored == 0 && pageWithheld == nil {"),
-    ("syncResource", "the resource ends failed, naming its withheld rows",
+    ("syncResource", "the resource ends stored, naming its withheld rows (synccpu: never fatal)",
      "\t// Integrity verdicts must precede completion persistence.",
      "\tif len(withheldIDs) > 0 { // TAG: before any completion is saved\n"
-     "\t\terr := &store.WithheldRowsError{Resource: resource, IDs: withheldIDs}\n"
-     "\t\treturn syncResult{Resource: resource, Count: cachedCount, Err: err, IntegrityFailure: true, Duration: time.Since(started)}\n"
+     "\t\treturn syncResult{Resource: resource, Count: cachedCount, Withheld: withheldIDs, Duration: time.Since(started)}\n"
      "\t}\n"
      "\t// Integrity verdicts must precede completion persistence.",
-     "&store.WithheldRowsError{Resource: resource, IDs: withheldIDs}"),
+     "Withheld: withheldIDs, Duration: time.Since(started)}"),
     ("syncResource", "the resume point stays where the attempt began",
-     "\t\terr := &store.WithheldRowsError{Resource: resource, IDs: withheldIDs}\n",
+     "\t\treturn syncResult{Resource: resource, Count: cachedCount, Withheld: withheldIDs, Duration: time.Since(started)}\n",
      "\t\t// TAG: resume where this attempt began, not after\n"
      "\t\t// the page that held the withheld rows, so the next run reads them again.\n"
      "\t\tif err := SAVE(resource, SCOPEexistingCursor, cachedCount); err != nil {\n"
      "\t\t\treturn syncResult{Resource: resource, Count: cachedCount, Err: fmt.Errorf(\"saving sync progress for %s: %w\", resource, err), Duration: time.Since(started)}\n"
      "\t\t}\n"
-     "\t\terr := &store.WithheldRowsError{Resource: resource, IDs: withheldIDs}\n",
+     "\t\treturn syncResult{Resource: resource, Count: cachedCount, Withheld: withheldIDs, Duration: time.Since(started)}\n",
      "existingCursor, cachedCount); err != nil {"),
     ("syncResource", "a walk with withheld rows proves no partition",
      "\tif prune && flatReconcilable {\n",
@@ -1469,6 +1485,31 @@ WH_SYNC = [
      "\t\t}\n"
      "\t\tif err := SAVE(resource, SCOPEpageCursor, totalCount); err != nil {\n",
      "pageCursor = existingCursor"),
+    # synccpu: a withheld row is reported, never fatal (the run exits 0 when every other row stored).
+    (None, "syncResult carries the withheld rows",
+     "\tIntegrityFailure bool\n",
+     "\tIntegrityFailure bool\n\tWithheld         []string // TAG: rows not stored; every other row was\n",
+     "\tWithheld         []string"),
+    (None, "the run names each resource's withheld rows on stderr",
+     "\t\t\tfor res := range results {\n",
+     "\t\t\twithheldRows := map[string][]string{} // TAG\n"
+     "\t\t\tfor res := range results {\n"
+     "\t\t\t\tif len(res.Withheld) > 0 { // a withheld row is reported, never fatal: every other row stored, and the next sync fetches it again\n"
+     "\t\t\t\t\tfmt.Fprintf(os.Stderr, \"warning: %v\\n\", &store.WithheldRowsError{Resource: res.Resource, IDs: res.Withheld})\n"
+     "\t\t\t\t\twithheldRows[res.Resource] = res.Withheld\n"
+     "\t\t\t\t}\n",
+     "withheldRows[res.Resource] = res.Withheld"),
+    (None, "the summary event names them",
+     "\"duration_ms\":%d}`+\"\\n\",\n\t\t\t\t\ttotalSynced, totalResources, successCount, warnCount, errCount, elapsed.Milliseconds())\n",
+     "\"duration_ms\":%d%s}`+\"\\n\",\n\t\t\t\t\ttotalSynced, totalResources, successCount, warnCount, errCount, elapsed.Milliseconds(), store.WithheldSummary(withheldRows)) // TAG\n",
+     "store.WithheldSummary(withheldRows)"),
+    (None, "the JSON summary names them",
+     "\t\t\t\t\t\"duration_ms\":   elapsed.Milliseconds(),\n\t\t\t\t}\n",
+     "\t\t\t\t\t\"duration_ms\":   elapsed.Milliseconds(),\n\t\t\t\t}\n"
+     "\t\t\t\tif len(withheldRows) > 0 { // TAG\n"
+     "\t\t\t\t\tsummary[\"withheld\"] = withheldRows\n"
+     "\t\t\t\t}\n",
+     "summary[\"withheld\"] = withheldRows"),
 ]
 
 
@@ -1497,12 +1538,65 @@ def r_withheld_rows(p: Plan, hid: str, entry: dict) -> dict:
     scoped = "SaveSyncProgressInScope(resource, scopeKey," in text
     save, sc = ("db.SaveSyncProgressInScope", "scopeKey, ") if scoped else ("db.SaveSyncProgress", "")
     for scope, label, before, after, marker in WH_SYNC:
-        scope = walk if scope == "syncResource" else scope
+        scope = walk if scope == "syncResource" else scope  # None: the whole file, its anchor unique there
         before = before.replace("SAVE(", save + "(").replace("SCOPE", sc)
         after = after.replace("TAG", t).replace("SAVE(", save + "(").replace("SCOPE", sc)
+        if "stderrW()" in text:  # this print escapes stderr through stderrW (output-escapes-c*-controls)
+            after = after.replace("fmt.Fprintf(os.Stderr, ", "fmt.Fprintf(stderrW(), ")
         optional = label == "a walk with withheld rows proves no partition"  # no reconcile in this print
         if p.edit("withheld-rows", sync_rel, label, before, after, marker, scope=scope, required=not optional):
             p.pin(hid, sync_rel, marker)
+    return {}
+
+
+# limiter-ramps-only-while-pacing (synccpu): the adaptive limiter's blind ramp
+# (x1.25 every 10 successes, no ceiling on a header-less API) grew a rate no
+# request reached: sync printed rate_rps 6.6e24 on hubspot, and a 429's halving
+# could no longer slow a single request. The ramp now grows only a rate the
+# last Wait slept on.
+LIM_REL = "cli/internal/cliutil/ratelimit.go"
+LIM_TEST_REL = "cli/internal/cliutil/cliutil_test.go"
+LIM_EDITS = [
+    ("the limiter remembers whether its last Wait slept",
+     "\tpending      []time.Time // in-flight reservedAt values; cancel must not rewind past these\n}\n",
+     "\tpending      []time.Time // in-flight reservedAt values; cancel must not rewind past these\n"
+     "\tpaced        bool        // TAG: the last Wait slept, so the rate is what holds requests back\n}\n",
+     "\tpaced        bool"),
+    ("Wait records it",
+     "\tl.lastRequest = reservedAt\n\tif sleep > 0 {\n",
+     "\tl.lastRequest = reservedAt\n\tl.paced = sleep > 0\n\tif sleep > 0 {\n",
+     "\tl.paced = sleep > 0\n"),
+    ("the blind ramp grows only a rate that is pacing",
+     "\tl.successes++\n\tif l.successes >= l.rampAfter {\n",
+     "\tif !l.paced { // TAG: a rate the requests never reach is not raised\n"
+     "\t\treturn // (unbounded, it reached 6.6e24 on hubspot and a 429's halving could no longer slow a request)\n"
+     "\t}\n"
+     "\tl.successes++\n\tif l.successes >= l.rampAfter {\n",
+     "\tif !l.paced {"),
+]
+LIM_TEST_EDITS = [
+    ("the ramp test: no ramp until the rate paces",
+     "\tl := NewAdaptiveLimiterAuto(2.0)\n\tstartRate := l.Rate()\n\tfor i := 0; i < l.rampAfter; i++ {\n\t\tl.OnSuccess()\n",
+     "\tl := NewAdaptiveLimiterAuto(2.0)\n\tstartRate := l.Rate()\n"
+     "\tfor i := 0; i < 5*l.rampAfter; i++ { // TAG\n"
+     "\t\tl.OnSuccess() // no Wait slept: the rate is not what holds requests back\n"
+     "\t}\n"
+     "\tif got := l.Rate(); got != startRate {\n"
+     "\t\tt.Fatalf(\"Rate() ramped to %v with no Wait pacing, want %v\", got, startRate)\n"
+     "\t}\n"
+     "\tl.paced = true\n"
+     "\tfor i := 0; i < l.rampAfter; i++ {\n\t\tl.OnSuccess()\n",
+     "with no Wait pacing, want %v"),
+]
+
+
+def r_limiter_paced(p: Plan, hid: str, entry: dict) -> dict:
+    t = tag(hid)
+    for rel, edits in ((LIM_REL, LIM_EDITS), (LIM_TEST_REL, LIM_TEST_EDITS)):
+        for label, before, after, marker in edits:
+            if p.edit("limiter-paced", rel, label, before, after.replace("TAG", t), marker):
+                p.pin(hid, rel, marker)
+    p.add_tests_from(LIM_TEST_REL)
     return {}
 
 
@@ -1516,6 +1610,7 @@ RECIPES = {
     "manifest-env-union": r_manifest_env,
     "sync-event-writer-serialized": r_sync_event_writer,
     "withheld-rows": r_withheld_rows,
+    "limiter-paced": r_limiter_paced,
 }
 
 # Recipes that are run even when their entry's markers all hold: they check

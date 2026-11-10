@@ -9,14 +9,12 @@ package cli
 import (
 	"bufio"
 	"crypto/sha256"
-	"database/sql"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
-	"io/fs"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -448,122 +446,6 @@ func TestKitPerCharacterCodesNeverReachTheReader(t *testing.T) {
 		}
 		if got := kitMCPCall(t, mcp, home, env, "volumes_list", map[string]any{}); !strings.Contains(got, form) {
 			t.Fatalf("MCP volumes_list does not carry the label %q:\n%s", form, got)
-		}
-	})
-}
-
-// kitStoredServers is every health_runs.server and inventory_runs.server
-// value in the SQLite files under home.
-func kitStoredServers(t *testing.T, home string) []string {
-	t.Helper()
-	var servers []string
-	err := filepath.WalkDir(home, func(p string, d fs.DirEntry, err error) error {
-		if err != nil || d.IsDir() || !strings.HasSuffix(p, ".db") {
-			return err
-		}
-		db, err := sql.Open("sqlite", "file:"+filepath.ToSlash(p)+"?mode=ro")
-		if err != nil {
-			return err
-		}
-		defer db.Close()
-		for _, table := range []string{"health_runs", "inventory_runs"} {
-			rows, err := db.Query(`SELECT server FROM ` + table)
-			if err != nil {
-				continue // a store without the table
-			}
-			for rows.Next() {
-				var s string
-				if err := rows.Scan(&s); err != nil {
-					rows.Close()
-					return err
-				}
-				servers = append(servers, table+": "+s)
-			}
-			rows.Close()
-		}
-		return nil
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	return servers
-}
-
-// kitFilesHolding names every file under root that carries s in any case.
-func kitFilesHolding(t *testing.T, root, s string) []string {
-	t.Helper()
-	var found []string
-	err := filepath.WalkDir(root, func(p string, d fs.DirEntry, err error) error {
-		if err != nil || d.IsDir() {
-			return err
-		}
-		b, err := os.ReadFile(p)
-		if err != nil {
-			return err
-		}
-		if strings.Contains(strings.ToLower(string(b)), strings.ToLower(s)) {
-			found = append(found, p)
-		}
-		return nil
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	return found
-}
-
-// TestKitStoreNeverHoldsTheServerPassword is the class store-sink-filtering:
-// a server named after its WinRM password (or a piece of it, in any case)
-// never reaches health_runs.server, inventory_runs.server or any other file
-// under home, whatever health and inventory snapshot do with the run. Seen
-// failing on the commit before the kit in
-// .review/kit/seen-failing-store-sink-filtering.log.
-func TestKitStoreNeverHoldsTheServerPassword(t *testing.T) {
-	cli, _ := kitBins(t)
-	fixtures := leakyFixtures("Unrelated-Fixture-Value").Outputs
-	cases := []struct{ name, password, server string }{
-		{"name equals the password", "backup9-admin", "backup9-admin"},
-		{"name contains the password", "backup9-admin", "site2-backup9-admin"},
-		{"name is the password in another case", "Backup9-Admin", "backup9-admin"},
-		{"name is a piece of the password", "backup9-admin-x1", "backup9-admin"},
-	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			fake := newKitWinRM(t, tc.password, fixtures)
-			env := kitEnv(t, tc.password, fake.server(tc.server))
-			home := t.TempDir()
-			for _, args := range [][]string{{"health", "--agent"}, {"inventory", "snapshot", "--agent"}} {
-				kitRun(t, cli, home, env, args...)
-			}
-			if fake.runs("system") == 0 {
-				t.Fatal("no script ran: the runs never reached the server")
-			}
-			for _, row := range kitStoredServers(t, home) {
-				if strings.Contains(strings.ToLower(row), tc.server) {
-					t.Errorf("the store holds the server named after its password: %s", row)
-				}
-			}
-			if files := kitFilesHolding(t, home, tc.server); len(files) > 0 {
-				t.Errorf("files under home carry the server named after its password: %v", files)
-			}
-		})
-	}
-	// The other direction: an ordinary server's runs are stored, so an
-	// empty store above is the kit's doing.
-	t.Run("ordinary server is stored", func(t *testing.T) {
-		fake := newKitWinRM(t, testPassword, fixtures)
-		env := kitEnv(t, testPassword, fake.server("fs01"))
-		home := t.TempDir()
-		for _, args := range [][]string{{"health", "--agent"}, {"inventory", "snapshot", "--agent"}} {
-			if stdout, stderr, code := kitRun(t, cli, home, env, args...); code != 0 {
-				t.Fatalf("%v exited %d:\n%s\n%s", args, code, stdout, stderr)
-			}
-		}
-		got := strings.Join(kitStoredServers(t, home), "\n")
-		for _, want := range []string{"health_runs: fs01", "inventory_runs: fs01"} {
-			if !strings.Contains(got, want) {
-				t.Fatalf("the store lacks %q:\n%s", want, got)
-			}
 		}
 	})
 }

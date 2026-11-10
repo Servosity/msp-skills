@@ -750,6 +750,9 @@ func TestNoCredentialInAnyWrittenFile(t *testing.T) {
 		if rel == "import.jsonl" {
 			return nil // the test's own input
 		}
+		if synccpuStoreFile(path) { // synccpu: the store is not checked for this program's own credentials
+			return nil
+		}
 		assertNoEcho(t, "file "+rel, string(data))
 		return nil
 	})
@@ -1016,4 +1019,17 @@ func TestDryRunSendsNothing(t *testing.T) {
 		}
 		sv.mu.Unlock()
 	}
+}
+
+// synccpuStoreFile reports whether path is the local SQLite store or one of its
+// side files. synccpu (owner GO 2026-11-09) dropped the store's credential check
+// except for held vendor response values, so a credential this program holds from
+// its own configuration may sit in the store; every other file is still checked.
+func synccpuStoreFile(path string) bool {
+	for _, s := range []string{".db", ".db-wal", ".db-shm", ".db-journal"} {
+		if strings.HasSuffix(path, s) {
+			return true
+		}
+	}
+	return false
 }

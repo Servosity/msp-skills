@@ -6,7 +6,7 @@
   {
    "id": "graphql-scalar-field-selections-issue-114",
    "summary": "Stripped object sub-selections from association/enum fields in queries.go - the live SuperOps schema returns them as scalar leaf types (JSON/String), so the `{ ... }` sub-selections caused SubSelectionNotAllowed on every typed list/get command (issue #114, reported by @AvlCompCo).",
-   "why": "The CLI was minted from published docs without live introspection (auth-gated → HTTP 400); the queries.go header literally warned VERIFY-ON-FIRST-USE. The source spec.yaml declared every association field `type: string` (→ a scalar Go struct field in internal/types) yet ALSO carried a `selection:` key, so the generator emitted a sub-selection that contradicts its own scalar output contract. All 46 such fields across 18 entities are scalar in internal/types, so the bare-scalar form is the only consistent shape. A full reprint re-runs the generator against the un-fixed spec.yaml and would re-introduce the bug. The not_contains markers below ban each buggy shape; queries_issue114_test.go is the behavioral guard.",
+   "why": "The CLI was minted from published docs without live introspection (auth-gated \u2192 HTTP 400); the queries.go header literally warned VERIFY-ON-FIRST-USE. The source spec.yaml declared every association field `type: string` (\u2192 a scalar Go struct field in internal/types) yet ALSO carried a `selection:` key, so the generator emitted a sub-selection that contradicts its own scalar output contract. All 46 such fields across 18 entities are scalar in internal/types, so the bare-scalar form is the only consistent shape. A full reprint re-runs the generator against the un-fixed spec.yaml and would re-introduce the bug. The not_contains markers below ban each buggy shape; queries_issue114_test.go is the behavioral guard.",
    "status": "active",
    "spec_encode_followup": "In the press source spec.yaml (~/printing-press/library/superops/spec.yaml, types: section), remove the `selection:` key from every association/enum field (status, priority, client, site, requester, technician, techGroup, sla, accountManager, primaryContact, hqSite, asset, category, designation, role, team, ticket). They are JSON/String scalars, not objects. Done on the press copy 2026-06-16; re-confirm before any reprint.",
    "asserts": [
@@ -2325,8 +2325,8 @@
   },
   {
    "id": "sync-skips-withheld-row",
-   "summary": "a row the credential kit withholds from the store is skipped and named; the rest of the batch is stored and sync keeps walking, then ends that resource failed with the row ids",
-   "why": "One withheld row aborted the whole batch transaction, and sync returned on it, so a single large ordinary record (or one that really carried a held credential) stopped the resource and every row after it was never synced (#612, hubspot-calls-crm). The row is still withheld; it is now named in a sync_error event and in the resource's error, the run exits non-zero, and the watermark stays so the next run fetches it again. Re-applied after a reprint by replay_handfixes.py (recipe withheld-rows).",
+   "summary": "a row the credential kit withholds from the store is skipped and named; the rest of the batch is stored, sync keeps walking, and the run still succeeds, naming the row ids on stderr and in its summary",
+   "why": "One withheld row aborted the whole batch transaction, and sync returned on it, so a single large ordinary record (or one that really carried a held credential) stopped the resource and every row after it was never synced (#612, hubspot-calls-crm). The row is still withheld; it is now named, and the watermark stays so the next run fetches it again. Re-applied after a reprint by replay_handfixes.py (recipe withheld-rows). synccpu (2026-11-09): a withheld row no longer fails the resource. mcp2 measured hubspot-calls-crm row 80663490159 turning the whole sync into exit 1, so the server never marked the connector synced. Now the resource ends stored with the ids named (stderr warning, a sync_warning rows_withheld event per page, and \"withheld\" in the summary), the run exits 0 when every other row stored, and the resource's checkpoint stays where the attempt began so the next run fetches the row again.",
    "status": "active",
    "asserts": [
     {
@@ -2367,19 +2367,7 @@
     },
     {
      "file": "cli/internal/cli/sync.go",
-     "contains": "&store.WithheldRowsError{Resource: resource, IDs: withheldIDs}",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cli/sync.go",
      "contains": "if errors.As(err, &pageWithheld) {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cli/sync.go",
-     "contains": "&store.WithheldRowsError{Resource: resource, IDs: withheldIDs}",
      "min_count": 1,
      "code_only": true
     },
@@ -2410,6 +2398,42 @@
     {
      "file": "cli/internal/cli/superops_withheld_resume_test.go",
      "contains": "func TestSyncAfterAWithheldRowAndALaterErrorReadsItAgain(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "\tWithheld         []string",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "withheldRows[res.Resource] = res.Withheld",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "store.WithheldSummary(withheldRows)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/withheld.go",
+     "contains": "func WithheldSummary(rows map[string][]string) string",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "Withheld: withheldIDs, Duration: time.Since(started)}",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "store.WithheldEvent(resource, pageWithheld.IDs)",
      "min_count": 1,
      "code_only": true
     }

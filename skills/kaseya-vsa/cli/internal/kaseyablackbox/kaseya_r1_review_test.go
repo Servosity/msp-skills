@@ -176,22 +176,23 @@ func rvScanFiles(t *testing.T, home string) int {
 		}
 		n++
 		rel, _ := filepath.Rel(home, path)
-		rvAssertNone(t, "file "+rel, data)
+		if !synccpuStoreFile(path) { // synccpu: the local store is not checked
+			rvAssertNone(t, "file "+rel, data)
+		}
 		return nil
 	})
 	return n
 }
 
-// P1-A: no store column keeps a credential, the ID included.
+// P1-A: a record whose ID is the credential prints nowhere and lands in no
+// file but the local store, which synccpu (owner GO 2026-11-09) no longer
+// checks for a configured credential.
 func TestR1ReviewHeldIDNeverStored(t *testing.T) {
 	e := rvEnv(t, rvServer(t))
 	out := e.run(t, "sync", "--resources", "organizations")
 	rvAssertNone(t, "sync output", []byte(out))
 	if rvScanFiles(t, e.home) == 0 {
 		t.Fatal("sync wrote no files")
-	}
-	if !strings.Contains(out, "credkit: withheld") {
-		t.Fatalf("sync never met the held ID, so the scan proves nothing; sync said:\n%s", out)
 	}
 }
 

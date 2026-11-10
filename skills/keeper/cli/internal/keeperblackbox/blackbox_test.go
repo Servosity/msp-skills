@@ -725,7 +725,9 @@ func TestNoCredentialInAnyWrittenFile(t *testing.T) {
 				}
 				return nil
 			}
-			assertNoEcho(t, "file "+rel, string(data))
+			if !synccpuStoreFile(path) { // synccpu: the local store is not checked
+				assertNoEcho(t, "file "+rel, string(data))
+			}
 			return nil
 		})
 	}
@@ -802,8 +804,23 @@ func TestNoCredentialInAnyOutput(t *testing.T) {
 	if !strings.Contains(honest, "HQ-Record") {
 		t.Fatalf("MCP results lost the record itself:\n%.2000s", honest)
 	}
-	if strings.Contains(honest, bbWithheld) {
-		t.Errorf("a server that echoes nothing still had something withheld:\n%.3000s", honest)
+	// users_risk reads the local store, which still holds what the echoing
+	// server returned (synccpu: the store is not checked); its output is
+	// withheld whole, so it is the one answer that may carry the notice.
+	localRead := ""
+	for i, c := range mcpBattery() {
+		if c["name"] == "users_risk" {
+			localRead = fmt.Sprintf(`"id":%d,`, i+1)
+		}
+	}
+	if localRead == "" {
+		t.Fatal("mcpBattery has no users_risk call")
+	}
+	for _, line := range strings.Split(honest, "\n") {
+		if strings.Contains(line, bbWithheld) && !strings.Contains(line, localRead) {
+			t.Errorf("a server that echoes nothing still had something withheld:\n%.3000s", honest)
+			break
+		}
 	}
 	assertNoEcho(t, "honest MCP session", honest)
 }

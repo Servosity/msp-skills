@@ -321,13 +321,13 @@
   "sync-skips-withheld-row": {
    "verdict": "replay",
    "recipe": "withheld-rows",
-   "reason": "Press 4.35.1 aborts a whole batch, and with it the resource's sync, when the credential kit's SQLite driver withholds one row (#612: hubspot-calls-crm stopped at one row). The press has no withheld-row notion; the recipe skips the row, keeps the batch and the walk, and ends the resource failed with the row ids and its watermark kept.",
-   "proof": "store/withheld_test.go TestUpsertBatchSkipsWithheldRow in every carrier; zammad and hubspot adopter syncs with one row carrying the CLI's own token (.review/adopter-proof.md).",
+   "reason": "Press 4.35.1 aborts a whole batch, and with it the resource's sync, when the credential kit's SQLite driver withholds one row (#612: hubspot-calls-crm stopped at one row). The press has no withheld-row notion; the recipe skips the row, keeps the batch and the walk, and ends the resource stored with the row ids named (stderr, a sync_warning rows_withheld event, the summary's \"withheld\") and its watermark kept. synccpu (2026-11-09): a withheld row is never fatal; before, the resource ended failed and the run exited 1, so mcp2 never marked hubspot synced.",
+   "proof": "store/withheld_test.go TestUpsertBatchSkipsWithheldRow in every carrier; zammad and hubspot adopter syncs with one row carrying the CLI's own token (.review/adopter-proof.md). synccpu: zammad first sync against the #612 fake vendor with a declared password in user 101 exits 0, stores 999 of 1,000 users, names 101 on stderr and in the summary, and no file carries the value (credential-kit/synccpu-report.md).",
    "gates": [],
    "upstream": "none: the kit is downstream of the press",
    "keep_manual": {
     "dnsfilter": "upsertResourceBatch returns the stored ids too (sync-seen-ids-are-stored-ids): the batch's withheld return and the page's pageWithheld block are wired by hand, and UpsertBatchStoredIDs keeps the stored ids when the error is a withheld row.",
-    "superops": "sync walks GraphQL pages through db.UpsertBatch, not upsertResourceBatch: the pageWithheld block, the empty-page guard and the failed end are wired by hand in syncResource; superops_held_record_test.go and superops_held_sinks_test.go assert the skip-the-row contract."
+    "superops": "sync walks GraphQL pages through db.UpsertBatch, not upsertResourceBatch: the pageWithheld block, the empty-page guard and the stored end (a withheld row is never fatal) are wired by hand in syncResource; superops_held_record_test.go and superops_held_sinks_test.go assert the skip-the-row contract."
    }
   },
   "sync-event-writer-serialized": {
@@ -368,6 +368,14 @@
    },
    "gates": [],
    "upstream": "mvanhorn/cli-printing-press#5369 (filed): sync's top-level worker pool shares an unserialized event writer"
+  },
+  "limiter-ramps-only-while-pacing": {
+   "verdict": "replay",
+   "recipe": "limiter-paced",
+   "reason": "Press 4.35.1's AdaptiveLimiter multiplies its rate by 1.25 every 10 successes with no ceiling on a server that sends no rate-limit headers (HubSpot sends X-HubSpot-RateLimit-*, which ParseRateLimitHeaders does not read). mcp2's hubspot sync printed rate_rps 6.6e24 after about 2,500 requests, and from there a 429's halving could not slow a single request. The recipe raises the rate only while the last Wait slept, so the rate stays near what the requests reach.",
+   "proof": "cliutil TestAdaptiveLimiter_RampsUpAfterSuccesses (extended): 50 successes with no Wait pacing leave the rate at 2; fails without the guard (ramped to 6.1), passes with it, on hubspot and zammad.",
+   "gates": [],
+   "upstream": "none filed yet: the press template's blind ramp has no ceiling (synccpu report)"
   }
  },
  "floors": [

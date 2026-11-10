@@ -3,7 +3,7 @@ layout: default
 title: "Credential leak contract - what every connector must never print, store or send | MSP Skills"
 description: "The fixed rules every MSP Skills connector and its review are judged against: which values count as held credentials, what counts as a leak (a whole value at any length, pieces of 8 or more characters, credentials sent off their declared hosts), the closed list of encodings checked, public text, and the cases that are tracked but never block."
 permalink: /credential-leak-contract/
-last_modified_at: 2026-11-02
+last_modified_at: 2026-11-09
 ---
 
 # Credential leak contract
@@ -33,6 +33,12 @@ after a further decoding.
 Amended 2026-11-02, owner order: a tenth reading bound says ROT13 reads a text view the kit reads whole, not the runs it
 cuts from a charset reading or a decoder's text output. A credential reachable only through ROT13 of such a run is out
 of scope, P2 at most.
+
+Amended 2026-11-09, owner-approved (synccpu): the local SQLite store is no longer a checked sink like the others. Its
+full check cost about 1 CPU-s per stored row. One rule stays: while a value from a declared vendor response field is
+held, a statement whose string or byte argument carries that whole value, raw or JSON-escaped, is refused, so a vendor
+secret never persists to print unheld in a later run. Accepted risk: a credential from any other source can sit in the
+local store unchecked. Output, files and outbound requests are checked as before.
 
 ## 1. Held credentials
 
@@ -131,7 +137,7 @@ An emitted unit is one of:
 - one MCP message: a result, an error or a protocol frame, together with the HTTP status line, headers and trailers
   that carry it;
 - one file write, checked as the whole record; a file written as a stream of writes is checked like stdout;
-- one SQLite statement: its text and its bound values;
+- one SQLite statement's bound values, for the one store rule in section 5 only;
 - one outbound request: URL, headers and body;
 - the argv and environment of one child process, as the child receives them.
 
@@ -294,7 +300,8 @@ Also:
 - stdout and stderr, at the file-descriptor level, from the first statement of `main`;
 - MCP results, errors, protocol frames and logs;
 - every file the program writes: journal, feedback, export, teach logs, profiles, config writes and caches;
-- SQLite;
+- SQLite, by one rule only: a statement whose string or byte argument carries a held vendor response value whole,
+  raw or JSON-escaped, is refused; nothing else is read (amended 2026-11-09);
 - outbound HTTP;
 - child process argv and environment.
 

@@ -29,9 +29,10 @@ import (
 const sqlSinkHeld = "sqlsinkheld7Qz4kW"
 
 // Every store opener, read-write and read-only, refuses a statement whose
-// text or bound values carry a held credential, before SQLite runs it.
+// bound values carry a held vendor response value, before SQLite runs it
+// (synccpu: statement text and other sources are not read).
 func TestEveryStoreOpenChecksStatementsThroughTheKit(t *testing.T) {
-	credkit.Hold("config:auth_header", sqlSinkHeld)
+	credkit.Hold("response:password", sqlSinkHeld) // synccpu: the store refuses only a held vendor response value
 	ctx := context.Background()
 	path := filepath.Join(t.TempDir(), "data.db")
 	rw, err := Open(path)
@@ -56,11 +57,6 @@ func TestEveryStoreOpenChecksStatementsThroughTheKit(t *testing.T) {
 			t.Fatalf("%s: %v", name, err)
 		}
 		var got string
-		err = s.DB().QueryRowContext(ctx, "SELECT '"+sqlSinkHeld+"' AS sample").Scan(&got)
-		if !errors.Is(err, credkit.ErrWithheld) {
-			t.Errorf("%s ran a statement whose text carries a held credential (err %v, row %q)", name, err, got)
-		}
-		got = ""
 		err = s.DB().QueryRowContext(ctx, "SELECT ? AS sample", sqlSinkHeld).Scan(&got)
 		if !errors.Is(err, credkit.ErrWithheld) {
 			t.Errorf("%s ran a statement whose bound value is a held credential (err %v, row %q)", name, err, got)

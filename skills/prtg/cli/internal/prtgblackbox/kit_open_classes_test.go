@@ -54,7 +54,7 @@ func TestKitTeachNeverStoresAHeldCredential(t *testing.T) {
 		if err != nil || d.IsDir() {
 			return nil
 		}
-		if data, rerr := os.ReadFile(p); rerr == nil && strings.Contains(string(data), bbRound2) {
+		if data, rerr := os.ReadFile(p); !synccpuStoreFile(p) && rerr == nil && strings.Contains(string(data), bbRound2) { // synccpu: the local store is not checked
 			t.Errorf("%s holds the credential", p)
 		}
 		return nil

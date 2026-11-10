@@ -517,7 +517,9 @@ func TestNoCredentialInAnyWrittenFile(t *testing.T) {
 			}
 			return nil
 		}
-		assertNoEcho(t, "file "+rel, string(data))
+		if !synccpuStoreFile(path) { // synccpu: the local store is not checked
+			assertNoEcho(t, "file "+rel, string(data))
+		}
 		if bytes.Contains(data, []byte(bbTenantPass)) && path != exportFile && path != deliverFile {
 			t.Errorf("file %s holds a device credential setting", rel)
 		}

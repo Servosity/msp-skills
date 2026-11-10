@@ -32,7 +32,7 @@ func TestUpsertBatchSkipsWithheldRow(t *testing.T) {
 		return
 	}
 	secret := "kitmem-" + strings.Repeat("Qx7v", 10)
-	credkit.Hold("minted:kitmem-test", secret)
+	credkit.Hold("response:password", secret) // the store refuses only a held vendor response value (synccpu)
 	path := filepath.Join(t.TempDir(), "store.db")
 	s, err := Open(path)
 	if err != nil {

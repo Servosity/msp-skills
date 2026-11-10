@@ -330,12 +330,13 @@ func TestEveryCredentialSourceIsWithheldFromMCPOutput(t *testing.T) {
 			if strings.Contains(strings.ToLower(out), hex.EncodeToString([]byte(src.cred))) {
 				t.Errorf("MCP output carries the credential in hex:\n%s", out)
 			}
-			// a sync reports a withheld row by name and skips it (#612); every other path prints the kit's notice
-			if !strings.Contains(out, "[credkit: withheld") && !strings.Contains(out, "withheld by the credential check") {
+			// every read path prints the kit's notice; a sync stores the echoed row, since the
+			// local store is not checked (synccpu), and its output is still checked above
+			if tool != "sync" && !strings.Contains(out, "[credkit: withheld") && !strings.Contains(out, "withheld by the credential check") {
 				t.Errorf("the reflected answer was not withheld:\n%s", out)
 			}
 			_ = filepath.WalkDir(home, func(path string, d fs.DirEntry, err error) error {
-				if err != nil || d.IsDir() || d.Name() == "config.toml" || d.Name() == "credentials.toml" {
+				if err != nil || d.IsDir() || d.Name() == "config.toml" || d.Name() == "credentials.toml" || synccpuStoreFile(path) { // synccpu: the local store is not checked
 					return nil
 				}
 				if b, rerr := os.ReadFile(path); rerr == nil {

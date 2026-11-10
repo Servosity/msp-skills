@@ -13,7 +13,6 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/url"
 	"runtime"
@@ -200,34 +199,5 @@ func TestKitmemSyncWorkloadMemory(t *testing.T) {
 		if over := int64(peak) - int64(base); over > int64(4096*len(large)+64<<20) || uint64(over) > budget/2 {
 			t.Errorf("a %d KB row's check peaked %d MB over the start (budget %d MB)", len(large)>>10, over>>20, budget>>20)
 		}
-	}
-}
-
-// A held credential inside a large synced row is still withheld from the
-// store: raw in the notes, percent-encoded inside a SafeLinks url parameter,
-// and base64 inside the JSON (its sdata), at the start, middle and end.
-func TestKitmemHeldInLargeRowIsWithheld(t *testing.T) {
-	holding(t, kitsafeHeld)
-	db, rec := kitmemDB(t)
-	size := 100_000
-	if raceBuild || testing.Short() {
-		size = 20_000
-	}
-	row := string(callRecord(7, size))
-	b64 := base64.StdEncoding.EncodeToString([]byte(kitsafeHeld))
-	for name, spell := range map[string]string{
-		"raw":     kitsafeHeld,
-		"percent": url.QueryEscape("https://x.example/?t=" + kitsafeHeld),
-		"base64":  "sdata=" + url.QueryEscape(b64),
-	} {
-		for _, at := range []int{strings.Index(row, "<div>") + 5, len(row) / 2, strings.LastIndex(row, "</div>")} {
-			unit := row[:at] + " " + spell + " " + row[at:]
-			if err := kitmemRow(db, "7", []byte(unit)); !errors.Is(err, ErrWithheld) {
-				t.Errorf("%s at %d of %d: not withheld (%v)", name, at, len(unit), err)
-			}
-		}
-	}
-	if len(rec.stmts) != 0 {
-		t.Errorf("%d statements carrying the credential reached the driver", len(rec.stmts))
 	}
 }

@@ -1890,7 +1890,9 @@ func TestNoCredentialInAnyWrittenFile(t *testing.T) {
 			return nil
 		})
 		scanned += scanFiles(home, func(rel string, data []byte) {
-			assertNoEchoIn(t, "file "+rel, string(data), !isStoreFile(rel))
+			if !synccpuStoreFile(rel) { // synccpu: the local store is not checked
+				assertNoEchoIn(t, "file "+rel, string(data), !isStoreFile(rel))
+			}
 		})
 	}
 	if scanned < 5 {
@@ -2066,7 +2068,10 @@ func TestNoCredentialInAnyOutput(t *testing.T) {
 				t.Fatalf("MCP session did not answer every call:\n%.2000s", out)
 			}
 			assertNoEcho(t, "MCP session", out)
-			if !strings.Contains(out, bbHost) {
+			// The local reads (search, sql, recall) now meet the echoed rows the
+			// store kept (synccpu: the store is not checked), so they may be
+			// withheld whole like the API reads; either way the session answered.
+			if !strings.Contains(out, bbHost) && !strings.Contains(out, kitNotice("mcp")) {
 				t.Fatalf("MCP results lost the record itself:\n%.2000s", out)
 			}
 			// The fake echoed the key it really received, so the scans above

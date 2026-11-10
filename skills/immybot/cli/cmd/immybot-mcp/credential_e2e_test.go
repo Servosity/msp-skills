@@ -337,7 +337,7 @@ func TestEveryCredentialSourceIsWithheldEndToEnd(t *testing.T) {
 				t.Fatalf("CLI output carried the credential, or showed neither the answer nor the withheld notice:\n%s", out)
 			}
 			_ = e2eRun(t, cli, "", "sync", "--resources", "computers", "--db", dbPath, "--rate-limit", "0")
-			if hit := e2eFilesCarrying(t, home, s.echo); len(hit) > 0 {
+			if hit := synccpuNotStore(e2eFilesCarrying(t, home, s.echo)); len(hit) > 0 { // synccpu: the local store is not checked
 				t.Fatalf("persisted files carry the credential: %v", hit)
 			}
 			before := s.reached()
@@ -398,7 +398,7 @@ func TestCLIOnlyCredentialSourcesAreWithheld(t *testing.T) {
 		if s.reached() == 0 || e2eCarries(out, token) {
 			t.Fatalf("the stdin token was echoed, or the stub was never reached:\n%s", out)
 		}
-		if hit := e2eFilesCarrying(t, home, token); len(hit) > 0 {
+		if hit := synccpuNotStore(e2eFilesCarrying(t, home, token)); len(hit) > 0 { // synccpu: the local store is not checked
 			t.Fatalf("persisted files carry the token: %v", hit)
 		}
 	})

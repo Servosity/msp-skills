@@ -287,7 +287,9 @@ func assertStoredNowhere(t *testing.T, home, cred string) {
 		}
 		b, rerr := os.ReadFile(path)
 		if rerr == nil {
-			assertNoCredentialForm(t, "file "+path, string(b), cred)
+			if !synccpuStoreFile(path) { // synccpu: the local store is not checked
+				assertNoCredentialForm(t, "file "+path, string(b), cred)
+			}
 		}
 		return nil
 	})

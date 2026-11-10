@@ -402,7 +402,7 @@ func TestNoHeldCredentialReachesAnyOutput(t *testing.T) {
 	calls = append(calls, `{"name":"sql","arguments":{"query":"SELECT data FROM resources"}}`, `{"name":"search","arguments":{"query":"share"}}`, `{"name":"abb_triage","arguments":{"task":"7","nas":"acme"}}`)
 	outputs["mcp"] = mcpCall(t, mcpBin, env, nil, calls...)
 	_ = filepath.WalkDir(root, func(p string, d fs.DirEntry, err error) error {
-		if err != nil || d.IsDir() || slices.Contains(stores, p) {
+		if err != nil || d.IsDir() || slices.Contains(stores, p) || synccpuStoreFile(p) { // synccpu: the local store is not checked
 			return nil
 		}
 		base := strings.ToLower(d.Name())

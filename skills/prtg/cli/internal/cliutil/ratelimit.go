@@ -31,6 +31,7 @@ type AdaptiveLimiter struct {
 	headerDriven bool        // true once ObserveHeaders has set the rate; suppresses blind ramp
 	lastRequest  time.Time   // zero-value: first Wait() returns immediately
 	pending      []time.Time // in-flight reservedAt values; cancel must not rewind past these
+	paced        bool        // Hand-fix (handfixes.json limiter-ramps-only-while-pacing): the last Wait slept, so the rate is what holds requests back
 }
 
 // NewAdaptiveLimiter returns a limiter whose pacing starts at ratePerSec AND is
@@ -146,6 +147,7 @@ func (l *AdaptiveLimiter) Wait(ctx context.Context) error {
 	}
 	reservedAt := time.Now().Add(sleep)
 	l.lastRequest = reservedAt
+	l.paced = sleep > 0
 	if sleep > 0 {
 		l.pending = append(l.pending, reservedAt)
 	}
@@ -224,6 +226,9 @@ func (l *AdaptiveLimiter) OnSuccess() {
 	if l.headerDriven {
 		l.successes = 0
 		return
+	}
+	if !l.paced { // Hand-fix (handfixes.json limiter-ramps-only-while-pacing): a rate the requests never reach is not raised
+		return // (unbounded, it reached 6.6e24 on hubspot and a 429's halving could no longer slow a request)
 	}
 	l.successes++
 	if l.successes >= l.rampAfter {

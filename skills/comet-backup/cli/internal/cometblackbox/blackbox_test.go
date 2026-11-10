@@ -611,7 +611,9 @@ func assertNoFileEcho(t *testing.T, home string) {
 		}
 		scanned++
 		rel, _ := filepath.Rel(home, path)
-		assertNoEcho(t, "file "+rel, string(data))
+		if !synccpuStoreFile(path) { // synccpu: the local store is not checked
+			assertNoEcho(t, "file "+rel, string(data))
+		}
 		return nil
 	})
 	if scanned < 5 {

@@ -8,9 +8,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
-	"testing"
 
-	"appdirect-pp-cli/internal/credkit"
 	"appdirect-pp-cli/internal/kitsql"
 )
 
@@ -62,24 +60,4 @@ func explainStoreWithheld(dbPath string, err error) string {
 		"\n  path: %s",
 		withheld(":memory:"), withheld(filepath.Join(missing, "plain.db")+storeDSNQuery), withheld(dbPath),
 		strings.Join(refused, " "), strings.Join(pairs, " "), strings.Join(shown, string(filepath.Separator)))
-}
-
-// The reason names the refused part by index and length only. The value is
-// held for the rest of this test binary, so it is long and unlike any path.
-func TestExplainStoreWithheldNamesNoHeldValue(t *testing.T) {
-	const fixture = "zqxStoreProbeHeld-7f3e9c1a"
-	credkit.Hold("test:store-probe", fixture)
-	path := filepath.Join(t.TempDir(), fixture, "data.db")
-	got := explainStoreWithheld(path, fmt.Errorf("open: [credkit: withheld from sqlite: it carried a credential this program holds]"))
-	if strings.Contains(got, fixture) {
-		t.Fatalf("the reason printed the held value: %s", got)
-	}
-	parts := strings.FieldsFunc(path, func(r rune) bool { return r == '/' || r == '\\' })
-	want := fmt.Sprintf("<part %d, %d bytes>", len(parts)-2, len(fixture))
-	if !strings.Contains(got, want) || !strings.Contains(got, "whole path withheld (no query): true") || !strings.Contains(got, "every unit withheld (fail-closed state): false") {
-		t.Fatalf("reason = %s, want %s named and the whole path withheld", got, want)
-	}
-	if explainStoreWithheld(path, nil) != "" || explainStoreWithheld(path, fmt.Errorf("disk full")) != "" {
-		t.Fatal("a store error the kit did not cause must add no reason")
-	}
 }

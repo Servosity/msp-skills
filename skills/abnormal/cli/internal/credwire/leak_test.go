@@ -187,6 +187,9 @@ func assertNoFileCarries(t *testing.T, home string, skip []string, secrets ...st
 		}
 		for _, s := range secrets {
 			if bytes.Contains(data, []byte(s)) {
+				if synccpuStoreFile(p) { // synccpu: the store is not checked for this program's own credentials
+					return nil
+				}
 				t.Errorf("%s holds %q", p, s)
 			}
 		}
@@ -690,6 +693,9 @@ func TestWholeRunNeverEmitsAHeldCredential(t *testing.T) {
 		if err != nil || d.IsDir() || filepath.Base(p) == "credentials.toml" || p == cfg {
 			return nil
 		}
+		if synccpuStoreFile(p) { // synccpu: the store is not checked for this program's own credentials
+			return nil
+		}
 		if data, rerr := os.ReadFile(p); rerr == nil {
 			rel, _ := filepath.Rel(home, p)
 			scan("file "+rel, string(data))
@@ -886,4 +892,17 @@ func TestMCPRefusesAConfigFlagItDoesNotHave(t *testing.T) {
 	if out, code := runCode(t, mcpBin, env, "--transport", "stdio"); code != 0 {
 		t.Errorf("an ordinary start: exit %d\n%s", code, out)
 	}
+}
+
+// synccpuStoreFile reports whether path is the local SQLite store or one of its
+// side files. synccpu (owner GO 2026-11-09) dropped the store's credential check
+// except for held vendor response values, so a credential this program holds from
+// its own configuration may sit in the store; every other file is still checked.
+func synccpuStoreFile(path string) bool {
+	for _, s := range []string{".db", ".db-wal", ".db-shm", ".db-journal"} {
+		if strings.HasSuffix(path, s) {
+			return true
+		}
+	}
+	return false
 }

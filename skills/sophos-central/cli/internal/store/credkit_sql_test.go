@@ -37,7 +37,7 @@ func TestStoreNeverWritesAHeldCredential(t *testing.T) {
 		return
 	}
 	const secret = "qZ7vN" + "2xLp9Wd4Sc"
-	credkit.Hold("env:SOPHOS_CENTRAL_CLIENT_SECRET", secret)
+	credkit.Hold("response:client_secret", secret) // synccpu: the store refuses only a held vendor response value
 	dir := t.TempDir()
 	s, err := Open(filepath.Join(dir, "data.db"))
 	if err != nil {

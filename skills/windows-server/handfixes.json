@@ -860,7 +860,7 @@
    "class": "credential-kit",
    "status": "active",
    "summary": "The shared credential kit is wired by hand: internal/cli/credkit_wiring.go carries the one credkit.Declarations literal, credkit.Start is the first statement of both mains and credkit.Exit ends them, and every sink (stdout and stderr, files, SQLite through internal/kitsql, MCP, the virtual transport and every other HTTP client, child processes, terminal checks) passes the kit. The WinRM leg and the 0600 credential store and config writes stay outside it, as credkit-sites.json records.",
-   "why": "The connector's own funnel (secret_funnel*.go, the result and tool-error funnels, the store sink driver, RefuseHeld at each persist point) closed one shape per review and the next review found the next: a code list of a piece of the password, the password in another case, a server named after a piece of its password. The kit holds every part of every credential at startup and checks every sink, so the shape stops mattering (TestKitPerCharacterCodesNeverReachTheReader and TestKitStoreNeverHoldsTheServerPassword, both seen failing on fdd3f3a03). A reprint rewrites the generated sinks and mains: these asserts make that fail instead of silently dropping the routing.",
+   "why": "The connector's own funnel (secret_funnel*.go, the result and tool-error funnels, the store sink driver, RefuseHeld at each persist point) closed one shape per review and the next review found the next: a code list of a piece of the password, the password in another case, a server named after a piece of its password. The kit holds every part of every credential at startup and checks every sink, so the shape stops mattering (TestKitPerCharacterCodesNeverReachTheReader, seen failing on fdd3f3a03; the store-sink test was retired by synccpu, owner GO 2026-11-09, which stopped checking the local store). A reprint rewrites the generated sinks and mains: these asserts make that fail instead of silently dropping the routing.",
    "replaces": [
     {
      "id": "secret-echo-decoded-funnel",
@@ -1176,12 +1176,6 @@
     },
     {
      "file": "cli/internal/cli/kit_e2e_test.go",
-     "contains": "func TestKitStoreNeverHoldsTheServerPassword(t *testing.T) {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cli/kit_e2e_test.go",
      "contains": "func TestKitMalformedConfigValueNeverInStartupOutput(t *testing.T) {",
      "min_count": 1,
      "code_only": true
@@ -1234,8 +1228,8 @@
   },
   {
    "id": "sync-skips-withheld-row",
-   "summary": "a row the credential kit withholds from the store is skipped and named; the rest of the batch is stored and sync keeps walking, then ends that resource failed with the row ids",
-   "why": "One withheld row aborted the whole batch transaction, and sync returned on it, so a single large ordinary record (or one that really carried a held credential) stopped the resource and every row after it was never synced (#612, hubspot-calls-crm). The row is still withheld; it is now named in a sync_error event and in the resource's error, the run exits non-zero, and the watermark stays so the next run fetches it again. Re-applied after a reprint by replay_handfixes.py (recipe withheld-rows).",
+   "summary": "a row the credential kit withholds from the store is skipped and named; the rest of the batch is stored, sync keeps walking, and the run still succeeds, naming the row ids on stderr and in its summary",
+   "why": "One withheld row aborted the whole batch transaction, and sync returned on it, so a single large ordinary record (or one that really carried a held credential) stopped the resource and every row after it was never synced (#612, hubspot-calls-crm). The row is still withheld; it is now named, and the watermark stays so the next run fetches it again. Re-applied after a reprint by replay_handfixes.py (recipe withheld-rows). synccpu (2026-11-09): a withheld row no longer fails the resource. mcp2 measured hubspot-calls-crm row 80663490159 turning the whole sync into exit 1, so the server never marked the connector synced. Now the resource ends stored with the ids named (stderr warning, a sync_warning rows_withheld event per page, and \"withheld\" in the summary), the run exits 0 when every other row stored, and the resource's checkpoint stays where the attempt began so the next run fetches the row again.",
    "status": "active",
    "asserts": [
     {
@@ -1300,12 +1294,6 @@
     },
     {
      "file": "cli/internal/cli/sync.go",
-     "contains": "&store.WithheldRowsError{Resource: resource, IDs: withheldIDs}",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cli/sync.go",
      "contains": "existingCursor, cachedCount); err != nil {",
      "min_count": 1,
      "code_only": true
@@ -1319,6 +1307,48 @@
     {
      "file": "cli/internal/cli/sync.go",
      "contains": "pageCursor = existingCursor",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "Withheld: withheldIDs, Duration: time.Since(started)}",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "\tWithheld         []string",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "withheldRows[res.Resource] = res.Withheld",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "store.WithheldSummary(withheldRows)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "summary[\"withheld\"] = withheldRows",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "store.WithheldEvent(resource, pageWithheld.IDs)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/withheld.go",
+     "contains": "func WithheldSummary(rows map[string][]string) string",
      "min_count": 1,
      "code_only": true
     }
@@ -1347,6 +1377,38 @@
     {
      "file": "cli/internal/cli/sync_event_writer_test.go",
      "contains": "func TestSyncWorkerPoolSerializesEventWrites(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "limiter-ramps-only-while-pacing",
+   "summary": "the adaptive limiter's blind ramp raises only a rate the last Wait slept on, so sync's rate_rps reports a real pace",
+   "why": "On a header-less API the ramp multiplied the rate by 1.25 every 10 successes with no ceiling: mcp2's hubspot sync printed rate_rps 6.6e24 (about 2,500 requests), and after such a ramp a 429's halving could no longer slow a single request. A rate the requests never reach is no longer raised. Re-applied after a reprint by replay_handfixes.py (recipe limiter-paced).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cliutil/ratelimit.go",
+     "contains": "\tpaced        bool",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/ratelimit.go",
+     "contains": "\tl.paced = sleep > 0\n",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/ratelimit.go",
+     "contains": "\tif !l.paced {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/cliutil_test.go",
+     "contains": "with no Wait pacing, want %v",
      "min_count": 1,
      "code_only": true
     }

@@ -7,8 +7,9 @@ package store
 // was extracted before any withholding ran, so `sync` stored a credential
 // unchanged in resources.id, resources_fts.id and the typed table. Every
 // write entry point the store exposes is driven here with a value that
-// repeats a held credential, as written and as ROT13 (an encoding the
-// client's masker knows), and the database files are then read byte by byte.
+// repeats a held vendor response value as written (synccpu: the store reads
+// no other source and decodes nothing), and the database files are then read
+// byte by byte.
 
 import (
 	"bytes"
@@ -25,18 +26,6 @@ import (
 
 const r1aSecret = "Secret" + "Alpha901" // split: a synthetic fixture, not a credential for secret scanners
 
-func r1aRot13(s string) string {
-	return strings.Map(func(r rune) rune {
-		switch {
-		case r >= 'a' && r <= 'z':
-			return 'a' + (r-'a'+13)%26
-		case r >= 'A' && r <= 'Z':
-			return 'A' + (r-'A'+13)%26
-		}
-		return r
-	}, s)
-}
-
 func r1aJSON(t *testing.T, v any) json.RawMessage {
 	t.Helper()
 	b, err := json.Marshal(v)
@@ -50,13 +39,13 @@ func TestR1AHeldValueNeverReachesAnyStoreColumn(t *testing.T) {
 	if inFreshProcess(t) {
 		return
 	}
-	credkit.Hold("config:vsa_token_secret", r1aSecret)
+	credkit.Hold("response:token", r1aSecret) // synccpu: the store refuses only a held vendor response value, whole
 	dir := t.TempDir()
 	s, err := Open(filepath.Join(dir, "r1a.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	forms := []string{r1aSecret, r1aRot13(r1aSecret)}
+	forms := []string{r1aSecret} // synccpu: the store decodes nothing (no ROT13)
 	for i, form := range forms {
 		ok := "org-ok-" + string(rune('a'+i))
 		// Batch upsert (sync and the write-through cache): a record whose ID
@@ -119,9 +108,8 @@ func TestR1AHeldValueNeverReachesAnyStoreColumn(t *testing.T) {
 			continue
 		}
 		scanned++
-		low := bytes.ToLower(data)
 		for _, form := range forms {
-			if bytes.Contains(low, []byte(strings.ToLower(form))) {
+			if bytes.Contains(data, []byte(form)) {
 				t.Errorf("%s holds the credential as %q", e.Name(), form)
 			}
 		}
