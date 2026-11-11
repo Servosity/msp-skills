@@ -29,6 +29,7 @@ type syncResult struct {
 	Count            int
 	Err              error
 	Warn             error
+	ForbiddenKey     string // Hand-fix (handfixes.json sync-forbidden-not-partial): the sync_state key the vendor refused
 	Bounded          bool
 	IntegrityFailure bool
 	Withheld         []string // Hand-fix (handfixes.json sync-skips-withheld-row): rows not stored; every other row was
@@ -189,7 +190,9 @@ Exit codes & warnings:
 			var firstErr error
 			var firstPlaceholderErr error
 			withheldRows := map[string][]string{} // Hand-fix (handfixes.json sync-skips-withheld-row)
+			resourceOutcomes := &syncOutcomes{}   // Hand-fix (handfixes.json sync-forbidden-not-partial)
 			for res := range results {
+				resourceOutcomes.note(db, res, c.DryRun)
 				if len(res.Withheld) > 0 { // a withheld row is reported, never fatal: every other row stored, and the next sync fetches it again
 					fmt.Fprintf(os.Stderr, "warning: %v\n", &store.WithheldRowsError{Resource: res.Resource, IDs: res.Withheld})
 					withheldRows[res.Resource] = res.Withheld
@@ -226,6 +229,9 @@ Exit codes & warnings:
 			elapsed := time.Since(started)
 			totalResources := successCount + warnCount + errCount
 			if humanFriendly {
+				resourceOutcomes.printHuman()
+			}
+			if humanFriendly {
 				if warnCount > 0 {
 					fmt.Fprintf(os.Stderr, "Sync complete: %d records across %d resources (%d warned, %.1fs)\n",
 						totalSynced, totalResources, warnCount, elapsed.Seconds())
@@ -235,7 +241,7 @@ Exit codes & warnings:
 				}
 			} else {
 				fmt.Fprintf(os.Stderr, `{"event":"sync_summary","total_records":%d,"resources":%d,"success":%d,"warned":%d,"errored":%d,"duration_ms":%d%s}`+"\n",
-					totalSynced, totalResources, successCount, warnCount, errCount, elapsed.Milliseconds(), store.WithheldSummary(withheldRows)) // Hand-fix (handfixes.json sync-skips-withheld-row)
+					totalSynced, totalResources, successCount, warnCount, errCount, elapsed.Milliseconds(), store.WithheldSummary(withheldRows)+resourceOutcomes.summaryJSON()) // Hand-fix (handfixes.json sync-skips-withheld-row)
 			}
 
 			if errCount > 0 {
@@ -370,6 +376,9 @@ func syncResource(ctx context.Context, c *client.Client, db *store.Store, resour
 	}
 	// Invalidate readiness before any request, including requests that fail
 	// before storing their first page. Keep the last lossless boundary.
+	if err := db.ClearSyncForbidden(resource); err != nil { // Hand-fix (handfixes.json sync-forbidden-not-partial)
+		return syncResult{Resource: resource, Err: fmt.Errorf("clearing the forbidden mark for %s: %w", resource, err), Duration: time.Since(started)}
+	}
 	if err := db.SaveSyncProgressInScope(resource, scopeKey, existingCursor, existingCount); err != nil {
 		return syncResult{Resource: resource, Err: fmt.Errorf("saving sync progress for %s: starting attempt: %w", resource, err), Duration: time.Since(started)}
 	}
@@ -377,6 +386,7 @@ func syncResource(ctx context.Context, c *client.Client, db *store.Store, resour
 	progressCursor := existingCursor
 
 	var totalCount int
+	var lastProgressAt time.Time // Hand-fix (handfixes.json sync-progress-throttled)
 	pagesFetched := 0
 	// consumedTotal/extractFailureTotal feed the F4b symptom probe at end-
 	// of-resource (rows extracted but none stored — likely an FTS5 trigger
@@ -414,7 +424,7 @@ func syncResource(ctx context.Context, c *client.Client, db *store.Store, resour
 				if !humanFriendly {
 					fmt.Fprintln(os.Stderr, syncWarningJSON(resource, "", w.Status, w.Reason, w.Message))
 				}
-				return syncResult{Resource: resource, Count: totalCount, Warn: fmt.Errorf("skipped due to insufficient access: %s (%s)", resource, w.Reason), Duration: time.Since(started)}
+				return syncResult{Resource: resource, Count: totalCount, Warn: fmt.Errorf("skipped due to insufficient access: %s (%s)", resource, w.Reason), ForbiddenKey: syncForbiddenKey(w, pagesFetched, resource), Duration: time.Since(started)}
 			}
 			if !humanFriendly {
 				fmt.Fprintln(os.Stderr, syncErrorJSON(resource, "", err))
@@ -534,7 +544,9 @@ func syncResource(ctx context.Context, c *client.Client, db *store.Store, resour
 		}
 
 		// Progress reporting
-		if humanFriendly {
+		if !syncProgressDue(&lastProgressAt) { // Hand-fix (handfixes.json sync-progress-throttled)
+			// No line this page: each write costs a full credential check.
+		} else if humanFriendly {
 			fmt.Fprintf(os.Stderr, "\r  %s: %d synced", resource, totalCount)
 		} else {
 			fmt.Fprintf(os.Stderr, `{"event":"sync_progress","resource":"%s","fetched":%d}`+"\n", resource, totalCount)

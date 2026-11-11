@@ -1600,6 +1600,393 @@ def r_limiter_paced(p: Plan, hid: str, entry: dict) -> dict:
     return {}
 
 
+# sync-progress-measured-rate (#694): sync_progress printed the adaptive
+# limiter's ceiling as rate_rps. The recipe measures the rows the walk stored
+# over a recent window, reports that as rows_per_sec (rate_rps keeps its name
+# and now carries it), and gives the ceiling its own name.
+SYNC_REL = "cli/internal/cli/sync.go"
+RATE_HELPER = "cli/internal/cli/sync_throughput.go"
+RATE_TEST = "cli/internal/cli/sync_throughput_test.go"
+RATE_HUMAN = re.compile(r"(\t+)if currentRate > 0 \{\n(\t+[^\n]*)\[%\.1f req/s\]\", resource, atomic\.LoadInt64\(&progressCount\), currentRate\)")
+RATE_JSON = ("\"fetched\":%d,\"rate_rps\":%.1f}`+\"\\n\", resource, atomic.LoadInt64(&progressCount), currentRate)")
+RATE_JSON_IF = re.compile(r"(\t+)if currentRate > 0 \{\n(\t+[^\n]*)\"fetched\":%d,\"rate_rps\":%\.1f\}`")
+DEP_EMIT = ("func emitDependentSyncProgress(w io.Writer, resource string, done, total int, rate float64) {\n"
+            "\tif rate > 0 {\n"
+            "\t\tfmt.Fprintf(w, `{\"event\":\"sync_progress\",\"resource\":\"%s\",\"parents_done\":%d,\"parents\":%d,\"rate_rps\":%.1f}`+\"\\n\", resource, done, total, rate)\n"
+            "\t\treturn\n"
+            "\t}\n"
+            "\tfmt.Fprintf(w, `{\"event\":\"sync_progress\",\"resource\":\"%s\",\"parents_done\":%d,\"parents\":%d}`+\"\\n\", resource, done, total)\n"
+            "}\n")
+DEP_EMIT_NEW = ("func emitDependentSyncProgress(w io.Writer, resource string, done, total int, rate, measured float64) { // TAG\n"
+                "\tfmt.Fprintf(w, `{\"event\":\"sync_progress\",\"resource\":\"%s\",\"parents_done\":%d,\"parents\":%d%s}`+\"\\n\", resource, done, total, syncProgressRateJSON(measured, rate))\n"
+                "}\n")
+DEP_CALL = "emitDependentSyncProgress(syncEvents, dep.Name, done, depProgress.total, c.RateLimit())"
+DEP_CALL_NEW = "emitDependentSyncProgress(syncEvents, dep.Name, done, depProgress.total, c.RateLimit(), depRate.rowsPerSec(time.Now(), depRowsStored))"
+SYNC_RESOURCE_SIG = re.compile(r"func syncResource\(ctx context\.Context, c interface \{\n.*?\n\}, (.*?)\) syncResult \{", re.S)
+SYNC_ARGS_CALL = re.compile(r"SYNC_ARGS\(([^)]*)\)")
+SYNC_ARG_BY_TYPE = {"string": '""', "bool": "false", "int": "0", "*store.Store": "db",
+                    "*syncUserParams": "&syncUserParams{}", "[]string": "nil", "io.Writer": "EVENTS",
+                    "dependentResourceDef": "dep", "map[string]syncResult": "nil"}
+DEP_SIG = re.compile(r"func syncDependentResource\(ctx context\.Context, c interface \{\n.*?\n\}, (.*?)\) syncResult \{", re.S)
+DEP_ARGS_CALL = re.compile(r"DEP_ARGS\(([^)]*)\)")
+
+
+def sync_resource_args(p: Plan, sig: re.Pattern = SYNC_RESOURCE_SIG) -> str | None:
+    """The argument list a test passes syncResource (or, with DEP_SIG,
+    syncDependentResource) after its client, read from this print's own
+    signature (a few prints add one), or None if unknown."""
+    for f in sorted((p.cli / "internal" / "cli").glob("*.go")):
+        m = sig.search(code_only(f.name, p.read(f"cli/internal/cli/{f.name}") or ""))
+        if not m:
+            continue
+        names, typ, args = [], None, []
+        for part in reversed(m.group(1).split(", ")):
+            name, _, t = part.partition(" ")
+            typ = t or typ
+            names.append((name, typ))
+        for name, typ in reversed(names):
+            lit = "resource" if name == "resource" else SYNC_ARG_BY_TYPE.get(typ)
+            if lit is None:
+                return None
+            args.append(lit)
+        return ", ".join(args)
+    return None
+
+
+def render_sync_test(p: Plan, site: str, template: str) -> str | None:
+    args = sync_resource_args(p)
+    if args is None:
+        p.hand(site, f"{SYNC_REL}: syncResource has a signature this recipe cannot call; write its test by hand")
+        return None
+    return SYNC_ARGS_CALL.sub(lambda m: args.replace("EVENTS", m.group(1)), render(template, MODULE=p.module))
+
+
+def write_template(p: Plan, site: str, rel: str, want: str, template: str, label: str) -> bool:
+    cur = p.read(rel)
+    if cur is not None and cur != want:
+        p.hand(site, f"{rel}: differs from tools/maintainer/handfix_replay/{template}; this file is the template's, "
+                     f"so merge the difference into the template or wire the fix by hand")
+        return False
+    if cur is None:
+        p.write(rel, want, label)
+    return True
+
+
+def r_sync_measured_rate(p: Plan, hid: str, entry: dict) -> dict:
+    site, t = "sync-measured-rate", tag(hid)
+    s = p.read(SYNC_REL)
+    if s is None or not p.module:
+        p.hand(site, f"{SYNC_REL}: missing, or cli/go.mod names no module, so the measured rate cannot be wired")
+        return {}
+    test = render_sync_test(p, site, "sync_throughput_test.go.tmpl")
+    if test is None or not write_template(p, site, RATE_HELPER, render("sync_throughput.go.tmpl"), "sync_throughput.go.tmpl",
+                                          "sync's measured rate") \
+            or not write_template(p, site, RATE_TEST, test, "sync_throughput_test.go.tmpl", "sync's measured rate test"):
+        return {}
+    decl = "syncRate := newSyncThroughput(time.Now())"
+    p.edit(site, SYNC_REL, "the walk's rate is measured from its start", "\tvar progressCount int64\n",
+           f"\tvar progressCount int64\n\t{decl} // {t}\n", decl)
+    sample = "measuredRate := syncRate.rowsPerSec(time.Now(), atomic.LoadInt64(&progressCount))"
+    p.edit(site, SYNC_REL, "each page samples the measured rate", "\t\tcurrentRate := c.RateLimit()\n",
+           f"\t\tcurrentRate := c.RateLimit()\n\t\t{sample}\n", sample)
+    text = "syncProgressRateText(measuredRate, currentRate)"
+    if not p.present(SYNC_REL, text):
+        m = RATE_HUMAN.search(p.read(SYNC_REL) or "")
+        if m is None:
+            p.hand(site, f"{SYNC_REL}: the human progress line is not the shape this recipe knows")
+        else:
+            p.edit(site, SYNC_REL, "the human line says rows/s", m.group(0),
+                   f"{m.group(1)}if measuredRate > 0 || currentRate > 0 {{\n{m.group(2)}%s\", resource, "
+                   f"atomic.LoadInt64(&progressCount), {text})", text)
+    fields = "syncProgressRateJSON(measuredRate, currentRate)"
+    if not p.present(SYNC_REL, fields):
+        m = RATE_JSON_IF.search(p.read(SYNC_REL) or "")
+        if m is None or RATE_JSON not in (p.read(SYNC_REL) or ""):
+            p.hand(site, f"{SYNC_REL}: the sync_progress event is not the shape this recipe knows")
+        else:
+            cur = p.read(SYNC_REL)
+            a = cur.index(m.group(0))
+            b = cur.index(RATE_JSON, a) + len(RATE_JSON)
+            new = (f"{m.group(1)}if measuredRate > 0 || currentRate > 0 {{\n{m.group(2)}\"fetched\":%d%s}}`+\"\\n\", "
+                   f"resource, atomic.LoadInt64(&progressCount), {fields})")
+            p.edit(site, SYNC_REL, "sync_progress reports what was measured", cur[a:b], new, fields)
+    if "func emitDependentSyncProgress(" in (p.read(SYNC_REL) or ""):
+        p.edit(site, SYNC_REL, "the dependent event reports what was measured", DEP_EMIT, DEP_EMIT_NEW.replace("TAG", t),
+               "syncProgressRateJSON(measured, rate)")
+        p.edit(site, SYNC_REL, "the dependent walk's rate starts with its parents",
+               "\tdryRunHit := false\n\tcancelSeen := false\n",
+               "\tdepRate := newSyncThroughput(time.Now())\n\tvar depRowsStored int64\n\tdryRunHit := false\n\tcancelSeen := false\n",
+               "depRate := newSyncThroughput(time.Now())")
+        p.edit(site, SYNC_REL, "each parent's rows count", "\t\trep := ev.rep\n\t\treportedParents++\n",
+               "\t\trep := ev.rep\n\t\tdepRowsStored += int64(rep.stored)\n\t\treportedParents++\n",
+               "depRowsStored += int64(rep.stored)")
+        for label, head in (("the heartbeat reports the measured rate", "if done, emit := depProgress.heartbeat(); emit {\n\t\t\t\t\t"),
+                            ("each parent reports the measured rate", "if done, emit := depProgress.noteParent(); emit {\n\t\t\t\t")):
+            p.edit(site, SYNC_REL, label, head + DEP_CALL, head + DEP_CALL_NEW, head + DEP_CALL_NEW)
+        p.pin(hid, SYNC_REL, "syncProgressRateJSON(measured, rate)")
+        p.pin(hid, SYNC_REL, "depRate.rowsPerSec(time.Now(), depRowsStored)")
+    p.add_tests_from(RATE_TEST)
+    p.pin(hid, SYNC_REL, sample)
+    p.pin(hid, SYNC_REL, fields)
+    p.pin(hid, SYNC_REL, text)
+    p.pin(hid, SYNC_REL, '"rate_rps":%.1f', absent=True)
+    p.pin(hid, RATE_HELPER, "func syncProgressRateJSON(rowsPerSec, limiterCeiling float64) string {")
+    p.pin(hid, RATE_TEST, "func TestSyncProgressRateNamesWhatWasMeasured(t *testing.T) {")
+    return {}
+
+
+# sync-progress-throttled (#696): every write to stdout or stderr costs a full
+# credential check, whatever its size, and sync wrote one sync_progress line
+# per page. The recipe lets a resource's walk write its first page's line and
+# then at most one every syncProgressEvery; sync_complete keeps the final count.
+THROTTLE_HELPER = "cli/internal/cli/sync_progress_throttle.go"
+THROTTLE_TEST = "cli/internal/cli/sync_progress_throttle_test.go"
+THROTTLE_SITE = re.compile(r"((?:\t\t// Progress reporting[^\n]*\n)?\t\tcurrentRate := c\.RateLimit\(\)\n(?:\t\tmeasuredRate := [^\n]*\n)?)"
+                           r"\t\tif humanFriendly \{\n")
+
+
+def r_sync_progress_throttled(p: Plan, hid: str, entry: dict) -> dict:
+    site, t = "sync-progress-throttled", tag(hid)
+    if p.read(SYNC_REL) is None or not p.module:
+        p.hand(site, f"{SYNC_REL}: missing, or cli/go.mod names no module, so the progress throttle cannot be wired")
+        return {}
+    test = render_sync_test(p, site, "sync_progress_throttle_test.go.tmpl")
+    if test is None or not write_template(p, site, THROTTLE_HELPER, render("sync_progress_throttle.go.tmpl"),
+                                          "sync_progress_throttle.go.tmpl", "sync's progress throttle") \
+            or not write_template(p, site, THROTTLE_TEST, test, "sync_progress_throttle_test.go.tmpl",
+                                  "sync's progress throttle test"):
+        return {}
+    decl = "var lastProgressAt time.Time"
+    p.edit(site, SYNC_REL, "each walk times its own progress lines", "\tvar progressCount int64\n",
+           f"\tvar progressCount int64\n\t{decl} // {t}\n", decl)
+    guard = "if !syncProgressDue(&lastProgressAt) {"
+    if not p.present(SYNC_REL, guard):
+        m = THROTTLE_SITE.search(p.read(SYNC_REL) or "")
+        if m is None:
+            p.hand(site, f"{SYNC_REL}: the per-page progress block is not the shape this recipe knows")
+        else:
+            p.edit(site, SYNC_REL, "a page writes a progress line only when one is due", m.group(0),
+                   f"{m.group(1)}\t\t{guard} // {t}\n\t\t\t// No line this page: each write costs a full credential check.\n"
+                   f"\t\t}} else if humanFriendly {{\n", guard)
+    p.add_tests_from(THROTTLE_TEST)
+    p.pin(hid, SYNC_REL, decl)
+    p.pin(hid, SYNC_REL, guard)
+    p.pin(hid, THROTTLE_HELPER, "func syncProgressDue(last *time.Time) bool {")
+    p.pin(hid, THROTTLE_TEST, "func TestSyncWritesProgressAtMostOncePerInterval(t *testing.T) {")
+    return {}
+
+
+# sync-forbidden-not-partial (#692): a resource the vendor refuses this token
+# (HTTP 403) never completes, so its sync_state row held the whole store at
+# partial for good. The recipe records the refusal beside sync_state, clears it
+# as each attempt starts, and has store_status say complete_with_skips only
+# when every other resource finished. Failures stay partial and are named.
+OUT_HELPER = "cli/internal/cli/sync_outcome.go"
+OUT_TEST = "cli/internal/cli/sync_outcome_test.go"
+OUT_STORE = "cli/internal/store/sync_forbidden.go"
+OUT_MCP = "cli/internal/mcp/sync_coverage.go"
+OUT_MCP_TEST = "cli/internal/mcp/sync_coverage_test.go"
+OUT_DEP_TEST = "cli/internal/cli/sync_forbidden_dependent_test.go"
+OUT_TOOLS = "cli/internal/mcp/tools.go"
+OUT_START = re.compile(r"(?m)^(\t+)if err := db\.SaveSyncProgress(?:InScope)?\(([\w.]+),[^\n]*\n[^\n]*"
+                       r"syncResult\{Resource: ([\w.]+), Err: fmt\.Errorf\(\"saving sync progress for %s: starting attempt")
+OUT_FIELD = re.compile(r"(?m)^\tWarn +error\n")
+OUT_FLAT_WARN = ("Warn: fmt.Errorf(\"skipped due to insufficient access: %s (%s)\", resource, w.Reason), "
+                 "Duration: time.Since(started)}")
+OUT_DEP_WARN = ("\t\t\tWarn:     fmt.Errorf(\"skipped due to insufficient access: %s (%s on all %d parents)\", dep.Name, "
+                "firstDenial.Reason, len(parentRows)),\n")
+OUT_DEP_OLD_MARK = "ForbiddenKey: syncForbiddenKey(firstDenial, 0, dep.Name),"
+OUT_DEP_MARK = "ForbiddenKey: dependentForbiddenKey,"
+OUT_DEP_IF = "\tif deniedParents == len(parentRows) && totalCount == 0 && firstDenial != nil {\n"
+OUT_DEP_FIELD = re.compile(r"(?m)^\tfirstDenial( +)\*accessWarning\n")
+OUT_DEP_WORKER = re.compile(r"(?m)^(\t+)rep\.firstDenial = w\n")
+OUT_DEP_COUNT = re.compile(r"(?m)^(\t+)deniedParents\+\+\n")
+OUT_RESULTS = re.compile(r"(?m)^(\t+)for res := range results \{\n")
+OUT_DEP_RESULTS = re.compile(r"(?m)^(\t+)for _, res := range depResults \{\n")
+OUT_TOTALS = re.compile(r"(?m)^(\t+)totalResources := successCount \+ warnCount \+ errCount\n")
+OUT_MAP_END = re.compile(r"(?m)^(\t+)\"duration_ms\": +elapsed\.Milliseconds\(\),\n\t+\}\n")
+OUT_SUMMARY_WITHHELD = "store.WithheldSummary(withheldRows))"
+OUT_SUMMARY_PLAIN = ("\"errored\":%d,\"duration_ms\":%d}`+\"\\n\",\n\t\t\t\t\ttotalSynced, totalResources, successCount, "
+                     "warnCount, errCount, elapsed.Milliseconds())")
+OUT_STATUS = ("\t\tif completed == checkpoints {\n\t\t\treturn mcpStoreStatusReady, nil\n\t\t}\n"
+              "\t\treturn mcpStoreStatusPartial, nil\n")
+OUT_ENVELOPES = (re.compile(r"return toolResultJSON\((mcpSearchEnvelope\([^\n]*\))\)\n"),
+                 re.compile(r"return toolResultJSON\((mcpSQLEnvelope\([^\n]*\))\)\n"))
+
+
+def outcome_helper(p: Plan) -> str:
+    """The helper, writing through termio or stderrW() on a print whose sync
+    does (a test there refuses a direct terminal write)."""
+    text = render("sync_outcome.go.tmpl", MODULE=p.module)
+    sync = p.read(SYNC_REL) or ""
+    if f'"{p.module}/internal/termio"' not in sync:
+        if "stderrW()" in sync:
+            return text.replace("os.Stderr", "stderrW()").replace('\t"os"\n', "")
+        return text
+    return (text.replace("os.Stderr", "termio.Stderr()").replace('\t"os"\n', "")
+            .replace(f'\t"{p.module}/internal/store"\n', f'\t"{p.module}/internal/store"\n\t"{p.module}/internal/termio"\n'))
+
+
+def r_sync_forbidden(p: Plan, hid: str, entry: dict) -> dict:
+    site, t = "sync-forbidden", tag(hid)
+    s = p.read(SYNC_REL)
+    if s is None or not p.module:
+        p.hand(site, f"{SYNC_REL}: missing, or cli/go.mod names no module, so the skip cannot be recorded")
+        return {}
+    starts = OUT_START.findall(s)
+    flat = [x for x in starts if x[2] == "resource"]
+    if len(flat) != 1 or OUT_FLAT_WARN not in s or not OUT_FIELD.search(s):
+        p.hand(site, f"{SYNC_REL}: {len(flat)} flat attempt start(s) and no recognized access-warning return; "
+                     f"this recipe knows one of each, so wire the skip by hand")
+        return {}
+    test = render_sync_test(p, site, "sync_outcome_test.go.tmpl")
+    if test is None:
+        return {}
+    for rel, want, template, label in (
+            (OUT_HELPER, outcome_helper(p), "sync_outcome.go.tmpl", "sync's per-run outcomes"),
+            (OUT_TEST, test, "sync_outcome_test.go.tmpl", "sync's forbidden-skip test"),
+            (OUT_STORE, render("sync_forbidden_store.go.tmpl"), "sync_forbidden_store.go.tmpl", "the store's forbidden record"),
+            (OUT_MCP, render("sync_coverage_mcp.go.tmpl", MODULE=p.module), "sync_coverage_mcp.go.tmpl", "store_status complete_with_skips"),
+            (OUT_MCP_TEST, render("sync_coverage_mcp_test.go.tmpl", MODULE=p.module), "sync_coverage_mcp_test.go.tmpl", "store_status test")):
+        if not write_template(p, site, rel, want, template, label):
+            return {}
+    p.edit(site, SYNC_REL, "syncResult says what was refused", OUT_FIELD.search(s).group(0),
+           OUT_FIELD.search(s).group(0) + f"\tForbiddenKey     string // {t}: the sync_state key the vendor refused\n",
+           "\tForbiddenKey ")
+    for indent, key, res in starts:
+        clear = f"if err := db.ClearSyncForbidden({key}); err != nil {{"
+        line = re.search(r"(?m)^%sif err := db\.SaveSyncProgress(?:InScope)?\(%s,[^\n]*\n[^\n]*starting attempt" % (indent, re.escape(key)),
+                         p.read(SYNC_REL)).group(0)
+        p.edit(site, SYNC_REL, f"an attempt at {key} starts unrefused", line,
+               f"{indent}{clear} // {t}\n{indent}\treturn syncResult{{Resource: {res}, Err: fmt.Errorf(\"clearing the forbidden "
+               f"mark for %s: %w\", {res}, err), Duration: time.Since(started)}}\n{indent}}}\n{line}", clear)
+        p.pin(hid, SYNC_REL, clear)
+    flat_key = flat[0][1]
+    mark = f"ForbiddenKey: syncForbiddenKey(w, pagesFetched, {flat_key}),"
+    p.edit(site, SYNC_REL, "a flat 403 is recorded as a skip", OUT_FLAT_WARN,
+           OUT_FLAT_WARN.replace("Duration: time.Since(started)}", f"{mark} Duration: time.Since(started)}}"), mark)
+    p.pin(hid, SYNC_REL, mark)
+    obsolete = r_sync_forbidden_dependent(p, hid, entry)
+    note = "resourceOutcomes.note(db, res, c.DryRun)"
+    if not p.present(SYNC_REL, "resourceOutcomes := &syncOutcomes{}"):
+        cur = p.read(SYNC_REL) or ""
+        m = OUT_RESULTS.search(cur)
+        if m is None:
+            p.hand(site, f"{SYNC_REL}: no results loop, so a run's outcomes cannot be collected")
+            return {}
+        p.edit(site, SYNC_REL, "a run collects its outcomes", m.group(0),
+               f"{m.group(1)}resourceOutcomes := &syncOutcomes{{}} // {t}\n{m.group(0)}{m.group(1)}\t{note}\n",
+               "resourceOutcomes := &syncOutcomes{}")
+        m = OUT_DEP_RESULTS.search(p.read(SYNC_REL) or "")
+        if m is not None:
+            p.edit(site, SYNC_REL, "dependent outcomes are collected", m.group(0), f"{m.group(0)}{m.group(1)}\t{note}\n",
+                   "for _, res := range depResults {\n" + m.group(1) + "\t" + note)
+    human = "resourceOutcomes.printHuman()"
+    if not p.present(SYNC_REL, human):
+        m = OUT_TOTALS.search(p.read(SYNC_REL) or "")
+        if m is None:
+            p.hand(site, f"{SYNC_REL}: no run totals, so the human summary cannot name the outcomes")
+        else:
+            p.edit(site, SYNC_REL, "the human summary names the outcomes", m.group(0),
+                   f"{m.group(0)}{m.group(1)}if humanFriendly {{\n{m.group(1)}\t{human}\n{m.group(1)}}}\n", human)
+    summary = "resourceOutcomes.summaryJSON()"
+    if not p.present(SYNC_REL, summary):
+        cur = p.read(SYNC_REL) or ""
+        if OUT_SUMMARY_WITHHELD in cur:
+            p.edit(site, SYNC_REL, "sync_summary names the outcomes", OUT_SUMMARY_WITHHELD,
+                   f"store.WithheldSummary(withheldRows)+{summary})", summary)
+        else:
+            p.edit(site, SYNC_REL, "sync_summary names the outcomes", OUT_SUMMARY_PLAIN,
+                   OUT_SUMMARY_PLAIN.replace('"duration_ms":%d}', '"duration_ms":%d%s}')[:-1] + f", {summary})", summary)
+    add = "resourceOutcomes.addTo(summary)"
+    if not p.present(SYNC_REL, add):
+        m = OUT_MAP_END.search(p.read(SYNC_REL) or "")
+        if m is None:
+            p.hand(site, f"{SYNC_REL}: no machine summary map, so it cannot name the outcomes")
+        else:
+            indent = m.group(1)[:-1]
+            p.edit(site, SYNC_REL, "the machine summary names the outcomes", m.group(0), f"{m.group(0)}{indent}{add}\n", add)
+    p.edit(site, OUT_TOOLS, "store_status settles an incomplete store", OUT_STATUS,
+           OUT_STATUS.replace("\t\treturn mcpStoreStatusPartial, nil\n",
+                              f"\t\treturn mcpIncompleteStoreStatus(db, completed) // {t}\n"),
+           "return mcpIncompleteStoreStatus(db, completed)")
+    for pattern in OUT_ENVELOPES:
+        tools = p.read(OUT_TOOLS) or ""
+        m = pattern.search(tools)
+        if m is None:
+            if "mcpWithSyncCoverage(db, storeStatus, " + pattern.pattern[len(r"return toolResultJSON\(("):].split("\\")[0] not in tools:
+                p.hand(site, f"{OUT_TOOLS}: the envelope {pattern.pattern} is not the shape this recipe knows")
+            continue
+        p.edit(site, OUT_TOOLS, "the envelope names the coverage", m.group(0),
+               f"return toolResultJSON(mcpWithSyncCoverage(db, storeStatus, {m.group(1)}))\n",
+               f"mcpWithSyncCoverage(db, storeStatus, {m.group(1)})")
+    p.add_tests_from(OUT_TEST)
+    p.add_tests_from(OUT_MCP_TEST)
+    p.pin(hid, SYNC_REL, note)
+    p.pin(hid, SYNC_REL, summary)
+    p.pin(hid, OUT_TOOLS, "return mcpIncompleteStoreStatus(db, completed)")
+    p.pin(hid, OUT_TOOLS, "mcpWithSyncCoverage(db, storeStatus, ")
+    p.pin(hid, OUT_STORE, "func (s *Store) MarkSyncForbidden(stateKey string) error {")
+    p.pin(hid, OUT_MCP, 'const mcpStoreStatusCompleteWithSkips mcpStoreStatusKind = "complete_with_skips"')
+    p.pin(hid, OUT_MCP_TEST, "func TestStoreStatusSeparatesForbiddenFromBroken(t *testing.T) {")
+    return obsolete
+
+
+def r_sync_forbidden_dependent(p: Plan, hid: str, entry: dict) -> dict:
+    """A dependent is a forbidden skip only when EVERY parent was refused
+    outright (a 403 before any page). A 400, 401, 404, 429 or a 403 after a
+    page on any parent keeps it partial, whichever parent reports first: the
+    skip used to follow the first denial drained (Codex syncfix r1 P1). Also a
+    shape check, so a print carrying the first-denial gate is upgraded."""
+    site, t = "sync-forbidden", tag(hid)
+    s = p.read(SYNC_REL) or ""
+    if not any(x in s for x in (OUT_DEP_WARN, OUT_DEP_OLD_MARK, OUT_DEP_MARK)):
+        return {}  # no dependent access skip in this print
+    m, w, c = OUT_DEP_FIELD.search(s), OUT_DEP_WORKER.search(s), OUT_DEP_COUNT.search(s)
+    if not (m and w and c and "\tvar deniedParents int\n" in s and OUT_DEP_IF in s):
+        p.hand(site, f"{SYNC_REL}: the dependent's denial bookkeeping is not the shape this recipe knows, so gate "
+                     f"its forbidden skip on every parent's outright 403 by hand")
+        return {}
+    test = render(OUT_DEP_TEST.rsplit("/", 1)[1] + ".tmpl", MODULE=p.module)
+    args = sync_resource_args(p, DEP_SIG)
+    parents = re.search(r"parentRows, err := dependentParentRows\(db, ([^,]+), ", s)
+    if args is None or parents is None:
+        p.hand(site, f"{SYNC_REL}: syncDependentResource has a signature or parent lookup this recipe cannot call")
+        return {}
+    test = DEP_ARGS_CALL.sub(lambda x: args.replace("EVENTS", x.group(1)), test).replace("PARENT_PARTITION", parents.group(1))
+    if not write_template(p, site, OUT_DEP_TEST, test, "sync_forbidden_dependent_test.go.tmpl",
+                          "the dependent forbidden-skip test"):
+        return {}
+    pad = m.group(1) + " " * 4
+    p.edit(site, SYNC_REL, "a parent says whether it was refused outright", m.group(0),
+           f"{m.group(0)}\trefused{pad}bool // {t}: an outright 403 before any page\n", "\trefused ")
+    worker = 'rep.refused = syncForbiddenKey(w, pagesFetched, dep.Name) != ""'
+    p.edit(site, SYNC_REL, "a parent records an outright refusal", w.group(0), f"{w.group(0)}{w.group(1)}{worker}\n", worker)
+    decl = "\tvar refusedParents int"
+    p.edit(site, SYNC_REL, "the dependent counts outright refusals", "\tvar deniedParents int\n",
+           f"\tvar deniedParents int\n\tvar refusedParents int // {t}: parents refused outright (parentReport.refused)\n", decl)
+    count = OUT_DEP_COUNT.search(p.read(SYNC_REL) or "")
+    i = count.group(1)
+    p.edit(site, SYNC_REL, "an outright refusal is counted", count.group(0),
+           f"{count.group(0)}{i}if rep.refused {{\n{i}\trefusedParents++\n{i}}}\n", "refusedParents++")
+    gate = "dependentForbiddenKey = syncForbiddenKey(firstDenial, 0, dep.Name)"
+    p.edit(site, SYNC_REL, "the dependent skip needs every parent refused", OUT_DEP_IF,
+           f"\t// {t}: a skip only when every parent was refused outright; any other\n"
+           f"\t// denial on any parent keeps the dependent partial, in either order.\n"
+           f"\tdependentForbiddenKey := \"\"\n\tif refusedParents == len(parentRows) {{\n\t\t{gate}\n\t}}\n{OUT_DEP_IF}", gate)
+    cur = p.read(SYNC_REL) or ""
+    if OUT_DEP_OLD_MARK in cur:
+        p.edit(site, SYNC_REL, "the dependent skip follows every parent", OUT_DEP_OLD_MARK, OUT_DEP_MARK, OUT_DEP_MARK)
+    else:
+        p.edit(site, SYNC_REL, "a dependent refused on every parent is recorded as a skip", OUT_DEP_WARN,
+               OUT_DEP_WARN + f"\t\t\t{OUT_DEP_MARK}\n", OUT_DEP_MARK)
+    p.add_tests_from(OUT_DEP_TEST)
+    for needle in (worker, "refusedParents++", "if refusedParents == len(parentRows) {", gate, OUT_DEP_MARK):
+        p.pin(hid, SYNC_REL, needle)
+    p.pin(hid, OUT_DEP_TEST, "func TestSyncDependentSkipNeedsEveryParentRefused(t *testing.T) {")
+    return {OUT_DEP_OLD_MARK: "the dependent skip now needs every parent refused outright (refusedParents), not the first denial"}
+
+
 RECIPES = {
     "derive-lock-canonical": r_derive_lock,
     "token-host-compare": r_token_host,
@@ -1611,11 +1998,15 @@ RECIPES = {
     "sync-event-writer-serialized": r_sync_event_writer,
     "withheld-rows": r_withheld_rows,
     "limiter-paced": r_limiter_paced,
+    "sync-measured-rate": r_sync_measured_rate,
+    "sync-forbidden": r_sync_forbidden,
+    "sync-progress-throttled": r_sync_progress_throttled,
 }
 
 # Recipes that are run even when their entry's markers all hold: they check
 # the shape around the markers and change nothing where it is right.
-SHAPE_CHECKED = {"sync-event-writer-serialized": r_sync_event_writer}
+SHAPE_CHECKED = {"sync-event-writer-serialized": r_sync_event_writer,
+                 "sync-forbidden": r_sync_forbidden_dependent}
 
 
 # --------------------------------------------------------------------------- #
@@ -1789,7 +2180,18 @@ def plan_connector(root: Path, slug: str, base: str, registry: dict) -> Plan:
                 # Markers can hold while the code around them is wrong (a
                 # second assignment after the wrap), so this recipe checks its
                 # shape on every run; it writes nothing where it is applied.
-                SHAPE_CHECKED[r["recipe"]](p, hid, e)
+                # Its edits are pinned like a recipe's, and an assert it made
+                # obsolete is dropped once it no longer holds.
+                obsolete = SHAPE_CHECKED[r["recipe"]](p, hid, e) or {}
+                kept = [a for a in e.get("asserts", []) if not (failing_asserts(p, [a]) and any(
+                    k in (a.get("contains") or a.get("not_contains") or "") for k in obsolete))]
+                have = {json.dumps(a, sort_keys=True) for a in kept}
+                for a in p.pins.get(hid, []):
+                    if json.dumps(a, sort_keys=True) not in have and not failing_asserts(p, [a]):
+                        kept.append(a)
+                        have.add(json.dumps(a, sort_keys=True))
+                if kept != e.get("asserts"):
+                    e = dict(e, asserts=kept)
             if not failing_asserts(p, e.get("asserts", [])):
                 for a in e.get("asserts", []):
                     if p.exists(a.get("file", "")):

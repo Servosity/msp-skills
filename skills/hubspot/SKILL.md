@@ -333,6 +333,8 @@ Use hubspot-cli whenever an agent or human needs Sales Hub data without paying f
 
 **hubspot-lists-crm**  -  Manage hubspot lists crm
 
+`sync` stores no HubSpot lists. HubSpot has no GET that returns every list: `GET /crm/v3/lists` returns only the list IDs you name (none named, none returned), `GET /crm/v3/lists/folders` returns one folder, and `GET /crm/v3/lists/idmapping` translates one legacy list ID. To read your lists, call `hubspot-cli hubspot-lists-crm post-v3-lists-search-v3-lists-search` live.
+
 - `hubspot-cli hubspot-lists-crm delete-v3-lists-folders-folder-id-v3-lists-folders-folder-id`  -  Delete v3 lists folders folder id v3 lists folders folder id
 - `hubspot-cli hubspot-lists-crm delete-v3-lists-list-id-memberships-v3-lists-list-id-memberships`  -  Delete v3 lists list id memberships v3 lists list id memberships
 - `hubspot-cli hubspot-lists-crm delete-v3-lists-list-id-schedule-conversion-v3-lists-list-id-schedule-conversion`  -  Delete v3 lists list id schedule conversion v3 lists list id schedule conversion

@@ -43,6 +43,7 @@ type syncResult struct {
 	Count            int
 	Err              error
 	Warn             error
+	ForbiddenKey     string // Hand-fix (handfixes.json sync-forbidden-not-partial): the sync_state key the vendor refused
 	IntegrityFailure bool
 	Duration         time.Duration
 }
@@ -280,7 +281,9 @@ Resource scoping:
 			var criticalFailedResources []string
 			var firstErr error
 			var firstPlaceholderErr error
+			resourceOutcomes := &syncOutcomes{} // Hand-fix (handfixes.json sync-forbidden-not-partial)
 			for res := range results {
+				resourceOutcomes.note(db, res, c.DryRun)
 				if res.Err != nil {
 					if humanFriendly {
 						fmt.Fprintf(os.Stderr, "  %s: error: %v\n", res.Resource, res.Err)
@@ -315,6 +318,9 @@ Resource scoping:
 			elapsed := time.Since(started)
 			totalResources := successCount + warnCount + errCount
 			if humanFriendly {
+				resourceOutcomes.printHuman()
+			}
+			if humanFriendly {
 				if warnCount > 0 {
 					fmt.Fprintf(os.Stderr, "Sync complete: %d records across %d resources (%d warned, %.1fs)\n",
 						totalSynced, totalResources, warnCount, elapsed.Seconds())
@@ -323,8 +329,8 @@ Resource scoping:
 						totalSynced, totalResources, elapsed.Seconds())
 				}
 			} else {
-				fmt.Fprintf(syncEventWriter, `{"event":"sync_summary","total_records":%d,"resources":%d,"success":%d,"warned":%d,"errored":%d,"duration_ms":%d}`+"\n",
-					totalSynced, totalResources, successCount, warnCount, errCount, elapsed.Milliseconds())
+				fmt.Fprintf(syncEventWriter, `{"event":"sync_summary","total_records":%d,"resources":%d,"success":%d,"warned":%d,"errored":%d,"duration_ms":%d%s}`+"\n",
+					totalSynced, totalResources, successCount, warnCount, errCount, elapsed.Milliseconds(), resourceOutcomes.summaryJSON())
 			}
 
 			// Lookup refresh (learn loop): derive entity_lookups rows under
@@ -382,6 +388,7 @@ Resource scoping:
 					"errored":       errCount,
 					"duration_ms":   elapsed.Milliseconds(),
 				}
+				resourceOutcomes.addTo(summary)
 				// The dry-run walk already produced this preview. Stamp the
 				// envelope marker on it instead of replacing the summary.
 				if c.DryRun {
@@ -532,11 +539,16 @@ func syncResource(ctx context.Context, c interface {
 			return syncResult{Resource: resource, Err: stateErr, Duration: time.Since(started)}
 		}
 		existingCount = bindCount
+		if err := db.ClearSyncForbidden(resource); err != nil { // Hand-fix (handfixes.json sync-forbidden-not-partial)
+			return syncResult{Resource: resource, Err: fmt.Errorf("clearing the forbidden mark for %s: %w", resource, err), Duration: time.Since(started)}
+		}
 		if err := db.SaveSyncProgressInScope(resource, scopeKey, persistedCursor, existingCount); err != nil {
 			return syncResult{Resource: resource, Err: fmt.Errorf("saving sync progress for %s: starting attempt: %w", resource, err), Duration: time.Since(started)}
 		}
 	}
 	var progressCount int64
+	var lastProgressAt time.Time              // Hand-fix (handfixes.json sync-progress-throttled)
+	syncRate := newSyncThroughput(time.Now()) // Hand-fix (handfixes.json sync-progress-measured-rate)
 	pagesFetched := 0
 	lastNextCursor := ""
 	var previousPageItems []json.RawMessage
@@ -601,7 +613,7 @@ func syncResource(ctx context.Context, c interface {
 				if !humanFriendly {
 					fmt.Fprintln(syncEvents, syncWarningJSON(resource, "", w.Status, w.Reason, w.Message))
 				}
-				return syncResult{Resource: resource, Count: totalCount, Warn: fmt.Errorf("skipped due to insufficient access: %s (%s)", resource, w.Reason), Duration: time.Since(started)}
+				return syncResult{Resource: resource, Count: totalCount, Warn: fmt.Errorf("skipped due to insufficient access: %s (%s)", resource, w.Reason), ForbiddenKey: syncForbiddenKey(w, pagesFetched, resource), Duration: time.Since(started)}
 			}
 			if !humanFriendly {
 				fmt.Fprintln(syncEvents, syncErrorJSON(resource, "", err))
@@ -804,15 +816,18 @@ func syncResource(ctx context.Context, c interface {
 
 		// Progress reporting (include rate limit info when active)
 		currentRate := c.RateLimit()
-		if humanFriendly {
-			if currentRate > 0 {
-				fmt.Fprintf(os.Stderr, "\r  %s: %d synced [%.1f req/s]", resource, atomic.LoadInt64(&progressCount), currentRate)
+		measuredRate := syncRate.rowsPerSec(time.Now(), atomic.LoadInt64(&progressCount))
+		if !syncProgressDue(&lastProgressAt) { // Hand-fix (handfixes.json sync-progress-throttled)
+			// No line this page: each write costs a full credential check.
+		} else if humanFriendly {
+			if measuredRate > 0 || currentRate > 0 {
+				fmt.Fprintf(os.Stderr, "\r  %s: %d synced %s", resource, atomic.LoadInt64(&progressCount), syncProgressRateText(measuredRate, currentRate))
 			} else {
 				fmt.Fprintf(os.Stderr, "\r  %s: %d synced", resource, atomic.LoadInt64(&progressCount))
 			}
 		} else {
-			if currentRate > 0 {
-				fmt.Fprintf(syncEvents, `{"event":"sync_progress","resource":"%s","fetched":%d,"rate_rps":%.1f}`+"\n", resource, atomic.LoadInt64(&progressCount), currentRate)
+			if measuredRate > 0 || currentRate > 0 {
+				fmt.Fprintf(syncEvents, `{"event":"sync_progress","resource":"%s","fetched":%d%s}`+"\n", resource, atomic.LoadInt64(&progressCount), syncProgressRateJSON(measuredRate, currentRate))
 			} else {
 				fmt.Fprintf(syncEvents, `{"event":"sync_progress","resource":"%s","fetched":%d}`+"\n", resource, atomic.LoadInt64(&progressCount))
 			}

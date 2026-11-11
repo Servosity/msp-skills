@@ -526,9 +526,278 @@ def run(m) -> int:  # m: the replay_handfixes module
             m.resolved_version, m.raise_floor = real
 
     sync_writer_cases(m, expect)
+    sync_honesty_cases(m, expect)
 
     print("PASS: replay_handfixes self-test" if ok else "FAIL: replay_handfixes self-test")
     return 0 if ok else 1
+
+
+# --------------------------------------------------------------------------- #
+# sync-forbidden-not-partial, sync-progress-measured-rate and
+# sync-progress-throttled: adoption, the
+# generated shape, idempotence, fail-closed.
+# --------------------------------------------------------------------------- #
+
+HONEST_SYNC = r"""package cli
+
+import (
+	"acme-pp-cli/internal/store"
+)
+
+type syncResult struct {
+	Resource         string
+	Err              error
+	Warn             error
+	Duration         time.Duration
+}
+
+func newSyncCmd(flags *rootFlags) *cobra.Command {
+	cmd := &cobra.Command{
+		RunE: func(cmd *cobra.Command, args []string) error {
+			for res := range results {
+				_ = res
+			}
+			elapsed := time.Since(started)
+			totalResources := successCount + warnCount + errCount
+			fmt.Fprintf(syncEventWriter, `{"event":"sync_summary","total_records":%d,"resources":%d,"success":%d,"warned":%d,"errored":%d,"duration_ms":%d}`+"\n",
+					totalSynced, totalResources, successCount, warnCount, errCount, elapsed.Milliseconds())
+			if machineFormat {
+				summary := map[string]any{
+					"duration_ms":   elapsed.Milliseconds(),
+				}
+				_ = summary
+			}
+			return nil
+		},
+	}
+	return cmd
+}
+
+func syncResource(ctx context.Context, c interface {
+	Get(context.Context, string, map[string]string) (json.RawMessage, error)
+	RateLimit() float64
+}, db *store.Store, resource, sinceTS string, full bool, maxPages int, latestOnly bool, prune bool, userParams *syncUserParams, syncEvents io.Writer) syncResult {
+	started := time.Now()
+	if err := db.SaveSyncProgressInScope(resource, scopeKey, persistedCursor, existingCount); err != nil {
+		return syncResult{Resource: resource, Err: fmt.Errorf("saving sync progress for %s: starting attempt: %w", resource, err), Duration: time.Since(started)}
+	}
+	var progressCount int64
+	pagesFetched := 0
+	for {
+		if w, ok := isSyncAccessWarning(err); ok {
+			return syncResult{Resource: resource, Count: totalCount, Warn: fmt.Errorf("skipped due to insufficient access: %s (%s)", resource, w.Reason), Duration: time.Since(started)}
+		}
+		currentRate := c.RateLimit()
+		if humanFriendly {
+			if currentRate > 0 {
+				fmt.Fprintf(os.Stderr, "\r  %s: %d synced [%.1f req/s]", resource, atomic.LoadInt64(&progressCount), currentRate)
+			} else {
+				fmt.Fprintf(os.Stderr, "\r  %s: %d synced", resource, atomic.LoadInt64(&progressCount))
+			}
+		} else {
+			if currentRate > 0 {
+				fmt.Fprintf(syncEvents, `{"event":"sync_progress","resource":"%s","fetched":%d,"rate_rps":%.1f}`+"\n", resource, atomic.LoadInt64(&progressCount), currentRate)
+			} else {
+				fmt.Fprintf(syncEvents, `{"event":"sync_progress","resource":"%s","fetched":%d}`+"\n", resource, atomic.LoadInt64(&progressCount))
+			}
+		}
+		pagesFetched++
+	}
+}
+"""
+# The dependent fan-out, as generated: a parent reports its denial and the
+# aggregate decides the skip.
+HONEST_DEP = r"""
+type parentReport struct {
+	denied           bool
+	firstDenial      *accessWarning
+	anomaly          *parentAnomaly // nil unless this parent hit an extraction anomaly
+}
+
+func syncOneParent(ctx context.Context, dep dependentResourceDef) parentReport {
+	var rep parentReport
+	pagesFetched := 0
+	for {
+		data, err := syncGet(ctx, c, dep.Name, dep.ParentTable, path, params)
+		if err != nil {
+			if w, ok := isSyncAccessWarning(err); ok {
+				rep.denied = true
+				rep.firstDenial = w
+			}
+			break
+		}
+		pagesFetched++
+	}
+	return rep
+}
+
+func syncDependentResource(ctx context.Context, c interface {
+	Get(context.Context, string, map[string]string) (json.RawMessage, error)
+	RateLimit() float64
+}, db *store.Store, dep dependentResourceDef, sinceTS string, full bool, maxPages int, latestOnly bool, prune bool, userParams *syncUserParams, syncEvents io.Writer, concurrency int) syncResult {
+	started := time.Now()
+	parentRows, err := dependentParentRows(db, dep.ParentTable, pathParams, parentScopeColumn, tenantUUID)
+	var totalCount int
+	var deniedParents int
+	var firstDenial *accessWarning
+	for rep := range reports {
+		if rep.denied {
+			deniedParents++
+			if firstDenial == nil {
+				firstDenial = rep.firstDenial
+			}
+		}
+	}
+	if deniedParents == len(parentRows) && totalCount == 0 && firstDenial != nil {
+		return syncResult{
+			Resource: dep.Name,
+			Count:    0,
+			Warn:     fmt.Errorf("skipped due to insufficient access: %s (%s on all %d parents)", dep.Name, firstDenial.Reason, len(parentRows)),
+			Duration: time.Since(started),
+		}
+	}
+	return syncResult{Resource: dep.Name, Count: totalCount, Duration: time.Since(started)}
+}
+"""
+HONEST_TOOLS = """package mcp
+
+func mcpStoreStatus(db *store.Store) (mcpStoreStatusKind, error) {
+	if checkpoints > 0 {
+		if completed == checkpoints {
+			return mcpStoreStatusReady, nil
+		}
+		return mcpStoreStatusPartial, nil
+	}
+	return mcpStoreStatusEmpty, nil
+}
+
+func handleSearch() {
+	return toolResultJSON(mcpSearchEnvelope(results, storeStatus, limitCapped))
+}
+
+func handleSQL() {
+	return toolResultJSON(mcpSQLEnvelope(scan.Rows, cols, storeStatus, scan.Truncated))
+}
+"""
+
+
+def sync_honesty_cases(m, expect) -> None:
+    ids = ("sync-forbidden-not-partial", "sync-progress-measured-rate", "sync-progress-throttled")
+    reg_all = json.loads((HERE / "fleet_handfixes.json").read_text(encoding="utf-8"))["handfixes"]
+    reg = {"handfixes": {h: reg_all[h] for h in ids}}
+    with tempfile.TemporaryDirectory(prefix="replay-sync-honesty-") as td:
+        root = Path(td)
+        tools = root / "tools" / "maintainer"
+        tools.mkdir(parents=True)
+        shutil.copyfile(HERE / "check_handfixes.py", tools / "check_handfixes.py")
+        (tools / "fleet_handfixes.json").write_text(json.dumps(reg), encoding="utf-8")
+        sink: list[str] = []
+
+        def prove(r, slug, full, p, pkgs):
+            return m.run_proofs(r, slug, False, p, pkgs)  # the REAL ledger check
+
+        def connector(sync_text: str, tools_text: str = HONEST_TOOLS) -> Path:
+            skill = root / "skills" / "acme"
+            if skill.exists():
+                shutil.rmtree(skill)
+            w(skill / m.SYNC_REL, GEN + sync_text)
+            w(skill / m.OUT_TOOLS, GEN + tools_text)
+            w(skill / "cli/go.mod", "module acme-pp-cli\n\ngo 1.24\n")
+            return skill
+
+        def apply(check: bool = False) -> int:
+            sink.clear()
+            return m.run_slug(root, "acme", check=check, out=sink.append, prove=prove, registry=reg)
+
+        def hands(site: str) -> bool:
+            return any(f"NEEDS HAND WIRING [{site}]" in x for x in sink)
+
+        skill = connector(HONEST_SYNC)
+        expect(apply(check=True) == 1 and all(any("adopt [" + h in x for x in sink) for h in ids)
+               and "resourceOutcomes" not in (skill / m.SYNC_REL).read_text(),
+               "sync honesty: --check names both adoptions and writes nothing")
+        rc = apply()
+        text = (skill / m.SYNC_REL).read_text()
+        tools_text = (skill / m.OUT_TOOLS).read_text()
+        expect(rc == 0 and text.count("db.ClearSyncForbidden(resource)") == 1 and "syncForbiddenKey(w, pagesFetched, resource)" in text
+               and "resourceOutcomes.note(db, res, c.DryRun)" in text and "resourceOutcomes.summaryJSON()" in text
+               and "resourceOutcomes.addTo(summary)" in text and "resourceOutcomes.printHuman()" in text,
+               "sync-forbidden wires the mark, the clear, the results loop and every summary: "
+               + " | ".join(x for x in sink if "NEEDS" in x or "PROOF" in x or "FAIL" in x)[:500])
+        expect("syncProgressRateJSON(measuredRate, currentRate)" in text and "syncProgressRateText(measuredRate, currentRate)" in text
+               and '"rate_rps":%.1f' not in text and text.count("if measuredRate > 0 || currentRate > 0 {") == 2,
+               "sync-measured-rate replaces the ceiling with the measured rate on both lines")
+        expect(text.count("if !syncProgressDue(&lastProgressAt) {") == 1 and text.count("var lastProgressAt time.Time") == 1
+               and text.index("if !syncProgressDue(&lastProgressAt) {") < text.index("syncProgressRateText(measuredRate, currentRate)")
+               and (skill / m.THROTTLE_HELPER).is_file() and (skill / m.THROTTLE_TEST).is_file(),
+               "sync-progress-throttled guards the per-page progress block once, ahead of both lines")
+        expect("return mcpIncompleteStoreStatus(db, completed)" in tools_text and tools_text.count("mcpWithSyncCoverage(db, storeStatus, ") == 2,
+               "store_status settles through the coverage check and both envelopes name it")
+        led = json.loads((skill / "handfixes.json").read_text())
+        expect({e["id"] for e in led["handfixes"]} == set(ids) and all(e["asserts"] for e in led["handfixes"]),
+               "both entries land in the ledger with their asserts")
+        before = {q: q.read_bytes() for q in skill.rglob("*") if q.is_file()}
+        expect(apply() == 0 and {q: q.read_bytes() for q in skill.rglob("*") if q.is_file()} == before,
+               "sync honesty: a second run changes nothing")
+
+        connector(HONEST_SYNC.replace("for res := range results {", "for _, res := range collected {"))
+        expect(apply() == 1 and hands("sync-forbidden"), "a run with no results loop is named, not half-wired")
+        connector(HONEST_SYNC.replace("[%.1f req/s]", "[%.1f rps]"))
+        expect(apply() == 1 and hands("sync-measured-rate"), "an unknown human progress line is named")
+        connector(HONEST_SYNC.replace("currentRate := c.RateLimit()\n\t\tif humanFriendly {", "currentRate := c.RateLimit()\n\t\tif !quiet && humanFriendly {"))
+        expect(apply() == 1 and hands("sync-progress-throttled"), "an unknown progress block is named, not left unthrottled")
+        connector(HONEST_SYNC.replace("skipped due to insufficient access", "no access"))
+        expect(apply() == 1 and hands("sync-forbidden"), "an unknown access-warning return is named")
+        connector(HONEST_SYNC, HONEST_TOOLS.replace("mcpSQLEnvelope(", "mcpQueryEnvelope("))
+        expect(apply() == 1 and hands("sync-forbidden"), "an unknown envelope is named")
+
+        # The dependent skip (Codex syncfix r1 P1): only when every parent was
+        # refused outright, never from the first denial drained.
+        dep_pins = ('rep.refused = syncForbiddenKey(w, pagesFetched, dep.Name) != ""', "refusedParents++",
+                    "if refusedParents == len(parentRows) {", "dependentForbiddenKey = syncForbiddenKey(firstDenial, 0, dep.Name)",
+                    m.OUT_DEP_MARK)
+        skill = connector(HONEST_SYNC + HONEST_DEP)
+        rc = apply()
+        fresh = (skill / m.SYNC_REL).read_text()
+        led = json.loads((skill / "handfixes.json").read_text())
+        needles = {a.get("contains") for e in led["handfixes"] for a in e["asserts"]}
+        expect(rc == 0 and all(fresh.count(x) == 1 for x in dep_pins) and m.OUT_DEP_OLD_MARK not in fresh
+               and "\trefused " in fresh and (skill / m.OUT_DEP_TEST).is_file()
+               and "syncDependentResource(context.Background(), fake, db, dep, " in (skill / m.OUT_DEP_TEST).read_text()
+               and set(dep_pins) <= needles,
+               "the dependent skip needs every parent refused outright, with its test and asserts: "
+               + " | ".join(x for x in sink if "NEEDS" in x or "PROOF" in x or "FAIL" in x)[:500])
+        # A print that carries the first-denial gate is upgraded by the shape
+        # check to exactly the fresh shape, and its ledger follows.
+        head = fresh[:fresh.index("\ntype parentReport struct {")]
+        old_dep = HONEST_DEP.replace("\t\t\tDuration: time.Since(started),\n\t\t}\n\t}",
+                                     "\t\t\t" + m.OUT_DEP_OLD_MARK + "\n\t\t\tDuration: time.Since(started),\n\t\t}\n\t}")
+        (skill / m.SYNC_REL).write_text(head + old_dep)
+        (skill / m.OUT_DEP_TEST).unlink()
+        for e in led["handfixes"]:
+            if e["id"] == "sync-forbidden-not-partial":
+                e["asserts"] = [a for a in e["asserts"] if a.get("contains") not in dep_pins and a.get("file") != m.OUT_DEP_TEST]
+                e["asserts"].append({"file": m.SYNC_REL, "contains": m.OUT_DEP_OLD_MARK, "min_count": 1, "code_only": True})
+        (skill / "handfixes.json").write_text(json.dumps(led, indent=1) + "\n")
+        rc = apply()
+        needles = {a.get("contains") for e in json.loads((skill / "handfixes.json").read_text())["handfixes"] for a in e["asserts"]}
+        expect(rc == 0 and (skill / m.SYNC_REL).read_text() == fresh and (skill / m.OUT_DEP_TEST).is_file()
+               and set(dep_pins) <= needles and m.OUT_DEP_OLD_MARK not in needles,
+               "a print carrying the first-denial gate is upgraded to the fresh shape and its ledger follows: "
+               + " | ".join(x for x in sink if "NEEDS" in x or "PROOF" in x or "FAIL" in x)[:500])
+        before = {q: q.read_bytes() for q in skill.rglob("*") if q.is_file()}
+        expect(apply() == 0 and {q: q.read_bytes() for q in skill.rglob("*") if q.is_file()} == before,
+               "the dependent gate: a second run changes nothing")
+        connector(HONEST_SYNC + HONEST_DEP.replace("\t\t\tdeniedParents++\n", "\t\t\tdeniedParents += 1\n"))
+        expect(apply() == 1 and hands("sync-forbidden"), "an unknown dependent denial count is named, not left on the first denial")
+
+        termio = HONEST_SYNC.replace('\t"acme-pp-cli/internal/store"\n', '\t"acme-pp-cli/internal/store"\n\t"acme-pp-cli/internal/termio"\n')
+        skill = connector(termio)
+        rc = apply()
+        helper = (skill / m.OUT_HELPER).read_text()
+        expect(rc == 0 and "termio.Stderr()" in helper and "os.Stderr" not in helper and '"os"' not in helper
+               and '"acme-pp-cli/internal/termio"' in helper,
+               "a print that writes through termio gets a helper that does too")
 
 
 # --------------------------------------------------------------------------- #

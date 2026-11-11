@@ -376,6 +376,111 @@
    "proof": "cliutil TestAdaptiveLimiter_RampsUpAfterSuccesses (extended): 50 successes with no Wait pacing leave the rate at 2; fails without the guard (ramped to 6.1), passes with it, on hubspot and zammad.",
    "gates": [],
    "upstream": "none filed yet: the press template's blind ramp has no ceiling (synccpu report)"
+  },
+  "sync-progress-measured-rate": {
+   "verdict": "replay",
+   "recipe": "sync-measured-rate",
+   "reason": "Press 4.35.1's sync prints c.RateLimit(), the adaptive limiter's current ceiling, as sync_progress rate_rps and as [x req/s] on the human line. That is the most the limiter would allow, not what the sync did: mcp2 read 4.9 while storing about 33 rows a second (#694). The recipe measures the rows the walk stored over a recent 30 s window, reports it as rows_per_sec, keeps rate_rps as the same measured value, and names the ceiling limiter_ceiling_rps.",
+   "proof": "TestSyncProgressReportsMeasuredRowsNotTheLimiter walks real resources against a fake client whose limiter reads 4.9 and fails on the old event (no rows_per_sec) and when the helper is handed the ceiling; syncfix report has the before and after on real binaries.",
+   "adopt": {
+    "file": "cli/internal/cli/sync.go",
+    "contains": "\"rate_rps\":%.1f}",
+    "entry": {
+     "class": "sync-progress-honesty",
+     "summary": "sync_progress reports measured rows per second (rows_per_sec, and rate_rps as the same value); the limiter's ceiling is limiter_ceiling_rps.",
+     "why": "The generated sync printed the adaptive limiter's ceiling as rate_rps and as req/s on the human line, so 4.9 was reported while the sync stored 33 rows a second (#694). A reprint regenerates sync.go and brings it back; tools/maintainer/replay_handfixes.py re-applies it (fleet_handfixes.json sync-progress-measured-rate).",
+     "status": "active",
+     "spec_encode_followup": "Press-side: the sync template should report a measured rate and name the limiter's ceiling separately (not filed yet).",
+     "asserts": [
+      {
+       "file": "cli/internal/cli/sync_throughput.go",
+       "contains": "func (t *syncThroughput) rowsPerSec(now time.Time, rows int64) float64 {",
+       "min_count": 1,
+       "code_only": true
+      },
+      {
+       "file": "cli/internal/cli/sync.go",
+       "contains": "syncProgressRateJSON(measuredRate, currentRate)",
+       "min_count": 1,
+       "code_only": true
+      }
+     ]
+    }
+   },
+   "gates": [],
+   "upstream": "none filed yet: the press template reports the limiter ceiling as a rate (#694)"
+  },
+  "sync-forbidden-not-partial": {
+   "verdict": "replay",
+   "recipe": "sync-forbidden",
+   "reason": "Press 4.35.1's sync leaves a resource the vendor refuses (HTTP 403) at last_attempt_complete = 0, and mcpStoreStatus calls any such row partial, so store_status can never leave partial on a token with a narrower scope (#692: zammad overviews and tags, hubspot imports). The recipe records the refusal in its own table, clears it as each attempt starts, and reports complete_with_skips only when every other resource finished. last_attempt_complete keeps its 0 and 1 meaning, because hand-written commands read it that way.",
+   "proof": "TestSyncForbiddenResourceIsSkippedThenReattempted and TestStoreStatusSeparatesForbiddenFromBroken in every carrier; both fail if the mark or the attempt-start clear is removed. syncfix report has the before and after on real binaries.",
+   "adopt": {
+    "file": "cli/internal/cli/sync.go",
+    "contains": "saving sync progress for %s: starting attempt",
+    "entry": {
+     "class": "sync-store-honesty",
+     "summary": "a resource the vendor refuses this token (HTTP 403) is recorded as skipped and no longer holds store_status at partial; a resource that errored stays partial and is named.",
+     "why": "A 403 resource never completes, so its sync_state row stayed at 0 and store_status read partial for good after a clean exit 0 (#692). store_status now says complete_with_skips only when every other resource finished, and search, sql and sync_summary name what was skipped or failed. A reprint regenerates sync.go and mcp/tools.go and drops this; tools/maintainer/replay_handfixes.py re-applies it (fleet_handfixes.json sync-forbidden-not-partial).",
+     "status": "active",
+     "spec_encode_followup": "Press-side: sync should record a resource the vendor refuses separately from one that failed (not filed yet).",
+     "asserts": [
+      {
+       "file": "cli/internal/store/sync_forbidden.go",
+       "contains": "func (s *Store) SyncCoverage() (SyncCoverage, error) {",
+       "min_count": 1,
+       "code_only": true
+      },
+      {
+       "file": "cli/internal/cli/sync.go",
+       "contains": "resourceOutcomes := &syncOutcomes{}",
+       "min_count": 1,
+       "code_only": true
+      }
+     ]
+    }
+   },
+   "gates": [],
+   "keep_manual": {
+    "superops": "sync walks GraphQL pages through c.Query in its own syncResource, with no machine summary map: the mark, the attempt-start clear and the results loop are wired by hand; superops_sync_forbidden_test.go asserts the contract."
+   },
+   "upstream": "none filed yet: the press sync has no notion of a resource the token may not read (#692)"
+  },
+  "sync-progress-throttled": {
+   "verdict": "replay",
+   "recipe": "sync-progress-throttled",
+   "reason": "Press 4.35.1's sync writes one sync_progress line per page, and every write to stdout or stderr costs a full credential check of the write plus the stream's tail, whatever its size. At HubSpot's 10 rows a page and the 3.3 pages a second seen on mcp2, that check was 74% of sync's CPU on linux/arm64 (#696, syncprobe report). The recipe lets each resource's walk write its first page's line and then at most one every 5 seconds; the line still carries the measured rate, and sync_complete and the human done line keep the final count. Every line written is still checked.",
+   "proof": "TestSyncWritesProgressAtMostOncePerInterval walks a default resource that reads three pages from a fake and fails when more than the first page's line is written inside one interval, or when sync_complete loses the final count; TestSyncProgressDueOncePerInterval fails on a guard that never records the interval, never reports, or compares the wrong way. syncfix report (syncfix2) has the CPU before and after on hubspot and zammad.",
+   "adopt": {
+    "file": "cli/internal/cli/sync.go",
+    "contains": "{\"event\":\"sync_progress\",\"resource\":\"%s\",\"fetched\":%d",
+    "entry": {
+     "class": "sync-progress-cost",
+     "summary": "sync writes at most one sync_progress line per resource every 5 seconds (the first page always reports; sync_complete carries the final count), instead of one per page.",
+     "why": "Every write to stdout or stderr costs a full credential check whatever its size, and sync wrote one progress line per page: 74% of hubspot sync's CPU at a real server's pace (#696). A reprint regenerates sync.go with one line per page; tools/maintainer/replay_handfixes.py re-applies the guard (fleet_handfixes.json sync-progress-throttled).",
+     "status": "active",
+     "spec_encode_followup": "Press-side: the sync template's per-page progress line should be throttled, as its dependent walk already is (not filed yet).",
+     "asserts": [
+      {
+       "file": "cli/internal/cli/sync_progress_throttle.go",
+       "contains": "func syncProgressDue(last *time.Time) bool {",
+       "min_count": 1,
+       "code_only": true
+      },
+      {
+       "file": "cli/internal/cli/sync.go",
+       "contains": "if !syncProgressDue(&lastProgressAt) {",
+       "min_count": 1,
+       "code_only": true
+      }
+     ]
+    }
+   },
+   "gates": [],
+   "keep_manual": {
+    "superops": "sync walks GraphQL pages through c.Query in its own syncResource and writes its progress line to stderr itself: the throttle is wired by hand; superops_sync_progress_test.go asserts it."
+   },
+   "upstream": "none filed yet: the press template's per-page progress line is unthrottled (#696)"
   }
  },
  "floors": [

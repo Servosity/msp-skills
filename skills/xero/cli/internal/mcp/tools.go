@@ -1760,7 +1760,7 @@ func mcpStoreStatus(db *store.Store) (mcpStoreStatusKind, error) {
 		if completed == checkpoints {
 			return mcpStoreStatusReady, nil
 		}
-		return mcpStoreStatusPartial, nil
+		return mcpIncompleteStoreStatus(db, completed) // Hand-fix (handfixes.json sync-forbidden-not-partial)
 	}
 	if len(status) > 0 {
 		return mcpStoreStatusReady, nil
@@ -1818,7 +1818,7 @@ func handleSearch(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.Call
 		return mcplib.NewToolResultError(fmt.Sprintf("reading store status: %v", err)), nil
 	}
 
-	return toolResultJSON(mcpSearchEnvelope(results, storeStatus, limitCapped))
+	return toolResultJSON(mcpWithSyncCoverage(db, storeStatus, mcpSearchEnvelope(results, storeStatus, limitCapped)))
 }
 
 func mcpSearchEnvelope(results []json.RawMessage, storeStatus mcpStoreStatusKind, limitCapped bool) map[string]any {
@@ -2070,7 +2070,7 @@ func handleSQL(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.CallToo
 		return mcplib.NewToolResultError(fmt.Sprintf("reading store status: %v", err)), nil
 	}
 
-	return toolResultJSON(mcpSQLEnvelope(scan.Rows, cols, storeStatus, scan.Truncated))
+	return toolResultJSON(mcpWithSyncCoverage(db, storeStatus, mcpSQLEnvelope(scan.Rows, cols, storeStatus, scan.Truncated)))
 }
 
 func mcpSQLEnvelope(rows []map[string]any, columns []string, storeStatus mcpStoreStatusKind, truncated bool) map[string]any {
