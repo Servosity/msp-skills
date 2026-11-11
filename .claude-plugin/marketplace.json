@@ -324,7 +324,7 @@
       "name": "crowdstrike",
       "source": "./skills/crowdstrike",
       "description": "Every CrowdStrike Falcon MSP operation, plus a Flight-Control-aware local store that answers fleet-wide questions across all your tenants at once \u2014 something no other Falcon tool (including the official MCP server) does.",
-      "version": "0.1.13",
+      "version": "0.1.14",
       "category": "security",
       "tags": [
         "crowdstrike",
@@ -339,7 +339,7 @@
       "name": "datagate",
       "source": "./skills/datagate",
       "description": "Every DataGate telecom billing API resource, plus a local SQLite store and offline search the API can't return in one call.",
-      "version": "0.1.6",
+      "version": "0.1.7",
       "category": "billing",
       "tags": [
         "datagate",
@@ -354,7 +354,7 @@
       "name": "datto-bcdr",
       "source": "./skills/datto-bcdr",
       "description": "Sync your whole Datto BCDR fleet into local SQLite and answer the questions the per-appliance Partner Portal can't: which backups failed screenshot verification, which are stale, and which clients are at risk.",
-      "version": "0.1.11",
+      "version": "0.1.12",
       "category": "backup-dr",
       "tags": [
         "datto-bcdr",
@@ -370,7 +370,7 @@
       "name": "datto-rmm",
       "source": "./skills/datto-rmm",
       "description": "Every Datto RMM API operation, plus a local SQLite fleet store and fleet-wide analytics no other Datto tool has.",
-      "version": "0.1.13",
+      "version": "0.1.14",
       "category": "rmm",
       "tags": [
         "datto-rmm",
@@ -386,7 +386,7 @@
       "name": "domotz",
       "source": "./skills/domotz",
       "description": "Every Domotz endpoint, plus a local SQLite fleet mirror that answers cross-site questions.",
-      "version": "0.1.10",
+      "version": "0.1.11",
       "category": "network-monitoring",
       "tags": [
         "domotz",
@@ -1111,7 +1111,7 @@
       "name": "fortinet",
       "source": "./skills/fortinet",
       "description": "Read every FortiGate's configuration and live state, then audit the whole client fleet for firmware, SSL-VPN exposure, admin accounts and licence expiry in one command.",
-      "version": "0.1.7",
+      "version": "0.1.8",
       "category": "security",
       "tags": [
         "fortinet",
@@ -1453,7 +1453,7 @@
       "name": "exchange-online",
       "source": "./skills/exchange-online",
       "description": "Exchange Online admin for MSPs over REST: forwarding audits, EWS posture, offboarding and quarantine across client tenants, no PowerShell session.",
-      "version": "0.1.3",
+      "version": "0.1.4",
       "category": "security",
       "tags": [
         "exchange-online",
@@ -1469,7 +1469,7 @@
       "name": "dnsfilter",
       "source": "./skills/dnsfilter",
       "description": "Every DNSFilter API operation, plus one-command answers to 'why is this site blocked for this client' and 'which clients are behind on the roaming agent'.",
-      "version": "0.1.3",
+      "version": "0.1.4",
       "category": "security",
       "tags": [
         "dnsfilter",
@@ -1547,7 +1547,7 @@
       "name": "dropsuite",
       "source": "./skills/dropsuite",
       "description": "Every Dropsuite (NinjaOne SaaS Backup) read, plus fleet-wide backup health, coverage gaps and billing reconciliation from one reseller credential.",
-      "version": "0.1.2",
+      "version": "0.1.3",
       "category": "backup-dr",
       "tags": [
         "dropsuite",
@@ -1657,7 +1657,7 @@
       "name": "domain-cert-tracker",
       "source": "./skills/domain-cert-tracker",
       "description": "Every client's domains and certificates in one inventory: what expires, unlocks or changes.",
-      "version": "0.1.2",
+      "version": "0.1.3",
       "category": "monitoring",
       "tags": [
         "domain-cert-tracker",
