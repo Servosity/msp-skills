@@ -1658,8 +1658,8 @@
       "tagline": "Audit autoscale, sweep idle session hosts, and reconcile per-customer billing across every Nerdio Manager account from your terminal.",
       "cli_hash": "sha256:9f1be269f20741bc11e9c7cdbc34709a2cacde542f5488dab22ba9d212b0002b",
       "template_version": 3,
-      "version": "0.1.11",
-      "cli_hash_at_release": "sha256:d93a7802f6a6400c02cf5e938ceb292ed82b8aabea5d79ec9433f56a6f77232a",
+      "version": "0.1.12",
+      "cli_hash_at_release": "sha256:ac7b5462558b17678c9350cc16d553ed89c28d9a3c0510fb78105130e2516ae3",
       "has_video": true,
       "live_verified": {
         "status": "live-verified",
