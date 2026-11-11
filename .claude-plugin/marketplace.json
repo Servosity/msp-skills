@@ -245,7 +245,7 @@
       "name": "connectwise-automate",
       "source": "./skills/connectwise-automate",
       "description": "Sync your entire ConnectWise Automate fleet into local SQLite and answer cross-client questions the per-server web UI can't: fleet-wide health roll-ups, stale-agent sweeps, patch-compliance-by-client, and overnight drift.",
-      "version": "0.1.10",
+      "version": "0.1.11",
       "category": "rmm",
       "tags": [
         "connectwise-automate",
@@ -261,7 +261,7 @@
       "name": "connectwise-control",
       "source": "./skills/connectwise-control",
       "description": "Manage ConnectWise Control (ScreenConnect) remote support and access sessions from the terminal or your AI agent: list and inspect sessions across groups, run commands on guest machines, rename and tag sessions, manage instance users, and query the audit log - the whole instance from one CLI.",
-      "version": "0.1.12",
+      "version": "0.1.13",
       "category": "remote-access",
       "tags": [
         "connectwise-control",
@@ -277,7 +277,7 @@
       "name": "connectwise-manage",
       "source": "./skills/connectwise-manage",
       "description": "Every ConnectWise PSA workflow from the terminal \u2014 with a typed conditions query builder, offline SQLite sync, and cross-entity views (unbilled work, account 360, board triage) the PSA web UI can't give you.",
-      "version": "0.2.5",
+      "version": "0.2.6",
       "category": "psa",
       "tags": [
         "connectwise-manage",
@@ -293,7 +293,7 @@
       "name": "cork",
       "source": "./skills/cork",
       "description": "Every Cork API operation, plus cross-client risk attribution, exploitability-first vulnerability triage, overdue-compliance detection, and stale-connector health checks that a stateless API mirror cannot answer in a single call.",
-      "version": "0.1.11",
+      "version": "0.1.12",
       "category": "security",
       "tags": [
         "cork",
@@ -308,7 +308,7 @@
       "name": "cove",
       "source": "./skills/cove",
       "description": "The first CLI and MCP server for Cove Data Protection \u2014 fleet-wide backup health, billing usage, and storage trends from a terminal, with the local history the vendor console doesn't keep.",
-      "version": "0.1.13",
+      "version": "0.1.14",
       "category": "backup-dr",
       "tags": [
         "cove",
@@ -1095,7 +1095,7 @@
       "name": "connectwise-rmm",
       "source": "./skills/connectwise-rmm",
       "description": "66 ConnectWise RMM (Asio) partner API operations, plus a local fleet database, patch-compliance rollups, and script runs you can preview, schedule and watch in one command.",
-      "version": "0.1.6",
+      "version": "0.1.7",
       "category": "rmm",
       "tags": [
         "connectwise-rmm",
@@ -1157,7 +1157,7 @@
       "name": "connectsecure",
       "source": "./skills/connectsecure",
       "description": "Every ConnectSecure API operation, plus a local store that answers vulnerability x asset x client questions across your whole client base in one command.",
-      "version": "0.1.7",
+      "version": "0.1.8",
       "category": "security",
       "tags": [
         "connectsecure",
@@ -1500,7 +1500,7 @@
       "name": "cisco-umbrella",
       "source": "./skills/cisco-umbrella",
       "description": "Every Cisco Umbrella v2 API call, plus MSP child-org switching, domain verdicts, list diffs, and fleet health.",
-      "version": "0.1.3",
+      "version": "0.1.4",
       "category": "security",
       "tags": [
         "cisco-umbrella",
@@ -1578,7 +1578,7 @@
       "name": "cloudally",
       "source": "./skills/cloudally",
       "description": "See every CloudAlly customer's backup status, tasks and billing, and run backups and recovery jobs, from one CLI and MCP server.",
-      "version": "0.2.2",
+      "version": "0.2.3",
       "category": "backup-dr",
       "tags": [
         "cloudally",
@@ -1641,7 +1641,7 @@
       "name": "comet-backup",
       "source": "./skills/comet-backup",
       "description": "Fleet-wide backup health, failure triage and usage reports for every tenant on your Comet Server, plus the admin API calls an MSP uses day to day.",
-      "version": "0.1.2",
+      "version": "0.1.3",
       "category": "backup-dr",
       "tags": [
         "comet-backup",
