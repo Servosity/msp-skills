@@ -665,9 +665,9 @@
     "released_hash": "sha256:eaf024926542045f00745b3112be685bd9e1960db3c2fa1d54cdd28d3a5fe89e"
   },
   "tactical-rmm": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.11",
-    "latest_tag": "tactical-rmm-v0.1.10",
+    "latest_tag": "tactical-rmm-v0.1.11",
     "current_hash": "sha256:6769ca1cd2070fe39722987a018827ffbdd4ae906e725e5d1275f2592fd8e42c",
     "released_hash": "sha256:6769ca1cd2070fe39722987a018827ffbdd4ae906e725e5d1275f2592fd8e42c"
   },
