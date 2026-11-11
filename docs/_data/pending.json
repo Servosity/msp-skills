@@ -203,16 +203,16 @@
     "released_hash": "sha256:2368609babd4898e98ed9f901d89c7ffdffb91bf2ea411b451cb5fd32b5be237"
   },
   "cork": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.12",
-    "latest_tag": "cork-v0.1.11",
+    "latest_tag": "cork-v0.1.12",
     "current_hash": "sha256:2c483e85a78ffc078e612abb17b4801929602551f9f87784b9d06cbba7bf9a32",
     "released_hash": "sha256:2c483e85a78ffc078e612abb17b4801929602551f9f87784b9d06cbba7bf9a32"
   },
   "cove": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.14",
-    "latest_tag": "cove-v0.1.13",
+    "latest_tag": "cove-v0.1.14",
     "current_hash": "sha256:e64497c3b16174434c5a7028324a132379ff3cded9b0926418b3510bb9ed0533",
     "released_hash": "sha256:e64497c3b16174434c5a7028324a132379ff3cded9b0926418b3510bb9ed0533"
   },
