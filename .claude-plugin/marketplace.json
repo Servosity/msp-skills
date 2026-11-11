@@ -1715,6 +1715,22 @@
         "claude-code",
         "claude-mcp"
       ]
+    },
+    {
+      "name": "hook-security",
+      "source": "./skills/hook-security",
+      "description": "Read Hook Security phishing and training data, and answer the cross-client questions an MSP actually asks.",
+      "version": "0.1.0",
+      "category": "security",
+      "tags": [
+        "hook-security",
+        "hook security",
+        "security",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
     }
   ]
 }

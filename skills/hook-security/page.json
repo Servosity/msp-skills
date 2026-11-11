@@ -1,0 +1,113 @@
+{
+  "outcome_intro": "Running Hook Security for a book of clients? Ask your AI \"which clients click the most,\" \"who clicked and still has not finished training,\" or \"draft this client's QBR\" and get one answer instead of opening each client. An MSP key covers every client, and each answer says when a client could not be counted.",
+  "instead_of_say": [
+    {
+      "instead": "Opening each client in Hook before the quarterly review to compare phishing click rates by hand",
+      "say": "Which of my clients had the highest click rate this quarter?",
+      "cli": "hook-security-cli client-risk --start 2026-07-01 --end 2026-09-30"
+    },
+    {
+      "instead": "Checking a campaign's results against the training list to work out who clicked and never finished",
+      "say": "Who clicked in this campaign and still has not finished their training?",
+      "cli": "hook-security-cli clicked-untrained --campaign cmp_88213"
+    },
+    {
+      "instead": "Pulling campaigns, click rates, reports and overdue training into a slide for one client's QBR",
+      "say": "Give me the security awareness numbers for this client's QBR.",
+      "cli": "hook-security-cli qbr org_4521 --days 90"
+    }
+  ],
+  "pain_points": [
+    "Hook's own announcement puts it plainly: the answers are \"spread across a campaign page, a report and a training list.\" Who clicked, who has not finished, and which client needs attention are three separate lookups.",
+    "Comparing clients means opening each one. Hook's announcement describes the MSP question as \"one question across every client, instead of opening each one.\"",
+    "The security awareness section of a QBR needs click rate, training completion and report rate with their trends, for every client, every quarter. Hook's QBR template says that pulling these numbers manually means the platform is doing only half the job."
+  ],
+  "outcomes": [
+    {
+      "question": "Which clients have the highest phishing click rate?",
+      "command": "hook-security-cli client-risk --top 10"
+    },
+    {
+      "question": "What is my click rate across every client, from totals rather than an average of averages?",
+      "command": "hook-security-cli client-risk"
+    },
+    {
+      "question": "Who clicked in this campaign and has not finished training?",
+      "command": "hook-security-cli clicked-untrained --campaign cmp_88213"
+    },
+    {
+      "question": "Who at this client clicked since July and has not finished training?",
+      "command": "hook-security-cli clicked-untrained --org org_4521 --since 2026-07-01"
+    },
+    {
+      "question": "Which clients have people overdue on training?",
+      "command": "hook-security-cli overdue-training --counts-only"
+    },
+    {
+      "question": "What are this client's QBR numbers for the last 90 days?",
+      "command": "hook-security-cli qbr org_4521 --days 90"
+    },
+    {
+      "question": "Who reported this simulation?",
+      "command": "hook-security-cli campaigns results list-campaign cmp_88213 --outcome reported --all"
+    },
+    {
+      "question": "How many billable users did each account have in October?",
+      "command": "hook-security-cli billing --month 2026-10 --all"
+    }
+  ],
+  "different_vs_wrappers": "A plain API wrapper answers one endpoint per call. This connector joins them: clicked-untrained checks click results against enrollments, client-risk computes a fleet click rate from total clicks over total sent, and qbr combines four reads for one window. Each answer reports what it could not count, such as a client Hook marks too_large or a scan that stopped early, instead of treating it as zero.",
+  "different_vs_vendor": "Hook has its own [remote MCP connection](https://www.hooksecurity.co/blog/hook-mcp-server), and it is the shortest path if you only want to chat with your data. This connector complements it with a local command line for scripts and scheduled reports, an optional local SQLite copy for search and SQL, and fixed commands whose output has the same fields every run.",
+  "faqs": [
+    {
+      "q": "Does this work with ChatGPT?",
+      "a": "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so it needs the Hook Security MCP server's token-protected HTTP mode hosted over HTTPS. Step-by-step in the install guide."
+    },
+    {
+      "q": "Do I need to know how to code?",
+      "a": "No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once."
+    },
+    {
+      "q": "Is my Hook Security data safe?",
+      "a": "The CLI, MCP server and local copy all run on your computer, and your API key goes only to Hook. What a command returns goes to the AI you use, including people's names and emails on clicked-untrained and overdue-training. Use overdue-training --counts-only to leave those out."
+    },
+    {
+      "q": "How is this different from Hook's own MCP connection?",
+      "a": "Hook's [MCP connection](https://www.hooksecurity.co/blog/hook-mcp-server) is a remote server you add to your AI assistant. This is a Claude Code Skill and MCP server that run on your computer, with a command line you can script, an optional local copy of the data, and fixed commands for the cross-client questions. Both use the same kind of Hook API key."
+    },
+    {
+      "q": "What kind of Hook API key do I need?",
+      "a": "An admin creates one in Hook under Settings > API keys, and it is shown once. An MSP key reads the MSP and every client under it, including clients added later. An organization key reads only that organization, so client-risk needs an MSP key. Hook says keys are currently included in all paid plans on its new platform."
+    },
+    {
+      "q": "Can the AI change anything in Hook?",
+      "a": "No. Hook's API is read-only, so no command or MCP tool can change campaigns, training or people in Hook."
+    },
+    {
+      "q": "Does it store my users' names and email addresses?",
+      "a": "Read responses are saved on your computer in a short-lived cache, and sync saves a local SQLite copy. Neither is encrypted, so they rely on your account permissions and disk encryption. Set HOOK_SECURITY_NO_LOCAL_DATA=1 to keep no local copy, and run local-data purge --yes to erase it. Names and emails a command returns are also sent to whichever AI you use."
+    },
+    {
+      "q": "What does it cost?",
+      "a": "Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use."
+    }
+  ],
+  "governance_summary": "Every Hook command only reads, because Hook's API is read-only, so an agent can run them freely within what the key covers. A few commands change files on your own computer, such as sync and export, and the MCP server leaves those out when HOOK_SECURITY_MCP_READ_ONLY is 1, its preset in the one-click install. Saving or clearing the API key stays with a person.",
+  "safety_tiers": [
+    {
+      "tier": "Read",
+      "examples": "client-risk, clicked-untrained, overdue-training, qbr, organizations, campaigns, enrollments, people, groups, courses, billing, search, sql",
+      "policy": "Allow"
+    },
+    {
+      "tier": "Local files only",
+      "examples": "sync, export, teach and the other local learning commands, local-data purge. None of them changes anything in Hook",
+      "policy": "Allow sync and export; a person runs local-data purge --yes"
+    },
+    {
+      "tier": "Credential",
+      "examples": "auth set-token, auth logout",
+      "policy": "Human-in-the-loop only"
+    }
+  ]
+}

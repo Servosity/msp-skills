@@ -1,0 +1,21 @@
+{
+  "name": "hook-security",
+  "version": "0.1.0",
+  "description": "Read Hook Security phishing and training data, and answer the cross-client questions an MSP actually asks.",
+  "author": {
+    "name": "Servosity",
+    "url": "https://www.servosity.com"
+  },
+  "homepage": "https://github.com/servosity/msp-skills/tree/main/skills/hook-security",
+  "repository": "https://github.com/servosity/msp-skills",
+  "license": "Apache-2.0",
+  "keywords": [
+    "hook-security",
+    "hook security",
+    "security",
+    "msp",
+    "mcp",
+    "claude-code",
+    "claude-mcp"
+  ]
+}

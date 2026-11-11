@@ -1,0 +1,703 @@
+{
+  "api_name": "hook-security",
+  "base_url": "https://api.hooksecurity.co",
+  "description": "Read Hook Security phishing and training data, and answer the cross-client questions an MSP actually asks.",
+  "mcp_ready": "full",
+  "http_transport": "standard",
+  "auth": {
+    "type": "bearer_token",
+    "header": "Authorization",
+    "env_vars": [
+      "HOOK_SECURITY_API_KEY"
+    ],
+    "env_var_specs": [
+      {
+        "name": "HOOK_SECURITY_API_KEY",
+        "kind": "per_call",
+        "required": true,
+        "sensitive": true,
+        "inferred": true
+      }
+    ]
+  },
+  "required_headers": [],
+  "tools": [
+    {
+      "name": "billing_list-seats",
+      "description": "Billable users for each account on the new Hook platform the key covers, for one calendar month, counted only from Hook's own records. An account created on the new platform bills the highest daily count of active people on a day it was active, the rule Hook's monthly usage report uses. An account that moved there from the legacy platform has no daily count yet: it bills the people in Hook's records at any point in the month, including anyone removed during it, who are not set inactive today. It is listed from the month its first simulation on the new platform started or its first training there was assigned, when it has such people and is not still suspended from before the month. Its rows are recomputed from today's records, so store the figures you invoice from. created_on_new_platform says which rule applies. Both start in October 2026; earlier months have no recorded counts. Which accounts are on the new platform is decided by their state today. Organizations still on the legacy platform are not listed. A client deleted during or after the month is still listed for it (organization_state deleted). Clients are grouped by today's organization tree: a client moved to another MSP is listed under its current MSP only. Without month, the current month so far; a cursor belongs to its month and filters. An MSP's own staff are free NFR seats from December 2026, up to 100 people: nfr_users says how many of an MSP row's billable_users that covers. Optional: month, organization_id, parent_id (plus 2 more). Returns array of BillingSeats.",
+      "method": "GET",
+      "path": "/v1/billing/seats",
+      "params": [
+        {
+          "name": "month",
+          "type": "string",
+          "location": "query",
+          "description": "Calendar month, UTC (YYYY-MM). Defaults to the current month."
+        },
+        {
+          "name": "organization_id",
+          "type": "string",
+          "location": "query",
+          "description": "Organization id"
+        },
+        {
+          "name": "parent_id",
+          "type": "string",
+          "location": "query",
+          "description": "Parent id"
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Page size, 1 to 500. Defaults to 100."
+        },
+        {
+          "name": "cursor",
+          "type": "string",
+          "location": "query",
+          "description": "The next_cursor from the previous page."
+        }
+      ]
+    },
+    {
+      "name": "campaigns_get",
+      "description": "Get a campaign. Required: id. Returns the Campaign.",
+      "method": "GET",
+      "path": "/v1/campaigns/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Campaign ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "campaigns_list",
+      "description": "Phishing simulation campaigns on the new Hook platform in the key's coverage. Counts equal Hook's own campaign report from the campaign's first send to today (UTC). Optional: organization_id, status, status_group (plus 5 more). Returns array of Campaign.",
+      "method": "GET",
+      "path": "/v1/campaigns",
+      "params": [
+        {
+          "name": "organization_id",
+          "type": "string",
+          "location": "query",
+          "description": "Organization id"
+        },
+        {
+          "name": "status",
+          "type": "string",
+          "location": "query",
+          "description": "Status"
+        },
+        {
+          "name": "status_group",
+          "type": "string",
+          "location": "query",
+          "description": "Only campaigns in this group, as in the status_group field: completed, for example, covers sent and partially_sent. Use this or status, not both."
+        },
+        {
+          "name": "scheduled_after",
+          "type": "string",
+          "location": "query",
+          "description": "Only campaigns whose scheduled_for is at or after this time."
+        },
+        {
+          "name": "scheduled_before",
+          "type": "string",
+          "location": "query",
+          "description": "Only campaigns whose scheduled_for is before this time."
+        },
+        {
+          "name": "order",
+          "type": "string",
+          "location": "query",
+          "description": "oldest (the default) lists in ID order. newest lists by scheduled_for, latest first, so campaigns still to come lead; add scheduled_before to see what has already run."
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Page size, 1 to 100. Defaults to 100."
+        },
+        {
+          "name": "cursor",
+          "type": "string",
+          "location": "query",
+          "description": "The next_cursor from the previous page."
+        }
+      ]
+    },
+    {
+      "name": "campaigns_results_list-campaign",
+      "description": "One row per recipient of the campaign's live runs. Re-read campaigns active in the last 30 days to pick up new outcomes; results have no change feed in v1. Required: id. Optional: outcome, email, limit (plus 1 more). Returns array of CampaignResult.",
+      "method": "GET",
+      "path": "/v1/campaigns/{id}/results",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Campaign ID",
+          "required": true
+        },
+        {
+          "name": "outcome",
+          "type": "string",
+          "location": "query",
+          "description": "Only recipients with this outcome. delivered means the email was sent."
+        },
+        {
+          "name": "email",
+          "type": "string",
+          "location": "query",
+          "description": "Only this person, by exact email address, ignoring case."
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Page size, 1 to 500. Defaults to 100."
+        },
+        {
+          "name": "cursor",
+          "type": "string",
+          "location": "query",
+          "description": "The next_cursor from the previous page."
+        }
+      ]
+    },
+    {
+      "name": "courses_list",
+      "description": "Hook's published course catalog, the same for every key. Pass a course's ID as course_id on enrollment lists. A course since unpublished can still appear on older enrollments. Optional: name, limit, cursor. Returns array of Course.",
+      "method": "GET",
+      "path": "/v1/courses",
+      "params": [
+        {
+          "name": "name",
+          "type": "string",
+          "location": "query",
+          "description": "Only courses whose name contains this text, ignoring case."
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Page size, 1 to 500. Defaults to 100."
+        },
+        {
+          "name": "cursor",
+          "type": "string",
+          "location": "query",
+          "description": "The next_cursor from the previous page."
+        }
+      ]
+    },
+    {
+      "name": "enrollment-batches_get-enrollment-batch",
+      "description": "Get an enrollment batch. Required: id. Returns the EnrollmentBatch.",
+      "method": "GET",
+      "path": "/v1/enrollment-batches/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Enrollment batch ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "enrollment-batches_list",
+      "description": "Training assignments on the new Hook platform. Counts equal Hook's own enrollment report from the batch's first assignment to today (UTC). Optional: organization_id, course_id, created_after (plus 4 more). Returns array of EnrollmentBatch.",
+      "method": "GET",
+      "path": "/v1/enrollment-batches",
+      "params": [
+        {
+          "name": "organization_id",
+          "type": "string",
+          "location": "query",
+          "description": "Organization id"
+        },
+        {
+          "name": "course_id",
+          "type": "string",
+          "location": "query",
+          "description": "Course id"
+        },
+        {
+          "name": "created_after",
+          "type": "string",
+          "location": "query",
+          "description": "Only batches whose created_at is at or after this time."
+        },
+        {
+          "name": "created_before",
+          "type": "string",
+          "location": "query",
+          "description": "Only batches whose created_at is before this time."
+        },
+        {
+          "name": "order",
+          "type": "string",
+          "location": "query",
+          "description": "In ID order: oldest (the default) or newest first."
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Page size, 1 to 100. Defaults to 100."
+        },
+        {
+          "name": "cursor",
+          "type": "string",
+          "location": "query",
+          "description": "The next_cursor from the previous page."
+        }
+      ]
+    },
+    {
+      "name": "enrollments_list",
+      "description": "One row per learner per batch, including cancelled enrollments. Optional: organization_id, batch_id, status (plus 11 more). Returns array of Enrollment.",
+      "method": "GET",
+      "path": "/v1/enrollments",
+      "params": [
+        {
+          "name": "organization_id",
+          "type": "string",
+          "location": "query",
+          "description": "Organization id"
+        },
+        {
+          "name": "batch_id",
+          "type": "string",
+          "location": "query",
+          "description": "Batch id"
+        },
+        {
+          "name": "status",
+          "type": "string",
+          "location": "query",
+          "description": "Status"
+        },
+        {
+          "name": "person_id",
+          "type": "string",
+          "location": "query",
+          "description": "Person id"
+        },
+        {
+          "name": "email",
+          "type": "string",
+          "location": "query",
+          "description": "Only this person, by exact email address, ignoring case."
+        },
+        {
+          "name": "course_id",
+          "type": "string",
+          "location": "query",
+          "description": "Course id"
+        },
+        {
+          "name": "updated_since",
+          "type": "string",
+          "location": "query",
+          "description": "Only enrollments whose updated_at is at or after this time. Enrollments of a deleted batch are left out, so read the full list periodically to catch those."
+        },
+        {
+          "name": "assigned_after",
+          "type": "string",
+          "location": "query",
+          "description": "Only enrollments whose assigned_at is at or after this time."
+        },
+        {
+          "name": "assigned_before",
+          "type": "string",
+          "location": "query",
+          "description": "Only enrollments whose assigned_at is before this time."
+        },
+        {
+          "name": "completed_after",
+          "type": "string",
+          "location": "query",
+          "description": "Only enrollments whose completed_at is at or after this time."
+        },
+        {
+          "name": "completed_before",
+          "type": "string",
+          "location": "query",
+          "description": "Only enrollments whose completed_at is before this time."
+        },
+        {
+          "name": "order",
+          "type": "string",
+          "location": "query",
+          "description": "In ID order: oldest (the default) or newest first."
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Page size, 1 to 500. Defaults to 100."
+        },
+        {
+          "name": "cursor",
+          "type": "string",
+          "location": "query",
+          "description": "The next_cursor from the previous page."
+        }
+      ]
+    },
+    {
+      "name": "groups_list",
+      "description": "Groups of people in Hook's own records. Pass a group's ID as group_id on the people list to read its members. Optional: organization_id, name, limit (plus 1 more). Returns array of Group.",
+      "method": "GET",
+      "path": "/v1/groups",
+      "params": [
+        {
+          "name": "organization_id",
+          "type": "string",
+          "location": "query",
+          "description": "Organization id"
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "query",
+          "description": "Only groups whose name contains this text, ignoring case."
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Page size, 1 to 500. Defaults to 100."
+        },
+        {
+          "name": "cursor",
+          "type": "string",
+          "location": "query",
+          "description": "The next_cursor from the previous page."
+        }
+      ]
+    },
+    {
+      "name": "organizations_get",
+      "description": "Get an organization. Required: id. Returns the Organization.",
+      "method": "GET",
+      "path": "/v1/organizations/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Organization ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "organizations_list",
+      "description": "Every organization the key covers: an MSP's whole tree, or the key's own organization. Filter by name to find one. Optional: name, type, parent_id (plus 7 more). Returns array of Organization.",
+      "method": "GET",
+      "path": "/v1/organizations",
+      "params": [
+        {
+          "name": "name",
+          "type": "string",
+          "location": "query",
+          "description": "Only organizations whose name contains this text, ignoring case."
+        },
+        {
+          "name": "type",
+          "type": "string",
+          "location": "query",
+          "description": "Type"
+        },
+        {
+          "name": "parent_id",
+          "type": "string",
+          "location": "query",
+          "description": "Parent id"
+        },
+        {
+          "name": "state",
+          "type": "string",
+          "location": "query",
+          "description": "State"
+        },
+        {
+          "name": "updated_since",
+          "type": "string",
+          "location": "query",
+          "description": "Only organizations whose updated_at is at or after this time. A change in active_user_count does not move updated_at."
+        },
+        {
+          "name": "report_button_live",
+          "type": "string",
+          "location": "query",
+          "description": "Only organizations whose report button has (true) or has not (false) delivered a report to Hook, as report_button.live says."
+        },
+        {
+          "name": "on_new_platform",
+          "type": "string",
+          "location": "query",
+          "description": "Only organizations that are (true) or are not (false) on the new Hook platform: created there, a client running its simulations or training there, or an MSP starting its clients there."
+        },
+        {
+          "name": "order",
+          "type": "string",
+          "location": "query",
+          "description": "In ID order: oldest (the default) or newest first."
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Page size, 1 to 500. Defaults to 100."
+        },
+        {
+          "name": "cursor",
+          "type": "string",
+          "location": "query",
+          "description": "The next_cursor from the previous page."
+        }
+      ]
+    },
+    {
+      "name": "organizations_clients_list-summaries",
+      "description": "One row per direct client of the organization that the key covers, with the same totals as each client's own summary for the same dates in UTC, without the monthly trend. Use it to compare an MSP's clients, for example by click rate, in one call. A client under one of the MSP's sub-MSPs is listed under that sub-MSP, not here. At most 25 clients per page. Required: id. Optional: start_date, end_date, limit (plus 1 more). Returns array of ClientSummary.",
+      "method": "GET",
+      "path": "/v1/organizations/{id}/clients/summary",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Organization ID",
+          "required": true
+        },
+        {
+          "name": "start_date",
+          "type": "string",
+          "location": "query",
+          "description": "First day counted, UTC, as YYYY-MM-DD. Defaults to the first day of the month 11 months before end_date."
+        },
+        {
+          "name": "end_date",
+          "type": "string",
+          "location": "query",
+          "description": "Last day counted, UTC, as YYYY-MM-DD. Defaults to today."
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Page size, 1 to 25. Defaults to 25."
+        },
+        {
+          "name": "cursor",
+          "type": "string",
+          "location": "query",
+          "description": "The next_cursor from the previous page."
+        }
+      ]
+    },
+    {
+      "name": "organizations_results_list-organization",
+      "description": "One row per recipient of every live campaign run in the organization, its own records, not its clients'. Filter by outcome to find, for example, everyone who clicked. Reported results are refused when the organization withholds them. Required: id. Optional: outcome, limit, cursor. Returns array of CampaignResult.",
+      "method": "GET",
+      "path": "/v1/organizations/{id}/results",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Organization ID",
+          "required": true
+        },
+        {
+          "name": "outcome",
+          "type": "string",
+          "location": "query",
+          "description": "Only recipients with this outcome, across every campaign. delivered means the email was sent."
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Page size, 1 to 500. Defaults to 100."
+        },
+        {
+          "name": "cursor",
+          "type": "string",
+          "location": "query",
+          "description": "The next_cursor from the previous page."
+        }
+      ]
+    },
+    {
+      "name": "organizations_summary_get-organization",
+      "description": "The organization's own records, not its clients'. Equals Hook's own Security Awareness Snapshot report for the same dates in UTC. Counts start when the organization began using simulations and training on the new Hook platform, so a 0 in an earlier month doesn't mean nothing ran. Sent counts only: undelivered recipients are on each campaign. A period over 50,000 records is refused; ask for fewer months. The longest period is five years. Required: id. Optional: start_date, end_date. Returns the OrganizationSummary.",
+      "method": "GET",
+      "path": "/v1/organizations/{id}/summary",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Organization ID",
+          "required": true
+        },
+        {
+          "name": "start_date",
+          "type": "string",
+          "location": "query",
+          "description": "First day counted, UTC, as YYYY-MM-DD. Defaults to the first day of the month 11 months before end_date."
+        },
+        {
+          "name": "end_date",
+          "type": "string",
+          "location": "query",
+          "description": "Last day counted, UTC, as YYYY-MM-DD. Defaults to today."
+        }
+      ]
+    },
+    {
+      "name": "people_get-person",
+      "description": "Get a person. Required: id. Returns the Person.",
+      "method": "GET",
+      "path": "/v1/people/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Person ID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "people_list",
+      "description": "People in Hook's own records, removed people left out. Find one person across every covered organization by email, or within one organization by name. Optional: organization_id, email, name (plus 6 more). Returns array of Person.",
+      "method": "GET",
+      "path": "/v1/people",
+      "params": [
+        {
+          "name": "organization_id",
+          "type": "string",
+          "location": "query",
+          "description": "Organization id"
+        },
+        {
+          "name": "email",
+          "type": "string",
+          "location": "query",
+          "description": "Only this person, by exact email address, ignoring case."
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "location": "query",
+          "description": "Only people whose first and last name contain every word given, ignoring case. Requires organization_id."
+        },
+        {
+          "name": "group_id",
+          "type": "string",
+          "location": "query",
+          "description": "Group id"
+        },
+        {
+          "name": "status",
+          "type": "string",
+          "location": "query",
+          "description": "Status"
+        },
+        {
+          "name": "updated_since",
+          "type": "string",
+          "location": "query",
+          "description": "Only people whose updated_at is at or after this time. A change of groups does not move updated_at, and removed people are left out, so read the full list periodically to catch both."
+        },
+        {
+          "name": "order",
+          "type": "string",
+          "location": "query",
+          "description": "In ID order: oldest (the default) or newest first."
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Page size, 1 to 500. Defaults to 100."
+        },
+        {
+          "name": "cursor",
+          "type": "string",
+          "location": "query",
+          "description": "The next_cursor from the previous page."
+        }
+      ]
+    },
+    {
+      "name": "people_results_list-person",
+      "description": "One row per recipient record the person has on the new Hook platform, so a relaunched campaign can give two rows. For their training, list enrollments by email, which also finds enrollments known only from the legacy platform. Required: id. Optional: outcome, limit, cursor. Returns array of CampaignResult.",
+      "method": "GET",
+      "path": "/v1/people/{id}/results",
+      "params": [
+        {
+          "name": "id",
+          "type": "string",
+          "location": "path",
+          "description": "Person ID",
+          "required": true
+        },
+        {
+          "name": "outcome",
+          "type": "string",
+          "location": "query",
+          "description": "Only campaigns where the person had this outcome. delivered means the email was sent."
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Page size, 1 to 500. Defaults to 100."
+        },
+        {
+          "name": "cursor",
+          "type": "string",
+          "location": "query",
+          "description": "The next_cursor from the previous page."
+        }
+      ]
+    }
+  ],
+  "novel_features": [
+    {
+      "name": "Click rate across clients",
+      "command": "client-risk",
+      "description": "Rank every client of your MSP by phishing click rate, with a fleet rate computed from totals."
+    },
+    {
+      "name": "Clicked and untrained",
+      "command": "clicked-untrained",
+      "description": "List people who clicked a simulation and have not finished training, with course status and due date."
+    },
+    {
+      "name": "Overdue training by client",
+      "command": "overdue-training",
+      "description": "See overdue training grouped by client, with the people and courses behind each count."
+    },
+    {
+      "name": "Client QBR summary",
+      "command": "qbr",
+      "description": "Build one client's quarterly review data: simulation and training totals, monthly trends, recent campaigns and overdue training."
+    }
+  ]
+}
