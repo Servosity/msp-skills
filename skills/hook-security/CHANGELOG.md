@@ -4,7 +4,7 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
-## [0.1.0]
+## [0.1.0] - 2026-11-11
 
 ### Added
 - Every read-only endpoint of Hook's API v1 as a CLI command and an MCP tool:

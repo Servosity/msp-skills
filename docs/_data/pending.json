@@ -329,11 +329,11 @@
     "released_hash": "sha256:e4a67ac32bf2cb1ce26c1ef060b3c566394aad2967cf97fb756cf289d9e11ce7"
   },
   "hook-security": {
-    "state": "never-released",
+    "state": "up-to-date",
     "version": "0.1.0",
-    "latest_tag": null,
+    "latest_tag": "hook-security-v0.1.0",
     "current_hash": "sha256:f2c0fa8cac720692cc75b8038ce954563d8192534b1b0308a89db6016ddc4788",
-    "released_hash": null
+    "released_hash": "sha256:f2c0fa8cac720692cc75b8038ce954563d8192534b1b0308a89db6016ddc4788"
   },
   "hubspot": {
     "state": "up-to-date",

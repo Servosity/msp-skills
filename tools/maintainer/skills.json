@@ -1183,7 +1183,7 @@
       "cli_hash": "sha256:826bb7613bccdb51934ba0fc22e388788633b7982beeb2aec43ad7205723efba",
       "template_version": 3,
       "version": "0.1.0",
-      "cli_hash_at_release": null,
+      "cli_hash_at_release": "sha256:f2c0fa8cac720692cc75b8038ce954563d8192534b1b0308a89db6016ddc4788",
       "live_verified": {
         "status": "awaiting",
         "date": null,
