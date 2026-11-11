@@ -978,6 +978,26 @@
       "tagline": "Triage tickets, pre-empt SLA breaches, run cross-client analytics by asking."
     },
     {
+      "name": "hook-security",
+      "system": "Hook Security phishing simulation and security awareness training platform",
+      "status": "beta",
+      "skill_path": "skills/hook-security",
+      "cli_binary": "hook-security-cli",
+      "mcp_binary": "hook-security-mcp",
+      "version": "0.1.0",
+      "printing_press_version": "4.35.3",
+      "license": "Apache-2.0",
+      "vendor": "Hook Security",
+      "vendor_trademark_owner": "Hook Security Inc",
+      "first_party": false,
+      "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/hook-security/install.sh)",
+      "install_mcp_doc": "skills/hook-security/mcp-install.md",
+      "description": "Read Hook Security phishing and training data, and answer the cross-client questions an MSP actually asks.",
+      "verification": "awaiting",
+      "category": "Security",
+      "tagline": "Compare phishing click rates across clients and find who clicked and still needs training."
+    },
+    {
       "name": "hubspot",
       "system": "HubSpot CRM: contacts, companies, deals, tickets, engagements",
       "status": "live-verified",

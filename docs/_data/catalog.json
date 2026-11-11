@@ -1,5 +1,5 @@
 {
-  "count": 107,
+  "count": 108,
   "connectors": [
     {
       "slug": "abnormal",
@@ -585,6 +585,19 @@
       "verified_version": null,
       "verified_code": "unknown",
       "url": "/skills/halopsa/"
+    },
+    {
+      "slug": "hook-security",
+      "display_name": "Hook Security",
+      "tagline": "Compare phishing click rates across clients and find who clicked and still needs training.",
+      "category": "Security",
+      "verification": "awaiting",
+      "verified_by": null,
+      "source": null,
+      "issue_url": null,
+      "verified_version": null,
+      "verified_code": null,
+      "url": "/skills/hook-security/"
     },
     {
       "slug": "hubspot",

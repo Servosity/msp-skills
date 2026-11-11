@@ -1,0 +1,91 @@
+{
+  "schema_version": 2,
+  "generated_at": "2026-11-11T02:07:17.476528Z",
+  "printing_press_version": "4.35.3",
+  "api_name": "hook-security",
+  "display_name": "Hook Security",
+  "cli_name": "hook-security-pp-cli",
+  "creator": {
+    "handle": "DamienStevens",
+    "name": "Damien Stevens"
+  },
+  "owner": "damienstevens",
+  "printer": "DamienStevens",
+  "printer_name": "Damien Stevens",
+  "spec_path": "spec.json",
+  "spec_format": "openapi3",
+  "spec_source": "official",
+  "spec_checksum": "sha256:fff66b5f85132b6ae4f376c389f6d27ab6748be77dfb3d28343f7999c6591ed2",
+  "run_id": "20261110-204849-129b84e9",
+  "category": "monitoring",
+  "description": "Read Hook Security phishing and training data, and answer the cross-client questions an MSP actually asks.",
+  "homepage": "https://www.hooksecurity.co",
+  "mcp_binary": "hook-security-pp-mcp",
+  "mcp_tool_count": 17,
+  "mcp_ready": "full",
+  "api_version": "1.3.0",
+  "auth_type": "bearer_token",
+  "auth_preference": "apiKey",
+  "auth_env_vars": [
+    "HOOK_SECURITY_API_KEY"
+  ],
+  "novel_features": [
+    {
+      "name": "Click rate across clients",
+      "command": "client-risk",
+      "description": "Rank every client of your MSP by phishing click rate, with a fleet rate computed from totals."
+    },
+    {
+      "name": "Clicked and untrained",
+      "command": "clicked-untrained",
+      "description": "List people who clicked a simulation and have not finished training, with course status and due date."
+    },
+    {
+      "name": "Overdue training by client",
+      "command": "overdue-training",
+      "description": "See overdue training grouped by client, with the people and courses behind each count."
+    },
+    {
+      "name": "Client QBR summary",
+      "command": "qbr",
+      "description": "Build one client's quarterly review data: simulation and training totals, monthly trends, recent campaigns and overdue training."
+    }
+  ],
+  "novel_features_built": [
+    {
+      "name": "Click rate across clients",
+      "command": "client-risk",
+      "description": "Rank every client of your MSP by phishing click rate, with a fleet rate computed from totals."
+    },
+    {
+      "name": "Clicked and untrained",
+      "command": "clicked-untrained",
+      "description": "List people who clicked a simulation and have not finished training, with course status and due date."
+    },
+    {
+      "name": "Overdue training by client",
+      "command": "overdue-training",
+      "description": "See overdue training grouped by client, with the people and courses behind each count."
+    },
+    {
+      "name": "Client QBR summary",
+      "command": "qbr",
+      "description": "Build one client's quarterly review data: simulation and training totals, monthly trends, recent campaigns and overdue training."
+    }
+  ],
+  "verify": {
+    "mode": "mock",
+    "pass_rate": 100,
+    "passed": 49,
+    "total": 49,
+    "data_pipeline": true,
+    "verdict": "PASS"
+  },
+  "scorecard": {
+    "steinberger": {
+      "percentage": 93,
+      "grade": "A",
+      "total": 93
+    }
+  }
+}

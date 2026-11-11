@@ -66,6 +66,7 @@ body:
         - google-workspace
         - gradient
         - halopsa
+        - hook-security
         - hubspot
         - hudu
         - huntress

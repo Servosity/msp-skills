@@ -1168,6 +1168,29 @@
       "tagline": "Triage tickets, pre-empt SLA breaches, run cross-client analytics by asking.",
       "display_name": "HaloPSA"
     },
+    "hook-security": {
+      "system": "Hook Security phishing simulation and security awareness training platform",
+      "status": "beta",
+      "cli_binary": "hook-security-cli",
+      "mcp_binary": "hook-security-mcp",
+      "vendor": "Hook Security",
+      "vendor_trademark_owner": "Hook Security Inc",
+      "first_party": false,
+      "category": "Security",
+      "display_name": "Hook Security",
+      "tagline": "Compare phishing click rates across clients and find who clicked and still needs training.",
+      "has_video": false,
+      "cli_hash": "sha256:826bb7613bccdb51934ba0fc22e388788633b7982beeb2aec43ad7205723efba",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": null,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
+    },
     "hubspot": {
       "system": "HubSpot CRM: contacts, companies, deals, tickets, engagements",
       "status": "live-verified",

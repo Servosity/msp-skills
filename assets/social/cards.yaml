@@ -206,6 +206,9 @@ halopsa:
     - "Triage notes drafted"
   outcome_line: "Ask your PSA anything in plain English."
 
+hook-security:
+  vendor: "Hook Security"
+
 hubspot:
   vendor: "HubSpot"
   example_command: "Which of my open deals have gone cold?"

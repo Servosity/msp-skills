@@ -1,0 +1,92 @@
+{
+  "manifest_version": "0.3",
+  "name": "hook-security-mcp",
+  "display_name": "Hook Security",
+  "version": "0.1.0",
+  "description": "Read Hook Security phishing and training data, and answer the cross-client questions an MSP actually asks.",
+  "author": {
+    "name": "Servosity Inc."
+  },
+  "license": "Apache-2.0",
+  "server": {
+    "type": "binary",
+    "entry_point": "bin/hook-security-mcp",
+    "mcp_config": {
+      "command": "${__dirname}/bin/hook-security-mcp",
+      "args": [],
+      "env": {
+        "HOOK_SECURITY_BASE_URL": "${user_config.hook_security_base_url}",
+        "HOOK_SECURITY_API_KEY": "${user_config.hook_security_api_key}",
+        "HOOK_SECURITY_USER_AGENT": "${user_config.hook_security_user_agent}",
+        "HOOK_SECURITY_MCP_READ_ONLY": "${user_config.hook_security_mcp_read_only}",
+        "HOOK_SECURITY_MCP_HTTP_TOKEN": "${user_config.hook_security_mcp_http_token}",
+        "PRINTING_PRESS_CLIENT_PROFILE": "${user_config.printing_press_client_profile}",
+        "HOOK_SECURITY_NO_LOCAL_DATA": "${user_config.hook_security_no_local_data}"
+      }
+    }
+  },
+  "user_config": {
+    "hook_security_base_url": {
+      "type": "string",
+      "title": "Hook API URL",
+      "description": "Sets HOOK_SECURITY_BASE_URL. Leave at the default unless Hook tells you otherwise.",
+      "sensitive": false,
+      "required": false,
+      "default": "https://api.hooksecurity.co"
+    },
+    "hook_security_api_key": {
+      "type": "string",
+      "title": "Hook API key",
+      "description": "Sets HOOK_SECURITY_API_KEY. An admin creates it in Hook under Settings > API keys. See https://docs.hooksecurity.co/docs/integrations/connect-your-ai-assistant.",
+      "sensitive": true,
+      "required": true
+    },
+    "hook_security_user_agent": {
+      "type": "string",
+      "title": "User-Agent header",
+      "description": "Overrides the User-Agent the CLI sends. Leave blank to use the CLI's own.",
+      "required": false
+    },
+    "hook_security_mcp_read_only": {
+      "type": "string",
+      "title": "Read-only MCP server",
+      "description": "Set to exactly 1 to remove the tools that write local files (sync, export and the local learning tools). No tool can change anything in Hook either way. Preset to 1.",
+      "required": false,
+      "default": "1"
+    },
+    "hook_security_mcp_http_token": {
+      "type": "string",
+      "title": "MCP HTTP transport bearer token",
+      "description": "Required only when running the MCP server with --transport http. Callers must send a matching Authorization: Bearer header. Not needed for the default local stdio transport that Claude Desktop uses.",
+      "sensitive": true,
+      "required": false
+    },
+    "printing_press_client_profile": {
+      "type": "string",
+      "title": "Client profile",
+      "description": "Not enforced by this connector: a value here does not limit which organizations a call can reach. Leave blank. To limit access, use an organization key instead of an MSP key.",
+      "required": false
+    },
+    "hook_security_no_local_data": {
+      "type": "string",
+      "title": "No local data",
+      "description": "Optional. Set to 1 to keep no local copy of Hook data: reads go to the API, the response cache is off, and sync is refused. Leave blank for the default.",
+      "required": false
+    }
+  },
+  "compatibility": {
+    "claude_desktop": ">=1.0.0",
+    "platforms": [
+      "darwin",
+      "linux",
+      "win32"
+    ]
+  },
+  "printing_press_version": "4.35.3",
+  "press_provenance": {
+    "printing_press_version": "4.35.3",
+    "generated_at": "2026-11-11T02:07:17.476528Z",
+    "spec_checksum": "sha256:fff66b5f85132b6ae4f376c389f6d27ab6748be77dfb3d28343f7999c6591ed2",
+    "spec_format": "openapi3"
+  }
+}

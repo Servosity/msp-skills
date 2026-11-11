@@ -926,6 +926,26 @@
       }
     },
     {
+      "identifier": "urn:air:msp-skills.compoundingteams.com:skills:hook-security",
+      "displayName": "Hook Security",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/hook-security/SKILL.md",
+      "description": "Compare phishing click rates across clients and find who clicked and still needs training.",
+      "tags": [
+        "Security"
+      ],
+      "representativeQueries": [
+        "Which clients have the highest phishing click rate?",
+        "What is my click rate across every client, from totals rather than an average of averages?",
+        "Who clicked in this campaign and has not finished training?",
+        "Who at this client clicked since July and has not finished training?",
+        "Which clients have people overdue on training?"
+      ],
+      "metadata": {
+        "page": "https://msp-skills.compoundingteams.com/skills/hook-security.md"
+      }
+    },
+    {
       "identifier": "urn:air:msp-skills.compoundingteams.com:skills:hubspot",
       "displayName": "HubSpot",
       "type": "text/markdown; profile=\"urn:air:agent-skills\"",

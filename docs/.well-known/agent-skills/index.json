@@ -331,6 +331,13 @@
       "digest": "sha256:0041a3fa91ab9e639927d2a49341d89f2dfdc1e150522960de2716bc5a0c8d70"
     },
     {
+      "name": "hook-security",
+      "type": "skill-md",
+      "description": "Read Hook Security phishing and training data, and answer the cross-client questions an MSP actually asks. Trigger phrases: `which clients click phishing emails the most`, `who clicked and has not finished training`, `overdue security training`, `security awareness qbr`, `hook phishing results`, `use hook security`, `run hook security`.",
+      "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/hook-security/SKILL.md",
+      "digest": "sha256:d18bc07d1b5252ad49fae148c0cb38e996f19bcf174553f2d2587dbe1d032df2"
+    },
+    {
       "name": "hubspot",
       "type": "skill-md",
       "description": "Every Sales Hub feature, plus offline cross-object queries and retained property-change history. Trigger phrases: `find meetings ever scheduled`, `monthly meeting outcome report`, `hubspot stale leads`, `who do I call today hubspot`, `engagements timeline for this contact`, `use hubspot-cli`, `run hubspot`.",

@@ -1748,6 +1748,44 @@ A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already us
 
 Governance: The skill drives the halopsa-cli and halopsa-mcp binaries, authenticating to your own HaloPSA tenant with an OAuth2 client-credentials application you create at Configuration > Integrations > Halo PSA API. Credentials (HALOPSA_CLIENT_ID, HALOPSA_CLIENT_SECRET, HALOPSA_TENANT) are read from the environment only - never written to disk, never logged, never sent anywhere except your Halo endpoint. Read commands (triage, sla breaching, client card, contracts burn, and the other cross-entity views) read and aggregate; they cannot change Halo state. Writes are not gated by a built-in confirmation: --dry-run is an opt-in flag (default off) that previews a request without sending, and --yes is reserved for explicit confirmation of destructive actions, so a raw create or delete sends on first run unless your agent passes --dry-run first. The recommended policy is an agent-level rule: keep autonomous agents to read plus previewed writes, and require a human for anything destructive or configuration-touching. The strongest control is the scope you grant the OAuth application in your Halo tenant - because Halo enforces that scope server-side, the CLI can only do what the application is permitted to do, so a read/report workflow simply should not be granted write or delete permissions.
 
+### Hook Security (Security)
+
+Page: [Hook Security](https://msp-skills.compoundingteams.com/skills/hook-security.md)
+Verification: Awaiting live verification
+Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/hook-security/install.sh)
+
+Running Hook Security for a book of clients? Ask your AI "which clients click the most," "who clicked and still has not finished training," or "draft this client's QBR" and get one answer instead of opening each client. An MSP key covers every client, and each answer says when a client could not be counted.
+
+Outcomes (question -> command your AI agent runs):
+- Which clients have the highest phishing click rate? -> hook-security-cli client-risk --top 10
+- What is my click rate across every client, from totals rather than an average of averages? -> hook-security-cli client-risk
+- Who clicked in this campaign and has not finished training? -> hook-security-cli clicked-untrained --campaign cmp_88213
+- Who at this client clicked since July and has not finished training? -> hook-security-cli clicked-untrained --org org_4521 --since 2026-07-01
+- Which clients have people overdue on training? -> hook-security-cli overdue-training --counts-only
+- What are this client's QBR numbers for the last 90 days? -> hook-security-cli qbr org_4521 --days 90
+- Who reported this simulation? -> hook-security-cli campaigns results list-campaign cmp_88213 --outcome reported --all
+- How many billable users did each account have in October? -> hook-security-cli billing --month 2026-10 --all
+
+FAQ:
+Q: Does this work with ChatGPT?
+A: Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so it needs the Hook Security MCP server's token-protected HTTP mode hosted over HTTPS. Step-by-step in the install guide.
+Q: Do I need to know how to code?
+A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
+Q: Is my Hook Security data safe?
+A: The CLI, MCP server and local copy all run on your computer, and your API key goes only to Hook. What a command returns goes to the AI you use, including people's names and emails on clicked-untrained and overdue-training. Use overdue-training --counts-only to leave those out.
+Q: How is this different from Hook's own MCP connection?
+A: Hook's [MCP connection](https://www.hooksecurity.co/blog/hook-mcp-server) is a remote server you add to your AI assistant. This is a Claude Code Skill and MCP server that run on your computer, with a command line you can script, an optional local copy of the data, and fixed commands for the cross-client questions. Both use the same kind of Hook API key.
+Q: What kind of Hook API key do I need?
+A: An admin creates one in Hook under Settings > API keys, and it is shown once. An MSP key reads the MSP and every client under it, including clients added later. An organization key reads only that organization, so client-risk needs an MSP key. Hook says keys are currently included in all paid plans on its new platform.
+Q: Can the AI change anything in Hook?
+A: No. Hook's API is read-only, so no command or MCP tool can change campaigns, training or people in Hook.
+Q: Does it store my users' names and email addresses?
+A: Read responses are saved on your computer in a short-lived cache, and sync saves a local SQLite copy. Neither is encrypted, so they rely on your account permissions and disk encryption. Set HOOK_SECURITY_NO_LOCAL_DATA=1 to keep no local copy, and run local-data purge --yes to erase it. Names and emails a command returns are also sent to whichever AI you use.
+Q: What does it cost?
+A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
+
+Governance: Every Hook command only reads, because Hook's API is read-only, so an agent can run them freely within what the key covers. A few commands change files on your own computer, such as sync and export, and the MCP server leaves those out when HOOK_SECURITY_MCP_READ_ONLY is 1, its preset in the one-click install. Saving or clearing the API key stays with a person.
+
 ### HubSpot (CRM)
 
 Page: [HubSpot](https://msp-skills.compoundingteams.com/skills/hubspot.md)
