@@ -453,7 +453,7 @@
       "name": "hubspot",
       "source": "./skills/hubspot",
       "description": "Every Sales Hub feature, plus offline cross-object queries and retained property-change history.",
-      "version": "0.2.8",
+      "version": "0.2.9",
       "category": "crm",
       "tags": [
         "hubspot",
