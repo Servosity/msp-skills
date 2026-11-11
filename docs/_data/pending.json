@@ -735,9 +735,9 @@
     "released_hash": "sha256:51a6001281419316fc28e8f55158fd3a7cdc15987302c29927ba4b7b5c72bfcf"
   },
   "windows-server": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.3",
-    "latest_tag": "windows-server-v0.1.2",
+    "latest_tag": "windows-server-v0.1.3",
     "current_hash": "sha256:5c02c07b59d8298abd72a7accf018c673c4f21d79b0e3c378541121a40936fff",
     "released_hash": "sha256:5c02c07b59d8298abd72a7accf018c673c4f21d79b0e3c378541121a40936fff"
   },
