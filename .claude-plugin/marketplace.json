@@ -12,7 +12,7 @@
       "name": "abnormal",
       "source": "./skills/abnormal",
       "description": "The full Abnormal Security REST API as an agent-native CLI \u2014 with a local threat store, ranked SOC triage, and one-shot reporting no SOAR pack offers.",
-      "version": "0.1.10",
+      "version": "0.1.11",
       "category": "security",
       "tags": [
         "abnormal",
@@ -28,7 +28,7 @@
       "name": "acronis",
       "source": "./skills/acronis",
       "description": "The first real CLI for the Acronis Cyber Protect Cloud platform \u2014 every tenant, agent, and usage metric mirrored locally, with cross-tenant rollups no single API call returns.",
-      "version": "0.1.11",
+      "version": "0.1.12",
       "category": "backup-dr",
       "tags": [
         "acronis",
@@ -43,7 +43,7 @@
       "name": "action1",
       "source": "./skills/action1",
       "description": "Every Action1 endpoint, plus the fleet-wide patch and vulnerability views the org-siloed API cannot give you.",
-      "version": "0.1.13",
+      "version": "0.1.14",
       "category": "rmm",
       "tags": [
         "action1",
@@ -58,7 +58,7 @@
       "name": "afi",
       "source": "./skills/afi",
       "description": "The first CLI for Afi SaaS backup \u2014 full public-API coverage plus the fleet-wide coverage, staleness, and offboarding answers the rate-limited API can't serve live.",
-      "version": "0.1.11",
+      "version": "0.1.12",
       "category": "backup-dr",
       "tags": [
         "afi",
@@ -73,7 +73,7 @@
       "name": "appdirect",
       "source": "./skills/appdirect",
       "description": "Every documented AppDirect marketplace operation in one binary, plus offline sync and billing-reconciliation joins.",
-      "version": "0.1.12",
+      "version": "0.1.13",
       "category": "billing",
       "tags": [
         "appdirect",
@@ -88,7 +88,7 @@
       "name": "atera",
       "source": "./skills/atera",
       "description": "Every Atera RMM + PSA endpoint, plus a local SQLite mirror that answers fleet-health, SLA, and book-of-business questions no single API call can.",
-      "version": "0.1.9",
+      "version": "0.1.10",
       "category": "rmm",
       "tags": [
         "atera",
@@ -103,7 +103,7 @@
       "name": "autotask",
       "source": "./skills/autotask",
       "description": "Every Autotask entity at the command line, plus a local SQLite mirror that answers ticket-aging, workload, unbilled-time, and account-360 questions no other Autotask tool can.",
-      "version": "0.1.12",
+      "version": "0.1.13",
       "category": "psa",
       "tags": [
         "autotask",
@@ -118,7 +118,7 @@
       "name": "auvik",
       "source": "./skills/auvik",
       "description": "Every Auvik endpoint as a command, plus the cross-client answers the Auvik UI and API cannot give you.",
-      "version": "0.2.11",
+      "version": "0.2.12",
       "category": "rmm",
       "tags": [
         "auvik",
@@ -133,7 +133,7 @@
       "name": "avanan",
       "source": "./skills/avanan",
       "description": "Every Avanan email security API call, plus an offline mirror for cross-tenant questions.",
-      "version": "0.1.15",
+      "version": "0.1.16",
       "category": "security",
       "tags": [
         "avanan",
@@ -1421,7 +1421,7 @@
       "name": "apple-business",
       "source": "./skills/apple-business",
       "description": "Every Apple Business API call, plus offline fleet answers: unassigned devices, AppleCare expiry and Activation Lock.",
-      "version": "0.1.3",
+      "version": "0.1.4",
       "category": "mdm",
       "tags": [
         "apple-business",
