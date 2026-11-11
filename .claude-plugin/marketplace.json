@@ -776,7 +776,7 @@
       "name": "quickbooks",
       "source": "./skills/quickbooks",
       "description": "Every QuickBooks Online entity, plus an offline SQLite mirror, AR/AP aging and close checks.",
-      "version": "0.1.17",
+      "version": "0.1.18",
       "category": "billing",
       "tags": [
         "quickbooks",
@@ -792,7 +792,7 @@
       "name": "resourceguru",
       "source": "./skills/resourceguru",
       "description": "Every Resource Guru endpoint as a typed command, plus a local database and per-resource per-day utilization no Resource Guru report gives you.",
-      "version": "0.1.8",
+      "version": "0.1.9",
       "category": "msp",
       "tags": [
         "resourceguru",
@@ -807,7 +807,7 @@
       "name": "rewst",
       "source": "./skills/rewst",
       "description": "Operate and monitor Rewst RPA across every client org from the terminal or your AI agent: workflow execution health, failure triage, automation ROI, dormant-workflow cleanup, cross-org config drift, and integration-pack coverage - the multi-tenant answers the web console makes you assemble one org at a time.",
-      "version": "0.1.10",
+      "version": "0.1.11",
       "category": "automation",
       "tags": [
         "rewst",
@@ -822,7 +822,7 @@
       "name": "riverside-fm",
       "source": "./skills/riverside-fm",
       "description": "The first programmatic way to download every transcript, audio track, and video from your own Riverside.com account \u2014 no Business plan or API key required.",
-      "version": "0.1.8",
+      "version": "0.1.9",
       "category": "marketing",
       "tags": [
         "riverside-fm",
@@ -838,7 +838,7 @@
       "name": "rocketcyber",
       "source": "./skills/rocketcyber",
       "description": "The first CLI and MCP server for RocketCyber Managed SOC, with triage and posture analytics no console page or API call computes.",
-      "version": "0.1.11",
+      "version": "0.1.12",
       "category": "security",
       "tags": [
         "rocketcyber",
@@ -853,7 +853,7 @@
       "name": "rootly",
       "source": "./skills/rootly",
       "description": "Every Rootly incident, alert, and on-call object as a typed command, with a local SQLite mirror for offline analytics.",
-      "version": "0.1.8",
+      "version": "0.1.9",
       "category": "incident-response",
       "tags": [
         "rootly",
@@ -868,7 +868,7 @@
       "name": "runzero",
       "source": "./skills/runzero",
       "description": "Every runZero query, plus a local SQLite copy of your whole attack surface that diffs over time, joins assets to vulnerabilities offline, and costs zero API quota to re-slice.",
-      "version": "0.1.10",
+      "version": "0.1.11",
       "category": "security",
       "tags": [
         "runzero",
@@ -883,7 +883,7 @@
       "name": "salesbuildr",
       "source": "./skills/salesbuildr",
       "description": "Every Salesbuildr resource as a scriptable command, plus offline margin and pipeline analytics.",
-      "version": "0.1.10",
+      "version": "0.1.11",
       "category": "crm",
       "tags": [
         "salesbuildr",
@@ -1188,7 +1188,7 @@
       "name": "quotewerks",
       "source": "./skills/quotewerks",
       "description": "Typed quote tools for QuoteWerks Web that use the real column names, preview typed writes before sending them, and add margin, win-rate and pipeline answers from a local mirror.",
-      "version": "0.1.4",
+      "version": "0.1.5",
       "category": "crm",
       "tags": [
         "quotewerks",
@@ -1343,7 +1343,7 @@
       "name": "saas-alerts",
       "source": "./skills/saas-alerts",
       "description": "Every SaaS Alerts API in one CLI, plus cross-tenant triage, a Respond approval queue with deadlines, and the access-token handshake that breaks other integrations.",
-      "version": "0.1.4",
+      "version": "0.1.5",
       "category": "security",
       "tags": [
         "saas-alerts",
