@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "keeper-mcp",
   "display_name": "Keeper Security",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Read-only Keeper MSP posture across every client, with history, a change feed and no path to a vault secret.",
   "author": {
     "name": "Servosity Inc."

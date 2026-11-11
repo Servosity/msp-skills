@@ -3,7 +3,7 @@
   "name": "io.github.Servosity/keeper-mcp",
   "title": "Keeper Security MCP",
   "description": "Read-only Keeper MSP posture across every client, with history, a change feed and no path to a",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "icons": [
     {
       "src": "https://raw.githubusercontent.com/servosity/msp-skills/main/docs/assets/social/keeper/keeper-512x512.png",
@@ -21,8 +21,8 @@
   "packages": [
     {
       "registryType": "mcpb",
-      "identifier": "https://github.com/servosity/msp-skills/releases/download/keeper-v0.1.2/keeper-mcp.mcpb",
-      "version": "0.1.2",
+      "identifier": "https://github.com/servosity/msp-skills/releases/download/keeper-v0.1.3/keeper-mcp.mcpb",
+      "version": "0.1.3",
       "fileSha256": "PLACEHOLDER_SHA256_FILLED_BY_CI",
       "transport": {
         "type": "stdio"

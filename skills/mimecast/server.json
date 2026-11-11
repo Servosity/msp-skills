@@ -3,7 +3,7 @@
   "name": "io.github.Servosity/mimecast-mcp",
   "title": "Mimecast MCP",
   "description": "Explain a held or blocked Mimecast message in one verdict, triage the hold queue, trace phish clicks",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "icons": [
     {
       "src": "https://raw.githubusercontent.com/servosity/msp-skills/main/docs/assets/social/mimecast/mimecast-512x512.png",
@@ -21,8 +21,8 @@
   "packages": [
     {
       "registryType": "mcpb",
-      "identifier": "https://github.com/servosity/msp-skills/releases/download/mimecast-v0.1.2/mimecast-mcp.mcpb",
-      "version": "0.1.2",
+      "identifier": "https://github.com/servosity/msp-skills/releases/download/mimecast-v0.1.3/mimecast-mcp.mcpb",
+      "version": "0.1.3",
       "fileSha256": "PLACEHOLDER_SHA256_FILLED_BY_CI",
       "transport": {
         "type": "stdio"

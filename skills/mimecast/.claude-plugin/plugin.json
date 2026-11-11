@@ -1,6 +1,6 @@
 {
   "name": "mimecast",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Find a held or blocked Mimecast message, explain why in one verdict, and release it behind a safety check, with hold-queue triage, mail-flow health and phish click tracing built in.",
   "author": {
     "name": "Servosity",
