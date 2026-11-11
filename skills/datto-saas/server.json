@@ -3,7 +3,7 @@
   "name": "io.github.Servosity/datto-saas-mcp",
   "title": "Datto SaaS Protection MCP",
   "description": "Every Datto SaaS Protection (Backupify) client in one local database: seat audits, protection gaps",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "icons": [
     {
       "src": "https://raw.githubusercontent.com/servosity/msp-skills/main/docs/assets/social/datto-saas/datto-saas-512x512.png",
@@ -21,8 +21,8 @@
   "packages": [
     {
       "registryType": "mcpb",
-      "identifier": "https://github.com/servosity/msp-skills/releases/download/datto-saas-v0.1.2/datto-saas-mcp.mcpb",
-      "version": "0.1.2",
+      "identifier": "https://github.com/servosity/msp-skills/releases/download/datto-saas-v0.1.3/datto-saas-mcp.mcpb",
+      "version": "0.1.3",
       "fileSha256": "PLACEHOLDER_SHA256_FILLED_BY_CI",
       "transport": {
         "type": "stdio"
