@@ -6,10 +6,10 @@
 <!-- media:start -->
 <p align="center">
   <a href="https://msp-skills.compoundingteams.com/skills/hook-security/">
-    <img src="../../docs/assets/social/hook-security/wide-1200x630.png" alt="Hook Security - MCP server and Claude Code Skill" width="600">
+    <img src="../../docs/assets/video/hook-security/animated-og.gif" alt="Hook Security demo - animated preview" width="600">
   </a>
 </p>
-<p align="center"><sub><a href="https://msp-skills.compoundingteams.com/skills/hook-security/">Full skill page</a> - install, outcomes, safety model.</sub></p>
+<p align="center"><sub>▶ <a href="https://msp-skills.compoundingteams.com/skills/hook-security/">Watch the 30-second demo</a> - demo data is simulated; every command shown exists in the real CLI.</sub></p>
 <!-- media:end -->
 
 Phishing click rates, who clicked and has not finished training, overdue training and QBR numbers, across every client. Works with the AI you already use - **ChatGPT** (Plus/Pro+), **Claude Desktop**, **Codex**, **Claude Code**, **Claude Cowork**, and **GitHub Copilot** - plus **Microsoft 365 Copilot / Copilot Studio** and **Google Gemini** via the remote path. Free, open source, runs on your laptop. Built for MSP owners. No code required.
