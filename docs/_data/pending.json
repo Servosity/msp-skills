@@ -448,16 +448,16 @@
     "released_hash": null
   },
   "mspbots": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.11",
-    "latest_tag": "mspbots-v0.1.10",
+    "latest_tag": "mspbots-v0.1.11",
     "current_hash": "sha256:9c34df433109503d5371362b022d526a2ad94b3bc5d08a415303bbf5492fc992",
     "released_hash": "sha256:9c34df433109503d5371362b022d526a2ad94b3bc5d08a415303bbf5492fc992"
   },
   "n-central": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.10",
-    "latest_tag": "n-central-v0.1.9",
+    "latest_tag": "n-central-v0.1.10",
     "current_hash": "sha256:0ce58c134c68d361cf26b98de46cc057e6344df772cd0fd25a42d469bc6369e4",
     "released_hash": "sha256:0ce58c134c68d361cf26b98de46cc057e6344df772cd0fd25a42d469bc6369e4"
   },
