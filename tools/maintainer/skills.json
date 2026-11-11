@@ -1647,7 +1647,7 @@
     },
     "nerdio": {
       "system": "Nerdio Manager for MSP: Azure Virtual Desktop fleets, host pools, autoscale, desktop images, Intune devices, and cross-account billing",
-      "status": "beta",
+      "status": "live-verified",
       "cli_binary": "nerdio-cli",
       "mcp_binary": "nerdio-mcp",
       "vendor": "Nerdio Manager",
@@ -1662,12 +1662,15 @@
       "cli_hash_at_release": "sha256:d93a7802f6a6400c02cf5e938ceb292ed82b8aabea5d79ec9433f56a6f77232a",
       "has_video": true,
       "live_verified": {
-        "status": "awaiting",
-        "date": null,
-        "source": null,
-        "evidence": null,
-        "verified_by": null,
-        "issue_url": null
+        "status": "live-verified",
+        "date": "2026-11-10",
+        "source": "github",
+        "evidence": "https://github.com/Servosity/msp-skills/issues/691",
+        "verified_by": "@mcjon3z (MSP)",
+        "issue_url": "https://github.com/Servosity/msp-skills/issues/691",
+        "verified_version": "0.1.10",
+        "verified_cli_hash": "sha256:79bebd4a2bda451db934dda605eacc3eafa092def0c73241edba3ab997ce5a05",
+        "verified_basis": "reported"
       }
     },
     "netsapiens": {

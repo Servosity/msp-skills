@@ -156,8 +156,8 @@ func newNerdioPins(baseURL, tokenURL string) nerdioPins {
 
 // check refuses a request to any origin but the pinned ones. An empty pin (a
 // URL that does not parse to an origin) matches nothing: fail closed. Nerdio
-// authenticates the token request with HTTP Basic, so the token host may see
-// the client pair, never the bearer token.
+// authenticates the token request with the client pair in the form body, so
+// the token host may see the pair, never the bearer token.
 func (p nerdioPins) check(req *http.Request) error {
 	o := normalizedOrigin(req.URL)
 	if o == "" {

@@ -21,7 +21,7 @@ import (
 )
 
 // OAuth2 client_credentials grant: 2-legged server-to-server flow.
-// POST to TokenURL with HTTP Basic client authentication. No user
+// POST to TokenURL with the client pair in the form body. No user
 // redirect, no refresh_token. The client re-mints when within 60s of expiry.
 
 func newAuthCmd(flags *rootFlags) *cobra.Command {
@@ -162,20 +162,23 @@ func resolveClientCredentialsUserAgent() string {
 // mintClientCredentialsToken POSTs grant_type=client_credentials to the
 // token endpoint and returns the parsed token response.
 func mintClientCredentialsToken(httpClient *http.Client, tokenURL, clientID, clientSecret string) (*tokenResponse, error) {
+	// Hand-fix (handfixes.json entra-token-form-auth): the pair rides in the form, never HTTP Basic.
 	form := url.Values{
-		"grant_type": {"client_credentials"},
+		"grant_type":    {"client_credentials"},
+		"client_id":     {clientID},
+		"client_secret": {clientSecret},
 	}
 	if scope := resolveClientCredentialsScope(clientID); scope != "" {
 		form.Set("scope", scope)
 	}
-	req, err := http.NewRequest(http.MethodPost, tokenURL, strings.NewReader(form.Encode()))
+	encoded := cliutil.TokenForm(form)
+	req, err := http.NewRequest(http.MethodPost, tokenURL, strings.NewReader(encoded))
 	if err != nil {
 		return nil, fmt.Errorf("building token request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Set("User-Agent", resolveClientCredentialsUserAgent())
-	req.SetBasicAuth(clientID, clientSecret)
-	req, err = client.GuardTokenRequest(httpClient, req, []byte(form.Encode()))
+	req, err = client.GuardTokenRequest(httpClient, req, []byte(encoded))
 	if err != nil {
 		return nil, err
 	}

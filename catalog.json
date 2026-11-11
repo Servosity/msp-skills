@@ -1347,7 +1347,7 @@
     {
       "name": "nerdio",
       "system": "Nerdio Manager for MSP: Azure Virtual Desktop fleets, host pools, autoscale, desktop images, Intune devices, and cross-account billing",
-      "status": "beta",
+      "status": "live-verified",
       "skill_path": "skills/nerdio",
       "cli_binary": "nerdio-cli",
       "mcp_binary": "nerdio-mcp",
@@ -1360,7 +1360,9 @@
       "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/nerdio/install.sh)",
       "install_mcp_doc": "skills/nerdio/mcp-install.md",
       "description": "The first non-PowerShell client for the Nerdio Manager for MSP API - cross-account AVD fleet audits, async-job plumbing, and offline search no other Nerdio tool has.",
-      "verification": "awaiting",
+      "verification": "live-verified",
+      "verified_version": "0.1.10",
+      "verified_code": "changed",
       "category": "RMM",
       "tagline": "Audit autoscale, sweep idle session hosts, and reconcile per-customer billing across every Nerdio Manager account from your terminal."
     },

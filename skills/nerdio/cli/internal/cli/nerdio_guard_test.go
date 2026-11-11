@@ -128,7 +128,7 @@ func TestPlaceholderBaseURLRefusesEveryAPIRequest(t *testing.T) {
 }
 
 // The same rule on a live client: with NERDIO_TOKEN_URL on another origin,
-// the mint posts the pair with HTTP Basic to that exact path and the API
+// the mint posts the pair in the form body to that exact path and the API
 // request carries the minted bearer to the API origin; an API request aimed
 // at the token host is refused before it is sent; and a redirect hop must stay
 // on the origin of the request it follows, even to the other pinned origin.
@@ -193,7 +193,7 @@ func TestGuardSendsOnlyTheTokenPostToTheTokenHost(t *testing.T) {
 }
 
 // auth login mints at NERDIO_TOKEN_URL (the operator's Entra tenant, another
-// host than the NMM instance): HTTP Basic, the documented form with exactly
+// host than the NMM instance): the documented form, the pair in it, with exactly
 // NERDIO_OAUTH_SCOPE, and the token lands in the 0600 credential store, never
 // config.toml. The press defaulted the token URL to a placeholder tenant
 // (nerdio handfix token-url-from-operator-only).

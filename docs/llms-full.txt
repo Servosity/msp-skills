@@ -2433,7 +2433,7 @@ Governance: The skill drives the n-central-cli and n-central-mcp binaries, authe
 ### Nerdio Manager (RMM)
 
 Page: [Nerdio Manager](https://msp-skills.compoundingteams.com/skills/nerdio.md)
-Verification: Awaiting live verification
+Verification: Live-verified by @mcjon3z (MSP) (2026-11-10)
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/nerdio/install.sh)
 
 Ask "which host pools have autoscale off across all my customers?" and get one table - not 30 portal logins. Every MSP runs its own Nerdio Manager (NMM) install, so each answer normally means clicking through one tenant at a time. This skill pulls your whole NMM fleet into a local mirror and answers cross-account autoscale, power-state, billing, and Intune questions in a single command.

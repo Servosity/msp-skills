@@ -4,6 +4,11 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.1.12] - 2026-11-10
+
+### Fixed
+- **A long-running server can renew its token.** Once the first access token expired, every call could fail with `credkit: withheld from outbound request`, and only a restart brought it back until the next expiry. Tools that run the CLI under the MCP server could fail from their first call. The token request sent the client pair as HTTP Basic, whose encoding can match a piece of the token it is replacing. Both token requests now send `client_id` and `client_secret` in the form body, which Microsoft Entra accepts; the pair still goes only over https to your Entra sign-in or your Nerdio Manager URL (reported by @mcjon3z, #691).
+
 ## [0.1.11] - 2026-11-10
 
 ### Fixed

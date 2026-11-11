@@ -48,6 +48,4 @@ describe there.
 
 ## Status
 
-Beta. Validated against the Nerdio Manager API surface; the closed-loop receipt (a named
-MSP running it live in their production tenant at a Build Session) is tracked
-separately and added here as `video.md` once it exists.
+Live-verified. Confirmed by @mcjon3z (MSP) against their own production tenant ([receipt](https://github.com/Servosity/msp-skills/issues/691)).
