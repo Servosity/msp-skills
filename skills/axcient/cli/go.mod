@@ -2,7 +2,7 @@ module axcient-pp-cli
 
 go 1.26
 
-toolchain go1.26.10
+toolchain go1.26.11
 
 require (
 	github.com/enetx/surf v1.0.199
