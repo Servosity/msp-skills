@@ -157,6 +157,14 @@
       {
         "var": "AUTOTASK_USERNAME",
         "reason": "Pure alias. internal/cli/zone.go reads firstNonEmptyEnv(\"AUTOTASK_USERNAME\", \"AUTOTASK_PSA_USER_NAME\"), and AUTOTASK_PSA_USER_NAME - the canonical name Autotask's own docs use - is already declared and required. Prompting twice for the same API-user email would make the install worse, not safer."
+      },
+      {
+        "var": "AUTOTASK_WEBHOOK_SECRET",
+        "reason": "The inbound webhook secret, read only by the CLI-only webhooks commands and held by the credential layer so it never prints. It is deliberately not an install prompt: the MCP server never reads a delivery, and a prompt would put a placeholder into copy-paste configs and an unresolved user_config template into hosts that skip optional keys, where either could become a guessable secret."
+      },
+      {
+        "var": "AUTOTASK_FORWARD_SECRET",
+        "reason": "The Standard Webhooks signing key for events forward, a CLI-only command the MCP server never runs. The operator chooses it and sets it where forward runs, or stores it 0600 as forward_secret. A prompt would carry it to install channels that never use it and could leave a placeholder as a guessable signing key."
       }
     ],
     "cipp": [
@@ -173,6 +181,14 @@
       {
         "var": "PRINTING_PRESS_CLIENT_PROFILE",
         "reason": "Read by the press 4.34.2 platform layer, but datto-rmm registers no platform source (internal/cli/platform_client.go: registerPlatformSource is never called, so registeredPlatformSource stays nil). Prompting for a client profile would promise a tenant isolation this binary does not provide; a Datto RMM API key already scopes to one account."
+      },
+      {
+        "var": "DATTO_RMM_WEBHOOK_SECRET",
+        "reason": "The inbound webhook secret, read only by the CLI-only webhooks commands and held by the credential layer so it never prints. It is deliberately not an install prompt: the MCP server never reads a delivery, and a prompt would put a placeholder into copy-paste configs and an unresolved user_config template into hosts that skip optional keys, where either could become a guessable secret."
+      },
+      {
+        "var": "DATTO_RMM_FORWARD_SECRET",
+        "reason": "The Standard Webhooks signing key for events forward, a CLI-only command the MCP server never runs. The operator chooses it and sets it where forward runs, or stores it 0600 as forward_secret. A prompt would carry it to install channels that never use it and could leave a placeholder as a guessable signing key."
       }
     ],
     "immybot": [
@@ -213,6 +229,22 @@
       {
         "var": "PRINTING_PRESS_CLIENT_PROFILE",
         "reason": "Read by the press 4.34.2 platform layer, but threecx registers no platform source (internal/cli/platform_client.go: registerPlatformSource is never called, so registeredPlatformSource stays nil). Prompting for a client profile would promise a tenant isolation this binary does not provide; tenant selection is the fleet registry (--pbx / THREECX_PBX)."
+      }
+    ],
+    "itglue": [
+      {
+        "var": "ITGLUE_WEBHOOK_SECRET",
+        "reason": "The inbound webhook secret, read only by the CLI-only webhooks commands and held by the credential layer so it never prints. It is deliberately not an install prompt: the MCP server never reads a delivery, and a prompt would put a placeholder into copy-paste configs and an unresolved user_config template into hosts that skip optional keys, where either could become a guessable secret."
+      },
+      {
+        "var": "ITGLUE_FORWARD_SECRET",
+        "reason": "The Standard Webhooks signing key for events forward, a CLI-only command the MCP server never runs. The operator chooses it and sets it where forward runs, or stores it 0600 as forward_secret. A prompt would carry it to install channels that never use it and could leave a placeholder as a guessable signing key."
+      }
+    ],
+    "servosity": [
+      {
+        "var": "SERVOSITY_MSP_FORWARD_SECRET",
+        "reason": "The Standard Webhooks signing key for events forward, a CLI-only command the MCP server never runs. The operator chooses it and sets it where forward runs, or stores it 0600 as forward_secret. A prompt would carry it to install channels that never use it and could leave a placeholder as a guessable signing key."
       }
     ]
   }
