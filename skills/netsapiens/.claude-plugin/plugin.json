@@ -1,6 +1,6 @@
 {
   "name": "netsapiens",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "Every NetSapiens v2 endpoint plus a reseller-wide fleet view: seat limits, offline phones, unrouted numbers and E911 gaps across every client at once.",
   "author": {
     "name": "Servosity",
