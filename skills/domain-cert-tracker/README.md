@@ -48,7 +48,7 @@ Big install base, but an honest heads-up: these are the **remote / enterprise** 
 
 ### Fastest for Claude Desktop - one-click `.mcpb`
 
-[**Download the Domain and Certificate Tracker MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/domain-cert-tracker-v0.1.2/domain-cert-tracker-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every domain-cert-tracker release on the [releases page](https://github.com/servosity/msp-skills/releases?q=domain-cert-tracker).)
+[**Download the Domain and Certificate Tracker MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/domain-cert-tracker-v0.1.3/domain-cert-tracker-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every domain-cert-tracker release on the [releases page](https://github.com/servosity/msp-skills/releases?q=domain-cert-tracker).)
 
 Prefer the Claude Code plugin? Add the marketplace once, then install - works immediately, no directory listing required:
 
