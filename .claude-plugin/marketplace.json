@@ -1359,7 +1359,7 @@
       "name": "eset-protect",
       "source": "./skills/eset-protect",
       "description": "Every ESET Connect endpoint in one binary, plus per-customer health, exposure and QBR reports built from a local mirror of your MSP tree.",
-      "version": "0.1.2",
+      "version": "0.1.3",
       "category": "security",
       "tags": [
         "eset-protect",
