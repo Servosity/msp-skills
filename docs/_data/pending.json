@@ -588,9 +588,9 @@
     "released_hash": "sha256:72e3ccf8e2819c8f7df43b015ee2bb8e4a3b71fd1bb5d561fd3e911e35f53c05"
   },
   "saas-alerts": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.5",
-    "latest_tag": "saas-alerts-v0.1.4",
+    "latest_tag": "saas-alerts-v0.1.5",
     "current_hash": "sha256:7b0210ab3f28ad3cedcae650167bc0e435e87063db67a55e8fa3ba4564958185",
     "released_hash": "sha256:7b0210ab3f28ad3cedcae650167bc0e435e87063db67a55e8fa3ba4564958185"
   },
