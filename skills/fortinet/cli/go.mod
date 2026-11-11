@@ -1,6 +1,6 @@
 module fortinet-pp-cli
 
-go 1.26.10
+go 1.26.11
 
 godebug x509negativeserial=1
 

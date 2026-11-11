@@ -5999,13 +5999,13 @@
   {
    "id": "go-toolchain-floor",
    "class": "dependency",
-   "summary": "go.mod pins go 1.26.10.",
-   "why": "govulncheck GO-2026-6809 (crypto/x509) is fixed in go1.26.10; the fleet already pins it.",
+   "summary": "go.mod pins go 1.26.11.",
+   "why": "govulncheck GO-2026-6809 (crypto/x509) is fixed in go1.26.10 and GO-2026-6859 (net/http) in go1.26.11; the fleet pins go1.26.11.",
    "status": "active",
    "asserts": [
     {
      "file": "cli/go.mod",
-     "contains": "go 1.26.10",
+     "contains": "go 1.26.11",
      "min_count": 1
     }
    ]

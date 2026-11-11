@@ -2,7 +2,7 @@ module skykick-pp-cli
 
 go 1.26
 
-toolchain go1.26.10
+toolchain go1.26.11
 
 require github.com/spf13/cobra v1.9.1
 
