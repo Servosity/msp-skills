@@ -230,7 +230,7 @@ The strongest control is the **scope you grant the Nerdio Manager credentials** 
 
 ## Status
 
-Beta. Validated against the Nerdio Manager API surface and being validated with MSPs running it live against their own production tenant in our weekly Build Sessions. RSVP at [compoundingteams.com/build-sessions](https://compoundingteams.com/build-sessions).
+Live-verified. Confirmed by @mcjon3z (MSP) against their own production tenant ([receipt](https://github.com/Servosity/msp-skills/issues/691)). More MSPs run it live in our weekly Build Sessions. RSVP at [compoundingteams.com/build-sessions](https://compoundingteams.com/build-sessions).
 
 ---
 

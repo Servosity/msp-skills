@@ -33,8 +33,8 @@
 // <tenant host>/<TENANT_ID>/oauth2/v2.0/token, served here on the NMM
 // instance's origin: the credential kit sends the pair only to base_url and
 // Entra's own hosts, which no loopback fake can be: POST, a form body
-// grant_type=client_credentials&scope=<NERDIO_OAUTH_SCOPE>, the client
-// authenticated with HTTP Basic, answered {"access_token","expires_in"}).
+// grant_type=client_credentials&scope=<NERDIO_OAUTH_SCOPE> with the client
+// pair as client_id and client_secret, answered {"access_token","expires_in"}).
 //
 // A unit (a printed document, a written record, a request) that repeats a
 // credential is withheld whole by the shared credential kit, with its notice;
@@ -253,7 +253,7 @@ type server struct {
 	// other host too, so sync meets a redirect.
 	redirectAccounts bool
 	// redirectToken sends the token endpoint to the other host (a 307 would
-	// resend the request and its Basic client credentials).
+	// resend the request and the client pair in its form body).
 	redirectToken bool
 }
 
@@ -457,12 +457,12 @@ func quietServer(t *testing.T) *server {
 
 // token emulates the Entra tenant's token endpoint: POST
 // <tenant host>/<TENANT_ID>/oauth2/v2.0/token, a form body
-// grant_type=client_credentials&scope=<NERDIO_OAUTH_SCOPE>, the client
-// authenticated with HTTP Basic (never in the body, never a bearer token),
+// grant_type=client_credentials&scope=<NERDIO_OAUTH_SCOPE> with the client
+// pair as client_id and client_secret (never HTTP Basic, never a bearer token),
 // answered with {"access_token","expires_in","token_type"}. It answers only
 // the configured pair and scope, and never echoes a request on success. A
-// refusal repeats what it was sent, and the client ID and secret it decoded
-// from the Basic header, under names that are not credentials (a real token
+// refusal repeats what it was sent, and the client ID and secret it read
+// from the form, under names that are not credentials (a real token
 // endpoint may name the client it refused).
 func (sv *server) token(w http.ResponseWriter, r *http.Request, body []byte, otherURL string) {
 	sv.mu.Lock()
@@ -474,7 +474,7 @@ func (sv *server) token(w http.ResponseWriter, r *http.Request, body []byte, oth
 		return
 	}
 	form, ferr := url.ParseQuery(string(body))
-	id, secret, basic := r.BasicAuth()
+	id, secret := form.Get("client_id"), form.Get("client_secret")
 	why := ""
 	switch {
 	case r.Method != http.MethodPost:
@@ -483,16 +483,12 @@ func (sv *server) token(w http.ResponseWriter, r *http.Request, body []byte, oth
 		why = "content type " + r.Header.Get("Content-Type")
 	case ferr != nil:
 		why = "body is not a form"
-	case strings.HasPrefix(r.Header.Get("Authorization"), "Bearer"):
-		why = "a bearer token on the token request"
-	case !basic:
-		why = "no HTTP Basic client authentication"
+	case r.Header.Get("Authorization") != "":
+		why = "an Authorization header on the token request"
 	case form.Get("grant_type") != "client_credentials":
 		why = "grant_type " + form.Get("grant_type")
 	case form.Get("scope") != bbScope:
 		why = "scope " + form.Get("scope")
-	case form.Has("client_id") || form.Has("client_secret"):
-		why = "the client pair in the body"
 	case id != bbClientID:
 		why = "unknown client"
 	case secret != bbClientSecret:

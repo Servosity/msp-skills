@@ -2750,20 +2750,23 @@ func (c *Client) mintClientCredentialsRaw(ctx context.Context, clientID, clientS
 	if tokenURL == "" {
 		return ErrNoNerdioTokenURL
 	}
+	// Hand-fix (handfixes.json entra-token-form-auth): the pair rides in the form, never HTTP Basic.
 	form := url.Values{
-		"grant_type": {"client_credentials"},
+		"grant_type":    {"client_credentials"},
+		"client_id":     {clientID},
+		"client_secret": {clientSecret},
 	}
 	if scope := resolveClientCredentialsScope(clientID); scope != "" {
 		form.Set("scope", scope)
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, tokenURL, strings.NewReader(form.Encode()))
+	encoded := cliutil.TokenForm(form)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, tokenURL, strings.NewReader(encoded))
 	if err != nil {
 		return fmt.Errorf("building token request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Set("User-Agent", resolveClientCredentialsUserAgent())
-	req.SetBasicAuth(clientID, clientSecret)
-	req, err = guardOutbound(req, nil, "", []byte(form.Encode()))
+	req, err = guardOutbound(req, nil, "", []byte(encoded))
 	if err != nil {
 		return err
 	}

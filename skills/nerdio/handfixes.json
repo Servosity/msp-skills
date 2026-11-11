@@ -2103,6 +2103,58 @@
      "code_only": true
     }
    ]
+  },
+  {
+   "id": "entra-token-form-auth",
+   "summary": "Both client-credentials mints (the client's automatic mint and auth login) send client_id and client_secret in the form body with grant_type first, never as HTTP Basic, so a renewal is not withheld as a piece of the token it replaces",
+   "why": "Issue #691, reported by @mcjon3z on a real tenant. An Entra access token's payload carries the client ID in base64url. When that claim falls at the alignment of the Basic header's start, the two encodings share the whole base64 of the client ID, and the credential kit withholds the next token request as a piece of the held token, which may go only to the Nerdio Manager URL. The server worked until its first token expired and could never mint again. In the form body the client ID is plain text, so the request no longer carries the base64 run the token does. Exempting minted tokens at the token endpoint was rejected: it widens where a token may go. grant_type must stay first (cliutil.TokenForm): the kit reads a form body as one key=value line, and url.Values.Encode sorts client_id first, which held the tail and withheld every output containing the word credentials (seen failing: 4 nerdioblackbox tests). Entra accepts both forms. TestRenewalMintIsNotWithheld drives the real kit and client and fails on the Basic code with the reported notice. A reprint restores SetBasicAuth. Spec-encode candidate: the press should offer form-body client authentication for an OAuth2 token endpoint on another origin.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "\"client_secret\": {clientSecret},",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "encoded := cliutil.TokenForm(form)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "not_contains": "req.SetBasicAuth(clientID, clientSecret)"
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "\"client_secret\": {clientSecret},",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "encoded := cliutil.TokenForm(form)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "not_contains": "req.SetBasicAuth(clientID, clientSecret)"
+    },
+    {
+     "file": "cli/internal/cliutil/credkit_hold.go",
+     "contains": "func TokenForm(form url.Values) string",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/mint_renewal_test.go",
+     "contains": "func TestRenewalMintIsNotWithheld(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
   }
  ],
  "retired": [

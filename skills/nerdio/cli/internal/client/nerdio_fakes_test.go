@@ -7,8 +7,8 @@ package client
 // (NERDIO_BASE_URL, API paths under /rest-api/v1), and the access token comes
 // from the MSP's Entra ID tenant (NERDIO_TOKEN_URL,
 // https://login.microsoftonline.com/<TENANT_ID>/oauth2/v2.0/token): POST, a
-// form body grant_type=client_credentials&scope=<NERDIO_OAUTH_SCOPE>, the
-// client authenticated with HTTP Basic, answered
+// form body grant_type=client_credentials&scope=<NERDIO_OAUTH_SCOPE> with the
+// client pair as client_id and client_secret, answered
 // {"access_token":"...","expires_in":3600}.
 
 import (
@@ -58,17 +58,15 @@ func newEntraFake(t *testing.T, tag string) *entraFake {
 	f.srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		raw, _ := io.ReadAll(r.Body)
 		form, ferr := url.ParseQuery(string(raw))
-		id, secret, basic := r.BasicAuth()
+		id, secret := form.Get("client_id"), form.Get("client_secret")
 		why := ""
 		switch {
 		case r.Method != http.MethodPost || r.URL.Path != path:
 			why = r.Method + " " + r.URL.Path
 		case !strings.HasPrefix(r.Header.Get("Content-Type"), "application/x-www-form-urlencoded") || ferr != nil:
 			why = "not a form body"
-		case !basic:
-			why = "no HTTP Basic client authentication"
-		case form.Has("client_id") || form.Has("client_secret"):
-			why = "the client pair in the body"
+		case r.Header.Get("Authorization") != "":
+			why = "an Authorization header on the token request"
 		case form.Get("grant_type") != "client_credentials":
 			why = "grant_type " + form.Get("grant_type")
 		case secret != "secret-for-"+id:

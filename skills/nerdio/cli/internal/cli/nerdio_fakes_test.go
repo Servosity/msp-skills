@@ -6,8 +6,8 @@ package cli
 // instance (NERDIO_BASE_URL, the API under /rest-api/v1), and the token comes
 // from the MSP's Entra ID tenant on another host (NERDIO_TOKEN_URL,
 // <tenant host>/<TENANT_ID>/oauth2/v2.0/token: POST, a form body
-// grant_type=client_credentials&scope=<NERDIO_OAUTH_SCOPE>, the client
-// authenticated with HTTP Basic, answered {"access_token","expires_in"}).
+// grant_type=client_credentials&scope=<NERDIO_OAUTH_SCOPE> with the client
+// pair as client_id and client_secret, answered {"access_token","expires_in"}).
 
 import (
 	"context"
@@ -67,10 +67,10 @@ func newFakeInstance(t *testing.T, id, secret, access string, api http.HandlerFu
 		raw, _ := io.ReadAll(r.Body)
 		m.lastMintForm.Store(r.Header.Get("Content-Type") + " " + string(raw))
 		form, _ := url.ParseQuery(string(raw))
-		gotID, gotSecret, basic := r.BasicAuth()
+		gotID, gotSecret := form.Get("client_id"), form.Get("client_secret")
 		if r.Method != http.MethodPost || !strings.HasPrefix(r.Header.Get("Content-Type"), "application/x-www-form-urlencoded") ||
-			!basic || gotID != id || gotSecret != secret || form.Get("grant_type") != "client_credentials" ||
-			form.Get("scope") != nerdioTestScope || form.Has("client_secret") || form.Has("client_id") {
+			r.Header.Get("Authorization") != "" || !strings.HasPrefix(string(raw), "grant_type=") || gotID != id || gotSecret != secret || form.Get("grant_type") != "client_credentials" ||
+			form.Get("scope") != nerdioTestScope {
 			m.bad.Add(1)
 			w.WriteHeader(http.StatusUnauthorized)
 			_, _ = io.WriteString(w, `{"error":"invalid_client"}`)

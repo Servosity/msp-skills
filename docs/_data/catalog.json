@@ -825,12 +825,12 @@
       "display_name": "Nerdio Manager",
       "tagline": "Audit autoscale, sweep idle session hosts, and reconcile per-customer billing across every Nerdio Manager account from your terminal.",
       "category": "RMM",
-      "verification": "awaiting",
-      "verified_by": null,
-      "source": null,
-      "issue_url": null,
-      "verified_version": null,
-      "verified_code": null,
+      "verification": "live-verified",
+      "verified_by": "@mcjon3z (MSP)",
+      "source": "github",
+      "issue_url": "https://github.com/Servosity/msp-skills/issues/691",
+      "verified_version": "0.1.10",
+      "verified_code": "changed",
       "url": "/skills/nerdio/"
     },
     {

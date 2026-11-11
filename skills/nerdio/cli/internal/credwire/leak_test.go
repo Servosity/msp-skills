@@ -19,6 +19,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -76,9 +77,10 @@ func startFake(t *testing.T, h func(w http.ResponseWriter, r *http.Request, body
 // nmm answers the token POST for the client pair with mintedTok and every
 // API read with accounts; anything else is a 404.
 func nmm(accounts string) func(w http.ResponseWriter, r *http.Request, body []byte) {
-	return func(w http.ResponseWriter, r *http.Request, _ []byte) {
+	return func(w http.ResponseWriter, r *http.Request, body []byte) {
 		if r.URL.Path == tokenPath {
-			if id, sec, ok := r.BasicAuth(); !ok || id != clientID || sec != clientSec {
+			form, err := url.ParseQuery(string(body))
+			if err != nil || r.Header.Get("Authorization") != "" || form.Get("client_id") != clientID || form.Get("client_secret") != clientSec {
 				w.WriteHeader(http.StatusUnauthorized)
 				fmt.Fprint(w, `{"error":"invalid_client"}`)
 				return
@@ -233,7 +235,7 @@ func TestClientSecretOnlyReachesItsOrigins(t *testing.T) {
 		t.Fatalf("the control read did not mint and fetch; the test did not run:\n%s\nrequests:\n%s", out, api.requests())
 	}
 	for _, line := range strings.Split(api.requests(), "\n") {
-		if !strings.HasPrefix(line, "POST "+tokenPath+" ") && strings.Contains(line, "Basic ") {
+		if !strings.HasPrefix(line, "POST "+tokenPath+" ") && (strings.Contains(line, "Basic ") || strings.Contains(line, clientSec)) {
 			t.Errorf("an API request carried the client pair: %s", line)
 		}
 	}

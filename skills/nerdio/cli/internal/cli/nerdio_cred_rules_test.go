@@ -99,10 +99,10 @@ func TestOriginPinKeepsTheTokenOnTheAPIHost(t *testing.T) {
 }
 
 // api-origin-pinned, client-credentials mode: the token mint posts the client
-// pair (HTTP Basic) to NERDIO_TOKEN_URL (the Entra tenant, another origin than
+// pair (in the form body) to NERDIO_TOKEN_URL (the Entra tenant, another origin than
 // the NMM instance) through the same guarded transport, so a token endpoint
 // that redirects to another host (a 307 would resend the request and its
-// Basic credentials) is refused before the secret follows, and the read is
+// form body) is refused before the secret follows, and the read is
 // never sent without a token.
 func TestMintNeverLeavesTheTokenOrigin(t *testing.T) {
 	const id, secret = "pinMintClientId-3a7c", "pinMintClientSecret-9e2b4d"
@@ -260,7 +260,7 @@ func recordHolds(t *testing.T) *[]string {
 // moment config loads; the access token the mint returns is held before any
 // command reads it; the minted Bearer is what goes on the wire; the mint
 // posted grant_type=client_credentials and NERDIO_OAUTH_SCOPE as a form, the
-// pair as HTTP Basic, to NERDIO_TOKEN_URL (the Entra tenant); and the token
+// pair in that form, to NERDIO_TOKEN_URL (the Entra tenant); and the token
 // minted for an environment pair is written to no file at all
 // (minted-token-bound-to-its-client: stored beside the files' pair it would
 // read as that client's token), nor is the pair.
@@ -293,8 +293,8 @@ func TestMintedTokenIsHeldAndSent(t *testing.T) {
 	ct, raw, _ := strings.Cut(fmt.Sprint(m.lastMintForm.Load()), " ")
 	form, _ := url.ParseQuery(raw)
 	if ct != "application/x-www-form-urlencoded" || form.Get("grant_type") != "client_credentials" || form.Get("scope") != nerdioTestScope ||
-		strings.Contains(raw, secret) || strings.Contains(raw, id) {
-		t.Fatalf("the mint did not post the documented form (the pair belongs in Basic, not the body): %v", m.lastMintForm.Load())
+		form.Get("client_id") != id || form.Get("client_secret") != secret || !strings.HasPrefix(raw, "grant_type=") {
+		t.Fatalf("the mint did not post the documented form (the pair in the body, grant_type first): %v", m.lastMintForm.Load())
 	}
 	if got.Load() != "Bearer "+access {
 		t.Fatalf("Authorization on the wire = %v, want the minted Bearer", got.Load())

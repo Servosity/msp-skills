@@ -5,7 +5,7 @@ description: "The first non-PowerShell client for the Nerdio Manager for MSP API
 permalink: /skills/nerdio/
 skill_name: "Nerdio Manager MCP"
 image: /assets/social/nerdio/wide-1200x630.png
-verification: awaiting
+verification: live-verified
 faqs:
   - q: "Is there an MCP server for Nerdio Manager?"
     a: "Yes - this one. A free, open source MCP server and Claude Code Skill for Nerdio Manager, built for MSPs. It runs locally on your machine, works with Claude, ChatGPT, Copilot, and any MCP-capable agent, and installs in about 60 seconds."
@@ -40,7 +40,7 @@ howto:
 > under Apache-2.0 - built for the MSP community, vendor-neutral by design.
 > Not affiliated with, endorsed by, or sponsored by Nerdio, Inc.
 
-**Passes all 4 mechanical gates** (build · command-surface · claims · install). Awaiting its first MSP receipt - [be the first, 60 seconds →](https://msp-skills.compoundingteams.com/verified/#receipt).
+**✓ Live-verified by @mcjon3z (MSP)** against a production tenant · 2026-11-10 · [receipt →](https://github.com/Servosity/msp-skills/issues/691). Verified on v0.1.10; the current release has changed since.
 
 Yes - there is an MCP server for Nerdio Manager. It's free, open source, and runs on your own machine, so your client data stays local unless you route it somewhere yourself. It connects Nerdio Manager to Claude, ChatGPT, Copilot, or any MCP-capable agent, and installs in about 60 seconds.
 
@@ -185,7 +185,7 @@ Run more than one RMM tool, or comparing options? These connectors work the same
 
 ## Status
 
-Beta. Validated against the Nerdio Manager API surface and being validated with MSPs running it live against their own production tenants in our weekly **[Build Sessions](https://compoundingteams.com/build-sessions)**.
+Live-verified. Confirmed by @mcjon3z (MSP) against their own production tenant ([receipt](https://github.com/Servosity/msp-skills/issues/691)). Verified on v0.1.10; the current release has changed since. More MSPs run it live in our weekly **[Build Sessions](https://compoundingteams.com/build-sessions)**.
 
 Build Sessions are free and stay free - [The Build Room](https://compoundingteams.com) is where the deep work happens.
 
