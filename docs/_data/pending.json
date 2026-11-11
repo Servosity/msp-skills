@@ -378,9 +378,9 @@
     "released_hash": "sha256:e24c27f7d0a58f5d22f3ee5429fe3597435f7933030a8e632e77aed641507366"
   },
   "kaseya-bms": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.12",
-    "latest_tag": "kaseya-bms-v0.1.11",
+    "latest_tag": "kaseya-bms-v0.1.12",
     "current_hash": "sha256:53fd217d1cf9b585768e8bb00ee992256e044ca83fa8c491d102a9cfbf80f28f",
     "released_hash": "sha256:53fd217d1cf9b585768e8bb00ee992256e044ca83fa8c491d102a9cfbf80f28f"
   },
