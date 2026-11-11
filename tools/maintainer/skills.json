@@ -1179,7 +1179,7 @@
       "category": "Security",
       "display_name": "Hook Security",
       "tagline": "Compare phishing click rates across clients and find who clicked and still needs training.",
-      "has_video": false,
+      "has_video": true,
       "cli_hash": "sha256:826bb7613bccdb51934ba0fc22e388788633b7982beeb2aec43ad7205723efba",
       "template_version": 3,
       "version": "0.1.0",

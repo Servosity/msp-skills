@@ -30,6 +30,12 @@ Your agent runs: `hook-security-cli clicked-untrained --campaign cmp_88213`
 **just ask:** *"Give me the security awareness numbers for this client's QBR."*
 Your agent runs: `hook-security-cli qbr org_4521 --days 90`
 
+## See it in 30 seconds
+
+[Watch the 30-second demo](https://msp-skills.compoundingteams.com/assets/video/hook-security/demo-30s.mp4)
+
+Demo data is simulated. Every command shown exists in the real CLI.
+
 ## What it does
 
 | Question your MSP keeps asking | Command your agent runs |

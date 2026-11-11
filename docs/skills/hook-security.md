@@ -67,6 +67,12 @@ Running Hook Security for a book of clients? Ask your AI "which clients click th
 <sub>Your agent runs: <code>hook-security-cli qbr org_4521 --days 90</code></sub>
 
 
+## See it in 30 seconds
+
+<video controls preload="metadata" style="width:100%; max-width:960px; border-radius:12px;" poster="/assets/social/hook-security/wide-1200x630.png" src="/assets/video/hook-security/demo-30s.mp4">Your browser does not support the video tag. <a href="/assets/video/hook-security/demo-30s.mp4">Watch the 30-second demo</a>.</video>
+
+<sub>Demo data is simulated. Every command shown exists in the real CLI.</sub>
+
 ## What it does
 
 | Question your MSP keeps asking | Command your agent runs |
