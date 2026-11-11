@@ -2621,8 +2621,8 @@
       "has_video": true,
       "cli_hash": "sha256:7b4b0bfd4fb413d42c265d42147502fca4c1d16fad1f1c04e9685422a08e0803",
       "template_version": 3,
-      "version": "0.1.2",
-      "cli_hash_at_release": "sha256:f716eb6289d360388bcd652e36b9e8430d9d91aade5eef72325c6f208289eae2",
+      "version": "0.1.3",
+      "cli_hash_at_release": "sha256:5c02c07b59d8298abd72a7accf018c673c4f21d79b0e3c378541121a40936fff",
       "live_verified": {
         "status": "awaiting",
         "date": null,
@@ -2670,8 +2670,8 @@
       "tagline": "Answer AR/AP aging, reconciliation, and GL tie-out for a Xero org from the terminal - offline, in one call.",
       "cli_hash": "sha256:a05ee08b697de2a8e48cecb81b60785e3589d4c5c9c74048996339de1b397442",
       "template_version": 3,
-      "version": "0.1.12",
-      "cli_hash_at_release": "sha256:b27b11fa2c144f507a6a28a12f251606d03c3f5b1697d137ddd36ede1a449382",
+      "version": "0.1.13",
+      "cli_hash_at_release": "sha256:0138d046c0c649ac28fe5b482bda5ba62b9fcc884731001e387b8b98fae45baf",
       "has_video": true,
       "live_verified": {
         "status": "awaiting",
@@ -2724,8 +2724,8 @@
       "has_video": true,
       "cli_hash": "sha256:c5f0bbbfe5c335cbffc60c0ecc0a3819b63ef4948ce1f689c76d93fef17a9934",
       "template_version": 3,
-      "version": "0.1.3",
-      "cli_hash_at_release": "sha256:cd8d55af626f677af9e309de1a32b4130a05086ddcf6ad8ebd998e5a8cb0e861",
+      "version": "0.1.4",
+      "cli_hash_at_release": "sha256:03e9434eadafd3555f8e3d5cbb799904ba8390273a51093b1d5d7694f92fd1d8",
       "live_verified": {
         "status": "awaiting",
         "date": null,
