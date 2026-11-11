@@ -898,7 +898,7 @@
       "name": "sentinelone",
       "source": "./skills/sentinelone",
       "description": "Every SentinelOne v2.1 management endpoint, plus an offline SQLite store and cross-entity analytics \u2014 fleet health, threat triage, blast radius, drift \u2014 that no console view offers.",
-      "version": "0.2.7",
+      "version": "0.2.8",
       "category": "security",
       "tags": [
         "sentinelone",
@@ -913,7 +913,7 @@
       "name": "servosity",
       "source": "./skills/servosity",
       "description": "The first MSP-fleet CLI for backup. Every Servosity API endpoint as a typed command, plus a local mirror that lets you ask questions the dashboard can't \u2014 across your whole book of clients.",
-      "version": "0.6.15",
+      "version": "0.6.16",
       "category": "backup-dr",
       "tags": [
         "servosity",
@@ -928,7 +928,7 @@
       "name": "sherweb",
       "source": "./skills/sherweb",
       "description": "Every Sherweb Partner API capability, plus a local SQLite store, offline analytics, and margin/drift/orphan joins no other Sherweb tool has.",
-      "version": "0.1.9",
+      "version": "0.1.10",
       "category": "billing",
       "tags": [
         "sherweb",
@@ -943,7 +943,7 @@
       "name": "skykick",
       "source": "./skills/skykick",
       "description": "Fleet-wide M365 backup assurance for SkyKick Cloud Backup - posture, stale snapshots, and coverage gaps no portal or wrapper can show.",
-      "version": "0.1.9",
+      "version": "0.1.10",
       "category": "backup-dr",
       "tags": [
         "skykick",
@@ -958,7 +958,7 @@
       "name": "superops",
       "source": "./skills/superops",
       "description": "Every SuperOps PSA+RMM entity in your terminal, plus a local SQLite mirror that answers cross-entity questions the web UI can't.",
-      "version": "0.1.17",
+      "version": "0.1.18",
       "category": "psa",
       "tags": [
         "superops",
@@ -973,7 +973,7 @@
       "name": "syncro",
       "source": "./skills/syncro",
       "description": "Every Syncro PSA and RMM workflow in your terminal, plus a local database, offline search, and cross-entity reports no other Syncro tool has.",
-      "version": "0.1.8",
+      "version": "0.1.9",
       "category": "psa",
       "tags": [
         "syncro",
@@ -988,7 +988,7 @@
       "name": "tactical-rmm",
       "source": "./skills/tactical-rmm",
       "description": "Every Tactical RMM endpoint as a typed command, plus an offline SQLite mirror and cross-entity fleet queries the web UI can't express.",
-      "version": "0.1.10",
+      "version": "0.1.11",
       "category": "rmm",
       "tags": [
         "tactical-rmm",
@@ -1203,7 +1203,7 @@
       "name": "sophos-central",
       "source": "./skills/sophos-central",
       "description": "The Sophos Central partner, organization and tenant APIs, routed to the right tenant and region automatically, plus a cross-tenant triage queue, fleet tamper remediation, a multi-tenant SIEM collector and hostname-based containment.",
-      "version": "0.1.6",
+      "version": "0.1.7",
       "category": "security",
       "tags": [
         "sophos-central",
@@ -1250,7 +1250,7 @@
       "name": "sonicwall",
       "source": "./skills/sonicwall",
       "description": "Cyber-insurance posture for a whole SonicWall fleet: firmware, advisories, MFA, SSL-VPN exposure and licences, one row per firewall.",
-      "version": "0.1.6",
+      "version": "0.1.7",
       "category": "security",
       "tags": [
         "sonicwall",
@@ -1532,7 +1532,7 @@
       "name": "synology",
       "source": "./skills/synology",
       "description": "Every client NAS's Active Backup jobs and storage health, mirrored into one local SQLite database and checked with one command.",
-      "version": "0.1.3",
+      "version": "0.1.4",
       "category": "backup-dr",
       "tags": [
         "synology",
