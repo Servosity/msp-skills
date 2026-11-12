@@ -4,7 +4,7 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
-## [0.3.0] - unreleased
+## [0.3.0] - 2026-11-12
 
 ### Changed
 - **A second `sync` reads only what changed.** HubSpot's CRM object lists (contacts, companies, deals, tickets, calls, emails, meetings, notes, tasks, leads, line items, products, quotes) have no "modified since" filter, so every `sync` used to read every record again. Once a resource has synced completely, the next plain `sync` asks HubSpot's search for the records modified since the last one (with a 5 minute overlap, because search takes a few moments to see an update) and stores only those. The sync event stream shows `sync_delta` with the number of changed rows. Owners, pipelines, lists and imports are still read in full. `sync --full`, `--since`, `--with-history`, a `--param` filter, and a change to the properties sync collects still read the whole list; after a `--param` filter or a property change, so does the next plain `sync`. With `--max-pages`, an incremental `sync` stops after that many pages and the next one continues where it stopped. An interrupted full read of these objects now starts again from the first page, so no changed record is skipped. The first `sync` after updating reads everything once ([#695](https://github.com/Servosity/msp-skills/issues/695)).
