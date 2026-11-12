@@ -3,7 +3,7 @@
   "name": "io.github.Servosity/apple-business-mcp",
   "title": "Apple MCP",
   "description": "Every Apple Business API call, plus offline fleet answers: unassigned devices, AppleCare expiry and",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "icons": [
     {
       "src": "https://raw.githubusercontent.com/servosity/msp-skills/main/docs/assets/social/apple-business/apple-business-512x512.png",
@@ -21,8 +21,8 @@
   "packages": [
     {
       "registryType": "mcpb",
-      "identifier": "https://github.com/servosity/msp-skills/releases/download/apple-business-v0.1.4/apple-business-mcp.mcpb",
-      "version": "0.1.4",
+      "identifier": "https://github.com/servosity/msp-skills/releases/download/apple-business-v0.1.5/apple-business-mcp.mcpb",
+      "version": "0.1.5",
       "fileSha256": "PLACEHOLDER_SHA256_FILLED_BY_CI",
       "transport": {
         "type": "stdio"

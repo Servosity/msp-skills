@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "apple-business-mcp",
   "display_name": "Apple Business",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Every Apple Business API call, plus offline fleet answers: unassigned devices, AppleCare expiry and Activation Lock.",
   "author": {
     "name": "Servosity Inc."
