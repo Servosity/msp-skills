@@ -588,9 +588,9 @@
     "released_hash": "sha256:112f28d7b9478c0e8fc40eff534540acf61a1e06cdd5d4e2347e57b9762128e1"
   },
   "runzero": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.12",
-    "latest_tag": "runzero-v0.1.11",
+    "latest_tag": "runzero-v0.1.12",
     "current_hash": "sha256:3f86cced54b55bbcb77753fd9ac409f069b2a0eb27cb0c4ceaf2675cff4c9f7a",
     "released_hash": "sha256:3f86cced54b55bbcb77753fd9ac409f069b2a0eb27cb0c4ceaf2675cff4c9f7a"
   },
