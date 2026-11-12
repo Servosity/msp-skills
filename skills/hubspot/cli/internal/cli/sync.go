@@ -518,6 +518,9 @@ func syncResource(ctx context.Context, c interface {
 		// UTC so the zone renders as "Z"; see the --since resolution above.
 		effectiveSince = lastSynced.UTC().Format(time.RFC3339)
 	}
+	if res, done := hsSyncDelta(ctx, c, db, resource, sinceTS, full, lastSynced, maxPages, withHistory, userParams, scopeKey, syncEvents, started, &effectiveSince, &existingCursor); done { // Hand-wired (handfixes.json: sync-delta-search-walk)
+		return res
+	}
 	// Resources whose list endpoint has no usable incremental lower bound
 	// fall back to plain pagination. Sending a synthetic since value would
 	// reach the API as an unknown query param and (for strict APIs like

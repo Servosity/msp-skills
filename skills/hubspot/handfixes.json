@@ -2896,6 +2896,44 @@
      "code_only": true
     }
    ]
+  },
+  {
+   "id": "sync-delta-search-walk",
+   "summary": "a second sync of a HubSpot CRM object walks POST /crm/v3/objects/{type}/search from the watermark instead of re-reading the whole list; a changed property list or --param filter voids the watermark",
+   "why": "HubSpot's object list has no modified-since parameter, so the press leaves syncResourceSinceParam empty, every sync after the first emits resource_not_incremental and re-reads every record (#695, syncprobe report section B: 5,003 rows cost the same requests on run 2 as on run 1). hs_sync_delta.go walks the search endpoint instead: hs_lastmodifieddate (contacts: lastmodifieddate) GTE the watermark minus 5 minutes (search indexing lag), sorted ascending, 200 a page, the list read's properties. Every page is a fresh query GTE the previous page's last timestamp, never an after offset: search pages by position, so a record updated mid-walk shifts the rest forward and an offset walk skips one and stamps past it (Codex round 1 P1, TestSyncDeltaUpdateMidWalkSkipsNoRow). This also never nears search's 10,000-result window. A full page on one timestamp cannot advance and falls back to the list walk. It never prunes and stamps the watermark only when it ends on its last page; sync --full is unchanged and reconciles deletions. It falls back to the list walk with no watermark, an empty table, --full, --since, --with-history, or a non-properties --param. A list walk of these 13 resources always starts from the top (hsSyncDelta clears existingCursor): one that resumed an earlier run's cursor would stamp a watermark newer than the rows that run read, and the next delta would trust it (Codex round 2 P1, TestSyncDeltaFallBackListStartsFromTheTop, TestSyncDeltaResumedFirstSyncStartsFromTheTop). --max-pages caps a delta walk instead and stamps the last timestamp it read. syncCheckpointScope folds every requested parameter, with properties expanded by hsCollectedProperties, into the scope: a property change reads the scope as new and takes a full read (a watermark cannot backfill a property older rows never collected), and a list walk narrowed by --param cannot stamp the watermark an unfiltered delta trusts (Codex round 1 P1, TestSyncDeltaFilteredRunDoesNotAdvanceTheWatermark). The template can only GET one list path, so a reprint drops both the guarded call in syncResource and the scope block; re-apply both. Receipts: hs_sync_delta_test.go (red on b8ed460a5b, green after) and the syncdelta two-run receipt.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "if res, done := hsSyncDelta(ctx, c, db, resource, sinceTS, full, lastSynced, maxPages, withHistory, userParams, scopeKey, syncEvents, started, &effectiveSince, &existingCursor); done {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "requested[\"properties\"] = hsCollectedProperties(resource, requested[\"properties\"])",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "add(\"hs-request\", name, value)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/hs_sync_delta.go",
+     "contains": "func hsSyncDelta(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/hs_sync_delta_test.go",
+     "contains": "func TestSyncDeltaSecondRunSearchesFromTheWatermark(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
   }
  ],
  "retired": [
