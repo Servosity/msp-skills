@@ -386,7 +386,7 @@
       "name": "domotz",
       "source": "./skills/domotz",
       "description": "Every Domotz endpoint, plus a local SQLite fleet mirror that answers cross-site questions.",
-      "version": "0.1.11",
+      "version": "0.1.12",
       "category": "network-monitoring",
       "tags": [
         "domotz",
@@ -422,7 +422,7 @@
       "name": "gradient",
       "source": "./skills/gradient",
       "description": "The Synthesize partner API from the terminal - every endpoint, plus a usage-push ledger, billing drift detection, and alert-to-ticket tracing no other Gradient tool has.",
-      "version": "0.1.12",
+      "version": "0.1.13",
       "category": "billing",
       "tags": [
         "gradient",
@@ -438,7 +438,7 @@
       "name": "halopsa",
       "source": "./skills/halopsa",
       "description": "Every HaloPSA, HaloITSM and HaloCRM feature, plus a local SQLite store and cross-entity views the API can't return.",
-      "version": "0.2.24",
+      "version": "0.2.25",
       "category": "psa",
       "tags": [
         "halopsa",
@@ -468,7 +468,7 @@
       "name": "hudu",
       "source": "./skills/hudu",
       "description": "Every Hudu cmdlet, plus an offline SQLite mirror, cross-entity audits, and agent-native output no PowerShell module or read-only MCP ships.",
-      "version": "0.1.19",
+      "version": "0.1.20",
       "category": "documentation",
       "tags": [
         "hudu",
@@ -483,7 +483,7 @@
       "name": "huntress",
       "source": "./skills/huntress",
       "description": "Every Huntress endpoint, plus fleet-wide incident, coverage, and billing rollups the API can't.",
-      "version": "0.1.14",
+      "version": "0.1.15",
       "category": "security",
       "tags": [
         "huntress",
@@ -498,7 +498,7 @@
       "name": "immybot",
       "source": "./skills/immybot",
       "description": "Every ImmyBot endpoint typed, plus a local mirror that joins what the web UI keeps per tenant.",
-      "version": "0.1.15",
+      "version": "0.1.16",
       "category": "rmm",
       "tags": [
         "immybot",
@@ -1111,7 +1111,7 @@
       "name": "fortinet",
       "source": "./skills/fortinet",
       "description": "Read every FortiGate's configuration and live state, then audit the whole client fleet for firmware, SSL-VPN exposure, admin accounts and licence expiry in one command.",
-      "version": "0.1.8",
+      "version": "0.1.9",
       "category": "security",
       "tags": [
         "fortinet",
@@ -1126,7 +1126,7 @@
       "name": "google-workspace",
       "source": "./skills/google-workspace",
       "description": "Cross-client Google Workspace admin: 2SV gaps, licence waste, sharing drift, safe offboarding.",
-      "version": "0.1.8",
+      "version": "0.1.9",
       "category": "security",
       "tags": [
         "google-workspace",
@@ -1547,7 +1547,7 @@
       "name": "dropsuite",
       "source": "./skills/dropsuite",
       "description": "Every Dropsuite (NinjaOne SaaS Backup) read, plus fleet-wide backup health, coverage gaps and billing reconciliation from one reseller credential.",
-      "version": "0.1.3",
+      "version": "0.1.4",
       "category": "backup-dr",
       "tags": [
         "dropsuite",
@@ -1657,7 +1657,7 @@
       "name": "domain-cert-tracker",
       "source": "./skills/domain-cert-tracker",
       "description": "Every client's domains and certificates in one inventory: what expires, unlocks or changes.",
-      "version": "0.1.3",
+      "version": "0.1.4",
       "category": "monitoring",
       "tags": [
         "domain-cert-tracker",
