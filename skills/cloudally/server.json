@@ -3,7 +3,7 @@
   "name": "io.github.Servosity/cloudally-mcp",
   "title": "CloudAlly MCP",
   "description": "Restore or download CloudAlly mailboxes as of a past date, and find failing backups",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "icons": [
     {
       "src": "https://raw.githubusercontent.com/servosity/msp-skills/main/docs/assets/social/cloudally/cloudally-512x512.png",
@@ -21,8 +21,8 @@
   "packages": [
     {
       "registryType": "mcpb",
-      "identifier": "https://github.com/servosity/msp-skills/releases/download/cloudally-v0.2.3/cloudally-mcp.mcpb",
-      "version": "0.2.3",
+      "identifier": "https://github.com/servosity/msp-skills/releases/download/cloudally-v0.2.4/cloudally-mcp.mcpb",
+      "version": "0.2.4",
       "fileSha256": "PLACEHOLDER_SHA256_FILLED_BY_CI",
       "transport": {
         "type": "stdio"
