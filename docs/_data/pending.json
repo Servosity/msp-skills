@@ -742,25 +742,25 @@
     "released_hash": "sha256:131c88d7e45314a6c5773313a92d1945b23d1202911461fb1953c0b39735c76c"
   },
   "windows-server": {
-    "state": "binary-pending",
-    "version": "0.1.3",
-    "latest_tag": "windows-server-v0.1.3",
+    "state": "up-to-date",
+    "version": "0.1.4",
+    "latest_tag": "windows-server-v0.1.4",
     "current_hash": "sha256:9560c45c322298e5675f5b7d50fd9dd60855f99999d44ec4d41c245387030f26",
-    "released_hash": "sha256:5c02c07b59d8298abd72a7accf018c673c4f21d79b0e3c378541121a40936fff"
+    "released_hash": "sha256:9560c45c322298e5675f5b7d50fd9dd60855f99999d44ec4d41c245387030f26"
   },
   "wordpress": {
-    "state": "binary-pending",
-    "version": "0.1.11",
+    "state": "version-pending",
+    "version": "0.1.12",
     "latest_tag": "wordpress-v0.1.11",
     "current_hash": "sha256:12ae37ccafe2b4a9395d44cce03f63b6e623c2b2910ee4df7a87291f0354356a",
-    "released_hash": "sha256:1f7e64eb1532816878d703879507f7ece8839ef96716cac94f4d00de2e2015a4"
+    "released_hash": "sha256:12ae37ccafe2b4a9395d44cce03f63b6e623c2b2910ee4df7a87291f0354356a"
   },
   "xero": {
-    "state": "binary-pending",
-    "version": "0.1.13",
+    "state": "version-pending",
+    "version": "0.1.14",
     "latest_tag": "xero-v0.1.13",
     "current_hash": "sha256:f0bb23fdc0aa52aee511300aa6c0e21d2bb5684d13b67f603c32ae3fbddf7bb1",
-    "released_hash": "sha256:0138d046c0c649ac28fe5b482bda5ba62b9fcc884731001e387b8b98fae45baf"
+    "released_hash": "sha256:f0bb23fdc0aa52aee511300aa6c0e21d2bb5684d13b67f603c32ae3fbddf7bb1"
   },
   "zammad": {
     "state": "up-to-date",
@@ -770,10 +770,10 @@
     "released_hash": "sha256:db3a7bea472869b82b665ee159aab4d714454273e887132f939f5a0fea9422eb"
   },
   "zoom-phone": {
-    "state": "binary-pending",
-    "version": "0.1.4",
+    "state": "version-pending",
+    "version": "0.1.5",
     "latest_tag": "zoom-phone-v0.1.4",
     "current_hash": "sha256:37f23606a6100f760610662993ddf5adaa089a01a8a7c5b027d75b03e14b32ec",
-    "released_hash": "sha256:03e9434eadafd3555f8e3d5cbb799904ba8390273a51093b1d5d7694f92fd1d8"
+    "released_hash": "sha256:37f23606a6100f760610662993ddf5adaa089a01a8a7c5b027d75b03e14b32ec"
   }
 }
