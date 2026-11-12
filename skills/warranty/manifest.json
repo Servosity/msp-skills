@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "warranty-mcp",
   "display_name": "Device Warranty",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Dell, Lenovo and Apple warranty end dates for every client's devices, in one local mirror.",
   "author": {
     "name": "Servosity Inc."
