@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "zoom-phone-mcp",
   "display_name": "Zoom Phone",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Zoom Phone admin API for MSPs, plus E911, call routing, number and desk-phone audits across every client Zoom account.",
   "author": {
     "name": "Servosity Inc."
