@@ -749,16 +749,16 @@
     "released_hash": "sha256:9560c45c322298e5675f5b7d50fd9dd60855f99999d44ec4d41c245387030f26"
   },
   "wordpress": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.12",
-    "latest_tag": "wordpress-v0.1.11",
+    "latest_tag": "wordpress-v0.1.12",
     "current_hash": "sha256:12ae37ccafe2b4a9395d44cce03f63b6e623c2b2910ee4df7a87291f0354356a",
     "released_hash": "sha256:12ae37ccafe2b4a9395d44cce03f63b6e623c2b2910ee4df7a87291f0354356a"
   },
   "xero": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.14",
-    "latest_tag": "xero-v0.1.13",
+    "latest_tag": "xero-v0.1.14",
     "current_hash": "sha256:f0bb23fdc0aa52aee511300aa6c0e21d2bb5684d13b67f603c32ae3fbddf7bb1",
     "released_hash": "sha256:f0bb23fdc0aa52aee511300aa6c0e21d2bb5684d13b67f603c32ae3fbddf7bb1"
   },
