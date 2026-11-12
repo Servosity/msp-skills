@@ -54,7 +54,7 @@ Big install base, but an honest heads-up: these are the **remote / enterprise** 
 
 ### Fastest for Claude Desktop - one-click `.mcpb`
 
-[**Download Synology MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/synology-v0.1.4/synology-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every Synology release on the [releases page](https://github.com/servosity/msp-skills/releases?q=synology).)
+[**Download Synology MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/synology-v0.1.5/synology-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every Synology release on the [releases page](https://github.com/servosity/msp-skills/releases?q=synology).)
 
 Prefer the Claude Code plugin? Add the marketplace once, then install - works immediately, no directory listing required:
 
