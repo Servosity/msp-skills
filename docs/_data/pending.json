@@ -427,9 +427,9 @@
     "released_hash": "sha256:1db1ecdcdeb6f6002b48a7e3b66f394d540ec2a8642b22f10e442dc7146f73c0"
   },
   "maxio": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.12",
-    "latest_tag": "maxio-v0.1.11",
+    "latest_tag": "maxio-v0.1.12",
     "current_hash": "sha256:7081c606bf3ef703462f2a398cf57da63bcd6fe482eea9e372692efbe2585e1f",
     "released_hash": "sha256:7081c606bf3ef703462f2a398cf57da63bcd6fe482eea9e372692efbe2585e1f"
   },
