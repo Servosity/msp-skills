@@ -252,9 +252,9 @@
     "released_hash": "sha256:d9c6a301b84324c66c82a31a7f883017698efbd2bdfc59b1d865101630c07bff"
   },
   "dnsfilter": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.5",
-    "latest_tag": "dnsfilter-v0.1.4",
+    "latest_tag": "dnsfilter-v0.1.5",
     "current_hash": "sha256:5f669d4d7bd43b36042f9e4765d1175a53cb17b9196d95e069aca6b36c4e0081",
     "released_hash": "sha256:5f669d4d7bd43b36042f9e4765d1175a53cb17b9196d95e069aca6b36c4e0081"
   },
