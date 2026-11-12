@@ -52,7 +52,7 @@ Big install base, but an honest heads-up: Gemini CLI runs the local binary you j
 
 ### Fastest for Claude Desktop - one-click `.mcpb`
 
-[**Download Cisco Duo MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/cisco-duo-v0.1.6/cisco-duo-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every Cisco Duo release on the [releases page](https://github.com/servosity/msp-skills/releases?q=cisco-duo).)
+[**Download Cisco Duo MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/cisco-duo-v0.1.7/cisco-duo-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every Cisco Duo release on the [releases page](https://github.com/servosity/msp-skills/releases?q=cisco-duo).)
 
 Prefer the Claude Code plugin? Add the marketplace once, then install - works immediately, no directory listing required:
 
