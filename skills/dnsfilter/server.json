@@ -3,7 +3,7 @@
   "name": "io.github.Servosity/dnsfilter-mcp",
   "title": "DNSFilter MCP",
   "description": "DNSFilter for MSPs: why a site is blocked, preview-first allows, unblock requests, agent drift.",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "icons": [
     {
       "src": "https://raw.githubusercontent.com/servosity/msp-skills/main/docs/assets/social/dnsfilter/dnsfilter-512x512.png",
@@ -21,8 +21,8 @@
   "packages": [
     {
       "registryType": "mcpb",
-      "identifier": "https://github.com/servosity/msp-skills/releases/download/dnsfilter-v0.1.4/dnsfilter-mcp.mcpb",
-      "version": "0.1.4",
+      "identifier": "https://github.com/servosity/msp-skills/releases/download/dnsfilter-v0.1.5/dnsfilter-mcp.mcpb",
+      "version": "0.1.5",
       "fileSha256": "PLACEHOLDER_SHA256_FILLED_BY_CI",
       "transport": {
         "type": "stdio"
