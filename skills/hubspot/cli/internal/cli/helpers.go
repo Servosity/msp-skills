@@ -991,6 +991,16 @@ func syncCheckpointScope(resource string, dependent bool, userParams *syncUserPa
 			add("param", name, value)
 		}
 	}
+	if !dependent { // Hand-wired (handfixes.json: sync-delta-search-walk): a changed property list or filter voids the watermark
+		requested := map[string]string{}
+		userParams.applyTo(resource, requested, false)
+		requested["properties"] = hsCollectedProperties(resource, requested["properties"])
+		for name, value := range requested {
+			if value != "" {
+				add("hs-request", name, value)
+			}
+		}
+	}
 	sort.Strings(lines)
 	return strings.Join(lines, "\n")
 }

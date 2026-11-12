@@ -182,7 +182,7 @@ HubSpot announced their own [Agent CLI](https://blog.hubspot.com/marketing/intro
 
 ### Will this hit my HubSpot API rate limits?
 
-The whole point of the local mirror is to **stop hitting the API for read queries**. After the first `sync` (which is paged and rate-limit-aware - `--with-history` requests `propertiesWithHistory`, which per [HubSpot's batch-read API docs](https://developers.hubspot.com/docs/api/crm/understanding-the-crm) caps the records returned per request, so the CLI pages accordingly), every aggregate report runs against your local SQLite  -  zero API calls. Sync itself is gentle: pagination is built-in, you can scope with `--resources` and `--since 7d`, and the CLI emits sync-warning events when HubSpot throttles instead of swallowing them silently.
+The whole point of the local mirror is to **stop hitting the API for read queries**. After the first `sync` (which is paged and rate-limit-aware - `--with-history` requests `propertiesWithHistory`, which per [HubSpot's batch-read API docs](https://developers.hubspot.com/docs/api/crm/understanding-the-crm) caps the records returned per request, so the CLI pages accordingly), every aggregate report runs against your local SQLite  -  zero API calls. After that, a plain `sync` reads only the CRM records changed since the last one, so it is cheap to run hourly; a weekly `sync --full` reads everything again and clears records deleted in HubSpot. Sync itself is gentle: pagination is built-in, you can scope with `--resources` and `--since 7d`, and the CLI emits sync-warning events when HubSpot throttles instead of swallowing them silently.
 
 ### Do I need to be a HubSpot partner or pay for a specific tier?
 
