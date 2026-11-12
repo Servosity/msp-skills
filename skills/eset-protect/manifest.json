@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "eset-protect-mcp",
   "display_name": "ESET PROTECT",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "Every ESET Connect endpoint in one binary, plus per-customer health, exposure and QBR reports built from a local mirror of your MSP tree.",
   "author": {
     "name": "Servosity Inc."
