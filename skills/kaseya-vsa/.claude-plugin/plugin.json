@@ -1,6 +1,6 @@
 {
   "name": "kaseya-vsa",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "Every VSA 10 API endpoint, plus a local fleet database that answers patch, health, and software questions across all your clients offline.",
   "author": {
     "name": "Servosity",

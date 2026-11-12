@@ -1,6 +1,6 @@
 {
   "name": "jamf-pro",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "Every client's Jamf Pro in one CLI: register each instance once, then find devices, check posture and patch status, and audit policies across all of them.",
   "author": {
     "name": "Servosity",
