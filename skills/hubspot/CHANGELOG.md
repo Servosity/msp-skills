@@ -4,7 +4,7 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
-## [0.2.10] - unreleased
+## [0.2.10] - 2026-11-11
 
 ### Fixed
 - **`sync` no longer calls HubSpot's list ID lookup as if it were a list.** The `hubspot-lists-crm` sync resource failed with HTTP 400 on every run, because `GET /crm/v3/lists/idmapping` translates one legacy list ID. It is gone from `sync`, and its unfinished checkpoint is removed from existing local stores. `sync` stores no HubSpot lists, because HubSpot only returns them all through `POST /crm/v3/lists/search`: call `hubspot-cli hubspot-lists-crm post-v3-lists-search-v3-lists-search` to read them ([#693](https://github.com/Servosity/msp-skills/issues/693)).
