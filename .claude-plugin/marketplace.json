@@ -776,7 +776,7 @@
       "name": "quickbooks",
       "source": "./skills/quickbooks",
       "description": "Every QuickBooks Online entity, plus an offline SQLite mirror, AR/AP aging and close checks.",
-      "version": "0.1.18",
+      "version": "0.1.19",
       "category": "billing",
       "tags": [
         "quickbooks",
@@ -792,7 +792,7 @@
       "name": "resourceguru",
       "source": "./skills/resourceguru",
       "description": "Every Resource Guru endpoint as a typed command, plus a local database and per-resource per-day utilization no Resource Guru report gives you.",
-      "version": "0.1.9",
+      "version": "0.1.10",
       "category": "msp",
       "tags": [
         "resourceguru",
@@ -807,7 +807,7 @@
       "name": "rewst",
       "source": "./skills/rewst",
       "description": "Operate and monitor Rewst RPA across every client org from the terminal or your AI agent: workflow execution health, failure triage, automation ROI, dormant-workflow cleanup, cross-org config drift, and integration-pack coverage - the multi-tenant answers the web console makes you assemble one org at a time.",
-      "version": "0.1.11",
+      "version": "0.1.12",
       "category": "automation",
       "tags": [
         "rewst",
@@ -838,7 +838,7 @@
       "name": "rocketcyber",
       "source": "./skills/rocketcyber",
       "description": "The first CLI and MCP server for RocketCyber Managed SOC, with triage and posture analytics no console page or API call computes.",
-      "version": "0.1.12",
+      "version": "0.1.13",
       "category": "security",
       "tags": [
         "rocketcyber",
@@ -853,7 +853,7 @@
       "name": "rootly",
       "source": "./skills/rootly",
       "description": "Every Rootly incident, alert, and on-call object as a typed command, with a local SQLite mirror for offline analytics.",
-      "version": "0.1.9",
+      "version": "0.1.10",
       "category": "incident-response",
       "tags": [
         "rootly",
@@ -868,7 +868,7 @@
       "name": "runzero",
       "source": "./skills/runzero",
       "description": "Every runZero query, plus a local SQLite copy of your whole attack surface that diffs over time, joins assets to vulnerabilities offline, and costs zero API quota to re-slice.",
-      "version": "0.1.11",
+      "version": "0.1.12",
       "category": "security",
       "tags": [
         "runzero",
@@ -1188,7 +1188,7 @@
       "name": "quotewerks",
       "source": "./skills/quotewerks",
       "description": "Typed quote tools for QuoteWerks Web that use the real column names, preview typed writes before sending them, and add margin, win-rate and pipeline answers from a local mirror.",
-      "version": "0.1.5",
+      "version": "0.1.6",
       "category": "crm",
       "tags": [
         "quotewerks",
@@ -1265,7 +1265,7 @@
       "name": "proxmox",
       "source": "./skills/proxmox",
       "description": "Read-only Proxmox VE + Backup Server CLI: per-guest backup verdicts across every cluster, no write calls to Proxmox.",
-      "version": "0.1.6",
+      "version": "0.1.7",
       "category": "backup-dr",
       "tags": [
         "proxmox",
@@ -1343,7 +1343,7 @@
       "name": "saas-alerts",
       "source": "./skills/saas-alerts",
       "description": "Every SaaS Alerts API in one CLI, plus cross-tenant triage, a Respond approval queue with deadlines, and the access-token handshake that breaks other integrations.",
-      "version": "0.1.5",
+      "version": "0.1.6",
       "category": "security",
       "tags": [
         "saas-alerts",
@@ -1516,7 +1516,7 @@
       "name": "prtg",
       "source": "./skills/prtg",
       "description": "Every PRTG API v2 endpoint, plus a fleet view across every client's PRTG core: alarms, status, handoffs, hygiene and safe bulk actions in one command.",
-      "version": "0.1.4",
+      "version": "0.1.5",
       "category": "network-monitoring",
       "tags": [
         "prtg",

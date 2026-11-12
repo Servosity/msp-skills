@@ -3,7 +3,7 @@
   "name": "io.github.Servosity/prtg-mcp",
   "title": "PRTG Network Monitor MCP",
   "description": "Every PRTG API v2 endpoint, plus a fleet view across every client's PRTG core: alarms, status",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "icons": [
     {
       "src": "https://raw.githubusercontent.com/servosity/msp-skills/main/docs/assets/social/prtg/prtg-512x512.png",
@@ -21,8 +21,8 @@
   "packages": [
     {
       "registryType": "mcpb",
-      "identifier": "https://github.com/servosity/msp-skills/releases/download/prtg-v0.1.4/prtg-mcp.mcpb",
-      "version": "0.1.4",
+      "identifier": "https://github.com/servosity/msp-skills/releases/download/prtg-v0.1.5/prtg-mcp.mcpb",
+      "version": "0.1.5",
       "fileSha256": "PLACEHOLDER_SHA256_FILLED_BY_CI",
       "transport": {
         "type": "stdio"
