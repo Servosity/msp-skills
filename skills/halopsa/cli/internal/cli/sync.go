@@ -490,6 +490,8 @@ func syncResource(ctx context.Context, c interface {
 	cursor := existingCursor
 	pageSize := determinePaginationDefaults()
 	var progressCount int64
+	var lastProgressAt time.Time              // Hand-fix (handfixes.json sync-progress-throttled)
+	syncRate := newSyncThroughput(time.Now()) // Hand-fix (handfixes.json sync-progress-measured-rate)
 	pagesFetched := 0
 	lastNextCursor := ""
 	capExitHit := false
@@ -703,15 +705,18 @@ func syncResource(ctx context.Context, c interface {
 
 		// Progress reporting (include rate limit info when active)
 		currentRate := c.RateLimit()
-		if humanFriendly {
-			if currentRate > 0 {
-				fmt.Fprintf(os.Stderr, "\r  %s: %d synced [%.1f req/s]", resource, atomic.LoadInt64(&progressCount), currentRate)
+		measuredRate := syncRate.rowsPerSec(time.Now(), atomic.LoadInt64(&progressCount))
+		if !syncProgressDue(&lastProgressAt) { // Hand-fix (handfixes.json sync-progress-throttled)
+			// No line this page: each write costs a full credential check.
+		} else if humanFriendly {
+			if measuredRate > 0 || currentRate > 0 {
+				fmt.Fprintf(os.Stderr, "\r  %s: %d synced %s", resource, atomic.LoadInt64(&progressCount), syncProgressRateText(measuredRate, currentRate))
 			} else {
 				fmt.Fprintf(os.Stderr, "\r  %s: %d synced", resource, atomic.LoadInt64(&progressCount))
 			}
 		} else {
-			if currentRate > 0 {
-				fmt.Fprintf(syncEvents, `{"event":"sync_progress","resource":"%s","fetched":%d,"rate_rps":%.1f}`+"\n", resource, atomic.LoadInt64(&progressCount), currentRate)
+			if measuredRate > 0 || currentRate > 0 {
+				fmt.Fprintf(syncEvents, `{"event":"sync_progress","resource":"%s","fetched":%d%s}`+"\n", resource, atomic.LoadInt64(&progressCount), syncProgressRateJSON(measuredRate, currentRate))
 			} else {
 				fmt.Fprintf(syncEvents, `{"event":"sync_progress","resource":"%s","fetched":%d}`+"\n", resource, atomic.LoadInt64(&progressCount))
 			}

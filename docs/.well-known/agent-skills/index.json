@@ -342,7 +342,7 @@
       "type": "skill-md",
       "description": "Every Sales Hub feature, plus offline cross-object queries and retained property-change history. Trigger phrases: `find meetings ever scheduled`, `monthly meeting outcome report`, `hubspot stale leads`, `who do I call today hubspot`, `engagements timeline for this contact`, `use hubspot-cli`, `run hubspot`.",
       "url": "https://raw.githubusercontent.com/servosity/msp-skills/main/skills/hubspot/SKILL.md",
-      "digest": "sha256:f6db6e0821b11cc1994d1c3aeabc3db8be001480801cb8463f6370f4f9c55682"
+      "digest": "sha256:2a720bbfa7a0062762ced73f45864cc475ee18b1bbe01512bc7d1f18e880f62f"
     },
     {
       "name": "hudu",

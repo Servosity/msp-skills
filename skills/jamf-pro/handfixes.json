@@ -1049,6 +1049,166 @@
      "code_only": true
     }
    ]
+  },
+  {
+   "id": "sync-forbidden-not-partial",
+   "class": "sync-store-honesty",
+   "summary": "a resource the vendor refuses this token (HTTP 403) is recorded as skipped and no longer holds store_status at partial; a resource that errored stays partial and is named.",
+   "why": "A 403 resource never completes, so its sync_state row stayed at 0 and store_status read partial for good after a clean exit 0 (#692). store_status now says complete_with_skips only when every other resource finished, and search, sql and sync_summary name what was skipped or failed. A reprint regenerates sync.go and mcp/tools.go and drops this; tools/maintainer/replay_handfixes.py re-applies it (fleet_handfixes.json sync-forbidden-not-partial).",
+   "status": "active",
+   "spec_encode_followup": "Press-side: sync should record a resource the vendor refuses separately from one that failed (not filed yet).",
+   "asserts": [
+    {
+     "file": "cli/internal/store/sync_forbidden.go",
+     "contains": "func (s *Store) SyncCoverage() (SyncCoverage, error) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "resourceOutcomes := &syncOutcomes{}",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "if err := db.ClearSyncForbidden(resource); err != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "ForbiddenKey: syncForbiddenKey(w, pagesFetched, resource),",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "resourceOutcomes.note(db, res, c.DryRun)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "resourceOutcomes.summaryJSON()",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "return mcpIncompleteStoreStatus(db, completed)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "mcpWithSyncCoverage(db, storeStatus, ",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/sync_forbidden.go",
+     "contains": "func (s *Store) MarkSyncForbidden(stateKey string) error {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/sync_coverage.go",
+     "contains": "const mcpStoreStatusCompleteWithSkips mcpStoreStatusKind = \"complete_with_skips\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/sync_coverage_test.go",
+     "contains": "func TestStoreStatusSeparatesForbiddenFromBroken(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "sync-progress-measured-rate",
+   "class": "sync-progress-honesty",
+   "summary": "sync_progress reports measured rows per second (rows_per_sec, and rate_rps as the same value); the limiter's ceiling is limiter_ceiling_rps.",
+   "why": "The generated sync printed the adaptive limiter's ceiling as rate_rps and as req/s on the human line, so 4.9 was reported while the sync stored 33 rows a second (#694). A reprint regenerates sync.go and brings it back; tools/maintainer/replay_handfixes.py re-applies it (fleet_handfixes.json sync-progress-measured-rate).",
+   "status": "active",
+   "spec_encode_followup": "Press-side: the sync template should report a measured rate and name the limiter's ceiling separately (not filed yet).",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sync_throughput.go",
+     "contains": "func (t *syncThroughput) rowsPerSec(now time.Time, rows int64) float64 {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "syncProgressRateJSON(measuredRate, currentRate)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "measuredRate := syncRate.rowsPerSec(time.Now(), atomic.LoadInt64(&progressCount))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "syncProgressRateText(measuredRate, currentRate)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "not_contains": "\"rate_rps\":%.1f"
+    },
+    {
+     "file": "cli/internal/cli/sync_throughput.go",
+     "contains": "func syncProgressRateJSON(rowsPerSec, limiterCeiling float64) string {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync_throughput_test.go",
+     "contains": "func TestSyncProgressRateNamesWhatWasMeasured(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "sync-progress-throttled",
+   "class": "sync-progress-cost",
+   "summary": "sync writes at most one sync_progress line per resource every 5 seconds (the first page always reports; sync_complete carries the final count), instead of one per page.",
+   "why": "Every write to stdout or stderr costs a full credential check whatever its size, and sync wrote one progress line per page: 74% of hubspot sync's CPU at a real server's pace (#696). A reprint regenerates sync.go with one line per page; tools/maintainer/replay_handfixes.py re-applies the guard (fleet_handfixes.json sync-progress-throttled).",
+   "status": "active",
+   "spec_encode_followup": "Press-side: the sync template's per-page progress line should be throttled, as its dependent walk already is (not filed yet).",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sync_progress_throttle.go",
+     "contains": "func syncProgressDue(last *time.Time) bool {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "if !syncProgressDue(&lastProgressAt) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "var lastProgressAt time.Time",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync_progress_throttle_test.go",
+     "contains": "func TestSyncWritesProgressAtMostOncePerInterval(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
   }
  ]
 }

@@ -63,6 +63,7 @@ type syncResult struct {
 	Count            int
 	Err              error
 	Warn             error
+	ForbiddenKey     string // Hand-fix (handfixes.json sync-forbidden-not-partial): the sync_state key the vendor refused
 	IntegrityFailure bool
 	Withheld         []string // Hand-fix (handfixes.json sync-skips-withheld-row): rows not stored; every other row was
 	Duration         time.Duration
@@ -339,7 +340,9 @@ Resource scoping:
 			var firstErr error
 			var firstPlaceholderErr error
 			withheldRows := map[string][]string{} // Hand-fix (handfixes.json sync-skips-withheld-row)
+			resourceOutcomes := &syncOutcomes{}   // Hand-fix (handfixes.json sync-forbidden-not-partial)
 			for res := range results {
+				resourceOutcomes.note(db, res, c.DryRun)
 				if len(res.Withheld) > 0 { // a withheld row is reported, never fatal: every other row stored, and the next sync fetches it again
 					fmt.Fprintf(os.Stderr, "warning: %v\n", &store.WithheldRowsError{Resource: res.Resource, IDs: res.Withheld})
 					withheldRows[res.Resource] = res.Withheld
@@ -377,6 +380,7 @@ Resource scoping:
 			// Sync dependent (parent-child) resources sequentially after flat resources.
 			depResults := syncDependentResources(cmd.Context(), c, db, sinceTS, full, maxPages, effectiveLatestOnly, prune, parentFilter, userParams, syncEventWriter, concurrency)
 			for _, res := range depResults {
+				resourceOutcomes.note(db, res, c.DryRun)
 				if res.Err != nil {
 					if humanFriendly {
 						fmt.Fprintf(os.Stderr, "  %s: error: %v\n", res.Resource, res.Err)
@@ -411,6 +415,9 @@ Resource scoping:
 			elapsed := time.Since(started)
 			totalResources := successCount + warnCount + errCount
 			if humanFriendly {
+				resourceOutcomes.printHuman()
+			}
+			if humanFriendly {
 				if warnCount > 0 {
 					fmt.Fprintf(os.Stderr, "Sync complete: %d records across %d resources (%d warned, %.1fs)\n",
 						totalSynced, totalResources, warnCount, elapsed.Seconds())
@@ -420,7 +427,7 @@ Resource scoping:
 				}
 			} else {
 				fmt.Fprintf(syncEventWriter, `{"event":"sync_summary","total_records":%d,"resources":%d,"success":%d,"warned":%d,"errored":%d,"duration_ms":%d%s}`+"\n",
-					totalSynced, totalResources, successCount, warnCount, errCount, elapsed.Milliseconds(), store.WithheldSummary(withheldRows)) // Hand-fix (handfixes.json sync-skips-withheld-row)
+					totalSynced, totalResources, successCount, warnCount, errCount, elapsed.Milliseconds(), store.WithheldSummary(withheldRows)+resourceOutcomes.summaryJSON()) // Hand-fix (handfixes.json sync-skips-withheld-row)
 			}
 
 			// Lookup refresh (learn loop): derive entity_lookups rows under
@@ -478,6 +485,7 @@ Resource scoping:
 					"errored":       errCount,
 					"duration_ms":   elapsed.Milliseconds(),
 				}
+				resourceOutcomes.addTo(summary)
 				if len(withheldRows) > 0 { // Hand-fix (handfixes.json sync-skips-withheld-row)
 					summary["withheld"] = withheldRows
 				}
@@ -647,11 +655,16 @@ func syncResource(ctx context.Context, c interface {
 			return syncResult{Resource: resource, Err: stateErr, Duration: time.Since(started)}
 		}
 		existingCount = bindCount
+		if err := db.ClearSyncForbidden(resource); err != nil { // Hand-fix (handfixes.json sync-forbidden-not-partial)
+			return syncResult{Resource: resource, Err: fmt.Errorf("clearing the forbidden mark for %s: %w", resource, err), Duration: time.Since(started)}
+		}
 		if err := db.SaveSyncProgressInScope(resource, scopeKey, persistedCursor, existingCount); err != nil {
 			return syncResult{Resource: resource, Err: fmt.Errorf("saving sync progress for %s: starting attempt: %w", resource, err), Duration: time.Since(started)}
 		}
 	}
 	var progressCount int64
+	var lastProgressAt time.Time              // Hand-fix (handfixes.json sync-progress-throttled)
+	syncRate := newSyncThroughput(time.Now()) // Hand-fix (handfixes.json sync-progress-measured-rate)
 	pagesFetched := 0
 	lastNextCursor := ""
 	var previousPageItems []json.RawMessage
@@ -722,7 +735,7 @@ func syncResource(ctx context.Context, c interface {
 				if !humanFriendly {
 					fmt.Fprintln(syncEvents, syncWarningJSON(resource, "", w.Status, w.Reason, w.Message))
 				}
-				return syncResult{Resource: resource, Count: totalCount, Warn: fmt.Errorf("skipped due to insufficient access: %s (%s)", resource, w.Reason), Duration: time.Since(started)}
+				return syncResult{Resource: resource, Count: totalCount, Warn: fmt.Errorf("skipped due to insufficient access: %s (%s)", resource, w.Reason), ForbiddenKey: syncForbiddenKey(w, pagesFetched, resource), Duration: time.Since(started)}
 			}
 			if !humanFriendly {
 				fmt.Fprintln(syncEvents, syncErrorJSON(resource, "", err))
@@ -938,15 +951,18 @@ func syncResource(ctx context.Context, c interface {
 
 		// Progress reporting (include rate limit info when active)
 		currentRate := c.RateLimit()
-		if humanFriendly {
-			if currentRate > 0 {
-				fmt.Fprintf(os.Stderr, "\r  %s: %d synced [%.1f req/s]", resource, atomic.LoadInt64(&progressCount), currentRate)
+		measuredRate := syncRate.rowsPerSec(time.Now(), atomic.LoadInt64(&progressCount))
+		if !syncProgressDue(&lastProgressAt) { // Hand-fix (handfixes.json sync-progress-throttled)
+			// No line this page: each write costs a full credential check.
+		} else if humanFriendly {
+			if measuredRate > 0 || currentRate > 0 {
+				fmt.Fprintf(os.Stderr, "\r  %s: %d synced %s", resource, atomic.LoadInt64(&progressCount), syncProgressRateText(measuredRate, currentRate))
 			} else {
 				fmt.Fprintf(os.Stderr, "\r  %s: %d synced", resource, atomic.LoadInt64(&progressCount))
 			}
 		} else {
-			if currentRate > 0 {
-				fmt.Fprintf(syncEvents, `{"event":"sync_progress","resource":"%s","fetched":%d,"rate_rps":%.1f}`+"\n", resource, atomic.LoadInt64(&progressCount), currentRate)
+			if measuredRate > 0 || currentRate > 0 {
+				fmt.Fprintf(syncEvents, `{"event":"sync_progress","resource":"%s","fetched":%d%s}`+"\n", resource, atomic.LoadInt64(&progressCount), syncProgressRateJSON(measuredRate, currentRate))
 			} else {
 				fmt.Fprintf(syncEvents, `{"event":"sync_progress","resource":"%s","fetched":%d}`+"\n", resource, atomic.LoadInt64(&progressCount))
 			}
@@ -2855,6 +2871,7 @@ type parentReport struct {
 	integrityFailure bool
 	denied           bool
 	firstDenial      *accessWarning
+	refused          bool           // Hand-fix (handfixes.json sync-forbidden-not-partial): an outright 403 before any page
 	anomaly          *parentAnomaly // nil unless this parent hit an extraction anomaly
 	dryRun           bool           // true if a dry-run sentinel was seen — caller short-circuits
 	nonJSONBody      bool           // true if this parent got a 200 with a non-JSON body
@@ -2976,6 +2993,7 @@ func syncOneParent(
 				outcome.reason = "access_denied"
 				rep.denied = true
 				rep.firstDenial = w
+				rep.refused = syncForbiddenKey(w, pagesFetched, dep.Name) != ""
 				if humanFriendly {
 					fmt.Fprintf(os.Stderr, "\n  %s: access denied for parent %s: %s\n", dep.Name, parentID, w.Reason)
 				} else {
@@ -3296,12 +3314,8 @@ func dependentProgressDue(done, total int) bool {
 	return done%dependentSyncProgressEvery == 0
 }
 
-func emitDependentSyncProgress(w io.Writer, resource string, done, total int, rate float64) {
-	if rate > 0 {
-		fmt.Fprintf(w, `{"event":"sync_progress","resource":"%s","parents_done":%d,"parents":%d,"rate_rps":%.1f}`+"\n", resource, done, total, rate)
-		return
-	}
-	fmt.Fprintf(w, `{"event":"sync_progress","resource":"%s","parents_done":%d,"parents":%d}`+"\n", resource, done, total)
+func emitDependentSyncProgress(w io.Writer, resource string, done, total int, rate, measured float64) { // Hand-fix (handfixes.json sync-progress-measured-rate)
+	fmt.Fprintf(w, `{"event":"sync_progress","resource":"%s","parents_done":%d,"parents":%d%s}`+"\n", resource, done, total, syncProgressRateJSON(measured, rate))
 }
 
 type dependentReportWait struct {
@@ -3416,6 +3430,9 @@ func syncDependentResource(ctx context.Context, c interface {
 		if err != nil {
 			return syncResult{Resource: dep.Name, Err: err, Duration: time.Since(started)}
 		}
+		if err := db.ClearSyncForbidden(dep.Name); err != nil { // Hand-fix (handfixes.json sync-forbidden-not-partial)
+			return syncResult{Resource: dep.Name, Err: fmt.Errorf("clearing the forbidden mark for %s: %w", dep.Name, err), Duration: time.Since(started)}
+		}
 		if err := db.SaveSyncProgressInScope(dep.Name, scopeKey, cursor, count); err != nil {
 			return syncResult{Resource: dep.Name, Err: fmt.Errorf("saving sync progress for %s: starting attempt: %w", dep.Name, err), Duration: time.Since(started)}
 		}
@@ -3431,6 +3448,7 @@ func syncDependentResource(ctx context.Context, c interface {
 
 	var totalCount int
 	var deniedParents int
+	var refusedParents int // Hand-fix (handfixes.json sync-forbidden-not-partial): parents refused outright (parentReport.refused)
 	var firstDenial *accessWarning
 	pageSize := determinePaginationDefaults(dep.ParentTable + "/" + dep.Name)
 	depSinceParam := syncResourceSinceParam(dep.Name)
@@ -3512,6 +3530,8 @@ func syncDependentResource(ctx context.Context, c interface {
 	// The silence ticker shares this loop so a parent that has not reported
 	// yet still produces sync_progress. Workers write events concurrently, so
 	// those lines go through the lockedWriter installed above.
+	depRate := newSyncThroughput(time.Now())
+	var depRowsStored int64
 	dryRunHit := false
 	cancelSeen := false
 	failedParents := 0
@@ -3535,7 +3555,7 @@ func syncDependentResource(ctx context.Context, c interface {
 		if ev.heartbeat {
 			if depProgress != nil {
 				if done, emit := depProgress.heartbeat(); emit {
-					emitDependentSyncProgress(syncEvents, dep.Name, done, depProgress.total, c.RateLimit())
+					emitDependentSyncProgress(syncEvents, dep.Name, done, depProgress.total, c.RateLimit(), depRate.rowsPerSec(time.Now(), depRowsStored))
 				}
 			}
 			// NewTimer fires once. Rearm even when this tick is still inside
@@ -3546,10 +3566,11 @@ func syncDependentResource(ctx context.Context, c interface {
 			continue
 		}
 		rep := ev.rep
+		depRowsStored += int64(rep.stored)
 		reportedParents++
 		if depProgress != nil {
 			if done, emit := depProgress.noteParent(); emit {
-				emitDependentSyncProgress(syncEvents, dep.Name, done, depProgress.total, c.RateLimit())
+				emitDependentSyncProgress(syncEvents, dep.Name, done, depProgress.total, c.RateLimit(), depRate.rowsPerSec(time.Now(), depRowsStored))
 				if resetProgressTicks != nil {
 					resetProgressTicks()
 				}
@@ -3584,6 +3605,9 @@ func syncDependentResource(ctx context.Context, c interface {
 		}
 		if rep.denied {
 			deniedParents++
+			if rep.refused {
+				refusedParents++
+			}
 			if firstDenial == nil {
 				firstDenial = rep.firstDenial
 			}
@@ -3681,12 +3705,19 @@ func syncDependentResource(ctx context.Context, c interface {
 	}
 	// If every parent was access-denied and nothing was synced, surface as a
 	// warning so the run-level summary and exit code reflect insufficient access.
+	// Hand-fix (handfixes.json sync-forbidden-not-partial): a skip only when every parent was refused outright; any other
+	// denial on any parent keeps the dependent partial, in either order.
+	dependentForbiddenKey := ""
+	if refusedParents == len(parentRows) {
+		dependentForbiddenKey = syncForbiddenKey(firstDenial, 0, dep.Name)
+	}
 	if deniedParents == len(parentRows) && totalCount == 0 && firstDenial != nil {
 		return syncResult{
-			Resource: dep.Name,
-			Count:    0,
-			Warn:     fmt.Errorf("skipped due to insufficient access: %s (%s on all %d parents)", dep.Name, firstDenial.Reason, len(parentRows)),
-			Duration: time.Since(started),
+			Resource:     dep.Name,
+			Count:        0,
+			Warn:         fmt.Errorf("skipped due to insufficient access: %s (%s on all %d parents)", dep.Name, firstDenial.Reason, len(parentRows)),
+			ForbiddenKey: dependentForbiddenKey,
+			Duration:     time.Since(started),
 		}
 	}
 	if !attemptComplete {
