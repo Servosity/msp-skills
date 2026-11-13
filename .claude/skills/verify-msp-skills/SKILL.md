@@ -35,8 +35,11 @@ What it starts, in order, all owned by this run:
    host variable from `manifest.json` points at it; every credential variable
    gets an inert stand-in value. It answers GET with `[]`, a JSON-RPC body
    with a JSON-RPC result, a token request with a stand-in token, a Synology
-   DSM WebAPI call (a `/webapi/` path with `api=SYNO.*`) in DSM's envelope,
-   anything else with `{}`, and logs each request. For a connector that adopted
+   DSM WebAPI call (a `/webapi/` path with `api=SYNO.*`) in DSM's envelope, a
+   vSphere login (`POST /api/session`) with a bare session id, an N-central
+   JWT exchange or refresh (`POST .../auth/authenticate`, `.../auth/refresh`)
+   in N-central's token envelope, anything else with `{}`, and logs each
+   request. For a connector that adopted
    the credential kit (it has `cli/internal/credkit/`) the vendor serves https
    with a certificate made for the run, trusted through `<PREFIX>_CA_CERT` and
    `SSL_CERT_FILE`, because the kit refuses to send a credential over plain http.
@@ -146,7 +149,8 @@ when everything is PASS or SKIP, 1 for any FAIL, 2 for any ERROR or an
 isolation change, 64 on a usage error.
 
 Features 3 to 6 are expected to FAIL on connectors printed before press
-4.34.0 and to PASS once reprinted on it. Each verdict records the
+4.34.0 and to PASS once reprinted on it, except write gating, which SKIPs on
+any connector without `<slug>_execute` (see features/write-gating.md). Each verdict records the
 `printing_press_version` read from `manifest.json`, so a batch shows the flip:
 
 ```bash

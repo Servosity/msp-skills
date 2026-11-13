@@ -93,6 +93,60 @@ def fleet_versions(root: Path) -> dict[str, tuple[int, int, int]]:
     return out
 
 
+WRITE_METHODS = ("POST", "PUT", "PATCH", "DELETE")
+_EXECUTE_TOOL = re.compile(r'NewTool\(\s*"[^"]*_execute"')
+_ANY_TOOL = re.compile(r'NewTool\(\s*"')
+
+
+def expects_execute(manifest) -> bool | None:
+    """Whether the press generated <slug>_execute, read from the connector's
+    press/tools-manifest.json: only in code orchestration mode, and only when
+    the API has a state-changing endpoint to execute. None when the manifest
+    is not a tools manifest at all."""
+    if not isinstance(manifest, dict):
+        return None
+    tools, mcp = manifest.get("tools"), manifest.get("mcp", {})
+    # Missing or malformed evidence is unknown, never "no write endpoint".
+    if not isinstance(tools, list) or not isinstance(mcp, dict):
+        return None
+    methods = []
+    for t in tools:
+        if not isinstance(t, dict) or not isinstance(t.get("method"), str) or not t["method"].strip():
+            return None
+        methods.append(t["method"].strip().upper())
+    return mcp.get("orchestration") == "code" and any(m in WRITE_METHODS for m in methods)
+
+
+def write_surfaces(root: Path) -> dict[str, bool]:
+    """{slug: has <slug>_execute} for every connector whose answer is readable:
+    its press/tools-manifest.json, or, for a connector printed without one,
+    whether its MCP source (never a _test.go file) registers an *_execute
+    tool. A slug left out is unknown (no readable manifest, no production
+    source registering any tool), and a write-gating SKIP on it is flagged."""
+    out: dict[str, bool] = {}
+    for cli in sorted((root / "skills").glob("*/cli")):
+        slug = cli.parent.name
+        tm = cli.parent / "press" / "tools-manifest.json"
+        if tm.is_file():
+            try:
+                got = expects_execute(json.loads(tm.read_text(encoding="utf-8")))
+            except (OSError, ValueError):
+                got = None
+            if got is not None:
+                out[slug] = got
+            continue
+        try:
+            src = "\n".join(f.read_text(encoding="utf-8", errors="replace")
+                            for f in sorted((cli / "internal" / "mcp").glob("*.go"))
+                            if not f.name.endswith("_test.go"))
+        except OSError:
+            continue
+        # Only source that registers MCP tools at all can say _execute is absent.
+        if _ANY_TOOL.search(src):
+            out[slug] = bool(_EXECUTE_TOOL.search(src))
+    return out
+
+
 def load_stamp(path: Path) -> tuple[tuple[int, int, int], dt.date]:
     d = json.loads(path.read_text(encoding="utf-8"))
     return parse_version(d["maintained_at_press"]), dt.date.fromisoformat(d["maintained_at"])
@@ -110,12 +164,22 @@ def valid_record(rec) -> bool:
     if rec.get("gate_exit") == 2 or rec.get("errors"):
         return True  # an explicit error record: it flags (b) by itself
     # Evidence of health must carry every field a decision reads: all six
-    # verdicts for (b) and (c), and a readable press version for (c).
-    try:
-        parse_version(rec.get("press_version"))
-    except ValueError:
-        return False
+    # verdicts for (b) and (c), and a press version that is readable or says
+    # outright that there is none (a connector not printed by the press:
+    # verify.py writes "unknown" when the manifest records no version). A
+    # missing version never hides a (c): map_reasons() then reads the fleet's.
+    if not no_press(rec.get("press_version")):
+        try:
+            parse_version(rec.get("press_version"))
+        except ValueError:
+            return False
     return all(rec["features"].get(f) in VERDICTS for f in FEATURE_IDS)
+
+
+def no_press(value) -> bool:
+    """The record says it has no press version: JSON null (or absent), or the
+    "unknown" verify.py writes when the manifest records none."""
+    return value is None or value == "unknown"
 
 
 def error_record(slug: str, why: str) -> dict:
@@ -163,7 +227,12 @@ def load_results(results: Path) -> dict[str, dict]:
 # --------------------------------------------------------------------------- #
 
 def map_reasons(fleet: dict, stamp_press, stamp_date, results: dict[str, dict] | None,
-                today: dt.date, window_days: int = WINDOW_DAYS) -> list[str]:
+                today: dt.date, window_days: int = WINDOW_DAYS,
+                write_surface: dict[str, bool] | None = None) -> list[str]:
+    """write_surface is write_surfaces(): {slug: has <slug>_execute}. The
+    write-gating feature exists only where the press generated that tool, so a
+    write-gating SKIP is stale only when it is there or the answer is unknown."""
+    write_surface = write_surface or {}
     reasons = []
     if fleet:
         newest = max(fleet.values())
@@ -188,12 +257,14 @@ def map_reasons(fleet: dict, stamp_press, stamp_date, results: dict[str, dict] |
             try:
                 press = parse_version(rec.get("press_version"))
             except ValueError:
-                press = None
+                press = fleet.get(slug)  # the record names none: the manifest's version decides
             for f in FEATURE_IDS:
                 if feats.get(f) != "SKIP":
                     continue
                 if f in ALWAYS_PRESENT:
                     reasons.append(f"(c) {slug} SKIPs {f}, which every press version has")
+                elif f == "write-gating" and write_surface.get(slug) is False:
+                    continue  # no <slug>_execute: not code orchestration, or no write endpoint
                 elif press is not None and press >= parse_version(ALL_FEATURES_SINCE):
                     reasons.append(f"(c) {slug} SKIPs {f} at press {vstr(press)}, which has it "
                                    f"(every feature exists from {ALL_FEATURES_SINCE})")
@@ -523,7 +594,7 @@ def run(args) -> int:
     print(f"fleet: {len(fleet)} connectors with a press version; newest "
           f"{vstr(max(fleet.values())) if fleet else 'none'}")
     if stamp_ok:
-        reasons = map_reasons(fleet, stamp_press, stamp_date, results, today)
+        reasons = map_reasons(fleet, stamp_press, stamp_date, results, today, write_surface=write_surfaces(root))
     else:
         reasons = [f"(d) {args.stamp} is unreadable, so when the map was maintained is unknown"]
     want = map_issue(reasons)
@@ -597,6 +668,64 @@ def self_test() -> int:
     always = {"cipp": {**healthy["cipp"], "features": {**healthy["cipp"]["features"], "mcp-stdio": "SKIP"}}}
     r = reasons(results=always)
     expect(len(r) == 1 and r[0].startswith("(c)"), "(c) mcp-stdio SKIP at any press -> stale")
+    print("(c) write-gating is expected only where the connector has <slug>_execute:")
+    wskip = {"x": {"slug": "x", "press_version": "4.34.0", "gate_exit": 0, "errors": [],
+                   "features": {f: "PASS" for f in FEATURE_IDS} | {"write-gating": "SKIP"}}}
+    expect(reasons(results=wskip, write_surface={"x": False}) == [],
+           "(c) write-gating SKIP at press 4.34.0, no code-orchestration write endpoint -> silent")
+    r = reasons(results=wskip, write_surface={"x": True})
+    expect(len(r) == 1 and r[0].startswith("(c)") and "write-gating" in r[0],
+           "(c) write-gating SKIP at press 4.34.0 with <slug>_execute expected -> stale")
+    r = reasons(results=wskip, write_surface={})
+    expect(len(r) == 1 and r[0].startswith("(c)") and "write-gating" in r[0],
+           "(c) write-gating SKIP where the write surface is unknown -> stale (fails closed)")
+    old_w = {"cipp": {**healthy["cipp"], "features": {**healthy["cipp"]["features"], "write-gating": "SKIP"}}}
+    expect(reasons(results=old_w, write_surface={"cipp": True}) == [],
+           "(c) write-gating SKIP below press 4.34.0 -> silent even when _execute exists")
+    code_w = {"mcp": {"orchestration": "code"}, "tools": [{"name": "a", "method": "GET"},
+                                                          {"name": "b", "method": "post"}]}
+    expect(expects_execute(code_w) is True, "tools manifest: code orchestration + a POST tool -> _execute")
+    expect(expects_execute({**code_w, "tools": [{"name": "a", "method": "GET"}]}) is False,
+           "tools manifest: code orchestration, GET tools only -> no _execute")
+    expect(expects_execute({"tools": code_w["tools"]}) is False,
+           "tools manifest: per-endpoint tools (no code orchestration) with a POST -> no _execute")
+    expect(expects_execute({"mcp": {"orchestration": "endpoint"}, "tools": code_w["tools"]}) is False,
+           "tools manifest: another orchestration mode with a POST -> no _execute")
+    expect(expects_execute(["not", "a", "manifest"]) is None, "tools manifest that is not an object -> unknown")
+    for bad_tools in (None, "x", {"a": 1}):
+        expect(expects_execute({"mcp": {"orchestration": "code"}, "tools": bad_tools}) is None,
+               f"tools manifest whose tools is {bad_tools!r} -> unknown (never read as no write endpoint)")
+    expect(expects_execute({"mcp": {"orchestration": "code"}}) is None, "tools manifest with no tools -> unknown")
+    expect(expects_execute({"mcp": {"orchestration": "code"}, "tools": [{"name": "a", "method": "GET"}, "x"]})
+           is None, "a tool entry that is not an object -> unknown")
+    expect(expects_execute({"mcp": {"orchestration": "code"}, "tools": [{"name": "a"}]}) is None,
+           "a tool entry with no method -> unknown")
+    expect(expects_execute({"mcp": "code", "tools": code_w["tools"]}) is None, "an mcp entry that is not an object -> unknown")
+    with tempfile.TemporaryDirectory(prefix="verify-watch-ws-") as td:
+        sk = Path(td) / "skills"
+        for slug, man, src in (("m-yes", code_w, None), ("m-no", {"tools": code_w["tools"]}, None),
+                               ("s-yes", None, 'mcplib.NewTool("s-yes_execute",'),
+                               ("s-no", None, 'mcplib.NewTool("s-no_search",'),
+                               ("s-test-only", None, None), ("bad", "{not json", None),
+                               ("s-no-tools", None, "package mcp\n")):
+            (sk / slug / "cli" / "internal" / "mcp").mkdir(parents=True)
+            if man is not None:
+                (sk / slug / "press").mkdir()
+                (sk / slug / "press" / "tools-manifest.json").write_text(
+                    man if isinstance(man, str) else json.dumps(man), encoding="utf-8")
+            if src is not None:
+                (sk / slug / "cli" / "internal" / "mcp" / "code_orch.go").write_text(src, encoding="utf-8")
+        (sk / "s-test-only" / "cli" / "internal" / "mcp" / "x_test.go").write_text(
+            'mcplib.NewTool("s-test-only_execute",', encoding="utf-8")
+        (sk / "no-mcp-dir" / "cli").mkdir(parents=True)
+        ws = write_surfaces(Path(td))
+        expect(ws.get("m-yes") is True and ws.get("m-no") is False,
+               "write_surfaces reads skills/<slug>/press/tools-manifest.json both ways")
+        expect(ws.get("s-yes") is True and ws.get("s-no") is False,
+               "no tools manifest -> the MCP source decides both ways")
+        expect("s-test-only" not in ws and "no-mcp-dir" not in ws and "s-no-tools" not in ws,
+               "no production MCP source registering a tool (only a _test.go, no directory, no NewTool) -> unknown")
+        expect("bad" not in ws, "an unreadable tools manifest -> unknown (left out, so a SKIP fails closed)")
     r = reasons(stamp_date=today - dt.timedelta(days=30))
     expect(len(r) == 1 and r[0].startswith("(d)"), "(d) stamp 30 days old -> stale")
     expect(reasons(stamp_date=today - dt.timedelta(days=29)) == [], "(d) stamp 29 days old -> silent")
@@ -686,7 +815,19 @@ def self_test() -> int:
         globals()["gh_json"] = real_gh
     nover = {"slug": "cipp", "press_version": None, "gate_exit": 0, "errors": [],
              "features": {f: "PASS" for f in FEATURE_IDS} | {"read-only": "SKIP"}}
-    expect(not valid_record(nover), "a record with no readable press version is not evidence of health")
+    expect(valid_record(nover), "a record with no press version (a connector not printed by the press) is valid")
+    expect(valid_record({**nover, "press_version": "unknown"}),
+           "verify.py's 'unknown' press version (manifest records none) is valid")
+    expect(not valid_record({**nover, "press_version": "4.x"}),
+           "a press version that is present but unreadable is not evidence of health")
+    expect(not valid_record({**nover, "features": {"install": "PASS"}}),
+           "a no-press record missing feature verdicts is still not evidence")
+    r = map_reasons({**fleet, "cipp": v("4.34.0")}, v("4.34.0"), today, {"cipp": nover}, today)
+    expect(len(r) == 1 and r[0].startswith("(c)") and "read-only" in r[0] and "4.34.0" in r[0],
+           "a record without a press version for a connector the fleet has at 4.34.0 -> the fleet's version "
+           "decides (c) (a missing version never hides a SKIP)")
+    expect(map_reasons(fleet, v("4.34.0"), today, {"handmade": {**nover, "slug": "handmade"}}, today) == [],
+           "a connector with no press version anywhere -> only install and mcp-stdio SKIPs count")
     expect(valid_record({"slug": "a", "press_version": None, "features": {}, "gate_exit": 2, "errors": ["x"]}),
            "an explicit error record is valid (it flags (b) by itself)")
     many = {f"s{i:02d}": {"slug": f"s{i:02d}", "press_version": "4.24.0", "gate_exit": 2, "errors": [],
