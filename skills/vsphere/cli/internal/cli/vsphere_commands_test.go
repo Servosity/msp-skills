@@ -101,9 +101,13 @@ func fakeVCenter(t *testing.T, withVI bool) *httptest.Server {
 		j(w, `{"error_type":"NOT_FOUND"}`)
 	})
 	if withVI {
+		// post-upgrade is dated relative to the wall clock snapshots audit reads,
+		// so it stays inside --older-than 30d whenever the test runs. A fixed
+		// date here aged past 30 days on 2026-11-13 and flipped the assertion.
+		recentSnapshot := time.Now().UTC().Add(-24 * time.Hour).Format(time.RFC3339)
 		vi := map[string]string{
 			"VirtualMachine/vm-1/snapshot": `{"currentSnapshot":{"value":"snapshot-2"},"rootSnapshotList":[{"snapshot":{"value":"snapshot-1"},"name":"pre-upgrade","createTime":"2025-01-01T00:00:00Z","state":"poweredOn","quiesced":true,
-			   "childSnapshotList":[{"snapshot":{"value":"snapshot-2"},"name":"post-upgrade","createTime":"2026-10-14T00:00:00Z","state":"poweredOn"}]}]}`,
+			   "childSnapshotList":[{"snapshot":{"value":"snapshot-2"},"name":"post-upgrade","createTime":"` + recentSnapshot + `","state":"poweredOn"}]}]}`,
 			"VirtualMachine/vm-2/snapshot": `{}`,
 			"VirtualMachine/vm-3/snapshot": `null`,
 			"VirtualMachine/vm-1/summary":  `{"config":{"template":false,"guestFullName":"Microsoft Windows Server 2022 (64-bit)","cpuReservation":500,"memoryReservation":1024},"guest":{"toolsStatus":"toolsOk"},"runtime":{"consolidationNeeded":false}}`,

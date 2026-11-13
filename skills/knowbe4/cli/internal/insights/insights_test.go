@@ -47,11 +47,20 @@ func seed(t *testing.T) (*sql.DB, func()) {
 	// groups
 	exec(`INSERT INTO "groups"(id,data,name,member_count,current_risk_score,status) VALUES ('10','{}','Finance',50,60,'active')`)
 
+	// The PST and click dates are relative to the wall clock the windowed
+	// queries read (cutoff uses time.Now), at the ages they had on 2026-11-13:
+	// fixed 2026 dates aged out of TestQBR's 1y window on 2027-01-02.
+	daysAgo := func(d int) string {
+		return time.Now().UTC().Truncate(24*time.Hour).AddDate(0, 0, -d).Format("2006-01-02T15:04:05.000Z")
+	}
+	q1Start, q1Click := daysAgo(316), daysAgo(315)
+	q2Start, q2Click := daysAgo(226), daysAgo(225)
+
 	// phishing_tests: two PSTs for Finance, phish-prone improving 30 -> 10
 	exec(`INSERT INTO "phishing_tests"(id,data,pst_id,name,started_at,phish_prone_percentage)
-		VALUES ('p1','{"groups":[{"group_id":10,"name":"Finance"}]}',101,'Q1 Test','2026-01-01T00:00:00.000Z',30)`)
+		VALUES ('p1','{"groups":[{"group_id":10,"name":"Finance"}]}',101,'Q1 Test',?,30)`, q1Start)
 	exec(`INSERT INTO "phishing_tests"(id,data,pst_id,name,started_at,phish_prone_percentage)
-		VALUES ('p2','{"groups":[{"group_id":10,"name":"Finance"}]}',102,'Q2 Test','2026-04-01T00:00:00.000Z',10)`)
+		VALUES ('p2','{"groups":[{"group_id":10,"name":"Finance"}]}',102,'Q2 Test',?,10)`, q2Start)
 
 	// training_enrollments: bob passed; alice/carol absent
 	exec(`INSERT INTO "training_enrollments"(id,data,enrollment_id,status) VALUES ('e1','{"user":{"id":2,"email":"bob@acme.com"}}',9001,'Passed')`)
@@ -59,13 +68,13 @@ func seed(t *testing.T) (*sql.DB, func()) {
 
 	// pst_recipients: alice clicked p1 & p2; bob clicked p1 only; bob reported p2
 	exec(`INSERT INTO "pst_recipients"(pst_id,recipient_id,user_id,user_email,clicked_at,reported_at,delivered_at)
-		VALUES (101,1,1,'alice@acme.com','2026-01-02T00:00:00.000Z','','2026-01-01T00:00:00.000Z')`)
+		VALUES (101,1,1,'alice@acme.com',?,'',?)`, q1Click, q1Start)
 	exec(`INSERT INTO "pst_recipients"(pst_id,recipient_id,user_id,user_email,clicked_at,reported_at,delivered_at)
-		VALUES (102,2,1,'alice@acme.com','2026-04-02T00:00:00.000Z','','2026-04-01T00:00:00.000Z')`)
+		VALUES (102,2,1,'alice@acme.com',?,'',?)`, q2Click, q2Start)
 	exec(`INSERT INTO "pst_recipients"(pst_id,recipient_id,user_id,user_email,clicked_at,reported_at,delivered_at)
-		VALUES (101,3,2,'bob@acme.com','2026-01-02T00:00:00.000Z','','2026-01-01T00:00:00.000Z')`)
+		VALUES (101,3,2,'bob@acme.com',?,'',?)`, q1Click, q1Start)
 	exec(`INSERT INTO "pst_recipients"(pst_id,recipient_id,user_id,user_email,clicked_at,reported_at,delivered_at)
-		VALUES (102,4,2,'bob@acme.com','','2026-04-02T00:00:00.000Z','2026-04-01T00:00:00.000Z')`)
+		VALUES (102,4,2,'bob@acme.com','',?,?)`, q2Click, q2Start)
 
 	// risk_snapshots: Finance group worsened 40 -> 60 over 90 days; account 30 -> 45
 	old := time.Now().UTC().Add(-120 * 24 * time.Hour).Format("2006-01-02T15:04:05.000Z")
@@ -211,8 +220,8 @@ func TestGroupRiskContribution(t *testing.T) {
 func TestQBR(t *testing.T) {
 	db, done := seed(t)
 	defer done()
-	// 1y window captures both of alice's clicks (Jan + Apr); a 90d window
-	// would legitimately see only one and report 0 repeat clickers.
+	// 1y window captures both of alice's clicks (315 and 225 days ago); a 90d
+	// window would legitimately see neither and report 0 repeat clickers.
 	rep, err := QBR(context.Background(), db, "1y")
 	if err != nil {
 		t.Fatal(err)

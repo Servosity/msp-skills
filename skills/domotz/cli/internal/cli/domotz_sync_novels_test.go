@@ -22,6 +22,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"domotz-pp-cli/internal/cliutil/testenv"
 )
@@ -127,8 +128,12 @@ func runDomotz(t *testing.T, args ...string) string {
 
 func TestNovelsReadTheDevicesSyncWrites(t *testing.T) {
 	testenv.Isolate(t)
+	// NAS-Acme is first seen relative to the wall clock `fleet new --since 30d`
+	// reads, so it stays new whenever the test runs. A fixed 2026-10-27 aged out
+	// of that window on 2026-11-26.
+	nasFirstSeen := time.Now().UTC().Add(-17 * 24 * time.Hour).Format(time.RFC3339)
 	newFakeDomotz(t, map[string]string{
-		"100": `[{"id":1,"display_name":"NAS-Acme","protocol":"IP","status":"DOWN","importance":"VITAL","authentication_status":"REQUIRED","type":{"id":5,"label":"Storage"},"user_data":{"vendor":"Synology","model":"DS920"},"first_seen_on":"2026-10-27T10:00:00Z"},` +
+		"100": `[{"id":1,"display_name":"NAS-Acme","protocol":"IP","status":"DOWN","importance":"VITAL","authentication_status":"REQUIRED","type":{"id":5,"label":"Storage"},"user_data":{"vendor":"Synology","model":"DS920"},"first_seen_on":"` + nasFirstSeen + `"},` +
 			`{"id":2,"display_name":"AP-Acme","protocol":"IP","status":"ONLINE","importance":"FLOATING","type":{"id":6,"label":"Access Point"},"first_seen_on":"2025-01-01T10:00:00Z"}]`,
 		"200": `[{"id":3,"display_name":"FW-Beta","protocol":"IP","status":"ONLINE","importance":"VITAL","type":{"id":7,"label":"Firewall"},"first_seen_on":"2025-01-01T10:00:00Z"}]`,
 	})
