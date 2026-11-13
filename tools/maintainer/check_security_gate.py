@@ -1900,9 +1900,9 @@ def _mcp_rule_read_only_drop(cli: Path) -> list[tuple]:
     registered inside an `if !IsMCPReadOnlyEnv() {` body, or dropNonReadOnlyTools(...) is
     called inside an `if IsMCPReadOnlyEnv() {` body AFTER every write is registered (a
     drop that runs first leaves the later writes callable). A typed write must sit in the
-    drop's file; the API execute tool may instead sit in a function the drop's own function calls
-    before the drop (the press shape: RegisterTools calls RegisterCodeOrchestrationTools,
-    then drops)."""
+    drop's file; the API execute tool must sit in the drop's own function above it, or in a
+    registrar that function alone calls, synchronously, above it (the press shape:
+    RegisterTools calls RegisterCodeOrchestrationTools, then drops)."""
     writes = [t for t in _typed_tools(cli) if not _read_only(t[3])]
     execs = list(_execute_writes(cli))
     if not writes and not execs:
@@ -1911,13 +1911,23 @@ def _mcp_rule_read_only_drop(cli: Path) -> list[tuple]:
     pkg = _package(cli / "internal" / "mcp")
 
     def before(t, f, bare, pos):
-        if t[0] == f and t[2] < pos:
-            return True
-        if len(t) == 7 or t[7] is None:
-            return False
-        # Called from the drop's own function, before the drop.
+        if len(t) == 7:
+            return t[0] == f and t[2] < pos  # a typed write: the base rule, unchanged
+        # The execute tool must provably be registered before the drop runs: inside the
+        # drop's own function above it, or by a registrar EVERY call of which sits in the
+        # drop's function above it and runs synchronously (no defer, no go). A registrar
+        # declared earlier in the file, deferred, or also called after the drop or from
+        # anywhere else could register it after the drop.
         start = max((m.start() for m in re.finditer(r"(?m)^func\b", bare[:pos])), default=0)
-        return any(start < c.start() < pos for c in _calls(bare, t[7]))
+        if t[0] == f and start < t[2] < pos:
+            return True
+        if t[7] is None:
+            return False
+        calls = [(g, c) for g, (_, b) in pkg.items() for c in _calls(b, t[7])]
+        return bool(calls) and all(
+            g == f and start < c.start() < pos
+            and not re.search(r"\b(?:defer|go)\s+$", bare[max(0, c.start() - 8):c.start()])
+            for g, c in calls)
 
     for f, (code, bare) in pkg.items():
         drops = _calls(bare, "dropNonReadOnlyTools")
@@ -2827,6 +2837,19 @@ def _self_test_mcp_surface() -> int:
                   tools: _fx_typed_tools([], extra=call)}, False, "execute registered inside if !IsMCPReadOnlyEnv() {")
         case(r7, {orch: ex, tools: _fx_typed_tools([("things_create", "POST", "/things", _D)], extra=call + _DROP)},
              False, "typed write and execute both registered before the drop")
+        reg_fn = ex[ex.index("func RegisterCodeOrchestrationTools"):ex.index("func handleCodeOrchExecute")]
+        case(r7, {tools: reg_fn + _fx_typed_tools([], extra=_DROP + call).replace("package mcp\n", ""),
+                  orch: ex.replace(reg_fn, "")},
+             True, "registrar declared above RegisterTools in tools.go, called after the drop")
+        case(r7, {orch: ex, tools: _fx_typed_tools([], extra="\tdefer RegisterCodeOrchestrationTools(s)\n" + _DROP)},
+             True, "registrar deferred: it runs after the drop")
+        case(r7, {orch: ex, tools: _fx_typed_tools([], extra="\tgo RegisterCodeOrchestrationTools(s)\n" + _DROP)},
+             True, "registrar started in a goroutine")
+        case(r7, {orch: ex, tools: _fx_typed_tools([], extra=call + _DROP + call)}, True,
+             "registrar called again after the drop")
+        case(r7, {orch: ex, tools: _fx_typed_tools([], extra=call + _DROP)
+                  + "\nfunc reRegister(s *server.MCPServer) {\n" + call + "}\n"},
+             True, "registrar also called from another function")
 
         # --- the baseline -------------------------------------------------------------
         def check(name: str, ok: bool) -> None:
