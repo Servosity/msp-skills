@@ -609,6 +609,56 @@
      "code_only": true
     }
    ]
+  },
+  {
+   "id": "fts-index-three-letter-caps",
+   "summary": "Search indexes 3-letter ALL-CAPS values (WEB, SQL, DNS): the key-blind drop in shouldIndexSearchString is deleted, as press v4.25.1 did",
+   "why": "Issue #464. shouldIndexSearchString (cli/internal/store/store.go) dropped every exactly-3-letter all-caps string whatever the key (meant for currency and country codes), so a record named WEB, SQL or DNS never reached resources_fts and CLI search and the MCP search tool returned 0 rows for it. cli-printing-press removed the branch in v4.25.1 (e2a9b501, #3185); this connector was printed on 4.24.0, so the deletion is back-ported by hand in the press 4.35.5 shape (the `upper :=` line goes too). A press >= 4.25.1 reprint regenerates this shape; a reprint from an older press brings the branch back, which the not_contains assert catches. fts_three_letter_caps_test.go fails with the branch present.",
+   "status": "upstreamed",
+   "asserts": [
+    {
+     "file": "cli/internal/store/store.go",
+     "not_contains": "len(s) == 3 && strings.IndexFunc(s"
+    },
+    {
+     "file": "cli/internal/store/fts_three_letter_caps_test.go",
+     "contains": "func TestShouldIndexSearchString_ThreeLetterAllCaps(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/fts_three_letter_caps_test.go",
+     "contains": "func TestSearch_FindsThreeLetterAllCapsRecord(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "fts-content-schema-bump-three-letter-caps",
+   "summary": "StoreSchemaVersion 4->5 and resourcesFTSContentSchemaVersion -> 5 (kept <= StoreSchemaVersion) so a store synced by the old binary rebuilds resources_fts once and WEB/SQL/DNS become searchable",
+   "why": "Issue #464. Deleting the 3-letter ALL-CAPS drop only changes rows written from now on; resources_fts rows already on disk still lack those values. A read-write open of a store stamped below resourcesFTSContentSchemaVersion rebuilds resources_fts through the fixed filter, so the content version must sit above the old binary's stamp (4) and must not exceed StoreSchemaVersion (else the rebuild repeats on every open). The MCP server opens the store read-only, so users run `sync` once after upgrading (CHANGELOG). A reprint does NOT produce these numbers: press 4.35.5 emits StoreSchemaVersion 8 and resourcesFTSContentSchemaVersion 4, plus a v6 trigram rebuild that re-indexes stores stamped below 6. Reconcile this entry on any reprint: keep the reprint's numbers only if a store stamped 5 by this build still gets the fixed content (the trigram rebuild covers that for a stamp below 6), and never let the store version go below 5. TestOpen_RebuildsFTSForThreeLetterAllCapsOnOldStore fails if either constant is wrong.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "const StoreSchemaVersion = 5",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "const resourcesFTSContentSchemaVersion = 5",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/fts_three_letter_caps_test.go",
+     "contains": "func TestOpen_RebuildsFTSForThreeLetterAllCapsOnOldStore(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
   }
  ]
 }
