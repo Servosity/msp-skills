@@ -266,10 +266,10 @@
     "released_hash": "sha256:b1f09a8aee5df716b65411214168898d45937520f8ad6e11068be178a699613c"
   },
   "domotz": {
-    "state": "up-to-date",
+    "state": "binary-pending",
     "version": "0.1.12",
     "latest_tag": "domotz-v0.1.12",
-    "current_hash": "sha256:3cae1f5e9536dbe45a43ab28361e67a5ad87cef701d77b504fd6142135d83670",
+    "current_hash": "sha256:2bb4e5411db1a391bd62263bb0da54099e03a51b3d744cfde5c1f9a03c9e8354",
     "released_hash": "sha256:3cae1f5e9536dbe45a43ab28361e67a5ad87cef701d77b504fd6142135d83670"
   },
   "dropsuite": {
@@ -329,10 +329,10 @@
     "released_hash": "sha256:4261ca5d9ee0f14863ab27273f3475b485d7f6cd5d9654b0d72a95d71894cfd3"
   },
   "hook-security": {
-    "state": "up-to-date",
+    "state": "binary-pending",
     "version": "0.1.0",
     "latest_tag": "hook-security-v0.1.0",
-    "current_hash": "sha256:f2c0fa8cac720692cc75b8038ce954563d8192534b1b0308a89db6016ddc4788",
+    "current_hash": "sha256:7634116688cc436d3b4e0444ce84af694e5cc16e8f525629b65d2c8f6a998d41",
     "released_hash": "sha256:f2c0fa8cac720692cc75b8038ce954563d8192534b1b0308a89db6016ddc4788"
   },
   "hubspot": {
@@ -406,10 +406,10 @@
     "released_hash": "sha256:d18f6be1a8ac0fe247b844d1ffeaa70ed0767861823e65c53e7feade1a5f2f73"
   },
   "knowbe4": {
-    "state": "up-to-date",
+    "state": "binary-pending",
     "version": "0.1.12",
     "latest_tag": "knowbe4-v0.1.12",
-    "current_hash": "sha256:035f64ea8a9c149bfe50770ec287fe85fbbedef7359ccc2bbb2f819d06478893",
+    "current_hash": "sha256:da128010d5fc109aca077f2ffee62ee1e5a4290cbc781ffde51587183916406a",
     "released_hash": "sha256:035f64ea8a9c149bfe50770ec287fe85fbbedef7359ccc2bbb2f819d06478893"
   },
   "levelio": {
@@ -721,10 +721,10 @@
     "released_hash": "sha256:38ddff1dfa720225e8ee3aea9f36090f0e31f870fb2682ecf3ac57d840b4642c"
   },
   "vsphere": {
-    "state": "up-to-date",
+    "state": "binary-pending",
     "version": "0.1.4",
     "latest_tag": "vsphere-v0.1.4",
-    "current_hash": "sha256:0008715700a86a6bd9420e2b17d345f5ecb5dca9606bc23590c5f1674b90606f",
+    "current_hash": "sha256:5ea0aaa8d6f08fa9816746fe11f4a1de78def03745803354d24420f14895e044",
     "released_hash": "sha256:0008715700a86a6bd9420e2b17d345f5ecb5dca9606bc23590c5f1674b90606f"
   },
   "warranty": {
