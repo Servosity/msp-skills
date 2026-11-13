@@ -4,6 +4,11 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.1.15] - 2026-11-13
+
+### Fixed
+- **`nerdio_read` can now read every item of a long list from an endpoint that does not page.** An endpoint such as `host-pools.sessions` took no paging parameters, so a host pool with 131 user sessions, or an account's Intune devices, came back as the first 50 with no way to read the rest. This started in 0.1.9. An answer cut for size now carries `next_cursor` (`_pp_next_cursor` when the list sits inside an object; the object's own fields are kept, except one too large to share an answer with any item, which is left out and named under `_pp_omitted_members`); pass it back as `params._pp_cursor` to read the following items. `_pp_cursor` is never sent to the API: the list is fetched again and read from where the last answer stopped, and an endpoint that pages on its own refuses it. A cursor continues only the request it came from: the same endpoint with the same params. An item too large for any answer is reported with a preview under `item_too_large` instead of disappearing. An answer that is not cut is unchanged (reported by @mcjon3z, [#704](https://github.com/Servosity/msp-skills/issues/704)).
+
 ## [0.1.14] - 2026-11-12
 
 ### Fixed

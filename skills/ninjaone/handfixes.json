@@ -1905,6 +1905,82 @@
      "code_only": true
     }
    ]
+  },
+  {
+   "id": "unpaged-list-mcp-continuation",
+   "class": "mcp-unpaged-list-truncated",
+   "summary": "ninjaone_read on a read-only GET with no paging profile returns a local cursor when the list is cut for size (next_cursor, or _pp_next_cursor inside a vendor object whose members are kept), and takes it back as params._pp_cursor (never sent to the API; refused on any other endpoint and on a request other than the one it came from): the list is fetched again and read from the cursor's offset. An item over the budget is reported under item_too_large with a preview. An answer that is not cut is byte-identical to EndpointResponse.",
+   "why": "bound.EndpointResponse wrapped an unpaged GET list in boundedListEnvelope, which keeps the first 50 items (or 60,000 bytes) and offers nothing to continue from; a reprint on press 4.34.2 introduced it (issue #704). mcp_code_orch.go.tmpl still routes unpaged GETs to EndpointResponse, so a reprint drops the hook in code_orch.go.",
+   "status": "active",
+   "spec_encode_followup": "Press-side: mvanhorn/cli-printing-press#5389 (carry the local continuation into mcp_bound.go.tmpl and mcp_code_orch.go.tmpl).",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/bound/local_page.go",
+     "contains": "func EndpointLocalPageResponse(method string, data json.RawMessage, offset int, scope string) string {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/bound/local_page.go",
+     "contains": "const LocalCursorParam = \"_pp_cursor\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "localPaging := !executeTool && method == \"GET\" && !ep.Mutating && ep.Page.CursorParam == \"\" && ep.Page.NextCursorPath == \"\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "delete(params, bound.LocalCursorParam)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "text = bound.EndpointLocalPageResponse(method, data, localOffset, localScope)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "An endpoint with no cursor_param takes it back as _pp_cursor, and when that endpoint's list sits inside an object the cursor is _pp_next_cursor.",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/bound/local_page_test.go",
+     "contains": "func TestLocalPageBareListReadsEveryItem(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "applies only to a read-only GET endpoint with no paging",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/bound/local_page_test.go",
+     "contains": "func TestLocalPageUncutAnswersUnchanged(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "localScope = bound.LocalScope(ep.ID, resolvedPath, query)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/bound/local_page.go",
+     "contains": "func LocalScope(endpointID, path string, query map[string]string) string {",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
   }
  ],
  "retired": [
