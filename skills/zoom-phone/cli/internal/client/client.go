@@ -2940,21 +2940,24 @@ func (c *Client) mintClientCredentials(ctx context.Context, clientID, clientSecr
 	if accountID == "" {
 		return fmt.Errorf("zoom account ID required to mint a token (set ZOOM_PHONE_ACCOUNT_ID or phone_account_id in the config file)")
 	}
+	// Hand-fix (handfixes.json zoom-token-form-auth): the pair rides in the form, never HTTP Basic.
 	form := url.Values{
-		"grant_type": {"account_credentials"},
-		"account_id": {accountID},
+		"grant_type":    {"account_credentials"},
+		"account_id":    {accountID},
+		"client_id":     {clientID},
+		"client_secret": {clientSecret},
 	}
 	if scope := resolveClientCredentialsScope(); scope != "" {
 		form.Set("scope", scope)
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, tokenURL, strings.NewReader(form.Encode()))
+	encoded := cliutil.TokenForm(form)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, tokenURL, strings.NewReader(encoded))
 	if err != nil {
 		return fmt.Errorf("building token request: %w", c.zoomMaskErrorLocked(err, clientSecret)) // zoom-phone hand-fix: credkit-wiring
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Set("User-Agent", resolveClientCredentialsUserAgent())
-	req.SetBasicAuth(clientID, clientSecret)
-	req, err = guardOutbound(req, nil, "", []byte(form.Encode()))
+	req, err = guardOutbound(req, nil, "", []byte(encoded))
 	if err != nil {
 		return err
 	}

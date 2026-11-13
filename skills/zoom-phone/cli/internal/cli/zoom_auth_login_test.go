@@ -5,17 +5,26 @@ package cli
 import (
 	"encoding/base64"
 	"encoding/hex"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 )
 
+// The client pair rides in the form, grant_type first, never as HTTP Basic
+// (handfixes.json zoom-token-form-auth).
 func TestAuthLoginMintUsesZoomAccountCredentialsGrant(t *testing.T) {
-	var grant, account string
+	var grant, account, id, secret, raw string
+	var basic bool
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_ = r.ParseForm()
-		grant, account = r.PostForm.Get("grant_type"), r.PostForm.Get("account_id")
+		b, _ := io.ReadAll(r.Body)
+		raw = string(b)
+		q, _ := url.ParseQuery(raw)
+		grant, account = q.Get("grant_type"), q.Get("account_id")
+		id, secret = q.Get("client_id"), q.Get("client_secret")
+		_, _, basic = r.BasicAuth()
 		_, _ = w.Write([]byte(`{"access_token":"tok","expires_in":3599}`))
 	}))
 	defer srv.Close()
@@ -25,6 +34,12 @@ func TestAuthLoginMintUsesZoomAccountCredentialsGrant(t *testing.T) {
 	}
 	if grant != "account_credentials" || account != "acct-123" || tok.AccessToken != "tok" {
 		t.Fatalf("grant=%q account=%q token=%q", grant, account, tok.AccessToken)
+	}
+	if basic || id != "cid" || secret != "csecret" {
+		t.Fatalf("client pair: basic=%v id=%q secret=%q; want it in the form only", basic, id, secret)
+	}
+	if !strings.HasPrefix(raw, "grant_type=account_credentials&") {
+		t.Fatalf("token form %q does not start with grant_type", raw)
 	}
 }
 

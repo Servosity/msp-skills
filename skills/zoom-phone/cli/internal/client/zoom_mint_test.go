@@ -6,8 +6,10 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/hex"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -20,15 +22,20 @@ import (
 
 // Zoom S2S OAuth needs grant_type=account_credentials plus account_id; the
 // generated client_credentials grant is rejected (hand-fix, see
-// .printing-press-patches/zoom-phone-account-credentials-grant.json).
+// .printing-press-patches/zoom-phone-account-credentials-grant.json). The
+// client pair rides in the form, grant_type first, never as HTTP Basic
+// (handfixes.json zoom-token-form-auth).
 func TestMintUsesZoomAccountCredentialsGrant(t *testing.T) {
 	dir := testenv.Isolate(t, cliutil.ConfigDir, cliutil.DataDir, cliutil.StateDir, cliutil.CacheDir)
 	var form map[string]string
-	var user, pass string
+	var raw string
+	var basic bool
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_ = r.ParseForm()
-		form = map[string]string{"grant_type": r.PostForm.Get("grant_type"), "account_id": r.PostForm.Get("account_id"), "scope": r.PostForm.Get("scope")}
-		user, pass, _ = r.BasicAuth()
+		b, _ := io.ReadAll(r.Body)
+		raw = string(b)
+		q, _ := url.ParseQuery(raw)
+		form = map[string]string{"grant_type": q.Get("grant_type"), "account_id": q.Get("account_id"), "scope": q.Get("scope"), "client_id": q.Get("client_id"), "client_secret": q.Get("client_secret")}
+		_, _, basic = r.BasicAuth()
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(`{"access_token":"tok","token_type":"bearer","expires_in":3599}`))
 	}))
@@ -47,8 +54,11 @@ func TestMintUsesZoomAccountCredentialsGrant(t *testing.T) {
 	if form["grant_type"] != "account_credentials" || form["account_id"] != "acct-123" || form["scope"] != "" {
 		t.Fatalf("token form = %v; want account_credentials + account_id, no scope", form)
 	}
-	if user != "cid" || pass != "csecret" {
-		t.Fatalf("basic auth = %q/%q", user, pass)
+	if basic || form["client_id"] != "cid" || form["client_secret"] != "csecret" {
+		t.Fatalf("client pair: basic=%v form=%v; want it in the form only", basic, form)
+	}
+	if !strings.HasPrefix(raw, "grant_type=account_credentials&") {
+		t.Fatalf("token form %q does not start with grant_type", raw)
 	}
 	if cfg.AccessToken != "tok" {
 		t.Fatalf("access token not stored: %q", cfg.AccessToken)

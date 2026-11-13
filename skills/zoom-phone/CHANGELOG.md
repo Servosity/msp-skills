@@ -8,6 +8,7 @@ All notable changes to this skill are documented here. Format follows
 
 ### Fixed
 - **The `zoom-phone_search` MCP tool's description now names this API's resources.** It used to be one sentence shared by every connector, so an MCP host that picks tools by matching words ranked other tools above it for a request like `<vendor> <resource>`. The description now ends with the resource families from the endpoint list, most endpoints first, at most 300 characters ([#629](https://github.com/Servosity/msp-skills/issues/629)).
+- **Signing in again after a token expires no longer fails.** Once the saved access token expired, the next run's token request could be refused with `credkit: withheld from outbound request`, and every call failed until the saved token was removed from the config file. The token request sent the client pair as HTTP Basic, whose encoding can match a piece of the expired token, and that token may go only to the Zoom API. Both token requests (`auth login` and the automatic one) now send `client_id` and `client_secret` in the form body, which Zoom accepts; the pair still goes only over https to Zoom's token endpoint ([#698](https://github.com/Servosity/msp-skills/issues/698)).
 
 ## [0.1.5] - 2026-11-12
 

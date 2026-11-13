@@ -419,17 +419,17 @@
    "asserts": [
     {
      "file": "cli/internal/client/client.go",
-     "contains": "\"grant_type\": {\"account_credentials\"},",
+     "contains": "\"grant_type\":    {\"account_credentials\"},",
      "code_only": true
     },
     {
      "file": "cli/internal/client/client.go",
-     "contains": "\"account_id\": {accountID},",
+     "contains": "\"account_id\":    {accountID},",
      "code_only": true
     },
     {
      "file": "cli/internal/cli/auth.go",
-     "contains": "\"grant_type\": {\"account_credentials\"},",
+     "contains": "\"grant_type\":    {\"account_credentials\"},",
      "code_only": true
     },
     {
@@ -1696,6 +1696,58 @@
     {
      "file": "cli/internal/mcp/search_desc_test.go",
      "contains": "func TestSearchToolFoundByResourceWords(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "zoom-token-form-auth",
+   "summary": "Both Server-to-Server mints (the client's automatic mint and auth login) send client_id and client_secret in the form body with grant_type first, never as HTTP Basic, so a mint is not withheld as a piece of the token it replaces",
+   "why": "Issue #698's class (nerdio #691, immybot entra-token-form-auth). A Zoom S2S token's payload carries the client ID (\"iss\":\"zm:cid:<id>\"); a real token minted 2026-11-13 had it at a multiple of three bytes, so its base64 contains the Basic header's base64 run of the client ID. The token is held for the API base only. After a restart that loaded an expired token from the config file, the first mint to zoom.us was withheld as carrying a piece of it, every CLI run until the stored token was removed. Within one process the header:authorization declaration had masked this, because a Bearer request bound the token to zoom.us first; that declaration is not enough after a restart. In the form body the client ID is plain text. Zoom accepts the pair in the form (live, 2026-11-13: both forms answered 200 with an access_token). grant_type stays first (cliutil.TokenForm): the kit reads a form body as one key=value line and url.Values.Encode would sort account_id first. credwire TestRenewalMintIsNotWithheld drives the real kit and client at each alignment, for a renewal and for a restart; on the Basic code the restart at the aligned shape fails with the withhold notice. The kit fleet test TestKitFleetBasicMintRenewalIsNotWithheld (tools/maintainer/credkit) fails if a reprint brings the Basic mint back. A reprint restores SetBasicAuth. Spec-encode candidate: the press should offer form-body client authentication for an OAuth2 token endpoint on another origin.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "\"client_secret\": {clientSecret},",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "encoded := cliutil.TokenForm(form)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "not_contains": "req.SetBasicAuth(clientID, clientSecret)"
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "\"client_secret\": {clientSecret},",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "encoded := cliutil.TokenForm(form)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "not_contains": "req.SetBasicAuth(clientID, clientSecret)"
+    },
+    {
+     "file": "cli/internal/cliutil/credkit_hold.go",
+     "contains": "func TokenForm(form url.Values) string",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/mint_renewal_test.go",
+     "contains": "func TestRenewalMintIsNotWithheld(",
      "min_count": 1,
      "code_only": true
     }
