@@ -469,11 +469,11 @@
     "released_hash": "sha256:5a5ccdc36ff1b27378557c6f0c9a1f18df5651dbd645b2f761e859f29596c336"
   },
   "nerdio": {
-    "state": "up-to-date",
-    "version": "0.1.14",
+    "state": "version-pending",
+    "version": "0.1.15",
     "latest_tag": "nerdio-v0.1.14",
-    "current_hash": "sha256:372e513234a7b9146ea14a44fca7829024a56e40fbe015aaedd173f37c741d4c",
-    "released_hash": "sha256:372e513234a7b9146ea14a44fca7829024a56e40fbe015aaedd173f37c741d4c"
+    "current_hash": "sha256:181233a804596d84e8ca46958a22038101b6ee0acf5d97021c58046bdcbbc158",
+    "released_hash": "sha256:181233a804596d84e8ca46958a22038101b6ee0acf5d97021c58046bdcbbc158"
   },
   "netsapiens": {
     "state": "up-to-date",
@@ -483,11 +483,11 @@
     "released_hash": "sha256:5100f3151fdcc9236eee237f9c9bee480f0ce619d13d63916a1e1653da6de896"
   },
   "ninjaone": {
-    "state": "up-to-date",
-    "version": "0.1.25",
+    "state": "version-pending",
+    "version": "0.1.26",
     "latest_tag": "ninjaone-v0.1.25",
-    "current_hash": "sha256:3736037fdb9ff5695d916eee6fa6c571ddc6a918789d820d45cd22117d929a3c",
-    "released_hash": "sha256:3736037fdb9ff5695d916eee6fa6c571ddc6a918789d820d45cd22117d929a3c"
+    "current_hash": "sha256:999e0949576a2b5b201d608a2cd38753f24a2e2e9b6bb0973e736bdb411657d2",
+    "released_hash": "sha256:999e0949576a2b5b201d608a2cd38753f24a2e2e9b6bb0973e736bdb411657d2"
   },
   "pagerduty": {
     "state": "up-to-date",
