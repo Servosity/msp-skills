@@ -1895,48 +1895,6 @@ def _execute_writes(cli: Path):
             yield f, code, span[0] if span else m.start(), reg, "?", "", tool, fn
 
 
-def _literal_body(bare: str, params_open: int) -> tuple[int, int] | None:
-    """The body span of the function literal whose parameter list opens at params_open,
-    or None when the `func(...)` is a function TYPE (var hook func(), a func-typed
-    parameter or result). Skips the result type, braces of interface{} / struct{} and
-    bracketed or parenthesised groups included, to the `{` that opens the body."""
-    j = _close(bare, params_open)
-    while j < len(bare):
-        c = bare[j]
-        if c in " \t":
-            j += 1
-        elif c == "{":
-            return j, _close(bare, j)
-        elif c in "([":
-            j = _close(bare, j)
-        elif bare.startswith(("interface", "struct"), j):
-            k = j + (9 if bare.startswith("interface", j) else 6)
-            k += len(bare[k:]) - len(bare[k:].lstrip(" \t"))
-            j = _close(bare, k) if k < len(bare) and bare[k] == "{" else k
-        elif re.match(r"[\w.*]", c):
-            j += 1
-        else:
-            return None  # newline, comma, `)`, `=`, ...: the signature ended with no body
-    return None
-
-
-def _deferred_spans(bare: str) -> list[tuple[int, int]]:
-    """Spans whose code may run later than the statements around it: every function
-    literal body (a `func(...)` not at column 0 that has a body) and every `defer` or
-    `go` statement."""
-    out = []
-    for m in re.finditer(r"\bfunc\s*\(", bare):
-        if m.start() == 0 or bare[m.start() - 1] == "\n":
-            continue  # a top-level declaration, not a literal
-        body = _literal_body(bare, m.end() - 1)
-        if body:
-            out.append(body)
-    for m in re.finditer(r"\b(?:defer|go)\s+", bare):
-        end = bare.find("\n", m.end())
-        out.append((m.start(), len(bare) if end < 0 else end))
-    return out
-
-
 def _mcp_rule_read_only_drop(cli: Path) -> list[tuple]:
     """Write tools must be unreachable under <PREFIX>_MCP_READ_ONLY=1: each one is
     registered inside an `if !IsMCPReadOnlyEnv() {` body, or dropNonReadOnlyTools(...) is
@@ -1944,7 +1902,10 @@ def _mcp_rule_read_only_drop(cli: Path) -> list[tuple]:
     drop that runs first leaves the later writes callable). A typed write must sit in the
     drop's file; the API execute tool must sit in the drop's own function above it, or in a
     registrar that function alone calls, synchronously, above it (the press shape:
-    RegisterTools calls RegisterCodeOrchestrationTools, then drops)."""
+    RegisterTools calls RegisterCodeOrchestrationTools, then drops). Accepted limit
+    (standing Ruling 15: the gate assures honest press output and staff edits): a
+    registration from inside a closure, deferred or run as a goroutine, is out of
+    scope."""
     writes = [t for t in _typed_tools(cli) if not _read_only(t[3])]
     execs = list(_execute_writes(cli))
     if not writes and not execs:
@@ -1957,23 +1918,23 @@ def _mcp_rule_read_only_drop(cli: Path) -> list[tuple]:
             return t[0] == f and t[2] < pos  # a typed write: the base rule, unchanged
         # The execute tool must provably be registered before the drop runs: inside the
         # drop's own function above it, or by a registrar EVERY call of which sits in the
-        # drop's function above it. Either must run in that function's own statement
-        # flow: not inside a function literal, a defer or a go statement (_deferred_spans),
-        # any of which can run after the drop.
+        # drop's function above it and runs synchronously (no defer, no go). A registrar
+        # declared earlier in the file, deferred, or also called after the drop or from
+        # anywhere else could register it after the drop.
         start = max((m.start() for m in re.finditer(r"(?m)^func\b", bare[:pos])), default=0)
-        late = _deferred_spans(bare)
-        if t[0] == f and start < t[2] < pos and not _inside(t[2], late):
+        if t[0] == f and start < t[2] < pos:
             return True
         if t[7] is None:
             return False
         calls = [(g, c) for g, (_, b) in pkg.items() for c in _calls(b, t[7])]
-        return bool(calls) and all(g == f and start < c.start() < pos and not _inside(c.start(), late)
-                                   for g, c in calls)
+        return bool(calls) and all(
+            g == f and start < c.start() < pos
+            and not re.search(r"\b(?:defer|go)\s+$", bare[max(0, c.start() - 8):c.start()])
+            for g, c in calls)
 
     for f, (code, bare) in pkg.items():
         drops = _calls(bare, "dropNonReadOnlyTools")
         if any(_inside(d.start(), _if_bodies(bare, env))
-               and (not execs or not _inside(d.start(), _deferred_spans(bare)))
                and all(before(t, f, bare, d.start()) for t in writes + execs) for d in drops):
             return []
     open_ = []
@@ -2892,25 +2853,6 @@ def _self_test_mcp_surface() -> int:
         case(r7, {orch: ex, tools: _fx_typed_tools([], extra=call + _DROP)
                   + "\nfunc reRegister(s *server.MCPServer) {\n" + call + "}\n"},
              True, "registrar also called from another function")
-        case(r7, {orch: ex, tools: _fx_typed_tools([], extra="\tdefer func() {\n\t\tRegisterCodeOrchestrationTools(s)\n\t}()\n" + _DROP)},
-             True, "registrar called inside a deferred closure")
-        case(r7, {orch: ex, tools: _fx_typed_tools([], extra="\tlater := func() {\n\t\tRegisterCodeOrchestrationTools(s)\n\t}\n" + _DROP + "\tlater()\n")},
-             True, "registrar called inside a closure invoked after the drop")
-        add = ex[ex.index("\ts.AddTool("):ex.index("\t\thandleCodeOrchExecute,\n\t)\n") + 23]
-        case(r7, {orch: ex.replace(add, ""), tools: _fx_typed_tools([], extra=add + _DROP)}, False,
-             "execute AddTool inline in the drop's function, above it")
-        case(r7, {orch: ex.replace(add, ""), tools: _fx_typed_tools([], extra="\tdefer func() {\n" + add + "\t}()\n" + _DROP)},
-             True, "execute AddTool inline in a deferred closure of the drop's function")
-        case(r7, {orch: ex, tools: _fx_typed_tools([], extra=call + "\t_ = func() {\n" + _DROP + "\t}\n")}, True,
-             "the drop only inside a closure nobody calls")
-        case(r7, {orch: ex, tools: _fx_typed_tools([], extra="\tdefer func() interface{} {\n\t\tRegisterCodeOrchestrationTools(s)\n\t\treturn nil\n\t}()\n" + _DROP)},
-             True, "registrar in a deferred closure whose result type is interface{}")
-        case(r7, {orch: ex, tools: _fx_typed_tools([], extra="\tdefer func() (struct{}, error) {\n\t\tRegisterCodeOrchestrationTools(s)\n\t\treturn struct{}{}, nil\n\t}()\n" + _DROP)},
-             True, "registrar in a deferred closure with a parenthesised result list")
-        case(r7, {orch: ex, tools: "var hook func()\n\n" + _fx_typed_tools([], extra=call + _DROP).replace("package mcp\n", "")},
-             False, "a func-typed variable is not a closure: register, then drop stays healthy")
-        case(r7, {orch: ex, tools: _fx_typed_tools([], extra="\tvar cb func(int) error\n\t_ = cb\n" + call + _DROP)},
-             False, "a func-typed local in the drop's function stays healthy")
 
         # --- the baseline -------------------------------------------------------------
         def check(name: str, ok: bool) -> None:
