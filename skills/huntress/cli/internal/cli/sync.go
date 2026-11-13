@@ -618,6 +618,7 @@ func syncResource(ctx context.Context, c interface {
 	flatReconcilable := resourceIsFlatReconcilable(reconcileMode)
 	outcome := partitionOutcome{}
 	var seenIDs []string
+	totalProof := newDeclaredTotalProof()
 
 	for {
 		params := map[string]string{}
@@ -850,7 +851,8 @@ func syncResource(ctx context.Context, c interface {
 				}
 			}
 		}
-		if resourceSupportsPagination(resource) && nextCursor == "" && pageSize.cursorParam != "offset" && fetchedThisPage >= pageSize.limit && pageMayHaveMore(data, responsePathForResource(resource, path)...) {
+		totalProof.observe(resource, data, items)
+		if resourceSupportsPagination(resource) && nextCursor == "" && pageSize.cursorParam != "offset" && fetchedThisPage >= pageSize.limit && pageMayHaveMore(data, responsePathForResource(resource, path)...) && !totalProof.reached() {
 			emitSyncMissingPaginationCursorWarning(syncEvents, humanFriendly, resource, "")
 		}
 
@@ -917,11 +919,12 @@ func syncResource(ctx context.Context, c interface {
 			// the operator's page ceiling fired on that same request.
 			if capResumed {
 				outcome.reason = "max_pages_cap"
-			} else if paginationEndUnprovable(resourceSupportsPagination(resource), nextCursor, fetchedThisPage, capPageLimit, data, responsePathForResource(resource, path)...) {
+			} else if unprovable := paginationEndUnprovable(resourceSupportsPagination(resource), nextCursor, fetchedThisPage, capPageLimit, data, responsePathForResource(resource, path)...); unprovable && !totalProof.reached() {
 				outcome.reason = "cursor_unavailable"
 			} else if !hasMore ||
 				shortPageEndsPagination(pageSize.cursorType, fetchedThisPage, capPageLimit) {
 				outcome.complete = true
+				outcome.countProven = unprovable
 			} else {
 				outcome.reason = "max_pages_cap"
 			}
@@ -953,8 +956,11 @@ func syncResource(ctx context.Context, c interface {
 			break
 		}
 		if paginationEndUnprovable(true, nextCursor, fetchedThisPage, pageSize.limit, data, responsePathForResource(resource, path)...) {
-			outcome.reason = "cursor_unavailable"
-			break
+			if !totalProof.reached() {
+				outcome.reason = "cursor_unavailable"
+				break
+			}
+			outcome.countProven = true
 		}
 		if !hasMore || shortPageEndsPagination(pageSize.cursorType, fetchedThisPage, pageSize.limit) {
 			outcome.complete = true
@@ -1005,7 +1011,7 @@ func syncResource(ctx context.Context, c interface {
 				fmt.Fprintf(syncEvents, `{"event":"reconcile_skipped","resource":"%s","scope":"%s","reason":%q}`+"\n", resource, tenantUUID, reason)
 			}
 		} else if reconcileMode == "flat_global" {
-			if outcome.complete {
+			if outcome.pruneAllowed() {
 				deleted, rerr := db.ReconcileAll(
 					resource, seenIDs, reconcileTypedTable(resource), store.CascadeJunctionsFor(resource),
 				)
@@ -1018,14 +1024,14 @@ func syncResource(ctx context.Context, c interface {
 					fmt.Fprintf(syncEvents, `{"event":"reconcile","resource":"%s","scope":"*","deleted":%d}`+"\n", resource, deleted)
 				}
 			} else {
-				fmt.Fprintf(syncEvents, `{"event":"reconcile_skipped","resource":"%s","scope":"*","reason":%q}`+"\n", resource, outcome.reason)
+				fmt.Fprintf(syncEvents, `{"event":"reconcile_skipped","resource":"%s","scope":"*","reason":%q}`+"\n", resource, outcome.pruneSkipReason())
 			}
 		} else {
 			def := flatReconcileDef(resource)
 			tenantUUID := resolveTenantID()
 			if tenantUUID == "" {
 				fmt.Fprintf(syncEvents, `{"event":"reconcile_skipped","resource":"%s","reason":"unknown-tenant"}`+"\n", resource)
-			} else if outcome.complete {
+			} else if outcome.pruneAllowed() {
 				deleted, rerr := db.ReconcilePartition(
 					resource, "$."+def.BodyField, tenantUUID,
 					seenIDs, reconcileTypedTable(resource), store.CascadeJunctionsFor(resource),
@@ -1039,7 +1045,7 @@ func syncResource(ctx context.Context, c interface {
 					fmt.Fprintf(syncEvents, `{"event":"reconcile","resource":"%s","scope":"%s","deleted":%d}`+"\n", resource, tenantUUID, deleted)
 				}
 			} else {
-				fmt.Fprintf(syncEvents, `{"event":"reconcile_skipped","resource":"%s","scope":"%s","reason":%q}`+"\n", resource, tenantUUID, outcome.reason)
+				fmt.Fprintf(syncEvents, `{"event":"reconcile_skipped","resource":"%s","scope":"%s","reason":%q}`+"\n", resource, tenantUUID, outcome.pruneSkipReason())
 			}
 		}
 	} else if prune {
@@ -2193,6 +2199,79 @@ func pageAllowsPageIntFallback(data json.RawMessage) bool {
 	return pageMayHaveMore(data)
 }
 
+// declaredTotalProof proves the end of a cursor walk from the listing's own
+// row count. Huntress omits next_page_token on its last page, so a final page
+// that is exactly full, or an endpoint that returns every row in one page,
+// otherwise ends as cursor_unavailable with every row stored (issue #709).
+// The proof holds only when every page of the walk declared the same count and
+// the walk saw at least that many DISTINCT record ids: a duplicate row across
+// pages, or a count that moved mid-walk, can hide a skipped row, and a wrong
+// "complete" lets reconcile delete rows the API still has. Only a count field
+// is trusted, never a bare "total" outside a pagination object.
+type declaredTotalProof struct {
+	total  int // -1 until the first page; 0 once a page lacks a count
+	stable bool
+	ids    map[string]struct{}
+}
+
+func newDeclaredTotalProof() *declaredTotalProof {
+	return &declaredTotalProof{total: -1, stable: true, ids: map[string]struct{}{}}
+}
+
+func (p *declaredTotalProof) observe(resource string, data json.RawMessage, items []json.RawMessage) {
+	n := declaredTotalCount(data)
+	if p.total == -1 {
+		p.total = n
+	} else if n != p.total {
+		p.stable = false
+	}
+	for _, it := range items {
+		if o, err := store.DecodeJSONObject(it); err == nil {
+			if id := extractID(resource, o); id != "" {
+				p.ids[id] = struct{}{}
+			}
+		}
+	}
+}
+
+func (p *declaredTotalProof) reached() bool {
+	return p.stable && p.total > 0 && len(p.ids) >= p.total
+}
+
+// declaredTotalCount returns the response's declared row count, or 0.
+func declaredTotalCount(data json.RawMessage) int {
+	var envelope map[string]json.RawMessage
+	if json.Unmarshal(data, &envelope) != nil {
+		return 0
+	}
+	countAt := func(m map[string]json.RawMessage, keys ...string) int {
+		for _, key := range keys {
+			raw, ok := m[key]
+			if !ok || isJSONNull(raw) {
+				continue
+			}
+			var n int
+			if json.Unmarshal(raw, &n) == nil && n > 0 {
+				return n
+			}
+		}
+		return 0
+	}
+	if n := countAt(envelope, "total_count", "totalCount"); n > 0 {
+		return n
+	}
+	for _, key := range []string{"pagination", "meta", "paging", "page_info", "pageInfo"} {
+		var inner map[string]json.RawMessage
+		if raw, ok := envelope[key]; !ok || json.Unmarshal(raw, &inner) != nil {
+			continue
+		}
+		if n := countAt(inner, "total_count", "totalCount", "total"); n > 0 {
+			return n
+		}
+	}
+	return 0
+}
+
 func pageMayHaveMore(data json.RawMessage, responsePaths ...string) bool {
 	hasMore, parsed := pageExplicitHasMore(data, responsePaths...)
 	return !parsed || hasMore
@@ -2935,6 +3014,7 @@ func syncOneParent(
 
 	outcome := partitionOutcome{scopeVal: parentID}
 	var seenIDs []string
+	totalProof := newDeclaredTotalProof()
 
 	for {
 		params := map[string]string{}
@@ -3139,7 +3219,8 @@ func syncOneParent(
 				}
 			}
 		}
-		if resourceSupportsPagination(dep.Name) && nextCursor == "" && pageSize.cursorParam != "offset" && len(items) >= pageSize.limit && pageMayHaveMore(data, responsePathForResource(dep.Name, path)...) {
+		totalProof.observe(dep.Name, data, items)
+		if resourceSupportsPagination(dep.Name) && nextCursor == "" && pageSize.cursorParam != "offset" && len(items) >= pageSize.limit && pageMayHaveMore(data, responsePathForResource(dep.Name, path)...) && !totalProof.reached() {
 			emitSyncMissingPaginationCursorWarning(syncEvents, humanFriendly, dep.Name, parentID)
 		}
 		pagesFetched++
@@ -3173,8 +3254,11 @@ func syncOneParent(
 			break
 		}
 		if paginationEndUnprovable(true, nextCursor, len(items), pageSize.limit, data, responsePathForResource(dep.Name, path)...) {
-			outcome.reason = "cursor_unavailable"
-			break
+			if !totalProof.reached() {
+				outcome.reason = "cursor_unavailable"
+				break
+			}
+			outcome.countProven = true
 		}
 		if !hasMore || shortPageEndsPagination(pageSize.cursorType, len(items), pageSize.limit) {
 			outcome.complete = true
@@ -3200,7 +3284,7 @@ func syncOneParent(
 		parentScope := syncCheckpointScope(dep.Name, true, userParams, syncClientTemplateVars(c), syncActivePathContext())
 		if reason := syncPruneSkipReason(dep.Name, true, depSinceTS, "", userParams, dep.ReconcileMode, parentScope); reason != "" {
 			fmt.Fprintf(syncEvents, `{"event":"reconcile_skipped","resource":"%s","scope":"%s","reason":%q}`+"\n", dep.Name, outcome.scopeVal, reason)
-		} else if outcome.complete {
+		} else if outcome.pruneAllowed() {
 			deleted, rerr := db.ReconcilePartition(
 				dep.Name, dep.GenericScopeJSONPath, outcome.scopeVal,
 				seenIDs, reconcileTypedTable(dep.Name), store.CascadeJunctionsFor(dep.Name),
@@ -3216,7 +3300,7 @@ func syncOneParent(
 				fmt.Fprintf(syncEvents, `{"event":"reconcile","resource":"%s","scope":"%s","deleted":%d}`+"\n", dep.Name, outcome.scopeVal, deleted)
 			}
 		} else {
-			fmt.Fprintf(syncEvents, `{"event":"reconcile_skipped","resource":"%s","scope":"%s","reason":%q}`+"\n", dep.Name, outcome.scopeVal, outcome.reason)
+			fmt.Fprintf(syncEvents, `{"event":"reconcile_skipped","resource":"%s","scope":"%s","reason":%q}`+"\n", dep.Name, outcome.scopeVal, outcome.pruneSkipReason())
 		}
 	}
 
@@ -3809,6 +3893,24 @@ type partitionOutcome struct {
 	complete bool
 	reason   string
 	scopeVal string
+	// countProven marks a walk whose end only a declared total_count proved
+	// (#709). It counts as complete for coverage, but never authorizes a
+	// prune: rows that shift pages under concurrent deletes and inserts can
+	// satisfy a stable count with distinct ids while a live row was skipped.
+	countProven bool
+}
+
+// pruneAllowed is true only for a complete walk whose end was proven without
+// trusting a declared count.
+func (o partitionOutcome) pruneAllowed() bool {
+	return o.complete && !o.countProven
+}
+
+func (o partitionOutcome) pruneSkipReason() string {
+	if o.complete && o.countProven {
+		return "end_proven_by_count"
+	}
+	return o.reason
 }
 
 func syncActivePathContext() map[string]string {

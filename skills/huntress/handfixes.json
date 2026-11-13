@@ -1994,6 +1994,64 @@
      "code_only": true
     }
    ]
+  },
+  {
+   "id": "sync-total-count-proves-end",
+   "class": "sync-pagination-end-proof",
+   "summary": "sync treats a walk with no next cursor as finished when every page declared the same total_count (top level, or total_count/totalCount/total inside pagination/meta/paging/page_info) and the walk saw at least that many distinct record ids. Applied in the flat walk, its --max-pages branch and the per-parent dependent walk; the pagination_cursor_missing warning is suppressed in that case. A count-proven end never prunes: reconcile is skipped with reason end_proven_by_count.",
+   "why": "Huntress omits next_page_token on the last page, so a final page that is exactly full or an endpoint that returns every row in one page ended as cursor_unavailable: identities, reports and accounts_reports stayed incomplete with every row stored, and store_status read partial on every run (#709). Distinct ids and a stable count keep a duplicate row across pages or a count that moved mid-walk from certifying a truncated walk, which would let reconcile delete rows the API still has (Codex round 1). A reprint regenerates sync.go without the guard. Rows that shift pages under concurrent deletes and inserts can satisfy a stable count with distinct ids while a live row was skipped, so only the natural-end proofs authorize reconcile (Codex round 2).",
+   "status": "active",
+   "spec_encode_followup": "Press-side: paginationEndUnprovable in the sync template should accept a declared total_count reached as a proven end (upstream issue to file).",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "func (p *declaredTotalProof) reached() bool {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "totalProof := newDeclaredTotalProof()",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "totalProof.observe(",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync_total_count_end_test.go",
+     "contains": "func TestSyncDeclaredTotalProvesTheEndOfACursorWalk(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "!totalProof.reached()",
+     "min_count": 5,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "func (o partitionOutcome) pruneAllowed() bool {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "outcome.pruneAllowed()",
+     "min_count": 3,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync_total_count_end_test.go",
+     "contains": "func TestSyncCountProvenEndNeverPrunes(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
   }
  ],
  "retired": [
