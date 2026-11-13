@@ -75,4 +75,6 @@ tools can also change things with your credentials: 53 connectors expose an
 included where the API has them, with no confirmation step. The 17 connectors
 that support a `<PREFIX>_MCP_READ_ONLY` switch now set it to `1` in their
 install guides, and their one-click `.mcpb` bundles preset it from each
-connector's next release.
+connector's next release. Another 19 connectors support the switch from their
+next release and leave it blank; set it to `1` for an agent that should only
+read, and the server then lists only its read-only tools.

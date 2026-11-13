@@ -40,6 +40,12 @@
           "isRequired": false,
           "isSecret": false,
           "default": "https://api.pandadoc.com/public/v1"
+        },
+        {
+          "name": "PANDADOC_MCP_READ_ONLY",
+          "description": "Optional. Set to 1 to list only read-only tools.",
+          "isRequired": false,
+          "isSecret": false
         }
       ]
     }

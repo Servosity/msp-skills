@@ -20,7 +20,8 @@
         "DATTO_BCDR_SECRET_KEY": "${user_config.datto_bcdr_secret_key}",
         "DATTO_BCDR_MCP_HTTP_TOKEN": "${user_config.datto_bcdr_mcp_http_token}",
         "DATTO_BCDR_USER_AGENT": "${user_config.datto_bcdr_user_agent}",
-        "PRINTING_PRESS_CLIENT_PROFILE": "${user_config.printing_press_client_profile}"
+        "PRINTING_PRESS_CLIENT_PROFILE": "${user_config.printing_press_client_profile}",
+        "DATTO_BCDR_MCP_READ_ONLY": "${user_config.datto_bcdr_mcp_read_only}"
       }
     }
   },
@@ -65,6 +66,13 @@
       "description": "Only used when the MCP server is bound to a tenant-gated Printing Press client profile. This connector registers no tenant-gated source, so leave it blank unless you set one up yourself.",
       "required": false,
       "sensitive": true
+    },
+    "datto_bcdr_mcp_read_only": {
+      "type": "string",
+      "title": "Read-only MCP mode",
+      "description": "Optional. Set to exactly 1 to list only read-only tools: sync, export and every write tool are then not listed. Leave blank to keep every tool.",
+      "required": false,
+      "sensitive": false
     }
   },
   "compatibility": {

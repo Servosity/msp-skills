@@ -51,12 +51,17 @@ Add (or merge with your existing `mcpServers` block):
         "SHERWEB_OAUTH_SCOPE": "<your-sherweb_oauth_scope>",
         "SHERWEB_SUBSCRIPTION_KEY": "<your-sherweb_subscription_key>",
         "SHERWEB_TOKEN_URL": "https://api.sherweb.com/auth/oidc/connect/token",
-        "SHERWEB_NO_CONFIG_WRITE": ""
+        "SHERWEB_NO_CONFIG_WRITE": "",
+        "SHERWEB_MCP_READ_ONLY": ""
       }
     }
   }
 }
 ```
+
+`SHERWEB_MCP_READ_ONLY` is blank in every JSON config on this page. Set it to `1` for an agent
+that should only read: the server then lists only its read-only tools, and
+`sync`, `import` and every write tool are not among them.
 
 Quit Claude Desktop completely and reopen, then ask a question that needs the API.
 
@@ -96,7 +101,8 @@ Configuration**) and add:
         "SHERWEB_OAUTH_SCOPE": "<your-sherweb_oauth_scope>",
         "SHERWEB_SUBSCRIPTION_KEY": "<your-sherweb_subscription_key>",
         "SHERWEB_TOKEN_URL": "https://api.sherweb.com/auth/oidc/connect/token",
-        "SHERWEB_NO_CONFIG_WRITE": ""
+        "SHERWEB_NO_CONFIG_WRITE": "",
+        "SHERWEB_MCP_READ_ONLY": ""
       }
     }
   }
@@ -123,7 +129,8 @@ Claude Desktop:
         "SHERWEB_OAUTH_SCOPE": "<your-sherweb_oauth_scope>",
         "SHERWEB_SUBSCRIPTION_KEY": "<your-sherweb_subscription_key>",
         "SHERWEB_TOKEN_URL": "https://api.sherweb.com/auth/oidc/connect/token",
-        "SHERWEB_NO_CONFIG_WRITE": ""
+        "SHERWEB_NO_CONFIG_WRITE": "",
+        "SHERWEB_MCP_READ_ONLY": ""
       }
     }
   }

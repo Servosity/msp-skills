@@ -40,6 +40,12 @@
           "isRequired": false,
           "isSecret": false,
           "default": "https://axapi.axcient.com/x360recover"
+        },
+        {
+          "name": "AXCIENT_MCP_READ_ONLY",
+          "description": "Optional. Set to 1 to list only read-only tools.",
+          "isRequired": false,
+          "isSecret": false
         }
       ]
     }

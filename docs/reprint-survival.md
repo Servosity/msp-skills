@@ -163,6 +163,15 @@ once per press release:
   `check_handfixes.py` stops demanding the entry and demands the registry's
   `native_asserts`, which pin the press's own shape, so the behavior keeps a CI
   guard. A connector below `retire_at` keeps every entry.
+  A retire record may also name a `recipe` (and an `adopt`): below `retire_at`
+  the id is then replayed and adopted like a replay id, and from `retire_at` on
+  it retires. `mcp-read-only-switch` (press 4.34.0, the `<PREFIX>_MCP_READ_ONLY`
+  drop) and `sync-event-writer-serialized` (press 4.35.4) work this way.
+  An `adopt` may also name `not_contains`, the fix itself, so a connector is
+  adopted until its code carries the fix (for `mcp-read-only-switch`, the
+  guarded drop as the last statement of a function). Accepted limit (standing
+  Ruling 15: checks assure honest press and recipe output): the fix written
+  somewhere it never runs would suppress the adoption.
 - **replay**: the press still lacks it. `tools/maintainer/replay_handfixes.py
   --slug <slug>` re-applies it after a reprint (onboard.py runs it), restores the
   hand-written files the entry pins that the reprint lacks from the pre-reprint

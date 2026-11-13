@@ -49,12 +49,17 @@ Add (or merge with your existing `mcpServers` block):
         "DATAGATE_BASE_URL": "",
         "DATAGATE_USER_AGENT": "",
         "DATAGATE_MCP_HTTP_TOKEN": "",
-        "PRINTING_PRESS_CLIENT_PROFILE": ""
+        "PRINTING_PRESS_CLIENT_PROFILE": "",
+        "DATAGATE_MCP_READ_ONLY": ""
       }
     }
   }
 }
 ```
+
+`DATAGATE_MCP_READ_ONLY` is blank in every JSON config on this page. Set it to `1` for an agent
+that should only read: the server then lists only its read-only tools, and
+`sync`, `import` and every write tool are not among them.
 
 Quit Claude Desktop completely and reopen, then ask a question that needs the API.
 
@@ -93,7 +98,8 @@ Configuration**) and add:
         "DATAGATE_BASE_URL": "",
         "DATAGATE_USER_AGENT": "",
         "DATAGATE_MCP_HTTP_TOKEN": "",
-        "PRINTING_PRESS_CLIENT_PROFILE": ""
+        "PRINTING_PRESS_CLIENT_PROFILE": "",
+        "DATAGATE_MCP_READ_ONLY": ""
       }
     }
   }
@@ -119,7 +125,8 @@ Claude Desktop:
         "DATAGATE_BASE_URL": "",
         "DATAGATE_USER_AGENT": "",
         "DATAGATE_MCP_HTTP_TOKEN": "",
-        "PRINTING_PRESS_CLIENT_PROFILE": ""
+        "PRINTING_PRESS_CLIENT_PROFILE": "",
+        "DATAGATE_MCP_READ_ONLY": ""
       }
     }
   }

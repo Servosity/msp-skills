@@ -49,12 +49,17 @@ Add (or merge with your existing `mcpServers` block):
         "UNIFI_API_KEY": "<your-unifi_api_key>",
         "UNIFI_BASE_PATH": "",
         "UNIFI_BASE_URL": "",
-        "UNIFI_GATEWAY_HOST": "<your-unifi_gateway_host>"
+        "UNIFI_GATEWAY_HOST": "<your-unifi_gateway_host>",
+        "UNIFI_MCP_READ_ONLY": ""
       }
     }
   }
 }
 ```
+
+`UNIFI_MCP_READ_ONLY` is blank in every JSON config on this page. Set it to `1` for an agent
+that should only read: the server then lists only its read-only tools, and
+`unifi_execute`, `sync` and `export` are not among them.
 
 Quit Claude Desktop completely and reopen, then ask a question that needs the API.
 
@@ -92,7 +97,8 @@ Configuration**) and add:
         "UNIFI_API_KEY": "<your-unifi_api_key>",
         "UNIFI_BASE_PATH": "",
         "UNIFI_BASE_URL": "",
-        "UNIFI_GATEWAY_HOST": "<your-unifi_gateway_host>"
+        "UNIFI_GATEWAY_HOST": "<your-unifi_gateway_host>",
+        "UNIFI_MCP_READ_ONLY": ""
       }
     }
   }
@@ -117,7 +123,8 @@ Claude Desktop:
         "UNIFI_API_KEY": "<your-unifi_api_key>",
         "UNIFI_BASE_PATH": "",
         "UNIFI_BASE_URL": "",
-        "UNIFI_GATEWAY_HOST": "<your-unifi_gateway_host>"
+        "UNIFI_GATEWAY_HOST": "<your-unifi_gateway_host>",
+        "UNIFI_MCP_READ_ONLY": ""
       }
     }
   }

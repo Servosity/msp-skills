@@ -17,7 +17,8 @@
       "env": {
         "NCENTRAL_JWT": "${user_config.ncentral_jwt}",
         "N_CENTRAL_BASE_URL": "${user_config.n_central_base_url}",
-        "N_CENTRAL_NO_CONFIG_WRITE": "${user_config.n_central_no_config_write}"
+        "N_CENTRAL_NO_CONFIG_WRITE": "${user_config.n_central_no_config_write}",
+        "N_CENTRAL_MCP_READ_ONLY": "${user_config.n_central_mcp_read_only}"
       }
     }
   },
@@ -42,6 +43,13 @@
       "description": "Set to 1 to keep credentials off disk. The token cache becomes a no-op, so the connector mints a fresh token each run instead of writing one to config.toml. Leave blank for the default cached behaviour.",
       "required": false,
       "default": ""
+    },
+    "n_central_mcp_read_only": {
+      "type": "string",
+      "title": "Read-only MCP mode",
+      "description": "Optional. Set to exactly 1 to list only read-only tools: sync, import and every write tool are then not listed. Leave blank to keep every tool.",
+      "required": false,
+      "sensitive": false
     }
   },
   "compatibility": {

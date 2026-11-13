@@ -7,12 +7,10 @@
   "atera": [
    "mcp-http",
    "write-gating",
-   "read-only",
    "local-data"
   ],
   "axcient": [
    "mcp-http",
-   "read-only",
    "local-data"
   ],
   "backup-radar": [
@@ -20,24 +18,20 @@
   ],
   "cisco-duo": [
    "write-gating",
-   "read-only",
    "local-data"
   ],
   "connectwise-manage": [
    "mcp-http",
    "write-gating",
-   "read-only",
    "local-data"
   ],
   "crowdstrike": [
    "mcp-stdio"
   ],
   "datagate": [
-   "read-only",
    "local-data"
   ],
   "datto-bcdr": [
-   "read-only",
    "local-data"
   ],
   "datto-rmm": [
@@ -46,39 +40,32 @@
   "halopsa": [
    "mcp-http",
    "write-gating",
-   "read-only",
    "local-data"
   ],
   "itglue": [
    "mcp-http",
-   "read-only",
    "local-data"
   ],
   "levelio": [
    "mcp-http",
-   "read-only",
    "local-data"
   ],
   "n-central": [
    "mcp-http",
-   "read-only",
    "local-data"
   ],
   "pandadoc": [
    "mcp-http",
    "write-gating",
-   "read-only",
    "local-data"
   ],
   "pipedrive": [
    "mcp-http",
    "write-gating",
-   "read-only",
    "local-data"
   ],
   "proofpoint": [
    "mcp-http",
-   "read-only",
    "local-data"
   ],
   "proxmox": [
@@ -91,34 +78,28 @@
   "resourceguru": [
    "mcp-http",
    "write-gating",
-   "read-only",
    "local-data"
   ],
   "rootly": [
    "mcp-http",
    "write-gating",
-   "read-only",
    "local-data"
   ],
   "saas-alerts": [
    "write-gating",
-   "read-only",
    "local-data"
   ],
   "sherweb": [
    "mcp-http",
-   "read-only",
    "local-data"
   ],
   "skykick": [
    "mcp-http",
-   "read-only",
    "local-data"
   ],
   "syncro": [
    "mcp-http",
    "write-gating",
-   "read-only",
    "local-data"
   ],
   "tactical-rmm": [
@@ -127,11 +108,9 @@
   "unifi-network": [
    "mcp-http",
    "write-gating",
-   "read-only",
    "local-data"
   ],
   "wordpress": [
-   "read-only",
    "local-data"
   ]
  },

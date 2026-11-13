@@ -47,12 +47,17 @@ Add (or merge with your existing `mcpServers` block):
       "env": {
         "PROOFPOINT_API_SECRET": "<your-proofpoint_api_secret>",
         "PROOFPOINT_BASE_URL": "https://tap-api-v2.proofpoint.com/v2",
-        "PROOFPOINT_SERVICE_PRINCIPAL": "<your-proofpoint_service_principal>"
+        "PROOFPOINT_SERVICE_PRINCIPAL": "<your-proofpoint_service_principal>",
+        "PROOFPOINT_MCP_READ_ONLY": ""
       }
     }
   }
 }
 ```
+
+`PROOFPOINT_MCP_READ_ONLY` is blank in every JSON config on this page. Set it to `1` for an agent
+that should only read: the server then lists only its read-only tools, and
+`sync`, `import` and every write tool are not among them.
 
 Quit Claude Desktop completely and reopen, then ask a question that needs the API.
 
@@ -88,7 +93,8 @@ Configuration**) and add:
       "env": {
         "PROOFPOINT_API_SECRET": "<your-proofpoint_api_secret>",
         "PROOFPOINT_BASE_URL": "https://tap-api-v2.proofpoint.com/v2",
-        "PROOFPOINT_SERVICE_PRINCIPAL": "<your-proofpoint_service_principal>"
+        "PROOFPOINT_SERVICE_PRINCIPAL": "<your-proofpoint_service_principal>",
+        "PROOFPOINT_MCP_READ_ONLY": ""
       }
     }
   }
@@ -111,7 +117,8 @@ Claude Desktop:
       "env": {
         "PROOFPOINT_API_SECRET": "<your-proofpoint_api_secret>",
         "PROOFPOINT_BASE_URL": "https://tap-api-v2.proofpoint.com/v2",
-        "PROOFPOINT_SERVICE_PRINCIPAL": "<your-proofpoint_service_principal>"
+        "PROOFPOINT_SERVICE_PRINCIPAL": "<your-proofpoint_service_principal>",
+        "PROOFPOINT_MCP_READ_ONLY": ""
       }
     }
   }

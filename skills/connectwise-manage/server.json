@@ -70,6 +70,12 @@
           "description": "ConnectWise Manage region host such as api-na.myconnectwise.net, api-eu.myconnectwise.net, api-au.myconnectwise.net, or your on-prem host.",
           "isRequired": true,
           "isSecret": false
+        },
+        {
+          "name": "CONNECTWISE_MANAGE_MCP_READ_ONLY",
+          "description": "Optional. Set to 1 to list only read-only tools.",
+          "isRequired": false,
+          "isSecret": false
         }
       ]
     }

@@ -9,6 +9,9 @@ All notable changes to this skill are documented here. Format follows
 ### Fixed
 - **`search` finds records named with three capital letters, such as `WEB`, `SQL` or `DNS`.** The local search index skipped every value that was exactly three capital letters, a rule meant for currency and country codes, so a record with that name, such as a server called `WEB`, never reached the index and both `search` and the MCP search tool returned nothing for it. Those values are indexed now. Run `sync` once after upgrading: the first read-write open rebuilds the search index from the records already on disk, and the MCP server opens the store read-only, so it cannot do the rebuild itself ([#464](https://github.com/Servosity/msp-skills/issues/464)).
 
+### Security
+- **New read-only switch for the MCP server: `N_CENTRAL_MCP_READ_ONLY`.** Setting `N_CENTRAL_MCP_READ_ONLY=1` used to change nothing; every write tool stayed listed and ran. With it set to exactly `1`, the server now lists only tools annotated `readOnlyHint=true`, so `sync`, `import` and every write tool are not offered. Any other value, or leaving it unset, keeps every tool.
+
 ## [0.1.11] - 2026-11-12
 
 ### Fixed

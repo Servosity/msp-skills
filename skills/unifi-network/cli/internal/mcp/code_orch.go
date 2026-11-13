@@ -26,6 +26,7 @@ import (
 	mcplib "github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 	"unifi-network-pp-cli/internal/cli"
+	"unifi-network-pp-cli/internal/cliutil"
 	"unifi-network-pp-cli/internal/mcp/bound"
 )
 
@@ -1120,6 +1121,11 @@ func handleCodeOrchGet(ctx context.Context, req mcplib.CallToolRequest) (*mcplib
 	return mcplib.NewToolResultText(text), nil
 }
 
+// Hand-fix (handfixes.json mcp-read-only-switch): press 4.33.4 generates this.
+func codeOrchBlockedByMCPReadOnly(method string) bool {
+	return cliutil.IsMCPReadOnlyEnv() && !strings.EqualFold(strings.TrimSpace(method), "GET")
+}
+
 func handleCodeOrchExecute(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.CallToolResult, error) {
 	args := req.GetArguments()
 	id, ok := args["endpoint_id"].(string)
@@ -1130,6 +1136,10 @@ func handleCodeOrchExecute(ctx context.Context, req mcplib.CallToolRequest) (*mc
 	ep := findCodeOrchEndpoint(id)
 	if ep == nil {
 		return mcplib.NewToolResultError(fmt.Sprintf("unknown endpoint_id %q — call unifi_search to discover valid ids", id)), nil
+	}
+	// Hand-fix (handfixes.json mcp-read-only-switch): refuse before any client is built.
+	if codeOrchBlockedByMCPReadOnly(ep.Method) {
+		return mcplib.NewToolResultError(fmt.Sprintf("refusing %s %s while %s=1", ep.Method, id, cliutil.MCPReadOnlyEnvVar)), nil
 	}
 
 	params, _ := args["params"].(map[string]any)

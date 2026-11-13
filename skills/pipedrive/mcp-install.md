@@ -46,12 +46,17 @@ Add (or merge with your existing `mcpServers` block):
       "command": "pipedrive-mcp",
       "env": {
         "PIPEDRIVE_API_KEY": "<your-pipedrive_api_key>",
-        "PIPEDRIVE_BASE_URL": "https://api.pipedrive.com/v1"
+        "PIPEDRIVE_BASE_URL": "https://api.pipedrive.com/v1",
+        "PIPEDRIVE_MCP_READ_ONLY": ""
       }
     }
   }
 }
 ```
+
+`PIPEDRIVE_MCP_READ_ONLY` is blank in every JSON config on this page. Set it to `1` for an agent
+that should only read: the server then lists only its read-only tools, and
+`pipedrive_execute`, `sync` and `import` are not among them.
 
 Quit Claude Desktop completely and reopen, then ask a question that needs the API.
 
@@ -86,7 +91,8 @@ Configuration**) and add:
       "command": "pipedrive-mcp",
       "env": {
         "PIPEDRIVE_API_KEY": "<your-pipedrive_api_key>",
-        "PIPEDRIVE_BASE_URL": "https://api.pipedrive.com/v1"
+        "PIPEDRIVE_BASE_URL": "https://api.pipedrive.com/v1",
+        "PIPEDRIVE_MCP_READ_ONLY": ""
       }
     }
   }
@@ -108,7 +114,8 @@ Claude Desktop:
       "command": "pipedrive-mcp",
       "env": {
         "PIPEDRIVE_API_KEY": "<your-pipedrive_api_key>",
-        "PIPEDRIVE_BASE_URL": "https://api.pipedrive.com/v1"
+        "PIPEDRIVE_BASE_URL": "https://api.pipedrive.com/v1",
+        "PIPEDRIVE_MCP_READ_ONLY": ""
       }
     }
   }

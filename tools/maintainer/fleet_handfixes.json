@@ -1,5 +1,5 @@
 {
- "_comment": "One verdict per fleet-wide hand-fix id (an id in 10 or more connector ledgers), settled against a press release. retire: the press generates the behavior from retire_at on; check_handfixes.py stops demanding the entry on a connector recorded at or above retire_at and demands native_asserts instead, and replay_handfixes.py removes the stale entry and runs the gates. replay: replay_handfixes.py re-applies it after every reprint with the named recipe. delegated: another tool owns it. keep_manual names connectors where the shared id carries a connector-specific part a person must reconcile. floors: minimum module versions every print at or above applies_from must resolve. See docs/reprint-survival.md.",
+ "_comment": "One verdict per fleet-wide hand-fix id (an id in 10 or more connector ledgers), settled against a press release. retire: the press generates the behavior from retire_at on; check_handfixes.py stops demanding the entry on a connector recorded at or above retire_at and demands native_asserts instead, and replay_handfixes.py removes the stale entry and runs the gates. replay: replay_handfixes.py re-applies it after every reprint with the named recipe. A retire record that also names a recipe (and an adopt) is a replay id on a connector printed below retire_at, and retired at or above it. delegated: another tool owns it. keep_manual names connectors where the shared id carries a connector-specific part a person must reconcile. floors: minimum module versions every print at or above applies_from must resolve. See docs/reprint-survival.md.",
  "schema": 1,
  "settled_against": "4.34.2",
  "doc": "docs/reprint-survival.md",
@@ -331,10 +331,23 @@
    }
   },
   "sync-event-writer-serialized": {
-   "verdict": "replay",
+   "verdict": "retire",
+   "retire_at": "4.35.4",
    "recipe": "sync-event-writer-serialized",
-   "reason": "Press 4.24.0 to 4.34.2 sync gives every --concurrency worker of its top-level pool the same writer (syncEventWriter, cmd.OutOrStdout() or in machine output cmd.ErrOrStderr()) and nothing serializes Write. os.Stdout tolerates that; the --deliver mirror (a bytes.Buffer) and the --receipt-file / --audit-dir capture (a running SHA-256) do not, so a sync with --concurrency above 1 can panic in bytes.Buffer.grow (seen on Windows CI, PR #655) or write a receipt whose hash does not match the output. Only the dependent-resource path wraps its writer (lockedWriter).",
-   "proof": "go test -race ./internal/cli on veeam: 28 races before the fix, 0 after. TestSyncWorkerPoolSerializesEventWrites (four workers, --dry-run, machine and human output) fails before the recipe and passes after on veeam (4.24.0), abnormal (4.34.2, machine-format branch) and warranty (4.34.2, per-resource tier routing); see the PR that added this record.",
+   "reason": "Press 4.24.0 to 4.34.2 sync gives every --concurrency worker of its top-level pool the same writer (syncEventWriter, cmd.OutOrStdout() or in machine output cmd.ErrOrStderr()) and nothing serializes Write. os.Stdout tolerates that; the --deliver mirror (a bytes.Buffer) and the --receipt-file / --audit-dir capture (a running SHA-256) do not, so a sync with --concurrency above 1 can panic in bytes.Buffer.grow (seen on Windows CI, PR #655) or write a receipt whose hash does not match the output. Only the dependent-resource path wraps its writer (lockedWriter). Press 4.35.4 serializes the writer itself (mvanhorn/cli-printing-press#5371, the fix for #5369): sync wraps it once with ensureLockedWriter, the same lockedWriter its dependent path uses, so a connector printed at or above 4.35.4 needs no hand-fix, and the recipe keeps serving the ones printed below it.",
+   "proof": "go test -race ./internal/cli on veeam: 28 races before the fix, 0 after. TestSyncWorkerPoolSerializesEventWrites (four workers, --dry-run, machine and human output) fails before the recipe and passes after on veeam (4.24.0), abnormal (4.34.2, machine-format branch) and warranty (4.34.2, per-resource tier routing); see the PR that added this record. Retirement: press v4.35.4 sync.go.tmpl sets syncEventWriter = ensureLockedWriter(syncEventWriter) right after choosing the writer, and the press's own internal/generator/sync_event_writer_test.go (#5371) runs the flat and dependent pools of generated CLIs under -race.",
+   "native_asserts": [
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "syncEventWriter = ensureLockedWriter(syncEventWriter)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "func ensureLockedWriter(w io.Writer) io.Writer {",
+     "code_only": true
+    }
+   ],
    "adopt": {
     "file": "cli/internal/cli/sync.go",
     "contains": "syncEventWriter := cmd.OutOrStdout()",
@@ -367,7 +380,7 @@
     }
    },
    "gates": [],
-   "upstream": "mvanhorn/cli-printing-press#5369 (filed): sync's top-level worker pool shares an unserialized event writer"
+   "upstream": "mvanhorn/cli-printing-press#5369 (filed), fixed by #5371 in press 4.35.4"
   },
   "limiter-ramps-only-while-pacing": {
    "verdict": "replay",
@@ -520,6 +533,91 @@
    },
    "gates": [],
    "upstream": "mvanhorn/cli-printing-press#5392 (PR open; issue #5391): the code-orchestration template builds the <api>_search description from the endpoint registry with the same codeOrchSearchResources. No press release ships it yet, so no retire_at; once one does, retire this id at that version (the retired entry's search_desc.go and test are then removed, since the press emits the helper in code_orch.go)."
+  },
+  "mcp-read-only-switch": {
+   "verdict": "retire",
+   "retire_at": "4.34.0",
+   "recipe": "mcp-read-only-switch",
+   "reason": "Connectors printed on press 4.32.5 or earlier never read <PREFIX>_MCP_READ_ONLY: setting it to 1 left every write tool listed and the code-orchestration <api>_execute tool sending POST, PUT, PATCH and DELETE (#687 halopsa, #688 connectwise-manage, #689 syncro, #690 atera). Press 4.33.4 added the switch (cli-printing-press #4986) and the execute tool's non-GET refusal, and press 4.34.0 drops every tool without readOnlyHint=true at the end of RegisterTools (#5191), so a connector printed at or above 4.34.0 generates all of it. Below that, the recipe writes the press's own code: cliutil's MCPReadOnlyEnvVar and IsMCPReadOnlyEnv, the drop and dropNonReadOnlyTools at the end of RegisterTools, and, where code_orch.go exists, codeOrchBlockedByMCPReadOnly and the refusal in handleCodeOrchExecute.",
+   "proof": "TestMCPReadOnlySwitchListsOnlyReadOnlyTools (with the switch on, every listed tool carries readOnlyHint=true; control: the switch off lists write tools) and TestCodeOrchExecuteRefusesNonGETUnderMCPReadOnly (a non-GET execute call is refused and no request reaches a recorder) fail on all 21 carriers before the recipe and pass after; tools/list over stdio on the built halopsa, connectwise-manage, syncro and atera MCP binaries goes from 27, 30, 28 and 13 tools with the switch on (unchanged from off) to read-only tools only. Retirement: press 4.34.2 autotask lists 46 tools with the switch off and 31 with it on, all readOnlyHint=true; every connector recorded at 4.34.0 or later carries IsMCPReadOnlyEnv, the drop in tools.go and, with code_orch.go, codeOrchBlockedByMCPReadOnly.",
+   "native_asserts": [
+    {
+     "file": "cli/internal/cliutil/verifyenv.go",
+     "contains": "func IsMCPReadOnlyEnv() bool {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "if cliutil.IsMCPReadOnlyEnv() {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "func dropNonReadOnlyTools(s *server.MCPServer) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "if_exists": true,
+     "contains": "func codeOrchBlockedByMCPReadOnly(method string) bool {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "if_exists": true,
+     "contains": "if codeOrchRefuseForReadOnlySwitch(ep, method, executeTool)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/code_orch_writebody_test.go",
+     "if_exists": true,
+     "contains": "func TestCodeOrchExecuteReadOnlyRefusesNonGET(t *testing.T) {",
+     "code_only": true
+    }
+   ],
+   "adopt": {
+    "file": "cli/internal/mcp/tools.go",
+    "contains": "func RegisterTools(s *server.MCPServer) {",
+    "not_contains": "\tif cliutil.IsMCPReadOnlyEnv() {\n\t\tdropNonReadOnlyTools(s)\n\t}\n}\n",
+    "entry": {
+     "class": "mcp-read-only-switch",
+     "summary": "<PREFIX>_MCP_READ_ONLY=1 lists only tools annotated readOnlyHint=true, and the code-orchestration execute tool refuses every non-GET call; the press 4.34.0 code, back-ported to a print that predates it.",
+     "why": "The connector was printed before press 4.33.4 added the switch, so it never read it: an operator who set <PREFIX>_MCP_READ_ONLY=1 still got every write tool, and <api>_execute still sent POST, PUT, PATCH and DELETE (#687 to #690). TestMCPReadOnlySwitchListsOnlyReadOnlyTools and, with code_orch.go, TestCodeOrchExecuteRefusesNonGETUnderMCPReadOnly pin it. A reprint on press 4.34.0 or later generates it and retires this entry; below that, tools/maintainer/replay_handfixes.py re-applies it (fleet_handfixes.json mcp-read-only-switch).",
+     "status": "upstreamed",
+     "spec_encode_followup": "None: press 4.34.0 generates it (cli-printing-press #4986, #5097, #5191); a reprint retires this entry.",
+     "asserts": [
+      {
+       "file": "cli/internal/cliutil/verifyenv.go",
+       "contains": "func IsMCPReadOnlyEnv() bool {",
+       "min_count": 1,
+       "code_only": true
+      },
+      {
+       "file": "cli/internal/mcp/tools.go",
+       "contains": "if cliutil.IsMCPReadOnlyEnv() {",
+       "min_count": 1,
+       "code_only": true
+      },
+      {
+       "file": "cli/internal/mcp/tools.go",
+       "contains": "func dropNonReadOnlyTools(s *server.MCPServer) {",
+       "min_count": 1,
+       "code_only": true
+      },
+      {
+       "file": "cli/internal/mcp/mcp_read_only_switch_test.go",
+       "contains": "func TestMCPReadOnlySwitchListsOnlyReadOnlyTools(t *testing.T) {",
+       "min_count": 1,
+       "code_only": true
+      }
+     ]
+    }
+   },
+   "gates": [],
+   "upstream": "Generated by press 4.34.0: cli-printing-press #4986 (4.33.4, the switch), #5097 (4.33.8, execute refuses until confirmed), #5191 (4.34.0, dropNonReadOnlyTools)",
+   "keep_manual": {
+    "quotewerks": "Its own hand-fix mcp-read-only-drops-endpoint-writes drops the endpoint-mirror tools before the Cobra-tree mirror and keeps the previewing typed writes listed on purpose (the mirror refuses --confirm); a person reconciles it with this id."
+   }
   }
  },
  "floors": [

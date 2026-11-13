@@ -46,6 +46,12 @@
           "description": "Set the RESOURCEGURU_PASSWORD credential for the Resource Guru MCP server.",
           "isRequired": true,
           "isSecret": true
+        },
+        {
+          "name": "RESOURCEGURU_MCP_READ_ONLY",
+          "description": "Optional. Set to 1 to list only read-only tools.",
+          "isRequired": false,
+          "isSecret": false
         }
       ]
     }

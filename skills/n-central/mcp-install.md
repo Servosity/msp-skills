@@ -47,12 +47,17 @@ Add (or merge with your existing `mcpServers` block):
       "env": {
         "NCENTRAL_JWT": "<your-ncentral_jwt>",
         "N_CENTRAL_BASE_URL": "https://ncod.n-able.com/api",
-        "N_CENTRAL_NO_CONFIG_WRITE": ""
+        "N_CENTRAL_NO_CONFIG_WRITE": "",
+        "N_CENTRAL_MCP_READ_ONLY": ""
       }
     }
   }
 }
 ```
+
+`N_CENTRAL_MCP_READ_ONLY` is blank in every JSON config on this page. Set it to `1` for an agent
+that should only read: the server then lists only its read-only tools, and
+`sync`, `import` and every write tool are not among them.
 
 Quit Claude Desktop completely and reopen, then ask a question that needs the API.
 
@@ -88,7 +93,8 @@ Configuration**) and add:
       "env": {
         "NCENTRAL_JWT": "<your-ncentral_jwt>",
         "N_CENTRAL_BASE_URL": "https://ncod.n-able.com/api",
-        "N_CENTRAL_NO_CONFIG_WRITE": ""
+        "N_CENTRAL_NO_CONFIG_WRITE": "",
+        "N_CENTRAL_MCP_READ_ONLY": ""
       }
     }
   }
@@ -111,7 +117,8 @@ Claude Desktop:
       "env": {
         "NCENTRAL_JWT": "<your-ncentral_jwt>",
         "N_CENTRAL_BASE_URL": "https://ncod.n-able.com/api",
-        "N_CENTRAL_NO_CONFIG_WRITE": ""
+        "N_CENTRAL_NO_CONFIG_WRITE": "",
+        "N_CENTRAL_MCP_READ_ONLY": ""
       }
     }
   }

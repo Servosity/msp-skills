@@ -51,12 +51,17 @@ Add (or merge with your existing `mcpServers` block):
         "CW_COMPANY_ID": "<your-cw_company_id>",
         "CW_PRIVATE_KEY": "<your-cw_private_key>",
         "CW_PUBLIC_KEY": "<your-cw_public_key>",
-        "CW_SITE": "<your-cw_site>"
+        "CW_SITE": "<your-cw_site>",
+        "CONNECTWISE_MANAGE_MCP_READ_ONLY": ""
       }
     }
   }
 }
 ```
+
+`CONNECTWISE_MANAGE_MCP_READ_ONLY` is blank in every JSON config on this page. Set it to `1` for an agent
+that should only read: the server then lists only its read-only tools, and
+`connectwise-manage_execute`, `sync` and `import` are not among them.
 
 Quit Claude Desktop completely and reopen, then ask a question that needs the API.
 
@@ -96,7 +101,8 @@ Configuration**) and add:
         "CW_COMPANY_ID": "<your-cw_company_id>",
         "CW_PRIVATE_KEY": "<your-cw_private_key>",
         "CW_PUBLIC_KEY": "<your-cw_public_key>",
-        "CW_SITE": "<your-cw_site>"
+        "CW_SITE": "<your-cw_site>",
+        "CONNECTWISE_MANAGE_MCP_READ_ONLY": ""
       }
     }
   }
@@ -123,7 +129,8 @@ Claude Desktop:
         "CW_COMPANY_ID": "<your-cw_company_id>",
         "CW_PRIVATE_KEY": "<your-cw_private_key>",
         "CW_PUBLIC_KEY": "<your-cw_public_key>",
-        "CW_SITE": "<your-cw_site>"
+        "CW_SITE": "<your-cw_site>",
+        "CONNECTWISE_MANAGE_MCP_READ_ONLY": ""
       }
     }
   }

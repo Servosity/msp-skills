@@ -4,6 +4,11 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.2.22] - unreleased
+
+### Security
+- **New read-only switch for the MCP server: `AXCIENT_MCP_READ_ONLY`.** Setting `AXCIENT_MCP_READ_ONLY=1` used to change nothing; every write tool stayed listed and ran. With it set to exactly `1`, the server now lists only tools annotated `readOnlyHint=true`, so `sync`, `import` and every write tool are not offered. Any other value, or leaving it unset, keeps every tool.
+
 ## [0.2.21] - 2026-11-11
 
 ### Fixed

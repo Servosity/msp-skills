@@ -9,6 +9,9 @@ All notable changes to this skill are documented here. Format follows
 ### Fixed
 - **The `saas-alerts_search` MCP tool's description now names this API's resources.** It used to be one sentence shared by every connector, so an MCP host that picks tools by matching words ranked other tools above it for a request like `<vendor> <resource>`. The description now ends with the resource families from the endpoint list, most endpoints first, at most 300 characters ([#629](https://github.com/Servosity/msp-skills/issues/629)).
 
+### Security
+- **`SAAS_ALERTS_MCP_READ_ONLY=1` now hides every tool not marked read-only.** It used to leave `saas-alerts_execute` (which ran GET endpoints only) and the learning writers (`teach`, `learnings_confirm`, `playbook_amend` and the rest) listed. The server now lists only tools annotated `readOnlyHint=true`; `contain`, `rule_triggers_decide` and `subscriptions_health` still preview and refuse `confirm`. Raw API reads through `saas-alerts_execute`, `files url` among them, are not available while the switch is on.
+
 ## [0.1.6] - 2026-11-12
 
 ### Fixed

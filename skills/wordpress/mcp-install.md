@@ -48,12 +48,17 @@ Add (or merge with your existing `mcpServers` block):
         "WORDPRESS_BASIC_AUTH": "<your-wordpress_basic_auth>",
         "WORDPRESS_MCP_HTTP_TOKEN": "",
         "PRINTING_PRESS_CLIENT_PROFILE": "",
-        "WORDPRESS_USER_AGENT": ""
+        "WORDPRESS_USER_AGENT": "",
+        "WORDPRESS_MCP_READ_ONLY": ""
       }
     }
   }
 }
 ```
+
+`WORDPRESS_MCP_READ_ONLY` is blank in every JSON config on this page. Set it to `1` for an agent
+that should only read: the server then lists only its read-only tools, and
+`sync`, `import` and every write tool are not among them.
 
 Quit Claude Desktop completely and reopen, then ask a question that needs the API.
 
@@ -91,7 +96,8 @@ Configuration**) and add:
         "WORDPRESS_BASIC_AUTH": "<your-wordpress_basic_auth>",
         "WORDPRESS_MCP_HTTP_TOKEN": "",
         "PRINTING_PRESS_CLIENT_PROFILE": "",
-        "WORDPRESS_USER_AGENT": ""
+        "WORDPRESS_USER_AGENT": "",
+        "WORDPRESS_MCP_READ_ONLY": ""
       }
     }
   }
@@ -116,7 +122,8 @@ Claude Desktop:
         "WORDPRESS_BASIC_AUTH": "<your-wordpress_basic_auth>",
         "WORDPRESS_MCP_HTTP_TOKEN": "",
         "PRINTING_PRESS_CLIENT_PROFILE": "",
-        "WORDPRESS_USER_AGENT": ""
+        "WORDPRESS_USER_AGENT": "",
+        "WORDPRESS_MCP_READ_ONLY": ""
       }
     }
   }

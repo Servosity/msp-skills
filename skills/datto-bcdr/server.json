@@ -64,6 +64,12 @@
           "description": "Only used when the MCP server is bound to a tenant-gated Printing Press client profile; leave blank otherwise.",
           "isRequired": false,
           "isSecret": true
+        },
+        {
+          "name": "DATTO_BCDR_MCP_READ_ONLY",
+          "description": "Optional. Set to 1 to list only read-only tools.",
+          "isRequired": false,
+          "isSecret": false
         }
       ]
     }

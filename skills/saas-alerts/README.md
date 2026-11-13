@@ -219,7 +219,7 @@ That is what Respond returns when a call carries the api_key but no access token
 
 ### Can the AI block a user or approve Respond actions by itself?
 
-Only if you let it. contain, rule-triggers decide and subscriptions health --reenable preview by default and change nothing until you add --confirm. The generated commands (rule-triggers approve, response-actions execute, customers delete and the rest) send as soon as they run, so preview them with --dry-run, which sends nothing. Over MCP, set SAAS_ALERTS_MCP_READ_ONLY=1 for an agent that should only read: saas-alerts_execute then runs GET endpoints only and the three workflow writers refuse --confirm.
+Only if you let it. contain, rule-triggers decide and subscriptions health --reenable preview by default and change nothing until you add --confirm. The generated commands (rule-triggers approve, response-actions execute, customers delete and the rest) send as soon as they run, so preview them with --dry-run, which sends nothing. Over MCP, set SAAS_ALERTS_MCP_READ_ONLY=1 for an agent that should only read: the server then lists only its read-only tools, so saas-alerts_execute is hidden, and the three workflow writers refuse --confirm.
 
 ### Do Respond triggers expire?
 
@@ -256,7 +256,7 @@ Free. Apache-2.0 licensed. You pay only for whichever AI agent you use (Claude, 
 | Credential and access | `files url` (returns a signed link to the stored file), `auth set-token`, `auth logout` | Human-in-the-loop only |
 | Destructive and outbound | `respond disable`, `customers delete`, `rules delete`, `application-connections delete`, `subscriptions delete`, `webhook-domains delete`, `webhook-queue delete`, `reports scheduled-delete`, `files delete`, `reports send-email`, `import` | Human-in-the-loop only, explicit confirmation |
 
-`rule-triggers decide`, `contain` and `subscriptions health --reenable` preview until you add `--confirm`; every other write runs as soon as it is invoked, so preview with `--dry-run`. SaaS Alerts documents no read-only or per-customer key, so the strongest control is the MCP read-only switch: set `SAAS_ALERTS_MCP_READ_ONLY=1` and `saas-alerts_execute` runs GET endpoints only while the three workflow writers refuse `--confirm`. Full details, including how to lock it down, are in [governance.md](./governance.md).
+`rule-triggers decide`, `contain` and `subscriptions health --reenable` preview until you add `--confirm`; every other write runs as soon as it is invoked, so preview with `--dry-run`. SaaS Alerts documents no read-only or per-customer key, so the strongest control is the MCP read-only switch: set `SAAS_ALERTS_MCP_READ_ONLY=1` and the server lists only its read-only tools, so `saas-alerts_execute` is hidden while the three workflow writers refuse `--confirm`. Full details, including how to lock it down, are in [governance.md](./governance.md).
 
 ## Status
 

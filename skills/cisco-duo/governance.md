@@ -80,9 +80,11 @@ have; a call-back to a number on file also works), then have a human approve the
   `Grant administrators - Write`, `Grant accounts - Write` and `Grant user limits - Write`
   only to an application a human operates.
 - **Run the MCP server read-only for agents that only diagnose.** Set
-  `CISCO_DUO_MCP_READ_ONLY=1`: the server hides `lockout fix`, `phone-swap`,
-  `enrollment chase`, `sync`, `import` and `export`, and refuses every non-GET call made
-  through its API tool.
+  `CISCO_DUO_MCP_READ_ONLY=1`: the server lists only its read-only tools. `lockout fix`,
+  `phone-swap`, `enrollment chase`, the API tool `cisco-duo_execute`, `sync`, `import`,
+  `export` and the learning writers (`teach`, `learnings_confirm`, `playbook_amend` and the
+  rest) are hidden, and the API tool also refuses every non-GET call if a client calls it
+  by name.
 - **Keep autonomous agents to Read and previews.** The gate for a real change lives in
   your agent's policy, not in the binary's defaults.
 - **Never let an agent run the MFA access, Destructive or Admin tiers unattended.**

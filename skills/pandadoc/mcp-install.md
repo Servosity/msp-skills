@@ -46,12 +46,17 @@ Add (or merge with your existing `mcpServers` block):
       "command": "pandadoc-mcp",
       "env": {
         "PANDADOC_API_KEY": "<your-pandadoc_api_key>",
-        "PANDADOC_BASE_URL": "https://api.pandadoc.com/public/v1"
+        "PANDADOC_BASE_URL": "https://api.pandadoc.com/public/v1",
+        "PANDADOC_MCP_READ_ONLY": ""
       }
     }
   }
 }
 ```
+
+`PANDADOC_MCP_READ_ONLY` is blank in every JSON config on this page. Set it to `1` for an agent
+that should only read: the server then lists only its read-only tools, and
+`pandadoc_execute`, `sync` and `import` are not among them.
 
 Quit Claude Desktop completely and reopen, then ask a question that needs the API.
 
@@ -86,7 +91,8 @@ Configuration**) and add:
       "command": "pandadoc-mcp",
       "env": {
         "PANDADOC_API_KEY": "<your-pandadoc_api_key>",
-        "PANDADOC_BASE_URL": "https://api.pandadoc.com/public/v1"
+        "PANDADOC_BASE_URL": "https://api.pandadoc.com/public/v1",
+        "PANDADOC_MCP_READ_ONLY": ""
       }
     }
   }
@@ -108,7 +114,8 @@ Claude Desktop:
       "command": "pandadoc-mcp",
       "env": {
         "PANDADOC_API_KEY": "<your-pandadoc_api_key>",
-        "PANDADOC_BASE_URL": "https://api.pandadoc.com/public/v1"
+        "PANDADOC_BASE_URL": "https://api.pandadoc.com/public/v1",
+        "PANDADOC_MCP_READ_ONLY": ""
       }
     }
   }

@@ -54,12 +54,17 @@ Add (or merge with your existing `mcpServers` block):
         "HALOPSA_TENANT": "<your-halopsa_tenant>",
         "HALOPSA_TOKEN": "<your-halopsa_token>",
         "HALOPSA_TOKEN_URL": "",
-        "HALOPSA_NO_CONFIG_WRITE": ""
+        "HALOPSA_NO_CONFIG_WRITE": "",
+        "HALOPSA_MCP_READ_ONLY": ""
       }
     }
   }
 }
 ```
+
+`HALOPSA_MCP_READ_ONLY` is blank in every JSON config on this page. Set it to `1` for an agent
+that should only read: the server then lists only its read-only tools, and
+`halopsa_execute`, `sync` and `import` are not among them.
 
 Quit Claude Desktop completely and reopen, then ask a question that needs the API.
 
@@ -102,7 +107,8 @@ Configuration**) and add:
         "HALOPSA_TENANT": "<your-halopsa_tenant>",
         "HALOPSA_TOKEN": "<your-halopsa_token>",
         "HALOPSA_TOKEN_URL": "",
-        "HALOPSA_NO_CONFIG_WRITE": ""
+        "HALOPSA_NO_CONFIG_WRITE": "",
+        "HALOPSA_MCP_READ_ONLY": ""
       }
     }
   }
@@ -132,7 +138,8 @@ Claude Desktop:
         "HALOPSA_TENANT": "<your-halopsa_tenant>",
         "HALOPSA_TOKEN": "<your-halopsa_token>",
         "HALOPSA_TOKEN_URL": "",
-        "HALOPSA_NO_CONFIG_WRITE": ""
+        "HALOPSA_NO_CONFIG_WRITE": "",
+        "HALOPSA_MCP_READ_ONLY": ""
       }
     }
   }

@@ -21,7 +21,8 @@
         "CW_COMPANY_ID": "${user_config.cw_company_id}",
         "CW_PRIVATE_KEY": "${user_config.cw_private_key}",
         "CW_PUBLIC_KEY": "${user_config.cw_public_key}",
-        "CW_SITE": "${user_config.cw_site}"
+        "CW_SITE": "${user_config.cw_site}",
+        "CONNECTWISE_MANAGE_MCP_READ_ONLY": "${user_config.connectwise_manage_mcp_read_only}"
       },
       "platform_overrides": {
         "darwin": {
@@ -82,6 +83,13 @@
       "title": "ConnectWise API version",
       "description": "Pins the ConnectWise Manage API version sent on each request, e.g. 2025.1. Leave blank to use the version your instance defaults to.",
       "required": false
+    },
+    "connectwise_manage_mcp_read_only": {
+      "type": "string",
+      "title": "Read-only MCP mode",
+      "description": "Optional. Set to exactly 1 to list only read-only tools: connectwise-manage_execute, sync and import are then not listed. Leave blank to keep every tool.",
+      "required": false,
+      "sensitive": false
     }
   },
   "compatibility": {

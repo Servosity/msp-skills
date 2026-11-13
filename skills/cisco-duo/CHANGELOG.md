@@ -9,6 +9,9 @@ All notable changes to this skill are documented here. Format follows
 ### Fixed
 - **The `cisco-duo_search` MCP tool's description now names this API's resources.** It used to be one sentence shared by every connector, so an MCP host that picks tools by matching words ranked other tools above it for a request like `<vendor> <resource>`. The description now ends with the resource families from the endpoint list, most endpoints first, at most 300 characters ([#629](https://github.com/Servosity/msp-skills/issues/629)).
 
+### Security
+- **`CISCO_DUO_MCP_READ_ONLY=1` now hides every tool not marked read-only.** It used to hide only `lockout fix`, `phone-swap`, `enrollment chase`, `sync`, `import` and `export`, and left `cisco-duo_execute` (which refused non-GET calls) and the learning writers (`teach`, `learnings_confirm`, `playbook_amend` and the rest) listed. The server now lists only tools annotated `readOnlyHint=true`, so an agent sees no tool that can write. Raw API reads through `cisco-duo_execute` are not available while the switch is on; the typed read tools are.
+
 ## [0.1.7] - 2026-11-11
 
 ### Fixed

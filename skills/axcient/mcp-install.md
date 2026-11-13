@@ -46,12 +46,17 @@ Add (or merge with your existing `mcpServers` block):
       "command": "axcient-mcp",
       "env": {
         "AXCIENT_API_KEY": "<your-axcient_api_key>",
-        "AXCIENT_BASE_URL": "https://axapi.axcient.com/x360recover"
+        "AXCIENT_BASE_URL": "https://axapi.axcient.com/x360recover",
+        "AXCIENT_MCP_READ_ONLY": ""
       }
     }
   }
 }
 ```
+
+`AXCIENT_MCP_READ_ONLY` is blank in every JSON config on this page. Set it to `1` for an agent
+that should only read: the server then lists only its read-only tools, and
+`sync`, `import` and every write tool are not among them.
 
 Quit Claude Desktop completely and reopen, then ask a question that needs the API.
 
@@ -86,7 +91,8 @@ Configuration**) and add:
       "command": "axcient-mcp",
       "env": {
         "AXCIENT_API_KEY": "<your-axcient_api_key>",
-        "AXCIENT_BASE_URL": "https://axapi.axcient.com/x360recover"
+        "AXCIENT_BASE_URL": "https://axapi.axcient.com/x360recover",
+        "AXCIENT_MCP_READ_ONLY": ""
       }
     }
   }
@@ -108,7 +114,8 @@ Claude Desktop:
       "command": "axcient-mcp",
       "env": {
         "AXCIENT_API_KEY": "<your-axcient_api_key>",
-        "AXCIENT_BASE_URL": "https://axapi.axcient.com/x360recover"
+        "AXCIENT_BASE_URL": "https://axapi.axcient.com/x360recover",
+        "AXCIENT_MCP_READ_ONLY": ""
       }
     }
   }

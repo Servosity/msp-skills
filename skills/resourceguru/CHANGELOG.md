@@ -9,6 +9,9 @@ All notable changes to this skill are documented here. Format follows
 ### Fixed
 - **The `resourceguru_search` MCP tool's description now names this API's resources.** It used to be one sentence shared by every connector, so an MCP host that picks tools by matching words ranked other tools above it for a request like `<vendor> <resource>`. The description now ends with the resource families from the endpoint list, most endpoints first, at most 300 characters ([#629](https://github.com/Servosity/msp-skills/issues/629)).
 
+### Security
+- **New read-only switch for the MCP server: `RESOURCEGURU_MCP_READ_ONLY`.** Setting `RESOURCEGURU_MCP_READ_ONLY=1` used to change nothing; every write tool stayed listed and ran. With it set to exactly `1`, the server now lists only tools annotated `readOnlyHint=true`, so `resourceguru_execute`, `sync` and `import` are not offered. `resourceguru_execute` also refuses every non-GET endpoint before it builds a request, if a client calls it by name. Raw API reads through `resourceguru_execute` are not available while the switch is on; the typed read tools are. Any other value, or leaving it unset, keeps every tool.
+
 ## [0.1.10] - 2026-11-12
 
 ### Fixed
