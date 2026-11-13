@@ -179,6 +179,10 @@ one once against a press release, and `replay_handfixes.py --slug <slug>` applie
     writes `sync_event_writer.go` and `sync_event_writer_test.go` from `handfix_replay/`. Any other shape (a
     second assignment, a writer already wrapped another way, a moved wrap, a template file that drifted, a
     name the package already declares) is named for a person, and the recipe writes nothing.
+  - `mcp-search-desc-resources` (#629) appends `+codeOrchSearchResources("<api>", codeOrchEndpoints)` to
+    the one `<api>_search` description in `RegisterCodeOrchestrationTools` and writes `search_desc.go`
+    and `search_desc_test.go` from `handfix_replay/`, so the description names the API's resource
+    families. A description of another shape, or a template file that drifted, is named for a person.
 - **adopt**: a replay id whose registry record carries `adopt` (`file`, `contains`, `entry`) is added to the
   ledger of every connector that carries that code shape and lacks the id (no entry, no `retired` record,
   not `keep_manual`), a print with no ledger included, and then wired by its recipe like any other.

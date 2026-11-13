@@ -8,6 +8,7 @@ All notable changes to this skill are documented here. Format follows
 
 ### Fixed
 - **`search` finds records named with three capital letters, such as `WEB`, `SQL` or `DNS`.** The local search index skipped every value that was exactly three capital letters, a rule meant for currency and country codes, so a record with that name, such as a server called `WEB`, never reached the index and both `search` and the MCP search tool returned nothing for it. Those values are indexed now. Run `sync` once after upgrading: the first read-write open rebuilds the search index from the records already on disk, and the MCP server opens the store read-only, so it cannot do the rebuild itself ([#464](https://github.com/Servosity/msp-skills/issues/464)).
+- **The `atera_search` MCP tool's description now names this API's resources.** It used to be one sentence shared by every connector, so an MCP host that picks tools by matching words ranked other tools above it for a request like `<vendor> <resource>`. The description now ends with the resource families from the endpoint list, most endpoints first, at most 300 characters ([#629](https://github.com/Servosity/msp-skills/issues/629)).
 
 ## [0.1.11] - 2026-11-11
 

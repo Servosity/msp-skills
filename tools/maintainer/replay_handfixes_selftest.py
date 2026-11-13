@@ -527,6 +527,7 @@ def run(m) -> int:  # m: the replay_handfixes module
 
     sync_writer_cases(m, expect)
     sync_honesty_cases(m, expect)
+    search_desc_cases(m, expect)
 
     print("PASS: replay_handfixes self-test" if ok else "FAIL: replay_handfixes self-test")
     return 0 if ok else 1
@@ -798,6 +799,98 @@ def sync_honesty_cases(m, expect) -> None:
         expect(rc == 0 and "termio.Stderr()" in helper and "os.Stderr" not in helper and '"os"' not in helper
                and '"acme-pp-cli/internal/termio"' in helper,
                "a print that writes through termio gets a helper that does too")
+
+
+# --------------------------------------------------------------------------- #
+# mcp-search-desc-resources: adoption, the wiring, idempotence, fail-closed.
+# --------------------------------------------------------------------------- #
+
+CODE_ORCH = ('package mcp\n\nfunc RegisterCodeOrchestrationTools(s *server.MCPServer) {\n\ts.AddTool(\n'
+             '\t\tmcplib.NewTool("acme-psa_search",\n'
+             '\t\t\tmcplib.WithDescription("Search the acme-psa API for endpoints matching a natural-language query. '
+             'Returns a ranked list of {endpoint_id, method, path, summary} entries. Call this first to find the endpoint '
+             'to read or execute."),\n\t\t\tmcplib.WithString("query"),\n\t\t),\n\t\thandleCodeOrchSearch,\n\t)\n'
+             '\ts.AddTool(\n\t\tmcplib.NewTool("acme-psa_get",\n\t\t\tmcplib.WithDescription("Get metadata for one GET '
+             'endpoint (from acme-psa_search)."),\n\t\t),\n\t\thandleCodeOrchGet,\n\t)\n}\n\n'
+             'var codeOrchEndpoints = []codeOrchEndpoint{}\n')
+
+
+def search_desc_cases(m, expect) -> None:
+    hid = "mcp-search-desc-resources"
+    real = json.loads((HERE / "fleet_handfixes.json").read_text(encoding="utf-8"))["handfixes"][hid]
+    reg = {"handfixes": {hid: real}}
+    call = '+codeOrchSearchResources("acme-psa", codeOrchEndpoints)),\n'
+    with tempfile.TemporaryDirectory(prefix="replay-search-desc-") as td:
+        root = Path(td)
+        tools = root / "tools" / "maintainer"
+        tools.mkdir(parents=True)
+        shutil.copyfile(HERE / "check_handfixes.py", tools / "check_handfixes.py")
+        (tools / "fleet_handfixes.json").write_text(json.dumps(reg), encoding="utf-8")
+        sink: list[str] = []
+
+        def prove(r, slug, full, p, pkgs):
+            return m.run_proofs(r, slug, False, p, pkgs)  # the REAL ledger check
+
+        def connector(code_orch: str | None) -> Path:
+            skill = root / "skills" / "acme"
+            if skill.exists():
+                shutil.rmtree(skill)
+            if code_orch is not None:
+                w(skill / m.CODE_ORCH_REL, GEN + code_orch)
+            w(skill / "cli/go.mod", "module acme-pp-cli\n\ngo 1.24\n")
+            return skill
+
+        def apply(check: bool = False) -> int:
+            sink.clear()
+            return m.run_slug(root, "acme", check=check, out=sink.append, prove=prove, registry=reg)
+
+        def snap(skill: Path) -> dict:
+            return {q: q.read_bytes() for q in skill.rglob("*") if q.is_file()}
+
+        skill = connector(CODE_ORCH)
+        expect(apply(check=True) == 1 and any("adopt [" + hid in x for x in sink)
+               and call not in (skill / m.CODE_ORCH_REL).read_text(),
+               "search desc: --check names the adoption and writes nothing")
+        rc = apply()
+        text = (skill / m.CODE_ORCH_REL).read_text()
+        expect(rc == 0 and text.count("codeOrchSearchResources(") == 1 and 'or execute."' + call in text
+               and (skill / m.SEARCH_DESC_HELPER).read_text() == m.render("search_desc.go.tmpl")
+               and (skill / m.SEARCH_DESC_TEST).read_text() == m.render("search_desc_test.go.tmpl"),
+               "search desc: the one search description calls the helper, and both templates are written: "
+               + " | ".join(x for x in sink if "NEEDS" in x or "PROOF" in x or "FAIL" in x)[:400])
+        led = json.loads((skill / "handfixes.json").read_text())
+        entry = next((e for e in led["handfixes"] if e["id"] == hid), None)
+        expect(entry is not None and entry["asserts"] == real["adopt"]["entry"]["asserts"],
+               "search desc: the ledger gains the registry's entry")
+        before = snap(skill)
+        expect(apply() == 0 and snap(skill) == before, "search desc: a second run changes nothing")
+
+        # A reprint regenerates code_orch.go: the recorded entry re-wires it.
+        w(skill / m.CODE_ORCH_REL, GEN + CODE_ORCH)
+        (skill / m.SEARCH_DESC_HELPER).unlink()
+        expect(apply() == 0 and call in (skill / m.CODE_ORCH_REL).read_text() and (skill / m.SEARCH_DESC_HELPER).is_file(),
+               "search desc: after a reprint the recorded entry re-wires the call and rewrites the helper")
+
+        # Not adopted: no code_orch.go.
+        skill = connector(None)
+        before = snap(skill)
+        expect(apply() == 0 and snap(skill) == before, "search desc: a connector without code orchestration is not touched")
+
+        # Fail closed: an unknown description shape, or a helper that drifted.
+        skill = connector(CODE_ORCH.replace("for endpoints matching a natural-language query.", "for endpoints."))
+        expect(apply() == 1 and any("NEEDS HAND WIRING [mcp-search-desc-resources]" in x for x in sink)
+               and "codeOrchSearchResources" not in (skill / m.CODE_ORCH_REL).read_text(),
+               "search desc: a description of another shape is named, not edited")
+        skill = connector(CODE_ORCH.replace('to read or execute."),\n\t\t\tmcplib.WithString("query"),',
+                                            'to read or execute."), mcplib.WithString("query"),'))
+        expect(apply() == 1 and any("NEEDS HAND WIRING [mcp-search-desc-resources]" in x for x in sink)
+               and "codeOrchSearchResources" not in (skill / m.CODE_ORCH_REL).read_text(),
+               "search desc: a description sharing its line with another option is named, not edited")
+        skill = connector(CODE_ORCH)
+        w(skill / m.SEARCH_DESC_HELPER, m.render("search_desc.go.tmpl").replace("= 300", "= 900"))
+        expect(apply() == 1 and any("differs from tools/maintainer/handfix_replay" in x for x in sink)
+               and "codeOrchSearchResources" not in (skill / m.CODE_ORCH_REL).read_text(),
+               "search desc: a helper that drifted from its template is named, and code_orch.go is left as it was")
 
 
 # --------------------------------------------------------------------------- #

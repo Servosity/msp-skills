@@ -40,7 +40,7 @@ import (
 func RegisterCodeOrchestrationTools(s *server.MCPServer) {
 	s.AddTool(
 		mcplib.NewTool("immybot_search",
-			mcplib.WithDescription("Search the immybot API for endpoints matching a natural-language query. Returns ranked endpoints with params_schema describing executor input names, locations, types, required fields, and known enum values. Call this first to find the endpoint to read or execute. An endpoint that returns a credential is listed with callable false and the CLI command to run in a terminal instead; it cannot be called over MCP."),
+			mcplib.WithDescription("Search the immybot API for endpoints matching a natural-language query. Returns ranked endpoints with params_schema describing executor input names, locations, types, required fields, and known enum values. Call this first to find the endpoint to read or execute. An endpoint that returns a credential is listed with callable false and the CLI command to run in a terminal instead; it cannot be called over MCP."+codeOrchSearchResources("immybot", codeOrchEndpoints)),
 			mcplib.WithString("query", mcplib.Required(), mcplib.Description("Natural-language description of what you want to do.")),
 			mcplib.WithNumber("limit", mcplib.Description("Max endpoints to return (default 10, max 100).")),
 			mcplib.WithReadOnlyHintAnnotation(true),
