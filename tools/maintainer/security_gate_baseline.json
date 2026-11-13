@@ -101,17 +101,6 @@
       "tactical-rmm"
     ],
     "mcp-share-command": [],
-    "mcp-read-only-switch-skips-typed-tools": [
-      "axcient",
-      "connectwise-control",
-      "itglue",
-      "levelio",
-      "n-central",
-      "proofpoint",
-      "sherweb",
-      "skykick",
-      "wordpress",
-      "xero"
-    ]
+    "mcp-read-only-switch-skips-typed-tools": []
   }
 }

@@ -1473,8 +1473,9 @@ MCP_RULES = (
      "share subcommand present: caller-chosen --remote/--repo allow git option injection "
      "and pushing the local store anywhere"),
     ("mcp-read-only-switch-skips-typed-tools",
-     "typed endpoint tools with no read-only drop (dropNonReadOnlyTools or IsMCPReadOnlyEnv "
-     "in tools.go): _MCP_READ_ONLY=1 leaves their writes callable"),
+     "typed endpoint tools, or the API execute tool, with no read-only drop "
+     "(dropNonReadOnlyTools or IsMCPReadOnlyEnv in tools.go): _MCP_READ_ONLY=1 leaves "
+     "their writes callable"),
 )
 MCP_RULE_IDS = tuple(r for r, _ in MCP_RULES)
 MCP_RULE_MSG = dict(MCP_RULES)
@@ -1873,30 +1874,66 @@ def _mcp_rule_share(cli: Path) -> list[tuple]:
     return []
 
 
+def _execute_writes(cli: Path):
+    """The code-orchestration API tool (<connector>_execute) in the internal/mcp package,
+    in _typed_tools' shape plus the function that registers it: it reaches every endpoint,
+    writes included, so it is a write unless annotated readOnlyHint=true. A registration
+    outside any AddTool(...) or any func is unprovable and counts too (fail-closed)."""
+    for f, (code, bare) in _package(cli / "internal" / "mcp").items():
+        adds = _spans(bare, "AddTool")
+        for m in re.finditer(r"\bNewTool\s*\(", bare):
+            tool = _lit_at(code, m.end()) or ""
+            if not re.fullmatch(r"[a-z0-9][a-z0-9_-]*_execute", tool):
+                continue
+            span = next(((a, b) for a, b in adds if a < m.start() < b), None)
+            reg = bare[span[0]:span[1]] if span else None
+            if _read_only(reg):
+                continue
+            fn = None
+            for d in re.finditer(r"(?m)^func\s+(\w+)\s*\(", bare[:m.start()]):
+                fn = d.group(1)
+            yield f, code, span[0] if span else m.start(), reg, "?", "", tool, fn
+
+
 def _mcp_rule_read_only_drop(cli: Path) -> list[tuple]:
-    """Typed write tools must be unreachable under <PREFIX>_MCP_READ_ONLY=1: each one is
+    """Write tools must be unreachable under <PREFIX>_MCP_READ_ONLY=1: each one is
     registered inside an `if !IsMCPReadOnlyEnv() {` body, or dropNonReadOnlyTools(...) is
-    called inside an `if IsMCPReadOnlyEnv() {` body AFTER every write is registered (same
-    file; a drop that runs first leaves the later writes callable)."""
+    called inside an `if IsMCPReadOnlyEnv() {` body AFTER every write is registered (a
+    drop that runs first leaves the later writes callable). A typed write must sit in the
+    drop's file; the API execute tool may instead sit in a function the drop's own function calls
+    before the drop (the press shape: RegisterTools calls RegisterCodeOrchestrationTools,
+    then drops)."""
     writes = [t for t in _typed_tools(cli) if not _read_only(t[3])]
-    if not writes:
+    execs = list(_execute_writes(cli))
+    if not writes and not execs:
         return []
     env = r"(?:\w+\.)?IsMCPReadOnlyEnv\s*\(\s*\)"
     pkg = _package(cli / "internal" / "mcp")
+
+    def before(t, f, bare, pos):
+        if t[0] == f and t[2] < pos:
+            return True
+        if len(t) == 7 or t[7] is None:
+            return False
+        # Called from the drop's own function, before the drop.
+        start = max((m.start() for m in re.finditer(r"(?m)^func\b", bare[:pos])), default=0)
+        return any(start < c.start() < pos for c in _calls(bare, t[7]))
+
     for f, (code, bare) in pkg.items():
         drops = _calls(bare, "dropNonReadOnlyTools")
         if any(_inside(d.start(), _if_bodies(bare, env))
-               and all(t[0] == f and t[2] < d.start() for t in writes) for d in drops):
+               and all(before(t, f, bare, d.start()) for t in writes + execs) for d in drops):
             return []
     open_ = []
-    for t in writes:
+    for t in writes + execs:
         bare = pkg[t[0]][1]
         if not _inside(t[2], _if_bodies(bare, "!" + r"\s*" + env)):
             open_.append(t)
     if not open_:
         return []
-    f, code, off, _, _, _, tool = open_[0]
-    return [(_rel(f), _line_at(code, off), "", f"{len(open_)} non-read-only typed tool(s), first {tool}")]
+    f, code, off, _, _, _, tool = open_[0][:7]
+    kind = "typed tool(s)" if all(len(t) == 7 for t in open_) else "tool(s)"
+    return [(_rel(f), _line_at(code, off), "", f"{len(open_)} non-read-only {kind}, first {tool}")]
 
 
 MCP_RULE_FUNCS = {
@@ -2772,6 +2809,24 @@ def _self_test_mcp_surface() -> int:
                   "func makeAPIHandler", "func unusedHandler"),
                   orch: "package mcp\n\nfunc gated(method string) bool {\n\treturn cliutil.IsMCPReadOnlyEnv() && method != \"GET\"\n}\n"},
              True, "typed writes outside tools.go; code-orch's return expression is not a drop")
+        # The API execute tool is the write path of a code-orchestration connector (#687-#690).
+        ex = _fx_execute_tool("acme_execute", gated=True)
+        call = "\tRegisterCodeOrchestrationTools(s)\n"
+        case(r7, {orch: ex, tools: _fx_typed_tools([], extra=call)}, True,
+             "API execute tool registered and no read-only drop")
+        case(r7, {orch: ex, tools: _fx_typed_tools([], extra=call + _DROP)}, False,
+             "execute registered, then dropNonReadOnlyTools under IsMCPReadOnlyEnv (template v4.34.0)")
+        case(r7, {orch: ex, tools: _fx_typed_tools([], extra=_DROP + call)}, True,
+             "the drop runs before the execute tool is registered")
+        case(r7, {orch: ex, tools: _fx_typed_tools([], extra=call) + "\nfunc later(s *server.MCPServer) {\n" + _DROP + "}\n"},
+             True, "the drop sits in a function that does not register the execute tool")
+        case(r7, {orch: ex.replace("mcplib.Required()),", "mcplib.Required()),\n\t\t\tmcplib.WithReadOnlyHintAnnotation(true),"),
+                  tools: _fx_typed_tools([], extra=call)}, False, "execute annotated readOnlyHint=true")
+        case(r7, {orch: ex.replace("\ts.AddTool(", "\tif !cliutil.IsMCPReadOnlyEnv() {\n\ts.AddTool(").replace(
+                      "\t\thandleCodeOrchExecute,\n\t)\n", "\t\thandleCodeOrchExecute,\n\t)\n\t}\n"),
+                  tools: _fx_typed_tools([], extra=call)}, False, "execute registered inside if !IsMCPReadOnlyEnv() {")
+        case(r7, {orch: ex, tools: _fx_typed_tools([("things_create", "POST", "/things", _D)], extra=call + _DROP)},
+             False, "typed write and execute both registered before the drop")
 
         # --- the baseline -------------------------------------------------------------
         def check(name: str, ok: bool) -> None:
