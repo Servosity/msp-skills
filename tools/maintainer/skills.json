@@ -1681,8 +1681,8 @@
       "tagline": "Audit autoscale, sweep idle session hosts, and reconcile per-customer billing across every Nerdio Manager account from your terminal.",
       "cli_hash": "sha256:9f1be269f20741bc11e9c7cdbc34709a2cacde542f5488dab22ba9d212b0002b",
       "template_version": 3,
-      "version": "0.1.14",
-      "cli_hash_at_release": "sha256:372e513234a7b9146ea14a44fca7829024a56e40fbe015aaedd173f37c741d4c",
+      "version": "0.1.15",
+      "cli_hash_at_release": "sha256:181233a804596d84e8ca46958a22038101b6ee0acf5d97021c58046bdcbbc158",
       "has_video": true,
       "live_verified": {
         "status": "live-verified",
@@ -1732,8 +1732,8 @@
       "tagline": "Fleet-wide NinjaOne answers - patch compliance, backup gaps, AV blast-radius - from a local mirror in one query.",
       "cli_hash": "sha256:29af9562788e3f501731644e3cfa0676c705dcb1c9cd1d8b11d7c00cfc397694",
       "template_version": 3,
-      "version": "0.1.25",
-      "cli_hash_at_release": "sha256:3736037fdb9ff5695d916eee6fa6c571ddc6a918789d820d45cd22117d929a3c",
+      "version": "0.1.26",
+      "cli_hash_at_release": "sha256:999e0949576a2b5b201d608a2cd38753f24a2e2e9b6bb0973e736bdb411657d2",
       "has_video": true,
       "live_verified": {
         "status": "live-verified",
