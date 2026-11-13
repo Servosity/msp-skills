@@ -1120,7 +1120,9 @@ func syncResource(ctx context.Context, c interface {
 	if stateErr != nil {
 		return syncResult{Resource: resource, Count: cachedCount, Err: fmt.Errorf("saving sync state for %s: %w", resource, stateErr), Duration: time.Since(started)}
 	}
-	recordWalkCoverage(db, resource, "", requestedAt, existingCursor != "", outcome.complete, syncPruneSkipReason(resource, false, effectiveSince, "", userParams, reconcileMode, scopeKey), syncEvents)
+	// A count-proven end is complete for the store but proves no row absent, so
+	// it never records a full enumeration (#709): see partitionOutcome.countProven.
+	recordWalkCoverage(db, resource, "", requestedAt, existingCursor != "", outcome.pruneAllowed(), syncPruneSkipReason(resource, false, effectiveSince, "", userParams, reconcileMode, scopeKey), syncEvents)
 
 	if reconcileErr != nil {
 		return syncResult{Resource: resource, Count: cachedCount, Warn: reconcileErr, Duration: time.Since(started)}
@@ -2925,6 +2927,7 @@ type parentReport struct {
 	consumed         int
 	extractFailures  int
 	complete         bool   // true only when this parent reached a proven natural end
+	countProven      bool   // its end was proven only by a declared total_count: no evidence of absence
 	reason           string // why the parent did not complete
 	failure          error  // non-nil when this parent's batch upsert failed
 	integrityFailure bool
@@ -3306,8 +3309,9 @@ func syncOneParent(
 
 	rep.nonJSONBody = outcome.reason == "non_json_200_body"
 	rep.complete = outcome.complete && rep.failure == nil && !rep.denied && rep.anomaly == nil
+	rep.countProven = outcome.countProven
 	rep.reason = outcome.reason
-	recordWalkCoverage(db, dep.Name, parentID, walkStarted, false, rep.complete, syncPruneSkipReason(dep.Name, true, depSinceTS, "", userParams, dep.ReconcileMode, syncCheckpointScope(dep.Name, true, userParams, syncClientTemplateVars(c), syncActivePathContext())), syncEvents)
+	recordWalkCoverage(db, dep.Name, parentID, walkStarted, false, rep.complete && !rep.countProven, syncPruneSkipReason(dep.Name, true, depSinceTS, "", userParams, dep.ReconcileMode, syncCheckpointScope(dep.Name, true, userParams, syncClientTemplateVars(c), syncActivePathContext())), syncEvents)
 	return rep
 }
 
@@ -3605,6 +3609,7 @@ func syncDependentResource(ctx context.Context, c interface {
 	nonJSONParents := 0
 	reportedParents := 0
 	completeParents := 0
+	countProvenParents := 0
 	var firstFailure error
 	var progressTicks <-chan time.Time
 	var resetProgressTicks func()
@@ -3654,6 +3659,9 @@ func syncDependentResource(ctx context.Context, c interface {
 		}
 		if rep.complete {
 			completeParents++
+			if rep.countProven {
+				countProvenParents++
+			}
 		} else if coverageReason == "" && rep.reason != "" {
 			coverageReason = rep.reason
 		}
@@ -3769,7 +3777,7 @@ func syncDependentResource(ctx context.Context, c interface {
 	if stateErr != nil {
 		return syncResult{Resource: dep.Name, Count: totalCount, Err: fmt.Errorf("saving sync state for %s: %w", dep.Name, stateErr), Duration: time.Since(started)}
 	}
-	recordWalkCoverage(db, dep.Name, "", started, false, attemptComplete, syncPruneSkipReason(dep.Name, true, depSinceTS, "", userParams, dep.ReconcileMode, scopeKey), syncEvents)
+	recordWalkCoverage(db, dep.Name, "", started, false, attemptComplete && countProvenParents == 0, syncPruneSkipReason(dep.Name, true, depSinceTS, "", userParams, dep.ReconcileMode, scopeKey), syncEvents)
 	// If every parent was access-denied and nothing was synced, surface as a
 	// warning so the run-level summary and exit code reflect insufficient access.
 	// Hand-fix (handfixes.json sync-forbidden-not-partial): a skip only when every parent was refused outright; any other

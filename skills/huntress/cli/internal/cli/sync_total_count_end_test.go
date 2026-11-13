@@ -6,6 +6,7 @@ package cli
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -120,9 +121,21 @@ func TestSyncCountProvenEndNeverPrunes(t *testing.T) {
 		}
 		return n
 	}
+	fullWalkRecorded := func() bool {
+		t.Helper()
+		var full sql.NullString
+		if err := db.DB().QueryRow(`SELECT full_started_at FROM walk_coverage WHERE resource_type = ? AND scope = ''`, "identities").Scan(&full); err != nil {
+			t.Fatalf("reading walk coverage: %v", err)
+		}
+		return full.Valid
+	}
 	run(map[string]syncScriptedPage{"": {1, 10, 20, "p2"}, "p2": {11, 20, 20, ""}})
 	if got := rows(); got != 20 {
 		t.Fatalf("after the first walk: %d rows, want 20", got)
+	}
+	// Nor is it evidence of absence for the local views (drift, reconciled reads).
+	if fullWalkRecorded() {
+		t.Fatalf("a count-proven walk was recorded as a full enumeration")
 	}
 	res := run(map[string]syncScriptedPage{"": {1, 10, 20, "p2"}, "p2": {21, 30, 20, ""}})
 	(&syncOutcomes{}).note(db, res, false)
@@ -135,5 +148,8 @@ func TestSyncCountProvenEndNeverPrunes(t *testing.T) {
 	run(map[string]syncScriptedPage{"": {1, 5, 5, ""}})
 	if got := rows(); got != 5 {
 		t.Fatalf("natural short-page end did not prune: %d rows, want 5", got)
+	}
+	if !fullWalkRecorded() {
+		t.Fatalf("a natural end was not recorded as a full enumeration")
 	}
 }
