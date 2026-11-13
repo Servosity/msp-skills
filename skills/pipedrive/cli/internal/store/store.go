@@ -50,13 +50,13 @@ func IsUUID(s string) bool {
 // It is stamped into SQLite's PRAGMA user_version on fresh databases and
 // checked on every open. Non-learn CLIs advance to v4 for the
 // resources_fts content extraction.
-const StoreSchemaVersion = 4
+const StoreSchemaVersion = 5
 
 // resourcesFTSContentSchemaVersion pins the schema bump that rewrote
 // resources_fts content from raw JSON to searchable leaf values. Keep this
 // separate from StoreSchemaVersion so future unrelated migrations do not
 // trigger an expensive full FTS rebuild.
-const resourcesFTSContentSchemaVersion = 4
+const resourcesFTSContentSchemaVersion = 5
 
 const resourcesFTSCreateSQL = `CREATE VIRTUAL TABLE IF NOT EXISTS resources_fts USING fts5(
 	id, resource_type, content, tokenize='porter unicode61'
@@ -2466,15 +2466,12 @@ func shouldIndexSearchString(key, value string) bool {
 		return false
 	}
 	lower := strings.ToLower(s)
-	upper := strings.ToUpper(s)
 	switch {
 	case IsUUID(s):
 		return false
 	case isoDatePattern.MatchString(s):
 		return false
 	case strings.HasPrefix(lower, "http://") || strings.HasPrefix(lower, "https://"):
-		return false
-	case upper == s && len(s) == 3 && strings.IndexFunc(s, func(r rune) bool { return r < 'A' || r > 'Z' }) == -1:
 		return false
 	}
 	tokens := ftsQueryTokenRE.FindAllString(s, -1)
