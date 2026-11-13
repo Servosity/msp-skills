@@ -40,6 +40,12 @@
           "description": "Set the LEVEL_API_TOKEN credential for the Level MCP server.",
           "isRequired": true,
           "isSecret": true
+        },
+        {
+          "name": "LEVELIO_MCP_READ_ONLY",
+          "description": "Optional. Set to 1 to list only read-only tools.",
+          "isRequired": false,
+          "isSecret": false
         }
       ]
     }

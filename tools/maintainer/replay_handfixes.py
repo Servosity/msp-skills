@@ -29,6 +29,12 @@ one once against a press release:
   delegated  another tool owns it (secret-echo-decoded-funnel:
              apply_secret_funnel.py, which onboard.py runs after this one).
 
+A `retire` record may also name a `recipe` (and an `adopt`): a connector printed
+below its `retire_at` (or with no agreed recorded version) is replayed with that
+recipe exactly as a replay id is; at or above it, the id is retired as above
+(mcp-read-only-switch: the press generates the switch from 4.34.0, and the
+connectors printed before it get it from this tool).
+
 `keep_manual` names a connector whose entry under a shared id carries a part of
 its own: the entry is left alone and the ledger check decides.
 
@@ -1259,6 +1265,199 @@ def r_sync_event_writer(p: Plan, hid: str, entry: dict) -> dict:
     return {}
 
 
+# The <PREFIX>_MCP_READ_ONLY switch, as press 4.34.0 generates it
+# (mvanhorn/cli-printing-press #4986, #5097, #5191), for connectors printed
+# before it. Three generated sites get the press's own code: cliutil's switch,
+# the drop at the end of RegisterTools, and the code-orchestration execute
+# tool's non-GET refusal. The recipe knows the one shape these prints share
+# and refuses any other; every check runs before the first write.
+MRO_ENV = "cli/internal/cliutil/verifyenv.go"
+MRO_TOOLS = "cli/internal/mcp/tools.go"
+MRO_ORCH = "cli/internal/mcp/code_orch.go"
+MRO_CONFIG = "cli/internal/config/config.go"
+MRO_TEST = "cli/internal/mcp/mcp_read_only_switch_test.go"
+MRO_EXEC_TEST = "cli/internal/mcp/mcp_read_only_execute_test.go"
+MRO_ENV_FUNC = "func IsMCPReadOnlyEnv() bool {"
+MRO_DOGFOOD = 'func IsDogfoodEnv() bool {\n\treturn os.Getenv(DogfoodEnvVar) == "1"\n}\n'
+MRO_ENV_BLOCK = ("\n// {tag}: press 4.33.4 generates this.\n\n"
+                 "// MCPReadOnlyEnvVar is the operator kill switch for this CLI's MCP server.\n"
+                 "// The value must be exactly \"1\", matching the other harness switches.\n"
+                 "// \"true\" and \"yes\" do not enable it.\n"
+                 "const MCPReadOnlyEnvVar = \"{prefix}_MCP_READ_ONLY\"\n\n"
+                 "// IsMCPReadOnlyEnv reports whether the MCP server should expose only\n"
+                 "// read-only mirrored commands and refuse non-GET execute calls.\n"
+                 "func IsMCPReadOnlyEnv() bool {\n"
+                 "\treturn os.Getenv(MCPReadOnlyEnvVar) == \"1\"\n"
+                 "}\n")
+MRO_TAIL = "\tcobratree.RegisterAll(s, cli.RootCmd(), cobratree.SiblingCLIPath)\n}\n"
+MRO_DROP_IF = "if cliutil.IsMCPReadOnlyEnv() {"
+MRO_DROP_FUNC = "func dropNonReadOnlyTools(s *server.MCPServer) {"
+MRO_DROP_CALL = ("\n\t// {tag}: press 4.34.0 generates this.\n"
+                 "\t// The read-only switch covers every tool, so this runs after all\n"
+                 "\t// registrations. Tools without readOnlyHint, including local-store\n"
+                 "\t// writers, are removed.\n"
+                 "\tif cliutil.IsMCPReadOnlyEnv() {\n"
+                 "\t\tdropNonReadOnlyTools(s)\n"
+                 "\t}\n"
+                 "}\n\n"
+                 "// dropNonReadOnlyTools removes every tool not annotated readOnlyHint=true.\n"
+                 "// A tool with no annotation fails closed.\n"
+                 "func dropNonReadOnlyTools(s *server.MCPServer) {\n"
+                 "\tvar drop []string\n"
+                 "\tfor name, entry := range s.ListTools() {\n"
+                 "\t\tif hint := entry.Tool.Annotations.ReadOnlyHint; hint == nil || !*hint {\n"
+                 "\t\t\tdrop = append(drop, name)\n"
+                 "\t\t}\n"
+                 "\t}\n"
+                 "\ts.DeleteTools(drop...)\n"
+                 "}\n")
+MRO_BLOCK_FUNC = "func codeOrchBlockedByMCPReadOnly(method string) bool {"
+MRO_BLOCK_DECL = ("// {tag}: press 4.33.4 generates this.\n"
+                  "func codeOrchBlockedByMCPReadOnly(method string) bool {\n"
+                  "\treturn cliutil.IsMCPReadOnlyEnv() && !strings.EqualFold(strings.TrimSpace(method), \"GET\")\n"
+                  "}\n\n")
+MRO_REFUSE = "if codeOrchBlockedByMCPReadOnly(ep.Method) {"
+MRO_REFUSE_BLOCK = ("\t// {tag}: refuse before any client is built.\n"
+                    "\tif codeOrchBlockedByMCPReadOnly(ep.Method) {\n"
+                    "\t\treturn mcplib.NewToolResultError(fmt.Sprintf(\"refusing %s %s while %s=1\", ep.Method, id, "
+                    "cliutil.MCPReadOnlyEnvVar)), nil\n"
+                    "\t}\n")
+MRO_NIL = re.compile(r"\tif ep == nil \{\n\t\treturn mcplib\.NewToolResultError\(fmt\.Sprintf\(\"unknown endpoint_id %q[^\n]*\n\t\}\n")
+MRO_NAMES = ("mcpReadOnlySwitchEnvVar", "mcpReadOnlySwitchListing", "mcpReadOnlyResultText",
+             "TestMCPReadOnlySwitchListsOnlyReadOnlyTools", "TestCodeOrchExecuteRefusesNonGETUnderMCPReadOnly")
+
+
+def r_mcp_read_only_switch(p: Plan, hid: str, entry: dict) -> dict:
+    """Wire <PREFIX>_MCP_READ_ONLY the way press 4.34.0 does. Every check runs
+    before the first write, so a refused connector gets nothing."""
+    site = "mcp-read-only-switch"
+    t = tag(hid)
+    prefix = env_prefix(p)
+    if not prefix or f'"{prefix}_BASE_URL"' not in (p.read(MRO_CONFIG) or ""):
+        p.hand(site, f"{MRO_CONFIG}: the environment prefix cannot be read (no {prefix or '<PREFIX>'}_BASE_URL), "
+                     f"so the switch's name is unknown")
+        return {}
+    if not p.module:
+        p.hand(site, "cli/go.mod: no module path, so cliutil cannot be imported")
+        return {}
+    want_const = f'const MCPReadOnlyEnvVar = "{prefix}_MCP_READ_ONLY"'
+    env = p.read(MRO_ENV)
+    if env is None:
+        p.hand(site, f"{MRO_ENV}: missing, so the switch has nowhere to live")
+        return {}
+    env_code = code_only(MRO_ENV, env)
+    if MRO_ENV_FUNC in env_code:
+        if want_const not in env_code:
+            p.hand(site, f"{MRO_ENV}: IsMCPReadOnlyEnv is there but does not read {prefix}_MCP_READ_ONLY; "
+                         f"reconcile it by hand")
+            return {}
+        new_env = None
+    elif "MCPReadOnlyEnvVar" in env_code or env.count(MRO_DOGFOOD) != 1:
+        p.hand(site, f"{MRO_ENV}: not the generated shape this recipe knows (IsDogfoodEnv once, no "
+                     f"MCPReadOnlyEnvVar); add the switch by hand")
+        return {}
+    else:
+        new_env = env.replace(MRO_DOGFOOD, MRO_DOGFOOD + MRO_ENV_BLOCK.replace("{tag}", t)
+                              .replace("{prefix}", prefix), 1)
+    tools = p.read(MRO_TOOLS)
+    spans = func_spans(tools or "", "RegisterTools")
+    if tools is None or len(spans) != 1:
+        p.hand(site, f"{MRO_TOOLS}: RegisterTools is not one top-level function")
+        return {}
+    a, b = spans[0]
+    tcode = code_only(MRO_TOOLS, tools)
+    if f'"{p.module}/internal/cliutil"' not in tools:
+        p.hand(site, f"{MRO_TOOLS}: does not import cliutil, the shape this recipe knows")
+        return {}
+    pkg_names = package_decl_names(p.cli, "internal/mcp", MRO_TOOLS, p.texts)
+    if MRO_DROP_IF in code_only(MRO_TOOLS, tools[a:b]) or MRO_DROP_FUNC in tcode:
+        if not (MRO_DROP_IF in code_only(MRO_TOOLS, tools[a:b]) and MRO_DROP_FUNC in tcode
+                and code_only(MRO_TOOLS, tools[a:b]).rstrip().endswith("dropNonReadOnlyTools(s)\n\t}\n}")):
+            p.hand(site, f"{MRO_TOOLS}: a read-only drop is there, but not as the last statement of "
+                         f"RegisterTools with its helper beside it; reconcile it by hand")
+            return {}
+        new_tools = None
+    elif not tools[a:b].endswith(MRO_TAIL) or "dropNonReadOnlyTools" in pkg_names:
+        p.hand(site, f"{MRO_TOOLS}: RegisterTools does not end with the Cobra-tree mirror, or the package "
+                     f"already declares dropNonReadOnlyTools; place the drop after every registration by hand")
+        return {}
+    else:
+        new_tools = tools[:b - 2] + MRO_DROP_CALL.replace("{tag}", t) + tools[b:]
+    orch = p.read(MRO_ORCH)
+    new_orch = None
+    if orch is not None:
+        espans = func_spans(orch, "handleCodeOrchExecute")
+        if len(espans) != 1:
+            p.hand(site, f"{MRO_ORCH}: handleCodeOrchExecute is not one top-level function")
+            return {}
+        ea, eb = espans[0]
+        ocode = code_only(MRO_ORCH, orch)
+        has_func = MRO_BLOCK_FUNC in ocode
+        has_refuse = MRO_REFUSE in code_only(MRO_ORCH, orch[ea:eb])
+        if not has_func and "codeOrchBlockedByMCPReadOnly" in ocode:
+            p.hand(site, f"{MRO_ORCH}: names codeOrchBlockedByMCPReadOnly without the generated declaration")
+            return {}
+        if not has_refuse:
+            hits = list(MRO_NIL.finditer(orch, ea, eb))
+            if len(hits) != 1:
+                p.hand(site, f"{MRO_ORCH}: handleCodeOrchExecute does not look up its endpoint once in the "
+                             f"generated shape ({len(hits)} found); refuse non-GET calls by hand")
+                return {}
+            nil_end = hits[0].end()
+            text = orch[:nil_end] + MRO_REFUSE_BLOCK.replace("{tag}", t) + orch[nil_end:]
+        else:
+            text = orch
+        if not has_func:
+            at = text.index("func handleCodeOrchExecute(")
+            text = text[:at] + MRO_BLOCK_DECL.replace("{tag}", t) + text[at:]
+        if text != orch:
+            text = add_import(text, f"{p.module}/internal/cliutil")
+            if f'"{p.module}/internal/cliutil"' not in text or '"strings"' not in text or '"fmt"' not in text:
+                p.hand(site, f"{MRO_ORCH}: its import block is not the shape this recipe knows")
+                return {}
+            new_orch = text
+    files = {MRO_TEST: render("mcp_read_only_switch_test.go.tmpl", PREFIX_=prefix + "_")}
+    if orch is not None:
+        files[MRO_EXEC_TEST] = render("mcp_read_only_execute_test.go.tmpl", PREFIX_=prefix + "_")
+    for rel, want in files.items():
+        cur = p.read(rel)
+        if cur is not None and cur != want:
+            p.hand(site, f"{rel}: differs from its template in tools/maintainer/handfix_replay/; merge the "
+                         f"difference into the template or wire the fix by hand")
+            return {}
+    clash = []
+    for f in sorted((p.cli / "internal" / "mcp").glob("*.go")):
+        r = f"cli/internal/mcp/{f.name}"
+        if r in files:
+            continue
+        code = code_only(r, p.read(r) or "")
+        clash += [f"{n} ({r})" for n in MRO_NAMES if re.search(r"\b%s\b" % n, code)]
+    if clash:
+        p.hand(site, f"cli/internal/mcp: already names {', '.join(clash)}; the hand-fix's tests would not build "
+                     f"next to it, so wire it by hand")
+        return {}
+    if new_env is not None:
+        p.write(MRO_ENV, new_env, "the MCP read-only switch")
+    if new_tools is not None:
+        p.write(MRO_TOOLS, new_tools, "the read-only switch drops every tool without readOnlyHint")
+    if new_orch is not None:
+        p.write(MRO_ORCH, new_orch, "execute refuses every non-GET call under the read-only switch")
+    for rel, want in files.items():
+        if p.read(rel) is None:
+            p.write(rel, want, "the read-only switch's regression test")
+        p.add_tests_from(rel)
+    p.pin(hid, MRO_ENV, want_const)
+    p.pin(hid, MRO_ENV, MRO_ENV_FUNC)
+    p.pin(hid, MRO_TOOLS, MRO_DROP_IF)
+    p.pin(hid, MRO_TOOLS, MRO_DROP_FUNC)
+    p.pin(hid, MRO_TEST, "func TestMCPReadOnlySwitchListsOnlyReadOnlyTools(t *testing.T) {")
+    if orch is not None:
+        p.pin(hid, MRO_ORCH, MRO_BLOCK_FUNC)
+        p.pin(hid, MRO_ORCH, MRO_REFUSE)
+        p.pin(hid, MRO_EXEC_TEST, "func TestCodeOrchExecuteRefusesNonGETUnderMCPReadOnly(t *testing.T) {")
+    return {}
+
+
 # sync-skips-withheld-row (#612): a row the credential check withholds from the
 # store is skipped, not the batch; sync keeps walking and ends the resource
 # stored, naming the rows (never fatal: synccpu), with its watermark where it was.
@@ -2049,6 +2248,7 @@ RECIPES = {
     "sync-forbidden": r_sync_forbidden,
     "sync-progress-throttled": r_sync_progress_throttled,
     "mcp-search-desc-resources": r_search_desc,
+    "mcp-read-only-switch": r_mcp_read_only_switch,
 }
 
 # Recipes that are run even when their entry's markers all hold: they check
@@ -2200,6 +2400,9 @@ def plan_connector(root: Path, slug: str, base: str, registry: dict) -> Plan:
             entries_out.append(e)
             continue
         verdict = r.get("verdict")
+        if verdict == "retire" and r.get("recipe") and chf.retirement(registry, hid, slug, p.version) is None:
+            # Below retire_at the press does not generate it yet: replay it.
+            verdict = "replay"
         if slug in (r.get("keep_manual") or {}):
             p.notes.append(f"manual [{hid}]: {r['keep_manual'][slug]}")
             entries_out.append(e)
@@ -2324,7 +2527,7 @@ def adopt(p: Plan, data: dict | None, raw: str | None, registry: dict) -> dict |
     ledger gets one, in the shape apply_secret_funnel.py creates."""
     if raw is not None and data is None:
         return None  # unreadable ledger, already named by load_ledger
-    ids = chf.missing_adoptions(registry, p.slug, data, p.read)
+    ids = chf.missing_adoptions(registry, p.slug, data, p.read, p.version)
     if not ids:
         return data
     new = dict(data) if data is not None else {"slug": p.slug, "doc": "docs/reprint-survival.md",

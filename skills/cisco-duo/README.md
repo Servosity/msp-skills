@@ -231,7 +231,7 @@ Grant only what your workflow uses; the permission set is the strongest control 
 
 ### Is it safe to let an AI issue bypass codes?
 
-Only with a human in the loop, and the commands are built for that. lockout fix, phone-swap and enrollment chase print a plan and change nothing until you add --apply. A bypass code from lockout fix is single-use, expires in an hour by default and keeps any existing codes. Verify the caller through a channel other than the ticket first (users send-verification-push sends them a Duo Push). Set CISCO_DUO_MCP_READ_ONLY=1 and the MCP server hides lockout fix, phone-swap and enrollment chase, and its API tool refuses every non-GET call.
+Only with a human in the loop, and the commands are built for that. lockout fix, phone-swap and enrollment chase print a plan and change nothing until you add --apply. A bypass code from lockout fix is single-use, expires in an hour by default and keeps any existing codes. Verify the caller through a channel other than the ticket first (users send-verification-push sends them a Duo Push). Set CISCO_DUO_MCP_READ_ONLY=1 and the MCP server lists only its read-only tools: lockout fix, phone-swap and enrollment chase are hidden, and so is its API tool, so no API write can be made.
 
 ### Will this hit my Duo API rate limits?
 
@@ -256,7 +256,7 @@ Free. Apache-2.0 licensed. You pay only for whichever AI agent you use (Claude, 
 | Admin / billing | admins create, admins update, admins delete, admins reset, admins clear-inactivity, accounts create, accounts delete (removes a whole customer subaccount), billing set-edition, billing set-user-limit, billing set-telephony-credits | Operator-only, not for agents |
 | Bulk write | users bulk-restore (Duo restores users as disabled) | Human-in-the-loop only, explicit confirmation. Never unattended |
 
-The MFA access tier matters most: a caller who says "I'm locked out" may be the attacker MFA was there to stop. Verify them through a separate channel (`cisco-duo-cli users send-verification-push` sends a Duo Push to a device they already have) before an agent issues a bypass code, an activation link or a new phone, and have a human approve the plan. For agents that only diagnose, set `CISCO_DUO_MCP_READ_ONLY=1`: the MCP server hides `lockout fix`, `phone-swap` and `enrollment chase`, and its API tool refuses every non-GET call.
+The MFA access tier matters most: a caller who says "I'm locked out" may be the attacker MFA was there to stop. Verify them through a separate channel (`cisco-duo-cli users send-verification-push` sends a Duo Push to a device they already have) before an agent issues a bypass code, an activation link or a new phone, and have a human approve the plan. For agents that only diagnose, set `CISCO_DUO_MCP_READ_ONLY=1`: the MCP server lists only its read-only tools, so `lockout fix`, `phone-swap`, `enrollment chase` and its API tool `cisco-duo_execute` are hidden.
 
 The strongest control is the **permission set of the Admin API application** - an application without `Grant resource - Write` cannot unlock a user, issue a code or touch a phone, and one without `Grant administrators - Write` or `Grant accounts - Write` cannot change administrators or customer accounts. Full details, including how to lock it down, are in [governance.md](./governance.md).
 

@@ -49,12 +49,17 @@ Add (or merge with your existing `mcpServers` block):
         "DATTO_BCDR_SECRET_KEY": "<your-datto_bcdr_secret_key>",
         "DATTO_BCDR_MCP_HTTP_TOKEN": "",
         "DATTO_BCDR_USER_AGENT": "",
-        "PRINTING_PRESS_CLIENT_PROFILE": ""
+        "PRINTING_PRESS_CLIENT_PROFILE": "",
+        "DATTO_BCDR_MCP_READ_ONLY": ""
       }
     }
   }
 }
 ```
+
+`DATTO_BCDR_MCP_READ_ONLY` is blank in every JSON config on this page. Set it to `1` for an agent
+that should only read: the server then lists only its read-only tools, and
+`sync`, `export` and every write tool are not among them.
 
 Quit Claude Desktop completely and reopen, then ask a question that needs the API.
 
@@ -93,7 +98,8 @@ Configuration**) and add:
         "DATTO_BCDR_SECRET_KEY": "<your-datto_bcdr_secret_key>",
         "DATTO_BCDR_MCP_HTTP_TOKEN": "",
         "DATTO_BCDR_USER_AGENT": "",
-        "PRINTING_PRESS_CLIENT_PROFILE": ""
+        "PRINTING_PRESS_CLIENT_PROFILE": "",
+        "DATTO_BCDR_MCP_READ_ONLY": ""
       }
     }
   }
@@ -119,7 +125,8 @@ Claude Desktop:
         "DATTO_BCDR_SECRET_KEY": "<your-datto_bcdr_secret_key>",
         "DATTO_BCDR_MCP_HTTP_TOKEN": "",
         "DATTO_BCDR_USER_AGENT": "",
-        "PRINTING_PRESS_CLIENT_PROFILE": ""
+        "PRINTING_PRESS_CLIENT_PROFILE": "",
+        "DATTO_BCDR_MCP_READ_ONLY": ""
       }
     }
   }

@@ -68,9 +68,10 @@ second credential to paste. `SAAS_ALERTS_BASE_URL` is optional: leave it empty (
 remove the line) to use the SaaS Alerts API host. For an agent that should only read,
 keep the `"SAAS_ALERTS_MCP_READ_ONLY"` entry that is already in the `env` block at `"1"`
 (here and in any other agent's config below; do not add a second entry, because JSON
-keeps the last one): `saas-alerts_execute` then runs GET endpoints only, `contain`,
+keeps the last one): the server then lists only its read-only tools, so
+`saas-alerts_execute`, `sync`, `import` and `export` are not offered, and `contain`,
 `rule_triggers_decide` and `subscriptions_health` can only preview (their `confirm`
-parameter is refused), and `sync`, `import` and `export` are not offered. The one-click
+parameter is refused). The one-click
 `.mcpb` extension asks for the same switch as **Read-only MCP server**: enter `1` there.
 
 ## ChatGPT desktop app (OpenAI)

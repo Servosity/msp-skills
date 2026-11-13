@@ -961,6 +961,64 @@
      "code_only": true
     }
    ]
+  },
+  {
+   "id": "mcp-read-only-switch",
+   "class": "mcp-read-only-switch",
+   "summary": "<PREFIX>_MCP_READ_ONLY=1 lists only tools annotated readOnlyHint=true, and the code-orchestration execute tool refuses every non-GET call; the press 4.34.0 code, back-ported to a print that predates it.",
+   "why": "The connector was printed before press 4.33.4 added the switch, so it never read it: an operator who set <PREFIX>_MCP_READ_ONLY=1 still got every write tool, and <api>_execute still sent POST, PUT, PATCH and DELETE (#687 to #690). TestMCPReadOnlySwitchListsOnlyReadOnlyTools and, with code_orch.go, TestCodeOrchExecuteRefusesNonGETUnderMCPReadOnly pin it. A reprint on press 4.34.0 or later generates it and retires this entry; below that, tools/maintainer/replay_handfixes.py re-applies it (fleet_handfixes.json mcp-read-only-switch).",
+   "status": "upstreamed",
+   "spec_encode_followup": "None: press 4.34.0 generates it (cli-printing-press #4986, #5097, #5191); a reprint retires this entry.",
+   "asserts": [
+    {
+     "file": "cli/internal/cliutil/verifyenv.go",
+     "contains": "func IsMCPReadOnlyEnv() bool {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "if cliutil.IsMCPReadOnlyEnv() {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "func dropNonReadOnlyTools(s *server.MCPServer) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/mcp_read_only_switch_test.go",
+     "contains": "func TestMCPReadOnlySwitchListsOnlyReadOnlyTools(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/verifyenv.go",
+     "contains": "const MCPReadOnlyEnvVar = \"UNIFI_MCP_READ_ONLY\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "func codeOrchBlockedByMCPReadOnly(method string) bool {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "if codeOrchBlockedByMCPReadOnly(ep.Method) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/mcp_read_only_execute_test.go",
+     "contains": "func TestCodeOrchExecuteRefusesNonGETUnderMCPReadOnly(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
   }
  ]
 }

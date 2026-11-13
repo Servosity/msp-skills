@@ -57,6 +57,12 @@
           "description": "Set the UNIFI_GATEWAY_HOST credential for the UniFi MCP server.",
           "isRequired": true,
           "isSecret": true
+        },
+        {
+          "name": "UNIFI_MCP_READ_ONLY",
+          "description": "Optional. Set to 1 to list only read-only tools.",
+          "isRequired": false,
+          "isSecret": false
         }
       ]
     }

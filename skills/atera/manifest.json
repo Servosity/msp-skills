@@ -17,7 +17,8 @@
       "env": {
         "ATERA_ACCOUNT_API": "${user_config.atera_account_api}",
         "ATERA_API_KEY": "${user_config.atera_api_key}",
-        "ATERA_BASE_URL": "${user_config.atera_base_url}"
+        "ATERA_BASE_URL": "${user_config.atera_base_url}",
+        "ATERA_MCP_READ_ONLY": "${user_config.atera_mcp_read_only}"
       }
     }
   },
@@ -42,6 +43,13 @@
       "description": "Base URL for the Atera API. Leave the prefilled default unless your account uses a different regional or self-hosted host.",
       "required": false,
       "default": "https://app.atera.com/api/v3"
+    },
+    "atera_mcp_read_only": {
+      "type": "string",
+      "title": "Read-only MCP mode",
+      "description": "Optional. Set to exactly 1 to list only read-only tools: atera_execute, sync and import are then not listed. Leave blank to keep every tool.",
+      "required": false,
+      "sensitive": false
     }
   },
   "compatibility": {

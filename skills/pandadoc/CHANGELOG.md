@@ -10,6 +10,9 @@ All notable changes to this skill are documented here. Format follows
 - **`search` finds records named with three capital letters, such as `WEB`, `SQL` or `DNS`.** The local search index skipped every value that was exactly three capital letters, a rule meant for currency and country codes, so a record with that name, such as a server called `WEB`, never reached the index and both `search` and the MCP search tool returned nothing for it. Those values are indexed now. Run `sync` once after upgrading: the first read-write open rebuilds the search index from the records already on disk, and the MCP server opens the store read-only, so it cannot do the rebuild itself ([#464](https://github.com/Servosity/msp-skills/issues/464)).
 - **The `pandadoc_search` MCP tool's description now names this API's resources.** It used to be one sentence shared by every connector, so an MCP host that picks tools by matching words ranked other tools above it for a request like `<vendor> <resource>`. The description now ends with the resource families from the endpoint list, most endpoints first, at most 300 characters ([#629](https://github.com/Servosity/msp-skills/issues/629)).
 
+### Security
+- **New read-only switch for the MCP server: `PANDADOC_MCP_READ_ONLY`.** Setting `PANDADOC_MCP_READ_ONLY=1` used to change nothing; every write tool stayed listed and ran. With it set to exactly `1`, the server now lists only tools annotated `readOnlyHint=true`, so `pandadoc_execute`, `sync` and `import` are not offered. `pandadoc_execute` also refuses every non-GET endpoint before it builds a request, if a client calls it by name. Raw API reads through `pandadoc_execute` are not available while the switch is on; the typed read tools are. Any other value, or leaving it unset, keeps every tool.
+
 ## [0.1.10] - 2026-11-12
 
 ### Fixed

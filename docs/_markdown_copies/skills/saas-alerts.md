@@ -136,7 +136,7 @@ That is what Respond returns when a call carries the api_key but no access token
 
 ### Can the AI block a user or approve Respond actions by itself?
 
-Only if you let it. contain, rule-triggers decide and subscriptions health --reenable preview by default and change nothing until you add --confirm. The generated commands (rule-triggers approve, response-actions execute, customers delete and the rest) send as soon as they run, so preview them with --dry-run, which sends nothing. Over MCP, set SAAS_ALERTS_MCP_READ_ONLY=1 for an agent that should only read: saas-alerts_execute then runs GET endpoints only and the three workflow writers refuse --confirm.
+Only if you let it. contain, rule-triggers decide and subscriptions health --reenable preview by default and change nothing until you add --confirm. The generated commands (rule-triggers approve, response-actions execute, customers delete and the rest) send as soon as they run, so preview them with --dry-run, which sends nothing. Over MCP, set SAAS_ALERTS_MCP_READ_ONLY=1 for an agent that should only read: the server then lists only its read-only tools, so saas-alerts_execute is hidden, and the three workflow writers refuse --confirm.
 
 ### Do Respond triggers expire?
 

@@ -46,6 +46,12 @@
           "isRequired": true,
           "isSecret": true,
           "default": "your-subdomain"
+        },
+        {
+          "name": "SYNCRO_MCP_READ_ONLY",
+          "description": "Optional. Set to 1 to list only read-only tools.",
+          "isRequired": false,
+          "isSecret": false
         }
       ]
     }

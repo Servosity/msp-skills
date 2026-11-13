@@ -46,6 +46,12 @@
           "description": "Set the PROOFPOINT_SERVICE_PRINCIPAL credential for the Proofpoint MCP server.",
           "isRequired": true,
           "isSecret": true
+        },
+        {
+          "name": "PROOFPOINT_MCP_READ_ONLY",
+          "description": "Optional. Set to 1 to list only read-only tools.",
+          "isRequired": false,
+          "isSecret": false
         }
       ]
     }

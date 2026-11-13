@@ -65,10 +65,11 @@ or returned to an MCP client; the delivery URL is kept.
   Respond queue, lists, gets and reports); they cannot change anything in SaaS Alerts.
 - **Agent mode is explicit.** `--agent` produces JSON for scripting but adds no write
   gating. See AGENTS.md.
-- **The MCP server has a read-only switch.** With `SAAS_ALERTS_MCP_READ_ONLY=1`,
-  `saas-alerts_execute` runs GET endpoints only, `contain`, `rule_triggers_decide` and
-  `subscriptions_health` refuse their `confirm` parameter (so they can only preview), and
-  `sync`, `import` and `export` are not offered. Without it, `saas-alerts_execute` can
+- **The MCP server has a read-only switch.** With `SAAS_ALERTS_MCP_READ_ONLY=1` the
+  server lists only its read-only tools: `saas-alerts_execute`, `sync`, `import`, `export`
+  and the learning writers (`teach`, `learnings_confirm`, `playbook_amend` and the rest)
+  are not offered, and `contain`, `rule_triggers_decide` and `subscriptions_health` refuse
+  their `confirm` parameter (so they can only preview). Without it, `saas-alerts_execute` can
   call any endpoint, including every write below, gated only by your AI app's approval
   prompt.
 
@@ -83,7 +84,7 @@ for anything below the first row.
 | **Account response** | Acts on real users in your customers' Microsoft 365 tenants: blocks sign-in, expires sessions, resets passwords, forces a password change, or approves a Respond trigger that does. | `contain --confirm`, `rule-triggers decide --confirm`, `rule-triggers approve`, `rule-triggers reject`, `rule-triggers ignore`, `rule-triggers manually-remediate`, `response-actions execute` | Human-in-the-loop, explicit confirmation. These lock real people out. |
 | **Detection and Respond config** | Changes what SaaS Alerts alerts on or what Respond does automatically. A whitelist or suppression stops alerts for that condition with nothing announcing it, and the whitelist commands *replace* the customer's list rather than adding to it. | `customers set-whitelists`, `customers set-account-whitelists`, `suppressions create`, `suppressions update`, `suppressions delete`, `rules update`, `rules draft`, `rules duplicate`, `rules convert-to-ioc`, `rule-templates use`, `iocs update`, `iocs draft`, `iocs duplicate`, `iocs archive`, `iocs unarchive`, `respond enable`, `application-connections connect`, `subscriptions create`, `subscriptions update`, `subscriptions health --reenable --confirm`, `webhook-domains verify` | Preview with `--dry-run`, then a human-approved write. Read the current list before any whitelist change. |
 | **Write (routine)** | Day-to-day records with no detection effect. | `devices map`, `devices unmap`, `psa map`, `psa map-suggested`, `customers create`, `customers update`, `reports scheduled-create`, `reports update-branding`, `subscriptions test-event`, `files upload` | Preview with `--dry-run`, then a reviewed write |
-| **Credential and access** | Returns or stores a live secret. `files url` returns a signed link that opens the stored file without any credential; it is a GET, so `SAAS_ALERTS_MCP_READ_ONLY=1` does not block it, and the link is written to the response cache. | `files url`, `auth set-token`, `auth logout` | Human-in-the-loop only |
+| **Credential and access** | Returns or stores a live secret. `files url` returns a signed link that opens the stored file without any credential; over MCP it is reachable only through `saas-alerts_execute`, which `SAAS_ALERTS_MCP_READ_ONLY=1` hides, and the link is written to the response cache. | `files url`, `auth set-token`, `auth logout` | Human-in-the-loop only |
 | **Destructive and outbound** | Irreversible loss, ends monitoring or automated response, or sends email from SaaS Alerts' mail service. `respond disable` turns Respond off for the whole partner. `webhook-queue delete` drops events that were never delivered. `import` sends one create call per JSONL line to whichever resource you name, so it can reach any tier above. | `respond disable`, `customers delete`, `rules delete`, `application-connections delete`, `subscriptions delete`, `webhook-domains delete`, `webhook-queue delete`, `reports scheduled-delete`, `files delete`, `reports send-email`, `import` | Human-in-the-loop only, explicit confirmation |
 
 The local learning commands (`teach`, `teach-lookup`, `teach-pattern`,
@@ -94,7 +95,7 @@ directory and never call SaaS Alerts.
 
 - **Run the MCP server with `SAAS_ALERTS_MCP_READ_ONLY=1`** for any agent that should
   only look. It is the one control that holds even when the agent asks for a write
-  (it blocks every non-GET call; GET reads such as `files url` still run).
+  (it hides `saas-alerts_execute`, and with it every raw API call, `files url` included).
 - **Keep autonomous agents to Read plus the previews.** Have a human approve the actual
   `--confirm` run for `contain` and `rule-triggers decide`, and any write below Read.
   Generated writes send immediately, so the gate lives in your agent's policy.

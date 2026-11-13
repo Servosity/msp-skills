@@ -17,7 +17,8 @@
       "env": {
         "SYNCRO_API_KEY": "${user_config.syncro_api_key}",
         "SYNCRO_BASE_URL": "${user_config.syncro_base_url}",
-        "SYNCRO_SUBDOMAIN": "${user_config.syncro_subdomain}"
+        "SYNCRO_SUBDOMAIN": "${user_config.syncro_subdomain}",
+        "SYNCRO_MCP_READ_ONLY": "${user_config.syncro_mcp_read_only}"
       }
     }
   },
@@ -42,6 +43,13 @@
       "title": "Syncro API base URL",
       "description": "Full API base URL. Leave blank: the CLI builds it from SYNCRO_SUBDOMAIN. Set it only to point at a different host.",
       "required": false
+    },
+    "syncro_mcp_read_only": {
+      "type": "string",
+      "title": "Read-only MCP mode",
+      "description": "Optional. Set to exactly 1 to list only read-only tools: syncro_execute, sync and import are then not listed. Leave blank to keep every tool.",
+      "required": false,
+      "sensitive": false
     }
   },
   "compatibility": {

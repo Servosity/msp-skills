@@ -152,6 +152,12 @@ shape of a defect every connector printed with it carries. A connector whose
 neither an entry nor a `retired` record for the id, and that is not listed in
 `keep_manual`, fails, ledger or no ledger: replay_handfixes.py --slug adds the
 registry's entry and wires it.
+
+A `retire` record may also name a `recipe` (and then an `adopt`): the press
+generates the behavior from `retire_at` on, and a connector printed below it
+still needs the hand-fix. Below `retire_at` (or with no agreed recorded
+version) such an id is a replay id in every respect, adoption included; at or
+above it, it is retired as above and never adopted.
 """
 from __future__ import annotations
 
@@ -363,13 +369,17 @@ def _adopt_error(name: str, hid: str, r: dict) -> str | None:
     the fix, so a malformed one is a registry error, never a skip."""
     ad = r.get("adopt")
     entry = ad.get("entry") if isinstance(ad, dict) else None
-    if r.get("verdict") != "replay":
-        return f"{name}: '{hid}' declares adopt, which only a replay id can (its recipe wires the adopted entry)"
+    if not (r.get("verdict") == "replay"
+            or (r.get("verdict") == "retire" and isinstance(r.get("recipe"), str) and r["recipe"])):
+        return (f"{name}: '{hid}' declares adopt, which only a replay id, or a retire id with a recipe for "
+                f"connectors below its retire_at, can (its recipe wires the adopted entry)")
     if not (isinstance(ad, dict) and isinstance(ad.get("file"), str) and ad["file"]
             and isinstance(ad.get("contains"), str) and ad["contains"]
             and strip_comments(ad["file"], "")[0] is not None):
         return (f"{name}: '{hid}' adopt needs a 'file' with comment syntax and a non-empty 'contains' "
                 f"(the code-only shape that means a connector carries the defect)")
+    if "not_contains" in ad and not (isinstance(ad["not_contains"], str) and ad["not_contains"]):
+        return f"{name}: '{hid}' adopt 'not_contains' must be a non-empty string (the code-only shape of the fix)"
     if not (isinstance(entry, dict) and "id" not in entry and isinstance(entry.get("asserts"), list)
             and entry["asserts"] and all(isinstance(a, dict) and a.get("file") for a in entry["asserts"])):
         return (f"{name}: '{hid}' adopt needs an 'entry' (no 'id' of its own) with at least one assert, "
@@ -379,25 +389,45 @@ def _adopt_error(name: str, hid: str, r: dict) -> str | None:
 
 def adopt_applies(adopt: dict, read: Callable[[str], str | None]) -> bool:
     """True when the connector carries the shape an adoption fixes: the
-    adopt `contains` needle in the comment-stripped text of the adopt `file`."""
+    adopt `contains` needle in the comment-stripped text of the adopt `file`,
+    and, when the adopt names one, not its `not_contains` needle (the fix
+    itself) anywhere in that text. Accepted limit (standing Ruling 15: checks
+    assure honest press and recipe output, not an author working around them):
+    the fix needle placed somewhere it never runs would suppress the adoption."""
     text = read(adopt["file"])
     if text is None:
         return False
     stripped, _ = strip_comments(adopt["file"], text)
-    return adopt["contains"] in (text if stripped is None else stripped)
+    code = text if stripped is None else stripped
+    return adopt["contains"] in code and not (adopt.get("not_contains") and adopt["not_contains"] in code)
+
+
+def adopts_here(registry: dict, hid: str, slug: str, version: str | None) -> dict | None:
+    """The `adopt` record of `hid` when it applies to this connector: a replay
+    id's always; a retire id's (one that names a recipe) only where the id is
+    not retired, that is below its retire_at or with no agreed version."""
+    r = (registry.get("handfixes") or {}).get(hid)
+    if not isinstance(r, dict) or not isinstance(r.get("adopt"), dict):
+        return None
+    if r.get("verdict") == "replay":
+        return r["adopt"]
+    if r.get("verdict") == "retire" and r.get("recipe") and retirement(registry, hid, slug, version) is None:
+        return r["adopt"]
+    return None
 
 
 def missing_adoptions(registry: dict, slug: str, data: dict | None,
-                      read: Callable[[str], str | None]) -> list[str]:
+                      read: Callable[[str], str | None], version: str | None = None) -> list[str]:
     """The registry ids this connector must carry but whose entry its ledger
-    lacks: replay ids with an `adopt` whose shape the connector carries, with
-    neither an entry nor a `retired` record for the id, and not keep_manual
-    here. replay_handfixes.py --slug adds each such entry and wires it."""
+    lacks: ids with an `adopt` that applies here (adopts_here) whose shape the
+    connector carries, with neither an entry nor a `retired` record for the
+    id, and not keep_manual here. replay_handfixes.py --slug adds each such
+    entry and wires it. `version` is the connector's recorded press version."""
     have = {e.get("id") for e in (data or {}).get("handfixes") or [] if isinstance(e, dict)}
     have |= {x.get("id") for x in (data or {}).get("retired") or [] if isinstance(x, dict)}
     out = []
     for hid, r in sorted((registry.get("handfixes") or {}).items()):
-        ad = r.get("adopt") if isinstance(r, dict) and r.get("verdict") == "replay" else None
+        ad = adopts_here(registry, hid, slug, version)
         if isinstance(ad, dict) and hid not in have and slug not in (r.get("keep_manual") or {}) \
                 and adopt_applies(ad, read):
             out.append(hid)
@@ -501,7 +531,8 @@ def check_skill(slug: str, registry: dict | None = None, exclude_ids: set | None
         registry, rerr = _registry()
     else:
         rerr = None
-    unadopted = [hid for hid in missing_adoptions(registry, slug, None, lambda rel: _read_in(skill_dir, rel))
+    version, _why = recorded_press_version(skill_dir)
+    unadopted = [hid for hid in missing_adoptions(registry, slug, None, lambda rel: _read_in(skill_dir, rel), version)
                  if hid not in (exclude_ids or set()) and (only_ids is None or hid in only_ids)]
     if not ledger_path.exists():
         # no ledger -> nothing to enforce, unless the connector carries a
@@ -517,9 +548,9 @@ def check_skill(slug: str, registry: dict | None = None, exclude_ids: set | None
     failures: list[str] = []
     if rerr:
         failures.append(f"[{slug}] {rerr}")
-    failures.extend(_unadopted(slug, hid) for hid in missing_adoptions(registry, slug, data, lambda rel: _read_in(skill_dir, rel))
+    failures.extend(_unadopted(slug, hid) for hid in missing_adoptions(registry, slug, data, lambda rel: _read_in(skill_dir, rel),
+                                                                       version)
                     if hid in unadopted)
-    version, _why = recorded_press_version(skill_dir)
     exclude = set(exclude_ids or set())
     if only_ids is not None:
         ids = {e.get("id") for e in data["handfixes"]} | {r.get("id") for r in data.get("retired") or [] if isinstance(r, dict)}
@@ -1370,10 +1401,15 @@ def _self_test_adoption() -> list[str]:
         shape in code, entry present and holding               -> PASS
         shape in code, entry present, marker dropped           -> FAIL (REGRESSED)
         shape only in a comment                                -> PASS (not adopted)
+        adopt not_contains (the fix) in code / only in comment -> PASS / FAIL
         a retired record for the id                            -> not an adoption failure
         connector in keep_manual                               -> PASS (a person reconciles it)
         --exclude-id / --only-id leaving the id out            -> PASS
         an adopt on a non-replay id, or without an entry       -> registry error
+        a retire id with a recipe and an adopt:
+          connector below retire_at, or no recorded version    -> FAIL (adopted like a replay id)
+          connector at or above retire_at                      -> PASS (retired, never adopted)
+          its adopt without a recipe                           -> registry error
     """
     import tempfile
 
@@ -1435,13 +1471,52 @@ def _self_test_adoption() -> list[str]:
         out.append("adoption: a keep_manual connector must not be demanded")
     if run(shape, [], exclude_ids={"fx-adopt"}) or run(shape, [], only_ids={"other"}):
         out.append("adoption: --exclude-id and --only-id must leave the id out")
+    # not_contains: the shape is adopted only while the fix is absent from the code.
+    ad = reg["handfixes"]["fx-adopt"]["adopt"]
+    ad["not_contains"] = "lock(w)"
+    for src, want, why in ((shape, True, "the fix absent"), (fixed, False, "the fix present"),
+                           (shape + "// lock(w)\n", True, "the fix only in a comment")):
+        if any("has no 'fx-adopt' entry" in f for f in run(src, [])) != want:
+            out.append(f"adoption: not_contains, {why}: must {'adopt' if want else 'not adopt'}")
+    del ad["not_contains"]
+    # A retire id that names a recipe adopts only where it is not retired.
+    reg["handfixes"]["fx-adopt"] = {"verdict": "retire", "retire_at": "4.34.0", "recipe": "x",
+                                    "native_asserts": [{"file": "cli/sync.go", "contains": "shared := w"}],
+                                    "adopt": {"file": "cli/sync.go", "contains": "shared := w", "entry": entry}}
+    for ver, want in (("4.24.0", True), (None, True), ("4.34.0", False), ("4.35.1", False)):
+        meta = None if ver is None else {"printing_press_version": ver}
+        with tempfile.TemporaryDirectory() as td:
+            skill = Path(td) / "skills" / "acme"
+            (skill / "cli").mkdir(parents=True)
+            (skill / "press").mkdir()
+            (skill / "cli" / "sync.go").write_text(shape, encoding="utf-8")
+            if meta:
+                (skill / "manifest.json").write_text(json.dumps(dict(meta, press_provenance=meta)), encoding="utf-8")
+                (skill / "press" / ".printing-press.json").write_text(json.dumps(meta), encoding="utf-8")
+            (skill / "handfixes.json").write_text(json.dumps({"handfixes": []}), encoding="utf-8")
+            saved = globals()["SKILLS"]
+            try:
+                globals()["SKILLS"] = skill.parent
+                got = any("has no 'fx-adopt' entry" in f for f in check_skill("acme", registry=reg))
+            finally:
+                globals()["SKILLS"] = saved
+        if got != want:
+            out.append(f"adoption: a retire id with a recipe must {'adopt' if want else 'not adopt'} on a "
+                       f"connector at press {ver or 'unknown'} (retire_at 4.34.0)")
+    with tempfile.TemporaryDirectory() as td:
+        path = Path(td) / "retire-recipe.json"
+        path.write_text(json.dumps(reg), encoding="utf-8")
+        if load_registry(path)[1]:
+            out.append("adoption: a retire id with a recipe may carry an adopt")
     with tempfile.TemporaryDirectory() as td:
         for bad in ({"verdict": "retire", "retire_at": "4.34.0", "native_asserts": [{"file": "a"}],
                      "adopt": {"file": "cli/sync.go", "contains": "x", "entry": entry}},
                     {"verdict": "replay", "recipe": "x", "adopt": {"file": "cli/sync.go", "contains": "x"}},
                     {"verdict": "replay", "recipe": "x", "adopt": {"file": "cli/sync.json", "contains": "x", "entry": entry}},
                     {"verdict": "replay", "recipe": "x", "adopt": {"file": "cli/sync.go", "contains": "",
-                                                                   "entry": entry}}):
+                                                                   "entry": entry}},
+                    {"verdict": "replay", "recipe": "x", "adopt": {"file": "cli/sync.go", "contains": "x",
+                                                                   "not_contains": "", "entry": entry}}):
             path = Path(td) / f"r{len(out)}-{id(bad)}.json"
             path.write_text(json.dumps({"handfixes": {"x": bad}}), encoding="utf-8")
             _data, err = load_registry(path)
@@ -1676,7 +1751,8 @@ def _adopt_candidates() -> list[str]:
     out = []
     for skill in sorted(p for p in SKILLS.iterdir() if p.is_dir() and not (p / "handfixes.json").exists()) \
             if SKILLS.is_dir() else []:
-        if missing_adoptions(registry, skill.name, None, lambda rel, d=skill: _read_in(d, rel)):
+        if missing_adoptions(registry, skill.name, None, lambda rel, d=skill: _read_in(d, rel),
+                             recorded_press_version(skill)[0]):
             out.append(skill.name)
     return out
 

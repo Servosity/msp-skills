@@ -58,6 +58,12 @@
           "description": "Overrides the User-Agent sent on WordPress requests. Leave blank to use the built-in User-Agent.",
           "isRequired": false,
           "isSecret": false
+        },
+        {
+          "name": "WORDPRESS_MCP_READ_ONLY",
+          "description": "Optional. Set to 1 to list only read-only tools.",
+          "isRequired": false,
+          "isSecret": false
         }
       ]
     }

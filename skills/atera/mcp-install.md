@@ -47,12 +47,17 @@ Add (or merge with your existing `mcpServers` block):
       "env": {
         "ATERA_ACCOUNT_API": "<your-atera_account_api>",
         "ATERA_API_KEY": "<your-atera_api_key>",
-        "ATERA_BASE_URL": "https://app.atera.com/api/v3"
+        "ATERA_BASE_URL": "https://app.atera.com/api/v3",
+        "ATERA_MCP_READ_ONLY": ""
       }
     }
   }
 }
 ```
+
+`ATERA_MCP_READ_ONLY` is blank in every JSON config on this page. Set it to `1` for an agent
+that should only read: the server then lists only its read-only tools, and
+`atera_execute`, `sync` and `import` are not among them.
 
 Quit Claude Desktop completely and reopen, then ask a question that needs the API.
 
@@ -88,7 +93,8 @@ Configuration**) and add:
       "env": {
         "ATERA_ACCOUNT_API": "<your-atera_account_api>",
         "ATERA_API_KEY": "<your-atera_api_key>",
-        "ATERA_BASE_URL": "https://app.atera.com/api/v3"
+        "ATERA_BASE_URL": "https://app.atera.com/api/v3",
+        "ATERA_MCP_READ_ONLY": ""
       }
     }
   }
@@ -111,7 +117,8 @@ Claude Desktop:
       "env": {
         "ATERA_ACCOUNT_API": "<your-atera_account_api>",
         "ATERA_API_KEY": "<your-atera_api_key>",
-        "ATERA_BASE_URL": "https://app.atera.com/api/v3"
+        "ATERA_BASE_URL": "https://app.atera.com/api/v3",
+        "ATERA_MCP_READ_ONLY": ""
       }
     }
   }

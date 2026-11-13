@@ -46,12 +46,17 @@ Add (or merge with your existing `mcpServers` block):
       "command": "levelio-mcp",
       "env": {
         "LEVELIO_BASE_URL": "https://api.level.io",
-        "LEVEL_API_TOKEN": "<your-level_api_token>"
+        "LEVEL_API_TOKEN": "<your-level_api_token>",
+        "LEVELIO_MCP_READ_ONLY": ""
       }
     }
   }
 }
 ```
+
+`LEVELIO_MCP_READ_ONLY` is blank in every JSON config on this page. Set it to `1` for an agent
+that should only read: the server then lists only its read-only tools, and
+`sync`, `import` and every write tool are not among them.
 
 Quit Claude Desktop completely and reopen, then ask a question that needs the API.
 
@@ -86,7 +91,8 @@ Configuration**) and add:
       "command": "levelio-mcp",
       "env": {
         "LEVELIO_BASE_URL": "https://api.level.io",
-        "LEVEL_API_TOKEN": "<your-level_api_token>"
+        "LEVEL_API_TOKEN": "<your-level_api_token>",
+        "LEVELIO_MCP_READ_ONLY": ""
       }
     }
   }
@@ -108,7 +114,8 @@ Claude Desktop:
       "command": "levelio-mcp",
       "env": {
         "LEVELIO_BASE_URL": "https://api.level.io",
-        "LEVEL_API_TOKEN": "<your-level_api_token>"
+        "LEVEL_API_TOKEN": "<your-level_api_token>",
+        "LEVELIO_MCP_READ_ONLY": ""
       }
     }
   }

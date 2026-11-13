@@ -54,6 +54,12 @@
           "description": "Binds this MCP server to one tenant-gated client profile. Leave blank to use the default client profile.",
           "isRequired": false,
           "isSecret": false
+        },
+        {
+          "name": "DATAGATE_MCP_READ_ONLY",
+          "description": "Optional. Set to 1 to list only read-only tools.",
+          "isRequired": false,
+          "isSecret": false
         }
       ]
     }

@@ -54,7 +54,7 @@
         },
         {
           "name": "CISCO_DUO_MCP_READ_ONLY",
-          "description": "Set to 1 for a read-only server: lockout fix, phone-swap, enrollment chase, sync, import and export are hidden, and the API execute tool refuses every non-GET call. Leave blank for the full tool set.",
+          "description": "Set to 1 for a read-only server: only read-only tools are listed, so lockout fix, phone-swap, enrollment chase, the API execute tool, sync, import and export are hidden. Leave blank for the full tool set.",
           "isRequired": false,
           "isSecret": false,
           "default": "1"

@@ -47,12 +47,17 @@ Add (or merge with your existing `mcpServers` block):
       "env": {
         "SYNCRO_API_KEY": "<your-syncro_api_key>",
         "SYNCRO_BASE_URL": "",
-        "SYNCRO_SUBDOMAIN": "<your-syncro_subdomain>"
+        "SYNCRO_SUBDOMAIN": "<your-syncro_subdomain>",
+        "SYNCRO_MCP_READ_ONLY": ""
       }
     }
   }
 }
 ```
+
+`SYNCRO_MCP_READ_ONLY` is blank in every JSON config on this page. Set it to `1` for an agent
+that should only read: the server then lists only its read-only tools, and
+`syncro_execute`, `sync` and `import` are not among them.
 
 Quit Claude Desktop completely and reopen, then ask a question that needs the API.
 
@@ -88,7 +93,8 @@ Configuration**) and add:
       "env": {
         "SYNCRO_API_KEY": "<your-syncro_api_key>",
         "SYNCRO_BASE_URL": "",
-        "SYNCRO_SUBDOMAIN": "<your-syncro_subdomain>"
+        "SYNCRO_SUBDOMAIN": "<your-syncro_subdomain>",
+        "SYNCRO_MCP_READ_ONLY": ""
       }
     }
   }
@@ -111,7 +117,8 @@ Claude Desktop:
       "env": {
         "SYNCRO_API_KEY": "<your-syncro_api_key>",
         "SYNCRO_BASE_URL": "",
-        "SYNCRO_SUBDOMAIN": "<your-syncro_subdomain>"
+        "SYNCRO_SUBDOMAIN": "<your-syncro_subdomain>",
+        "SYNCRO_MCP_READ_ONLY": ""
       }
     }
   }

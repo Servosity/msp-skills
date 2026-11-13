@@ -49,7 +49,7 @@
     "saas_alerts_mcp_read_only": {
       "type": "string",
       "title": "Read-only MCP server",
-      "description": "Set to exactly 1 so saas-alerts_execute runs GET endpoints only, contain, rule-triggers decide and subscriptions health can only preview (--confirm is refused), and sync, import and export are not offered. Leave blank for full access. Preset to 1; clear it only when you want the agent to make changes.",
+      "description": "Set to exactly 1 to list only read-only tools: saas-alerts_execute, sync, import and export are not offered, and contain, rule-triggers decide and subscriptions health can only preview (--confirm is refused). Leave blank for full access. Preset to 1; clear it only when you want the agent to make changes.",
       "required": false,
       "default": "1"
     },

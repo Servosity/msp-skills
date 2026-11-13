@@ -19,7 +19,8 @@
         "UNIFI_API_KEY": "${user_config.unifi_api_key}",
         "UNIFI_BASE_PATH": "${user_config.unifi_base_path}",
         "UNIFI_BASE_URL": "${user_config.unifi_base_url}",
-        "UNIFI_GATEWAY_HOST": "${user_config.unifi_gateway_host}"
+        "UNIFI_GATEWAY_HOST": "${user_config.unifi_gateway_host}",
+        "UNIFI_MCP_READ_ONLY": "${user_config.unifi_mcp_read_only}"
       }
     }
   },
@@ -55,6 +56,13 @@
       "title": "UniFi API base URL",
       "description": "Full API base URL, e.g. https://10.0.0.1/proxy/network. Leave blank when you set the gateway host above; the CLI builds this from it.",
       "required": false
+    },
+    "unifi_mcp_read_only": {
+      "type": "string",
+      "title": "Read-only MCP mode",
+      "description": "Optional. Set to exactly 1 to list only read-only tools: unifi_execute, sync and export are then not listed. Leave blank to keep every tool.",
+      "required": false,
+      "sensitive": false
     }
   },
   "compatibility": {

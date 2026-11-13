@@ -92,6 +92,8 @@ do ship one: 9 are proven (the control session wrote, the read-only session did 
 advisory (no write tool produced an API write even with the switch off: their `_execute` tools or
 typed writes need arguments the probe cannot construct), and **0** let a write through. The two
 sets do not overlap: static flags the source pattern, runtime proves the shipped behavior.
+On 2026-11-13 the fleet id `mcp-read-only-switch` gave 21 connectors the press 4.34.0 drop
+(issues #687 to #690), so the static rule's baseline shrinks by the ones it covered.
 
 ### Wiring the secret-echo funnel into a connector: `apply_secret_funnel.py`
 
