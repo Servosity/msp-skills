@@ -1895,16 +1895,42 @@ def _execute_writes(cli: Path):
             yield f, code, span[0] if span else m.start(), reg, "?", "", tool, fn
 
 
+def _literal_body(bare: str, params_open: int) -> tuple[int, int] | None:
+    """The body span of the function literal whose parameter list opens at params_open,
+    or None when the `func(...)` is a function TYPE (var hook func(), a func-typed
+    parameter or result). Skips the result type, braces of interface{} / struct{} and
+    bracketed or parenthesised groups included, to the `{` that opens the body."""
+    j = _close(bare, params_open)
+    while j < len(bare):
+        c = bare[j]
+        if c in " \t":
+            j += 1
+        elif c == "{":
+            return j, _close(bare, j)
+        elif c in "([":
+            j = _close(bare, j)
+        elif bare.startswith(("interface", "struct"), j):
+            k = j + (9 if bare.startswith("interface", j) else 6)
+            k += len(bare[k:]) - len(bare[k:].lstrip(" \t"))
+            j = _close(bare, k) if k < len(bare) and bare[k] == "{" else k
+        elif re.match(r"[\w.*]", c):
+            j += 1
+        else:
+            return None  # newline, comma, `)`, `=`, ...: the signature ended with no body
+    return None
+
+
 def _deferred_spans(bare: str) -> list[tuple[int, int]]:
     """Spans whose code may run later than the statements around it: every function
-    literal body (`func(...) ... {` not at column 0) and every `defer` or `go` statement."""
+    literal body (a `func(...)` not at column 0 that has a body) and every `defer` or
+    `go` statement."""
     out = []
     for m in re.finditer(r"\bfunc\s*\(", bare):
         if m.start() == 0 or bare[m.start() - 1] == "\n":
             continue  # a top-level declaration, not a literal
-        brace = bare.find("{", _close(bare, m.end() - 1))
-        if brace >= 0:
-            out.append((brace, _close(bare, brace)))
+        body = _literal_body(bare, m.end() - 1)
+        if body:
+            out.append(body)
     for m in re.finditer(r"\b(?:defer|go)\s+", bare):
         end = bare.find("\n", m.end())
         out.append((m.start(), len(bare) if end < 0 else end))
@@ -2877,6 +2903,14 @@ def _self_test_mcp_surface() -> int:
              True, "execute AddTool inline in a deferred closure of the drop's function")
         case(r7, {orch: ex, tools: _fx_typed_tools([], extra=call + "\t_ = func() {\n" + _DROP + "\t}\n")}, True,
              "the drop only inside a closure nobody calls")
+        case(r7, {orch: ex, tools: _fx_typed_tools([], extra="\tdefer func() interface{} {\n\t\tRegisterCodeOrchestrationTools(s)\n\t\treturn nil\n\t}()\n" + _DROP)},
+             True, "registrar in a deferred closure whose result type is interface{}")
+        case(r7, {orch: ex, tools: _fx_typed_tools([], extra="\tdefer func() (struct{}, error) {\n\t\tRegisterCodeOrchestrationTools(s)\n\t\treturn struct{}{}, nil\n\t}()\n" + _DROP)},
+             True, "registrar in a deferred closure with a parenthesised result list")
+        case(r7, {orch: ex, tools: "var hook func()\n\n" + _fx_typed_tools([], extra=call + _DROP).replace("package mcp\n", "")},
+             False, "a func-typed variable is not a closure: register, then drop stays healthy")
+        case(r7, {orch: ex, tools: _fx_typed_tools([], extra="\tvar cb func(int) error\n\t_ = cb\n" + call + _DROP)},
+             False, "a func-typed local in the drop's function stays healthy")
 
         # --- the baseline -------------------------------------------------------------
         def check(name: str, ok: bool) -> None:
