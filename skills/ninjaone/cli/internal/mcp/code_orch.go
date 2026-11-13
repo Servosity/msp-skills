@@ -62,7 +62,7 @@ func RegisterCodeOrchestrationTools(s *server.MCPServer) {
 	)
 	s.AddTool(
 		mcplib.NewTool("ninjaone_read",
-			mcplib.WithDescription("Call one read-only ninjaone API endpoint by its endpoint_id (from ninjaone_search). GET reads and read-only POSTs run immediately. Params are a JSON object; path placeholders and query strings are resolved automatically. State-changing endpoints, including deletes and mutating GETs, are rejected; use ninjaone_execute."),
+			mcplib.WithDescription("Call one read-only ninjaone API endpoint by its endpoint_id (from ninjaone_search). GET reads and read-only POSTs run immediately. Params are a JSON object; path placeholders and query strings are resolved automatically. State-changing endpoints, including deletes and mutating GETs, are rejected; use ninjaone_execute. A GET list cut for size carries next_cursor: pass it back in params under the endpoint's cursor_param (from ninjaone_get). An endpoint with no cursor_param takes it back as _pp_cursor, and when that endpoint's list sits inside an object the cursor is _pp_next_cursor."),
 			mcplib.WithString("endpoint_id", mcplib.Required(), mcplib.Description("Read-only endpoint identifier returned by ninjaone_search (e.g., \"users.list\").")),
 			mcplib.WithObject("params", mcplib.Description("Use the endpoint params_schema returned by search. Preserve JSON body key case and nesting; x-location identifies path, query, header, or body inputs.")),
 			mcplib.WithReadOnlyHintAnnotation(true),
@@ -3656,6 +3656,22 @@ func codeOrchInvoke(ctx context.Context, req mcplib.CallToolRequest, executeTool
 		}
 	}
 
+	// Hand-fix (handfixes.json unpaged-list-mcp-continuation, issue #704): a
+	// read-only GET with no upstream paging continues locally. Its cursor is
+	// taken out of params here so it is never sent to the API.
+	localPaging := !executeTool && method == "GET" && !ep.Mutating && ep.Page.CursorParam == "" && ep.Page.NextCursorPath == ""
+	localCursor := ""
+	if v, ok := params[bound.LocalCursorParam]; ok {
+		delete(params, bound.LocalCursorParam)
+		if !localPaging {
+			return mcplib.NewToolResultError(fmt.Sprintf("%s applies only to a read-only GET endpoint with no paging; an endpoint that pages takes its own cursor_param (see ninjaone_get)", bound.LocalCursorParam)), nil
+		}
+		localCursor = formatMCPParamValue(v)
+		if localCursor == "" {
+			return mcplib.NewToolResultError(fmt.Sprintf("%s is empty; pass the cursor from the previous answer unchanged", bound.LocalCursorParam)), nil
+		}
+	}
+
 	// Route params to their runtime slots. GET/DELETE params are query
 	// strings; write methods split spec-declared query params from the
 	// remaining params used as the request body below.
@@ -3720,6 +3736,19 @@ func codeOrchInvoke(ctx context.Context, req mcplib.CallToolRequest, executeTool
 
 		return mcplib.NewToolResultError(fmt.Sprintf("resolved %s %s changes state; call ninjaone_execute with confirm set to boolean true", method, resolvedPath)), nil
 
+	}
+	// The local cursor is checked against the request it continues, before
+	// anything is sent (handfixes.json unpaged-list-mcp-continuation).
+	localScope, localOffset := "", 0
+	if localPaging {
+		localScope = bound.LocalScope(ep.ID, resolvedPath, query)
+		if localCursor != "" {
+			offset, err := bound.LocalPageCursor(localCursor, localScope)
+			if err != nil {
+				return mcplib.NewToolResultError(fmt.Sprintf("%s: %v", bound.LocalCursorParam, err)), nil
+			}
+			localOffset = offset
+		}
 	}
 	path = resolvedPath
 	var data json.RawMessage
@@ -3819,6 +3848,8 @@ func codeOrchInvoke(ctx context.Context, req mcplib.CallToolRequest, executeTool
 			PageSize:       codeOrchEffectivePageSize(path, query),
 			RetainScope:    ninjaRetainScope(path, query),
 		})
+	} else if localPaging {
+		text = bound.EndpointLocalPageResponse(method, data, localOffset, localScope)
 	} else {
 		text = bound.EndpointResponse(method, data)
 	}
