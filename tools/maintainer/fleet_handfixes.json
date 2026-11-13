@@ -481,6 +481,45 @@
     "superops": "sync walks GraphQL pages through c.Query in its own syncResource and writes its progress line to stderr itself: the throttle is wired by hand; superops_sync_progress_test.go asserts it."
    },
    "upstream": "none filed yet: the press template's per-page progress line is unthrottled (#696)"
+  },
+  "mcp-search-desc-resources": {
+   "verdict": "replay",
+   "recipe": "mcp-search-desc-resources",
+   "reason": "Press 4.24.0 to 4.35.5 gives the code-orchestration <api>_search tool one description in every connector (\"Search the <api> API for endpoints matching a natural-language query...\"), naming none of the API's resources. A host that picks tools by matching words (BM25 over each tool's name and description) then ranks other tools above it for \"<api> <resource>\": for \"hubspot owners\" the workflow tools came first and an agent spent 3 to 4 steps finding an endpoint one search reaches (#629).",
+   "proof": "TestSearchToolFoundByResourceWords registers the connector's real tools and ranks them with BM25 (name + description) for \"<api> <resource>\", for every resource the description names, not counting the _get, _read and _execute siblings that name <api>_search. It fails when the description names no resource (as on the unwired print) or when <api>_search is outside the top 3 for a resource only its description names; a resource another tool also names is logged, not gated. Across the 69 connectors: 1,225 of 1,234 such queries put it in the top 3 (1,026 before). A stdio probe of the built -mcp binaries over tools/list, counting every tool: zammad_search 13th of 45 to 1st for \"zammad tickets\", hubspot_search 5th of 53 to 1st for \"hubspot owners\".",
+   "adopt": {
+    "file": "cli/internal/mcp/code_orch.go",
+    "contains": "mcplib.WithDescription(\"Search the ",
+    "entry": {
+     "class": "mcp-tool-discoverability",
+     "summary": "The <api>_search tool's description ends with the API's resource families (codeOrchSearchResources in internal/mcp/search_desc.go, from codeOrchEndpoints, capped at 300 characters).",
+     "why": "The generated description was the same in every connector and named no resource, so a host that ranks tools by words put other tools above <api>_search for \"<api> <resource>\" (#629; zammad_search ranked 13th of 45 for \"zammad tickets\"). A reprint regenerates code_orch.go without the call; tools/maintainer/replay_handfixes.py re-applies it (fleet_handfixes.json mcp-search-desc-resources).",
+     "status": "active",
+     "spec_encode_followup": "Press-side (upstream PR named in fleet_handfixes.json): the code-orchestration template should build the <api>_search description from the endpoint registry's resource families.",
+     "asserts": [
+      {
+       "file": "cli/internal/mcp/code_orch.go",
+       "contains": "+codeOrchSearchResources(",
+       "min_count": 1,
+       "code_only": true
+      },
+      {
+       "file": "cli/internal/mcp/search_desc.go",
+       "contains": "func codeOrchSearchResources(apiName string, endpoints []codeOrchEndpoint) string {",
+       "min_count": 1,
+       "code_only": true
+      },
+      {
+       "file": "cli/internal/mcp/search_desc_test.go",
+       "contains": "func TestSearchToolFoundByResourceWords(t *testing.T) {",
+       "min_count": 1,
+       "code_only": true
+      }
+     ]
+    }
+   },
+   "gates": [],
+   "upstream": "mvanhorn/cli-printing-press#5392 (PR open; issue #5391): the code-orchestration template builds the <api>_search description from the endpoint registry with the same codeOrchSearchResources. No press release ships it yet, so no retire_at; once one does, retire this id at that version (the retired entry's search_desc.go and test are then removed, since the press emits the helper in code_orch.go)."
   }
  },
  "floors": [

@@ -1987,6 +1987,53 @@ def r_sync_forbidden_dependent(p: Plan, hid: str, entry: dict) -> dict:
     return {OUT_DEP_OLD_MARK: "the dependent skip now needs every parent refused outright (refusedParents), not the first denial"}
 
 
+# mcp-search-desc-resources (#629): the <api>_search tool's description was
+# the same sentence in every connector and named none of the API's resources,
+# so a host that picks tools by matching words (BM25 over name and
+# description) never showed it for "<api> <resource>". The recipe writes
+# codeOrchSearchResources (the resource families of codeOrchEndpoints, capped)
+# and appends it to that one WithDescription call. The same function is
+# proposed for the press template; the registry names the upstream PR.
+SEARCH_DESC_HELPER = "cli/internal/mcp/search_desc.go"
+SEARCH_DESC_TEST = "cli/internal/mcp/search_desc_test.go"
+CODE_ORCH_REL = "cli/internal/mcp/code_orch.go"
+# One whole line: the call holds one Go string literal and ends the line, so
+# the helper can never be appended to another option on the same line.
+SEARCH_DESC_LINE = re.compile(r'(?m)^(\t+mcplib\.WithDescription\("Search the ([A-Za-z0-9_. -]+) API for endpoints matching '
+                              r'a natural-language query\.(?:[^"\\\n]|\\.)*")\),\n')
+
+
+def r_search_desc(p: Plan, hid: str, entry: dict) -> dict:
+    site = "mcp-search-desc-resources"
+    s = p.read(CODE_ORCH_REL)
+    if s is None:
+        p.hand(site, f"{CODE_ORCH_REL}: missing, so the search tool's description cannot name its resources")
+        return {}
+    if not write_template(p, site, SEARCH_DESC_HELPER, render("search_desc.go.tmpl"), "search_desc.go.tmpl",
+                          "the search tool's resource list") \
+            or not write_template(p, site, SEARCH_DESC_TEST, render("search_desc_test.go.tmpl"), "search_desc_test.go.tmpl",
+                                  "the search tool's ranking test"):
+        return {}
+    call = "+codeOrchSearchResources("
+    if not p.present(CODE_ORCH_REL, call, "RegisterCodeOrchestrationTools"):
+        spans = func_spans(s, "RegisterCodeOrchestrationTools")
+        hits = [m for a, b in spans for m in SEARCH_DESC_LINE.finditer(s[a:b])]
+        if len(hits) != 1:
+            p.hand(site, f"{CODE_ORCH_REL}: RegisterCodeOrchestrationTools has {len(hits)} <api>_search description "
+                         f"lines of the shape this recipe knows (want 1); append "
+                         f"+codeOrchSearchResources(\"<api>\", codeOrchEndpoints) to it by hand")
+            return {}
+        m = hits[0]
+        p.edit(site, CODE_ORCH_REL, "the search tool's description names its resources", m.group(0),
+               f"{m.group(1)}{call}{json.dumps(m.group(2))}, codeOrchEndpoints)),\n", call,
+               scope="RegisterCodeOrchestrationTools")
+    p.add_tests_from(SEARCH_DESC_TEST)
+    p.pin(hid, CODE_ORCH_REL, call)
+    p.pin(hid, SEARCH_DESC_HELPER, "func codeOrchSearchResources(apiName string, endpoints []codeOrchEndpoint) string {")
+    p.pin(hid, SEARCH_DESC_TEST, "func TestSearchToolFoundByResourceWords(t *testing.T) {")
+    return {}
+
+
 RECIPES = {
     "derive-lock-canonical": r_derive_lock,
     "token-host-compare": r_token_host,
@@ -2001,6 +2048,7 @@ RECIPES = {
     "sync-measured-rate": r_sync_measured_rate,
     "sync-forbidden": r_sync_forbidden,
     "sync-progress-throttled": r_sync_progress_throttled,
+    "mcp-search-desc-resources": r_search_desc,
 }
 
 # Recipes that are run even when their entry's markers all hold: they check

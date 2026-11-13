@@ -2161,6 +2161,34 @@
      "code_only": true
     }
    ]
+  },
+  {
+   "id": "mcp-search-desc-resources",
+   "class": "mcp-tool-discoverability",
+   "summary": "The <api>_search tool's description ends with the API's resource families (codeOrchSearchResources in internal/mcp/search_desc.go, from codeOrchEndpoints, capped at 300 characters).",
+   "why": "The generated description was the same in every connector and named no resource, so a host that ranks tools by words put other tools above <api>_search for \"<api> <resource>\" (#629; zammad_search ranked 13th of 45 for \"zammad tickets\"). A reprint regenerates code_orch.go without the call; tools/maintainer/replay_handfixes.py re-applies it (fleet_handfixes.json mcp-search-desc-resources).",
+   "status": "active",
+   "spec_encode_followup": "Press-side (upstream PR named in fleet_handfixes.json): the code-orchestration template should build the <api>_search description from the endpoint registry's resource families.",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "+codeOrchSearchResources(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/search_desc.go",
+     "contains": "func codeOrchSearchResources(apiName string, endpoints []codeOrchEndpoint) string {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/search_desc_test.go",
+     "contains": "func TestSearchToolFoundByResourceWords(t *testing.T) {",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
   }
  ],
  "retired": [
