@@ -4,6 +4,11 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.1.16] - 2026-11-13
+
+### Fixed
+- **`sync` no longer marks a fully fetched resource incomplete.** Huntress leaves out the next-page token on the last page. When that last page was exactly full, or an endpoint returned every row in one page, `sync` warned `pagination_cursor_missing`, recorded the resource as incomplete, and kept `store_status` at `partial` even though every row was stored. This hit `identities`, `reports` and `accounts_reports`. `sync` now treats the walk as finished once it has seen as many distinct records as the response's `total_count`, provided every page reported the same count. Fewer records than `total_count`, a count that changed during the walk, or a response with no count still records the resource as incomplete. A `sync --full` that could only prove its end from the count does not delete local rows for that resource, reports `reconcile_skipped` with reason `end_proven_by_count`, and local commands such as `drift` keep (and flag) any row that walk did not return rather than treat it as removed, because records added or removed during the walk can match the count while one was missed (reported by @Xenith-B, [#709](https://github.com/Servosity/msp-skills/issues/709)).
+
 ## [0.1.15] - 2026-11-12
 
 ### Fixed
