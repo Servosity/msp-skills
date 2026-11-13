@@ -64,5 +64,6 @@ user-visible behavior, then exactly four H2 sections in this order:
 - [Local data](./local-data.md): store path in `doctor`, `local-data purge`, `<PREFIX>_NO_LOCAL_DATA=1`.
 
 Features 3 to 6 are expected to FAIL on connectors printed before press
-4.34.0 and to PASS after a reprint on it; `verify.py report` shows the flip
-per slug with the press version beside it.
+4.34.0 and to PASS after a reprint on it (write gating SKIPs on a connector
+without `<slug>_execute`); `verify.py report` shows the flip per slug with
+the press version beside it.

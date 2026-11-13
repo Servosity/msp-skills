@@ -135,15 +135,5 @@
    "local-data"
   ]
  },
- "known_errors": {
-  "auvik": [
-   "write-gating"
-  ],
-  "n-central": [
-   "mcp-stdio"
-  ],
-  "zammad": [
-   "write-gating"
-  ]
- }
+ "known_errors": {}
 }

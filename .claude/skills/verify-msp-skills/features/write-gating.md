@@ -21,13 +21,21 @@ it sends the request.
 
 Preconditions:
 
-- `tools/list` includes `<slug>_execute` and `<slug>_search` (no `_execute` is SKIP).
+- `tools/list` includes `<slug>_execute` and the `<slug>_search` with the
+  same prefix (no `_execute` is SKIP; `_execute` without its `_search` is ERROR).
+- The press generates `<slug>_execute` only in code orchestration mode and
+  only when the API has a write endpoint: `skills/<slug>/press/tools-manifest.json`
+  has `mcp.orchestration == "code"` and a POST, PUT, PATCH or DELETE tool.
+  Elsewhere SKIP is the expected verdict at any press version, and
+  `tools/maintainer/verify_watch.py` reads the same manifest to tell the two apart.
 
 - **Find a write endpoint.** Run `verify.py run --slug <slug> --features 4`.
   The harness searches `create`, `add`, `update`, `delete`, `remove`, `set`,
-  `edit`, `assign`, `reset`, `new` in turn and takes the first POST, PUT,
-  PATCH or DELETE result, preferring a path with no placeholders.
-  `f4-write-gating/chosen-endpoint.json` records it.
+  `edit`, `assign`, `reset`, `new` in turn, then the name of each write tool
+  in `press/tools-manifest.json` (for an API whose only write matches none of
+  those verbs, such as auvik's POST `alert_dismiss-single`), and takes the
+  first POST, PUT, PATCH or DELETE result, preferring a path with no
+  placeholders. `f4-write-gating/chosen-endpoint.json` records it.
 - **Call without confirm.** `<slug>_execute` with the `endpoint_id` and
   placeholder params. `call-without-confirm.json` pairs the answer with the
   vendor requests it caused. Any request with the endpoint's method is FAIL
@@ -43,5 +51,10 @@ Preconditions:
   validation error) is ERROR: the gate was not exercised.
 - Mutating GETs (an `Exec...` endpoint called with GET) are not chosen here;
   the search filters on the HTTP method.
+- A connector can list other `*_search` tools (zammad's `kb_search` searches
+  knowledge-base answers, not endpoints); only the one paired with
+  `<slug>_execute` is driven.
+- Typed upload tools (press 4.34.1 on) also preview a multipart upload and
+  send it only on `confirm`; this feature drives `<slug>_execute` only.
 - The static rule `mcp-execute-no-confirm` reads the source; this feature
   observes what reaches the vendor.

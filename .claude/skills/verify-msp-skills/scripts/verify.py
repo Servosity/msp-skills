@@ -282,6 +282,25 @@ def vcenter_session_login(command: str, target: str) -> bool:
     return command == "POST" and target.partition("?")[0] == "/api/session"
 
 
+NCENTRAL_AUTH_PATHS = ("/auth/authenticate", "/auth/refresh")
+
+
+def ncentral_auth(command: str, target: str) -> bool:
+    """N-central's two-step auth: POST <base>/auth/authenticate exchanges the
+    User-API JWT, and POST <base>/auth/refresh renews, for an access token in
+    N-central's own envelope; its client reads no other shape, so a generic {}
+    is no token. Only an origin-form target counts, so a proxy-style target
+    naming another host stays the egress refusal above."""
+    path = target.partition("?")[0]
+    return command == "POST" and path.startswith("/") and path.endswith(NCENTRAL_AUTH_PATHS)
+
+
+def ncentral_tokens() -> dict:
+    """The body of N-central's POST /api/auth/authenticate, with inert tokens."""
+    return {"tokens": {"access": {"token": "verify-fake-ncentral-access", "type": "Bearer", "expirySeconds": 3600},
+                       "refresh": {"token": "verify-fake-ncentral-refresh", "type": "Body", "expirySeconds": 90000}}}
+
+
 class FakeVendor:
     def __init__(self, log: Path, egress_log: Path, tls: tuple[str, str] | None = None):
         self.lock = threading.Lock()
@@ -331,6 +350,8 @@ class FakeVendor:
                     return self._reply(200, dsm_answer(dsm))
                 if vcenter_session_login(self.command, self.path):
                     return self._reply(201, "verify-fake-vcenter-session")
+                if ncentral_auth(self.command, self.path):
+                    return self._reply(200, ncentral_tokens())
                 if self.command == "GET":
                     return self._reply(200, [])
                 return self._reply(200, {})
@@ -1556,8 +1577,119 @@ def self_test() -> int:
     bad += kit_tls_self_test()
     bad += endpoint_params_self_test()
     bad += winrm_self_test()
+    bad += ncentral_self_test()
+    bad += write_choice_self_test()
     print("PASS: verify.py self-test" if not bad else f"FAIL: verify.py self-test ({bad} case(s))")
     return 0 if not bad else 1
+
+
+def ncentral_self_test() -> int:
+    """The fake vendor answers N-central's JWT exchange and refresh (POST
+    <base>/auth/authenticate, POST <base>/auth/refresh) with N-central's token
+    envelope, and every other request exactly as before."""
+    tokens = ncentral_tokens()
+    cases = [  # (method, request target, expected status, expected reply)
+        ("POST", "/auth/authenticate", 200, tokens),
+        ("POST", "/api/auth/authenticate", 200, tokens),
+        ("POST", "/api/auth/refresh", 200, tokens),
+        ("POST", "/api/auth/authenticate?x=1", 200, tokens),
+        ("GET", "/api/auth/authenticate", 200, []),
+        ("POST", "/api/auth/authenticated", 200, {}),
+        ("POST", "/api/auth/validate", 200, {}),
+        ("POST", "/api/devices", 200, {}),
+        ("GET", "/api/devices", 200, []),
+    ]
+    bad = 0
+    with tempfile.TemporaryDirectory(prefix="verify-ncentral-") as td:
+        d = Path(td)
+        vendor = FakeVendor(d / "vendor-requests.jsonl", d / "egress-attempts.jsonl")
+        try:
+            for method, target, want_status, want in cases:
+                conn = http.client.HTTPConnection("127.0.0.1", vendor.srv.server_address[1], timeout=10)
+                try:
+                    conn.request(method, target, body=b"" if method == "POST" else None)
+                    resp = conn.getresponse()
+                    status, got = resp.status, json.loads(resp.read() or b"null")
+                except (OSError, http.client.HTTPException, ValueError) as e:
+                    status, got = 0, f"no reply: {type(e).__name__}"
+                finally:
+                    conn.close()
+                ok = status == want_status and got == want
+                bad += not ok
+                kind = "N-central token envelope" if isinstance(got, dict) and "tokens" in got else repr(got)
+                print(f"  [{'PASS' if ok else 'FAIL'}] fake vendor {method} {target}: {status} {kind}")
+        finally:
+            vendor.stop()
+    access = (tokens.get("tokens") or {}).get("access") or {}
+    ok = bool(access.get("token")) and access.get("expirySeconds", 0) > 0
+    bad += not ok
+    print(f"  [{'PASS' if ok else 'FAIL'}] the N-central envelope carries an access token and its expiry")
+    return bad
+
+
+class _FakeSearchClient:
+    """Stands in for a code-orchestration MCP server's <slug>_search: keyword
+    match over a fixed catalog, as the generated handler does."""
+
+    def __init__(self, catalog: list[dict]):
+        self.catalog, self.queries = catalog, []
+
+    def call(self, tool: str, args: dict, timeout: int = 60) -> dict:
+        q = str(args.get("query") or "").lower()
+        self.queries.append(q)
+        words = [w for w in re.split(r"[\s_\-/{}.]+", q) if len(w) >= 3]
+        hits = [e for e in self.catalog
+                if any(w in re.split(r"[\s_\-/{}.]+", (e["endpoint_id"] + " " + e["path"] + " "
+                                                         + e.get("summary", "")).lower()) for w in words)]
+        return {"jsonrpc": "2.0", "id": 1,
+                "result": {"content": [{"type": "text", "text": json.dumps({"results": hits})}]}}
+
+
+def write_choice_self_test() -> int:
+    """Feature 4 drives the search tool that belongs to <slug>_execute (zammad
+    also lists kb_search), and finds a write endpoint whose name matches none of
+    the generic write verbs (auvik's only write is POST alert.dismiss-single)
+    through the connector's own tools manifest."""
+    bad = 0
+    for names, execute, want in (
+        (["kb_search", "zammad_search", "zammad_execute"], "zammad_execute", "zammad_search"),
+        (["zammad_execute", "zammad_search", "kb_search"], "zammad_execute", "zammad_search"),
+        (["kb_search", "zammad_execute"], "zammad_execute", None),
+        (["auvik_search", "auvik_execute"], "auvik_execute", "auvik_search"),
+    ):
+        got = pick_search(names, execute)
+        ok = got == want
+        bad += not ok
+        print(f"  [{'PASS' if ok else 'FAIL'}] search tool for {execute} among {names}: {got} (want {want})")
+    catalog = [
+        {"endpoint_id": "alert.list", "method": "GET", "path": "/v1/alert/history/info", "summary": "List alerts"},
+        {"endpoint_id": "alert.dismiss-single", "method": "POST", "path": "/v1/alert/dismiss/{id}",
+         "summary": "Use the Dismiss Alert API to dismiss a specific alert"},
+    ]
+    with tempfile.TemporaryDirectory(prefix="verify-write-choice-") as td:
+        skill = Path(td) / "auvik"
+        (skill / "press").mkdir(parents=True)
+        (skill / "press" / "tools-manifest.json").write_text(json.dumps({"mcp": {"orchestration": "code"}, "tools": [
+            {"name": "alert_list", "method": "GET", "path": "/v1/alert/history/info"},
+            {"name": "alert_dismiss-single", "method": "POST", "path": "/v1/alert/dismiss/{id}"}]}),
+            encoding="utf-8")
+        queries = write_queries(skill)
+        cli = _FakeSearchClient(catalog)
+        item = find_write_endpoint(cli, "auvik_search", queries)
+        ok = (item or {}).get("endpoint_id") == "alert.dismiss-single"
+        bad += not ok
+        print(f"  [{'PASS' if ok else 'FAIL'}] a write named by no generic verb is found through the tools "
+              f"manifest: {(item or {}).get('endpoint_id')} after {len(cli.queries)} search(es)")
+        ok = find_write_endpoint(_FakeSearchClient(catalog[:1]), "auvik_search", queries) is None
+        bad += not ok
+        print(f"  [{'PASS' if ok else 'FAIL'}] a catalog with no write endpoint still yields none")
+        ok = write_queries(Path(td) / "no-such-skill") == list(WRITE_QUERIES)
+        bad += not ok
+        print(f"  [{'PASS' if ok else 'FAIL'}] no tools manifest -> the generic write verbs only")
+        ok = queries[:len(WRITE_QUERIES)] == list(WRITE_QUERIES) and "alert list" not in queries
+        bad += not ok
+        print(f"  [{'PASS' if ok else 'FAIL'}] generic verbs first; a GET tool's name is never a write query")
+    return bad
 
 
 def endpoint_params_self_test() -> int:
@@ -1908,6 +2040,52 @@ def endpoint_requests(reqs: list[dict], method: str, path: str) -> list[dict]:
     return out
 
 
+def pick_search(names: list[str], execute: str) -> str | None:
+    """The search tool that belongs to `execute`: the same prefix
+    (zammad_execute -> zammad_search). A connector can list other *_search
+    tools (zammad's kb_search searches knowledge-base answers, not endpoints)."""
+    want = execute[:-len("_execute")] + "_search"
+    return want if want in names else None
+
+
+MAX_MANIFEST_QUERIES = 200
+
+
+def write_queries(skill: Path) -> list[str]:
+    """The generic write verbs, then the name of every state-changing tool in
+    the connector's press/tools-manifest.json (an API whose only write is, say,
+    POST alert_dismiss-single matches none of the verbs). Search still finds
+    the endpoint, as an agent would; the manifest only supplies the words."""
+    out = list(WRITE_QUERIES)
+    try:
+        tm = json.loads((skill / "press" / "tools-manifest.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return out
+    tools = tm.get("tools") if isinstance(tm, dict) else None
+    for t in tools if isinstance(tools, list) else []:
+        if not isinstance(t, dict) or str(t.get("method", "")).upper() not in WRITE_METHODS:
+            continue
+        q = re.sub(r"[_\-./{}]+", " ", str(t.get("name") or "")).strip()
+        if q and q not in out:
+            out.append(q)
+        if len(out) >= len(WRITE_QUERIES) + MAX_MANIFEST_QUERIES:
+            break
+    return out
+
+
+def find_write_endpoint(cli, search: str, queries: list[str]) -> dict | None:
+    """The first POST, PUT, PATCH or DELETE result for the first query that
+    has one, preferring a path with no placeholders."""
+    for q in queries:
+        writes = [i for i in search_endpoints(cli, search, q)
+                  if str(i.get("method", "")).upper() in WRITE_METHODS]
+        if writes:
+            writes.sort(key=lambda i: ("{" in (i.get("path") or ""),
+                                       WRITE_METHODS.index(str(i["method"]).upper())))
+            return writes[0]
+    return None
+
+
 def looks_like_preview(text: str) -> bool:
     data = parse_json_lenient(text)
     if isinstance(data, dict) and (data.get("confirmation_required") is True or data.get("preview") is True):
@@ -1922,20 +2100,13 @@ def f4_write_gating(ctx: Ctx) -> dict:
             cli.initialize()
             names = [t.get("name", "") for t in cli.list_tools()]
             execute = next((n for n in names if n.endswith("_execute")), None)
-            search = next((n for n in names if n.endswith("_search")), None)
             if not execute:
                 return verdict(SKIP, "tools/list has no *_execute tool")
+            search = pick_search(names, execute)
             if not search:
-                return verdict(ERROR, f"{execute} is listed but there is no *_search tool to find a write endpoint")
-            item = None
-            for q in WRITE_QUERIES:
-                writes = [i for i in search_endpoints(cli, search, q)
-                          if str(i.get("method", "")).upper() in WRITE_METHODS]
-                if writes:
-                    writes.sort(key=lambda i: ("{" in (i.get("path") or ""),
-                                               WRITE_METHODS.index(str(i["method"]).upper())))
-                    item = writes[0]
-                    break
+                return verdict(ERROR, f"{execute} is listed but there is no "
+                                      f"{execute[:-len('_execute')]}_search tool to find a write endpoint")
+            item = find_write_endpoint(cli, search, write_queries(ctx.skill))
             write_json(d / "chosen-endpoint.json", item)
             if not item:
                 return verdict(ERROR, f"{search} found no POST/PUT/PATCH/DELETE endpoint to drive")
