@@ -158,7 +158,10 @@ jobs:
         #                       changed, and the FULL matrix for an every-
         #                       connector entry or a missing or invalid
         #                       revision. Every case is asserted in both
-        #                       directions, offline.
+        #                       directions, offline. --handfix-fleet runs the
+        #                       whole-fleet ledger job for a change to the
+        #                       fleet-wide hand-fix files and skips it for a
+        #                       connector edit, a bot commit or the docs.
         #   verify_scope.py, check_no_pp_leak.py, check_unix_test_asserts.py
         #                     - the scope, attribution and pre-PR checks behind
         #                       tools/maintainer/verify_all.sh. They run locally
@@ -587,6 +590,7 @@ jobs:
     outputs:
       matrix: ${{ steps.gen.outputs.matrix }}
       any: ${{ steps.gen.outputs.any }}
+      handfix_fleet: ${{ steps.gen.outputs.handfix_fleet }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -624,18 +628,48 @@ jobs:
           if [ -n "$base" ] && [ "$EVENT_NAME" = "pull_request" ]; then
             echo "diff base (merge-base): $base"
             matrix="$(python3 tools/maintainer/release_matrix.py --skills-only --changed-only "$base")"
+            handfix="$(python3 tools/maintainer/release_matrix.py --handfix-fleet --changed-only "$base")"
           elif [ -n "$base" ]; then
             # Two-point diff, deliberately not a merge-base: a force-push that
             # rewinds main to an ancestor has merge-base == HEAD and would
             # diff nothing; the files it removed still need their rows built.
             echo "diff base (two-point, github.event.before): $base"
             matrix="$(python3 tools/maintainer/release_matrix.py --skills-only --changed-since "$base")"
+            handfix="$(python3 tools/maintainer/release_matrix.py --handfix-fleet --changed-since "$base")"
           else
             matrix="$(python3 tools/maintainer/release_matrix.py --skills-only)"
+            handfix=true
           fi
+          # Anything but an exact "false" runs the whole-fleet ledger check
+          # (fail open, like the matrix).
+          [ "$handfix" = false ] || handfix=true
+          echo "handfix_fleet=$handfix" >> "$GITHUB_OUTPUT"
+          echo "whole-fleet hand-fix ledger check: $handfix"
           echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
           echo "any=$(printf '%s' "$matrix" | python3 -c 'import json,sys; print(str(len(json.load(sys.stdin)["skill"])>0).lower())')" >> "$GITHUB_OUTPUT"
           printf '%s' "$matrix" | python3 -c 'import json,sys; m=json.load(sys.stdin); print("matrix skills:", [s["name"] for s in m["skill"]] or "(none - build job will skip)")'
+
+  # Every connector's hand-fix ledger, with no build, when the change-set
+  # touches fleet-wide hand-fix machinery (release_matrix.py HANDFIX_FLEET:
+  # fleet_handfixes.json, replay_handfixes.py, handfix_replay/, and
+  # check_handfixes.py). Those files decide what EVERY connector's ledger must
+  # carry, but the scoped matrix only builds the connectors a change touched,
+  # so a connector the change did not list was never re-checked: #706 added
+  # three fleet-wide `adopt` hand-fixes, replayed them into the connectors it
+  # listed, and hook-security (merged just before) sat on main failing its
+  # ledger until #712's full matrix ran. The per-skill "Hand-fix ledger intact"
+  # step in each build row stays; this is the same check over the whole fleet,
+  # about a minute, skipped on any change-set that does not touch those files.
+  handfix-fleet:
+    needs: prepare
+    if: needs.prepare.outputs.handfix_fleet == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Hand-fix ledger intact (every connector)
+        run: python3 tools/maintainer/check_handfixes.py
 
   build:
     needs: prepare

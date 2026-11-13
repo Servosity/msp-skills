@@ -28,6 +28,15 @@ Usage:
                                                  # changed or git fails (fail
                                                  # open, never silently skip a
                                                  # needed build).
+    python3 tools/release_matrix.py --handfix-fleet --changed-only <base-ref>
+    python3 tools/release_matrix.py --handfix-fleet --changed-since <sha>
+                                                 # prints true/false: does the
+                                                 # change-set touch fleet-wide
+                                                 # hand-fix machinery, so ci.yml
+                                                 # must check EVERY connector's
+                                                 # ledger (HANDFIX_FLEET)? No
+                                                 # base, or a failed diff, is
+                                                 # true (fail open).
     python3 tools/release_matrix.py --self-test  # prove the change-set classifier
                                                  # BOTH directions, offline
 
@@ -229,8 +238,39 @@ _MCPB_PIN_RE = re.compile(
 )
 
 
+# Fleet-wide hand-fix machinery (--handfix-fleet). check_handfixes.py judges
+# EVERY connector against tools/maintainer/fleet_handfixes.json: an `adopt` id
+# fails any connector whose code carries the defect shape, ledger entry or not,
+# and a `retire` id changes what is demanded. replay_handfixes.py and its
+# handfix_replay/ templates write the entries and code that check then demands.
+# So an edit to any of these can fail a connector whose own files did not
+# change, and the scoped matrix never builds that connector's row. That is how
+# hook-security sat on main failing its ledger (2026-11-13): #706 added three
+# adopt ids and replayed them into the connectors it listed; hook-security,
+# merged just before, was not listed, and nothing re-checked it until #712's
+# full matrix did. These are deliberately NOT MACHINERY: the full matrix is one
+# build row per connector, while the ledger check alone covers the whole fleet
+# in about a minute with no build. ci.yml's handfix-fleet job runs it whenever
+# this says so. check_handfixes.py is listed although it is also MACHINERY: the
+# whole-fleet run is cheap and does not depend on every row building.
+HANDFIX_FLEET = (
+    "tools/maintainer/fleet_handfixes.json",
+    "tools/maintainer/replay_handfixes.py",
+    "tools/maintainer/handfix_replay/",
+    "tools/maintainer/check_handfixes.py",
+)
+
+
 def is_machinery(path: str) -> bool:
     return any(path == m or path.startswith(m) for m in MACHINERY)
+
+
+def handfix_fleet_needed(files: list[str]) -> bool:
+    """True when the change-set touches fleet-wide hand-fix machinery, so every
+    connector's ledger must be re-checked (see HANDFIX_FLEET). An entry ending
+    in "/" is a folder (any file under it); any other entry is one exact file."""
+    return any(f == m or (m.endswith("/") and f.startswith(m))
+               for f in files for m in HANDFIX_FLEET)
 
 
 def is_derived_path(path: str) -> bool:
@@ -622,6 +662,36 @@ def _self_test() -> int:
     expect(why == ["machinery changed (tools/maintainer/check_mcp_gate.py)"],
            "a FULL-matrix decision records its reason")
 
+    print("handfix_fleet_needed (the build-free whole-fleet ledger check):")
+    for files, want, label in (
+        (["tools/maintainer/fleet_handfixes.json"], True, "fleet_handfixes.json changed"),
+        (["tools/maintainer/replay_handfixes.py"], True, "replay_handfixes.py changed"),
+        (["tools/maintainer/handfix_replay/sync_outcome.go.tmpl"], True,
+         "a handfix_replay/ template changed"),
+        (["tools/maintainer/handfix_replay/new_fix.go.tmpl"], True, "a NEW handfix_replay/ template"),
+        (["tools/maintainer/check_handfixes.py"], True, "the ledger checker itself changed"),
+        # #706's shape: the registry and the replay tool beside many connector
+        # edits; the connectors it did not list are the ones only this catches.
+        (["tools/maintainer/fleet_handfixes.json", "tools/maintainer/replay_handfixes.py",
+          "skills/zammad/handfixes.json", "skills/zammad/cli/internal/cli/sync.go"], True,
+         "#706 shape (registry + replay + connector edits)"),
+        ([], False, "empty change-set"),
+        (["skills/hook-security/handfixes.json"], False,
+         "one connector's own ledger (its build row checks it)"),
+        (["skills/zammad/cli/internal/x.go"], False, "a connector Go change"),
+        (["docs/_data/pending.json", "skills/zammad/README.md"], False, "a bot regen commit"),
+        (["docs/reprint-survival.md", "tools/maintainer/README.md"], False, "repo docs"),
+        (["tools/maintainer/release_matrix.py", ".github/workflows/ci.yml"], False,
+         "matrix machinery (the FULL matrix covers it, row by row)"),
+        (["tools/maintainer/handfix_replay"], False, "a FILE named like the folder is not in it"),
+        (["tools/maintainer/check_handfixes.py.orig"], False, "a stray sibling of the checker"),
+    ):
+        got = handfix_fleet_needed(files)
+        expect(got is want, f"{label} -> {'run' if want else 'skip'} (got {'run' if got else 'skip'})")
+    for p in HANDFIX_FLEET:
+        expect((registry.ROOT / p.rstrip("/")).exists(),
+               f"{p} exists (a rename would silently stop triggering the fleet check)")
+
     print("ledger_delta (effective Windows exclusions, old vs new):")
 
     def led(*entries: dict) -> str:
@@ -714,6 +784,23 @@ def main(argv: list[str]) -> int:
     if "--changed-since" in argv:
         base_ref = argv[argv.index("--changed-since") + 1]
         direct = True
+
+    if "--handfix-fleet" in argv:
+        # Prints true/false: must ci.yml's handfix-fleet job re-check every
+        # connector's ledger? No base (schedule, dispatch) or a diff git could
+        # not compute means true: fail open, like the matrix.
+        if not base_ref:
+            print("release_matrix: no diff base; whole-fleet hand-fix check runs", file=sys.stderr)
+            print("true")
+            return 0
+        cs = change_set(base_ref, direct=direct)
+        if cs is None:
+            print("true")
+            return 0
+        hits = [f for f in cs[1] if handfix_fleet_needed([f])]
+        print(f"release_matrix: fleet-wide hand-fix machinery changed: {hits or 'none'}", file=sys.stderr)
+        print("true" if hits else "false")
+        return 0
 
     entries = skill_entries(with_assets=not skills_only)
 
