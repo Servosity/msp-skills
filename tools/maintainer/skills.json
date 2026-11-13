@@ -1603,6 +1603,7 @@
       "vendor_trademark_owner": "Cloud 84 Holdings LLC",
       "first_party": false,
       "markdown_only": true,
+      "connector_skill": true,
       "category": "RMM",
       "display_name": "Nizlo",
       "tagline": "Inspect Nizlo fleet health, endpoint inventory, customers, sites, and active alerts through a deliberately read-only helper.",

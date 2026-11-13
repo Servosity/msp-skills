@@ -9,7 +9,7 @@ Free, open source, runs on your laptop. A local SQLite mirror lets your agent an
 > **New to the term?** What this repo calls an **MCP server** is what ChatGPT calls an *app* or *connector*, Claude on the web calls a *connector*, Microsoft Copilot calls a *connector*, and Claude Code calls a *Skill*. Same standard underneath: the [Model Context Protocol](https://modelcontextprotocol.io). Full plain-language answer: **[What is an MCP server?](https://msp-skills.compoundingteams.com/what-is-an-mcp-server/)**.
 
 [![License: Apache 2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](./LICENSE)
-[![Skills](https://img.shields.io/badge/skills-108-green.svg)](./catalog.json)
+[![Skills](https://img.shields.io/badge/skills-109-green.svg)](./catalog.json)
 [![MCP](https://img.shields.io/badge/MCP-compatible-1f6feb.svg)](https://modelcontextprotocol.io)
 [![Agent Skills](https://img.shields.io/badge/Agent_Skills-spec-2E7D32.svg)](https://agentskills.io)
 ![Status](https://img.shields.io/badge/status-beta-yellow.svg)
@@ -122,7 +122,7 @@ returns your live data.
 | [nerdio](./skills/nerdio) | Nerdio Manager for MSP: Azure Virtual Desktop fleets, host pools, autoscale, desktop images, Intune devices, and cross-account billing | ![Live-verified](https://img.shields.io/badge/Live--verified-by_a_real_MSP-2E7D32) | [Install](./skills/nerdio/README.md) |
 | [netsapiens](./skills/netsapiens) | White-label VoIP platform (Crexendo, OITVOIP and others): domains, users, devices, phone numbers and call records across every client domain | ![Awaiting live verification](https://img.shields.io/badge/Awaiting-live_verification-EAB308) | [Install](./skills/netsapiens/README.md) |
 | [ninjaone](./skills/ninjaone) | NinjaOne RMM: devices, patch compliance, backup gaps, AV blast-radius, health, drift | ![Live-verified](https://img.shields.io/badge/Live--verified-by_a_real_MSP-2E7D32) | [Install](./skills/ninjaone/README.md) |
-| [nizlo](./skills/nizlo) | Windows-first RMM for MSP and internal IT endpoint operations | ![Meta](https://img.shields.io/badge/Meta-skill-6B7280) | [Marketplace](./skills/nizlo/README.md) |
+| [nizlo](./skills/nizlo) | Windows-first RMM for MSP and internal IT endpoint operations | ![Awaiting live verification](https://img.shields.io/badge/Awaiting-live_verification-EAB308) | [Marketplace](./skills/nizlo/README.md) |
 | [pagerduty](./skills/pagerduty) | PagerDuty incident response and on-call management platform | ![Awaiting live verification](https://img.shields.io/badge/Awaiting-live_verification-EAB308) | [Install](./skills/pagerduty/README.md) |
 | [pandadoc](./skills/pandadoc) | PandaDoc proposal, quote, and e-signature document automation | ![Awaiting live verification](https://img.shields.io/badge/Awaiting-live_verification-EAB308) | [Install](./skills/pandadoc/README.md) |
 | [pax8](./skills/pax8) | Pax8 cloud marketplace billing, subscriptions, reconciliation, MRR, and usage overages | ![Awaiting live verification](https://img.shields.io/badge/Awaiting-live_verification-EAB308) | [Install](./skills/pax8/README.md) |

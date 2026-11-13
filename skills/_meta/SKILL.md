@@ -33,7 +33,7 @@ curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/catalog.j
 
 If that fetch fails (offline, network error, non-200), fall back to the local repo copy at `catalog.json` in the repository root if one is present. If neither the live fetch nor a local copy is available, say so plainly and STOP - do not guess at a connector list from memory.
 
-The catalog's `skills[]` array gives you, per connector: `name`, `system`, `status`, `vendor`, `category`, `tagline` (when present), `description`, the install one-liner (`install_skill_one_liner`), and the per-agent wire-up doc path (`install_mcp_doc`). A connector may carry `markdown_only: true` (a meta-skill like this one) - never recommend a markdown-only entry as a connector.
+The catalog's `skills[]` array gives you, per connector: `name`, `system`, `status`, `vendor`, `category`, `tagline` (when present), `description`, the install one-liner (`install_skill_one_liner`), and the per-agent wire-up doc path (`install_mcp_doc`). A binary-less API connector carries both `markdown_only: true` and `connector_skill: true`; it is a real recommendation but has no CLI or MCP installer. A metadata-only entry such as this concierge carries `markdown_only: true` without `connector_skill`; never recommend that shape as a vendor connector.
 
 ### 2. Learn the user's stack
 
@@ -77,6 +77,8 @@ Wait for the user to approve specific connectors. Install ONLY those. For each a
 
 After each install, print the per-agent wire-up pointer so the user can connect the connector to their agent: the connector's `mcp-install.md` at `https://github.com/Servosity/msp-skills/blob/main/skills/<slug>/mcp-install.md`.
 
+For an approved entry with both `markdown_only: true` and `connector_skill: true`, do not invent a CLI, MCP server, installer, `doctor`, or version command. Install the Skill through the repository marketplace when the runtime supports it, or follow that skill's own README for the runtime in use, then run only the bundled self-check documented by that skill.
+
 ### 5. Receipts, not claims
 
 After each install, prove the binary is present by running its version command and REPORTING the output verbatim:
@@ -98,4 +100,4 @@ Never claim a connector is "working" or "shipped" on the strength of an install 
 - Never install a connector the user did not explicitly approve.
 - Never write, store, echo, or transmit credentials anywhere - the user enters their own credentials following each connector's README.
 - If the catalog fetch fails and there is no local copy, say so and stop. Do not improvise a connector list.
-- Never recommend or install a `markdown_only` entry as a connector.
+- Never recommend or install a `markdown_only` entry as a connector unless it also carries `connector_skill: true`.
