@@ -350,11 +350,11 @@
     "released_hash": "sha256:46fb8e69d364beef7cbb73ccf69ab053805b89f440750bc42b815430a2fb6ea8"
   },
   "huntress": {
-    "state": "binary-pending",
-    "version": "0.1.15",
-    "latest_tag": "huntress-v0.1.15",
+    "state": "up-to-date",
+    "version": "0.1.16",
+    "latest_tag": "huntress-v0.1.16",
     "current_hash": "sha256:2b93ff33b91cf0ffacde7923fb774285a309e0ebc941eb2f4e75deb522c87047",
-    "released_hash": "sha256:170b63d1be0fcf028e5f5a1fb975147664d295fac67dc4658601c06226a302ce"
+    "released_hash": "sha256:2b93ff33b91cf0ffacde7923fb774285a309e0ebc941eb2f4e75deb522c87047"
   },
   "immybot": {
     "state": "up-to-date",
