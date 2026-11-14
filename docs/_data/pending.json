@@ -721,9 +721,9 @@
     "released_hash": "sha256:a927debcc43dea37c1b8dfe64614414304552eabbcc1fa37beef0b621128b79f"
   },
   "vsphere": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.5",
-    "latest_tag": "vsphere-v0.1.4",
+    "latest_tag": "vsphere-v0.1.5",
     "current_hash": "sha256:5ea0aaa8d6f08fa9816746fe11f4a1de78def03745803354d24420f14895e044",
     "released_hash": "sha256:5ea0aaa8d6f08fa9816746fe11f4a1de78def03745803354d24420f14895e044"
   },
