@@ -560,11 +560,11 @@
     "released_hash": "sha256:73a20ba10b273b45c23225f2c56c80bd0d62fc0ed3032c4af0f9d819b404b836"
   },
   "rewst": {
-    "state": "binary-pending",
-    "version": "0.1.12",
-    "latest_tag": "rewst-v0.1.12",
+    "state": "up-to-date",
+    "version": "0.1.13",
+    "latest_tag": "rewst-v0.1.13",
     "current_hash": "sha256:e8d3f954104d773ba53309dd26a47d02acf104bd2a6d07cc85657a3ac1d8375f",
-    "released_hash": "sha256:717451f338289e4850530efb36a6061e8088782c43cc5e55661261dd77c8ed02"
+    "released_hash": "sha256:e8d3f954104d773ba53309dd26a47d02acf104bd2a6d07cc85657a3ac1d8375f"
   },
   "riverside-fm": {
     "state": "up-to-date",
@@ -581,32 +581,32 @@
     "released_hash": "sha256:647ad000a69058574c368bb95b42967b020dc7fb5b0f6709ea9b20b8bd79d2fc"
   },
   "rootly": {
-    "state": "binary-pending",
-    "version": "0.1.10",
-    "latest_tag": "rootly-v0.1.10",
+    "state": "up-to-date",
+    "version": "0.1.11",
+    "latest_tag": "rootly-v0.1.11",
     "current_hash": "sha256:e2d7746d20ccf9e35aad330e317dc247d0869fcaddb983db43c73e8b18522678",
-    "released_hash": "sha256:112f28d7b9478c0e8fc40eff534540acf61a1e06cdd5d4e2347e57b9762128e1"
+    "released_hash": "sha256:e2d7746d20ccf9e35aad330e317dc247d0869fcaddb983db43c73e8b18522678"
   },
   "runzero": {
-    "state": "binary-pending",
-    "version": "0.1.12",
-    "latest_tag": "runzero-v0.1.12",
+    "state": "up-to-date",
+    "version": "0.1.13",
+    "latest_tag": "runzero-v0.1.13",
     "current_hash": "sha256:b35036565e79a7e627b8488c8ddb4483dd9abd7ecd1e39244c0184809e9014a2",
-    "released_hash": "sha256:3f86cced54b55bbcb77753fd9ac409f069b2a0eb27cb0c4ceaf2675cff4c9f7a"
+    "released_hash": "sha256:b35036565e79a7e627b8488c8ddb4483dd9abd7ecd1e39244c0184809e9014a2"
   },
   "saas-alerts": {
-    "state": "binary-pending",
-    "version": "0.1.6",
-    "latest_tag": "saas-alerts-v0.1.6",
+    "state": "up-to-date",
+    "version": "0.1.7",
+    "latest_tag": "saas-alerts-v0.1.7",
     "current_hash": "sha256:e48c456bd41fd06127f57c09c6c19566f44b5c5d2cb0dd258cb5eefdadcac310",
-    "released_hash": "sha256:c22e84500b1faeb94c2ef8d222de298fcd134ff00f38f1563d395c3d484b762a"
+    "released_hash": "sha256:e48c456bd41fd06127f57c09c6c19566f44b5c5d2cb0dd258cb5eefdadcac310"
   },
   "salesbuildr": {
-    "state": "binary-pending",
-    "version": "0.1.12",
-    "latest_tag": "salesbuildr-v0.1.12",
+    "state": "up-to-date",
+    "version": "0.1.13",
+    "latest_tag": "salesbuildr-v0.1.13",
     "current_hash": "sha256:7439e5b2db90e2d9f862028b818bc788c63b12602d8119122def65ab3278033d",
-    "released_hash": "sha256:9976c2161bd4cbbaa467f1f7ca5579c17c167fcf39b7451ad22c9a5b2075e899"
+    "released_hash": "sha256:7439e5b2db90e2d9f862028b818bc788c63b12602d8119122def65ab3278033d"
   },
   "sentinelone": {
     "state": "up-to-date",
@@ -623,32 +623,32 @@
     "released_hash": "sha256:9ecac7d92580185aa1a8d8634aa8eb989f18111ee8590fbe23ad532034db5399"
   },
   "sherweb": {
-    "state": "binary-pending",
-    "version": "0.1.11",
-    "latest_tag": "sherweb-v0.1.11",
+    "state": "up-to-date",
+    "version": "0.1.12",
+    "latest_tag": "sherweb-v0.1.12",
     "current_hash": "sha256:248c9456d48ae5e4d763c4147fe676c52f1049d9b5a0a5a11d72b52752b16846",
-    "released_hash": "sha256:9c08960e991fbe32dac8e8ccbcf7f8845fa8b0baa45f702bade3904b068e631f"
+    "released_hash": "sha256:248c9456d48ae5e4d763c4147fe676c52f1049d9b5a0a5a11d72b52752b16846"
   },
   "skykick": {
-    "state": "binary-pending",
-    "version": "0.1.11",
-    "latest_tag": "skykick-v0.1.11",
+    "state": "up-to-date",
+    "version": "0.1.12",
+    "latest_tag": "skykick-v0.1.12",
     "current_hash": "sha256:5cbfaa179a03caeb60c7a7d0cade1a35515b42785ad2272bde3ff46bc0fd7b6f",
-    "released_hash": "sha256:b53eb18f7bfd4309c33a3fe8bc3205dd1befdfacc2cea7a05738314e964d1a69"
+    "released_hash": "sha256:5cbfaa179a03caeb60c7a7d0cade1a35515b42785ad2272bde3ff46bc0fd7b6f"
   },
   "sonicwall": {
-    "state": "binary-pending",
-    "version": "0.1.8",
-    "latest_tag": "sonicwall-v0.1.8",
+    "state": "up-to-date",
+    "version": "0.1.9",
+    "latest_tag": "sonicwall-v0.1.9",
     "current_hash": "sha256:e2f617d4dd814496f7a7ff856268d464dbc9cc237e3a01e48d861e3c6da1cbe1",
-    "released_hash": "sha256:bb8ae6de837667835ac1f8bdebfa8e31aaad098155ab2969972de56869967c21"
+    "released_hash": "sha256:e2f617d4dd814496f7a7ff856268d464dbc9cc237e3a01e48d861e3c6da1cbe1"
   },
   "sophos-central": {
-    "state": "binary-pending",
-    "version": "0.1.8",
+    "state": "version-pending",
+    "version": "0.1.9",
     "latest_tag": "sophos-central-v0.1.8",
     "current_hash": "sha256:51dd84f71139851a69f3f5b71e185be2247c89b4e90014f64259c6763baf6577",
-    "released_hash": "sha256:0a224a018e9e761ed9bbad4571b295764d94576800d06a877cb37c698a6c68aa"
+    "released_hash": "sha256:51dd84f71139851a69f3f5b71e185be2247c89b4e90014f64259c6763baf6577"
   },
   "superops": {
     "state": "up-to-date",
@@ -658,11 +658,11 @@
     "released_hash": "sha256:609a9d35004c6d8656c27bcef725e6680be7d8e5d22cb50683e60976325e0105"
   },
   "syncro": {
-    "state": "binary-pending",
-    "version": "0.1.10",
+    "state": "version-pending",
+    "version": "0.1.11",
     "latest_tag": "syncro-v0.1.10",
     "current_hash": "sha256:e013ccd601dfbfb183d724ec70490b86f4ebc086a0711caed6b28dbbefffdd10",
-    "released_hash": "sha256:7f76eeb4b75bab33d0921842c96902dc8d0e4a5902ef4e18455a467e10ebb048"
+    "released_hash": "sha256:e013ccd601dfbfb183d724ec70490b86f4ebc086a0711caed6b28dbbefffdd10"
   },
   "synology": {
     "state": "up-to-date",
