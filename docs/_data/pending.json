@@ -133,9 +133,9 @@
     "released_hash": "sha256:8b3b488ce6a4d89d29f65b62db450929ec03c292b4d1151e6e17fca057aaced1"
   },
   "cisco-meraki": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.9",
-    "latest_tag": "cisco-meraki-v0.1.8",
+    "latest_tag": "cisco-meraki-v0.1.9",
     "current_hash": "sha256:53d5fac144eda27e096509ec878d4d3149b364c7e37bbb589e36b98ee2c205b7",
     "released_hash": "sha256:53d5fac144eda27e096509ec878d4d3149b364c7e37bbb589e36b98ee2c205b7"
   },
