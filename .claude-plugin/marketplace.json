@@ -654,7 +654,7 @@
       "name": "n-central",
       "source": "./skills/n-central",
       "description": "Every N-central REST endpoint, plus an offline SQLite mirror of your whole org tree, cross-tenant search, issue-triage rollups, and a JWT-expiry guardian no other N-central tool has.",
-      "version": "0.1.11",
+      "version": "0.1.12",
       "category": "rmm",
       "tags": [
         "n-central",
@@ -701,7 +701,7 @@
       "name": "pagerduty",
       "source": "./skills/pagerduty",
       "description": "Every PagerDuty incident, on-call and service operation from the terminal, plus a local SQLite mirror that answers cross-entity questions \u2014 MTTA/MTTR, on-call coverage gaps, responder load \u2014 that neither the API nor the web UI can.",
-      "version": "0.1.12",
+      "version": "0.1.13",
       "category": "incident-response",
       "tags": [
         "pagerduty",
@@ -716,7 +716,7 @@
       "name": "pandadoc",
       "source": "./skills/pandadoc",
       "description": "Every PandaDoc endpoint, plus an offline document pipeline no other PandaDoc tool has \u2014 stalled deals, aging, recipient engagement, and open quote value from a local store.",
-      "version": "0.1.10",
+      "version": "0.1.11",
       "category": "documentation",
       "tags": [
         "pandadoc",
@@ -746,7 +746,7 @@
       "name": "pipedrive",
       "source": "./skills/pipedrive",
       "description": "Full Pipedrive CRUD plus a local SQLite pipeline copy: stale deals, forecasts, aging, dupes, rep leaderboards.",
-      "version": "0.1.10",
+      "version": "0.1.11",
       "category": "crm",
       "tags": [
         "pipedrive",
@@ -761,7 +761,7 @@
       "name": "proofpoint",
       "source": "./skills/proofpoint",
       "description": "Every TAP Threat Insight endpoint, plus a local threat store that answers the cross-endpoint questions \u2014 who is both attacked and clicking, what touched this user \u2014 inside Proofpoint's punishing daily quotas.",
-      "version": "0.1.10",
+      "version": "0.1.11",
       "category": "security",
       "tags": [
         "proofpoint",
@@ -792,7 +792,7 @@
       "name": "resourceguru",
       "source": "./skills/resourceguru",
       "description": "Every Resource Guru endpoint as a typed command, plus a local database and per-resource per-day utilization no Resource Guru report gives you.",
-      "version": "0.1.10",
+      "version": "0.1.11",
       "category": "msp",
       "tags": [
         "resourceguru",
@@ -1265,7 +1265,7 @@
       "name": "proxmox",
       "source": "./skills/proxmox",
       "description": "Read-only Proxmox VE + Backup Server CLI: per-guest backup verdicts across every cluster, no write calls to Proxmox.",
-      "version": "0.1.7",
+      "version": "0.1.8",
       "category": "backup-dr",
       "tags": [
         "proxmox",
@@ -1391,7 +1391,7 @@
       "name": "mimecast",
       "source": "./skills/mimecast",
       "description": "Find a held or blocked Mimecast message, explain why in one verdict, and release it behind a safety check, with hold-queue triage, mail-flow health and phish click tracing built in.",
-      "version": "0.1.4",
+      "version": "0.1.5",
       "category": "security",
       "tags": [
         "mimecast",
@@ -1406,7 +1406,7 @@
       "name": "netsapiens",
       "source": "./skills/netsapiens",
       "description": "Every NetSapiens v2 endpoint plus a reseller-wide fleet view: seat limits, offline phones, unrouted numbers and E911 gaps across every client at once.",
-      "version": "0.1.5",
+      "version": "0.1.6",
       "category": "telephony",
       "tags": [
         "netsapiens",
@@ -1516,7 +1516,7 @@
       "name": "prtg",
       "source": "./skills/prtg",
       "description": "Every PRTG API v2 endpoint, plus a fleet view across every client's PRTG core: alarms, status, handoffs, hygiene and safe bulk actions in one command.",
-      "version": "0.1.5",
+      "version": "0.1.6",
       "category": "network-monitoring",
       "tags": [
         "prtg",

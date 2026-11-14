@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "mimecast-mcp",
   "display_name": "Mimecast",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Find a held or blocked Mimecast message, explain why in one verdict, and release it behind a safety check, with hold-queue triage, mail-flow health and phish click tracing built in.",
   "author": {
     "name": "Servosity Inc."
