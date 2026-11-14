@@ -28,39 +28,39 @@
     "released_hash": "sha256:dd28f36938d5484c2ce927c847b3ae461e035abc27e208073609b9ed72688d1a"
   },
   "appdirect": {
-    "state": "binary-pending",
-    "version": "0.1.14",
-    "latest_tag": "appdirect-v0.1.14",
+    "state": "up-to-date",
+    "version": "0.1.15",
+    "latest_tag": "appdirect-v0.1.15",
     "current_hash": "sha256:834ff1545bf019900ba4b2015e763710ec8a2e53d40a6422f27664bfca6b169a",
-    "released_hash": "sha256:6fb738af9c279b304c05a41d942ac9dac5557d19b6fb695621c0860fb6197ca7"
+    "released_hash": "sha256:834ff1545bf019900ba4b2015e763710ec8a2e53d40a6422f27664bfca6b169a"
   },
   "apple-business": {
-    "state": "binary-pending",
-    "version": "0.1.5",
-    "latest_tag": "apple-business-v0.1.5",
+    "state": "up-to-date",
+    "version": "0.1.6",
+    "latest_tag": "apple-business-v0.1.6",
     "current_hash": "sha256:3ed6282e5ea2d0364fec7ea18762ff4b4995031935a2c95c4fa3b677689d7cbe",
-    "released_hash": "sha256:42ea202e91f09bd1d5c01d2771ea6cf2d78f6415b5071e2ae97cb0058f0e10e3"
+    "released_hash": "sha256:3ed6282e5ea2d0364fec7ea18762ff4b4995031935a2c95c4fa3b677689d7cbe"
   },
   "atera": {
-    "state": "binary-pending",
-    "version": "0.1.11",
-    "latest_tag": "atera-v0.1.11",
+    "state": "up-to-date",
+    "version": "0.1.12",
+    "latest_tag": "atera-v0.1.12",
     "current_hash": "sha256:807a42398e5032aada6b7a5730cc378a473286f4cc84009ebaccee771e5d75df",
-    "released_hash": "sha256:cd44cf09b0ae4ed70d07bcba80cb1ccdec0f7cd3b4a830b264c8907ec46acb99"
+    "released_hash": "sha256:807a42398e5032aada6b7a5730cc378a473286f4cc84009ebaccee771e5d75df"
   },
   "autotask": {
-    "state": "binary-pending",
-    "version": "0.1.14",
-    "latest_tag": "autotask-v0.1.14",
+    "state": "up-to-date",
+    "version": "0.1.15",
+    "latest_tag": "autotask-v0.1.15",
     "current_hash": "sha256:7ec7ced9f6622be5ef722e05def02b9eeac8bb60d614aab5f11b8a5117f2288b",
-    "released_hash": "sha256:db97214ab74fac57496fdb832b24486a8a32663c126db359b5c50f973f2f7d9b"
+    "released_hash": "sha256:7ec7ced9f6622be5ef722e05def02b9eeac8bb60d614aab5f11b8a5117f2288b"
   },
   "auvik": {
-    "state": "binary-pending",
-    "version": "0.2.13",
-    "latest_tag": "auvik-v0.2.13",
+    "state": "up-to-date",
+    "version": "0.2.14",
+    "latest_tag": "auvik-v0.2.14",
     "current_hash": "sha256:7cdc482e349aac7af67eba6ff4b55a48b37d1643750f62cadb5cd71eb45ea4fa",
-    "released_hash": "sha256:093653ed564a2f4fe877ee203228073e058fd21c63bf5fec3448664900b4cee3"
+    "released_hash": "sha256:7cdc482e349aac7af67eba6ff4b55a48b37d1643750f62cadb5cd71eb45ea4fa"
   },
   "avanan": {
     "state": "up-to-date",
@@ -98,18 +98,18 @@
     "released_hash": "sha256:53f82181248799056d81ede65890116b3fe2e10a0668f1b3dae1230ff1dfe213"
   },
   "bitdefender": {
-    "state": "binary-pending",
-    "version": "0.1.8",
-    "latest_tag": "bitdefender-v0.1.8",
+    "state": "up-to-date",
+    "version": "0.1.9",
+    "latest_tag": "bitdefender-v0.1.9",
     "current_hash": "sha256:e1ca6164fcfa97c179d6135199f651c299da5efd4f8630a27cc5341fc3cc38c5",
-    "released_hash": "sha256:b0569e3d0c17dbd71e8a1f4d8bd5e041223fd7d68722faa8147bf0248261cd10"
+    "released_hash": "sha256:e1ca6164fcfa97c179d6135199f651c299da5efd4f8630a27cc5341fc3cc38c5"
   },
   "blackpoint": {
-    "state": "binary-pending",
-    "version": "0.1.5",
-    "latest_tag": "blackpoint-v0.1.5",
+    "state": "up-to-date",
+    "version": "0.1.6",
+    "latest_tag": "blackpoint-v0.1.6",
     "current_hash": "sha256:4e87c5979ffb050096283080df9d029d421d00fdcee936770fa084fac80057ee",
-    "released_hash": "sha256:d6ff8433c978b4b7f216642029d3b28cd1b3bbee1a820b5d25e1af192fa265fe"
+    "released_hash": "sha256:4e87c5979ffb050096283080df9d029d421d00fdcee936770fa084fac80057ee"
   },
   "blumira": {
     "state": "up-to-date",
@@ -126,25 +126,25 @@
     "released_hash": "sha256:31adc72de031721344e1579826b90255153c3d07d5fd40bc93755ad6cf1a004b"
   },
   "cisco-duo": {
-    "state": "binary-pending",
-    "version": "0.1.7",
-    "latest_tag": "cisco-duo-v0.1.7",
+    "state": "up-to-date",
+    "version": "0.1.8",
+    "latest_tag": "cisco-duo-v0.1.8",
     "current_hash": "sha256:8b3b488ce6a4d89d29f65b62db450929ec03c292b4d1151e6e17fca057aaced1",
-    "released_hash": "sha256:41842fee83b8338ad2846824f969576e84b4212b3cd6bf35d1c52303636e59e0"
+    "released_hash": "sha256:8b3b488ce6a4d89d29f65b62db450929ec03c292b4d1151e6e17fca057aaced1"
   },
   "cisco-meraki": {
-    "state": "binary-pending",
-    "version": "0.1.8",
+    "state": "version-pending",
+    "version": "0.1.9",
     "latest_tag": "cisco-meraki-v0.1.8",
     "current_hash": "sha256:53d5fac144eda27e096509ec878d4d3149b364c7e37bbb589e36b98ee2c205b7",
-    "released_hash": "sha256:ab087599f17212a305c5d396a836addb6fd18980a1f90f140281f172ec8a654e"
+    "released_hash": "sha256:53d5fac144eda27e096509ec878d4d3149b364c7e37bbb589e36b98ee2c205b7"
   },
   "cisco-umbrella": {
-    "state": "binary-pending",
-    "version": "0.1.5",
+    "state": "version-pending",
+    "version": "0.1.6",
     "latest_tag": "cisco-umbrella-v0.1.5",
     "current_hash": "sha256:7b20913701d276f8eacd5cef7b087a7a73f06bc45b772595cba48d599d0a8cc4",
-    "released_hash": "sha256:63cd13051c238f29ff460ad45f39094d8fb1738aa6d551908045fdba39b9b675"
+    "released_hash": "sha256:7b20913701d276f8eacd5cef7b087a7a73f06bc45b772595cba48d599d0a8cc4"
   },
   "cloudally": {
     "state": "up-to-date",
