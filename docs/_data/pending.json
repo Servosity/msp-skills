@@ -525,9 +525,9 @@
     "released_hash": "sha256:8c657ba22422769d0fcf00684834c8a686455f9404f9377b1d01fcad00859ffe"
   },
   "proxmox": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.8",
-    "latest_tag": "proxmox-v0.1.7",
+    "latest_tag": "proxmox-v0.1.8",
     "current_hash": "sha256:be5146ee4d74fa059fbcb970b1de7bf27c3de00aa7353d8188de75c8fc66c161",
     "released_hash": "sha256:be5146ee4d74fa059fbcb970b1de7bf27c3de00aa7353d8188de75c8fc66c161"
   },

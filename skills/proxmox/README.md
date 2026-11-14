@@ -63,7 +63,7 @@ Big install base, but an honest heads-up: Gemini CLI runs the local binary you j
 
 ### Fastest for Claude Desktop - one-click `.mcpb`
 
-[**Download Proxmox MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/proxmox-v0.1.7/proxmox-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every Proxmox release on the [releases page](https://github.com/servosity/msp-skills/releases?q=proxmox).)
+[**Download Proxmox MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/proxmox-v0.1.8/proxmox-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every Proxmox release on the [releases page](https://github.com/servosity/msp-skills/releases?q=proxmox).)
 
 Prefer the Claude Code plugin? Add the marketplace once, then install - works immediately, no directory listing required:
 
