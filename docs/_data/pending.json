@@ -735,9 +735,9 @@
     "released_hash": "sha256:ad687a46d7d6642dc57c3fccf983e4b39e080fd687afe89114ae436a7f50e79e"
   },
   "watchguard": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.9",
-    "latest_tag": "watchguard-v0.1.8",
+    "latest_tag": "watchguard-v0.1.9",
     "current_hash": "sha256:4d78196818edf8e11519eb214cafaf311c8856147dab084e00e727a0189e435b",
     "released_hash": "sha256:4d78196818edf8e11519eb214cafaf311c8856147dab084e00e727a0189e435b"
   },
@@ -770,9 +770,9 @@
     "released_hash": "sha256:bc9df7d512b679a3262ea4e8a66e36d891ac71dff03c7aa77421fc9168198262"
   },
   "zoom-phone": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.6",
-    "latest_tag": "zoom-phone-v0.1.5",
+    "latest_tag": "zoom-phone-v0.1.6",
     "current_hash": "sha256:e8eec88cb36eeac93ed88fd92fdd5a7687a8291f738382ed0a394d85a244c119",
     "released_hash": "sha256:e8eec88cb36eeac93ed88fd92fdd5a7687a8291f738382ed0a394d85a244c119"
   }
