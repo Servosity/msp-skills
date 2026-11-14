@@ -360,7 +360,7 @@
     "state": "binary-pending",
     "version": "0.1.16",
     "latest_tag": "immybot-v0.1.16",
-    "current_hash": "sha256:6b69c73ecf680d801f8c837de2dc25db79b34642526063db25108df8c0509a2f",
+    "current_hash": "sha256:f504089807a4ea4c322c2f0fa725d987fe7ebb3bd47d2cc444e312feff94d432",
     "released_hash": "sha256:19c85805617a2d6a63c1596f9b122a7bd1be927a551d7464c000f14ffc3147d2"
   },
   "itglue": {
@@ -773,7 +773,7 @@
     "state": "binary-pending",
     "version": "0.1.5",
     "latest_tag": "zoom-phone-v0.1.5",
-    "current_hash": "sha256:455c90f4ba9c904df57a8ba39e45f424dca72d3703ac4da405328f728feb955f",
+    "current_hash": "sha256:e8eec88cb36eeac93ed88fd92fdd5a7687a8291f738382ed0a394d85a244c119",
     "released_hash": "sha256:37f23606a6100f760610662993ddf5adaa089a01a8a7c5b027d75b03e14b32ec"
   }
 }
