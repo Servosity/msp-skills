@@ -693,9 +693,9 @@
     "released_hash": "sha256:69ccabf1c0f6d79594ba76a7be56753cc7ea6f865b56222cea7af6185292f86d"
   },
   "threatlocker": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.3.17",
-    "latest_tag": "threatlocker-v0.3.16",
+    "latest_tag": "threatlocker-v0.3.17",
     "current_hash": "sha256:c3c915a705834b4cfabd83991cc4897866ab6933a1999ac283b72fe79be27a52",
     "released_hash": "sha256:c3c915a705834b4cfabd83991cc4897866ab6933a1999ac283b72fe79be27a52"
   },
