@@ -222,6 +222,67 @@ func TestClientIDDoesNotWithholdTheAPIHost(t *testing.T) {
 	}
 }
 
+// On a live tenant the client ID is the API user's own e-mail address,
+// api-key-<organization ID><user ID>@action1.com: two UUIDs, the first one the
+// organization every listing names (id, org_id, each self URL). Held together
+// with the user ID, its 8-character pieces withheld every response and the tool
+// list (0.1.16 on a live tenant). holdClientID holds the key's own part only.
+// The second shape is the name the audit trail gives a newer key,
+// <uuid>_api-key-<organization ID>@action1.com. For both, from the environment
+// and from config.toml: a listing that names the organization prints whole,
+// over MCP too, and a response that repeats the key's own part is withheld.
+func TestClientIDDoesNotWithholdTheOrganizationID(t *testing.T) {
+	cliBin, mcpBin := binaries(t)
+	const org, own = "0a1b0a1b-0a1b-0a1b-0a1b-0a1b0a1b0a1b", "c1d2c1d2-c1d2-c1d2-c1d2-c1d2c1d2c1d2"
+	const secret = "cidsec-kwzqmkwzqm"
+	page := func(id string) string {
+		return fmt.Sprintf(`{"items":[{"id":%q,"name":"HQ-Record","self":"https://app.action1.com/api/3.0/organizations/%s"}],"total_items":1,"next_page":""}`, id, id)
+	}
+	for _, shape := range []struct{ name, id string }{
+		{"organization then user", "api-key-" + org + own + "@action1.com"},
+		{"key then organization", own + "_api-key-" + org + "@action1.com"},
+	} {
+		for _, src := range []string{"environment", "config.toml"} {
+			t.Run(shape.name+" from "+src, func(t *testing.T) {
+				home := t.TempDir()
+				var env []string
+				if src == "environment" {
+					env = closedEnv(home, "ACTION1_CLIENT_ID="+shape.id, "ACTION1_CLIENT_SECRET="+secret, "ACTION1_ORG_ID="+org)
+				} else {
+					writeConfig(t, home, fmt.Sprintf("client_id = %q\nclient_secret = %q\n", shape.id, secret), false)
+					env = closedEnv(home, "ACTION1_ORG_ID="+org)
+				}
+				live := func(id string) []string {
+					base, ca := fakeAPIFunc(t, func(_ http.Header, r *http.Request) string {
+						if strings.HasSuffix(r.URL.Path, "/oauth2/token") {
+							return `{"access_token":"cidacc-mzkqwmzkqw","refresh_token":"cidref-qwkzmqwkzm","expires_in":3600,"token_type":"Bearer"}`
+						}
+						return page(id)
+					})
+					return append(append([]string{}, env...), "ACTION1_BASE_URL="+base, "ACTION1_CA_CERT="+ca)
+				}
+				out, errOut, _ := runSplit(t, cliBin, live(org), "organizations", "get", "--json")
+				if !strings.Contains(out, org) || strings.Contains(out+errOut, "credkit: withheld") {
+					t.Errorf("a listing naming the organization did not print whole:\n%s%s", out, errOut)
+				}
+				replies, mcpErr, _ := mcpRun(t, mcpBin, live(org),
+					rpc{"tools/list", map[string]any{}},
+					call("action1_read", map[string]any{"endpoint_id": "organizations.get"}))
+				if list := reply(replies, 2); !strings.Contains(list, `"tools":[`) || !strings.Contains(list, "action1_read") {
+					t.Errorf("tools/list did not answer whole:\n%.2000s\nstderr:\n%s", replies, mcpErr)
+				}
+				if read := reply(replies, 3); !strings.Contains(read, org) || strings.Contains(replies+mcpErr, "credkit: withheld") {
+					t.Errorf("the MCP listing naming the organization did not answer whole:\n%.2000s\nstderr:\n%s", replies, mcpErr)
+				}
+				out, errOut, _ = runSplit(t, cliBin, live(own), "organizations", "get", "--json")
+				if strings.Contains(out+errOut, own) || !strings.Contains(out+errOut, credkit.Notice("stdout")) {
+					t.Errorf("a response repeating the key's own part was not withheld:\n%s%s", out, errOut)
+				}
+			})
+		}
+	}
+}
+
 // remote_session (the browser connection URL), CVSS authentication,
 // session_timeout and token_type are Action1 data, not credentials: a remote
 // session record reaches the operator whole. The same record carrying the held

@@ -12,6 +12,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strings"
 
@@ -37,7 +38,8 @@ import (
 // The client ID is an identifier and only its unique part is held (holdClientID):
 // Action1 issues it as api-key-<uuid>@action1.com, so holding it whole would
 // withhold every line that names action1.com, the API host included, by the
-// contract's 8-character piece rule.
+// contract's 8-character piece rule. The same rule keeps the organization ID
+// inside a client ID out of the held set (holdClientID).
 var Declarations = credkit.Declarations{
 	SecretEnv: []string{
 		"ACTION1_OAUTH2",
@@ -173,15 +175,34 @@ func credentialFiles(args []string) []string {
 	return used
 }
 
-// holdClientID holds what is unique in a client ID. Action1's public text,
-// api-key- and @action1.com, is no secret and sits in the API host's name.
+// orgInClientID is the organization ID inside a client ID: the UUID right
+// after "api-key-".
+var orgInClientID = regexp.MustCompile(`(?i)api-key-[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}`)
+
+// holdClientID holds what is unique to the key in a client ID. Action1's public
+// text, api-key- and @action1.com, is no secret and sits in the API host's name.
+// Nor is the organization ID: a live tenant issues the client ID as
+// api-key-<organization ID><user ID>@action1.com, the API user's own e-mail
+// address, and every listing names the organization (id, org_id, each self
+// URL), so its 8-character pieces withheld every response. When the UUID after
+// api-key- is not all that is unique, it is the organization and only the rest
+// is held; alone (api-key-<uuid>@action1.com) it is held, as it always was.
 func holdClientID(id string) {
 	id = strings.TrimSpace(id)
 	if at := strings.LastIndex(id, "@"); at >= 0 {
 		id = id[:at]
 	}
-	if id = strings.TrimPrefix(id, "api-key-"); id != "" {
-		cliutil.Hold("minted:client_id", id)
+	parts := []string{strings.TrimPrefix(id, "api-key-")}
+	if loc := orgInClientID.FindStringIndex(id); loc != nil {
+		before, after := strings.Trim(id[:loc[0]], "_-"), strings.Trim(id[loc[1]:], "_-")
+		if before != "" || after != "" {
+			parts = []string{before, after}
+		}
+	}
+	for _, part := range parts {
+		if part != "" {
+			cliutil.Hold("minted:client_id", part)
+		}
 	}
 }
 
