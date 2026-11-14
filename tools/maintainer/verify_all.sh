@@ -250,7 +250,7 @@ for t in registry.py check_handfixes.py mcpb_bundle.py check_release_assets.py c
          check_env_schema.py check_doctor_truth.py; do SELFTESTS+=("py:$t"); done
 SELFTESTS+=(selftest:check_install_docs.py pyI:check_security_gate.py pyI:resolve_registry.py \
             pyI:merge_when_green.py pyI:stamp_release.py sh:cut_tags.sh py:check_command_tree.py \
-            sh:ci_guards.sh go:credkit_verify pyI:vuln_watch.py)
+            sh:ci_guards.sh go:credkit_verify pyI:vuln_watch.py pyI:baseline_age.py)
 # The fleet-wide checks CI runs whole that also take --slug.
 PER_SLUG=(check_env_schema.py check_mcp_registry.py check_handfixes.py check_press_metadata.py check_no_pp_leak.py)
 plan_args=()

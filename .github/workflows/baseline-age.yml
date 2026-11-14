@@ -1,0 +1,95 @@
+name: baseline-age
+
+# Weekly watch so a known gap never sits unowned in a CI gate baseline for
+# weeks again (2026-10-23: 19 connectors baselined "to adopt the fix later",
+# reported by users three weeks on as #687 to #690). Lists every entry in
+# security_gate_baseline.json, verify_baseline.json (connectors and
+# known_errors) and class_baseline.json that has been in the file for more than
+# 14 days, in ONE issue (label baseline-age). Advisory only: it never gates and
+# never changes code. Logic: tools/maintainer/baseline_age.py (--self-test
+# proves it).
+#
+#   check  read-only: the self-test, then the real list (run summary). On a PR
+#          that changes the watch, this is all that runs.
+#   issue  the only job with issues: write. Opens the issue, or edits the open
+#          one when its text changed; when nothing is old it closes the open
+#          one with a one-line comment. It never closes on incomplete evidence
+#          (a shallow clone, an unreadable baseline): it fails the run instead,
+#          after writing what it could.
+
+on:
+  # Monday 07:30 UTC.
+  schedule:
+    - cron: "30 7 * * 1"
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - ".github/workflows/baseline-age.yml"
+      - "tools/maintainer/baseline_age.py"
+
+permissions:
+  contents: read
+
+# One writer at a time, so two runs can never both open the issue.
+concurrency:
+  group: ${{ github.event_name == 'pull_request' && format('baseline-age-pr-{0}', github.event.pull_request.number) || 'baseline-age' }}
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Self-test (an old entry is listed, a young one is not, a re-add ages from the re-add)
+        run: python3 -I tools/maintainer/baseline_age.py --self-test
+      - name: The real list (writes nothing)
+        run: python3 -I tools/maintainer/baseline_age.py | tee -a "$GITHUB_STEP_SUMMARY"
+
+  issue:
+    needs: check
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Open, edit or close the one baseline-age issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          body="$RUNNER_TEMP/body.md"; status="$RUNNER_TEMP/status.json"
+          python3 -I tools/maintainer/baseline_age.py --days 14 --out "$body" --status "$status"
+          old=$(jq -r '.old' "$status"); complete=$(jq -r '.complete' "$status")
+          title="Gate baseline entries older than 14 days"
+          n=$(gh issue list --repo "$REPO" --label baseline-age --state open --limit 100 --json number -q 'map(.number) | min // empty')
+          if [ "$old" -gt 0 ]; then
+            gh api "repos/$REPO/labels/baseline-age" > /dev/null 2>&1 || gh label create baseline-age --repo "$REPO" \
+              --color fbca04 --description "A CI gate baseline entry older than 14 days (baseline-age.yml)"
+            if [ -z "$n" ]; then
+              gh issue create --repo "$REPO" --title "$title" --label baseline-age --body-file "$body"
+            elif [ "$(gh issue view "$n" --repo "$REPO" --json body -q .body)" != "$(cat "$body")" ]; then
+              gh issue edit "$n" --repo "$REPO" --title "$title" --body-file "$body"
+            else
+              echo "issue #$n is current"
+            fi
+          elif [ -n "$n" ] && [ "$complete" = true ]; then
+            gh issue close "$n" --repo "$REPO" --comment "No gate baseline entry is older than 14 days as of $(date -u +%F); closing."
+          fi
+          cat "$body" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$complete" != true ]; then
+            echo "::error::the baseline history could not be read whole (see the run summary); the issue was not closed"
+            exit 1
+          fi
