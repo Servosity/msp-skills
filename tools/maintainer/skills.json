@@ -898,8 +898,8 @@
       "has_video": true,
       "cli_hash": "sha256:2351574e8fd1ed43f809746b9c69a552678fa0ee3436d5df039d0df550c74a5c",
       "template_version": 3,
-      "version": "0.1.4",
-      "cli_hash_at_release": "sha256:d9c6a301b84324c66c82a31a7f883017698efbd2bdfc59b1d865101630c07bff",
+      "version": "0.1.5",
+      "cli_hash_at_release": "sha256:7eea8553b188a17ac357c7f7754c49ccbc37fc9881650a6cf129d0bc86617b02",
       "live_verified": {
         "status": "awaiting",
         "date": null,

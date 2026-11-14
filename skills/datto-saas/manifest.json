@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "datto-saas-mcp",
   "display_name": "Datto SaaS Protection",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Every Datto SaaS Protection (Backupify) client in one local database: seat audits, protection gaps, backup health ranking, exit inventories and plan-first bulk seat changes.",
   "author": {
     "name": "Servosity Inc."
