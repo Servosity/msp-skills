@@ -2718,8 +2718,8 @@
       "tagline": "Read, search, and triage Zammad tickets and Knowledge Base, plus team-management analytics the API can't answer in one call.",
       "cli_hash": "sha256:90cdb83864dde76c77345e8d9d1c7bdc26c5d5075f6880e0800822c5326f156c",
       "template_version": 3,
-      "version": "0.1.16",
-      "cli_hash_at_release": "sha256:db3a7bea472869b82b665ee159aab4d714454273e887132f939f5a0fea9422eb",
+      "version": "0.1.17",
+      "cli_hash_at_release": "sha256:bc9df7d512b679a3262ea4e8a66e36d891ac71dff03c7aa77421fc9168198262",
       "has_video": true,
       "live_verified": {
         "status": "live-verified",
