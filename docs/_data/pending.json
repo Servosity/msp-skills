@@ -280,11 +280,11 @@
     "released_hash": "sha256:819b92483d5d8e99eb7817dc3065cd7c995f03839d98af977108a813544d73b5"
   },
   "eset-protect": {
-    "state": "binary-pending",
-    "version": "0.1.4",
-    "latest_tag": "eset-protect-v0.1.4",
+    "state": "up-to-date",
+    "version": "0.1.5",
+    "latest_tag": "eset-protect-v0.1.5",
     "current_hash": "sha256:bb8ed67ace861c03ad468bd2ec27437040c258da18f4e7c42e6e951dc1214e70",
-    "released_hash": "sha256:dc5b66eba07c22c93821dd90b320fa8544aeb03ebbc443d2f66a5b3bd3ff58d8"
+    "released_hash": "sha256:bb8ed67ace861c03ad468bd2ec27437040c258da18f4e7c42e6e951dc1214e70"
   },
   "exchange-online": {
     "state": "binary-pending",
