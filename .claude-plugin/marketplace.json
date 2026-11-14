@@ -513,7 +513,7 @@
       "name": "itglue",
       "source": "./skills/itglue",
       "description": "Every IT Glue resource, plus an offline SQLite mirror, fleet-wide cross-resource search, and documentation-hygiene analytics no other IT Glue tool offers.",
-      "version": "0.1.10",
+      "version": "0.1.11",
       "category": "documentation",
       "tags": [
         "itglue",
@@ -529,7 +529,7 @@
       "name": "kaseya-bms",
       "source": "./skills/kaseya-bms",
       "description": "The first dedicated CLI and MCP server for Kaseya BMS - the full PSA surface plus offline sync, full-text search, and the queue, contract-burn, and unbilled-revenue analytics the web grid can't compute.",
-      "version": "0.1.13",
+      "version": "0.1.14",
       "category": "psa",
       "tags": [
         "kaseya-bms",
@@ -545,7 +545,7 @@
       "name": "knowbe4",
       "source": "./skills/knowbe4",
       "description": "Every KnowBe4 KMSAT reporting feature, plus a local SQLite store for the questions the console cannot answer.",
-      "version": "0.1.12",
+      "version": "0.1.13",
       "category": "security",
       "tags": [
         "knowbe4",
@@ -560,7 +560,7 @@
       "name": "levelio",
       "source": "./skills/levelio",
       "description": "Every Level RMM endpoint, plus a local SQLite fleet store and offline cross-entity rollups no Level tool has: at-risk ranking, patch posture, alert triage, and stale-device detection in one command.",
-      "version": "0.1.11",
+      "version": "0.1.12",
       "category": "rmm",
       "tags": [
         "levelio",
@@ -576,7 +576,7 @@
       "name": "liongard",
       "source": "./skills/liongard",
       "description": "Every Liongard endpoint, plus an offline copy of your whole MSP estate you can join, search, and drift-check from one command.",
-      "version": "0.1.12",
+      "version": "0.1.13",
       "category": "documentation",
       "tags": [
         "liongard",
@@ -1126,7 +1126,7 @@
       "name": "google-workspace",
       "source": "./skills/google-workspace",
       "description": "Cross-client Google Workspace admin: 2SV gaps, licence waste, sharing drift, safe offboarding.",
-      "version": "0.1.9",
+      "version": "0.1.10",
       "category": "security",
       "tags": [
         "google-workspace",
@@ -1295,7 +1295,7 @@
       "name": "jira-service-management",
       "source": "./skills/jira-service-management",
       "description": "Every Jira Service Management Cloud request-API (servicedeskapi) and Assets endpoint in one binary, plus SLA breach radar, internal notes, ticket timelines, and CMDB-to-ticket joins.",
-      "version": "0.1.8",
+      "version": "0.1.9",
       "category": "psa",
       "tags": [
         "jira-service-management",
@@ -1484,7 +1484,7 @@
       "name": "kaseya-vsa",
       "source": "./skills/kaseya-vsa",
       "description": "Every VSA 10 API endpoint, plus a local fleet database that answers patch, health, and software questions across all your clients offline.",
-      "version": "0.1.6",
+      "version": "0.1.7",
       "category": "rmm",
       "tags": [
         "kaseya-vsa",
@@ -1625,7 +1625,7 @@
       "name": "jamf-pro",
       "source": "./skills/jamf-pro",
       "description": "Every client's Jamf Pro in one CLI: register each instance once, then find devices, check posture and patch status, and audit policies across all of them.",
-      "version": "0.1.4",
+      "version": "0.1.5",
       "category": "mdm",
       "tags": [
         "jamf-pro",
@@ -1720,7 +1720,7 @@
       "name": "hook-security",
       "source": "./skills/hook-security",
       "description": "Read Hook Security phishing and training data, and answer the cross-client questions an MSP actually asks.",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "category": "security",
       "tags": [
         "hook-security",

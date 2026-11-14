@@ -1,6 +1,6 @@
 {
   "name": "hook-security",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Read Hook Security phishing and training data, and answer the cross-client questions an MSP actually asks.",
   "author": {
     "name": "Servosity",

@@ -4,7 +4,7 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
-## [0.1.13] - unreleased
+## [0.1.13] - 2026-11-14
 
 ### Changed
 - **The test suite no longer depends on today's date.** Test fixtures carried fixed calendar dates that aged past the age thresholds the tests assert, so the suite would start failing on a later day with no code change. They now use dates relative to the moment the test runs, at the same ages. The shipped binaries behave exactly as before ([#717](https://github.com/Servosity/msp-skills/pull/717)).
