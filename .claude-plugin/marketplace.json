@@ -133,7 +133,7 @@
       "name": "avanan",
       "source": "./skills/avanan",
       "description": "Every Avanan email security API call, plus an offline mirror for cross-tenant questions.",
-      "version": "0.1.17",
+      "version": "0.1.18",
       "category": "security",
       "tags": [
         "avanan",
@@ -164,7 +164,7 @@
       "name": "axcient",
       "source": "./skills/axcient",
       "description": "Every x360Recover endpoint, plus the fleet-wide backup-health answers the API alone can't give \u2014 offline, joined, and agent-ready.",
-      "version": "0.2.21",
+      "version": "0.2.22",
       "category": "backup-dr",
       "tags": [
         "axcient",
@@ -210,7 +210,7 @@
       "name": "cipp",
       "source": "./skills/cipp",
       "description": "Every CIPP endpoint as a typed command, plus cross-tenant fan-out into a local store, offline joins across endpoints, and history over time.",
-      "version": "0.1.14",
+      "version": "0.1.15",
       "category": "security",
       "tags": [
         "cipp",
@@ -339,7 +339,7 @@
       "name": "datagate",
       "source": "./skills/datagate",
       "description": "Every DataGate telecom billing API resource, plus a local SQLite store and offline search the API can't return in one call.",
-      "version": "0.1.8",
+      "version": "0.1.9",
       "category": "billing",
       "tags": [
         "datagate",
@@ -354,7 +354,7 @@
       "name": "datto-bcdr",
       "source": "./skills/datto-bcdr",
       "description": "Sync your whole Datto BCDR fleet into local SQLite and answer the questions the per-appliance Partner Portal can't: which backups failed screenshot verification, which are stale, and which clients are at risk.",
-      "version": "0.1.13",
+      "version": "0.1.14",
       "category": "backup-dr",
       "tags": [
         "datto-bcdr",
@@ -438,7 +438,7 @@
       "name": "halopsa",
       "source": "./skills/halopsa",
       "description": "Every HaloPSA, HaloITSM and HaloCRM feature, plus a local SQLite store and cross-entity views the API can't return.",
-      "version": "0.2.25",
+      "version": "0.2.26",
       "category": "psa",
       "tags": [
         "halopsa",
@@ -468,7 +468,7 @@
       "name": "hudu",
       "source": "./skills/hudu",
       "description": "Every Hudu cmdlet, plus an offline SQLite mirror, cross-entity audits, and agent-native output no PowerShell module or read-only MCP ships.",
-      "version": "0.1.20",
+      "version": "0.1.21",
       "category": "documentation",
       "tags": [
         "hudu",
@@ -483,7 +483,7 @@
       "name": "huntress",
       "source": "./skills/huntress",
       "description": "Every Huntress endpoint, plus fleet-wide incident, coverage, and billing rollups the API can't.",
-      "version": "0.1.16",
+      "version": "0.1.17",
       "category": "security",
       "tags": [
         "huntress",
@@ -498,7 +498,7 @@
       "name": "immybot",
       "source": "./skills/immybot",
       "description": "Every ImmyBot endpoint typed, plus a local mirror that joins what the web UI keeps per tenant.",
-      "version": "0.1.16",
+      "version": "0.1.17",
       "category": "rmm",
       "tags": [
         "immybot",
@@ -1578,7 +1578,7 @@
       "name": "cloudally",
       "source": "./skills/cloudally",
       "description": "See every CloudAlly customer's backup status, tasks and billing, and run backups and recovery jobs, from one CLI and MCP server.",
-      "version": "0.2.4",
+      "version": "0.2.5",
       "category": "backup-dr",
       "tags": [
         "cloudally",

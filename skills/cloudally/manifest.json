@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "cloudally-mcp",
   "display_name": "CloudAlly",
-  "version": "0.2.4",
+  "version": "0.2.5",
   "description": "Restore or download every CloudAlly mailbox as it stood on a past date, read each mailbox's backup history, and find failing backups across every customer.",
   "author": {
     "name": "Servosity Inc."
