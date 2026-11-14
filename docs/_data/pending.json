@@ -644,9 +644,9 @@
     "released_hash": "sha256:e2f617d4dd814496f7a7ff856268d464dbc9cc237e3a01e48d861e3c6da1cbe1"
   },
   "sophos-central": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.9",
-    "latest_tag": "sophos-central-v0.1.8",
+    "latest_tag": "sophos-central-v0.1.9",
     "current_hash": "sha256:51dd84f71139851a69f3f5b71e185be2247c89b4e90014f64259c6763baf6577",
     "released_hash": "sha256:51dd84f71139851a69f3f5b71e185be2247c89b4e90014f64259c6763baf6577"
   },
