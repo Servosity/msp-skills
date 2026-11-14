@@ -73,7 +73,7 @@
       "name": "appdirect",
       "source": "./skills/appdirect",
       "description": "Every documented AppDirect marketplace operation in one binary, plus offline sync and billing-reconciliation joins.",
-      "version": "0.1.14",
+      "version": "0.1.15",
       "category": "billing",
       "tags": [
         "appdirect",
@@ -88,7 +88,7 @@
       "name": "atera",
       "source": "./skills/atera",
       "description": "Every Atera RMM + PSA endpoint, plus a local SQLite mirror that answers fleet-health, SLA, and book-of-business questions no single API call can.",
-      "version": "0.1.11",
+      "version": "0.1.12",
       "category": "rmm",
       "tags": [
         "atera",
@@ -103,7 +103,7 @@
       "name": "autotask",
       "source": "./skills/autotask",
       "description": "Every Autotask entity at the command line, plus a local SQLite mirror that answers ticket-aging, workload, unbilled-time, and account-360 questions no other Autotask tool can.",
-      "version": "0.1.14",
+      "version": "0.1.15",
       "category": "psa",
       "tags": [
         "autotask",
@@ -118,7 +118,7 @@
       "name": "auvik",
       "source": "./skills/auvik",
       "description": "Every Auvik endpoint as a command, plus the cross-client answers the Auvik UI and API cannot give you.",
-      "version": "0.2.13",
+      "version": "0.2.14",
       "category": "rmm",
       "tags": [
         "auvik",
@@ -1172,7 +1172,7 @@
       "name": "cisco-meraki",
       "source": "./skills/cisco-meraki",
       "description": "Every Meraki Dashboard operation, plus cross-org fleet views that read every page, built for MSPs running many client orgs.",
-      "version": "0.1.8",
+      "version": "0.1.9",
       "category": "network-monitoring",
       "tags": [
         "cisco-meraki",
@@ -1219,7 +1219,7 @@
       "name": "cisco-duo",
       "source": "./skills/cisco-duo",
       "description": "Fix Duo MFA lockouts in one command and see every MSP subaccount at once, with signed Admin API calls.",
-      "version": "0.1.7",
+      "version": "0.1.8",
       "category": "security",
       "tags": [
         "cisco-duo",
@@ -1280,7 +1280,7 @@
       "name": "bitdefender",
       "source": "./skills/bitdefender",
       "description": "140 GravityZone API methods, plus fleet health, billing and incident views across child companies.",
-      "version": "0.1.8",
+      "version": "0.1.9",
       "category": "security",
       "tags": [
         "bitdefender",
@@ -1375,7 +1375,7 @@
       "name": "blackpoint",
       "source": "./skills/blackpoint",
       "description": "CompassOne from the terminal: tenants, detections, assets, vulnerabilities, posture, reports and Cloud Response admin, plus a cross-tenant fleet view of open detections, stale agents and coverage gaps.",
-      "version": "0.1.5",
+      "version": "0.1.6",
       "category": "security",
       "tags": [
         "blackpoint",
@@ -1421,7 +1421,7 @@
       "name": "apple-business",
       "source": "./skills/apple-business",
       "description": "Every Apple Business API call, plus offline fleet answers: unassigned devices, AppleCare expiry and Activation Lock.",
-      "version": "0.1.5",
+      "version": "0.1.6",
       "category": "mdm",
       "tags": [
         "apple-business",
@@ -1500,7 +1500,7 @@
       "name": "cisco-umbrella",
       "source": "./skills/cisco-umbrella",
       "description": "Every Cisco Umbrella v2 API call, plus MSP child-org switching, domain verdicts, list diffs, and fleet health.",
-      "version": "0.1.5",
+      "version": "0.1.6",
       "category": "security",
       "tags": [
         "cisco-umbrella",

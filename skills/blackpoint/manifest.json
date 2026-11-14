@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "blackpoint-mcp",
   "display_name": "Blackpoint Cyber CompassOne",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "Blackpoint Cyber CompassOne from the terminal: tenants, detections, assets, vulnerabilities, posture, reports and Cloud Response admin, plus a cross-tenant view of open detections, stale agents and coverage gaps.",
   "author": {
     "name": "Servosity Inc."
