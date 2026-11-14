@@ -12,7 +12,7 @@
       "name": "abnormal",
       "source": "./skills/abnormal",
       "description": "The full Abnormal Security REST API as an agent-native CLI \u2014 with a local threat store, ranked SOC triage, and one-shot reporting no SOAR pack offers.",
-      "version": "0.1.12",
+      "version": "0.1.13",
       "category": "security",
       "tags": [
         "abnormal",
@@ -43,7 +43,7 @@
       "name": "action1",
       "source": "./skills/action1",
       "description": "Every Action1 endpoint, plus the fleet-wide patch and vulnerability views the org-siloed API cannot give you.",
-      "version": "0.1.15",
+      "version": "0.1.16",
       "category": "rmm",
       "tags": [
         "action1",
@@ -591,7 +591,7 @@
       "name": "maxio",
       "source": "./skills/maxio",
       "description": "Open, local revenue-intelligence CLI for Maxio Advanced Billing \u2014 MRR waterfalls, retention, and per-client history computed offline from a SQLite mirror, so the trended history survives even though the live API returns only point-in-time figures.",
-      "version": "0.1.12",
+      "version": "0.1.13",
       "category": "billing",
       "tags": [
         "maxio",
@@ -670,7 +670,7 @@
       "name": "nerdio",
       "source": "./skills/nerdio",
       "description": "The first non-PowerShell client for the Nerdio Manager for MSP API - cross-account AVD fleet audits, async-job plumbing, and offline search no other Nerdio tool has.",
-      "version": "0.1.15",
+      "version": "0.1.16",
       "category": "rmm",
       "tags": [
         "nerdio",
@@ -686,7 +686,7 @@
       "name": "ninjaone",
       "source": "./skills/ninjaone",
       "description": "Every NinjaOne report, plus a local store that answers fleet-wide questions no single API call can: patch compliance, backup gaps, AV blast-radius, health, drift.",
-      "version": "0.1.26",
+      "version": "0.1.27",
       "category": "rmm",
       "tags": [
         "ninjaone",
@@ -776,7 +776,7 @@
       "name": "quickbooks",
       "source": "./skills/quickbooks",
       "description": "Every QuickBooks Online entity, plus an offline SQLite mirror, AR/AP aging and close checks.",
-      "version": "0.1.19",
+      "version": "0.1.20",
       "category": "billing",
       "tags": [
         "quickbooks",
@@ -898,7 +898,7 @@
       "name": "sentinelone",
       "source": "./skills/sentinelone",
       "description": "Every SentinelOne v2.1 management endpoint, plus an offline SQLite store and cross-entity analytics \u2014 fleet health, threat triage, blast radius, drift \u2014 that no console view offers.",
-      "version": "0.2.9",
+      "version": "0.2.10",
       "category": "security",
       "tags": [
         "sentinelone",
@@ -913,7 +913,7 @@
       "name": "servosity",
       "source": "./skills/servosity",
       "description": "The first MSP-fleet CLI for backup. Every Servosity API endpoint as a typed command, plus a local mirror that lets you ask questions the dashboard can't \u2014 across your whole book of clients.",
-      "version": "0.6.17",
+      "version": "0.6.18",
       "category": "backup-dr",
       "tags": [
         "servosity",
@@ -1004,7 +1004,7 @@
       "name": "threatlocker",
       "source": "./skills/threatlocker",
       "description": "Every ThreatLocker Portal API feature, plus the write operations the read-only tools lack and a cross-tenant offline store no other ThreatLocker tool has.",
-      "version": "0.3.16",
+      "version": "0.3.17",
       "category": "security",
       "tags": [
         "threatlocker",
@@ -1050,7 +1050,7 @@
       "name": "wordpress",
       "source": "./skills/wordpress",
       "description": "Publish and manage WordPress pages, posts, media",
-      "version": "0.1.12",
+      "version": "0.1.13",
       "category": "marketing",
       "tags": [
         "wordpress",
