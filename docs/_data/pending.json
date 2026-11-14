@@ -336,11 +336,11 @@
     "released_hash": "sha256:f2c0fa8cac720692cc75b8038ce954563d8192534b1b0308a89db6016ddc4788"
   },
   "hubspot": {
-    "state": "binary-pending",
-    "version": "0.3.0",
-    "latest_tag": "hubspot-v0.3.0",
+    "state": "up-to-date",
+    "version": "0.3.1",
+    "latest_tag": "hubspot-v0.3.1",
     "current_hash": "sha256:50a3632a03bf2ba49978bb8106e488fbe98e2727bc26975b7cbb656a37b6145a",
-    "released_hash": "sha256:24c545db0cbd810ad7e255ab093ec33eeef83b7f3196f71de4bfc234eced4a10"
+    "released_hash": "sha256:50a3632a03bf2ba49978bb8106e488fbe98e2727bc26975b7cbb656a37b6145a"
   },
   "hudu": {
     "state": "binary-pending",
