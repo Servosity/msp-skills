@@ -1,5 +1,5 @@
 {
-  "count": 108,
+  "count": 109,
   "connectors": [
     {
       "slug": "abnormal",
@@ -871,6 +871,19 @@
       "verified_version": "0.1.4",
       "verified_code": "changed",
       "url": "/skills/ninjaone/"
+    },
+    {
+      "slug": "nizlo",
+      "display_name": "Nizlo",
+      "tagline": "Inspect Nizlo fleet health, endpoint inventory, customers, sites, and active alerts through a deliberately read-only helper.",
+      "category": "RMM",
+      "verification": "awaiting",
+      "verified_by": null,
+      "source": null,
+      "issue_url": "https://github.com/Servosity/msp-skills/issues/514",
+      "verified_version": null,
+      "verified_code": null,
+      "url": "https://github.com/servosity/msp-skills/tree/main/skills/nizlo"
     },
     {
       "slug": "pagerduty",

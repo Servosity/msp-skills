@@ -63,6 +63,17 @@ CONNECTOR_FORMS = (IT_WORKS_FORM, BUG_REPORT_FORM)
 OWNER, REPO = registry.owner_repo()
 SKILL_META = registry.load()["skills"]
 
+
+def is_catalog_connector(entry: dict) -> bool:
+    """Whether a skill represents a vendor system users can connect to.
+
+    Most connectors ship a CLI and MCP server. A small markdown-only connector
+    may instead bundle a narrow API helper, while meta-skills such as the
+    concierge have no vendor tenant. `connector_skill` distinguishes that
+    API-backed shape without pretending it has binary release artifacts.
+    """
+    return not entry.get("markdown_only") or bool(entry.get("connector_skill"))
+
 # A release tag: `<slug>-v<major.minor.patch>`.
 _TAG_RE = re.compile(r"^(?P<slug>[a-z0-9][a-z0-9.-]*)-v(?P<version>\d+\.\d+\.\d+)$")
 
@@ -152,6 +163,8 @@ def build_entry(skill_dir: Path) -> dict:
     # byte-identical (the CI drift gate compares the catalog exactly).
     if markdown_only:
         entry["markdown_only"] = True
+    if meta.get("connector_skill"):
+        entry["connector_skill"] = True
     return entry
 
 
@@ -171,8 +184,8 @@ def printing_press_version(manifest: dict) -> str | None:
 def _verification_state(meta: dict, markdown_only: bool) -> str:
     """The honest badge state: 'live-verified' only when a real MSP confirmed
     the skill against a live tenant (verify_live.py flipped it); 'awaiting'
-    otherwise; 'n/a' for markdown-only skills (no tenant to verify)."""
-    if markdown_only:
+    otherwise; 'n/a' for metadata-only skills (no tenant to verify)."""
+    if markdown_only and not meta.get("connector_skill"):
         return "n/a"
     lv = meta.get("live_verified") or {}
     return "live-verified" if lv.get("status") == "live-verified" else "awaiting"
@@ -185,7 +198,7 @@ def status_badge(verification: str) -> str:
     only by verify_live.py with a date + source + evidence): green badge.
     'awaiting' (passes every mechanical gate; not yet confirmed live): amber
     badge framed as an invitation - the report is the high-leverage signal.
-    'n/a' (markdown-only, no tenant to verify): neutral badge.
+    'n/a' (metadata-only, no tenant to verify): neutral badge.
     """
     if verification == "live-verified":
         return "![Live-verified](https://img.shields.io/badge/Live--verified-by_a_real_MSP-2E7D32)"
@@ -278,9 +291,11 @@ _FORM_OPTIONS_RE = re.compile(
 
 def render_connector_dropdown(content: str, skills: list[dict], form: Path) -> str:
     """Regenerate an issue form's skill dropdown from the registry: every
-    connector (markdown-only meta excluded), slug-sorted, plus the
+    connector (metadata-only skills excluded), slug-sorted, plus the
     "other / not listed" escape hatch. Returns the new file content."""
-    connectors = sorted(s["name"] for s in skills if not s.get("markdown_only"))
+    connectors = sorted(
+        s["name"] for s in skills if is_catalog_connector(SKILL_META[s["name"]])
+    )
     options = [f"        - {slug}" for slug in connectors]
     options.append("        - other / not listed")
     block = "\n".join(options) + "\n"
@@ -600,10 +615,15 @@ def build_docs_catalog(skills: list[dict]) -> dict:
             # "verified on vX.Y.Z" when it does not. Null when not badged.
             "verified_version": s.get("verified_version"),
             "verified_code": s.get("verified_code"),
-            "url": f"/skills/{s['name']}/",
+            "url": (
+                f"https://github.com/{OWNER}/{REPO}/tree/main/skills/"
+                f"{registry.source_dir(s['name'])}"
+                if s.get("markdown_only")
+                else f"/skills/{s['name']}/"
+            ),
         }
         for s in skills
-        if not s.get("markdown_only")
+        if is_catalog_connector(SKILL_META[s["name"]])
     ]
     featured = [
         {
@@ -680,8 +700,11 @@ def main(argv: list[str] | None = None) -> int:
         )
     # The skills-count shield lives OUTSIDE the marker region; regenerate it
     # here too so the count can never go stale again (it sat at 2 while the
-    # catalog grew). Count = connector skills (markdown-only meta excluded).
-    connector_count = sum(1 for s in skills if not s.get("markdown_only"))
+    # catalog grew). Count = vendor connector skills (metadata-only skills
+    # excluded, including when a connector uses a markdown-only API helper).
+    connector_count = sum(
+        1 for s in skills if is_catalog_connector(SKILL_META[s["name"]])
+    )
     new_readme = re.sub(
         r"img\.shields\.io/badge/skills-\d+-green",
         f"img.shields.io/badge/skills-{connector_count}-green",
