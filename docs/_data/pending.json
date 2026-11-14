@@ -763,11 +763,11 @@
     "released_hash": "sha256:f0bb23fdc0aa52aee511300aa6c0e21d2bb5684d13b67f603c32ae3fbddf7bb1"
   },
   "zammad": {
-    "state": "binary-pending",
-    "version": "0.1.16",
-    "latest_tag": "zammad-v0.1.16",
+    "state": "up-to-date",
+    "version": "0.1.17",
+    "latest_tag": "zammad-v0.1.17",
     "current_hash": "sha256:bc9df7d512b679a3262ea4e8a66e36d891ac71dff03c7aa77421fc9168198262",
-    "released_hash": "sha256:db3a7bea472869b82b665ee159aab4d714454273e887132f939f5a0fea9422eb"
+    "released_hash": "sha256:bc9df7d512b679a3262ea4e8a66e36d891ac71dff03c7aa77421fc9168198262"
   },
   "zoom-phone": {
     "state": "binary-pending",
