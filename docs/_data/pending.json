@@ -672,11 +672,11 @@
     "released_hash": "sha256:30a7f66899595cf2814c53d07d48d0be09453a69757768644a86d460243af66a"
   },
   "tactical-rmm": {
-    "state": "binary-pending",
-    "version": "0.1.12",
-    "latest_tag": "tactical-rmm-v0.1.12",
+    "state": "up-to-date",
+    "version": "0.1.13",
+    "latest_tag": "tactical-rmm-v0.1.13",
     "current_hash": "sha256:c518085772fa67cb2dbde63d171a16db0bbd2998080a667057f11d601bdd2d3f",
-    "released_hash": "sha256:e072a37988775dab2234cbb743b9808425010d75d94654bef7c714ad4c1a39b9"
+    "released_hash": "sha256:c518085772fa67cb2dbde63d171a16db0bbd2998080a667057f11d601bdd2d3f"
   },
   "td-synnex": {
     "state": "up-to-date",
@@ -686,11 +686,11 @@
     "released_hash": "sha256:6dd2128a997b0ace62892bcd191950a11b3777bfdf22fc61daacf7d429f09178"
   },
   "threatdown": {
-    "state": "binary-pending",
-    "version": "0.1.8",
-    "latest_tag": "threatdown-v0.1.8",
+    "state": "up-to-date",
+    "version": "0.1.9",
+    "latest_tag": "threatdown-v0.1.9",
     "current_hash": "sha256:67b732e289022106b3ca0cbb6360a8b8cc9ee3c1f2289e1c3b15b961af031320",
-    "released_hash": "sha256:69ccabf1c0f6d79594ba76a7be56753cc7ea6f865b56222cea7af6185292f86d"
+    "released_hash": "sha256:67b732e289022106b3ca0cbb6360a8b8cc9ee3c1f2289e1c3b15b961af031320"
   },
   "threatlocker": {
     "state": "up-to-date",
@@ -700,32 +700,32 @@
     "released_hash": "sha256:c3c915a705834b4cfabd83991cc4897866ab6933a1999ac283b72fe79be27a52"
   },
   "threecx": {
-    "state": "binary-pending",
-    "version": "0.1.4",
-    "latest_tag": "threecx-v0.1.4",
+    "state": "up-to-date",
+    "version": "0.1.5",
+    "latest_tag": "threecx-v0.1.5",
     "current_hash": "sha256:c6c0a82e888d1a2348dc26ebd88d2a98a1a5a4ae28f9918a74e651d9f280e5a6",
-    "released_hash": "sha256:f071d7ff1e8f4d6e45891fc8aa5c75dc3ec9a76b8ca8b86d736ead692c216514"
+    "released_hash": "sha256:c6c0a82e888d1a2348dc26ebd88d2a98a1a5a4ae28f9918a74e651d9f280e5a6"
   },
   "unifi-network": {
-    "state": "binary-pending",
-    "version": "0.1.12",
-    "latest_tag": "unifi-network-v0.1.12",
+    "state": "up-to-date",
+    "version": "0.1.13",
+    "latest_tag": "unifi-network-v0.1.13",
     "current_hash": "sha256:29be85c4a0cf01d4db855062910fab60da0ce4b8a6d9a250a11a92faab9283ab",
-    "released_hash": "sha256:fb316fe4f341b73f2976cc530852197a1a572d9dcbfd844776a398ea32268669"
+    "released_hash": "sha256:29be85c4a0cf01d4db855062910fab60da0ce4b8a6d9a250a11a92faab9283ab"
   },
   "veeam": {
-    "state": "binary-pending",
-    "version": "0.1.12",
-    "latest_tag": "veeam-v0.1.12",
+    "state": "up-to-date",
+    "version": "0.1.13",
+    "latest_tag": "veeam-v0.1.13",
     "current_hash": "sha256:a927debcc43dea37c1b8dfe64614414304552eabbcc1fa37beef0b621128b79f",
-    "released_hash": "sha256:38ddff1dfa720225e8ee3aea9f36090f0e31f870fb2682ecf3ac57d840b4642c"
+    "released_hash": "sha256:a927debcc43dea37c1b8dfe64614414304552eabbcc1fa37beef0b621128b79f"
   },
   "vsphere": {
-    "state": "binary-pending",
-    "version": "0.1.4",
+    "state": "version-pending",
+    "version": "0.1.5",
     "latest_tag": "vsphere-v0.1.4",
     "current_hash": "sha256:5ea0aaa8d6f08fa9816746fe11f4a1de78def03745803354d24420f14895e044",
-    "released_hash": "sha256:0008715700a86a6bd9420e2b17d345f5ecb5dca9606bc23590c5f1674b90606f"
+    "released_hash": "sha256:5ea0aaa8d6f08fa9816746fe11f4a1de78def03745803354d24420f14895e044"
   },
   "warranty": {
     "state": "up-to-date",
@@ -735,11 +735,11 @@
     "released_hash": "sha256:ad687a46d7d6642dc57c3fccf983e4b39e080fd687afe89114ae436a7f50e79e"
   },
   "watchguard": {
-    "state": "binary-pending",
-    "version": "0.1.8",
+    "state": "version-pending",
+    "version": "0.1.9",
     "latest_tag": "watchguard-v0.1.8",
     "current_hash": "sha256:4d78196818edf8e11519eb214cafaf311c8856147dab084e00e727a0189e435b",
-    "released_hash": "sha256:131c88d7e45314a6c5773313a92d1945b23d1202911461fb1953c0b39735c76c"
+    "released_hash": "sha256:4d78196818edf8e11519eb214cafaf311c8856147dab084e00e727a0189e435b"
   },
   "windows-server": {
     "state": "up-to-date",
@@ -770,10 +770,10 @@
     "released_hash": "sha256:bc9df7d512b679a3262ea4e8a66e36d891ac71dff03c7aa77421fc9168198262"
   },
   "zoom-phone": {
-    "state": "binary-pending",
-    "version": "0.1.5",
+    "state": "version-pending",
+    "version": "0.1.6",
     "latest_tag": "zoom-phone-v0.1.5",
     "current_hash": "sha256:e8eec88cb36eeac93ed88fd92fdd5a7687a8291f738382ed0a394d85a244c119",
-    "released_hash": "sha256:37f23606a6100f760610662993ddf5adaa089a01a8a7c5b027d75b03e14b32ec"
+    "released_hash": "sha256:e8eec88cb36eeac93ed88fd92fdd5a7687a8291f738382ed0a394d85a244c119"
   }
 }

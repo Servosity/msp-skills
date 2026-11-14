@@ -46,7 +46,7 @@ Big install base, but an honest heads-up: Gemini CLI runs the local binary you j
 
 ### Fastest for Claude Desktop - one-click `.mcpb`
 
-[**Download ThreatDown MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/threatdown-v0.1.8/threatdown-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every ThreatDown release on the [releases page](https://github.com/servosity/msp-skills/releases?q=threatdown).)
+[**Download ThreatDown MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/threatdown-v0.1.9/threatdown-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every ThreatDown release on the [releases page](https://github.com/servosity/msp-skills/releases?q=threatdown).)
 
 Prefer the Claude Code plugin? Add the marketplace once, then install - works immediately, no directory listing required:
 
