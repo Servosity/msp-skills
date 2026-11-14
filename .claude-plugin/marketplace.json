@@ -277,7 +277,7 @@
       "name": "connectwise-manage",
       "source": "./skills/connectwise-manage",
       "description": "Every ConnectWise PSA workflow from the terminal \u2014 with a typed conditions query builder, offline SQLite sync, and cross-entity views (unbilled work, account 360, board triage) the PSA web UI can't give you.",
-      "version": "0.2.7",
+      "version": "0.2.8",
       "category": "psa",
       "tags": [
         "connectwise-manage",
@@ -324,7 +324,7 @@
       "name": "crowdstrike",
       "source": "./skills/crowdstrike",
       "description": "Every CrowdStrike Falcon MSP operation, plus a Flight-Control-aware local store that answers fleet-wide questions across all your tenants at once \u2014 something no other Falcon tool (including the official MCP server) does.",
-      "version": "0.1.15",
+      "version": "0.1.16",
       "category": "security",
       "tags": [
         "crowdstrike",
@@ -370,7 +370,7 @@
       "name": "datto-rmm",
       "source": "./skills/datto-rmm",
       "description": "Every Datto RMM API operation, plus a local SQLite fleet store and fleet-wide analytics no other Datto tool has.",
-      "version": "0.1.15",
+      "version": "0.1.16",
       "category": "rmm",
       "tags": [
         "datto-rmm",
@@ -386,7 +386,7 @@
       "name": "domotz",
       "source": "./skills/domotz",
       "description": "Every Domotz endpoint, plus a local SQLite fleet mirror that answers cross-site questions.",
-      "version": "0.1.12",
+      "version": "0.1.13",
       "category": "network-monitoring",
       "tags": [
         "domotz",
@@ -1095,7 +1095,7 @@
       "name": "connectwise-rmm",
       "source": "./skills/connectwise-rmm",
       "description": "66 ConnectWise RMM (Asio) partner API operations, plus a local fleet database, patch-compliance rollups, and script runs you can preview, schedule and watch in one command.",
-      "version": "0.1.8",
+      "version": "0.1.9",
       "category": "rmm",
       "tags": [
         "connectwise-rmm",
@@ -1111,7 +1111,7 @@
       "name": "fortinet",
       "source": "./skills/fortinet",
       "description": "Read every FortiGate's configuration and live state, then audit the whole client fleet for firmware, SSL-VPN exposure, admin accounts and licence expiry in one command.",
-      "version": "0.1.9",
+      "version": "0.1.10",
       "category": "security",
       "tags": [
         "fortinet",
@@ -1157,7 +1157,7 @@
       "name": "connectsecure",
       "source": "./skills/connectsecure",
       "description": "Every ConnectSecure API operation, plus a local store that answers vulnerability x asset x client questions across your whole client base in one command.",
-      "version": "0.1.9",
+      "version": "0.1.10",
       "category": "security",
       "tags": [
         "connectsecure",
@@ -1453,7 +1453,7 @@
       "name": "exchange-online",
       "source": "./skills/exchange-online",
       "description": "Exchange Online admin for MSPs over REST: forwarding audits, EWS posture, offboarding and quarantine across client tenants, no PowerShell session.",
-      "version": "0.1.4",
+      "version": "0.1.5",
       "category": "security",
       "tags": [
         "exchange-online",
@@ -1469,7 +1469,7 @@
       "name": "dnsfilter",
       "source": "./skills/dnsfilter",
       "description": "Every DNSFilter API operation, plus one-command answers to 'why is this site blocked for this client' and 'which clients are behind on the roaming agent'.",
-      "version": "0.1.5",
+      "version": "0.1.6",
       "category": "security",
       "tags": [
         "dnsfilter",
@@ -1641,7 +1641,7 @@
       "name": "comet-backup",
       "source": "./skills/comet-backup",
       "description": "Fleet-wide backup health, failure triage and usage reports for every tenant on your Comet Server, plus the admin API calls an MSP uses day to day.",
-      "version": "0.1.3",
+      "version": "0.1.4",
       "category": "backup-dr",
       "tags": [
         "comet-backup",

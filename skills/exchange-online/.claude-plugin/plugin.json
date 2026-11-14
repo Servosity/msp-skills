@@ -1,6 +1,6 @@
 {
   "name": "exchange-online",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Exchange Online admin for MSPs over REST: forwarding audits, EWS posture, offboarding and quarantine across client tenants, no PowerShell session.",
   "author": {
     "name": "Servosity",
