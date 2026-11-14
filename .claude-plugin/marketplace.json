@@ -807,7 +807,7 @@
       "name": "rewst",
       "source": "./skills/rewst",
       "description": "Operate and monitor Rewst RPA across every client org from the terminal or your AI agent: workflow execution health, failure triage, automation ROI, dormant-workflow cleanup, cross-org config drift, and integration-pack coverage - the multi-tenant answers the web console makes you assemble one org at a time.",
-      "version": "0.1.12",
+      "version": "0.1.13",
       "category": "automation",
       "tags": [
         "rewst",
@@ -853,7 +853,7 @@
       "name": "rootly",
       "source": "./skills/rootly",
       "description": "Every Rootly incident, alert, and on-call object as a typed command, with a local SQLite mirror for offline analytics.",
-      "version": "0.1.10",
+      "version": "0.1.11",
       "category": "incident-response",
       "tags": [
         "rootly",
@@ -868,7 +868,7 @@
       "name": "runzero",
       "source": "./skills/runzero",
       "description": "Every runZero query, plus a local SQLite copy of your whole attack surface that diffs over time, joins assets to vulnerabilities offline, and costs zero API quota to re-slice.",
-      "version": "0.1.12",
+      "version": "0.1.13",
       "category": "security",
       "tags": [
         "runzero",
@@ -883,7 +883,7 @@
       "name": "salesbuildr",
       "source": "./skills/salesbuildr",
       "description": "Every Salesbuildr resource as a scriptable command, plus offline margin and pipeline analytics.",
-      "version": "0.1.12",
+      "version": "0.1.13",
       "category": "crm",
       "tags": [
         "salesbuildr",
@@ -928,7 +928,7 @@
       "name": "sherweb",
       "source": "./skills/sherweb",
       "description": "Every Sherweb Partner API capability, plus a local SQLite store, offline analytics, and margin/drift/orphan joins no other Sherweb tool has.",
-      "version": "0.1.11",
+      "version": "0.1.12",
       "category": "billing",
       "tags": [
         "sherweb",
@@ -943,7 +943,7 @@
       "name": "skykick",
       "source": "./skills/skykick",
       "description": "Fleet-wide M365 backup assurance for SkyKick Cloud Backup - posture, stale snapshots, and coverage gaps no portal or wrapper can show.",
-      "version": "0.1.11",
+      "version": "0.1.12",
       "category": "backup-dr",
       "tags": [
         "skykick",
@@ -973,7 +973,7 @@
       "name": "syncro",
       "source": "./skills/syncro",
       "description": "Every Syncro PSA and RMM workflow in your terminal, plus a local database, offline search, and cross-entity reports no other Syncro tool has.",
-      "version": "0.1.10",
+      "version": "0.1.11",
       "category": "psa",
       "tags": [
         "syncro",
@@ -1203,7 +1203,7 @@
       "name": "sophos-central",
       "source": "./skills/sophos-central",
       "description": "The Sophos Central partner, organization and tenant APIs, routed to the right tenant and region automatically, plus a cross-tenant triage queue, fleet tamper remediation, a multi-tenant SIEM collector and hostname-based containment.",
-      "version": "0.1.8",
+      "version": "0.1.9",
       "category": "security",
       "tags": [
         "sophos-central",
@@ -1250,7 +1250,7 @@
       "name": "sonicwall",
       "source": "./skills/sonicwall",
       "description": "Cyber-insurance posture for a whole SonicWall fleet: firmware, advisories, MFA, SSL-VPN exposure and licences, one row per firewall.",
-      "version": "0.1.8",
+      "version": "0.1.9",
       "category": "security",
       "tags": [
         "sonicwall",
@@ -1343,7 +1343,7 @@
       "name": "saas-alerts",
       "source": "./skills/saas-alerts",
       "description": "Every SaaS Alerts API in one CLI, plus cross-tenant triage, a Respond approval queue with deadlines, and the access-token handshake that breaks other integrations.",
-      "version": "0.1.6",
+      "version": "0.1.7",
       "category": "security",
       "tags": [
         "saas-alerts",
