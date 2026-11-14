@@ -1,6 +1,6 @@
 {
   "name": "vsphere",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Read-only vCenter inventory for migration planning: blockers, snapshots, per-core licence exposure and Proxmox mapping, as JSON an agent can use.",
   "author": {
     "name": "Servosity",

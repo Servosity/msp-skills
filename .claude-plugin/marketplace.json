@@ -988,7 +988,7 @@
       "name": "tactical-rmm",
       "source": "./skills/tactical-rmm",
       "description": "Every Tactical RMM endpoint as a typed command, plus an offline SQLite mirror and cross-entity fleet queries the web UI can't express.",
-      "version": "0.1.12",
+      "version": "0.1.13",
       "category": "rmm",
       "tags": [
         "tactical-rmm",
@@ -1019,7 +1019,7 @@
       "name": "unifi-network",
       "source": "./skills/unifi-network",
       "description": "Every UniFi Network API operation, plus drift detection, topology, and rule prediction no other UniFi tool has.",
-      "version": "0.1.12",
+      "version": "0.1.13",
       "category": "network-monitoring",
       "tags": [
         "unifi-network",
@@ -1035,7 +1035,7 @@
       "name": "veeam",
       "source": "./skills/veeam",
       "description": "Every Veeam Service Provider Console endpoint as a typed command, plus a local multi-tenant mirror, cross-company rollups, and drift detection no per-instance Veeam tool offers.",
-      "version": "0.1.12",
+      "version": "0.1.13",
       "category": "backup-dr",
       "tags": [
         "veeam",
@@ -1142,7 +1142,7 @@
       "name": "threatdown",
       "source": "./skills/threatdown",
       "description": "Every ThreatDown OneView API, plus fleet-wide stale-endpoint, health and seat reports across all your sites, and guarded isolate/scan/restore jobs.",
-      "version": "0.1.8",
+      "version": "0.1.9",
       "category": "security",
       "tags": [
         "threatdown",
@@ -1235,7 +1235,7 @@
       "name": "watchguard",
       "source": "./skills/watchguard",
       "description": "WatchGuard Cloud's Firebox, Endpoint Security, ThreatSync, AuthPoint, NDR and MSP account APIs in one CLI and MCP server.",
-      "version": "0.1.8",
+      "version": "0.1.9",
       "category": "security",
       "tags": [
         "watchguard",
@@ -1563,7 +1563,7 @@
       "name": "vsphere",
       "source": "./skills/vsphere",
       "description": "Read-only vCenter inventory for migration planning: blockers, snapshots, per-core licence exposure and Proxmox mapping, as JSON an agent can use.",
-      "version": "0.1.4",
+      "version": "0.1.5",
       "category": "msp",
       "tags": [
         "vsphere",
@@ -1609,7 +1609,7 @@
       "name": "zoom-phone",
       "source": "./skills/zoom-phone",
       "description": "Every Zoom Phone admin operation plus E911, routing and footprint audits, across every client account.",
-      "version": "0.1.5",
+      "version": "0.1.6",
       "category": "telephony",
       "tags": [
         "zoom-phone",
@@ -1673,7 +1673,7 @@
       "name": "threecx",
       "source": "./skills/threecx",
       "description": "Run every client's 3CX phone system from one CLI: trunk, version, licence and backup health across the whole fleet, plus the full Configuration API on any single PBX.",
-      "version": "0.1.4",
+      "version": "0.1.5",
       "category": "msp",
       "tags": [
         "threecx",

@@ -1,6 +1,6 @@
 {
   "name": "zoom-phone",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "Every Zoom Phone admin operation plus E911, routing and footprint audits, across every client account.",
   "author": {
     "name": "Servosity",
