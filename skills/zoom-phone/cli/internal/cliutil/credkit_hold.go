@@ -330,3 +330,29 @@ func holdLeaf(source string, v any) {
 		holdConfigValue(source, fmt.Sprint(x))
 	}
 }
+
+// TokenForm encodes a token request form with grant_type first. The kit also
+// reads a form body as one key=value line, so a body that starts with a
+// credential field (url.Values.Encode sorts client_id first) would hold
+// everything after it, "grant_type=client_credentials" included, and a piece
+// of "credentials" would then withhold every output that said the word. Each
+// field is still held by its own name (handfixes.json zoom-token-form-auth).
+// ponytail: a dodge of a kit reading, drop it once the kit stops holding a
+// form's tail under its first key.
+func TokenForm(form url.Values) string {
+	rest := url.Values{}
+	for k, v := range form {
+		if k != "grant_type" {
+			rest[k] = v
+		}
+	}
+	gt, ok := form["grant_type"]
+	if !ok {
+		return rest.Encode()
+	}
+	out := url.Values{"grant_type": gt}.Encode()
+	if r := rest.Encode(); r != "" {
+		out += "&" + r
+	}
+	return out
+}
