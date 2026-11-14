@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-11-13",
+  "generated_at": "2026-11-14",
   "skills": [
     {
       "name": "msp-skills-concierge",
@@ -742,7 +742,7 @@
       "skill_path": "skills/datto-saas",
       "cli_binary": "datto-saas-cli",
       "mcp_binary": "datto-saas-mcp",
-      "version": "0.1.4",
+      "version": "0.1.5",
       "printing_press_version": "4.34.2",
       "license": "Apache-2.0",
       "vendor": "Datto SaaS Protection",

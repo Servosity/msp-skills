@@ -245,11 +245,11 @@
     "released_hash": "sha256:26bf47d91990d1682ce20161c5532ce873b100c0bb1018d0209638e9678038d7"
   },
   "datto-saas": {
-    "state": "binary-pending",
-    "version": "0.1.4",
-    "latest_tag": "datto-saas-v0.1.4",
+    "state": "up-to-date",
+    "version": "0.1.5",
+    "latest_tag": "datto-saas-v0.1.5",
     "current_hash": "sha256:7eea8553b188a17ac357c7f7754c49ccbc37fc9881650a6cf129d0bc86617b02",
-    "released_hash": "sha256:d9c6a301b84324c66c82a31a7f883017698efbd2bdfc59b1d865101630c07bff"
+    "released_hash": "sha256:7eea8553b188a17ac357c7f7754c49ccbc37fc9881650a6cf129d0bc86617b02"
   },
   "dnsfilter": {
     "state": "binary-pending",

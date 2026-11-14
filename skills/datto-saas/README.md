@@ -54,7 +54,7 @@ Big install base, but an honest heads-up: these are the **remote / enterprise** 
 
 ### Fastest for Claude Desktop - one-click `.mcpb`
 
-[**Download Datto SaaS Protection MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/datto-saas-v0.1.4/datto-saas-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every Datto SaaS Protection release on the [releases page](https://github.com/servosity/msp-skills/releases?q=datto-saas).)
+[**Download Datto SaaS Protection MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/datto-saas-v0.1.5/datto-saas-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every Datto SaaS Protection release on the [releases page](https://github.com/servosity/msp-skills/releases?q=datto-saas).)
 
 Prefer the Claude Code plugin? Add the marketplace once, then install - works immediately, no directory listing required:
 
