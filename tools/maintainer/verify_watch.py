@@ -18,12 +18,18 @@ each ONE GitHub issue that is opened, updated in place, or closed:
                     (d) maintained_at is 30 or more days old.
   press-watch       mvanhorn/cli-printing-press has a release newer than the
                     fleet's newest printing_press_version. Input for the reprint
-                    decision; nothing here ever reprints.
+                    decision; nothing here ever reprints. Its body also lists the
+                    untriaged press bug fixes (the `### Bug Fixes` bullets of every
+                    release after the fleet's oldest print) whose PR changed
+                    generated code, per connector printed before them, minus those
+                    a fleet hand-fix cites by press PR number (for a connector whose
+                    ledger has it) or press_fix_triage.json triages. Advisory: the
+                    follow-up is one fleet hand-fix or a triage entry, never a reprint.
 
     python3 tools/maintainer/verify_watch.py --repo Servosity/msp-skills --collect --apply
     python3 tools/maintainer/verify_watch.py --repo Servosity/msp-skills --collect        # dry run
     python3 tools/maintainer/verify_watch.py --results DIR --press-release rel.json \\
-        --today 2026-10-23 --issues-fixture issues.json                                   # offline
+        --press-releases rels.json --today 2026-10-23 --issues-fixture issues.json        # offline
     python3 tools/maintainer/verify_watch.py --self-test
 
 Idempotent: an issue is found by its label plus a marker comment in its body;
@@ -300,7 +306,473 @@ def map_issue(reasons: list[str]) -> tuple[str, str] | None:
     return "verify-map-stale: the verify-msp-skills map needs a maintenance pass", body
 
 
-def press_issue(release: dict, fleet: dict) -> tuple[str, str] | None:
+# --------------------------------------------------------------------------- #
+# Press drift: the press fixes that connectors printed before them do not carry.
+# --------------------------------------------------------------------------- #
+
+FLEET_HANDFIXES = ROOT / "tools" / "maintainer" / "fleet_handfixes.json"
+PRESS_FIX_TRIAGE = ROOT / "tools" / "maintainer" / "press_fix_triage.json"
+# Bug-fix scopes that never reach a printed connector (the press's own CI and tests).
+IGNORED_SCOPES = frozenset({"ci", "test", "tests", "docs", "chore"})
+# The release-please section names. A body whose only headings are others (say
+# "## What Changed") is not a shape this watch reads, and is named in a note.
+RP_SECTIONS = frozenset({"bug fixes", "features", "code refactoring", "performance improvements", "reverts",
+                         "documentation", "miscellaneous chores", "tests", "build system",
+                         "continuous integration", "styles", "dependencies"})
+_PRESS_REF = rf"https://github\.com/{re.escape(PRESS_REPO)}/(?:issues|pull)/(\d+)"
+_RP_BULLET = re.compile(r"^\* (?:\*\*(?P<scope>[^*]+?):\*\* )?(?P<text>.+)$")
+_CC_FIX = re.compile(r"^[*-] (?:\*\*)?fix(?:\((?P<scope>[^)]*)\))?!?:(?:\*\*)? (?P<text>.+)$", re.I)
+_PR_GROUP = re.compile(rf"\(\[#(\d+)\]\({_PRESS_REF}\)\)")
+_PLAIN_PR = re.compile(r"\(#(\d+)\)")
+_COMMIT_REF = rf"https://github\.com/{re.escape(PRESS_REPO)}/commit/[0-9a-f]+"
+# release-please's suffix: " ([#PR](url))", " ([sha](commit url))", ", closes [#N](url), [#M](url)".
+_RP_META = re.compile(rf"(?:\s*\(\[#\d+\]\({_PRESS_REF}\)\))?(?:\s*\(\[[0-9a-f]{{7,40}}\]\({_COMMIT_REF}\)\))?"
+                      rf"(?:,?\s*closes\s+(?:\[#\d+\]\({_PRESS_REF}\)(?:,\s*|\s+and\s+|\s*))+)?\s*$", re.I)
+# A conventional-commit line's suffix: " (#N)" and GitHub's " by @x in url".
+_CC_META = re.compile(r"(?:\s*\(#\d+\))?(?:\s+by\s+@\S+\s+in\s+\S+)?\s*$")
+_CITE = re.compile(rf"cli-printing-press ?#(\d+)((?:\s*(?:,|and|,\s*and)\s*#\d+)*)|{_PRESS_REF}")
+MAX_SHOWN_SLUGS, MAX_TITLE_CHARS, MAX_NOTES, MAX_PRINT_VERSIONS = 15, 140, 20, 40
+# The section's share of the issue body: full release blocks up to DRIFT_BUDGET,
+# one-line release summaries up to SUMMARY_ROOM more, then a single tail line.
+# With the rest of the body this stays far under GitHub's 65536-character limit.
+DRIFT_BUDGET, SUMMARY_ROOM = 50000, 6000
+
+
+def _plain(text: str, cap: int = MAX_TITLE_CHARS) -> str:
+    """Third-party text made safe for one Markdown code span: links reduced to
+    their text, no backticks, no markup, no control characters, bounded."""
+    t = re.sub(r"\[([^\]]*)\]\([^)]*\)", r"\1", text)
+    t = re.sub(r"[`*\x00-\x1f\x7f]", "", t)
+    t = re.sub(r"\s+", " ", t).strip()
+    return t if len(t) <= cap else t[:cap - 3].rstrip() + "..."
+
+
+def release_fixes(body: str) -> tuple[list[dict], bool]:
+    """The bug-fix entries of one press release body, and whether the body had a
+    shape this parser knows (a release-please section header or a conventional
+    `fix:` line). Release-please writes `### Bug Fixes` with one
+    `* **scope:** subject ([#PR](url)) ([sha](url))` bullet per fix; every other
+    section (Features, Chores, Documentation, ...) is skipped. Each entry:
+    {scope, title, key, pr, refs, sha, kind: fix|ignored}. refs are the fix's OWN
+    press numbers: its PR and the issues release-please says it closes, never a
+    number its subject merely mentions (a follow-up to #N is not #N)."""
+    fixes: list[dict] = []
+    section, known = None, False
+    for ln in (body or "").splitlines():
+        if re.match(r"^#{2,3} ", ln):
+            section = ln.lstrip("#").strip().lower() if ln.startswith("### ") else None
+            known = known or section in RP_SECTIONS
+            continue
+        m = _CC_FIX.match(ln) or (_RP_BULLET.match(ln) if section == "bug fixes" else None)
+        if not m:
+            continue
+        known = True
+        text = m.group("text")
+        # The metadata suffix is read from the END of the line, so a link inside
+        # the subject ("follow-up to ([#100](..))") is never taken for the PR.
+        meta = _RP_META.search(text) if section == "bug fixes" and not _CC_FIX.match(ln) else None
+        if meta is None or meta.start() == len(text):
+            meta = _CC_META.search(text)
+        title, tail = text[:meta.start()], text[meta.start():]
+        refs = {int(n) for n in re.findall(_PRESS_REF, tail)} | {int(n) for n in _PLAIN_PR.findall(tail)}
+        pr = _PR_GROUP.search(tail)
+        pr_num = int(pr.group(1)) if pr else (min(refs) if refs else None)
+        scope = _plain(m.group("scope") or "", 40).lower()
+        kind = "ignored" if scope in IGNORED_SCOPES else "fix"
+        sha = re.search(rf"\(\[([0-9a-f]{{7,40}})\]\(https://github\.com/{re.escape(PRESS_REPO)}/commit/", text)
+        fixes.append({"scope": scope, "title": _plain(title), "key": _plain(title, 10 ** 6),
+                      "pr": pr_num, "refs": refs, "kind": kind,
+                      "sha": sha.group(1)[:7] if sha else None})
+    return fixes, known
+
+
+def cited_press_numbers(entry) -> set[int]:
+    """The cli-printing-press PR/issue numbers a fleet hand-fix entry cites:
+    `cli-printing-press #N` (and the `, #M` list that follows it), or a press
+    URL. A bare `#N` is an msp-skills number and is never read as the press's."""
+    out: set[int] = set()
+    for first, rest, url in _CITE.findall(json.dumps(entry)):
+        if url:
+            out.add(int(url))
+        else:
+            out.add(int(first))
+            out.update(int(n) for n in re.findall(r"#(\d+)", rest))
+    return out
+
+
+def ledger_ids(root: Path) -> dict[str, set[str]]:
+    """{slug: the hand-fix ids its own skills/<slug>/handfixes.json records}."""
+    out: dict[str, set[str]] = {}
+    for led in sorted((root / "skills").glob("*/handfixes.json")):
+        out[led.parent.name] = {e.get("id") for e in json.loads(led.read_text(encoding="utf-8")).get("handfixes")
+                                or [] if isinstance(e, dict) and isinstance(e.get("id"), str)}
+    return out
+
+
+def carried_numbers(root: Path, fleet_handfixes: dict, ids: dict[str, set[str]] | None = None
+                    ) -> dict[str, dict[int, str]]:
+    """{slug: {press number: fleet hand-fix id}} for the fleet-wide hand-fixes
+    each connector's own skills/<slug>/handfixes.json records. Only a connector
+    whose ledger names the id carries the port."""
+    cites = {hid: cited_press_numbers(e) for hid, e in (fleet_handfixes.get("handfixes") or {}).items()}
+    out: dict[str, dict[int, str]] = {}
+    for slug, have in sorted((ids if ids is not None else ledger_ids(root)).items()):
+        nums = {n: hid for hid in sorted(i for i in have if i in cites) for n in sorted(cites[hid])}
+        if nums:
+            out[slug] = nums
+    return out
+
+
+def load_triage(data) -> dict[int, dict]:
+    """tools/maintainer/press_fix_triage.json, validated: {"fixes": {"<press PR>":
+    {"ported": "<hand-fix id>"} or {"not_affected": "<reason>"}, optional
+    "slugs": [...]}}. Anything else raises: a ledger that cannot be read must
+    never drop a fix by accident."""
+    if not isinstance(data, dict) or not isinstance(data.get("fixes"), dict):
+        raise ValueError("press_fix_triage.json: no fixes object")
+    out: dict[int, dict] = {}
+    for k, e in data["fixes"].items():
+        if not re.fullmatch(r"[1-9]\d*", str(k)) or not isinstance(e, dict):
+            raise ValueError(f"press_fix_triage.json: entry {k!r} is not a press PR number with an object")
+        kinds = [x for x in ("ported", "not_affected") if x in e]
+        if len(kinds) != 1 or not isinstance(e[kinds[0]], str) or not e[kinds[0]].strip():
+            raise ValueError(f"press_fix_triage.json #{k}: exactly one of ported / not_affected, a non-empty string")
+        extra = set(e) - {"ported", "not_affected", "slugs", "why"}
+        if extra:
+            raise ValueError(f"press_fix_triage.json #{k}: unknown keys {sorted(extra)}")
+        if "slugs" in e and (not isinstance(e["slugs"], list) or not e["slugs"]
+                             or not all(isinstance(s, str) and s for s in e["slugs"])):
+            raise ValueError(f"press_fix_triage.json #{k}: slugs must be a non-empty list of connector slugs")
+        out[int(k)] = e
+    return out
+
+
+def press_drift(releases: list, fleet: dict, carried: dict[str, dict[int, str]],
+                triage: dict[int, dict] | None = None, ids: dict[str, set[str]] | None = None) -> dict:
+    """Every press bug fix shipped after the fleet's oldest print, with the
+    connectors printed before the release that shipped it, minus the
+    connectors that already have it: a fleet hand-fix their ledger names cites
+    the fix's press number, or press_fix_triage.json triaged the fix's PR
+    (ported: for the connectors whose ledger names that hand-fix id, and any
+    slugs listed; not_affected: for the slugs listed, or every connector). Pure."""
+    triage, ids = triage or {}, ids or {}
+    if not fleet:
+        return {"releases": [], "odd": [], "oldest": None, "fleet": fleet}
+    oldest = min(fleet.values())
+    rels, odd, seen = [], [], {}
+    for r in releases:
+        if not isinstance(r, dict) or r.get("draft") or r.get("prerelease"):
+            continue
+        try:
+            v = parse_version(r.get("tag_name"))
+        except ValueError:
+            odd.append(f"release tag `{_plain(str(r.get('tag_name')), 40)}` is not a version; read it by hand")
+            continue
+        if v > oldest:
+            rels.append((v, r))
+    out = []
+    for v, r in sorted(rels, key=lambda x: x[0]):
+        if v in seen:
+            continue
+        seen[v] = True
+        fixes, known = release_fixes(r.get("body") or "")
+        if not known:
+            odd.append(f"v{vstr(v)}: the release notes have no section this watch can read; read them by hand")
+        before = sorted((s for s, fv in fleet.items() if fv < v), key=lambda s: (fleet[s], s))
+        out.append({"version": v, "published": str(r.get("published_at") or "")[:10],
+                    "before": before, "fixes": fixes})
+    for hid in sorted({e["ported"] for e in triage.values() if "ported" in e}):
+        if not any(hid in have for have in ids.values()):
+            odd.append(f"press_fix_triage.json names ported id `{_plain(hid, 60)}`, which no connector ledger records")
+    # A fix shipped twice (a backport: same PR, same subject, a later release)
+    # belongs to the first release that shipped it. Two bullets of one release
+    # are never merged, and a shared PR with another subject is another fix.
+    first: set[tuple] = set()
+    for rel in out:
+        kept, here = [], set()
+        for f in rel["fixes"]:
+            key = (f["pr"], f["key"])
+            if f["pr"] is not None and key in first:
+                continue
+            here.add(key)
+            nums = f["refs"] | ({f["pr"]} if f["pr"] is not None else set())
+            drop = {s: f"fleet hand-fix `{carried[s][n]}`" for s in rel["before"] for n in sorted(nums)
+                    if n in carried.get(s, {})}
+            t = triage.get(f["pr"]) if f["pr"] is not None else None
+            if t is not None:
+                named = set(t.get("slugs") or [])
+                if "ported" in t:
+                    label = f"triage: ported as `{_plain(t['ported'], 60)}`"
+                    who = {s for s in rel["before"] if t["ported"] in ids.get(s, ()) or s in named}
+                else:
+                    label = "triage: not affected"
+                    who = {s for s in rel["before"] if s in named} if named else set(rel["before"])
+                drop.update({s: label for s in who if s not in drop})
+            kept.append({**f, "missing": [s for s in rel["before"] if s not in drop],
+                         "carried_by": sorted(set(drop.values())), "carried": len(drop)})
+        rel["fixes"] = kept
+        first |= here
+    return {"releases": list(reversed(out)), "odd": odd, "oldest": oldest, "fleet": fleet}
+
+
+# A press PR changed what a connector is printed with when it touched a
+# generator template or the golden expected output (rendered CLIs the press
+# checks every template against). Test files are left out on both sides.
+GENERATED_PATHS = ("internal/generator/templates/", "testdata/golden/expected/")
+GQL_BATCH, GQL_RESERVE, MAX_FILE_PAGES = 40, 100, 30
+
+
+def generated_change(paths) -> bool:
+    return any(isinstance(p, str) and p.startswith(GENERATED_PATHS)
+               and not re.search(r"_test\.go(?:\.tmpl)?$", p) for p in paths)
+
+
+def gql(query: str) -> dict:
+    """One GraphQL call. A partial answer (some aliases NOT_FOUND) is still an
+    answer: its data is returned, the missing aliases come back as None."""
+    try:
+        r = subprocess.run(["gh", "api", "graphql", "-f", f"query={query}"],
+                           capture_output=True, text=True, timeout=120)
+    except (OSError, subprocess.SubprocessError) as e:
+        raise RuntimeError(f"gh api graphql failed: {e}") from e
+    try:
+        got = json.loads(r.stdout)
+    except ValueError:
+        got = None
+    if not isinstance(got, dict) or not isinstance(got.get("data"), dict):
+        raise RuntimeError(f"gh api graphql failed: {(r.stderr or r.stdout).strip()[:300]}")
+    return got["data"]
+
+
+def pr_generated_changes(prs: list[int], call=None) -> tuple[dict[int, bool | None], dict]:
+    """{pr: True (changed generated code) / False / None (unreadable)} for the
+    press PRs, read from each PR's file list through GraphQL, GQL_BATCH PRs a
+    call (the REST budget of the Actions token, 1000 an hour, is mostly spent
+    by the verify-map collection). Stops asking when the GraphQL budget falls
+    to GQL_RESERVE; what is not asked stays None, never False."""
+    call = call or gql
+    owner, name = PRESS_REPO.split("/")
+    res: dict[int, bool | None] = {}
+    stats = {"prs": len(prs), "asked": 0, "calls": 0, "unreadable": 0, "stopped": ""}
+    files = "files(first: 100{after}) {{ nodes {{ path }} pageInfo {{ hasNextPage endCursor }} }}"
+    pending = [(p, None, 0) for p in prs]  # (pr, cursor, page)
+    partial: set[int] = set()  # PRs with an unreadable file node on some page
+    while pending:
+        batch, pending = pending[:GQL_BATCH], pending[GQL_BATCH:]
+        body = " ".join(f'p{p}: pullRequest(number: {p}) {{ '
+                        + files.format(after=f', after: "{c}"' if c else "") + " }" for p, c, _ in batch)
+        try:
+            data = call(f'query {{ rateLimit {{ remaining }} repository(owner: "{owner}", name: "{name}") '
+                        f'{{ {body} }} }}')
+        except RuntimeError as e:
+            stats["stopped"] = _plain(str(e), 160)
+            break
+        stats["calls"] += 1
+        repo = data.get("repository") if isinstance(data.get("repository"), dict) else {}
+        for p, c, page in batch:
+            if c is None:
+                stats["asked"] += 1
+            node = repo.get(f"p{p}")
+            fl = node.get("files") if isinstance(node, dict) else None
+            nodes = fl.get("nodes") if isinstance(fl, dict) else None
+            if not isinstance(nodes, list):
+                res[p] = None
+                continue
+            paths = [n.get("path") if isinstance(n, dict) else None for n in nodes]
+            if generated_change(paths):
+                res[p] = True  # one generated path is proof, whatever else the page holds
+                continue
+            if not all(isinstance(x, str) for x in paths):
+                partial.add(p)  # a null file node: "no generated change" is not proven
+            info = fl.get("pageInfo") or {}
+            if info.get("hasNextPage") and page + 1 < MAX_FILE_PAGES and isinstance(info.get("endCursor"), str) \
+                    and re.fullmatch(r"[A-Za-z0-9+/=_-]+", info["endCursor"]):
+                pending.append((p, info["endCursor"], page + 1))
+            else:
+                res[p] = None if info.get("hasNextPage") or p in partial else False
+        left = (data.get("rateLimit") or {}).get("remaining")
+        if pending and isinstance(left, int) and left <= GQL_RESERVE:
+            stats["stopped"] = f"GraphQL budget down to {left}"
+            break
+    stats["unreadable"] = sum(1 for p in prs if res.get(p) is None)
+    return {p: res.get(p) for p in prs}, stats
+
+
+def classify_drift(drift: dict, lookup) -> dict:
+    """Marks every listed fix (not ignored, still missing somewhere) with
+    gen = True / False / None from its press PR's files; a fix with no PR
+    number is None (unclassified). Newest release first, each PR once."""
+    prs: list[int] = []
+    for rel in drift.get("releases", []):
+        for f in rel["fixes"]:
+            if f["kind"] != "ignored" and f["missing"] and f["pr"] is not None and f["pr"] not in prs:
+                prs.append(f["pr"])
+    got, stats = lookup(prs) if prs else ({}, {"prs": 0, "asked": 0, "calls": 0, "unreadable": 0, "stopped": ""})
+    for rel in drift.get("releases", []):
+        for f in rel["fixes"]:
+            f["gen"] = got.get(f["pr"]) if f["pr"] is not None else None
+    drift["query"] = stats
+    return drift
+
+
+def _slugs(slugs: list[str]) -> str:
+    shown = ", ".join(f"`{s}`" for s in slugs[:MAX_SHOWN_SLUGS])
+    return shown + (f" and {len(slugs) - MAX_SHOWN_SLUGS} more" if len(slugs) > MAX_SHOWN_SLUGS else "")
+
+
+def _ref(f: dict) -> str:
+    return f" (#{f['pr']})" if f["pr"] is not None else f" (commit {f['sha']})" if f.get("sha") else ""
+
+
+def drift_section(drift: dict | None, error: str | None = None, budget: int = DRIFT_BUDGET,
+                  full_log: bool = False) -> str:
+    """The press-watch issue's section: untriaged press fixes that changed
+    generated code, per connector printed before them, newest release first.
+    A fix whose PR files could not be read is listed as unclassified, never
+    dropped. A release that does not fit the budget is one summary line (the
+    full list is in the verify-watch run log, rendered with full_log=True,
+    which also names the fixes that changed no generated code)."""
+    head = ["", "## Press fixes that older connectors do not carry", ""]
+    if error is not None:
+        return "\n".join(head + [f"The press drift inputs (the press release list, fleet_handfixes.json, "
+                                 f"press_fix_triage.json) could not be read this run (`{_plain(error, 200)}`), "
+                                 "so which fixes older connectors lack is unknown. Nothing below is a clean "
+                                 "list; the next run retries."])
+    drift = drift or {}
+    lines = list(head) + [
+        "Each fix below changed generated code (a press template or its golden output) after the listed "
+        "connectors were printed, and has not been triaged. Triaging a fix means porting it as one fleet "
+        "hand-fix (its `tools/maintainer/fleet_handfixes.json` entry cites `cli-printing-press #N`) or "
+        "recording it in `tools/maintainer/press_fix_triage.json` (`ported` or `not_affected`). The list "
+        "only shrinks by triage. Never a reprint by default; see `tools/maintainer/README.md`, press-watch.",
+        ""]
+    live = lambda f: f["kind"] != "ignored" and f["missing"]  # noqa: E731
+    # A fix every older connector carries is still NAMED (as carried), never
+    # silently gone: a citation the parser misread can then only mislabel a fix.
+    gone = lambda f: f["kind"] != "ignored" and not f["missing"] and f["carried"]  # noqa: E731
+    rels = [r for r in drift.get("releases", []) if any(live(f) or gone(f) for f in r["fixes"])]
+    fleet = drift.get("fleet") or {}
+    allf = [f for r in rels for f in r["fixes"] if live(f)]
+    listed = [f for f in allf if f.get("gen") is not False]
+    gen = [f for f in allf if f.get("gen") is True]
+    uncl = [f for f in allf if f.get("gen") is None]
+    q = drift.get("query") or {}
+    if not rels:
+        lines.append("Every connector carries every press bug fix released since the fleet's oldest print.")
+    else:
+        hit = sorted({s for f in listed for s in f["missing"]})
+        lines += [f"{len(gen)} untriaged fix(es) that changed generated code and {len(uncl)} unclassified "
+                  f"(its PR's files could not be read, or it has no PR), from {len(rels)} release(s), missing "
+                  f"from {len(hit)} connector(s). {len(allf) - len(listed)} other fix(es) changed no generated "
+                  f"code and are not listed. PR file lists queried: {q.get('asked', 0)} of {q.get('prs', 0)} "
+                  f"in {q.get('calls', 0)} GraphQL call(s)"
+                  + (f" (stopped: {q['stopped']})" if q.get("stopped") else "") + ".", ""]
+        if listed:
+            lines += ["By print version (connectors oldest first; untriaged fixes missing, unclassified included):",
+                      ""]
+            for pv in sorted(set(fleet.values()))[:MAX_PRINT_VERSIONS]:
+                at = sorted(s for s, v in fleet.items() if v == pv)
+                n = max(sum(1 for f in listed if s in f["missing"]) for s in at)
+                if n:
+                    lines.append(f"- {vstr(pv)}, {len(at)} connector(s), {n} fix(es): {_slugs(at)}")
+            lines.append("")
+        full, rest = True, []
+        for rel in rels:
+            shown = [f for f in rel["fixes"] if live(f) and f.get("gen") is True]
+            unk = [f for f in rel["fixes"] if live(f) and f.get("gen") is None]
+            other = [f for f in rel["fixes"] if live(f) and f.get("gen") is False]
+            dropped = [f for f in rel["fixes"] if gone(f)]
+            if not (shown or unk or dropped or (full_log and other)):
+                continue
+            url = f"https://github.com/{PRESS_REPO}/releases/tag/v{vstr(rel['version'])}"
+            pub = f", published {rel['published']}" if rel["published"] else ""
+            newest_before = vstr(max(fleet[s] for s in rel["before"]))
+            block = [f"### v{vstr(rel['version'])}{pub} ([release notes]({url}))", "",
+                     f"Missing from the {len(rel['before'])} connector(s) printed on {newest_before} or older "
+                     f"(named above, by print version), except where a line says otherwise.", ""]
+            for f in shown + unk:
+                note = " Unclassified." if f.get("gen") is None else ""
+                if f["carried"]:
+                    note += (f" Missing from {len(f['missing'])} ({_slugs(f['missing'])}); {f['carried']} have it: "
+                             + ", ".join(f["carried_by"]) + ".")
+                block.append(f"- `{f['scope'] + ': ' if f['scope'] else ''}{f['title']}{_ref(f)}`{note}")
+            if dropped:
+                block.append("- Carried or triaged for every older connector (dropped; check the citation if it "
+                             "looks wrong): " + ", ".join(f"`{f['title'][:60]}{_ref(f)}` via "
+                                                          + ", ".join(f["carried_by"]) for f in dropped))
+            if full_log and other:
+                block.append("- Changed no generated code (not in the issue): "
+                             + ", ".join(f"`{f['title'][:60]}{_ref(f)}`" for f in other))
+            block.append("")
+            text = "\n".join(block)
+            used = sum(len(x) + 1 for x in lines)
+            if full and used + len(text) > budget:
+                full = False
+            if full:
+                lines.append(text)
+            elif used < budget + SUMMARY_ROOM:
+                lines.append(f"- v{vstr(rel['version'])}: {len(shown)} fix(es), {len(unk)} unclassified, "
+                             f"{len(rel['before'])} connector(s) printed before it ([release notes]({url}); "
+                             "the full list is in the verify-watch run log)")
+            else:
+                rest.append((rel, len(shown) + len(unk)))
+        if rest:
+            lines.append(f"- ...and {len(rest)} older release(s) (v{vstr(rest[-1][0]['version'])} to "
+                         f"v{vstr(rest[0][0]['version'])}), {sum(n for _, n in rest)} fix(es): the full list is "
+                         "in the verify-watch run log")
+    odd = drift.get("odd", [])
+    lines += [f"- Note: {o}" for o in odd[:MAX_NOTES]]
+    if len(odd) > MAX_NOTES:
+        lines.append(f"- Note: ...and {len(odd) - MAX_NOTES} more (see the verify-watch run log)")
+    # The hard cap covers every part (a fleet of many print versions with long
+    # names, many notes): whatever is cut is named, and the run log has it all.
+    cap = budget + SUMMARY_ROOM + 1500
+    out, used = [], 0
+    for ln in lines:
+        if used + len(ln) + 1 > cap:
+            out.append("- ...the section is cut here to fit the issue; the full list is in the verify-watch run log")
+            break
+        out.append(ln)
+        used += len(ln) + 1
+    return "\n".join(out)
+
+
+def _fixture_lookup(path: str | None):
+    """A lookup for classify_drift from a {"<pr>": [paths]} file; a PR it does
+    not name is unclassified. With no file every PR is unclassified."""
+    table = json.loads(Path(path).read_text(encoding="utf-8")) if path else {}
+
+    def lookup(prs):
+        got = {p: (generated_change(table[str(p)]) if isinstance(table.get(str(p)), list) else None) for p in prs}
+        return got, {"prs": len(prs), "asked": sum(1 for p in prs if str(p) in table), "calls": 0,
+                     "unreadable": sum(1 for v in got.values() if v is None),
+                     "stopped": "" if path else "no --press-pr-files fixture"}
+    return lookup
+
+
+class _NoDriftFixture(Exception):
+    """A fixture run named --press-release but no --press-releases: stay offline."""
+
+
+def press_releases() -> list[dict]:
+    """Every published cli-printing-press release (a list, newest first). A page
+    that is not a list, or more than MAX_PAGES pages, raises: a partial list
+    could hide a fix."""
+    out: dict = {}
+    for page in range(1, MAX_PAGES + 1):
+        got = gh_json("-X", "GET", f"repos/{PRESS_REPO}/releases", "-f", "per_page=100", "-f", f"page={page}")
+        if not isinstance(got, list):
+            raise RuntimeError(f"releases page {page} is not a list")
+        if not got:
+            return list(out.values())
+        for r in got:
+            if not isinstance(r, dict) or r.get("id") is None:
+                raise RuntimeError(f"releases page {page}: an item without an id")
+            out[r["id"]] = r
+    raise RuntimeError(f"releases: more than {MAX_PAGES} pages; list incomplete")
+
+
+def press_issue(release: dict, fleet: dict, drift: str | None = None) -> tuple[str, str] | None:
     latest = parse_version(release.get("tag_name"))
     newest = max(fleet.values()) if fleet else (0, 0, 0)
     if latest <= newest:
@@ -322,6 +794,7 @@ def press_issue(release: dict, fleet: dict) -> tuple[str, str] | None:
         "",
         "This is input for the reprint decision. Nothing reprints automatically. verify-watch.yml updates "
         "this issue when a newer release appears and closes it once the fleet has caught up.",
+        *([drift] if drift is not None else []),
     ]) + "\n"
     return f"press-watch: cli-printing-press {release.get('tag_name')} is newer than the fleet ({vstr(newest)})", body
 
@@ -455,7 +928,10 @@ def sync(backend, label: str, marker: str, want: tuple[str, str] | None, apply: 
 # --------------------------------------------------------------------------- #
 
 def gh_json(*args: str):
-    r = subprocess.run(["gh", "api", *args], capture_output=True, text=True, timeout=120)
+    try:
+        r = subprocess.run(["gh", "api", *args], capture_output=True, text=True, timeout=120)
+    except (OSError, subprocess.SubprocessError) as e:  # a hung or missing gh is unreadable, never a crash
+        raise RuntimeError(f"gh api {' '.join(args[:3])} failed: {e}") from e
     if r.returncode != 0:
         raise RuntimeError(f"gh api {' '.join(args[:3])} failed: {r.stderr.strip()[:300]}")
     return json.loads(r.stdout)
@@ -609,7 +1085,29 @@ def run(args) -> int:
     try:
         release = (json.loads(Path(args.press_release).read_text(encoding="utf-8")) if args.press_release
                    else gh_json(f"repos/{PRESS_REPO}/releases/latest"))
-        pwant = press_issue(release, fleet)
+        try:
+            if args.press_release and not args.press_releases:
+                # A fixture run stays offline: the issue body then has no drift section.
+                raise _NoDriftFixture("no --press-releases fixture beside --press-release")
+            rel_list = (json.loads(Path(args.press_releases).read_text(encoding="utf-8")) if args.press_releases
+                        else press_releases())
+            if not isinstance(rel_list, list):
+                raise ValueError("the press release list is not a JSON list")
+            fhf = json.loads(Path(args.fleet_handfixes).read_text(encoding="utf-8"))
+            triage = load_triage(json.loads(Path(args.press_fix_triage).read_text(encoding="utf-8")))
+            ids = ledger_ids(root)
+            d = press_drift(rel_list, fleet, carried_numbers(root, fhf, ids), triage, ids)
+            classify_drift(d, _fixture_lookup(args.press_pr_files) if args.press_releases else pr_generated_changes)
+            print("press drift (the full list; the issue shows what fits):"
+                  + drift_section(d, budget=10 ** 9, full_log=True).replace("\n", "\n  "))
+            drift = drift_section(d)
+        except _NoDriftFixture as e:
+            print(f"press drift: not computed ({e})")
+            drift = None
+        except (RuntimeError, OSError, ValueError, KeyError, TypeError, AttributeError) as e:
+            problems.append(f"press drift inputs unreadable: {e}")
+            drift = drift_section(None, error=str(e))
+        pwant = press_issue(release, fleet, drift)
         print(f"press: latest {release.get('tag_name')} ({release.get('html_url')}); "
               f"{'NEWER than the fleet' if pwant else 'the fleet is current'}")
         if backend is not None:
@@ -747,6 +1245,8 @@ def self_test() -> int:
     except ValueError:
         expect(True, "unparseable release tag -> raises (never read as current)")
 
+    _drift_self_test(expect)
+
     print("issue sync (idempotent, no duplicates, closes when clear):")
     fake = FakeIssues()
     want = map_issue(["(d) old"])
@@ -841,6 +1341,308 @@ def self_test() -> int:
     return 0 if not bad else 1
 
 
+_U = f"https://github.com/{PRESS_REPO}"
+
+
+def _rp_line(scope: str, subject: str, pr: int, sha: str = "36b5c64", tail: str = "") -> str:
+    """One release-please bullet, in the exact shape the press's release notes use."""
+    s = f"**{scope}:** " if scope else ""
+    return f"* {s}{subject} ([#{pr}]({_U}/issues/{pr})) ([{sha}]({_U}/commit/{sha}abcdef)){tail}"
+
+
+def _triage_self_test(expect, rels, fleet) -> None:
+    v = parse_version
+    print("press drift: triage ledger and the generated-code filter:")
+    ids = {"old": {"fts-caps"}, "zz-old": set(), "mid": set(), "new": set()}
+    tri = load_triage({"fixes": {"3185": {"ported": "fts-caps"},
+                                 "5398": {"not_affected": "no export command", "slugs": ["zz-old"]},
+                                 "4223": {"not_affected": "the clamp is press-side only"}}})
+    d = press_drift(rels, fleet, {}, tri, ids)
+    fx = {(vstr(r["version"]), f["pr"]): f for r in d["releases"] for f in r["fixes"]}
+    expect(fx[("4.25.1", 3185)]["missing"] == ["zz-old"]
+           and fx[("4.25.1", 3185)]["carried_by"] == ["triage: ported as `fts-caps`"],
+           "triage ported -> dropped only for connectors whose ledger records that hand-fix id")
+    expect(fx[("4.35.6", 5398)]["missing"] == ["old", "mid"],
+           "triage not_affected with slugs -> dropped for the slugs named, kept for the rest")
+    expect(fx[("4.35.6", 4223)]["missing"] == [] and fx[("4.35.6", 4223)]["carried"] == 3,
+           "triage not_affected without slugs -> dropped for every connector")
+    expect("Carried or triaged for every older connector" in drift_section(d)
+           and "`clamp search limit. Closes #3742. (#4223)` via triage: not affected" in drift_section(d),
+           "a fix triaged for everyone -> still named on the dropped line, never silently gone")
+    expect(fx[("4.35.6", 5221)]["missing"] == ["old", "zz-old", "mid"], "a fix the ledger does not name -> untouched")
+    d2 = press_drift(rels, fleet, {}, load_triage({"fixes": {"3185": {"ported": "nobody-has-it"}}}), ids)
+    expect(any("nobody-has-it" in o for o in d2["odd"]),
+           "a ported id no connector ledger records -> named in a note (it drops nothing)")
+    for label, bad in (("no fixes object", {}), ("a key that is not a PR number", {"fixes": {"abc": {"ported": "x"}}}),
+                       ("both kinds", {"fixes": {"1": {"ported": "x", "not_affected": "y"}}}),
+                       ("neither kind", {"fixes": {"1": {"why": "x"}}}),
+                       ("an empty reason", {"fixes": {"1": {"not_affected": " "}}}),
+                       ("an unknown key", {"fixes": {"1": {"ported": "x", "slug": ["a"]}}}),
+                       ("an empty slugs list", {"fixes": {"1": {"not_affected": "x", "slugs": []}}})):
+        try:
+            load_triage(bad)
+            expect(False, f"triage ledger with {label} -> refused (never drops by accident)")
+        except ValueError:
+            expect(True, f"triage ledger with {label} -> refused (never drops by accident)")
+    try:
+        real = load_triage(json.loads(PRESS_FIX_TRIAGE.read_text(encoding="utf-8")))
+        expect(bool(real), f"the repository's {PRESS_FIX_TRIAGE.name} is valid ({len(real)} entries)")
+    except (OSError, ValueError) as e:
+        expect(False, f"the repository's {PRESS_FIX_TRIAGE.name} is valid ({e})")
+
+    expect(generated_change(["internal/generator/templates/store.go.tmpl"])
+           and generated_change(["testdata/golden/expected/x/internal/cli/sync.go"]),
+           "a template or golden-output change -> changed generated code")
+    expect(not generated_change(["internal/pipeline/dogfood.go", "internal/generator/x_test.go",
+                                 "internal/generator/templates/x_test.go.tmpl",
+                                 "testdata/golden/expected/x/internal/cli/sync_test.go", "README.md"]),
+           "press-only code, tests and docs -> no generated-code change")
+
+    def fake(q):
+        repo = {}
+        for m in re.finditer(r'p(\d+): pullRequest\(number: \d+\) \{ files\(first: 100(, after: "([^"]+)")?\)', q):
+            pr, cur = int(m.group(1)), m.group(3)
+            if pr == 404:
+                repo[f"p{pr}"] = None  # an issue number, not a PR: NOT_FOUND
+            elif pr == 7 and cur is None:
+                repo[f"p{pr}"] = {"files": {"nodes": [{"path": "README.md"}] * 100,
+                                            "pageInfo": {"hasNextPage": True, "endCursor": "Y3Vy"}}}
+            elif pr == 7:
+                repo[f"p{pr}"] = {"files": {"nodes": [{"path": "internal/generator/templates/a.go.tmpl"}],
+                                            "pageInfo": {"hasNextPage": False, "endCursor": "eg"}}}
+            else:
+                path = "internal/generator/templates/b.go.tmpl" if pr % 2 else "internal/cli/root.go"
+                repo[f"p{pr}"] = {"files": {"nodes": [{"path": path}], "pageInfo": {"hasNextPage": False}}}
+        return {"rateLimit": {"remaining": 4000}, "repository": repo}
+
+    prs = [1, 2, 404, 7] + list(range(1001, 1101))
+    got, st = pr_generated_changes(prs, call=fake)
+    expect(got[1] is True and got[2] is False and got[404] is None and got[7] is True,
+           "PR files: a template -> True, none -> False, NOT_FOUND -> unclassified, page 2 is read")
+    expect(st["calls"] == 3 and st["asked"] == len(prs) and st["unreadable"] == 1,
+           f"104 PRs -> {GQL_BATCH} a call, a page-2 follow-up riding in the last batch ({st['calls']} calls)")
+
+    def low(q):
+        out = fake(q)
+        out["rateLimit"]["remaining"] = GQL_RESERVE
+        return out
+
+    got, st = pr_generated_changes(prs, call=low)
+    expect(st["calls"] == 1 and "budget" in st["stopped"] and got[1050] is None
+           and any(got[p] is False for p in prs),
+           "the GraphQL budget at the reserve -> stops asking; the rest stay unclassified, never False")
+
+    def boom(q):
+        raise RuntimeError("HTTP 502")
+
+    def holes(q):
+        out = fake(q)
+        for k in ("p2", "p7"):
+            node = out["repository"].get(k)
+            if node and not node["files"]["pageInfo"].get("endCursor") == "eg":
+                node["files"]["nodes"] = node["files"]["nodes"][:1] + [None]
+        return out
+
+    got, _ = pr_generated_changes([2, 7, 1], call=holes)
+    expect(got[2] is None and got[7] is True and got[1] is True,
+           "a null file node -> unclassified (no-change unproven), on page 1 of a later-matching PR too")
+    got, st = pr_generated_changes(prs, call=boom)
+    expect(all(x is None for x in got.values()) and "502" in st["stopped"],
+           "the GraphQL API failing -> every PR unclassified (listed), never dropped")
+    nopr = press_drift([{"id": 1, "tag_name": "v4.25.1", "body": "### Bug Fixes\n\n* **cli:** pushed straight "
+                         f"([5a462c3]({_U}/commit/5a462c30752bbf2c))"}], {"old": v("4.24.0")}, {})
+    classify_drift(nopr, lambda prs: ({p: False for p in prs}, {"prs": len(prs), "asked": len(prs), "calls": 0,
+                                                                 "unreadable": 0, "stopped": ""}))
+    expect("`cli: pushed straight (commit 5a462c3)` Unclassified." in drift_section(nopr),
+           "a fix with no PR number -> listed as unclassified")
+
+
+def _drift_self_test(expect) -> None:
+    v = parse_version
+    print("press drift (fixes older connectors lack):")
+    body = "\n".join([
+        f"## [4.35.6]({_U}/compare/v4.35.5...v4.35.6) (2026-11-15)", "", "",
+        "### Features", "",
+        _rp_line("cli", "add a fix-everything command", 5390),
+        "", "### Bug Fixes", "",
+        _rp_line("cli", "keep dry-run off files, stores, and `profiles`", 5398),
+        _rp_line("cli", f"clamp search limit. Closes [#3742]({_U}/issues/3742).", 4223),
+        _rp_line("ci", "honor latest codeowner review state", 3068),
+        _rp_line("cli", "count novel hooks in the dogfood scorecard", 5208),
+        _rp_line("cli", "pin the share remote", 5221, tail=f", closes [#5152]({_U}/issues/5152)"),
+        "", "### Miscellaneous Chores", "",
+        _rp_line("deps", "fix: bump a module", 5399),
+        "Some prose that mentions a fix but is not a bullet.",
+    ])
+    shared = "### Bug Fixes\n\n" + "\n".join([
+        _rp_line("cli", "correct pagination", 123), _rp_line("mcp", "stop leaking tokens", 123),
+        _rp_line("deps", "upgrade generated go.mod to patched x/crypto", 124),
+        _rp_line("cli", f"stop leaking tokens; follow-up to [#100]({_U}/pull/100)", 125)])
+    fx, known = release_fixes(body)
+    by = {f["pr"]: f for f in fx}
+    expect(known and len(fx) == 5
+           and sorted(by, key=lambda k: (k is None, k or 0)) == [3068, 4223, 5208, 5221, 5398],
+           "release notes: only the Bug Fixes bullets are read (Features, Chores and prose ignored)")
+    expect(by[5398]["kind"] == "fix" and by[5398]["title"] == "keep dry-run off files, stores, and profiles",
+           "a fix bullet -> its subject (markup removed) and its PR number")
+    expect(by[4223]["refs"] == {4223} and by[4223]["pr"] == 4223
+           and by[4223]["title"] == "clamp search limit. Closes #3742.",
+           "a subject that mentions a number -> the PR is the bracketed one; a mention is not the fix's own ref")
+    expect(by[5221]["refs"] == {5221, 5152}, "a trailing 'closes #N' is a ref of the fix")
+    expect(by[3068]["kind"] == "ignored", "a ci-scoped fix -> ignored (never reaches a connector)")
+    expect(by[5208]["kind"] == "fix", "a fix that names press tooling is still a fix: its PR's files decide")
+    cc, known_cc = release_fixes(f"* fix(cli): stop leaking the token (#77) by @someone in {_U}/pull/77\n"
+                                 "* feat: a new thing (#78)\n* chore: tidy (#79)")
+    expect(known_cc and [(f["pr"], f["title"]) for f in cc] == [(77, "stop leaking the token")],
+           "conventional-commit notes -> only fix: lines, PR from (#N), no @mention kept")
+    expect(release_fixes("Just a sentence.")[1] is False, "release notes with no known shape -> flagged")
+    expect(release_fixes("## What Changed\n\n- Fix auth token leak (#123)")[1] is False,
+           "release notes whose only heading is not a release-please section -> flagged")
+    nopr = release_fixes("### Bug Fixes\n\n* **cli:** build from a nested dir "
+                         f"([5a462c3]({_U}/commit/5a462c30752bbf2c))")[0]
+    expect([(f["pr"], f["sha"], f["title"]) for f in nopr] == [(None, "5a462c3", "build from a nested dir")],
+           "a fix pushed without a PR -> listed, with its commit")
+
+    fleet = {"old": v("4.24.0"), "mid": v("4.30.0"), "new": v("4.35.6"), "zz-old": v("4.24.0")}
+    rels = [{"id": 1, "tag_name": "v4.35.6", "body": body, "published_at": "2026-11-15T00:00:00Z"},
+            {"id": 2, "tag_name": "v4.25.1", "body": "### Bug Fixes\n\n"
+             + _rp_line("cli", "index 3-letter all-caps acronyms in generated FTS", 3185)},
+            {"id": 3, "tag_name": "v4.24.0", "body": "### Bug Fixes\n\n" + _rp_line("cli", "an old fix", 2000)},
+            {"id": 4, "tag_name": "v4.36.0-rc1", "body": "### Bug Fixes\n\n" + _rp_line("cli", "rc", 6000)},
+            {"id": 5, "tag_name": "v4.36.0", "draft": True, "body": "### Bug Fixes\n\n" + _rp_line("cli", "d", 6001)},
+            {"id": 6, "tag_name": "v4.31.0",
+             "body": _rp_line("cli", "index 3-letter all-caps acronyms in generated FTS", 3185)
+             .join(["### Bug Fixes\n\n", ""])},
+            {"id": 7, "tag_name": "v4.32.0", "body": "### Bug Fixes\n\n" + _rp_line("cli", "another fix", 3185)}]
+    d = press_drift(rels, fleet, {})
+    fixes = {(vstr(r["version"]), f["pr"]): f for r in d["releases"] for f in r["fixes"]}
+    expect(fixes[("4.25.1", 3185)]["missing"] == ["old", "zz-old"],
+           "a fix -> listed for the connectors printed before its release (4.24.0), not for 4.30.0 or 4.35.6")
+    expect(fixes[("4.35.6", 5398)]["missing"] == ["old", "zz-old", "mid"],
+           "a 4.35.6 fix -> listed for 4.24.0 and 4.30.0, NOT for the connector already at 4.35.6")
+    expect(("4.24.0", 2000) not in fixes, "a release at the fleet's oldest print -> not read (everyone has it)")
+    expect(not any(r["version"] == v("4.36.0") for r in d["releases"]) and d["odd"] == [
+        "release tag `v4.36.0-rc1` is not a version; read it by hand"],
+        "a draft is skipped; an unparseable tag is named, never silently dropped")
+    expect(("4.31.0", 3185) not in fixes, "a fix shipped twice belongs to the first release that shipped it")
+    expect(fixes.get(("4.32.0", 3185), {}).get("title") == "another fix",
+           "a later bullet citing the same PR with another subject -> another fix, listed")
+    sd = press_drift([{"id": 1, "tag_name": "v4.25.1", "body": shared}], fleet, {"old": {100: "follow-up"}})
+    got = [(f["pr"], f["title"], f["kind"], f["missing"]) for r in sd["releases"] for f in r["fixes"]]
+    expect([g[:2] for g in got] == [(123, "correct pagination"), (123, "stop leaking tokens"),
+                                    (124, "upgrade generated go.mod to patched x/crypto"),
+                                    (125, "stop leaking tokens; follow-up to #100")],
+           "two bullets of one release sharing a PR -> both listed (never merged)")
+    expect(got[2][2] == "fix", "a deps-scoped fix -> listed (a go.mod floor reaches connectors), never ignored")
+    expect(got[3][3] == ["old", "zz-old"],
+           "a hand-fix citing #100 -> NOT a drop for a fix whose subject only mentions #100")
+    amb = press_drift([{"id": 1, "tag_name": "v4.25.1", "body": "### Bug Fixes\n\n* **cli:** stop leaking tokens; "
+                        f"follow-up to ([#100]({_U}/pull/100)) ([abcdef0]({_U}/commit/abcdef0123456789))"}],
+                      {"old": v("4.24.0")}, {"old": {100: "unrelated-fix"}})
+    expect("`stop leaking tokens; follow-up to (#100)` via fleet hand-fix `unrelated-fix`" in drift_section(amb)
+           and "Every connector carries" not in drift_section(amb),
+           "a fix every connector is said to carry -> still named as carried, never silently gone")
+    paren = release_fixes("### Bug Fixes\n\n" + _rp_line(
+        "cli", f"stop leaking tokens; follow-up to ([#100]({_U}/pull/100))", 123))[0][0]
+    expect(paren["pr"] == 123 and paren["refs"] == {123},
+           "a parenthesized link inside the subject -> not the PR; the suffix is read from the end")
+    long_ = press_drift([{"id": 1, "tag_name": "v4.25.1", "body": "### Bug Fixes\n\n" + _rp_line(
+        "cli", "x" * 140 + " first bug", 123)}, {"id": 2, "tag_name": "v4.26.0", "body": "### Bug Fixes\n\n"
+        + _rp_line("cli", "x" * 140 + " second bug", 123)}], {"old": v("4.24.0"), "mid": v("4.25.1")}, {})
+    expect([f["missing"] for r in long_["releases"] for f in r["fixes"]] == [["old", "mid"], ["old"]],
+           "two long subjects that differ only past the display cut -> two fixes (dedupe reads the whole subject)")
+
+    fhf = {"handfixes": {"fts-caps": {"verdict": "replay", "upstream": "cli-printing-press #3185 (4.25.1)"},
+                         "dry-run": {"verdict": "replay", "reason": "cli-printing-press#5000, #5398 and #9"},
+                         "bare": {"verdict": "replay", "reason": "see #4223 and msp-skills #5221"},
+                         "url": {"verdict": "replay", "proof": f"{_U}/pull/5152"}}}
+    expect(cited_press_numbers(fhf["handfixes"]["dry-run"]) == {5000, 5398, 9},
+           "a 'cli-printing-press#N, #M and #K' citation -> every listed press number")
+    expect(cited_press_numbers(fhf["handfixes"]["bare"]) == set(),
+           "a bare #N (an msp-skills number) is never read as a press number")
+    with tempfile.TemporaryDirectory(prefix="verify-watch-drift-") as td:
+        for slug, ids in (("old", ["fts-caps", "local-only"]), ("mid", ["dry-run", "bare", "url"]), ("new", [])):
+            (Path(td) / "skills" / slug).mkdir(parents=True)
+            (Path(td) / "skills" / slug / "handfixes.json").write_text(
+                json.dumps({"slug": slug, "handfixes": [{"id": i} for i in ids]}), encoding="utf-8")
+        carried = carried_numbers(Path(td), fhf)
+    expect(carried.get("old") == {3185: "fts-caps"} and "new" not in carried,
+           "carried press numbers come only from fleet ids the connector's own ledger names")
+    d = press_drift(rels, fleet, carried)
+    fixes = {(vstr(r["version"]), f["pr"]): f for r in d["releases"] for f in r["fixes"]}
+    f = fixes[("4.25.1", 3185)]
+    expect(f["missing"] == ["zz-old"] and f["carried_by"] == ["fleet hand-fix `fts-caps`"] and f["carried"] == 1,
+           "a fleet hand-fix citing the fix's press PR -> dropped for the connector that carries it, kept for others")
+    expect(fixes[("4.35.6", 5398)]["missing"] == ["old", "zz-old"],
+           "dropped for 'mid' (its ledger's fleet id cites cli-printing-press #5398)")
+    expect(fixes[("4.35.6", 4223)]["missing"] == ["old", "zz-old", "mid"],
+           "a hand-fix citing only a bare #4223 -> NOT dropped (false-listed is fine, false-dropped is not)")
+    expect(fixes[("4.35.6", 5221)]["missing"] == ["old", "zz-old"],
+           "a hand-fix citing the fix's 'closes' issue by press URL -> dropped")
+
+    table = {3185: True, 5398: True, 4223: False, 5208: False, 5221: None}
+    classify_drift(d, lambda prs: ({p: table.get(p) for p in prs},
+                                   {"prs": len(prs), "asked": len(prs), "calls": 1, "unreadable": 1, "stopped": ""}))
+    sec = drift_section(d)
+    expect("`cli: index 3-letter all-caps acronyms in generated FTS (#3185)` Missing from 1 (`zz-old`)" in sec
+           and "`cli: keep dry-run off files, stores, and profiles (#5398)`" in sec,
+           "the section names each fix, its press PR and, where a hand-fix drops it, who still lacks it")
+    expect("honor latest codeowner" not in sec and "fix-everything" not in sec and "clamp search limit" not in sec
+           and "count novel hooks" not in sec,
+           "the section leaves out ci fixes, features and fixes whose PR changed no generated code")
+    expect("`cli: pin the share remote (#5221)` Unclassified." in sec,
+           "a fix whose PR files could not be read -> listed as unclassified, never dropped")
+    expect("clamp search limit" in drift_section(d, budget=10 ** 9, full_log=True)
+           and "2 other fix(es) changed no generated code" in sec,
+           "a fix that changed no generated code -> counted in the issue, named in the run log")
+    expect("Triaging a fix means porting it as one fleet hand-fix" in sec and "only shrinks by triage" in sec,
+           "the section says up front what triage is and that only triage shrinks the list")
+    expect(sec.index("### v4.35.6") < sec.index("### v4.25.1"), "newest release first")
+    expect("- 4.24.0, 2 connector(s)" in sec and "`old`, `zz-old`" in sec, "connectors named by print version")
+    _triage_self_test(expect, rels, fleet)
+    evil = press_drift([{"id": 9, "tag_name": "v4.35.6", "body": "### Bug Fixes\n\n"
+                         + _rp_line("cli", "@mvanhorn see [x](https://evil.example) `rm -rf` #12", 5500)}],
+                       fleet, {})
+    es = drift_section(evil)
+    expect("`cli: @mvanhorn see x rm -rf #12 (#5500)`" in es and "evil.example" not in es,
+           "third-party text lands inside one code span: no link, no mention, no autolinked #N")
+    many = [{"id": 100 + i, "tag_name": f"v4.{25 + i // 10}.{i % 10}", "body": "### Bug Fixes\n\n" + "\n".join(
+        _rp_line("cli", "x" * 120, 7000 + i * 50 + k) for k in range(40))} for i in range(110)]
+    big = drift_section(press_drift(many, fleet, {}))
+    expect(len(big) <= DRIFT_BUDGET + SUMMARY_ROOM + 1000 and "older release(s) (v4.25.0 to" in big
+           and len(press_issue({"tag_name": "v9.0.0"}, fleet, big)[1]) < 65536,
+           f"4400 fixes -> section bounded ({len(big)} chars), the rest summarized, the body under 65536")
+    wide = {f"{i:02d}-{j:02d}-" + "x" * 100: (4, i, 0) for i in range(1, 41) for j in range(15)}
+    wb = press_issue({"tag_name": "v9.0.0"}, wide, drift_section(press_drift(
+        [{"id": 1, "tag_name": "v5.0.0", "body": "### Bug Fixes\n\n" + _rp_line("cli", "fix", 123)}], wide, {})))[1]
+    expect(len(wb) < 65536 and "the section is cut here" in wb,
+           f"600 long-named connectors at 40 print versions -> the body is still bounded ({len(wb)} chars)")
+    expect(len(drift_section(press_drift(many, fleet, {}), budget=10 ** 9)) > len(big),
+           "the run log gets the full, unbounded list")
+    expect("Every connector carries" in drift_section(press_drift(rels, {"a": v("4.35.6")}, {})),
+           "a fleet at the newest release -> says nothing is missing (never an empty list)")
+    err = drift_section(None, error="gh api failed: HTTP 502 `x`")
+    expect("could not be read this run" in err and "HTTP 502 x" in err,
+           "the release list unreadable -> the section says so (never a silent empty list)")
+    rel = {"tag_name": "v4.36.0", "html_url": f"{_U}/releases/tag/v4.36.0"}
+    pw = press_issue(rel, fleet, err)
+    expect(pw is not None and "is out" in pw[1] and "could not be read" in pw[1] and len(pw[1]) < 65536,
+           "the press-watch body keeps its 'newer than the fleet' lines and carries the section")
+    real_gh = globals()["gh_json"]
+    pages = {1: [{"id": i, "tag_name": "v4.25.1"} for i in range(100)], 2: [{"id": 100}], 3: []}
+    globals()["gh_json"] = lambda *a: pages[int(next(x for x in a if x.startswith("page="))[5:])]
+    try:
+        expect(len(press_releases()) == 101, "the release list is read page by page until an empty page")
+        globals()["gh_json"] = lambda *a: {"message": "Not Found"}
+        try:
+            press_releases()
+            expect(False, "a release page that is not a list -> raises (unreadable, never empty)")
+        except RuntimeError:
+            expect(True, "a release page that is not a list -> raises (unreadable, never empty)")
+    finally:
+        globals()["gh_json"] = real_gh
+
+
 def _zip(**members) -> bytes:
     b = io.BytesIO()
     with zipfile.ZipFile(b, "w") as z:
@@ -933,6 +1735,12 @@ def main(argv: list[str]) -> int:
     ap.add_argument("--collect", action="store_true", help="download the newest verify-<slug> artifacts first")
     ap.add_argument("--results", metavar="DIR", help="one <slug>.json record per connector (collect writes here)")
     ap.add_argument("--press-release", metavar="FILE", help="release JSON instead of the GitHub API (fixtures)")
+    ap.add_argument("--press-releases", metavar="FILE",
+                    help="the press release list (a JSON list) instead of the GitHub API (fixtures)")
+    ap.add_argument("--fleet-handfixes", default=str(FLEET_HANDFIXES), metavar="FILE")
+    ap.add_argument("--press-fix-triage", default=str(PRESS_FIX_TRIAGE), metavar="FILE")
+    ap.add_argument("--press-pr-files", metavar="FILE",
+                    help='{"<press PR>": [paths]} instead of the GraphQL API (fixtures; with --press-releases)')
     ap.add_argument("--stamp", default=str(STAMP))
     ap.add_argument("--skills-root", metavar="DIR", help="repo root whose skills/*/manifest.json to read")
     ap.add_argument("--today", metavar="YYYY-MM-DD")

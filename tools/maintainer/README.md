@@ -35,7 +35,7 @@ the statusline, you do not need anything in this folder - see the root
 | `fresh_render_diff.py` | Review aid for a connector PR (publish plan step 5.4). Re-renders the connector with its own recorded press version (fails closed when no binary reports exactly that version, and prints the `go install` that gets it) from its own spec (found by `spec_checksum` in `--spec`, `skills/<dir>/press/` or the local press folders; fails closed when none matches), puts the render through the vendoring, strip-pp-cli and copyright transforms the pipeline applies, and compares byte for byte. What remains is the review set: hand-written files, hand edits inside generated files, deleted template files, `go.mod`/`go.sum`, the spec, symlinks. A spec with an external `$ref` is refused, and in `--pr` mode a spec that came inside the PR is rendered only inside msp-sandbox. `--spec-invariant` is the weaker fallback when the spec is not available: it clears only files every reference render (built-in specs plus the local real specs at that version) produces identically; `--calibrate X.Y.Z` measures that fallback leave-one-out. Not a CI gate (CI has no press binary or specs). `--self-test` runs anywhere, with a stand-in press. |
 | `press_floor.json` | The lowest cli-printing-press version a new connector may be printed with (upstream's own declared minimum, with the commit it was read at), read by `check_press_metadata.py` and onboard.py. `not_press_generated` exempts a connector the press never generated (read from the base, so a PR cannot exempt itself). It rises to upstream's current floor once the paused 4.33.5 prints have landed. |
 | `verify_live.py` | Flips a live-verified badge, or revokes it. A flip records the release it verified and the `cli_hash.py` hash of `cli/` at that tag (`--verified-version` when the report names it, else the newest release cut before `--reported-at`); `--bind` sets that on an existing badge. The catalog then reads "verified on vX.Y.Z" once the shipped code changes, and `check_registry_state.py` proves every recorded hash is the tag's code. A flip or revoke also moves the registry `status` and the README / pain-point Status paragraphs, because Beta and live-verified are mutually exclusive: `--check` (CI) fails on any disagreement and `--sync` repairs it. |
-| `verify_watch.py` | Run weekly by `verify-watch.yml`. Keeps one `verify-map-stale` issue open while the verify-msp-skills map is behind the fleet (a manifest press version above `maintained_at_press`, a verify ERROR or an unexpected SKIP in main's newest `verify-<slug>` CI artifacts, or a stamp 30+ days old), and one `press-watch` issue while `mvanhorn/cli-printing-press` has a newer release than the fleet (input for the reprint decision; never reprints). Never duplicates, closes when clear, never closes on unreadable evidence. Dry run without `--apply`; `--self-test`. |
+| `verify_watch.py` | Run weekly by `verify-watch.yml`. Keeps one `verify-map-stale` issue open while the verify-msp-skills map is behind the fleet (a manifest press version above `maintained_at_press`, a verify ERROR or an unexpected SKIP in main's newest `verify-<slug>` CI artifacts, or a stamp 30+ days old), and one `press-watch` issue while `mvanhorn/cli-printing-press` has a newer release than the fleet (input for the reprint decision; never reprints). The press-watch body also lists the untriaged press fixes that changed generated code and that older connectors do not carry (see "Press fixes older connectors lack" below; triage ledger `press_fix_triage.json`). Never duplicates, closes when clear, never closes on unreadable evidence. Dry run without `--apply`; `--self-test`. |
 | `vuln_watch.py` | Run daily by `vuln-watch.yml`. Symbol-scans every connector module with the security gate's pinned govulncheck (every release target, under the Go each module builds with) and keeps one `vuln-watch` issue per vulnerability ID that is reachable in at least one connector, edited in place when the affected set changes; never duplicates, never closes, never reopens. A connector it cannot scan fails the run. Advisory: gates nothing. Dry run without `--apply` (`--dry-run`); `--self-test`. |
 | `baseline_age.py` | Run weekly by `baseline-age.yml`. Lists every CI gate baseline entry (`security_gate_baseline.json` rules, `verify_baseline.json` connectors and known_errors, `class_baseline.json` classes) that has been in its file for more than 14 days, dated from the start of its current run of presence on main (a removed then re-added entry ages from the re-add), and keeps ONE `baseline-age` issue with the list: opened, edited in place when it changes, closed with a comment when nothing is old. Never closes on incomplete evidence (a shallow clone, an unreadable baseline). Not read: `security_suppressions.json` (reasoned suppressions, not a burn-down list). Advisory: gates nothing. `--days`, `--ref`; `--self-test`. |
 | `verify_maintained.json` | When the verify-msp-skills feature map was last maintained (`maintained_at`) and the press version it covers (`maintained_at_press`). Update both in the PR that runs `/maintain-verification-skill`. |
@@ -628,6 +628,69 @@ generic reply) are listed under `known_errors`: reported with the harness-error 
 kept visible by `verify-watch.yml`, until the skill is fixed. A fixed one that now FAILs by design
 moves to `connectors` in the same PR; the shrink guard allows that move and refuses the reverse. The skill's own map is kept current by `/maintain-verification-skill`; `verify-watch.yml`
 opens a `verify-map-stale` issue when it falls behind.
+
+## Press fixes older connectors lack
+
+The `press-watch` issue (`verify_watch.py`, run by `verify-watch.yml`) carries a section named
+"Press fixes that older connectors do not carry": the untriaged press fixes that changed generated
+code, per connector printed before them. It exists so a class like #464 (the 3-letter ALL-CAPS FTS
+skip, fixed in press 4.25.1, still in old prints) or #687 to #690 (the MCP read-only switch missing
+in 21 old prints) is found by us, not by users. It is advisory: nothing is rendered, reprinted or
+committed per connector, and nothing gates on it.
+
+**Triaging a fix** means one of two things, and the list only shrinks by triage:
+
+- port it as ONE fleet hand-fix across every affected connector (a `fleet_handfixes.json` id and a
+  `replay_handfixes.py` recipe, like #716) whose entry cites the press PR as `cli-printing-press #N`;
+  or
+- record it in `tools/maintainer/press_fix_triage.json`, keyed by press PR number:
+  `{"ported": "<hand-fix id>"}` (dropped for every connector whose own ledger records that id, plus
+  any `slugs` listed) or `{"not_affected": "<reason>"}` (dropped for the `slugs` listed, or for every
+  connector when `slugs` is absent). `why` is free text. The file is validated; a malformed entry
+  fails the run instead of dropping anything.
+
+Never a reprint by default. To triage a listed fix: read the press PR's diff, grep the listed
+connectors for the old code (the template's rendered file under `skills/<slug>/cli/`), then port it
+or record why it does not apply.
+
+How the list is built, deterministically and with no model:
+
+1. Every published cli-printing-press release newer than the fleet's OLDEST
+   `printing_press_version` (a few `gh api` calls, 100 releases a page). Drafts and prereleases are
+   skipped; a tag that is not a version is named in a note.
+2. From each release body, the bullets of its `### Bug Fixes` section (release-please writes one
+   bullet per fix: a bold scope, the subject, then the PR link and the commit link, read from the end
+   of the line), or conventional `fix:` lines in notes of another shape. Features, chores, docs and
+   prose are never read, and a fix scoped `ci`, `test`, `docs` or `chore` is ignored. A release body
+   with no shape the parser knows is named in a note.
+3. A fix belongs to the first release that shipped it, and is missing from every connector whose
+   recorded press version is older than that release.
+4. It is dropped for a connector whose own `skills/<slug>/handfixes.json` names a fleet hand-fix id
+   whose `fleet_handfixes.json` entry cites the fix's press PR (or the issue it closes) as
+   `cli-printing-press #N` (and the `, #M` list after it) or by press URL, and wherever
+   `press_fix_triage.json` says so. A bare `#N` is an msp-skills number and never drops anything.
+   A fix dropped for EVERY older connector is still named, on a "Carried or triaged" line, so a
+   misread citation can mislabel a fix but never hide it.
+5. Only the fixes still missing somewhere have their press PR's file list read, through GraphQL, 40
+   PRs a call (about 15 calls for 600 PRs). The REST budget of the Actions token, 1000 calls an
+   hour, is mostly spent by the verify-map collection; GraphQL has its own, and the watch stops
+   asking at 100 points left. A fix is listed when its PR changed a generator template
+   (`internal/generator/templates/`) or the golden expected output (`testdata/golden/expected/`),
+   test files excluded. A PR whose files cannot be read (not a PR, the API failing, the budget
+   reached) and a fix with no PR number are listed as unclassified, never dropped. A fix whose PR
+   changed no generated code is counted in the issue and named only in the run log.
+
+The section shows the connectors by print version once, then each release newest first with its
+fixes in one code span each (third-party text: no links, mentions or autolinked numbers). The
+release-notes link leads to each fix's PR; the PRs are not linked from the issue, so editing it
+never adds cross-references to upstream PRs. What does not fit the issue body is summarized per
+release; the full list is in the verify-watch run log (the job summary). An unreadable release list,
+`fleet_handfixes.json` or `press_fix_triage.json` says so in the section and fails the run; it is
+never a silent empty list.
+
+On 2026-11-16 (fleet oldest 4.24.0, press 4.35.6) it listed 382 untriaged generated-code fixes and 4
+unclassified across 106 connectors; 207 more changed no generated code. Most of the 382 are for the
+13 connectors printed on 4.24.0; a 4.34.2 connector lacks 20, a 4.35.1 one 11.
 
 ## What CI builds, and when
 
