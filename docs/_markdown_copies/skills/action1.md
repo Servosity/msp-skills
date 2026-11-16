@@ -6,7 +6,7 @@
 > under Apache-2.0 - built for the MSP community, vendor-neutral by design.
 > Not affiliated with, endorsed by, or sponsored by Action1 Corporation.
 
-**✓ Live-verified by @jomplox (MSP)** against a production tenant · 2026-11-14 · [receipt →](https://github.com/Servosity/msp-skills/issues/721).
+**✓ Live-verified by @jomplox (MSP)** against a production tenant · 2026-11-14 · [receipt →](https://github.com/Servosity/msp-skills/issues/721). Verified on v0.1.16; the current release has changed since.
 
 Yes - there is an MCP server for Action1. It's free, open source, and runs on your own machine, so your client data stays local unless you route it somewhere yourself. It connects Action1 to Claude, ChatGPT, Copilot, or any MCP-capable agent, and installs in about 60 seconds.
 
@@ -144,7 +144,7 @@ Run more than one RMM tool, or comparing options? These connectors work the same
 
 ## Status
 
-Live-verified. Confirmed by @jomplox (MSP) against their own production tenant ([receipt](https://github.com/Servosity/msp-skills/issues/721)). More MSPs run it live in our weekly **[Build Sessions](https://compoundingteams.com/build-sessions)**.
+Live-verified. Confirmed by @jomplox (MSP) against their own production tenant ([receipt](https://github.com/Servosity/msp-skills/issues/721)). Verified on v0.1.16; the current release has changed since. More MSPs run it live in our weekly **[Build Sessions](https://compoundingteams.com/build-sessions)**.
 
 Build Sessions are free and stay free - [The Build Room](https://compoundingteams.com) is where the deep work happens.
 

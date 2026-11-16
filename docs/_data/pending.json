@@ -15,10 +15,10 @@
   },
   "action1": {
     "state": "up-to-date",
-    "version": "0.1.16",
-    "latest_tag": "action1-v0.1.16",
-    "current_hash": "sha256:65aa38e582f7f04c7f3864230e61a57b25a910046efcf356e03c6afb97b5e3a4",
-    "released_hash": "sha256:65aa38e582f7f04c7f3864230e61a57b25a910046efcf356e03c6afb97b5e3a4"
+    "version": "0.1.17",
+    "latest_tag": "action1-v0.1.17",
+    "current_hash": "sha256:08ea5460a3866721ed178d181d3d0ba020d5e9f4d81c2d6d45444e9ae5380c08",
+    "released_hash": "sha256:08ea5460a3866721ed178d181d3d0ba020d5e9f4d81c2d6d45444e9ae5380c08"
   },
   "afi": {
     "state": "up-to-date",
