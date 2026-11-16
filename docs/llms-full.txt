@@ -117,7 +117,7 @@ Governance: The skill drives the acronis-cli and acronis-mcp binaries, authentic
 ### Action1 (RMM)
 
 Page: [Action1](https://msp-skills.compoundingteams.com/skills/action1.md)
-Verification: Awaiting live verification
+Verification: Live-verified by @jomplox (MSP) (2026-11-14)
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/action1/install.sh)
 
 Ask "which endpoints across all my clients are missing the most patches?" and get one ranked list - no clicking org by org. Action1's API and console are siloed per client organization; this skill syncs every org into a local mirror so patch posture, CVE blast-radius, stale agents, and a per-client scorecard become single fleet-wide commands your AI agent runs from the terminal.
