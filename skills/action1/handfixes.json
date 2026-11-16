@@ -7,7 +7,7 @@
    "id": "credkit-wiring",
    "class": "credential",
    "status": "active",
-   "summary": "The shared credential kit (tools/maintainer/credkit, vendored at cli/internal/credkit) is wired by hand and replaces this connector's own credential layer. internal/credwire/declarations.go holds the one Declarations literal: SecretEnv ACTION1_OAUTH2, ACTION1_CLIENT_SECRET and ACTION1_MCP_HTTP_TOKEN; the client ID an identifier with its unique part held (holdClientID); config.toml and the 0600 credentials.toml named in Files and written outside the kit as a declared exemption; /oauth2/token and 2FA setup response fields declared; base_url the one allowed origin. credkit.Start is the first statement and credkit.Exit the last of both mains. Outbound requests go through credkit.Transport under the origin pin, files through credkit.WriteFile/AppendFile/OpenFile, SQLite through credkit.SQLDriver (internal/credsql), the MCP server through MCPTools/MCPIn/MCPOut/MCPHTTP, child processes through credkit.RunCommand.",
+   "summary": "The shared credential kit (tools/maintainer/credkit, vendored at cli/internal/credkit) is wired by hand and replaces this connector's own credential layer. internal/credwire/declarations.go holds the one Declarations literal: SecretEnv ACTION1_OAUTH2, ACTION1_CLIENT_SECRET and ACTION1_MCP_HTTP_TOKEN; the client ID an identifier with its unique part held (holdClientID), never the organization ID a two-part client ID carries (#721); config.toml and the 0600 credentials.toml named in Files and written outside the kit as a declared exemption; /oauth2/token and 2FA setup response fields declared; base_url the one allowed origin. credkit.Start is the first statement and credkit.Exit the last of both mains. Outbound requests go through credkit.Transport under the origin pin, files through credkit.WriteFile/AppendFile/OpenFile, SQLite through credkit.SQLDriver (internal/credsql), the MCP server through MCPTools/MCPIn/MCPOut/MCPHTTP, child processes through credkit.RunCommand.",
    "why": "Retires secret-echo-decoded-funnel, output-chokepoint, file-sinks-withheld, store-never-keeps-secrets, mcp-protocol-messages-withheld, network-sinks-withheld, startup-output-held-first, mcp-held-arguments-refused, undecoded-encodings-every-alignment, held-forms-in-every-encoding, response-credentials-held, every-text-encoding-withheld, outbound-split-parts-refused, auth-carrier-names-and-shapes-held, derived-credential-parts-held, output-units-reassembled, journal-entry-withheld-as-written, base85-family-withheld, short-held-values-matched-anywhere, output-split-across-deliveries, credential-names-match-action1-data: replaced by the shared credential kit (entries removed: the ledger's retired list only takes retirements tools/maintainer/fleet_handfixes.json backs). The connector's own holder, output chokepoint, secret funnel, encodings and scattered matchers, store withholding driver and MCP output wrappers grew per review round because each sink and encoding was closed one at a time; the kit is one reviewed implementation, and it closes the print's three open credential classes: the journal record is checked whole with its timestamp, a short value is matched in every decoded view, and a value split across MCP messages is withheld piece by piece. The client ID is an identifier because Action1 issues it as api-key-<uuid>@action1.com: held whole, its 8-character pieces would withhold every line naming action1.com, the API host included.",
    "spec_encode_followup": "Press-side: generate the kit wiring, the Declarations literal and the kit-wrapped SQLite driver.",
    "asserts": [
@@ -111,6 +111,16 @@
     {
      "file": "cli/internal/credwire/open_classes_test.go",
      "contains": "func TestClientIDDoesNotWithholdTheAPIHost(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/declarations.go",
+     "contains": "var keyOrg = regexp.MustCompile(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/credwire/open_classes_test.go",
+     "contains": "func TestClientIDDoesNotWithholdTheOrganizationID(t *testing.T) {",
      "code_only": true
     },
     {

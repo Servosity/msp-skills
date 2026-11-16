@@ -4,6 +4,11 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.1.17] - 2026-11-16
+
+### Fixed
+- **A client ID that carries the organization ID no longer withholds every answer.** Some tenants issue the client ID as the API user's e-mail address, `api-key-<organization ID><user ID>@action1.com`. The CLI held both IDs as the client ID's unique part, and because the organization ID appears in almost every response (`id`, `org_id`, each `self` URL), the CLI printed only the withheld notice and the MCP server's tool list was withheld. The organization ID in a client ID is no longer held; the key's own part still is (reported by @jomplox, #721 and #722).
+
 ## [0.1.16] - 2026-11-14
 
 ### Fixed

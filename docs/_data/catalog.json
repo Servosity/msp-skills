@@ -32,12 +32,12 @@
       "display_name": "Action1",
       "tagline": "Patch every client's endpoints and triage CVEs fleet-wide from your terminal.",
       "category": "RMM",
-      "verification": "awaiting",
-      "verified_by": null,
-      "source": null,
-      "issue_url": null,
-      "verified_version": null,
-      "verified_code": null,
+      "verification": "live-verified",
+      "verified_by": "@jomplox (MSP)",
+      "source": "github",
+      "issue_url": "https://github.com/Servosity/msp-skills/issues/721",
+      "verified_version": "0.1.16",
+      "verified_code": "current",
       "url": "/skills/action1/"
     },
     {

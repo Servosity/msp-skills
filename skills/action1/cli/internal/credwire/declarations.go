@@ -12,6 +12,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strings"
 
@@ -37,7 +38,8 @@ import (
 // The client ID is an identifier and only its unique part is held (holdClientID):
 // Action1 issues it as api-key-<uuid>@action1.com, so holding it whole would
 // withhold every line that names action1.com, the API host included, by the
-// contract's 8-character piece rule.
+// contract's 8-character piece rule. The same rule keeps the organization ID a
+// client ID can carry out of what is held (holdClientID, #721).
 var Declarations = credkit.Declarations{
 	SecretEnv: []string{
 		"ACTION1_OAUTH2",
@@ -173,15 +175,37 @@ func credentialFiles(args []string) []string {
 	return used
 }
 
-// holdClientID holds what is unique in a client ID. Action1's public text,
-// api-key- and @action1.com, is no secret and sits in the API host's name.
+// keyOrg is "api-key-" and the UUID after it, which in a two-part client ID is
+// the organization ID.
+var keyOrg = regexp.MustCompile(`(?i)api-key-[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}`)
+
+// holdClientID holds what is unique to the key in a client ID. Action1's public
+// text, api-key- and @action1.com, is no secret and sits in the API host's name.
+// Nor is the organization ID: a tenant can issue the client ID as the API
+// user's e-mail address, api-key-<organization ID><user ID>@action1.com (or
+// <user ID>_api-key-<organization ID>@action1.com), and every listing names
+// the organization (id, org_id, each self URL), so holding it withheld every
+// response and the MCP tool list (#721). When something of 8 characters or
+// more sits beside the UUID after api-key-, that UUID is the organization and
+// only the rest is held. Otherwise (api-key-<uuid>@action1.com, or a stub too
+// short to hold on its own) the whole unique part is held, as before.
 func holdClientID(id string) {
 	id = strings.TrimSpace(id)
 	if at := strings.LastIndex(id, "@"); at >= 0 {
 		id = id[:at]
 	}
-	if id = strings.TrimPrefix(id, "api-key-"); id != "" {
-		cliutil.Hold("minted:client_id", id)
+	held := []string{strings.TrimPrefix(id, "api-key-")}
+	if loc := keyOrg.FindStringIndex(id); loc != nil {
+		before, after := strings.Trim(id[:loc[0]], "_-"), strings.Trim(id[loc[1]:], "_-")
+		holdable := func(part string) bool { return part == "" || len(part) >= 8 }
+		if before+after != "" && holdable(before) && holdable(after) {
+			held = []string{before, after}
+		}
+	}
+	for _, part := range held {
+		if part != "" {
+			cliutil.Hold("minted:client_id", part)
+		}
 	}
 }
 

@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-11-14",
+  "generated_at": "2026-11-16",
   "skills": [
     {
       "name": "msp-skills-concierge",
@@ -68,7 +68,7 @@
     {
       "name": "action1",
       "system": "Patch management and vulnerability remediation across managed endpoints in every client organization",
-      "status": "beta",
+      "status": "live-verified",
       "skill_path": "skills/action1",
       "cli_binary": "action1-cli",
       "mcp_binary": "action1-mcp",
@@ -81,7 +81,9 @@
       "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/action1/install.sh)",
       "install_mcp_doc": "skills/action1/mcp-install.md",
       "description": "Every Action1 endpoint, plus fleet-wide patch and vulnerability views across all your organizations.",
-      "verification": "awaiting",
+      "verification": "live-verified",
+      "verified_version": "0.1.16",
+      "verified_code": "current",
       "category": "RMM",
       "tagline": "Patch every client's endpoints and triage CVEs fleet-wide from your terminal."
     },

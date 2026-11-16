@@ -222,6 +222,80 @@ func TestClientIDDoesNotWithholdTheAPIHost(t *testing.T) {
 	}
 }
 
+// A tenant can issue the client ID as the API user's e-mail address,
+// api-key-<organization ID><user ID>@action1.com: two UUIDs, the first the
+// organization every listing names (id, org_id, each self URL). Held with the
+// user ID, its 8-character pieces withheld every response and the tool list
+// (#721, reported with this test by @jomplox in #722). The audit trail names a
+// newer key <user ID>_api-key-<organization ID>@action1.com. For both, from the
+// environment and from config.toml: a listing naming the organization prints
+// whole, over MCP too, and a response repeating the key's own part is withheld.
+// A stub too short to hold on its own keeps the old rule: the whole unique part,
+// organization included, is held.
+func TestClientIDDoesNotWithholdTheOrganizationID(t *testing.T) {
+	cliBin, mcpBin := binaries(t)
+	const org, own = "0a1b0a1b-0a1b-0a1b-0a1b-0a1b0a1b0a1b", "c1d2c1d2-c1d2-c1d2-c1d2-c1d2c1d2c1d2"
+	const secret = "cidsec-kwzqmkwzqm"
+	page := func(id string) string {
+		return fmt.Sprintf(`{"items":[{"id":%q,"name":"HQ-Record","self":"https://app.action1.com/api/3.0/organizations/%s"}],"total_items":1,"next_page":""}`, id, id)
+	}
+	envFor := func(t *testing.T, src, id string) []string {
+		home := t.TempDir()
+		if src == "environment" {
+			return closedEnv(home, "ACTION1_CLIENT_ID="+id, "ACTION1_CLIENT_SECRET="+secret, "ACTION1_ORG_ID="+org)
+		}
+		writeConfig(t, home, fmt.Sprintf("client_id = %q\nclient_secret = %q\n", id, secret), false)
+		return closedEnv(home, "ACTION1_ORG_ID="+org)
+	}
+	live := func(t *testing.T, env []string, id string) []string {
+		base, ca := fakeAPIFunc(t, func(_ http.Header, r *http.Request) string {
+			if strings.HasSuffix(r.URL.Path, "/oauth2/token") {
+				return `{"access_token":"cidacc-mzkqwmzkqw","refresh_token":"cidref-qwkzmqwkzm","expires_in":3600,"token_type":"Bearer"}`
+			}
+			return page(id)
+		})
+		return append(append([]string{}, env...), "ACTION1_BASE_URL="+base, "ACTION1_CA_CERT="+ca)
+	}
+	for _, shape := range []struct{ name, id string }{
+		{"organization then user", "api-key-" + org + own + "@action1.com"},
+		{"user then organization", own + "_api-key-" + org + "@action1.com"},
+	} {
+		for _, src := range []string{"environment", "config.toml"} {
+			t.Run(shape.name+" from "+src, func(t *testing.T) {
+				env := envFor(t, src, shape.id)
+				out, errOut, _ := runSplit(t, cliBin, live(t, env, org), "organizations", "get", "--json")
+				if !strings.Contains(out, org) || strings.Contains(out+errOut, "credkit: withheld") {
+					t.Errorf("a listing naming the organization did not print whole:\n%s%s", out, errOut)
+				}
+				replies, mcpErr, _ := mcpRun(t, mcpBin, live(t, env, org),
+					rpc{"tools/list", map[string]any{}},
+					call("action1_read", map[string]any{"endpoint_id": "organizations.get"}))
+				if list := reply(replies, 2); !strings.Contains(list, `"tools":[`) || !strings.Contains(list, "action1_read") {
+					t.Errorf("tools/list did not answer whole:\n%.2000s\nstderr:\n%s", replies, mcpErr)
+				}
+				if read := reply(replies, 3); !strings.Contains(read, org) || strings.Contains(replies+mcpErr, "credkit: withheld") {
+					t.Errorf("the MCP listing naming the organization did not answer whole:\n%.2000s\nstderr:\n%s", replies, mcpErr)
+				}
+				out, errOut, _ = runSplit(t, cliBin, live(t, env, own), "organizations", "get", "--json")
+				if strings.Contains(out+errOut, own) || !strings.Contains(out+errOut, credkit.Notice("stdout")) {
+					t.Errorf("a response repeating the key's own part was not withheld:\n%s%s", out, errOut)
+				}
+			})
+		}
+	}
+	t.Run("short stub keeps the whole unique part held", func(t *testing.T) {
+		env := envFor(t, "environment", "api-key-"+org+"-7@action1.com")
+		out, errOut, _ := runSplit(t, cliBin, live(t, env, org), "organizations", "get", "--json")
+		if strings.Contains(out+errOut, org) || !strings.Contains(out+errOut, credkit.Notice("stdout")) {
+			t.Errorf("with a short stub the organization part was not held:\n%s%s", out, errOut)
+		}
+		out, errOut, _ = runSplit(t, cliBin, live(t, env, "issued 7 keys"), "organizations", "get", "--json")
+		if strings.Contains(out+errOut, "credkit: withheld") {
+			t.Errorf("the short stub on its own withheld a response:\n%s%s", out, errOut)
+		}
+	})
+}
+
 // remote_session (the browser connection URL), CVSS authentication,
 // session_timeout and token_type are Action1 data, not credentials: a remote
 // session record reaches the operator whole. The same record carrying the held
