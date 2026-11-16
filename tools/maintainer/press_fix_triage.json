@@ -1,0 +1,15 @@
+{
+ "_comment": "Triage ledger for the press-watch issue's list of press fixes older connectors do not carry (tools/maintainer/verify_watch.py). Keyed by cli-printing-press PR number. {\"ported\": \"<hand-fix id>\"} drops the fix for every connector whose skills/<slug>/handfixes.json records that id (and any slugs listed). {\"not_affected\": \"<reason>\"} drops it for the slugs listed, or for every connector when slugs is absent. \"why\" is free text for the reader. The list only shrinks by triage: port a fix as one fleet hand-fix, or record it here. See tools/maintainer/README.md, press-watch.",
+ "schema": 1,
+ "fixes": {
+  "3185": {
+   "ported": "fts-index-three-letter-caps",
+   "why": "Press v4.25.1 deleted the 3-letter ALL-CAPS drop in shouldIndexSearchString (store.go.tmpl). 12 of the 13 connectors printed on 4.24.0 carry the same deletion under this ledger id (#464). axcient is left listed on purpose: its #149 fix (fts-display-name-three-letter-caps) keeps the drop for keys that are not display names, so a 3-letter ALL-CAPS value in another field is still never indexed."
+  },
+  "5191": {
+   "not_affected": "Own read-only switch already drops every tool not annotated readOnlyHint=true.",
+   "slugs": ["cloudally", "quotewerks"],
+   "why": "Checked 2026-11-16. cloudally: RegisterTools calls dropNonReadOnlyTools after every registration when CLOUDALLY_MCP_READ_ONLY is set (internal/mcp/tools.go; ledger id mcp-read-only-switch-drops-write-tools). quotewerks: dropNonReadOnlyTools in internal/mcp/read_only_endpoints.go runs before cobratree.RegisterAll, which filters its own tools (ledger id mcp-read-only-drops-endpoint-writes). Both are the rule press #5191 added: ListTools, then DeleteTools on every tool whose readOnlyHint is not true."
+  }
+ }
+}
