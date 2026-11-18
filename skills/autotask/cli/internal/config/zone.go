@@ -31,9 +31,10 @@ func ValidateZoneURL(raw string) error {
 	if err != nil {
 		return fmt.Errorf("zoneInformation returned an unparseable url; set AUTOTASK_BASE_URL instead")
 	}
-	// An empty "?" or "#" leaves RawQuery and Fragment empty, so they are
-	// rejected by character: either would end up inside the cached base URL.
-	if strings.ContainsAny(trimmed, "?#") {
+	// An empty "?" or "#" leaves RawQuery and Fragment empty, and a "%" escape
+	// is decoded in u.Path but kept in the raw text NormalizeZoneBaseURL reads,
+	// so all three are rejected by character: a genuine zone URL has none.
+	if strings.ContainsAny(trimmed, "?#%") {
 		return fmt.Errorf("zoneInformation returned %q, which is not an Autotask zone URL (https://webservicesN.autotask.net/atservicesrest/); nothing was cached; set AUTOTASK_BASE_URL instead", u.Redacted())
 	}
 	path := strings.ToLower(strings.TrimRight(u.Path, "/"))
