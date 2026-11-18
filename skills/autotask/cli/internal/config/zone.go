@@ -51,10 +51,14 @@ func NormalizeZoneBaseURL(raw string) string {
 	if u == "" {
 		return u
 	}
-	if strings.HasSuffix(u, "/atservicesrest/V1.0") || strings.HasSuffix(u, "/atservicesrest/v1.0") {
+	// Autotask answers some tenants with "/ATServicesRest/" (mixed case); the
+	// path is matched case-insensitively, as ValidateZoneURL does, so the API
+	// segment is never appended a second time.
+	lower := strings.ToLower(u)
+	if strings.HasSuffix(lower, "/atservicesrest/v1.0") {
 		return u
 	}
-	if strings.HasSuffix(u, "/atservicesrest") {
+	if strings.HasSuffix(lower, "/atservicesrest") {
 		return u + "/V1.0"
 	}
 	return u + "/atservicesrest/V1.0"

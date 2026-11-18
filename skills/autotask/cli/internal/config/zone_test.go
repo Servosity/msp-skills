@@ -16,6 +16,8 @@ func TestNormalizeZoneBaseURL(t *testing.T) {
 		{"bare host", "https://webservices26.autotask.net", "https://webservices26.autotask.net/atservicesrest/V1.0"},
 		{"lowercase version preserved", "https://webservices2.autotask.net/atservicesrest/v1.0", "https://webservices2.autotask.net/atservicesrest/v1.0"},
 		{"whitespace", "  https://webservices5.autotask.net/atservicesrest/  ", "https://webservices5.autotask.net/atservicesrest/V1.0"},
+		{"zoneInformation mixed case (webservices1)", "https://webservices1.autotask.net/ATServicesRest/", "https://webservices1.autotask.net/ATServicesRest/V1.0"},
+		{"mixed case already versioned", "https://webservices1.autotask.net/ATServicesRest/V1.0", "https://webservices1.autotask.net/ATServicesRest/V1.0"},
 		{"empty", "", ""},
 	}
 	for _, tc := range cases {
