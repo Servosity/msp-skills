@@ -18,6 +18,7 @@ func TestNormalizeZoneBaseURL(t *testing.T) {
 		{"whitespace", "  https://webservices5.autotask.net/atservicesrest/  ", "https://webservices5.autotask.net/atservicesrest/V1.0"},
 		{"zoneInformation mixed case (webservices1)", "https://webservices1.autotask.net/ATServicesRest/", "https://webservices1.autotask.net/ATServicesRest/V1.0"},
 		{"mixed case already versioned", "https://webservices1.autotask.net/ATServicesRest/V1.0", "https://webservices1.autotask.net/ATServicesRest/V1.0"},
+		{"mixed case versioned trailing slash", "https://webservices1.autotask.net/ATSERVICESREST/V1.0/", "https://webservices1.autotask.net/ATSERVICESREST/V1.0"},
 		{"empty", "", ""},
 	}
 	for _, tc := range cases {
@@ -45,6 +46,8 @@ func TestValidateZoneURL(t *testing.T) {
 		"https://webservices14.autotask.net:8443/atservicesrest/":         false,
 		"https://webservices14.autotask.net/other/":                       false,
 		"https://webservices14.autotask.net/atservicesrest/?next=x":       false,
+		"https://webservices14.autotask.net/atservicesrest?":              false, // empty query: would cache .../atservicesrest?/atservicesrest/V1.0
+		"https://webservices14.autotask.net/atservicesrest#":              false, // empty fragment, same malformed base
 		"https://webservices14.autotаsk.net/atservicesrest/":              false, // Cyrillic a
 		"": false,
 	} {

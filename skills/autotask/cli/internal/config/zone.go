@@ -26,9 +26,15 @@ var zoneHost = regexp.MustCompile(`^webservices[0-9]+\.autotask\.net$`)
 // handfix zone-discovery-pinned: a cached base URL is where every later
 // credential is sent, so nothing else is ever saved from discovery.
 func ValidateZoneURL(raw string) error {
-	u, err := url.Parse(strings.TrimSpace(raw))
+	trimmed := strings.TrimSpace(raw)
+	u, err := url.Parse(trimmed)
 	if err != nil {
 		return fmt.Errorf("zoneInformation returned an unparseable url; set AUTOTASK_BASE_URL instead")
+	}
+	// An empty "?" or "#" leaves RawQuery and Fragment empty, so they are
+	// rejected by character: either would end up inside the cached base URL.
+	if strings.ContainsAny(trimmed, "?#") {
+		return fmt.Errorf("zoneInformation returned %q, which is not an Autotask zone URL (https://webservicesN.autotask.net/atservicesrest/); nothing was cached; set AUTOTASK_BASE_URL instead", u.Redacted())
 	}
 	path := strings.ToLower(strings.TrimRight(u.Path, "/"))
 	if u.Scheme != "https" || u.User != nil || u.RawQuery != "" || u.Fragment != "" ||

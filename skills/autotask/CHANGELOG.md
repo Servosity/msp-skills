@@ -4,6 +4,11 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.1.17] - unreleased
+
+### Fixed
+- **`zone` refuses a discovered URL that ends in an empty `?` or `#`.** Validation rejected a query or fragment with content but let an empty one through, which would have cached a base such as `…/atservicesrest?/atservicesrest/V1.0`. The host was still pinned, so no credential could leave Autotask; the URL is now refused and nothing is cached. Found in the security review of #727.
+
 ## [0.1.16] - 2026-11-18
 
 ### Fixed
