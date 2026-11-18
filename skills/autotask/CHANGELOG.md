@@ -4,6 +4,11 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.1.16] - unreleased
+
+### Fixed
+- **`zone` no longer caches a broken base URL when Autotask answers in mixed case.** Some tenants' `zoneInformation` returns `https://webservicesN.autotask.net/ATServicesRest/`. Validation already matched the path case-insensitively, but normalising it did not, so the cached base became `…/ATServicesRest/atservicesrest/V1.0` and every later call answered 404. The suffix is now matched case-insensitively and the result is `…/ATServicesRest/V1.0`.
+
 ## [0.1.15] - 2026-11-14
 
 ### Fixed
