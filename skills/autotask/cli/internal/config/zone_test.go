@@ -50,6 +50,8 @@ func TestValidateZoneURL(t *testing.T) {
 		"https://webservices14.autotask.net/atservicesrest#":              false, // empty fragment, same malformed base
 		"https://webservices14.autotask.net/%61tservicesrest/":            false, // encoded path: validated decoded, normalized raw
 		"https://webservices14.autotask.net/atservicesrest%2FV1.0":        false,
+		"https://webservİces14.autotask.net/atservicesrest/":              false, // U+0130 folds to i, dials a punycode host
+		"https://webservices14.autotask.net/atservİcesrest/":              false,
 		"https://webservices14.autotаsk.net/atservicesrest/":              false, // Cyrillic a
 		"": false,
 	} {

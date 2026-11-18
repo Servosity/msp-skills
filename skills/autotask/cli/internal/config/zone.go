@@ -13,6 +13,7 @@ import (
 	"net/url"
 	"regexp"
 	"strings"
+	"unicode"
 )
 
 // zoneHost is an Autotask zone API host (webservices1.autotask.net,
@@ -34,7 +35,9 @@ func ValidateZoneURL(raw string) error {
 	// An empty "?" or "#" leaves RawQuery and Fragment empty, and a "%" escape
 	// is decoded in u.Path but kept in the raw text NormalizeZoneBaseURL reads,
 	// so all three are rejected by character: a genuine zone URL has none.
-	if strings.ContainsAny(trimmed, "?#%") {
+	// Non-ASCII is rejected too: ToLower folds U+0130 to "i", so
+	// "webservİces14" would match the host pattern but dial a punycode host.
+	if strings.ContainsAny(trimmed, "?#%") || strings.IndexFunc(trimmed, func(r rune) bool { return r > unicode.MaxASCII }) >= 0 {
 		return fmt.Errorf("zoneInformation returned %q, which is not an Autotask zone URL (https://webservicesN.autotask.net/atservicesrest/); nothing was cached; set AUTOTASK_BASE_URL instead", u.Redacted())
 	}
 	path := strings.ToLower(strings.TrimRight(u.Path, "/"))
