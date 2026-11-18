@@ -104,7 +104,9 @@ def request_json(url: str, token: str) -> Any:
     except URLError as exc:
         raise ClientError(f"Unable to reach the Nizlo API: {exc.reason}") from None
     except (OSError, HTTPException) as exc:
-        raise ClientError(f"Nizlo API response was interrupted: {exc}") from None
+        raise ClientError(
+            f"Nizlo API response was interrupted: {type(exc).__name__}"
+        ) from None
     except (json.JSONDecodeError, UnicodeDecodeError):
         raise ClientError("Nizlo API returned a non-JSON response") from None
 
@@ -442,6 +444,26 @@ def selfcheck() -> None:
         globals()["open_request"] = original_open_request
     assert seen["authorization"] == f"Bearer {secret}"
     assert seen["timeout"] == "30"
+
+    class InterruptedResponse(Response):
+        """Raise transport text containing the token to prove it is not echoed."""
+
+        def read(self) -> bytes:
+            raise OSError(f"interrupted while handling Bearer {secret}")
+
+    def fake_interrupted_request(request: Request, timeout: int) -> Response:
+        return InterruptedResponse()
+
+    globals()["open_request"] = fake_interrupted_request
+    try:
+        request_json(base + "dashboard/summary", secret)
+    except ClientError as exc:
+        assert secret not in str(exc)
+        assert str(exc).endswith("OSError")
+    else:
+        raise AssertionError("interrupted response did not raise ClientError")
+    finally:
+        globals()["open_request"] = original_open_request
     print(
         "nizlo_api.py selfcheck OK "
         "(offline, HTTPS routes + bearer header + redaction + stale report)"
