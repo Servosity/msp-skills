@@ -621,7 +621,7 @@
    "id": "zone-discovery-pinned",
    "class": "auth-wire",
    "status": "active",
-   "summary": "zone asks only the fixed bootstrap origin (https://webservices.autotask.net) with the origin pin installed, saves a discovered URL only when it is https://webservicesN.autotask.net[:443]/atservicesrest[/v1.0] (config.ValidateZoneURL: no userinfo, query or fragment), sends the UserName (from --user, AUTOTASK_USERNAME or AUTOTASK_PSA_USER_NAME; the API user's login name, an Identifier in the credwire Declarations, not held) nowhere else, and over MCP previews (--no-save) until confirm",
+   "summary": "zone asks only the fixed bootstrap origin (https://webservices.autotask.net) with the origin pin installed, saves a discovered URL only when it is https://webservicesN.autotask.net[:443]/atservicesrest[/v1.0] (config.ValidateZoneURL: no userinfo, query or fragment, and no ?, #, % or non-ASCII anywhere, so the validated spelling is the cached spelling and no case-folded rune can name another host; NormalizeZoneBaseURL matches the /atservicesrest suffix case-insensitively, #727/#728), sends the UserName (from --user, AUTOTASK_USERNAME or AUTOTASK_PSA_USER_NAME; the API user's login name, an Identifier in the credwire Declarations, not held) nowhere else, and over MCP previews (--no-save) until confirm",
    "why": "Credential rule host pinning: zone sends the API user's name to the bootstrap host and saves the URL it answers with as the base URL every later call sends the integration code and the Secret to. Unpinned, a redirect or a zoneInformation answer naming another host would move every credential there on the next call. Seen failing: seen/zone-hardening-seen-failing.log.",
    "asserts": [
     {
@@ -647,6 +647,21 @@
     {
      "file": "cli/internal/config/zone.go",
      "contains": "func ValidateZoneURL(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/zone.go",
+     "contains": "strings.ContainsAny(trimmed, \"?#%\") || strings.IndexFunc(trimmed, func(r rune) bool { return r > unicode.MaxASCII }) >= 0",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/zone.go",
+     "contains": "lower := strings.ToLower(u)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/zone_test.go",
+     "contains": "\"https://webservices14.autotask.net/%61tservicesrest/\":",
      "code_only": true
     },
     {
