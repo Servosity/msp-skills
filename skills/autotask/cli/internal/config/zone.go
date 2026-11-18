@@ -13,6 +13,7 @@ import (
 	"net/url"
 	"regexp"
 	"strings"
+	"unicode"
 )
 
 // zoneHost is an Autotask zone API host (webservices1.autotask.net,
@@ -26,9 +27,18 @@ var zoneHost = regexp.MustCompile(`^webservices[0-9]+\.autotask\.net$`)
 // handfix zone-discovery-pinned: a cached base URL is where every later
 // credential is sent, so nothing else is ever saved from discovery.
 func ValidateZoneURL(raw string) error {
-	u, err := url.Parse(strings.TrimSpace(raw))
+	trimmed := strings.TrimSpace(raw)
+	u, err := url.Parse(trimmed)
 	if err != nil {
 		return fmt.Errorf("zoneInformation returned an unparseable url; set AUTOTASK_BASE_URL instead")
+	}
+	// An empty "?" or "#" leaves RawQuery and Fragment empty, and a "%" escape
+	// is decoded in u.Path but kept in the raw text NormalizeZoneBaseURL reads,
+	// so all three are rejected by character: a genuine zone URL has none.
+	// Non-ASCII is rejected too: ToLower folds U+0130 to "i", so
+	// "webservİces14" would match the host pattern but dial a punycode host.
+	if strings.ContainsAny(trimmed, "?#%") || strings.IndexFunc(trimmed, func(r rune) bool { return r > unicode.MaxASCII }) >= 0 {
+		return fmt.Errorf("zoneInformation returned %q, which is not an Autotask zone URL (https://webservicesN.autotask.net/atservicesrest/); nothing was cached; set AUTOTASK_BASE_URL instead", u.Redacted())
 	}
 	path := strings.ToLower(strings.TrimRight(u.Path, "/"))
 	if u.Scheme != "https" || u.User != nil || u.RawQuery != "" || u.Fragment != "" ||
