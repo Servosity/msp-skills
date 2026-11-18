@@ -49,9 +49,9 @@
     "released_hash": "sha256:807a42398e5032aada6b7a5730cc378a473286f4cc84009ebaccee771e5d75df"
   },
   "autotask": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.17",
-    "latest_tag": "autotask-v0.1.16",
+    "latest_tag": "autotask-v0.1.17",
     "current_hash": "sha256:deccc48b1e6582f586b0b980515d1b33340a2ec57d14385d0096b6f31606ece0",
     "released_hash": "sha256:deccc48b1e6582f586b0b980515d1b33340a2ec57d14385d0096b6f31606ece0"
   },
