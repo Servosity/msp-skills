@@ -698,6 +698,21 @@
       ]
     },
     {
+      "name": "nizlo",
+      "source": "./skills/nizlo",
+      "description": "Read-only Nizlo RMM fleet and alert queries for MSP and IT operations workflows.",
+      "version": "0.1.0",
+      "category": "rmm",
+      "tags": [
+        "nizlo",
+        "rmm",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
+    },
+    {
       "name": "pagerduty",
       "source": "./skills/pagerduty",
       "description": "Every PagerDuty incident, on-call and service operation from the terminal, plus a local SQLite mirror that answers cross-entity questions \u2014 MTTA/MTTR, on-call coverage gaps, responder load \u2014 that neither the API nor the web UI can.",

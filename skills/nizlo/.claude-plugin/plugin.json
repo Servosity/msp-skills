@@ -1,0 +1,9 @@
+{
+  "name": "nizlo",
+  "version": "0.1.0",
+  "description": "Read-only Nizlo RMM fleet and alert queries for MSP and IT operations workflows.",
+  "author": {
+    "name": "Nizlo"
+  },
+  "license": "Apache-2.0"
+}
