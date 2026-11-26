@@ -51,6 +51,15 @@ func MCPTools(next server.ToolHandlerFunc) server.ToolHandlerFunc {
 			return res, err
 		}
 		if b, merr := json.Marshal(res); merr != nil || withheld(b) {
+			// Redaction first (redact.go); the redacted result is checked
+			// whole again and passes only when clean.
+			if merr == nil {
+				if r, ok := redactToolResult(res); ok {
+					if rb, err := json.Marshal(r); err == nil && !withheld(rb) {
+						return r, nil
+					}
+				}
+			}
 			n := Notice(SinkMCP)
 			if withheld([]byte(n)) {
 				n = ""

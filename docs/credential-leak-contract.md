@@ -292,7 +292,10 @@ Also:
 - A unit whose budget is spent (section 3) is withheld exactly the same way.
 - No byte of a unit reaches its sink before the whole unit has been checked. A timer, a full buffer or a stalled reader
   never releases part of a unit.
-- Partial redaction is not used.
+- Partial redaction is not used, with one exception: an MCP tool result. Each piece of its content that is one JSON
+  document is first rewritten with every leaf (a string, a number or an object key) that would be withheld on its own
+  replaced by `"***"`. The rewritten result is then checked whole as above and reaches the client only when clean;
+  otherwise, or when a piece is not one JSON document, the whole result is withheld (amended 2026-11-25).
 - If the output layer cannot be installed, the program exits before writing anything.
 
 ## 5. Sinks covered
