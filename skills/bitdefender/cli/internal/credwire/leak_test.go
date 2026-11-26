@@ -316,7 +316,7 @@ func TestReadResultCredentialFieldsWithheld(t *testing.T) {
 			assertAbsent(t, "MCP bitdefender_read", mcpOut, c.secret)
 			// The MCP result is redacted leaf by leaf (credkit redact.go): the
 			// credential is masked and the rest of the result still arrives.
-			if !strings.Contains(mcpOut, `\"***\"`) || strings.Contains(mcpOut, credkit.Notice(credkit.SinkMCP)) || !strings.Contains(mcpOut, c.keep) {
+			if !strings.Contains(mcpOut, `\"[redacted]\"`) || strings.Contains(mcpOut, credkit.Notice(credkit.SinkMCP)) || !strings.Contains(mcpOut, c.keep) {
 				t.Errorf("MCP bitdefender_read was not redacted to %q with %q kept:\n%s", credkit.Redacted, c.keep, mcpOut)
 			}
 			if v.hits.Load() == 0 {

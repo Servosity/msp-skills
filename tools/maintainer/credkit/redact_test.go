@@ -58,7 +58,7 @@ func TestRedactMCPToolResultMasksLeafCarryingValue(t *testing.T) {
 	}
 	assertNotContains(t, out, "Tk9fQ2xWm7Rz4Lp8")
 	text := res.Content[0].(mcp.TextContent).Text
-	if !strings.Contains(text, `"link":"***"`) || !strings.Contains(text, `"link":"https://cloud.example/pkg?x=2"`) {
+	if !strings.Contains(text, `"link":"[redacted]"`) || !strings.Contains(text, `"link":"https://cloud.example/pkg?x=2"`) {
 		t.Errorf("redacted text = %s", text)
 	}
 }
@@ -74,7 +74,7 @@ func TestRedactMCPToolResultKeysNumbersIndent(t *testing.T) {
 	}
 	assertNotContains(t, out, "LK7Q2M9X4P8R", "918273645501")
 	text := res.Content[0].(mcp.TextContent).Text
-	want := "{\n  \"***\": 1,\n  \"pin\": \"***\",\n  \"ok\": [\n    true,\n    null,\n    2.5\n  ]\n}"
+	want := "{\n  \"[redacted]\": 1,\n  \"pin\": \"[redacted]\",\n  \"ok\": [\n    true,\n    null,\n    2.5\n  ]\n}"
 	if text != want {
 		t.Errorf("redacted text =\n%s\nwant\n%s", text, want)
 	}
@@ -107,13 +107,13 @@ func TestRedactMCPToolResultUnknownHeldSet(t *testing.T) {
 func TestRedactMCPToolResultStructuredContent(t *testing.T) {
 	resetForTest(Declarations{})
 	Hold("response:password", "structPw7Lm3Nq9")
-	res := mcp.NewToolResultStructured(map[string]any{"name": "p", "password": "structPw7Lm3Nq9"}, `{"name":"p","password":"***"}`)
+	res := mcp.NewToolResultStructured(map[string]any{"name": "p", "password": "structPw7Lm3Nq9"}, `{"name":"p","password":"[redacted]"}`)
 	got, out := callTool(t, toolReturning(res))
 	if got.IsError {
 		t.Fatalf("withheld: %s", out)
 	}
 	assertNotContains(t, out, "structPw7Lm3Nq9")
-	if !strings.Contains(out, `"password":"***"`) || !strings.Contains(out, `"name":"p"`) {
+	if !strings.Contains(out, `"password":"[redacted]"`) || !strings.Contains(out, `"name":"p"`) {
 		t.Errorf("structured content = %s", out)
 	}
 }

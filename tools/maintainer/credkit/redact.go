@@ -31,7 +31,7 @@ import (
 )
 
 // Redacted is the fixed text that replaces a leaf carrying a held value.
-const Redacted = "***"
+const Redacted = "[redacted]"
 
 // maxResidualMasks bounds step 2: each mask costs about log2(leaves)+1
 // whole-result checks.
