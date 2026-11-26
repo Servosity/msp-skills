@@ -18,6 +18,7 @@ import (
 	"strings"
 	"sync"
 	"unicode"
+	"unicode/utf8"
 )
 
 type heldEntry struct {
@@ -282,6 +283,9 @@ func holdAllowedLocked(source Source, extra []string, values ...string) {
 				recordLocked(source) // contract 2: public text acquired while running
 				continue
 			}
+			if fromResp && vendorMask(p) {
+				continue // contract 1: a vendor's mask is not a credential
+			}
 			e = &heldEntry{src: source, resp: fromResp}
 			reg.vals[p] = e
 			reg.gen++
@@ -308,6 +312,27 @@ func holdAllowedLocked(source Source, extra []string, values ...string) {
 			bind(e, base)
 		}
 	}
+}
+
+// vendorMask reports whether v, a vendor response value, is one character
+// that is not a letter, a digit or a space, repeated: what a vendor returns
+// in place of a stored secret ("********"). Held, it is no secret, and the
+// decoders rebuild it from ordinary text, so every later unit, and every
+// child's startup, would be refused.
+func vendorMask(v string) bool {
+	if !utf8.ValidString(v) {
+		return false
+	}
+	first, _ := utf8.DecodeRuneInString(v)
+	if first == utf8.RuneError || unicode.IsLetter(first) || unicode.IsDigit(first) || unicode.IsSpace(first) {
+		return false
+	}
+	for _, r := range v {
+		if r != first {
+			return false
+		}
+	}
+	return true
 }
 
 // decodeBasic decodes a Basic credential in any base64 alphabet, padded or

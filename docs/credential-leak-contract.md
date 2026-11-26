@@ -63,7 +63,9 @@ Rules for the held set:
   sink.
 - No exemption for length, strength or type. Numbers count.
 - A value is exempt only when the connector's ledger declares it an identifier, with a reason, or when it is a value
-  acquired while running that occurs, as written, in public text (section 2).
+  acquired while running that occurs, as written, in public text (section 2), or when it is a vendor response field's
+  value made of one character that is not a letter, a digit or a space, repeated: the vendor's mask in place of a
+  stored secret, such as `********` (amended 2026-11-26).
 - Every member of a duplicate key is held.
 - Values stay held until the process exits.
 - A child process gets the held set or is not started.
